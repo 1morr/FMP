@@ -38,6 +38,9 @@ class PlayQueue {
   /// 原始顺序（用于取消随机时恢复）
   List<int>? originalOrder;
 
+  /// 上次音量 (0.0 - 1.0)
+  double lastVolume = 1.0;
+
   /// 上次更新时间
   DateTime? lastUpdated;
 
