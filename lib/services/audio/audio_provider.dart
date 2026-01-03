@@ -108,6 +108,7 @@ class PlayerState {
 }
 
 /// 音频控制器 - 管理所有播放相关的状态和操作
+/// 协调 AudioService（单曲播放）和 QueueManager（队列管理）
 class AudioController extends StateNotifier<PlayerState> with Logging {
   final AudioService _audioService;
   final QueueManager _queueManager;
@@ -160,28 +161,34 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         _audioService.bufferedPositionStream.listen(_onBufferedPositionChanged),
       );
 
-      // 监听当前索引
-      _subscriptions.add(
-        _audioService.currentIndexStream.listen(_onCurrentIndexChanged),
-      );
-
       // 监听速度
       _subscriptions.add(
         _audioService.speedStream.listen(_onSpeedChanged),
       );
 
+      // 监听歌曲完成事件
+      _subscriptions.add(
+        _audioService.completedStream.listen(_onTrackCompleted),
+      );
+
+      // 监听队列状态变化
+      _subscriptions.add(
+        _queueManager.stateStream.listen(_onQueueStateChanged),
+      );
+
       // 更新初始状态
       _updateQueueState();
-      
-      // 恢复保存的播放模式
-      final savedPlayMode = _queueManager.playMode;
-      if (savedPlayMode != PlayMode.sequential) {
-        logDebug('Restoring saved play mode: $savedPlayMode');
-        await _audioService.setPlayMode(savedPlayMode);
-        // 如果是 shuffle 模式，需要生成 shuffle order
-        if (savedPlayMode == PlayMode.shuffle) {
-          _queueManager.restoreShuffleMode();
-        }
+
+      // 如果是单曲循环模式，设置 AudioService
+      if (_queueManager.playMode == PlayMode.loopOne) {
+        await _audioService.setLoopOne(true);
+      }
+
+      // 恢复播放（如果有保存的歌曲）
+      if (_queueManager.currentTrack != null) {
+        logDebug('Restoring saved track: ${_queueManager.currentTrack!.title}');
+        // 不自动播放，只设置 URL
+        await _prepareCurrentTrack(autoPlay: false);
       }
 
       _isInitialized = true;
@@ -272,8 +279,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     state = state.copyWith(isLoading: true, error: null);
     logInfo('Playing single track: ${track.title}');
     try {
-      await _queueManager.playSingle(track);
-      _updateQueueState();
+      final savedTrack = await _queueManager.playSingle(track);
+      await _playTrack(savedTrack);
     } catch (e, stack) {
       logError('Failed to play track: ${track.title}', e, stack);
       state = state.copyWith(error: e.toString(), isLoading: false);
@@ -290,7 +297,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     logInfo('Playing ${tracks.length} tracks, starting at index $startIndex');
     try {
       await _queueManager.playAll(tracks, startIndex: startIndex);
-      _updateQueueState();
+      final currentTrack = _queueManager.currentTrack;
+      if (currentTrack != null) {
+        await _playTrack(currentTrack);
+      }
     } catch (e, stack) {
       logError('Failed to play tracks', e, stack);
       state = state.copyWith(error: e.toString(), isLoading: false);
@@ -306,7 +316,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     await _ensureInitialized();
     logDebug('Playing at index: $index');
     try {
-      await _queueManager.playAt(index);
+      _queueManager.setCurrentIndex(index);
+      final currentTrack = _queueManager.currentTrack;
+      if (currentTrack != null) {
+        await _playTrack(currentTrack);
+      }
     } catch (e, stack) {
       logError('Failed to play at index $index', e, stack);
       state = state.copyWith(error: e.toString());
@@ -317,7 +331,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   Future<void> next() async {
     await _ensureInitialized();
     logDebug('next() called');
-    await _queueManager.skipToNext();
+    final nextIdx = _queueManager.moveToNext();
+    if (nextIdx != null) {
+      final track = _queueManager.currentTrack;
+      if (track != null) {
+        await _playTrack(track);
+      }
+    }
   }
 
   /// 上一首
@@ -328,7 +348,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     if (_audioService.position.inSeconds > 3) {
       await _audioService.seekTo(Duration.zero);
     } else {
-      await _queueManager.skipToPrevious();
+      final prevIdx = _queueManager.moveToPrevious();
+      if (prevIdx != null) {
+        final track = _queueManager.currentTrack;
+        if (track != null) {
+          await _playTrack(track);
+        }
+      }
     }
   }
 
@@ -384,7 +410,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     }
   }
 
-  /// 随机打乱队列
+  /// 随机打乱队列（破坏性）
   Future<void> shuffleQueue() async {
     await _ensureInitialized();
     logInfo('Shuffling queue');
@@ -427,16 +453,24 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 设置播放模式
   Future<void> setPlayMode(PlayMode mode) async {
-    await _audioService.setPlayMode(mode);
     await _queueManager.setPlayMode(mode);
+
+    // 设置单曲循环
+    await _audioService.setLoopOne(mode == PlayMode.loopOne);
+
     state = state.copyWith(playMode: mode);
   }
 
   /// 切换播放模式
   Future<void> cyclePlayMode() async {
-    await _audioService.cyclePlayMode();
-    await _queueManager.setPlayMode(_audioService.playMode);
-    state = state.copyWith(playMode: _audioService.playMode);
+    final currentMode = _queueManager.playMode;
+    final nextMode = switch (currentMode) {
+      PlayMode.sequential => PlayMode.loop,
+      PlayMode.loop => PlayMode.shuffle,
+      PlayMode.shuffle => PlayMode.loopOne,
+      PlayMode.loopOne => PlayMode.sequential,
+    };
+    await setPlayMode(nextMode);
   }
 
   // ========== 音量 ==========
@@ -448,6 +482,75 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   // ========== 私有方法 ==========
+
+  /// 播放指定歌曲
+  Future<void> _playTrack(Track track) async {
+    state = state.copyWith(isLoading: true, error: null);
+    _updateQueueState();
+
+    try {
+      // 确保有音频 URL
+      final trackWithUrl = await _queueManager.ensureAudioUrl(track);
+
+      // 获取播放地址
+      final url = trackWithUrl.downloadedPath ??
+                  trackWithUrl.cachedPath ??
+                  trackWithUrl.audioUrl;
+
+      if (url == null) {
+        throw Exception('No audio URL available for: ${track.title}');
+      }
+
+      // 播放
+      if (trackWithUrl.downloadedPath != null || trackWithUrl.cachedPath != null) {
+        await _audioService.playFile(url);
+      } else {
+        await _audioService.playUrl(url);
+      }
+
+      // 预取下一首
+      _queueManager.prefetchNext();
+
+      state = state.copyWith(isLoading: false);
+    } catch (e, stack) {
+      logError('Failed to play track: ${track.title}', e, stack);
+      state = state.copyWith(error: e.toString(), isLoading: false);
+    }
+  }
+
+  /// 准备当前歌曲（不自动播放）
+  Future<void> _prepareCurrentTrack({bool autoPlay = false}) async {
+    final track = _queueManager.currentTrack;
+    if (track == null) return;
+
+    try {
+      final trackWithUrl = await _queueManager.ensureAudioUrl(track);
+
+      final url = trackWithUrl.downloadedPath ??
+                  trackWithUrl.cachedPath ??
+                  trackWithUrl.audioUrl;
+
+      if (url == null) return;
+
+      if (trackWithUrl.downloadedPath != null || trackWithUrl.cachedPath != null) {
+        await _audioService.setFile(url);
+      } else {
+        await _audioService.setUrl(url);
+      }
+
+      // 恢复播放位置
+      final savedPosition = _queueManager.savedPosition;
+      if (savedPosition > Duration.zero) {
+        await _audioService.seekTo(savedPosition);
+      }
+
+      if (autoPlay) {
+        await _audioService.play();
+      }
+    } catch (e) {
+      logError('Failed to prepare track: ${track.title}', e);
+    }
+  }
 
   void _onPlayerStateChanged(just_audio.PlayerState playerState) {
     logDebug('PlayerState changed: playing=${playerState.playing}, processingState=${playerState.processingState}');
@@ -461,6 +564,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   void _onPositionChanged(Duration position) {
     state = state.copyWith(position: position);
+    // 更新 QueueManager 的位置（用于恢复播放）
+    _queueManager.updatePosition(position);
   }
 
   void _onDurationChanged(Duration? duration) {
@@ -471,19 +576,30 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     state = state.copyWith(bufferedPosition: bufferedPosition);
   }
 
-  void _onCurrentIndexChanged(int? index) {
-    final track = _queueManager.currentTrack;
-    logDebug('CurrentIndex changed: $index, track: ${track?.title ?? "null"}');
-    state = state.copyWith(
-      currentIndex: index,
-      currentTrack: track,
-      canPlayPrevious: _queueManager.hasPrevious,
-      canPlayNext: _queueManager.hasNext,
-    );
-  }
-
   void _onSpeedChanged(double speed) {
     state = state.copyWith(speed: speed);
+  }
+
+  void _onTrackCompleted(void _) {
+    logDebug('Track completed, auto-advancing...');
+
+    // 单曲循环由 AudioService 处理，这里不需要做任何事
+    if (_queueManager.playMode == PlayMode.loopOne) {
+      return;
+    }
+
+    // 移动到下一首
+    final nextIdx = _queueManager.moveToNext();
+    if (nextIdx != null) {
+      final track = _queueManager.currentTrack;
+      if (track != null) {
+        _playTrack(track);
+      }
+    }
+  }
+
+  void _onQueueStateChanged(void _) {
+    _updateQueueState();
   }
 
   void _updateQueueState() {
@@ -498,7 +614,6 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       playMode: _queueManager.playMode,
       canPlayPrevious: _queueManager.hasPrevious,
       canPlayNext: _queueManager.hasNext,
-      isLoading: false,
     );
   }
 }
@@ -514,19 +629,20 @@ final audioServiceProvider = Provider<AudioService>((ref) {
 
 /// QueueManager Provider
 final queueManagerProvider = Provider<QueueManager>((ref) {
-  final audioService = ref.watch(audioServiceProvider);
   final db = ref.watch(databaseProvider).requireValue;
   final sourceManager = ref.watch(sourceManagerProvider);
 
   final queueRepository = QueueRepository(db);
   final trackRepository = TrackRepository(db);
 
-  return QueueManager(
-    player: audioService.player,
+  final manager = QueueManager(
     queueRepository: queueRepository,
     trackRepository: trackRepository,
     sourceManager: sourceManager,
   );
+
+  ref.onDispose(() => manager.dispose());
+  return manager;
 });
 
 /// AudioController Provider

@@ -2,93 +2,38 @@ import 'dart:async';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
 import '../../core/logger.dart';
-import '../../data/models/track.dart';
-import '../../data/models/play_queue.dart';
 
-/// 播放状态数据类
-class PlaybackState {
-  final bool isPlaying;
-  final bool isBuffering;
-  final bool isCompleted;
-  final Duration position;
-  final Duration? duration;
-  final Duration bufferedPosition;
-  final double speed;
-  final PlayMode playMode;
-  final int? currentIndex;
-  final Track? currentTrack;
-
-  const PlaybackState({
-    this.isPlaying = false,
-    this.isBuffering = false,
-    this.isCompleted = false,
-    this.position = Duration.zero,
-    this.duration,
-    this.bufferedPosition = Duration.zero,
-    this.speed = 1.0,
-    this.playMode = PlayMode.sequential,
-    this.currentIndex,
-    this.currentTrack,
-  });
-
-  PlaybackState copyWith({
-    bool? isPlaying,
-    bool? isBuffering,
-    bool? isCompleted,
-    Duration? position,
-    Duration? duration,
-    Duration? bufferedPosition,
-    double? speed,
-    PlayMode? playMode,
-    int? currentIndex,
-    Track? currentTrack,
-  }) {
-    return PlaybackState(
-      isPlaying: isPlaying ?? this.isPlaying,
-      isBuffering: isBuffering ?? this.isBuffering,
-      isCompleted: isCompleted ?? this.isCompleted,
-      position: position ?? this.position,
-      duration: duration ?? this.duration,
-      bufferedPosition: bufferedPosition ?? this.bufferedPosition,
-      speed: speed ?? this.speed,
-      playMode: playMode ?? this.playMode,
-      currentIndex: currentIndex ?? this.currentIndex,
-      currentTrack: currentTrack ?? this.currentTrack,
-    );
-  }
-}
-
-/// 音频播放服务
-/// 负责管理音频播放器的核心功能
+/// 音频播放服务（单曲模式）
+/// 只负责播放单首歌曲，队列逻辑由 QueueManager 管理
 class AudioService with Logging {
   final AudioPlayer _player = AudioPlayer();
 
-  PlayMode _playMode = PlayMode.sequential;
+  // 完成事件控制器
+  final _completedController = StreamController<void>.broadcast();
 
-  // 状态流
+  // ========== 状态流 ==========
   Stream<PlayerState> get playerStateStream => _player.playerStateStream;
   Stream<Duration> get positionStream => _player.positionStream;
   Stream<Duration?> get durationStream => _player.durationStream;
   Stream<Duration> get bufferedPositionStream => _player.bufferedPositionStream;
-  Stream<int?> get currentIndexStream => _player.currentIndexStream;
   Stream<double> get speedStream => _player.speedStream;
-  Stream<SequenceState?> get sequenceStateStream => _player.sequenceStateStream;
 
-  // 当前状态
+  /// 歌曲播放完成事件流
+  Stream<void> get completedStream => _completedController.stream;
+
+  // ========== 当前状态 ==========
   bool get isPlaying => _player.playing;
   Duration get position => _player.position;
   Duration? get duration => _player.duration;
   Duration get bufferedPosition => _player.bufferedPosition;
   double get speed => _player.speed;
   double get volume => _player.volume;
-  int? get currentIndex => _player.currentIndex;
-  PlayMode get playMode => _playMode;
-
-  AudioPlayer get player => _player;
+  ProcessingState get processingState => _player.processingState;
 
   /// 初始化音频服务
   Future<void> initialize() async {
-    logInfo('Initializing AudioService...');
+    logInfo('Initializing AudioService (single track mode)...');
+
     // 配置音频会话
     final session = await AudioSession.instance;
     await session.configure(const AudioSessionConfiguration.music());
@@ -98,7 +43,6 @@ class AudioService with Logging {
       if (event.begin) {
         switch (event.type) {
           case AudioInterruptionType.duck:
-            // 降低音量
             _player.setVolume(_player.volume * 0.5);
             break;
           case AudioInterruptionType.pause:
@@ -109,7 +53,6 @@ class AudioService with Logging {
       } else {
         switch (event.type) {
           case AudioInterruptionType.duck:
-            // 恢复音量
             _player.setVolume(1.0);
             break;
           case AudioInterruptionType.pause:
@@ -125,12 +68,21 @@ class AudioService with Logging {
     session.becomingNoisyEventStream.listen((_) {
       _player.pause();
     });
-    
+
+    // 监听播放状态，检测歌曲完成
+    _player.playerStateStream.listen((state) {
+      if (state.processingState == ProcessingState.completed) {
+        logDebug('Track completed');
+        _completedController.add(null);
+      }
+    });
+
     logInfo('AudioService initialized');
   }
 
   /// 释放资源
   Future<void> dispose() async {
+    await _completedController.close();
     await _player.dispose();
   }
 
@@ -159,16 +111,6 @@ class AudioService with Logging {
   /// 跳转到指定位置
   Future<void> seekTo(Duration position) => _player.seek(position);
 
-  /// 跳转到指定歌曲
-  Future<void> seekToIndex(int index, [Duration position = Duration.zero]) =>
-      _player.seek(position, index: index);
-
-  /// 下一首
-  Future<void> seekToNext() => _player.seekToNext();
-
-  /// 上一首
-  Future<void> seekToPrevious() => _player.seekToPrevious();
-
   /// 快进
   Future<void> seekForward([Duration duration = const Duration(seconds: 10)]) async {
     final newPosition = _player.position + duration;
@@ -190,38 +132,11 @@ class AudioService with Logging {
   /// 重置播放速度
   Future<void> resetSpeed() => _player.setSpeed(1.0);
 
-  // ========== 播放模式 ==========
+  // ========== 循环模式 ==========
 
-  /// 设置播放模式
-  /// 注意：shuffle 模式由 QueueManager 自定义实现，不使用 just_audio 的内置 shuffle
-  Future<void> setPlayMode(PlayMode mode) async {
-    _playMode = mode;
-    // 始终禁用 just_audio 的内置 shuffle，使用 QueueManager 的自定义 shuffle 逻辑
-    await _player.setShuffleModeEnabled(false);
-    
-    switch (mode) {
-      case PlayMode.sequential:
-        await _player.setLoopMode(LoopMode.off);
-        break;
-      case PlayMode.loop:
-        await _player.setLoopMode(LoopMode.all);
-        break;
-      case PlayMode.loopOne:
-        await _player.setLoopMode(LoopMode.one);
-        break;
-      case PlayMode.shuffle:
-        // shuffle 时使用 LoopMode.off，循环逻辑由 QueueManager 处理
-        await _player.setLoopMode(LoopMode.off);
-        break;
-    }
-  }
-
-  /// 切换到下一个播放模式
-  Future<void> cyclePlayMode() async {
-    final modes = PlayMode.values;
-    final currentIndex = modes.indexOf(_playMode);
-    final nextIndex = (currentIndex + 1) % modes.length;
-    await setPlayMode(modes[nextIndex]);
+  /// 设置单曲循环
+  Future<void> setLoopOne(bool enabled) async {
+    await _player.setLoopMode(enabled ? LoopMode.one : LoopMode.off);
   }
 
   // ========== 音量控制 ==========
@@ -240,21 +155,57 @@ class AudioService with Logging {
 
   // ========== 音频源设置 ==========
 
-  /// 设置音频源
-  Future<Duration?> setAudioSource(AudioSource source) async {
-    logDebug('Setting audio source');
+  /// 播放指定 URL
+  Future<Duration?> playUrl(String url) async {
+    logDebug('Playing URL: ${url.substring(0, url.length > 50 ? 50 : url.length)}...');
     try {
-      final duration = await _player.setAudioSource(source);
-      logDebug('Audio source set, duration: $duration');
+      final duration = await _player.setUrl(url);
+      await _player.play();
+      logDebug('Playback started, duration: $duration');
       return duration;
     } catch (e, stack) {
-      logError('Failed to set audio source', e, stack);
+      logError('Failed to play URL', e, stack);
       rethrow;
     }
   }
 
-  /// 设置单个URL
+  /// 设置 URL（不自动播放）
   Future<Duration?> setUrl(String url) async {
-    return await _player.setUrl(url);
+    logDebug('Setting URL: ${url.substring(0, url.length > 50 ? 50 : url.length)}...');
+    try {
+      final duration = await _player.setUrl(url);
+      logDebug('URL set, duration: $duration');
+      return duration;
+    } catch (e, stack) {
+      logError('Failed to set URL', e, stack);
+      rethrow;
+    }
+  }
+
+  /// 播放本地文件
+  Future<Duration?> playFile(String filePath) async {
+    logDebug('Playing file: $filePath');
+    try {
+      final duration = await _player.setFilePath(filePath);
+      await _player.play();
+      logDebug('File playback started, duration: $duration');
+      return duration;
+    } catch (e, stack) {
+      logError('Failed to play file', e, stack);
+      rethrow;
+    }
+  }
+
+  /// 设置文件（不自动播放）
+  Future<Duration?> setFile(String filePath) async {
+    logDebug('Setting file: $filePath');
+    try {
+      final duration = await _player.setFilePath(filePath);
+      logDebug('File set, duration: $duration');
+      return duration;
+    } catch (e, stack) {
+      logError('Failed to set file', e, stack);
+      rethrow;
+    }
   }
 }
