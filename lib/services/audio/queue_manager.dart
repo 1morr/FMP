@@ -161,10 +161,14 @@ class QueueManager with Logging {
             final nextIdx = getNextIndex();
             if (nextIdx != null) {
               logDebug('Track completed, auto-advancing to next: $nextIdx');
-              await playAt(nextIdx);
-              if (_isShuffleEnabled && _shuffleOrder.isNotEmpty) {
-                _shuffleIndex = _shuffleOrder.indexOf(nextIdx);
-              }
+              // 使用 microtask 延迟执行，避免在 stream 回调中直接触发新事件
+              final shuffleEnabled = _isShuffleEnabled;
+              Future.microtask(() async {
+                await playAt(nextIdx);
+                if (shuffleEnabled && _shuffleOrder.isNotEmpty) {
+                  _shuffleIndex = _shuffleOrder.indexOf(nextIdx);
+                }
+              });
             }
           }
         }
@@ -189,6 +193,22 @@ class QueueManager with Logging {
   /// 当播放索引改变时，确保当前歌曲有有效的音频 URL，并预取下一首
   Future<void> _onIndexChanged(int? index) async {
     if (index == null || index < 0 || index >= _tracks.length) return;
+    
+    // 处理 shuffle 模式下的自动跳转
+    // 当 just_audio 自动播放下一首（顺序的）时，我们需要跳转到正确的 shuffle 索引
+    if (_isShuffleEnabled && !_isManuallySkipping && _shuffleOrder.isNotEmpty) {
+      // 检查这个索引是否是我们预期的下一首
+      final expectedNextIndex = getNextIndex();
+      if (expectedNextIndex != null && index != expectedNextIndex) {
+        // just_audio 自动播放了顺序的下一首，但我们需要 shuffle 的下一首
+        logDebug('Shuffle mode: just_audio auto-advanced to $index, but expected $expectedNextIndex. Redirecting...');
+        // 更新 shuffle index
+        _shuffleIndex = (_shuffleIndex + 1) % _shuffleOrder.length;
+        // 使用 microtask 延迟执行，避免在 stream 回调中直接触发新事件
+        Future.microtask(() => playAt(expectedNextIndex));
+        return;
+      }
+    }
     
     // 确保当前歌曲有有效的 URL
     await _ensureTrackUrlAt(index);
