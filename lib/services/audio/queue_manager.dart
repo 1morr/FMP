@@ -4,6 +4,7 @@ import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
 import '../../data/repositories/queue_repository.dart';
 import '../../data/repositories/track_repository.dart';
+import '../../data/sources/source_provider.dart';
 
 /// 媒体项元数据（用于音频源标记）
 class MediaItem {
@@ -62,9 +63,13 @@ class QueueManager {
     required AudioPlayer player,
     required QueueRepository queueRepository,
     required TrackRepository trackRepository,
+    required SourceManager sourceManager,
   })  : _player = player,
         _queueRepository = queueRepository,
-        _trackRepository = trackRepository;
+        _trackRepository = trackRepository,
+        _sourceManager = sourceManager;
+
+  final SourceManager _sourceManager;
 
   /// 初始化队列（从持久化存储加载）
   Future<void> initialize() async {
@@ -143,10 +148,36 @@ class QueueManager {
 
   // ========== 队列操作 ==========
 
+  /// 确保 track 有有效的音频 URL
+  Future<Track> _ensureAudioUrl(Track track) async {
+    // 如果有下载或缓存路径，不需要获取 URL
+    if (track.downloadedPath != null || track.cachedPath != null) {
+      return track;
+    }
+
+    // 如果音频 URL 有效，直接返回
+    if (track.hasValidAudioUrl) {
+      return track;
+    }
+
+    // 获取音频 URL
+    final source = _sourceManager.getSource(track.sourceType);
+    if (source == null) {
+      throw Exception('No source available for ${track.sourceType}');
+    }
+
+    final refreshedTrack = await source.refreshAudioUrl(track);
+    // 保存更新后的 track
+    await _trackRepository.save(refreshedTrack);
+    return refreshedTrack;
+  }
+
   /// 添加歌曲到队列末尾
   Future<void> add(Track track) async {
     // 先保存 track 到数据库
-    final savedTrack = await _trackRepository.save(track);
+    var savedTrack = await _trackRepository.save(track);
+    // 确保有音频 URL
+    savedTrack = await _ensureAudioUrl(savedTrack);
     _tracks.add(savedTrack);
     await _playlist.add(_createAudioSource(savedTrack));
     await _persistQueue();
@@ -157,9 +188,16 @@ class QueueManager {
     if (tracks.isEmpty) return;
 
     // 批量保存到数据库
-    final savedTracks = await _trackRepository.saveAll(tracks);
-    _tracks.addAll(savedTracks);
-    await _playlist.addAll(savedTracks.map(_createAudioSource).toList());
+    var savedTracks = await _trackRepository.saveAll(tracks);
+
+    // 确保所有 track 都有音频 URL
+    final tracksWithUrl = <Track>[];
+    for (var track in savedTracks) {
+      tracksWithUrl.add(await _ensureAudioUrl(track));
+    }
+
+    _tracks.addAll(tracksWithUrl);
+    await _playlist.addAll(tracksWithUrl.map(_createAudioSource).toList());
     await _persistQueue();
   }
 
@@ -167,7 +205,8 @@ class QueueManager {
   Future<void> insert(int index, Track track) async {
     if (index < 0 || index > _tracks.length) return;
 
-    final savedTrack = await _trackRepository.save(track);
+    var savedTrack = await _trackRepository.save(track);
+    savedTrack = await _ensureAudioUrl(savedTrack);
     _tracks.insert(index, savedTrack);
     await _playlist.insert(index, _createAudioSource(savedTrack));
     await _persistQueue();

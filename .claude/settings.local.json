@@ -11,7 +11,13 @@
       "Bash(dir /b \"C:\\\\Users\\\\Roxy\\\\Visual Studio Code\\\\FMP\\\\lib\\\\services\\\\audio\")",
       "Bash(dir /b \"C:\\\\Users\\\\Roxy\\\\Visual Studio Code\\\\FMP\\\\lib\\\\data\\\\sources\")",
       "Bash(flutter analyze:*)",
-      "Bash(flutter clean:*)"
+      "Bash(flutter clean:*)",
+      "mcp__plugin_serena_serena__activate_project",
+      "mcp__plugin_serena_serena__check_onboarding_performed",
+      "mcp__plugin_serena_serena__onboarding",
+      "mcp__plugin_serena_serena__list_dir",
+      "mcp__plugin_serena_serena__read_file",
+      "mcp__plugin_serena_serena__write_memory"
     ]
   }
 }
