@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/breakpoints.dart';
+import '../widgets/player/mini_player.dart';
 
 /// 导航目的地定义
 class NavDestination {
@@ -101,16 +102,22 @@ class _MobileLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: child,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: selectedIndex,
-        onDestinationSelected: onDestinationSelected,
-        destinations: destinations
-            .map((d) => NavigationDestination(
-                  icon: Icon(d.icon),
-                  selectedIcon: Icon(d.selectedIcon),
-                  label: d.label,
-                ))
-            .toList(),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const MiniPlayer(),
+          NavigationBar(
+            selectedIndex: selectedIndex,
+            onDestinationSelected: onDestinationSelected,
+            destinations: destinations
+                .map((d) => NavigationDestination(
+                      icon: Icon(d.icon),
+                      selectedIcon: Icon(d.selectedIcon),
+                      label: d.label,
+                    ))
+                .toList(),
+          ),
+        ],
       ),
     );
   }
@@ -149,6 +156,7 @@ class _TabletLayout extends StatelessWidget {
           Expanded(child: child),
         ],
       ),
+      bottomNavigationBar: const MiniPlayer(),
     );
   }
 }
@@ -167,7 +175,6 @@ class _DesktopLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       body: Row(
@@ -201,14 +208,9 @@ class _DesktopLayout extends StatelessWidget {
             flex: 2,
             child: child,
           ),
-          // 右侧播放器面板（预留位置）
-          // const VerticalDivider(width: 1, thickness: 1),
-          // Expanded(
-          //   flex: 1,
-          //   child: _PlayerPanel(),
-          // ),
         ],
       ),
+      bottomNavigationBar: const MiniPlayer(),
     );
   }
 }

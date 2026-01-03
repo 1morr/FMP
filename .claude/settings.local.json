@@ -6,7 +6,12 @@
       "Bash(flutter create:*)",
       "Bash(flutter pub get:*)",
       "Bash(flutter pub run build_runner build:*)",
-      "Bash(flutter run:*)"
+      "Bash(flutter run:*)",
+      "Bash(dir /b \"C:\\\\Users\\\\Roxy\\\\Visual Studio Code\\\\FMP\\\\lib\\\\services\")",
+      "Bash(dir /b \"C:\\\\Users\\\\Roxy\\\\Visual Studio Code\\\\FMP\\\\lib\\\\services\\\\audio\")",
+      "Bash(dir /b \"C:\\\\Users\\\\Roxy\\\\Visual Studio Code\\\\FMP\\\\lib\\\\data\\\\sources\")",
+      "Bash(flutter analyze:*)",
+      "Bash(flutter clean:*)"
     ]
   }
 }
