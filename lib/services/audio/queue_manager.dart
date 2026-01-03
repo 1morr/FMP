@@ -28,6 +28,7 @@ class QueueManager with Logging {
   final AudioPlayer _player;
   final QueueRepository _queueRepository;
   final TrackRepository _trackRepository;
+  final SourceManager _sourceManager;
 
   ConcatenatingAudioSource _playlist = ConcatenatingAudioSource(children: []);
   List<Track> _tracks = [];
@@ -35,6 +36,12 @@ class QueueManager with Logging {
 
   // 保存位置的定时器
   Timer? _savePositionTimer;
+  
+  // 索引变化订阅
+  StreamSubscription<int?>? _indexSubscription;
+  
+  // 正在获取 URL 的 track id，防止重复获取
+  final Set<int> _fetchingUrlTrackIds = {};
 
   /// 当前队列中的歌曲列表（不可修改）
   List<Track> get tracks => List.unmodifiable(_tracks);
@@ -70,8 +77,6 @@ class QueueManager with Logging {
         _trackRepository = trackRepository,
         _sourceManager = sourceManager;
 
-  final SourceManager _sourceManager;
-
   /// 初始化队列（从持久化存储加载）
   Future<void> initialize() async {
     logInfo('Initializing QueueManager...');
@@ -80,7 +85,7 @@ class QueueManager with Logging {
 
       if (_currentQueue!.trackIds.isNotEmpty) {
         logDebug('Loading ${_currentQueue!.trackIds.length} saved tracks');
-        // 加载保存的歌曲
+        // 加载保存的歌曲（不获取音频 URL）
         _tracks = await _trackRepository.getByIds(_currentQueue!.trackIds);
 
         if (_tracks.isNotEmpty) {
@@ -95,12 +100,10 @@ class QueueManager with Logging {
           }
           logDebug('Restored ${_tracks.length} tracks, position: ${_currentQueue!.currentIndex}');
         } else {
-          // 没有找到任何 track，确保播放器有空的音频源
           logDebug('No tracks found in database, setting empty audio source');
           await _player.setAudioSource(_playlist);
         }
       } else {
-        // 空队列，确保播放器有空的音频源
         logDebug('Empty queue, setting empty audio source');
         await _player.setAudioSource(_playlist);
       }
@@ -114,6 +117,9 @@ class QueueManager with Logging {
           _savePosition();
         }
       });
+      
+      // 监听索引变化，用于延迟获取音频 URL
+      _indexSubscription = _player.currentIndexStream.listen(_onIndexChanged);
 
       logInfo('QueueManager initialized with ${_tracks.length} tracks');
     } catch (e, stack) {
@@ -125,6 +131,90 @@ class QueueManager with Logging {
   /// 释放资源
   void dispose() {
     _savePositionTimer?.cancel();
+    _indexSubscription?.cancel();
+  }
+  
+  /// 当播放索引改变时，确保当前歌曲有有效的音频 URL，并预取下一首
+  Future<void> _onIndexChanged(int? index) async {
+    if (index == null || index < 0 || index >= _tracks.length) return;
+    
+    // 确保当前歌曲有有效的 URL
+    await _ensureTrackUrlAt(index);
+    
+    // 预取下一首歌曲的 URL（后台执行，不阻塞）
+    _prefetchNextTrack(index);
+  }
+  
+  /// 确保指定索引的歌曲有有效的音频 URL
+  Future<void> _ensureTrackUrlAt(int index) async {
+    if (index < 0 || index >= _tracks.length) return;
+    
+    final track = _tracks[index];
+    
+    // 如果有本地文件，不需要获取 URL
+    if (track.downloadedPath != null || track.cachedPath != null) return;
+    
+    // 如果已经有有效的 URL，不需要获取
+    if (track.hasValidAudioUrl) return;
+    
+    // 如果正在获取，不要重复获取
+    if (_fetchingUrlTrackIds.contains(track.id)) return;
+    
+    logInfo('Track at index $index needs audio URL, fetching: ${track.title}');
+    _fetchingUrlTrackIds.add(track.id);
+    
+    try {
+      // 获取音频 URL
+      final refreshedTrack = await _ensureAudioUrl(track);
+      _tracks[index] = refreshedTrack;
+      
+      // 更新播放列表中的音频源
+      await _updateAudioSourceAt(index, refreshedTrack);
+      
+      logDebug('Audio URL fetched and updated for: ${track.title}');
+    } catch (e, stack) {
+      logError('Failed to fetch audio URL for track at index $index', e, stack);
+    } finally {
+      _fetchingUrlTrackIds.remove(track.id);
+    }
+  }
+  
+  /// 预取下一首歌曲的 URL（后台执行）
+  void _prefetchNextTrack(int currentIndex) {
+    final nextIndex = currentIndex + 1;
+    if (nextIndex >= _tracks.length) return;
+    
+    final nextTrack = _tracks[nextIndex];
+    
+    // 如果不需要获取 URL，跳过
+    if (nextTrack.downloadedPath != null || 
+        nextTrack.cachedPath != null || 
+        nextTrack.hasValidAudioUrl ||
+        _fetchingUrlTrackIds.contains(nextTrack.id)) {
+      return;
+    }
+    
+    logDebug('Prefetching audio URL for next track: ${nextTrack.title}');
+    
+    // 后台获取，不等待结果
+    _ensureTrackUrlAt(nextIndex);
+  }
+  
+  /// 更新指定索引的音频源
+  Future<void> _updateAudioSourceAt(int index, Track track) async {
+    if (index < 0 || index >= _playlist.length) return;
+    
+    final newSource = _createAudioSource(track);
+    final currentIndex = _player.currentIndex;
+    final currentPosition = _player.position;
+    
+    await _playlist.removeAt(index);
+    await _playlist.insert(index, newSource);
+    
+    // 如果更新的是当前播放的歌曲，需要重新定位
+    if (currentIndex == index) {
+      await _player.seek(currentPosition, index: index);
+    }
   }
 
   /// 启动位置保存定时器（每10秒保存一次）
@@ -139,10 +229,20 @@ class QueueManager with Logging {
 
   /// 从队列中播放指定歌曲
   Future<void> playAt(int index) async {
-    if (index >= 0 && index < _tracks.length) {
-      await _player.seek(Duration.zero, index: index);
-      await _player.play();
+    if (index < 0 || index >= _tracks.length) return;
+    
+    logDebug('playAt called: index $index, track: ${_tracks[index].title}');
+    
+    // 确保该歌曲有有效的音频 URL
+    final track = _tracks[index];
+    if (track.downloadedPath == null && track.cachedPath == null && !track.hasValidAudioUrl) {
+      logDebug('Track needs audio URL, fetching...');
+      _tracks[index] = await _ensureAudioUrl(track);
+      await _updateAudioSourceAt(index, _tracks[index]);
     }
+    
+    await _player.seek(Duration.zero, index: index);
+    await _player.play();
   }
 
   /// 播放单首歌曲（替换队列）
@@ -186,36 +286,32 @@ class QueueManager with Logging {
     try {
       // 清空队列
       _tracks.clear();
-      logDebug('Queue cleared, preparing ${tracks.length} tracks...');
+      logDebug('Queue cleared, saving ${tracks.length} tracks...');
       
-      // 批量保存到数据库
-      var savedTracks = await _trackRepository.saveAll(tracks);
+      // 批量保存到数据库（不获取音频 URL）
+      final savedTracks = await _trackRepository.saveAll(tracks);
       logDebug('Saved ${savedTracks.length} tracks to database');
-
-      // 确保所有 track 都有音频 URL
-      final tracksWithUrl = <Track>[];
-      for (var i = 0; i < savedTracks.length; i++) {
-        logDebug('Ensuring audio URL for track ${i + 1}/${savedTracks.length}: ${savedTracks[i].title}');
-        tracksWithUrl.add(await _ensureAudioUrl(savedTracks[i]));
-      }
-      logDebug('All tracks have audio URLs');
-
-      _tracks.addAll(tracksWithUrl);
       
-      // 重建播放列表并设置到播放器
+      _tracks.addAll(savedTracks);
+      
+      // 只获取起始歌曲的音频 URL
+      final validStartIndex = startIndex.clamp(0, _tracks.length - 1);
+      logDebug('Fetching audio URL for starting track: ${_tracks[validStartIndex].title}');
+      _tracks[validStartIndex] = await _ensureAudioUrl(_tracks[validStartIndex]);
+      logDebug('Starting track audio URL fetched');
+      
+      // 重建播放列表（其他歌曲使用占位符）
       await _rebuildPlaylist();
-      logDebug('Playlist rebuilt and set to player with ${_tracks.length} tracks');
+      logDebug('Playlist rebuilt with ${_tracks.length} tracks');
       
       // 跳转到指定索引
-      if (startIndex >= 0 && startIndex < tracks.length) {
-        await _player.seek(Duration.zero, index: startIndex);
-        logDebug('Seeked to index $startIndex');
-      }
+      await _player.seek(Duration.zero, index: validStartIndex);
+      logDebug('Seeked to index $validStartIndex');
       
       // 开始播放
       await _player.play();
       await _persistQueue();
-      logInfo('Playback started at index $startIndex');
+      logInfo('Playback started at index $validStartIndex');
     } catch (e, stack) {
       logError('playAll failed', e, stack);
       rethrow;
@@ -257,17 +353,13 @@ class QueueManager with Logging {
     }
   }
 
-  /// 添加歌曲到队列末尾
+  /// 添加歌曲到队列末尾（不获取音频 URL，播放时再获取）
   Future<void> add(Track track) async {
-    logDebug('add: ${track.title} (id: ${track.id}, sourceId: ${track.sourceId})');
+    logDebug('add: ${track.title} (sourceId: ${track.sourceId})');
     try {
-      // 先保存 track 到数据库
-      var savedTrack = await _trackRepository.save(track);
+      // 保存到数据库（不获取音频 URL）
+      final savedTrack = await _trackRepository.save(track);
       logDebug('Track saved with id: ${savedTrack.id}');
-      
-      // 确保有音频 URL
-      savedTrack = await _ensureAudioUrl(savedTrack);
-      logDebug('Audio URL ensured: ${savedTrack.audioUrl?.substring(0, 50)}...');
       
       _tracks.add(savedTrack);
       await _playlist.add(_createAudioSource(savedTrack));
@@ -279,26 +371,18 @@ class QueueManager with Logging {
     }
   }
 
-  /// 添加多首歌曲
+  /// 添加多首歌曲（不获取音频 URL，播放时再获取）
   Future<void> addAll(List<Track> tracks) async {
     logDebug('addAll: ${tracks.length} tracks');
     if (tracks.isEmpty) return;
 
     try {
-      // 批量保存到数据库
-      var savedTracks = await _trackRepository.saveAll(tracks);
+      // 批量保存到数据库（不获取音频 URL）
+      final savedTracks = await _trackRepository.saveAll(tracks);
       logDebug('Saved ${savedTracks.length} tracks to database');
 
-      // 确保所有 track 都有音频 URL
-      final tracksWithUrl = <Track>[];
-      for (var i = 0; i < savedTracks.length; i++) {
-        logDebug('Ensuring audio URL for track ${i + 1}/${savedTracks.length}: ${savedTracks[i].title}');
-        tracksWithUrl.add(await _ensureAudioUrl(savedTracks[i]));
-      }
-      logDebug('All tracks have audio URLs');
-
-      _tracks.addAll(tracksWithUrl);
-      await _playlist.addAll(tracksWithUrl.map(_createAudioSource).toList());
+      _tracks.addAll(savedTracks);
+      await _playlist.addAll(savedTracks.map(_createAudioSource).toList());
       await _persistQueue();
       logDebug('All tracks added to queue, total: ${_tracks.length}');
     } catch (e, stack) {
@@ -307,12 +391,11 @@ class QueueManager with Logging {
     }
   }
 
-  /// 插入歌曲到指定位置
+  /// 插入歌曲到指定位置（不获取音频 URL，播放时再获取）
   Future<void> insert(int index, Track track) async {
     if (index < 0 || index > _tracks.length) return;
 
-    var savedTrack = await _trackRepository.save(track);
-    savedTrack = await _ensureAudioUrl(savedTrack);
+    final savedTrack = await _trackRepository.save(track);
     _tracks.insert(index, savedTrack);
     await _playlist.insert(index, _createAudioSource(savedTrack));
     await _persistQueue();
@@ -458,11 +541,18 @@ class QueueManager with Logging {
 
   /// 创建音频源
   AudioSource _createAudioSource(Track track) {
-    final uri = track.downloadedPath != null
-        ? Uri.file(track.downloadedPath!)
-        : track.cachedPath != null
-            ? Uri.file(track.cachedPath!)
-            : Uri.parse(track.audioUrl ?? '');
+    Uri uri;
+    
+    if (track.downloadedPath != null) {
+      uri = Uri.file(track.downloadedPath!);
+    } else if (track.cachedPath != null) {
+      uri = Uri.file(track.cachedPath!);
+    } else if (track.audioUrl != null && track.audioUrl!.isNotEmpty) {
+      uri = Uri.parse(track.audioUrl!);
+    } else {
+      // 使用一个占位符 URL（加载时会失败，但不会导致解析错误）
+      uri = Uri.parse('https://placeholder.invalid/${track.id}.mp3');
+    }
 
     return AudioSource.uri(
       uri,
