@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
+import '../../../data/models/play_queue.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
 
@@ -49,12 +50,12 @@ class MiniPlayer extends ConsumerWidget {
             // 内容
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Row(
                   children: [
                     // 封面
                     _buildThumbnail(track.thumbnailUrl, colorScheme),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
 
                     // 歌曲信息
                     Expanded(
@@ -84,13 +85,10 @@ class MiniPlayer extends ConsumerWidget {
                     ),
 
                     // 控制按钮
+                    _buildPlayModeButton(playerState, controller, colorScheme),
+                    _buildPreviousButton(playerState, controller),
                     _buildPlayPauseButton(playerState, controller, colorScheme),
-                    IconButton(
-                      icon: const Icon(Icons.skip_next),
-                      onPressed: playerState.canPlayNext
-                          ? () => controller.next()
-                          : null,
-                    ),
+                    _buildNextButton(playerState, controller),
                   ],
                 ),
               ),
@@ -131,6 +129,41 @@ class MiniPlayer extends ConsumerWidget {
     );
   }
 
+  /// 播放模式按钮
+  Widget _buildPlayModeButton(
+    PlayerState state,
+    AudioController controller,
+    ColorScheme colorScheme,
+  ) {
+    final (icon, tooltip) = switch (state.playMode) {
+      PlayMode.sequential => (Icons.arrow_forward, '顺序播放'),
+      PlayMode.loop => (Icons.repeat, '列表循环'),
+      PlayMode.shuffle => (Icons.shuffle, '随机播放'),
+      PlayMode.loopOne => (Icons.repeat_one, '单曲循环'),
+    };
+
+    return IconButton(
+      icon: Icon(icon, size: 20),
+      tooltip: tooltip,
+      visualDensity: VisualDensity.compact,
+      onPressed: () => controller.cyclePlayMode(),
+    );
+  }
+
+  /// 上一首按钮
+  Widget _buildPreviousButton(
+    PlayerState state,
+    AudioController controller,
+  ) {
+    return IconButton(
+      icon: const Icon(Icons.skip_previous, size: 24),
+      visualDensity: VisualDensity.compact,
+      onPressed: state.canPlayPrevious
+          ? () => controller.previous()
+          : null,
+    );
+  }
+
   /// 播放/暂停按钮
   Widget _buildPlayPauseButton(
     PlayerState state,
@@ -139,12 +172,12 @@ class MiniPlayer extends ConsumerWidget {
   ) {
     if (state.isBuffering || state.isLoading) {
       return SizedBox(
-        width: 48,
-        height: 48,
+        width: 40,
+        height: 40,
         child: Center(
           child: SizedBox(
-            width: 24,
-            height: 24,
+            width: 20,
+            height: 20,
             child: CircularProgressIndicator(
               color: colorScheme.primary,
               strokeWidth: 2,
@@ -155,8 +188,26 @@ class MiniPlayer extends ConsumerWidget {
     }
 
     return IconButton(
-      icon: Icon(state.isPlaying ? Icons.pause : Icons.play_arrow),
+      icon: Icon(
+        state.isPlaying ? Icons.pause : Icons.play_arrow,
+        size: 28,
+      ),
+      visualDensity: VisualDensity.compact,
       onPressed: () => controller.togglePlayPause(),
+    );
+  }
+
+  /// 下一首按钮
+  Widget _buildNextButton(
+    PlayerState state,
+    AudioController controller,
+  ) {
+    return IconButton(
+      icon: const Icon(Icons.skip_next, size: 24),
+      visualDensity: VisualDensity.compact,
+      onPressed: state.canPlayNext
+          ? () => controller.next()
+          : null,
     );
   }
 }
