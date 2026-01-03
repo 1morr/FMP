@@ -1,0 +1,66 @@
+name: fmp
+description: "Flutter Music Player - 跨平台音乐播放器，支持 Bilibili 和 YouTube 音源"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.0-290.4.beta
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Material Design 3
+  dynamic_color: ^1.7.0
+
+  # 状态管理
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # 本地存储
+  isar: ^3.1.0+1
+  isar_flutter_libs: ^3.1.0+1
+  path_provider: ^2.1.5
+
+  # 音频播放
+  just_audio: ^0.9.43
+  just_audio_background: ^0.0.1-beta.14
+  audio_session: ^0.1.25
+
+  # 网络
+  dio: ^5.8.0+1
+
+  # 路由
+  go_router: ^14.8.1
+
+  # UI 组件
+  cached_network_image: ^3.4.1
+  flutter_reorderable_list: ^1.3.1
+
+  # 桌面平台
+  tray_manager: ^0.2.3
+  window_manager: ^0.4.3
+  hotkey_manager: ^0.2.3
+
+  # 工具
+  logger: ^2.5.0
+  file_picker: ^8.3.7
+  permission_handler: ^11.4.0
+  uuid: ^4.5.1
+  collection: ^1.19.1
+  equatable: ^2.0.7
+  intl: ^0.20.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  build_runner: ^2.4.13
+  isar_generator: ^3.1.0+1
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/icons/

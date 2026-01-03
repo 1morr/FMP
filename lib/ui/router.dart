@@ -1,0 +1,104 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+import 'pages/home/home_page.dart';
+import 'pages/search/search_page.dart';
+import 'pages/player/player_page.dart';
+import 'pages/queue/queue_page.dart';
+import 'pages/library/library_page.dart';
+import 'pages/settings/settings_page.dart';
+import 'app_shell.dart';
+
+/// 路由路径常量
+class RoutePaths {
+  RoutePaths._();
+
+  static const String home = '/';
+  static const String search = '/search';
+  static const String player = '/player';
+  static const String queue = '/queue';
+  static const String library = '/library';
+  static const String settings = '/settings';
+  static const String playlistDetail = '/library/playlist/:id';
+}
+
+/// 路由名称常量
+class RouteNames {
+  RouteNames._();
+
+  static const String home = 'home';
+  static const String search = 'search';
+  static const String player = 'player';
+  static const String queue = 'queue';
+  static const String library = 'library';
+  static const String settings = 'settings';
+  static const String playlistDetail = 'playlistDetail';
+}
+
+/// 应用路由配置
+final appRouter = GoRouter(
+  initialLocation: RoutePaths.home,
+  routes: [
+    // Shell Route - 包含底部导航的页面
+    ShellRoute(
+      builder: (context, state, child) => AppShell(child: child),
+      routes: [
+        GoRoute(
+          path: RoutePaths.home,
+          name: RouteNames.home,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: HomePage(),
+          ),
+        ),
+        GoRoute(
+          path: RoutePaths.search,
+          name: RouteNames.search,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: SearchPage(),
+          ),
+        ),
+        GoRoute(
+          path: RoutePaths.queue,
+          name: RouteNames.queue,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: QueuePage(),
+          ),
+        ),
+        GoRoute(
+          path: RoutePaths.library,
+          name: RouteNames.library,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: LibraryPage(),
+          ),
+        ),
+        GoRoute(
+          path: RoutePaths.settings,
+          name: RouteNames.settings,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: SettingsPage(),
+          ),
+        ),
+      ],
+    ),
+    // 全屏播放器页面（不在 Shell 内）
+    GoRoute(
+      path: RoutePaths.player,
+      name: RouteNames.player,
+      pageBuilder: (context, state) => CustomTransitionPage(
+        child: const PlayerPage(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 1),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            )),
+            child: child,
+          );
+        },
+      ),
+    ),
+  ],
+);
