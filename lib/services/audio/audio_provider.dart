@@ -172,6 +172,17 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
       // 更新初始状态
       _updateQueueState();
+      
+      // 恢复保存的播放模式
+      final savedPlayMode = _queueManager.playMode;
+      if (savedPlayMode != PlayMode.sequential) {
+        logDebug('Restoring saved play mode: $savedPlayMode');
+        await _audioService.setPlayMode(savedPlayMode);
+        // 如果是 shuffle 模式，需要生成 shuffle order
+        if (savedPlayMode == PlayMode.shuffle) {
+          _queueManager.restoreShuffleMode();
+        }
+      }
 
       _isInitialized = true;
       _isInitializing = false;

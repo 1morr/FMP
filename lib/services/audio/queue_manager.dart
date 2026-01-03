@@ -653,6 +653,14 @@ class QueueManager with Logging {
   
   // ========== Shuffle 方法 ==========
   
+  /// 恢复 shuffle 模式（初始化时使用）
+  /// 生成 shuffle order，当前歌曲放在首位
+  void restoreShuffleMode() {
+    if (playMode != PlayMode.shuffle) return;
+    logDebug('Restoring shuffle mode, generating shuffle order');
+    _generateShuffleOrder();
+  }
+  
   /// 生成随机播放顺序
   void _generateShuffleOrder() {
     if (_tracks.isEmpty) return;
