@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart' as just_audio;
+import '../../core/logger.dart';
 import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
 import '../../data/repositories/queue_repository.dart';
@@ -101,12 +102,13 @@ class PlayerState {
 }
 
 /// 音频控制器 - 管理所有播放相关的状态和操作
-class AudioController extends StateNotifier<PlayerState> {
+class AudioController extends StateNotifier<PlayerState> with Logging {
   final AudioService _audioService;
   final QueueManager _queueManager;
 
   final List<StreamSubscription> _subscriptions = [];
   bool _isInitialized = false;
+  bool _isInitializing = false;
 
   AudioController({
     required AudioService audioService,
@@ -115,47 +117,73 @@ class AudioController extends StateNotifier<PlayerState> {
         _queueManager = queueManager,
         super(const PlayerState());
 
+  /// 是否已初始化
+  bool get isInitialized => _isInitialized;
+
   /// 初始化
   Future<void> initialize() async {
-    if (_isInitialized) return;
+    if (_isInitialized || _isInitializing) return;
+    _isInitializing = true;
 
-    await _audioService.initialize();
-    await _queueManager.initialize();
+    logInfo('Initializing AudioController...');
 
-    // 监听播放器状态
-    _subscriptions.add(
-      _audioService.playerStateStream.listen(_onPlayerStateChanged),
-    );
+    try {
+      await _audioService.initialize();
+      logDebug('AudioService initialized');
 
-    // 监听进度
-    _subscriptions.add(
-      _audioService.positionStream.listen(_onPositionChanged),
-    );
+      await _queueManager.initialize();
+      logDebug('QueueManager initialized');
 
-    // 监听时长
-    _subscriptions.add(
-      _audioService.durationStream.listen(_onDurationChanged),
-    );
+      // 监听播放器状态
+      _subscriptions.add(
+        _audioService.playerStateStream.listen(_onPlayerStateChanged),
+      );
 
-    // 监听缓冲进度
-    _subscriptions.add(
-      _audioService.bufferedPositionStream.listen(_onBufferedPositionChanged),
-    );
+      // 监听进度
+      _subscriptions.add(
+        _audioService.positionStream.listen(_onPositionChanged),
+      );
 
-    // 监听当前索引
-    _subscriptions.add(
-      _audioService.currentIndexStream.listen(_onCurrentIndexChanged),
-    );
+      // 监听时长
+      _subscriptions.add(
+        _audioService.durationStream.listen(_onDurationChanged),
+      );
 
-    // 监听速度
-    _subscriptions.add(
-      _audioService.speedStream.listen(_onSpeedChanged),
-    );
+      // 监听缓冲进度
+      _subscriptions.add(
+        _audioService.bufferedPositionStream.listen(_onBufferedPositionChanged),
+      );
 
-    // 更新初始状态
-    _updateQueueState();
+      // 监听当前索引
+      _subscriptions.add(
+        _audioService.currentIndexStream.listen(_onCurrentIndexChanged),
+      );
 
-    _isInitialized = true;
+      // 监听速度
+      _subscriptions.add(
+        _audioService.speedStream.listen(_onSpeedChanged),
+      );
+
+      // 更新初始状态
+      _updateQueueState();
+
+      _isInitialized = true;
+      _isInitializing = false;
+      logInfo('AudioController initialized successfully');
+    } catch (e, stack) {
+      _isInitializing = false;
+      logError('Failed to initialize AudioController', e, stack);
+      state = state.copyWith(error: 'Initialization failed: $e');
+      rethrow;
+    }
+  }
+
+  /// 确保已初始化
+  Future<void> _ensureInitialized() async {
+    if (!_isInitialized) {
+      logWarning('AudioController not initialized, initializing now...');
+      await initialize();
+    }
   }
 
   /// 释放资源
@@ -223,11 +251,14 @@ class AudioController extends StateNotifier<PlayerState> {
 
   /// 播放单首歌曲
   Future<void> playSingle(Track track) async {
+    await _ensureInitialized();
     state = state.copyWith(isLoading: true, error: null);
+    logInfo('Playing single track: ${track.title}');
     try {
       await _queueManager.playSingle(track);
       _updateQueueState();
-    } catch (e) {
+    } catch (e, stack) {
+      logError('Failed to play track: ${track.title}', e, stack);
       state = state.copyWith(error: e.toString(), isLoading: false);
     }
   }
@@ -237,11 +268,14 @@ class AudioController extends StateNotifier<PlayerState> {
 
   /// 播放多首歌曲
   Future<void> playAll(List<Track> tracks, {int startIndex = 0}) async {
+    await _ensureInitialized();
     state = state.copyWith(isLoading: true, error: null);
+    logInfo('Playing ${tracks.length} tracks, starting at index $startIndex');
     try {
       await _queueManager.playAll(tracks, startIndex: startIndex);
       _updateQueueState();
-    } catch (e) {
+    } catch (e, stack) {
+      logError('Failed to play tracks', e, stack);
       state = state.copyWith(error: e.toString(), isLoading: false);
     }
   }
@@ -252,16 +286,25 @@ class AudioController extends StateNotifier<PlayerState> {
 
   /// 播放队列中指定索引的歌曲
   Future<void> playAt(int index) async {
-    await _queueManager.playAt(index);
+    await _ensureInitialized();
+    logDebug('Playing at index: $index');
+    try {
+      await _queueManager.playAt(index);
+    } catch (e, stack) {
+      logError('Failed to play at index $index', e, stack);
+      state = state.copyWith(error: e.toString());
+    }
   }
 
   /// 下一首
   Future<void> next() async {
+    await _ensureInitialized();
     await _audioService.seekToNext();
   }
 
   /// 上一首
   Future<void> previous() async {
+    await _ensureInitialized();
     // 如果播放超过3秒，重新开始当前歌曲
     if (_audioService.position.inSeconds > 3) {
       await _audioService.seekTo(Duration.zero);
@@ -272,39 +315,81 @@ class AudioController extends StateNotifier<PlayerState> {
 
   /// 添加到队列
   Future<void> addToQueue(Track track) async {
-    await _queueManager.add(track);
-    _updateQueueState();
+    await _ensureInitialized();
+    logInfo('Adding to queue: ${track.title}');
+    try {
+      await _queueManager.add(track);
+      _updateQueueState();
+    } catch (e, stack) {
+      logError('Failed to add track to queue', e, stack);
+      state = state.copyWith(error: e.toString());
+    }
   }
 
   /// 添加到下一首
   Future<void> addNext(Track track) async {
-    await _queueManager.addNext(track);
-    _updateQueueState();
+    await _ensureInitialized();
+    logInfo('Adding next: ${track.title}');
+    try {
+      await _queueManager.addNext(track);
+      _updateQueueState();
+    } catch (e, stack) {
+      logError('Failed to add track as next', e, stack);
+      state = state.copyWith(error: e.toString());
+    }
   }
 
   /// 从队列移除
   Future<void> removeFromQueue(int index) async {
-    await _queueManager.removeAt(index);
-    _updateQueueState();
+    await _ensureInitialized();
+    logDebug('Removing from queue at index: $index');
+    try {
+      await _queueManager.removeAt(index);
+      _updateQueueState();
+    } catch (e, stack) {
+      logError('Failed to remove from queue at index $index', e, stack);
+      state = state.copyWith(error: e.toString());
+    }
   }
 
   /// 移动队列中的歌曲
   Future<void> moveInQueue(int oldIndex, int newIndex) async {
-    await _queueManager.move(oldIndex, newIndex);
-    _updateQueueState();
+    await _ensureInitialized();
+    logDebug('Moving in queue: $oldIndex -> $newIndex');
+    try {
+      await _queueManager.move(oldIndex, newIndex);
+      _updateQueueState();
+    } catch (e, stack) {
+      logError('Failed to move in queue', e, stack);
+      state = state.copyWith(error: e.toString());
+    }
   }
 
   /// 随机打乱队列
   Future<void> shuffleQueue() async {
-    await _queueManager.shuffle();
-    _updateQueueState();
+    await _ensureInitialized();
+    logInfo('Shuffling queue');
+    try {
+      await _queueManager.shuffle();
+      _updateQueueState();
+    } catch (e, stack) {
+      logError('Failed to shuffle queue', e, stack);
+      state = state.copyWith(error: e.toString());
+    }
   }
 
   /// 清空队列
   Future<void> clearQueue() async {
-    await _queueManager.clear();
-    await stop();
-    _updateQueueState();
+    await _ensureInitialized();
+    logInfo('Clearing queue');
+    try {
+      await _audioService.stop();
+      await _queueManager.clear();
+      _updateQueueState();
+    } catch (e, stack) {
+      logError('Failed to clear queue', e, stack);
+      state = state.copyWith(error: e.toString());
+    }
   }
 
   // ========== 播放速度 ==========

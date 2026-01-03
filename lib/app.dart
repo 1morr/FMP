@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'providers/database_provider.dart';
+import 'providers/theme_provider.dart';
 import 'ui/router.dart';
 import 'ui/theme/app_theme.dart';
 
@@ -52,9 +53,10 @@ class FMPApp extends ConsumerWidget {
         ),
       ),
       data: (_) {
-        // TODO: 从设置中获取主题模式和自定义颜色
-        const themeMode = ThemeMode.system;
-        const primaryColor = null; // 使用默认颜色
+        // 从设置中获取主题模式和自定义颜色
+        final themeState = ref.watch(themeProvider);
+        final themeMode = themeState.themeMode;
+        final primaryColor = themeState.primaryColor;
 
         return MaterialApp.router(
           title: 'FMP - Flutter Music Player',

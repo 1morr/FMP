@@ -17,7 +17,11 @@
       "mcp__plugin_serena_serena__onboarding",
       "mcp__plugin_serena_serena__list_dir",
       "mcp__plugin_serena_serena__read_file",
-      "mcp__plugin_serena_serena__write_memory"
+      "mcp__plugin_serena_serena__write_memory",
+      "mcp__plugin_serena_serena__list_memories",
+      "mcp__plugin_serena_serena__read_memory",
+      "Bash(flutter --version:*)",
+      "Bash(flutter build:*)"
     ]
   }
 }

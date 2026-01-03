@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/search_provider.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 
 /// 搜索页
 class SearchPage extends ConsumerStatefulWidget {
@@ -467,27 +468,20 @@ class _SearchResultTile extends ConsumerWidget {
         ref.read(audioControllerProvider.notifier).playTrack(track);
         break;
       case 'play_next':
-        // TODO: 实现下一首播放
+        ref.read(audioControllerProvider.notifier).addNext(track);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('已添加到下一首')),
         );
         break;
       case 'add_to_queue':
-        // TODO: 实现添加到队列
+        ref.read(audioControllerProvider.notifier).addToQueue(track);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('已添加到播放队列')),
         );
         break;
       case 'add_to_playlist':
-        _showAddToPlaylistDialog(context, ref);
+        showAddToPlaylistDialog(context: context, track: track);
         break;
     }
-  }
-
-  void _showAddToPlaylistDialog(BuildContext context, WidgetRef ref) {
-    // TODO: 实现添加到歌单对话框
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('功能开发中')),
-    );
   }
 }
