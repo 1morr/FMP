@@ -41,19 +41,25 @@ class TrackRepository {
         .findFirst();
   }
 
-  /// 保存歌曲
-  Future<int> save(Track track) async {
+  /// 保存歌曲并返回更新后的歌曲
+  Future<Track> save(Track track) async {
     track.updatedAt = DateTime.now();
-    return _isar.writeTxn(() => _isar.tracks.put(track));
+    final id = await _isar.writeTxn(() => _isar.tracks.put(track));
+    track.id = id;
+    return track;
   }
 
-  /// 批量保存歌曲
-  Future<List<int>> saveAll(List<Track> tracks) async {
+  /// 批量保存歌曲并返回更新后的歌曲列表
+  Future<List<Track>> saveAll(List<Track> tracks) async {
     final now = DateTime.now();
     for (final track in tracks) {
       track.updatedAt = now;
     }
-    return _isar.writeTxn(() => _isar.tracks.putAll(tracks));
+    final ids = await _isar.writeTxn(() => _isar.tracks.putAll(tracks));
+    for (var i = 0; i < tracks.length; i++) {
+      tracks[i].id = ids[i];
+    }
+    return tracks;
   }
 
   /// 删除歌曲

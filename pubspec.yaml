@@ -25,6 +25,7 @@ dependencies:
 
   # 音频播放
   just_audio: ^0.9.43
+  just_audio_windows: ^0.2.2
   just_audio_background: ^0.0.1-beta.14
   audio_session: ^0.1.25
 
