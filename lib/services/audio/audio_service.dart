@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
+import '../../core/logger.dart';
 import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
 
@@ -59,7 +60,7 @@ class PlaybackState {
 
 /// 音频播放服务
 /// 负责管理音频播放器的核心功能
-class AudioService {
+class AudioService with Logging {
   final AudioPlayer _player = AudioPlayer();
 
   PlayMode _playMode = PlayMode.sequential;
@@ -87,6 +88,7 @@ class AudioService {
 
   /// 初始化音频服务
   Future<void> initialize() async {
+    logInfo('Initializing AudioService...');
     // 配置音频会话
     final session = await AudioSession.instance;
     await session.configure(const AudioSessionConfiguration.music());
@@ -123,6 +125,8 @@ class AudioService {
     session.becomingNoisyEventStream.listen((_) {
       _player.pause();
     });
+    
+    logInfo('AudioService initialized');
   }
 
   /// 释放资源
@@ -237,7 +241,15 @@ class AudioService {
 
   /// 设置音频源
   Future<Duration?> setAudioSource(AudioSource source) async {
-    return await _player.setAudioSource(source);
+    logDebug('Setting audio source');
+    try {
+      final duration = await _player.setAudioSource(source);
+      logDebug('Audio source set, duration: $duration');
+      return duration;
+    } catch (e, stack) {
+      logError('Failed to set audio source', e, stack);
+      rethrow;
+    }
   }
 
   /// 设置单个URL
