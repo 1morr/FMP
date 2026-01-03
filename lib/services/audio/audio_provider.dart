@@ -42,6 +42,8 @@ class PlayerState {
     this.currentIndex,
     this.currentTrack,
     this.queue = const [],
+    this.canPlayPrevious = false,
+    this.canPlayNext = false,
     this.error,
   });
 
@@ -60,11 +62,11 @@ class PlayerState {
     return bufferedPosition.inMilliseconds / duration!.inMilliseconds;
   }
 
-  /// 是否可以播放上一首
-  bool get canPlayPrevious => currentIndex != null && currentIndex! > 0;
+  /// 是否可以播放上一首（由 QueueManager 计算，考虑 shuffle 模式）
+  final bool canPlayPrevious;
 
-  /// 是否可以播放下一首
-  bool get canPlayNext => currentIndex != null && currentIndex! < queue.length - 1;
+  /// 是否可以播放下一首（由 QueueManager 计算，考虑 shuffle 模式）
+  final bool canPlayNext;
 
   PlayerState copyWith({
     bool? isPlaying,
@@ -80,6 +82,8 @@ class PlayerState {
     int? currentIndex,
     Track? currentTrack,
     List<Track>? queue,
+    bool? canPlayPrevious,
+    bool? canPlayNext,
     String? error,
   }) {
     return PlayerState(
@@ -96,6 +100,8 @@ class PlayerState {
       currentIndex: currentIndex ?? this.currentIndex,
       currentTrack: currentTrack ?? this.currentTrack,
       queue: queue ?? this.queue,
+      canPlayPrevious: canPlayPrevious ?? this.canPlayPrevious,
+      canPlayNext: canPlayNext ?? this.canPlayNext,
       error: error,
     );
   }
@@ -299,17 +305,19 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 下一首
   Future<void> next() async {
     await _ensureInitialized();
-    await _audioService.seekToNext();
+    logDebug('next() called');
+    await _queueManager.skipToNext();
   }
 
   /// 上一首
   Future<void> previous() async {
     await _ensureInitialized();
+    logDebug('previous() called');
     // 如果播放超过3秒，重新开始当前歌曲
     if (_audioService.position.inSeconds > 3) {
       await _audioService.seekTo(Duration.zero);
     } else {
-      await _audioService.seekToPrevious();
+      await _queueManager.skipToPrevious();
     }
   }
 
@@ -458,6 +466,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     state = state.copyWith(
       currentIndex: index,
       currentTrack: track,
+      canPlayPrevious: _queueManager.hasPrevious,
+      canPlayNext: _queueManager.hasNext,
     );
   }
 
@@ -475,6 +485,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       currentIndex: currentIndex,
       currentTrack: currentTrack,
       playMode: _queueManager.playMode,
+      canPlayPrevious: _queueManager.hasPrevious,
+      canPlayNext: _queueManager.hasNext,
       isLoading: false,
     );
   }
