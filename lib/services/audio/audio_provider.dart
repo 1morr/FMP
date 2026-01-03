@@ -117,6 +117,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   bool _isInitialized = false;
   bool _isInitializing = false;
 
+  // 防止重复处理完成事件
+  bool _isHandlingCompletion = false;
+
   AudioController({
     required AudioService audioService,
     required QueueManager queueManager,
@@ -178,11 +181,6 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
       // 更新初始状态
       _updateQueueState();
-
-      // 如果是单曲循环模式，设置 AudioService
-      if (_queueManager.playMode == PlayMode.loopOne) {
-        await _audioService.setLoopOne(true);
-      }
 
       // 恢复播放（如果有保存的歌曲）
       if (_queueManager.currentTrack != null) {
@@ -453,11 +451,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 设置播放模式
   Future<void> setPlayMode(PlayMode mode) async {
+    logDebug('Setting play mode: $mode');
     await _queueManager.setPlayMode(mode);
-
-    // 设置单曲循环
-    await _audioService.setLoopOne(mode == PlayMode.loopOne);
-
     state = state.copyWith(playMode: mode);
   }
 
@@ -506,6 +501,16 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         await _audioService.playFile(url);
       } else {
         await _audioService.playUrl(url);
+      }
+
+      // 等待一小段时间确保播放状态稳定
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // 如果还没播放，再次尝试
+      if (!_audioService.isPlaying &&
+          _audioService.processingState == just_audio.ProcessingState.ready) {
+        logWarning('Player ready but not playing, calling play() again');
+        await _audioService.play();
       }
 
       // 预取下一首
@@ -581,21 +586,36 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   void _onTrackCompleted(void _) {
-    logDebug('Track completed, auto-advancing...');
+    // 防止重复处理
+    if (_isHandlingCompletion) return;
+    _isHandlingCompletion = true;
 
-    // 单曲循环由 AudioService 处理，这里不需要做任何事
-    if (_queueManager.playMode == PlayMode.loopOne) {
-      return;
-    }
+    logDebug('Track completed, playMode: ${_queueManager.playMode}');
 
-    // 移动到下一首
-    final nextIdx = _queueManager.moveToNext();
-    if (nextIdx != null) {
-      final track = _queueManager.currentTrack;
-      if (track != null) {
-        _playTrack(track);
+    // 使用 Future.microtask 来避免在流监听器中直接操作
+    Future.microtask(() async {
+      try {
+        if (_queueManager.playMode == PlayMode.loopOne) {
+          // 单曲循环：seek 到开头并重新播放
+          logDebug('LoopOne mode: seeking to start and playing');
+          await _audioService.seekTo(Duration.zero);
+          await _audioService.play();
+        } else {
+          // 移动到下一首
+          final nextIdx = _queueManager.moveToNext();
+          if (nextIdx != null) {
+            final track = _queueManager.currentTrack;
+            if (track != null) {
+              await _playTrack(track);
+            }
+          } else {
+            logDebug('No next track available');
+          }
+        }
+      } finally {
+        _isHandlingCompletion = false;
       }
-    }
+    });
   }
 
   void _onQueueStateChanged(void _) {
