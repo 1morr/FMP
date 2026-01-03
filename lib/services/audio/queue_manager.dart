@@ -104,16 +104,18 @@ class QueueManager with Logging {
         _tracks = await _trackRepository.getByIds(_currentQueue!.trackIds);
 
         if (_tracks.isNotEmpty) {
-          await _rebuildPlaylist();
+          final savedIndex = _currentQueue!.currentIndex < _tracks.length 
+              ? _currentQueue!.currentIndex 
+              : 0;
+          await _rebuildPlaylist(initialIndex: savedIndex);
 
           // 恢复播放位置
-          if (_currentQueue!.currentIndex < _tracks.length) {
+          if (_currentQueue!.lastPositionMs > 0) {
             await _player.seek(
               Duration(milliseconds: _currentQueue!.lastPositionMs),
-              index: _currentQueue!.currentIndex,
             );
           }
-          logDebug('Restored ${_tracks.length} tracks, position: ${_currentQueue!.currentIndex}');
+          logDebug('Restored ${_tracks.length} tracks, position: $savedIndex');
         } else {
           logDebug('No tracks found in database, setting empty audio source');
           await _player.setAudioSource(_playlist);
@@ -309,10 +311,13 @@ class QueueManager with Logging {
       // 如果 URL 更新了，需要重建播放列表以确保使用新的 URL
       if (needsRebuild) {
         logDebug('Rebuilding playlist for updated track URL');
-        await _rebuildPlaylist();
+        // 传入目标索引，避免索引先跳到 0
+        await _rebuildPlaylist(initialIndex: index);
+      } else {
+        // 如果没有重建播放列表，需要 seek 到目标索引
+        await _player.seek(Duration.zero, index: index);
       }
       
-      await _player.seek(Duration.zero, index: index);
       await _player.play();
     } finally {
       // 延迟重置标志，确保 completed 事件已经处理完
@@ -377,13 +382,9 @@ class QueueManager with Logging {
       _tracks[validStartIndex] = await _ensureAudioUrl(_tracks[validStartIndex]);
       logDebug('Starting track audio URL fetched');
       
-      // 重建播放列表（其他歌曲使用占位符）
-      await _rebuildPlaylist();
-      logDebug('Playlist rebuilt with ${_tracks.length} tracks');
-      
-      // 跳转到指定索引
-      await _player.seek(Duration.zero, index: validStartIndex);
-      logDebug('Seeked to index $validStartIndex');
+      // 重建播放列表（其他歌曲使用占位符），传入初始索引避免闪烁
+      await _rebuildPlaylist(initialIndex: validStartIndex);
+      logDebug('Playlist rebuilt with ${_tracks.length} tracks at index $validStartIndex');
       
       // 开始播放
       await _player.play();
@@ -553,10 +554,8 @@ class QueueManager with Logging {
       }
     }
 
-    await _rebuildPlaylist();
-    if (current != null) {
-      await _player.seek(Duration.zero, index: 0);
-    }
+    // 当前歌曲已移到索引 0
+    await _rebuildPlaylist(initialIndex: 0);
     await _persistQueue();
   }
 
@@ -576,14 +575,20 @@ class QueueManager with Logging {
         .toList();
 
     _currentQueue!.originalOrder = [];
-    await _rebuildPlaylist();
-
-    // 恢复到当前播放的歌曲
+    
+    // 找到当前歌曲的新索引
+    int newIndex = 0;
     if (current != null) {
-      final newIndex = _tracks.indexWhere((t) => t.id == current.id);
-      if (newIndex >= 0) {
-        await _player.seek(_player.position, index: newIndex);
-      }
+      newIndex = _tracks.indexWhere((t) => t.id == current.id);
+      if (newIndex < 0) newIndex = 0;
+    }
+    
+    // 重建播放列表，传入当前歌曲的新索引
+    await _rebuildPlaylist(initialIndex: newIndex);
+    
+    // 恢复播放位置
+    if (current != null && newIndex >= 0) {
+      await _player.seek(_player.position);
     }
     await _persistQueue();
   }
@@ -856,13 +861,17 @@ class QueueManager with Logging {
   }
 
   /// 重建播放列表
-  Future<void> _rebuildPlaylist() async {
-    logDebug('Rebuilding playlist with ${_tracks.length} tracks');
+  /// [initialIndex] 可选的初始索引，避免重建后索引跳到 0
+  Future<void> _rebuildPlaylist({int? initialIndex}) async {
+    logDebug('Rebuilding playlist with ${_tracks.length} tracks, initialIndex: $initialIndex');
     try {
       _playlist = ConcatenatingAudioSource(
         children: _tracks.map(_createAudioSource).toList(),
       );
-      await _player.setAudioSource(_playlist);
+      await _player.setAudioSource(
+        _playlist,
+        initialIndex: initialIndex,
+      );
       logDebug('Playlist rebuilt and set to player');
     } catch (e, stack) {
       logError('Failed to rebuild playlist', e, stack);
