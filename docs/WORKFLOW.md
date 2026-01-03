@@ -2,7 +2,23 @@
 
 > 版本: 1.0.0
 > 创建日期: 2026-01-03
+> 最后更新: 2026-01-03
 > 基于: PRD.md, TECHNICAL_SPEC.md
+
+---
+
+## 进度追踪
+
+| Phase | 名称 | 状态 | 完成日期 |
+|-------|------|------|----------|
+| Phase 1 | 基础架构 | ✅ 已完成 | 2026-01-03 |
+| Phase 2 | 核心播放 | ✅ 已完成 | 2026-01-03 |
+| Phase 3 | 音乐库 | ✅ 已完成 | 2026-01-03 |
+| Phase 4 | 完整 UI | ⏳ 待开始 | - |
+| Phase 5 | 平台特性 | ⏳ 待开始 | - |
+| Phase 6 | 优化与完善 | ⏳ 待开始 | - |
+
+**当前里程碑**: Milestone 2 (可管理) ✅ 已达成
 
 ---
 
@@ -174,9 +190,11 @@ lib/
 ```
 
 **验收标准**:
-- [ ] `flutter run` 可在 Android 模拟器成功运行
-- [ ] `flutter run -d windows` 可在 Windows 成功运行
-- [ ] 所有依赖正确安装无冲突
+- [x] `flutter run` 可在 Android 模拟器成功运行
+- [x] `flutter run -d windows` 可在 Windows 成功运行
+- [x] 所有依赖正确安装无冲突
+
+> ✅ **Phase 1.1 完成** - 项目结构已建立，所有依赖已配置
 
 ---
 
@@ -249,9 +267,11 @@ class Track {
 ```
 
 **验收标准**:
-- [ ] `flutter pub run build_runner build` 成功生成 `.g.dart` 文件
-- [ ] Isar 数据库可正确初始化
-- [ ] 基本 CRUD 操作测试通过
+- [x] `flutter pub run build_runner build` 成功生成 `.g.dart` 文件
+- [x] Isar 数据库可正确初始化
+- [x] 基本 CRUD 操作测试通过
+
+> ✅ **Phase 1.2 完成** - 所有数据模型已实现: Track, Playlist, PlayQueue, Settings, SearchHistory, DownloadTask
 
 ---
 
@@ -303,9 +323,11 @@ final databaseProvider = FutureProvider<Isar>((ref) async {
 ```
 
 **验收标准**:
-- [ ] Provider 正确提供 Isar 实例
-- [ ] Repository 模式正确实现
-- [ ] 路由可在页面间正确导航
+- [x] Provider 正确提供 Isar 实例
+- [x] Repository 模式正确实现
+- [x] 路由可在页面间正确导航
+
+> ✅ **Phase 1.3 完成** - DatabaseProvider, 所有 Repository, GoRouter, AppShell 已实现
 
 ---
 
@@ -410,10 +432,12 @@ class AudioService {
 ```
 
 **验收标准**:
-- [ ] 可播放网络音频 URL
-- [ ] 播放/暂停/停止正常工作
-- [ ] 进度控制正常工作
-- [ ] 播放模式切换正常工作
+- [x] 可播放网络音频 URL
+- [x] 播放/暂停/停止正常工作
+- [x] 进度控制正常工作
+- [x] 播放模式切换正常工作
+
+> ✅ **Phase 2.1 完成** - AudioService 完整实现，集成 just_audio + just_audio_windows
 
 ---
 
@@ -587,10 +611,12 @@ class QueueManager {
 ```
 
 **验收标准**:
-- [ ] 队列可持久化并在重启后恢复
-- [ ] 支持添加/移除/移动歌曲
-- [ ] 拖拽排序正常工作
-- [ ] 断点续播位置精确到秒
+- [x] 队列可持久化并在重启后恢复
+- [x] 支持添加/移除/移动歌曲
+- [x] 拖拽排序正常工作
+- [x] 断点续播位置精确到秒
+
+> ✅ **Phase 2.2 完成** - QueueManager 已实现，支持持久化和断点续播
 
 ---
 
@@ -827,10 +853,12 @@ class BilibiliSource extends BaseSource {
 ```
 
 **验收标准**:
-- [ ] 可从 B站 URL 解析 BV 号
-- [ ] 可获取视频信息（标题、作者、时长、封面）
-- [ ] 可获取音频流 URL 并播放
-- [ ] 搜索功能正常工作
+- [x] 可从 B站 URL 解析 BV 号
+- [x] 可获取视频信息（标题、作者、时长、封面）
+- [x] 可获取音频流 URL 并播放
+- [x] 搜索功能正常工作
+
+> ✅ **Phase 2.3 完成** - BilibiliSource 已实现，支持 BV 解析、信息获取、音频流提取、搜索
 
 ---
 
@@ -848,6 +876,13 @@ class BilibiliSource extends BaseSource {
 | 3.1.6 | 实现自定义封面 | 3.1.1 | P1 | 中 |
 | 3.1.7 | 创建 PlaylistProvider | 3.1.1-6 | P0 | 中 |
 
+**验收标准**:
+- [x] 可创建/删除/重命名歌单
+- [x] 可添加/移除歌曲
+- [x] 歌单封面自动从首首歌曲获取
+
+> ✅ **Phase 3.1 完成** - PlaylistService 和 PlaylistProvider 已实现
+
 ### 3.2 外部导入
 
 | 任务 ID | 任务名称 | 依赖 | 优先级 | 预估复杂度 |
@@ -860,6 +895,13 @@ class BilibiliSource extends BaseSource {
 | 3.2.6 | 实现同步删除 | 3.2.4 | P1 | 中 |
 | 3.2.7 | 实现导出功能 | 3.1.1 | P2 | 中 |
 
+**验收标准**:
+- [x] 可从 B站收藏夹 URL 导入
+- [x] 导入进度实时显示
+- [x] 支持刷新导入的歌单
+
+> ✅ **Phase 3.2 完成** - ImportService 已实现，支持 URL 解析、进度流、刷新机制
+
 ### 3.3 搜索功能
 
 | 任务 ID | 任务名称 | 依赖 | 优先级 | 预估复杂度 |
@@ -870,6 +912,13 @@ class BilibiliSource extends BaseSource {
 | 3.3.4 | 实现搜索历史存储 | 1.2.5 | P1 | 低 |
 | 3.3.5 | 实现搜索历史展示 | 3.3.4 | P1 | 低 |
 | 3.3.6 | 创建 SearchProvider | 3.3.1-5 | P0 | 中 |
+
+**验收标准**:
+- [x] 多源搜索正常工作
+- [x] 本地和在线结果分离显示
+- [x] 搜索历史保存和展示
+
+> ✅ **Phase 3.3 完成** - SearchService 和 SearchProvider 已实现
 
 ---
 
@@ -1045,21 +1094,25 @@ Phase 3-6 继续...
 
 ## 里程碑
 
-### Milestone 1: 可播放 (Playable)
+### Milestone 1: 可播放 (Playable) ✅ 已达成
 **完成条件**: 可以通过 B站 URL 播放音乐
-- Phase 1 完成
-- Phase 2 (2.1, 2.2, 2.3) 完成
-- 基础播放器 UI 完成
+- [x] Phase 1 完成
+- [x] Phase 2 (2.1, 2.2, 2.3) 完成
+- [x] 基础播放器 UI 完成
 
-### Milestone 2: 可管理 (Manageable)
+**达成日期**: 2026-01-03
+
+### Milestone 2: 可管理 (Manageable) ✅ 已达成
 **完成条件**: 可以管理歌单和播放队列
-- Phase 3 完成
-- 基础音乐库 UI 完成
+- [x] Phase 3 完成
+- [x] 基础音乐库 UI 完成
+
+**达成日期**: 2026-01-03
 
 ### Milestone 3: 可发布 (Releasable)
 **完成条件**: 功能完整，可日常使用
-- Phase 4, 5, 6 完成
-- 所有 P0 任务完成
+- [ ] Phase 4, 5, 6 完成
+- [ ] 所有 P0 任务完成
 
 ---
 
@@ -1077,6 +1130,73 @@ Phase 3-6 继续...
 
 ## 下一步行动
 
-1. **立即开始**: Phase 1.1 项目初始化
-2. **验证**: 确认所有依赖可正确安装
-3. **原型**: 快速实现最小可播放原型 (M1)
+1. ~~**立即开始**: Phase 1.1 项目初始化~~ ✅ 已完成
+2. ~~**验证**: 确认所有依赖可正确安装~~ ✅ 已完成
+3. ~~**原型**: 快速实现最小可播放原型 (M1)~~ ✅ 已完成
+4. ~~**音乐库**: 实现歌单管理、导入、搜索 (M2)~~ ✅ 已完成
+
+---
+
+## 当前待办
+
+1. **Phase 4: 完整 UI** - 响应式布局、主题系统、所有页面优化
+2. **用户测试** - 验证歌单管理和搜索功能完整性
+
+---
+
+## 已完成功能清单
+
+### Phase 1 实现文件
+| 文件 | 功能 |
+|------|------|
+| `lib/data/models/track.dart` | Track 数据模型 |
+| `lib/data/models/playlist.dart` | Playlist 数据模型 |
+| `lib/data/models/play_queue.dart` | PlayQueue 数据模型 |
+| `lib/data/models/settings.dart` | Settings 数据模型 |
+| `lib/data/models/search_history.dart` | SearchHistory 数据模型 |
+| `lib/data/models/download_task.dart` | DownloadTask 数据模型 |
+| `lib/providers/database_provider.dart` | Isar 数据库 Provider |
+| `lib/data/repositories/track_repository.dart` | Track 仓库 |
+| `lib/data/repositories/playlist_repository.dart` | Playlist 仓库 |
+| `lib/data/repositories/queue_repository.dart` | Queue 仓库 |
+| `lib/data/repositories/settings_repository.dart` | Settings 仓库 |
+| `lib/ui/router.dart` | GoRouter 路由配置 |
+| `lib/ui/app_shell.dart` | 应用 Shell 框架 |
+| `lib/ui/theme/app_theme.dart` | Material 3 主题 |
+| `lib/ui/layouts/responsive_scaffold.dart` | 响应式布局 |
+
+### Phase 2 实现文件
+| 文件 | 功能 |
+|------|------|
+| `lib/services/audio/audio_service.dart` | 音频播放服务 |
+| `lib/services/audio/queue_manager.dart` | 播放队列管理器 |
+| `lib/services/audio/audio_provider.dart` | Riverpod 状态管理 |
+| `lib/data/sources/base_source.dart` | 音源抽象基类 |
+| `lib/data/sources/bilibili_source.dart` | B站音源实现 |
+| `lib/data/sources/source_provider.dart` | 音源 Provider |
+| `lib/ui/pages/player/player_page.dart` | 全屏播放器页面 |
+| `lib/ui/widgets/player/mini_player.dart` | 迷你播放器组件 |
+| `lib/ui/pages/home/home_page.dart` | 首页 (含 URL 输入测试) |
+
+### Phase 3 实现文件
+| 文件 | 功能 |
+|------|------|
+| `lib/services/library/playlist_service.dart` | 歌单管理服务 |
+| `lib/providers/playlist_provider.dart` | 歌单状态管理 Provider |
+| `lib/services/import/import_service.dart` | 外部导入服务 |
+| `lib/services/search/search_service.dart` | 多源搜索服务 |
+| `lib/providers/search_provider.dart` | 搜索状态管理 Provider |
+| `lib/ui/pages/library/library_page.dart` | 音乐库页面 |
+| `lib/ui/pages/library/playlist_detail_page.dart` | 歌单详情页面 |
+| `lib/ui/pages/library/widgets/create_playlist_dialog.dart` | 创建歌单对话框 |
+| `lib/ui/pages/library/widgets/import_url_dialog.dart` | URL 导入对话框 |
+| `lib/ui/pages/search/search_page.dart` | 搜索页面 (完整功能) |
+
+### 依赖配置 (pubspec.yaml)
+- `just_audio: ^0.9.43` - 音频播放核心
+- `just_audio_windows: ^0.2.2` - Windows 平台支持 ⚠️ 重要
+- `just_audio_background: ^0.0.1-beta.14` - 后台播放
+- `isar: ^3.1.0+1` - 本地数据库
+- `flutter_riverpod: ^2.6.1` - 状态管理
+- `dio: ^5.8.0+1` - 网络请求
+- `go_router: ^14.8.1` - 路由管理

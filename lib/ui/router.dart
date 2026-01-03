@@ -6,6 +6,7 @@ import 'pages/search/search_page.dart';
 import 'pages/player/player_page.dart';
 import 'pages/queue/queue_page.dart';
 import 'pages/library/library_page.dart';
+import 'pages/library/playlist_detail_page.dart';
 import 'pages/settings/settings_page.dart';
 import 'app_shell.dart';
 
@@ -19,7 +20,7 @@ class RoutePaths {
   static const String queue = '/queue';
   static const String library = '/library';
   static const String settings = '/settings';
-  static const String playlistDetail = '/library/playlist/:id';
+  static const String playlistDetail = '/library/:id';
 }
 
 /// 路由名称常量
@@ -70,6 +71,17 @@ final appRouter = GoRouter(
           pageBuilder: (context, state) => const NoTransitionPage(
             child: LibraryPage(),
           ),
+          routes: [
+            // 歌单详情页作为 library 的子路由
+            GoRoute(
+              path: ':id',
+              name: RouteNames.playlistDetail,
+              builder: (context, state) {
+                final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+                return PlaylistDetailPage(playlistId: id);
+              },
+            ),
+          ],
         ),
         GoRoute(
           path: RoutePaths.settings,

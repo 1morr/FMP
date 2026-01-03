@@ -231,6 +231,9 @@ class AudioController extends StateNotifier<PlayerState> {
     }
   }
 
+  /// 播放单首歌曲 (别名方法)
+  Future<void> playTrack(Track track) => playSingle(track);
+
   /// 播放多首歌曲
   Future<void> playAll(List<Track> tracks, {int startIndex = 0}) async {
     state = state.copyWith(isLoading: true, error: null);
@@ -241,6 +244,10 @@ class AudioController extends StateNotifier<PlayerState> {
       state = state.copyWith(error: e.toString(), isLoading: false);
     }
   }
+
+  /// 播放歌单 (别名方法)
+  Future<void> playPlaylist(List<Track> tracks, {int startIndex = 0}) =>
+      playAll(tracks, startIndex: startIndex);
 
   /// 播放队列中指定索引的歌曲
   Future<void> playAt(int index) async {

@@ -71,7 +71,7 @@ class Settings {
 
   /// 设置主色 Color
   set primaryColorValue(Color? color) {
-    primaryColor = color?.value;
+    primaryColor = color?.toARGB32();
   }
 
   @override

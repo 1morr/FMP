@@ -18,6 +18,10 @@ class SourceManager {
   /// 所有可用音源
   List<BaseSource> get sources => List.unmodifiable(_sources);
 
+  /// 启用的音源类型列表
+  List<SourceType> get enabledSourceTypes =>
+      _sources.map((s) => s.sourceType).toList();
+
   /// 根据类型获取音源
   BaseSource? getSource(SourceType type) {
     try {
@@ -27,9 +31,17 @@ class SourceManager {
     }
   }
 
-  /// 根据 URL 自动选择音源
+  /// 根据 URL 自动选择音源 (别名方法)
+  BaseSource? detectSource(String url) => getSourceForUrl(url);
+
+  /// 根据 URL 自动选择音源 (支持视频URL和播放列表URL)
   BaseSource? getSourceForUrl(String url) {
     for (final source in _sources) {
+      // 先检查是否是播放列表 URL
+      if (source.isPlaylistUrl(url)) {
+        return source;
+      }
+      // 再检查是否是普通视频 URL
       if (source.canHandle(url)) {
         return source;
       }
