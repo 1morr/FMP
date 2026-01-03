@@ -1,24 +1,31 @@
 import 'package:isar/isar.dart';
 import '../models/play_queue.dart';
+import '../../core/logger.dart';
 
 /// PlayQueue 数据仓库
-class QueueRepository {
+class QueueRepository with Logging {
   final Isar _isar;
 
   QueueRepository(this._isar);
 
   /// 获取或创建播放队列（单例）
   Future<PlayQueue> getOrCreate() async {
+    logDebug('Getting or creating queue...');
     var queue = await _isar.playQueues.where().findFirst();
     if (queue == null) {
+      logInfo('No existing queue found, creating new one');
       queue = PlayQueue();
       await _isar.writeTxn(() => _isar.playQueues.put(queue!));
+      logDebug('Created new queue with id: ${queue.id}');
+    } else {
+      logDebug('Found existing queue with ${queue.trackIds.length} tracks, currentIndex: ${queue.currentIndex}');
     }
     return queue;
   }
 
   /// 保存播放队列
   Future<int> save(PlayQueue queue) async {
+    logDebug('Saving queue: ${queue.trackIds.length} tracks, index: ${queue.currentIndex}');
     queue.lastUpdated = DateTime.now();
     return _isar.writeTxn(() => _isar.playQueues.put(queue));
   }

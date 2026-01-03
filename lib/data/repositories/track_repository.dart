@@ -1,8 +1,9 @@
 import 'package:isar/isar.dart';
 import '../models/track.dart';
+import '../../core/logger.dart';
 
 /// Track 数据仓库
-class TrackRepository {
+class TrackRepository with Logging {
   final Isar _isar;
 
   TrackRepository(this._isar);
@@ -19,6 +20,7 @@ class TrackRepository {
 
   /// 根据ID列表获取歌曲（保持顺序）
   Future<List<Track>> getByIds(List<int> ids) async {
+    logDebug('Getting tracks by ids: $ids');
     final tracks = await _isar.tracks.getAll(ids);
     // 过滤null并保持顺序
     final result = <Track>[];
@@ -28,6 +30,7 @@ class TrackRepository {
         result.add(tracks[index]!);
       }
     }
+    logDebug('Found ${result.length}/${ids.length} tracks');
     return result;
   }
 
@@ -43,14 +46,17 @@ class TrackRepository {
 
   /// 保存歌曲并返回更新后的歌曲
   Future<Track> save(Track track) async {
+    logDebug('Saving track: ${track.title} (id: ${track.id}, sourceId: ${track.sourceId})');
     track.updatedAt = DateTime.now();
     final id = await _isar.writeTxn(() => _isar.tracks.put(track));
     track.id = id;
+    logDebug('Track saved with id: $id');
     return track;
   }
 
   /// 批量保存歌曲并返回更新后的歌曲列表
   Future<List<Track>> saveAll(List<Track> tracks) async {
+    logDebug('Saving ${tracks.length} tracks');
     final now = DateTime.now();
     for (final track in tracks) {
       track.updatedAt = now;
@@ -59,6 +65,7 @@ class TrackRepository {
     for (var i = 0; i < tracks.length; i++) {
       tracks[i].id = ids[i];
     }
+    logDebug('Saved ${tracks.length} tracks with ids: $ids');
     return tracks;
   }
 

@@ -431,6 +431,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   // ========== 私有方法 ==========
 
   void _onPlayerStateChanged(just_audio.PlayerState playerState) {
+    logDebug('PlayerState changed: playing=${playerState.playing}, processingState=${playerState.processingState}');
     state = state.copyWith(
       isPlaying: playerState.playing,
       isBuffering: playerState.processingState == just_audio.ProcessingState.buffering,
@@ -452,9 +453,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   void _onCurrentIndexChanged(int? index) {
+    final track = _queueManager.currentTrack;
+    logDebug('CurrentIndex changed: $index, track: ${track?.title ?? "null"}');
     state = state.copyWith(
       currentIndex: index,
-      currentTrack: _queueManager.currentTrack,
+      currentTrack: track,
     );
   }
 
@@ -463,10 +466,14 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   void _updateQueueState() {
+    final queue = _queueManager.tracks;
+    final currentIndex = _queueManager.currentIndex;
+    final currentTrack = _queueManager.currentTrack;
+    logDebug('Updating queue state: ${queue.length} tracks, index: $currentIndex, track: ${currentTrack?.title ?? "null"}');
     state = state.copyWith(
-      queue: _queueManager.tracks,
-      currentIndex: _queueManager.currentIndex,
-      currentTrack: _queueManager.currentTrack,
+      queue: queue,
+      currentIndex: currentIndex,
+      currentTrack: currentTrack,
       playMode: _queueManager.playMode,
       isLoading: false,
     );
@@ -510,8 +517,9 @@ final audioControllerProvider =
     queueManager: queueManager,
   );
 
-  // 初始化
-  controller.initialize();
+  // 启动初始化（异步，但不阻塞）
+  // _ensureInitialized 会在每个操作前确保初始化完成
+  Future.microtask(() => controller.initialize());
 
   return controller;
 });
