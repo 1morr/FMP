@@ -182,6 +182,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // 更新初始状态
       _updateQueueState();
 
+      // 恢复音量
+      final savedVolume = _queueManager.savedVolume;
+      await _audioService.setVolume(savedVolume);
+      state = state.copyWith(volume: savedVolume);
+      logDebug('Restored volume: $savedVolume');
+
       // 恢复播放（如果有保存的歌曲）
       if (_queueManager.currentTrack != null) {
         logDebug('Restoring saved track: ${_queueManager.currentTrack!.title}');
@@ -474,6 +480,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   Future<void> setVolume(double volume) async {
     await _audioService.setVolume(volume);
     state = state.copyWith(volume: volume);
+    // 保存音量设置
+    await _queueManager.saveVolume(volume);
   }
 
   // ========== 私有方法 ==========

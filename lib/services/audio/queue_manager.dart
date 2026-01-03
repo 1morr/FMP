@@ -145,6 +145,16 @@ class QueueManager with Logging {
   /// 获取恢复位置
   Duration get savedPosition => _currentPosition;
 
+  /// 获取保存的音量
+  double get savedVolume => _currentQueue?.lastVolume ?? 1.0;
+
+  /// 保存音量
+  Future<void> saveVolume(double volume) async {
+    if (_currentQueue == null) return;
+    _currentQueue!.lastVolume = volume.clamp(0.0, 1.0);
+    await _queueRepository.save(_currentQueue!);
+  }
+
   /// 获取下一首歌曲的索引
   int? getNextIndex() {
     if (_tracks.isEmpty) return null;

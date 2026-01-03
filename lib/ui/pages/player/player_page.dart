@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -7,6 +8,10 @@ import '../../../services/audio/audio_provider.dart';
 /// 播放器页面（全屏）
 class PlayerPage extends ConsumerWidget {
   const PlayerPage({super.key});
+
+  /// 是否为桌面平台
+  bool get isDesktop =>
+      Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -22,30 +27,43 @@ class PlayerPage extends ConsumerWidget {
         ),
         title: const Text('正在播放'),
         actions: [
-          // 播放速度
-          PopupMenuButton<double>(
-            icon: Text(
-              '${playerState.speed}x',
-              style: TextStyle(
-                color: colorScheme.onSurface,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            onSelected: (speed) => controller.setSpeed(speed),
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 0.5, child: Text('0.5x')),
-              const PopupMenuItem(value: 0.75, child: Text('0.75x')),
-              const PopupMenuItem(value: 1.0, child: Text('1.0x')),
-              const PopupMenuItem(value: 1.25, child: Text('1.25x')),
-              const PopupMenuItem(value: 1.5, child: Text('1.5x')),
-              const PopupMenuItem(value: 2.0, child: Text('2.0x')),
-            ],
-          ),
-          IconButton(
+          // 桌面端音量控制（紧凑版）
+          if (isDesktop)
+            _buildCompactVolumeControl(context, playerState, controller, colorScheme),
+          // 更多选项（包含倍速）
+          PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
-            onPressed: () {
-              // TODO: 显示更多选项
+            onSelected: (value) {
+              if (value.startsWith('speed_')) {
+                final speed = double.parse(value.substring(6));
+                controller.setSpeed(speed);
+              }
             },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                enabled: false,
+                child: Text(
+                  '播放速度',
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              ...[0.5, 0.75, 1.0, 1.25, 1.5, 2.0].map((speed) => PopupMenuItem(
+                value: 'speed_$speed',
+                child: Row(
+                  children: [
+                    if (playerState.speed == speed)
+                      Icon(Icons.check, size: 18, color: colorScheme.primary)
+                    else
+                      const SizedBox(width: 18),
+                    const SizedBox(width: 8),
+                    Text('${speed}x'),
+                  ],
+                ),
+              )),
+            ],
           ),
         ],
       ),
@@ -70,7 +88,6 @@ class PlayerPage extends ConsumerWidget {
 
             // 播放控制
             _buildPlaybackControls(context, playerState, controller, colorScheme),
-            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -289,6 +306,65 @@ class PlayerPage extends ConsumerWidget {
         size: 40,
       ),
     );
+  }
+
+  /// 紧凑音量控制（AppBar用，仅桌面端）
+  Widget _buildCompactVolumeControl(
+    BuildContext context,
+    PlayerState state,
+    AudioController controller,
+    ColorScheme colorScheme,
+  ) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 音量图标按钮
+        IconButton(
+          icon: Icon(_getVolumeIcon(state.volume), size: 20),
+          visualDensity: VisualDensity.compact,
+          tooltip: state.volume > 0 ? '静音' : '取消静音',
+          onPressed: () {
+            if (state.volume > 0) {
+              controller.setVolume(0);
+            } else {
+              controller.setVolume(1.0);
+            }
+          },
+        ),
+        // 音量滑块
+        SizedBox(
+          width: 100,
+          child: SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 3,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+              activeTrackColor: colorScheme.primary,
+              inactiveTrackColor: colorScheme.surfaceContainerHighest,
+              thumbColor: colorScheme.primary,
+              overlayColor: colorScheme.primary.withValues(alpha: 0.2),
+            ),
+            child: Slider(
+              value: state.volume,
+              min: 0.0,
+              max: 1.0,
+              onChanged: (value) => controller.setVolume(value),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 根据音量获取对应图标
+  IconData _getVolumeIcon(double volume) {
+    if (volume <= 0) {
+      return Icons.volume_off;
+    } else if (volume < 0.5) {
+      return Icons.volume_down;
+    } else {
+      return Icons.volume_up;
+    }
   }
 
   /// 获取播放模式图标

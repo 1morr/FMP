@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -10,6 +11,10 @@ import '../../router.dart';
 /// 显示在页面底部，展示当前播放的歌曲信息和控制按钮
 class MiniPlayer extends ConsumerWidget {
   const MiniPlayer({super.key});
+
+  /// 是否为桌面平台
+  bool get isDesktop =>
+      Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -89,6 +94,12 @@ class MiniPlayer extends ConsumerWidget {
                     _buildPreviousButton(playerState, controller),
                     _buildPlayPauseButton(playerState, controller, colorScheme),
                     _buildNextButton(playerState, controller),
+
+                    // 桌面端音量控制
+                    if (isDesktop) ...[
+                      const SizedBox(width: 8),
+                      _buildVolumeControl(playerState, controller, colorScheme),
+                    ],
                   ],
                 ),
               ),
@@ -209,5 +220,66 @@ class MiniPlayer extends ConsumerWidget {
           ? () => controller.next()
           : null,
     );
+  }
+
+  /// 音量控制（仅桌面端）
+  Widget _buildVolumeControl(
+    PlayerState state,
+    AudioController controller,
+    ColorScheme colorScheme,
+  ) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 静音/音量图标按钮
+        IconButton(
+          icon: Icon(
+            _getVolumeIcon(state.volume),
+            size: 20,
+          ),
+          visualDensity: VisualDensity.compact,
+          tooltip: state.volume > 0 ? '静音' : '取消静音',
+          onPressed: () {
+            if (state.volume > 0) {
+              controller.setVolume(0);
+            } else {
+              controller.setVolume(1.0);
+            }
+          },
+        ),
+        // 音量滑块
+        SizedBox(
+          width: 100,
+          child: SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 4,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+              activeTrackColor: colorScheme.primary,
+              inactiveTrackColor: colorScheme.surfaceContainerHighest,
+              thumbColor: colorScheme.primary,
+              overlayColor: colorScheme.primary.withValues(alpha: 0.2),
+            ),
+            child: Slider(
+              value: state.volume,
+              min: 0.0,
+              max: 1.0,
+              onChanged: (value) => controller.setVolume(value),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 根据音量获取对应图标
+  IconData _getVolumeIcon(double volume) {
+    if (volume <= 0) {
+      return Icons.volume_off;
+    } else if (volume < 0.5) {
+      return Icons.volume_down;
+    } else {
+      return Icons.volume_up;
+    }
   }
 }
