@@ -5,6 +5,7 @@ import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
 import '../../data/repositories/queue_repository.dart';
 import '../../data/repositories/track_repository.dart';
+import '../../data/sources/source_provider.dart';
 import '../../providers/database_provider.dart';
 import 'audio_service.dart';
 import 'queue_manager.dart';
@@ -400,6 +401,7 @@ final audioServiceProvider = Provider<AudioService>((ref) {
 final queueManagerProvider = Provider<QueueManager>((ref) {
   final audioService = ref.watch(audioServiceProvider);
   final db = ref.watch(databaseProvider).requireValue;
+  final sourceManager = ref.watch(sourceManagerProvider);
 
   final queueRepository = QueueRepository(db);
   final trackRepository = TrackRepository(db);
@@ -408,6 +410,7 @@ final queueManagerProvider = Provider<QueueManager>((ref) {
     player: audioService.player,
     queueRepository: queueRepository,
     trackRepository: trackRepository,
+    sourceManager: sourceManager,
   );
 });
 

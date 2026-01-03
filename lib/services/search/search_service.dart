@@ -173,7 +173,8 @@ class SearchService {
   /// 获取搜索历史
   Future<List<SearchHistory>> getSearchHistory({int limit = 20}) async {
     return _isar.searchHistorys
-        .where()
+        .filter()
+        .queryIsNotEmpty()
         .sortByTimestampDesc()
         .limit(limit)
         .findAll();
@@ -196,7 +197,7 @@ class SearchService {
 
     // 删除相同的旧记录
     final existing = await _isar.searchHistorys
-        .where()
+        .filter()
         .queryEqualTo(trimmedQuery)
         .findAll();
 
@@ -214,7 +215,8 @@ class SearchService {
 
       // 保留最近 100 条
       final allHistory = await _isar.searchHistorys
-          .where()
+          .filter()
+          .queryIsNotEmpty()
           .sortByTimestampDesc()
           .findAll();
 
