@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:just_audio/just_audio.dart';
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
@@ -42,6 +43,20 @@ class QueueManager with Logging {
   
   // 正在获取 URL 的 track id，防止重复获取
   final Set<int> _fetchingUrlTrackIds = {};
+  
+  // 是否正在手动跳转，防止 completed 监听器触发自动跳转
+  bool _isManuallySkipping = false;
+  
+  // 上一次播放完成时的索引，防止重复触发
+  int? _lastCompletedIndex;
+  
+  // ========== Shuffle 相关 ==========
+  // 随机播放顺序（存储 _tracks 的索引）
+  List<int> _shuffleOrder = [];
+  // 当前在 shuffleOrder 中的位置
+  int _shuffleIndex = 0;
+  // 是否启用随机播放
+  bool get _isShuffleEnabled => playMode == PlayMode.shuffle;
 
   /// 当前队列中的歌曲列表（不可修改）
   List<Track> get tracks => List.unmodifiable(_tracks);
@@ -111,10 +126,45 @@ class QueueManager with Logging {
       // 启动定期保存位置
       _startPositionSaver();
 
-      // 监听播放完成事件
-      _player.playerStateStream.listen((state) {
+      // 监听播放完成事件，处理自定义 shuffle 逻辑
+      _player.playerStateStream.listen((state) async {
         if (state.processingState == ProcessingState.completed) {
+          final currentIdx = _player.currentIndex;
+          
+          // 防止在手动跳转时触发自动跳转
+          if (_isManuallySkipping) {
+            logDebug('Skipping auto-advance: manual skip in progress');
+            return;
+          }
+          
+          // 防止同一索引重复触发
+          if (currentIdx == _lastCompletedIndex) {
+            logDebug('Skipping auto-advance: same index already completed');
+            return;
+          }
+          
+          // 检查是否真正播放了歌曲（位置超过1秒）
+          // 这可以避免占位符 URL 加载失败时触发
+          final position = _player.position;
+          if (position.inSeconds < 1) {
+            logDebug('Skipping auto-advance: track did not play (position: ${position.inSeconds}s)');
+            return;
+          }
+          
+          _lastCompletedIndex = currentIdx;
           _savePosition();
+          
+          // 如果是 shuffle 模式或 loop 模式，自动播放下一首
+          if (_isShuffleEnabled || playMode == PlayMode.loop) {
+            final nextIdx = getNextIndex();
+            if (nextIdx != null) {
+              logDebug('Track completed, auto-advancing to next: $nextIdx');
+              await playAt(nextIdx);
+              if (_isShuffleEnabled && _shuffleOrder.isNotEmpty) {
+                _shuffleIndex = _shuffleOrder.indexOf(nextIdx);
+              }
+            }
+          }
         }
       });
       
@@ -181,8 +231,9 @@ class QueueManager with Logging {
   
   /// 预取下一首歌曲的 URL（后台执行）
   void _prefetchNextTrack(int currentIndex) {
-    final nextIndex = currentIndex + 1;
-    if (nextIndex >= _tracks.length) return;
+    // 使用 getNextIndex 获取正确的下一首（考虑 shuffle 模式）
+    final nextIndex = getNextIndex();
+    if (nextIndex == null) return;
     
     final nextTrack = _tracks[nextIndex];
     
@@ -194,26 +245,34 @@ class QueueManager with Logging {
       return;
     }
     
-    logDebug('Prefetching audio URL for next track: ${nextTrack.title}');
+    logDebug('Prefetching audio URL for next track (index $nextIndex): ${nextTrack.title}');
     
     // 后台获取，不等待结果
     _ensureTrackUrlAt(nextIndex);
   }
   
   /// 更新指定索引的音频源
+  /// 注意：此方法在播放期间调用可能会导致问题，因此只更新非当前播放的歌曲
   Future<void> _updateAudioSourceAt(int index, Track track) async {
     if (index < 0 || index >= _playlist.length) return;
     
-    final newSource = _createAudioSource(track);
     final currentIndex = _player.currentIndex;
-    final currentPosition = _player.position;
     
-    await _playlist.removeAt(index);
-    await _playlist.insert(index, newSource);
-    
-    // 如果更新的是当前播放的歌曲，需要重新定位
+    // 如果正在更新当前播放的歌曲，不做任何操作
+    // playAt 已经会在播放前确保 URL 是最新的
     if (currentIndex == index) {
-      await _player.seek(currentPosition, index: index);
+      logDebug('Skipping _updateAudioSourceAt for current track (index: $index)');
+      return;
+    }
+    
+    // 对于非当前播放的歌曲，可以安全地更新
+    final newSource = _createAudioSource(track);
+    try {
+      await _playlist.removeAt(index);
+      await _playlist.insert(index, newSource);
+      logDebug('Updated audio source at index $index');
+    } catch (e, stack) {
+      logError('Failed to update audio source at index $index', e, stack);
     }
   }
 
@@ -233,16 +292,34 @@ class QueueManager with Logging {
     
     logDebug('playAt called: index $index, track: ${_tracks[index].title}');
     
-    // 确保该歌曲有有效的音频 URL
-    final track = _tracks[index];
-    if (track.downloadedPath == null && track.cachedPath == null && !track.hasValidAudioUrl) {
-      logDebug('Track needs audio URL, fetching...');
-      _tracks[index] = await _ensureAudioUrl(track);
-      await _updateAudioSourceAt(index, _tracks[index]);
-    }
+    // 设置手动跳转标志，防止 completed 监听器触发
+    _isManuallySkipping = true;
     
-    await _player.seek(Duration.zero, index: index);
-    await _player.play();
+    try {
+      // 确保该歌曲有有效的音频 URL
+      final track = _tracks[index];
+      bool needsRebuild = false;
+      
+      if (track.downloadedPath == null && track.cachedPath == null && !track.hasValidAudioUrl) {
+        logDebug('Track needs audio URL, fetching...');
+        _tracks[index] = await _ensureAudioUrl(track);
+        needsRebuild = true;
+      }
+      
+      // 如果 URL 更新了，需要重建播放列表以确保使用新的 URL
+      if (needsRebuild) {
+        logDebug('Rebuilding playlist for updated track URL');
+        await _rebuildPlaylist();
+      }
+      
+      await _player.seek(Duration.zero, index: index);
+      await _player.play();
+    } finally {
+      // 延迟重置标志，确保 completed 事件已经处理完
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _isManuallySkipping = false;
+      });
+    }
   }
 
   /// 播放单首歌曲（替换队列）
@@ -363,6 +440,10 @@ class QueueManager with Logging {
       
       _tracks.add(savedTrack);
       await _playlist.add(_createAudioSource(savedTrack));
+      
+      // 更新 shuffle order
+      _addToShuffleOrder(_tracks.length - 1);
+      
       await _persistQueue();
       logDebug('Track added to queue, total: ${_tracks.length}');
     } catch (e, stack) {
@@ -381,8 +462,15 @@ class QueueManager with Logging {
       final savedTracks = await _trackRepository.saveAll(tracks);
       logDebug('Saved ${savedTracks.length} tracks to database');
 
+      final startIndex = _tracks.length;
       _tracks.addAll(savedTracks);
       await _playlist.addAll(savedTracks.map(_createAudioSource).toList());
+      
+      // 更新 shuffle order
+      for (var i = 0; i < savedTracks.length; i++) {
+        _addToShuffleOrder(startIndex + i);
+      }
+      
       await _persistQueue();
       logDebug('All tracks added to queue, total: ${_tracks.length}');
     } catch (e, stack) {
@@ -395,9 +483,16 @@ class QueueManager with Logging {
   Future<void> insert(int index, Track track) async {
     if (index < 0 || index > _tracks.length) return;
 
+    // 先调整现有的 shuffle order 索引
+    _adjustShuffleOrderForInsert(index);
+    
     final savedTrack = await _trackRepository.save(track);
     _tracks.insert(index, savedTrack);
     await _playlist.insert(index, _createAudioSource(savedTrack));
+    
+    // 添加新歌曲到 shuffle order
+    _addToShuffleOrder(index);
+    
     await _persistQueue();
   }
 
@@ -411,6 +506,9 @@ class QueueManager with Logging {
   Future<void> removeAt(int index) async {
     if (index < 0 || index >= _tracks.length) return;
 
+    // 从 shuffle order 中移除
+    _removeFromShuffleOrder(index);
+    
     _tracks.removeAt(index);
     await _playlist.removeAt(index);
     await _persistQueue();
@@ -496,6 +594,7 @@ class QueueManager with Logging {
     try {
       _tracks.clear();
       await _playlist.clear();
+      _clearShuffleOrder();
       if (_currentQueue != null) {
         _currentQueue!.originalOrder = [];
         await _persistQueue();
@@ -532,9 +631,200 @@ class QueueManager with Logging {
   /// 设置播放模式
   Future<void> setPlayMode(PlayMode mode) async {
     if (_currentQueue == null) return;
-
+    
+    final oldMode = _currentQueue!.playMode;
     _currentQueue!.playMode = mode;
     await _queueRepository.save(_currentQueue!);
+    
+    // 如果切换到随机模式，生成随机顺序
+    if (mode == PlayMode.shuffle && oldMode != PlayMode.shuffle) {
+      _generateShuffleOrder();
+    }
+    // 如果从随机模式切换出去，清空随机顺序
+    else if (mode != PlayMode.shuffle && oldMode == PlayMode.shuffle) {
+      _clearShuffleOrder();
+    }
+  }
+  
+  // ========== Shuffle 方法 ==========
+  
+  /// 生成随机播放顺序
+  void _generateShuffleOrder() {
+    if (_tracks.isEmpty) return;
+    
+    final random = Random();
+    final currentIdx = currentIndex ?? 0;
+    
+    // 创建索引列表（排除当前歌曲）
+    _shuffleOrder = List.generate(_tracks.length, (i) => i)
+      ..remove(currentIdx)
+      ..shuffle(random);
+    
+    // 将当前歌曲放在开头
+    _shuffleOrder.insert(0, currentIdx);
+    _shuffleIndex = 0;
+    
+    logDebug('Generated shuffle order: $_shuffleOrder, starting at index $_shuffleIndex');
+  }
+  
+  /// 清空随机播放顺序
+  void _clearShuffleOrder() {
+    _shuffleOrder.clear();
+    _shuffleIndex = 0;
+    logDebug('Cleared shuffle order');
+  }
+  
+  /// 是否有下一首可播放
+  bool get hasNext => getNextIndex() != null;
+  
+  /// 是否有上一首可播放
+  bool get hasPrevious => getPreviousIndex() != null;
+  
+  /// 获取下一首歌曲的索引
+  int? getNextIndex() {
+    if (_tracks.isEmpty) return null;
+    
+    final currentIdx = currentIndex ?? 0;
+    
+    if (_isShuffleEnabled && _shuffleOrder.isNotEmpty) {
+      // 随机模式：使用 shuffleOrder
+      if (_shuffleIndex < _shuffleOrder.length - 1) {
+        return _shuffleOrder[_shuffleIndex + 1];
+      }
+      // 如果是循环模式，回到开头
+      if (playMode == PlayMode.shuffle) {
+        return _shuffleOrder[0];
+      }
+      return null;
+    } else {
+      // 顺序模式
+      if (currentIdx < _tracks.length - 1) {
+        return currentIdx + 1;
+      }
+      // 如果是循环模式，回到开头
+      if (playMode == PlayMode.loop) {
+        return 0;
+      }
+      return null;
+    }
+  }
+  
+  /// 获取上一首歌曲的索引
+  int? getPreviousIndex() {
+    if (_tracks.isEmpty) return null;
+    
+    final currentIdx = currentIndex ?? 0;
+    
+    if (_isShuffleEnabled && _shuffleOrder.isNotEmpty) {
+      // 随机模式：使用 shuffleOrder
+      if (_shuffleIndex > 0) {
+        return _shuffleOrder[_shuffleIndex - 1];
+      }
+      // 如果是循环模式，回到结尾
+      if (playMode == PlayMode.shuffle) {
+        return _shuffleOrder[_shuffleOrder.length - 1];
+      }
+      return null;
+    } else {
+      // 顺序模式
+      if (currentIdx > 0) {
+        return currentIdx - 1;
+      }
+      // 如果是循环模式，回到结尾
+      if (playMode == PlayMode.loop) {
+        return _tracks.length - 1;
+      }
+      return null;
+    }
+  }
+  
+  /// 播放下一首
+  Future<void> skipToNext() async {
+    final nextIdx = getNextIndex();
+    if (nextIdx != null) {
+      // 更新 shuffleIndex
+      if (_isShuffleEnabled && _shuffleOrder.isNotEmpty) {
+        _shuffleIndex = _shuffleOrder.indexOf(nextIdx);
+        if (_shuffleIndex < 0) _shuffleIndex = 0;
+      }
+      await playAt(nextIdx);
+    }
+  }
+  
+  /// 播放上一首
+  Future<void> skipToPrevious() async {
+    final prevIdx = getPreviousIndex();
+    if (prevIdx != null) {
+      // 更新 shuffleIndex
+      if (_isShuffleEnabled && _shuffleOrder.isNotEmpty) {
+        _shuffleIndex = _shuffleOrder.indexOf(prevIdx);
+        if (_shuffleIndex < 0) _shuffleIndex = 0;
+      }
+      await playAt(prevIdx);
+    }
+  }
+  
+  /// 当索引变化时更新 shuffleIndex（由外部调用）
+  void updateShuffleIndexForCurrentTrack() {
+    if (!_isShuffleEnabled || _shuffleOrder.isEmpty) return;
+    
+    final currentIdx = currentIndex;
+    if (currentIdx != null) {
+      final newShuffleIdx = _shuffleOrder.indexOf(currentIdx);
+      if (newShuffleIdx >= 0) {
+        _shuffleIndex = newShuffleIdx;
+      }
+    }
+  }
+  
+  /// 当添加新歌曲时更新 shuffleOrder
+  void _addToShuffleOrder(int trackIndex) {
+    if (!_isShuffleEnabled || _shuffleOrder.isEmpty) return;
+    
+    // 在当前位置之后的随机位置插入新歌曲
+    final random = Random();
+    final remainingSlots = _shuffleOrder.length - _shuffleIndex - 1;
+    if (remainingSlots > 0) {
+      final insertPos = _shuffleIndex + 1 + random.nextInt(remainingSlots + 1);
+      _shuffleOrder.insert(insertPos, trackIndex);
+    } else {
+      _shuffleOrder.add(trackIndex);
+    }
+    logDebug('Added track $trackIndex to shuffle order at random position');
+  }
+  
+  /// 当删除歌曲时更新 shuffleOrder
+  void _removeFromShuffleOrder(int trackIndex) {
+    if (!_isShuffleEnabled || _shuffleOrder.isEmpty) return;
+    
+    final shuffleIdx = _shuffleOrder.indexOf(trackIndex);
+    if (shuffleIdx >= 0) {
+      _shuffleOrder.removeAt(shuffleIdx);
+      // 调整 shuffleIndex
+      if (shuffleIdx < _shuffleIndex) {
+        _shuffleIndex--;
+      }
+    }
+    
+    // 调整所有大于 trackIndex 的索引
+    for (var i = 0; i < _shuffleOrder.length; i++) {
+      if (_shuffleOrder[i] > trackIndex) {
+        _shuffleOrder[i]--;
+      }
+    }
+    logDebug('Removed track $trackIndex from shuffle order, adjusted indices');
+  }
+  
+  /// 当插入歌曲时更新 shuffleOrder 中的索引
+  void _adjustShuffleOrderForInsert(int insertIndex) {
+    if (!_isShuffleEnabled || _shuffleOrder.isEmpty) return;
+    
+    // 调整所有 >= insertIndex 的索引
+    for (var i = 0; i < _shuffleOrder.length; i++) {
+      if (_shuffleOrder[i] >= insertIndex) {
+        _shuffleOrder[i]++;
+      }
+    }
   }
 
   // ========== 私有方法 ==========

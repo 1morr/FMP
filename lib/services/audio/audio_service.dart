@@ -193,24 +193,25 @@ class AudioService with Logging {
   // ========== 播放模式 ==========
 
   /// 设置播放模式
+  /// 注意：shuffle 模式由 QueueManager 自定义实现，不使用 just_audio 的内置 shuffle
   Future<void> setPlayMode(PlayMode mode) async {
     _playMode = mode;
+    // 始终禁用 just_audio 的内置 shuffle，使用 QueueManager 的自定义 shuffle 逻辑
+    await _player.setShuffleModeEnabled(false);
+    
     switch (mode) {
       case PlayMode.sequential:
         await _player.setLoopMode(LoopMode.off);
-        await _player.setShuffleModeEnabled(false);
         break;
       case PlayMode.loop:
         await _player.setLoopMode(LoopMode.all);
-        await _player.setShuffleModeEnabled(false);
         break;
       case PlayMode.loopOne:
         await _player.setLoopMode(LoopMode.one);
-        await _player.setShuffleModeEnabled(false);
         break;
       case PlayMode.shuffle:
-        await _player.setLoopMode(LoopMode.all);
-        await _player.setShuffleModeEnabled(true);
+        // shuffle 时使用 LoopMode.off，循环逻辑由 QueueManager 处理
+        await _player.setLoopMode(LoopMode.off);
         break;
     }
   }
