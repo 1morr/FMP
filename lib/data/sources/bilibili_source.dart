@@ -235,39 +235,77 @@ class BilibiliSource extends BaseSource {
         throw Exception('Invalid favorites URL: $playlistUrl');
       }
 
-      final response = await _dio.get(
+      // 获取第一页，同时获取总数和元信息
+      final firstResponse = await _dio.get(
         _favListApi,
         queryParameters: {
           'media_id': fid,
-          'pn': page,
+          'pn': 1,
           'ps': pageSize,
           'platform': 'web',
         },
       );
 
-      _checkResponse(response.data);
+      _checkResponse(firstResponse.data);
 
-      final data = response.data['data'];
+      final data = firstResponse.data['data'];
       final info = data['info'];
-      final medias = data['medias'] as List? ?? [];
-      final cnt = data['cnt'] ?? 0;
+      final totalCount = data['info']?['media_count'] ?? 0;
+      final firstMedias = data['medias'] as List? ?? [];
 
-      final tracks = medias.map((item) {
-        return Track()
+      // 收集所有歌曲
+      final allTracks = <Track>[];
+
+      // 添加第一页的歌曲
+      for (final item in firstMedias) {
+        allTracks.add(Track()
           ..sourceId = item['bvid'] ?? ''
           ..sourceType = SourceType.bilibili
           ..title = item['title'] ?? 'Unknown'
           ..artist = item['upper']?['name']
           ..durationMs = ((item['duration'] as int?) ?? 0) * 1000
-          ..thumbnailUrl = item['cover'];
-      }).toList();
+          ..thumbnailUrl = item['cover']);
+      }
+
+      // 计算总页数并获取剩余页面
+      final totalPages = (totalCount / pageSize).ceil();
+
+      for (int currentPage = 2; currentPage <= totalPages; currentPage++) {
+        final response = await _dio.get(
+          _favListApi,
+          queryParameters: {
+            'media_id': fid,
+            'pn': currentPage,
+            'ps': pageSize,
+            'platform': 'web',
+          },
+        );
+
+        _checkResponse(response.data);
+
+        final medias = response.data['data']['medias'] as List? ?? [];
+        if (medias.isEmpty) break; // 没有更多数据了
+
+        for (final item in medias) {
+          allTracks.add(Track()
+            ..sourceId = item['bvid'] ?? ''
+            ..sourceType = SourceType.bilibili
+            ..title = item['title'] ?? 'Unknown'
+            ..artist = item['upper']?['name']
+            ..durationMs = ((item['duration'] as int?) ?? 0) * 1000
+            ..thumbnailUrl = item['cover']);
+        }
+
+        // 添加小延迟避免请求过快
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
 
       return PlaylistParseResult(
         title: info?['title'] ?? 'Favorites',
         description: info?['intro'],
         coverUrl: info?['cover'],
-        tracks: tracks,
-        totalCount: cnt,
+        tracks: allTracks,
+        totalCount: allTracks.length,
         sourceUrl: playlistUrl,
       );
     } on DioException catch (e) {
