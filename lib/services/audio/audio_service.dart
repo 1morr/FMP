@@ -132,13 +132,6 @@ class AudioService with Logging {
   /// 重置播放速度
   Future<void> resetSpeed() => _player.setSpeed(1.0);
 
-  // ========== 循环模式 ==========
-
-  /// 设置单曲循环
-  Future<void> setLoopOne(bool enabled) async {
-    await _player.setLoopMode(enabled ? LoopMode.one : LoopMode.off);
-  }
-
   // ========== 音量控制 ==========
 
   /// 设置音量 (0.0 - 1.0)
@@ -159,9 +152,22 @@ class AudioService with Logging {
   Future<Duration?> playUrl(String url) async {
     logDebug('Playing URL: ${url.substring(0, url.length > 50 ? 50 : url.length)}...');
     try {
+      // 先停止当前播放
+      await _player.stop();
+
+      // 设置新的 URL
       final duration = await _player.setUrl(url);
+
+      // 确保播放
       await _player.play();
-      logDebug('Playback started, duration: $duration');
+
+      // 再次确认播放状态
+      if (!_player.playing) {
+        logWarning('Player not playing after play() call, retrying...');
+        await _player.play();
+      }
+
+      logDebug('Playback started, duration: $duration, playing: ${_player.playing}');
       return duration;
     } catch (e, stack) {
       logError('Failed to play URL', e, stack);
@@ -186,9 +192,22 @@ class AudioService with Logging {
   Future<Duration?> playFile(String filePath) async {
     logDebug('Playing file: $filePath');
     try {
+      // 先停止当前播放
+      await _player.stop();
+
+      // 设置新的文件
       final duration = await _player.setFilePath(filePath);
+
+      // 确保播放
       await _player.play();
-      logDebug('File playback started, duration: $duration');
+
+      // 再次确认播放状态
+      if (!_player.playing) {
+        logWarning('Player not playing after play() call, retrying...');
+        await _player.play();
+      }
+
+      logDebug('File playback started, duration: $duration, playing: ${_player.playing}');
       return duration;
     } catch (e, stack) {
       logError('Failed to play file', e, stack);
