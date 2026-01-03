@@ -31,7 +31,7 @@ class MiniPlayer extends ConsumerWidget {
           color: colorScheme.surfaceContainerHigh,
           border: Border(
             top: BorderSide(
-              color: colorScheme.outlineVariant.withOpacity(0.3),
+              color: colorScheme.outlineVariant.withValues(alpha: 0.3),
               width: 0.5,
             ),
           ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../core/constants/breakpoints.dart';
 import 'router.dart';
 import 'layouts/responsive_scaffold.dart';
 

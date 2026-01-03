@@ -1,53 +1,312 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+
+import '../../../data/models/playlist.dart';
+import '../../../providers/playlist_provider.dart';
+import '../../router.dart';
+import 'widgets/create_playlist_dialog.dart';
+import 'widgets/import_url_dialog.dart';
 
 /// 音乐库页
-class LibraryPage extends StatelessWidget {
+class LibraryPage extends ConsumerWidget {
   const LibraryPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(playlistListProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('音乐库'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.link),
+            tooltip: '从 URL 导入',
+            onPressed: () => _showImportDialog(context, ref),
+          ),
+          IconButton(
             icon: const Icon(Icons.add),
             tooltip: '新建歌单',
-            onPressed: () {},
+            onPressed: () => _showCreateDialog(context, ref),
           ),
         ],
       ),
-      body: Center(
+      body: state.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : state.playlists.isEmpty
+              ? _buildEmptyState(context, ref)
+              : _buildPlaylistGrid(context, ref, state.playlists),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Icons.library_music,
-              size: 64,
+              size: 80,
               color: colorScheme.outline,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             Text(
               '暂无歌单',
-              style: Theme.of(context).textTheme.titleMedium,
+              style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
             Text(
-              '点击右上角创建你的第一个歌单',
+              '创建你的第一个歌单或从 B站 导入收藏夹',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colorScheme.outline,
                   ),
+              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
-            OutlinedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.link),
-              label: const Text('从 URL 导入'),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                FilledButton.icon(
+                  onPressed: () => _showCreateDialog(context, ref),
+                  icon: const Icon(Icons.add),
+                  label: const Text('新建歌单'),
+                ),
+                const SizedBox(width: 16),
+                OutlinedButton.icon(
+                  onPressed: () => _showImportDialog(context, ref),
+                  icon: const Icon(Icons.link),
+                  label: const Text('从 URL 导入'),
+                ),
+              ],
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPlaylistGrid(
+    BuildContext context,
+    WidgetRef ref,
+    List<Playlist> playlists,
+  ) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 响应式网格列数
+        final crossAxisCount = constraints.maxWidth > 900
+            ? 5
+            : constraints.maxWidth > 600
+                ? 4
+                : constraints.maxWidth > 400
+                    ? 3
+                    : 2;
+
+        return GridView.builder(
+          padding: const EdgeInsets.all(16),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            mainAxisSpacing: 16,
+            crossAxisSpacing: 16,
+            childAspectRatio: 0.8,
+          ),
+          itemCount: playlists.length,
+          itemBuilder: (context, index) {
+            return _PlaylistCard(playlist: playlists[index]);
+          },
+        );
+      },
+    );
+  }
+
+  void _showCreateDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => const CreatePlaylistDialog(),
+    );
+  }
+
+  void _showImportDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => const ImportUrlDialog(),
+    );
+  }
+}
+
+/// 歌单卡片
+class _PlaylistCard extends ConsumerWidget {
+  final Playlist playlist;
+
+  const _PlaylistCard({required this.playlist});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final coverAsync = ref.watch(playlistCoverProvider(playlist.id));
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.push('${RoutePaths.library}/${playlist.id}'),
+        onLongPress: () => _showOptionsMenu(context, ref),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 封面 - 使用 Expanded 填充剩余空间
+            Expanded(
+              child: SizedBox(
+                width: double.infinity,
+                child: coverAsync.when(
+                  data: (coverUrl) => coverUrl != null
+                      ? CachedNetworkImage(
+                          imageUrl: coverUrl,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => _buildPlaceholder(colorScheme),
+                          errorWidget: (context, url, error) =>
+                              _buildPlaceholder(colorScheme),
+                        )
+                      : _buildPlaceholder(colorScheme),
+                  loading: () => _buildPlaceholder(colorScheme),
+                  error: (error, stack) => _buildPlaceholder(colorScheme),
+                ),
+              ),
+            ),
+
+            // 信息
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    playlist.name,
+                    style: Theme.of(context).textTheme.titleSmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      if (playlist.isImported) ...[
+                        Icon(
+                          Icons.link,
+                          size: 12,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      Text(
+                        '${playlist.trackCount} 首',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: colorScheme.outline,
+                            ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlaceholder(ColorScheme colorScheme) {
+    return Container(
+      color: colorScheme.surfaceContainerHighest,
+      child: Icon(
+        Icons.album,
+        size: 48,
+        color: colorScheme.outline,
+      ),
+    );
+  }
+
+  void _showOptionsMenu(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.play_arrow),
+              title: const Text('播放全部'),
+              onTap: () {
+                Navigator.pop(context);
+                // TODO: 播放歌单
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit),
+              title: const Text('编辑歌单'),
+              onTap: () {
+                Navigator.pop(context);
+                _showEditDialog(context, ref);
+              },
+            ),
+            if (playlist.isImported)
+              ListTile(
+                leading: const Icon(Icons.refresh),
+                title: const Text('刷新歌单'),
+                onTap: () {
+                  Navigator.pop(context);
+                  // TODO: 刷新歌单
+                },
+              ),
+            ListTile(
+              leading: Icon(Icons.delete, color: colorScheme.error),
+              title: Text('删除歌单', style: TextStyle(color: colorScheme.error)),
+              onTap: () {
+                Navigator.pop(context);
+                _showDeleteConfirm(context, ref);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => CreatePlaylistDialog(playlist: playlist),
+    );
+  }
+
+  void _showDeleteConfirm(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除歌单'),
+        content: Text('确定要删除 "${playlist.name}" 吗？此操作无法撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ref.read(playlistListProvider.notifier).deletePlaylist(playlist.id);
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('删除'),
+          ),
+        ],
       ),
     );
   }
