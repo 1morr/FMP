@@ -33,36 +33,32 @@ class PlayerPage extends ConsumerWidget {
           // 更多选项（包含倍速）
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
+            offset: const Offset(0, 48), // 向下偏移，与子菜单位置一致
             onSelected: (value) {
-              if (value.startsWith('speed_')) {
-                final speed = double.parse(value.substring(6));
-                controller.setSpeed(speed);
+              if (value == 'speed') {
+                // 延迟显示子菜单，等主菜单关闭后再显示
+                Future.delayed(const Duration(milliseconds: 100), () {
+                  _showSpeedMenu(context, controller, playerState.speed, colorScheme);
+                });
               }
             },
             itemBuilder: (context) => [
               PopupMenuItem(
-                enabled: false,
-                child: Text(
-                  '播放速度',
-                  style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              ...[0.5, 0.75, 1.0, 1.25, 1.5, 2.0].map((speed) => PopupMenuItem(
-                value: 'speed_$speed',
+                value: 'speed',
                 child: Row(
                   children: [
-                    if (playerState.speed == speed)
-                      Icon(Icons.check, size: 18, color: colorScheme.primary)
-                    else
-                      const SizedBox(width: 18),
-                    const SizedBox(width: 8),
-                    Text('${speed}x'),
+                    const Icon(Icons.speed, size: 20),
+                    const SizedBox(width: 12),
+                    Text('${playerState.speed}x'),
+                    const Spacer(),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ],
                 ),
-              )),
+              ),
             ],
           ),
         ],
@@ -306,6 +302,45 @@ class PlayerPage extends ConsumerWidget {
         size: 40,
       ),
     );
+  }
+
+  /// 显示倍速选择菜单
+  void _showSpeedMenu(
+    BuildContext context,
+    AudioController controller,
+    double currentSpeed,
+    ColorScheme colorScheme,
+  ) {
+    // 获取屏幕尺寸，将菜单定位在右上角
+    final screenSize = MediaQuery.of(context).size;
+    final position = RelativeRect.fromLTRB(
+      screenSize.width - 150, // 距离左边
+      kToolbarHeight + MediaQuery.of(context).padding.top, // 距离顶部
+      8, // 距离右边
+      0,
+    );
+
+    showMenu<double>(
+      context: context,
+      position: position,
+      items: [0.5, 0.75, 1.0, 1.25, 1.5, 2.0].map((speed) => PopupMenuItem(
+        value: speed,
+        child: Row(
+          children: [
+            if (currentSpeed == speed)
+              Icon(Icons.check, size: 18, color: colorScheme.primary)
+            else
+              const SizedBox(width: 18),
+            const SizedBox(width: 8),
+            Text('${speed}x'),
+          ],
+        ),
+      )).toList(),
+    ).then((value) {
+      if (value != null) {
+        controller.setSpeed(value);
+      }
+    });
   }
 
   /// 紧凑音量控制（AppBar用，仅桌面端）
