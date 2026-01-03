@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:just_audio/just_audio.dart';
+import '../../core/logger.dart';
 import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
 import '../../data/repositories/queue_repository.dart';
@@ -23,7 +24,7 @@ class MediaItem {
 
 /// 播放队列管理器
 /// 负责管理播放列表、持久化和同步
-class QueueManager {
+class QueueManager with Logging {
   final AudioPlayer _player;
   final QueueRepository _queueRepository;
   final TrackRepository _trackRepository;
@@ -73,34 +74,44 @@ class QueueManager {
 
   /// 初始化队列（从持久化存储加载）
   Future<void> initialize() async {
-    _currentQueue = await _queueRepository.getOrCreate();
+    logInfo('Initializing QueueManager...');
+    try {
+      _currentQueue = await _queueRepository.getOrCreate();
 
-    if (_currentQueue!.trackIds.isNotEmpty) {
-      // 加载保存的歌曲
-      _tracks = await _trackRepository.getByIds(_currentQueue!.trackIds);
+      if (_currentQueue!.trackIds.isNotEmpty) {
+        logDebug('Loading ${_currentQueue!.trackIds.length} saved tracks');
+        // 加载保存的歌曲
+        _tracks = await _trackRepository.getByIds(_currentQueue!.trackIds);
 
-      if (_tracks.isNotEmpty) {
-        await _rebuildPlaylist();
+        if (_tracks.isNotEmpty) {
+          await _rebuildPlaylist();
 
-        // 恢复播放位置
-        if (_currentQueue!.currentIndex < _tracks.length) {
-          await _player.seek(
-            Duration(milliseconds: _currentQueue!.lastPositionMs),
-            index: _currentQueue!.currentIndex,
-          );
+          // 恢复播放位置
+          if (_currentQueue!.currentIndex < _tracks.length) {
+            await _player.seek(
+              Duration(milliseconds: _currentQueue!.lastPositionMs),
+              index: _currentQueue!.currentIndex,
+            );
+          }
+          logDebug('Restored ${_tracks.length} tracks, position: ${_currentQueue!.currentIndex}');
         }
       }
+
+      // 启动定期保存位置
+      _startPositionSaver();
+
+      // 监听播放完成事件
+      _player.playerStateStream.listen((state) {
+        if (state.processingState == ProcessingState.completed) {
+          _savePosition();
+        }
+      });
+
+      logInfo('QueueManager initialized with ${_tracks.length} tracks');
+    } catch (e, stack) {
+      logError('Failed to initialize QueueManager', e, stack);
+      rethrow;
     }
-
-    // 启动定期保存位置
-    _startPositionSaver();
-
-    // 监听播放完成事件
-    _player.playerStateStream.listen((state) {
-      if (state.processingState == ProcessingState.completed) {
-        _savePosition();
-      }
-    });
   }
 
   /// 释放资源
@@ -161,15 +172,24 @@ class QueueManager {
     }
 
     // 获取音频 URL
+    logDebug('Fetching audio URL for: ${track.title}');
     final source = _sourceManager.getSource(track.sourceType);
     if (source == null) {
-      throw Exception('No source available for ${track.sourceType}');
+      final error = 'No source available for ${track.sourceType}';
+      logError(error);
+      throw Exception(error);
     }
 
-    final refreshedTrack = await source.refreshAudioUrl(track);
-    // 保存更新后的 track
-    await _trackRepository.save(refreshedTrack);
-    return refreshedTrack;
+    try {
+      final refreshedTrack = await source.refreshAudioUrl(track);
+      // 保存更新后的 track
+      await _trackRepository.save(refreshedTrack);
+      logDebug('Audio URL fetched for: ${track.title}');
+      return refreshedTrack;
+    } catch (e, stack) {
+      logError('Failed to fetch audio URL for: ${track.title}', e, stack);
+      rethrow;
+    }
   }
 
   /// 添加歌曲到队列末尾
@@ -303,10 +323,19 @@ class QueueManager {
 
   /// 清空队列
   Future<void> clear() async {
-    _tracks.clear();
-    await _playlist.clear();
-    _currentQueue!.originalOrder = [];
-    await _persistQueue();
+    logInfo('Clearing queue');
+    try {
+      _tracks.clear();
+      await _playlist.clear();
+      if (_currentQueue != null) {
+        _currentQueue!.originalOrder = [];
+        await _persistQueue();
+      }
+      logDebug('Queue cleared successfully');
+    } catch (e, stack) {
+      logError('Failed to clear queue', e, stack);
+      rethrow;
+    }
   }
 
   // ========== 持久化 ==========
