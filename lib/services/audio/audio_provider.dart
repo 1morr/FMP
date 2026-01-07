@@ -9,6 +9,7 @@ import '../../data/repositories/queue_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../data/sources/source_provider.dart';
 import '../../providers/database_provider.dart';
+import '../toast_service.dart';
 import 'audio_service.dart';
 import 'queue_manager.dart';
 
@@ -117,6 +118,7 @@ class PlayerState {
 class AudioController extends StateNotifier<PlayerState> with Logging {
   final AudioService _audioService;
   final QueueManager _queueManager;
+  final ToastService _toastService;
 
   final List<StreamSubscription> _subscriptions = [];
   bool _isInitialized = false;
@@ -132,8 +134,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   AudioController({
     required AudioService audioService,
     required QueueManager queueManager,
+    required ToastService toastService,
   })  : _audioService = audioService,
         _queueManager = queueManager,
+        _toastService = toastService,
         super(const PlayerState());
 
   /// 是否已初始化
@@ -604,17 +608,26 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         error: '无法播放: ${e.message}',
         isLoading: false,
       );
-      // 如果视频不可用，自动跳到下一首
+      // 如果视频不可用，尝试跳到下一首
       if (e.isUnavailable || e.isGeoRestricted) {
-        logInfo('Track unavailable, auto-skipping to next: ${track.title}');
-        // 延迟一小段时间让用户看到错误提示
-        Future.delayed(const Duration(milliseconds: 500), () {
-          next();
-        });
+        logInfo('Track unavailable: ${track.title}');
+        // 检查是否有下一首可播放
+        final nextIdx = _queueManager.getNextIndex();
+        if (nextIdx != null) {
+          // 有下一首，显示提示并跳过
+          _toastService.showWarning('无法播放「${track.title}」，已跳过');
+          Future.delayed(const Duration(milliseconds: 300), () {
+            next();
+          });
+        } else {
+          // 没有下一首，停留在当前歌曲并显示提示
+          _toastService.showError('无法播放「${track.title}」');
+        }
       }
     } catch (e, stack) {
       logError('Failed to play track: ${track.title}', e, stack);
       state = state.copyWith(error: e.toString(), isLoading: false);
+      _toastService.showError('播放失败: ${track.title}');
     } finally {
       // 释放锁
       if (!_playLock!.isCompleted) {
@@ -772,10 +785,12 @@ final audioControllerProvider =
     StateNotifierProvider<AudioController, PlayerState>((ref) {
   final audioService = ref.watch(audioServiceProvider);
   final queueManager = ref.watch(queueManagerProvider);
+  final toastService = ref.watch(toastServiceProvider);
 
   final controller = AudioController(
     audioService: audioService,
     queueManager: queueManager,
+    toastService: toastService,
   );
 
   // 启动初始化（异步，但不阻塞）
