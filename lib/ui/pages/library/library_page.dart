@@ -339,30 +339,10 @@ class _PlaylistCard extends ConsumerWidget {
     controller.playPlaylist(result.tracks, startIndex: 0);
   }
 
-  void _refreshPlaylist(BuildContext context, WidgetRef ref) async {
-    final refreshManager = ref.read(refreshManagerProvider.notifier);
-
-    try {
-      final result = await refreshManager.refreshPlaylist(playlist);
-      if (result != null && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          RefreshResultSnackBar.success(
-            playlistName: playlist.name,
-            addedCount: result.addedCount,
-            skippedCount: result.skippedCount,
-          ),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          RefreshResultSnackBar.error(
-            playlistName: playlist.name,
-            errorMessage: e.toString(),
-          ),
-        );
-      }
-    }
+  void _refreshPlaylist(BuildContext context, WidgetRef ref) {
+    // 提示会在 RefreshManagerNotifier 中通过 ToastService 显示
+    // 不需要在这里处理，因为大歌单刷新时间长，context 可能已失效
+    ref.read(refreshManagerProvider.notifier).refreshPlaylist(playlist);
   }
 
   void _showEditDialog(BuildContext context, WidgetRef ref) {

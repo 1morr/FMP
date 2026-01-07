@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 
 import '../data/models/playlist.dart';
 import '../services/import/import_service.dart';
+import '../services/toast_service.dart';
 import '../data/sources/source_provider.dart';
 import 'repository_providers.dart';
 import 'playlist_provider.dart';
@@ -160,6 +161,13 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
       // 刷新歌单列表
       _ref.read(playlistListProvider.notifier).loadPlaylists();
 
+      // 使用 ToastService 显示成功提示（不依赖 context）
+      final toastService = _ref.read(toastServiceProvider);
+      final message = '${playlist.name} 刷新完成！'
+          '${result.addedCount > 0 ? '新增 ${result.addedCount} 首' : '无新增'}'
+          '${result.skippedCount > 0 ? '，跳过 ${result.skippedCount} 首' : ''}';
+      toastService.showSuccess(message);
+
       // 延迟移除已完成的状态
       Future.delayed(const Duration(seconds: 3), () {
         _removePlaylistState(playlistId);
@@ -174,6 +182,10 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
               error: e.toString(),
             ),
       );
+
+      // 使用 ToastService 显示错误提示
+      final toastService = _ref.read(toastServiceProvider);
+      toastService.showError('${playlist.name} 刷新失败: $e');
 
       // 延迟移除失败的状态
       Future.delayed(const Duration(seconds: 5), () {
