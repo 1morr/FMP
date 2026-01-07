@@ -133,10 +133,17 @@ class QueueRepository with Logging {
     await save(queue);
   }
 
-  /// 更新播放模式
-  Future<void> updatePlayMode(PlayMode mode) async {
+  /// 更新随机播放状态
+  Future<void> updateShuffleEnabled(bool enabled) async {
     final queue = await getOrCreate();
-    queue.playMode = mode;
+    queue.isShuffleEnabled = enabled;
+    await save(queue);
+  }
+
+  /// 更新循环模式
+  Future<void> updateLoopMode(LoopMode mode) async {
+    final queue = await getOrCreate();
+    queue.loopMode = mode;
     await save(queue);
   }
 

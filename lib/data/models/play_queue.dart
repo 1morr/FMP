@@ -2,19 +2,16 @@ import 'package:isar/isar.dart';
 
 part 'play_queue.g.dart';
 
-/// 播放模式枚举
-enum PlayMode {
-  /// 顺序播放
-  sequential,
+/// 循环模式枚举
+enum LoopMode {
+  /// 不循环（播放到队列末尾停止）
+  none,
 
   /// 列表循环
-  loop,
+  all,
 
   /// 单曲循环
-  loopOne,
-
-  /// 随机播放
-  shuffle,
+  one,
 }
 
 /// 播放队列实体
@@ -31,9 +28,12 @@ class PlayQueue {
   /// 上次播放位置（毫秒）
   int lastPositionMs = 0;
 
-  /// 播放模式
+  /// 是否启用随机播放
+  bool isShuffleEnabled = false;
+
+  /// 循环模式
   @Enumerated(EnumType.name)
-  PlayMode playMode = PlayMode.sequential;
+  LoopMode loopMode = LoopMode.none;
 
   /// 原始顺序（用于取消随机时恢复）
   List<int>? originalOrder;
@@ -67,5 +67,5 @@ class PlayQueue {
 
   @override
   String toString() =>
-      'PlayQueue(id: $id, length: $length, currentIndex: $currentIndex, mode: $playMode)';
+      'PlayQueue(id: $id, length: $length, currentIndex: $currentIndex, shuffle: $isShuffleEnabled, loop: $loopMode)';
 }

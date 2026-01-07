@@ -1,11 +1,9 @@
 import 'dart:async';
-import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart' as just_audio;
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
-import '../../data/sources/base_source.dart';
 import '../../data/sources/bilibili_source.dart';
 import '../../data/repositories/queue_repository.dart';
 import '../../data/repositories/track_repository.dart';
@@ -25,7 +23,8 @@ class PlayerState {
   final Duration bufferedPosition;
   final double speed;
   final double volume;
-  final PlayMode playMode;
+  final bool isShuffleEnabled;
+  final LoopMode loopMode;
   final int? currentIndex;
   final Track? currentTrack;
   final List<Track> queue;
@@ -41,7 +40,8 @@ class PlayerState {
     this.bufferedPosition = Duration.zero,
     this.speed = 1.0,
     this.volume = 1.0,
-    this.playMode = PlayMode.sequential,
+    this.isShuffleEnabled = false,
+    this.loopMode = LoopMode.none,
     this.currentIndex,
     this.currentTrack,
     this.queue = const [],
@@ -81,7 +81,8 @@ class PlayerState {
     Duration? bufferedPosition,
     double? speed,
     double? volume,
-    PlayMode? playMode,
+    bool? isShuffleEnabled,
+    LoopMode? loopMode,
     int? currentIndex,
     Track? currentTrack,
     List<Track>? queue,
@@ -99,7 +100,8 @@ class PlayerState {
       bufferedPosition: bufferedPosition ?? this.bufferedPosition,
       speed: speed ?? this.speed,
       volume: volume ?? this.volume,
-      playMode: playMode ?? this.playMode,
+      isShuffleEnabled: isShuffleEnabled ?? this.isShuffleEnabled,
+      loopMode: loopMode ?? this.loopMode,
       currentIndex: currentIndex ?? this.currentIndex,
       currentTrack: currentTrack ?? this.currentTrack,
       queue: queue ?? this.queue,
@@ -462,23 +464,24 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   // ========== 播放模式 ==========
 
-  /// 设置播放模式
-  Future<void> setPlayMode(PlayMode mode) async {
-    logDebug('Setting play mode: $mode');
-    await _queueManager.setPlayMode(mode);
-    state = state.copyWith(playMode: mode);
+  /// 切换随机播放
+  Future<void> toggleShuffle() async {
+    logDebug('Toggling shuffle');
+    await _queueManager.toggleShuffle();
+    state = state.copyWith(isShuffleEnabled: _queueManager.isShuffleEnabled);
   }
 
-  /// 切换播放模式
-  Future<void> cyclePlayMode() async {
-    final currentMode = _queueManager.playMode;
-    final nextMode = switch (currentMode) {
-      PlayMode.sequential => PlayMode.loop,
-      PlayMode.loop => PlayMode.shuffle,
-      PlayMode.shuffle => PlayMode.loopOne,
-      PlayMode.loopOne => PlayMode.sequential,
-    };
-    await setPlayMode(nextMode);
+  /// 设置循环模式
+  Future<void> setLoopMode(LoopMode mode) async {
+    logDebug('Setting loop mode: $mode');
+    await _queueManager.setLoopMode(mode);
+    state = state.copyWith(loopMode: mode);
+  }
+
+  /// 循环切换循环模式
+  Future<void> cycleLoopMode() async {
+    await _queueManager.cycleLoopMode();
+    state = state.copyWith(loopMode: _queueManager.loopMode);
   }
 
   // ========== 音量 ==========
@@ -688,12 +691,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     if (_isHandlingCompletion) return;
     _isHandlingCompletion = true;
 
-    logDebug('Track completed, playMode: ${_queueManager.playMode}');
+    logDebug('Track completed, loopMode: ${_queueManager.loopMode}, shuffle: ${_queueManager.isShuffleEnabled}');
 
     // 使用 Future.microtask 来避免在流监听器中直接操作
     Future.microtask(() async {
       try {
-        if (_queueManager.playMode == PlayMode.loopOne) {
+        if (_queueManager.loopMode == LoopMode.one) {
           // 单曲循环：seek 到开头并重新播放
           logDebug('LoopOne mode: seeking to start and playing');
           await _audioService.seekTo(Duration.zero);
@@ -729,7 +732,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       queue: queue,
       currentIndex: currentIndex,
       currentTrack: currentTrack,
-      playMode: _queueManager.playMode,
+      isShuffleEnabled: _queueManager.isShuffleEnabled,
+      loopMode: _queueManager.loopMode,
       canPlayPrevious: _queueManager.hasPrevious,
       canPlayNext: _queueManager.hasNext,
     );
@@ -808,7 +812,12 @@ final queueProvider = Provider<List<Track>>((ref) {
   return ref.watch(audioControllerProvider).queue;
 });
 
-/// 播放模式
-final playModeProvider = Provider<PlayMode>((ref) {
-  return ref.watch(audioControllerProvider).playMode;
+/// 是否启用随机播放
+final isShuffleEnabledProvider = Provider<bool>((ref) {
+  return ref.watch(audioControllerProvider).isShuffleEnabled;
+});
+
+/// 循环模式
+final loopModeProvider = Provider<LoopMode>((ref) {
+  return ref.watch(audioControllerProvider).loopMode;
 });
