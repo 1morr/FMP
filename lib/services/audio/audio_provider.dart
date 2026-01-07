@@ -251,7 +251,14 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   /// 切换播放/暂停
+  /// 如果当前歌曲有错误状态，尝试重新播放当前歌曲
   Future<void> togglePlayPause() async {
+    // 如果当前有错误状态，尝试重新播放当前歌曲
+    if (state.error != null && state.currentTrack != null) {
+      logDebug('Retrying playback for track with error: ${state.currentTrack!.title}');
+      await _playTrack(state.currentTrack!);
+      return;
+    }
     await _audioService.togglePlayPause();
   }
 
@@ -604,10 +611,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     } on BilibiliApiException catch (e) {
       // Bilibili API 错误（如视频不可用、版权限制等）
       logWarning('Bilibili API error for ${track.title}: ${e.message}');
-      state = state.copyWith(
-        error: '无法播放: ${e.message}',
-        isLoading: false,
-      );
+      
       // 如果视频不可用，尝试跳到下一首
       if (e.isUnavailable || e.isGeoRestricted) {
         logInfo('Track unavailable: ${track.title}');
@@ -615,17 +619,29 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         final nextIdx = _queueManager.getNextIndex();
         if (nextIdx != null) {
           // 有下一首，显示提示并跳过
+          state = state.copyWith(isLoading: false);
           _toastService.showWarning('无法播放「${track.title}」，已跳过');
           Future.delayed(const Duration(milliseconds: 300), () {
             next();
           });
         } else {
-          // 没有下一首，停留在当前歌曲并显示提示
+          // 没有下一首，停止当前播放并显示提示
+          await _audioService.stop();
+          state = state.copyWith(
+            error: '无法播放: ${e.message}',
+            isLoading: false,
+          );
           _toastService.showError('无法播放「${track.title}」');
         }
+      } else {
+        state = state.copyWith(
+          error: '无法播放: ${e.message}',
+          isLoading: false,
+        );
       }
     } catch (e, stack) {
       logError('Failed to play track: ${track.title}', e, stack);
+      await _audioService.stop();
       state = state.copyWith(error: e.toString(), isLoading: false);
       _toastService.showError('播放失败: ${track.title}');
     } finally {
