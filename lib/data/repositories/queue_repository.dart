@@ -34,7 +34,10 @@ class QueueRepository with Logging {
   Future<void> addTrack(int trackId) async {
     final queue = await getOrCreate();
     if (!queue.trackIds.contains(trackId)) {
-      queue.trackIds.add(trackId);
+      // 创建可变列表副本，避免 fixed-length list 错误
+      final newTrackIds = List<int>.from(queue.trackIds);
+      newTrackIds.add(trackId);
+      queue.trackIds = newTrackIds;
       await save(queue);
     }
   }
@@ -42,18 +45,24 @@ class QueueRepository with Logging {
   /// 批量添加歌曲到队列
   Future<void> addTracks(List<int> trackIds) async {
     final queue = await getOrCreate();
+    // 创建可变列表副本，避免 fixed-length list 错误
+    final newTrackIds = List<int>.from(queue.trackIds);
     for (final trackId in trackIds) {
-      if (!queue.trackIds.contains(trackId)) {
-        queue.trackIds.add(trackId);
+      if (!newTrackIds.contains(trackId)) {
+        newTrackIds.add(trackId);
       }
     }
+    queue.trackIds = newTrackIds;
     await save(queue);
   }
 
   /// 插入歌曲到指定位置
   Future<void> insertTrack(int index, int trackId) async {
     final queue = await getOrCreate();
-    queue.trackIds.insert(index.clamp(0, queue.trackIds.length), trackId);
+    // 创建可变列表副本，避免 fixed-length list 错误
+    final newTrackIds = List<int>.from(queue.trackIds);
+    newTrackIds.insert(index.clamp(0, newTrackIds.length), trackId);
+    queue.trackIds = newTrackIds;
     await save(queue);
   }
 
@@ -62,7 +71,10 @@ class QueueRepository with Logging {
     final queue = await getOrCreate();
     final index = queue.trackIds.indexOf(trackId);
     if (index != -1) {
-      queue.trackIds.removeAt(index);
+      // 创建可变列表副本，避免 fixed-length list 错误
+      final newTrackIds = List<int>.from(queue.trackIds);
+      newTrackIds.removeAt(index);
+      queue.trackIds = newTrackIds;
       // 调整当前索引
       if (index < queue.currentIndex) {
         queue.currentIndex--;
@@ -77,7 +89,10 @@ class QueueRepository with Logging {
   Future<void> removeAt(int index) async {
     final queue = await getOrCreate();
     if (index >= 0 && index < queue.trackIds.length) {
-      queue.trackIds.removeAt(index);
+      // 创建可变列表副本，避免 fixed-length list 错误
+      final newTrackIds = List<int>.from(queue.trackIds);
+      newTrackIds.removeAt(index);
+      queue.trackIds = newTrackIds;
       // 调整当前索引
       if (index < queue.currentIndex) {
         queue.currentIndex--;
@@ -93,8 +108,11 @@ class QueueRepository with Logging {
     final queue = await getOrCreate();
     if (oldIndex >= 0 && oldIndex < queue.trackIds.length &&
         newIndex >= 0 && newIndex < queue.trackIds.length) {
-      final trackId = queue.trackIds.removeAt(oldIndex);
-      queue.trackIds.insert(newIndex, trackId);
+      // 创建可变列表副本，避免 fixed-length list 错误
+      final newTrackIds = List<int>.from(queue.trackIds);
+      final trackId = newTrackIds.removeAt(oldIndex);
+      newTrackIds.insert(newIndex, trackId);
+      queue.trackIds = newTrackIds;
 
       // 调整当前索引
       if (queue.currentIndex == oldIndex) {
@@ -112,7 +130,8 @@ class QueueRepository with Logging {
   /// 清空队列
   Future<void> clear() async {
     final queue = await getOrCreate();
-    queue.trackIds.clear();
+    // 创建新的空列表，避免 fixed-length list 错误
+    queue.trackIds = [];
     queue.currentIndex = 0;
     queue.lastPositionMs = 0;
     queue.originalOrder = null;
@@ -158,16 +177,20 @@ class QueueRepository with Logging {
     // 获取当前歌曲ID
     final currentTrackId = queue.currentTrackId;
 
+    // 创建可变列表副本，避免 fixed-length list 错误
+    final newTrackIds = List<int>.from(queue.trackIds);
+    
     // 打乱
-    queue.trackIds.shuffle();
+    newTrackIds.shuffle();
 
     // 将当前播放的歌曲移到第一位
     if (currentTrackId != null) {
-      queue.trackIds.remove(currentTrackId);
-      queue.trackIds.insert(0, currentTrackId);
+      newTrackIds.remove(currentTrackId);
+      newTrackIds.insert(0, currentTrackId);
       queue.currentIndex = 0;
     }
-
+    
+    queue.trackIds = newTrackIds;
     await save(queue);
   }
 

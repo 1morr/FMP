@@ -154,7 +154,10 @@ class ImportService {
           if (existing != null) {
             // 歌曲已存在，添加到歌单（如果不在）
             if (!playlist.trackIds.contains(existing.id)) {
-              playlist.trackIds.add(existing.id);
+              // 创建可变列表副本，避免 fixed-length list 错误
+              final newTrackIds = List<int>.from(playlist.trackIds);
+              newTrackIds.add(existing.id);
+              playlist.trackIds = newTrackIds;
               addedCount++;
             } else {
               skippedCount++;
@@ -162,7 +165,10 @@ class ImportService {
           } else {
             // 保存新歌曲
             final savedTrack = await _trackRepository.save(track);
-            playlist.trackIds.add(savedTrack.id);
+            // 创建可变列表副本，避免 fixed-length list 错误
+            final newTrackIds = List<int>.from(playlist.trackIds);
+            newTrackIds.add(savedTrack.id);
+            playlist.trackIds = newTrackIds;
             addedCount++;
           }
         } catch (e) {
