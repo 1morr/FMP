@@ -1,20 +1,64 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../services/toast_service.dart';
 import 'router.dart';
 import 'layouts/responsive_scaffold.dart';
 
 /// 应用外壳 - 包含导航栏和迷你播放器
-class AppShell extends StatefulWidget {
+class AppShell extends ConsumerStatefulWidget {
   final Widget child;
 
   const AppShell({super.key, required this.child});
 
   @override
-  State<AppShell> createState() => _AppShellState();
+  ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends ConsumerState<AppShell> {
+  void _showSnackBar(ToastMessage message) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
+    Color backgroundColor;
+    IconData icon;
+    
+    switch (message.type) {
+      case ToastType.success:
+        backgroundColor = Colors.green;
+        icon = Icons.check_circle;
+      case ToastType.warning:
+        backgroundColor = Colors.orange;
+        icon = Icons.warning;
+      case ToastType.error:
+        backgroundColor = colorScheme.error;
+        icon = Icons.error;
+      case ToastType.info:
+        backgroundColor = colorScheme.primary;
+        icon = Icons.info;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(icon, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message.message,
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: backgroundColor,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   /// 根据路由路径获取导航索引
   int _getSelectedIndex(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
@@ -48,6 +92,14 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    // 监听 Toast 消息
+    ref.listen<AsyncValue<ToastMessage>>(toastStreamProvider, (previous, next) {
+      next.whenData((message) {
+        if (!mounted) return;
+        _showSnackBar(message);
+      });
+    });
+
     final selectedIndex = _getSelectedIndex(context);
 
     return ResponsiveScaffold(
