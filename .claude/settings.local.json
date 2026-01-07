@@ -27,7 +27,10 @@
       "mcp__plugin_serena_serena__think_about_collected_information",
       "mcp__plugin_serena_serena__search_for_pattern",
       "mcp__plugin_serena_serena__replace_content",
-      "mcp__plugin_serena_serena__think_about_whether_you_are_done"
+      "mcp__plugin_serena_serena__think_about_whether_you_are_done",
+      "mcp__plugin_serena_serena__replace_symbol_body",
+      "mcp__plugin_serena_serena__create_text_file",
+      "Bash(flutter test:*)"
     ]
   }
 }

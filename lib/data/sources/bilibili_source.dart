@@ -1,9 +1,10 @@
 import 'package:dio/dio.dart';
+import '../../core/logger.dart';
 import '../models/track.dart';
 import 'base_source.dart';
 
 /// Bilibili 音源实现
-class BilibiliSource extends BaseSource {
+class BilibiliSource extends BaseSource with Logging {
   late final Dio _dio;
 
   // API 端点
@@ -107,6 +108,7 @@ class BilibiliSource extends BaseSource {
 
   @override
   Future<String> getAudioUrl(String bvid) async {
+    logDebug('Getting audio URL for bvid: $bvid');
     try {
       // 1. 获取视频 cid
       final viewResponse = await _dio.get(
@@ -118,8 +120,10 @@ class BilibiliSource extends BaseSource {
 
       final cid = viewResponse.data['data']['cid'];
       if (cid == null) {
+        logError('Failed to get cid for $bvid');
         throw Exception('Failed to get cid for $bvid');
       }
+      logDebug('Got cid: $cid for bvid: $bvid');
 
       // 2. 获取播放 URL（DASH 格式）
       final playUrlResponse = await _dio.get(
@@ -138,16 +142,21 @@ class BilibiliSource extends BaseSource {
       final dash = playUrlResponse.data['data']['dash'];
       if (dash == null) {
         // 尝试获取普通格式
+        logDebug('No DASH format available for $bvid, trying durl format');
         final durl = playUrlResponse.data['data']['durl'];
         if (durl != null && durl is List && durl.isNotEmpty) {
-          return durl[0]['url'] as String;
+          final url = durl[0]['url'] as String;
+          logDebug('Got durl format URL for $bvid (length: ${url.length})');
+          return url;
         }
+        logError('No audio stream available for $bvid');
         throw Exception('No audio stream available');
       }
 
       // 从 DASH 格式中获取音频流
       final audios = dash['audio'] as List?;
       if (audios == null || audios.isEmpty) {
+        logError('No audio stream in DASH for $bvid');
         throw Exception('No audio stream in DASH');
       }
 
@@ -157,8 +166,20 @@ class BilibiliSource extends BaseSource {
 
       // 优先使用 baseUrl，备用 backupUrl
       final bestAudio = audios.first;
-      return bestAudio['baseUrl'] ?? bestAudio['base_url'] ?? bestAudio['backupUrl']?[0];
+      final audioUrl = bestAudio['baseUrl'] ?? bestAudio['base_url'] ?? bestAudio['backupUrl']?[0];
+      
+      if (audioUrl == null) {
+        logError('No audio URL in DASH response for $bvid');
+        throw Exception('No audio URL in DASH response');
+      }
+
+      logDebug('Got audio URL for $bvid, bandwidth: ${bestAudio['bandwidth']}, URL length: ${audioUrl.length}');
+      return audioUrl;
+    } on BilibiliApiException catch (e) {
+      logError('Bilibili API error for $bvid: code=${e.code}, message=${e.message}');
+      rethrow;
     } on DioException catch (e) {
+      logError('Network error getting audio URL for $bvid: ${e.type}, ${e.message}');
       throw _handleDioError(e);
     }
   }

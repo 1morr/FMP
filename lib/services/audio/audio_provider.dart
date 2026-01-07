@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart' as just_audio;
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
+import '../../data/sources/base_source.dart';
+import '../../data/sources/bilibili_source.dart';
 import '../../data/repositories/queue_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../data/sources/source_provider.dart';
@@ -119,6 +122,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   // 防止重复处理完成事件
   bool _isHandlingCompletion = false;
+
+  // 播放锁 - 防止快速切歌时的竞态条件
+  Completer<void>? _playLock;
+  int _playRequestId = 0;
 
   AudioController({
     required AudioService audioService,
@@ -486,14 +493,59 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   // ========== 私有方法 ==========
 
+  /// 获取播放音频所需的 HTTP 请求头
+  /// Bilibili 需要 Referer 头才能正常播放
+  Map<String, String>? _getHeadersForTrack(Track track) {
+    switch (track.sourceType) {
+      case SourceType.bilibili:
+        return {
+          'Referer': 'https://www.bilibili.com',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        };
+      case SourceType.youtube:
+        return null;
+    }
+  }
+
   /// 播放指定歌曲
   Future<void> _playTrack(Track track) async {
+    // 获取当前请求ID，用于检测是否被新请求取代
+    final requestId = ++_playRequestId;
+    logDebug('_playTrack started for: ${track.title} (requestId: $requestId)');
+
+    // 等待之前的播放操作完成
+    if (_playLock != null && !_playLock!.isCompleted) {
+      logDebug('Waiting for previous play operation to complete...');
+      await _playLock!.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          logWarning('Previous play operation timed out, proceeding anyway');
+        },
+      );
+    }
+
+    // 检查是否已被新请求取代
+    if (requestId != _playRequestId) {
+      logDebug('Play request $requestId superseded by $requestId, aborting');
+      return;
+    }
+
+    // 创建新的锁
+    _playLock = Completer<void>();
+
     state = state.copyWith(isLoading: true, error: null);
     _updateQueueState();
 
     try {
       // 确保有音频 URL
+      logDebug('Fetching audio URL for: ${track.title}');
       final trackWithUrl = await _queueManager.ensureAudioUrl(track);
+
+      // 再次检查是否被取代
+      if (requestId != _playRequestId) {
+        logDebug('Play request $requestId superseded after URL fetch, aborting');
+        return;
+      }
 
       // 获取播放地址
       final url = trackWithUrl.downloadedPath ??
@@ -504,11 +556,23 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         throw Exception('No audio URL available for: ${track.title}');
       }
 
+      final urlType = trackWithUrl.downloadedPath != null ? "downloaded" : trackWithUrl.cachedPath != null ? "cached" : "stream";
+      logDebug('Playing track: ${track.title}, URL type: $urlType, source: ${track.sourceType}');
+
       // 播放
       if (trackWithUrl.downloadedPath != null || trackWithUrl.cachedPath != null) {
         await _audioService.playFile(url);
       } else {
-        await _audioService.playUrl(url);
+        // 获取该音源所需的 HTTP 请求头
+        final headers = _getHeadersForTrack(trackWithUrl);
+        await _audioService.playUrl(url, headers: headers);
+      }
+
+      // 再次检查是否被取代
+      if (requestId != _playRequestId) {
+        logDebug('Play request $requestId superseded after playUrl, stopping');
+        await _audioService.stop();
+        return;
       }
 
       // 等待一小段时间确保播放状态稳定
@@ -525,9 +589,34 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       _queueManager.prefetchNext();
 
       state = state.copyWith(isLoading: false);
+      logDebug('_playTrack completed successfully for: ${track.title}');
+    } on just_audio.PlayerInterruptedException catch (e) {
+      // 播放被中断（通常是因为新的播放请求），不作为错误处理
+      logDebug('Playback interrupted for ${track.title}: ${e.message}');
+      state = state.copyWith(isLoading: false);
+    } on BilibiliApiException catch (e) {
+      // Bilibili API 错误（如视频不可用、版权限制等）
+      logWarning('Bilibili API error for ${track.title}: ${e.message}');
+      state = state.copyWith(
+        error: '无法播放: ${e.message}',
+        isLoading: false,
+      );
+      // 如果视频不可用，自动跳到下一首
+      if (e.isUnavailable || e.isGeoRestricted) {
+        logInfo('Track unavailable, auto-skipping to next: ${track.title}');
+        // 延迟一小段时间让用户看到错误提示
+        Future.delayed(const Duration(milliseconds: 500), () {
+          next();
+        });
+      }
     } catch (e, stack) {
       logError('Failed to play track: ${track.title}', e, stack);
       state = state.copyWith(error: e.toString(), isLoading: false);
+    } finally {
+      // 释放锁
+      if (!_playLock!.isCompleted) {
+        _playLock!.complete();
+      }
     }
   }
 
@@ -548,7 +637,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       if (trackWithUrl.downloadedPath != null || trackWithUrl.cachedPath != null) {
         await _audioService.setFile(url);
       } else {
-        await _audioService.setUrl(url);
+        final headers = _getHeadersForTrack(trackWithUrl);
+        await _audioService.setUrl(url, headers: headers);
       }
 
       // 恢复播放位置

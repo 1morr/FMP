@@ -485,34 +485,49 @@ class QueueManager with Logging {
   // ========== URL 获取 ==========
 
   /// 确保歌曲有有效的音频 URL
-  Future<Track> ensureAudioUrl(Track track) async {
+  /// 如果获取失败会重试一次
+  Future<Track> ensureAudioUrl(Track track, {int retryCount = 0}) async {
     // 如果有本地文件，不需要获取 URL
     if (track.downloadedPath != null || track.cachedPath != null) {
+      logDebug('Using local file for: ${track.title}');
       return track;
     }
 
     // 如果音频 URL 有效，直接返回
     if (track.hasValidAudioUrl) {
+      logDebug('Audio URL still valid for: ${track.title}, expiry: ${track.audioUrlExpiry}');
       return track;
     }
 
     // 获取音频 URL
-    logDebug('Fetching audio URL for: ${track.title}');
+    logDebug('Fetching audio URL for: ${track.title} (attempt ${retryCount + 1})');
     final source = _sourceManager.getSource(track.sourceType);
     if (source == null) {
       throw Exception('No source available for ${track.sourceType}');
     }
 
-    final refreshedTrack = await source.refreshAudioUrl(track);
-    await _trackRepository.save(refreshedTrack);
+    try {
+      final refreshedTrack = await source.refreshAudioUrl(track);
+      await _trackRepository.save(refreshedTrack);
+      logDebug('Successfully fetched audio URL for: ${track.title}');
 
-    // 更新队列中的 track
-    final index = _tracks.indexWhere((t) => t.id == track.id);
-    if (index >= 0) {
-      _tracks[index] = refreshedTrack;
+      // 更新队列中的 track
+      final index = _tracks.indexWhere((t) => t.id == track.id);
+      if (index >= 0) {
+        _tracks[index] = refreshedTrack;
+      }
+
+      return refreshedTrack;
+    } catch (e) {
+      // 如果是第一次尝试且失败，等待后重试一次
+      if (retryCount < 1) {
+        logWarning('Failed to fetch audio URL for ${track.title}, retrying in 1 second: $e');
+        await Future.delayed(const Duration(seconds: 1));
+        return ensureAudioUrl(track, retryCount: retryCount + 1);
+      }
+      logError('Failed to fetch audio URL for ${track.title} after ${retryCount + 1} attempts', e);
+      rethrow;
     }
-
-    return refreshedTrack;
   }
 
   /// 预取下一首歌曲的 URL
