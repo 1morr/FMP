@@ -90,7 +90,8 @@ class MiniPlayer extends ConsumerWidget {
                     ),
 
                     // 控制按钮
-                    _buildPlayModeButton(playerState, controller, colorScheme),
+                    _buildShuffleButton(playerState, controller, colorScheme),
+                    _buildLoopModeButton(playerState, controller, colorScheme),
                     _buildPreviousButton(playerState, controller),
                     _buildPlayPauseButton(playerState, controller, colorScheme),
                     _buildNextButton(playerState, controller),
@@ -140,24 +141,42 @@ class MiniPlayer extends ConsumerWidget {
     );
   }
 
-  /// 播放模式按钮
-  Widget _buildPlayModeButton(
+  /// 顺序/乱序按钮
+  Widget _buildShuffleButton(
     PlayerState state,
     AudioController controller,
     ColorScheme colorScheme,
   ) {
-    final (icon, tooltip) = switch (state.playMode) {
-      PlayMode.sequential => (Icons.arrow_forward, '顺序播放'),
-      PlayMode.loop => (Icons.repeat, '列表循环'),
-      PlayMode.shuffle => (Icons.shuffle, '随机播放'),
-      PlayMode.loopOne => (Icons.repeat_one, '单曲循环'),
+    return IconButton(
+      icon: Icon(
+        state.isShuffleEnabled ? Icons.shuffle : Icons.arrow_forward,
+        size: 20,
+      ),
+      color: state.isShuffleEnabled ? colorScheme.primary : null,
+      tooltip: state.isShuffleEnabled ? '随机播放' : '顺序播放',
+      visualDensity: VisualDensity.compact,
+      onPressed: () => controller.toggleShuffle(),
+    );
+  }
+
+  /// 循环模式按钮
+  Widget _buildLoopModeButton(
+    PlayerState state,
+    AudioController controller,
+    ColorScheme colorScheme,
+  ) {
+    final (icon, tooltip) = switch (state.loopMode) {
+      LoopMode.none => (Icons.repeat, '不循环'),
+      LoopMode.all => (Icons.repeat, '列表循环'),
+      LoopMode.one => (Icons.repeat_one, '单曲循环'),
     };
 
     return IconButton(
       icon: Icon(icon, size: 20),
+      color: state.loopMode != LoopMode.none ? colorScheme.primary : null,
       tooltip: tooltip,
       visualDensity: VisualDensity.compact,
-      onPressed: () => controller.cyclePlayMode(),
+      onPressed: () => controller.cycleLoopMode(),
     );
   }
 

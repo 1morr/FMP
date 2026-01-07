@@ -61,11 +61,11 @@ class QueueManager with Logging {
     return null;
   }
 
-  /// 当前播放模式
-  PlayMode get playMode => _currentQueue?.playMode ?? PlayMode.sequential;
-
   /// 是否启用随机播放
-  bool get isShuffleEnabled => playMode == PlayMode.shuffle;
+  bool get isShuffleEnabled => _currentQueue?.isShuffleEnabled ?? false;
+
+  /// 当前循环模式
+  LoopMode get loopMode => _currentQueue?.loopMode ?? LoopMode.none;
 
   /// 是否有下一首
   bool get hasNext => getNextIndex() != null;
@@ -95,8 +95,8 @@ class QueueManager with Logging {
           _currentIndex = _currentQueue!.currentIndex.clamp(0, _tracks.length - 1);
           _currentPosition = Duration(milliseconds: _currentQueue!.lastPositionMs);
 
-          // 如果是 shuffle 模式，恢复 shuffle order
-          if (playMode == PlayMode.shuffle) {
+          // 如果启用了随机播放，恢复 shuffle order
+          if (isShuffleEnabled) {
             _generateShuffleOrder();
           }
 
@@ -164,15 +164,18 @@ class QueueManager with Logging {
       if (_shuffleIndex < _shuffleOrder.length - 1) {
         return _shuffleOrder[_shuffleIndex + 1];
       }
-      // 循环回开头
-      return _shuffleOrder[0];
+      // 列表循环时回到开头
+      if (loopMode == LoopMode.all) {
+        return _shuffleOrder[0];
+      }
+      return null;
     } else {
       // 顺序模式
       if (_currentIndex < _tracks.length - 1) {
         return _currentIndex + 1;
       }
-      // 循环模式回到开头
-      if (playMode == PlayMode.loop) {
+      // 列表循环时回到开头
+      if (loopMode == LoopMode.all) {
         return 0;
       }
       return null;
@@ -188,15 +191,18 @@ class QueueManager with Logging {
       if (_shuffleIndex > 0) {
         return _shuffleOrder[_shuffleIndex - 1];
       }
-      // 循环回结尾
-      return _shuffleOrder[_shuffleOrder.length - 1];
+      // 列表循环时回到结尾
+      if (loopMode == LoopMode.all) {
+        return _shuffleOrder[_shuffleOrder.length - 1];
+      }
+      return null;
     } else {
       // 顺序模式
       if (_currentIndex > 0) {
         return _currentIndex - 1;
       }
-      // 循环模式回到结尾
-      if (playMode == PlayMode.loop) {
+      // 列表循环时回到结尾
+      if (loopMode == LoopMode.all) {
         return _tracks.length - 1;
       }
       return null;
@@ -462,24 +468,43 @@ class QueueManager with Logging {
 
   // ========== 播放模式 ==========
 
-  /// 设置播放模式
-  Future<void> setPlayMode(PlayMode mode) async {
+  /// 切换随机播放
+  Future<void> toggleShuffle() async {
     if (_currentQueue == null) return;
 
-    final oldMode = _currentQueue!.playMode;
-    _currentQueue!.playMode = mode;
+    final wasEnabled = _currentQueue!.isShuffleEnabled;
+    _currentQueue!.isShuffleEnabled = !wasEnabled;
     await _queueRepository.save(_currentQueue!);
 
-    // 切换到随机模式时生成 shuffle order
-    if (mode == PlayMode.shuffle && oldMode != PlayMode.shuffle) {
+    if (!wasEnabled) {
+      // 开启随机：生成 shuffle order
       _generateShuffleOrder();
-    }
-    // 从随机模式切出时清空
-    else if (mode != PlayMode.shuffle && oldMode == PlayMode.shuffle) {
+    } else {
+      // 关闭随机：清空 shuffle order
       _clearShuffleOrder();
     }
 
     _notifyStateChanged();
+  }
+
+  /// 设置循环模式
+  Future<void> setLoopMode(LoopMode mode) async {
+    if (_currentQueue == null) return;
+
+    _currentQueue!.loopMode = mode;
+    await _queueRepository.save(_currentQueue!);
+
+    _notifyStateChanged();
+  }
+
+  /// 循环切换循环模式：none -> all -> one -> none
+  Future<void> cycleLoopMode() async {
+    final nextMode = switch (loopMode) {
+      LoopMode.none => LoopMode.all,
+      LoopMode.all => LoopMode.one,
+      LoopMode.one => LoopMode.none,
+    };
+    await setLoopMode(nextMode);
   }
 
   // ========== URL 获取 ==========

@@ -223,14 +223,12 @@ class PlayerPage extends ConsumerWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        // 播放模式
+        // 顺序/乱序按钮
         IconButton(
-          icon: Icon(_getPlayModeIcon(state.playMode)),
-          color: state.playMode != PlayMode.sequential
-              ? colorScheme.primary
-              : null,
-          onPressed: () => controller.cyclePlayMode(),
-          tooltip: _getPlayModeTooltip(state.playMode),
+          icon: Icon(state.isShuffleEnabled ? Icons.shuffle : Icons.arrow_forward),
+          color: state.isShuffleEnabled ? colorScheme.primary : null,
+          onPressed: () => controller.toggleShuffle(),
+          tooltip: state.isShuffleEnabled ? '随机播放' : '顺序播放',
         ),
 
         // 上一首
@@ -250,12 +248,12 @@ class PlayerPage extends ConsumerWidget {
           onPressed: state.canPlayNext ? () => controller.next() : null,
         ),
 
-        // 快进10秒
+        // 循环模式按钮
         IconButton(
-          icon: const Icon(Icons.forward_10),
-          onPressed: state.hasCurrentTrack
-              ? () => controller.seekForward()
-              : null,
+          icon: Icon(_getLoopModeIcon(state.loopMode)),
+          color: state.loopMode != LoopMode.none ? colorScheme.primary : null,
+          onPressed: () => controller.cycleLoopMode(),
+          tooltip: _getLoopModeTooltip(state.loopMode),
         ),
       ],
     );
@@ -402,31 +400,27 @@ class PlayerPage extends ConsumerWidget {
     }
   }
 
-  /// 获取播放模式图标
-  IconData _getPlayModeIcon(PlayMode mode) {
+  /// 获取循环模式图标
+  IconData _getLoopModeIcon(LoopMode mode) {
     switch (mode) {
-      case PlayMode.sequential:
+      case LoopMode.none:
         return Icons.repeat;
-      case PlayMode.loop:
+      case LoopMode.all:
         return Icons.repeat;
-      case PlayMode.loopOne:
+      case LoopMode.one:
         return Icons.repeat_one;
-      case PlayMode.shuffle:
-        return Icons.shuffle;
     }
   }
 
-  /// 获取播放模式提示
-  String _getPlayModeTooltip(PlayMode mode) {
+  /// 获取循环模式提示
+  String _getLoopModeTooltip(LoopMode mode) {
     switch (mode) {
-      case PlayMode.sequential:
-        return '顺序播放';
-      case PlayMode.loop:
+      case LoopMode.none:
+        return '不循环';
+      case LoopMode.all:
         return '列表循环';
-      case PlayMode.loopOne:
+      case LoopMode.one:
         return '单曲循环';
-      case PlayMode.shuffle:
-        return '随机播放';
     }
   }
 
