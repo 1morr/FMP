@@ -48,7 +48,10 @@ class PlaylistRepository {
   Future<void> addTrack(int playlistId, int trackId) async {
     final playlist = await getById(playlistId);
     if (playlist != null && !playlist.trackIds.contains(trackId)) {
-      playlist.trackIds.add(trackId);
+      // 创建可变列表副本，避免 fixed-length list 错误
+      final newTrackIds = List<int>.from(playlist.trackIds);
+      newTrackIds.add(trackId);
+      playlist.trackIds = newTrackIds;
       await save(playlist);
     }
   }
@@ -57,11 +60,14 @@ class PlaylistRepository {
   Future<void> addTracks(int playlistId, List<int> trackIds) async {
     final playlist = await getById(playlistId);
     if (playlist != null) {
+      // 创建可变列表副本，避免 fixed-length list 错误
+      final newTrackIds = List<int>.from(playlist.trackIds);
       for (final trackId in trackIds) {
-        if (!playlist.trackIds.contains(trackId)) {
-          playlist.trackIds.add(trackId);
+        if (!newTrackIds.contains(trackId)) {
+          newTrackIds.add(trackId);
         }
       }
+      playlist.trackIds = newTrackIds;
       await save(playlist);
     }
   }
@@ -70,7 +76,10 @@ class PlaylistRepository {
   Future<void> removeTrack(int playlistId, int trackId) async {
     final playlist = await getById(playlistId);
     if (playlist != null) {
-      playlist.trackIds.remove(trackId);
+      // 创建可变列表副本，避免 fixed-length list 错误
+      final newTrackIds = List<int>.from(playlist.trackIds);
+      newTrackIds.remove(trackId);
+      playlist.trackIds = newTrackIds;
       await save(playlist);
     }
   }

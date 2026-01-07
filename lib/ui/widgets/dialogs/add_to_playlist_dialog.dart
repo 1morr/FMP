@@ -167,7 +167,10 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                   child: Text('加载失败: $error'),
                 ),
                 data: (lists) {
-                  if (lists.isEmpty) {
+                  // 过滤掉导入的歌单，只显示手动创建的歌单
+                  final manualPlaylists = lists.where((p) => !p.isImported).toList();
+                  
+                  if (manualPlaylists.isEmpty) {
                     return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -199,9 +202,9 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                   return ListView.builder(
                     controller: scrollController,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: lists.length,
+                    itemCount: manualPlaylists.length,
                     itemBuilder: (context, index) {
-                      final playlist = lists[index];
+                      final playlist = manualPlaylists[index];
                       final coverAsync =
                           ref.watch(playlistCoverProvider(playlist.id));
 
