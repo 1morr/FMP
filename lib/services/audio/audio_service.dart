@@ -149,14 +149,28 @@ class AudioService with Logging {
   // ========== 音频源设置 ==========
 
   /// 播放指定 URL
-  Future<Duration?> playUrl(String url) async {
-    logDebug('Playing URL: ${url.substring(0, url.length > 50 ? 50 : url.length)}...');
+  /// [headers] 可选的 HTTP 请求头，用于需要认证的音频源（如 Bilibili）
+  Future<Duration?> playUrl(String url, {Map<String, String>? headers}) async {
+    logDebug('Playing URL: ${url.substring(0, url.length > 80 ? 80 : url.length)}...');
+    if (headers != null) {
+      logDebug('With headers: ${headers.keys.join(", ")}');
+    }
     try {
       // 先停止当前播放
       await _player.stop();
 
-      // 设置新的 URL
-      final duration = await _player.setUrl(url);
+      // 设置新的 URL（带 headers）
+      Duration? duration;
+      if (headers != null && headers.isNotEmpty) {
+        final audioSource = AudioSource.uri(
+          Uri.parse(url),
+          headers: headers,
+        );
+        duration = await _player.setAudioSource(audioSource);
+      } else {
+        duration = await _player.setUrl(url);
+      }
+      logDebug('URL loaded successfully, duration: $duration');
 
       // 确保播放
       await _player.play();
@@ -169,6 +183,12 @@ class AudioService with Logging {
 
       logDebug('Playback started, duration: $duration, playing: ${_player.playing}');
       return duration;
+    } on PlayerException catch (e) {
+      logError('PlayerException playing URL: code=${e.code}, message=${e.message}');
+      rethrow;
+    } on PlayerInterruptedException catch (e) {
+      logWarning('Playback interrupted (likely due to new track request): ${e.message}');
+      rethrow;
     } catch (e, stack) {
       logError('Failed to play URL', e, stack);
       rethrow;
@@ -176,10 +196,20 @@ class AudioService with Logging {
   }
 
   /// 设置 URL（不自动播放）
-  Future<Duration?> setUrl(String url) async {
+  /// [headers] 可选的 HTTP 请求头
+  Future<Duration?> setUrl(String url, {Map<String, String>? headers}) async {
     logDebug('Setting URL: ${url.substring(0, url.length > 50 ? 50 : url.length)}...');
     try {
-      final duration = await _player.setUrl(url);
+      Duration? duration;
+      if (headers != null && headers.isNotEmpty) {
+        final audioSource = AudioSource.uri(
+          Uri.parse(url),
+          headers: headers,
+        );
+        duration = await _player.setAudioSource(audioSource);
+      } else {
+        duration = await _player.setUrl(url);
+      }
       logDebug('URL set, duration: $duration');
       return duration;
     } catch (e, stack) {
