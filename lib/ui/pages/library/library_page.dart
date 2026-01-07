@@ -5,7 +5,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../data/models/playlist.dart';
 import '../../../providers/playlist_provider.dart';
+import '../../../providers/refresh_provider.dart';
+import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
+import '../../widgets/refresh_progress_indicator.dart';
 import 'widgets/create_playlist_dialog.dart';
 import 'widgets/import_url_dialog.dart';
 
@@ -33,11 +36,22 @@ class LibraryPage extends ConsumerWidget {
           ),
         ],
       ),
-      body: state.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : state.playlists.isEmpty
-              ? _buildEmptyState(context, ref)
-              : _buildPlaylistGrid(context, ref, state.playlists),
+      body: Stack(
+        children: [
+          state.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : state.playlists.isEmpty
+                  ? _buildEmptyState(context, ref)
+                  : _buildPlaylistGrid(context, ref, state.playlists),
+          // 刷新进度指示器固定在底部
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: PlaylistRefreshProgress(),
+          ),
+        ],
+      ),
     );
   }
 
@@ -108,7 +122,7 @@ class LibraryPage extends ConsumerWidget {
                     : 2;
 
         return GridView.builder(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
             mainAxisSpacing: 16,
@@ -149,6 +163,7 @@ class _PlaylistCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final coverAsync = ref.watch(playlistCoverProvider(playlist.id));
+    final isRefreshing = ref.watch(isPlaylistRefreshingProvider(playlist.id));
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -160,21 +175,36 @@ class _PlaylistCard extends ConsumerWidget {
           children: [
             // 封面 - 使用 Expanded 填充剩余空间
             Expanded(
-              child: SizedBox(
-                width: double.infinity,
-                child: coverAsync.when(
-                  data: (coverUrl) => coverUrl != null
-                      ? CachedNetworkImage(
-                          imageUrl: coverUrl,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => _buildPlaceholder(colorScheme),
-                          errorWidget: (context, url, error) =>
-                              _buildPlaceholder(colorScheme),
-                        )
-                      : _buildPlaceholder(colorScheme),
-                  loading: () => _buildPlaceholder(colorScheme),
-                  error: (error, stack) => _buildPlaceholder(colorScheme),
-                ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  coverAsync.when(
+                    data: (coverUrl) => coverUrl != null
+                        ? CachedNetworkImage(
+                            imageUrl: coverUrl,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) =>
+                                _buildPlaceholder(colorScheme),
+                            errorWidget: (context, url, error) =>
+                                _buildPlaceholder(colorScheme),
+                          )
+                        : _buildPlaceholder(colorScheme),
+                    loading: () => _buildPlaceholder(colorScheme),
+                    error: (error, stack) => _buildPlaceholder(colorScheme),
+                  ),
+                  // 刷新指示器覆盖层
+                  if (isRefreshing)
+                    Container(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 3,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
 
@@ -232,6 +262,7 @@ class _PlaylistCard extends ConsumerWidget {
 
   void _showOptionsMenu(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isRefreshing = ref.read(isPlaylistRefreshingProvider(playlist.id));
 
     showModalBottomSheet(
       context: context,
@@ -244,7 +275,7 @@ class _PlaylistCard extends ConsumerWidget {
               title: const Text('播放全部'),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: 播放歌单
+                _playAll(context, ref);
               },
             ),
             ListTile(
@@ -257,12 +288,25 @@ class _PlaylistCard extends ConsumerWidget {
             ),
             if (playlist.isImported)
               ListTile(
-                leading: const Icon(Icons.refresh),
-                title: const Text('刷新歌单'),
-                onTap: () {
-                  Navigator.pop(context);
-                  // TODO: 刷新歌单
-                },
+                leading: isRefreshing
+                    ? SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                        ),
+                      )
+                    : const Icon(Icons.refresh),
+                title: Text(isRefreshing ? '正在刷新...' : '刷新歌单'),
+                enabled: !isRefreshing,
+                onTap: isRefreshing
+                    ? null
+                    : () {
+                        Navigator.pop(context);
+                        _refreshPlaylist(context, ref);
+                      },
               ),
             ListTile(
               leading: Icon(Icons.delete, color: colorScheme.error),
@@ -276,6 +320,49 @@ class _PlaylistCard extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  void _playAll(BuildContext context, WidgetRef ref) async {
+    final service = ref.read(playlistServiceProvider);
+    final result = await service.getPlaylistWithTracks(playlist.id);
+
+    if (result == null || result.tracks.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('歌单为空，无法播放')),
+        );
+      }
+      return;
+    }
+
+    final controller = ref.read(audioControllerProvider.notifier);
+    controller.playPlaylist(result.tracks, startIndex: 0);
+  }
+
+  void _refreshPlaylist(BuildContext context, WidgetRef ref) async {
+    final refreshManager = ref.read(refreshManagerProvider.notifier);
+
+    try {
+      final result = await refreshManager.refreshPlaylist(playlist);
+      if (result != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          RefreshResultSnackBar.success(
+            playlistName: playlist.name,
+            addedCount: result.addedCount,
+            skippedCount: result.skippedCount,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          RefreshResultSnackBar.error(
+            playlistName: playlist.name,
+            errorMessage: e.toString(),
+          ),
+        );
+      }
+    }
   }
 
   void _showEditDialog(BuildContext context, WidgetRef ref) {
@@ -299,7 +386,9 @@ class _PlaylistCard extends ConsumerWidget {
           FilledButton(
             onPressed: () {
               Navigator.pop(context);
-              ref.read(playlistListProvider.notifier).deletePlaylist(playlist.id);
+              ref
+                  .read(playlistListProvider.notifier)
+                  .deletePlaylist(playlist.id);
             },
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
