@@ -266,15 +266,20 @@ class PlayerPage extends ConsumerWidget {
     AudioController controller,
     ColorScheme colorScheme,
   ) {
+    const double buttonSize = 80;
+
     if (state.isBuffering || state.isLoading) {
-      return Container(
-        width: 80,
-        height: 80,
-        decoration: BoxDecoration(
-          color: colorScheme.primary,
-          shape: BoxShape.circle,
-        ),
-        child: Center(
+      return SizedBox(
+        width: buttonSize,
+        height: buttonSize,
+        child: FilledButton(
+          onPressed: null,
+          style: FilledButton.styleFrom(
+            shape: const CircleBorder(),
+            minimumSize: const Size(buttonSize, buttonSize),
+            maximumSize: const Size(buttonSize, buttonSize),
+            padding: EdgeInsets.zero,
+          ),
           child: SizedBox(
             width: 32,
             height: 32,
@@ -287,17 +292,23 @@ class PlayerPage extends ConsumerWidget {
       );
     }
 
-    return FilledButton(
-      onPressed: state.hasCurrentTrack
-          ? () => controller.togglePlayPause()
-          : null,
-      style: FilledButton.styleFrom(
-        shape: const CircleBorder(),
-        padding: const EdgeInsets.all(20),
-      ),
-      child: Icon(
-        state.isPlaying ? Icons.pause : Icons.play_arrow,
-        size: 40,
+    return SizedBox(
+      width: buttonSize,
+      height: buttonSize,
+      child: FilledButton(
+        onPressed: state.hasCurrentTrack
+            ? () => controller.togglePlayPause()
+            : null,
+        style: FilledButton.styleFrom(
+          shape: const CircleBorder(),
+          minimumSize: const Size(buttonSize, buttonSize),
+          maximumSize: const Size(buttonSize, buttonSize),
+          padding: EdgeInsets.zero,
+        ),
+        child: Icon(
+          state.isPlaying ? Icons.pause : Icons.play_arrow,
+          size: 40,
+        ),
       ),
     );
   }
