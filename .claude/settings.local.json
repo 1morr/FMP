@@ -31,7 +31,8 @@
       "mcp__plugin_serena_serena__replace_symbol_body",
       "mcp__plugin_serena_serena__create_text_file",
       "Bash(flutter test:*)",
-      "mcp__plugin_serena_serena__find_file"
+      "mcp__plugin_serena_serena__find_file",
+      "mcp__plugin_serena_serena__think_about_task_adherence"
     ]
   }
 }
