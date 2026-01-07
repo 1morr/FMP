@@ -99,7 +99,7 @@ class MiniPlayer extends ConsumerWidget {
                     // 桌面端音量控制
                     if (isDesktop) ...[
                       const SizedBox(width: 8),
-                      _buildVolumeControl(playerState, controller, colorScheme),
+                      _buildVolumeControl(context, playerState, controller, colorScheme),
                     ],
                   ],
                 ),
@@ -243,10 +243,71 @@ class MiniPlayer extends ConsumerWidget {
 
   /// 音量控制（仅桌面端）
   Widget _buildVolumeControl(
+    BuildContext context,
     PlayerState state,
     AudioController controller,
     ColorScheme colorScheme,
   ) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isNarrow = screenWidth < 600;
+
+    // 窄屏时使用弹出式音量控制
+    if (isNarrow) {
+      return MenuAnchor(
+        builder: (context, menuController, child) {
+          return IconButton(
+            icon: Icon(
+              _getVolumeIcon(state.volume),
+              size: 20,
+            ),
+            visualDensity: VisualDensity.compact,
+            tooltip: '音量',
+            onPressed: () {
+              if (menuController.isOpen) {
+                menuController.close();
+              } else {
+                menuController.open();
+              }
+            },
+          );
+        },
+        style: MenuStyle(
+          padding: WidgetStatePropertyAll(EdgeInsets.zero),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        alignmentOffset: const Offset(0, -170),
+        menuChildren: [
+          SizedBox(
+            width: 40,
+            height: 120,
+            child: RotatedBox(
+              quarterTurns: 3,
+              child: SliderTheme(
+                data: SliderThemeData(
+                  trackHeight: 4,
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                  activeTrackColor: colorScheme.primary,
+                  inactiveTrackColor: colorScheme.surfaceContainerHighest,
+                  thumbColor: colorScheme.primary,
+                  overlayColor: colorScheme.primary.withValues(alpha: 0.2),
+                ),
+                child: Slider(
+                  value: state.volume,
+                  min: 0.0,
+                  max: 1.0,
+                  onChanged: (value) => controller.setVolume(value),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // 宽屏时显示完整音量控制
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
