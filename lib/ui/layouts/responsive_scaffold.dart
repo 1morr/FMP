@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/breakpoints.dart';
 import '../widgets/player/mini_player.dart';
+import '../widgets/track_detail_panel.dart';
 
 /// 导航目的地定义
 class NavDestination {
@@ -161,8 +162,8 @@ class _TabletLayout extends StatelessWidget {
   }
 }
 
-/// 桌面布局 - 展开的侧边导航栏 + 三栏布局
-class _DesktopLayout extends StatelessWidget {
+/// 桌面布局 - 可收起的侧边导航栏 + 三栏布局
+class _DesktopLayout extends StatefulWidget {
   final Widget child;
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
@@ -174,43 +175,109 @@ class _DesktopLayout extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  State<_DesktopLayout> createState() => _DesktopLayoutState();
+}
 
+class _DesktopLayoutState extends State<_DesktopLayout> {
+  bool _isNavExpanded = false; // 默认收起
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       body: Row(
         children: [
-          // 侧边导航栏
-          NavigationDrawer(
-            selectedIndex: selectedIndex,
-            onDestinationSelected: onDestinationSelected,
-            children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(28, 16, 16, 10),
-                child: Text(
-                  'FMP',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const Divider(indent: 28, endIndent: 28),
-              ...destinations.map((d) => NavigationDrawerDestination(
-                    icon: Icon(d.icon),
-                    selectedIcon: Icon(d.selectedIcon),
-                    label: Text(d.label),
-                  )),
-            ],
+          // 可收起的侧边导航栏
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: _isNavExpanded ? 256 : 72,
+            child: _isNavExpanded
+                ? _buildExpandedNav()
+                : _buildCollapsedNav(),
           ),
           const VerticalDivider(width: 1, thickness: 1),
           // 主内容区
           Expanded(
             flex: 2,
-            child: child,
+            child: widget.child,
+          ),
+          // 右侧歌曲详情面板
+          const VerticalDivider(width: 1, thickness: 1),
+          const SizedBox(
+            width: 320,
+            child: TrackDetailPanel(),
           ),
         ],
       ),
       bottomNavigationBar: const MiniPlayer(),
+    );
+  }
+
+  Widget _buildExpandedNav() {
+    return NavigationDrawer(
+      selectedIndex: widget.selectedIndex,
+      onDestinationSelected: widget.onDestinationSelected,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 8, 10),
+          child: Row(
+            children: [
+              const Text(
+                'FMP',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.menu_open),
+                onPressed: () => setState(() => _isNavExpanded = false),
+                tooltip: '收起导航栏',
+              ),
+            ],
+          ),
+        ),
+        const Divider(indent: 16, endIndent: 16),
+        ...destinations.map((d) => NavigationDrawerDestination(
+              icon: Icon(d.icon),
+              selectedIcon: Icon(d.selectedIcon),
+              label: Text(d.label),
+            )),
+      ],
+    );
+  }
+
+  Widget _buildCollapsedNav() {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      color: colorScheme.surfaceContainerLow,
+      child: Column(
+        children: [
+          const SizedBox(height: 8),
+          IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => setState(() => _isNavExpanded = true),
+            tooltip: '展开导航栏',
+          ),
+          const SizedBox(height: 8),
+          const Divider(indent: 12, endIndent: 12),
+          Expanded(
+            child: NavigationRail(
+              selectedIndex: widget.selectedIndex,
+              onDestinationSelected: widget.onDestinationSelected,
+              labelType: NavigationRailLabelType.all,
+              backgroundColor: Colors.transparent,
+              destinations: destinations
+                  .map((d) => NavigationRailDestination(
+                        icon: Icon(d.icon),
+                        selectedIcon: Icon(d.selectedIcon),
+                        label: Text(d.label),
+                      ))
+                  .toList(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
