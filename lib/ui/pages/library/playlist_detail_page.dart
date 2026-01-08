@@ -316,7 +316,8 @@ class PlaylistDetailPage extends ConsumerWidget {
 
   void _playTrack(WidgetRef ref, List<Track> tracks, int index) {
     final controller = ref.read(audioControllerProvider.notifier);
-    controller.playPlaylist(tracks, startIndex: index);
+    // 临时播放点击的歌曲，播放完成后恢复原队列位置
+    controller.playTemporary(tracks[index]);
   }
 }
 

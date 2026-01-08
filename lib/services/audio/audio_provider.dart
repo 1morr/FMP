@@ -131,6 +131,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   Completer<void>? _playLock;
   int _playRequestId = 0;
 
+  // 临时播放状态
+  bool _isTemporaryPlay = false;
+  List<Track>? _savedQueue;
+  int? _savedIndex;
+  Duration? _savedPosition;
+  bool _savedIsPlaying = false;
+
   AudioController({
     required AudioService audioService,
     required QueueManager queueManager,
@@ -313,6 +320,126 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 播放单首歌曲 (别名方法)
   Future<void> playTrack(Track track) => playSingle(track);
+
+  /// 临时播放单首歌曲（播放完成后恢复原队列位置）
+  /// 用于搜索页面和歌单页面点击歌曲时的行为
+  Future<void> playTemporary(Track track) async {
+    await _ensureInitialized();
+    state = state.copyWith(isLoading: true, error: null);
+    logInfo('Playing temporary track: ${track.title}');
+    
+    try {
+      // 保存当前队列状态（如果有歌曲在播放）
+      if (_queueManager.currentTrack != null) {
+        _savedQueue = List.from(_queueManager.tracks);
+        _savedIndex = _queueManager.currentIndex;
+        _savedPosition = _audioService.position;
+        _savedIsPlaying = _audioService.isPlaying;
+        logDebug('Saved queue state: ${_savedQueue!.length} tracks, index: $_savedIndex, position: $_savedPosition, isPlaying: $_savedIsPlaying');
+      }
+      
+      _isTemporaryPlay = true;
+      
+      // 获取音频 URL 并播放（不修改队列）
+      final trackWithUrl = await _queueManager.ensureAudioUrl(track);
+      
+      final url = trackWithUrl.downloadedPath ??
+                  trackWithUrl.cachedPath ??
+                  trackWithUrl.audioUrl;
+      
+      if (url == null) {
+        throw Exception('No audio URL available for: ${track.title}');
+      }
+      
+      // 播放
+      if (trackWithUrl.downloadedPath != null || trackWithUrl.cachedPath != null) {
+        await _audioService.playFile(url);
+      } else {
+        final headers = _getHeadersForTrack(trackWithUrl);
+        await _audioService.playUrl(url, headers: headers);
+      }
+      
+      // 更新显示状态（临时显示当前歌曲，但不修改队列）
+      state = state.copyWith(
+        isLoading: false,
+        currentTrack: trackWithUrl,
+      );
+      
+      logDebug('Temporary playback started for: ${track.title}');
+    } catch (e, stack) {
+      logError('Failed to play temporary track: ${track.title}', e, stack);
+      _isTemporaryPlay = false;
+      _clearSavedState();
+      state = state.copyWith(error: e.toString(), isLoading: false);
+    }
+  }
+
+  /// 清除保存的队列状态
+  void _clearSavedState() {
+    _savedQueue = null;
+    _savedIndex = null;
+    _savedPosition = null;
+    _savedIsPlaying = false;
+  }
+
+  /// 恢复保存的队列状态
+  Future<void> _restoreSavedState() async {
+    if (_savedQueue == null || _savedIndex == null) {
+      logDebug('No saved state to restore');
+      _isTemporaryPlay = false;
+      _clearSavedState();
+      return;
+    }
+    
+    logDebug('Restoring queue state: ${_savedQueue!.length} tracks, index: $_savedIndex, position: $_savedPosition, wasPlaying: $_savedIsPlaying');
+    
+    // 保存需要恢复的播放状态
+    final shouldResume = _savedIsPlaying;
+    
+    try {
+      // 恢复队列
+      await _queueManager.playAll(_savedQueue!, startIndex: _savedIndex!);
+      
+      final currentTrack = _queueManager.currentTrack;
+      if (currentTrack != null) {
+        // 准备歌曲
+        final trackWithUrl = await _queueManager.ensureAudioUrl(currentTrack);
+        final url = trackWithUrl.downloadedPath ??
+                    trackWithUrl.cachedPath ??
+                    trackWithUrl.audioUrl;
+        
+        if (url != null) {
+          if (trackWithUrl.downloadedPath != null || trackWithUrl.cachedPath != null) {
+            await _audioService.setFile(url);
+          } else {
+            final headers = _getHeadersForTrack(trackWithUrl);
+            await _audioService.setUrl(url, headers: headers);
+          }
+          
+          // 恢复播放位置（回退10秒，方便用户回忆上下文）
+          if (_savedPosition != null && _savedPosition! > Duration.zero) {
+            final restorePosition = _savedPosition! - const Duration(seconds: 10);
+            // 确保不会回退到负数位置
+            await _audioService.seekTo(restorePosition.isNegative ? Duration.zero : restorePosition);
+          }
+          
+          // 如果之前正在播放，恢复播放
+          if (shouldResume) {
+            await _audioService.play();
+            logDebug('Resumed playback after restore');
+          }
+        }
+      }
+      
+      _updateQueueState();
+      logInfo('Queue state restored successfully');
+    } catch (e, stack) {
+      logError('Failed to restore queue state', e, stack);
+    } finally {
+      _isTemporaryPlay = false;
+      _clearSavedState();
+    }
+  }
 
   /// 播放多首歌曲
   Future<void> playAll(List<Track> tracks, {int startIndex = 0}) async {
@@ -733,11 +860,18 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     if (_isHandlingCompletion) return;
     _isHandlingCompletion = true;
 
-    logDebug('Track completed, loopMode: ${_queueManager.loopMode}, shuffle: ${_queueManager.isShuffleEnabled}');
+    logDebug('Track completed, loopMode: ${_queueManager.loopMode}, shuffle: ${_queueManager.isShuffleEnabled}, temporaryPlay: $_isTemporaryPlay');
 
     // 使用 Future.microtask 来避免在流监听器中直接操作
     Future.microtask(() async {
       try {
+        // 检查是否是临时播放模式
+        if (_isTemporaryPlay) {
+          logDebug('Temporary play completed, restoring saved state');
+          await _restoreSavedState();
+          return;
+        }
+        
         if (_queueManager.loopMode == LoopMode.one) {
           // 单曲循环：seek 到开头并重新播放
           logDebug('LoopOne mode: seeking to start and playing');
