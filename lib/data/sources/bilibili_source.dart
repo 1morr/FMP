@@ -1,4 +1,6 @@
 import 'package:dio/dio.dart';
+import 'dart:math';
+
 import '../../core/logger.dart';
 import '../models/track.dart';
 import 'base_source.dart';
@@ -15,15 +17,30 @@ class BilibiliSource extends BaseSource with Logging {
   static const String _favListApi = '$_apiBase/x/v3/fav/resource/list';
 
   BilibiliSource() {
+    // 生成 buvid3 Cookie（用于绕过 412 风控）
+    final buvid3 = _generateBuvid3();
+    
     _dio = Dio(BaseOptions(
       headers: {
         'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Referer': 'https://www.bilibili.com',
+        'Cookie': 'buvid3=$buvid3',
       },
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 30),
     ));
+  }
+
+  /// 生成 buvid3 Cookie
+  /// 格式: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXXinfoc
+  String _generateBuvid3() {
+    final random = Random();
+    String randomHex(int length) {
+      const chars = '0123456789ABCDEF';
+      return List.generate(length, (_) => chars[random.nextInt(16)]).join();
+    }
+    return '${randomHex(8)}-${randomHex(4)}-${randomHex(4)}-${randomHex(4)}-${randomHex(12)}infoc';
   }
 
   @override
