@@ -34,6 +34,7 @@ class SearchState extends Equatable {
   final String? error;
   final Set<SourceType> enabledSources;
   final Map<SourceType, int> currentPages;
+  final SearchOrder searchOrder;
 
   const SearchState({
     this.query = '',
@@ -43,6 +44,7 @@ class SearchState extends Equatable {
     this.error,
     this.enabledSources = const {SourceType.bilibili},
     this.currentPages = const {},
+    this.searchOrder = SearchOrder.relevance,
   });
 
   /// 获取所有在线结果
@@ -70,6 +72,7 @@ class SearchState extends Equatable {
     String? error,
     Set<SourceType>? enabledSources,
     Map<SourceType, int>? currentPages,
+    SearchOrder? searchOrder,
   }) {
     return SearchState(
       query: query ?? this.query,
@@ -79,6 +82,7 @@ class SearchState extends Equatable {
       error: error,
       enabledSources: enabledSources ?? this.enabledSources,
       currentPages: currentPages ?? this.currentPages,
+      searchOrder: searchOrder ?? this.searchOrder,
     );
   }
 
@@ -91,6 +95,7 @@ class SearchState extends Equatable {
         error,
         enabledSources,
         currentPages,
+        searchOrder,
       ];
 }
 
@@ -112,6 +117,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
       isLoading: true,
       error: null,
       currentPages: {},
+      onlineResults: {}, // 清空之前的结果
     );
 
     try {
@@ -120,6 +126,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
       final onlineFuture = _service.searchOnline(
         query,
         sourceTypes: state.enabledSources.toList(),
+        order: state.searchOrder,
       );
 
       final results = await Future.wait([localFuture, onlineFuture]);
@@ -161,6 +168,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
         sourceType,
         state.query,
         page: nextPage,
+        order: state.searchOrder,
       );
 
       // 合并结果
@@ -219,10 +227,23 @@ class SearchNotifier extends StateNotifier<SearchState> {
     state = state.copyWith(enabledSources: sources);
   }
 
+  /// 设置排序方式
+  void setSearchOrder(SearchOrder order) {
+    if (state.searchOrder == order) return;
+    
+    state = state.copyWith(searchOrder: order);
+    
+    // 如果有查询，重新搜索
+    if (state.query.isNotEmpty) {
+      search(state.query);
+    }
+  }
+
   /// 清除搜索
   void clear() {
-    state = const SearchState(
-      enabledSources: {SourceType.bilibili},
+    state = SearchState(
+      enabledSources: const {SourceType.bilibili},
+      searchOrder: state.searchOrder, // 保留排序设置
     );
   }
 }

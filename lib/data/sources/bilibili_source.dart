@@ -43,6 +43,20 @@ class BilibiliSource extends BaseSource with Logging {
     return '${randomHex(8)}-${randomHex(4)}-${randomHex(4)}-${randomHex(4)}-${randomHex(12)}infoc';
   }
 
+  /// 将 SearchOrder 映射到 Bilibili API 的排序参数
+  String _mapSearchOrder(SearchOrder order) {
+    switch (order) {
+      case SearchOrder.relevance:
+        return 'totalrank'; // 综合排序
+      case SearchOrder.playCount:
+        return 'click'; // 按播放量
+      case SearchOrder.publishDate:
+        return 'pubdate'; // 按发布时间
+      case SearchOrder.danmakuCount:
+        return 'dm'; // 按弹幕数
+    }
+  }
+
   @override
   SourceType get sourceType => SourceType.bilibili;
 
@@ -219,6 +233,7 @@ class BilibiliSource extends BaseSource with Logging {
     String query, {
     int page = 1,
     int pageSize = 20,
+    SearchOrder order = SearchOrder.relevance,
   }) async {
     try {
       final response = await _dio.get(
@@ -228,7 +243,7 @@ class BilibiliSource extends BaseSource with Logging {
           'search_type': 'video',
           'page': page,
           'page_size': pageSize,
-          'order': 'totalrank', // 综合排序
+          'order': _mapSearchOrder(order),
         },
       );
 

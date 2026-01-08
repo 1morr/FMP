@@ -79,6 +79,7 @@ class SearchService {
     List<SourceType>? sourceTypes,
     int page = 1,
     int pageSize = 20,
+    SearchOrder order = SearchOrder.relevance,
   }) async {
     if (query.trim().isEmpty) {
       return const MultiSourceSearchResult();
@@ -98,6 +99,7 @@ class SearchService {
               query,
               page: page,
               pageSize: pageSize,
+              order: order,
             );
             results[type] = result;
           }
@@ -123,13 +125,14 @@ class SearchService {
     String query, {
     int page = 1,
     int pageSize = 20,
+    SearchOrder order = SearchOrder.relevance,
   }) async {
     final source = _sourceManager.getSource(sourceType);
     if (source == null) {
       throw SearchException('音源 ${sourceType.name} 不可用');
     }
 
-    return source.search(query, page: page, pageSize: pageSize);
+    return source.search(query, page: page, pageSize: pageSize, order: order);
   }
 
   /// 本地搜索（已保存的歌曲）
