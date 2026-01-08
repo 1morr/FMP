@@ -286,7 +286,12 @@ class QueueManager with Logging {
 
     // 更新 shuffle order
     if (isShuffleEnabled) {
-      _addToShuffleOrder(_tracks.length - 1);
+      // 如果 shuffle order 为空但有歌曲，需要重新生成
+      if (_shuffleOrder.isEmpty && _tracks.length > 1) {
+        _generateShuffleOrder();
+      } else {
+        _addToShuffleOrder(_tracks.length - 1);
+      }
     }
 
     await _persistQueue();
@@ -304,8 +309,13 @@ class QueueManager with Logging {
 
     // 更新 shuffle order
     if (isShuffleEnabled) {
-      for (var i = 0; i < savedTracks.length; i++) {
-        _addToShuffleOrder(startIndex + i);
+      // 如果 shuffle order 为空但有歌曲，需要重新生成
+      if (_shuffleOrder.isEmpty && _tracks.isNotEmpty) {
+        _generateShuffleOrder();
+      } else {
+        for (var i = 0; i < savedTracks.length; i++) {
+          _addToShuffleOrder(startIndex + i);
+        }
       }
     }
 
@@ -318,7 +328,7 @@ class QueueManager with Logging {
     if (index < 0 || index > _tracks.length) return;
 
     // 调整 shuffle order
-    if (isShuffleEnabled) {
+    if (isShuffleEnabled && _shuffleOrder.isNotEmpty) {
       _adjustShuffleOrderForInsert(index);
     }
 
@@ -332,7 +342,12 @@ class QueueManager with Logging {
 
     // 添加到 shuffle order
     if (isShuffleEnabled) {
-      _addToShuffleOrder(index);
+      // 如果 shuffle order 为空但有歌曲，需要重新生成
+      if (_shuffleOrder.isEmpty && _tracks.length > 1) {
+        _generateShuffleOrder();
+      } else {
+        _addToShuffleOrder(index);
+      }
     }
 
     await _persistQueue();
