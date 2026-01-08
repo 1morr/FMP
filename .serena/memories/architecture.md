@@ -74,11 +74,14 @@
 ### Services
 | 服务 | 文件 | 职责 |
 |------|------|------|
-| AudioService | `services/audio/audio_service.dart` | 音频播放控制 |
+| AudioService | `services/audio/audio_service.dart` | 底层音频播放（封装 just_audio） |
+| AudioController | `services/audio/audio_provider.dart` | 高层音频控制（UI 使用） |
 | QueueManager | `services/audio/queue_manager.dart` | 播放队列管理 |
 | PlaylistService | `services/library/playlist_service.dart` | 歌单业务逻辑 |
 | SearchService | `services/search/search_service.dart` | 多源搜索 |
 | ImportService | `services/import/import_service.dart` | 外部导入 |
+
+> **详细音频系统文档见：** `audio_system` 记忆文件
 
 ### Providers
 | Provider | 文件 | 类型 |
