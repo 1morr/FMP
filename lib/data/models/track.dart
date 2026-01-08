@@ -52,6 +52,10 @@ class Track {
   /// 离线下载路径
   String? downloadedPath;
 
+  /// 播放量/观看数（仅用于搜索结果显示，不持久化）
+  @ignore
+  int? viewCount;
+
   /// 创建时间
   DateTime createdAt = DateTime.now();
 

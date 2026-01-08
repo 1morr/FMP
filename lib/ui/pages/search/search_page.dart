@@ -392,13 +392,28 @@ class _SearchResultTile extends ConsumerWidget {
             ),
             const SizedBox(width: 4),
           ],
-          Expanded(
+          Flexible(
             child: Text(
               track.artist ?? '未知艺术家',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          if (track.viewCount != null) ...[
+            const SizedBox(width: 8),
+            Icon(
+              Icons.play_arrow,
+              size: 14,
+              color: colorScheme.outline,
+            ),
+            const SizedBox(width: 2),
+            Text(
+              _formatViewCount(track.viewCount!),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.outline,
+                  ),
+            ),
+          ],
         ],
       ),
       trailing: Row(
@@ -460,6 +475,16 @@ class _SearchResultTile extends ConsumerWidget {
     final minutes = duration.inMinutes;
     final seconds = duration.inSeconds.remainder(60);
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  String _formatViewCount(int count) {
+    if (count >= 100000000) {
+      return '${(count / 100000000).toStringAsFixed(1)}亿';
+    } else if (count >= 10000) {
+      return '${(count / 10000).toStringAsFixed(1)}万';
+    } else {
+      return count.toString();
+    }
   }
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) {
