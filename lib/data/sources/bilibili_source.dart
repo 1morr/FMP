@@ -245,7 +245,8 @@ class BilibiliSource extends BaseSource with Logging {
           ..title = _cleanHtmlTags(item['title'] ?? 'Unknown')
           ..artist = item['author']
           ..durationMs = _parseDuration(item['duration'] ?? '0:00')
-          ..thumbnailUrl = _fixImageUrl(item['pic']);
+          ..thumbnailUrl = _fixImageUrl(item['pic'])
+          ..viewCount = item['play'] as int?;
       }).toList();
 
       return SearchResult(
