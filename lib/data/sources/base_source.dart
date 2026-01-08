@@ -1,5 +1,17 @@
 import '../models/track.dart';
 
+/// 搜索排序方式
+enum SearchOrder {
+  /// 综合排序（默认）
+  relevance,
+  /// 按播放量排序
+  playCount,
+  /// 按发布时间排序
+  publishDate,
+  /// 按弹幕数排序
+  danmakuCount,
+}
+
 /// 搜索结果
 class SearchResult {
   final List<Track> tracks;
@@ -71,10 +83,12 @@ abstract class BaseSource {
   /// [query] 搜索关键词
   /// [page] 页码（从1开始）
   /// [pageSize] 每页数量
+  /// [order] 排序方式
   Future<SearchResult> search(
     String query, {
     int page = 1,
     int pageSize = 20,
+    SearchOrder order = SearchOrder.relevance,
   });
 
   /// 解析播放列表/收藏夹

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../data/models/track.dart';
+import '../../../data/sources/base_source.dart' show SearchOrder;
 import '../../../providers/search_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
@@ -108,10 +109,80 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             'Bilibili',
             state.enabledSources.contains(SourceType.bilibili),
           ),
-          // 可以添加更多音源
+          const Spacer(),
+          // 排序按钮
+          _buildSortButton(context, state),
         ],
       ),
     );
+  }
+
+  Widget _buildSortButton(BuildContext context, SearchState state) {
+    return PopupMenuButton<SearchOrder>(
+      initialValue: state.searchOrder,
+      onSelected: (order) {
+        ref.read(searchProvider.notifier).setSearchOrder(order);
+      },
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: SearchOrder.relevance,
+          child: Text('综合排序'),
+        ),
+        const PopupMenuItem(
+          value: SearchOrder.playCount,
+          child: Text('最多播放'),
+        ),
+        const PopupMenuItem(
+          value: SearchOrder.publishDate,
+          child: Text('最新发布'),
+        ),
+        const PopupMenuItem(
+          value: SearchOrder.danmakuCount,
+          child: Text('最多弹幕'),
+        ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5)),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.sort,
+              size: 16,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              _getOrderName(state.searchOrder),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.arrow_drop_down,
+              size: 16,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getOrderName(SearchOrder order) {
+    switch (order) {
+      case SearchOrder.relevance:
+        return '综合';
+      case SearchOrder.playCount:
+        return '播放量';
+      case SearchOrder.publishDate:
+        return '最新';
+      case SearchOrder.danmakuCount:
+        return '弹幕';
+    }
   }
 
   Widget _buildSourceChip(
@@ -234,96 +305,125 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       );
     }
 
-    return CustomScrollView(
-      slivers: [
-        // 本地结果
-        if (state.localResults.isNotEmpty) ...[
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                '本地 (${state.localResults.length})',
-                style: Theme.of(context).textTheme.titleSmall,
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        // 当滚动到底部附近时自动加载更多
+        if (notification is ScrollEndNotification) {
+          final metrics = notification.metrics;
+          if (metrics.pixels >= metrics.maxScrollExtent - 200) {
+            // 对每个有更多内容的音源加载更多
+            for (final entry in state.onlineResults.entries) {
+              if (entry.value.hasMore && !state.isLoading) {
+                ref.read(searchProvider.notifier).loadMore(entry.key);
+                break; // 一次只加载一个音源
+              }
+            }
+          }
+        }
+        return false;
+      },
+      child: CustomScrollView(
+        slivers: [
+          // 本地结果
+          if (state.localResults.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  '本地 (${state.localResults.length})',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
               ),
             ),
-          ),
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) => _SearchResultTile(
-                track: state.localResults[index],
-                isLocal: true,
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _SearchResultTile(
+                  track: state.localResults[index],
+                  isLocal: true,
+                ),
+                childCount: state.localResults.length,
               ),
-              childCount: state.localResults.length,
             ),
-          ),
-        ],
+          ],
 
-        // 在线结果（按音源分组）
-        for (final entry in state.onlineResults.entries) ...[
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Text(
-                    '${_getSourceName(entry.key)} (${entry.value.totalCount})',
-                    style: Theme.of(context).textTheme.titleSmall,
+          // 在线结果（按音源分组）
+          for (final entry in state.onlineResults.entries) ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  _getSourceName(entry.key),
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+            ),
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _SearchResultTile(
+                  track: entry.value.tracks[index],
+                  isLocal: false,
+                ),
+                childCount: entry.value.tracks.length,
+              ),
+            ),
+          ],
+
+          // 加载更多指示器
+          if (state.isLoading)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ),
+
+          // 已加载全部
+          if (!state.isLoading && state.hasResults && !_hasMoreResults(state))
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Center(
+                  child: Text(
+                    '已加载全部',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
                   ),
-                  const Spacer(),
-                  if (entry.value.hasMore)
-                    TextButton(
-                      onPressed: () {
-                        ref.read(searchProvider.notifier).loadMore(entry.key);
-                      },
-                      child: const Text('加载更多'),
+                ),
+              ),
+            ),
+
+          // 无结果
+          if (!state.hasResults && !state.isLoading)
+            SliverFillRemaining(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.search_off,
+                      size: 64,
+                      color: Theme.of(context).colorScheme.outline,
                     ),
-                ],
+                    const SizedBox(height: 16),
+                    Text(
+                      '未找到 "${state.query}" 相关结果',
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) => _SearchResultTile(
-                track: entry.value.tracks[index],
-                isLocal: false,
-              ),
-              childCount: entry.value.tracks.length,
-            ),
-          ),
         ],
-
-        // 加载更多指示器
-        if (state.isLoading)
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(child: CircularProgressIndicator()),
-            ),
-          ),
-
-        // 无结果
-        if (!state.hasResults && !state.isLoading)
-          SliverFillRemaining(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.search_off,
-                    size: 64,
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    '未找到 "${state.query}" 相关结果',
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
-                ],
-              ),
-            ),
-          ),
-      ],
+      ),
     );
+  }
+
+  bool _hasMoreResults(SearchState state) {
+    for (final entry in state.onlineResults.entries) {
+      if (entry.value.hasMore) return true;
+    }
+    return false;
   }
 
   String _getSourceName(SourceType type) {
