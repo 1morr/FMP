@@ -45,8 +45,8 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
     final playlists = ref.watch(allPlaylistsProvider);
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.6,
-      minChildSize: 0.4,
+      initialChildSize: 0.8,
+      minChildSize: 0.5,
       maxChildSize: 0.9,
       expand: false,
       builder: (context, scrollController) {
