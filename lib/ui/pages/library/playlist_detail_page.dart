@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 
 /// 歌单详情页
 class PlaylistDetailPage extends ConsumerWidget {
@@ -430,6 +431,14 @@ class _TrackListTile extends ConsumerWidget {
                 ),
               ),
               const PopupMenuItem(
+                value: 'add_to_playlist',
+                child: ListTile(
+                  leading: Icon(Icons.playlist_add),
+                  title: Text('添加到歌单'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
                 value: 'remove',
                 child: ListTile(
                   leading: Icon(Icons.remove_circle_outline),
@@ -465,6 +474,9 @@ class _TrackListTile extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('已添加到播放队列')),
         );
+        break;
+      case 'add_to_playlist':
+        showAddToPlaylistDialog(context: context, track: track);
         break;
       case 'remove':
         ref
