@@ -454,13 +454,13 @@ class _TrackListTile extends ConsumerWidget {
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) {
     switch (action) {
       case 'play_next':
-        // TODO: 实现下一首播放
+        ref.read(audioControllerProvider.notifier).addNext(track);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('已添加到下一首')),
         );
         break;
       case 'add_to_queue':
-        // TODO: 实现添加到队列
+        ref.read(audioControllerProvider.notifier).addToQueue(track);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('已添加到播放队列')),
         );

@@ -11,6 +11,12 @@ class AudioService with Logging {
   // 完成事件控制器
   final _completedController = StreamController<void>.broadcast();
 
+  // 流订阅列表（用于 dispose 时取消）
+  final List<StreamSubscription> _subscriptions = [];
+
+  // duck 前的音量（用于恢复）
+  double _volumeBeforeDuck = 1.0;
+
   // ========== 状态流 ==========
   Stream<PlayerState> get playerStateStream => _player.playerStateStream;
   Stream<Duration> get positionStream => _player.positionStream;
@@ -39,49 +45,64 @@ class AudioService with Logging {
     await session.configure(const AudioSessionConfiguration.music());
 
     // 监听音频会话中断
-    session.interruptionEventStream.listen((event) {
-      if (event.begin) {
-        switch (event.type) {
-          case AudioInterruptionType.duck:
-            _player.setVolume(_player.volume * 0.5);
-            break;
-          case AudioInterruptionType.pause:
-          case AudioInterruptionType.unknown:
-            _player.pause();
-            break;
+    _subscriptions.add(
+      session.interruptionEventStream.listen((event) {
+        if (event.begin) {
+          switch (event.type) {
+            case AudioInterruptionType.duck:
+              // 记住 duck 前的音量，以便正确恢复
+              _volumeBeforeDuck = _player.volume;
+              _player.setVolume(_player.volume * 0.5);
+              break;
+            case AudioInterruptionType.pause:
+            case AudioInterruptionType.unknown:
+              _player.pause();
+              break;
+          }
+        } else {
+          switch (event.type) {
+            case AudioInterruptionType.duck:
+              // 恢复到 duck 前的音量
+              _player.setVolume(_volumeBeforeDuck);
+              break;
+            case AudioInterruptionType.pause:
+              _player.play();
+              break;
+            case AudioInterruptionType.unknown:
+              break;
+          }
         }
-      } else {
-        switch (event.type) {
-          case AudioInterruptionType.duck:
-            _player.setVolume(1.0);
-            break;
-          case AudioInterruptionType.pause:
-            _player.play();
-            break;
-          case AudioInterruptionType.unknown:
-            break;
-        }
-      }
-    });
+      }),
+    );
 
     // 监听音频设备变化（如耳机拔出）
-    session.becomingNoisyEventStream.listen((_) {
-      _player.pause();
-    });
+    _subscriptions.add(
+      session.becomingNoisyEventStream.listen((_) {
+        _player.pause();
+      }),
+    );
 
     // 监听播放状态，检测歌曲完成
-    _player.playerStateStream.listen((state) {
-      if (state.processingState == ProcessingState.completed) {
-        logDebug('Track completed');
-        _completedController.add(null);
-      }
-    });
+    _subscriptions.add(
+      _player.playerStateStream.listen((state) {
+        if (state.processingState == ProcessingState.completed) {
+          logDebug('Track completed');
+          _completedController.add(null);
+        }
+      }),
+    );
 
     logInfo('AudioService initialized');
   }
 
   /// 释放资源
   Future<void> dispose() async {
+    // 取消所有流订阅
+    for (final subscription in _subscriptions) {
+      await subscription.cancel();
+    }
+    _subscriptions.clear();
+
     await _completedController.close();
     await _player.dispose();
   }
