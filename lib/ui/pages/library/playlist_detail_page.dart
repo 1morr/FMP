@@ -90,10 +90,6 @@ class PlaylistDetailPage extends ConsumerWidget {
       expandedHeight: 280,
       pinned: true,
       flexibleSpace: FlexibleSpaceBar(
-        title: Text(
-          playlist.name,
-          style: const TextStyle(fontSize: 18),
-        ),
         background: Stack(
           fit: StackFit.expand,
           children: [
@@ -175,8 +171,20 @@ class PlaylistDetailPage extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        // 歌单名称
+                        Text(
+                          playlist.name,
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         if (playlist.description != null &&
-                            playlist.description!.isNotEmpty)
+                            playlist.description!.isNotEmpty) ...[
+                          const SizedBox(height: 4),
                           Text(
                             playlist.description!,
                             style:
@@ -186,6 +194,7 @@ class PlaylistDetailPage extends ConsumerWidget {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
+                        ],
                         const SizedBox(height: 8),
                         Text(
                           '${state.tracks.length} 首歌曲 · ${_formatDuration(state.totalDuration)}',
@@ -195,25 +204,37 @@ class PlaylistDetailPage extends ConsumerWidget {
                                   ),
                         ),
                         if (playlist.isImported) ...[
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.link,
-                                size: 14,
-                                color: colorScheme.primary,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '已导入',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                      color: colorScheme.primary,
-                                    ),
-                              ),
-                            ],
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.link,
+                                  size: 14,
+                                  color: colorScheme.onPrimaryContainer,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '已导入',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelSmall
+                                      ?.copyWith(
+                                        color: colorScheme.onPrimaryContainer,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ],
