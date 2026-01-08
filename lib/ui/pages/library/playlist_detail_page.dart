@@ -238,18 +238,17 @@ class PlaylistDetailPage extends ConsumerWidget {
         children: [
           Expanded(
             child: FilledButton.icon(
-              onPressed: tracks.isEmpty ? null : () => _playAll(ref, tracks),
+              onPressed: tracks.isEmpty ? null : () => _playAll(ref, tracks, context),
               icon: const Icon(Icons.play_arrow),
-              label: const Text('播放全部'),
+              label: const Text('添加所有'),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: OutlinedButton.icon(
-              onPressed:
-                  tracks.isEmpty ? null : () => _shufflePlay(ref, tracks),
+              onPressed: tracks.isEmpty ? null : () => _shufflePlay(ref, tracks, context),
               icon: const Icon(Icons.shuffle),
-              label: const Text('随机播放'),
+              label: const Text('随机添加'),
             ),
           ),
         ],
@@ -298,15 +297,21 @@ class PlaylistDetailPage extends ConsumerWidget {
     return '$minutes 分钟';
   }
 
-  void _playAll(WidgetRef ref, List<Track> tracks) {
+  void _playAll(WidgetRef ref, List<Track> tracks, BuildContext context) {
     final controller = ref.read(audioControllerProvider.notifier);
-    controller.playPlaylist(tracks, startIndex: 0);
+    controller.addAllToQueue(tracks);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('已添加 ${tracks.length} 首歌曲到队列')),
+    );
   }
 
-  void _shufflePlay(WidgetRef ref, List<Track> tracks) {
+  void _shufflePlay(WidgetRef ref, List<Track> tracks, BuildContext context) {
     final controller = ref.read(audioControllerProvider.notifier);
     final shuffled = List<Track>.from(tracks)..shuffle();
-    controller.playPlaylist(shuffled, startIndex: 0);
+    controller.addAllToQueue(shuffled);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('已随机添加 ${tracks.length} 首歌曲到队列')),
+    );
   }
 
   void _playTrack(WidgetRef ref, List<Track> tracks, int index) {
