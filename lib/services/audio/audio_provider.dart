@@ -637,12 +637,27 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   // ========== 音量 ==========
 
+  // 静音前的音量（用于恢复）
+  double _volumeBeforeMute = 1.0;
+
   /// 设置音量
   Future<void> setVolume(double volume) async {
     await _audioService.setVolume(volume);
     state = state.copyWith(volume: volume);
     // 保存音量设置
     await _queueManager.saveVolume(volume);
+  }
+
+  /// 静音切换
+  Future<void> toggleMute() async {
+    if (state.volume > 0) {
+      // 保存静音前的音量
+      _volumeBeforeMute = state.volume;
+      await setVolume(0);
+    } else {
+      // 恢复静音前的音量
+      await setVolume(_volumeBeforeMute);
+    }
   }
 
   // ========== 私有方法 ==========

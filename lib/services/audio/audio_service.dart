@@ -158,15 +158,6 @@ class AudioService with Logging {
   /// 设置音量 (0.0 - 1.0)
   Future<void> setVolume(double volume) => _player.setVolume(volume.clamp(0.0, 1.0));
 
-  /// 静音切换
-  Future<void> toggleMute() async {
-    if (_player.volume > 0) {
-      await _player.setVolume(0);
-    } else {
-      await _player.setVolume(1.0);
-    }
-  }
-
   // ========== 音频源设置 ==========
 
   /// 播放指定 URL

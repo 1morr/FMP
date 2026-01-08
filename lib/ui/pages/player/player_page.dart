@@ -367,13 +367,7 @@ class PlayerPage extends ConsumerWidget {
           icon: Icon(_getVolumeIcon(state.volume), size: 20),
           visualDensity: VisualDensity.compact,
           tooltip: state.volume > 0 ? '静音' : '取消静音',
-          onPressed: () {
-            if (state.volume > 0) {
-              controller.setVolume(0);
-            } else {
-              controller.setVolume(1.0);
-            }
-          },
+          onPressed: () => controller.toggleMute(),
         ),
         // 音量滑块
         SizedBox(
