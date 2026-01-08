@@ -465,7 +465,7 @@ class _SearchResultTile extends ConsumerWidget {
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) {
     switch (action) {
       case 'play':
-        ref.read(audioControllerProvider.notifier).playTrack(track);
+        ref.read(audioControllerProvider.notifier).playTemporary(track);
         break;
       case 'play_next':
         ref.read(audioControllerProvider.notifier).addNext(track);
