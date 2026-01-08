@@ -271,11 +271,11 @@ class _PlaylistCard extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.play_arrow),
-              title: const Text('播放全部'),
+              leading: const Icon(Icons.add_to_queue),
+              title: const Text('添加所有'),
               onTap: () {
                 Navigator.pop(context);
-                _playAll(context, ref);
+                _addAllToQueue(context, ref);
               },
             ),
             ListTile(
@@ -322,21 +322,27 @@ class _PlaylistCard extends ConsumerWidget {
     );
   }
 
-  void _playAll(BuildContext context, WidgetRef ref) async {
+  void _addAllToQueue(BuildContext context, WidgetRef ref) async {
     final service = ref.read(playlistServiceProvider);
     final result = await service.getPlaylistWithTracks(playlist.id);
 
     if (result == null || result.tracks.isEmpty) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('歌单为空，无法播放')),
+          const SnackBar(content: Text('歌单为空')),
         );
       }
       return;
     }
 
     final controller = ref.read(audioControllerProvider.notifier);
-    controller.playPlaylist(result.tracks, startIndex: 0);
+    controller.addAllToQueue(result.tracks);
+    
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已添加 ${result.tracks.length} 首歌曲到队列')),
+      );
+    }
   }
 
   void _refreshPlaylist(BuildContext context, WidgetRef ref) {

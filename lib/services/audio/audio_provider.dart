@@ -395,6 +395,19 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     }
   }
 
+  /// 批量添加到队列
+  Future<void> addAllToQueue(List<Track> tracks) async {
+    await _ensureInitialized();
+    logInfo('Adding ${tracks.length} tracks to queue');
+    try {
+      await _queueManager.addAll(tracks);
+      _updateQueueState();
+    } catch (e, stack) {
+      logError('Failed to add tracks to queue', e, stack);
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
   /// 添加到下一首
   Future<void> addNext(Track track) async {
     await _ensureInitialized();
