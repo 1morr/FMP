@@ -3,6 +3,7 @@ import 'dart:math';
 
 import '../../core/logger.dart';
 import '../models/track.dart';
+import '../models/video_detail.dart';
 import 'base_source.dart';
 
 /// Bilibili 音源实现
@@ -15,6 +16,8 @@ class BilibiliSource extends BaseSource with Logging {
   static const String _playUrlApi = '$_apiBase/x/player/playurl';
   static const String _searchApi = '$_apiBase/x/web-interface/search/type';
   static const String _favListApi = '$_apiBase/x/v3/fav/resource/list';
+  static const String _replyApi = '$_apiBase/x/v2/reply';
+  static const String _statApi = '$_apiBase/x/web-interface/archive/stat';
 
   BilibiliSource() {
     // 生成 buvid3 Cookie（用于绕过 412 风控）
@@ -377,6 +380,100 @@ class BilibiliSource extends BaseSource with Logging {
       return response.data['code'] == 0;
     } catch (_) {
       return false;
+    }
+  }
+
+  /// 获取视频详细信息（包括统计数据和UP主信息）
+  Future<VideoDetail> getVideoDetail(String bvid) async {
+    try {
+      // 获取视频信息
+      final viewResponse = await _dio.get(
+        _viewApi,
+        queryParameters: {'bvid': bvid},
+      );
+
+      _checkResponse(viewResponse.data);
+
+      final data = viewResponse.data['data'];
+      final stat = data['stat'];
+      final owner = data['owner'];
+
+      // 获取热门评论
+      final comments = await getHotComments(bvid, limit: 5);
+
+      return VideoDetail(
+        bvid: bvid,
+        title: data['title'] ?? '',
+        description: data['desc'] ?? '',
+        coverUrl: data['pic'] ?? '',
+        ownerName: owner?['name'] ?? '',
+        ownerFace: owner?['face'] ?? '',
+        ownerId: owner?['mid'] ?? 0,
+        viewCount: stat?['view'] ?? 0,
+        likeCount: stat?['like'] ?? 0,
+        coinCount: stat?['coin'] ?? 0,
+        favoriteCount: stat?['favorite'] ?? 0,
+        shareCount: stat?['share'] ?? 0,
+        danmakuCount: stat?['danmaku'] ?? 0,
+        commentCount: stat?['reply'] ?? 0,
+        publishDate: DateTime.fromMillisecondsSinceEpoch(
+          (data['pubdate'] as int? ?? 0) * 1000,
+        ),
+        durationSeconds: data['duration'] as int? ?? 0,
+        hotComments: comments,
+      );
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  /// 获取热门评论
+  Future<List<VideoComment>> getHotComments(String bvid, {int limit = 5}) async {
+    try {
+      // 首先获取视频的 aid
+      final viewResponse = await _dio.get(
+        _viewApi,
+        queryParameters: {'bvid': bvid},
+      );
+
+      _checkResponse(viewResponse.data);
+      final aid = viewResponse.data['data']['aid'];
+
+      // 获取热门评论
+      final replyResponse = await _dio.get(
+        _replyApi,
+        queryParameters: {
+          'type': 1, // 视频类型
+          'oid': aid,
+          'sort': 1, // 按热度排序
+          'ps': limit,
+          'pn': 1,
+        },
+      );
+
+      _checkResponse(replyResponse.data);
+
+      final replies = replyResponse.data['data']['replies'] as List? ?? [];
+
+      return replies.map((reply) {
+        final member = reply['member'];
+        return VideoComment(
+          id: reply['rpid'] as int? ?? 0,
+          content: reply['content']?['message'] ?? '',
+          memberName: member?['uname'] ?? '',
+          memberAvatar: member?['avatar'] ?? '',
+          likeCount: reply['like'] as int? ?? 0,
+          createTime: DateTime.fromMillisecondsSinceEpoch(
+            (reply['ctime'] as int? ?? 0) * 1000,
+          ),
+        );
+      }).toList();
+    } on DioException catch (e) {
+      logError('Failed to get hot comments for $bvid: ${e.message}');
+      return []; // 评论获取失败不影响主要功能
+    } catch (e) {
+      logError('Failed to get hot comments for $bvid: $e');
+      return [];
     }
   }
 

@@ -1,0 +1,140 @@
+/// 视频详细信息（用于右侧详情面板显示）
+class VideoDetail {
+  final String bvid;
+  final String title;
+  final String description;
+  final String coverUrl;
+  final String ownerName;
+  final String ownerFace;
+  final int ownerId;
+  final int viewCount;
+  final int likeCount;
+  final int coinCount;
+  final int favoriteCount;
+  final int shareCount;
+  final int danmakuCount;
+  final int commentCount;
+  final DateTime publishDate;
+  final int durationSeconds;
+  final List<VideoComment> hotComments;
+
+  const VideoDetail({
+    required this.bvid,
+    required this.title,
+    required this.description,
+    required this.coverUrl,
+    required this.ownerName,
+    required this.ownerFace,
+    required this.ownerId,
+    required this.viewCount,
+    required this.likeCount,
+    required this.coinCount,
+    required this.favoriteCount,
+    required this.shareCount,
+    required this.danmakuCount,
+    required this.commentCount,
+    required this.publishDate,
+    required this.durationSeconds,
+    this.hotComments = const [],
+  });
+
+  /// 格式化播放数
+  String get formattedViewCount => _formatCount(viewCount);
+
+  /// 格式化点赞数
+  String get formattedLikeCount => _formatCount(likeCount);
+
+  /// 格式化投币数
+  String get formattedCoinCount => _formatCount(coinCount);
+
+  /// 格式化收藏数
+  String get formattedFavoriteCount => _formatCount(favoriteCount);
+
+  /// 格式化分享数
+  String get formattedShareCount => _formatCount(shareCount);
+
+  /// 格式化弹幕数
+  String get formattedDanmakuCount => _formatCount(danmakuCount);
+
+  /// 格式化评论数
+  String get formattedCommentCount => _formatCount(commentCount);
+
+  /// 格式化数字（万/亿）
+  static String _formatCount(int count) {
+    if (count >= 100000000) {
+      return '${(count / 100000000).toStringAsFixed(1)}亿';
+    } else if (count >= 10000) {
+      return '${(count / 10000).toStringAsFixed(1)}万';
+    }
+    return count.toString();
+  }
+
+  /// 格式化时长
+  String get formattedDuration {
+    final hours = durationSeconds ~/ 3600;
+    final minutes = (durationSeconds % 3600) ~/ 60;
+    final seconds = durationSeconds % 60;
+    if (hours > 0) {
+      return '$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    }
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  /// 格式化发布时间
+  String get formattedPublishDate {
+    final now = DateTime.now();
+    final diff = now.difference(publishDate);
+    if (diff.inDays > 365) {
+      return '${diff.inDays ~/ 365}年前';
+    } else if (diff.inDays > 30) {
+      return '${diff.inDays ~/ 30}个月前';
+    } else if (diff.inDays > 0) {
+      return '${diff.inDays}天前';
+    } else if (diff.inHours > 0) {
+      return '${diff.inHours}小时前';
+    } else if (diff.inMinutes > 0) {
+      return '${diff.inMinutes}分钟前';
+    }
+    return '刚刚';
+  }
+}
+
+/// 视频评论
+class VideoComment {
+  final int id;
+  final String content;
+  final String memberName;
+  final String memberAvatar;
+  final int likeCount;
+  final DateTime createTime;
+
+  const VideoComment({
+    required this.id,
+    required this.content,
+    required this.memberName,
+    required this.memberAvatar,
+    required this.likeCount,
+    required this.createTime,
+  });
+
+  /// 格式化点赞数
+  String get formattedLikeCount => VideoDetail._formatCount(likeCount);
+
+  /// 格式化时间
+  String get formattedTime {
+    final now = DateTime.now();
+    final diff = now.difference(createTime);
+    if (diff.inDays > 365) {
+      return '${diff.inDays ~/ 365}年前';
+    } else if (diff.inDays > 30) {
+      return '${diff.inDays ~/ 30}个月前';
+    } else if (diff.inDays > 0) {
+      return '${diff.inDays}天前';
+    } else if (diff.inHours > 0) {
+      return '${diff.inHours}小时前';
+    } else if (diff.inMinutes > 0) {
+      return '${diff.inMinutes}分钟前';
+    }
+    return '刚刚';
+  }
+}
