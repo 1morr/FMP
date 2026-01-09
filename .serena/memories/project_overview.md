@@ -22,8 +22,11 @@
 | 路由 | go_router | 14.8.x |
 
 ### 平台特定依赖
-- **Windows**: tray_manager, window_manager, hotkey_manager, just_audio_windows
+- **Windows/Linux**: tray_manager, window_manager, hotkey_manager, just_audio_media_kit, media_kit_libs_windows_audio
 - **Android**: just_audio_background, permission_handler
+
+> **注意**: Windows 平台使用 `just_audio_media_kit` 而非 `just_audio_windows`，
+> 后者存在平台线程问题，会导致长视频 seek 时消息队列溢出。详见 `audio_system` memory。
 
 ## 开发进度
 - **Phase 1**: 基础架构 ✅ 已完成
