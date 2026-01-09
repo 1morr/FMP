@@ -25,7 +25,9 @@ dependencies:
 
   # 音频播放
   just_audio: ^0.9.43
-  just_audio_windows: ^0.2.2
+  # 使用 media_kit 后端替代 just_audio_windows（解决 Windows 平台消息队列溢出问题）
+  just_audio_media_kit: ^2.1.0
+  media_kit_libs_windows_audio: any
   just_audio_background: ^0.0.1-beta.14
   audio_session: ^0.1.25
 

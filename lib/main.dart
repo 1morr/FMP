@@ -2,12 +2,17 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 初始化 media_kit 作为 just_audio 的 Windows/Linux 后端
+  // 这替代了 just_audio_windows，避免其平台线程消息队列溢出问题
+  JustAudioMediaKit.ensureInitialized();
 
   // 仅在桌面平台初始化窗口管理器
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {

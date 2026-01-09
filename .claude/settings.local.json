@@ -37,7 +37,11 @@
       "Bash(flutter doctor:*)",
       "mcp__plugin_serena_serena__edit_memory",
       "mcp__plugin_serena_serena__insert_after_symbol",
-      "Skill(sc:load)"
+      "Skill(sc:load)",
+      "Bash(flutter pub:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:pub.dev)"
     ]
   }
 }
