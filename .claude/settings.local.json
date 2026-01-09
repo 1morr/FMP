@@ -36,7 +36,8 @@
       "Bash(dir:*)",
       "Bash(flutter doctor:*)",
       "mcp__plugin_serena_serena__edit_memory",
-      "mcp__plugin_serena_serena__insert_after_symbol"
+      "mcp__plugin_serena_serena__insert_after_symbol",
+      "Skill(sc:load)"
     ]
   }
 }
