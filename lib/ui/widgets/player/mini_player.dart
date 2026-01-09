@@ -270,6 +270,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
       child: thumbnailUrl != null
           ? CachedNetworkImage(
               cacheManager: FmpCacheManager.instance,
+              fadeInDuration: const Duration(milliseconds: 150),
               imageUrl: thumbnailUrl,
               fit: BoxFit.cover,
               placeholder: (context, url) => _buildDefaultThumbnail(colorScheme),

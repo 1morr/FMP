@@ -102,6 +102,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                     child: widget.track.thumbnailUrl != null
                         ? CachedNetworkImage(
                             cacheManager: FmpCacheManager.instance,
+                            fadeInDuration: const Duration(milliseconds: 150),
                             imageUrl: widget.track.thumbnailUrl!,
                             fit: BoxFit.cover,
                           )
@@ -258,6 +259,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                                 data: (url) => url != null
                                     ? CachedNetworkImage(
                                         cacheManager: FmpCacheManager.instance,
+                                        fadeInDuration: const Duration(milliseconds: 150),
                                         imageUrl: url,
                                         fit: BoxFit.cover,
                                       )

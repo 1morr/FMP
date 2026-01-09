@@ -118,6 +118,7 @@ class TrackDetailPanel extends ConsumerWidget {
               child: track.thumbnailUrl != null
                   ? CachedNetworkImage(
                       cacheManager: FmpCacheManager.instance,
+                      fadeInDuration: const Duration(milliseconds: 150),
                       imageUrl: track.thumbnailUrl!,
                       fit: BoxFit.cover,
                       placeholder: (context, url) => Container(
@@ -202,6 +203,7 @@ class _DetailContent extends ConsumerWidget {
               children: [
                 CachedNetworkImage(
                   cacheManager: FmpCacheManager.instance,
+                  fadeInDuration: const Duration(milliseconds: 150),
                   imageUrl: detail.coverUrl,
                   fit: BoxFit.cover,
                   placeholder: (context, url) => Container(
@@ -432,6 +434,7 @@ class _DetailContent extends ConsumerWidget {
                 child: track.thumbnailUrl != null
                     ? CachedNetworkImage(
                         cacheManager: FmpCacheManager.instance,
+                        fadeInDuration: const Duration(milliseconds: 150),
                         imageUrl: track.thumbnailUrl!,
                         fit: BoxFit.cover,
                         placeholder: (context, url) => Container(

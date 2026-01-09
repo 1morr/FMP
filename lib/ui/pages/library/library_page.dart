@@ -183,6 +183,7 @@ class _PlaylistCard extends ConsumerWidget {
                     data: (coverUrl) => coverUrl != null
                         ? CachedNetworkImage(
                             cacheManager: FmpCacheManager.instance,
+                            fadeInDuration: const Duration(milliseconds: 150),
                             imageUrl: coverUrl,
                             fit: BoxFit.cover,
                             placeholder: (context, url) =>
