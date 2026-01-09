@@ -83,9 +83,29 @@ UI (player_page, mini_player)
 │ Low-level play  │  │ Shuffle, loop   │
 │ control         │  │ Persistence     │
 └─────────────────┘  └─────────────────┘
+         │
+         ▼
+┌─────────────────┐
+│just_audio_media_kit│  ← Windows/Linux backend
+└─────────────────┘
 ```
 
 **Key Rule:** UI must call `AudioController` methods, never `AudioService` directly.
+
+### Windows Audio Backend
+
+Uses `just_audio_media_kit` instead of `just_audio_windows`. The latter has platform threading issues causing "Failed to post message to main thread" errors during seek operations on long videos.
+
+Required initialization in `main.dart`:
+```dart
+import 'package:just_audio_media_kit/just_audio_media_kit.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  JustAudioMediaKit.ensureInitialized();
+  // ...
+}
+```
 
 ### State Management: Riverpod
 
@@ -116,6 +136,9 @@ Managed in `QueueManager` with `_shuffleOrder` list. When queue is cleared and s
 
 ### Play Lock (Race Condition Prevention)
 `AudioController` uses `_playLock` and `_playRequestId` to prevent race conditions during rapid track switching.
+
+### Progress Bar Dragging
+Slider `onChanged` must NOT call `seekToProgress()` directly. Only call seek in `onChangeEnd` to avoid flooding the message queue during continuous dragging. See `player_page.dart` and `mini_player.dart` for correct implementation.
 
 ## File Structure Highlights
 

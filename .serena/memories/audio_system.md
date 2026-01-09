@@ -60,7 +60,11 @@
 ┌─────────────────────────┐    ┌─────────────────────────────┐
 │       just_audio        │    │      Isar Database          │
 │    (AudioPlayer)        │    │   (QueueRepository, etc.)   │
-└─────────────────────────┘    └─────────────────────────────┘
+│           │             │    └─────────────────────────────┘
+│           ▼             │
+│  just_audio_media_kit   │
+│    (Windows/Linux)      │
+└─────────────────────────┘
 ```
 
 ## 重要设计决策
@@ -167,6 +171,68 @@ final queueProvider
 final isShuffleEnabledProvider
 final loopModeProvider
 ```
+
+## Windows 平台后端
+
+**使用 `just_audio_media_kit` 而非 `just_audio_windows`**
+
+`just_audio_windows` 存在已知的平台线程问题（[GitHub Issue #30](https://github.com/bdlukaa/just_audio_windows/issues/30)），
+在长视频 seek 操作时会导致 "Failed to post message to main thread" 错误和应用卡死。
+
+**解决方案：**
+```yaml
+# pubspec.yaml
+dependencies:
+  just_audio: ^0.9.43
+  just_audio_media_kit: ^2.1.0      # 替代 just_audio_windows
+  media_kit_libs_windows_audio: any  # media_kit 的 Windows 音频库
+```
+
+```dart
+// main.dart
+import 'package:just_audio_media_kit/just_audio_media_kit.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  JustAudioMediaKit.ensureInitialized();  // 必须在使用音频前调用
+  // ...
+}
+```
+
+## 进度条拖动最佳实践
+
+**问题：** 如果 Slider 的 `onChanged` 直接调用 `seekToProgress()`，连续拖动会产生大量 seek 请求，
+可能导致消息队列溢出或性能问题。
+
+**正确实现：** 只在拖动结束时才触发 seek
+
+```dart
+// 状态
+bool _isDragging = false;
+double _dragProgress = 0.0;
+
+// Slider 实现
+Slider(
+  value: _isDragging ? _dragProgress : state.progress.clamp(0.0, 1.0),
+  onChangeStart: (value) {
+    setState(() {
+      _isDragging = true;
+      _dragProgress = value;
+    });
+  },
+  onChanged: (value) {
+    // 只更新本地状态，不触发 seek
+    setState(() => _dragProgress = value);
+  },
+  onChangeEnd: (value) {
+    // 只在这里触发 seek
+    controller.seekToProgress(value);
+    setState(() => _isDragging = false);
+  },
+)
+```
+
+**注意：** `mini_player.dart` 和 `player_page.dart` 都已正确实现此模式。
 
 ## 常见错误及避免方法
 
