@@ -73,6 +73,19 @@ class QueueManager with Logging {
   /// 是否有上一首
   bool get hasPrevious => getPreviousIndex() != null;
 
+  /// 获取当前 shuffle order（用于临时播放保存/恢复）
+  List<int> get shuffleOrder => List.unmodifiable(_shuffleOrder);
+
+  /// 获取当前 shuffle index（用于临时播放保存/恢复）
+  int get shuffleIndex => _shuffleIndex;
+
+  /// 设置 shuffle 状态（用于临时播放恢复）
+  void setShuffleState(List<int> order, int index) {
+    _shuffleOrder = List.from(order);
+    _shuffleIndex = index.clamp(0, _shuffleOrder.isEmpty ? 0 : _shuffleOrder.length - 1);
+    logDebug('Restored shuffle state: order length=${_shuffleOrder.length}, index=$_shuffleIndex');
+  }
+
   /// 获取接下来要播放的歌曲列表（考虑 shuffle 模式）
   List<Track> getUpcomingTracks({int count = 5}) {
     if (_tracks.isEmpty) return [];
@@ -316,6 +329,22 @@ class QueueManager with Logging {
     if (isShuffleEnabled) {
       _generateShuffleOrder();
     }
+
+    await _persistQueue();
+    _notifyStateChanged();
+  }
+
+  /// 恢复队列状态（不重新生成 shuffle order，用于临时播放恢复）
+  Future<void> restoreQueue(List<Track> tracks, {required int startIndex}) async {
+    logInfo('restoreQueue: ${tracks.length} tracks, startIndex: $startIndex');
+    if (tracks.isEmpty) return;
+
+    _tracks.clear();
+    // 不清空 shuffle order，由外部通过 setShuffleState 设置
+
+    final savedTracks = await _trackRepository.saveAll(tracks);
+    _tracks.addAll(savedTracks);
+    _currentIndex = startIndex.clamp(0, _tracks.length - 1);
 
     await _persistQueue();
     _notifyStateChanged();
