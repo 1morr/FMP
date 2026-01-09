@@ -8,6 +8,7 @@ import '../../data/models/track.dart';
 import '../../data/models/video_detail.dart';
 import '../../providers/track_detail_provider.dart';
 import '../../services/audio/audio_provider.dart';
+import '../../services/cache/fmp_cache_manager.dart';
 
 /// 右侧歌曲详情面板（桌面模式）
 class TrackDetailPanel extends ConsumerWidget {
@@ -116,6 +117,7 @@ class TrackDetailPanel extends ConsumerWidget {
               aspectRatio: 1,
               child: track.thumbnailUrl != null
                   ? CachedNetworkImage(
+                      cacheManager: FmpCacheManager.instance,
                       imageUrl: track.thumbnailUrl!,
                       fit: BoxFit.cover,
                       placeholder: (context, url) => Container(
@@ -199,6 +201,7 @@ class _DetailContent extends ConsumerWidget {
               fit: StackFit.expand,
               children: [
                 CachedNetworkImage(
+                  cacheManager: FmpCacheManager.instance,
                   imageUrl: detail.coverUrl,
                   fit: BoxFit.cover,
                   placeholder: (context, url) => Container(
@@ -275,7 +278,10 @@ class _DetailContent extends ConsumerWidget {
             CircleAvatar(
               radius: 16,
               backgroundImage: detail.ownerFace.isNotEmpty
-                  ? CachedNetworkImageProvider(detail.ownerFace)
+                  ? CachedNetworkImageProvider(
+                      detail.ownerFace,
+                      cacheManager: FmpCacheManager.instance,
+                    )
                   : null,
               child: detail.ownerFace.isEmpty
                   ? const Icon(Icons.person, size: 16)
@@ -425,6 +431,7 @@ class _DetailContent extends ConsumerWidget {
                 height: 56,
                 child: track.thumbnailUrl != null
                     ? CachedNetworkImage(
+                        cacheManager: FmpCacheManager.instance,
                         imageUrl: track.thumbnailUrl!,
                         fit: BoxFit.cover,
                         placeholder: (context, url) => Container(

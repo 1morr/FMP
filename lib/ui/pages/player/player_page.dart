@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../data/models/play_queue.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../../services/cache/fmp_cache_manager.dart';
 
 /// 播放器页面（全屏）
 class PlayerPage extends ConsumerWidget {
@@ -115,6 +116,7 @@ class PlayerPage extends ConsumerWidget {
         clipBehavior: Clip.antiAlias,
         child: thumbnailUrl != null
             ? CachedNetworkImage(
+                cacheManager: FmpCacheManager.instance,
                 imageUrl: thumbnailUrl,
                 fit: BoxFit.cover,
                 placeholder: (context, url) => Center(

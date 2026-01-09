@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../data/sources/source_provider.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../../services/cache/fmp_cache_manager.dart';
 import '../../router.dart';
 
 /// 首页
@@ -248,6 +249,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 clipBehavior: Clip.antiAlias,
                 child: track.thumbnailUrl != null
                     ? CachedNetworkImage(
+                        cacheManager: FmpCacheManager.instance,
                         imageUrl: track.thumbnailUrl!,
                         fit: BoxFit.cover,
                       )
@@ -365,6 +367,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                               child: coverAsync.when(
                                 data: (url) => url != null
                                     ? CachedNetworkImage(
+                                        cacheManager: FmpCacheManager.instance,
                                         imageUrl: url,
                                         fit: BoxFit.cover,
                                       )
@@ -447,6 +450,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 clipBehavior: Clip.antiAlias,
                 child: track.thumbnailUrl != null
                     ? CachedNetworkImage(
+                        cacheManager: FmpCacheManager.instance,
                         imageUrl: track.thumbnailUrl!,
                         fit: BoxFit.cover,
                       )
