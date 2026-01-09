@@ -35,7 +35,8 @@
       "mcp__plugin_serena_serena__think_about_task_adherence",
       "Bash(dir:*)",
       "Bash(flutter doctor:*)",
-      "mcp__plugin_serena_serena__edit_memory"
+      "mcp__plugin_serena_serena__edit_memory",
+      "mcp__plugin_serena_serena__insert_after_symbol"
     ]
   }
 }
