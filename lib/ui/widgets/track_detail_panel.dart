@@ -658,6 +658,7 @@ class _CommentPagerState extends State<_CommentPager> {
   int _currentIndex = 0;
   Timer? _autoScrollTimer;
   bool _isForward = true; // 动画方向
+  final GlobalKey _containerKey = GlobalKey();
 
   List<VideoComment> get _commentsToShow => widget.comments.take(3).toList();
 
@@ -671,15 +672,51 @@ class _CommentPagerState extends State<_CommentPager> {
   }
 
   @override
+  void didUpdateWidget(_CommentPager oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 当评论列表变化时（切换歌曲），重置到第一条
+    if (oldWidget.comments != widget.comments) {
+      setState(() {
+        _currentIndex = 0;
+        _isForward = true;
+      });
+      _resetAutoScroll();
+    }
+  }
+
+  @override
   void dispose() {
     _autoScrollTimer?.cancel();
     super.dispose();
   }
 
+  /// 检查评论区域是否有足够的可见部分（标题+部分内容）
+  bool _isVisible() {
+    final renderObject = _containerKey.currentContext?.findRenderObject();
+    if (renderObject == null || renderObject is! RenderBox) return false;
+
+    final box = renderObject;
+    if (!box.hasSize) return false;
+
+    final position = box.localToGlobal(Offset.zero);
+    final screenSize = MediaQuery.of(context).size;
+
+    // 评论区顶部要在屏幕内，且至少有120像素可见（标题栏+评论卡片第一行）
+    const minVisibleHeight = 120.0;
+    final visibleTop = position.dy.clamp(0.0, screenSize.height);
+    final visibleBottom = (position.dy + box.size.height).clamp(0.0, screenSize.height);
+    final visibleHeight = visibleBottom - visibleTop;
+
+    return visibleHeight >= minVisibleHeight && position.dy < screenSize.height;
+  }
+
   void _startAutoScroll() {
     _autoScrollTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       if (!mounted) return;
-      _goToNext(wrap: true);
+      // 只有当评论区在可视范围内时才自动翻页
+      if (_isVisible()) {
+        _goToNext(wrap: true);
+      }
     });
   }
 
@@ -721,6 +758,7 @@ class _CommentPagerState extends State<_CommentPager> {
     final currentComment = comments[_currentIndex];
 
     return Column(
+      key: _containerKey,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 标题栏
