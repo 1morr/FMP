@@ -319,7 +319,7 @@ class _DetailContent extends ConsumerWidget {
           const SizedBox(height: 20),
           const Divider(),
           const SizedBox(height: 16),
-          _buildDescription(context),
+          _DescriptionSection(description: detail.description),
         ],
 
         // 热门评论（放在最下方）
@@ -479,9 +479,65 @@ class _DetailContent extends ConsumerWidget {
       ],
     );
   }
+}
 
-  /// 简介
-  Widget _buildDescription(BuildContext context) {
+/// 简介部分（支持展开/收起）
+class _DescriptionSection extends StatefulWidget {
+  final String description;
+
+  const _DescriptionSection({required this.description});
+
+  @override
+  State<_DescriptionSection> createState() => _DescriptionSectionState();
+}
+
+class _DescriptionSectionState extends State<_DescriptionSection> {
+  bool _isExpanded = false;
+  bool _needsExpansion = false;
+  final GlobalKey _textKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkIfNeedsExpansion();
+    });
+  }
+
+  @override
+  void didUpdateWidget(_DescriptionSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.description != widget.description) {
+      _isExpanded = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkIfNeedsExpansion();
+      });
+    }
+  }
+
+  void _checkIfNeedsExpansion() {
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: widget.description,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          height: 1.6,
+        ),
+      ),
+      maxLines: 6,
+      textDirection: TextDirection.ltr,
+    );
+
+    final renderBox = _textKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox != null) {
+      textPainter.layout(maxWidth: renderBox.size.width);
+      setState(() {
+        _needsExpansion = textPainter.didExceedMaxLines;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
@@ -506,15 +562,73 @@ class _DetailContent extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 12),
-        Text(
-          detail.description,
-          style: textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-            height: 1.6,
-          ),
-          maxLines: 6,
-          overflow: TextOverflow.ellipsis,
+        Stack(
+          children: [
+            Text(
+              widget.description,
+              key: _textKey,
+              style: textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.6,
+              ),
+              maxLines: _isExpanded ? null : 6,
+              overflow: _isExpanded ? null : TextOverflow.ellipsis,
+            ),
+            if (_needsExpansion && !_isExpanded)
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _isExpanded = true;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.only(left: 24),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          colorScheme.surfaceContainerLow.withValues(alpha: 0),
+                          colorScheme.surfaceContainerLow,
+                          colorScheme.surfaceContainerLow,
+                        ],
+                        stops: const [0.0, 0.3, 1.0],
+                      ),
+                    ),
+                    child: Text(
+                      '展开',
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
+        if (_isExpanded && _needsExpansion)
+          Align(
+            alignment: Alignment.centerRight,
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _isExpanded = false;
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  '收起',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
