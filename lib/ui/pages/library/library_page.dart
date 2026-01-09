@@ -7,6 +7,7 @@ import '../../../data/models/playlist.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../providers/refresh_provider.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../../services/cache/fmp_cache_manager.dart';
 import '../../router.dart';
 import '../../widgets/refresh_progress_indicator.dart';
 import 'widgets/create_playlist_dialog.dart';
@@ -181,6 +182,7 @@ class _PlaylistCard extends ConsumerWidget {
                   coverAsync.when(
                     data: (coverUrl) => coverUrl != null
                         ? CachedNetworkImage(
+                            cacheManager: FmpCacheManager.instance,
                             imageUrl: coverUrl,
                             fit: BoxFit.cover,
                             placeholder: (context, url) =>

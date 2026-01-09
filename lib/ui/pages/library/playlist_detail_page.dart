@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../../services/cache/fmp_cache_manager.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 
 /// 歌单详情页
@@ -97,6 +98,7 @@ class PlaylistDetailPage extends ConsumerWidget {
             coverAsync.when(
               data: (coverUrl) => coverUrl != null
                   ? CachedNetworkImage(
+                      cacheManager: FmpCacheManager.instance,
                       imageUrl: coverUrl,
                       fit: BoxFit.cover,
                       color: Colors.black54,
@@ -146,6 +148,7 @@ class PlaylistDetailPage extends ConsumerWidget {
                     child: coverAsync.when(
                       data: (coverUrl) => coverUrl != null
                           ? CachedNetworkImage(
+                              cacheManager: FmpCacheManager.instance,
                               imageUrl: coverUrl,
                               fit: BoxFit.cover,
                             )
@@ -378,6 +381,7 @@ class _TrackListTile extends ConsumerWidget {
               clipBehavior: Clip.antiAlias,
               child: track.thumbnailUrl != null
                   ? CachedNetworkImage(
+                      cacheManager: FmpCacheManager.instance,
                       imageUrl: track.thumbnailUrl!,
                       fit: BoxFit.cover,
                       width: 48,

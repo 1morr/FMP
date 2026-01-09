@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import '../../../data/models/play_queue.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../../services/cache/fmp_cache_manager.dart';
 import '../../router.dart';
 
 /// 迷你播放器
@@ -268,6 +269,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
       clipBehavior: Clip.antiAlias,
       child: thumbnailUrl != null
           ? CachedNetworkImage(
+              cacheManager: FmpCacheManager.instance,
               imageUrl: thumbnailUrl,
               fit: BoxFit.cover,
               placeholder: (context, url) => _buildDefaultThumbnail(colorScheme),

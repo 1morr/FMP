@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../data/models/track.dart';
 import '../../../providers/playlist_provider.dart';
+import '../../../services/cache/fmp_cache_manager.dart';
 
 /// 显示添加到歌单对话框
 Future<bool> showAddToPlaylistDialog({
@@ -100,6 +101,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                     clipBehavior: Clip.antiAlias,
                     child: widget.track.thumbnailUrl != null
                         ? CachedNetworkImage(
+                            cacheManager: FmpCacheManager.instance,
                             imageUrl: widget.track.thumbnailUrl!,
                             fit: BoxFit.cover,
                           )
@@ -255,6 +257,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                               child: coverAsync.when(
                                 data: (url) => url != null
                                     ? CachedNetworkImage(
+                                        cacheManager: FmpCacheManager.instance,
                                         imageUrl: url,
                                         fit: BoxFit.cover,
                                       )

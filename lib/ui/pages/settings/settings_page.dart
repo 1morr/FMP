@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../providers/cache_provider.dart';
 import '../../../providers/theme_provider.dart';
 
 /// 设置页
@@ -28,32 +29,9 @@ class SettingsPage extends ConsumerWidget {
           _SettingsSection(
             title: '存储',
             children: [
-              ListTile(
-                leading: const Icon(Icons.folder_outlined),
-                title: const Text('缓存目录'),
-                subtitle: const Text('默认'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  // TODO: 实现缓存目录选择
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.storage_outlined),
-                title: const Text('缓存上限'),
-                subtitle: const Text('2 GB'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  _showCacheLimitDialog(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.delete_outline),
-                title: const Text('清除缓存'),
-                subtitle: const Text('清除所有临时缓存文件'),
-                onTap: () {
-                  _showClearCacheDialog(context);
-                },
-              ),
+              _CacheSizeListTile(),
+              _CacheLimitListTile(),
+              _ClearCacheListTile(),
             ],
           ),
           const Divider(),
@@ -109,9 +87,107 @@ class SettingsPage extends ConsumerWidget {
       ),
     );
   }
+}
 
-  void _showCacheLimitDialog(BuildContext context) {
-    int selectedValue = 2048;
+/// 缓存大小显示
+class _CacheSizeListTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cacheStatsAsync = ref.watch(refreshableCacheStatsProvider);
+
+    return cacheStatsAsync.when(
+      data: (stats) => ListTile(
+        leading: const Icon(Icons.storage_outlined),
+        title: const Text('当前缓存'),
+        subtitle: Text(
+          '${stats.formattedImageCacheSize} (${stats.imageCacheCount} 张图片)',
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (stats.maxCacheMB > 0) ...[
+              SizedBox(
+                width: 50,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '${stats.usagePercent.toStringAsFixed(0)}%',
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                    const SizedBox(height: 4),
+                    LinearProgressIndicator(
+                      value: stats.usagePercent / 100,
+                      backgroundColor:
+                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () => ref.invalidate(refreshableCacheStatsProvider),
+              tooltip: '刷新',
+            ),
+          ],
+        ),
+      ),
+      loading: () => const ListTile(
+        leading: Icon(Icons.storage_outlined),
+        title: Text('当前缓存'),
+        subtitle: Text('计算中...'),
+        trailing: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+      error: (error, stack) => ListTile(
+        leading: const Icon(Icons.storage_outlined),
+        title: const Text('当前缓存'),
+        subtitle: Text('获取失败: $error'),
+        trailing: IconButton(
+          icon: const Icon(Icons.refresh),
+          onPressed: () => ref.invalidate(refreshableCacheStatsProvider),
+        ),
+      ),
+    );
+  }
+}
+
+/// 缓存上限设置
+class _CacheLimitListTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cacheStatsAsync = ref.watch(refreshableCacheStatsProvider);
+
+    return cacheStatsAsync.when(
+      data: (stats) => ListTile(
+        leading: const Icon(Icons.sd_storage_outlined),
+        title: const Text('缓存上限'),
+        subtitle: Text(stats.formattedMaxCache),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => _showCacheLimitDialog(context, ref, stats.maxCacheMB),
+      ),
+      loading: () => const ListTile(
+        leading: Icon(Icons.sd_storage_outlined),
+        title: Text('缓存上限'),
+        subtitle: Text('加载中...'),
+      ),
+      error: (error, stack) => ListTile(
+        leading: const Icon(Icons.sd_storage_outlined),
+        title: const Text('缓存上限'),
+        subtitle: const Text('2 GB'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => _showCacheLimitDialog(context, ref, 2048),
+      ),
+    );
+  }
+
+  void _showCacheLimitDialog(BuildContext context, WidgetRef ref, int currentValue) {
+    int selectedValue = currentValue;
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -121,12 +197,19 @@ class SettingsPage extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               RadioListTile<int>(
+                title: const Text('512 MB'),
+                value: 512,
+                groupValue: selectedValue,
+                onChanged: (value) {
+                  setDialogState(() => selectedValue = value!);
+                },
+              ),
+              RadioListTile<int>(
                 title: const Text('1 GB'),
                 value: 1024,
                 groupValue: selectedValue,
                 onChanged: (value) {
                   setDialogState(() => selectedValue = value!);
-                  Navigator.pop(context);
                 },
               ),
               RadioListTile<int>(
@@ -135,7 +218,6 @@ class SettingsPage extends ConsumerWidget {
                 groupValue: selectedValue,
                 onChanged: (value) {
                   setDialogState(() => selectedValue = value!);
-                  Navigator.pop(context);
                 },
               ),
               RadioListTile<int>(
@@ -144,7 +226,6 @@ class SettingsPage extends ConsumerWidget {
                 groupValue: selectedValue,
                 onChanged: (value) {
                   setDialogState(() => selectedValue = value!);
-                  Navigator.pop(context);
                 },
               ),
               RadioListTile<int>(
@@ -153,7 +234,6 @@ class SettingsPage extends ConsumerWidget {
                 groupValue: selectedValue,
                 onChanged: (value) {
                   setDialogState(() => selectedValue = value!);
-                  Navigator.pop(context);
                 },
               ),
             ],
@@ -163,29 +243,85 @@ class SettingsPage extends ConsumerWidget {
               onPressed: () => Navigator.pop(context),
               child: const Text('取消'),
             ),
+            FilledButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                final cacheService = ref.read(cacheServiceProvider);
+                await cacheService.updateMaxCacheSize(selectedValue);
+                // 刷新缓存统计
+                ref.invalidate(refreshableCacheStatsProvider);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('缓存上限已更新')),
+                  );
+                }
+              },
+              child: const Text('确定'),
+            ),
           ],
         ),
       ),
     );
   }
+}
 
-  void _showClearCacheDialog(BuildContext context) {
+/// 清除缓存
+class _ClearCacheListTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ListTile(
+      leading: const Icon(Icons.delete_outline),
+      title: const Text('清除缓存'),
+      subtitle: const Text('清除所有图片缓存'),
+      onTap: () => _showClearCacheDialog(context, ref),
+    );
+  }
+
+  void _showClearCacheDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('清除缓存'),
-        content: const Text('确定要清除所有缓存文件吗？这不会影响已下载的歌曲。'),
+        content: const Text('确定要清除所有缓存文件吗？这不会影响已下载的歌曲和歌单数据。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('取消'),
           ),
           FilledButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('缓存已清除')),
+
+              // 显示加载指示器
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(
+                  child: CircularProgressIndicator(),
+                ),
               );
+
+              try {
+                final cacheService = ref.read(cacheServiceProvider);
+                await cacheService.clearAllCache();
+
+                // 刷新缓存统计
+                ref.invalidate(refreshableCacheStatsProvider);
+
+                if (context.mounted) {
+                  Navigator.pop(context); // 关闭加载指示器
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('缓存已清除')),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.pop(context); // 关闭加载指示器
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('清除缓存失败: $e')),
+                  );
+                }
+              }
             },
             child: const Text('清除'),
           ),

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../data/models/track.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../../services/cache/fmp_cache_manager.dart';
 import '../../router.dart';
 
 /// 播放队列页
@@ -252,6 +253,7 @@ class _QueueTrackTile extends StatelessWidget {
                     clipBehavior: Clip.antiAlias,
                     child: track.thumbnailUrl != null
                         ? CachedNetworkImage(
+                            cacheManager: FmpCacheManager.instance,
                             imageUrl: track.thumbnailUrl!,
                             fit: BoxFit.cover,
                             width: 48,
