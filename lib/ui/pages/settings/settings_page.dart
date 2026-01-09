@@ -179,9 +179,9 @@ class _CacheLimitListTile extends ConsumerWidget {
       error: (error, stack) => ListTile(
         leading: const Icon(Icons.sd_storage_outlined),
         title: const Text('缓存上限'),
-        subtitle: const Text('2 GB'),
+        subtitle: const Text('128 MB'),
         trailing: const Icon(Icons.chevron_right),
-        onTap: () => _showCacheLimitDialog(context, ref, 2048),
+        onTap: () => _showCacheLimitDialog(context, ref, 128),
       ),
     );
   }
@@ -197,40 +197,32 @@ class _CacheLimitListTile extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               RadioListTile<int>(
+                title: const Text('64 MB'),
+                value: 64,
+                groupValue: selectedValue,
+                onChanged: (value) {
+                  setDialogState(() => selectedValue = value!);
+                },
+              ),
+              RadioListTile<int>(
+                title: const Text('128 MB'),
+                value: 128,
+                groupValue: selectedValue,
+                onChanged: (value) {
+                  setDialogState(() => selectedValue = value!);
+                },
+              ),
+              RadioListTile<int>(
+                title: const Text('256 MB'),
+                value: 256,
+                groupValue: selectedValue,
+                onChanged: (value) {
+                  setDialogState(() => selectedValue = value!);
+                },
+              ),
+              RadioListTile<int>(
                 title: const Text('512 MB'),
                 value: 512,
-                groupValue: selectedValue,
-                onChanged: (value) {
-                  setDialogState(() => selectedValue = value!);
-                },
-              ),
-              RadioListTile<int>(
-                title: const Text('1 GB'),
-                value: 1024,
-                groupValue: selectedValue,
-                onChanged: (value) {
-                  setDialogState(() => selectedValue = value!);
-                },
-              ),
-              RadioListTile<int>(
-                title: const Text('2 GB'),
-                value: 2048,
-                groupValue: selectedValue,
-                onChanged: (value) {
-                  setDialogState(() => selectedValue = value!);
-                },
-              ),
-              RadioListTile<int>(
-                title: const Text('4 GB'),
-                value: 4096,
-                groupValue: selectedValue,
-                onChanged: (value) {
-                  setDialogState(() => selectedValue = value!);
-                },
-              ),
-              RadioListTile<int>(
-                title: const Text('无限制'),
-                value: -1,
                 groupValue: selectedValue,
                 onChanged: (value) {
                   setDialogState(() => selectedValue = value!);

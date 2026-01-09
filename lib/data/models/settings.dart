@@ -21,7 +21,7 @@ class Settings {
 
   /// 缓存设置
   String? customCacheDir;
-  int maxCacheSizeMB = 2048; // 默认 2GB
+  int maxCacheSizeMB = 128; // 默认 128MB
   String? customDownloadDir;
 
   /// 快捷键配置 (JSON 字符串)
