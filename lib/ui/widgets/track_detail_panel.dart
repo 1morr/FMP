@@ -181,14 +181,14 @@ class _DetailContent extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final detailState = ref.watch(trackDetailProvider);
-    final queue = ref.watch(queueProvider);
-    final currentIndex = ref.watch(audioControllerProvider).currentIndex;
+    final playerState = ref.watch(audioControllerProvider);
+    final queue = playerState.queue;
+    final currentIndex = playerState.currentIndex;
 
-    // 获取下一首歌曲
-    Track? nextTrack;
-    if (queue.isNotEmpty && currentIndex != null && currentIndex < queue.length - 1) {
-      nextTrack = queue[currentIndex + 1];
-    }
+    // 获取下一首歌曲（已考虑 shuffle 模式）
+    final nextTrack = playerState.upcomingTracks.isNotEmpty
+        ? playerState.upcomingTracks.first
+        : null;
 
     return ListView(
       padding: const EdgeInsets.all(20),

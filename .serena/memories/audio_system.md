@@ -127,6 +127,19 @@ Future<void> toggleMute() async {
 - `_shuffleOrder` - 随机顺序索引列表
 - `_shuffleIndex` - 当前在随机顺序中的位置
 - 清空队列后添加歌曲时会自动重新生成 shuffle order
+- `getUpcomingTracks(count)` - 获取接下来要播放的歌曲，已考虑 shuffle 模式
+- `PlayerState.upcomingTracks` - UI 应使用此字段显示"接下来播放"，而非手动计算
+
+**UI 显示下一首时必须使用 `upcomingTracks`：**
+```dart
+// ✅ 正确：使用 upcomingTracks
+final nextTrack = playerState.upcomingTracks.isNotEmpty
+    ? playerState.upcomingTracks.first
+    : null;
+
+// ❌ 错误：手动从 queue 计算（不考虑 shuffle）
+final nextTrack = queue[currentIndex + 1];
+```
 
 ### 5. 播放锁（防止竞态）
 ```dart
