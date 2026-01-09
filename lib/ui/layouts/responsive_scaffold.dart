@@ -192,12 +192,24 @@ class _DesktopLayoutState extends State<_DesktopLayout> {
       body: Row(
         children: [
           // 可收起的侧边导航栏
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: _isNavExpanded ? 256 : 72,
-            child: _isNavExpanded
-                ? _buildExpandedNav()
-                : _buildCollapsedNav(),
+          ClipRect(
+            child: AnimatedAlign(
+              duration: const Duration(milliseconds: 200),
+              alignment: Alignment.centerLeft,
+              widthFactor: _isNavExpanded ? 1.0 : 72 / 256,
+              child: SizedBox(
+                width: 256,
+                child: _isNavExpanded
+                    ? _buildExpandedNav()
+                    : Align(
+                        alignment: Alignment.centerLeft,
+                        child: SizedBox(
+                          width: 72,
+                          child: _buildCollapsedNav(),
+                        ),
+                      ),
+              ),
+            ),
           ),
           const VerticalDivider(width: 1, thickness: 1),
           // 主内容区
@@ -239,37 +251,89 @@ class _DesktopLayoutState extends State<_DesktopLayout> {
   }
 
   Widget _buildExpandedNav() {
-    return NavigationDrawer(
-      selectedIndex: widget.selectedIndex,
-      onDestinationSelected: widget.onDestinationSelected,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 8, 10),
-          child: Row(
-            children: [
-              const Text(
-                'FMP',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      color: colorScheme.surfaceContainerLow,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+            child: Row(
+              children: [
+                const Text(
+                  'FMP',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.menu_open),
-                onPressed: () => setState(() => _isNavExpanded = false),
-                tooltip: '收起导航栏',
-              ),
-            ],
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.menu_open),
+                  onPressed: () => setState(() => _isNavExpanded = false),
+                  tooltip: '收起导航栏',
+                ),
+              ],
+            ),
           ),
-        ),
-        const Divider(indent: 16, endIndent: 16),
-        ...destinations.map((d) => NavigationDrawerDestination(
-              icon: Icon(d.icon),
-              selectedIcon: Icon(d.selectedIcon),
-              label: Text(d.label),
-            )),
-      ],
+          const Divider(indent: 16, endIndent: 16),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              children: destinations.asMap().entries.map((entry) {
+                final index = entry.key;
+                final d = entry.value;
+                final isSelected = index == widget.selectedIndex;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Material(
+                    color: isSelected
+                        ? colorScheme.secondaryContainer
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(28),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(28),
+                      onTap: () => widget.onDestinationSelected(index),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isSelected ? d.selectedIcon : d.icon,
+                              color: isSelected
+                                  ? colorScheme.onSecondaryContainer
+                                  : colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                d.label,
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? colorScheme.onSecondaryContainer
+                                      : colorScheme.onSurfaceVariant,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
