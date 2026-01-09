@@ -344,6 +344,8 @@ class _DetailContent extends ConsumerWidget {
           context,
           Icons.play_arrow_rounded,
           detail.formattedViewCount,
+          iconSize: 26,
+          offsetY: 1.2,
         ),
         _buildStatChip(
           context,
@@ -354,22 +356,27 @@ class _DetailContent extends ConsumerWidget {
           context,
           Icons.star_rounded,
           detail.formattedFavoriteCount,
+          iconSize: 24,
         ),
       ],
     );
   }
 
-  Widget _buildStatChip(BuildContext context, IconData icon, String value) {
+  Widget _buildStatChip(BuildContext context, IconData icon, String value,
+      {double iconSize = 18, double offsetY = 0}) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          size: 18,
-          color: colorScheme.primary.withValues(alpha: 0.8),
+        Transform.translate(
+          offset: Offset(0, offsetY),
+          child: Icon(
+            icon,
+            size: iconSize,
+            color: colorScheme.primary.withValues(alpha: 0.8),
+          ),
         ),
         const SizedBox(width: 6),
         Text(
