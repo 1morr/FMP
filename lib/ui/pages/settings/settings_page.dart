@@ -98,7 +98,7 @@ class _CacheSizeListTile extends ConsumerWidget {
     return cacheStatsAsync.when(
       data: (stats) => ListTile(
         leading: const Icon(Icons.storage_outlined),
-        title: const Text('当前缓存'),
+        title: const Text('图片缓存'),
         subtitle: Text(
           '${stats.formattedImageCacheSize} (${stats.imageCacheCount} 张图片)',
         ),
@@ -136,7 +136,7 @@ class _CacheSizeListTile extends ConsumerWidget {
       ),
       loading: () => const ListTile(
         leading: Icon(Icons.storage_outlined),
-        title: Text('当前缓存'),
+        title: Text('图片缓存'),
         subtitle: Text('计算中...'),
         trailing: SizedBox(
           width: 24,
@@ -146,7 +146,7 @@ class _CacheSizeListTile extends ConsumerWidget {
       ),
       error: (error, stack) => ListTile(
         leading: const Icon(Icons.storage_outlined),
-        title: const Text('当前缓存'),
+        title: const Text('图片缓存'),
         subtitle: Text('获取失败: $error'),
         trailing: IconButton(
           icon: const Icon(Icons.refresh),
@@ -166,19 +166,19 @@ class _CacheLimitListTile extends ConsumerWidget {
     return cacheStatsAsync.when(
       data: (stats) => ListTile(
         leading: const Icon(Icons.sd_storage_outlined),
-        title: const Text('缓存上限'),
+        title: const Text('图片缓存上限'),
         subtitle: Text(stats.formattedMaxCache),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => _showCacheLimitDialog(context, ref, stats.maxCacheMB),
       ),
       loading: () => const ListTile(
         leading: Icon(Icons.sd_storage_outlined),
-        title: Text('缓存上限'),
+        title: Text('图片缓存上限'),
         subtitle: Text('加载中...'),
       ),
       error: (error, stack) => ListTile(
         leading: const Icon(Icons.sd_storage_outlined),
-        title: const Text('缓存上限'),
+        title: const Text('图片缓存上限'),
         subtitle: const Text('128 MB'),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => _showCacheLimitDialog(context, ref, 128),
@@ -192,7 +192,7 @@ class _CacheLimitListTile extends ConsumerWidget {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('缓存上限'),
+          title: const Text('图片缓存上限'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -244,7 +244,7 @@ class _CacheLimitListTile extends ConsumerWidget {
                 ref.invalidate(refreshableCacheStatsProvider);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('缓存上限已更新')),
+                    const SnackBar(content: Text('图片缓存上限已更新')),
                   );
                 }
               },
@@ -263,8 +263,8 @@ class _ClearCacheListTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return ListTile(
       leading: const Icon(Icons.delete_outline),
-      title: const Text('清除缓存'),
-      subtitle: const Text('清除所有图片缓存'),
+      title: const Text('清除图片缓存'),
+      subtitle: const Text('清除所有已缓存的图片'),
       onTap: () => _showClearCacheDialog(context, ref),
     );
   }
@@ -273,8 +273,8 @@ class _ClearCacheListTile extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('清除缓存'),
-        content: const Text('确定要清除所有缓存文件吗？这不会影响已下载的歌曲和歌单数据。'),
+        title: const Text('清除图片缓存'),
+        content: const Text('确定要清除所有图片缓存吗？这不会影响已下载的歌曲和歌单数据。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -303,14 +303,14 @@ class _ClearCacheListTile extends ConsumerWidget {
                 if (context.mounted) {
                   Navigator.pop(context); // 关闭加载指示器
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('缓存已清除')),
+                    const SnackBar(content: Text('图片缓存已清除')),
                   );
                 }
               } catch (e) {
                 if (context.mounted) {
                   Navigator.pop(context); // 关闭加载指示器
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('清除缓存失败: $e')),
+                    SnackBar(content: Text('清除图片缓存失败: $e')),
                   );
                 }
               }
