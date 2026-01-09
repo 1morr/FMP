@@ -325,13 +325,13 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       },
       child: CustomScrollView(
         slivers: [
-          // 本地结果
+          // 歌单中的结果
           if (state.localResults.isNotEmpty) ...[
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  '本地 (${state.localResults.length})',
+                  '歌单中 (${state.localResults.length})',
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
