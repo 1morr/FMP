@@ -7,15 +7,26 @@ import '../../../services/audio/audio_provider.dart';
 import '../../../services/cache/fmp_cache_manager.dart';
 
 /// 播放器页面（全屏）
-class PlayerPage extends ConsumerWidget {
+class PlayerPage extends ConsumerStatefulWidget {
   const PlayerPage({super.key});
 
+  @override
+  ConsumerState<PlayerPage> createState() => _PlayerPageState();
+}
+
+class _PlayerPageState extends ConsumerState<PlayerPage> {
   /// 是否为桌面平台
   bool get isDesktop =>
       Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
+  /// 是否正在拖动进度条
+  bool _isDragging = false;
+
+  /// 拖动时的临时进度值
+  double _dragProgress = 0.0;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final playerState = ref.watch(audioControllerProvider);
     final controller = ref.read(audioControllerProvider.notifier);
@@ -183,6 +194,14 @@ class PlayerPage extends ConsumerWidget {
     AudioController controller,
     ColorScheme colorScheme,
   ) {
+    // 显示的进度：拖动时显示拖动进度，否则显示实际播放进度
+    final displayProgress = _isDragging ? _dragProgress : state.progress.clamp(0.0, 1.0);
+
+    // 显示的位置：拖动时根据拖动进度计算，否则显示实际位置
+    final displayPosition = _isDragging && state.duration != null
+        ? Duration(milliseconds: (state.duration!.inMilliseconds * _dragProgress).round())
+        : state.position;
+
     return Column(
       children: [
         SliderTheme(
@@ -192,8 +211,22 @@ class PlayerPage extends ConsumerWidget {
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
           ),
           child: Slider(
-            value: state.progress.clamp(0.0, 1.0),
-            onChanged: (value) => controller.seekToProgress(value),
+            value: displayProgress,
+            onChangeStart: (value) {
+              setState(() {
+                _isDragging = true;
+                _dragProgress = value;
+              });
+            },
+            onChanged: (value) {
+              // 拖动过程中只更新本地状态，不触发 seek
+              setState(() => _dragProgress = value);
+            },
+            onChangeEnd: (value) {
+              // 拖动结束时才触发 seek
+              controller.seekToProgress(value);
+              setState(() => _isDragging = false);
+            },
           ),
         ),
         Padding(
@@ -202,7 +235,7 @@ class PlayerPage extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                _formatDuration(state.position),
+                _formatDuration(displayPosition),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               Text(
