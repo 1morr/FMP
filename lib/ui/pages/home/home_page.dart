@@ -250,6 +250,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 child: track.thumbnailUrl != null
                     ? CachedNetworkImage(
                         cacheManager: FmpCacheManager.instance,
+                        fadeInDuration: const Duration(milliseconds: 150),
                         imageUrl: track.thumbnailUrl!,
                         fit: BoxFit.cover,
                       )
@@ -368,6 +369,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 data: (url) => url != null
                                     ? CachedNetworkImage(
                                         cacheManager: FmpCacheManager.instance,
+                                        fadeInDuration: const Duration(milliseconds: 150),
                                         imageUrl: url,
                                         fit: BoxFit.cover,
                                       )
@@ -451,6 +453,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 child: track.thumbnailUrl != null
                     ? CachedNetworkImage(
                         cacheManager: FmpCacheManager.instance,
+                        fadeInDuration: const Duration(milliseconds: 150),
                         imageUrl: track.thumbnailUrl!,
                         fit: BoxFit.cover,
                       )

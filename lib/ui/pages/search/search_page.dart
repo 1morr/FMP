@@ -470,6 +470,7 @@ class _SearchResultTile extends ConsumerWidget {
           child: track.thumbnailUrl != null
               ? CachedNetworkImage(
                   cacheManager: FmpCacheManager.instance,
+                  fadeInDuration: const Duration(milliseconds: 150),
                   imageUrl: track.thumbnailUrl!,
                   fit: BoxFit.cover,
                 )

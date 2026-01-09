@@ -17,6 +17,7 @@ class FmpNetworkImage extends StatelessWidget {
   final BlendMode? colorBlendMode;
   final Alignment alignment;
   final FilterQuality filterQuality;
+  final Duration fadeInDuration;
 
   const FmpNetworkImage({
     super.key,
@@ -30,6 +31,7 @@ class FmpNetworkImage extends StatelessWidget {
     this.colorBlendMode,
     this.alignment = Alignment.center,
     this.filterQuality = FilterQuality.low,
+    this.fadeInDuration = const Duration(milliseconds: 150),
   });
 
   @override
@@ -37,6 +39,7 @@ class FmpNetworkImage extends StatelessWidget {
     return CachedNetworkImage(
       imageUrl: imageUrl,
       cacheManager: FmpCacheManager.instance,
+      fadeInDuration: fadeInDuration,
       fit: fit,
       width: width,
       height: height,

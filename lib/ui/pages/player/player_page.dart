@@ -117,6 +117,7 @@ class PlayerPage extends ConsumerWidget {
         child: thumbnailUrl != null
             ? CachedNetworkImage(
                 cacheManager: FmpCacheManager.instance,
+                fadeInDuration: const Duration(milliseconds: 150),
                 imageUrl: thumbnailUrl,
                 fit: BoxFit.cover,
                 placeholder: (context, url) => Center(

@@ -99,6 +99,7 @@ class PlaylistDetailPage extends ConsumerWidget {
               data: (coverUrl) => coverUrl != null
                   ? CachedNetworkImage(
                       cacheManager: FmpCacheManager.instance,
+                      fadeInDuration: const Duration(milliseconds: 150),
                       imageUrl: coverUrl,
                       fit: BoxFit.cover,
                       color: Colors.black54,
@@ -149,6 +150,7 @@ class PlaylistDetailPage extends ConsumerWidget {
                       data: (coverUrl) => coverUrl != null
                           ? CachedNetworkImage(
                               cacheManager: FmpCacheManager.instance,
+                              fadeInDuration: const Duration(milliseconds: 150),
                               imageUrl: coverUrl,
                               fit: BoxFit.cover,
                             )
@@ -382,6 +384,7 @@ class _TrackListTile extends ConsumerWidget {
               child: track.thumbnailUrl != null
                   ? CachedNetworkImage(
                       cacheManager: FmpCacheManager.instance,
+                      fadeInDuration: const Duration(milliseconds: 150),
                       imageUrl: track.thumbnailUrl!,
                       fit: BoxFit.cover,
                       width: 48,

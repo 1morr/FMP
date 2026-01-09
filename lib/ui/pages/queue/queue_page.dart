@@ -254,6 +254,7 @@ class _QueueTrackTile extends StatelessWidget {
                     child: track.thumbnailUrl != null
                         ? CachedNetworkImage(
                             cacheManager: FmpCacheManager.instance,
+                            fadeInDuration: const Duration(milliseconds: 150),
                             imageUrl: track.thumbnailUrl!,
                             fit: BoxFit.cover,
                             width: 48,
