@@ -9,15 +9,29 @@ import '../../router.dart';
 
 /// 迷你播放器
 /// 显示在页面底部，展示当前播放的歌曲信息和控制按钮
-class MiniPlayer extends ConsumerWidget {
+class MiniPlayer extends ConsumerStatefulWidget {
   const MiniPlayer({super.key});
 
+  @override
+  ConsumerState<MiniPlayer> createState() => _MiniPlayerState();
+}
+
+class _MiniPlayerState extends ConsumerState<MiniPlayer> {
   /// 是否为桌面平台
   bool get isDesktop =>
       Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
+  /// 鼠标是否悬停在播放器上
+  bool _isHovering = false;
+
+  /// 是否正在拖动进度条
+  bool _isDragging = false;
+
+  /// 拖动时的临时进度值
+  double _dragProgress = 0.0;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final playerState = ref.watch(audioControllerProvider);
     final controller = ref.read(audioControllerProvider.notifier);
@@ -29,31 +43,37 @@ class MiniPlayer extends ConsumerWidget {
 
     final track = playerState.currentTrack!;
 
-    return GestureDetector(
-      onTap: () => context.push(RoutePaths.player),
-      child: Container(
-        height: 64,
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHigh,
-          border: Border(
-            top: BorderSide(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.3),
-              width: 0.5,
-            ),
-          ),
-        ),
-        child: Column(
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) {
+        if (!_isDragging) {
+          setState(() => _isHovering = false);
+        }
+      },
+      child: GestureDetector(
+        onTap: () => context.push(RoutePaths.player),
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            // 进度条
-            LinearProgressIndicator(
-              value: playerState.progress.clamp(0.0, 1.0),
-              minHeight: 2,
-              backgroundColor: colorScheme.surfaceContainerHighest,
-              valueColor: AlwaysStoppedAnimation(colorScheme.primary),
-            ),
+            // 主内容容器
+            Container(
+              height: 64,
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHigh,
+                border: Border(
+                  top: BorderSide(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                    width: 0.5,
+                  ),
+                ),
+              ),
+              child: Column(
+                children: [
+                  // 进度条占位（固定 2px 高度）
+                  const SizedBox(height: 2),
 
-            // 内容
-            Expanded(
+                  // 内容
+                  Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Row(
@@ -106,6 +126,131 @@ class MiniPlayer extends ConsumerWidget {
               ),
             ),
           ],
+        ),
+      ),
+            // 可交互的进度条（定位在顶部，可向上超出边界）
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: _buildInteractiveProgressBar(playerState, controller, colorScheme),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 构建可交互的进度条
+  Widget _buildInteractiveProgressBar(
+    PlayerState playerState,
+    AudioController controller,
+    ColorScheme colorScheme,
+  ) {
+    // 显示的进度：拖动时显示拖动进度，否则显示实际播放进度
+    final displayProgress = _isDragging ? _dragProgress : playerState.progress.clamp(0.0, 1.0);
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (details) {
+        // 阻止事件冒泡到父级 GestureDetector
+      },
+      onTap: () {
+        // 阻止事件冒泡，不触发跳转到播放器页面
+      },
+      onHorizontalDragStart: (details) {
+        setState(() {
+          _isDragging = true;
+          _dragProgress = playerState.progress.clamp(0.0, 1.0);
+        });
+      },
+      onHorizontalDragUpdate: (details) {
+        final box = context.findRenderObject() as RenderBox?;
+        if (box != null) {
+          final localPosition = details.localPosition;
+          final progress = (localPosition.dx / box.size.width).clamp(0.0, 1.0);
+          setState(() => _dragProgress = progress);
+        }
+      },
+      onHorizontalDragEnd: (details) {
+        controller.seekToProgress(_dragProgress);
+        setState(() {
+          _isDragging = false;
+          _isHovering = false;
+        });
+      },
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return GestureDetector(
+              onTapUp: (details) {
+                final progress = (details.localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0);
+                controller.seekToProgress(progress);
+              },
+              // 固定高度为 2，但允许子元素超出边界向上显示
+              child: SizedBox(
+                height: 2,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.centerLeft,
+                  children: [
+                    // 背景轨道
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        height: _isHovering || _isDragging ? 4 : 2,
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    // 已播放部分
+                    Positioned(
+                      left: 0,
+                      width: constraints.maxWidth * displayProgress,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        height: _isHovering || _isDragging ? 4 : 2,
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    // 圆形指示器（悬停或拖动时显示，向上超出边界）
+                    if (_isHovering || _isDragging)
+                      Positioned(
+                        left: constraints.maxWidth * displayProgress - 6,
+                        top: -5, // 向上偏移，使圆心在轨道中心
+                        child: AnimatedOpacity(
+                          opacity: _isHovering || _isDragging ? 1.0 : 0.0,
+                          duration: const Duration(milliseconds: 150),
+                          child: Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: colorScheme.primary,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: colorScheme.shadow.withValues(alpha: 0.3),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
