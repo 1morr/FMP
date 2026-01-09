@@ -10,11 +10,35 @@ import '../../router.dart';
 import '../../widgets/now_playing_indicator.dart';
 
 /// 播放队列页
-class QueuePage extends ConsumerWidget {
+class QueuePage extends ConsumerStatefulWidget {
   const QueuePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<QueuePage> createState() => _QueuePageState();
+}
+
+class _QueuePageState extends ConsumerState<QueuePage> {
+  final ScrollController _scrollController = ScrollController();
+  static const double _itemHeight = 72.0;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToCurrentTrack(int currentIndex) {
+    if (!_scrollController.hasClients) return;
+
+    final viewportHeight = _scrollController.position.viewportDimension;
+    final maxExtent = _scrollController.position.maxScrollExtent;
+    final targetOffset = currentIndex * _itemHeight - (viewportHeight * 0.3);
+
+    _scrollController.jumpTo(targetOffset.clamp(0.0, maxExtent));
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final playerState = ref.watch(audioControllerProvider);
     final queue = playerState.queue;
@@ -38,14 +62,14 @@ class QueuePage extends ConsumerWidget {
             IconButton(
               icon: const Icon(Icons.delete_outline),
               tooltip: '清空队列',
-              onPressed: () => _showClearQueueDialog(context, ref),
+              onPressed: () => _showClearQueueDialog(context),
             ),
           ],
         ],
       ),
       body: queue.isEmpty
           ? _buildEmptyState(context, colorScheme)
-          : _buildQueueList(context, ref, queue, currentIndex, colorScheme),
+          : _buildQueueList(context, queue, currentIndex, colorScheme),
     );
   }
 
@@ -84,45 +108,51 @@ class QueuePage extends ConsumerWidget {
 
   Widget _buildQueueList(
     BuildContext context,
-    WidgetRef ref,
     List<Track> queue,
     int currentIndex,
     ColorScheme colorScheme,
   ) {
     return Column(
       children: [
-        // 当前播放提示
+        // 当前播放提示 - 可点击跳转
         if (currentIndex >= 0 && currentIndex < queue.length)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            color: colorScheme.primaryContainer.withValues(alpha: 0.3),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.play_circle_filled,
-                  size: 16,
-                  color: colorScheme.primary,
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => _scrollToCurrentTrack(currentIndex),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.play_circle_filled,
+                      size: 16,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '正在播放第 ${currentIndex + 1} 首',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.primary,
+                          ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '共 ${queue.length} 首',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.outline,
+                          ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  '正在播放第 ${currentIndex + 1} 首',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.primary,
-                      ),
-                ),
-                const Spacer(),
-                Text(
-                  '共 ${queue.length} 首',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.outline,
-                      ),
-                ),
-              ],
+              ),
             ),
           ),
         // 队列列表
         Expanded(
           child: ReorderableListView.builder(
+            scrollController: _scrollController,
             itemCount: queue.length,
             buildDefaultDragHandles: false,
             onReorder: (oldIndex, newIndex) {
@@ -154,13 +184,16 @@ class QueuePage extends ConsumerWidget {
               final track = queue[index];
               final isPlaying = index == currentIndex;
 
-              return _QueueTrackTile(
+              return SizedBox(
                 key: ValueKey(track.id),
-                track: track,
-                index: index,
-                isPlaying: isPlaying,
-                onTap: () => ref.read(audioControllerProvider.notifier).playAt(index),
-                onRemove: () => ref.read(audioControllerProvider.notifier).removeFromQueue(index),
+                height: _itemHeight,
+                child: _QueueTrackTile(
+                  track: track,
+                  index: index,
+                  isPlaying: isPlaying,
+                  onTap: () => ref.read(audioControllerProvider.notifier).playAt(index),
+                  onRemove: () => ref.read(audioControllerProvider.notifier).removeFromQueue(index),
+                ),
               );
             },
           ),
@@ -169,7 +202,7 @@ class QueuePage extends ConsumerWidget {
     );
   }
 
-  void _showClearQueueDialog(BuildContext context, WidgetRef ref) {
+  void _showClearQueueDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -202,7 +235,6 @@ class _QueueTrackTile extends StatelessWidget {
   final VoidCallback onRemove;
 
   const _QueueTrackTile({
-    super.key,
     required this.track,
     required this.index,
     required this.isPlaying,
