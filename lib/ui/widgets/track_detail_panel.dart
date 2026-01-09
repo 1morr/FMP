@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/models/track.dart';
 import '../../data/models/video_detail.dart';
 import '../../providers/track_detail_provider.dart';
 import '../../services/audio/audio_provider.dart';
@@ -27,13 +30,13 @@ class TrackDetailPanel extends ConsumerWidget {
             children: [
               Icon(
                 Icons.music_note_outlined,
-                size: 64,
+                size: 72,
                 color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
               ),
               const SizedBox(height: 16),
               Text(
                 '选择一首歌曲播放',
-                style: textTheme.bodyLarge?.copyWith(
+                style: textTheme.titleMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
@@ -57,14 +60,14 @@ class TrackDetailPanel extends ConsumerWidget {
     if (detailState.error != null && detailState.detail == null) {
       return Container(
         color: colorScheme.surfaceContainerLow,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 Icons.error_outline,
-                size: 48,
+                size: 56,
                 color: colorScheme.error,
               ),
               const SizedBox(height: 16),
@@ -74,8 +77,8 @@ class TrackDetailPanel extends ConsumerWidget {
                   color: colorScheme.error,
                 ),
               ),
-              const SizedBox(height: 8),
-              TextButton(
+              const SizedBox(height: 12),
+              FilledButton.tonal(
                 onPressed: () {
                   ref.read(trackDetailProvider.notifier).refresh();
                 },
@@ -93,317 +96,8 @@ class TrackDetailPanel extends ConsumerWidget {
     return Container(
       color: colorScheme.surfaceContainerLow,
       child: detail != null
-          ? _buildDetailContent(context, ref, detail)
+          ? _DetailContent(detail: detail)
           : _buildBasicInfo(context, currentTrack),
-    );
-  }
-
-  Widget _buildDetailContent(
-    BuildContext context,
-    WidgetRef ref,
-    VideoDetail detail,
-  ) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final detailState = ref.watch(trackDetailProvider);
-
-    return RefreshIndicator(
-      onRefresh: () => ref.read(trackDetailProvider.notifier).refresh(),
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // 封面
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: AspectRatio(
-              aspectRatio: 16 / 9,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  CachedNetworkImage(
-                    imageUrl: detail.coverUrl,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: colorScheme.surfaceContainerHigh,
-                      child: const Center(
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      color: colorScheme.surfaceContainerHigh,
-                      child: Icon(
-                        Icons.image_not_supported_outlined,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                  // 时长标签
-                  Positioned(
-                    right: 8,
-                    bottom: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.7),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        detail.formattedDuration,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ),
-                  // 加载指示器
-                  if (detailState.isLoading)
-                    Positioned.fill(
-                      child: Container(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        child: const Center(
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // 标题
-          Text(
-            detail.title,
-            style: textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-
-          const SizedBox(height: 12),
-
-          // UP主信息
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundImage: detail.ownerFace.isNotEmpty
-                    ? CachedNetworkImageProvider(detail.ownerFace)
-                    : null,
-                child: detail.ownerFace.isEmpty
-                    ? const Icon(Icons.person, size: 16)
-                    : null,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      detail.ownerName,
-                      style: textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      detail.formattedPublishDate,
-                      style: textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-          const Divider(),
-          const SizedBox(height: 12),
-
-          // 统计数据
-          _buildStatsGrid(context, detail),
-
-          const SizedBox(height: 16),
-          const Divider(),
-          const SizedBox(height: 12),
-
-          // 热门评论
-          if (detail.hotComments.isNotEmpty) ...[
-            Row(
-              children: [
-                Icon(
-                  Icons.comment_outlined,
-                  size: 18,
-                  color: colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '热门评论',
-                  style: textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ...detail.hotComments.map(
-              (comment) => _buildCommentItem(context, comment),
-            ),
-          ],
-
-          // 简介
-          if (detail.description.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 12),
-            Text(
-              '简介',
-              style: textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              detail.description,
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-              maxLines: 6,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-
-          const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatsGrid(BuildContext context, VideoDetail detail) {
-    return Wrap(
-      spacing: 16,
-      runSpacing: 12,
-      children: [
-        _buildStatItem(context, Icons.play_arrow_outlined, detail.formattedViewCount, '播放'),
-        _buildStatItem(context, Icons.thumb_up_outlined, detail.formattedLikeCount, '点赞'),
-        _buildStatItem(context, Icons.monetization_on_outlined, detail.formattedCoinCount, '投币'),
-        _buildStatItem(context, Icons.star_outline, detail.formattedFavoriteCount, '收藏'),
-        _buildStatItem(context, Icons.share_outlined, detail.formattedShareCount, '分享'),
-        _buildStatItem(context, Icons.comment_outlined, detail.formattedCommentCount, '评论'),
-      ],
-    );
-  }
-
-  Widget _buildStatItem(
-    BuildContext context,
-    IconData icon,
-    String value,
-    String label,
-  ) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return SizedBox(
-      width: 80,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 20,
-            color: colorScheme.primary,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Text(
-            label,
-            style: textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCommentItem(BuildContext context, VideoComment comment) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 14,
-            backgroundImage: comment.memberAvatar.isNotEmpty
-                ? CachedNetworkImageProvider(comment.memberAvatar)
-                : null,
-            child: comment.memberAvatar.isEmpty
-                ? const Icon(Icons.person, size: 14)
-                : null,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        comment.memberName,
-                        style: textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w500,
-                          color: colorScheme.primary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.thumb_up_outlined,
-                      size: 12,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 2),
-                    Text(
-                      comment.formattedLikeCount,
-                      style: textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  comment.content,
-                  style: textTheme.bodySmall,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -412,13 +106,12 @@ class TrackDetailPanel extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // 封面
           ClipRRect(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             child: AspectRatio(
               aspectRatio: 1,
               child: track.thumbnailUrl != null
@@ -435,7 +128,7 @@ class TrackDetailPanel extends ConsumerWidget {
                         color: colorScheme.surfaceContainerHigh,
                         child: Icon(
                           Icons.music_note,
-                          size: 64,
+                          size: 72,
                           color: colorScheme.onSurfaceVariant,
                         ),
                       ),
@@ -444,16 +137,16 @@ class TrackDetailPanel extends ConsumerWidget {
                       color: colorScheme.surfaceContainerHigh,
                       child: Icon(
                         Icons.music_note,
-                        size: 64,
+                        size: 72,
                         color: colorScheme.onSurfaceVariant,
                       ),
                     ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Text(
             track.title ?? '未知标题',
-            style: textTheme.titleMedium?.copyWith(
+            style: textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.bold,
             ),
             textAlign: TextAlign.center,
@@ -463,12 +156,582 @@ class TrackDetailPanel extends ConsumerWidget {
           const SizedBox(height: 8),
           Text(
             track.artist ?? '未知作者',
-            style: textTheme.bodyMedium?.copyWith(
+            style: textTheme.bodyLarge?.copyWith(
               color: colorScheme.onSurfaceVariant,
             ),
             textAlign: TextAlign.center,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 详情内容组件
+class _DetailContent extends ConsumerWidget {
+  final VideoDetail detail;
+
+  const _DetailContent({required this.detail});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final detailState = ref.watch(trackDetailProvider);
+    final queue = ref.watch(queueProvider);
+    final currentIndex = ref.watch(audioControllerProvider).currentIndex;
+
+    // 获取下一首歌曲
+    Track? nextTrack;
+    if (queue.isNotEmpty && currentIndex != null && currentIndex < queue.length - 1) {
+      nextTrack = queue[currentIndex + 1];
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        // 封面
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                CachedNetworkImage(
+                  imageUrl: detail.coverUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    color: colorScheme.surfaceContainerHigh,
+                    child: const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    color: colorScheme.surfaceContainerHigh,
+                    child: Icon(
+                      Icons.image_not_supported_outlined,
+                      size: 48,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                // 时长标签
+                Positioned(
+                  right: 10,
+                  bottom: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.75),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      detail.formattedDuration,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+                // 加载指示器
+                if (detailState.isLoading)
+                  Positioned.fill(
+                    child: Container(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      child: const Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        // 标题
+        Text(
+          detail.title,
+          style: textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+            height: 1.3,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+
+        const SizedBox(height: 12),
+
+        // UP主信息
+        Row(
+          children: [
+            CircleAvatar(
+              radius: 16,
+              backgroundImage: detail.ownerFace.isNotEmpty
+                  ? CachedNetworkImageProvider(detail.ownerFace)
+                  : null,
+              child: detail.ownerFace.isEmpty
+                  ? const Icon(Icons.person, size: 16)
+                  : null,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                detail.ownerName,
+                style: textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Text(
+              detail.formattedPublishDate,
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 16),
+
+        // 简化的统计数据
+        _buildSimpleStats(context),
+
+        // 下一首
+        if (nextTrack != null) ...[
+          const SizedBox(height: 20),
+          const Divider(),
+          const SizedBox(height: 16),
+          _buildNextTrack(context, nextTrack),
+        ],
+
+        // 简介
+        if (detail.description.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          const Divider(),
+          const SizedBox(height: 16),
+          _buildDescription(context),
+        ],
+
+        // 热门评论（放在最下方）
+        if (detail.hotComments.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          const Divider(),
+          const SizedBox(height: 16),
+          _CommentPager(comments: detail.hotComments),
+        ],
+
+        const SizedBox(height: 32),
+      ],
+    );
+  }
+
+  /// 简化的统计数据（只显示播放数、点赞数、收藏数）
+  Widget _buildSimpleStats(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        _buildStatChip(
+          context,
+          Icons.play_arrow_rounded,
+          detail.formattedViewCount,
+        ),
+        _buildStatChip(
+          context,
+          Icons.thumb_up_rounded,
+          detail.formattedLikeCount,
+        ),
+        _buildStatChip(
+          context,
+          Icons.star_rounded,
+          detail.formattedFavoriteCount,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatChip(BuildContext context, IconData icon, String value) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 18,
+          color: colorScheme.primary.withValues(alpha: 0.8),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          value,
+          style: textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 下一首歌曲显示
+  Widget _buildNextTrack(BuildContext context, Track track) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.skip_next_rounded,
+              size: 18,
+              color: colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '下一首',
+              style: textTheme.titleSmall?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            // 缩略图
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                width: 56,
+                height: 56,
+                child: track.thumbnailUrl != null
+                    ? CachedNetworkImage(
+                        imageUrl: track.thumbnailUrl!,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          color: colorScheme.surfaceContainerHigh,
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          color: colorScheme.surfaceContainerHigh,
+                          child: Icon(
+                            Icons.music_note,
+                            size: 24,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      )
+                    : Container(
+                        color: colorScheme.surfaceContainerHigh,
+                        child: Icon(
+                          Icons.music_note,
+                          size: 24,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    track.title,
+                    style: textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    track.artist ?? '未知作者',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// 简介
+  Widget _buildDescription(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.info_outline_rounded,
+              size: 18,
+              color: colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '简介',
+              style: textTheme.titleSmall?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          detail.description,
+          style: textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            height: 1.6,
+          ),
+          maxLines: 6,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+}
+
+/// 评论分页组件（手动翻页 + 自动翻页 + 动画）
+class _CommentPager extends StatefulWidget {
+  final List<VideoComment> comments;
+
+  const _CommentPager({required this.comments});
+
+  @override
+  State<_CommentPager> createState() => _CommentPagerState();
+}
+
+class _CommentPagerState extends State<_CommentPager> {
+  int _currentIndex = 0;
+  Timer? _autoScrollTimer;
+  bool _isForward = true; // 动画方向
+
+  List<VideoComment> get _commentsToShow => widget.comments.take(3).toList();
+
+  bool get _hasPrevious => _currentIndex > 0;
+  bool get _hasNext => _currentIndex < _commentsToShow.length - 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _startAutoScroll();
+  }
+
+  @override
+  void dispose() {
+    _autoScrollTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startAutoScroll() {
+    _autoScrollTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      if (!mounted) return;
+      _goToNext(wrap: true);
+    });
+  }
+
+  void _resetAutoScroll() {
+    _autoScrollTimer?.cancel();
+    _startAutoScroll();
+  }
+
+  void _goToPrevious() {
+    if (_hasPrevious) {
+      setState(() {
+        _isForward = false;
+        _currentIndex--;
+      });
+      _resetAutoScroll();
+    }
+  }
+
+  void _goToNext({bool wrap = false}) {
+    setState(() {
+      _isForward = true;
+      if (_hasNext) {
+        _currentIndex++;
+      } else if (wrap && _commentsToShow.length > 1) {
+        _currentIndex = 0;
+      }
+    });
+    if (!wrap) _resetAutoScroll();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final comments = _commentsToShow;
+
+    if (comments.isEmpty) return const SizedBox.shrink();
+
+    final currentComment = comments[_currentIndex];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 标题栏
+        Row(
+          children: [
+            Icon(
+              Icons.format_quote_rounded,
+              size: 18,
+              color: colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '热门评论',
+              style: textTheme.titleSmall?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const Spacer(),
+            // 翻页按钮（小圆形）
+            if (comments.length > 1) ...[
+              _buildSmallNavButton(
+                icon: Icons.chevron_left_rounded,
+                onPressed: _hasPrevious ? _goToPrevious : null,
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Text(
+                  '${_currentIndex + 1}/${comments.length}',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              _buildSmallNavButton(
+                icon: Icons.chevron_right_rounded,
+                onPressed: _hasNext ? () => _goToNext() : null,
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 14),
+
+        // 评论内容（带动画）
+        ClipRect(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            transitionBuilder: (child, animation) {
+              final offsetAnimation = Tween<Offset>(
+                begin: Offset(_isForward ? 1.0 : -1.0, 0.0),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              ));
+              return SlideTransition(
+                position: offsetAnimation,
+                child: FadeTransition(
+                  opacity: animation,
+                  child: child,
+                ),
+              );
+            },
+            child: Container(
+              key: ValueKey(_currentIndex),
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    currentComment.content,
+                    style: textTheme.bodyMedium?.copyWith(
+                      height: 1.6,
+                    ),
+                    maxLines: 5,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.thumb_up_outlined,
+                        size: 14,
+                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        currentComment.formattedLikeCount,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        currentComment.memberName,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSmallNavButton({
+    required IconData icon,
+    required VoidCallback? onPressed,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isEnabled = onPressed != null;
+
+    return Material(
+      color: isEnabled
+          ? colorScheme.primaryContainer.withValues(alpha: 0.5)
+          : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: Icon(
+            icon,
+            size: 16,
+            color: isEnabled
+                ? colorScheme.primary
+                : colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+          ),
+        ),
       ),
     );
   }
