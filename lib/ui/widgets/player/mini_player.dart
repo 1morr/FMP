@@ -348,30 +348,29 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
     AudioController controller,
     ColorScheme colorScheme,
   ) {
-    if (state.isBuffering || state.isLoading) {
-      return SizedBox(
-        width: 40,
-        height: 40,
-        child: Center(
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-              color: colorScheme.primary,
-              strokeWidth: 2,
+    // 使用固定尺寸的 SizedBox 包装，确保加载和正常状态下大小一致
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: state.isBuffering || state.isLoading
+          ? Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  color: colorScheme.primary,
+                  strokeWidth: 2,
+                ),
+              ),
+            )
+          : IconButton(
+              padding: EdgeInsets.zero,
+              icon: Icon(
+                state.isPlaying ? Icons.pause : Icons.play_arrow,
+                size: 28,
+              ),
+              onPressed: () => controller.togglePlayPause(),
             ),
-          ),
-        ),
-      );
-    }
-
-    return IconButton(
-      icon: Icon(
-        state.isPlaying ? Icons.pause : Icons.play_arrow,
-        size: 28,
-      ),
-      visualDensity: VisualDensity.compact,
-      onPressed: () => controller.togglePlayPause(),
     );
   }
 
