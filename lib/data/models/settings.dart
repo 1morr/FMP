@@ -36,6 +36,9 @@ class Settings {
   /// 默认刷新间隔（小时）
   int defaultRefreshIntervalHours = 24;
 
+  /// 切歌时自动跳转到队列页面并定位当前歌曲
+  bool autoScrollToCurrentTrack = false;
+
   /// 获取 ThemeMode
   @ignore
   ThemeMode get themeMode {

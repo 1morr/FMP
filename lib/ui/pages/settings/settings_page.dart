@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../providers/cache_provider.dart';
+import '../../../providers/playback_settings_provider.dart';
 import '../../../providers/theme_provider.dart';
 
 /// 设置页
@@ -39,6 +40,7 @@ class SettingsPage extends ConsumerWidget {
           _SettingsSection(
             title: '播放',
             children: [
+              _AutoScrollListTile(),
               SwitchListTile(
                 secondary: const Icon(Icons.skip_next_outlined),
                 title: const Text('自动播放下一首'),
@@ -513,6 +515,26 @@ class _ThemeColorListTile extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 自动跳转到当前播放设置
+class _AutoScrollListTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final playbackSettings = ref.watch(playbackSettingsProvider);
+
+    return SwitchListTile(
+      secondary: const Icon(Icons.my_location_outlined),
+      title: const Text('切歌时自动定位'),
+      subtitle: const Text('切换歌曲时自动跳转到队列页面并定位当前播放'),
+      value: playbackSettings.autoScrollToCurrentTrack,
+      onChanged: playbackSettings.isLoading
+          ? null
+          : (value) {
+              ref.read(playbackSettingsProvider.notifier).setAutoScrollToCurrentTrack(value);
+            },
     );
   }
 }

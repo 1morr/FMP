@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../data/models/track.dart';
+import '../../../providers/playback_settings_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/cache/fmp_cache_manager.dart';
 import '../../router.dart';
@@ -18,23 +19,44 @@ class QueuePage extends ConsumerStatefulWidget {
 }
 
 class _QueuePageState extends ConsumerState<QueuePage> {
-  final ScrollController _scrollController = ScrollController();
+  ScrollController? _scrollController;
   static const double _itemHeight = 72.0;
+  bool _initialScrollDone = false;
+  int? _lastCurrentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _initScrollController();
+  }
+
+  void _initScrollController() {
+    final autoScroll = ref.read(autoScrollToCurrentTrackProvider);
+    final currentIndex = ref.read(audioControllerProvider).currentIndex ?? 0;
+
+    if (autoScroll && currentIndex > 0) {
+      // 估算初始滚动位置（稍微往上一点，之后会微调到 30% 位置）
+      final initialOffset = (currentIndex * _itemHeight - 200).clamp(0.0, double.infinity);
+      _scrollController = ScrollController(initialScrollOffset: initialOffset);
+    } else {
+      _scrollController = ScrollController();
+    }
+  }
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    _scrollController?.dispose();
     super.dispose();
   }
 
   void _scrollToCurrentTrack(int currentIndex) {
-    if (!_scrollController.hasClients) return;
+    if (_scrollController == null || !_scrollController!.hasClients) return;
 
-    final viewportHeight = _scrollController.position.viewportDimension;
-    final maxExtent = _scrollController.position.maxScrollExtent;
+    final viewportHeight = _scrollController!.position.viewportDimension;
+    final maxExtent = _scrollController!.position.maxScrollExtent;
     final targetOffset = currentIndex * _itemHeight - (viewportHeight * 0.3);
 
-    _scrollController.jumpTo(targetOffset.clamp(0.0, maxExtent));
+    _scrollController!.jumpTo(targetOffset.clamp(0.0, maxExtent));
   }
 
   @override
@@ -43,6 +65,27 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     final playerState = ref.watch(audioControllerProvider);
     final queue = playerState.queue;
     final currentIndex = playerState.currentIndex ?? -1;
+    final autoScroll = ref.watch(autoScrollToCurrentTrackProvider);
+
+    // 首次渲染后微调到精确的 30% 位置
+    if (autoScroll && !_initialScrollDone && currentIndex >= 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_initialScrollDone) {
+          _initialScrollDone = true;
+          _scrollToCurrentTrack(currentIndex);
+        }
+      });
+    }
+
+    // 切歌时自动滚动
+    if (autoScroll && _lastCurrentIndex != null && _lastCurrentIndex != currentIndex && currentIndex >= 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _scrollToCurrentTrack(currentIndex);
+        }
+      });
+    }
+    _lastCurrentIndex = currentIndex;
 
     return Scaffold(
       appBar: AppBar(
@@ -152,7 +195,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
         // 队列列表
         Expanded(
           child: ReorderableListView.builder(
-            scrollController: _scrollController,
+            scrollController: _scrollController!,
             itemCount: queue.length,
             buildDefaultDragHandles: false,
             onReorder: (oldIndex, newIndex) {
