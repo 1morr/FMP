@@ -399,7 +399,7 @@ class BilibiliSource extends BaseSource with Logging {
       final owner = data['owner'];
 
       // 获取热门评论
-      final comments = await getHotComments(bvid, limit: 5);
+      final comments = await getHotComments(bvid, limit: 3);
 
       return VideoDetail(
         bvid: bvid,

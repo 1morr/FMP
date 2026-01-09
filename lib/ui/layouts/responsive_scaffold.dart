@@ -162,7 +162,7 @@ class _TabletLayout extends StatelessWidget {
   }
 }
 
-/// 桌面布局 - 可收起的侧边导航栏 + 三栏布局
+/// 桌面布局 - 可收起的侧边导航栏 + 三栏布局 + 可拖动分割线
 class _DesktopLayout extends StatefulWidget {
   final Widget child;
   final int selectedIndex;
@@ -180,9 +180,14 @@ class _DesktopLayout extends StatefulWidget {
 
 class _DesktopLayoutState extends State<_DesktopLayout> {
   bool _isNavExpanded = false; // 默认收起
+  double _detailPanelWidth = 380; // 默认宽度
+  static const double _minPanelWidth = 280;
+  static const double _maxPanelWidth = 500;
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       body: Row(
         children: [
@@ -200,11 +205,32 @@ class _DesktopLayoutState extends State<_DesktopLayout> {
             flex: 2,
             child: widget.child,
           ),
+          // 可拖动的分割线
+          MouseRegion(
+            cursor: SystemMouseCursors.resizeColumn,
+            child: GestureDetector(
+              onHorizontalDragUpdate: (details) {
+                setState(() {
+                  _detailPanelWidth -= details.delta.dx;
+                  _detailPanelWidth = _detailPanelWidth.clamp(_minPanelWidth, _maxPanelWidth);
+                });
+              },
+              child: Container(
+                width: 6,
+                color: Colors.transparent,
+                child: Center(
+                  child: Container(
+                    width: 1,
+                    color: colorScheme.outlineVariant,
+                  ),
+                ),
+              ),
+            ),
+          ),
           // 右侧歌曲详情面板
-          const VerticalDivider(width: 1, thickness: 1),
-          const SizedBox(
-            width: 320,
-            child: TrackDetailPanel(),
+          SizedBox(
+            width: _detailPanelWidth,
+            child: const TrackDetailPanel(),
           ),
         ],
       ),
