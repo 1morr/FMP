@@ -7,6 +7,7 @@ import '../../../providers/playlist_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/cache/fmp_cache_manager.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
+import '../../widgets/now_playing_indicator.dart';
 
 /// 歌单详情页
 class PlaylistDetailPage extends ConsumerWidget {
@@ -404,10 +405,9 @@ class _TrackListTile extends ConsumerWidget {
                   color: colorScheme.primary.withValues(alpha: 0.8),
                 ),
                 child: const Center(
-                  child: Icon(
-                    Icons.equalizer,
-                    color: Colors.white,
+                  child: NowPlayingIndicator(
                     size: 24,
+                    color: Colors.white,
                   ),
                 ),
               ),

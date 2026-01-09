@@ -7,6 +7,7 @@ import '../../../data/models/track.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/cache/fmp_cache_manager.dart';
 import '../../router.dart';
+import '../../widgets/now_playing_indicator.dart';
 
 /// 播放队列页
 class QueuePage extends ConsumerWidget {
@@ -272,10 +273,9 @@ class _QueueTrackTile extends StatelessWidget {
                         color: colorScheme.primary.withValues(alpha: 0.8),
                       ),
                       child: const Center(
-                        child: Icon(
-                          Icons.equalizer,
-                          color: Colors.white,
+                        child: NowPlayingIndicator(
                           size: 24,
+                          color: Colors.white,
                         ),
                       ),
                     ),
