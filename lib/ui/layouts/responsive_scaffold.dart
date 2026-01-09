@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/breakpoints.dart';
+import '../../services/audio/audio_provider.dart';
 import '../widgets/player/mini_player.dart';
 import '../widgets/track_detail_panel.dart';
 
@@ -163,7 +165,7 @@ class _TabletLayout extends StatelessWidget {
 }
 
 /// 桌面布局 - 可收起的侧边导航栏 + 三栏布局 + 可拖动分割线
-class _DesktopLayout extends StatefulWidget {
+class _DesktopLayout extends ConsumerStatefulWidget {
   final Widget child;
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
@@ -175,10 +177,10 @@ class _DesktopLayout extends StatefulWidget {
   });
 
   @override
-  State<_DesktopLayout> createState() => _DesktopLayoutState();
+  ConsumerState<_DesktopLayout> createState() => _DesktopLayoutState();
 }
 
-class _DesktopLayoutState extends State<_DesktopLayout> {
+class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
   bool _isNavExpanded = false; // 默认收起
   double _detailPanelWidth = 380; // 默认宽度
   static const double _minPanelWidth = 280;
@@ -187,6 +189,8 @@ class _DesktopLayoutState extends State<_DesktopLayout> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final currentTrack = ref.watch(currentTrackProvider);
+    final hasTrack = currentTrack != null;
 
     return Scaffold(
       body: Row(
@@ -217,33 +221,36 @@ class _DesktopLayoutState extends State<_DesktopLayout> {
             flex: 2,
             child: widget.child,
           ),
-          // 可拖动的分割线
-          MouseRegion(
-            cursor: SystemMouseCursors.resizeColumn,
-            child: GestureDetector(
-              onHorizontalDragUpdate: (details) {
-                setState(() {
-                  _detailPanelWidth -= details.delta.dx;
-                  _detailPanelWidth = _detailPanelWidth.clamp(_minPanelWidth, _maxPanelWidth);
-                });
-              },
-              child: Container(
-                width: 6,
-                color: Colors.transparent,
-                child: Center(
-                  child: Container(
-                    width: 1,
-                    color: colorScheme.outlineVariant,
+          // 仅当有歌曲时显示右侧面板
+          if (hasTrack) ...[
+            // 可拖动的分割线
+            MouseRegion(
+              cursor: SystemMouseCursors.resizeColumn,
+              child: GestureDetector(
+                onHorizontalDragUpdate: (details) {
+                  setState(() {
+                    _detailPanelWidth -= details.delta.dx;
+                    _detailPanelWidth = _detailPanelWidth.clamp(_minPanelWidth, _maxPanelWidth);
+                  });
+                },
+                child: Container(
+                  width: 6,
+                  color: Colors.transparent,
+                  child: Center(
+                    child: Container(
+                      width: 1,
+                      color: colorScheme.outlineVariant,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          // 右侧歌曲详情面板
-          SizedBox(
-            width: _detailPanelWidth,
-            child: const TrackDetailPanel(),
-          ),
+            // 右侧歌曲详情面板
+            SizedBox(
+              width: _detailPanelWidth,
+              child: const TrackDetailPanel(),
+            ),
+          ],
         ],
       ),
       bottomNavigationBar: const MiniPlayer(),
