@@ -73,6 +73,50 @@ class QueueManager with Logging {
   /// 是否有上一首
   bool get hasPrevious => getPreviousIndex() != null;
 
+  /// 获取接下来要播放的歌曲列表（考虑 shuffle 模式）
+  List<Track> getUpcomingTracks({int count = 5}) {
+    if (_tracks.isEmpty) return [];
+
+    final List<Track> upcoming = [];
+    int addedCount = 0;
+
+    if (isShuffleEnabled && _shuffleOrder.isNotEmpty) {
+      // 随机模式：按 shuffle order 获取后续歌曲
+      for (var i = _shuffleIndex + 1; i < _shuffleOrder.length && addedCount < count; i++) {
+        final trackIndex = _shuffleOrder[i];
+        if (trackIndex >= 0 && trackIndex < _tracks.length) {
+          upcoming.add(_tracks[trackIndex]);
+          addedCount++;
+        }
+      }
+      // 如果列表循环且还没填满，从头开始
+      if (loopMode == LoopMode.all && addedCount < count) {
+        for (var i = 0; i < _shuffleIndex && addedCount < count; i++) {
+          final trackIndex = _shuffleOrder[i];
+          if (trackIndex >= 0 && trackIndex < _tracks.length) {
+            upcoming.add(_tracks[trackIndex]);
+            addedCount++;
+          }
+        }
+      }
+    } else {
+      // 顺序模式：按原始顺序获取后续歌曲
+      for (var i = _currentIndex + 1; i < _tracks.length && addedCount < count; i++) {
+        upcoming.add(_tracks[i]);
+        addedCount++;
+      }
+      // 如果列表循环且还没填满，从头开始
+      if (loopMode == LoopMode.all && addedCount < count) {
+        for (var i = 0; i < _currentIndex && addedCount < count; i++) {
+          upcoming.add(_tracks[i]);
+          addedCount++;
+        }
+      }
+    }
+
+    return upcoming;
+  }
+
   QueueManager({
     required QueueRepository queueRepository,
     required TrackRepository trackRepository,

@@ -29,6 +29,7 @@ class PlayerState {
   final int? currentIndex;
   final Track? currentTrack;
   final List<Track> queue;
+  final List<Track> upcomingTracks;
   final String? error;
 
   const PlayerState({
@@ -46,6 +47,7 @@ class PlayerState {
     this.currentIndex,
     this.currentTrack,
     this.queue = const [],
+    this.upcomingTracks = const [],
     this.canPlayPrevious = false,
     this.canPlayNext = false,
     this.error,
@@ -87,6 +89,7 @@ class PlayerState {
     int? currentIndex,
     Track? currentTrack,
     List<Track>? queue,
+    List<Track>? upcomingTracks,
     bool? canPlayPrevious,
     bool? canPlayNext,
     String? error,
@@ -106,6 +109,7 @@ class PlayerState {
       currentIndex: currentIndex ?? this.currentIndex,
       currentTrack: currentTrack ?? this.currentTrack,
       queue: queue ?? this.queue,
+      upcomingTracks: upcomingTracks ?? this.upcomingTracks,
       canPlayPrevious: canPlayPrevious ?? this.canPlayPrevious,
       canPlayNext: canPlayNext ?? this.canPlayNext,
       error: error,
@@ -918,9 +922,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     final queue = _queueManager.tracks;
     final currentIndex = _queueManager.currentIndex;
     final currentTrack = _queueManager.currentTrack;
+    final upcomingTracks = _queueManager.getUpcomingTracks(count: 5);
     logDebug('Updating queue state: ${queue.length} tracks, index: $currentIndex, track: ${currentTrack?.title ?? "null"}');
     state = state.copyWith(
       queue: queue,
+      upcomingTracks: upcomingTracks,
       currentIndex: currentIndex,
       currentTrack: currentTrack,
       isShuffleEnabled: _queueManager.isShuffleEnabled,

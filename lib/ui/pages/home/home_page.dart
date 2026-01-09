@@ -415,11 +415,8 @@ class _HomePageState extends ConsumerState<HomePage> {
     PlayerState playerState,
     ColorScheme colorScheme,
   ) {
-    final queue = playerState.queue;
-    final currentIndex = playerState.currentIndex ?? 0;
-
-    // 显示接下来的3首
-    final upNext = queue.skip(currentIndex + 1).take(3).toList();
+    // 使用 upcomingTracks 获取接下来要播放的歌曲（已考虑 shuffle 模式）
+    final upNext = playerState.upcomingTracks.take(3).toList();
     if (upNext.isEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -475,7 +472,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               ),
               dense: true,
               onTap: () {
-                final trackIndex = queue.indexOf(track);
+                final trackIndex = playerState.queue.indexOf(track);
                 if (trackIndex >= 0) {
                   ref.read(audioControllerProvider.notifier).playAt(trackIndex);
                 }
