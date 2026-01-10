@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/models/play_queue.dart';
+import '../../../providers/download_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 
 /// 播放器页面（全屏）
@@ -44,12 +45,25 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             offset: const Offset(0, 48), // 向下偏移，与子菜单位置一致
-            onSelected: (value) {
+            onSelected: (value) async {
               if (value == 'speed') {
                 // 延迟显示子菜单，等主菜单关闭后再显示
                 Future.delayed(const Duration(milliseconds: 100), () {
                   _showSpeedMenu(context, controller, playerState.speed, colorScheme);
                 });
+              } else if (value == 'download') {
+                final track = playerState.currentTrack;
+                if (track != null) {
+                  final downloadService = ref.read(downloadServiceProvider);
+                  final result = await downloadService.addTrackDownload(track);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(result != null ? '已添加到下载队列' : '歌曲已下载或已在队列中'),
+                      ),
+                    );
+                  }
+                }
               }
             },
             itemBuilder: (context) => [
@@ -66,6 +80,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                       size: 18,
                       color: colorScheme.onSurfaceVariant,
                     ),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'download',
+                child: Row(
+                  children: [
+                    Icon(Icons.download_outlined, size: 20),
+                    SizedBox(width: 12),
+                    Text('下载'),
                   ],
                 ),
               ),

@@ -29,6 +29,10 @@ class DownloadTask {
   @Index()
   late int trackId;
 
+  /// 所属歌单下载任务ID（null=独立单曲任务）
+  @Index()
+  int? playlistDownloadTaskId;
+
   /// 下载状态
   @Enumerated(EnumType.name)
   DownloadStatus status = DownloadStatus.pending;
@@ -45,6 +49,9 @@ class DownloadTask {
   /// 错误信息
   String? errorMessage;
 
+  /// 排序优先级（越小越优先）
+  int priority = 0;
+
   /// 创建时间
   DateTime createdAt = DateTime.now();
 
@@ -52,15 +59,31 @@ class DownloadTask {
   DateTime? completedAt;
 
   /// 是否正在下载
+  @ignore
   bool get isDownloading => status == DownloadStatus.downloading;
 
   /// 是否已完成
+  @ignore
   bool get isCompleted => status == DownloadStatus.completed;
 
   /// 是否失败
+  @ignore
   bool get isFailed => status == DownloadStatus.failed;
 
+  /// 是否等待中
+  @ignore
+  bool get isPending => status == DownloadStatus.pending;
+
+  /// 是否已暂停
+  @ignore
+  bool get isPaused => status == DownloadStatus.paused;
+
+  /// 是否是歌单任务中的一部分
+  @ignore
+  bool get isPartOfPlaylist => playlistDownloadTaskId != null;
+
   /// 格式化进度显示
+  @ignore
   String get formattedProgress => '${(progress * 100).toStringAsFixed(1)}%';
 
   @override

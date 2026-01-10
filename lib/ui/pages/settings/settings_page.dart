@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../data/models/settings.dart';
 import '../../../providers/playback_settings_provider.dart';
 import '../../../providers/theme_provider.dart';
+import '../../../providers/download_provider.dart';
+import '../../router.dart';
 
 /// 设置页
 class SettingsPage extends ConsumerWidget {
@@ -48,6 +52,17 @@ class SettingsPage extends ConsumerWidget {
                   // TODO: 实现
                 },
               ),
+            ],
+          ),
+          const Divider(),
+          // 存储设置
+          _SettingsSection(
+            title: '存储',
+            children: [
+              _DownloadManagerListTile(),
+              _DownloadPathListTile(),
+              _ConcurrentDownloadsListTile(),
+              _DownloadImageOptionListTile(),
             ],
           ),
           const Divider(),
@@ -294,6 +309,7 @@ class _AutoScrollListTile extends ConsumerWidget {
   }
 }
 
+/// 设置区块
 class _SettingsSection extends StatelessWidget {
   final String title;
   final List<Widget> children;
@@ -319,6 +335,206 @@ class _SettingsSection extends StatelessWidget {
         ),
         ...children,
       ],
+    );
+  }
+}
+
+/// 下载管理入口
+class _DownloadManagerListTile extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: const Icon(Icons.download_outlined),
+      title: const Text('下载管理'),
+      subtitle: const Text('管理下载队列和进度'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => context.pushNamed(RouteNames.downloadManager),
+    );
+  }
+}
+
+/// 下载路径设置
+class _DownloadPathListTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dirInfoAsync = ref.watch(downloadDirInfoProvider);
+
+    return dirInfoAsync.when(
+      loading: () => const ListTile(
+        leading: Icon(Icons.folder_outlined),
+        title: Text('下载路径'),
+        subtitle: Text('加载中...'),
+      ),
+      error: (e, _) => ListTile(
+        leading: const Icon(Icons.folder_outlined),
+        title: const Text('下载路径'),
+        subtitle: Text('加载失败: $e'),
+      ),
+      data: (info) => ListTile(
+        leading: const Icon(Icons.folder_outlined),
+        title: const Text('下载路径'),
+        subtitle: Text(info.path),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => _showPathDialog(context, info.path),
+      ),
+    );
+  }
+
+  void _showPathDialog(BuildContext context, String currentPath) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('下载路径'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('当前路径:', style: Theme.of(context).textTheme.labelMedium),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                currentPath,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              '提示：修改下载路径功能即将推出',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 并发下载数设置
+class _ConcurrentDownloadsListTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // TODO: 从设置中获取
+    const maxConcurrent = 3;
+
+    return ListTile(
+      leading: const Icon(Icons.speed_outlined),
+      title: const Text('同时下载数量'),
+      subtitle: const Text('最多同时下载 $maxConcurrent 个文件'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => _showConcurrentDialog(context, maxConcurrent),
+    );
+  }
+
+  void _showConcurrentDialog(BuildContext context, int current) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('同时下载数量'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(5, (index) {
+            final value = index + 1;
+            return RadioListTile<int>(
+              title: Text('$value 个'),
+              value: value,
+              groupValue: current,
+              onChanged: (value) {
+                // TODO: 保存设置
+                Navigator.pop(context);
+              },
+            );
+          }),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 下载图片选项设置
+class _DownloadImageOptionListTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // TODO: 从设置中获取
+    const option = DownloadImageOption.coverOnly;
+    final optionText = switch (option) {
+      DownloadImageOption.none => '关闭',
+      DownloadImageOption.coverOnly => '仅封面',
+      DownloadImageOption.coverAndAvatar => '封面和头像',
+    };
+
+    return ListTile(
+      leading: const Icon(Icons.image_outlined),
+      title: const Text('下载图片'),
+      subtitle: Text(optionText),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => _showImageOptionDialog(context, option),
+    );
+  }
+
+  void _showImageOptionDialog(BuildContext context, DownloadImageOption current) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('下载图片'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RadioListTile<DownloadImageOption>(
+              title: const Text('关闭'),
+              subtitle: const Text('不下载任何图片'),
+              value: DownloadImageOption.none,
+              groupValue: current,
+              onChanged: (value) {
+                // TODO: 保存设置
+                Navigator.pop(context);
+              },
+            ),
+            RadioListTile<DownloadImageOption>(
+              title: const Text('仅封面'),
+              subtitle: const Text('下载视频封面'),
+              value: DownloadImageOption.coverOnly,
+              groupValue: current,
+              onChanged: (value) {
+                // TODO: 保存设置
+                Navigator.pop(context);
+              },
+            ),
+            RadioListTile<DownloadImageOption>(
+              title: const Text('封面和头像'),
+              subtitle: const Text('下载视频封面和UP主头像'),
+              value: DownloadImageOption.coverAndAvatar,
+              groupValue: current,
+              onChanged: (value) {
+                // TODO: 保存设置
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+        ],
+      ),
     );
   }
 }

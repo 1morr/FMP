@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/track.dart';
 import '../../../providers/playlist_provider.dart';
+import '../../../providers/download_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/now_playing_indicator.dart';
@@ -345,25 +346,44 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     BuildContext context,
     List<Track> tracks,
   ) {
+    final state = ref.watch(playlistDetailProvider(widget.playlistId));
+    final playlist = state.playlist;
+    
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: FilledButton.icon(
-              onPressed:
-                  tracks.isEmpty ? null : () => _playAll(tracks, context),
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('添加所有'),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed:
+                      tracks.isEmpty ? null : () => _playAll(tracks, context),
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('添加所有'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed:
+                      tracks.isEmpty ? null : () => _shufflePlay(tracks, context),
+                  icon: const Icon(Icons.shuffle),
+                  label: const Text('随机添加'),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
+          const SizedBox(height: 12),
+          // 下载按钮
+          SizedBox(
+            width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed:
-                  tracks.isEmpty ? null : () => _shufflePlay(tracks, context),
-              icon: const Icon(Icons.shuffle),
-              label: const Text('随机添加'),
+              onPressed: tracks.isEmpty || playlist == null 
+                  ? null 
+                  : () => _downloadPlaylist(context, playlist),
+              icon: const Icon(Icons.download_outlined),
+              label: const Text('下载全部'),
             ),
           ),
         ],
@@ -433,6 +453,23 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final controller = ref.read(audioControllerProvider.notifier);
     // 临时播放点击的歌曲，播放完成后恢复原队列位置
     controller.playTemporary(track);
+  }
+  
+  void _downloadPlaylist(BuildContext context, dynamic playlist) async {
+    final downloadService = ref.read(downloadServiceProvider);
+    final result = await downloadService.addPlaylistDownload(playlist);
+    
+    if (context.mounted) {
+      if (result != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('已添加歌单"${playlist.name}"到下载队列')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('歌单已在下载队列中或为空')),
+        );
+      }
+    }
   }
 }
 
@@ -580,6 +617,14 @@ class _GroupHeader extends ConsumerWidget {
                 ),
               ),
               const PopupMenuItem(
+                value: 'download_all',
+                child: ListTile(
+                  leading: Icon(Icons.download_outlined),
+                  title: Text('下载全部分P'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
                 value: 'add_to_playlist',
                 child: ListTile(
                   leading: Icon(Icons.playlist_add),
@@ -602,13 +647,27 @@ class _GroupHeader extends ConsumerWidget {
     );
   }
 
-  void _handleMenuAction(BuildContext context, WidgetRef ref, String action) {
+  void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
     switch (action) {
       case 'play_first':
         onPlayFirst();
         break;
       case 'add_all_to_queue':
         onAddAllToQueue();
+        break;
+      case 'download_all':
+        // 下载所有分P
+        final downloadService = ref.read(downloadServiceProvider);
+        int addedCount = 0;
+        for (final track in group.tracks) {
+          final result = await downloadService.addTrackDownload(track);
+          if (result != null) addedCount++;
+        }
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('已添加 $addedCount 个分P到下载队列')),
+          );
+        }
         break;
       case 'add_to_playlist':
         // 添加所有分P到其他歌单
@@ -758,6 +817,14 @@ class _TrackListTile extends ConsumerWidget {
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
+                const PopupMenuItem(
+                  value: 'download',
+                  child: ListTile(
+                    leading: Icon(Icons.download_outlined),
+                    title: Text('下载'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
                 // 分P不显示"添加到歌单"选项
                 if (!isPartOfMultiPage)
                   const PopupMenuItem(
@@ -792,7 +859,7 @@ class _TrackListTile extends ConsumerWidget {
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
-  void _handleMenuAction(BuildContext context, WidgetRef ref, String action) {
+  void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
     switch (action) {
       case 'play_next':
         ref.read(audioControllerProvider.notifier).addNext(track);
@@ -805,6 +872,17 @@ class _TrackListTile extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('已添加到播放队列')),
         );
+        break;
+      case 'download':
+        final downloadService = ref.read(downloadServiceProvider);
+        final result = await downloadService.addTrackDownload(track);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result != null ? '已添加到下载队列' : '歌曲已下载或已在队列中'),
+            ),
+          );
+        }
         break;
       case 'add_to_playlist':
         showAddToPlaylistDialog(context: context, track: track);

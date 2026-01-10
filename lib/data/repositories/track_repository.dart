@@ -112,6 +112,33 @@ class TrackRepository with Logging {
         .findAll();
   }
 
+  /// 获取所有已下载的歌曲
+  Future<List<Track>> getDownloaded() async {
+    return _isar.tracks
+        .filter()
+        .downloadedPathIsNotNull()
+        .sortByUpdatedAtDesc()
+        .findAll();
+  }
+
+  /// 监听已下载歌曲变化
+  Stream<List<Track>> watchDownloaded() {
+    return _isar.tracks
+        .filter()
+        .downloadedPathIsNotNull()
+        .sortByUpdatedAtDesc()
+        .watch(fireImmediately: true);
+  }
+
+  /// 清除歌曲的下载路径
+  Future<void> clearDownloadPath(int id) async {
+    final track = await getById(id);
+    if (track != null) {
+      track.downloadedPath = null;
+      await save(track);
+    }
+  }
+
   /// 标记歌曲为不可用
   Future<void> markUnavailable(int id, String reason) async {
     final track = await getById(id);
