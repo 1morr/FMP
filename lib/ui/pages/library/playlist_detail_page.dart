@@ -8,14 +8,22 @@ import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/now_playing_indicator.dart';
 
 /// 歌单详情页
-class PlaylistDetailPage extends ConsumerWidget {
+class PlaylistDetailPage extends ConsumerStatefulWidget {
   final int playlistId;
 
   const PlaylistDetailPage({super.key, required this.playlistId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(playlistDetailProvider(playlistId));
+  ConsumerState<PlaylistDetailPage> createState() => _PlaylistDetailPageState();
+}
+
+class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
+  // 展开状态：key是groupKey
+  final Set<String> _expandedGroups = {};
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(playlistDetailProvider(widget.playlistId));
     final colorScheme = Theme.of(context).colorScheme;
 
     if (state.isLoading && state.playlist == null) {
@@ -44,15 +52,18 @@ class PlaylistDetailPage extends ConsumerWidget {
     final playlist = state.playlist!;
     final tracks = state.tracks;
 
+    // 将tracks按groupKey分组
+    final groupedTracks = _groupTracks(tracks);
+
     return Scaffold(
       body: CustomScrollView(
         slivers: [
           // 折叠式应用栏
-          _buildSliverAppBar(context, ref, playlist, state),
+          _buildSliverAppBar(context, playlist, state),
 
           // 操作按钮
           SliverToBoxAdapter(
-            child: _buildActionButtons(context, ref, tracks),
+            child: _buildActionButtons(context, tracks),
           ),
 
           // 歌曲列表
@@ -63,13 +74,11 @@ class PlaylistDetailPage extends ConsumerWidget {
           else
             SliverList(
               delegate: SliverChildBuilderDelegate(
-                (context, index) => _TrackListTile(
-                  track: tracks[index],
-                  index: index,
-                  playlistId: playlistId,
-                  onTap: () => _playTrack(ref, tracks, index),
-                ),
-                childCount: tracks.length,
+                (context, index) {
+                  final group = groupedTracks[index];
+                  return _buildGroupItem(context, group);
+                },
+                childCount: groupedTracks.length,
               ),
             ),
         ],
@@ -77,14 +86,96 @@ class PlaylistDetailPage extends ConsumerWidget {
     );
   }
 
+  /// 将tracks按groupKey分组
+  List<_TrackGroup> _groupTracks(List<Track> tracks) {
+    final Map<String, List<Track>> grouped = {};
+    final List<String> order = [];
+
+    for (final track in tracks) {
+      final key = track.groupKey;
+      if (!grouped.containsKey(key)) {
+        grouped[key] = [];
+        order.add(key);
+      }
+      grouped[key]!.add(track);
+    }
+
+    return order.map((key) {
+      final groupTracks = grouped[key]!;
+      // 按pageNum排序
+      groupTracks.sort((a, b) => (a.pageNum ?? 0).compareTo(b.pageNum ?? 0));
+      return _TrackGroup(
+        groupKey: key,
+        tracks: groupTracks,
+        parentTitle: groupTracks.first.parentTitle ?? groupTracks.first.title,
+      );
+    }).toList();
+  }
+
+  /// 构建分组项
+  Widget _buildGroupItem(BuildContext context, _TrackGroup group) {
+    // 如果组只有一个track，显示普通样式
+    if (group.tracks.length == 1) {
+      return _TrackListTile(
+        track: group.tracks.first,
+        playlistId: widget.playlistId,
+        onTap: () => _playTrack(group.tracks.first),
+        isPartOfMultiPage: false,
+      );
+    }
+
+    // 多P视频，显示可展开样式
+    final isExpanded = _expandedGroups.contains(group.groupKey);
+
+    return Column(
+      children: [
+        // 父视频标题行
+        _GroupHeader(
+          group: group,
+          isExpanded: isExpanded,
+          onToggle: () => _toggleGroup(group.groupKey),
+          onPlayFirst: () => _playTrack(group.tracks.first),
+          onAddAllToQueue: () => _addAllToQueue(context, group.tracks),
+          playlistId: widget.playlistId,
+        ),
+        // 展开的分P列表
+        if (isExpanded)
+          ...group.tracks.map((track) => _TrackListTile(
+                track: track,
+                playlistId: widget.playlistId,
+                onTap: () => _playTrack(track),
+                isPartOfMultiPage: true,
+                indent: true,
+              )),
+      ],
+    );
+  }
+
+  void _toggleGroup(String groupKey) {
+    setState(() {
+      if (_expandedGroups.contains(groupKey)) {
+        _expandedGroups.remove(groupKey);
+      } else {
+        _expandedGroups.add(groupKey);
+      }
+    });
+  }
+
+  void _addAllToQueue(BuildContext context, List<Track> tracks) {
+    final controller = ref.read(audioControllerProvider.notifier);
+    controller.addAllToQueue(tracks);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('已添加 ${tracks.length} 个分P到队列')),
+    );
+  }
+
   Widget _buildSliverAppBar(
     BuildContext context,
-    WidgetRef ref,
     dynamic playlist,
     PlaylistDetailState state,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
-    final coverAsync = ref.watch(playlistCoverProvider(playlistId));
+    final coverAsync = ref.watch(playlistCoverProvider(widget.playlistId));
 
     return SliverAppBar(
       expandedHeight: 280,
@@ -104,7 +195,8 @@ class PlaylistDetailPage extends ConsumerWidget {
                     )
                   : Container(color: colorScheme.primaryContainer),
               loading: () => Container(color: colorScheme.primaryContainer),
-              error: (error, stack) => Container(color: colorScheme.primaryContainer),
+              error: (error, stack) =>
+                  Container(color: colorScheme.primaryContainer),
             ),
 
             // 渐变遮罩
@@ -157,10 +249,10 @@ class PlaylistDetailPage extends ConsumerWidget {
                                 color: colorScheme.primary,
                               ),
                             ),
-                      loading: () =>
-                          Container(color: colorScheme.surfaceContainerHighest),
-                      error: (error, stack) =>
-                          Container(color: colorScheme.surfaceContainerHighest),
+                      loading: () => Container(
+                          color: colorScheme.surfaceContainerHighest),
+                      error: (error, stack) => Container(
+                          color: colorScheme.surfaceContainerHighest),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -251,7 +343,6 @@ class PlaylistDetailPage extends ConsumerWidget {
 
   Widget _buildActionButtons(
     BuildContext context,
-    WidgetRef ref,
     List<Track> tracks,
   ) {
     return Padding(
@@ -260,7 +351,8 @@ class PlaylistDetailPage extends ConsumerWidget {
         children: [
           Expanded(
             child: FilledButton.icon(
-              onPressed: tracks.isEmpty ? null : () => _playAll(ref, tracks, context),
+              onPressed:
+                  tracks.isEmpty ? null : () => _playAll(tracks, context),
               icon: const Icon(Icons.play_arrow),
               label: const Text('添加所有'),
             ),
@@ -268,7 +360,8 @@ class PlaylistDetailPage extends ConsumerWidget {
           const SizedBox(width: 12),
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: tracks.isEmpty ? null : () => _shufflePlay(ref, tracks, context),
+              onPressed:
+                  tracks.isEmpty ? null : () => _shufflePlay(tracks, context),
               icon: const Icon(Icons.shuffle),
               label: const Text('随机添加'),
             ),
@@ -319,7 +412,7 @@ class PlaylistDetailPage extends ConsumerWidget {
     return '$minutes 分钟';
   }
 
-  void _playAll(WidgetRef ref, List<Track> tracks, BuildContext context) {
+  void _playAll(List<Track> tracks, BuildContext context) {
     final controller = ref.read(audioControllerProvider.notifier);
     controller.addAllToQueue(tracks);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -327,7 +420,7 @@ class PlaylistDetailPage extends ConsumerWidget {
     );
   }
 
-  void _shufflePlay(WidgetRef ref, List<Track> tracks, BuildContext context) {
+  void _shufflePlay(List<Track> tracks, BuildContext context) {
     final controller = ref.read(audioControllerProvider.notifier);
     final shuffled = List<Track>.from(tracks)..shuffle();
     controller.addAllToQueue(shuffled);
@@ -336,49 +429,69 @@ class PlaylistDetailPage extends ConsumerWidget {
     );
   }
 
-  void _playTrack(WidgetRef ref, List<Track> tracks, int index) {
+  void _playTrack(Track track) {
     final controller = ref.read(audioControllerProvider.notifier);
     // 临时播放点击的歌曲，播放完成后恢复原队列位置
-    controller.playTemporary(tracks[index]);
+    controller.playTemporary(track);
   }
 }
 
-/// 歌曲列表项
-class _TrackListTile extends ConsumerWidget {
-  final Track track;
-  final int index;
-  final int playlistId;
-  final VoidCallback onTap;
+/// 分组数据类
+class _TrackGroup {
+  final String groupKey;
+  final List<Track> tracks;
+  final String parentTitle;
 
-  const _TrackListTile({
-    required this.track,
-    required this.index,
+  _TrackGroup({
+    required this.groupKey,
+    required this.tracks,
+    required this.parentTitle,
+  });
+}
+
+/// 分组标题组件
+class _GroupHeader extends ConsumerWidget {
+  final _TrackGroup group;
+  final bool isExpanded;
+  final VoidCallback onToggle;
+  final VoidCallback onPlayFirst;
+  final VoidCallback onAddAllToQueue;
+  final int playlistId;
+
+  const _GroupHeader({
+    required this.group,
+    required this.isExpanded,
+    required this.onToggle,
+    required this.onPlayFirst,
+    required this.onAddAllToQueue,
     required this.playlistId,
-    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final firstTrack = group.tracks.first;
     final currentTrack = ref.watch(currentTrackProvider);
-    final isPlaying = currentTrack?.id == track.id;
+    // 检查当前播放的是否是这个组的某个分P
+    final isPlayingThisGroup =
+        currentTrack != null && group.tracks.any((t) => t.id == currentTrack.id);
 
     return ListTile(
+      onTap: onToggle,
       leading: SizedBox(
         width: 48,
         height: 48,
-        child: Stack(
-          children: [
-            // 封面
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(4),
-                color: colorScheme.surfaceContainerHighest,
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: track.thumbnailUrl != null
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            color: colorScheme.surfaceContainerHighest,
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            children: [
+              firstTrack.thumbnailUrl != null
                   ? Image.network(
-                      track.thumbnailUrl!,
+                      firstTrack.thumbnailUrl!,
                       fit: BoxFit.cover,
                       width: 48,
                       height: 48,
@@ -387,66 +500,82 @@ class _TrackListTile extends ConsumerWidget {
                       Icons.music_note,
                       color: colorScheme.outline,
                     ),
-            ),
-
-            // 播放中指示
-            if (isPlaying)
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(4),
-                  color: colorScheme.primary.withValues(alpha: 0.8),
-                ),
-                child: const Center(
-                  child: NowPlayingIndicator(
-                    size: 24,
-                    color: Colors.white,
+              if (isPlayingThisGroup)
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    color: colorScheme.primary.withValues(alpha: 0.8),
+                  ),
+                  child: const Center(
+                    child: NowPlayingIndicator(
+                      size: 24,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
       title: Text(
-        track.title,
+        group.parentTitle,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          color: isPlaying ? colorScheme.primary : null,
-          fontWeight: isPlaying ? FontWeight.w600 : null,
+          color: isPlayingThisGroup ? colorScheme.primary : null,
+          fontWeight: isPlayingThisGroup ? FontWeight.w600 : FontWeight.w500,
         ),
       ),
-      subtitle: Text(
-        track.artist ?? '未知艺术家',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+      subtitle: Row(
+        children: [
+          Text(
+            firstTrack.artist ?? '未知UP主',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              '${group.tracks.length}P',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onPrimaryContainer,
+                  ),
+            ),
+          ),
+        ],
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (track.durationMs != null)
-            Text(
-              _formatTrackDuration(track.durationMs!),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.outline,
-                  ),
+          // 展开/折叠按钮
+          IconButton(
+            icon: Icon(
+              isExpanded ? Icons.expand_less : Icons.expand_more,
             ),
+            onPressed: onToggle,
+          ),
+          // 菜单
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) => _handleMenuAction(context, ref, value),
             itemBuilder: (context) => [
               const PopupMenuItem(
-                value: 'play_next',
+                value: 'play_first',
                 child: ListTile(
-                  leading: Icon(Icons.queue_play_next),
-                  title: Text('下一首播放'),
+                  leading: Icon(Icons.play_arrow),
+                  title: Text('播放第一个分P'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
               const PopupMenuItem(
-                value: 'add_to_queue',
+                value: 'add_all_to_queue',
                 child: ListTile(
                   leading: Icon(Icons.add_to_queue),
-                  title: Text('添加到队列'),
+                  title: Text('添加全部到队列'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -454,15 +583,15 @@ class _TrackListTile extends ConsumerWidget {
                 value: 'add_to_playlist',
                 child: ListTile(
                   leading: Icon(Icons.playlist_add),
-                  title: Text('添加到歌单'),
+                  title: Text('添加到其他歌单'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
               const PopupMenuItem(
-                value: 'remove',
+                value: 'remove_all',
                 child: ListTile(
                   leading: Icon(Icons.remove_circle_outline),
-                  title: Text('从歌单移除'),
+                  title: Text('从歌单移除全部'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -470,7 +599,189 @@ class _TrackListTile extends ConsumerWidget {
           ),
         ],
       ),
-      onTap: onTap,
+    );
+  }
+
+  void _handleMenuAction(BuildContext context, WidgetRef ref, String action) {
+    switch (action) {
+      case 'play_first':
+        onPlayFirst();
+        break;
+      case 'add_all_to_queue':
+        onAddAllToQueue();
+        break;
+      case 'add_to_playlist':
+        // 添加所有分P到其他歌单
+        showAddToPlaylistDialog(context: context, tracks: group.tracks);
+        break;
+      case 'remove_all':
+        // 移除所有分P
+        final notifier = ref.read(playlistDetailProvider(playlistId).notifier);
+        for (final track in group.tracks) {
+          notifier.removeTrack(track.id);
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('已从歌单移除 ${group.tracks.length} 个分P')),
+        );
+        break;
+    }
+  }
+}
+
+/// 歌曲列表项
+class _TrackListTile extends ConsumerWidget {
+  final Track track;
+  final int playlistId;
+  final VoidCallback onTap;
+  final bool isPartOfMultiPage;
+  final bool indent;
+
+  const _TrackListTile({
+    required this.track,
+    required this.playlistId,
+    required this.onTap,
+    required this.isPartOfMultiPage,
+    this.indent = false,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final currentTrack = ref.watch(currentTrackProvider);
+    final isPlaying = currentTrack?.id == track.id;
+
+    return Padding(
+      padding: EdgeInsets.only(left: indent ? 56 : 0),
+      child: ListTile(
+        // 分P不显示封面（因为都是一样的）
+        leading: isPartOfMultiPage
+            ? null
+            : SizedBox(
+                width: 48,
+                height: 48,
+                child: Stack(
+                  children: [
+                    // 封面
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(4),
+                        color: colorScheme.surfaceContainerHighest,
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: track.thumbnailUrl != null
+                          ? Image.network(
+                              track.thumbnailUrl!,
+                              fit: BoxFit.cover,
+                              width: 48,
+                              height: 48,
+                            )
+                          : Icon(
+                              Icons.music_note,
+                              color: colorScheme.outline,
+                            ),
+                    ),
+
+                    // 播放中指示
+                    if (isPlaying)
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(4),
+                          color: colorScheme.primary.withValues(alpha: 0.8),
+                        ),
+                        child: const Center(
+                          child: NowPlayingIndicator(
+                            size: 24,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+        title: Row(
+          children: [
+            // 分P时如果正在播放，显示播放指示器
+            if (isPartOfMultiPage && isPlaying) ...[
+              NowPlayingIndicator(
+                size: 16,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+            ],
+            Expanded(
+              child: Text(
+                track.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: isPlaying ? colorScheme.primary : null,
+                  fontWeight: isPlaying ? FontWeight.w600 : null,
+                ),
+              ),
+            ),
+          ],
+        ),
+        subtitle: Text(
+          isPartOfMultiPage
+              ? 'P${track.pageNum ?? 1} · ${_formatTrackDuration(track.durationMs ?? 0)}'
+              : track.artist ?? '未知艺术家',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!isPartOfMultiPage && track.durationMs != null)
+              Text(
+                _formatTrackDuration(track.durationMs!),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.outline,
+                    ),
+              ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              onSelected: (value) => _handleMenuAction(context, ref, value),
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'play_next',
+                  child: ListTile(
+                    leading: Icon(Icons.queue_play_next),
+                    title: Text('下一首播放'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'add_to_queue',
+                  child: ListTile(
+                    leading: Icon(Icons.add_to_queue),
+                    title: Text('添加到队列'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                // 分P不显示"添加到歌单"选项
+                if (!isPartOfMultiPage)
+                  const PopupMenuItem(
+                    value: 'add_to_playlist',
+                    child: ListTile(
+                      leading: Icon(Icons.playlist_add),
+                      title: Text('添加到歌单'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                const PopupMenuItem(
+                  value: 'remove',
+                  child: ListTile(
+                    leading: Icon(Icons.remove_circle_outline),
+                    title: Text('从歌单移除'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        onTap: onTap,
+      ),
     );
   }
 

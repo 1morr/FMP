@@ -4,24 +4,32 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/playlist_provider.dart';
 
-/// 显示添加到歌单对话框
+/// 显示添加到歌单对话框（单个track）
 Future<bool> showAddToPlaylistDialog({
   required BuildContext context,
-  required Track track,
+  Track? track,
+  List<Track>? tracks,
 }) async {
+  assert(track != null || (tracks != null && tracks.isNotEmpty),
+      'Either track or tracks must be provided');
+  
+  final trackList = tracks ?? [track!];
   final result = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    builder: (context) => _AddToPlaylistSheet(track: track),
+    builder: (context) => _AddToPlaylistSheet(tracks: trackList),
   );
   return result ?? false;
 }
 
 class _AddToPlaylistSheet extends ConsumerStatefulWidget {
-  final Track track;
+  final List<Track> tracks;
 
-  const _AddToPlaylistSheet({required this.track});
+  const _AddToPlaylistSheet({required this.tracks});
+
+  Track get firstTrack => tracks.first;
+  bool get isMultiple => tracks.length > 1;
 
   @override
   ConsumerState<_AddToPlaylistSheet> createState() => _AddToPlaylistSheetState();
@@ -97,9 +105,9 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                       color: colorScheme.surface,
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: widget.track.thumbnailUrl != null
+                    child: widget.firstTrack.thumbnailUrl != null
                         ? Image.network(
-                            widget.track.thumbnailUrl!,
+                            widget.firstTrack.thumbnailUrl!,
                             fit: BoxFit.cover,
                           )
                         : Icon(
@@ -114,7 +122,9 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.track.title,
+                          widget.isMultiple
+                              ? '${widget.tracks.length} 首歌曲'
+                              : widget.firstTrack.title,
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 fontWeight: FontWeight.w500,
                               ),
@@ -122,7 +132,9 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
-                          widget.track.artist ?? '未知艺术家',
+                          widget.isMultiple
+                              ? widget.firstTrack.parentTitle ?? widget.firstTrack.title
+                              : widget.firstTrack.artist ?? '未知艺术家',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: colorScheme.onSurfaceVariant,
                               ),
@@ -437,7 +449,10 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
 
       for (final playlistId in _selectedPlaylistIds) {
         try {
-          await service.addTrackToPlaylist(playlistId, widget.track);
+          // 添加所有tracks
+          for (final track in widget.tracks) {
+            await service.addTrackToPlaylist(playlistId, track);
+          }
           successCount++;
           // 刷新该歌单详情和封面
           ref.invalidate(playlistDetailProvider(playlistId));
