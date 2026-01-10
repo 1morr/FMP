@@ -1,10 +1,8 @@
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../../data/models/play_queue.dart';
 import '../../../services/audio/audio_provider.dart';
-import '../../../services/cache/fmp_cache_manager.dart';
 
 /// 播放器页面（全屏）
 class PlayerPage extends ConsumerStatefulWidget {
@@ -126,17 +124,19 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         ),
         clipBehavior: Clip.antiAlias,
         child: thumbnailUrl != null
-            ? CachedNetworkImage(
-                cacheManager: FmpCacheManager.instance,
-                fadeInDuration: const Duration(milliseconds: 150),
-                imageUrl: thumbnailUrl,
+            ? Image.network(
+                thumbnailUrl,
                 fit: BoxFit.cover,
-                placeholder: (context, url) => Center(
-                  child: CircularProgressIndicator(
-                    color: colorScheme.primary,
-                  ),
-                ),
-                errorWidget: (context, url, error) => _buildDefaultCover(colorScheme),
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Center(
+                    child: CircularProgressIndicator(
+                      color: colorScheme.primary,
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) =>
+                    _buildDefaultCover(colorScheme),
               )
             : _buildDefaultCover(colorScheme),
       ),

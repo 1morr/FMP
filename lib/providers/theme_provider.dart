@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/settings.dart';
 import '../data/repositories/settings_repository.dart';
-import 'database_provider.dart';
+import 'repository_providers.dart';
 
 /// 主题状态
 class ThemeState {
@@ -80,12 +80,6 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
     await setThemeMode(nextMode);
   }
 }
-
-/// 设置仓库 Provider
-final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
-  final db = ref.watch(databaseProvider).requireValue;
-  return SettingsRepository(db);
-});
 
 /// 主题 Provider
 final themeProvider = StateNotifierProvider<ThemeNotifier, ThemeState>((ref) {

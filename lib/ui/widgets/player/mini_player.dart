@@ -1,11 +1,9 @@
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import '../../../data/models/play_queue.dart';
 import '../../../services/audio/audio_provider.dart';
-import '../../../services/cache/fmp_cache_manager.dart';
 import '../../router.dart';
 
 /// 迷你播放器
@@ -268,13 +266,15 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
       ),
       clipBehavior: Clip.antiAlias,
       child: thumbnailUrl != null
-          ? CachedNetworkImage(
-              cacheManager: FmpCacheManager.instance,
-              fadeInDuration: const Duration(milliseconds: 150),
-              imageUrl: thumbnailUrl,
+          ? Image.network(
+              thumbnailUrl,
               fit: BoxFit.cover,
-              placeholder: (context, url) => _buildDefaultThumbnail(colorScheme),
-              errorWidget: (context, url, error) => _buildDefaultThumbnail(colorScheme),
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return _buildDefaultThumbnail(colorScheme);
+              },
+              errorBuilder: (context, error, stackTrace) =>
+                  _buildDefaultThumbnail(colorScheme),
             )
           : _buildDefaultThumbnail(colorScheme),
     );

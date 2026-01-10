@@ -1,11 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-
-import '../../services/cache/fmp_cache_manager.dart';
 
 /// FMP 网络图片组件
 ///
-/// 封装 CachedNetworkImage，使用自定义的缓存管理器
+/// 直接使用 Image.network 加载网络图片，无缓存
 class FmpNetworkImage extends StatelessWidget {
   final String imageUrl;
   final BoxFit? fit;
@@ -36,19 +33,36 @@ class FmpNetworkImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CachedNetworkImage(
-      imageUrl: imageUrl,
-      cacheManager: FmpCacheManager.instance,
-      fadeInDuration: fadeInDuration,
+    return Image.network(
+      imageUrl,
       fit: fit,
       width: width,
       height: height,
-      placeholder: placeholder,
-      errorWidget: errorWidget,
       color: color,
       colorBlendMode: colorBlendMode,
       alignment: alignment,
       filterQuality: filterQuality,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        if (placeholder != null) {
+          return placeholder!(context, imageUrl);
+        }
+        return Center(
+          child: CircularProgressIndicator(
+            value: loadingProgress.expectedTotalBytes != null
+                ? loadingProgress.cumulativeBytesLoaded /
+                    loadingProgress.expectedTotalBytes!
+                : null,
+            strokeWidth: 2,
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        if (errorWidget != null) {
+          return errorWidget!(context, imageUrl, error);
+        }
+        return const Icon(Icons.broken_image, color: Colors.grey);
+      },
     );
   }
 }
