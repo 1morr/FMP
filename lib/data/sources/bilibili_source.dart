@@ -224,7 +224,13 @@ class BilibiliSource extends BaseSource with Logging {
       throw Exception('Invalid source type for BilibiliSource');
     }
 
-    final audioUrl = await getAudioUrl(track.sourceId);
+    // 如果有cid，使用指定cid获取音频URL
+    final String audioUrl;
+    if (track.cid != null) {
+      audioUrl = await getAudioUrlWithCid(track.sourceId, track.cid!);
+    } else {
+      audioUrl = await getAudioUrl(track.sourceId);
+    }
     track.audioUrl = audioUrl;
     track.audioUrlExpiry = DateTime.now().add(const Duration(hours: 2));
     track.updatedAt = DateTime.now();
@@ -383,6 +389,90 @@ class BilibiliSource extends BaseSource with Logging {
     }
   }
 
+  /// 获取视频分P列表
+  Future<List<VideoPage>> getVideoPages(String bvid) async {
+    try {
+      final response = await _dio.get(
+        _viewApi,
+        queryParameters: {'bvid': bvid},
+      );
+
+      _checkResponse(response.data);
+
+      final pages = response.data['data']['pages'] as List? ?? [];
+      return pages.map((p) => VideoPage(
+        cid: p['cid'] as int,
+        page: p['page'] as int,
+        part: p['part'] as String? ?? 'P${p['page']}',
+        duration: p['duration'] as int? ?? 0,
+      )).toList();
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  /// 获取指定分P的音频URL
+  Future<String> getAudioUrlWithCid(String bvid, int cid) async {
+    logDebug('Getting audio URL for bvid: $bvid, cid: $cid');
+    try {
+      final playUrlResponse = await _dio.get(
+        _playUrlApi,
+        queryParameters: {
+          'bvid': bvid,
+          'cid': cid,
+          'fnval': 16, // DASH 格式
+          'qn': 0, // 最高画质
+          'fourk': 1,
+        },
+      );
+
+      _checkResponse(playUrlResponse.data);
+
+      final dash = playUrlResponse.data['data']['dash'];
+      if (dash == null) {
+        // 尝试获取普通格式
+        logDebug('No DASH format available for $bvid:$cid, trying durl format');
+        final durl = playUrlResponse.data['data']['durl'];
+        if (durl != null && durl is List && durl.isNotEmpty) {
+          final url = durl[0]['url'] as String;
+          logDebug('Got durl format URL for $bvid:$cid (length: ${url.length})');
+          return url;
+        }
+        logError('No audio stream available for $bvid:$cid');
+        throw Exception('No audio stream available');
+      }
+
+      // 从 DASH 格式中获取音频流
+      final audios = dash['audio'] as List?;
+      if (audios == null || audios.isEmpty) {
+        logError('No audio stream in DASH for $bvid:$cid');
+        throw Exception('No audio stream in DASH');
+      }
+
+      // 按带宽排序，选择最高音质
+      audios.sort(
+          (a, b) => (b['bandwidth'] as int).compareTo(a['bandwidth'] as int));
+
+      // 优先使用 baseUrl，备用 backupUrl
+      final bestAudio = audios.first;
+      final audioUrl = bestAudio['baseUrl'] ?? bestAudio['base_url'] ?? bestAudio['backupUrl']?[0];
+      
+      if (audioUrl == null) {
+        logError('No audio URL in DASH response for $bvid:$cid');
+        throw Exception('No audio URL in DASH response');
+      }
+
+      logDebug('Got audio URL for $bvid:$cid, bandwidth: ${bestAudio['bandwidth']}, URL length: ${audioUrl.length}');
+      return audioUrl;
+    } on BilibiliApiException catch (e) {
+      logError('Bilibili API error for $bvid:$cid: code=${e.code}, message=${e.message}');
+      rethrow;
+    } on DioException catch (e) {
+      logError('Network error getting audio URL for $bvid:$cid: ${e.type}, ${e.message}');
+      throw _handleDioError(e);
+    }
+  }
+
   /// 获取视频详细信息（包括统计数据和UP主信息）
   Future<VideoDetail> getVideoDetail(String bvid) async {
     try {
@@ -397,6 +487,15 @@ class BilibiliSource extends BaseSource with Logging {
       final data = viewResponse.data['data'];
       final stat = data['stat'];
       final owner = data['owner'];
+
+      // 解析分P信息
+      final pagesData = data['pages'] as List? ?? [];
+      final pages = pagesData.map((p) => VideoPage(
+        cid: p['cid'] as int,
+        page: p['page'] as int,
+        part: p['part'] as String? ?? 'P${p['page']}',
+        duration: p['duration'] as int? ?? 0,
+      )).toList();
 
       // 获取热门评论
       final comments = await getHotComments(bvid, limit: 3);
@@ -421,6 +520,7 @@ class BilibiliSource extends BaseSource with Logging {
         ),
         durationSeconds: data['duration'] as int? ?? 0,
         hotComments: comments,
+        pages: pages,
       );
     } on DioException catch (e) {
       throw _handleDioError(e);

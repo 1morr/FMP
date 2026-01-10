@@ -44,6 +44,28 @@ class TrackRepository with Logging {
         .findFirst();
   }
 
+  /// 根据源ID、类型和cid获取歌曲（支持分P唯一性检查）
+  Future<Track?> getBySourceIdAndCid(
+    String sourceId,
+    SourceType sourceType, {
+    int? cid,
+  }) async {
+    if (cid == null) {
+      // 没有cid，使用传统方式查找
+      return getBySourceId(sourceId, sourceType);
+    }
+    
+    // 有cid，精确匹配分P
+    return _isar.tracks
+        .where()
+        .sourceIdEqualTo(sourceId)
+        .filter()
+        .sourceTypeEqualTo(sourceType)
+        .and()
+        .cidEqualTo(cid)
+        .findFirst();
+  }
+
   /// 保存歌曲并返回更新后的歌曲
   Future<Track> save(Track track) async {
     logDebug('Saving track: ${track.title} (id: ${track.id}, sourceId: ${track.sourceId})');

@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import '../../data/models/playlist.dart';
+import '../../data/models/track.dart';
 import '../../data/repositories/playlist_repository.dart';
 import '../../data/repositories/track_repository.dart';
+import '../../data/sources/bilibili_source.dart';
 import '../../data/sources/source_provider.dart';
 
 /// 导入进度
@@ -102,9 +104,28 @@ class ImportService {
       // 解析播放列表
       final result = await source.parsePlaylist(url);
 
+      // 获取分P信息并展开（仅Bilibili）
+      final List<Track> expandedTracks;
+      if (source is BilibiliSource) {
+        expandedTracks = await _expandMultiPageVideos(
+          source,
+          result.tracks,
+          (current, total, item) {
+            _updateProgress(
+              status: ImportStatus.importing,
+              current: current,
+              total: total,
+              currentItem: '正在获取分P信息 ($current/$total)',
+            );
+          },
+        );
+      } else {
+        expandedTracks = result.tracks;
+      }
+
       _updateProgress(
         status: ImportStatus.importing,
-        total: result.tracks.length,
+        total: expandedTracks.length,
         current: 0,
         currentItem: '正在导入...',
       );
@@ -136,8 +157,8 @@ class ImportService {
       int skippedCount = 0;
       final errors = <String>[];
 
-      for (int i = 0; i < result.tracks.length; i++) {
-        final track = result.tracks[i];
+      for (int i = 0; i < expandedTracks.length; i++) {
+        final track = expandedTracks[i];
 
         _updateProgress(
           current: i + 1,
@@ -145,10 +166,11 @@ class ImportService {
         );
 
         try {
-          // 检查是否已存在
-          final existing = await _trackRepository.getBySourceId(
+          // 检查是否已存在（支持分P唯一性）
+          final existing = await _trackRepository.getBySourceIdAndCid(
             track.sourceId,
             track.sourceType,
+            cid: track.cid,
           );
 
           if (existing != null) {
@@ -215,9 +237,28 @@ class ImportService {
 
       final result = await source.parsePlaylist(playlist.sourceUrl!);
 
+      // 获取分P信息并展开（仅Bilibili）
+      final List<Track> expandedTracks;
+      if (source is BilibiliSource) {
+        expandedTracks = await _expandMultiPageVideos(
+          source,
+          result.tracks,
+          (current, total, item) {
+            _updateProgress(
+              status: ImportStatus.importing,
+              current: current,
+              total: total,
+              currentItem: '正在获取分P信息 ($current/$total)',
+            );
+          },
+        );
+      } else {
+        expandedTracks = result.tracks;
+      }
+
       _updateProgress(
         status: ImportStatus.importing,
-        total: result.tracks.length,
+        total: expandedTracks.length,
         current: 0,
       );
 
@@ -226,8 +267,8 @@ class ImportService {
       final errors = <String>[];
       final newTrackIds = <int>[];
 
-      for (int i = 0; i < result.tracks.length; i++) {
-        final track = result.tracks[i];
+      for (int i = 0; i < expandedTracks.length; i++) {
+        final track = expandedTracks[i];
 
         _updateProgress(
           current: i + 1,
@@ -235,9 +276,11 @@ class ImportService {
         );
 
         try {
-          final existing = await _trackRepository.getBySourceId(
+          // 检查是否已存在（支持分P唯一性）
+          final existing = await _trackRepository.getBySourceIdAndCid(
             track.sourceId,
             track.sourceType,
+            cid: track.cid,
           );
 
           if (existing != null) {
@@ -299,6 +342,47 @@ class ImportService {
     }
 
     return results;
+  }
+
+  /// 展开多分P视频为独立Track
+  Future<List<Track>> _expandMultiPageVideos(
+    BilibiliSource source,
+    List<Track> tracks,
+    void Function(int current, int total, String item) onProgress,
+  ) async {
+    final expandedTracks = <Track>[];
+
+    for (int i = 0; i < tracks.length; i++) {
+      final track = tracks[i];
+      onProgress(i + 1, tracks.length, track.title);
+
+      try {
+        // 获取分P信息
+        final pages = await source.getVideoPages(track.sourceId);
+
+        if (pages.length <= 1) {
+          // 单P视频，设置cid并直接添加
+          if (pages.isNotEmpty) {
+            track.cid = pages.first.cid;
+            track.pageNum = 1;
+          }
+          expandedTracks.add(track);
+        } else {
+          // 多P视频，展开为独立Track
+          for (final page in pages) {
+            expandedTracks.add(page.toTrack(track));
+          }
+        }
+
+        // 添加小延迟避免请求过快
+        await Future.delayed(const Duration(milliseconds: 100));
+      } catch (e) {
+        // 获取分P失败，直接添加原始track
+        expandedTracks.add(track);
+      }
+    }
+
+    return expandedTracks;
   }
 
   void _updateProgress({

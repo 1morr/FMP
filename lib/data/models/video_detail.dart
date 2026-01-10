@@ -1,3 +1,47 @@
+import 'track.dart';
+
+/// 视频分P信息（不存入数据库，用于API响应和临时展示）
+class VideoPage {
+  final int cid;
+  final int page; // 分P序号，从1开始
+  final String part; // 分P标题
+  final int duration; // 时长（秒）
+
+  const VideoPage({
+    required this.cid,
+    required this.page,
+    required this.part,
+    required this.duration,
+  });
+
+  /// 格式化时长
+  String get formattedDuration {
+    final hours = duration ~/ 3600;
+    final minutes = (duration % 3600) ~/ 60;
+    final seconds = duration % 60;
+    if (hours > 0) {
+      return '$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    }
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  /// 转换为Track对象
+  Track toTrack(Track parent) => Track()
+    ..sourceId = parent.sourceId
+    ..sourceType = parent.sourceType
+    ..title = part // 只显示分P标题
+    ..artist = parent.artist
+    ..durationMs = duration * 1000
+    ..thumbnailUrl = parent.thumbnailUrl
+    ..cid = cid
+    ..pageNum = page
+    ..parentTitle = parent.title
+    ..createdAt = DateTime.now();
+
+  @override
+  String toString() => 'VideoPage(cid: $cid, page: $page, part: $part)';
+}
+
 /// 视频详细信息（用于右侧详情面板显示）
 class VideoDetail {
   final String bvid;
@@ -17,6 +61,7 @@ class VideoDetail {
   final DateTime publishDate;
   final int durationSeconds;
   final List<VideoComment> hotComments;
+  final List<VideoPage> pages;
 
   const VideoDetail({
     required this.bvid,
@@ -36,7 +81,14 @@ class VideoDetail {
     required this.publishDate,
     required this.durationSeconds,
     this.hotComments = const [],
+    this.pages = const [],
   });
+
+  /// 是否有多个分P
+  bool get hasMultiplePages => pages.length > 1;
+
+  /// 分P数量
+  int get pageCount => pages.length;
 
   /// 格式化播放数
   String get formattedViewCount => _formatCount(viewCount);

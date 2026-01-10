@@ -56,6 +56,17 @@ class Track {
   @ignore
   int? viewCount;
 
+  // ========== 分P相关字段 ==========
+
+  /// Bilibili cid（分P唯一标识）
+  int? cid;
+
+  /// 分P序号 (1, 2, 3...)，null表示单P或未获取分P信息
+  int? pageNum;
+
+  /// 父视频标题（用于分组显示时的标题）
+  String? parentTitle;
+
   /// 创建时间
   DateTime createdAt = DateTime.now();
 
@@ -65,6 +76,12 @@ class Track {
   /// 复合索引用于快速查找
   @Index(composite: [CompositeIndex('sourceType')])
   String get sourceKey => '${sourceType.name}:$sourceId';
+
+  /// 分P唯一索引（用于查找特定分P）
+  @Index(composite: [CompositeIndex('cid')])
+  String get sourcePageKey => cid != null
+      ? '${sourceType.name}:$sourceId:$cid'
+      : '${sourceType.name}:$sourceId';
 
   /// 检查音频 URL 是否有效
   bool get hasValidAudioUrl {
@@ -78,6 +95,17 @@ class Track {
 
   /// 是否已缓存
   bool get isCached => cachedPath != null;
+
+  /// 是否是多P视频中的一个分P
+  bool get isPartOfMultiPage => pageNum != null && pageNum! > 0;
+
+  /// 用于分组的key（同一视频的分P有相同的key）
+  String get groupKey => '${sourceType.name}:$sourceId';
+
+  /// 唯一标识（包含cid用于区分分P）
+  String get uniqueKey => cid != null
+      ? '${sourceType.name}:$sourceId:$cid'
+      : '${sourceType.name}:$sourceId';
 
   /// 格式化时长显示
   String get formattedDuration {

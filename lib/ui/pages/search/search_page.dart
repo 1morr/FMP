@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/track.dart';
+import '../../../data/models/video_detail.dart';
 import '../../../data/sources/base_source.dart' show SearchOrder;
+import '../../../data/sources/bilibili_source.dart';
+import '../../../data/sources/source_provider.dart';
 import '../../../providers/search_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
@@ -19,6 +22,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   final _searchController = TextEditingController();
   final _focusNode = FocusNode();
   bool _showHistory = true;
+
+  // 分P展开状态管理
+  final Set<String> _expandedVideos = {};
+  final Map<String, List<VideoPage>> _loadedPages = {};
+  final Set<String> _loadingPages = {};
 
   @override
   void initState() {
@@ -336,10 +344,20 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             ),
             SliverList(
               delegate: SliverChildBuilderDelegate(
-                (context, index) => _SearchResultTile(
-                  track: state.localResults[index],
-                  isLocal: true,
-                ),
+                (context, index) {
+                  final track = state.localResults[index];
+                  return _SearchResultTile(
+                    track: track,
+                    isLocal: true,
+                    isExpanded: _expandedVideos.contains(track.sourceId),
+                    isLoading: _loadingPages.contains(track.sourceId),
+                    pages: _loadedPages[track.sourceId],
+                    onTap: () => _playVideo(track),
+                    onToggleExpand: () => _toggleExpanded(track.sourceId),
+                    onMenuAction: _handleMenuAction,
+                    onPageMenuAction: (page, action) => _handlePageMenuAction(track, page, action),
+                  );
+                },
                 childCount: state.localResults.length,
               ),
             ),
@@ -358,10 +376,20 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             ),
             SliverList(
               delegate: SliverChildBuilderDelegate(
-                (context, index) => _SearchResultTile(
-                  track: entry.value.tracks[index],
-                  isLocal: false,
-                ),
+                (context, index) {
+                  final track = entry.value.tracks[index];
+                  return _SearchResultTile(
+                    track: track,
+                    isLocal: false,
+                    isExpanded: _expandedVideos.contains(track.sourceId),
+                    isLoading: _loadingPages.contains(track.sourceId),
+                    pages: _loadedPages[track.sourceId],
+                    onTap: () => _playVideo(track),
+                    onToggleExpand: () => _toggleExpanded(track.sourceId),
+                    onMenuAction: _handleMenuAction,
+                    onPageMenuAction: (page, action) => _handlePageMenuAction(track, page, action),
+                  );
+                },
                 childCount: entry.value.tracks.length,
               ),
             ),
@@ -437,135 +465,368 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   void _performSearch(String query) {
     if (query.trim().isEmpty) return;
     _focusNode.unfocus();
+    // 清空之前的分P缓存
+    _expandedVideos.clear();
+    _loadedPages.clear();
+    _loadingPages.clear();
     ref.read(searchProvider.notifier).search(query);
+  }
+
+  /// 加载视频分P信息
+  Future<void> _loadVideoPages(Track track) async {
+    final key = track.sourceId;
+    if (_loadedPages.containsKey(key) || _loadingPages.contains(key)) {
+      return;
+    }
+
+    if (track.sourceType != SourceType.bilibili) {
+      return;
+    }
+
+    setState(() {
+      _loadingPages.add(key);
+    });
+
+    try {
+      final sourceManager = ref.read(sourceManagerProvider);
+      final source = sourceManager.getSource(SourceType.bilibili) as BilibiliSource;
+      final pages = await source.getVideoPages(track.sourceId);
+
+      if (mounted) {
+        setState(() {
+          _loadedPages[key] = pages;
+          _loadingPages.remove(key);
+          if (pages.length > 1) {
+            _expandedVideos.add(key);
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loadingPages.remove(key);
+        });
+      }
+    }
+  }
+
+  /// 切换视频展开状态
+  void _toggleExpanded(String sourceId) {
+    setState(() {
+      if (_expandedVideos.contains(sourceId)) {
+        _expandedVideos.remove(sourceId);
+      } else {
+        _expandedVideos.add(sourceId);
+      }
+    });
+  }
+
+  /// 播放视频（自动获取分P并播放第一个）
+  Future<void> _playVideo(Track track) async {
+    final controller = ref.read(audioControllerProvider.notifier);
+
+    // 如果已有分P信息
+    if (_loadedPages.containsKey(track.sourceId)) {
+      final pages = _loadedPages[track.sourceId]!;
+      if (pages.isNotEmpty) {
+        // 播放第一个分P
+        final firstPage = pages.first;
+        final pageTrack = firstPage.toTrack(track);
+        controller.playTemporary(pageTrack);
+      } else {
+        controller.playTemporary(track);
+      }
+    } else {
+      // 先播放原始track，同时加载分P信息
+      controller.playTemporary(track);
+      await _loadVideoPages(track);
+    }
+  }
+
+  /// 处理视频菜单操作
+  void _handleMenuAction(Track track, String action) async {
+    final controller = ref.read(audioControllerProvider.notifier);
+
+    // 确保有分P信息
+    if (!_loadedPages.containsKey(track.sourceId)) {
+      await _loadVideoPages(track);
+    }
+
+    final pages = _loadedPages[track.sourceId];
+    final hasMultiplePages = pages != null && pages.length > 1;
+
+    switch (action) {
+      case 'play':
+        _playVideo(track);
+        break;
+      case 'play_next':
+        if (hasMultiplePages) {
+          // 多P视频：添加所有分P
+          for (final page in pages) {
+            controller.addNext(page.toTrack(track));
+          }
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('已添加${pages.length}个分P到下一首')),
+            );
+          }
+        } else {
+          controller.addNext(track);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('已添加到下一首')),
+            );
+          }
+        }
+        break;
+      case 'add_to_queue':
+        if (hasMultiplePages) {
+          // 多P视频：添加所有分P
+          for (final page in pages) {
+            controller.addToQueue(page.toTrack(track));
+          }
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('已添加${pages.length}个分P到播放队列')),
+            );
+          }
+        } else {
+          controller.addToQueue(track);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('已添加到播放队列')),
+            );
+          }
+        }
+        break;
+      case 'add_to_playlist':
+        if (hasMultiplePages) {
+          // 多P视频：添加所有分P到歌单
+          final pageTracks = pages.map((p) => p.toTrack(track)).toList();
+          if (mounted) {
+            showAddToPlaylistDialog(context: context, tracks: pageTracks);
+          }
+        } else {
+          if (mounted) {
+            showAddToPlaylistDialog(context: context, track: track);
+          }
+        }
+        break;
+    }
+  }
+
+  /// 处理分P菜单操作
+  void _handlePageMenuAction(Track parentTrack, VideoPage page, String action) {
+    final controller = ref.read(audioControllerProvider.notifier);
+    final pageTrack = page.toTrack(parentTrack);
+
+    switch (action) {
+      case 'play':
+        controller.playTemporary(pageTrack);
+        break;
+      case 'play_next':
+        controller.addNext(pageTrack);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已添加到下一首')),
+        );
+        break;
+      case 'add_to_queue':
+        controller.addToQueue(pageTrack);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已添加到播放队列')),
+        );
+        break;
+    }
   }
 }
 
-/// 搜索结果列表项
-class _SearchResultTile extends ConsumerWidget {
+/// 搜索结果列表项（支持分P展开）
+class _SearchResultTile extends StatelessWidget {
   final Track track;
   final bool isLocal;
+  final bool isExpanded;
+  final bool isLoading;
+  final List<VideoPage>? pages;
+  final VoidCallback onTap;
+  final VoidCallback? onToggleExpand;
+  final void Function(Track track, String action) onMenuAction;
+  final void Function(VideoPage page, String action) onPageMenuAction;
 
   const _SearchResultTile({
     required this.track,
     required this.isLocal,
+    required this.isExpanded,
+    required this.isLoading,
+    required this.pages,
+    required this.onTap,
+    required this.onToggleExpand,
+    required this.onMenuAction,
+    required this.onPageMenuAction,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final hasMultiplePages = pages != null && pages!.length > 1;
 
-    return ListTile(
-      leading: SizedBox(
-        width: 48,
-        height: 48,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            color: colorScheme.surfaceContainerHighest,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 主视频行
+        ListTile(
+          leading: SizedBox(
+            width: 48,
+            height: 48,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(4),
+                color: colorScheme.surfaceContainerHighest,
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: track.thumbnailUrl != null
+                  ? Image.network(
+                      track.thumbnailUrl!,
+                      fit: BoxFit.cover,
+                    )
+                  : Icon(
+                      Icons.music_note,
+                      color: colorScheme.outline,
+                    ),
+            ),
           ),
-          clipBehavior: Clip.antiAlias,
-          child: track.thumbnailUrl != null
-              ? Image.network(
-                  track.thumbnailUrl!,
-                  fit: BoxFit.cover,
-                )
-              : Icon(
-                  Icons.music_note,
+          title: Text(
+            track.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Row(
+            children: [
+              if (isLocal) ...[
+                Icon(
+                  Icons.check_circle,
+                  size: 14,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(width: 4),
+              ],
+              Flexible(
+                child: Text(
+                  track.artist ?? '未知艺术家',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (track.viewCount != null) ...[
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.play_arrow,
+                  size: 14,
                   color: colorScheme.outline,
                 ),
-        ),
-      ),
-      title: Text(
-        track.title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: Row(
-        children: [
-          if (isLocal) ...[
-            Icon(
-              Icons.check_circle,
-              size: 14,
-              color: colorScheme.primary,
-            ),
-            const SizedBox(width: 4),
-          ],
-          Flexible(
-            child: Text(
-              track.artist ?? '未知艺术家',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+                const SizedBox(width: 2),
+                Text(
+                  _formatViewCount(track.viewCount!),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.outline,
+                      ),
+                ),
+              ],
+              if (hasMultiplePages) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '${pages!.length}P',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onPrimaryContainer,
+                        ),
+                  ),
+                ),
+              ],
+            ],
           ),
-          if (track.viewCount != null) ...[
-            const SizedBox(width: 8),
-            Icon(
-              Icons.play_arrow,
-              size: 14,
-              color: colorScheme.outline,
-            ),
-            const SizedBox(width: 2),
-            Text(
-              _formatViewCount(track.viewCount!),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.outline,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (track.durationMs != null)
+                Text(
+                  _formatDuration(track.durationMs!),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.outline,
+                      ),
+                ),
+              if (isLoading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
                   ),
-            ),
-          ],
-        ],
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (track.durationMs != null)
-            Text(
-              _formatDuration(track.durationMs!),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.outline,
+                )
+              else if (hasMultiplePages)
+                IconButton(
+                  icon: Icon(
+                    isExpanded ? Icons.expand_less : Icons.expand_more,
                   ),
-            ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (value) => _handleMenuAction(context, ref, value),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'play',
-                child: ListTile(
-                  leading: Icon(Icons.play_arrow),
-                  title: Text('播放'),
-                  contentPadding: EdgeInsets.zero,
+                  onPressed: onToggleExpand,
                 ),
-              ),
-              const PopupMenuItem(
-                value: 'play_next',
-                child: ListTile(
-                  leading: Icon(Icons.queue_play_next),
-                  title: Text('下一首播放'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'add_to_queue',
-                child: ListTile(
-                  leading: Icon(Icons.add_to_queue),
-                  title: Text('添加到队列'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'add_to_playlist',
-                child: ListTile(
-                  leading: Icon(Icons.playlist_add),
-                  title: Text('添加到歌单'),
-                  contentPadding: EdgeInsets.zero,
-                ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert),
+                onSelected: (value) => onMenuAction(track, value),
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'play',
+                    child: ListTile(
+                      leading: Icon(Icons.play_arrow),
+                      title: Text('播放'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'play_next',
+                    child: ListTile(
+                      leading: Icon(Icons.queue_play_next),
+                      title: Text('下一首播放'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'add_to_queue',
+                    child: ListTile(
+                      leading: Icon(Icons.add_to_queue),
+                      title: Text('添加到队列'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'add_to_playlist',
+                    child: ListTile(
+                      leading: Icon(Icons.playlist_add),
+                      title: Text('添加到歌单'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
-      onTap: () => _handleMenuAction(context, ref, 'play'),
+          onTap: onTap,
+        ),
+
+        // 分P列表（展开时显示）
+        if (isExpanded && pages != null && pages!.length > 1)
+          ...pages!.map((page) => _PageTile(
+                page: page,
+                parentTrack: track,
+                onTap: () => onPageMenuAction(page, 'play'),
+                onMenuAction: (action) => onPageMenuAction(page, action),
+              )),
+      ],
     );
   }
 
@@ -585,27 +846,93 @@ class _SearchResultTile extends ConsumerWidget {
       return count.toString();
     }
   }
+}
 
-  void _handleMenuAction(BuildContext context, WidgetRef ref, String action) {
-    switch (action) {
-      case 'play':
-        ref.read(audioControllerProvider.notifier).playTemporary(track);
-        break;
-      case 'play_next':
-        ref.read(audioControllerProvider.notifier).addNext(track);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已添加到下一首')),
-        );
-        break;
-      case 'add_to_queue':
-        ref.read(audioControllerProvider.notifier).addToQueue(track);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已添加到播放队列')),
-        );
-        break;
-      case 'add_to_playlist':
-        showAddToPlaylistDialog(context: context, track: track);
-        break;
-    }
+/// 分P列表项
+class _PageTile extends StatelessWidget {
+  final VideoPage page;
+  final Track parentTrack;
+  final VoidCallback onTap;
+  final void Function(String action) onMenuAction;
+
+  const _PageTile({
+    required this.page,
+    required this.parentTrack,
+    required this.onTap,
+    required this.onMenuAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 56),
+      child: ListTile(
+        leading: Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            'P${page.page}',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colorScheme.outline,
+                ),
+          ),
+        ),
+        title: Text(
+          page.part,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              page.formattedDuration,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.outline,
+                  ),
+            ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, size: 20),
+              onSelected: onMenuAction,
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'play',
+                  child: ListTile(
+                    leading: Icon(Icons.play_arrow),
+                    title: Text('播放'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'play_next',
+                  child: ListTile(
+                    leading: Icon(Icons.queue_play_next),
+                    title: Text('下一首播放'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'add_to_queue',
+                  child: ListTile(
+                    leading: Icon(Icons.add_to_queue),
+                    title: Text('添加到队列'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                // 注意：分P没有"添加到歌单"选项
+              ],
+            ),
+          ],
+        ),
+        onTap: onTap,
+      ),
+    );
   }
 }
