@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,7 +7,6 @@ import '../../data/models/track.dart';
 import '../../data/models/video_detail.dart';
 import '../../providers/track_detail_provider.dart';
 import '../../services/audio/audio_provider.dart';
-import '../../services/cache/fmp_cache_manager.dart';
 
 /// 右侧歌曲详情面板（桌面模式）
 class TrackDetailPanel extends ConsumerWidget {
@@ -116,18 +114,19 @@ class TrackDetailPanel extends ConsumerWidget {
             child: AspectRatio(
               aspectRatio: 1,
               child: track.thumbnailUrl != null
-                  ? CachedNetworkImage(
-                      cacheManager: FmpCacheManager.instance,
-                      fadeInDuration: const Duration(milliseconds: 150),
-                      imageUrl: track.thumbnailUrl!,
+                  ? Image.network(
+                      track.thumbnailUrl!,
                       fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(
-                        color: colorScheme.surfaceContainerHigh,
-                        child: const Center(
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ),
-                      errorWidget: (context, url, error) => Container(
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          color: colorScheme.surfaceContainerHigh,
+                          child: const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) => Container(
                         color: colorScheme.surfaceContainerHigh,
                         child: Icon(
                           Icons.music_note,
@@ -201,18 +200,19 @@ class _DetailContent extends ConsumerWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                CachedNetworkImage(
-                  cacheManager: FmpCacheManager.instance,
-                  fadeInDuration: const Duration(milliseconds: 150),
-                  imageUrl: detail.coverUrl,
+                Image.network(
+                  detail.coverUrl,
                   fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(
-                    color: colorScheme.surfaceContainerHigh,
-                    child: const Center(
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                  errorWidget: (context, url, error) => Container(
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      color: colorScheme.surfaceContainerHigh,
+                      child: const Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) => Container(
                     color: colorScheme.surfaceContainerHigh,
                     child: Icon(
                       Icons.image_not_supported_outlined,
@@ -280,10 +280,7 @@ class _DetailContent extends ConsumerWidget {
             CircleAvatar(
               radius: 16,
               backgroundImage: detail.ownerFace.isNotEmpty
-                  ? CachedNetworkImageProvider(
-                      detail.ownerFace,
-                      cacheManager: FmpCacheManager.instance,
-                    )
+                  ? NetworkImage(detail.ownerFace)
                   : null,
               child: detail.ownerFace.isEmpty
                   ? const Icon(Icons.person, size: 16)
@@ -432,15 +429,16 @@ class _DetailContent extends ConsumerWidget {
                 width: 56,
                 height: 56,
                 child: track.thumbnailUrl != null
-                    ? CachedNetworkImage(
-                        cacheManager: FmpCacheManager.instance,
-                        fadeInDuration: const Duration(milliseconds: 150),
-                        imageUrl: track.thumbnailUrl!,
+                    ? Image.network(
+                        track.thumbnailUrl!,
                         fit: BoxFit.cover,
-                        placeholder: (context, url) => Container(
-                          color: colorScheme.surfaceContainerHigh,
-                        ),
-                        errorWidget: (context, url, error) => Container(
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            color: colorScheme.surfaceContainerHigh,
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) => Container(
                           color: colorScheme.surfaceContainerHigh,
                           child: Icon(
                             Icons.music_note,

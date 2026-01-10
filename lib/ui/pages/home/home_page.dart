@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../data/sources/source_provider.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../services/audio/audio_provider.dart';
-import '../../../services/cache/fmp_cache_manager.dart';
 import '../../router.dart';
 
 /// 首页
@@ -248,10 +246,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: track.thumbnailUrl != null
-                    ? CachedNetworkImage(
-                        cacheManager: FmpCacheManager.instance,
-                        fadeInDuration: const Duration(milliseconds: 150),
-                        imageUrl: track.thumbnailUrl!,
+                    ? Image.network(
+                        track.thumbnailUrl!,
                         fit: BoxFit.cover,
                       )
                     : Icon(
@@ -367,12 +363,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                               clipBehavior: Clip.antiAlias,
                               child: coverAsync.when(
                                 data: (url) => url != null
-                                    ? CachedNetworkImage(
-                                        cacheManager: FmpCacheManager.instance,
-                                        fadeInDuration: const Duration(milliseconds: 150),
-                                        imageUrl: url,
-                                        fit: BoxFit.cover,
-                                      )
+                                    ? Image.network(
+                        url,
+                        fit: BoxFit.cover,
+                      )
                                     : Icon(
                                         Icons.album,
                                         size: 40,
@@ -448,10 +442,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: track.thumbnailUrl != null
-                    ? CachedNetworkImage(
-                        cacheManager: FmpCacheManager.instance,
-                        fadeInDuration: const Duration(milliseconds: 150),
-                        imageUrl: track.thumbnailUrl!,
+                    ? Image.network(
+                        track.thumbnailUrl!,
                         fit: BoxFit.cover,
                       )
                     : Icon(

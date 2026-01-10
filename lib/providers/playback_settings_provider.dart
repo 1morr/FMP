@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/settings.dart';
-import 'theme_provider.dart';
+import 'repository_providers.dart';
 
 /// 播放设置状态
 class PlaybackSettingsState {

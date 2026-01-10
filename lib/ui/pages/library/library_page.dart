@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../data/models/playlist.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../providers/refresh_provider.dart';
 import '../../../services/audio/audio_provider.dart';
-import '../../../services/cache/fmp_cache_manager.dart';
 import '../../router.dart';
 import '../../widgets/refresh_progress_indicator.dart';
 import 'widgets/create_playlist_dialog.dart';
@@ -181,14 +179,14 @@ class _PlaylistCard extends ConsumerWidget {
                 children: [
                   coverAsync.when(
                     data: (coverUrl) => coverUrl != null
-                        ? CachedNetworkImage(
-                            cacheManager: FmpCacheManager.instance,
-                            fadeInDuration: const Duration(milliseconds: 150),
-                            imageUrl: coverUrl,
+                        ? Image.network(
+                            coverUrl,
                             fit: BoxFit.cover,
-                            placeholder: (context, url) =>
-                                _buildPlaceholder(colorScheme),
-                            errorWidget: (context, url, error) =>
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return _buildPlaceholder(colorScheme);
+                            },
+                            errorBuilder: (context, error, stackTrace) =>
                                 _buildPlaceholder(colorScheme),
                           )
                         : _buildPlaceholder(colorScheme),

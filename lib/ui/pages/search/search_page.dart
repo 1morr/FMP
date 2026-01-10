@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../data/models/track.dart';
 import '../../../data/sources/base_source.dart' show SearchOrder;
 import '../../../providers/search_provider.dart';
 import '../../../services/audio/audio_provider.dart';
-import '../../../services/cache/fmp_cache_manager.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 
 /// 搜索页
@@ -468,10 +466,8 @@ class _SearchResultTile extends ConsumerWidget {
           ),
           clipBehavior: Clip.antiAlias,
           child: track.thumbnailUrl != null
-              ? CachedNetworkImage(
-                  cacheManager: FmpCacheManager.instance,
-                  fadeInDuration: const Duration(milliseconds: 150),
-                  imageUrl: track.thumbnailUrl!,
+              ? Image.network(
+                  track.thumbnailUrl!,
                   fit: BoxFit.cover,
                 )
               : Icon(

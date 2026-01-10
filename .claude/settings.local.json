@@ -41,7 +41,8 @@
       "Bash(flutter pub:*)",
       "WebSearch",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:pub.dev)"
+      "WebFetch(domain:pub.dev)",
+      "mcp__tavily-remote-mcp__tavily_search"
     ]
   }
 }

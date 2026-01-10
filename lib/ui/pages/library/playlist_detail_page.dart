@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../data/models/track.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../services/audio/audio_provider.dart';
-import '../../../services/cache/fmp_cache_manager.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/now_playing_indicator.dart';
 
@@ -98,10 +96,8 @@ class PlaylistDetailPage extends ConsumerWidget {
             // 封面背景
             coverAsync.when(
               data: (coverUrl) => coverUrl != null
-                  ? CachedNetworkImage(
-                      cacheManager: FmpCacheManager.instance,
-                      fadeInDuration: const Duration(milliseconds: 150),
-                      imageUrl: coverUrl,
+                  ? Image.network(
+                      coverUrl,
                       fit: BoxFit.cover,
                       color: Colors.black54,
                       colorBlendMode: BlendMode.darken,
@@ -149,10 +145,8 @@ class PlaylistDetailPage extends ConsumerWidget {
                     clipBehavior: Clip.antiAlias,
                     child: coverAsync.when(
                       data: (coverUrl) => coverUrl != null
-                          ? CachedNetworkImage(
-                              cacheManager: FmpCacheManager.instance,
-                              fadeInDuration: const Duration(milliseconds: 150),
-                              imageUrl: coverUrl,
+                          ? Image.network(
+                              coverUrl,
                               fit: BoxFit.cover,
                             )
                           : Container(
@@ -383,10 +377,8 @@ class _TrackListTile extends ConsumerWidget {
               ),
               clipBehavior: Clip.antiAlias,
               child: track.thumbnailUrl != null
-                  ? CachedNetworkImage(
-                      cacheManager: FmpCacheManager.instance,
-                      fadeInDuration: const Duration(milliseconds: 150),
-                      imageUrl: track.thumbnailUrl!,
+                  ? Image.network(
+                      track.thumbnailUrl!,
                       fit: BoxFit.cover,
                       width: 48,
                       height: 48,

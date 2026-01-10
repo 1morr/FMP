@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../data/models/track.dart';
 import '../../../providers/playback_settings_provider.dart';
 import '../../../services/audio/audio_provider.dart';
-import '../../../services/cache/fmp_cache_manager.dart';
 import '../../router.dart';
 import '../../widgets/now_playing_indicator.dart';
 
@@ -328,10 +326,8 @@ class _QueueTrackTile extends StatelessWidget {
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: track.thumbnailUrl != null
-                        ? CachedNetworkImage(
-                            cacheManager: FmpCacheManager.instance,
-                            fadeInDuration: const Duration(milliseconds: 150),
-                            imageUrl: track.thumbnailUrl!,
+                        ? Image.network(
+                            track.thumbnailUrl!,
                             fit: BoxFit.cover,
                             width: 48,
                             height: 48,
