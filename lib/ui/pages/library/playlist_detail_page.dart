@@ -791,11 +791,16 @@ class _TrackListTile extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (!isPartOfMultiPage && track.durationMs != null)
-              Text(
-                _formatTrackDuration(track.durationMs!),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.outline,
-                    ),
+              SizedBox(
+                width: 48,
+                child: Center(
+                  child: Text(
+                    _formatTrackDuration(track.durationMs!),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.outline,
+                        ),
+                  ),
+                ),
               ),
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert),

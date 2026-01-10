@@ -22,35 +22,10 @@ class DownloadedPage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('已下载'),
         actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (value) => _handleAppBarAction(context, ref, value),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'play_all',
-                child: ListTile(
-                  leading: Icon(Icons.play_arrow),
-                  title: Text('播放全部'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'shuffle_all',
-                child: ListTile(
-                  leading: Icon(Icons.shuffle),
-                  title: Text('随机播放'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'download_manager',
-                child: ListTile(
-                  leading: Icon(Icons.download),
-                  title: Text('下载管理'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-            ],
+          IconButton(
+            icon: const Icon(Icons.download),
+            tooltip: '下载管理',
+            onPressed: () => context.pushNamed(RouteNames.downloadManager),
           ),
         ],
       ),
@@ -139,33 +114,6 @@ class DownloadedPage extends ConsumerWidget {
       },
     );
   }
-
-  void _handleAppBarAction(BuildContext context, WidgetRef ref, String action) async {
-    switch (action) {
-      case 'play_all':
-      case 'shuffle_all':
-        final tracksAsync = ref.read(downloadedTracksProvider);
-        final tracks = tracksAsync.valueOrNull ?? [];
-        if (tracks.isEmpty) return;
-
-        final controller = ref.read(audioControllerProvider.notifier);
-        if (action == 'shuffle_all') {
-          final shuffled = List<Track>.from(tracks)..shuffle();
-          controller.addAllToQueue(shuffled);
-        } else {
-          controller.addAllToQueue(tracks);
-        }
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('已添加 ${tracks.length} 首歌曲到队列')),
-          );
-        }
-        break;
-      case 'download_manager':
-        context.pushNamed(RouteNames.downloadManager);
-        break;
-    }
-  }
 }
 
 /// 分类卡片
@@ -193,6 +141,7 @@ class _CategoryCard extends ConsumerWidget {
             }
           });
         },
+        onLongPress: () => _showOptionsMenu(context, ref),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -277,5 +226,152 @@ class _CategoryCard extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  void _showOptionsMenu(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.play_arrow),
+                title: const Text('添加所有'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _addAllToQueue(context, ref);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.shuffle),
+                title: const Text('随机添加'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _shuffleAddToQueue(context, ref);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.delete, color: colorScheme.error),
+                title: Text('删除整个分类', style: TextStyle(color: colorScheme.error)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showDeleteConfirm(context, ref);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _addAllToQueue(BuildContext context, WidgetRef ref) async {
+    final tracksAsync = await ref.read(downloadedCategoryTracksProvider(category.folderPath).future);
+
+    if (tracksAsync.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('分类为空')),
+        );
+      }
+      return;
+    }
+
+    final controller = ref.read(audioControllerProvider.notifier);
+    controller.addAllToQueue(tracksAsync);
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已添加 ${tracksAsync.length} 首歌曲到队列')),
+      );
+    }
+  }
+
+  void _shuffleAddToQueue(BuildContext context, WidgetRef ref) async {
+    final tracksAsync = await ref.read(downloadedCategoryTracksProvider(category.folderPath).future);
+
+    if (tracksAsync.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('分类为空')),
+        );
+      }
+      return;
+    }
+
+    final controller = ref.read(audioControllerProvider.notifier);
+    final shuffled = List<Track>.from(tracksAsync)..shuffle();
+    controller.addAllToQueue(shuffled);
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已随机添加 ${tracksAsync.length} 首歌曲到队列')),
+      );
+    }
+  }
+
+  void _showDeleteConfirm(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除分类'),
+        content: Text('确定要删除 "${category.displayName}" 的所有下载文件吗？此操作无法撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _deleteCategory(context, ref);
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteCategory(BuildContext context, WidgetRef ref) async {
+    try {
+      // 获取分类中的所有歌曲
+      final tracks = await ref.read(downloadedCategoryTracksProvider(category.folderPath).future);
+      final trackRepo = ref.read(trackRepositoryProvider);
+
+      // 清除每首歌的下载路径
+      for (final track in tracks) {
+        await trackRepo.clearDownloadPath(track.id);
+      }
+
+      // 删除整个文件夹
+      final folder = Directory(category.folderPath);
+      if (await folder.exists()) {
+        await folder.delete(recursive: true);
+      }
+
+      // 刷新分类列表
+      ref.invalidate(downloadedCategoriesProvider);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('已删除 "${category.displayName}"')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('删除失败: $e')),
+        );
+      }
+    }
   }
 }

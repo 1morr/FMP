@@ -29,87 +29,290 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.category.displayName),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (value) => _handleAppBarAction(value),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'play_all',
-                child: ListTile(
-                  leading: Icon(Icons.play_arrow),
-                  title: Text('播放全部'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'shuffle_all',
-                child: ListTile(
-                  leading: Icon(Icons.shuffle),
-                  title: Text('随机播放'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
       body: tracksAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, size: 64, color: colorScheme.error),
-              const SizedBox(height: 16),
-              Text('加载失败: $error'),
-            ],
-          ),
+        loading: () => CustomScrollView(
+          slivers: [
+            _buildSliverAppBar(context, []),
+            const SliverFillRemaining(
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          ],
+        ),
+        error: (error, stack) => CustomScrollView(
+          slivers: [
+            _buildSliverAppBar(context, []),
+            SliverFillRemaining(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline, size: 64, color: colorScheme.error),
+                    const SizedBox(height: 16),
+                    Text('加载失败: $error'),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
         data: (tracks) {
-          if (tracks.isEmpty) {
-            return _buildEmptyState(context);
-          }
-
           // 将tracks按groupKey分组
           final groupedTracks = _groupTracks(tracks);
 
-          return ListView.builder(
-            itemCount: groupedTracks.length,
-            itemBuilder: (context, index) {
-              final group = groupedTracks[index];
-              return _buildGroupItem(context, group);
-            },
+          return CustomScrollView(
+            slivers: [
+              // 折叠式应用栏
+              _buildSliverAppBar(context, tracks),
+
+              // 操作按钮
+              SliverToBoxAdapter(
+                child: _buildActionButtons(context, tracks),
+              ),
+
+              // 歌曲列表
+              if (tracks.isEmpty)
+                SliverFillRemaining(
+                  child: _buildEmptyState(context),
+                )
+              else
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final group = groupedTracks[index];
+                      return _buildGroupItem(context, group);
+                    },
+                    childCount: groupedTracks.length,
+                  ),
+                ),
+            ],
           );
         },
       ),
     );
   }
 
-  void _handleAppBarAction(String action) {
-    final tracksAsync = ref.read(downloadedCategoryTracksProvider(widget.category.folderPath));
-    final tracks = tracksAsync.valueOrNull ?? [];
-    if (tracks.isEmpty) return;
+  Widget _buildSliverAppBar(BuildContext context, List<Track> tracks) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final totalDuration = _calculateTotalDuration(tracks);
 
-    final controller = ref.read(audioControllerProvider.notifier);
+    return SliverAppBar(
+      expandedHeight: 280,
+      pinned: true,
+      flexibleSpace: FlexibleSpaceBar(
+        background: Stack(
+          fit: StackFit.expand,
+          children: [
+            // 封面背景
+            _buildCoverBackground(colorScheme),
 
-    switch (action) {
-      case 'play_all':
-        controller.addAllToQueue(tracks);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已添加 ${tracks.length} 首歌曲到队列')),
+            // 渐变遮罩
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    colorScheme.surface.withValues(alpha: 0.8),
+                  ],
+                ),
+              ),
+            ),
+
+            // 分类信息
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 70,
+              child: Row(
+                children: [
+                  // 封面
+                  Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: _buildCover(colorScheme),
+                  ),
+                  const SizedBox(width: 16),
+
+                  // 信息
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // 分类名称
+                        Text(
+                          widget.category.displayName,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${widget.category.trackCount} 首歌曲 · ${_formatDuration(totalDuration)}',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Colors.white60,
+                              ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.download_done,
+                                size: 14,
+                                color: colorScheme.onPrimaryContainer,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '已下载',
+                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                      color: colorScheme.onPrimaryContainer,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCoverBackground(ColorScheme colorScheme) {
+    if (widget.category.coverPath != null) {
+      final coverFile = File(widget.category.coverPath!);
+      if (coverFile.existsSync()) {
+        return Image.file(
+          coverFile,
+          fit: BoxFit.cover,
+          color: Colors.black54,
+          colorBlendMode: BlendMode.darken,
         );
-        break;
-      case 'shuffle_all':
-        final shuffled = List<Track>.from(tracks)..shuffle();
-        controller.addAllToQueue(shuffled);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已随机添加 ${tracks.length} 首歌曲到队列')),
-        );
-        break;
+      }
     }
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            colorScheme.primaryContainer,
+            colorScheme.tertiaryContainer,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCover(ColorScheme colorScheme) {
+    if (widget.category.coverPath != null) {
+      final coverFile = File(widget.category.coverPath!);
+      if (coverFile.existsSync()) {
+        return Image.file(
+          coverFile,
+          fit: BoxFit.cover,
+        );
+      }
+    }
+    return Container(
+      color: colorScheme.primaryContainer,
+      child: Icon(
+        Icons.folder,
+        size: 48,
+        color: colorScheme.primary,
+      ),
+    );
+  }
+
+  Widget _buildActionButtons(BuildContext context, List<Track> tracks) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: tracks.isEmpty ? null : () => _playAll(tracks),
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('添加所有'),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: tracks.isEmpty ? null : () => _shufflePlay(tracks),
+              icon: const Icon(Icons.shuffle),
+              label: const Text('随机添加'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Duration _calculateTotalDuration(List<Track> tracks) {
+    int totalMs = 0;
+    for (final track in tracks) {
+      totalMs += track.durationMs ?? 0;
+    }
+    return Duration(milliseconds: totalMs);
+  }
+
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+
+    if (hours > 0) {
+      return '$hours 小时 $minutes 分钟';
+    }
+    return '$minutes 分钟';
+  }
+
+  void _playAll(List<Track> tracks) {
+    final controller = ref.read(audioControllerProvider.notifier);
+    controller.addAllToQueue(tracks);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('已添加 ${tracks.length} 首歌曲到队列')),
+    );
+  }
+
+  void _shufflePlay(List<Track> tracks) {
+    final controller = ref.read(audioControllerProvider.notifier);
+    final shuffled = List<Track>.from(tracks)..shuffle();
+    controller.addAllToQueue(shuffled);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('已随机添加 ${tracks.length} 首歌曲到队列')),
+    );
   }
 
   Widget _buildEmptyState(BuildContext context) {
@@ -577,11 +780,16 @@ class _DownloadedTrackTile extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (!isPartOfMultiPage && track.durationMs != null)
-              Text(
-                _formatTrackDuration(track.durationMs!),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.outline,
-                    ),
+              SizedBox(
+                width: 48,
+                child: Center(
+                  child: Text(
+                    _formatTrackDuration(track.durationMs!),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.outline,
+                        ),
+                  ),
+                ),
               ),
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert),
