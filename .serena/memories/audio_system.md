@@ -69,6 +69,45 @@
 
 ## 重要设计决策
 
+### 0. 播放歌曲与队列分离（2025年1月重构）
+**问题：** 原设计中 `_updateQueueState()` 会同时更新 `currentTrack`，导致在临时播放或添加到空队列时，UI 显示与实际播放不一致。
+
+**解决方案：** 引入 `playingTrack` 和 `queueTrack` 两个独立字段：
+```dart
+class PlayerState {
+  /// 实际正在播放的歌曲（UI 显示用）
+  final Track? playingTrack;
+  
+  /// 队列中当前位置的歌曲（可能与 playingTrack 不同）
+  final Track? queueTrack;
+  
+  /// 向后兼容的 getter
+  Track? get currentTrack => playingTrack;
+}
+```
+
+**关键变化：**
+- `_playingTrack` 由 `_updatePlayingTrack()` 单独管理
+- `_updateQueueState()` 只更新队列相关状态，不再修改 `playingTrack`
+- `_playTrack()`, `playTemporary()`, `_prepareCurrentTrack()`, `_restoreSavedState()` 在成功播放后调用 `_updatePlayingTrack()`
+- `stop()` 调用 `_clearPlayingTrack()` 清除播放状态
+
+**好处：**
+- UI 显示与实际播放始终一致
+- 添加到队列不会影响当前播放显示
+- 临时播放、恢复队列等场景更加健壮
+
+### 0.1 "脱离队列"状态检测
+当 `playingTrack` 与 `queueTrack` 不一致时，称为"脱离队列"状态。发生场景：
+1. **临时播放模式** - `_isTemporaryPlay = true`
+2. **清空队列后继续播放** - 队列被清空但歌曲继续播放，之后添加新歌曲
+3. **其他不一致情况** - `_playingTrack.id != queueTrack.id`
+
+**行为：**
+- `upcomingTracks` 显示队列从索引 0 开始的歌曲
+- 点击"下一首"/"上一首"会播放队列的第一首
+- `canPlayNext`/`canPlayPrevious` 只要队列不为空就为 true
+
 ### 1. 委托模式
 AudioController 中的基础播放方法（play, pause, seekTo 等）是对 AudioService 的委托：
 ```dart

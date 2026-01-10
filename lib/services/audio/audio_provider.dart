@@ -27,7 +27,11 @@ class PlayerState {
   final bool isShuffleEnabled;
   final LoopMode loopMode;
   final int? currentIndex;
-  final Track? currentTrack;
+  /// 实际正在播放的歌曲（可能是临时播放的歌曲，也可能是队列中的歌曲）
+  /// UI 应使用此字段显示当前播放的歌曲
+  final Track? playingTrack;
+  /// 队列中当前位置的歌曲（可能与 playingTrack 不同，例如临时播放时）
+  final Track? queueTrack;
   final List<Track> queue;
   final List<Track> upcomingTracks;
   final String? error;
@@ -45,13 +49,17 @@ class PlayerState {
     this.isShuffleEnabled = false,
     this.loopMode = LoopMode.none,
     this.currentIndex,
-    this.currentTrack,
+    this.playingTrack,
+    this.queueTrack,
     this.queue = const [],
     this.upcomingTracks = const [],
     this.canPlayPrevious = false,
     this.canPlayNext = false,
     this.error,
   });
+
+  /// 向后兼容：返回正在播放的歌曲
+  Track? get currentTrack => playingTrack;
 
   /// 是否有歌曲在播放/暂停
   bool get hasCurrentTrack => currentTrack != null;
@@ -87,7 +95,8 @@ class PlayerState {
     bool? isShuffleEnabled,
     LoopMode? loopMode,
     int? currentIndex,
-    Track? currentTrack,
+    Track? playingTrack,
+    Track? queueTrack,
     List<Track>? queue,
     List<Track>? upcomingTracks,
     bool? canPlayPrevious,
@@ -107,7 +116,8 @@ class PlayerState {
       isShuffleEnabled: isShuffleEnabled ?? this.isShuffleEnabled,
       loopMode: loopMode ?? this.loopMode,
       currentIndex: currentIndex ?? this.currentIndex,
-      currentTrack: currentTrack ?? this.currentTrack,
+      playingTrack: playingTrack ?? this.playingTrack,
+      queueTrack: queueTrack ?? this.queueTrack,
       queue: queue ?? this.queue,
       upcomingTracks: upcomingTracks ?? this.upcomingTracks,
       canPlayPrevious: canPlayPrevious ?? this.canPlayPrevious,
@@ -157,6 +167,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   // 临时播放状态（封装为一个类会更好，但这里保持简单）
   bool _isTemporaryPlay = false;
   _TemporaryPlayState? _temporaryState;
+
+  // 当前正在播放的歌曲（独立于队列，确保 UI 显示与实际播放一致）
+  Track? _playingTrack;
 
   AudioController({
     required AudioService audioService,
@@ -292,6 +305,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 停止
   Future<void> stop() async {
     await _audioService.stop();
+    _clearPlayingTrack();
   }
 
   // ========== 进度控制 ==========
@@ -383,11 +397,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         await _audioService.playUrl(url, headers: headers);
       }
 
-      // 更新显示状态（临时显示当前歌曲，但不修改队列）
-      state = state.copyWith(
-        isLoading: false,
-        currentTrack: trackWithUrl,
-      );
+      // 更新正在播放的歌曲
+      _updatePlayingTrack(trackWithUrl);
+      state = state.copyWith(isLoading: false);
 
       // 更新队列状态以显示正确的 upcomingTracks（原队列中的当前歌曲）
       _updateQueueState();
@@ -441,6 +453,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
             final headers = _getHeadersForTrack(trackWithUrl);
             await _audioService.setUrl(url, headers: headers);
           }
+
+          // 更新正在播放的歌曲
+          _updatePlayingTrack(trackWithUrl);
 
           // 恢复播放位置（回退10秒，方便用户回忆上下文）
           if (saved.position > Duration.zero) {
@@ -511,10 +526,32 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     await _ensureInitialized();
     logDebug('next() called, isTemporaryPlay: $_isTemporaryPlay');
 
-    // 如果是临时播放模式，恢复原队列
-    if (_isTemporaryPlay) {
-      logDebug('Temporary play mode: restoring saved state on next()');
-      await _restoreSavedState();
+    // 检测当前播放的歌曲是否"脱离"了队列
+    final queueTrack = _queueManager.currentTrack;
+    final queue = _queueManager.tracks;
+    final bool isPlayingOutOfQueue = _isTemporaryPlay ||
+        (_playingTrack != null && queueTrack != null && _playingTrack!.id != queueTrack.id) ||
+        (_playingTrack != null && queueTrack == null && queue.isNotEmpty);
+
+    if (isPlayingOutOfQueue) {
+      logDebug('Playing out of queue: going to queue first track');
+      
+      if (_isTemporaryPlay && _temporaryState != null) {
+        // 临时播放模式且有保存的状态：恢复到保存的位置
+        await _restoreSavedState();
+      } else {
+        // 其他脱离队列情况：播放队列的第一首
+        _isTemporaryPlay = false;
+        _temporaryState = null;
+        if (queue.isNotEmpty) {
+          _queueManager.setCurrentIndex(0);
+          final track = _queueManager.currentTrack;
+          if (track != null) {
+            await _playTrack(track);
+          }
+        }
+        _updateQueueState();
+      }
       return;
     }
 
@@ -532,10 +569,32 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     await _ensureInitialized();
     logDebug('previous() called, isTemporaryPlay: $_isTemporaryPlay');
 
-    // 如果是临时播放模式，恢复原队列
-    if (_isTemporaryPlay) {
-      logDebug('Temporary play mode: restoring saved state on previous()');
-      await _restoreSavedState();
+    // 检测当前播放的歌曲是否"脱离"了队列
+    final queueTrack = _queueManager.currentTrack;
+    final queue = _queueManager.tracks;
+    final bool isPlayingOutOfQueue = _isTemporaryPlay ||
+        (_playingTrack != null && queueTrack != null && _playingTrack!.id != queueTrack.id) ||
+        (_playingTrack != null && queueTrack == null && queue.isNotEmpty);
+
+    if (isPlayingOutOfQueue) {
+      logDebug('Playing out of queue: going to queue first track');
+      
+      if (_isTemporaryPlay && _temporaryState != null) {
+        // 临时播放模式且有保存的状态：恢复到保存的位置
+        await _restoreSavedState();
+      } else {
+        // 其他脱离队列情况：播放队列的第一首
+        _isTemporaryPlay = false;
+        _temporaryState = null;
+        if (queue.isNotEmpty) {
+          _queueManager.setCurrentIndex(0);
+          final track = _queueManager.currentTrack;
+          if (track != null) {
+            await _playTrack(track);
+          }
+        }
+        _updateQueueState();
+      }
       return;
     }
 
@@ -705,6 +764,20 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   // ========== 私有方法 ==========
 
+  /// 更新正在播放的歌曲（UI 显示用）
+  void _updatePlayingTrack(Track track) {
+    _playingTrack = track;
+    state = state.copyWith(playingTrack: track);
+    logDebug('Updated playing track: ${track.title}');
+  }
+
+  /// 清除正在播放的歌曲
+  void _clearPlayingTrack() {
+    _playingTrack = null;
+    state = state.copyWith(playingTrack: null);
+    logDebug('Cleared playing track');
+  }
+
   /// 获取播放音频所需的 HTTP 请求头
   /// Bilibili 需要 Referer 头才能正常播放
   Map<String, String>? _getHeadersForTrack(Track track) {
@@ -800,6 +873,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // 预取下一首
       _queueManager.prefetchNext();
 
+      // 更新正在播放的歌曲
+      _updatePlayingTrack(trackWithUrl);
+
       state = state.copyWith(isLoading: false);
       logDebug('_playTrack completed successfully for: ${track.title}');
     } on just_audio.PlayerInterruptedException catch (e) {
@@ -870,6 +946,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         final headers = _getHeadersForTrack(trackWithUrl);
         await _audioService.setUrl(url, headers: headers);
       }
+
+      // 设置正在播放的歌曲（用于 UI 显示）
+      _updatePlayingTrack(trackWithUrl);
 
       // 恢复播放位置
       final savedPosition = _queueManager.savedPosition;
@@ -962,48 +1041,60 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     final currentIndex = _queueManager.currentIndex;
     final saved = _temporaryState;
 
-    // 临时播放模式下，保留当前正在播放的临时歌曲，不要用队列中的歌曲覆盖
-    final Track? currentTrack;
+    // 队列中当前位置的歌曲（注意：这与 playingTrack 可能不同）
+    final queueTrack = _queueManager.currentTrack;
+
+    // 计算 upcomingTracks 和导航按钮状态
     List<Track> upcomingTracks;
     bool canPlayPrevious;
     bool canPlayNext;
 
-    if (_isTemporaryPlay && saved != null && saved.index < saved.queue.length) {
-      // 临时播放模式：保留当前 state 中的 currentTrack（临时播放的歌曲）
-      currentTrack = state.currentTrack;
+    // 检测当前播放的歌曲是否"脱离"了队列
+    // 情况1：临时播放模式
+    // 情况2：清空队列后继续播放的歌曲（_playingTrack 存在但与 queueTrack 不同）
+    final bool isPlayingOutOfQueue = _isTemporaryPlay ||
+        (_playingTrack != null && queueTrack != null && _playingTrack!.id != queueTrack.id) ||
+        (_playingTrack != null && queueTrack == null && queue.isNotEmpty);
 
-      // 根据是否启用 shuffle 模式来获取接下来的歌曲
-      if (_queueManager.isShuffleEnabled && saved.shuffleOrder.isNotEmpty) {
-        // Shuffle 模式：按 shuffle order 获取后续歌曲
-        upcomingTracks = [];
-        for (var i = saved.shuffleIndex; i < saved.shuffleOrder.length && upcomingTracks.length < 5; i++) {
-          final trackIndex = saved.shuffleOrder[i];
-          if (trackIndex >= 0 && trackIndex < saved.queue.length) {
-            upcomingTracks.add(saved.queue[trackIndex]);
+    if (isPlayingOutOfQueue) {
+      // 当前播放的歌曲脱离队列：点击"下一首"会去到队列的第一首
+      if (_isTemporaryPlay && saved != null && saved.index < saved.queue.length) {
+        // 临时播放模式且有保存的状态：显示原队列中从保存位置开始的歌曲
+        if (_queueManager.isShuffleEnabled && saved.shuffleOrder.isNotEmpty) {
+          // Shuffle 模式：按 shuffle order 获取后续歌曲
+          upcomingTracks = [];
+          for (var i = saved.shuffleIndex; i < saved.shuffleOrder.length && upcomingTracks.length < 5; i++) {
+            final trackIndex = saved.shuffleOrder[i];
+            if (trackIndex >= 0 && trackIndex < saved.queue.length) {
+              upcomingTracks.add(saved.queue[trackIndex]);
+            }
           }
+        } else {
+          // 顺序模式：显示原队列中从保存位置开始的歌曲（最多5首）
+          final endIndex = (saved.index + 5).clamp(0, saved.queue.length);
+          upcomingTracks = saved.queue.sublist(saved.index, endIndex);
         }
       } else {
-        // 顺序模式：显示原队列中从保存位置开始的歌曲（最多5首）
-        final endIndex = (saved.index + 5).clamp(0, saved.queue.length);
-        upcomingTracks = saved.queue.sublist(saved.index, endIndex);
+        // 没有保存的状态，或非临时播放但脱离队列：显示当前队列从索引 0 开始的歌曲
+        final endIdx = 5.clamp(0, queue.length);
+        upcomingTracks = queue.sublist(0, endIdx);
       }
 
-      // 临时播放模式下，上一首/下一首都会恢复原队列，所以总是可用的
-      canPlayPrevious = true;
-      canPlayNext = true;
+      // 脱离队列模式下，上一首/下一首都会去到队列，所以只要队列不为空就可用
+      canPlayPrevious = queue.isNotEmpty;
+      canPlayNext = queue.isNotEmpty;
     } else {
-      currentTrack = _queueManager.currentTrack;
       upcomingTracks = _queueManager.getUpcomingTracks(count: 5);
       canPlayPrevious = _queueManager.hasPrevious;
       canPlayNext = _queueManager.hasNext;
     }
 
-    logDebug('Updating queue state: ${queue.length} tracks, index: $currentIndex, track: ${currentTrack?.title ?? "null"}, isTemporaryPlay: $_isTemporaryPlay');
+    logDebug('Updating queue state: ${queue.length} tracks, index: $currentIndex, queueTrack: ${queueTrack?.title ?? "null"}, playingTrack: ${_playingTrack?.title ?? "null"}, isTemporaryPlay: $_isTemporaryPlay');
     state = state.copyWith(
       queue: queue,
       upcomingTracks: upcomingTracks,
       currentIndex: currentIndex,
-      currentTrack: currentTrack,
+      queueTrack: queueTrack,
       isShuffleEnabled: _queueManager.isShuffleEnabled,
       loopMode: _queueManager.loopMode,
       canPlayPrevious: canPlayPrevious,
