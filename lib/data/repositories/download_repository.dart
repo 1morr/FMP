@@ -135,13 +135,15 @@ class DownloadRepository with Logging {
     });
   }
 
-  /// 重置所有 downloading 状态的任务为 paused（用于程序重启）
+  /// 重置所有 downloading 和 pending 状态的任务为 paused（用于程序重启）
   Future<void> resetDownloadingToPaused() async {
-    logDebug('Reset all downloading tasks to paused status');
+    logDebug('Reset all downloading and pending tasks to paused status');
     await _isar.writeTxn(() async {
       final tasks = await _isar.downloadTasks
           .filter()
           .statusEqualTo(DownloadStatus.downloading)
+          .or()
+          .statusEqualTo(DownloadStatus.pending)
           .findAll();
       for (final task in tasks) {
         task.status = DownloadStatus.paused;

@@ -331,6 +331,10 @@ class _QueueTrackTile extends StatelessWidget {
                             fit: BoxFit.cover,
                             width: 48,
                             height: 48,
+                            errorBuilder: (context, error, stackTrace) => Icon(
+                              Icons.music_note,
+                              color: colorScheme.outline,
+                            ),
                           )
                         : Icon(
                             Icons.music_note,

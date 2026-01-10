@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../data/models/playlist.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/playlist_provider.dart';
-import '../../../providers/download_provider.dart';
 import '../../../providers/refresh_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
@@ -23,6 +22,11 @@ class LibraryPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.download_done),
+          tooltip: '已下载',
+          onPressed: () => context.pushNamed(RouteNames.downloaded),
+        ),
         title: const Text('音乐库'),
         actions: [
           IconButton(
@@ -122,9 +126,6 @@ class LibraryPage extends ConsumerWidget {
                     ? 3
                     : 2;
 
-        // 总数量 = 已下载卡片 + 歌单列表
-        final totalCount = 1 + playlists.length;
-
         return GridView.builder(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -133,14 +134,9 @@ class LibraryPage extends ConsumerWidget {
             crossAxisSpacing: 16,
             childAspectRatio: 0.8,
           ),
-          itemCount: totalCount,
+          itemCount: playlists.length,
           itemBuilder: (context, index) {
-            // 第一个是已下载卡片
-            if (index == 0) {
-              return const _DownloadedCard();
-            }
-            // 其余是歌单卡片
-            return _PlaylistCard(playlist: playlists[index - 1]);
+            return _PlaylistCard(playlist: playlists[index]);
           },
         );
       },
@@ -162,76 +158,6 @@ class LibraryPage extends ConsumerWidget {
   }
 }
 
-/// 已下载卡片
-class _DownloadedCard extends ConsumerWidget {
-  const _DownloadedCard();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final downloadedTracksAsync = ref.watch(downloadedTracksProvider);
-    final trackCount = downloadedTracksAsync.valueOrNull?.length ?? 0;
-
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => context.pushNamed(RouteNames.downloaded),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 封面区域
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      colorScheme.primary,
-                      colorScheme.tertiary,
-                    ],
-                  ),
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.download_done,
-                    size: 48,
-                    color: colorScheme.onPrimary,
-                  ),
-                ),
-              ),
-            ),
-
-            // 信息
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '已下载',
-                    style: Theme.of(context).textTheme.titleSmall,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '$trackCount 首',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.outline,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 /// 歌单卡片
 class _PlaylistCard extends ConsumerWidget {
   final Playlist playlist;
@@ -247,7 +173,15 @@ class _PlaylistCard extends ConsumerWidget {
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => context.push('${RoutePaths.library}/${playlist.id}'),
+        onTap: () {
+          // 使用 Future.microtask 延迟导航，避免在 LayoutBuilder 布局期间触发导航
+          final id = playlist.id;
+          Future.microtask(() {
+            if (context.mounted) {
+              context.push('${RoutePaths.library}/$id');
+            }
+          });
+        },
         onLongPress: () => _showOptionsMenu(context, ref),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

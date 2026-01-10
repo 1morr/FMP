@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models/track.dart';
@@ -64,8 +67,18 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
     state = state.copyWith(isLoading: true, clearError: true);
 
     try {
-      final detail = await _bilibiliSource.getVideoDetail(track.sourceId);
-      
+      VideoDetail? detail;
+
+      // 已下载歌曲优先从本地 metadata 加载
+      if (track.downloadedPath != null) {
+        detail = await _loadFromLocalMetadata(track);
+      }
+
+      // 如果本地没有或加载失败，从网络获取
+      if (detail == null) {
+        detail = await _bilibiliSource.getVideoDetail(track.sourceId);
+      }
+
       // 确保加载的还是当前歌曲
       if (_currentSourceId == track.sourceId) {
         state = TrackDetailState(detail: detail);
@@ -77,6 +90,24 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
           error: e.toString(),
         );
       }
+    }
+  }
+
+  /// 从本地 metadata.json 加载详情
+  Future<VideoDetail?> _loadFromLocalMetadata(Track track) async {
+    try {
+      final dir = Directory(track.downloadedPath!).parent;
+      final metadataFile = File('${dir.path}/metadata.json');
+      if (!await metadataFile.exists()) return null;
+
+      final json = jsonDecode(await metadataFile.readAsString()) as Map<String, dynamic>;
+
+      // 检查是否有完整的元数据
+      if (json['viewCount'] == null) return null;
+
+      return VideoDetail.fromMetadata(json, track);
+    } catch (e) {
+      return null;
     }
   }
 
