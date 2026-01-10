@@ -636,7 +636,6 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     await _ensureInitialized();
     logInfo('Clearing queue');
     try {
-      await _audioService.stop();
       await _queueManager.clear();
       _updateQueueState();
     } catch (e, stack) {
