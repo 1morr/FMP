@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../data/models/playlist.dart';
+import '../../../data/models/track.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../providers/refresh_provider.dart';
 import '../../../services/audio/audio_provider.dart';
@@ -280,6 +281,14 @@ class _PlaylistCard extends ConsumerWidget {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.shuffle),
+              title: const Text('随机添加'),
+              onTap: () {
+                Navigator.pop(context);
+                _shuffleAddToQueue(context, ref);
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.edit),
               title: const Text('编辑歌单'),
               onTap: () {
@@ -342,6 +351,30 @@ class _PlaylistCard extends ConsumerWidget {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('已添加 ${result.tracks.length} 首歌曲到队列')),
+      );
+    }
+  }
+
+  void _shuffleAddToQueue(BuildContext context, WidgetRef ref) async {
+    final service = ref.read(playlistServiceProvider);
+    final result = await service.getPlaylistWithTracks(playlist.id);
+
+    if (result == null || result.tracks.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('歌单为空')),
+        );
+      }
+      return;
+    }
+
+    final controller = ref.read(audioControllerProvider.notifier);
+    final shuffled = List<Track>.from(result.tracks)..shuffle();
+    controller.addAllToQueue(shuffled);
+    
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已随机添加 ${result.tracks.length} 首歌曲到队列')),
       );
     }
   }
