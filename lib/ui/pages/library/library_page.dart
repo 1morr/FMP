@@ -269,25 +269,27 @@ class _PlaylistCard extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.add_to_queue),
-              title: const Text('添加所有'),
-              onTap: () {
-                Navigator.pop(context);
-                _addAllToQueue(context, ref);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.shuffle),
-              title: const Text('随机添加'),
-              onTap: () {
-                Navigator.pop(context);
-                _shuffleAddToQueue(context, ref);
-              },
-            ),
+        child: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.play_arrow),
+                title: const Text('添加所有'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _addAllToQueue(context, ref);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.shuffle),
+                title: const Text('随机添加'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _shuffleAddToQueue(context, ref);
+                },
+              ),
             ListTile(
               leading: const Icon(Icons.edit),
               title: const Text('编辑歌单'),
@@ -327,6 +329,7 @@ class _PlaylistCard extends ConsumerWidget {
               },
             ),
           ],
+          ),
         ),
       ),
     );
