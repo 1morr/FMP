@@ -194,6 +194,17 @@ class DownloadRepository with Logging {
     });
   }
 
+  /// 清除所有已完成的任务
+  Future<int> clearCompleted() async {
+    return _isar.writeTxn(() async {
+      final tasks = await _isar.downloadTasks
+          .filter()
+          .statusEqualTo(DownloadStatus.completed)
+          .findAll();
+      return _isar.downloadTasks.deleteAll(tasks.map((t) => t.id).toList());
+    });
+  }
+
   // ==================== PlaylistDownloadTask CRUD ====================
 
   /// 获取所有歌单下载任务
