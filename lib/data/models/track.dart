@@ -121,6 +121,27 @@ class Track {
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
+  /// 创建用于添加到队列的副本（重置id，确保每次添加都创建新记录）
+  Track copyForQueue() {
+    return Track()
+      ..sourceId = sourceId
+      ..sourceType = sourceType
+      ..title = title
+      ..artist = artist
+      ..durationMs = durationMs
+      ..thumbnailUrl = thumbnailUrl
+      ..audioUrl = audioUrl
+      ..audioUrlExpiry = audioUrlExpiry
+      ..isAvailable = isAvailable
+      ..unavailableReason = unavailableReason
+      ..cachedPath = cachedPath
+      ..downloadedPath = downloadedPath
+      ..cid = cid
+      ..pageNum = pageNum
+      ..parentTitle = parentTitle
+      ..createdAt = DateTime.now();
+  }
+
   @override
   String toString() => 'Track(id: $id, title: $title, artist: $artist, source: $sourceType)';
 }

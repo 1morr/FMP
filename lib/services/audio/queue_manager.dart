@@ -354,7 +354,8 @@ class QueueManager with Logging {
   Future<void> add(Track track) async {
     logDebug('add: ${track.title}');
 
-    final savedTrack = await _trackRepository.save(track);
+    // 创建副本以确保每次添加都创建新的数据库记录
+    final savedTrack = await _trackRepository.save(track.copyForQueue());
     _tracks.add(savedTrack);
 
     // 更新 shuffle order
@@ -376,7 +377,9 @@ class QueueManager with Logging {
     logDebug('addAll: ${tracks.length} tracks');
     if (tracks.isEmpty) return;
 
-    final savedTracks = await _trackRepository.saveAll(tracks);
+    // 创建副本以确保每次添加都创建新的数据库记录
+    final copies = tracks.map((t) => t.copyForQueue()).toList();
+    final savedTracks = await _trackRepository.saveAll(copies);
     final startIndex = _tracks.length;
     _tracks.addAll(savedTracks);
 
@@ -405,7 +408,8 @@ class QueueManager with Logging {
       _adjustShuffleOrderForInsert(index);
     }
 
-    final savedTrack = await _trackRepository.save(track);
+    // 创建副本以确保每次添加都创建新的数据库记录
+    final savedTrack = await _trackRepository.save(track.copyForQueue());
     _tracks.insert(index, savedTrack);
 
     // 调整当前索引
