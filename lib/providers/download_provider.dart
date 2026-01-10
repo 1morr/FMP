@@ -1,5 +1,8 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:io';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 import '../data/models/download_task.dart';
 import '../data/models/playlist_download_task.dart';
@@ -148,3 +151,121 @@ extension PlaylistDownloadExtension on Playlist {
     return service.addPlaylistDownload(this);
   }
 }
+
+// ==================== 已下载分类相关 ====================
+
+/// 已下载分类（文件夹）数据模型
+class DownloadedCategory {
+  final String folderName;     // 原始文件夹名
+  final String displayName;    // 显示名称（去掉 _id 后缀）
+  final int trackCount;        // 歌曲数量
+  final String? coverPath;     // 第一首歌的封面路径
+  final String folderPath;     // 完整文件夹路径
+
+  const DownloadedCategory({
+    required this.folderName,
+    required this.displayName,
+    required this.trackCount,
+    this.coverPath,
+    required this.folderPath,
+  });
+}
+
+/// 从文件夹名中提取显示名称（移除 _playlistId 后缀）
+String _extractDisplayName(String folderName) {
+  // 格式: "歌单名_123456" -> "歌单名"
+  final lastUnderscoreIndex = folderName.lastIndexOf('_');
+  if (lastUnderscoreIndex > 0) {
+    final suffix = folderName.substring(lastUnderscoreIndex + 1);
+    // 检查后缀是否为纯数字
+    if (RegExp(r'^\d+$').hasMatch(suffix)) {
+      return folderName.substring(0, lastUnderscoreIndex);
+    }
+  }
+  return folderName;
+}
+
+/// 查找文件夹中第一个封面
+Future<String?> _findFirstCover(Directory folder) async {
+  try {
+    // 遍历子文件夹（视频文件夹）
+    await for (final entity in folder.list()) {
+      if (entity is Directory) {
+        final coverFile = File(p.join(entity.path, 'cover.jpg'));
+        if (await coverFile.exists()) {
+          return coverFile.path;
+        }
+      }
+    }
+  } catch (_) {}
+  return null;
+}
+
+/// 统计文件夹中的音频文件数量
+Future<int> _countAudioFiles(Directory folder) async {
+  int count = 0;
+  try {
+    await for (final entity in folder.list(recursive: true)) {
+      if (entity is File && entity.path.endsWith('.m4a')) {
+        count++;
+      }
+    }
+  } catch (_) {}
+  return count;
+}
+
+/// 已下载分类列表 Provider
+final downloadedCategoriesProvider = FutureProvider<List<DownloadedCategory>>((ref) async {
+  final service = ref.watch(downloadServiceProvider);
+  final dirInfo = await service.getDownloadDirInfo();
+  final downloadDir = Directory(dirInfo.path);
+
+  if (!await downloadDir.exists()) {
+    return [];
+  }
+
+  final categories = <DownloadedCategory>[];
+
+  // 扫描所有子文件夹
+  await for (final entity in downloadDir.list()) {
+    if (entity is Directory) {
+      final folderName = p.basename(entity.path);
+      final trackCount = await _countAudioFiles(entity);
+
+      if (trackCount > 0) {
+        final coverPath = await _findFirstCover(entity);
+        categories.add(DownloadedCategory(
+          folderName: folderName,
+          displayName: _extractDisplayName(folderName),
+          trackCount: trackCount,
+          coverPath: coverPath,
+          folderPath: entity.path,
+        ));
+      }
+    }
+  }
+
+  // 按名称排序，但"未分类"放最后
+  categories.sort((a, b) {
+    if (a.folderName == '未分类') return 1;
+    if (b.folderName == '未分类') return -1;
+    return a.displayName.compareTo(b.displayName);
+  });
+
+  return categories;
+});
+
+/// 获取指定分类文件夹中的已下载歌曲
+final downloadedCategoryTracksProvider = FutureProvider.family<List<Track>, String>((ref, folderPath) async {
+  final trackRepo = ref.watch(trackRepositoryProvider);
+  final allDownloaded = await trackRepo.getDownloaded();
+
+  // 过滤出属于该文件夹的歌曲
+  final folderTracks = allDownloaded.where((track) {
+    if (track.downloadedPath == null) return false;
+    // 检查下载路径是否在该文件夹下
+    return track.downloadedPath!.startsWith(folderPath);
+  }).toList();
+
+  return folderTracks;
+});

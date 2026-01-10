@@ -1,4 +1,4 @@
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, File, Directory;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/models/play_queue.dart';
@@ -130,7 +130,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     PlayerState state,
     ColorScheme colorScheme,
   ) {
-    final thumbnailUrl = state.currentTrack?.thumbnailUrl;
+    final track = state.currentTrack;
 
     return AspectRatio(
       aspectRatio: 1,
@@ -147,24 +147,49 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           ],
         ),
         clipBehavior: Clip.antiAlias,
-        child: thumbnailUrl != null
-            ? Image.network(
-                thumbnailUrl,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Center(
-                    child: CircularProgressIndicator(
-                      color: colorScheme.primary,
-                    ),
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) =>
-                    _buildDefaultCover(colorScheme),
-              )
-            : _buildDefaultCover(colorScheme),
+        child: _buildCoverImage(track, colorScheme),
       ),
     );
+  }
+
+  Widget _buildCoverImage(track, ColorScheme colorScheme) {
+    if (track == null) {
+      return _buildDefaultCover(colorScheme);
+    }
+
+    // 已下载歌曲优先使用本地封面
+    if (track.downloadedPath != null) {
+      final dir = Directory(track.downloadedPath!).parent;
+      final coverFile = File('${dir.path}/cover.jpg');
+      if (coverFile.existsSync()) {
+        return Image.file(
+          coverFile,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) =>
+              _buildDefaultCover(colorScheme),
+        );
+      }
+    }
+
+    // 回退到网络封面
+    if (track.thumbnailUrl != null) {
+      return Image.network(
+        track.thumbnailUrl!,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Center(
+            child: CircularProgressIndicator(
+              color: colorScheme.primary,
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) =>
+            _buildDefaultCover(colorScheme),
+      );
+    }
+
+    return _buildDefaultCover(colorScheme);
   }
 
   /// 默认封面

@@ -63,29 +63,27 @@ class ResponsiveScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final layoutType = Breakpoints.getLayoutType(constraints.maxWidth);
+    // 使用 MediaQuery 而不是 LayoutBuilder 来避免与 go_router Navigator 的布局冲突
+    final width = MediaQuery.of(context).size.width;
+    final layoutType = Breakpoints.getLayoutType(width);
 
-        return switch (layoutType) {
-          LayoutType.mobile => _MobileLayout(
-              selectedIndex: selectedIndex,
-              onDestinationSelected: onDestinationSelected,
-              child: child,
-            ),
-          LayoutType.tablet => _TabletLayout(
-              selectedIndex: selectedIndex,
-              onDestinationSelected: onDestinationSelected,
-              child: child,
-            ),
-          LayoutType.desktop => _DesktopLayout(
-              selectedIndex: selectedIndex,
-              onDestinationSelected: onDestinationSelected,
-              child: child,
-            ),
-        };
-      },
-    );
+    return switch (layoutType) {
+      LayoutType.mobile => _MobileLayout(
+          selectedIndex: selectedIndex,
+          onDestinationSelected: onDestinationSelected,
+          child: child,
+        ),
+      LayoutType.tablet => _TabletLayout(
+          selectedIndex: selectedIndex,
+          onDestinationSelected: onDestinationSelected,
+          child: child,
+        ),
+      LayoutType.desktop => _DesktopLayout(
+          selectedIndex: selectedIndex,
+          onDestinationSelected: onDestinationSelected,
+          child: child,
+        ),
+    };
   }
 }
 

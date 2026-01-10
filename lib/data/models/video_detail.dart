@@ -84,6 +84,43 @@ class VideoDetail {
     this.pages = const [],
   });
 
+  /// 从本地 metadata.json 创建 VideoDetail
+  factory VideoDetail.fromMetadata(Map<String, dynamic> json, Track track) {
+    final hotComments = (json['hotComments'] as List<dynamic>? ?? [])
+        .map((c) => VideoComment(
+              id: 0,
+              content: c['content']?.toString() ?? '',
+              memberName: c['memberName']?.toString() ?? '',
+              memberAvatar: c['memberAvatar']?.toString() ?? '',
+              likeCount: c['likeCount'] as int? ?? 0,
+              createTime: DateTime.now(),
+            ))
+        .toList();
+
+    return VideoDetail(
+      bvid: json['sourceId']?.toString() ?? track.sourceId,
+      title: json['parentTitle']?.toString() ?? json['title']?.toString() ?? track.title,
+      description: json['description']?.toString() ?? '',
+      coverUrl: json['thumbnailUrl']?.toString() ?? track.thumbnailUrl ?? '',
+      ownerName: json['ownerName']?.toString() ?? json['artist']?.toString() ?? track.artist ?? '',
+      ownerFace: json['ownerFace']?.toString() ?? '',
+      ownerId: json['ownerId'] as int? ?? 0,
+      viewCount: json['viewCount'] as int? ?? 0,
+      likeCount: json['likeCount'] as int? ?? 0,
+      coinCount: json['coinCount'] as int? ?? 0,
+      favoriteCount: json['favoriteCount'] as int? ?? 0,
+      shareCount: json['shareCount'] as int? ?? 0,
+      danmakuCount: json['danmakuCount'] as int? ?? 0,
+      commentCount: json['commentCount'] as int? ?? 0,
+      publishDate: json['publishDate'] != null
+          ? DateTime.tryParse(json['publishDate'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      durationSeconds: (json['durationMs'] as int? ?? track.durationMs ?? 0) ~/ 1000,
+      hotComments: hotComments,
+      pages: [],
+    );
+  }
+
   /// 是否有多个分P
   bool get hasMultiplePages => pages.length > 1;
 

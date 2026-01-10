@@ -61,7 +61,7 @@ class FmpNetworkImage extends StatelessWidget {
         if (errorWidget != null) {
           return errorWidget!(context, imageUrl, error);
         }
-        return const Icon(Icons.broken_image, color: Colors.grey);
+        return const Icon(Icons.music_note, color: Colors.grey);
       },
     );
   }

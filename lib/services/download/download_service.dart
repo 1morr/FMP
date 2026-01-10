@@ -12,10 +12,12 @@ import '../../data/models/playlist_download_task.dart';
 import '../../data/models/track.dart';
 import '../../data/models/playlist.dart';
 import '../../data/models/settings.dart';
+import '../../data/models/video_detail.dart';
 import '../../data/repositories/download_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/sources/source_provider.dart';
+import '../../data/sources/bilibili_source.dart';
 
 /// 下载服务
 class DownloadService with Logging {
@@ -371,9 +373,35 @@ class DownloadService with Logging {
           }
         },
       );
-      
+
+      // 获取 VideoDetail（用于保存完整元数据）
+      VideoDetail? videoDetail;
+      final videoDir = Directory(p.dirname(savePath));
+      final metadataFile = File(p.join(videoDir.path, 'metadata.json'));
+
+      // 检查是否已有完整的 metadata（多P视频只获取一次）
+      bool hasFullMetadata = false;
+      if (await metadataFile.exists()) {
+        try {
+          final existing = jsonDecode(await metadataFile.readAsString());
+          hasFullMetadata = existing['viewCount'] != null;
+        } catch (_) {}
+      }
+
+      // 如果没有完整 metadata，尝试获取 VideoDetail
+      if (!hasFullMetadata && track.sourceType == SourceType.bilibili) {
+        try {
+          final source = _sourceManager.getSource(SourceType.bilibili);
+          if (source is BilibiliSource) {
+            videoDetail = await source.getVideoDetail(track.sourceId);
+          }
+        } catch (e) {
+          logDebug('Failed to get video detail: $e');
+        }
+      }
+
       // 保存元数据
-      await _saveMetadata(track, savePath);
+      await _saveMetadata(track, savePath, videoDetail: videoDetail);
       
       // 更新歌曲的下载路径
       track.downloadedPath = savePath;
@@ -507,12 +535,13 @@ class DownloadService with Logging {
   }
 
   /// 保存元数据
-  Future<void> _saveMetadata(Track track, String audioPath) async {
+  Future<void> _saveMetadata(Track track, String audioPath, {VideoDetail? videoDetail}) async {
     final settings = await _settingsRepository.get();
     final videoDir = Directory(p.dirname(audioPath));
-    
+
     // 保存歌曲元数据
-    final metadata = {
+    final metadata = <String, dynamic>{
+      // 基础信息
       'sourceId': track.sourceId,
       'sourceType': track.sourceType.name,
       'title': track.title,
@@ -521,9 +550,34 @@ class DownloadService with Logging {
       'cid': track.cid,
       'pageNum': track.pageNum,
       'parentTitle': track.parentTitle,
+      'thumbnailUrl': track.thumbnailUrl,
       'downloadedAt': DateTime.now().toIso8601String(),
     };
-    
+
+    // 添加 VideoDetail 扩展信息
+    if (videoDetail != null) {
+      metadata.addAll({
+        'description': videoDetail.description,
+        'viewCount': videoDetail.viewCount,
+        'likeCount': videoDetail.likeCount,
+        'coinCount': videoDetail.coinCount,
+        'favoriteCount': videoDetail.favoriteCount,
+        'shareCount': videoDetail.shareCount,
+        'danmakuCount': videoDetail.danmakuCount,
+        'commentCount': videoDetail.commentCount,
+        'publishDate': videoDetail.publishDate.toIso8601String(),
+        'ownerName': videoDetail.ownerName,
+        'ownerFace': videoDetail.ownerFace,
+        'ownerId': videoDetail.ownerId,
+        'hotComments': videoDetail.hotComments.map((c) => {
+          'content': c.content,
+          'memberName': c.memberName,
+          'memberAvatar': c.memberAvatar,
+          'likeCount': c.likeCount,
+        }).toList(),
+      });
+    }
+
     final metadataFile = File(p.join(videoDir.path, 'metadata.json'));
     await metadataFile.writeAsString(jsonEncode(metadata));
     
