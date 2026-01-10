@@ -28,6 +28,9 @@ class DownloadManagerPage extends ConsumerWidget {
                 case 'resume_all':
                   await downloadService.resumeAll();
                   break;
+                case 'clear_completed':
+                  await downloadService.clearCompleted();
+                  break;
                 case 'clear_queue':
                   final confirmed = await showDialog<bool>(
                     context: context,
@@ -66,6 +69,14 @@ class DownloadManagerPage extends ConsumerWidget {
                 child: ListTile(
                   leading: Icon(Icons.play_arrow),
                   title: Text('全部继续'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'clear_completed',
+                child: ListTile(
+                  leading: Icon(Icons.done_all),
+                  title: Text('清除已完成'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),

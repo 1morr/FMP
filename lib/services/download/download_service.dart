@@ -137,15 +137,23 @@ class DownloadService with Logging {
     final existingTask = await _downloadRepository.getTaskByTrackId(track.id);
     if (existingTask != null) {
       if (existingTask.isCompleted) {
-        logDebug('Track already downloaded: ${track.title}');
-        return null; // 已下载
-      }
-      if (!existingTask.isFailed) {
+        // 验证文件是否真实存在
+        if (track.downloadedPath != null && await File(track.downloadedPath!).exists()) {
+          logDebug('Track already downloaded: ${track.title}');
+          return null; // 已下载且文件存在
+        }
+        // 文件不存在，清理记录并重新下载
+        logDebug('Downloaded file missing, re-queueing: ${track.title}');
+        await _downloadRepository.deleteTask(existingTask.id);
+        track.downloadedPath = null;
+        await _trackRepository.save(track);
+      } else if (!existingTask.isFailed) {
         logDebug('Download task already exists for track: ${track.title}');
         return existingTask; // 已有任务
+      } else {
+        // 失败的任务，删除后重新创建
+        await _downloadRepository.deleteTask(existingTask.id);
       }
-      // 失败的任务，删除后重新创建
-      await _downloadRepository.deleteTask(existingTask.id);
     }
     
     // 创建下载任务
@@ -168,12 +176,18 @@ class DownloadService with Logging {
   /// 添加歌单下载任务
   Future<PlaylistDownloadTask?> addPlaylistDownload(Playlist playlist) async {
     logDebug('Adding playlist download task: ${playlist.name}');
-    
+
     // 检查是否已有此歌单的下载任务
     final existingTask = await _downloadRepository.getPlaylistTaskByPlaylistId(playlist.id);
     if (existingTask != null) {
-      logDebug('Playlist download task already exists: ${playlist.name}');
-      return existingTask;
+      // 只有正在下载中的任务不允许重复添加
+      if (existingTask.status == DownloadStatus.downloading) {
+        logDebug('Playlist download task is currently downloading: ${playlist.name}');
+        return existingTask;
+      }
+      // 其他状态（pending/paused/completed/failed）都允许重新下载
+      logDebug('Re-downloading playlist: ${playlist.name}');
+      await _downloadRepository.deletePlaylistTask(existingTask.id);
     }
     
     // 获取歌单中的所有歌曲
@@ -282,15 +296,21 @@ class DownloadService with Logging {
   /// 清空队列
   Future<void> clearQueue() async {
     logDebug('Clearing download queue');
-    
+
     // 取消所有进行中的下载
     for (final entry in _activeCancelTokens.entries) {
       entry.value.cancel('Queue cleared');
     }
     _activeCancelTokens.clear();
     _activeDownloads = 0;
-    
+
     await _downloadRepository.clearQueue();
+  }
+
+  /// 清除已完成的任务
+  Future<void> clearCompleted() async {
+    logDebug('Clearing completed downloads');
+    await _downloadRepository.clearCompleted();
   }
 
   /// 开始下载任务
