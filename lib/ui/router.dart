@@ -8,6 +8,8 @@ import 'pages/queue/queue_page.dart';
 import 'pages/library/library_page.dart';
 import 'pages/library/playlist_detail_page.dart';
 import 'pages/settings/settings_page.dart';
+import 'pages/settings/download_manager_page.dart';
+import 'pages/library/downloaded_page.dart';
 import 'app_shell.dart';
 
 /// 路由路径常量
@@ -21,6 +23,8 @@ class RoutePaths {
   static const String library = '/library';
   static const String settings = '/settings';
   static const String playlistDetail = '/library/:id';
+  static const String downloaded = '/library/downloaded';
+  static const String downloadManager = '/settings/download-manager';
 }
 
 /// 路由名称常量
@@ -34,6 +38,8 @@ class RouteNames {
   static const String library = 'library';
   static const String settings = 'settings';
   static const String playlistDetail = 'playlistDetail';
+  static const String downloaded = 'downloaded';
+  static const String downloadManager = 'downloadManager';
 }
 
 /// 应用路由配置
@@ -72,6 +78,12 @@ final appRouter = GoRouter(
             child: LibraryPage(),
           ),
           routes: [
+            // 已下载页面
+            GoRoute(
+              path: 'downloaded',
+              name: RouteNames.downloaded,
+              builder: (context, state) => const DownloadedPage(),
+            ),
             // 歌单详情页作为 library 的子路由
             GoRoute(
               path: ':id',
@@ -89,6 +101,14 @@ final appRouter = GoRouter(
           pageBuilder: (context, state) => const NoTransitionPage(
             child: SettingsPage(),
           ),
+          routes: [
+            // 下载管理页面作为 settings 的子路由
+            GoRoute(
+              path: 'download-manager',
+              name: RouteNames.downloadManager,
+              builder: (context, state) => const DownloadManagerPage(),
+            ),
+          ],
         ),
       ],
     ),

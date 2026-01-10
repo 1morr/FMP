@@ -1,0 +1,609 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
+
+import '../../core/logger.dart';
+import '../../data/models/download_task.dart';
+import '../../data/models/playlist_download_task.dart';
+import '../../data/models/track.dart';
+import '../../data/models/playlist.dart';
+import '../../data/models/settings.dart';
+import '../../data/repositories/download_repository.dart';
+import '../../data/repositories/track_repository.dart';
+import '../../data/repositories/settings_repository.dart';
+import '../../data/sources/source_provider.dart';
+
+/// 下载服务
+class DownloadService with Logging {
+  final DownloadRepository _downloadRepository;
+  final TrackRepository _trackRepository;
+  final SettingsRepository _settingsRepository;
+  final SourceManager _sourceManager;
+  
+  final Dio _dio;
+  
+  /// 正在进行的下载任务
+  final Map<int, CancelToken> _activeCancelTokens = {};
+  
+  /// 下载进度流控制器
+  final _progressController = StreamController<DownloadProgressEvent>.broadcast();
+  
+  /// 下载进度流
+  Stream<DownloadProgressEvent> get progressStream => _progressController.stream;
+  
+  /// 当前活跃的下载数量
+  int _activeDownloads = 0;
+  
+  /// 调度器定时器
+  Timer? _schedulerTimer;
+  
+  /// 是否正在调度
+  bool _isScheduling = false;
+
+  DownloadService({
+    required DownloadRepository downloadRepository,
+    required TrackRepository trackRepository,
+    required SettingsRepository settingsRepository,
+    required SourceManager sourceManager,
+  })  : _downloadRepository = downloadRepository,
+        _trackRepository = trackRepository,
+        _settingsRepository = settingsRepository,
+        _sourceManager = sourceManager,
+        _dio = Dio(BaseOptions(
+          connectTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(minutes: 30),
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Referer': 'https://www.bilibili.com',
+          },
+        ));
+
+  /// 初始化服务
+  Future<void> initialize() async {
+    logDebug('Initializing DownloadService');
+    
+    // 重置所有 downloading 状态的任务为 paused
+    await _downloadRepository.resetDownloadingToPaused();
+    
+    // 启动调度器
+    _startScheduler();
+    
+    logDebug('DownloadService initialized');
+  }
+
+  /// 释放资源
+  void dispose() {
+    _schedulerTimer?.cancel();
+    _progressController.close();
+    
+    // 取消所有进行中的下载
+    for (final cancelToken in _activeCancelTokens.values) {
+      cancelToken.cancel('Service disposed');
+    }
+    _activeCancelTokens.clear();
+  }
+
+  /// 启动调度器
+  void _startScheduler() {
+    _schedulerTimer?.cancel();
+    _schedulerTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      _scheduleDownloads();
+    });
+  }
+
+  /// 调度下载任务
+  Future<void> _scheduleDownloads() async {
+    if (_isScheduling) return;
+    _isScheduling = true;
+    
+    try {
+      final settings = await _settingsRepository.get();
+      final maxConcurrent = settings.maxConcurrentDownloads;
+      
+      // 获取可用的下载槽位数
+      final availableSlots = maxConcurrent - _activeDownloads;
+      if (availableSlots <= 0) return;
+      
+      // 获取待下载的任务
+      final pendingTasks = await _downloadRepository.getTasksByStatus(DownloadStatus.pending);
+      
+      // 启动下载
+      for (int i = 0; i < availableSlots && i < pendingTasks.length; i++) {
+        final task = pendingTasks[i];
+        _startDownload(task);
+      }
+    } catch (e, stack) {
+      logError('Error scheduling downloads: $e', e, stack);
+    } finally {
+      _isScheduling = false;
+    }
+  }
+
+  /// 添加单曲下载任务
+  Future<DownloadTask?> addTrackDownload(
+    Track track, {
+    Playlist? fromPlaylist,
+    int? playlistDownloadTaskId,
+  }) async {
+    logDebug('Adding download task for track: ${track.title}');
+    
+    // 检查是否已有此歌曲的下载任务
+    final existingTask = await _downloadRepository.getTaskByTrackId(track.id);
+    if (existingTask != null) {
+      if (existingTask.isCompleted) {
+        logDebug('Track already downloaded: ${track.title}');
+        return null; // 已下载
+      }
+      if (!existingTask.isFailed) {
+        logDebug('Download task already exists for track: ${track.title}');
+        return existingTask; // 已有任务
+      }
+      // 失败的任务，删除后重新创建
+      await _downloadRepository.deleteTask(existingTask.id);
+    }
+    
+    // 创建下载任务
+    final priority = await _downloadRepository.getNextPriority();
+    final task = DownloadTask()
+      ..trackId = track.id
+      ..playlistDownloadTaskId = playlistDownloadTaskId
+      ..status = DownloadStatus.pending
+      ..priority = priority
+      ..createdAt = DateTime.now();
+    
+    final savedTask = await _downloadRepository.saveTask(task);
+    
+    // 触发调度
+    _scheduleDownloads();
+    
+    return savedTask;
+  }
+
+  /// 添加歌单下载任务
+  Future<PlaylistDownloadTask?> addPlaylistDownload(Playlist playlist) async {
+    logDebug('Adding playlist download task: ${playlist.name}');
+    
+    // 检查是否已有此歌单的下载任务
+    final existingTask = await _downloadRepository.getPlaylistTaskByPlaylistId(playlist.id);
+    if (existingTask != null) {
+      logDebug('Playlist download task already exists: ${playlist.name}');
+      return existingTask;
+    }
+    
+    // 获取歌单中的所有歌曲
+    final tracks = await _trackRepository.getByIds(playlist.trackIds);
+    if (tracks.isEmpty) {
+      logDebug('Playlist has no tracks: ${playlist.name}');
+      return null;
+    }
+    
+    // 创建歌单下载任务
+    final priority = await _downloadRepository.getNextPriority();
+    final playlistTask = PlaylistDownloadTask()
+      ..playlistId = playlist.id
+      ..playlistName = playlist.name
+      ..trackIds = playlist.trackIds
+      ..status = DownloadStatus.pending
+      ..priority = priority
+      ..createdAt = DateTime.now();
+    
+    final savedPlaylistTask = await _downloadRepository.savePlaylistTask(playlistTask);
+    
+    // 为每个歌曲创建下载任务
+    for (final track in tracks) {
+      await addTrackDownload(
+        track,
+        fromPlaylist: playlist,
+        playlistDownloadTaskId: savedPlaylistTask.id,
+      );
+    }
+    
+    return savedPlaylistTask;
+  }
+
+  /// 暂停下载任务
+  Future<void> pauseTask(int taskId) async {
+    logDebug('Pausing download task: $taskId');
+    
+    // 取消正在进行的下载
+    final cancelToken = _activeCancelTokens.remove(taskId);
+    if (cancelToken != null) {
+      cancelToken.cancel('User paused');
+      _activeDownloads--;
+    }
+    
+    await _downloadRepository.updateTaskStatus(taskId, DownloadStatus.paused);
+  }
+
+  /// 恢复下载任务
+  Future<void> resumeTask(int taskId) async {
+    logDebug('Resuming download task: $taskId');
+    await _downloadRepository.updateTaskStatus(taskId, DownloadStatus.pending);
+    _scheduleDownloads();
+  }
+
+  /// 取消/删除下载任务
+  Future<void> cancelTask(int taskId) async {
+    logDebug('Canceling download task: $taskId');
+    
+    // 取消正在进行的下载
+    final cancelToken = _activeCancelTokens.remove(taskId);
+    if (cancelToken != null) {
+      cancelToken.cancel('User cancelled');
+      _activeDownloads--;
+    }
+    
+    await _downloadRepository.deleteTask(taskId);
+  }
+
+  /// 重试下载任务
+  Future<void> retryTask(int taskId) async {
+    logDebug('Retrying download task: $taskId');
+    
+    final task = await _downloadRepository.getTaskById(taskId);
+    if (task == null) return;
+    
+    task.status = DownloadStatus.pending;
+    task.progress = 0.0;
+    task.downloadedBytes = 0;
+    task.errorMessage = null;
+    
+    await _downloadRepository.saveTask(task);
+    _scheduleDownloads();
+  }
+
+  /// 暂停所有任务
+  Future<void> pauseAll() async {
+    logDebug('Pausing all downloads');
+    
+    // 取消所有进行中的下载
+    for (final entry in _activeCancelTokens.entries) {
+      entry.value.cancel('User paused all');
+    }
+    _activeCancelTokens.clear();
+    _activeDownloads = 0;
+    
+    await _downloadRepository.pauseAllTasks();
+  }
+
+  /// 恢复所有任务
+  Future<void> resumeAll() async {
+    logDebug('Resuming all downloads');
+    await _downloadRepository.resumeAllTasks();
+    _scheduleDownloads();
+  }
+
+  /// 清空队列
+  Future<void> clearQueue() async {
+    logDebug('Clearing download queue');
+    
+    // 取消所有进行中的下载
+    for (final entry in _activeCancelTokens.entries) {
+      entry.value.cancel('Queue cleared');
+    }
+    _activeCancelTokens.clear();
+    _activeDownloads = 0;
+    
+    await _downloadRepository.clearQueue();
+  }
+
+  /// 开始下载任务
+  void _startDownload(DownloadTask task) async {
+    if (_activeCancelTokens.containsKey(task.id)) {
+      logDebug('Task already downloading: ${task.id}');
+      return;
+    }
+    
+    logDebug('Starting download for track: ${task.trackId}');
+    
+    final cancelToken = CancelToken();
+    _activeCancelTokens[task.id] = cancelToken;
+    _activeDownloads++;
+    
+    try {
+      // 更新状态为下载中
+      await _downloadRepository.updateTaskStatus(task.id, DownloadStatus.downloading);
+      
+      // 获取歌曲信息
+      final track = await _trackRepository.getById(task.trackId);
+      if (track == null) {
+        throw Exception('Track not found: ${task.trackId}');
+      }
+      
+      // 获取音频 URL
+      String audioUrl;
+      if (!_sourceManager.needsRefresh(track) && track.audioUrl != null) {
+        audioUrl = track.audioUrl!;
+      } else {
+        final refreshedTrack = await _sourceManager.refreshAudioUrl(track);
+        audioUrl = refreshedTrack.audioUrl!;
+        await _trackRepository.save(refreshedTrack);
+      }
+      
+      // 确定保存路径
+      final savePath = await _getDownloadPath(track, task);
+      
+      // 确保目录存在
+      final dir = Directory(p.dirname(savePath));
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+      
+      // 进度更新节流：避免过于频繁的 UI 更新导致 Windows 线程问题
+      DateTime lastProgressUpdate = DateTime.now();
+      double lastProgress = 0.0;
+      const progressUpdateInterval = Duration(milliseconds: 500);
+      
+      // 下载文件
+      await _dio.download(
+        audioUrl,
+        savePath,
+        cancelToken: cancelToken,
+        onReceiveProgress: (received, total) {
+          if (total != -1) {
+            final progress = received / total;
+            final now = DateTime.now();
+            
+            // 只在以下情况更新进度：
+            // 1. 距离上次更新超过 500ms
+            // 2. 进度变化超过 5%
+            // 3. 下载完成 (100%)
+            final shouldUpdate = now.difference(lastProgressUpdate) >= progressUpdateInterval ||
+                (progress - lastProgress) >= 0.05 ||
+                progress >= 1.0;
+            
+            if (shouldUpdate) {
+              lastProgressUpdate = now;
+              lastProgress = progress;
+              _downloadRepository.updateTaskProgress(task.id, progress, received, total);
+              _progressController.add(DownloadProgressEvent(
+                taskId: task.id,
+                trackId: task.trackId,
+                progress: progress,
+                downloadedBytes: received,
+                totalBytes: total,
+              ));
+            }
+          }
+        },
+      );
+      
+      // 保存元数据
+      await _saveMetadata(track, savePath);
+      
+      // 更新歌曲的下载路径
+      track.downloadedPath = savePath;
+      await _trackRepository.save(track);
+      
+      // 更新任务状态为已完成
+      await _downloadRepository.updateTaskStatus(task.id, DownloadStatus.completed);
+      
+      logDebug('Download completed for track: ${track.title}');
+      
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.cancel) {
+        logDebug('Download cancelled for task: ${task.id}');
+      } else {
+        logError('Download failed for task: ${task.id}: ${e.message}');
+        await _downloadRepository.updateTaskStatus(
+          task.id,
+          DownloadStatus.failed,
+          errorMessage: e.message ?? 'Network error',
+        );
+      }
+    } catch (e, stack) {
+      logError('Download failed for task: ${task.id}: $e', e, stack);
+      await _downloadRepository.updateTaskStatus(
+        task.id,
+        DownloadStatus.failed,
+        errorMessage: e.toString(),
+      );
+    } finally {
+      _activeCancelTokens.remove(task.id);
+      _activeDownloads--;
+    }
+  }
+
+  /// 获取下载保存路径
+  Future<String> _getDownloadPath(Track track, DownloadTask task) async {
+    final settings = await _settingsRepository.get();
+    
+    // 获取基础下载目录
+    String baseDir;
+    if (settings.customDownloadDir != null && settings.customDownloadDir!.isNotEmpty) {
+      baseDir = settings.customDownloadDir!;
+    } else {
+      baseDir = await _getDefaultDownloadDir();
+    }
+    
+    // 确定子目录
+    String subDir;
+    if (task.playlistDownloadTaskId != null) {
+      // 从歌单下载任务获取歌单名
+      final playlistTask = await _downloadRepository.getPlaylistTaskById(task.playlistDownloadTaskId!);
+      if (playlistTask != null) {
+        subDir = _sanitizeFileName('${playlistTask.playlistName}_${playlistTask.playlistId}');
+      } else {
+        subDir = '未分类';
+      }
+    } else {
+      subDir = '未分类';
+    }
+    
+    // 视频文件夹名
+    final videoFolder = _sanitizeFileName(track.parentTitle ?? track.title);
+    
+    // 音频文件名
+    String fileName;
+    if (track.isPartOfMultiPage && track.pageNum != null) {
+      fileName = 'P${track.pageNum!.toString().padLeft(2, '0')} - ${_sanitizeFileName(track.title)}.m4a';
+    } else {
+      fileName = 'audio.m4a';
+    }
+    
+    return p.join(baseDir, subDir, videoFolder, fileName);
+  }
+
+  /// 获取默认下载目录
+  Future<String> _getDefaultDownloadDir() async {
+    if (Platform.isAndroid) {
+      // Android: 外部存储/Music/FMP/
+      final extDir = await getExternalStorageDirectory();
+      if (extDir != null) {
+        // 尝试使用 Music 目录
+        final musicDir = Directory(p.join(extDir.parent.parent.parent.parent.path, 'Music', 'FMP'));
+        return musicDir.path;
+      }
+      // 回退到应用目录
+      final appDir = await getApplicationDocumentsDirectory();
+      return p.join(appDir.path, 'FMP');
+    } else if (Platform.isWindows) {
+      // Windows: 用户文档/FMP/
+      final docsDir = await getApplicationDocumentsDirectory();
+      return p.join(docsDir.path, 'FMP');
+    } else {
+      // 其他平台
+      final appDir = await getApplicationDocumentsDirectory();
+      return p.join(appDir.path, 'FMP');
+    }
+  }
+
+  /// 清理文件名中的特殊字符
+  String _sanitizeFileName(String name) {
+    // 将特殊字符转换为全角字符
+    const replacements = {
+      '/': '／',  // U+FF0F
+      '\\': '＼', // U+FF3C
+      ':': '：',  // U+FF1A
+      '*': '＊',  // U+FF0A
+      '?': '？',  // U+FF1F
+      '"': '＂',  // U+FF02
+      '<': '＜',  // U+FF1C
+      '>': '＞',  // U+FF1E
+      '|': '｜',  // U+FF5C
+    };
+    
+    String result = name;
+    for (final entry in replacements.entries) {
+      result = result.replaceAll(entry.key, entry.value);
+    }
+    
+    // 移除首尾空格和点
+    result = result.trim();
+    while (result.endsWith('.')) {
+      result = result.substring(0, result.length - 1);
+    }
+    
+    // 限制长度 (Windows 路径限制考虑)
+    if (result.length > 200) {
+      result = result.substring(0, 200);
+    }
+    
+    return result.isEmpty ? 'untitled' : result;
+  }
+
+  /// 保存元数据
+  Future<void> _saveMetadata(Track track, String audioPath) async {
+    final settings = await _settingsRepository.get();
+    final videoDir = Directory(p.dirname(audioPath));
+    
+    // 保存歌曲元数据
+    final metadata = {
+      'sourceId': track.sourceId,
+      'sourceType': track.sourceType.name,
+      'title': track.title,
+      'artist': track.artist,
+      'durationMs': track.durationMs,
+      'cid': track.cid,
+      'pageNum': track.pageNum,
+      'parentTitle': track.parentTitle,
+      'downloadedAt': DateTime.now().toIso8601String(),
+    };
+    
+    final metadataFile = File(p.join(videoDir.path, 'metadata.json'));
+    await metadataFile.writeAsString(jsonEncode(metadata));
+    
+    // 下载封面（如果设置允许）
+    if (settings.downloadImageOption != DownloadImageOption.none && track.thumbnailUrl != null) {
+      try {
+        final coverPath = p.join(videoDir.path, 'cover.jpg');
+        await _dio.download(track.thumbnailUrl!, coverPath);
+      } catch (e) {
+        logDebug('Failed to download cover: $e');
+      }
+    }
+  }
+
+  /// 获取下载目录信息
+  Future<DownloadDirInfo> getDownloadDirInfo() async {
+    final settings = await _settingsRepository.get();
+    final downloadDir = settings.customDownloadDir ?? await _getDefaultDownloadDir();
+    
+    final dir = Directory(downloadDir);
+    int totalSize = 0;
+    int fileCount = 0;
+    
+    if (await dir.exists()) {
+      await for (final entity in dir.list(recursive: true)) {
+        if (entity is File) {
+          final stat = await entity.stat();
+          totalSize += stat.size;
+          fileCount++;
+        }
+      }
+    }
+    
+    return DownloadDirInfo(
+      path: downloadDir,
+      totalSize: totalSize,
+      fileCount: fileCount,
+    );
+  }
+}
+
+/// 下载进度事件
+class DownloadProgressEvent {
+  final int taskId;
+  final int trackId;
+  final double progress;
+  final int downloadedBytes;
+  final int? totalBytes;
+  
+  DownloadProgressEvent({
+    required this.taskId,
+    required this.trackId,
+    required this.progress,
+    required this.downloadedBytes,
+    this.totalBytes,
+  });
+}
+
+/// 下载目录信息
+class DownloadDirInfo {
+  final String path;
+  final int totalSize;
+  final int fileCount;
+  
+  DownloadDirInfo({
+    required this.path,
+    required this.totalSize,
+    required this.fileCount,
+  });
+  
+  /// 格式化大小显示
+  String get formattedSize {
+    if (totalSize < 1024) {
+      return '$totalSize B';
+    } else if (totalSize < 1024 * 1024) {
+      return '${(totalSize / 1024).toStringAsFixed(1)} KB';
+    } else if (totalSize < 1024 * 1024 * 1024) {
+      return '${(totalSize / 1024 / 1024).toStringAsFixed(1)} MB';
+    } else {
+      return '${(totalSize / 1024 / 1024 / 1024).toStringAsFixed(1)} GB';
+    }
+  }
+}

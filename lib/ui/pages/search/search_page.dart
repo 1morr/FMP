@@ -7,6 +7,7 @@ import '../../../data/sources/base_source.dart' show SearchOrder;
 import '../../../data/sources/bilibili_source.dart';
 import '../../../data/sources/source_provider.dart';
 import '../../../providers/search_provider.dart';
+import '../../../providers/download_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 
@@ -599,6 +600,32 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           }
         }
         break;
+      case 'download':
+        final downloadService = ref.read(downloadServiceProvider);
+        if (hasMultiplePages) {
+          // 多P视频：下载所有分P
+          int addedCount = 0;
+          for (final page in pages) {
+            final pageTrack = page.toTrack(track);
+            final result = await downloadService.addTrackDownload(pageTrack);
+            if (result != null) addedCount++;
+          }
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('已添加 $addedCount 个分P到下载队列')),
+            );
+          }
+        } else {
+          final result = await downloadService.addTrackDownload(track);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(result != null ? '已添加到下载队列' : '歌曲已下载或已在队列中'),
+              ),
+            );
+          }
+        }
+        break;
       case 'add_to_playlist':
         if (hasMultiplePages) {
           // 多P视频：添加所有分P到歌单
@@ -616,7 +643,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   /// 处理分P菜单操作
-  void _handlePageMenuAction(Track parentTrack, VideoPage page, String action) {
+  void _handlePageMenuAction(Track parentTrack, VideoPage page, String action) async {
     final controller = ref.read(audioControllerProvider.notifier);
     final pageTrack = page.toTrack(parentTrack);
 
@@ -635,6 +662,17 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('已添加到播放队列')),
         );
+        break;
+      case 'download':
+        final downloadService = ref.read(downloadServiceProvider);
+        final result = await downloadService.addTrackDownload(pageTrack);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result != null ? '已添加到下载队列' : '分P已下载或已在队列中'),
+            ),
+          );
+        }
         break;
     }
   }
@@ -804,6 +842,14 @@ class _SearchResultTile extends StatelessWidget {
                     ),
                   ),
                   const PopupMenuItem(
+                    value: 'download',
+                    child: ListTile(
+                      leading: Icon(Icons.download_outlined),
+                      title: Text('下载'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  const PopupMenuItem(
                     value: 'add_to_playlist',
                     child: ListTile(
                       leading: Icon(Icons.playlist_add),
@@ -923,6 +969,14 @@ class _PageTile extends StatelessWidget {
                   child: ListTile(
                     leading: Icon(Icons.add_to_queue),
                     title: Text('添加到队列'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'download',
+                  child: ListTile(
+                    leading: Icon(Icons.download_outlined),
+                    title: Text('下载'),
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
