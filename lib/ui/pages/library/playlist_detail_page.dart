@@ -193,6 +193,8 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                       fit: BoxFit.cover,
                       color: Colors.black54,
                       colorBlendMode: BlendMode.darken,
+                      errorBuilder: (context, error, stackTrace) =>
+                          Container(color: colorScheme.primaryContainer),
                     )
                   : Container(color: colorScheme.primaryContainer),
               loading: () => Container(color: colorScheme.primaryContainer),
@@ -241,13 +243,26 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                           ? Image.network(
                               coverUrl,
                               fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                color: colorScheme.primaryContainer,
+                                child: Center(
+                                  child: Icon(
+                                    Icons.music_note,
+                                    size: 48,
+                                    color: colorScheme.primary,
+                                  ),
+                                ),
+                              ),
                             )
                           : Container(
                               color: colorScheme.primaryContainer,
-                              child: Icon(
-                                Icons.album,
-                                size: 48,
-                                color: colorScheme.primary,
+                              child: Center(
+                                child: Icon(
+                                  Icons.music_note,
+                                  size: 48,
+                                  color: colorScheme.primary,
+                                ),
                               ),
                             ),
                       loading: () => Container(
@@ -532,10 +547,18 @@ class _GroupHeader extends ConsumerWidget {
                       fit: BoxFit.cover,
                       width: 48,
                       height: 48,
+                      errorBuilder: (context, error, stackTrace) => Center(
+                        child: Icon(
+                          Icons.music_note,
+                          color: colorScheme.outline,
+                        ),
+                      ),
                     )
-                  : Icon(
-                      Icons.music_note,
-                      color: colorScheme.outline,
+                  : Center(
+                      child: Icon(
+                        Icons.music_note,
+                        color: colorScheme.outline,
+                      ),
                     ),
               if (isPlayingThisGroup)
                 Container(
@@ -733,10 +756,18 @@ class _TrackListTile extends ConsumerWidget {
                               fit: BoxFit.cover,
                               width: 48,
                               height: 48,
+                              errorBuilder: (context, error, stackTrace) => Center(
+                                child: Icon(
+                                  Icons.music_note,
+                                  color: colorScheme.outline,
+                                ),
+                              ),
                             )
-                          : Icon(
-                              Icons.music_note,
-                              color: colorScheme.outline,
+                          : Center(
+                              child: Icon(
+                                Icons.music_note,
+                                color: colorScheme.outline,
+                              ),
                             ),
                     ),
 

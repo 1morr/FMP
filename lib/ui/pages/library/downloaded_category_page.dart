@@ -607,16 +607,20 @@ class _GroupHeader extends ConsumerWidget {
         fit: BoxFit.cover,
         width: 48,
         height: 48,
-        errorBuilder: (context, error, stackTrace) => Icon(
-          Icons.music_note,
-          color: colorScheme.outline,
+        errorBuilder: (context, error, stackTrace) => Center(
+          child: Icon(
+            Icons.music_note,
+            color: colorScheme.outline,
+          ),
         ),
       );
     }
 
-    return Icon(
-      Icons.music_note,
-      color: colorScheme.outline,
+    return Center(
+      child: Icon(
+        Icons.music_note,
+        color: colorScheme.outline,
+      ),
     );
   }
 
@@ -859,16 +863,20 @@ class _DownloadedTrackTile extends ConsumerWidget {
         fit: BoxFit.cover,
         width: 48,
         height: 48,
-        errorBuilder: (context, error, stackTrace) => Icon(
-          Icons.music_note,
-          color: colorScheme.outline,
+        errorBuilder: (context, error, stackTrace) => Center(
+          child: Icon(
+            Icons.music_note,
+            color: colorScheme.outline,
+          ),
         ),
       );
     }
 
-    return Icon(
-      Icons.music_note,
-      color: colorScheme.outline,
+    return Center(
+      child: Icon(
+        Icons.music_note,
+        color: colorScheme.outline,
+      ),
     );
   }
 

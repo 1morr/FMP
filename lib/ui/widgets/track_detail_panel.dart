@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -113,36 +114,7 @@ class TrackDetailPanel extends ConsumerWidget {
             borderRadius: BorderRadius.circular(16),
             child: AspectRatio(
               aspectRatio: 1,
-              child: track.thumbnailUrl != null
-                  ? Image.network(
-                      track.thumbnailUrl!,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          color: colorScheme.surfaceContainerHigh,
-                          child: const Center(
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        color: colorScheme.surfaceContainerHigh,
-                        child: Icon(
-                          Icons.music_note,
-                          size: 72,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    )
-                  : Container(
-                      color: colorScheme.surfaceContainerHigh,
-                      child: Icon(
-                        Icons.music_note,
-                        size: 72,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
+              child: _buildCoverImage(track, colorScheme, size: 72),
             ),
           ),
           const SizedBox(height: 20),
@@ -167,6 +139,64 @@ class TrackDetailPanel extends ConsumerWidget {
       ),
     );
   }
+
+  /// 构建封面图片（优先使用本地封面）
+  Widget _buildCoverImage(dynamic track, ColorScheme colorScheme, {double size = 48}) {
+    // 已下载歌曲优先使用本地封面
+    if (track.downloadedPath != null) {
+      final dir = Directory(track.downloadedPath!).parent;
+      final coverFile = File('${dir.path}/cover.jpg');
+      if (coverFile.existsSync()) {
+        return Image.file(
+          coverFile,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => Container(
+            color: colorScheme.surfaceContainerHigh,
+            child: Icon(
+              Icons.music_note,
+              size: size,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        );
+      }
+    }
+
+    // 回退到网络封面
+    if (track.thumbnailUrl != null) {
+      return Image.network(
+        track.thumbnailUrl!,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            color: colorScheme.surfaceContainerHigh,
+            child: const Center(
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) => Container(
+          color: colorScheme.surfaceContainerHigh,
+          child: Icon(
+            Icons.music_note,
+            size: size,
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      );
+    }
+
+    // 无封面时显示占位符
+    return Container(
+      color: colorScheme.surfaceContainerHigh,
+      child: Icon(
+        Icons.music_note,
+        size: size,
+        color: colorScheme.onSurfaceVariant,
+      ),
+    );
+  }
 }
 
 /// 详情内容组件
@@ -181,6 +211,7 @@ class _DetailContent extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
     final detailState = ref.watch(trackDetailProvider);
     final playerState = ref.watch(audioControllerProvider);
+    final currentTrack = ref.watch(currentTrackProvider);
     final queue = playerState.queue;
     final currentIndex = playerState.currentIndex;
 
@@ -200,27 +231,7 @@ class _DetailContent extends ConsumerWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image.network(
-                  detail.coverUrl,
-                  fit: BoxFit.cover,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      color: colorScheme.surfaceContainerHigh,
-                      child: const Center(
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    );
-                  },
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    color: colorScheme.surfaceContainerHigh,
-                    child: Icon(
-                      Icons.image_not_supported_outlined,
-                      size: 48,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
+                _buildMainCover(currentTrack, detail.coverUrl, colorScheme),
                 // 时长标签
                 Positioned(
                   right: 10,
@@ -428,33 +439,7 @@ class _DetailContent extends ConsumerWidget {
               child: SizedBox(
                 width: 56,
                 height: 56,
-                child: track.thumbnailUrl != null
-                    ? Image.network(
-                        track.thumbnailUrl!,
-                        fit: BoxFit.cover,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Container(
-                            color: colorScheme.surfaceContainerHigh,
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          color: colorScheme.surfaceContainerHigh,
-                          child: Icon(
-                            Icons.music_note,
-                            size: 24,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      )
-                    : Container(
-                        color: colorScheme.surfaceContainerHigh,
-                        child: Icon(
-                          Icons.music_note,
-                          size: 24,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
+                child: _buildTrackCover(track, colorScheme, size: 24),
               ),
             ),
             const SizedBox(width: 14),
@@ -485,6 +470,107 @@ class _DetailContent extends ConsumerWidget {
           ],
         ),
       ],
+    );
+  }
+
+  /// 构建主封面（优先使用本地封面）
+  Widget _buildMainCover(Track? track, String networkUrl, ColorScheme colorScheme) {
+    // 已下载歌曲优先使用本地封面
+    if (track?.downloadedPath != null) {
+      final dir = Directory(track!.downloadedPath!).parent;
+      final coverFile = File('${dir.path}/cover.jpg');
+      if (coverFile.existsSync()) {
+        return Image.file(
+          coverFile,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => Container(
+            color: colorScheme.surfaceContainerHigh,
+            child: Icon(
+              Icons.music_note,
+              size: 48,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        );
+      }
+    }
+
+    // 回退到网络封面
+    return Image.network(
+      networkUrl,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          color: colorScheme.surfaceContainerHigh,
+          child: const Center(
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) => Container(
+        color: colorScheme.surfaceContainerHigh,
+        child: Icon(
+          Icons.music_note,
+          size: 48,
+          color: colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+
+  /// 构建歌曲封面（优先使用本地封面）
+  Widget _buildTrackCover(Track track, ColorScheme colorScheme, {double size = 24}) {
+    // 已下载歌曲优先使用本地封面
+    if (track.downloadedPath != null) {
+      final dir = Directory(track.downloadedPath!).parent;
+      final coverFile = File('${dir.path}/cover.jpg');
+      if (coverFile.existsSync()) {
+        return Image.file(
+          coverFile,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => Container(
+            color: colorScheme.surfaceContainerHigh,
+            child: Icon(
+              Icons.music_note,
+              size: size,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        );
+      }
+    }
+
+    // 回退到网络封面
+    if (track.thumbnailUrl != null) {
+      return Image.network(
+        track.thumbnailUrl!,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            color: colorScheme.surfaceContainerHigh,
+          );
+        },
+        errorBuilder: (context, error, stackTrace) => Container(
+          color: colorScheme.surfaceContainerHigh,
+          child: Icon(
+            Icons.music_note,
+            size: size,
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      );
+    }
+
+    // 无封面时显示占位符
+    return Container(
+      color: colorScheme.surfaceContainerHigh,
+      child: Icon(
+        Icons.music_note,
+        size: size,
+        color: colorScheme.onSurfaceVariant,
+      ),
     );
   }
 }
