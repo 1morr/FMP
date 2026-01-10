@@ -267,10 +267,12 @@ class _PlaylistCard extends ConsumerWidget {
   Widget _buildPlaceholder(ColorScheme colorScheme) {
     return Container(
       color: colorScheme.surfaceContainerHighest,
-      child: Icon(
-        Icons.album,
-        size: 48,
-        color: colorScheme.outline,
+      child: Center(
+        child: Icon(
+          Icons.music_note,
+          size: 48,
+          color: colorScheme.outline,
+        ),
       ),
     );
   }

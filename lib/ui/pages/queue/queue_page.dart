@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -325,21 +327,7 @@ class _QueueTrackTile extends StatelessWidget {
                       color: colorScheme.surfaceContainerHighest,
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: track.thumbnailUrl != null
-                        ? Image.network(
-                            track.thumbnailUrl!,
-                            fit: BoxFit.cover,
-                            width: 48,
-                            height: 48,
-                            errorBuilder: (context, error, stackTrace) => Icon(
-                              Icons.music_note,
-                              color: colorScheme.outline,
-                            ),
-                          )
-                        : Icon(
-                            Icons.music_note,
-                            color: colorScheme.outline,
-                          ),
+                    child: _buildThumbnail(colorScheme),
                   ),
                   if (isPlaying)
                     Container(
@@ -402,5 +390,51 @@ class _QueueTrackTile extends StatelessWidget {
     final minutes = duration.inMinutes;
     final seconds = duration.inSeconds.remainder(60);
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  Widget _buildThumbnail(ColorScheme colorScheme) {
+    // 已下载歌曲优先使用本地封面
+    if (track.downloadedPath != null) {
+      final dir = Directory(track.downloadedPath!).parent;
+      final coverFile = File('${dir.path}/cover.jpg');
+      if (coverFile.existsSync()) {
+        return Image.file(
+          coverFile,
+          fit: BoxFit.cover,
+          width: 48,
+          height: 48,
+          errorBuilder: (context, error, stackTrace) => Center(
+            child: Icon(
+              Icons.music_note,
+              color: colorScheme.outline,
+            ),
+          ),
+        );
+      }
+    }
+
+    // 回退到网络封面
+    if (track.thumbnailUrl != null) {
+      return Image.network(
+        track.thumbnailUrl!,
+        fit: BoxFit.cover,
+        width: 48,
+        height: 48,
+        errorBuilder: (context, error, stackTrace) => Center(
+          child: Icon(
+            Icons.music_note,
+            color: colorScheme.outline,
+          ),
+        ),
+      );
+    }
+
+    // 无封面时显示占位符
+    return Center(
+      child: Icon(
+        Icons.music_note,
+        color: colorScheme.outline,
+      ),
+    );
   }
 }
