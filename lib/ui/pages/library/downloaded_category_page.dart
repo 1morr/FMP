@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/download_provider.dart';
@@ -294,18 +295,14 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
   void _playAll(List<Track> tracks) {
     final controller = ref.read(audioControllerProvider.notifier);
     controller.addAllToQueue(tracks);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已添加 ${tracks.length} 首歌曲到队列')),
-    );
+    ToastService.show(context, '已添加 ${tracks.length} 首歌曲到队列');
   }
 
   void _shufflePlay(List<Track> tracks) {
     final controller = ref.read(audioControllerProvider.notifier);
     final shuffled = List<Track>.from(tracks)..shuffle();
     controller.addAllToQueue(shuffled);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已随机添加 ${tracks.length} 首歌曲到队列')),
-    );
+    ToastService.show(context, '已随机添加 ${tracks.length} 首歌曲到队列');
   }
 
   Widget _buildEmptyState(BuildContext context) {
@@ -381,9 +378,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
   void _addAllToQueue(BuildContext context, List<Track> tracks) {
     final controller = ref.read(audioControllerProvider.notifier);
     controller.addAllToQueue(tracks);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已添加 ${tracks.length} 个分P到队列')),
-    );
+    ToastService.show(context, '已添加 ${tracks.length} 个分P到队列');
   }
 
   void _playTrack(Track track) {
@@ -547,9 +542,7 @@ class _GroupHeader extends ConsumerWidget {
         if (confirmed == true && context.mounted) {
           await _deleteAllDownloads(ref);
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('已删除 ${group.tracks.length} 个分P的下载文件')),
-            );
+            ToastService.show(context, '已删除 ${group.tracks.length} 个分P的下载文件');
           }
         }
         break;
@@ -709,15 +702,11 @@ class _DownloadedTrackTile extends ConsumerWidget {
     switch (action) {
       case 'play_next':
         ref.read(audioControllerProvider.notifier).addNext(track);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已添加到下一首')),
-        );
+        ToastService.show(context, '已添加到下一首');
         break;
       case 'add_to_queue':
         ref.read(audioControllerProvider.notifier).addToQueue(track);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已添加到播放队列')),
-        );
+        ToastService.show(context, '已添加到播放队列');
         break;
       case 'add_to_playlist':
         showAddToPlaylistDialog(context: context, track: track);
@@ -743,9 +732,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
         if (confirmed == true && context.mounted) {
           await _deleteDownload(ref);
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('已删除下载文件')),
-            );
+            ToastService.show(context, '已删除下载文件');
           }
         }
         break;

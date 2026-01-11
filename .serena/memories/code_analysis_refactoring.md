@@ -9,30 +9,32 @@
 - Stream 监听任务变化，响应式更新
 - 进度节流优化，避免 Windows 线程问题
 
-### 待优化：
-1. `_scheduleDownloads` 每 500ms 轮询 → 改为事件驱动
-2. `_startDownload` 是 void async → 改为 Future<void>
-3. 缺少断点续传支持
-4. TrackRepository 被创建两次实例
+### 待优化（未实施）：
+1. ⏸️ `_scheduleDownloads` 每 500ms 轮询 → 改为事件驱动
+2. ⏸️ `_startDownload` 是 void async → 改为 Future<void>
+3. ⏸️ 缺少断点续传支持
+4. ⏸️ TrackRepository 被创建两次实例
 
 ## 二、UI 重复代码
 
-### 🔴 高优先级重复
+### 高优先级重复 - 完成状态
 
-| 模式 | 重复次数 | 文件数 |
-|------|----------|--------|
-| 封面图片构建 | 10+ | 6 |
-| 时长格式化 | 7 | 5 |
-| TrackGroup 分组 | 2 (完整复制) | 2 |
-| SnackBar 调用 | 30+ | 10+ |
+| 模式 | 重复次数 | 文件数 | 状态 |
+|------|----------|--------|------|
+| 封面图片构建 | 10+ | 7 | ✅ 已统一到 TrackThumbnail |
+| 时长格式化 | 7 | 5 | ✅ 已统一到 DurationFormatter |
+| TrackGroup 分组 | 2 | 2 | ✅ 已提取到共享组件 |
+| _getVolumeIcon | 2 | 2 | ✅ 已提取到 icon_helpers.dart |
+| SnackBar 调用 | 48→20 | 10+ | 🔄 已统一大部分到 ToastService |
 
-### 涉及文件：
-- `mini_player.dart` - _buildThumbnailImage
-- `player_page.dart` - _buildCoverImage
-- `queue_page.dart` - _buildThumbnail
-- `track_detail_panel.dart` - _buildCoverImage, _buildMainCover, _buildTrackCover
-- `downloaded_category_page.dart` - _buildThumbnail (2处), _GroupHeader, _DownloadedTrackTile
-- `playlist_detail_page.dart` - Image.network, _GroupHeader, _TrackListTile
+### 已重构文件：✅
+- `mini_player.dart` - 使用 TrackThumbnail, getVolumeIcon
+- `player_page.dart` - 使用 TrackCover, DurationFormatter, getVolumeIcon
+- `queue_page.dart` - 使用 TrackThumbnail, DurationFormatter
+- `track_detail_panel.dart` - 使用 TrackCover, TrackThumbnail
+- `downloaded_category_page.dart` - 使用 TrackThumbnail, DurationFormatter, TrackGroup
+- `playlist_detail_page.dart` - 使用 TrackThumbnail, DurationFormatter, TrackGroup
+- `search_page.dart` - 使用 TrackThumbnail, DurationFormatter
 
 ## 三、重构计划
 
@@ -69,65 +71,35 @@
 
 ## 四、Code Simplifier 审查发现 (2026-01-11)
 
-### 🔴 高优先级
+### ✅ 高优先级 - 已完成
 
-**1. downloaded_category_page 与 playlist_detail_page 大量重复**
-- `_TrackGroup` 类 - 完全相同 (lines 421-431 / 484-494)
-- `_groupTracks()` 方法 - 几乎相同 (lines 335-358 / 93-116)
-- `_GroupHeader` 组件 - 结构相似
-- `_toggleGroup()` / `_addAllToQueue()` - 相同实现
+**1. downloaded_category_page 与 playlist_detail_page 大量重复** ✅
+- [x] `_TrackGroup` 类 → 提取到 `lib/ui/widgets/track_group/track_group.dart`
+- [x] `_groupTracks()` 方法 → 提取到 `groupTracks()` 共享函数
+- [ ] `_GroupHeader` 组件 - 保留各自实现（菜单选项不同）
+- [ ] `_toggleGroup()` / `_addAllToQueue()` - 保留各自实现（依赖不同）
 
-建议提取到：
-```
-lib/ui/widgets/track_group/
-  ├── track_group.dart          # _TrackGroup 数据类
-  ├── track_group_header.dart   # GroupHeader 组件
-  └── grouped_track_list.dart   # 分组逻辑
-```
+### ✅ 中优先级 - 已完成
 
-### 🟡 中优先级
+**2. TrackThumbnail 未使用 TrackExtensions** ✅
+- [x] 已改用 `track.localCoverPath` 扩展
 
-**2. TrackThumbnail 未使用 TrackExtensions**
-- `track_thumbnail.dart` 第 69-84 行本地封面检测逻辑
-- 与 `TrackExtensions.localCoverPath` 完全相同
-- 建议改用 `track.localCoverPath` 扩展
+**3. _getVolumeIcon 方法重复** ✅
+- [x] 已提取到 `lib/core/utils/icon_helpers.dart`
+- [x] mini_player.dart 和 player_page.dart 已更新使用共享方法
 
-**3. _getVolumeIcon 方法重复**
-- `mini_player.dart:469-477`
-- `player_page.dart:446-454`
-- 建议提取到 `lib/core/utils/icon_helpers.dart`
+### ✅ 低优先级 - 已完成
 
-### 🟢 低优先级
+**4. 代码风格问题** ✅
+- [x] `queue_page.dart` - 已修复多余空行
+- [x] `player_page.dart` - 已修复（在简化 switch 时一并修复）
+- [x] `track_detail_panel.dart` - 已修复多余空行
 
-**4. 代码风格问题**
-- `queue_page.dart:363` - 类结束前多余空行
-- `player_page.dart:480` - 类结束前多余空行
-- `track_detail_panel.dart:423` - 类结束前多余空行
+**5. player_page.dart LoopMode switch 冗长** ✅
+- [x] 已简化为 switch 表达式
 
-**5. player_page.dart LoopMode switch 冗长**
-- 第 457-478 行有两个独立的 switch 语句
-- 建议合并为 mini_player.dart 的模式：
-```dart
-final (icon, tooltip) = switch (state.loopMode) {
-  LoopMode.none => (Icons.repeat, '不循环'),
-  LoopMode.all => (Icons.repeat, '列表循环'),
-  LoopMode.one => (Icons.repeat_one, '单曲循环'),
-};
-```
-
-**6. queue_page.dart:36-42 条件初始化可简化**
-```dart
-// 当前
-if (autoScroll && currentIndex > 0) {
-  _scrollController = ScrollController(initialScrollOffset: offset);
-} else {
-  _scrollController = ScrollController();
-}
-
-// 建议
-final offset = (autoScroll && currentIndex > 0) ? calculated : 0.0;
-_scrollController = ScrollController(initialScrollOffset: offset);
-```
+**6. queue_page.dart:36-42 条件初始化可简化** ⏸️
+- [ ] 保留现状（可读性优先，改动收益较小）
 
 ## 五、注意事项
 
