@@ -19,6 +19,7 @@ FMP 使用三层优先级的图片加载策略：
 - 统一的图片加载优先级：本地 → 网络 → 占位符
 - 集成 LocalImageCache 用于本地图片 LRU 缓存
 - 提供统一的占位符和错误处理
+- 图片加载完成后有淡入效果（默认 150ms）
 
 **使用方式**：
 ```dart
@@ -28,12 +29,17 @@ ImageLoadingService.loadImage(
   networkUrl: track.thumbnailUrl,
   placeholder: placeholder,
   fit: BoxFit.cover,
+  fadeInDuration: Duration(milliseconds: 150), // 可选，默认 150ms
 );
 
 // 专用方法
 ImageLoadingService.loadTrackCover(track, size: 48);
 ImageLoadingService.loadAvatar(localPath: path, networkUrl: url);
 ```
+
+**内部组件**：
+- `_FadeInImage` - 本地图片淡入组件
+- `_FadeInNetworkImage` - 网络图片淡入组件
 
 ### 0.1. LocalImageCache（本地图片LRU缓存）✅ Phase 1 新增
 
