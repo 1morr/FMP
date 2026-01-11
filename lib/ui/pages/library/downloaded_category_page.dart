@@ -27,6 +27,20 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
   // 展开状态：key是groupKey
   final Set<String> _expandedGroups = {};
 
+  // 缓存分组结果，避免每次 build 重新计算
+  List<Track>? _cachedTracks;
+  List<TrackGroup>? _cachedGroups;
+
+  /// 获取分组后的 tracks，使用缓存避免重复计算
+  List<TrackGroup> _getGroupedTracks(List<Track> tracks) {
+    // 检查是否需要重新计算
+    if (_cachedTracks != tracks || _cachedGroups == null) {
+      _cachedTracks = tracks;
+      _cachedGroups = groupTracks(tracks);
+    }
+    return _cachedGroups!;
+  }
+
   @override
   Widget build(BuildContext context) {
     final tracksAsync = ref.watch(downloadedCategoryTracksProvider(widget.category.folderPath));
@@ -60,8 +74,8 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
           ],
         ),
         data: (tracks) {
-          // 将tracks按groupKey分组
-          final groupedTracks = groupTracks(tracks);
+          // 使用缓存的分组结果，避免每次 build 重新计算
+          final groupedTracks = _getGroupedTracks(tracks);
 
           return CustomScrollView(
             slivers: [

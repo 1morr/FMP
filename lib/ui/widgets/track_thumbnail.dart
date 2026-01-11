@@ -1,8 +1,7 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import '../../core/extensions/track_extensions.dart';
+import '../../core/services/image_loading_service.dart';
 import '../../data/models/track.dart';
 import 'now_playing_indicator.dart';
 
@@ -68,33 +67,17 @@ class TrackThumbnail extends StatelessWidget {
   }
 
   Widget _buildImage(ColorScheme colorScheme) {
-    // 1. 已下载歌曲优先使用本地封面
-    final localPath = track.localCoverPath;
-    if (localPath != null) {
-      return Image.file(
-        File(localPath),
-        fit: BoxFit.cover,
-        width: size,
-        height: size,
-        errorBuilder: (context, error, stackTrace) =>
-            _buildPlaceholder(colorScheme),
-      );
-    }
+    final placeholder = _buildPlaceholder(colorScheme);
 
-    // 2. 回退到网络封面
-    if (track.thumbnailUrl != null && track.thumbnailUrl!.isNotEmpty) {
-      return Image.network(
-        track.thumbnailUrl!,
-        fit: BoxFit.cover,
-        width: size,
-        height: size,
-        errorBuilder: (context, error, stackTrace) =>
-            _buildPlaceholder(colorScheme),
-      );
-    }
-
-    // 3. 无封面时显示占位符
-    return _buildPlaceholder(colorScheme);
+    // 使用 ImageLoadingService 加载图片（集成 LocalImageCache）
+    return ImageLoadingService.loadImage(
+      localPath: track.localCoverPath,
+      networkUrl: track.thumbnailUrl,
+      placeholder: placeholder,
+      fit: BoxFit.cover,
+      width: size,
+      height: size,
+    );
   }
 
   Widget _buildPlaceholder(ColorScheme colorScheme) {
@@ -171,41 +154,16 @@ class TrackCover extends StatelessWidget {
   }
 
   Widget _buildImage(ColorScheme colorScheme) {
-    // 1. 已下载歌曲优先使用本地封面
-    final localPath = track?.localCoverPath;
-    if (localPath != null) {
-      return Image.file(
-        File(localPath),
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) =>
-            _buildPlaceholder(colorScheme),
-      );
-    }
+    final placeholder = _buildPlaceholder(colorScheme);
 
-    // 2. 使用网络封面
-    final url = networkUrl ?? track?.thumbnailUrl;
-    if (url != null && url.isNotEmpty) {
-      return Image.network(
-        url,
-        fit: BoxFit.cover,
-        loadingBuilder: showLoadingIndicator
-            ? (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return Center(
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: colorScheme.primary,
-                  ),
-                );
-              }
-            : null,
-        errorBuilder: (context, error, stackTrace) =>
-            _buildPlaceholder(colorScheme),
-      );
-    }
-
-    // 3. 无封面时显示占位符
-    return _buildPlaceholder(colorScheme);
+    // 使用 ImageLoadingService 加载图片（集成 LocalImageCache）
+    return ImageLoadingService.loadImage(
+      localPath: track?.localCoverPath,
+      networkUrl: networkUrl ?? track?.thumbnailUrl,
+      placeholder: placeholder,
+      fit: BoxFit.cover,
+      showLoadingIndicator: showLoadingIndicator,
+    );
   }
 
   Widget _buildPlaceholder(ColorScheme colorScheme) {

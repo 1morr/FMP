@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "agent",
-            "prompt": "Check if SOURCE CODE files were modified in this session. Only consider actual code files like .dart, .ts, .js, .jsx, .tsx, .py, .java, .kt, .swift, .go, .rs, .cpp, .c, .h, etc. IGNORE documentation files (.md, .txt, .rst), config files (.json, .yaml, .yml, .toml, .xml), and other non-code files. If source code was modified AND code-simplifier has NOT been run, return: {\"decision\": \"block\", \"reason\": \"Source code was modified\", \"systemMessage\": \"You must use the Task tool to spawn the 'code-simplifier:code-simplifier' subagent to review the modified source code before completing the task.\"}. If only non-code files were modified OR code-simplifier already ran OR no files were modified, return: {\"decision\": \"approve\"}.",
+            "prompt": "Determine if code-simplifier review is needed. Check the conversation history for Task tool calls with 'code-simplifier:code-simplifier' subagent. If code-simplifier:code-simplifier was ALREADY spawned/run at ANY point in this conversation (even if it modified more files afterward), return: {\"decision\": \"approve\"}. Only if source code files (.dart, .ts, .js, .py, etc.) were modified AND code-simplifier:code-simplifier has NEVER been called in this conversation, return: {\"decision\": \"block\", \"reason\": \"Source code modified, code review needed\", \"systemMessage\": \"Run code-simplifier:code-simplifier subagent via Task tool to review the code.\"}. For non-code files (.md, .json, .yaml, etc.) or if no files modified, return: {\"decision\": \"approve\"}.",
             "model": "claude-sonnet-4-5-20250929",
             "timeout": 120
           }
