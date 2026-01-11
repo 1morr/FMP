@@ -11,6 +11,46 @@ FMP 使用三层优先级的图片加载策略：
 
 ## 核心组件
 
+### 0. ImageLoadingService（统一图片加载服务）✅ Phase 1 新增
+
+**文件位置**：`lib/core/services/image_loading_service.dart`
+
+**功能**：
+- 统一的图片加载优先级：本地 → 网络 → 占位符
+- 集成 LocalImageCache 用于本地图片 LRU 缓存
+- 提供统一的占位符和错误处理
+
+**使用方式**：
+```dart
+// 通用图片加载
+ImageLoadingService.loadImage(
+  localPath: track.localCoverPath,
+  networkUrl: track.thumbnailUrl,
+  placeholder: placeholder,
+  fit: BoxFit.cover,
+);
+
+// 专用方法
+ImageLoadingService.loadTrackCover(track, size: 48);
+ImageLoadingService.loadAvatar(localPath: path, networkUrl: url);
+```
+
+### 0.1. LocalImageCache（本地图片LRU缓存）✅ Phase 1 新增
+
+**文件位置**：`lib/core/services/local_image_cache.dart`
+
+**功能**：
+- 缓存本地图片的 ImageProvider，避免重复从文件系统读取
+- 使用 LRU 策略，限制缓存大小（默认 100 条）
+- 自动跳过不存在的文件
+
+**使用方式**：
+```dart
+final imageProvider = LocalImageCache.getLocalImage(path);
+LocalImageCache.remove(path); // 清理单个缓存
+LocalImageCache.clear(); // 清空所有缓存
+```
+
 ### 1. TrackThumbnail（歌曲缩略图）
 
 **文件位置**：`lib/ui/widgets/track_thumbnail.dart`
@@ -19,22 +59,20 @@ FMP 使用三层优先级的图片加载策略：
 
 **尺寸**：通常 40-56px
 
-**加载优先级**：
+**加载优先级**（已更新为使用 ImageLoadingService）：
 ```dart
 Widget _buildImage(ColorScheme colorScheme) {
-  // 1. 已下载歌曲优先使用本地封面
-  final localPath = track.localCoverPath;
-  if (localPath != null) {
-    return Image.file(File(localPath), fit: BoxFit.cover);
-  }
-
-  // 2. 回退到网络封面
-  if (track.thumbnailUrl != null && track.thumbnailUrl!.isNotEmpty) {
-    return Image.network(track.thumbnailUrl!, fit: BoxFit.cover);
-  }
-
-  // 3. 无封面时显示占位符
-  return _buildPlaceholder(colorScheme);
+  final placeholder = _buildPlaceholder(colorScheme);
+  
+  // 使用 ImageLoadingService 加载图片（集成 LocalImageCache）
+  return ImageLoadingService.loadImage(
+    localPath: track.localCoverPath,
+    networkUrl: track.thumbnailUrl,
+    placeholder: placeholder,
+    fit: BoxFit.cover,
+    width: size,
+    height: size,
+  );
 }
 ```
 
