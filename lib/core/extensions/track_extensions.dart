@@ -13,6 +13,14 @@ extension TrackExtensions on Track {
     return File(coverPath).existsSync() ? coverPath : null;
   }
 
+  /// 获取本地头像路径（如果存在）
+  String? get localAvatarPath {
+    if (downloadedPath == null) return null;
+    final dir = Directory(downloadedPath!).parent;
+    final avatarPath = '${dir.path}/avatar.jpg';
+    return File(avatarPath).existsSync() ? avatarPath : null;
+  }
+
   /// 格式化时长显示
   String get formattedDuration {
     if (durationMs == null) return '--:--';
