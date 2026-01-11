@@ -654,7 +654,7 @@ class DownloadService with Logging {
 
     final metadataFile = File(p.join(videoDir.path, 'metadata.json'));
     await metadataFile.writeAsString(jsonEncode(metadata));
-    
+
     // 下载封面（如果设置允许）
     if (settings.downloadImageOption != DownloadImageOption.none && track.thumbnailUrl != null) {
       try {
@@ -662,6 +662,18 @@ class DownloadService with Logging {
         await _dio.download(track.thumbnailUrl!, coverPath);
       } catch (e) {
         logDebug('Failed to download cover: $e');
+      }
+    }
+
+    // 下载UP主头像（如果设置为"封面和头像"且有头像URL）
+    if (settings.downloadImageOption == DownloadImageOption.coverAndAvatar &&
+        videoDetail != null &&
+        videoDetail.ownerFace.isNotEmpty) {
+      try {
+        final avatarPath = p.join(videoDir.path, 'avatar.jpg');
+        await _dio.download(videoDetail.ownerFace, avatarPath);
+      } catch (e) {
+        logDebug('Failed to download avatar: $e');
       }
     }
   }
