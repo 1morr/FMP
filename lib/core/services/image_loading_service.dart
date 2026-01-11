@@ -4,12 +4,16 @@ import '../../data/models/track.dart';
 import '../extensions/track_extensions.dart';
 import 'local_image_cache.dart';
 
+/// 默认淡入动画时长
+const _kDefaultFadeInDuration = Duration(milliseconds: 150);
+
 /// 统一的图片加载服务
 ///
 /// 功能：
 /// - 统一的图片加载优先级：本地 → 网络 → 占位符
 /// - 集成 LocalImageCache 用于本地图片缓存
 /// - 提供统一的占位符和错误处理
+/// - 图片加载完成后有淡入效果
 class ImageLoadingService {
   ImageLoadingService._();
 
@@ -28,6 +32,7 @@ class ImageLoadingService {
   /// [height] 高度
   /// [headers] 网络请求头（用于需要认证的图片）
   /// [showLoadingIndicator] 是否显示加载指示器
+  /// [fadeInDuration] 淡入动画时长
   static Widget loadImage({
     String? localPath,
     String? networkUrl,
@@ -37,16 +42,19 @@ class ImageLoadingService {
     double? height,
     Map<String, String>? headers,
     bool showLoadingIndicator = false,
+    Duration fadeInDuration = _kDefaultFadeInDuration,
   }) {
     // 1. 尝试加载本地图片
     if (localPath != null) {
       final imageProvider = LocalImageCache.getLocalImage(localPath);
       if (imageProvider != null) {
-        return Image(
+        return _FadeInImage(
           image: imageProvider,
           fit: fit,
           width: width,
           height: height,
+          placeholder: placeholder,
+          fadeInDuration: fadeInDuration,
           errorBuilder: (context, error, stackTrace) {
             // 本地文件加载失败，尝试网络图片
             return _loadNetworkOrPlaceholder(
@@ -57,6 +65,7 @@ class ImageLoadingService {
               height: height,
               headers: headers,
               showLoadingIndicator: showLoadingIndicator,
+              fadeInDuration: fadeInDuration,
             );
           },
         );
@@ -72,6 +81,7 @@ class ImageLoadingService {
       height: height,
       headers: headers,
       showLoadingIndicator: showLoadingIndicator,
+      fadeInDuration: fadeInDuration,
     );
   }
 
@@ -84,29 +94,18 @@ class ImageLoadingService {
     double? height,
     Map<String, String>? headers,
     bool showLoadingIndicator = false,
+    Duration fadeInDuration = _kDefaultFadeInDuration,
   }) {
     if (networkUrl != null && networkUrl.isNotEmpty) {
-      return Image.network(
-        networkUrl,
+      return _FadeInNetworkImage(
+        url: networkUrl,
         fit: fit,
         width: width,
         height: height,
         headers: headers,
-        loadingBuilder: showLoadingIndicator
-            ? (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return Center(
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    value: loadingProgress.expectedTotalBytes != null
-                        ? loadingProgress.cumulativeBytesLoaded /
-                            loadingProgress.expectedTotalBytes!
-                        : null,
-                  ),
-                );
-              }
-            : null,
-        errorBuilder: (context, error, stackTrace) => placeholder,
+        placeholder: placeholder,
+        showLoadingIndicator: showLoadingIndicator,
+        fadeInDuration: fadeInDuration,
       );
     }
 
@@ -227,6 +226,229 @@ class ImageLoadingService {
       icon: icon,
       iconSize: iconSize ?? 24,
       backgroundColor: backgroundColor,
+    );
+  }
+}
+
+/// 带淡入效果的本地图片组件
+class _FadeInImage extends StatefulWidget {
+  final ImageProvider image;
+  final BoxFit fit;
+  final double? width;
+  final double? height;
+  final Widget placeholder;
+  final Duration fadeInDuration;
+  final Widget Function(BuildContext, Object, StackTrace?)? errorBuilder;
+
+  const _FadeInImage({
+    required this.image,
+    required this.fit,
+    this.width,
+    this.height,
+    required this.placeholder,
+    required this.fadeInDuration,
+    this.errorBuilder,
+  });
+
+  @override
+  State<_FadeInImage> createState() => _FadeInImageState();
+}
+
+class _FadeInImageState extends State<_FadeInImage>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+  bool _isLoaded = false;
+  Object? _error;
+  StackTrace? _stackTrace;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: widget.fadeInDuration,
+      vsync: this,
+    );
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeIn,
+    );
+
+    // 预加载图片
+    _loadImage();
+  }
+
+  void _loadImage() {
+    final ImageStream stream = widget.image.resolve(ImageConfiguration.empty);
+    stream.addListener(ImageStreamListener(
+      (ImageInfo info, bool synchronousCall) {
+        if (mounted) {
+          setState(() {
+            _isLoaded = true;
+          });
+          _controller.forward();
+        }
+      },
+      onError: (Object error, StackTrace? stackTrace) {
+        if (mounted) {
+          setState(() {
+            _error = error;
+            _stackTrace = stackTrace;
+          });
+        }
+      },
+    ));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 如果有错误，使用 errorBuilder
+    if (_error != null && widget.errorBuilder != null) {
+      return widget.errorBuilder!(context, _error!, _stackTrace);
+    }
+
+    return Stack(
+      fit: StackFit.passthrough,
+      children: [
+        // 占位符
+        if (!_isLoaded) widget.placeholder,
+        // 图片（带淡入动画）
+        if (_isLoaded)
+          FadeTransition(
+            opacity: _animation,
+            child: Image(
+              image: widget.image,
+              fit: widget.fit,
+              width: widget.width,
+              height: widget.height,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// 带淡入效果的网络图片组件
+class _FadeInNetworkImage extends StatefulWidget {
+  final String url;
+  final BoxFit fit;
+  final double? width;
+  final double? height;
+  final Map<String, String>? headers;
+  final Widget placeholder;
+  final bool showLoadingIndicator;
+  final Duration fadeInDuration;
+
+  const _FadeInNetworkImage({
+    required this.url,
+    required this.fit,
+    this.width,
+    this.height,
+    this.headers,
+    required this.placeholder,
+    required this.showLoadingIndicator,
+    required this.fadeInDuration,
+  });
+
+  @override
+  State<_FadeInNetworkImage> createState() => _FadeInNetworkImageState();
+}
+
+class _FadeInNetworkImageState extends State<_FadeInNetworkImage>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+  bool _isLoaded = false;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: widget.fadeInDuration,
+      vsync: this,
+    );
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeIn,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onImageLoaded() {
+    if (!_isLoaded && mounted) {
+      setState(() {
+        _isLoaded = true;
+      });
+      _controller.forward();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasError) {
+      return widget.placeholder;
+    }
+
+    return Stack(
+      fit: StackFit.passthrough,
+      children: [
+        // 占位符或加载指示器
+        if (!_isLoaded)
+          widget.showLoadingIndicator
+              ? Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                  ),
+                )
+              : widget.placeholder,
+        // 图片
+        Opacity(
+          opacity: _isLoaded ? 1.0 : 0.0,
+          child: FadeTransition(
+            opacity: _animation,
+            child: Image.network(
+              widget.url,
+              fit: widget.fit,
+              width: widget.width,
+              height: widget.height,
+              headers: widget.headers,
+              frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                if (wasSynchronouslyLoaded || frame != null) {
+                  // 图片帧加载完成
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _onImageLoaded();
+                  });
+                }
+                return child;
+              },
+              errorBuilder: (context, error, stackTrace) {
+                if (mounted && !_hasError) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) {
+                      setState(() {
+                        _hasError = true;
+                      });
+                    }
+                  });
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
