@@ -43,7 +43,8 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:pub.dev)",
       "mcp__tavily-remote-mcp__tavily_search",
-      "mcp__tavily-remote-mcp__tavily_extract"
+      "mcp__tavily-remote-mcp__tavily_extract",
+      "WebFetch(domain:claude.com)"
     ]
   }
 }

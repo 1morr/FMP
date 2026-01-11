@@ -449,12 +449,6 @@ class _GroupHeader extends ConsumerWidget {
                   ),
             ),
           ),
-          const SizedBox(width: 8),
-          Icon(
-            Icons.download_done,
-            size: 14,
-            color: colorScheme.primary,
-          ),
         ],
       ),
       trailing: Row(
@@ -621,23 +615,12 @@ class _DownloadedTrackTile extends ConsumerWidget {
             ),
           ],
         ),
-        subtitle: Row(
-          children: [
-            Expanded(
-              child: Text(
-                isPartOfMultiPage
-                    ? 'P${track.pageNum ?? 1} · ${DurationFormatter.formatMs(track.durationMs ?? 0)}'
-                    : track.artist ?? '未知艺术家',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Icon(
-              Icons.download_done,
-              size: 14,
-              color: colorScheme.primary,
-            ),
-          ],
+        subtitle: Text(
+          isPartOfMultiPage
+              ? 'P${track.pageNum ?? 1} · ${DurationFormatter.formatMs(track.durationMs ?? 0)}'
+              : track.artist ?? '未知艺术家',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,

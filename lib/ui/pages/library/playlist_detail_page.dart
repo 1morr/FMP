@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -509,6 +511,17 @@ class _GroupHeader extends ConsumerWidget {
                   ),
             ),
           ),
+          // 检查是否所有分P都已下载
+          if (group.tracks.every((t) =>
+              t.downloadedPath != null &&
+              File(t.downloadedPath!).existsSync())) ...[
+            const SizedBox(width: 8),
+            Icon(
+              Icons.download_done,
+              size: 14,
+              color: colorScheme.primary,
+            ),
+          ],
         ],
       ),
       trailing: Row(
@@ -665,12 +678,26 @@ class _TrackListTile extends ConsumerWidget {
             ),
           ],
         ),
-        subtitle: Text(
-          isPartOfMultiPage
-              ? 'P${track.pageNum ?? 1} · ${DurationFormatter.formatMs(track.durationMs ?? 0)}'
-              : track.artist ?? '未知艺术家',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        subtitle: Row(
+          children: [
+            Expanded(
+              child: Text(
+                isPartOfMultiPage
+                    ? 'P${track.pageNum ?? 1} · ${DurationFormatter.formatMs(track.durationMs ?? 0)}'
+                    : track.artist ?? '未知艺术家',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            // 检查歌曲是否已下载到本地
+            if (track.downloadedPath != null &&
+                File(track.downloadedPath!).existsSync())
+              Icon(
+                Icons.download_done,
+                size: 14,
+                color: colorScheme.primary,
+              ),
+          ],
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
