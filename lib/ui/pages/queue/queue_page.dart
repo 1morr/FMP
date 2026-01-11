@@ -24,6 +24,10 @@ class _QueuePageState extends ConsumerState<QueuePage> {
   bool _initialScrollDone = false;
   int? _lastCurrentIndex;
 
+  /// 本地队列副本，用于解决拖拽时的闪烁问题
+  List<Track>? _localQueue;
+  int? _localCurrentIndex;
+
   @override
   void initState() {
     super.initState();
@@ -63,9 +67,28 @@ class _QueuePageState extends ConsumerState<QueuePage> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final playerState = ref.watch(audioControllerProvider);
-    final queue = playerState.queue;
-    final currentIndex = playerState.currentIndex ?? -1;
+    final providerQueue = playerState.queue;
+    final providerCurrentIndex = playerState.currentIndex ?? -1;
     final autoScroll = ref.watch(autoScrollToCurrentTrackProvider);
+
+    // 同步本地队列与provider
+    // 当provider队列与本地队列内容一致时（只是顺序可能不同），不需要同步
+    // 只有在长度变化或元素变化时才需要同步
+    final providerIds = providerQueue.map((t) => t.id).toSet();
+    final localIds = _localQueue?.map((t) => t.id).toSet();
+    final needsSync = _localQueue == null ||
+        providerQueue.length != _localQueue!.length ||
+        !providerIds.containsAll(localIds ?? {}) ||
+        !localIds!.containsAll(providerIds);
+
+    if (needsSync) {
+      _localQueue = List.from(providerQueue);
+    }
+    // 始终同步当前播放索引（不影响队列顺序）
+    _localCurrentIndex = providerCurrentIndex;
+
+    final queue = _localQueue!;
+    final currentIndex = _localCurrentIndex ?? -1;
 
     // 首次渲染后微调到精确的 30% 位置
     if (autoScroll && !_initialScrollDone && currentIndex >= 0) {
@@ -199,6 +222,27 @@ class _QueuePageState extends ConsumerState<QueuePage> {
             onReorder: (oldIndex, newIndex) {
               // ReorderableListView 的 newIndex 在向下移动时需要减 1
               if (newIndex > oldIndex) newIndex--;
+              if (oldIndex == newIndex) return;
+
+              // 先更新本地状态（同步），避免闪烁
+              setState(() {
+                final track = _localQueue!.removeAt(oldIndex);
+                _localQueue!.insert(newIndex, track);
+
+                // 调整本地当前索引
+                final localIdx = _localCurrentIndex;
+                if (localIdx != null) {
+                  if (oldIndex == localIdx) {
+                    _localCurrentIndex = newIndex;
+                  } else if (oldIndex < localIdx && newIndex >= localIdx) {
+                    _localCurrentIndex = localIdx - 1;
+                  } else if (oldIndex > localIdx && newIndex <= localIdx) {
+                    _localCurrentIndex = localIdx + 1;
+                  }
+                }
+              });
+
+              // 然后同步到 provider（异步）
               ref.read(audioControllerProvider.notifier).moveInQueue(oldIndex, newIndex);
             },
             proxyDecorator: (child, index, animation) {

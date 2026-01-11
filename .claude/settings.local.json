@@ -5,8 +5,10 @@
         "matcher": "*",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Before completing this task, check if any code was written or modified (using Write, Edit, or similar tools). If code was modified, you MUST spawn the 'code-simplifier:code-simplifier' agent using the Task tool to review and simplify the code for clarity, consistency, and maintainability. Only return 'approve' to stop after the code-simplifier agent has completed its review. If no code was modified, you may approve immediately."
+            "type": "agent",
+            "prompt": "Check if code was modified in this session (Write, Edit tools used). If code was modified and the code-simplifier agent has NOT yet been run, return: {\"decision\": \"block\", \"reason\": \"Code was modified\", \"systemMessage\": \"You must use the Task tool to spawn the 'code-simplifier:code-simplifier' subagent to review the modified code before completing the task.\"}. If code-simplifier already ran OR no code was modified, return: {\"decision\": \"approve\"}.",
+            "model": "claude-sonnet-4-5-20250929",
+            "timeout": 120
           }
         ]
       }
