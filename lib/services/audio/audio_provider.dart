@@ -378,8 +378,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
       _isTemporaryPlay = true;
 
-      // 获取音频 URL 并播放（不修改队列）
-      final trackWithUrl = await _queueManager.ensureAudioUrl(track);
+      // 获取音频 URL 并播放（不修改队列，不保存到数据库）
+      final trackWithUrl = await _queueManager.ensureAudioUrl(track, persist: false);
 
       final url = trackWithUrl.downloadedPath ??
                   trackWithUrl.cachedPath ??

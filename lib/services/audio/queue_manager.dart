@@ -605,7 +605,8 @@ class QueueManager with Logging {
   /// 确保歌曲有有效的音频 URL
   /// 如果获取失败会重试一次
   /// 如果本地文件不存在，会清除路径并回退到在线播放
-  Future<Track> ensureAudioUrl(Track track, {int retryCount = 0}) async {
+  /// [persist] 是否将 track 保存到数据库，临时播放时设为 false
+  Future<Track> ensureAudioUrl(Track track, {int retryCount = 0, bool persist = true}) async {
     // 如果有本地文件路径，检查文件是否存在
     if (track.downloadedPath != null || track.cachedPath != null) {
       final localPath = track.downloadedPath ?? track.cachedPath;
@@ -641,7 +642,9 @@ class QueueManager with Logging {
           ..updatedAt = DateTime.now();
         
         // 保存更新后的 track
-        await _trackRepository.save(updatedTrack);
+        if (persist) {
+          await _trackRepository.save(updatedTrack);
+        }
         
         // 更新队列中的 track
         final index = _tracks.indexWhere((t) => t.id == track.id);
@@ -669,7 +672,9 @@ class QueueManager with Logging {
 
     try {
       final refreshedTrack = await source.refreshAudioUrl(track);
-      await _trackRepository.save(refreshedTrack);
+      if (persist) {
+        await _trackRepository.save(refreshedTrack);
+      }
       logDebug('Successfully fetched audio URL for: ${track.title}');
 
       // 更新队列中的 track
@@ -684,7 +689,7 @@ class QueueManager with Logging {
       if (retryCount < 1) {
         logWarning('Failed to fetch audio URL for ${track.title}, retrying in 1 second: $e');
         await Future.delayed(const Duration(seconds: 1));
-        return ensureAudioUrl(track, retryCount: retryCount + 1);
+        return ensureAudioUrl(track, retryCount: retryCount + 1, persist: persist);
       }
       logError('Failed to fetch audio URL for ${track.title} after ${retryCount + 1} attempts', e);
       rethrow;
