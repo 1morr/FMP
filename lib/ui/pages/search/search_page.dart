@@ -1083,13 +1083,7 @@ class _LocalGroupTile extends ConsumerWidget {
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (firstTrack.durationMs != null && !hasMultipleParts)
-                Text(
-                  DurationFormatter.formatMs(firstTrack.durationMs!),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.outline,
-                      ),
-                ),
+              // 展开/折叠按钮 - 与音乐库页面对齐
               if (hasMultipleParts)
                 IconButton(
                   icon: Icon(
@@ -1097,6 +1091,7 @@ class _LocalGroupTile extends ConsumerWidget {
                   ),
                   onPressed: onToggleExpand,
                 ),
+              // 菜单
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert),
                 onSelected: (value) => _handleMenuAction(context, ref, value),
@@ -1265,11 +1260,15 @@ class _LocalTrackTile extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (track.durationMs != null)
-              Text(
-                DurationFormatter.formatMs(track.durationMs!),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.outline,
-                    ),
+              SizedBox(
+                width: 48, // 与 IconButton 宽度对齐
+                child: Text(
+                  DurationFormatter.formatMs(track.durationMs!),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.outline,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
               ),
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert, size: 20),

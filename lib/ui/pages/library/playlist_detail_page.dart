@@ -672,75 +672,79 @@ class _TrackListTile extends ConsumerWidget {
     return Padding(
       padding: EdgeInsets.only(left: indent ? 56 : 0),
       child: ListTile(
-        // 分P不显示封面（因为都是一样的）
         leading: isPartOfMultiPage
-            ? null
+            // 分P使用与搜索页面相同的样式
+            ? (isPlaying
+                ? NowPlayingIndicator(
+                    size: 24,
+                    color: colorScheme.primary,
+                  )
+                : Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      'P${track.pageNum ?? 1}',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: colorScheme.outline,
+                          ),
+                    ),
+                  ))
             : TrackThumbnail(
                 track: track,
                 size: 48,
                 isPlaying: isPlaying,
               ),
-        title: Row(
-          children: [
-            // 分P时如果正在播放，显示播放指示器
-            if (isPartOfMultiPage && isPlaying) ...[
-              NowPlayingIndicator(
-                size: 16,
-                color: colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-            ],
-            Expanded(
-              child: Text(
-                track.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: isPlaying ? colorScheme.primary : null,
-                  fontWeight: isPlaying ? FontWeight.w600 : null,
-                ),
-              ),
-            ),
-          ],
+        title: Text(
+          track.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: isPlaying ? colorScheme.primary : null,
+            fontWeight: isPlaying ? FontWeight.w600 : null,
+          ),
         ),
-        subtitle: Row(
-          children: [
-            Expanded(
-              child: Text(
-                isPartOfMultiPage
-                    ? 'P${track.pageNum ?? 1} · ${DurationFormatter.formatMs(track.durationMs ?? 0)}'
-                    : track.artist ?? '未知艺术家',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+        subtitle: isPartOfMultiPage
+            ? null // 分P不显示副标题，与搜索页面一致
+            : Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      track.artist ?? '未知艺术家',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  // 检查歌曲是否已下载到本地
+                  if (track.downloadedPath != null &&
+                      File(track.downloadedPath!).existsSync())
+                    Icon(
+                      Icons.download_done,
+                      size: 14,
+                      color: colorScheme.primary,
+                    ),
+                ],
               ),
-            ),
-            // 检查歌曲是否已下载到本地
-            if (track.downloadedPath != null &&
-                File(track.downloadedPath!).existsSync())
-              Icon(
-                Icons.download_done,
-                size: 14,
-                color: colorScheme.primary,
-              ),
-          ],
-        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (!isPartOfMultiPage && track.durationMs != null)
+            if (track.durationMs != null)
               SizedBox(
-                width: 48,
-                child: Center(
-                  child: Text(
-                    DurationFormatter.formatMs(track.durationMs!),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.outline,
-                        ),
-                  ),
+                width: 48, // 与 IconButton 宽度对齐
+                child: Text(
+                  DurationFormatter.formatMs(track.durationMs!),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.outline,
+                      ),
+                  textAlign: TextAlign.center,
                 ),
               ),
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert),
+              icon: const Icon(Icons.more_vert, size: 20),
               onSelected: (value) => _handleMenuAction(context, ref, value),
               itemBuilder: (context) => [
                 const PopupMenuItem(
