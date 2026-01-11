@@ -71,20 +71,38 @@
 - `video_detail.dart:formattedDuration` - 详情面板格式化
 - 与 UI 层 DurationFormatter 职责不同，无需统一
 
-## 四、下载系统待优化（未实施）
+## 四、已修复问题
+
+### 已下载页面重复显示问题 (2026-01-11)
+**问题：** 打开已下载歌单时，同一个视频显示为多个分P（2个变3个）
+**根本原因：** 
+- `QueueManager.copyForQueue()` 创建无ID的 Track 副本
+- 每次添加到播放队列都产生新的数据库记录
+- `downloadedCategoryTracksProvider` 查询数据库返回所有重复记录
+
+**解决方案：**
+- 已下载页面改为扫描本地文件，不依赖数据库
+- `downloadedCategoriesProvider` - 扫描下载目录获取分类文件夹
+- `downloadedCategoryTracksProvider` - 扫描文件夹内的 .m4a 文件
+- `_scanFolderForTracks()` - 读取 metadata.json 创建 Track 对象
+- `_trackFromMetadata()` - 从 metadata 解析 Track
+
+**关键代码位置：** `lib/providers/download_provider.dart`
+
+## 五、下载系统待优化（未实施）
 
 1. ⏸️ `_scheduleDownloads` 每 500ms 轮询 → 改为事件驱动
 2. ⏸️ `_startDownload` 是 void async → 改为 Future<void>
 3. ⏸️ 缺少断点续传支持
 4. ⏸️ TrackRepository 被创建两次实例
 
-## 五、封面图片优先级规则
+## 六、封面图片优先级规则
 
 1. 本地封面 (track.downloadedPath → parent/cover.jpg)
 2. 网络封面 (track.thumbnailUrl)
 3. 占位符 (Icons.music_note, centered)
 
-## 六、注意事项
+## 七、注意事项
 
 - 播放指示器使用 NowPlayingIndicator 组件
 - ToastService 仅用于 UI 层消息，app_shell.dart 的流式 Toast 系统保持独立
