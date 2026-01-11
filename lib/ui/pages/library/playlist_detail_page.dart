@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../providers/download_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/now_playing_indicator.dart';
+import '../../widgets/track_thumbnail.dart';
 
 /// 歌单详情页
 class PlaylistDetailPage extends ConsumerStatefulWidget {
@@ -305,7 +307,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                         ],
                         const SizedBox(height: 8),
                         Text(
-                          '${state.tracks.length} 首歌曲 · ${_formatDuration(state.totalDuration)}',
+                          '${state.tracks.length} 首歌曲 · ${DurationFormatter.formatLong(state.totalDuration)}',
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: Colors.white60,
@@ -437,16 +439,6 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     );
   }
 
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-
-    if (hours > 0) {
-      return '$hours 小时 $minutes 分钟';
-    }
-    return '$minutes 分钟';
-  }
-
   void _playAll(List<Track> tracks, BuildContext context) {
     final controller = ref.read(audioControllerProvider.notifier);
     controller.addAllToQueue(tracks);
@@ -530,52 +522,10 @@ class _GroupHeader extends ConsumerWidget {
 
     return ListTile(
       onTap: onToggle,
-      leading: SizedBox(
-        width: 48,
-        height: 48,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            color: colorScheme.surfaceContainerHighest,
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Stack(
-            children: [
-              firstTrack.thumbnailUrl != null
-                  ? Image.network(
-                      firstTrack.thumbnailUrl!,
-                      fit: BoxFit.cover,
-                      width: 48,
-                      height: 48,
-                      errorBuilder: (context, error, stackTrace) => Center(
-                        child: Icon(
-                          Icons.music_note,
-                          color: colorScheme.outline,
-                        ),
-                      ),
-                    )
-                  : Center(
-                      child: Icon(
-                        Icons.music_note,
-                        color: colorScheme.outline,
-                      ),
-                    ),
-              if (isPlayingThisGroup)
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(4),
-                    color: colorScheme.primary.withValues(alpha: 0.8),
-                  ),
-                  child: const Center(
-                    child: NowPlayingIndicator(
-                      size: 24,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
+      leading: TrackThumbnail(
+        track: firstTrack,
+        size: 48,
+        isPlaying: isPlayingThisGroup,
       ),
       title: Text(
         group.parentTitle,
@@ -738,55 +688,10 @@ class _TrackListTile extends ConsumerWidget {
         // 分P不显示封面（因为都是一样的）
         leading: isPartOfMultiPage
             ? null
-            : SizedBox(
-                width: 48,
-                height: 48,
-                child: Stack(
-                  children: [
-                    // 封面
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4),
-                        color: colorScheme.surfaceContainerHighest,
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: track.thumbnailUrl != null
-                          ? Image.network(
-                              track.thumbnailUrl!,
-                              fit: BoxFit.cover,
-                              width: 48,
-                              height: 48,
-                              errorBuilder: (context, error, stackTrace) => Center(
-                                child: Icon(
-                                  Icons.music_note,
-                                  color: colorScheme.outline,
-                                ),
-                              ),
-                            )
-                          : Center(
-                              child: Icon(
-                                Icons.music_note,
-                                color: colorScheme.outline,
-                              ),
-                            ),
-                    ),
-
-                    // 播放中指示
-                    if (isPlaying)
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(4),
-                          color: colorScheme.primary.withValues(alpha: 0.8),
-                        ),
-                        child: const Center(
-                          child: NowPlayingIndicator(
-                            size: 24,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+            : TrackThumbnail(
+                track: track,
+                size: 48,
+                isPlaying: isPlaying,
               ),
         title: Row(
           children: [
@@ -813,7 +718,7 @@ class _TrackListTile extends ConsumerWidget {
         ),
         subtitle: Text(
           isPartOfMultiPage
-              ? 'P${track.pageNum ?? 1} · ${_formatTrackDuration(track.durationMs ?? 0)}'
+              ? 'P${track.pageNum ?? 1} · ${DurationFormatter.formatMs(track.durationMs ?? 0)}'
               : track.artist ?? '未知艺术家',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -826,7 +731,7 @@ class _TrackListTile extends ConsumerWidget {
                 width: 48,
                 child: Center(
                   child: Text(
-                    _formatTrackDuration(track.durationMs!),
+                    DurationFormatter.formatMs(track.durationMs!),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: colorScheme.outline,
                         ),
@@ -886,13 +791,6 @@ class _TrackListTile extends ConsumerWidget {
         onTap: onTap,
       ),
     );
-  }
-
-  String _formatTrackDuration(int ms) {
-    final duration = Duration(milliseconds: ms);
-    final minutes = duration.inMinutes;
-    final seconds = duration.inSeconds.remainder(60);
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {

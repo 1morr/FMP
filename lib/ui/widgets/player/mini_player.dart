@@ -1,11 +1,11 @@
-import 'dart:io' show Platform, File, Directory;
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../data/models/play_queue.dart';
-import '../../../data/models/track.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
+import '../track_thumbnail.dart';
 
 /// 迷你播放器
 /// 显示在页面底部，展示当前播放的歌曲信息和控制按钮
@@ -79,7 +79,12 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                 child: Row(
                   children: [
                     // 封面
-                    _buildThumbnail(track, colorScheme),
+                    TrackThumbnail(
+                      track: track,
+                      size: 48,
+                      borderRadius: 8,
+                      showPlayingIndicator: false,
+                    ),
                     const SizedBox(width: 8),
 
                     // 歌曲信息
@@ -252,61 +257,6 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
             );
           },
         ),
-      ),
-    );
-  }
-
-  /// 封面缩略图
-  Widget _buildThumbnail(Track track, ColorScheme colorScheme) {
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: _buildThumbnailImage(track, colorScheme),
-    );
-  }
-
-  Widget _buildThumbnailImage(Track track, ColorScheme colorScheme) {
-    // 已下载歌曲优先使用本地封面
-    if (track.downloadedPath != null) {
-      final dir = Directory(track.downloadedPath!).parent;
-      final coverFile = File('${dir.path}/cover.jpg');
-      if (coverFile.existsSync()) {
-        return Image.file(
-          coverFile,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) =>
-              _buildDefaultThumbnail(colorScheme),
-        );
-      }
-    }
-
-    // 回退到网络封面
-    if (track.thumbnailUrl != null) {
-      return Image.network(
-        track.thumbnailUrl!,
-        fit: BoxFit.cover,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return _buildDefaultThumbnail(colorScheme);
-        },
-        errorBuilder: (context, error, stackTrace) =>
-            _buildDefaultThumbnail(colorScheme),
-      );
-    }
-
-    return _buildDefaultThumbnail(colorScheme);
-  }
-
-  Widget _buildDefaultThumbnail(ColorScheme colorScheme) {
-    return Center(
-      child: Icon(
-        Icons.music_note,
-        color: colorScheme.primary,
       ),
     );
   }
