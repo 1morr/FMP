@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/playlist.dart';
 import '../../../data/models/track.dart';
@@ -193,16 +194,12 @@ class _PlaylistCard extends ConsumerWidget {
                 fit: StackFit.expand,
                 children: [
                   coverAsync.when(
-                    data: (coverUrl) => coverUrl != null
-                        ? Image.network(
-                            coverUrl,
+                    data: (coverData) => coverData.hasCover
+                        ? ImageLoadingService.loadImage(
+                            localPath: coverData.localPath,
+                            networkUrl: coverData.networkUrl,
+                            placeholder: _buildPlaceholder(colorScheme),
                             fit: BoxFit.cover,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return _buildPlaceholder(colorScheme);
-                            },
-                            errorBuilder: (context, error, stackTrace) =>
-                                _buildPlaceholder(colorScheme),
                           )
                         : _buildPlaceholder(colorScheme),
                     loading: () => _buildPlaceholder(colorScheme),

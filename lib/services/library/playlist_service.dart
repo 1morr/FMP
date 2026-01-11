@@ -1,18 +1,42 @@
 import '../../data/models/playlist.dart';
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+
+import '../../core/extensions/track_extensions.dart';
 import '../../data/models/track.dart';
 import '../../data/repositories/playlist_repository.dart';
+import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
+
+/// 歌单封面数据
+class PlaylistCoverData {
+  /// 本地封面路径（已下载的封面）
+  final String? localPath;
+
+  /// 网络封面 URL
+  final String? networkUrl;
+
+  const PlaylistCoverData({this.localPath, this.networkUrl});
+
+  /// 是否有可用的封面
+  bool get hasCover => localPath != null || networkUrl != null;
+}
 
 /// 歌单管理服务
 class PlaylistService {
   final PlaylistRepository _playlistRepository;
   final TrackRepository _trackRepository;
+  final SettingsRepository _settingsRepository;
 
   PlaylistService({
     required PlaylistRepository playlistRepository,
     required TrackRepository trackRepository,
+    required SettingsRepository settingsRepository,
   })  : _playlistRepository = playlistRepository,
-        _trackRepository = trackRepository;
+        _trackRepository = trackRepository,
+        _settingsRepository = settingsRepository;
 
   /// 获取所有歌单
   Future<List<Playlist>> getAllPlaylists() async {
@@ -125,28 +149,93 @@ class PlaylistService {
     await _playlistRepository.reorderTracks(playlistId, trackIds);
   }
 
-  /// 获取歌单封面（使用第一首歌的封面或自定义封面）
-  Future<String?> getPlaylistCover(int playlistId) async {
+  /// 获取歌单封面数据（包含本地路径和网络 URL）
+  ///
+  /// 优先级：
+  /// 1. 本地已下载的歌单封面（playlist_cover.jpg）
+  /// 2. 第一首已下载歌曲的本地封面
+  /// 3. 歌单的网络封面 URL
+  /// 4. 第一首歌曲的网络封面 URL
+  Future<PlaylistCoverData> getPlaylistCoverData(int playlistId) async {
     final playlist = await _playlistRepository.getById(playlistId);
-    if (playlist == null) return null;
+    if (playlist == null) return const PlaylistCoverData();
 
-    // 优先使用自定义封面
+    String? localPath;
+    String? networkUrl;
+
+    // 检查下载目录中的歌单封面
+    final playlistLocalCover = await _findPlaylistLocalCover(playlist);
+    if (playlistLocalCover != null) {
+      localPath = playlistLocalCover;
+    }
+
+    // 设置网络封面 URL
     if (playlist.coverUrl != null) {
-      return playlist.coverUrl;
+      networkUrl = playlist.coverUrl;
     }
 
-    // 使用本地封面
-    if (playlist.coverLocalPath != null) {
-      return playlist.coverLocalPath;
-    }
-
-    // 使用第一首歌的封面
-    if (playlist.trackIds.isNotEmpty) {
+    // 如果没有歌单级别的封面，尝试使用第一首歌的封面
+    if (localPath == null && networkUrl == null && playlist.trackIds.isNotEmpty) {
       final firstTrack = await _trackRepository.getById(playlist.trackIds.first);
-      return firstTrack?.thumbnailUrl;
+      if (firstTrack != null) {
+        // 检查第一首歌的本地封面
+        final trackLocalCover = firstTrack.localCoverPath;
+        if (trackLocalCover != null) {
+          localPath = trackLocalCover;
+        }
+        // 设置网络封面
+        if (firstTrack.thumbnailUrl != null) {
+          networkUrl = firstTrack.thumbnailUrl;
+        }
+      }
     }
 
+    return PlaylistCoverData(localPath: localPath, networkUrl: networkUrl);
+  }
+
+  /// 查找歌单的本地封面文件
+  Future<String?> _findPlaylistLocalCover(Playlist playlist) async {
+    try {
+      final settings = await _settingsRepository.get();
+      String baseDir;
+
+      if (settings.customDownloadDir != null && settings.customDownloadDir!.isNotEmpty) {
+        baseDir = settings.customDownloadDir!;
+      } else {
+        if (Platform.isAndroid) {
+          final dirs = await getExternalStorageDirectories(type: StorageDirectory.music);
+          baseDir = dirs?.first.path ?? (await getApplicationDocumentsDirectory()).path;
+        } else {
+          baseDir = (await getDownloadsDirectory())?.path ?? 
+                    (await getApplicationDocumentsDirectory()).path;
+        }
+        baseDir = p.join(baseDir, 'FMP');
+      }
+
+      // 歌单文件夹名称格式：歌单名_ID
+      final subDir = _sanitizeFileName('${playlist.name}_${playlist.id}');
+      final coverPath = p.join(baseDir, subDir, 'playlist_cover.jpg');
+      final coverFile = File(coverPath);
+
+      if (await coverFile.exists()) {
+        return coverPath;
+      }
+    } catch (e) {
+      // 忽略错误，返回 null
+    }
     return null;
+  }
+
+  /// 清理文件名中的非法字符
+  String _sanitizeFileName(String name) {
+    return name.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+  }
+
+  /// 获取歌单封面（使用第一首歌的封面或自定义封面）
+  /// @deprecated 使用 [getPlaylistCoverData] 替代
+  Future<String?> getPlaylistCover(int playlistId) async {
+    final coverData = await getPlaylistCoverData(playlistId);
+    return coverData.localPath ?? coverData.networkUrl;
   }
 
   /// 复制歌单

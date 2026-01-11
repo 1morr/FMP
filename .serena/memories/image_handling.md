@@ -164,23 +164,32 @@ extension TrackExtensions on Track {
 
 ## 各页面的图片处理
 
-### 1. 歌单卡片（LibraryPage）
+### 1. 歌单卡片（LibraryPage）✅ 已更新使用 ImageLoadingService
 
 ```dart
 final coverAsync = ref.watch(playlistCoverProvider(playlist.id));
 
 coverAsync.when(
-  data: (coverUrl) => coverUrl != null
-      ? Image.network(coverUrl, fit: BoxFit.cover)
+  data: (coverData) => coverData.hasCover
+      ? ImageLoadingService.loadImage(
+          localPath: coverData.localPath,
+          networkUrl: coverData.networkUrl,
+          placeholder: _buildPlaceholder(colorScheme),
+          fit: BoxFit.cover,
+        )
       : _buildPlaceholder(colorScheme),
   loading: () => _buildPlaceholder(colorScheme),
   error: (_, __) => _buildPlaceholder(colorScheme),
 )
 ```
 
-**playlistCoverProvider 实现**：
-- 获取歌单中第一首歌的 `thumbnailUrl`
-- 不使用本地封面（歌单封面来自网络）
+**playlistCoverProvider 实现**（已更新）：
+- 返回 `PlaylistCoverData`，包含 `localPath` 和 `networkUrl`
+- 优先级：
+  1. 本地已下载的歌单封面（`playlist_cover.jpg`）
+  2. 第一首已下载歌曲的本地封面
+  3. 歌单的网络封面 URL
+  4. 第一首歌曲的网络封面 URL
 
 ### 2. 已下载分类卡片（DownloadedPage）
 

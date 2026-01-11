@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/sources/source_provider.dart';
 import '../../../providers/playlist_provider.dart';
@@ -349,11 +350,17 @@ class _HomePageState extends ConsumerState<HomePage> {
                               ),
                               clipBehavior: Clip.antiAlias,
                               child: coverAsync.when(
-                                data: (url) => url != null
-                                    ? Image.network(
-                        url,
-                        fit: BoxFit.cover,
-                      )
+                                data: (coverData) => coverData.hasCover
+                                    ? ImageLoadingService.loadImage(
+                                        localPath: coverData.localPath,
+                                        networkUrl: coverData.networkUrl,
+                                        placeholder: Icon(
+                                          Icons.album,
+                                          size: 40,
+                                          color: colorScheme.outline,
+                                        ),
+                                        fit: BoxFit.cover,
+                                      )
                                     : Icon(
                                         Icons.album,
                                         size: 40,
