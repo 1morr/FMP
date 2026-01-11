@@ -1,14 +1,13 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/playback_settings_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
-import '../../widgets/now_playing_indicator.dart';
+import '../../widgets/track_thumbnail.dart';
 
 /// 播放队列页
 class QueuePage extends ConsumerStatefulWidget {
@@ -316,34 +315,10 @@ class _QueueTrackTile extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             // 封面
-            SizedBox(
-              width: 48,
-              height: 48,
-              child: Stack(
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(4),
-                      color: colorScheme.surfaceContainerHighest,
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: _buildThumbnail(colorScheme),
-                  ),
-                  if (isPlaying)
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4),
-                        color: colorScheme.primary.withValues(alpha: 0.8),
-                      ),
-                      child: const Center(
-                        child: NowPlayingIndicator(
-                          size: 24,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+            TrackThumbnail(
+              track: track,
+              size: 48,
+              isPlaying: isPlaying,
             ),
           ],
         ),
@@ -366,7 +341,7 @@ class _QueueTrackTile extends StatelessWidget {
           children: [
             if (track.durationMs != null)
               Text(
-                _formatDuration(track.durationMs!),
+                DurationFormatter.formatMs(track.durationMs!),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colorScheme.outline,
                     ),
@@ -385,56 +360,4 @@ class _QueueTrackTile extends StatelessWidget {
     );
   }
 
-  String _formatDuration(int ms) {
-    final duration = Duration(milliseconds: ms);
-    final minutes = duration.inMinutes;
-    final seconds = duration.inSeconds.remainder(60);
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
-  }
-
-  Widget _buildThumbnail(ColorScheme colorScheme) {
-    // 已下载歌曲优先使用本地封面
-    if (track.downloadedPath != null) {
-      final dir = Directory(track.downloadedPath!).parent;
-      final coverFile = File('${dir.path}/cover.jpg');
-      if (coverFile.existsSync()) {
-        return Image.file(
-          coverFile,
-          fit: BoxFit.cover,
-          width: 48,
-          height: 48,
-          errorBuilder: (context, error, stackTrace) => Center(
-            child: Icon(
-              Icons.music_note,
-              color: colorScheme.outline,
-            ),
-          ),
-        );
-      }
-    }
-
-    // 回退到网络封面
-    if (track.thumbnailUrl != null) {
-      return Image.network(
-        track.thumbnailUrl!,
-        fit: BoxFit.cover,
-        width: 48,
-        height: 48,
-        errorBuilder: (context, error, stackTrace) => Center(
-          child: Icon(
-            Icons.music_note,
-            color: colorScheme.outline,
-          ),
-        ),
-      );
-    }
-
-    // 无封面时显示占位符
-    return Center(
-      child: Icon(
-        Icons.music_note,
-        color: colorScheme.outline,
-      ),
-    );
-  }
 }

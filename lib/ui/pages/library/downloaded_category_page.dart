@@ -3,11 +3,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/download_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/now_playing_indicator.dart';
+import '../../widgets/track_thumbnail.dart';
 
 /// 已下载分类详情页面
 class DownloadedCategoryPage extends ConsumerStatefulWidget {
@@ -163,7 +165,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '${widget.category.trackCount} 首歌曲 · ${_formatDuration(totalDuration)}',
+                          '${widget.category.trackCount} 首歌曲 · ${DurationFormatter.formatLong(totalDuration)}',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: Colors.white60,
                               ),
@@ -286,16 +288,6 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
       totalMs += track.durationMs ?? 0;
     }
     return Duration(milliseconds: totalMs);
-  }
-
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-
-    if (hours > 0) {
-      return '$hours 小时 $minutes 分钟';
-    }
-    return '$minutes 分钟';
   }
 
   void _playAll(List<Track> tracks) {
@@ -465,34 +457,10 @@ class _GroupHeader extends ConsumerWidget {
 
     return ListTile(
       onTap: onToggle,
-      leading: SizedBox(
-        width: 48,
-        height: 48,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            color: colorScheme.surfaceContainerHighest,
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Stack(
-            children: [
-              _buildThumbnail(firstTrack, colorScheme),
-              if (isPlayingThisGroup)
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(4),
-                    color: colorScheme.primary.withValues(alpha: 0.8),
-                  ),
-                  child: const Center(
-                    child: NowPlayingIndicator(
-                      size: 24,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
+      leading: TrackThumbnail(
+        track: firstTrack,
+        size: 48,
+        isPlaying: isPlayingThisGroup,
       ),
       title: Text(
         group.parentTitle,
@@ -585,45 +553,6 @@ class _GroupHeader extends ConsumerWidget {
     );
   }
 
-  Widget _buildThumbnail(Track track, ColorScheme colorScheme) {
-    // 尝试加载本地封面
-    if (track.downloadedPath != null) {
-      final dir = Directory(track.downloadedPath!).parent;
-      final coverFile = File('${dir.path}/cover.jpg');
-      if (coverFile.existsSync()) {
-        return Image.file(
-          coverFile,
-          fit: BoxFit.cover,
-          width: 48,
-          height: 48,
-        );
-      }
-    }
-
-    // 回退到网络封面
-    if (track.thumbnailUrl != null) {
-      return Image.network(
-        track.thumbnailUrl!,
-        fit: BoxFit.cover,
-        width: 48,
-        height: 48,
-        errorBuilder: (context, error, stackTrace) => Center(
-          child: Icon(
-            Icons.music_note,
-            color: colorScheme.outline,
-          ),
-        ),
-      );
-    }
-
-    return Center(
-      child: Icon(
-        Icons.music_note,
-        color: colorScheme.outline,
-      ),
-    );
-  }
-
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
     switch (action) {
       case 'play_first':
@@ -707,37 +636,10 @@ class _DownloadedTrackTile extends ConsumerWidget {
         // 分P不显示封面（因为都是一样的）
         leading: isPartOfMultiPage
             ? null
-            : SizedBox(
-                width: 48,
-                height: 48,
-                child: Stack(
-                  children: [
-                    // 封面
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4),
-                        color: colorScheme.surfaceContainerHighest,
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: _buildThumbnail(colorScheme),
-                    ),
-
-                    // 播放中指示
-                    if (isPlaying)
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(4),
-                          color: colorScheme.primary.withValues(alpha: 0.8),
-                        ),
-                        child: const Center(
-                          child: NowPlayingIndicator(
-                            size: 24,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+            : TrackThumbnail(
+                track: track,
+                size: 48,
+                isPlaying: isPlaying,
               ),
         title: Row(
           children: [
@@ -767,7 +669,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
             Expanded(
               child: Text(
                 isPartOfMultiPage
-                    ? 'P${track.pageNum ?? 1} · ${_formatTrackDuration(track.durationMs ?? 0)}'
+                    ? 'P${track.pageNum ?? 1} · ${DurationFormatter.formatMs(track.durationMs ?? 0)}'
                     : track.artist ?? '未知艺术家',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -788,7 +690,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
                 width: 48,
                 child: Center(
                   child: Text(
-                    _formatTrackDuration(track.durationMs!),
+                    DurationFormatter.formatMs(track.durationMs!),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: colorScheme.outline,
                         ),
@@ -839,52 +741,6 @@ class _DownloadedTrackTile extends ConsumerWidget {
         onTap: onTap,
       ),
     );
-  }
-
-  Widget _buildThumbnail(ColorScheme colorScheme) {
-    // 尝试加载本地封面
-    if (track.downloadedPath != null) {
-      final dir = Directory(track.downloadedPath!).parent;
-      final coverFile = File('${dir.path}/cover.jpg');
-      if (coverFile.existsSync()) {
-        return Image.file(
-          coverFile,
-          fit: BoxFit.cover,
-          width: 48,
-          height: 48,
-        );
-      }
-    }
-
-    // 回退到网络封面
-    if (track.thumbnailUrl != null) {
-      return Image.network(
-        track.thumbnailUrl!,
-        fit: BoxFit.cover,
-        width: 48,
-        height: 48,
-        errorBuilder: (context, error, stackTrace) => Center(
-          child: Icon(
-            Icons.music_note,
-            color: colorScheme.outline,
-          ),
-        ),
-      );
-    }
-
-    return Center(
-      child: Icon(
-        Icons.music_note,
-        color: colorScheme.outline,
-      ),
-    );
-  }
-
-  String _formatTrackDuration(int ms) {
-    final duration = Duration(milliseconds: ms);
-    final minutes = duration.inMinutes;
-    final seconds = duration.inSeconds.remainder(60);
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {

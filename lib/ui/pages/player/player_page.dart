@@ -1,9 +1,11 @@
-import 'dart:io' show Platform, File, Directory;
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/play_queue.dart';
 import '../../../providers/download_provider.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../widgets/track_thumbnail.dart';
 
 /// 播放器页面（全屏）
 class PlayerPage extends ConsumerStatefulWidget {
@@ -147,58 +149,19 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           ],
         ),
         clipBehavior: Clip.antiAlias,
-        child: _buildCoverImage(track, colorScheme),
-      ),
-    );
-  }
-
-  Widget _buildCoverImage(track, ColorScheme colorScheme) {
-    if (track == null) {
-      return _buildDefaultCover(colorScheme);
-    }
-
-    // 已下载歌曲优先使用本地封面
-    if (track.downloadedPath != null) {
-      final dir = Directory(track.downloadedPath!).parent;
-      final coverFile = File('${dir.path}/cover.jpg');
-      if (coverFile.existsSync()) {
-        return Image.file(
-          coverFile,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) =>
-              _buildDefaultCover(colorScheme),
-        );
-      }
-    }
-
-    // 回退到网络封面
-    if (track.thumbnailUrl != null) {
-      return Image.network(
-        track.thumbnailUrl!,
-        fit: BoxFit.cover,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Center(
-            child: CircularProgressIndicator(
-              color: colorScheme.primary,
-            ),
-          );
-        },
-        errorBuilder: (context, error, stackTrace) =>
-            _buildDefaultCover(colorScheme),
-      );
-    }
-
-    return _buildDefaultCover(colorScheme);
-  }
-
-  /// 默认封面
-  Widget _buildDefaultCover(ColorScheme colorScheme) {
-    return Center(
-      child: Icon(
-        Icons.music_note,
-        size: 120,
-        color: colorScheme.primary,
+        child: track != null
+            ? TrackCover(
+                track: track,
+                aspectRatio: 1,
+                borderRadius: 0, // Container 已有圆角
+              )
+            : Center(
+                child: Icon(
+                  Icons.music_note,
+                  size: 120,
+                  color: colorScheme.primary,
+                ),
+              ),
       ),
     );
   }
@@ -284,11 +247,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                _formatDuration(displayPosition),
+                DurationFormatter.formatMs(displayPosition.inMilliseconds),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               Text(
-                _formatDuration(state.duration ?? Duration.zero),
+                DurationFormatter.formatMs((state.duration ?? Duration.zero).inMilliseconds),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -514,10 +477,4 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     }
   }
 
-  /// 格式化时长
-  String _formatDuration(Duration duration) {
-    final minutes = duration.inMinutes;
-    final seconds = duration.inSeconds % 60;
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
-  }
 }
