@@ -359,5 +359,4 @@ class _QueueTrackTile extends StatelessWidget {
       ),
     );
   }
-
 }

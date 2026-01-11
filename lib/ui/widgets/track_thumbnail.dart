@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../core/extensions/track_extensions.dart';
 import '../../data/models/track.dart';
 import 'now_playing_indicator.dart';
 
@@ -68,19 +69,16 @@ class TrackThumbnail extends StatelessWidget {
 
   Widget _buildImage(ColorScheme colorScheme) {
     // 1. 已下载歌曲优先使用本地封面
-    if (track.downloadedPath != null) {
-      final dir = Directory(track.downloadedPath!).parent;
-      final coverFile = File('${dir.path}/cover.jpg');
-      if (coverFile.existsSync()) {
-        return Image.file(
-          coverFile,
-          fit: BoxFit.cover,
-          width: size,
-          height: size,
-          errorBuilder: (context, error, stackTrace) =>
-              _buildPlaceholder(colorScheme),
-        );
-      }
+    final localPath = track.localCoverPath;
+    if (localPath != null) {
+      return Image.file(
+        File(localPath),
+        fit: BoxFit.cover,
+        width: size,
+        height: size,
+        errorBuilder: (context, error, stackTrace) =>
+            _buildPlaceholder(colorScheme),
+      );
     }
 
     // 2. 回退到网络封面
@@ -174,17 +172,14 @@ class TrackCover extends StatelessWidget {
 
   Widget _buildImage(ColorScheme colorScheme) {
     // 1. 已下载歌曲优先使用本地封面
-    if (track?.downloadedPath != null) {
-      final dir = Directory(track!.downloadedPath!).parent;
-      final coverFile = File('${dir.path}/cover.jpg');
-      if (coverFile.existsSync()) {
-        return Image.file(
-          coverFile,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) =>
-              _buildPlaceholder(colorScheme),
-        );
-      }
+    final localPath = track?.localCoverPath;
+    if (localPath != null) {
+      return Image.file(
+        File(localPath),
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) =>
+            _buildPlaceholder(colorScheme),
+      );
     }
 
     // 2. 使用网络封面

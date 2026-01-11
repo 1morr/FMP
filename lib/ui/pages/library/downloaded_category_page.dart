@@ -9,6 +9,7 @@ import '../../../providers/download_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/now_playing_indicator.dart';
+import '../../widgets/track_group/track_group.dart';
 import '../../widgets/track_thumbnail.dart';
 
 /// 已下载分类详情页面
@@ -59,7 +60,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
         ),
         data: (tracks) {
           // 将tracks按groupKey分组
-          final groupedTracks = _groupTracks(tracks);
+          final groupedTracks = groupTracks(tracks);
 
           return CustomScrollView(
             slivers: [
@@ -331,34 +332,8 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
     );
   }
 
-  /// 将tracks按groupKey分组
-  List<_TrackGroup> _groupTracks(List<Track> tracks) {
-    final Map<String, List<Track>> grouped = {};
-    final List<String> order = [];
-
-    for (final track in tracks) {
-      final key = track.groupKey;
-      if (!grouped.containsKey(key)) {
-        grouped[key] = [];
-        order.add(key);
-      }
-      grouped[key]!.add(track);
-    }
-
-    return order.map((key) {
-      final groupTracks = grouped[key]!;
-      // 按pageNum排序
-      groupTracks.sort((a, b) => (a.pageNum ?? 0).compareTo(b.pageNum ?? 0));
-      return _TrackGroup(
-        groupKey: key,
-        tracks: groupTracks,
-        parentTitle: groupTracks.first.parentTitle ?? groupTracks.first.title,
-      );
-    }).toList();
-  }
-
   /// 构建分组项
-  Widget _buildGroupItem(BuildContext context, _TrackGroup group) {
+  Widget _buildGroupItem(BuildContext context, TrackGroup group) {
     // 如果组只有一个track，显示普通样式
     if (group.tracks.length == 1) {
       return _DownloadedTrackTile(
@@ -417,22 +392,9 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
   }
 }
 
-/// 分组数据类
-class _TrackGroup {
-  final String groupKey;
-  final List<Track> tracks;
-  final String parentTitle;
-
-  _TrackGroup({
-    required this.groupKey,
-    required this.tracks,
-    required this.parentTitle,
-  });
-}
-
 /// 分组标题组件
 class _GroupHeader extends ConsumerWidget {
-  final _TrackGroup group;
+  final TrackGroup group;
   final bool isExpanded;
   final VoidCallback onToggle;
   final VoidCallback onPlayFirst;
