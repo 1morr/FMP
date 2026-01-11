@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/services/toast_service.dart';
 import '../../../data/sources/source_provider.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
+import '../../widgets/track_thumbnail.dart';
 
 /// 首页
 class HomePage extends ConsumerStatefulWidget {
@@ -54,9 +56,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       _urlController.clear();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('正在播放: ${track.title}')),
-        );
+        ToastService.show(context, '正在播放: ${track.title}');
       }
     } catch (e) {
       setState(() => _error = '播放失败: $e');
@@ -237,23 +237,10 @@ class _HomePageState extends ConsumerState<HomePage> {
           child: Row(
             children: [
               // 封面
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  color: colorScheme.surfaceContainerHighest,
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: track.thumbnailUrl != null
-                    ? Image.network(
-                        track.thumbnailUrl!,
-                        fit: BoxFit.cover,
-                      )
-                    : Icon(
-                        Icons.music_note,
-                        color: colorScheme.primary,
-                      ),
+              TrackThumbnail(
+                track: track,
+                size: 56,
+                borderRadius: 8,
               ),
               const SizedBox(width: 12),
               // 信息
@@ -433,24 +420,10 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ),
         ...upNext.map((track) => ListTile(
-              leading: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(4),
-                  color: colorScheme.surfaceContainerHighest,
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: track.thumbnailUrl != null
-                    ? Image.network(
-                        track.thumbnailUrl!,
-                        fit: BoxFit.cover,
-                      )
-                    : Icon(
-                        Icons.music_note,
-                        color: colorScheme.outline,
-                        size: 20,
-                      ),
+              leading: TrackThumbnail(
+                track: track,
+                size: 40,
+                borderRadius: 4,
               ),
               title: Text(
                 track.title,

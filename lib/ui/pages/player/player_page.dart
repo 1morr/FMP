@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../core/utils/icon_helpers.dart';
 import '../../../data/models/play_queue.dart';
@@ -60,10 +61,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                   final downloadService = ref.read(downloadServiceProvider);
                   final result = await downloadService.addTrackDownload(track);
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(result != null ? '已添加到下载队列' : '歌曲已下载或已在队列中'),
-                      ),
+                    ToastService.show(
+                      context,
+                      result != null ? '已添加到下载队列' : '歌曲已下载或已在队列中',
                     );
                   }
                 }
