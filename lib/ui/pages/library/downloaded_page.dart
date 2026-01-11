@@ -11,11 +11,31 @@ import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
 
 /// 已下载页面 - 显示分类网格
-class DownloadedPage extends ConsumerWidget {
+class DownloadedPage extends ConsumerStatefulWidget {
   const DownloadedPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DownloadedPage> createState() => _DownloadedPageState();
+}
+
+class _DownloadedPageState extends ConsumerState<DownloadedPage> {
+  @override
+  void initState() {
+    super.initState();
+    // 进入页面时刷新数据
+    Future.microtask(() {
+      ref.invalidate(downloadedCategoriesProvider);
+    });
+  }
+
+  Future<void> _refresh() async {
+    ref.invalidate(downloadedCategoriesProvider);
+    // 等待新数据加载
+    await ref.read(downloadedCategoriesProvider.future);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(downloadedCategoriesProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -23,6 +43,11 @@ class DownloadedPage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('已下载'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: '刷新',
+            onPressed: _refresh,
+          ),
           IconButton(
             icon: const Icon(Icons.download),
             tooltip: '下载管理',
@@ -39,6 +64,12 @@ class DownloadedPage extends ConsumerWidget {
               Icon(Icons.error_outline, size: 64, color: colorScheme.error),
               const SizedBox(height: 16),
               Text('加载失败: $error'),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: _refresh,
+                icon: const Icon(Icons.refresh),
+                label: const Text('重试'),
+              ),
             ],
           ),
         ),
@@ -46,7 +77,7 @@ class DownloadedPage extends ConsumerWidget {
           if (categories.isEmpty) {
             return _buildEmptyState(context);
           }
-          return _buildCategoryGrid(context, ref, categories);
+          return _buildCategoryGrid(context, categories);
         },
       ),
     );
@@ -85,7 +116,6 @@ class DownloadedPage extends ConsumerWidget {
 
   Widget _buildCategoryGrid(
     BuildContext context,
-    WidgetRef ref,
     List<DownloadedCategory> categories,
   ) {
     return LayoutBuilder(
