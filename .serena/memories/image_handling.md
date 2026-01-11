@@ -191,24 +191,19 @@ coverAsync.when(
   3. 歌单的网络封面 URL
   4. 第一首歌曲的网络封面 URL
 
-### 2. 已下载分类卡片（DownloadedPage）
+### 2. 已下载分类卡片（DownloadedPage）✅ 已更新使用 ImageLoadingService
 
 ```dart
 Widget _buildCover(ColorScheme colorScheme) {
-  // 1. 有本地封面
   if (category.coverPath != null) {
-    final coverFile = File(category.coverPath!);
-    if (coverFile.existsSync()) {
-      return Image.file(coverFile, fit: BoxFit.cover);
-    }
+    return ImageLoadingService.loadImage(
+      localPath: category.coverPath,
+      networkUrl: null,
+      placeholder: _buildDefaultCover(colorScheme),
+      fit: BoxFit.cover,
+    );
   }
-  // 2. 无本地封面 -> 渐变背景 + 文件夹图标
-  return Container(
-    decoration: BoxDecoration(
-      gradient: LinearGradient(...),
-    ),
-    child: Icon(Icons.folder, size: 48),
-  );
+  return _buildDefaultCover(colorScheme);
 }
 ```
 
@@ -233,21 +228,17 @@ Future<String?> _findFirstCover(Directory folder) async {
 }
 ```
 
-### 3. 歌曲详情面板头像（TrackDetailPanel）
+### 3. 歌曲详情面板头像（TrackDetailPanel）✅ 已更新使用 ImageLoadingService
 
 ```dart
-Widget _buildAvatar(Track? track, VideoDetail detail) {
-  // 1. 本地头像
-  final localAvatarPath = track?.localAvatarPath;
-  if (localAvatarPath != null) {
-    return CircleAvatar(backgroundImage: FileImage(File(localAvatarPath)));
-  }
-  // 2. 网络头像
-  if (detail.ownerFace.isNotEmpty) {
-    return CircleAvatar(backgroundImage: NetworkImage(detail.ownerFace));
-  }
-  // 3. 占位符
-  return CircleAvatar(child: Icon(Icons.person, size: 16));
+Widget _buildAvatar(BuildContext context, Track? track, VideoDetail detail) {
+  // 使用 ImageLoadingService 加载头像（集成缓存）
+  // 优先级：本地头像 → 网络头像 → 占位符
+  return ImageLoadingService.loadAvatar(
+    localPath: track?.localAvatarPath,
+    networkUrl: detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
+    size: 32,
+  );
 }
 ```
 
