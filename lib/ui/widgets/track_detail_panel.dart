@@ -419,7 +419,6 @@ class _DetailContent extends ConsumerWidget {
       ],
     );
   }
-
 }
 
 /// 简介部分（支持展开/收起）

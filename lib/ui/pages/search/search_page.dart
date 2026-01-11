@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
 import '../../../data/models/video_detail.dart';
 import '../../../data/sources/base_source.dart' show SearchOrder;
@@ -10,6 +11,7 @@ import '../../../providers/search_provider.dart';
 import '../../../providers/download_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
+import '../../widgets/track_thumbnail.dart';
 
 /// 搜索页
 class SearchPage extends ConsumerStatefulWidget {
@@ -712,25 +714,10 @@ class _SearchResultTile extends StatelessWidget {
       children: [
         // 主视频行
         ListTile(
-          leading: SizedBox(
-            width: 48,
-            height: 48,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(4),
-                color: colorScheme.surfaceContainerHighest,
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: track.thumbnailUrl != null
-                  ? Image.network(
-                      track.thumbnailUrl!,
-                      fit: BoxFit.cover,
-                    )
-                  : Icon(
-                      Icons.music_note,
-                      color: colorScheme.outline,
-                    ),
-            ),
+          leading: TrackThumbnail(
+            track: track,
+            size: 48,
+            borderRadius: 4,
           ),
           title: Text(
             track.title,
@@ -792,7 +779,7 @@ class _SearchResultTile extends StatelessWidget {
             children: [
               if (track.durationMs != null)
                 Text(
-                  _formatDuration(track.durationMs!),
+                  DurationFormatter.formatMs(track.durationMs!),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: colorScheme.outline,
                       ),
@@ -874,13 +861,6 @@ class _SearchResultTile extends StatelessWidget {
               )),
       ],
     );
-  }
-
-  String _formatDuration(int ms) {
-    final duration = Duration(milliseconds: ms);
-    final minutes = duration.inMinutes;
-    final seconds = duration.inSeconds.remainder(60);
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
   String _formatViewCount(int count) {

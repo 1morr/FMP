@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/utils/icon_helpers.dart';
 import '../../../data/models/play_queue.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
@@ -376,7 +377,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
         builder: (context, menuController, child) {
           return IconButton(
             icon: Icon(
-              _getVolumeIcon(state.volume),
+              getVolumeIcon(state.volume),
               size: 20,
             ),
             visualDensity: VisualDensity.compact,
@@ -433,7 +434,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
         // 静音/音量图标按钮
         IconButton(
           icon: Icon(
-            _getVolumeIcon(state.volume),
+            getVolumeIcon(state.volume),
             size: 20,
           ),
           visualDensity: VisualDensity.compact,
@@ -463,16 +464,5 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
         ),
       ],
     );
-  }
-
-  /// 根据音量获取对应图标
-  IconData _getVolumeIcon(double volume) {
-    if (volume <= 0) {
-      return Icons.volume_off;
-    } else if (volume < 0.5) {
-      return Icons.volume_down;
-    } else {
-      return Icons.volume_up;
-    }
   }
 }

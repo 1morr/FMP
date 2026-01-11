@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/duration_formatter.dart';
+import '../../../core/utils/icon_helpers.dart';
 import '../../../data/models/play_queue.dart';
 import '../../../providers/download_provider.dart';
 import '../../../services/audio/audio_provider.dart';
@@ -412,7 +413,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       children: [
         // 音量图标按钮
         IconButton(
-          icon: Icon(_getVolumeIcon(state.volume), size: 20),
+          icon: Icon(getVolumeIcon(state.volume), size: 20),
           visualDensity: VisualDensity.compact,
           tooltip: state.volume > 0 ? '静音' : '取消静音',
           onPressed: () => controller.toggleMute(),
@@ -442,39 +443,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     );
   }
 
-  /// 根据音量获取对应图标
-  IconData _getVolumeIcon(double volume) {
-    if (volume <= 0) {
-      return Icons.volume_off;
-    } else if (volume < 0.5) {
-      return Icons.volume_down;
-    } else {
-      return Icons.volume_up;
-    }
-  }
-
   /// 获取循环模式图标
-  IconData _getLoopModeIcon(LoopMode mode) {
-    switch (mode) {
-      case LoopMode.none:
-        return Icons.repeat;
-      case LoopMode.all:
-        return Icons.repeat;
-      case LoopMode.one:
-        return Icons.repeat_one;
-    }
-  }
+  IconData _getLoopModeIcon(LoopMode mode) => switch (mode) {
+    LoopMode.none || LoopMode.all => Icons.repeat,
+    LoopMode.one => Icons.repeat_one,
+  };
 
   /// 获取循环模式提示
-  String _getLoopModeTooltip(LoopMode mode) {
-    switch (mode) {
-      case LoopMode.none:
-        return '不循环';
-      case LoopMode.all:
-        return '列表循环';
-      case LoopMode.one:
-        return '单曲循环';
-    }
-  }
-
+  String _getLoopModeTooltip(LoopMode mode) => switch (mode) {
+    LoopMode.none => '不循环',
+    LoopMode.all => '列表循环',
+    LoopMode.one => '单曲循环',
+  };
 }
