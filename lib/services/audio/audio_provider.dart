@@ -819,6 +819,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     _playLock = Completer<void>();
 
     state = state.copyWith(isLoading: true, error: null);
+    
+    // 立即更新 playingTrack，确保与 queueTrack 同步
+    // 这样即使播放失败，UI 也能正确显示"下一首"等信息
+    _updatePlayingTrack(track);
     _updateQueueState();
 
     try {
