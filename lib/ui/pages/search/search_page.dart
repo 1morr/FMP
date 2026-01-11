@@ -13,6 +13,7 @@ import '../../../providers/download_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/now_playing_indicator.dart';
+import '../../widgets/track_group/track_group.dart';
 import '../../widgets/track_thumbnail.dart';
 
 /// 搜索页
@@ -336,7 +337,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       },
       child: CustomScrollView(
         slivers: [
-          // 歌单中的结果
+          // 歌单中的结果（按视频分组显示）
           if (state.localResults.isNotEmpty) ...[
             SliverToBoxAdapter(
               child: Padding(
@@ -347,24 +348,36 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 ),
               ),
             ),
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final track = state.localResults[index];
-                  return _SearchResultTile(
-                    track: track,
-                    isLocal: true,
-                    isExpanded: _expandedVideos.contains(track.sourceId),
-                    isLoading: _loadingPages.contains(track.sourceId),
-                    pages: _loadedPages[track.sourceId],
-                    onTap: () => _playVideo(track),
-                    onToggleExpand: () => _toggleExpanded(track.sourceId),
-                    onMenuAction: _handleMenuAction,
-                    onPageMenuAction: (page, action) => _handlePageMenuAction(track, page, action),
-                  );
-                },
-                childCount: state.localResults.length,
-              ),
+            Builder(
+              builder: (context) {
+                // 先按 sourceId + pageNum 去重，避免同一首歌在多个歌单中重复显示
+                final uniqueTracks = <String, Track>{};
+                for (final track in state.localResults) {
+                  final key = '${track.sourceId}:${track.pageNum ?? 1}';
+                  // 只保留第一个出现的（或者可以保留最新的）
+                  uniqueTracks.putIfAbsent(key, () => track);
+                }
+                // 然后按视频分组
+                final groupedLocalResults = groupTracks(uniqueTracks.values.toList());
+                return SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final group = groupedLocalResults[index];
+                      return _LocalGroupTile(
+                        group: group,
+                        isExpanded: _expandedVideos.contains(group.groupKey),
+                        onToggleExpand: () => _toggleExpanded(group.groupKey),
+                        onPlayTrack: (track) {
+                          final controller = ref.read(audioControllerProvider.notifier);
+                          controller.playTemporary(track);
+                        },
+                        onMenuAction: _handleMenuAction,
+                      );
+                    },
+                    childCount: groupedLocalResults.length,
+                  ),
+                );
+              },
             ),
           ],
 
@@ -976,6 +989,324 @@ class _PageTile extends ConsumerWidget {
                   ),
                 ),
                 // 注意：分P没有"添加到歌单"选项
+              ],
+            ),
+          ],
+        ),
+        onTap: onTap,
+      ),
+    );
+  }
+}
+
+/// 本地搜索结果分组组件
+class _LocalGroupTile extends ConsumerWidget {
+  final TrackGroup group;
+  final bool isExpanded;
+  final VoidCallback onToggleExpand;
+  final void Function(Track track) onPlayTrack;
+  final void Function(Track track, String action) onMenuAction;
+
+  const _LocalGroupTile({
+    required this.group,
+    required this.isExpanded,
+    required this.onToggleExpand,
+    required this.onPlayTrack,
+    required this.onMenuAction,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final currentTrack = ref.watch(currentTrackProvider);
+    final firstTrack = group.firstTrack;
+    final hasMultipleParts = group.hasMultipleParts;
+
+    // 检查当前播放的是否是这个组的某个分P
+    final isPlayingThisGroup = currentTrack != null &&
+        group.tracks.any((t) =>
+            t.sourceId == currentTrack.sourceId &&
+            t.pageNum == currentTrack.pageNum);
+
+    return Column(
+      children: [
+        // 主视频行
+        ListTile(
+          leading: TrackThumbnail(
+            track: firstTrack,
+            size: 48,
+            borderRadius: 4,
+            isPlaying: isPlayingThisGroup,
+          ),
+          title: Text(
+            group.parentTitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: isPlayingThisGroup ? colorScheme.primary : null,
+              fontWeight: isPlayingThisGroup ? FontWeight.w600 : null,
+            ),
+          ),
+          subtitle: Row(
+            children: [
+              Icon(
+                Icons.check_circle,
+                size: 14,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  firstTrack.artist ?? '未知艺术家',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (hasMultipleParts) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '${group.partCount}P',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onPrimaryContainer,
+                        ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (firstTrack.durationMs != null && !hasMultipleParts)
+                Text(
+                  DurationFormatter.formatMs(firstTrack.durationMs!),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.outline,
+                      ),
+                ),
+              if (hasMultipleParts)
+                IconButton(
+                  icon: Icon(
+                    isExpanded ? Icons.expand_less : Icons.expand_more,
+                  ),
+                  onPressed: onToggleExpand,
+                ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert),
+                onSelected: (value) => _handleMenuAction(context, ref, value),
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'play',
+                    child: ListTile(
+                      leading: Icon(Icons.play_arrow),
+                      title: Text('播放'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'play_next',
+                    child: ListTile(
+                      leading: Icon(Icons.queue_play_next),
+                      title: Text('下一首播放'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'add_to_queue',
+                    child: ListTile(
+                      leading: Icon(Icons.add_to_queue),
+                      title: Text('添加到队列'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'download',
+                    child: ListTile(
+                      leading: Icon(Icons.download_outlined),
+                      title: Text('下载'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'add_to_playlist',
+                    child: ListTile(
+                      leading: Icon(Icons.playlist_add),
+                      title: Text('添加到歌单'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          onTap: () => onPlayTrack(firstTrack),
+        ),
+
+        // 展开的分P列表
+        if (isExpanded && hasMultipleParts)
+          ...group.tracks.map((track) => _LocalTrackTile(
+                track: track,
+                onTap: () => onPlayTrack(track),
+                onMenuAction: onMenuAction,
+              )),
+      ],
+    );
+  }
+
+  void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
+    final controller = ref.read(audioControllerProvider.notifier);
+
+    switch (action) {
+      case 'play':
+        onPlayTrack(group.firstTrack);
+        break;
+      case 'play_next':
+        for (final track in group.tracks) {
+          controller.addNext(track);
+        }
+        ToastService.show(
+          context,
+          group.hasMultipleParts
+              ? '已添加${group.partCount}个分P到下一首'
+              : '已添加到下一首',
+        );
+        break;
+      case 'add_to_queue':
+        for (final track in group.tracks) {
+          controller.addToQueue(track);
+        }
+        ToastService.show(
+          context,
+          group.hasMultipleParts
+              ? '已添加${group.partCount}个分P到播放队列'
+              : '已添加到播放队列',
+        );
+        break;
+      case 'download':
+        final downloadService = ref.read(downloadServiceProvider);
+        int addedCount = 0;
+        for (final track in group.tracks) {
+          final result = await downloadService.addTrackDownload(track);
+          if (result != null) addedCount++;
+        }
+        if (context.mounted) {
+          ToastService.show(
+            context,
+            addedCount > 0 ? '已添加 $addedCount 首到下载队列' : '歌曲已下载或已在队列中',
+          );
+        }
+        break;
+      case 'add_to_playlist':
+        showAddToPlaylistDialog(context: context, tracks: group.tracks);
+        break;
+    }
+  }
+}
+
+/// 本地搜索结果的单个歌曲项（分P展开时显示）
+class _LocalTrackTile extends ConsumerWidget {
+  final Track track;
+  final VoidCallback onTap;
+  final void Function(Track track, String action) onMenuAction;
+
+  const _LocalTrackTile({
+    required this.track,
+    required this.onTap,
+    required this.onMenuAction,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final currentTrack = ref.watch(currentTrackProvider);
+    final isPlaying = currentTrack != null &&
+        currentTrack.sourceId == track.sourceId &&
+        currentTrack.pageNum == track.pageNum;
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 56),
+      child: ListTile(
+        leading: isPlaying
+            ? NowPlayingIndicator(
+                size: 24,
+                color: colorScheme.primary,
+              )
+            : Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  'P${track.pageNum ?? 1}',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colorScheme.outline,
+                      ),
+                ),
+              ),
+        title: Text(
+          track.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: isPlaying ? colorScheme.primary : null,
+            fontWeight: isPlaying ? FontWeight.w600 : null,
+          ),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (track.durationMs != null)
+              Text(
+                DurationFormatter.formatMs(track.durationMs!),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.outline,
+                    ),
+              ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, size: 20),
+              onSelected: (value) => onMenuAction(track, value),
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'play',
+                  child: ListTile(
+                    leading: Icon(Icons.play_arrow),
+                    title: Text('播放'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'play_next',
+                  child: ListTile(
+                    leading: Icon(Icons.queue_play_next),
+                    title: Text('下一首播放'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'add_to_queue',
+                  child: ListTile(
+                    leading: Icon(Icons.add_to_queue),
+                    title: Text('添加到队列'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'download',
+                  child: ListTile(
+                    leading: Icon(Icons.download_outlined),
+                    title: Text('下载'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
               ],
             ),
           ],
