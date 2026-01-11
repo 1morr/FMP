@@ -6,6 +6,7 @@ import '../../../data/models/settings.dart';
 import '../../../providers/playback_settings_provider.dart';
 import '../../../providers/theme_provider.dart';
 import '../../../providers/download_provider.dart';
+import '../../../providers/download_settings_provider.dart';
 import '../../router.dart';
 
 /// 设置页
@@ -424,19 +425,19 @@ class _DownloadPathListTile extends ConsumerWidget {
 class _ConcurrentDownloadsListTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // TODO: 从设置中获取
-    const maxConcurrent = 3;
+    final settings = ref.watch(downloadSettingsProvider);
+    final maxConcurrent = settings.maxConcurrentDownloads;
 
     return ListTile(
       leading: const Icon(Icons.speed_outlined),
       title: const Text('同时下载数量'),
-      subtitle: const Text('最多同时下载 $maxConcurrent 个文件'),
+      subtitle: Text('最多同时下载 $maxConcurrent 个文件'),
       trailing: const Icon(Icons.chevron_right),
-      onTap: () => _showConcurrentDialog(context, maxConcurrent),
+      onTap: () => _showConcurrentDialog(context, ref, maxConcurrent),
     );
   }
 
-  void _showConcurrentDialog(BuildContext context, int current) {
+  void _showConcurrentDialog(BuildContext context, WidgetRef ref, int current) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -450,7 +451,9 @@ class _ConcurrentDownloadsListTile extends ConsumerWidget {
               value: value,
               groupValue: current,
               onChanged: (value) {
-                // TODO: 保存设置
+                if (value != null) {
+                  ref.read(downloadSettingsProvider.notifier).setMaxConcurrentDownloads(value);
+                }
                 Navigator.pop(context);
               },
             );
@@ -471,8 +474,8 @@ class _ConcurrentDownloadsListTile extends ConsumerWidget {
 class _DownloadImageOptionListTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // TODO: 从设置中获取
-    const option = DownloadImageOption.coverOnly;
+    final settings = ref.watch(downloadSettingsProvider);
+    final option = settings.downloadImageOption;
     final optionText = switch (option) {
       DownloadImageOption.none => '关闭',
       DownloadImageOption.coverOnly => '仅封面',
@@ -484,11 +487,11 @@ class _DownloadImageOptionListTile extends ConsumerWidget {
       title: const Text('下载图片'),
       subtitle: Text(optionText),
       trailing: const Icon(Icons.chevron_right),
-      onTap: () => _showImageOptionDialog(context, option),
+      onTap: () => _showImageOptionDialog(context, ref, option),
     );
   }
 
-  void _showImageOptionDialog(BuildContext context, DownloadImageOption current) {
+  void _showImageOptionDialog(BuildContext context, WidgetRef ref, DownloadImageOption current) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -502,7 +505,9 @@ class _DownloadImageOptionListTile extends ConsumerWidget {
               value: DownloadImageOption.none,
               groupValue: current,
               onChanged: (value) {
-                // TODO: 保存设置
+                if (value != null) {
+                  ref.read(downloadSettingsProvider.notifier).setDownloadImageOption(value);
+                }
                 Navigator.pop(context);
               },
             ),
@@ -512,7 +517,9 @@ class _DownloadImageOptionListTile extends ConsumerWidget {
               value: DownloadImageOption.coverOnly,
               groupValue: current,
               onChanged: (value) {
-                // TODO: 保存设置
+                if (value != null) {
+                  ref.read(downloadSettingsProvider.notifier).setDownloadImageOption(value);
+                }
                 Navigator.pop(context);
               },
             ),
@@ -522,7 +529,9 @@ class _DownloadImageOptionListTile extends ConsumerWidget {
               value: DownloadImageOption.coverAndAvatar,
               groupValue: current,
               onChanged: (value) {
-                // TODO: 保存设置
+                if (value != null) {
+                  ref.read(downloadSettingsProvider.notifier).setDownloadImageOption(value);
+                }
                 Navigator.pop(context);
               },
             ),
