@@ -126,10 +126,12 @@ class DownloadService with Logging {
   }
 
   /// 添加单曲下载任务
+  /// [order] 在歌单中的顺序位置（从0开始）
   Future<DownloadTask?> addTrackDownload(
     Track track, {
     Playlist? fromPlaylist,
     int? playlistDownloadTaskId,
+    int? order,
   }) async {
     logDebug('Adding download task for track: ${track.title}');
     
@@ -189,14 +191,14 @@ class DownloadService with Logging {
       logDebug('Re-downloading playlist: ${playlist.name}');
       await _downloadRepository.deletePlaylistTask(existingTask.id);
     }
-    
+
     // 获取歌单中的所有歌曲
     final tracks = await _trackRepository.getByIds(playlist.trackIds);
     if (tracks.isEmpty) {
       logDebug('Playlist has no tracks: ${playlist.name}');
       return null;
     }
-    
+
     // 创建歌单下载任务
     final priority = await _downloadRepository.getNextPriority();
     final playlistTask = PlaylistDownloadTask()
@@ -206,9 +208,12 @@ class DownloadService with Logging {
       ..status = DownloadStatus.pending
       ..priority = priority
       ..createdAt = DateTime.now();
-    
+
     final savedPlaylistTask = await _downloadRepository.savePlaylistTask(playlistTask);
-    
+
+    // 下载歌单封面
+    await _downloadPlaylistCover(playlist, savedPlaylistTask);
+
     // 为每个歌曲创建下载任务
     for (final track in tracks) {
       await addTrackDownload(
@@ -217,8 +222,44 @@ class DownloadService with Logging {
         playlistDownloadTaskId: savedPlaylistTask.id,
       );
     }
-    
+
     return savedPlaylistTask;
+  }
+
+  /// 下载歌单封面到分类文件夹
+  Future<void> _downloadPlaylistCover(Playlist playlist, PlaylistDownloadTask task) async {
+    if (playlist.coverUrl == null || playlist.coverUrl!.isEmpty) {
+      logDebug('Playlist has no cover URL: ${playlist.name}');
+      return;
+    }
+
+    try {
+      final settings = await _settingsRepository.get();
+
+      // 获取基础下载目录
+      String baseDir;
+      if (settings.customDownloadDir != null && settings.customDownloadDir!.isNotEmpty) {
+        baseDir = settings.customDownloadDir!;
+      } else {
+        baseDir = await _getDefaultDownloadDir();
+      }
+
+      // 歌单文件夹路径
+      final subDir = _sanitizeFileName('${task.playlistName}_${task.playlistId}');
+      final playlistFolder = Directory(p.join(baseDir, subDir));
+
+      // 确保目录存在
+      if (!await playlistFolder.exists()) {
+        await playlistFolder.create(recursive: true);
+      }
+
+      // 下载封面到歌单文件夹
+      final coverPath = p.join(playlistFolder.path, 'playlist_cover.jpg');
+      await _dio.download(playlist.coverUrl!, coverPath);
+      logDebug('Downloaded playlist cover: ${playlist.name}');
+    } catch (e) {
+      logDebug('Failed to download playlist cover: $e');
+    }
   }
 
   /// 暂停下载任务
@@ -420,8 +461,18 @@ class DownloadService with Logging {
         }
       }
 
+      // 计算在歌单中的顺序
+      int? trackOrder;
+      if (task.playlistDownloadTaskId != null) {
+        final playlistTask = await _downloadRepository.getPlaylistTaskById(task.playlistDownloadTaskId!);
+        if (playlistTask != null) {
+          trackOrder = playlistTask.trackIds.indexOf(track.id);
+          if (trackOrder < 0) trackOrder = null;
+        }
+      }
+
       // 保存元数据
-      await _saveMetadata(track, savePath, videoDetail: videoDetail);
+      await _saveMetadata(track, savePath, videoDetail: videoDetail, order: trackOrder);
       
       // 更新歌曲的下载路径
       track.downloadedPath = savePath;
@@ -555,7 +606,8 @@ class DownloadService with Logging {
   }
 
   /// 保存元数据
-  Future<void> _saveMetadata(Track track, String audioPath, {VideoDetail? videoDetail}) async {
+  /// [order] 在歌单中的顺序位置
+  Future<void> _saveMetadata(Track track, String audioPath, {VideoDetail? videoDetail, int? order}) async {
     final settings = await _settingsRepository.get();
     final videoDir = Directory(p.dirname(audioPath));
 
@@ -572,6 +624,8 @@ class DownloadService with Logging {
       'parentTitle': track.parentTitle,
       'thumbnailUrl': track.thumbnailUrl,
       'downloadedAt': DateTime.now().toIso8601String(),
+      // 歌单顺序
+      'order': order,
     };
 
     // 添加 VideoDetail 扩展信息

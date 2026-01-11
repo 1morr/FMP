@@ -185,10 +185,16 @@ String _extractDisplayName(String folderName) {
   return folderName;
 }
 
-/// 查找文件夹中第一个封面
+/// 查找文件夹中的封面（优先歌单封面，其次第一首歌的封面）
 Future<String?> _findFirstCover(Directory folder) async {
   try {
-    // 遍历子文件夹（视频文件夹）
+    // 1. 优先检查歌单封面
+    final playlistCoverFile = File(p.join(folder.path, 'playlist_cover.jpg'));
+    if (await playlistCoverFile.exists()) {
+      return playlistCoverFile.path;
+    }
+
+    // 2. 遍历子文件夹（视频文件夹）查找第一首歌的封面
     await for (final entity in folder.list()) {
       if (entity is Directory) {
         final coverFile = File(p.join(entity.path, 'cover.jpg'));
@@ -277,6 +283,7 @@ Track? _trackFromMetadata(Map<String, dynamic> json, String audioPath) {
       ..pageNum = json['pageNum'] as int?
       ..parentTitle = json['parentTitle'] as String?
       ..downloadedPath = audioPath
+      ..order = json['order'] as int?
       ..createdAt = DateTime.tryParse(json['downloadedAt'] as String? ?? '') ?? DateTime.now();
   } catch (_) {
     return null;
@@ -349,8 +356,16 @@ Future<List<Track>> _scanFolderForTracks(String folderPath) async {
     }
   }
 
-  // 按 parentTitle + pageNum 排序（分组显示）
+  // 按 order 排序，如果没有 order 则按 parentTitle + pageNum 排序（向后兼容）
   tracks.sort((a, b) {
+    // 优先使用 order 排序
+    if (a.order != null && b.order != null) {
+      return a.order!.compareTo(b.order!);
+    }
+    // 如果只有一个有 order，有 order 的排前面
+    if (a.order != null) return -1;
+    if (b.order != null) return 1;
+    // 都没有 order，按原来的方式排序（向后兼容）
     final groupCompare = (a.parentTitle ?? a.title).compareTo(b.parentTitle ?? b.title);
     if (groupCompare != 0) return groupCompare;
     return (a.pageNum ?? 0).compareTo(b.pageNum ?? 0);

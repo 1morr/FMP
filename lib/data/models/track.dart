@@ -60,6 +60,10 @@ class Track {
   @ignore
   int? pageCount;
 
+  /// 在歌单中的顺序（仅用于已下载页面排序，不持久化）
+  @ignore
+  int? order;
+
   // ========== 分P相关字段 ==========
 
   /// Bilibili cid（分P唯一标识）
