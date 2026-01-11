@@ -1,10 +1,9 @@
 import 'dart:async';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/extensions/track_extensions.dart';
+import '../../core/services/image_loading_service.dart';
 import '../../data/models/track.dart';
 import '../../data/models/video_detail.dart';
 import '../../providers/track_detail_provider.dart';
@@ -416,36 +415,12 @@ class _DetailContent extends ConsumerWidget {
 
   /// 构建UP主头像（优先使用本地头像）
   Widget _buildAvatar(BuildContext context, Track? track, VideoDetail detail) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    // 1. 已下载歌曲优先使用本地头像
-    final localAvatarPath = track?.localAvatarPath;
-    if (localAvatarPath != null) {
-      return CircleAvatar(
-        radius: 16,
-        backgroundColor: colorScheme.surfaceContainerHighest,
-        backgroundImage: FileImage(File(localAvatarPath)),
-        onBackgroundImageError: (_, s) {},
-        child: null,
-      );
-    }
-
-    // 2. 回退到网络头像
-    if (detail.ownerFace.isNotEmpty) {
-      return CircleAvatar(
-        radius: 16,
-        backgroundColor: colorScheme.surfaceContainerHighest,
-        backgroundImage: NetworkImage(detail.ownerFace),
-        onBackgroundImageError: (_, s) {},
-        child: null,
-      );
-    }
-
-    // 3. 无头像时显示占位符
-    return CircleAvatar(
-      radius: 16,
-      backgroundColor: colorScheme.surfaceContainerHighest,
-      child: Icon(Icons.person, size: 16, color: colorScheme.outline),
+    // 使用 ImageLoadingService 加载头像（集成缓存）
+    // 优先级：本地头像 → 网络头像 → 占位符
+    return ImageLoadingService.loadAvatar(
+      localPath: track?.localAvatarPath,
+      networkUrl: detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
+      size: 32,
     );
   }
 }

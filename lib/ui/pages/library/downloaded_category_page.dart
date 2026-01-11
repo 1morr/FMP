@@ -1,8 +1,8 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
@@ -228,18 +228,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
   }
 
   Widget _buildCoverBackground(ColorScheme colorScheme) {
-    if (widget.category.coverPath != null) {
-      final coverFile = File(widget.category.coverPath!);
-      if (coverFile.existsSync()) {
-        return Image.file(
-          coverFile,
-          fit: BoxFit.cover,
-          color: Colors.black54,
-          colorBlendMode: BlendMode.darken,
-        );
-      }
-    }
-    return Container(
+    final gradientPlaceholder = Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -251,19 +240,26 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
         ),
       ),
     );
+
+    if (widget.category.coverPath != null) {
+      return ColorFiltered(
+        colorFilter: const ColorFilter.mode(
+          Colors.black54,
+          BlendMode.darken,
+        ),
+        child: ImageLoadingService.loadImage(
+          localPath: widget.category.coverPath,
+          networkUrl: null,
+          placeholder: gradientPlaceholder,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+    return gradientPlaceholder;
   }
 
   Widget _buildCover(ColorScheme colorScheme) {
-    if (widget.category.coverPath != null) {
-      final coverFile = File(widget.category.coverPath!);
-      if (coverFile.existsSync()) {
-        return Image.file(
-          coverFile,
-          fit: BoxFit.cover,
-        );
-      }
-    }
-    return Container(
+    final placeholder = Container(
       color: colorScheme.primaryContainer,
       child: Icon(
         Icons.folder,
@@ -271,6 +267,16 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
         color: colorScheme.primary,
       ),
     );
+
+    if (widget.category.coverPath != null) {
+      return ImageLoadingService.loadImage(
+        localPath: widget.category.coverPath,
+        networkUrl: null,
+        placeholder: placeholder,
+        fit: BoxFit.cover,
+      );
+    }
+    return placeholder;
   }
 
   Widget _buildActionButtons(BuildContext context, List<Track> tracks) {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/download_provider.dart';
@@ -222,17 +223,12 @@ class _CategoryCard extends ConsumerWidget {
 
   Widget _buildCover(ColorScheme colorScheme) {
     if (category.coverPath != null) {
-      final coverFile = File(category.coverPath!);
-      if (coverFile.existsSync()) {
-        return Image.file(
-          coverFile,
-          fit: BoxFit.cover,
-          width: double.infinity,
-          height: double.infinity,
-          errorBuilder: (context, error, stackTrace) =>
-              _buildDefaultCover(colorScheme),
-        );
-      }
+      return ImageLoadingService.loadImage(
+        localPath: category.coverPath,
+        networkUrl: null,
+        placeholder: _buildDefaultCover(colorScheme),
+        fit: BoxFit.cover,
+      );
     }
     return _buildDefaultCover(colorScheme);
   }
