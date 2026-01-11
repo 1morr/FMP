@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/playback_settings_provider.dart';
@@ -96,9 +97,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
               tooltip: '随机打乱',
               onPressed: () {
                 ref.read(audioControllerProvider.notifier).shuffleQueue();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('队列已打乱')),
-                );
+                ToastService.show(context, '队列已打乱');
               },
             ),
             IconButton(

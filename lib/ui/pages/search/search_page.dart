@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
 import '../../../data/models/video_detail.dart';
@@ -569,16 +570,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             controller.addNext(page.toTrack(track));
           }
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('已添加${pages.length}个分P到下一首')),
-            );
+            ToastService.show(context, '已添加${pages.length}个分P到下一首');
           }
         } else {
           controller.addNext(track);
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('已添加到下一首')),
-            );
+            ToastService.show(context, '已添加到下一首');
           }
         }
         break;
@@ -589,16 +586,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             controller.addToQueue(page.toTrack(track));
           }
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('已添加${pages.length}个分P到播放队列')),
-            );
+            ToastService.show(context, '已添加${pages.length}个分P到播放队列');
           }
         } else {
           controller.addToQueue(track);
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('已添加到播放队列')),
-            );
+            ToastService.show(context, '已添加到播放队列');
           }
         }
         break;
@@ -613,17 +606,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             if (result != null) addedCount++;
           }
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('已添加 $addedCount 个分P到下载队列')),
-            );
+            ToastService.show(context, '已添加 $addedCount 个分P到下载队列');
           }
         } else {
           final result = await downloadService.addTrackDownload(track);
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(result != null ? '已添加到下载队列' : '歌曲已下载或已在队列中'),
-              ),
+            ToastService.show(
+              context,
+              result != null ? '已添加到下载队列' : '歌曲已下载或已在队列中',
             );
           }
         }
@@ -655,24 +645,19 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         break;
       case 'play_next':
         controller.addNext(pageTrack);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已添加到下一首')),
-        );
+        ToastService.show(context, '已添加到下一首');
         break;
       case 'add_to_queue':
         controller.addToQueue(pageTrack);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已添加到播放队列')),
-        );
+        ToastService.show(context, '已添加到播放队列');
         break;
       case 'download':
         final downloadService = ref.read(downloadServiceProvider);
         final result = await downloadService.addTrackDownload(pageTrack);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result != null ? '已添加到下载队列' : '分P已下载或已在队列中'),
-            ),
+          ToastService.show(
+            context,
+            result != null ? '已添加到下载队列' : '分P已下载或已在队列中',
           );
         }
         break;
