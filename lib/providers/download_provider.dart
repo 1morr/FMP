@@ -1,7 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
 import '../data/models/download_task.dart';
@@ -255,17 +255,111 @@ final downloadedCategoriesProvider = FutureProvider<List<DownloadedCategory>>((r
   return categories;
 });
 
-/// 获取指定分类文件夹中的已下载歌曲
+/// 从 metadata.json 创建 Track 对象
+Track? _trackFromMetadata(Map<String, dynamic> json, String audioPath) {
+  try {
+    final sourceTypeStr = json['sourceType'] as String?;
+    if (sourceTypeStr == null) return null;
+
+    final sourceType = SourceType.values.firstWhere(
+      (e) => e.name == sourceTypeStr,
+      orElse: () => SourceType.bilibili,
+    );
+
+    return Track()
+      ..sourceId = json['sourceId'] as String? ?? ''
+      ..sourceType = sourceType
+      ..title = json['title'] as String? ?? p.basenameWithoutExtension(audioPath)
+      ..artist = json['artist'] as String?
+      ..durationMs = json['durationMs'] as int?
+      ..thumbnailUrl = json['thumbnailUrl'] as String?
+      ..cid = json['cid'] as int?
+      ..pageNum = json['pageNum'] as int?
+      ..parentTitle = json['parentTitle'] as String?
+      ..downloadedPath = audioPath
+      ..createdAt = DateTime.tryParse(json['downloadedAt'] as String? ?? '') ?? DateTime.now();
+  } catch (_) {
+    return null;
+  }
+}
+
+/// 扫描文件夹获取已下载的 Track 列表（基于本地文件）
+Future<List<Track>> _scanFolderForTracks(String folderPath) async {
+  final folder = Directory(folderPath);
+  if (!await folder.exists()) return [];
+
+  final tracks = <Track>[];
+
+  // 遍历视频文件夹（每个视频一个子文件夹）
+  await for (final entity in folder.list()) {
+    if (entity is Directory) {
+      final metadataFile = File(p.join(entity.path, 'metadata.json'));
+      Map<String, dynamic>? metadata;
+
+      // 读取 metadata.json
+      if (await metadataFile.exists()) {
+        try {
+          final content = await metadataFile.readAsString();
+          metadata = jsonDecode(content) as Map<String, dynamic>;
+        } catch (_) {}
+      }
+
+      // 扫描该视频文件夹下的所有 .m4a 文件
+      await for (final audioEntity in entity.list()) {
+        if (audioEntity is File && audioEntity.path.endsWith('.m4a')) {
+          Track? track;
+
+          if (metadata != null) {
+            // 检查是否是多P视频（有多个 .m4a 文件）
+            // 多P视频的文件名格式: P01 - xxx.m4a, P02 - yyy.m4a
+            final fileName = p.basenameWithoutExtension(audioEntity.path);
+            final pageMatch = RegExp(r'^P(\d+)').firstMatch(fileName);
+
+            if (pageMatch != null) {
+              // 多P视频：从文件名提取 pageNum，使用 metadata 的基础信息
+              final pageNum = int.tryParse(pageMatch.group(1)!);
+              track = _trackFromMetadata(metadata, audioEntity.path);
+              if (track != null) {
+                track.pageNum = pageNum;
+                // 多P视频的 title 使用文件名（去掉 P01 - 前缀）
+                final titleMatch = RegExp(r'^P\d+\s*-\s*(.+)$').firstMatch(fileName);
+                if (titleMatch != null) {
+                  track.title = titleMatch.group(1)!;
+                }
+              }
+            } else {
+              // 单P视频
+              track = _trackFromMetadata(metadata, audioEntity.path);
+            }
+          }
+
+          // 如果没有 metadata 或解析失败，创建基本 Track
+          if (track == null) {
+            track = Track()
+              ..sourceId = p.basename(entity.path)
+              ..sourceType = SourceType.bilibili
+              ..title = p.basenameWithoutExtension(audioEntity.path)
+              ..downloadedPath = audioEntity.path
+              ..createdAt = DateTime.now();
+          }
+
+          tracks.add(track);
+        }
+      }
+    }
+  }
+
+  // 按 parentTitle + pageNum 排序（分组显示）
+  tracks.sort((a, b) {
+    final groupCompare = (a.parentTitle ?? a.title).compareTo(b.parentTitle ?? b.title);
+    if (groupCompare != 0) return groupCompare;
+    return (a.pageNum ?? 0).compareTo(b.pageNum ?? 0);
+  });
+
+  return tracks;
+}
+
+/// 获取指定分类文件夹中的已下载歌曲（基于本地文件扫描）
 final downloadedCategoryTracksProvider = FutureProvider.family<List<Track>, String>((ref, folderPath) async {
-  final trackRepo = ref.watch(trackRepositoryProvider);
-  final allDownloaded = await trackRepo.getDownloaded();
-
-  // 过滤出属于该文件夹的歌曲
-  final folderTracks = allDownloaded.where((track) {
-    if (track.downloadedPath == null) return false;
-    // 检查下载路径是否在该文件夹下
-    return track.downloadedPath!.startsWith(folderPath);
-  }).toList();
-
-  return folderTracks;
+  return _scanFolderForTracks(folderPath);
 });
