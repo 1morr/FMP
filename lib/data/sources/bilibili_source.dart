@@ -327,7 +327,8 @@ class BilibiliSource extends BaseSource with Logging {
           ..title = item['title'] ?? 'Unknown'
           ..artist = item['upper']?['name']
           ..durationMs = ((item['duration'] as int?) ?? 0) * 1000
-          ..thumbnailUrl = item['cover']);
+          ..thumbnailUrl = item['cover']
+          ..pageCount = item['page'] as int? ?? 1);
       }
 
       // 计算总页数并获取剩余页面
@@ -356,7 +357,8 @@ class BilibiliSource extends BaseSource with Logging {
             ..title = item['title'] ?? 'Unknown'
             ..artist = item['upper']?['name']
             ..durationMs = ((item['duration'] as int?) ?? 0) * 1000
-            ..thumbnailUrl = item['cover']);
+            ..thumbnailUrl = item['cover']
+            ..pageCount = item['page'] as int? ?? 1);
         }
 
         // 添加小延迟避免请求过快

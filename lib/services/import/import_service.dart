@@ -55,12 +55,14 @@ class ImportResult {
   final Playlist playlist;
   final int addedCount;
   final int skippedCount;
+  final int removedCount;
   final List<String> errors;
 
   const ImportResult({
     required this.playlist,
     required this.addedCount,
     required this.skippedCount,
+    this.removedCount = 0,
     required this.errors,
   });
 }
@@ -262,6 +264,9 @@ class ImportService {
         current: 0,
       );
 
+      // 保存原来的 trackIds 用于计算移除数量
+      final originalTrackIds = Set<int>.from(playlist.trackIds);
+
       int addedCount = 0;
       int skippedCount = 0;
       final errors = <String>[];
@@ -300,6 +305,10 @@ class ImportService {
         }
       }
 
+      // 计算被移除的歌曲数量（在原来列表中但不在新列表中的）
+      final newTrackIdSet = Set<int>.from(newTrackIds);
+      final removedCount = originalTrackIds.difference(newTrackIdSet).length;
+
       // 更新歌单
       playlist.trackIds = newTrackIds;
       playlist.lastRefreshed = DateTime.now();
@@ -314,6 +323,7 @@ class ImportService {
         playlist: playlist,
         addedCount: addedCount,
         skippedCount: skippedCount,
+        removedCount: removedCount,
         errors: errors,
       );
     } catch (e) {
@@ -352,16 +362,28 @@ class ImportService {
   ) async {
     final expandedTracks = <Track>[];
 
-    for (int i = 0; i < tracks.length; i++) {
-      final track = tracks[i];
-      onProgress(i + 1, tracks.length, track.title);
+    // 统计多P视频数量用于进度显示
+    final multiPageCount = tracks.where((t) => (t.pageCount ?? 0) > 1).length;
+    int multiPageProcessed = 0;
+
+    for (final track in tracks) {
+      // 单P视频直接添加（cid 会在播放时通过 ensureAudioUrl 获取）
+      if ((track.pageCount ?? 0) <= 1) {
+        track.pageNum = 1;
+        expandedTracks.add(track);
+        continue;
+      }
+
+      // 多P视频需要获取详细分P信息
+      multiPageProcessed++;
+      onProgress(multiPageProcessed, multiPageCount, track.title);
 
       try {
         // 获取分P信息
         final pages = await source.getVideoPages(track.sourceId);
 
         if (pages.length <= 1) {
-          // 单P视频，设置cid并直接添加
+          // API 返回单P，直接添加
           if (pages.isNotEmpty) {
             track.cid = pages.first.cid;
             track.pageNum = 1;

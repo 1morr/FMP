@@ -158,14 +158,19 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
             ),
       );
 
-      // 刷新歌单列表
+      // 刷新歌单列表和详情
       _ref.read(playlistListProvider.notifier).loadPlaylists();
+      _ref.invalidate(playlistDetailProvider(playlistId));
+      _ref.invalidate(allPlaylistsProvider);
 
       // 使用 ToastService 显示成功提示（不依赖 context）
       final toastService = _ref.read(toastServiceProvider);
+      final parts = <String>[];
+      if (result.addedCount > 0) parts.add('新增 ${result.addedCount} 首');
+      if (result.removedCount > 0) parts.add('移除 ${result.removedCount} 首');
+      if (result.skippedCount > 0) parts.add('${result.skippedCount} 首无变化');
       final message = '${playlist.name} 刷新完成！'
-          '${result.addedCount > 0 ? '新增 ${result.addedCount} 首' : '无新增'}'
-          '${result.skippedCount > 0 ? '，跳过 ${result.skippedCount} 首' : ''}';
+          '${parts.isEmpty ? '无变化' : parts.join('，')}';
       toastService.showSuccess(message);
 
       // 延迟移除已完成的状态

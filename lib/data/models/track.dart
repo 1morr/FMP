@@ -56,6 +56,10 @@ class Track {
   @ignore
   int? viewCount;
 
+  /// 分P总数（仅用于导入时判断是否需要展开，不持久化）
+  @ignore
+  int? pageCount;
+
   // ========== 分P相关字段 ==========
 
   /// Bilibili cid（分P唯一标识）
