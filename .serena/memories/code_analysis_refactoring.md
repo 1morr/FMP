@@ -1,112 +1,91 @@
 # FMP 代码分析与重构计划
 
-## 分析日期: 2026-01-11
+## 最后更新: 2026-01-11
 
-## 一、下载系统评估
+## 一、重构状态总览
 
-### 架构：✅ 整体设计合理
-- 清晰的分层：Repository → Service → Provider → UI
-- Stream 监听任务变化，响应式更新
-- 进度节流优化，避免 Windows 线程问题
+| 组件 | 状态 | 使用文件数 |
+|------|------|-----------|
+| TrackThumbnail | ✅ 完成 | 9 |
+| DurationFormatter | ✅ 完成 | 8 |
+| getVolumeIcon | ✅ 完成 | 3 |
+| TrackGroup | ✅ 完成 | 3 |
+| ToastService | ✅ 完成 | 15 |
 
-### 待优化（未实施）：
+## 二、已创建的共享组件
+
+### 1. TrackThumbnail (`lib/ui/widgets/track_thumbnail.dart`)
+- 统一封面图片显示逻辑
+- 支持本地封面优先、网络回退、占位符
+- 支持播放中指示器
+- **使用位置：**
+  - mini_player.dart
+  - player_page.dart (使用 TrackCover)
+  - queue_page.dart
+  - search_page.dart
+  - track_detail_panel.dart
+  - downloaded_category_page.dart
+  - playlist_detail_page.dart
+  - home_page.dart (正在播放、接下来播放)
+  - add_to_playlist_dialog.dart
+
+### 2. DurationFormatter (`lib/core/utils/duration_formatter.dart`)
+- `formatMs(int ms)` → "mm:ss"
+- `formatLong(Duration)` → "X 小时 Y 分钟"
+- **使用位置：**
+  - player_page.dart
+  - queue_page.dart
+  - search_page.dart
+  - downloaded_category_page.dart
+  - playlist_detail_page.dart
+  - track_extensions.dart
+
+### 3. TrackExtensions (`lib/core/extensions/track_extensions.dart`)
+- `localCoverPath` getter - 获取本地封面路径
+- `formattedDuration` getter - 格式化时长
+
+### 4. getVolumeIcon (`lib/core/utils/icon_helpers.dart`)
+- 根据音量返回对应图标
+- **使用位置：** mini_player.dart, player_page.dart
+
+### 5. TrackGroup (`lib/ui/widgets/track_group/track_group.dart`)
+- 分组逻辑和数据结构
+- `groupTracks()` 共享函数
+- **使用位置：** downloaded_category_page.dart, playlist_detail_page.dart
+
+### 6. ToastService (`lib/core/services/toast_service.dart`)
+- `show()` - 普通消息
+- `success()` - 成功消息（绿色图标）
+- `error()` - 错误消息（红色图标）
+- `warning()` - 警告消息（橙色图标）
+- **使用位置：** 15个文件，48+ 处调用
+
+## 三、遗留项（低优先级）
+
+### 内联图片构建（已处理）
+- ✅ home_page.dart - 已转换为 TrackThumbnail
+- ✅ add_to_playlist_dialog.dart - Track 封面已转换，歌单封面添加了 errorBuilder
+
+### 模型层时长格式化（保留）
+- `track.dart:formattedDuration` - 模型层格式化
+- `video_detail.dart:formattedDuration` - 详情面板格式化
+- 与 UI 层 DurationFormatter 职责不同，无需统一
+
+## 四、下载系统待优化（未实施）
+
 1. ⏸️ `_scheduleDownloads` 每 500ms 轮询 → 改为事件驱动
 2. ⏸️ `_startDownload` 是 void async → 改为 Future<void>
 3. ⏸️ 缺少断点续传支持
 4. ⏸️ TrackRepository 被创建两次实例
 
-## 二、UI 重复代码
+## 五、封面图片优先级规则
 
-### 高优先级重复 - 完成状态
-
-| 模式 | 重复次数 | 文件数 | 状态 |
-|------|----------|--------|------|
-| 封面图片构建 | 10+ | 7 | ✅ 已统一到 TrackThumbnail |
-| 时长格式化 | 7 | 5 | ✅ 已统一到 DurationFormatter |
-| TrackGroup 分组 | 2 | 2 | ✅ 已提取到共享组件 |
-| _getVolumeIcon | 2 | 2 | ✅ 已提取到 icon_helpers.dart |
-| SnackBar 调用 | 48→20 | 10+ | 🔄 已统一大部分到 ToastService |
-
-### 已重构文件：✅
-- `mini_player.dart` - 使用 TrackThumbnail, getVolumeIcon
-- `player_page.dart` - 使用 TrackCover, DurationFormatter, getVolumeIcon
-- `queue_page.dart` - 使用 TrackThumbnail, DurationFormatter
-- `track_detail_panel.dart` - 使用 TrackCover, TrackThumbnail
-- `downloaded_category_page.dart` - 使用 TrackThumbnail, DurationFormatter, TrackGroup
-- `playlist_detail_page.dart` - 使用 TrackThumbnail, DurationFormatter, TrackGroup
-- `search_page.dart` - 使用 TrackThumbnail, DurationFormatter
-
-## 三、重构计划
-
-### 已创建的共享组件：
-
-1. **TrackThumbnail** (`lib/ui/widgets/track_thumbnail.dart`)
-   - 统一封面图片显示逻辑
-   - 支持本地封面优先、网络回退、占位符
-   - 支持播放中指示器
-
-2. **DurationFormatter** (`lib/core/utils/duration_formatter.dart`)
-   - formatMs(int ms) → "mm:ss"
-   - formatLong(Duration) → "X 小时 Y 分钟"
-
-3. **TrackExtensions** (`lib/core/extensions/track_extensions.dart`)
-   - localCoverPath getter
-   - formattedDuration getter
-
-### 重构完成文件：✅
-- [x] queue_page.dart
-- [x] mini_player.dart  
-- [x] player_page.dart
-- [x] track_detail_panel.dart
-- [x] downloaded_category_page.dart
-- [x] playlist_detail_page.dart
-- [x] search_page.dart
-
-### Code Simplifier 修复完成：✅
-- [x] TrackThumbnail 改用 TrackExtensions.localCoverPath
-- [x] 提取 getVolumeIcon 到 lib/core/utils/icon_helpers.dart
-- [x] 提取 TrackGroup 到 lib/ui/widgets/track_group/track_group.dart
-- [x] 简化 player_page.dart 的 LoopMode switch 语句
-- [x] 修复多余空行（queue_page, track_detail_panel）
-
-## 四、Code Simplifier 审查发现 (2026-01-11)
-
-### ✅ 高优先级 - 已完成
-
-**1. downloaded_category_page 与 playlist_detail_page 大量重复** ✅
-- [x] `_TrackGroup` 类 → 提取到 `lib/ui/widgets/track_group/track_group.dart`
-- [x] `_groupTracks()` 方法 → 提取到 `groupTracks()` 共享函数
-- [ ] `_GroupHeader` 组件 - 保留各自实现（菜单选项不同）
-- [ ] `_toggleGroup()` / `_addAllToQueue()` - 保留各自实现（依赖不同）
-
-### ✅ 中优先级 - 已完成
-
-**2. TrackThumbnail 未使用 TrackExtensions** ✅
-- [x] 已改用 `track.localCoverPath` 扩展
-
-**3. _getVolumeIcon 方法重复** ✅
-- [x] 已提取到 `lib/core/utils/icon_helpers.dart`
-- [x] mini_player.dart 和 player_page.dart 已更新使用共享方法
-
-### ✅ 低优先级 - 已完成
-
-**4. 代码风格问题** ✅
-- [x] `queue_page.dart` - 已修复多余空行
-- [x] `player_page.dart` - 已修复（在简化 switch 时一并修复）
-- [x] `track_detail_panel.dart` - 已修复多余空行
-
-**5. player_page.dart LoopMode switch 冗长** ✅
-- [x] 已简化为 switch 表达式
-
-**6. queue_page.dart:36-42 条件初始化可简化** ⏸️
-- [ ] 保留现状（可读性优先，改动收益较小）
-
-## 五、注意事项
-
-### 封面图片优先级：
 1. 本地封面 (track.downloadedPath → parent/cover.jpg)
 2. 网络封面 (track.thumbnailUrl)
 3. 占位符 (Icons.music_note, centered)
 
-### 播放指示器：
-使用 NowPlayingIndicator 组件，覆盖在封面上方
+## 六、注意事项
+
+- 播放指示器使用 NowPlayingIndicator 组件
+- ToastService 仅用于 UI 层消息，app_shell.dart 的流式 Toast 系统保持独立
+- 编辑代码时优先使用 Serena 符号编辑工具

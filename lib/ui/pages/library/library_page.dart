@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/services/toast_service.dart';
 import '../../../data/models/playlist.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/playlist_provider.dart';
@@ -356,9 +357,7 @@ class _PlaylistCard extends ConsumerWidget {
 
     if (result == null || result.tracks.isEmpty) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('歌单为空')),
-        );
+        ToastService.show(context, '歌单为空');
       }
       return;
     }
@@ -367,9 +366,7 @@ class _PlaylistCard extends ConsumerWidget {
     controller.addAllToQueue(result.tracks);
     
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已添加 ${result.tracks.length} 首歌曲到队列')),
-      );
+      ToastService.show(context, '已添加 ${result.tracks.length} 首歌曲到队列');
     }
   }
 
@@ -379,9 +376,7 @@ class _PlaylistCard extends ConsumerWidget {
 
     if (result == null || result.tracks.isEmpty) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('歌单为空')),
-        );
+        ToastService.show(context, '歌单为空');
       }
       return;
     }
@@ -391,9 +386,7 @@ class _PlaylistCard extends ConsumerWidget {
     controller.addAllToQueue(shuffled);
     
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已随机添加 ${result.tracks.length} 首歌曲到队列')),
-      );
+      ToastService.show(context, '已随机添加 ${result.tracks.length} 首歌曲到队列');
     }
   }
 

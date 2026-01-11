@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/services/toast_service.dart';
 import '../../../../data/models/playlist.dart';
 import '../../../../providers/playlist_provider.dart';
 
@@ -120,19 +121,10 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
       if (mounted) {
         if (success) {
           Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(isEditing ? '歌单已更新' : '歌单已创建'),
-            ),
-          );
+          ToastService.success(context, isEditing ? '歌单已更新' : '歌单已创建');
         } else {
           final error = ref.read(playlistListProvider).error;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(error ?? '操作失败'),
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-          );
+          ToastService.error(context, error ?? '操作失败');
         }
       }
     } finally {

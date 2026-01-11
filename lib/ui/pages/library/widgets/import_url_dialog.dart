@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/services/toast_service.dart';
 import '../../../../data/sources/source_provider.dart';
 import '../../../../providers/playlist_provider.dart';
 import '../../../../providers/repository_providers.dart';
@@ -186,13 +187,10 @@ class _ImportUrlDialogState extends ConsumerState<ImportUrlDialog> {
 
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '导入成功！添加了 ${result.addedCount} 首歌曲'
-              '${result.skippedCount > 0 ? '，跳过 ${result.skippedCount} 首' : ''}',
-            ),
-          ),
+        ToastService.success(
+          context,
+          '导入成功！添加了 ${result.addedCount} 首歌曲'
+          '${result.skippedCount > 0 ? '，跳过 ${result.skippedCount} 首' : ''}',
         );
       }
     } catch (e) {

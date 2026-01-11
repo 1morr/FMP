@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/playlist_provider.dart';
+import '../track_thumbnail.dart';
 
 /// 显示添加到歌单对话框（单个track）
 Future<bool> showAddToPlaylistDialog({
@@ -97,23 +99,10 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
               child: Row(
                 children: [
                   // 封面
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(4),
-                      color: colorScheme.surface,
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: widget.firstTrack.thumbnailUrl != null
-                        ? Image.network(
-                            widget.firstTrack.thumbnailUrl!,
-                            fit: BoxFit.cover,
-                          )
-                        : Icon(
-                            Icons.music_note,
-                            color: colorScheme.primary,
-                          ),
+                  TrackThumbnail(
+                    track: widget.firstTrack,
+                    size: 48,
+                    borderRadius: 4,
                   ),
                   const SizedBox(width: 12),
                   // 信息
@@ -268,6 +257,10 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                                     ? Image.network(
                                         url,
                                         fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Icon(
+                                          Icons.album,
+                                          color: colorScheme.outline,
+                                        ),
                                       )
                                     : Icon(
                                         Icons.album,
@@ -426,9 +419,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('创建失败: $e')),
-          );
+          ToastService.error(context, '创建失败: $e');
         }
       }
     }
@@ -468,21 +459,15 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
 
       if (mounted) {
         if (successCount == _selectedPlaylistIds.length) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('已添加到 $successCount 个歌单')),
-          );
+          ToastService.success(context, '已添加到 $successCount 个歌单');
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('成功添加到 $successCount/${_selectedPlaylistIds.length} 个歌单')),
-          );
+          ToastService.warning(context, '成功添加到 $successCount/${_selectedPlaylistIds.length} 个歌单');
         }
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('添加失败: $e')),
-        );
+        ToastService.error(context, '添加失败: $e');
       }
     } finally {
       if (mounted) {
