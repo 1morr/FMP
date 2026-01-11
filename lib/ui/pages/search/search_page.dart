@@ -12,6 +12,7 @@ import '../../../providers/search_provider.dart';
 import '../../../providers/download_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
+import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/track_thumbnail.dart';
 
 /// 搜索页
@@ -666,7 +667,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 }
 
 /// 搜索结果列表项（支持分P展开）
-class _SearchResultTile extends StatelessWidget {
+class _SearchResultTile extends ConsumerWidget {
   final Track track;
   final bool isLocal;
   final bool isExpanded;
@@ -690,9 +691,19 @@ class _SearchResultTile extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final hasMultiplePages = pages != null && pages!.length > 1;
+    final currentTrack = ref.watch(currentTrackProvider);
+
+    // 检查当前播放的是否是这个视频的某个分P
+    final isPlayingThisVideo = currentTrack != null &&
+        currentTrack.sourceId == track.sourceId;
+    // 检查是否正在播放这个具体的 track（单P视频或第一个分P）
+    final isPlaying = isPlayingThisVideo &&
+        currentTrack.pageNum == track.pageNum;
+    // 多P视频高亮整个视频，单P视频高亮具体匹配
+    final shouldHighlight = hasMultiplePages ? isPlayingThisVideo : isPlaying;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -703,11 +714,16 @@ class _SearchResultTile extends StatelessWidget {
             track: track,
             size: 48,
             borderRadius: 4,
+            isPlaying: shouldHighlight,
           ),
           title: Text(
             track.title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: shouldHighlight ? colorScheme.primary : null,
+              fontWeight: shouldHighlight ? FontWeight.w600 : null,
+            ),
           ),
           subtitle: Row(
             children: [
@@ -860,7 +876,7 @@ class _SearchResultTile extends StatelessWidget {
 }
 
 /// 分P列表项
-class _PageTile extends StatelessWidget {
+class _PageTile extends ConsumerWidget {
   final VideoPage page;
   final Track parentTrack;
   final VoidCallback onTap;
@@ -874,31 +890,45 @@ class _PageTile extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final currentTrack = ref.watch(currentTrackProvider);
+    // 检查是否正在播放这个分P
+    final isPlaying = currentTrack != null &&
+        currentTrack.sourceId == parentTrack.sourceId &&
+        currentTrack.pageNum == page.page;
 
     return Padding(
       padding: const EdgeInsets.only(left: 56),
       child: ListTile(
-        leading: Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            'P${page.page}',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: colorScheme.outline,
+        leading: isPlaying
+            ? NowPlayingIndicator(
+                size: 24,
+                color: colorScheme.primary,
+              )
+            : Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(4),
                 ),
-          ),
-        ),
+                alignment: Alignment.center,
+                child: Text(
+                  'P${page.page}',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colorScheme.outline,
+                      ),
+                ),
+              ),
         title: Text(
           page.part,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: isPlaying ? colorScheme.primary : null,
+            fontWeight: isPlaying ? FontWeight.w600 : null,
+          ),
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
