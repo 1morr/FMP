@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "agent",
-            "prompt": "Check if code was modified in this session (Write, Edit tools used). If code was modified and the code-simplifier agent has NOT yet been run, return: {\"decision\": \"block\", \"reason\": \"Code was modified\", \"systemMessage\": \"You must use the Task tool to spawn the 'code-simplifier:code-simplifier' subagent to review the modified code before completing the task.\"}. If code-simplifier already ran OR no code was modified, return: {\"decision\": \"approve\"}.",
+            "prompt": "Check if SOURCE CODE files were modified in this session. Only consider actual code files like .dart, .ts, .js, .jsx, .tsx, .py, .java, .kt, .swift, .go, .rs, .cpp, .c, .h, etc. IGNORE documentation files (.md, .txt, .rst), config files (.json, .yaml, .yml, .toml, .xml), and other non-code files. If source code was modified AND code-simplifier has NOT been run, return: {\"decision\": \"block\", \"reason\": \"Source code was modified\", \"systemMessage\": \"You must use the Task tool to spawn the 'code-simplifier:code-simplifier' subagent to review the modified source code before completing the task.\"}. If only non-code files were modified OR code-simplifier already ran OR no files were modified, return: {\"decision\": \"approve\"}.",
             "model": "claude-sonnet-4-5-20250929",
             "timeout": 120
           }
