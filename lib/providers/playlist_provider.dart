@@ -10,9 +10,11 @@ import 'repository_providers.dart';
 final playlistServiceProvider = Provider<PlaylistService>((ref) {
   final playlistRepo = ref.watch(playlistRepositoryProvider);
   final trackRepo = ref.watch(trackRepositoryProvider);
+  final settingsRepo = ref.watch(settingsRepositoryProvider);
   return PlaylistService(
     playlistRepository: playlistRepo,
     trackRepository: trackRepo,
+    settingsRepository: settingsRepo,
   );
 });
 
@@ -267,10 +269,11 @@ final playlistDetailProvider = StateNotifierProvider.family<
 });
 
 /// 歌单封面 Provider
+/// 返回 PlaylistCoverData，包含本地路径和网络 URL
 final playlistCoverProvider =
-    FutureProvider.family<String?, int>((ref, playlistId) async {
+    FutureProvider.family<PlaylistCoverData, int>((ref, playlistId) async {
   final service = ref.watch(playlistServiceProvider);
-  return service.getPlaylistCover(playlistId);
+  return service.getPlaylistCoverData(playlistId);
 });
 
 /// 所有歌单列表 Provider (简化版)

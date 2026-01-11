@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
@@ -179,14 +180,18 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           children: [
             // 封面背景
             coverAsync.when(
-              data: (coverUrl) => coverUrl != null
-                  ? Image.network(
-                      coverUrl,
-                      fit: BoxFit.cover,
-                      color: Colors.black54,
-                      colorBlendMode: BlendMode.darken,
-                      errorBuilder: (context, error, stackTrace) =>
-                          Container(color: colorScheme.primaryContainer),
+              data: (coverData) => coverData.hasCover
+                  ? ColorFiltered(
+                      colorFilter: const ColorFilter.mode(
+                        Colors.black54,
+                        BlendMode.darken,
+                      ),
+                      child: ImageLoadingService.loadImage(
+                        localPath: coverData.localPath,
+                        networkUrl: coverData.networkUrl,
+                        placeholder: Container(color: colorScheme.primaryContainer),
+                        fit: BoxFit.cover,
+                      ),
                     )
                   : Container(color: colorScheme.primaryContainer),
               loading: () => Container(color: colorScheme.primaryContainer),
@@ -231,12 +236,11 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: coverAsync.when(
-                      data: (coverUrl) => coverUrl != null
-                          ? Image.network(
-                              coverUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  Container(
+                      data: (coverData) => coverData.hasCover
+                          ? ImageLoadingService.loadImage(
+                              localPath: coverData.localPath,
+                              networkUrl: coverData.networkUrl,
+                              placeholder: Container(
                                 color: colorScheme.primaryContainer,
                                 child: Center(
                                   child: Icon(
@@ -246,6 +250,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                                   ),
                                 ),
                               ),
+                              fit: BoxFit.cover,
                             )
                           : Container(
                               color: colorScheme.primaryContainer,
