@@ -89,9 +89,15 @@ class _ImportUrlDialogState extends ConsumerState<ImportUrlDialog> {
                   value: _progress.total > 0 ? _progress.percentage : null,
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  _progress.currentItem ?? '正在处理...',
-                  style: Theme.of(context).textTheme.bodySmall,
+                // 固定高度避免因标题长度不同导致弹窗抖动
+                SizedBox(
+                  height: 20,
+                  child: Text(
+                    _progress.currentItem ?? '正在处理...',
+                    style: Theme.of(context).textTheme.bodySmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 if (_progress.total > 0)
                   Text(
