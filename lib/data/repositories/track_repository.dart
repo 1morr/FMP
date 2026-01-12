@@ -1,4 +1,6 @@
 import 'package:isar/isar.dart';
+import 'dart:io';
+
 import '../models/track.dart';
 import '../../core/logger.dart';
 
@@ -236,5 +238,39 @@ class TrackRepository with Logging {
       track.audioUrlExpiry = DateTime.now().add(expiry);
       await save(track);
     }
+  }
+
+  /// 清理孤儿 Track（不被任何歌单/队列引用，且本地文件不存在的）
+  /// 
+  /// [referencedTrackIds] 被歌单或播放队列引用的 Track ID 集合
+  /// 返回：删除的 Track 数量
+  Future<int> cleanupOrphanTracks(Set<int> referencedTrackIds) async {
+    final allTracks = await getAll();
+    final toDelete = <int>[];
+    
+    for (final track in allTracks) {
+      // 如果被引用，保留
+      if (referencedTrackIds.contains(track.id)) {
+        continue;
+      }
+      
+      // 如果有下载路径且文件存在，保留
+      if (track.downloadedPath != null) {
+        final file = File(track.downloadedPath!);
+        if (await file.exists()) {
+          continue;
+        }
+      }
+      
+      // 否则标记为删除
+      toDelete.add(track.id);
+    }
+    
+    if (toDelete.isNotEmpty) {
+      await deleteAll(toDelete);
+      logDebug('Cleaned up ${toDelete.length} orphan tracks');
+    }
+    
+    return toDelete.length;
   }
 }
