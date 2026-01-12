@@ -66,6 +66,85 @@ class TrackRepository with Logging {
         .findFirst();
   }
 
+  /// 刷新歌单时的智能匹配：尝试找到最佳匹配的已存在 Track
+  /// 
+  /// 匹配优先级：
+  /// 1. sourceId + cid 精确匹配
+  /// 2. sourceId + pageNum 匹配（如果 cid 不匹配但 pageNum 相同）
+  /// 3. sourceId 匹配已下载的 Track（保留下载状态）
+  Future<Track?> findBestMatchForRefresh(
+    String sourceId,
+    SourceType sourceType, {
+    int? cid,
+    int? pageNum,
+  }) async {
+    // 1. 首先尝试精确匹配 (sourceId + cid)
+    if (cid != null) {
+      final exactMatch = await _isar.tracks
+          .where()
+          .sourceIdEqualTo(sourceId)
+          .filter()
+          .sourceTypeEqualTo(sourceType)
+          .and()
+          .cidEqualTo(cid)
+          .findFirst();
+      if (exactMatch != null) {
+        return exactMatch;
+      }
+    }
+    
+    // 2. 尝试 sourceId + pageNum 匹配
+    if (pageNum != null) {
+      final pageMatch = await _isar.tracks
+          .where()
+          .sourceIdEqualTo(sourceId)
+          .filter()
+          .sourceTypeEqualTo(sourceType)
+          .and()
+          .pageNumEqualTo(pageNum)
+          .findFirst();
+      if (pageMatch != null) {
+        // 更新 cid（如果有新的 cid）
+        if (cid != null && pageMatch.cid != cid) {
+          pageMatch.cid = cid;
+          await save(pageMatch);
+        }
+        return pageMatch;
+      }
+    }
+    
+    // 3. 对于单P视频（pageNum == null 或 1），尝试匹配已下载的 Track
+    if (pageNum == null || pageNum == 1) {
+      final downloadedMatch = await _isar.tracks
+          .where()
+          .sourceIdEqualTo(sourceId)
+          .filter()
+          .sourceTypeEqualTo(sourceType)
+          .and()
+          .downloadedPathIsNotNull()
+          .findFirst();
+      if (downloadedMatch != null) {
+        // 更新 cid 和 pageNum
+        bool needsSave = false;
+        if (cid != null && downloadedMatch.cid != cid) {
+          downloadedMatch.cid = cid;
+          needsSave = true;
+        }
+        if (pageNum != null && downloadedMatch.pageNum != pageNum) {
+          downloadedMatch.pageNum = pageNum;
+          needsSave = true;
+        }
+        if (needsSave) {
+          await save(downloadedMatch);
+        }
+        return downloadedMatch;
+      }
+    }
+    
+    // 4. 最后回退到传统匹配
+    return getBySourceId(sourceId, sourceType);
+  }
+
   /// 保存歌曲并返回更新后的歌曲
   Future<Track> save(Track track) async {
     logDebug('Saving track: ${track.title} (id: ${track.id}, sourceId: ${track.sourceId})');

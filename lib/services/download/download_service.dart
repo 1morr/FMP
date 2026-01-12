@@ -703,6 +703,102 @@ class DownloadService with Logging {
       fileCount: fileCount,
     );
   }
+
+  /// 同步本地下载文件与数据库 Track 记录
+  /// 
+  /// 扫描下载目录中的所有 metadata.json 文件，
+  /// 与数据库中的 Track 进行匹配，并更新 downloadedPath。
+  /// 
+  /// 返回：更新的 Track 数量
+  Future<int> syncDownloadedFiles() async {
+    logDebug('Starting download sync...');
+    
+    final settings = await _settingsRepository.get();
+    final downloadDir = settings.customDownloadDir ?? await _getDefaultDownloadDir();
+    
+    final dir = Directory(downloadDir);
+    if (!await dir.exists()) {
+      logDebug('Download directory does not exist');
+      return 0;
+    }
+    
+    int updatedCount = 0;
+    
+    // 遍历所有子目录（歌单文件夹）
+    await for (final playlistEntity in dir.list()) {
+      if (playlistEntity is! Directory) continue;
+      
+      // 遍历视频文件夹
+      await for (final videoEntity in playlistEntity.list()) {
+        if (videoEntity is! Directory) continue;
+        
+        final metadataFile = File(p.join(videoEntity.path, 'metadata.json'));
+        if (!await metadataFile.exists()) continue;
+        
+        try {
+          final content = await metadataFile.readAsString();
+          final metadata = jsonDecode(content) as Map<String, dynamic>;
+          
+          final sourceId = metadata['sourceId'] as String?;
+          final sourceTypeStr = metadata['sourceType'] as String?;
+          final cid = metadata['cid'] as int?;
+          final pageNum = metadata['pageNum'] as int?;
+          
+          if (sourceId == null || sourceTypeStr == null) continue;
+          
+          final sourceType = SourceType.values.firstWhere(
+            (e) => e.name == sourceTypeStr,
+            orElse: () => SourceType.bilibili,
+          );
+          
+          // 扫描该视频文件夹下的所有 .m4a 文件
+          await for (final audioEntity in videoEntity.list()) {
+            if (audioEntity is! File || !audioEntity.path.endsWith('.m4a')) continue;
+            
+            final audioPath = audioEntity.path;
+            
+            // 确定这个音频文件对应的 pageNum
+            int? audioPageNum = pageNum;
+            final fileName = p.basenameWithoutExtension(audioPath);
+            final pageMatch = RegExp(r'^P(\d+)').firstMatch(fileName);
+            if (pageMatch != null) {
+              audioPageNum = int.tryParse(pageMatch.group(1)!);
+            }
+            
+            // 查找匹配的 Track
+            Track? track;
+            if (cid != null || audioPageNum != null) {
+              // 尝试精确匹配
+              track = await _trackRepository.findBestMatchForRefresh(
+                sourceId,
+                sourceType,
+                cid: cid,
+                pageNum: audioPageNum,
+              );
+            } else {
+              // 简单匹配
+              track = await _trackRepository.getBySourceId(sourceId, sourceType);
+            }
+            
+            if (track != null && track.downloadedPath != audioPath) {
+              // 检查文件是否真实存在
+              if (await File(audioPath).exists()) {
+                track.downloadedPath = audioPath;
+                await _trackRepository.save(track);
+                updatedCount++;
+                logDebug('Updated downloadedPath for track: ${track.title}');
+              }
+            }
+          }
+        } catch (e) {
+          logDebug('Error processing metadata: ${metadataFile.path}, $e');
+        }
+      }
+    }
+    
+    logDebug('Download sync completed. Updated $updatedCount tracks');
+    return updatedCount;
+  }
 }
 
 /// 下载进度事件
