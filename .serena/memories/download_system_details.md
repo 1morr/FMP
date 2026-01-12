@@ -375,7 +375,27 @@ final downloadedCategoryTracksProvider = FutureProvider.family<List<Track>, Stri
 3. sourceId 匹配已下载的 Track（优先保留下载状态）
 4. 回退到传统 sourceId 匹配
 
-#### 2. 主动同步（DownloadService.syncDownloadedFiles）
+#### 2. 孤儿 Track 清理（startupCleanupProvider）
+
+应用启动时自动清理无用的 Track 记录：
+
+```dart
+// 清理逻辑
+if (!被歌单引用 && !被播放队列引用) {
+  if (downloadedPath == null || !File.existsSync()) {
+    删除 Track 记录
+  }
+}
+```
+
+**保留条件：**
+- 被任意歌单引用
+- 被播放队列引用
+- 有 downloadedPath 且文件实际存在
+
+---
+
+#### 3. 主动同步（DownloadService.syncDownloadedFiles）
 扫描下载目录中的 metadata.json，与数据库 Track 匹配并恢复 downloadedPath。
 
 **触发时机：**
