@@ -361,6 +361,39 @@ final downloadedCategoryTracksProvider = FutureProvider.family<List<Track>, Stri
 
 ---
 
+## 下载状态同步机制
+
+### 问题背景
+刷新歌单或删除重新导入时，歌曲的 `downloadedPath` 可能丢失，导致已下载标记消失。
+
+### 解决方案
+
+#### 1. 智能匹配（TrackRepository.findBestMatchForRefresh）
+刷新歌单时使用多级回退匹配：
+1. sourceId + cid 精确匹配
+2. sourceId + pageNum 匹配（如果 cid 变化但 pageNum 相同）
+3. sourceId 匹配已下载的 Track（优先保留下载状态）
+4. 回退到传统 sourceId 匹配
+
+#### 2. 主动同步（DownloadService.syncDownloadedFiles）
+扫描下载目录中的 metadata.json，与数据库 Track 匹配并恢复 downloadedPath。
+
+**触发时机：**
+- 进入已下载页面时自动执行
+- 点击已下载页面右上角刷新按钮时执行
+
+```dart
+// 同步逻辑
+Future<int> syncDownloadedFiles() async {
+  // 1. 遍历下载目录的 metadata.json
+  // 2. 读取 sourceId, cid, pageNum
+  // 3. 使用 findBestMatchForRefresh 查找匹配的 Track
+  // 4. 更新 downloadedPath
+}
+```
+
+---
+
 ## 已下载页面的文件扫描
 
 ### 分类获取

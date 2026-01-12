@@ -281,11 +281,12 @@ class ImportService {
         );
 
         try {
-          // 检查是否已存在（支持分P唯一性）
-          final existing = await _trackRepository.getBySourceIdAndCid(
+          // 使用智能匹配查找已存在的 Track（优先保留已下载的）
+          final existing = await _trackRepository.findBestMatchForRefresh(
             track.sourceId,
             track.sourceType,
             cid: track.cid,
+            pageNum: track.pageNum,
           );
 
           if (existing != null) {

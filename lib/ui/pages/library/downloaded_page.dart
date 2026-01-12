@@ -23,16 +23,29 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
   @override
   void initState() {
     super.initState();
-    // 进入页面时刷新数据
-    Future.microtask(() {
+    // 进入页面时同步并刷新数据
+    Future.microtask(() async {
+      // 同步本地文件与数据库
+      final downloadService = ref.read(downloadServiceProvider);
+      await downloadService.syncDownloadedFiles();
+      // 刷新数据
       ref.invalidate(downloadedCategoriesProvider);
     });
   }
 
   Future<void> _refresh() async {
+    // 先同步本地文件与数据库
+    final downloadService = ref.read(downloadServiceProvider);
+    final updatedCount = await downloadService.syncDownloadedFiles();
+    
+    // 刷新分类列表
     ref.invalidate(downloadedCategoriesProvider);
-    // 等待新数据加载
     await ref.read(downloadedCategoriesProvider.future);
+    
+    // 显示同步结果
+    if (mounted && updatedCount > 0) {
+      ToastService.show(context, '已同步 $updatedCount 个下载状态');
+    }
   }
 
   @override
