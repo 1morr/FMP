@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:equatable/equatable.dart';
 
+import '../core/constants/app_constants.dart';
 import '../data/models/playlist.dart';
 import '../services/import/import_service.dart';
 import '../services/toast_service.dart';
@@ -174,7 +175,7 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
       toastService.showSuccess(message);
 
       // 延迟移除已完成的状态
-      Future.delayed(const Duration(seconds: 3), () {
+      Future.delayed(AppConstants.refreshCompleteDelay, () {
         _removePlaylistState(playlistId);
       });
 
@@ -193,7 +194,7 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
       toastService.showError('${playlist.name} 刷新失败: $e');
 
       // 延迟移除失败的状态
-      Future.delayed(const Duration(seconds: 5), () {
+      Future.delayed(AppConstants.refreshErrorDelay, () {
         _removePlaylistState(playlistId);
       });
 

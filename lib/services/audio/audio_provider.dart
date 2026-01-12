@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart' as just_audio;
+import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
@@ -327,13 +328,15 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   /// 快进
-  Future<void> seekForward([Duration duration = const Duration(seconds: 10)]) async {
-    await _audioService.seekForward(duration);
+  Future<void> seekForward([Duration? duration]) async {
+    final seekDuration = duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
+    await _audioService.seekForward(seekDuration);
   }
 
   /// 快退
-  Future<void> seekBackward([Duration duration = const Duration(seconds: 10)]) async {
-    await _audioService.seekBackward(duration);
+  Future<void> seekBackward([Duration? duration]) async {
+    final seekDuration = duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
+    await _audioService.seekBackward(seekDuration);
   }
 
   // ========== 队列控制 ==========
@@ -459,7 +462,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
           // 恢复播放位置（回退10秒，方便用户回忆上下文）
           if (saved.position > Duration.zero) {
-            final restorePosition = saved.position - const Duration(seconds: 10);
+            final restorePosition = saved.position - const Duration(seconds: AppConstants.temporaryPlayRestoreOffsetSeconds);
             await _audioService.seekTo(restorePosition.isNegative ? Duration.zero : restorePosition);
           }
 

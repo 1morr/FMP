@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
+import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 
 /// 音频播放服务（单曲模式）
@@ -133,15 +134,17 @@ class AudioService with Logging {
   Future<void> seekTo(Duration position) => _player.seek(position);
 
   /// 快进
-  Future<void> seekForward([Duration duration = const Duration(seconds: 10)]) async {
-    final newPosition = _player.position + duration;
+  Future<void> seekForward([Duration? duration]) async {
+    final seekDuration = duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
+    final newPosition = _player.position + seekDuration;
     final maxPosition = _player.duration ?? Duration.zero;
     await _player.seek(newPosition > maxPosition ? maxPosition : newPosition);
   }
 
   /// 快退
-  Future<void> seekBackward([Duration duration = const Duration(seconds: 10)]) async {
-    final newPosition = _player.position - duration;
+  Future<void> seekBackward([Duration? duration]) async {
+    final seekDuration = duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
+    final newPosition = _player.position - seekDuration;
     await _player.seek(newPosition < Duration.zero ? Duration.zero : newPosition);
   }
 

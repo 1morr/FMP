@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/download_task.dart';
 import '../../data/models/playlist_download_task.dart';
@@ -56,7 +57,7 @@ class DownloadService with Logging {
         _settingsRepository = settingsRepository,
         _sourceManager = sourceManager,
         _dio = Dio(BaseOptions(
-          connectTimeout: const Duration(seconds: 30),
+          connectTimeout: AppConstants.downloadConnectTimeout,
           receiveTimeout: const Duration(minutes: 30),
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -92,7 +93,7 @@ class DownloadService with Logging {
   /// 启动调度器
   void _startScheduler() {
     _schedulerTimer?.cancel();
-    _schedulerTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+    _schedulerTimer = Timer.periodic(AppConstants.downloadSchedulerInterval, (_) {
       _scheduleDownloads();
     });
   }
@@ -399,7 +400,7 @@ class DownloadService with Logging {
       // 进度更新节流：避免过于频繁的 UI 更新导致 Windows 线程问题
       DateTime lastProgressUpdate = DateTime.now();
       double lastProgress = 0.0;
-      const progressUpdateInterval = Duration(milliseconds: 500);
+      const progressUpdateInterval = AppConstants.downloadProgressThrottleInterval;
       
       // 下载文件
       await _dio.download(
