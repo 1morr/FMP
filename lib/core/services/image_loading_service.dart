@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../data/models/track.dart';
+import '../constants/app_constants.dart';
 import '../extensions/track_extensions.dart';
 import 'local_image_cache.dart';
-
-/// 默认淡入动画时长
-const _kDefaultFadeInDuration = Duration(milliseconds: 150);
 
 /// 统一的图片加载服务
 ///
@@ -42,7 +40,7 @@ class ImageLoadingService {
     double? height,
     Map<String, String>? headers,
     bool showLoadingIndicator = false,
-    Duration fadeInDuration = _kDefaultFadeInDuration,
+    Duration fadeInDuration = AppConstants.defaultFadeInDuration,
   }) {
     // 1. 尝试加载本地图片
     if (localPath != null) {
@@ -94,7 +92,7 @@ class ImageLoadingService {
     double? height,
     Map<String, String>? headers,
     bool showLoadingIndicator = false,
-    Duration fadeInDuration = _kDefaultFadeInDuration,
+    Duration fadeInDuration = AppConstants.defaultFadeInDuration,
   }) {
     if (networkUrl != null && networkUrl.isNotEmpty) {
       return _FadeInNetworkImage(

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'dart:math';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../models/track.dart';
 import '../models/video_detail.dart';
@@ -30,8 +31,8 @@ class BilibiliSource extends BaseSource with Logging {
         'Referer': 'https://www.bilibili.com',
         'Cookie': 'buvid3=$buvid3',
       },
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 30),
+      connectTimeout: AppConstants.networkConnectTimeout,
+      receiveTimeout: AppConstants.networkReceiveTimeout,
     ));
   }
 

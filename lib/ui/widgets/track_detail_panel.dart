@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/extensions/track_extensions.dart';
 import '../../core/services/image_loading_service.dart';
 import '../../data/models/track.dart';
@@ -645,7 +646,7 @@ class _CommentPagerState extends State<_CommentPager> {
   }
 
   void _startAutoScroll() {
-    _autoScrollTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+    _autoScrollTimer = Timer.periodic(AppConstants.commentScrollInterval, (timer) {
       if (!mounted) return;
       // 只有当评论区在可视范围内时才自动翻页
       if (_isVisible()) {

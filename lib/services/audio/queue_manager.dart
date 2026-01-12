@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
+import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
@@ -688,7 +689,7 @@ class QueueManager with Logging {
       // 如果是第一次尝试且失败，等待后重试一次
       if (retryCount < 1) {
         logWarning('Failed to fetch audio URL for ${track.title}, retrying in 1 second: $e');
-        await Future.delayed(const Duration(seconds: 1));
+        await Future.delayed(AppConstants.queueSaveRetryDelay);
         return ensureAudioUrl(track, retryCount: retryCount + 1, persist: persist);
       }
       logError('Failed to fetch audio URL for ${track.title} after ${retryCount + 1} attempts', e);
@@ -796,7 +797,7 @@ class QueueManager with Logging {
 
   void _startPositionSaver() {
     _savePositionTimer?.cancel();
-    _savePositionTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+    _savePositionTimer = Timer.periodic(AppConstants.positionSaveInterval, (_) {
       _savePosition();
     });
   }
