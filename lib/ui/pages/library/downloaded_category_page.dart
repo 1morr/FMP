@@ -429,9 +429,9 @@ class _GroupHeader extends ConsumerWidget {
     final firstTrack = group.tracks.first;
     final currentTrack = ref.watch(currentTrackProvider);
     // 检查当前播放的是否是这个组的某个分P
-    // 使用 firstDownloadedPath 比较，因为文件扫描的 Track 没有数据库 ID
+    // 使用 firstDownloadPath 比较，因为文件扫描的 Track 没有数据库 ID
     final isPlayingThisGroup = currentTrack != null &&
-        group.tracks.any((t) => t.firstDownloadedPath == currentTrack.firstDownloadedPath);
+        group.tracks.any((t) => t.firstDownloadPath == currentTrack.firstDownloadPath);
 
     return ListTile(
       onTap: onToggle,
@@ -568,7 +568,7 @@ class _GroupHeader extends ConsumerWidget {
     final trackRepo = ref.read(trackRepositoryProvider);
     for (final track in group.tracks) {
       // 删除所有下载路径对应的文件
-      for (final path in track.downloadedPaths) {
+      for (final path in track.downloadPaths) {
         final file = File(path);
         if (await file.exists()) {
           await file.delete();
@@ -598,8 +598,8 @@ class _DownloadedTrackTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final currentTrack = ref.watch(currentTrackProvider);
-    // 使用 firstDownloadedPath 比较，因为文件扫描的 Track 没有数据库 ID
-    final isPlaying = currentTrack?.firstDownloadedPath == track.firstDownloadedPath;
+    // 使用 firstDownloadPath 比较，因为文件扫描的 Track 没有数据库 ID
+    final isPlaying = currentTrack?.firstDownloadPath == track.firstDownloadPath;
 
     return Padding(
       padding: EdgeInsets.only(left: indent ? 56 : 0),
@@ -752,7 +752,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
     final trackRepo = ref.read(trackRepositoryProvider);
 
     // 删除所有下载路径对应的文件
-    for (final path in track.downloadedPaths) {
+    for (final path in track.downloadPaths) {
       final file = File(path);
       if (await file.exists()) {
         await file.delete();

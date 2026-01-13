@@ -115,10 +115,13 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
     final playlistRepo = _ref.read(playlistRepositoryProvider);
     final trackRepo = _ref.read(trackRepositoryProvider);
 
+    final settingsRepo = _ref.read(settingsRepositoryProvider);
+    
     final importService = ImportService(
       sourceManager: sourceManager,
       playlistRepository: playlistRepo,
       trackRepository: trackRepo,
+      settingsRepository: settingsRepo,
     );
 
     // 初始化刷新状态

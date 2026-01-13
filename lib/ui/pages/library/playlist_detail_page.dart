@@ -32,10 +32,13 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   List<Track>? _cachedTracks;
   List<TrackGroup>? _cachedGroups;
 
+  // 上次刷新缓存时的 tracks 长度，用于检测变化
+  int _lastRefreshedTracksLength = -1;
+
   @override
   void initState() {
     super.initState();
-    // 在页面加载后刷新下载状态缓存
+    // 初始刷新
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshDownloadStatusCache();
     });
@@ -44,8 +47,22 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   /// 刷新下载状态缓存
   Future<void> _refreshDownloadStatusCache() async {
     final state = ref.read(playlistDetailProvider(widget.playlistId));
-    if (state.tracks.isNotEmpty) {
+    if (state.tracks.isNotEmpty && state.tracks.length != _lastRefreshedTracksLength) {
+      _lastRefreshedTracksLength = state.tracks.length;
       await ref.read(downloadStatusCacheProvider.notifier).refreshCache(state.tracks);
+    }
+  }
+
+  /// 检查并刷新缓存（在 build 中调用，当 tracks 变化时）
+  void _checkAndRefreshCache(List<Track> tracks) {
+    if (tracks.isNotEmpty && tracks.length != _lastRefreshedTracksLength) {
+      // 使用 addPostFrameCallback 避免在 build 期间修改 state
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _lastRefreshedTracksLength = tracks.length;
+          ref.read(downloadStatusCacheProvider.notifier).refreshCache(tracks);
+        }
+      });
     }
   }
 
@@ -89,6 +106,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
 
     final playlist = state.playlist!;
     final tracks = state.tracks;
+
+    // 检查并刷新下载状态缓存（当 tracks 变化时）
+    _checkAndRefreshCache(tracks);
 
     // 使用缓存的分组结果，避免每次 build 重新计算
     final groupedTracks = _getGroupedTracks(tracks);
@@ -506,6 +526,9 @@ class _GroupHeader extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final firstTrack = group.tracks.first;
     final currentTrack = ref.watch(currentTrackProvider);
+    // Watch 下载状态缓存，以便在缓存更新时重建
+    ref.watch(downloadStatusCacheProvider);
+    final downloadCache = ref.read(downloadStatusCacheProvider.notifier);
     // 检查当前播放的是否是这个组的某个分P
     // 使用 sourceId + pageNum 比较，因为临时播放的 track 可能没有数据库 ID
     final isPlayingThisGroup = currentTrack != null &&
@@ -550,7 +573,7 @@ class _GroupHeader extends ConsumerWidget {
             ),
           ),
           // 检查是否所有分P都已下载
-          if (group.tracks.every((t) => ref.watch(downloadStatusCacheProvider.notifier).isDownloadedInPlaylist(t, playlistId))) ...[
+          if (group.tracks.every((t) => downloadCache.isDownloadedForPlaylist(t, playlistId))) ...[
             const SizedBox(width: 8),
             Icon(
               Icons.download_done,
@@ -633,9 +656,16 @@ class _GroupHeader extends ConsumerWidget {
       case 'download_all':
         // 下载所有分P
         final downloadService = ref.read(downloadServiceProvider);
+        final state = ref.read(playlistDetailProvider(playlistId));
+        final playlist = state.playlist;
+        if (playlist == null) return;
+
         int addedCount = 0;
         for (final track in group.tracks) {
-          final result = await downloadService.addTrackDownload(track);
+          final result = await downloadService.addTrackDownload(
+            track,
+            fromPlaylist: playlist,
+          );
           if (result != null) addedCount++;
         }
         if (context.mounted) {
@@ -678,6 +708,9 @@ class _TrackListTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final currentTrack = ref.watch(currentTrackProvider);
+    // Watch 下载状态缓存，以便在缓存更新时重建
+    ref.watch(downloadStatusCacheProvider);
+    final downloadCache = ref.read(downloadStatusCacheProvider.notifier);
     // 使用 sourceId + pageNum 比较，因为临时播放的 track 可能没有数据库 ID
     final isPlaying = currentTrack != null &&
         currentTrack.sourceId == track.sourceId &&
@@ -734,7 +767,7 @@ class _TrackListTile extends ConsumerWidget {
                     ),
                   ),
                   // 检查歌曲是否已下载到本地
-                  if (ref.watch(downloadStatusCacheProvider.notifier).isDownloadedInPlaylist(track, playlistId))
+                  if (downloadCache.isDownloadedForPlaylist(track, playlistId))
                     Icon(
                       Icons.download_done,
                       size: 14,
@@ -823,7 +856,14 @@ class _TrackListTile extends ConsumerWidget {
         break;
       case 'download':
         final downloadService = ref.read(downloadServiceProvider);
-        final result = await downloadService.addTrackDownload(track);
+        final state = ref.read(playlistDetailProvider(playlistId));
+        final playlist = state.playlist;
+        if (playlist == null) return;
+
+        final result = await downloadService.addTrackDownload(
+          track,
+          fromPlaylist: playlist,
+        );
         if (context.mounted) {
           ToastService.show(
             context,

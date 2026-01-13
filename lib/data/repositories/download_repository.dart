@@ -28,6 +28,16 @@ class DownloadRepository with Logging {
         .findFirst();
   }
 
+  /// 根据 trackId 和 playlistId 获取下载任务
+  Future<DownloadTask?> getTaskByTrackIdAndPlaylist(int trackId, int playlistId) async {
+    return _isar.downloadTasks
+        .filter()
+        .trackIdEqualTo(trackId)
+        .and()
+        .playlistIdEqualTo(playlistId)
+        .findFirst();
+  }
+
   /// 根据状态获取下载任务
   Future<List<DownloadTask>> getTasksByStatus(DownloadStatus status) async {
     return _isar.downloadTasks

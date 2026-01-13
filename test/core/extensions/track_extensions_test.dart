@@ -21,8 +21,8 @@ void main() {
           ..sourceId = 'test123'
           ..sourceType = SourceType.bilibili
           ..title = 'Test Track'
-          ..downloadedPlaylistIds = [0]
-          ..downloadedPaths = ['/non/existent/path/audio.m4a'];
+          ..playlistIds = [0]
+          ..downloadPaths = ['/non/existent/path/audio.m4a'];
 
         expect(track.localCoverPath, isNull);
       });
@@ -42,8 +42,8 @@ void main() {
           ..sourceId = 'test123'
           ..sourceType = SourceType.bilibili
           ..title = 'Test Track'
-          ..downloadedPlaylistIds = [0]
-          ..downloadedPaths = [audioPath];
+          ..playlistIds = [0]
+          ..downloadPaths = [audioPath];
 
         expect(track.localCoverPath, equals('${videoDir.path}/cover.jpg'));
 
@@ -67,8 +67,8 @@ void main() {
           ..sourceId = 'test123'
           ..sourceType = SourceType.bilibili
           ..title = 'Test Track'
-          ..downloadedPlaylistIds = [0]
-          ..downloadedPaths = ['/non/existent/path/audio.m4a'];
+          ..playlistIds = [0]
+          ..downloadPaths = ['/non/existent/path/audio.m4a'];
 
         expect(track.localAvatarPath, isNull);
       });
@@ -88,8 +88,8 @@ void main() {
           ..sourceId = 'test123'
           ..sourceType = SourceType.bilibili
           ..title = 'Test Track'
-          ..downloadedPlaylistIds = [0]
-          ..downloadedPaths = [audioPath];
+          ..playlistIds = [0]
+          ..downloadPaths = [audioPath];
 
         expect(track.localAvatarPath, equals('${videoDir.path}/avatar.jpg'));
 

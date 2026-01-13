@@ -90,8 +90,8 @@ class DownloadScanner {
         ..cid = json['cid'] as int?
         ..pageNum = json['pageNum'] as int?
         ..parentTitle = json['parentTitle'] as String?
-        ..downloadedPlaylistIds = [0]
-        ..downloadedPaths = [audioPath]
+        ..playlistIds = [0]
+        ..downloadPaths = [audioPath]
         ..order = json['order'] as int?
         ..createdAt = DateTime.tryParse(json['downloadedAt'] as String? ?? '') ?? DateTime.now();
     } catch (_) {
@@ -167,8 +167,8 @@ class DownloadScanner {
                 ..sourceId = sourceIdFromFolder ?? p.basename(entity.path)
                 ..sourceType = SourceType.bilibili
                 ..title = extractDisplayName(p.basename(entity.path))
-                ..downloadedPlaylistIds = [0]
-                ..downloadedPaths = [audioEntity.path]
+                ..playlistIds = [0]
+                ..downloadPaths = [audioEntity.path]
                 ..createdAt = DateTime.now();
             }
 

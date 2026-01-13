@@ -147,53 +147,38 @@ class DownloadService with Logging {
   }
 
   /// 添加单曲下载任务
-  /// [playlistName] 所属歌单名称，用于确定下载子目录
+  /// 
+  /// [fromPlaylist] 必须提供，歌曲必须属于某个歌单才能下载
   /// [order] 在歌单中的顺序位置（从0开始）
   Future<DownloadTask?> addTrackDownload(
     Track track, {
-    Playlist? fromPlaylist,
-    String? playlistName,
+    required Playlist fromPlaylist,
     int? order,
   }) async {
     logDebug('Adding download task for track: ${track.title}');
 
-    final playlistId = fromPlaylist?.id;
-    final effectivePlaylistName = playlistName ?? fromPlaylist?.name;
+    final playlistId = fromPlaylist.id;
 
-    // 获取下载目录
-    final settings = await _settingsRepository.get();
-    final baseDir = settings.customDownloadDir ?? await _getDefaultDownloadDir();
+    // 获取预计算的下载路径
+    final downloadPath = track.getDownloadPath(playlistId);
+    if (downloadPath == null) {
+      logError('Track ${track.title} has no download path for playlist ${fromPlaylist.name}');
+      return null;
+    }
 
-    // 预计算下载路径
-    final downloadPath = DownloadPathUtils.computeDownloadPath(
-      baseDir: baseDir,
-      playlistName: effectivePlaylistName,
-      track: track,
-    );
-
-    // 检查预计算路径的文件是否已存在
+    // 检查文件是否已存在
     if (await File(downloadPath).exists()) {
-      logDebug('File already exists at computed path: $downloadPath');
-      // 文件存在，更新多路径记录
-      if (playlistId != null) {
-        track.setDownloadedPath(playlistId, downloadPath);
-        await _trackRepository.save(track);
-      }
+      logDebug('File already exists at path: $downloadPath');
       return null; // 跳过下载
     }
 
-    // 检查是否已有此歌曲的下载任务
-    final existingTask = await _downloadRepository.getTaskByTrackId(track.id);
+    // 检查是否已有此歌曲在此歌单的下载任务
+    final existingTask = await _downloadRepository.getTaskByTrackIdAndPlaylist(track.id, playlistId);
     if (existingTask != null) {
       if (existingTask.isCompleted) {
         // 任务已完成但文件不存在，清理记录并重新下载
         logDebug('Downloaded file missing, re-queueing: ${track.title}');
         await _downloadRepository.deleteTask(existingTask.id);
-        // 清理该歌单的下载路径记录
-        if (playlistId != null) {
-          track.removeDownloadedPath(playlistId);
-          await _trackRepository.save(track);
-        }
       } else if (!existingTask.isFailed) {
         logDebug('Download task already exists for track: ${track.title}');
         return existingTask; // 已有任务
@@ -203,11 +188,11 @@ class DownloadService with Logging {
       }
     }
 
-    // 创建下载任务（保存 playlistId 用于下载完成后更新多路径）
+    // 创建下载任务
     final priority = await _downloadRepository.getNextPriority();
     final task = DownloadTask()
       ..trackId = track.id
-      ..playlistName = effectivePlaylistName
+      ..playlistName = fromPlaylist.name
       ..playlistId = playlistId
       ..order = order
       ..status = DownloadStatus.pending
@@ -243,7 +228,6 @@ class DownloadService with Logging {
       final task = await addTrackDownload(
         tracks[i],
         fromPlaylist: playlist,
-        playlistName: playlist.name,
         order: i,
       );
       if (task != null) {
@@ -523,14 +507,7 @@ class DownloadService with Logging {
       // 保存元数据（使用 task 中保存的 order）
       await _saveMetadata(track, savePath, videoDetail: videoDetail, order: task.order);
 
-      // 更新歌曲的下载路径（多路径支持）
-      if (task.playlistId != null) {
-        track.setDownloadedPath(task.playlistId!, savePath);
-      } else {
-        // 没有歌单ID时，使用 0 表示未分类
-        track.setDownloadedPath(0, savePath);
-      }
-      await _trackRepository.save(track);
+      // 路径已在添加到歌单时预计算，无需再次设置
       
       // 更新任务状态为已完成
       await _downloadRepository.updateTaskStatus(task.id, DownloadStatus.completed);
@@ -587,18 +564,26 @@ class DownloadService with Logging {
   }
 
   /// 获取下载保存路径
+  /// 
+  /// 使用 Track 中预计算的路径
   Future<String> _getDownloadPath(Track track, DownloadTask task) async {
-    final settings = await _settingsRepository.get();
+    // 优先使用预计算的路径
+    if (task.playlistId != null) {
+      final path = track.getDownloadPath(task.playlistId!);
+      if (path != null) {
+        return path;
+      }
+    }
 
-    // 获取基础下载目录
+    // 回退：重新计算路径（不应该发生）
+    logDebug('Warning: No precomputed path found, recalculating...');
+    final settings = await _settingsRepository.get();
     String baseDir;
     if (settings.customDownloadDir != null && settings.customDownloadDir!.isNotEmpty) {
       baseDir = settings.customDownloadDir!;
     } else {
       baseDir = await _getDefaultDownloadDir();
     }
-
-    // 使用 DownloadPathUtils 计算路径
     return DownloadPathUtils.computeDownloadPath(
       baseDir: baseDir,
       playlistName: task.playlistName,

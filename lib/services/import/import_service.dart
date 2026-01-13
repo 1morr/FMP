@@ -1,11 +1,17 @@
 import 'dart:async';
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
 import '../../data/repositories/playlist_repository.dart';
+import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../data/sources/bilibili_source.dart';
 import '../../data/sources/source_provider.dart';
+import '../download/download_path_utils.dart';
 
 /// 导入进度
 class ImportProgress {
@@ -72,6 +78,7 @@ class ImportService {
   final SourceManager _sourceManager;
   final PlaylistRepository _playlistRepository;
   final TrackRepository _trackRepository;
+  final SettingsRepository _settingsRepository;
 
   // 导入进度流
   final _progressController = StreamController<ImportProgress>.broadcast();
@@ -83,9 +90,11 @@ class ImportService {
     required SourceManager sourceManager,
     required PlaylistRepository playlistRepository,
     required TrackRepository trackRepository,
+    required SettingsRepository settingsRepository,
   })  : _sourceManager = sourceManager,
         _playlistRepository = playlistRepository,
-        _trackRepository = trackRepository;
+        _trackRepository = trackRepository,
+        _settingsRepository = settingsRepository;
 
   /// 从 URL 导入歌单/收藏夹
   Future<ImportResult> importFromUrl(
@@ -152,7 +161,13 @@ class ImportService {
           ..refreshIntervalHours = refreshIntervalHours ?? 24
           ..notifyOnUpdate = notifyOnUpdate
           ..createdAt = DateTime.now();
+        // 先保存以获取 ID（用于计算下载路径）
+        final playlistId = await _playlistRepository.save(playlist);
+        playlist.id = playlistId;
       }
+
+      // 获取下载目录（用于预计算路径）
+      final baseDir = await _getDownloadBaseDir();
 
       // 导入歌曲
       int addedCount = 0;
@@ -178,6 +193,15 @@ class ImportService {
           if (existing != null) {
             // 歌曲已存在，添加到歌单（如果不在）
             if (!playlist.trackIds.contains(existing.id)) {
+              // 计算并设置下载路径
+              final downloadPath = DownloadPathUtils.computeDownloadPath(
+                baseDir: baseDir,
+                playlistName: playlist.name,
+                track: existing,
+              );
+              existing.setDownloadPath(playlist.id, downloadPath);
+              await _trackRepository.save(existing);
+              
               // 创建可变列表副本，避免 fixed-length list 错误
               final newTrackIds = List<int>.from(playlist.trackIds);
               newTrackIds.add(existing.id);
@@ -187,6 +211,14 @@ class ImportService {
               skippedCount++;
             }
           } else {
+            // 计算并设置下载路径
+            final downloadPath = DownloadPathUtils.computeDownloadPath(
+              baseDir: baseDir,
+              playlistName: playlist.name,
+              track: track,
+            );
+            track.setDownloadPath(playlist.id, downloadPath);
+            
             // 保存新歌曲
             final savedTrack = await _trackRepository.save(track);
             // 创建可变列表副本，避免 fixed-length list 错误
@@ -264,6 +296,9 @@ class ImportService {
         current: 0,
       );
 
+      // 获取下载目录（用于预计算路径）
+      final baseDir = await _getDownloadBaseDir();
+
       // 保存原来的 trackIds 用于计算移除数量
       final originalTrackIds = Set<int>.from(playlist.trackIds);
 
@@ -291,11 +326,37 @@ class ImportService {
           if (existing != null) {
             newTrackIds.add(existing.id);
             if (!playlist.trackIds.contains(existing.id)) {
+              // 新添加到歌单的 Track，计算并设置下载路径
+              final downloadPath = DownloadPathUtils.computeDownloadPath(
+                baseDir: baseDir,
+                playlistName: playlist.name,
+                track: existing,
+              );
+              existing.setDownloadPath(playlist.id, downloadPath);
+              await _trackRepository.save(existing);
               addedCount++;
             } else {
+              // 已在歌单中，检查是否已有下载路径
+              if (!existing.belongsToPlaylist(playlist.id)) {
+                final downloadPath = DownloadPathUtils.computeDownloadPath(
+                  baseDir: baseDir,
+                  playlistName: playlist.name,
+                  track: existing,
+                );
+                existing.setDownloadPath(playlist.id, downloadPath);
+                await _trackRepository.save(existing);
+              }
               skippedCount++;
             }
           } else {
+            // 计算并设置下载路径
+            final downloadPath = DownloadPathUtils.computeDownloadPath(
+              baseDir: baseDir,
+              playlistName: playlist.name,
+              track: track,
+            );
+            track.setDownloadPath(playlist.id, downloadPath);
+            
             final savedTrack = await _trackRepository.save(track);
             newTrackIds.add(savedTrack.id);
             addedCount++;
@@ -422,6 +483,29 @@ class ImportService {
       error: error,
     );
     _progressController.add(_currentProgress);
+  }
+
+  /// 获取下载基础目录
+  Future<String> _getDownloadBaseDir() async {
+    final settings = await _settingsRepository.get();
+    if (settings.customDownloadDir != null && settings.customDownloadDir!.isNotEmpty) {
+      return settings.customDownloadDir!;
+    }
+    // 默认下载目录 - 与 DownloadService 保持一致
+    if (Platform.isAndroid) {
+      // Android: 外部存储/Music/FMP/
+      final extDir = await getExternalStorageDirectory();
+      if (extDir != null) {
+        final musicDir = p.join(extDir.parent.parent.parent.parent.path, 'Music', 'FMP');
+        return musicDir;
+      }
+      final appDir = await getApplicationDocumentsDirectory();
+      return p.join(appDir.path, 'FMP');
+    } else {
+      // Windows/其他: 用户文档/FMP/
+      final docsDir = await getApplicationDocumentsDirectory();
+      return p.join(docsDir.path, 'FMP');
+    }
   }
 
   void dispose() {
