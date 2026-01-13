@@ -33,9 +33,8 @@
 ### 重构进度
 
 ```
-已完成: ████████████████████ 100%
-进行中: ░░░░░░░░░░░░░░░░░░░░   0%
-待开始: ░░░░░░░░░░░░░░░░░░░░   0%
+Phase 1-3: ████████████████████ 100%
+全部完成！
 ```
 
 ---
@@ -229,15 +228,15 @@ download_provider.dart 拆分为：
 
 ---
 
-### Phase 3: 基础设施
+### Phase 3: 基础设施 ✅
 > 目标：长期稳定性
 
 | 任务 | 优先级 | 状态 |
 |------|--------|------|
-| 单元测试 | 🟢 低 | ⬜ 待开始 |
-| Widget 测试 | 🟢 低 | ⬜ 待开始 |
-| 下载系统优化 | 🟢 低 | ⬜ 待开始 |
-| 离线模式增强 | 🟢 低 | ⬜ 待开始 |
+| 单元测试 | 🟢 低 | ✅ 已完成 |
+| Widget 测试 | 🟢 低 | ✅ 已完成 |
+| 下载系统优化 | 🟢 低 | ✅ 已完成 |
+| 离线模式增强 | 🟢 低 | ✅ 已完成 |
 
 ---
 
@@ -371,7 +370,8 @@ lib/
 │   ├── services/
 │   │   ├── toast_service.dart           # ✅ 已创建
 │   │   ├── image_loading_service.dart   # ✅ 已创建 (Phase 1)
-│   │   └── local_image_cache.dart       # ✅ 已创建 (Phase 1)
+│   │   ├── local_image_cache.dart       # ✅ 已创建 (Phase 1)
+│   │   └── network_service.dart         # ✅ 已创建 (Phase 3)
 │   ├── utils/
 │   │   ├── duration_formatter.dart    # ✅ 已创建
 │   │   └── icon_helpers.dart          # ✅ 已创建
@@ -382,14 +382,34 @@ lib/
 │       ├── track_thumbnail.dart       # ✅ 已创建 (Phase 1 更新)
 │       ├── track_group/               # ✅ 已创建
 │       ├── error_display.dart         # ✅ 已创建 (Phase 2)
+│       ├── offline_indicator.dart     # ✅ 已创建 (Phase 3)
 │       └── image_placeholder.dart     # ✅ 已包含在 image_loading_service.dart 中
-└── providers/
-    ├── download_provider.dart         # ✅ 重构为重导出文件 (Phase 2)
-    └── download/                      # ✅ 已拆分 (Phase 2)
-        ├── download_state.dart        # ✅ 已创建
-        ├── download_providers.dart    # ✅ 已创建
-        ├── download_scanner.dart      # ✅ 已创建
-        └── download_extensions.dart   # ✅ 已创建
+├── providers/
+│   ├── download_provider.dart         # ✅ 重构为重导出文件 (Phase 2)
+│   ├── network_provider.dart          # ✅ 已创建 (Phase 3)
+│   └── download/                      # ✅ 已拆分 (Phase 2)
+│       ├── download_state.dart        # ✅ 已创建
+│       ├── download_providers.dart    # ✅ 已创建
+│       ├── download_scanner.dart      # ✅ 已创建
+│       └── download_extensions.dart   # ✅ 已创建
+└── services/
+    └── download/
+        └── download_service.dart      # ✅ 已优化 (Phase 3: 事件驱动+断点续传)
+
+test/
+├── core/
+│   └── extensions/
+│       └── track_extensions_test.dart # ✅ 已创建 (Phase 3)
+├── services/
+│   ├── audio/
+│   │   └── queue_manager_test.dart    # ✅ 已创建 (Phase 3)
+│   └── download/
+│       └── download_service_test.dart # ✅ 已创建 (Phase 3)
+└── ui/
+    └── widgets/
+        ├── track_thumbnail_test.dart      # ✅ 已创建 (Phase 3)
+        ├── mini_player_test.dart          # ✅ 已创建 (Phase 3)
+        └── track_detail_panel_test.dart   # ✅ 已创建 (Phase 3)
 ```
 
 ---
