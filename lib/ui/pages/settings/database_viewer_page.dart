@@ -141,16 +141,64 @@ class _TrackListView extends StatelessWidget {
             return _DataCard(
               title: track.title,
               subtitle: 'ID: ${track.id}',
-              data: {
-                'artist': track.artist ?? 'null',
-                'sourceId': track.sourceId,
-                'sourceType': track.sourceType.name,
-                'cid': track.cid?.toString() ?? 'null',
-                'durationMs': '${track.durationMs}ms',
-                'hasAnyDownload': track.hasAnyDownload.toString(),
-                'downloadedPaths': track.downloadedPaths.join(', '),
-                'createdAt': track.createdAt.toIso8601String(),
-              },
+              sections: [
+                _DataSection(
+                  title: '基本信息',
+                  data: {
+                    'id': track.id.toString(),
+                    'sourceId': track.sourceId,
+                    'sourceType': track.sourceType.name,
+                    'title': track.title,
+                    'artist': track.artist ?? 'null',
+                    'durationMs': track.durationMs?.toString() ?? 'null',
+                  },
+                ),
+                _DataSection(
+                  title: '媒体信息',
+                  data: {
+                    'thumbnailUrl': _truncate(track.thumbnailUrl, 60),
+                    'audioUrl': _truncate(track.audioUrl, 60),
+                    'audioUrlExpiry': track.audioUrlExpiry?.toIso8601String() ?? 'null',
+                    'hasValidAudioUrl': track.hasValidAudioUrl.toString(),
+                  },
+                ),
+                _DataSection(
+                  title: '可用性',
+                  data: {
+                    'isAvailable': track.isAvailable.toString(),
+                    'unavailableReason': track.unavailableReason ?? 'null',
+                  },
+                ),
+                _DataSection(
+                  title: '缓存与下载',
+                  data: {
+                    'cachedPath': _truncate(track.cachedPath, 60),
+                    'hasAnyDownload': track.hasAnyDownload.toString(),
+                    'downloadedPlaylistIds': track.downloadedPlaylistIds.isEmpty
+                        ? '[]'
+                        : track.downloadedPlaylistIds.join(', '),
+                    'downloadedPaths': track.downloadedPaths.isEmpty
+                        ? '[]'
+                        : track.downloadedPaths.map((p) => _truncate(p, 40)).join('\n'),
+                  },
+                ),
+                _DataSection(
+                  title: '分P信息',
+                  data: {
+                    'cid': track.cid?.toString() ?? 'null',
+                    'pageNum': track.pageNum?.toString() ?? 'null',
+                    'parentTitle': track.parentTitle ?? 'null',
+                    'isPartOfMultiPage': track.isPartOfMultiPage.toString(),
+                  },
+                ),
+                _DataSection(
+                  title: '时间戳',
+                  data: {
+                    'createdAt': track.createdAt.toIso8601String(),
+                    'updatedAt': track.updatedAt?.toIso8601String() ?? 'null',
+                  },
+                ),
+              ],
             );
           },
         );
@@ -183,14 +231,51 @@ class _PlaylistListView extends StatelessWidget {
             return _DataCard(
               title: playlist.name,
               subtitle: 'ID: ${playlist.id}',
-              data: {
-                'description': playlist.description ?? 'null',
-                'trackCount': playlist.trackIds.length.toString(),
-                'trackIds': playlist.trackIds.take(5).join(', ') +
-                    (playlist.trackIds.length > 5 ? '...' : ''),
-                'coverUrl': playlist.coverUrl ?? 'null',
-                'createdAt': playlist.createdAt.toIso8601String(),
-              },
+              sections: [
+                _DataSection(
+                  title: '基本信息',
+                  data: {
+                    'id': playlist.id.toString(),
+                    'name': playlist.name,
+                    'description': playlist.description ?? 'null',
+                  },
+                ),
+                _DataSection(
+                  title: '封面',
+                  data: {
+                    'coverUrl': _truncate(playlist.coverUrl, 60),
+                    'coverLocalPath': _truncate(playlist.coverLocalPath, 60),
+                  },
+                ),
+                _DataSection(
+                  title: '导入设置',
+                  data: {
+                    'isImported': playlist.isImported.toString(),
+                    'sourceUrl': _truncate(playlist.sourceUrl, 60),
+                    'importSourceType': playlist.importSourceType?.name ?? 'null',
+                    'refreshIntervalHours': playlist.refreshIntervalHours?.toString() ?? 'null',
+                    'lastRefreshed': playlist.lastRefreshed?.toIso8601String() ?? 'null',
+                    'notifyOnUpdate': playlist.notifyOnUpdate.toString(),
+                    'needsRefresh': playlist.needsRefresh.toString(),
+                  },
+                ),
+                _DataSection(
+                  title: '歌曲列表',
+                  data: {
+                    'trackCount': playlist.trackIds.length.toString(),
+                    'trackIds': playlist.trackIds.isEmpty
+                        ? '[]'
+                        : '${playlist.trackIds.take(10).join(', ')}${playlist.trackIds.length > 10 ? '... (${playlist.trackIds.length} total)' : ''}',
+                  },
+                ),
+                _DataSection(
+                  title: '时间戳',
+                  data: {
+                    'createdAt': playlist.createdAt.toIso8601String(),
+                    'updatedAt': playlist.updatedAt?.toIso8601String() ?? 'null',
+                  },
+                ),
+              ],
             );
           },
         );
@@ -222,15 +307,52 @@ class _PlayQueueListView extends StatelessWidget {
             final queue = queues[index];
             return _DataCard(
               title: '播放队列 #${queue.id}',
-              subtitle: 'ID: ${queue.id}',
-              data: {
-                'trackCount': queue.trackIds.length.toString(),
-                'trackIds': queue.trackIds.take(5).join(', ') +
-                    (queue.trackIds.length > 5 ? '...' : ''),
-                'currentIndex': queue.currentIndex.toString(),
-                'isShuffleEnabled': queue.isShuffleEnabled.toString(),
-                'loopMode': queue.loopMode.name,
-              },
+              subtitle: '${queue.length} 首歌曲',
+              sections: [
+                _DataSection(
+                  title: '基本信息',
+                  data: {
+                    'id': queue.id.toString(),
+                    'length': queue.length.toString(),
+                    'isEmpty': queue.isEmpty.toString(),
+                  },
+                ),
+                _DataSection(
+                  title: '播放状态',
+                  data: {
+                    'currentIndex': queue.currentIndex.toString(),
+                    'currentTrackId': queue.currentTrackId?.toString() ?? 'null',
+                    'lastPositionMs': queue.lastPositionMs.toString(),
+                    'lastVolume': queue.lastVolume.toStringAsFixed(2),
+                    'hasNext': queue.hasNext.toString(),
+                    'hasPrevious': queue.hasPrevious.toString(),
+                  },
+                ),
+                _DataSection(
+                  title: '播放模式',
+                  data: {
+                    'isShuffleEnabled': queue.isShuffleEnabled.toString(),
+                    'loopMode': queue.loopMode.name,
+                    'originalOrder': queue.originalOrder == null
+                        ? 'null'
+                        : '${queue.originalOrder!.take(10).join(', ')}${queue.originalOrder!.length > 10 ? '...' : ''}',
+                  },
+                ),
+                _DataSection(
+                  title: '队列内容',
+                  data: {
+                    'trackIds': queue.trackIds.isEmpty
+                        ? '[]'
+                        : '${queue.trackIds.take(10).join(', ')}${queue.trackIds.length > 10 ? '... (${queue.trackIds.length} total)' : ''}',
+                  },
+                ),
+                _DataSection(
+                  title: '时间戳',
+                  data: {
+                    'lastUpdated': queue.lastUpdated?.toIso8601String() ?? 'null',
+                  },
+                ),
+              ],
             );
           },
         );
@@ -262,16 +384,71 @@ class _SettingsListView extends StatelessWidget {
             final setting = settings[index];
             return _DataCard(
               title: '设置 #${setting.id}',
-              subtitle: 'ID: ${setting.id}',
-              data: {
-                'themeMode': setting.themeMode.toString(),
-                'primaryColor': setting.primaryColor?.toString() ?? 'null',
-                'autoScrollToCurrentTrack':
-                    setting.autoScrollToCurrentTrack.toString(),
-                'maxConcurrentDownloads':
-                    setting.maxConcurrentDownloads.toString(),
-                'downloadImageOption': setting.downloadImageOption.toString(),
-              },
+              subtitle: '主题: ${setting.themeMode.name}',
+              sections: [
+                _DataSection(
+                  title: '主题设置',
+                  data: {
+                    'id': setting.id.toString(),
+                    'themeModeIndex': setting.themeModeIndex.toString(),
+                    'themeMode': setting.themeMode.name,
+                  },
+                ),
+                _DataSection(
+                  title: '颜色设置',
+                  data: {
+                    'primaryColor': setting.primaryColor != null
+                        ? '#${setting.primaryColor!.toRadixString(16).padLeft(8, '0').toUpperCase()}'
+                        : 'null',
+                    'secondaryColor': setting.secondaryColor != null
+                        ? '#${setting.secondaryColor!.toRadixString(16).padLeft(8, '0').toUpperCase()}'
+                        : 'null',
+                    'backgroundColor': setting.backgroundColor != null
+                        ? '#${setting.backgroundColor!.toRadixString(16).padLeft(8, '0').toUpperCase()}'
+                        : 'null',
+                    'surfaceColor': setting.surfaceColor != null
+                        ? '#${setting.surfaceColor!.toRadixString(16).padLeft(8, '0').toUpperCase()}'
+                        : 'null',
+                    'textColor': setting.textColor != null
+                        ? '#${setting.textColor!.toRadixString(16).padLeft(8, '0').toUpperCase()}'
+                        : 'null',
+                    'cardColor': setting.cardColor != null
+                        ? '#${setting.cardColor!.toRadixString(16).padLeft(8, '0').toUpperCase()}'
+                        : 'null',
+                  },
+                ),
+                _DataSection(
+                  title: '存储设置',
+                  data: {
+                    'customCacheDir': setting.customCacheDir ?? 'null',
+                    'maxCacheSizeMB': setting.maxCacheSizeMB.toString(),
+                    'customDownloadDir': setting.customDownloadDir ?? 'null',
+                  },
+                ),
+                _DataSection(
+                  title: '导入设置',
+                  data: {
+                    'autoRefreshImports': setting.autoRefreshImports.toString(),
+                    'defaultRefreshIntervalHours': setting.defaultRefreshIntervalHours.toString(),
+                  },
+                ),
+                _DataSection(
+                  title: '下载设置',
+                  data: {
+                    'maxConcurrentDownloads': setting.maxConcurrentDownloads.toString(),
+                    'downloadImageOptionIndex': setting.downloadImageOptionIndex.toString(),
+                    'downloadImageOption': setting.downloadImageOption.name,
+                  },
+                ),
+                _DataSection(
+                  title: '其他设置',
+                  data: {
+                    'autoScrollToCurrentTrack': setting.autoScrollToCurrentTrack.toString(),
+                    'enabledSources': setting.enabledSources.join(', '),
+                    'hotkeyConfig': setting.hotkeyConfig ?? 'null',
+                  },
+                ),
+              ],
             );
           },
         );
@@ -289,7 +466,7 @@ class _SearchHistoryListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<SearchHistory>>(
-      future: isar.searchHistorys.where().findAll(),
+      future: isar.searchHistorys.where().sortByTimestampDesc().findAll(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -304,9 +481,16 @@ class _SearchHistoryListView extends StatelessWidget {
             return _DataCard(
               title: history.query,
               subtitle: 'ID: ${history.id}',
-              data: {
-                'timestamp': history.timestamp.toIso8601String(),
-              },
+              sections: [
+                _DataSection(
+                  title: '搜索记录',
+                  data: {
+                    'id': history.id.toString(),
+                    'query': history.query,
+                    'timestamp': history.timestamp.toIso8601String(),
+                  },
+                ),
+              ],
             );
           },
         );
@@ -338,19 +522,49 @@ class _DownloadTaskListView extends StatelessWidget {
             final task = tasks[index];
             return _DataCard(
               title: '下载任务 #${task.id}',
-              subtitle: 'TrackID: ${task.trackId}',
-              data: {
-                'trackId': task.trackId.toString(),
-                'playlistName': task.playlistName ?? 'null',
-                'order': task.order?.toString() ?? 'null',
-                'status': task.status.name,
-                'progress': '${(task.progress * 100).toStringAsFixed(1)}%',
-                'downloadedBytes': task.downloadedBytes.toString(),
-                'totalBytes': task.totalBytes.toString(),
-                'tempFilePath': task.tempFilePath ?? 'null',
-                'errorMessage': task.errorMessage ?? 'null',
-                'createdAt': task.createdAt.toIso8601String(),
-              },
+              subtitle: 'TrackID: ${task.trackId} | ${task.status.name}',
+              sections: [
+                _DataSection(
+                  title: '基本信息',
+                  data: {
+                    'id': task.id.toString(),
+                    'trackId': task.trackId.toString(),
+                    'playlistId': task.playlistId?.toString() ?? 'null',
+                    'playlistName': task.playlistName ?? 'null',
+                    'order': task.order?.toString() ?? 'null',
+                    'priority': task.priority.toString(),
+                  },
+                ),
+                _DataSection(
+                  title: '下载状态',
+                  data: {
+                    'status': task.status.name,
+                    'progress': '${(task.progress * 100).toStringAsFixed(1)}%',
+                    'downloadedBytes': _formatBytes(task.downloadedBytes),
+                    'totalBytes': task.totalBytes != null ? _formatBytes(task.totalBytes!) : 'null',
+                  },
+                ),
+                _DataSection(
+                  title: '文件信息',
+                  data: {
+                    'tempFilePath': _truncate(task.tempFilePath, 60),
+                    'canResume': task.canResume.toString(),
+                  },
+                ),
+                _DataSection(
+                  title: '错误信息',
+                  data: {
+                    'errorMessage': task.errorMessage ?? 'null',
+                  },
+                ),
+                _DataSection(
+                  title: '时间戳',
+                  data: {
+                    'createdAt': task.createdAt.toIso8601String(),
+                    'completedAt': task.completedAt?.toIso8601String() ?? 'null',
+                  },
+                ),
+              ],
             );
           },
         );
@@ -359,7 +573,20 @@ class _DownloadTaskListView extends StatelessWidget {
   }
 }
 
+/// 截断字符串
+String _truncate(String? value, int maxLength) {
+  if (value == null) return 'null';
+  if (value.length <= maxLength) return value;
+  return '${value.substring(0, maxLength)}...';
+}
 
+/// 格式化字节数
+String _formatBytes(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+}
 
 /// 构建列表
 Widget _buildList(
@@ -410,16 +637,24 @@ Widget _buildList(
   );
 }
 
+/// 数据分组
+class _DataSection {
+  final String title;
+  final Map<String, String> data;
+
+  const _DataSection({required this.title, required this.data});
+}
+
 /// 数据卡片
 class _DataCard extends StatelessWidget {
   final String title;
   final String subtitle;
-  final Map<String, String> data;
+  final List<_DataSection> sections;
 
   const _DataCard({
     required this.title,
     required this.subtitle,
-    required this.data,
+    required this.sections,
   });
 
   @override
@@ -448,31 +683,57 @@ class _DataCard extends StatelessWidget {
             width: double.infinity,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: data.entries.map((entry) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: 160,
-                        child: Text(
-                          '${entry.key}:',
-                          style: TextStyle(
-                            color: colorScheme.primary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
+              children: sections.map((section) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Section 标题
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        section.title,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onPrimaryContainer,
                         ),
                       ),
-                      Expanded(
-                        child: Text(
-                          entry.value,
-                          style: const TextStyle(fontSize: 12),
+                    ),
+                    // Section 数据
+                    ...section.data.entries.map((entry) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 4, left: 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: 180,
+                              child: Text(
+                                '${entry.key}:',
+                                style: TextStyle(
+                                  color: colorScheme.primary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: SelectableText(
+                                entry.value,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
+                      );
+                    }),
+                    const SizedBox(height: 12),
+                  ],
                 );
               }).toList(),
             ),
