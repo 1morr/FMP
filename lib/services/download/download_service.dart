@@ -156,16 +156,18 @@ class DownloadService with Logging {
   }) async {
     logDebug('Adding download task for track: ${track.title}');
     
+    // 首先检查文件是否已下载（无论 DownloadTask 记录是否存在）
+    // 这处理了删除并重新导入歌单导致 trackId 变化的情况
+    if (track.downloadedPath != null && await File(track.downloadedPath!).exists()) {
+      logDebug('Track already downloaded (file exists): ${track.title}');
+      return null; // 文件已存在，无需下载
+    }
+    
     // 检查是否已有此歌曲的下载任务
     final existingTask = await _downloadRepository.getTaskByTrackId(track.id);
     if (existingTask != null) {
       if (existingTask.isCompleted) {
-        // 验证文件是否真实存在
-        if (track.downloadedPath != null && await File(track.downloadedPath!).exists()) {
-          logDebug('Track already downloaded: ${track.title}');
-          return null; // 已下载且文件存在
-        }
-        // 文件不存在，清理记录并重新下载
+        // 任务已完成但文件不存在（已由前置检查排除存在的情况），清理记录并重新下载
         logDebug('Downloaded file missing, re-queueing: ${track.title}');
         await _downloadRepository.deleteTask(existingTask.id);
         track.downloadedPath = null;
@@ -266,7 +268,7 @@ class DownloadService with Logging {
       }
 
       // 歌单文件夹路径
-      final subDir = _sanitizeFileName('${task.playlistName}_${task.playlistId}');
+      final subDir = _sanitizeFileName(task.playlistName);
       final playlistFolder = Directory(p.join(baseDir, subDir));
 
       // 确保目录存在
@@ -601,7 +603,7 @@ class DownloadService with Logging {
       // 从歌单下载任务获取歌单名
       final playlistTask = await _downloadRepository.getPlaylistTaskById(task.playlistDownloadTaskId!);
       if (playlistTask != null) {
-        subDir = _sanitizeFileName('${playlistTask.playlistName}_${playlistTask.playlistId}');
+        subDir = _sanitizeFileName(playlistTask.playlistName);
       } else {
         subDir = '未分类';
       }
