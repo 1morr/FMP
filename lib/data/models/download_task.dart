@@ -49,6 +49,9 @@ class DownloadTask {
   /// 错误信息
   String? errorMessage;
 
+  /// 临时保存路径（用于断点续传）
+  String? tempFilePath;
+
   /// 排序优先级（越小越优先）
   int priority = 0;
 
@@ -81,6 +84,10 @@ class DownloadTask {
   /// 是否是歌单任务中的一部分
   @ignore
   bool get isPartOfPlaylist => playlistDownloadTaskId != null;
+
+  /// 是否支持断点续传（有临时文件且有已下载字节数）
+  @ignore
+  bool get canResume => tempFilePath != null && downloadedBytes > 0;
 
   /// 格式化进度显示
   @ignore

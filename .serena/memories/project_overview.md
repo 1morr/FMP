@@ -36,6 +36,11 @@
 - **Phase 5**: 平台特性 ⏳ 待开始
 - **Phase 6**: 优化与完善 ⏳ 待开始
 
+### 代码重构进度 (REFACTORING_PLAN.md)
+- **Refactor Phase 1**: 性能优化 ✅ 已完成
+- **Refactor Phase 2**: 代码质量 ✅ 已完成
+- **Refactor Phase 3**: 基础设施 ✅ 已完成 (测试、下载优化、离线模式)
+
 ## 核心功能
 1. **音源集成**: Bilibili (已实现), YouTube (待实现)
 2. **播放控制**: 播放/暂停、进度控制、播放速度、播放模式

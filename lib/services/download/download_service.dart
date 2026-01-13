@@ -41,11 +41,17 @@ class DownloadService with Logging {
   /// 当前活跃的下载数量
   int _activeDownloads = 0;
   
-  /// 调度器定时器
+  /// 调度器定时器（保留用于周期检查，但主要使用事件驱动）
   Timer? _schedulerTimer;
   
   /// 是否正在调度
   bool _isScheduling = false;
+  
+  /// 调度触发控制器（事件驱动）
+  final _scheduleController = StreamController<void>.broadcast();
+  
+  /// 调度流订阅
+  StreamSubscription<void>? _scheduleSubscription;
 
   DownloadService({
     required DownloadRepository downloadRepository,
@@ -81,6 +87,8 @@ class DownloadService with Logging {
   /// 释放资源
   void dispose() {
     _schedulerTimer?.cancel();
+    _scheduleSubscription?.cancel();
+    _scheduleController.close();
     _progressController.close();
     
     // 取消所有进行中的下载
@@ -90,12 +98,24 @@ class DownloadService with Logging {
     _activeCancelTokens.clear();
   }
 
-  /// 启动调度器
+  /// 启动调度器（事件驱动 + 周期检查）
   void _startScheduler() {
-    _schedulerTimer?.cancel();
-    _schedulerTimer = Timer.periodic(AppConstants.downloadSchedulerInterval, (_) {
+    // 事件驱动：监听调度请求
+    _scheduleSubscription?.cancel();
+    _scheduleSubscription = _scheduleController.stream.listen((_) {
       _scheduleDownloads();
     });
+    
+    // 周期检查：作为备份机制，间隔加长到5秒
+    _schedulerTimer?.cancel();
+    _schedulerTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      _scheduleDownloads();
+    });
+  }
+  
+  /// 触发调度（事件驱动入口）
+  void _triggerSchedule() {
+    _scheduleController.add(null);
   }
 
   /// 调度下载任务
@@ -170,8 +190,8 @@ class DownloadService with Logging {
     
     final savedTask = await _downloadRepository.saveTask(task);
     
-    // 触发调度
-    _scheduleDownloads();
+    // 触发调度（事件驱动）
+    _triggerSchedule();
     
     return savedTask;
   }
@@ -281,7 +301,7 @@ class DownloadService with Logging {
   Future<void> resumeTask(int taskId) async {
     logDebug('Resuming download task: $taskId');
     await _downloadRepository.updateTaskStatus(taskId, DownloadStatus.pending);
-    _scheduleDownloads();
+    _triggerSchedule();
   }
 
   /// 取消/删除下载任务
@@ -311,7 +331,7 @@ class DownloadService with Logging {
     task.errorMessage = null;
     
     await _downloadRepository.saveTask(task);
-    _scheduleDownloads();
+    _triggerSchedule();
   }
 
   /// 暂停所有任务
@@ -332,7 +352,7 @@ class DownloadService with Logging {
   Future<void> resumeAll() async {
     logDebug('Resuming all downloads');
     await _downloadRepository.resumeAllTasks();
-    _scheduleDownloads();
+    _triggerSchedule();
   }
 
   /// 清空队列
@@ -356,7 +376,7 @@ class DownloadService with Logging {
   }
 
   /// 开始下载任务
-  void _startDownload(DownloadTask task) async {
+  Future<void> _startDownload(DownloadTask task) async {
     if (_activeCancelTokens.containsKey(task.id)) {
       logDebug('Task already downloading: ${task.id}');
       return;
@@ -390,6 +410,7 @@ class DownloadService with Logging {
       
       // 确定保存路径
       final savePath = await _getDownloadPath(track, task);
+      final tempPath = '$savePath.downloading';
       
       // 确保目录存在
       final dir = Directory(p.dirname(savePath));
@@ -397,19 +418,45 @@ class DownloadService with Logging {
         await dir.create(recursive: true);
       }
       
+      // 断点续传：检查是否有已下载的部分
+      int resumePosition = 0;
+      final tempFile = File(tempPath);
+      if (task.canResume && task.tempFilePath == tempPath && await tempFile.exists()) {
+        resumePosition = await tempFile.length();
+        logDebug('Resuming download from position: $resumePosition');
+      } else if (await tempFile.exists()) {
+        // 临时文件存在但不匹配，删除重新下载
+        await tempFile.delete();
+      }
+      
+      // 保存临时文件路径到任务
+      task.tempFilePath = tempPath;
+      await _downloadRepository.saveTask(task);
+      
       // 进度更新节流：避免过于频繁的 UI 更新导致 Windows 线程问题
       DateTime lastProgressUpdate = DateTime.now();
       double lastProgress = 0.0;
       const progressUpdateInterval = AppConstants.downloadProgressThrottleInterval;
       
-      // 下载文件
+      // 准备下载选项（支持断点续传）
+      final options = Options(
+        headers: resumePosition > 0 ? {'Range': 'bytes=$resumePosition-'} : null,
+      );
+      
+      // 下载文件（使用临时路径）
       await _dio.download(
         audioUrl,
-        savePath,
+        tempPath,
         cancelToken: cancelToken,
+        deleteOnError: false, // 保留部分下载的文件用于续传
+        options: options,
         onReceiveProgress: (received, total) {
-          if (total != -1) {
-            final progress = received / total;
+          // 断点续传时需要加上已下载部分
+          final actualReceived = received + resumePosition;
+          final actualTotal = total != -1 ? total + resumePosition : task.totalBytes ?? -1;
+          
+          if (actualTotal > 0) {
+            final progress = actualReceived / actualTotal;
             final now = DateTime.now();
             
             // 只在以下情况更新进度：
@@ -423,18 +470,21 @@ class DownloadService with Logging {
             if (shouldUpdate) {
               lastProgressUpdate = now;
               lastProgress = progress;
-              _downloadRepository.updateTaskProgress(task.id, progress, received, total);
+              _downloadRepository.updateTaskProgress(task.id, progress, actualReceived, actualTotal);
               _progressController.add(DownloadProgressEvent(
                 taskId: task.id,
                 trackId: task.trackId,
                 progress: progress,
-                downloadedBytes: received,
-                totalBytes: total,
+                downloadedBytes: actualReceived,
+                totalBytes: actualTotal,
               ));
             }
           }
         },
       );
+      
+      // 下载完成，将临时文件重命名为正式文件
+      await tempFile.rename(savePath);
 
       // 获取 VideoDetail（用于保存完整元数据）
       VideoDetail? videoDetail;
@@ -487,8 +537,12 @@ class DownloadService with Logging {
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
         logDebug('Download cancelled for task: ${task.id}');
+        // 保存已下载的字节数用于续传
+        await _saveResumeProgress(task);
       } else {
         logError('Download failed for task: ${task.id}: ${e.message}');
+        // 保存已下载的字节数用于续传
+        await _saveResumeProgress(task);
         await _downloadRepository.updateTaskStatus(
           task.id,
           DownloadStatus.failed,
@@ -497,6 +551,8 @@ class DownloadService with Logging {
       }
     } catch (e, stack) {
       logError('Download failed for task: ${task.id}: $e', e, stack);
+      // 保存已下载的字节数用于续传
+      await _saveResumeProgress(task);
       await _downloadRepository.updateTaskStatus(
         task.id,
         DownloadStatus.failed,
@@ -505,6 +561,25 @@ class DownloadService with Logging {
     } finally {
       _activeCancelTokens.remove(task.id);
       _activeDownloads--;
+      // 下载完成后触发调度，继续下一个任务（事件驱动）
+      _triggerSchedule();
+    }
+  }
+  
+  /// 保存断点续传进度
+  Future<void> _saveResumeProgress(DownloadTask task) async {
+    if (task.tempFilePath == null) return;
+    
+    try {
+      final tempFile = File(task.tempFilePath!);
+      if (await tempFile.exists()) {
+        final downloadedBytes = await tempFile.length();
+        task.downloadedBytes = downloadedBytes;
+        await _downloadRepository.saveTask(task);
+        logDebug('Saved resume progress: $downloadedBytes bytes for task ${task.id}');
+      }
+    } catch (e) {
+      logDebug('Failed to save resume progress: $e');
     }
   }
 
