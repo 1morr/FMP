@@ -7,4 +7,3 @@ export 'play_queue.dart';
 export 'settings.dart';
 export 'search_history.dart';
 export 'download_task.dart';
-export 'playlist_download_task.dart';

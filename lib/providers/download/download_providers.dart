@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 import '../../data/models/download_task.dart';
-import '../../data/models/playlist_download_task.dart';
 import '../../data/models/track.dart';
 import '../../data/repositories/download_repository.dart';
 import '../../data/repositories/track_repository.dart';
@@ -67,12 +66,6 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
 final downloadTasksProvider = StreamProvider<List<DownloadTask>>((ref) {
   final repo = ref.watch(downloadRepositoryProvider);
   return repo.watchAllTasks();
-});
-
-/// 歌单下载任务列表 Provider
-final playlistDownloadTasksProvider = StreamProvider<List<PlaylistDownloadTask>>((ref) {
-  final repo = ref.watch(downloadRepositoryProvider);
-  return repo.watchPlaylistTasks();
 });
 
 /// 下载任务状态 Provider (根据状态过滤)

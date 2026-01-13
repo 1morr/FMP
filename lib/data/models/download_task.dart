@@ -29,9 +29,11 @@ class DownloadTask {
   @Index()
   late int trackId;
 
-  /// 所属歌单下载任务ID（null=独立单曲任务）
-  @Index()
-  int? playlistDownloadTaskId;
+  /// 所属歌单名称（用于确定下载子目录，null=未分类）
+  String? playlistName;
+
+  /// 在歌单中的顺序位置（从0开始）
+  int? order;
 
   /// 下载状态
   @Enumerated(EnumType.name)
@@ -81,9 +83,9 @@ class DownloadTask {
   @ignore
   bool get isPaused => status == DownloadStatus.paused;
 
-  /// 是否是歌单任务中的一部分
+  /// 是否属于某个歌单
   @ignore
-  bool get isPartOfPlaylist => playlistDownloadTaskId != null;
+  bool get isPartOfPlaylist => playlistName != null;
 
   /// 是否支持断点续传（有临时文件且有已下载字节数）
   @ignore
