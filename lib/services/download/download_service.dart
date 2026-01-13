@@ -9,7 +9,6 @@ import 'package:path/path.dart' as p;
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/download_task.dart';
-import '../../data/models/playlist_download_task.dart';
 import '../../data/models/track.dart';
 import '../../data/models/playlist.dart';
 import '../../data/models/settings.dart';
@@ -147,11 +146,12 @@ class DownloadService with Logging {
   }
 
   /// 添加单曲下载任务
+  /// [playlistName] 所属歌单名称，用于确定下载子目录
   /// [order] 在歌单中的顺序位置（从0开始）
   Future<DownloadTask?> addTrackDownload(
     Track track, {
     Playlist? fromPlaylist,
-    int? playlistDownloadTaskId,
+    String? playlistName,
     int? order,
   }) async {
     logDebug('Adding download task for track: ${track.title}');
@@ -185,7 +185,8 @@ class DownloadService with Logging {
     final priority = await _downloadRepository.getNextPriority();
     final task = DownloadTask()
       ..trackId = track.id
-      ..playlistDownloadTaskId = playlistDownloadTaskId
+      ..playlistName = playlistName
+      ..order = order
       ..status = DownloadStatus.pending
       ..priority = priority
       ..createdAt = DateTime.now();
@@ -198,59 +199,41 @@ class DownloadService with Logging {
     return savedTask;
   }
 
-  /// 添加歌单下载任务
-  Future<PlaylistDownloadTask?> addPlaylistDownload(Playlist playlist) async {
-    logDebug('Adding playlist download task: ${playlist.name}');
-
-    // 检查是否已有此歌单的下载任务
-    final existingTask = await _downloadRepository.getPlaylistTaskByPlaylistId(playlist.id);
-    if (existingTask != null) {
-      // 只有正在下载中的任务不允许重复添加
-      if (existingTask.status == DownloadStatus.downloading) {
-        logDebug('Playlist download task is currently downloading: ${playlist.name}');
-        return existingTask;
-      }
-      // 其他状态（pending/paused/completed/failed）都允许重新下载
-      logDebug('Re-downloading playlist: ${playlist.name}');
-      await _downloadRepository.deletePlaylistTask(existingTask.id);
-    }
+  /// 添加歌单下载任务（以单曲形式下载所有歌曲）
+  /// 返回添加的下载任务数量
+  Future<int> addPlaylistDownload(Playlist playlist) async {
+    logDebug('Adding playlist download: ${playlist.name}');
 
     // 获取歌单中的所有歌曲
     final tracks = await _trackRepository.getByIds(playlist.trackIds);
     if (tracks.isEmpty) {
       logDebug('Playlist has no tracks: ${playlist.name}');
-      return null;
+      return 0;
     }
-
-    // 创建歌单下载任务
-    final priority = await _downloadRepository.getNextPriority();
-    final playlistTask = PlaylistDownloadTask()
-      ..playlistId = playlist.id
-      ..playlistName = playlist.name
-      ..trackIds = playlist.trackIds
-      ..status = DownloadStatus.pending
-      ..priority = priority
-      ..createdAt = DateTime.now();
-
-    final savedPlaylistTask = await _downloadRepository.savePlaylistTask(playlistTask);
 
     // 下载歌单封面
-    await _downloadPlaylistCover(playlist, savedPlaylistTask);
+    await _downloadPlaylistCover(playlist);
 
     // 为每个歌曲创建下载任务
-    for (final track in tracks) {
-      await addTrackDownload(
-        track,
+    int addedCount = 0;
+    for (int i = 0; i < tracks.length; i++) {
+      final task = await addTrackDownload(
+        tracks[i],
         fromPlaylist: playlist,
-        playlistDownloadTaskId: savedPlaylistTask.id,
+        playlistName: playlist.name,
+        order: i,
       );
+      if (task != null) {
+        addedCount++;
+      }
     }
 
-    return savedPlaylistTask;
+    logDebug('Added $addedCount download tasks for playlist: ${playlist.name}');
+    return addedCount;
   }
 
   /// 下载歌单封面到分类文件夹
-  Future<void> _downloadPlaylistCover(Playlist playlist, PlaylistDownloadTask task) async {
+  Future<void> _downloadPlaylistCover(Playlist playlist) async {
     if (playlist.coverUrl == null || playlist.coverUrl!.isEmpty) {
       logDebug('Playlist has no cover URL: ${playlist.name}');
       return;
@@ -268,7 +251,7 @@ class DownloadService with Logging {
       }
 
       // 歌单文件夹路径
-      final subDir = _sanitizeFileName(task.playlistName);
+      final subDir = _sanitizeFileName(playlist.name);
       final playlistFolder = Directory(p.join(baseDir, subDir));
 
       // 确保目录存在
@@ -514,18 +497,8 @@ class DownloadService with Logging {
         }
       }
 
-      // 计算在歌单中的顺序
-      int? trackOrder;
-      if (task.playlistDownloadTaskId != null) {
-        final playlistTask = await _downloadRepository.getPlaylistTaskById(task.playlistDownloadTaskId!);
-        if (playlistTask != null) {
-          trackOrder = playlistTask.trackIds.indexOf(track.id);
-          if (trackOrder < 0) trackOrder = null;
-        }
-      }
-
-      // 保存元数据
-      await _saveMetadata(track, savePath, videoDetail: videoDetail, order: trackOrder);
+      // 保存元数据（使用 task 中保存的 order）
+      await _saveMetadata(track, savePath, videoDetail: videoDetail, order: task.order);
       
       // 更新歌曲的下载路径
       track.downloadedPath = savePath;
@@ -597,19 +570,10 @@ class DownloadService with Logging {
       baseDir = await _getDefaultDownloadDir();
     }
     
-    // 确定子目录
-    String subDir;
-    if (task.playlistDownloadTaskId != null) {
-      // 从歌单下载任务获取歌单名
-      final playlistTask = await _downloadRepository.getPlaylistTaskById(task.playlistDownloadTaskId!);
-      if (playlistTask != null) {
-        subDir = _sanitizeFileName(playlistTask.playlistName);
-      } else {
-        subDir = '未分类';
-      }
-    } else {
-      subDir = '未分类';
-    }
+    // 确定子目录（使用 playlistName，如果没有则放入"未分类"）
+    final subDir = task.playlistName != null 
+        ? _sanitizeFileName(task.playlistName!) 
+        : '未分类';
     
     // 视频文件夹名
     final videoFolder = _sanitizeFileName(track.parentTitle ?? track.title);

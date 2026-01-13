@@ -1,5 +1,4 @@
 import '../../data/models/download_task.dart';
-import '../../data/models/playlist_download_task.dart';
 import '../../data/models/track.dart';
 import '../../data/models/playlist.dart';
 import '../../services/download/download_service.dart';
@@ -17,8 +16,9 @@ extension TrackDownloadExtension on Track {
 
 /// 扩展方法：为 Playlist 添加下载功能
 extension PlaylistDownloadExtension on Playlist {
-  /// 下载整个歌单
-  Future<PlaylistDownloadTask?> download(DownloadService service) async {
+  /// 下载整个歌单（以单曲形式）
+  /// 返回添加的下载任务数量
+  Future<int> download(DownloadService service) async {
     return service.addPlaylistDownload(this);
   }
 }

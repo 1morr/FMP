@@ -1,6 +1,5 @@
 import 'package:isar/isar.dart';
 import '../models/download_task.dart';
-import '../models/playlist_download_task.dart';
 import '../../core/logger.dart';
 
 /// 下载任务数据仓库
@@ -54,15 +53,6 @@ class DownloadRepository with Logging {
     return _isar.downloadTasks
         .filter()
         .statusEqualTo(DownloadStatus.downloading)
-        .findAll();
-  }
-
-  /// 获取歌单下载任务相关的下载任务
-  Future<List<DownloadTask>> getTasksByPlaylistTaskId(int playlistTaskId) async {
-    return _isar.downloadTasks
-        .where()
-        .playlistDownloadTaskIdEqualTo(playlistTaskId)
-        .sortByPriority()
         .findAll();
   }
 
@@ -205,81 +195,6 @@ class DownloadRepository with Logging {
     });
   }
 
-  // ==================== PlaylistDownloadTask CRUD ====================
-
-  /// 获取所有歌单下载任务
-  Future<List<PlaylistDownloadTask>> getAllPlaylistTasks() async {
-    return _isar.playlistDownloadTasks.where().sortByPriority().findAll();
-  }
-
-  /// 根据ID获取歌单下载任务
-  Future<PlaylistDownloadTask?> getPlaylistTaskById(int id) async {
-    return _isar.playlistDownloadTasks.get(id);
-  }
-
-  /// 根据 playlistId 获取歌单下载任务
-  Future<PlaylistDownloadTask?> getPlaylistTaskByPlaylistId(int playlistId) async {
-    return _isar.playlistDownloadTasks
-        .where()
-        .playlistIdEqualTo(playlistId)
-        .filter()
-        .not()
-        .statusEqualTo(DownloadStatus.completed)
-        .findFirst();
-  }
-
-  /// 获取当前正在执行的歌单下载任务
-  Future<PlaylistDownloadTask?> getActivePlaylistTask() async {
-    return _isar.playlistDownloadTasks
-        .filter()
-        .statusEqualTo(DownloadStatus.downloading)
-        .findFirst();
-  }
-
-  /// 获取下一个待执行的歌单下载任务
-  Future<PlaylistDownloadTask?> getNextPendingPlaylistTask() async {
-    return _isar.playlistDownloadTasks
-        .filter()
-        .statusEqualTo(DownloadStatus.pending)
-        .sortByPriority()
-        .findFirst();
-  }
-
-  /// 保存歌单下载任务
-  Future<PlaylistDownloadTask> savePlaylistTask(PlaylistDownloadTask task) async {
-    logDebug('Saving playlist download task: playlistId=${task.playlistId}, name=${task.playlistName}');
-    final id = await _isar.writeTxn(() => _isar.playlistDownloadTasks.put(task));
-    task.id = id;
-    return task;
-  }
-
-  /// 删除歌单下载任务
-  Future<bool> deletePlaylistTask(int id) async {
-    // 同时删除关联的下载任务
-    await _isar.writeTxn(() async {
-      final tasks = await _isar.downloadTasks
-          .where()
-          .playlistDownloadTaskIdEqualTo(id)
-          .findAll();
-      await _isar.downloadTasks.deleteAll(tasks.map((t) => t.id).toList());
-    });
-    return _isar.writeTxn(() => _isar.playlistDownloadTasks.delete(id));
-  }
-
-  /// 更新歌单下载任务状态
-  Future<void> updatePlaylistTaskStatus(int id, DownloadStatus status) async {
-    await _isar.writeTxn(() async {
-      final task = await _isar.playlistDownloadTasks.get(id);
-      if (task != null) {
-        task.status = status;
-        if (status == DownloadStatus.completed) {
-          task.completedAt = DateTime.now();
-        }
-        await _isar.playlistDownloadTasks.put(task);
-      }
-    });
-  }
-
   // ==================== 监听流 ====================
 
   /// 监听所有下载任务变化
@@ -290,22 +205,9 @@ class DownloadRepository with Logging {
         .watch(fireImmediately: true);
   }
 
-  /// 监听歌单下载任务变化
-  Stream<List<PlaylistDownloadTask>> watchPlaylistTasks() {
-    return _isar.playlistDownloadTasks
-        .where()
-        .sortByPriority()
-        .watch(fireImmediately: true);
-  }
-
   /// 获取下一个优先级值（用于新任务）
   Future<int> getNextPriority() async {
-    final tasks = await _isar.downloadTasks.where().sortByPriorityDesc().findFirst();
-    final playlistTasks = await _isar.playlistDownloadTasks.where().sortByPriorityDesc().findFirst();
-    
-    final taskPriority = tasks?.priority ?? 0;
-    final playlistTaskPriority = playlistTasks?.priority ?? 0;
-    
-    return (taskPriority > playlistTaskPriority ? taskPriority : playlistTaskPriority) + 1;
+    final task = await _isar.downloadTasks.where().sortByPriorityDesc().findFirst();
+    return (task?.priority ?? 0) + 1;
   }
 }

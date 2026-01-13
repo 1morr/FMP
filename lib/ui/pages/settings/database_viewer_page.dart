@@ -10,7 +10,6 @@ import '../../../data/models/play_queue.dart';
 import '../../../data/models/settings.dart';
 import '../../../data/models/search_history.dart';
 import '../../../data/models/download_task.dart';
-import '../../../data/models/playlist_download_task.dart';
 
 /// 数据库查看页面
 class DatabaseViewerPage extends ConsumerStatefulWidget {
@@ -30,7 +29,6 @@ class _DatabaseViewerPageState extends ConsumerState<DatabaseViewerPage> {
     'Settings',
     'SearchHistory',
     'DownloadTask',
-    'PlaylistDownloadTask',
   ];
 
   @override
@@ -114,7 +112,6 @@ class _DatabaseViewerPageState extends ConsumerState<DatabaseViewerPage> {
       'Settings' => _SettingsListView(isar: isar),
       'SearchHistory' => _SearchHistoryListView(isar: isar),
       'DownloadTask' => _DownloadTaskListView(isar: isar),
-      'PlaylistDownloadTask' => _PlaylistDownloadTaskListView(isar: isar),
       _ => const Center(child: Text('未知集合')),
     };
   }
@@ -344,7 +341,8 @@ class _DownloadTaskListView extends StatelessWidget {
               subtitle: 'TrackID: ${task.trackId}',
               data: {
                 'trackId': task.trackId.toString(),
-                'playlistDownloadTaskId': task.playlistDownloadTaskId?.toString() ?? 'null',
+                'playlistName': task.playlistName ?? 'null',
+                'order': task.order?.toString() ?? 'null',
                 'status': task.status.name,
                 'progress': '${(task.progress * 100).toStringAsFixed(1)}%',
                 'downloadedBytes': task.downloadedBytes.toString(),
@@ -361,45 +359,7 @@ class _DownloadTaskListView extends StatelessWidget {
   }
 }
 
-/// PlaylistDownloadTask 列表视图
-class _PlaylistDownloadTaskListView extends StatelessWidget {
-  final Isar isar;
 
-  const _PlaylistDownloadTaskListView({required this.isar});
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<PlaylistDownloadTask>>(
-      future: isar.playlistDownloadTasks.where().findAll(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final tasks = snapshot.data ?? [];
-        return _buildList(
-          context,
-          itemCount: tasks.length,
-          headerText: '共 ${tasks.length} 条记录',
-          itemBuilder: (index) {
-            final task = tasks[index];
-            return _DataCard(
-              title: task.playlistName,
-              subtitle: 'ID: ${task.id}',
-              data: {
-                'playlistId': task.playlistId.toString(),
-                'totalTracks': task.totalTracks.toString(),
-                'trackIds': task.trackIds.take(5).join(', ') +
-                    (task.trackIds.length > 5 ? '...' : ''),
-                'status': task.status.name,
-                'createdAt': task.createdAt.toIso8601String(),
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-}
 
 /// 构建列表
 Widget _buildList(
