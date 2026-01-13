@@ -53,9 +53,8 @@ class FMPApp extends ConsumerWidget {
         ),
       ),
       data: (_) {
-        // 触发后台清理和迁移任务（不阻塞 UI）
+        // 触发后台清理任务（不阻塞 UI）
         ref.read(startupCleanupProvider);
-        ref.read(downloadPathMigrationProvider);
 
         // 从设置中获取主题模式和自定义颜色
         final themeState = ref.watch(themeProvider);

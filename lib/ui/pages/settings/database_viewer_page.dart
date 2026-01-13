@@ -147,8 +147,8 @@ class _TrackListView extends StatelessWidget {
                 'sourceType': track.sourceType.name,
                 'cid': track.cid?.toString() ?? 'null',
                 'durationMs': '${track.durationMs}ms',
-                'isDownloaded': track.isDownloaded.toString(),
-                'downloadedPath': track.downloadedPath ?? 'null',
+                'hasAnyDownload': track.hasAnyDownload.toString(),
+                'downloadedPaths': track.downloadedPaths.join(', '),
                 'createdAt': track.createdAt.toIso8601String(),
               },
             );

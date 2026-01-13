@@ -49,11 +49,6 @@ class Track {
   /// 流媒体缓存路径
   String? cachedPath;
 
-  /// 离线下载路径（已废弃，保留用于数据迁移）
-  /// 新系统使用 downloadedPlaylistIds + downloadedPaths
-  @Deprecated('Use getDownloadedPath(playlistId) instead')
-  String? downloadedPath;
-
   // ========== 多路径下载支持 ==========
 
   /// 已下载的歌单ID列表（与 downloadedPaths 并行）
@@ -148,10 +143,6 @@ class Track {
     return DateTime.now().isBefore(audioUrlExpiry!);
   }
 
-  /// 是否已下载（兼容旧代码，检查是否有任何下载）
-  @Deprecated('Use isDownloadedInPlaylist(playlistId) or hasAnyDownload instead')
-  bool get isDownloaded => hasAnyDownload || downloadedPath != null;
-
   /// 是否已缓存
   bool get isCached => cachedPath != null;
 
@@ -194,8 +185,6 @@ class Track {
       ..isAvailable = isAvailable
       ..unavailableReason = unavailableReason
       ..cachedPath = cachedPath
-      // ignore: deprecated_member_use_from_same_package
-      ..downloadedPath = downloadedPath
       ..downloadedPlaylistIds = List.from(downloadedPlaylistIds)
       ..downloadedPaths = List.from(downloadedPaths)
       ..cid = cid
