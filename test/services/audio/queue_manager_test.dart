@@ -183,13 +183,13 @@ void main() {
         ..sourceId = 'test123'
         ..sourceType = SourceType.bilibili
         ..title = 'Test'
-        ..downloadedPlaylistIds = [1, 2]
-        ..downloadedPaths = ['/path/to/audio1.m4a', '/path/to/audio2.m4a'];
+        ..playlistIds = [1, 2]
+        ..downloadPaths = ['/path/to/audio1.m4a', '/path/to/audio2.m4a'];
 
       final copy = original.copyForQueue();
 
-      expect(copy.downloadedPlaylistIds, equals(original.downloadedPlaylistIds));
-      expect(copy.downloadedPaths, equals(original.downloadedPaths));
+      expect(copy.playlistIds, equals(original.playlistIds));
+      expect(copy.downloadPaths, equals(original.downloadPaths));
     });
 
     test('copyForQueue preserves multi-page info', () {

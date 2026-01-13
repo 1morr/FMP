@@ -384,7 +384,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // 获取音频 URL 并播放（不修改队列，不保存到数据库）
       final trackWithUrl = await _queueManager.ensureAudioUrl(track, persist: false);
 
-      final url = trackWithUrl.firstDownloadedPath ??
+      final url = trackWithUrl.firstDownloadPath ??
                   trackWithUrl.cachedPath ??
                   trackWithUrl.audioUrl;
 
@@ -393,7 +393,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       }
 
       // 播放
-      if (trackWithUrl.firstDownloadedPath != null || trackWithUrl.cachedPath != null) {
+      if (trackWithUrl.firstDownloadPath != null || trackWithUrl.cachedPath != null) {
         await _audioService.playFile(url);
       } else {
         final headers = _getHeadersForTrack(trackWithUrl);
@@ -445,12 +445,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       if (currentTrack != null) {
         // 准备歌曲
         final trackWithUrl = await _queueManager.ensureAudioUrl(currentTrack);
-        final url = trackWithUrl.firstDownloadedPath ??
+        final url = trackWithUrl.firstDownloadPath ??
                     trackWithUrl.cachedPath ??
                     trackWithUrl.audioUrl;
 
         if (url != null) {
-          if (trackWithUrl.firstDownloadedPath != null || trackWithUrl.cachedPath != null) {
+          if (trackWithUrl.firstDownloadPath != null || trackWithUrl.cachedPath != null) {
             await _audioService.setFile(url);
           } else {
             final headers = _getHeadersForTrack(trackWithUrl);
@@ -840,7 +840,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       }
 
       // 获取播放地址
-      final url = trackWithUrl.firstDownloadedPath ??
+      final url = trackWithUrl.firstDownloadPath ??
                   trackWithUrl.cachedPath ??
                   trackWithUrl.audioUrl;
 
@@ -848,11 +848,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         throw Exception('No audio URL available for: ${track.title}');
       }
 
-      final urlType = trackWithUrl.firstDownloadedPath != null ? "downloaded" : trackWithUrl.cachedPath != null ? "cached" : "stream";
+      final urlType = trackWithUrl.firstDownloadPath != null ? "downloaded" : trackWithUrl.cachedPath != null ? "cached" : "stream";
       logDebug('Playing track: ${track.title}, URL type: $urlType, source: ${track.sourceType}');
 
       // 播放
-      if (trackWithUrl.firstDownloadedPath != null || trackWithUrl.cachedPath != null) {
+      if (trackWithUrl.firstDownloadPath != null || trackWithUrl.cachedPath != null) {
         await _audioService.playFile(url);
       } else {
         // 获取该音源所需的 HTTP 请求头
@@ -941,13 +941,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     try {
       final trackWithUrl = await _queueManager.ensureAudioUrl(track);
 
-      final url = trackWithUrl.firstDownloadedPath ??
+      final url = trackWithUrl.firstDownloadPath ??
                   trackWithUrl.cachedPath ??
                   trackWithUrl.audioUrl;
 
       if (url == null) return;
 
-      if (trackWithUrl.firstDownloadedPath != null || trackWithUrl.cachedPath != null) {
+      if (trackWithUrl.firstDownloadPath != null || trackWithUrl.cachedPath != null) {
         await _audioService.setFile(url);
       } else {
         final headers = _getHeadersForTrack(trackWithUrl);

@@ -118,7 +118,7 @@ class TrackRepository with Logging {
   Future<List<Track>> getDownloaded() async {
     return _isar.tracks
         .filter()
-        .downloadedPathsIsNotEmpty()
+        .downloadPathsIsNotEmpty()
         .sortByUpdatedAtDesc()
         .findAll();
   }
@@ -127,7 +127,7 @@ class TrackRepository with Logging {
   Stream<List<Track>> watchDownloaded() {
     return _isar.tracks
         .filter()
-        .downloadedPathsIsNotEmpty()
+        .downloadPathsIsNotEmpty()
         .sortByUpdatedAtDesc()
         .watch(fireImmediately: true);
   }
@@ -136,8 +136,8 @@ class TrackRepository with Logging {
   Future<void> clearDownloadPath(int id) async {
     final track = await getById(id);
     if (track != null) {
-      track.downloadedPlaylistIds = [];
-      track.downloadedPaths = [];
+      track.playlistIds = [];
+      track.downloadPaths = [];
       await save(track);
     }
   }
@@ -146,7 +146,7 @@ class TrackRepository with Logging {
   Future<void> clearDownloadPathForPlaylist(int trackId, int playlistId) async {
     final track = await getById(trackId);
     if (track != null) {
-      track.removeDownloadedPath(playlistId);
+      track.removeDownloadPath(playlistId);
       await save(track);
     }
   }
@@ -187,7 +187,7 @@ class TrackRepository with Logging {
 
       // 如果有任何下载路径且文件存在，保留
       bool hasExistingFile = false;
-      for (final path in track.downloadedPaths) {
+      for (final path in track.downloadPaths) {
         if (await File(path).exists()) {
           hasExistingFile = true;
           break;

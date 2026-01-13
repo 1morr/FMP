@@ -161,7 +161,7 @@ class PlaylistFolderMigrator with Logging {
         bool updated = false;
 
         // 检查该歌单的下载路径是否需要更新
-        final oldPath = track.getDownloadedPath(playlist.id);
+        final oldPath = track.getDownloadPath(playlist.id);
         if (oldPath != null && oldPath.startsWith(oldBasePath)) {
           // 计算新路径
           final relativePath = oldPath.substring(oldBasePath.length);
@@ -169,7 +169,7 @@ class PlaylistFolderMigrator with Logging {
 
           // 验证新路径的文件存在
           if (await File(newPath).exists()) {
-            track.setDownloadedPath(playlist.id, newPath);
+            track.setDownloadPath(playlist.id, newPath);
             updated = true;
           }
         }

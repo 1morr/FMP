@@ -49,53 +49,49 @@ class Track {
   /// 流媒体缓存路径
   String? cachedPath;
 
-  // ========== 多路径下载支持 ==========
+  // ========== 歌单归属与下载路径（预计算）==========
 
-  /// 已下载的歌单ID列表（与 downloadedPaths 并行）
-  List<int> downloadedPlaylistIds = [];
+  /// 所属歌单ID列表（与 downloadPaths 并行）
+  List<int> playlistIds = [];
 
-  /// 已下载的路径列表（与 downloadedPlaylistIds 并行）
-  List<String> downloadedPaths = [];
+  /// 预计算的下载路径列表（与 playlistIds 并行）
+  List<String> downloadPaths = [];
 
   /// 获取指定歌单的下载路径
-  String? getDownloadedPath(int playlistId) {
-    final index = downloadedPlaylistIds.indexOf(playlistId);
-    return index >= 0 ? downloadedPaths[index] : null;
+  String? getDownloadPath(int playlistId) {
+    final index = playlistIds.indexOf(playlistId);
+    return index >= 0 ? downloadPaths[index] : null;
   }
 
   /// 设置指定歌单的下载路径
-  void setDownloadedPath(int playlistId, String path) {
-    final index = downloadedPlaylistIds.indexOf(playlistId);
+  void setDownloadPath(int playlistId, String path) {
+    final index = playlistIds.indexOf(playlistId);
     if (index >= 0) {
-      downloadedPaths[index] = path;
+      downloadPaths[index] = path;
     } else {
-      downloadedPlaylistIds = List.from(downloadedPlaylistIds)..add(playlistId);
-      downloadedPaths = List.from(downloadedPaths)..add(path);
+      playlistIds = List.from(playlistIds)..add(playlistId);
+      downloadPaths = List.from(downloadPaths)..add(path);
     }
   }
 
   /// 移除指定歌单的下载路径
-  void removeDownloadedPath(int playlistId) {
-    final index = downloadedPlaylistIds.indexOf(playlistId);
+  void removeDownloadPath(int playlistId) {
+    final index = playlistIds.indexOf(playlistId);
     if (index >= 0) {
-      downloadedPlaylistIds = List.from(downloadedPlaylistIds)..removeAt(index);
-      downloadedPaths = List.from(downloadedPaths)..removeAt(index);
+      playlistIds = List.from(playlistIds)..removeAt(index);
+      downloadPaths = List.from(downloadPaths)..removeAt(index);
     }
   }
 
-  /// 检查指定歌单是否已下载
-  bool isDownloadedInPlaylist(int playlistId) {
-    return downloadedPlaylistIds.contains(playlistId);
+  /// 检查是否属于指定歌单
+  bool belongsToPlaylist(int playlistId) {
+    return playlistIds.contains(playlistId);
   }
 
-  /// 检查是否有任何下载
+  /// 获取第一个下载路径（用于播放时遍历查找）
   @ignore
-  bool get hasAnyDownload => downloadedPaths.isNotEmpty;
-
-  /// 获取第一个有效的下载路径（用于播放）
-  @ignore
-  String? get firstDownloadedPath =>
-      downloadedPaths.isNotEmpty ? downloadedPaths.first : null;
+  String? get firstDownloadPath =>
+      downloadPaths.isNotEmpty ? downloadPaths.first : null;
 
   /// 播放量/观看数（仅用于搜索结果显示，不持久化）
   @ignore
@@ -185,8 +181,8 @@ class Track {
       ..isAvailable = isAvailable
       ..unavailableReason = unavailableReason
       ..cachedPath = cachedPath
-      ..downloadedPlaylistIds = List.from(downloadedPlaylistIds)
-      ..downloadedPaths = List.from(downloadedPaths)
+      ..playlistIds = List.from(playlistIds)
+      ..downloadPaths = List.from(downloadPaths)
       ..cid = cid
       ..pageNum = pageNum
       ..parentTitle = parentTitle

@@ -9,7 +9,6 @@ import '../../../data/sources/base_source.dart' show SearchOrder;
 import '../../../data/sources/bilibili_source.dart';
 import '../../../data/sources/source_provider.dart';
 import '../../../providers/search_provider.dart';
-import '../../../providers/download_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/now_playing_indicator.dart';
@@ -609,29 +608,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           }
         }
         break;
-      case 'download':
-        final downloadService = ref.read(downloadServiceProvider);
-        if (hasMultiplePages) {
-          // 多P视频：下载所有分P
-          int addedCount = 0;
-          for (final page in pages) {
-            final pageTrack = page.toTrack(track);
-            final result = await downloadService.addTrackDownload(pageTrack);
-            if (result != null) addedCount++;
-          }
-          if (mounted) {
-            ToastService.show(context, '已添加 $addedCount 个分P到下载队列');
-          }
-        } else {
-          final result = await downloadService.addTrackDownload(track);
-          if (mounted) {
-            ToastService.show(
-              context,
-              result != null ? '已添加到下载队列' : '歌曲已下载或已在队列中',
-            );
-          }
-        }
-        break;
+
       case 'add_to_playlist':
         if (hasMultiplePages) {
           // 多P视频：添加所有分P到歌单
@@ -665,16 +642,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         controller.addToQueue(pageTrack);
         ToastService.show(context, '已添加到播放队列');
         break;
-      case 'download':
-        final downloadService = ref.read(downloadServiceProvider);
-        final result = await downloadService.addTrackDownload(pageTrack);
-        if (mounted) {
-          ToastService.show(
-            context,
-            result != null ? '已添加到下载队列' : '分P已下载或已在队列中',
-          );
-        }
-        break;
+
     }
   }
 }
@@ -842,14 +810,7 @@ class _SearchResultTile extends ConsumerWidget {
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
-                  const PopupMenuItem(
-                    value: 'download',
-                    child: ListTile(
-                      leading: Icon(Icons.download_outlined),
-                      title: Text('下载'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
+
                   const PopupMenuItem(
                     value: 'add_to_playlist',
                     child: ListTile(
@@ -980,14 +941,7 @@ class _PageTile extends ConsumerWidget {
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
-                const PopupMenuItem(
-                  value: 'download',
-                  child: ListTile(
-                    leading: Icon(Icons.download_outlined),
-                    title: Text('下载'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
+
                 // 注意：分P没有"添加到歌单"选项
               ],
             ),
@@ -1120,14 +1074,7 @@ class _LocalGroupTile extends ConsumerWidget {
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
-                  const PopupMenuItem(
-                    value: 'download',
-                    child: ListTile(
-                      leading: Icon(Icons.download_outlined),
-                      title: Text('下载'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
+
                   const PopupMenuItem(
                     value: 'add_to_playlist',
                     child: ListTile(
@@ -1183,20 +1130,7 @@ class _LocalGroupTile extends ConsumerWidget {
               : '已添加到播放队列',
         );
         break;
-      case 'download':
-        final downloadService = ref.read(downloadServiceProvider);
-        int addedCount = 0;
-        for (final track in group.tracks) {
-          final result = await downloadService.addTrackDownload(track);
-          if (result != null) addedCount++;
-        }
-        if (context.mounted) {
-          ToastService.show(
-            context,
-            addedCount > 0 ? '已添加 $addedCount 首到下载队列' : '歌曲已下载或已在队列中',
-          );
-        }
-        break;
+
       case 'add_to_playlist':
         showAddToPlaylistDialog(context: context, tracks: group.tracks);
         break;
@@ -1298,14 +1232,7 @@ class _LocalTrackTile extends ConsumerWidget {
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
-                const PopupMenuItem(
-                  value: 'download',
-                  child: ListTile(
-                    leading: Icon(Icons.download_outlined),
-                    title: Text('下载'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
+
               ],
             ),
           ],

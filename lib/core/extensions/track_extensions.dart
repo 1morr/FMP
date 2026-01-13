@@ -7,16 +7,16 @@ import '../utils/duration_formatter.dart';
 extension TrackExtensions on Track {
   /// 获取本地封面路径（如果存在）
   String? get localCoverPath {
-    if (firstDownloadedPath == null) return null;
-    final dir = Directory(firstDownloadedPath!).parent;
+    if (firstDownloadPath == null) return null;
+    final dir = Directory(firstDownloadPath!).parent;
     final coverPath = '${dir.path}/cover.jpg';
     return File(coverPath).existsSync() ? coverPath : null;
   }
 
   /// 获取本地头像路径（如果存在）
   String? get localAvatarPath {
-    if (firstDownloadedPath == null) return null;
-    final dir = Directory(firstDownloadedPath!).parent;
+    if (firstDownloadPath == null) return null;
+    final dir = Directory(firstDownloadPath!).parent;
     final avatarPath = '${dir.path}/avatar.jpg';
     return File(avatarPath).existsSync() ? avatarPath : null;
   }

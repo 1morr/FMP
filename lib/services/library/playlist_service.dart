@@ -11,6 +11,7 @@ import '../../data/models/track.dart';
 import '../../data/repositories/playlist_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
+import '../download/download_path_utils.dart';
 import '../download/playlist_folder_migrator.dart';
 
 /// 歌单封面数据
@@ -136,19 +137,85 @@ class PlaylistService with Logging {
   }
 
   /// 删除歌单
+  /// 
+  /// 同时清理不被其他歌单引用的孤立歌曲
   Future<void> deletePlaylist(int playlistId) async {
+    // 获取歌单信息
+    final playlist = await _playlistRepository.getById(playlistId);
+    if (playlist == null) return;
+
+    final trackIds = playlist.trackIds;
+
+    // 删除歌单
     await _playlistRepository.delete(playlistId);
+
+    // 清理孤立歌曲：移除该歌单的下载路径，如果歌曲不属于任何歌单则删除
+    for (final trackId in trackIds) {
+      final track = await _trackRepository.getById(trackId);
+      if (track == null) continue;
+
+      // 移除该歌单的下载路径
+      track.removeDownloadPath(playlistId);
+
+      // 检查是否还属于其他歌单
+      if (track.playlistIds.isEmpty) {
+        // 不属于任何歌单，删除歌曲记录
+        await _trackRepository.delete(trackId);
+        logDebug('Deleted orphan track: ${track.title}');
+      } else {
+        // 还属于其他歌单，保存更新
+        await _trackRepository.save(track);
+      }
+    }
   }
 
   /// 添加歌曲到歌单
+  /// 
+  /// 同时预计算并设置下载路径
   Future<void> addTrackToPlaylist(int playlistId, Track track) async {
-    // 确保歌曲已保存到数据库
+    final playlist = await _playlistRepository.getById(playlistId);
+    if (playlist == null) {
+      throw PlaylistNotFoundException(playlistId);
+    }
+
+    // 计算下载路径
+    final baseDir = await _getDownloadBaseDir();
+    final downloadPath = DownloadPathUtils.computeDownloadPath(
+      baseDir: baseDir,
+      playlistName: playlist.name,
+      track: track,
+    );
+
+    // 设置下载路径
+    track.setDownloadPath(playlistId, downloadPath);
+
+    // 保存歌曲
     final savedTrack = await _trackRepository.save(track);
     await _playlistRepository.addTrack(playlistId, savedTrack.id);
   }
 
   /// 批量添加歌曲到歌单
+  /// 
+  /// 同时预计算并设置下载路径
   Future<void> addTracksToPlaylist(int playlistId, List<Track> tracks) async {
+    final playlist = await _playlistRepository.getById(playlistId);
+    if (playlist == null) {
+      throw PlaylistNotFoundException(playlistId);
+    }
+
+    // 获取下载基础目录
+    final baseDir = await _getDownloadBaseDir();
+
+    // 为每个歌曲计算并设置下载路径
+    for (final track in tracks) {
+      final downloadPath = DownloadPathUtils.computeDownloadPath(
+        baseDir: baseDir,
+        playlistName: playlist.name,
+        track: track,
+      );
+      track.setDownloadPath(playlistId, downloadPath);
+    }
+
     // 保存所有歌曲
     final savedTracks = await _trackRepository.saveAll(tracks);
     final trackIds = savedTracks.map((t) => t.id).toList();
@@ -156,8 +223,47 @@ class PlaylistService with Logging {
   }
 
   /// 从歌单移除歌曲
+  /// 
+  /// 同时清理该歌单的下载路径，如果歌曲不属于任何歌单则删除
   Future<void> removeTrackFromPlaylist(int playlistId, int trackId) async {
     await _playlistRepository.removeTrack(playlistId, trackId);
+
+    // 移除该歌单的下载路径
+    final track = await _trackRepository.getById(trackId);
+    if (track != null) {
+      track.removeDownloadPath(playlistId);
+
+      if (track.playlistIds.isEmpty) {
+        // 不属于任何歌单，删除歌曲记录
+        await _trackRepository.delete(trackId);
+        logDebug('Deleted orphan track: ${track.title}');
+      } else {
+        await _trackRepository.save(track);
+      }
+    }
+  }
+
+  /// 获取下载基础目录
+  Future<String> _getDownloadBaseDir() async {
+    final settings = await _settingsRepository.get();
+    if (settings.customDownloadDir != null && settings.customDownloadDir!.isNotEmpty) {
+      return settings.customDownloadDir!;
+    }
+    // 默认下载目录 - 与 DownloadService 保持一致
+    if (Platform.isAndroid) {
+      // Android: 外部存储/Music/FMP/
+      final extDir = await getExternalStorageDirectory();
+      if (extDir != null) {
+        final musicDir = p.join(extDir.parent.parent.parent.parent.path, 'Music', 'FMP');
+        return musicDir;
+      }
+      final appDir = await getApplicationDocumentsDirectory();
+      return p.join(appDir.path, 'FMP');
+    } else {
+      // Windows/其他: 用户文档/FMP/
+      final docsDir = await getApplicationDocumentsDirectory();
+      return p.join(docsDir.path, 'FMP');
+    }
   }
 
   /// 重新排序歌单中的歌曲
