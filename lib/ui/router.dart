@@ -9,6 +9,8 @@ import 'pages/library/library_page.dart';
 import 'pages/library/playlist_detail_page.dart';
 import 'pages/settings/settings_page.dart';
 import 'pages/settings/download_manager_page.dart';
+import 'pages/settings/developer_options_page.dart';
+import 'pages/settings/database_viewer_page.dart';
 import 'pages/library/downloaded_page.dart';
 import 'pages/library/downloaded_category_page.dart';
 import '../providers/download_provider.dart';
@@ -27,6 +29,8 @@ class RoutePaths {
   static const String playlistDetail = '/library/:id';
   static const String downloaded = '/library/downloaded';
   static const String downloadManager = '/settings/download-manager';
+  static const String developerOptions = '/settings/developer';
+  static const String databaseViewer = '/settings/developer/database';
 }
 
 /// 路由名称常量
@@ -43,6 +47,8 @@ class RouteNames {
   static const String downloaded = 'downloaded';
   static const String downloadedCategory = 'downloadedCategory';
   static const String downloadManager = 'downloadManager';
+  static const String developerOptions = 'developerOptions';
+  static const String databaseViewer = 'databaseViewer';
 }
 
 /// 应用路由配置
@@ -121,6 +127,20 @@ final appRouter = GoRouter(
               path: 'download-manager',
               name: RouteNames.downloadManager,
               builder: (context, state) => const DownloadManagerPage(),
+            ),
+            // 开发者选项页面
+            GoRoute(
+              path: 'developer',
+              name: RouteNames.developerOptions,
+              builder: (context, state) => const DeveloperOptionsPage(),
+              routes: [
+                // 数据库查看器
+                GoRoute(
+                  path: 'database',
+                  name: RouteNames.databaseViewer,
+                  builder: (context, state) => const DatabaseViewerPage(),
+                ),
+              ],
             ),
           ],
         ),
