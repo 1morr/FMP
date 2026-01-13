@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../data/models/track.dart';
+import '../../services/download/download_path_utils.dart';
 
 /// 下载文件扫描工具类
 ///
@@ -12,8 +13,25 @@ class DownloadScanner {
   DownloadScanner._();
 
   /// 获取文件夹的显示名称
+  ///
+  /// 新格式: sourceId_title → 返回 title
+  /// 旧格式: title → 直接返回
   static String extractDisplayName(String folderName) {
+    // 尝试从新格式提取 (sourceId_title)
+    final underscoreIndex = folderName.indexOf('_');
+    if (underscoreIndex > 0) {
+      return folderName.substring(underscoreIndex + 1);
+    }
+    // 旧格式或无下划线，直接返回
     return folderName;
+  }
+
+  /// 从文件夹名提取 sourceId
+  ///
+  /// 新格式: sourceId_title → 返回 sourceId
+  /// 旧格式: title → 返回 null
+  static String? extractSourceId(String folderName) {
+    return DownloadPathUtils.extractSourceIdFromFolderName(folderName);
   }
 
   /// 查找文件夹中的封面（优先歌单封面，其次第一首歌的封面）
@@ -90,6 +108,7 @@ class DownloadScanner {
     // 遍历视频文件夹（每个视频一个子文件夹）
     await for (final entity in folder.list()) {
       if (entity is Directory) {
+        final folderName = p.basename(entity.path);
         final metadataFile = File(p.join(entity.path, 'metadata.json'));
         Map<String, dynamic>? metadata;
 
@@ -101,31 +120,42 @@ class DownloadScanner {
           } catch (_) {}
         }
 
+        // 尝试从文件夹名提取 sourceId（新格式: sourceId_title）
+        final sourceIdFromFolder = extractSourceId(folderName);
+
         // 扫描该视频文件夹下的所有 .m4a 文件
         await for (final audioEntity in entity.list()) {
           if (audioEntity is File && audioEntity.path.endsWith('.m4a')) {
             Track? track;
 
             if (metadata != null) {
-              // 检查是否是多P视频（有多个 .m4a 文件）
-              // 多P视频的文件名格式: P01 - xxx.m4a, P02 - yyy.m4a
+              // 从文件名判断是否是多P视频
               final fileName = p.basenameWithoutExtension(audioEntity.path);
-              final pageMatch = RegExp(r'^P(\d+)').firstMatch(fileName);
 
-              if (pageMatch != null) {
-                // 多P视频：从文件名提取 pageNum，使用 metadata 的基础信息
-                final pageNum = int.tryParse(pageMatch.group(1)!);
+              // 新格式: P01.m4a, P02.m4a
+              final newPageMatch = RegExp(r'^P(\d+)$').firstMatch(fileName);
+              // 旧格式: P01 - xxx.m4a
+              final oldPageMatch = RegExp(r'^P(\d+)\s*-\s*(.+)$').firstMatch(fileName);
+
+              if (newPageMatch != null) {
+                // 新格式多P视频：P01.m4a
+                final pageNum = int.tryParse(newPageMatch.group(1)!);
                 track = trackFromMetadata(metadata, audioEntity.path);
                 if (track != null) {
                   track.pageNum = pageNum;
-                  // 多P视频的 title 使用文件名（去掉 P01 - 前缀）
-                  final titleMatch = RegExp(r'^P\d+\s*-\s*(.+)$').firstMatch(fileName);
-                  if (titleMatch != null) {
-                    track.title = titleMatch.group(1)!;
-                  }
+                  // 新格式没有文件名中的标题，使用 metadata 中的 title 或保持原样
+                }
+              } else if (oldPageMatch != null) {
+                // 旧格式多P视频：P01 - xxx.m4a
+                final pageNum = int.tryParse(oldPageMatch.group(1)!);
+                track = trackFromMetadata(metadata, audioEntity.path);
+                if (track != null) {
+                  track.pageNum = pageNum;
+                  // 旧格式的 title 使用文件名中的标题
+                  track.title = oldPageMatch.group(2)!;
                 }
               } else {
-                // 单P视频
+                // 单P视频 (audio.m4a)
                 track = trackFromMetadata(metadata, audioEntity.path);
               }
             }
@@ -133,9 +163,9 @@ class DownloadScanner {
             // 如果没有 metadata 或解析失败，创建基本 Track
             if (track == null) {
               track = Track()
-                ..sourceId = p.basename(entity.path)
+                ..sourceId = sourceIdFromFolder ?? p.basename(entity.path)
                 ..sourceType = SourceType.bilibili
-                ..title = p.basenameWithoutExtension(audioEntity.path)
+                ..title = extractDisplayName(p.basename(entity.path))
                 ..downloadedPath = audioEntity.path
                 ..createdAt = DateTime.now();
             }

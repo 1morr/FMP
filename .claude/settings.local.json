@@ -1,19 +1,4 @@
 {
-  "hooks": {
-    "Stop": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "agent",
-            "prompt": "Determine if code-simplifier review is needed. Check the conversation history for Task tool calls with 'code-simplifier:code-simplifier' subagent. If code-simplifier:code-simplifier was ALREADY spawned/run at ANY point in this conversation (even if it modified more files afterward), return: {\"decision\": \"approve\"}. Only if source code files (.dart, .ts, .js, .py, etc.) were modified AND code-simplifier:code-simplifier has NEVER been called in this conversation, return: {\"decision\": \"block\", \"reason\": \"Source code modified, code review needed\", \"systemMessage\": \"Run code-simplifier:code-simplifier subagent via Task tool to review the code.\"}. For non-code files (.md, .json, .yaml, etc.) or if no files modified, return: {\"decision\": \"approve\"}.",
-            "model": "claude-sonnet-4-5-20250929",
-            "timeout": 120
-          }
-        ]
-      }
-    ]
-  },
   "permissions": {
     "allow": [
       "mcp__plugin_context7_context7__resolve-library-id",
@@ -59,7 +44,8 @@
       "WebFetch(domain:pub.dev)",
       "mcp__tavily-remote-mcp__tavily_search",
       "mcp__tavily-remote-mcp__tavily_extract",
-      "WebFetch(domain:claude.com)"
+      "WebFetch(domain:claude.com)",
+      "mcp__plugin_serena_serena__execute_shell_command"
     ]
   }
 }

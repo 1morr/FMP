@@ -1,14 +1,17 @@
 import '../../data/models/playlist.dart';
 import 'dart:io';
 
+import 'package:isar/isar.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../../core/extensions/track_extensions.dart';
+import '../../core/logger.dart';
 import '../../data/models/track.dart';
 import '../../data/repositories/playlist_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
+import '../download/playlist_folder_migrator.dart';
 
 /// 歌单封面数据
 class PlaylistCoverData {
@@ -25,18 +28,21 @@ class PlaylistCoverData {
 }
 
 /// 歌单管理服务
-class PlaylistService {
+class PlaylistService with Logging {
   final PlaylistRepository _playlistRepository;
   final TrackRepository _trackRepository;
   final SettingsRepository _settingsRepository;
+  final Isar _isar;
 
   PlaylistService({
     required PlaylistRepository playlistRepository,
     required TrackRepository trackRepository,
     required SettingsRepository settingsRepository,
+    required Isar isar,
   })  : _playlistRepository = playlistRepository,
         _trackRepository = trackRepository,
-        _settingsRepository = settingsRepository;
+        _settingsRepository = settingsRepository,
+        _isar = isar;
 
   /// 获取所有歌单
   Future<List<Playlist>> getAllPlaylists() async {
@@ -86,12 +92,16 @@ class PlaylistService {
       throw PlaylistNotFoundException(playlistId);
     }
 
+    final oldName = playlist.name;
+    bool isRenaming = false;
+
     // 检查新名称是否已存在（排除当前歌单）
     if (name != null && name != playlist.name) {
       if (await _playlistRepository.nameExists(name, excludeId: playlistId)) {
         throw PlaylistNameExistsException(name);
       }
       playlist.name = name;
+      isRenaming = true;
     }
 
     if (description != null) {
@@ -102,6 +112,26 @@ class PlaylistService {
     }
 
     await _playlistRepository.save(playlist);
+
+    // 歌单改名时迁移下载文件夹
+    if (isRenaming) {
+      try {
+        final migrator = PlaylistFolderMigrator(
+          isar: _isar,
+          settingsRepository: _settingsRepository,
+        );
+        final migratedCount = await migrator.migratePlaylistFolder(
+          playlist: playlist,
+          oldName: oldName,
+          newName: name!,
+        );
+        logDebug('Migrated $migratedCount files after playlist rename');
+      } catch (e, stack) {
+        logError('Failed to migrate playlist folder: $e', e, stack);
+        // 不抛出异常，文件夹迁移失败不影响歌单重命名
+      }
+    }
+
     return playlist;
   }
 

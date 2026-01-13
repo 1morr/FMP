@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 import '../data/models/playlist.dart';
 import '../data/models/track.dart';
 import '../services/library/playlist_service.dart';
+import 'database_provider.dart';
 import 'repository_providers.dart';
 
 /// PlaylistService Provider
@@ -11,10 +12,15 @@ final playlistServiceProvider = Provider<PlaylistService>((ref) {
   final playlistRepo = ref.watch(playlistRepositoryProvider);
   final trackRepo = ref.watch(trackRepositoryProvider);
   final settingsRepo = ref.watch(settingsRepositoryProvider);
+  final db = ref.watch(databaseProvider).valueOrNull;
+  if (db == null) {
+    throw StateError('Database not initialized');
+  }
   return PlaylistService(
     playlistRepository: playlistRepo,
     trackRepository: trackRepo,
     settingsRepository: settingsRepo,
+    isar: db,
   );
 });
 

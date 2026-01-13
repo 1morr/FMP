@@ -18,6 +18,7 @@ import '../../data/repositories/track_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/sources/source_provider.dart';
 import '../../data/sources/bilibili_source.dart';
+import 'download_path_utils.dart';
 
 /// 下载服务
 class DownloadService with Logging {
@@ -155,23 +156,44 @@ class DownloadService with Logging {
     int? order,
   }) async {
     logDebug('Adding download task for track: ${track.title}');
-    
-    // 首先检查文件是否已下载（无论 DownloadTask 记录是否存在）
-    // 这处理了删除并重新导入歌单导致 trackId 变化的情况
-    if (track.downloadedPath != null && await File(track.downloadedPath!).exists()) {
-      logDebug('Track already downloaded (file exists): ${track.title}');
-      return null; // 文件已存在，无需下载
+
+    final playlistId = fromPlaylist?.id;
+    final effectivePlaylistName = playlistName ?? fromPlaylist?.name;
+
+    // 获取下载目录
+    final settings = await _settingsRepository.get();
+    final baseDir = settings.customDownloadDir ?? await _getDefaultDownloadDir();
+
+    // 预计算下载路径
+    final downloadPath = DownloadPathUtils.computeDownloadPath(
+      baseDir: baseDir,
+      playlistName: effectivePlaylistName,
+      track: track,
+    );
+
+    // 检查预计算路径的文件是否已存在
+    if (await File(downloadPath).exists()) {
+      logDebug('File already exists at computed path: $downloadPath');
+      // 文件存在，更新多路径记录
+      if (playlistId != null) {
+        track.setDownloadedPath(playlistId, downloadPath);
+        await _trackRepository.save(track);
+      }
+      return null; // 跳过下载
     }
-    
+
     // 检查是否已有此歌曲的下载任务
     final existingTask = await _downloadRepository.getTaskByTrackId(track.id);
     if (existingTask != null) {
       if (existingTask.isCompleted) {
-        // 任务已完成但文件不存在（已由前置检查排除存在的情况），清理记录并重新下载
+        // 任务已完成但文件不存在，清理记录并重新下载
         logDebug('Downloaded file missing, re-queueing: ${track.title}');
         await _downloadRepository.deleteTask(existingTask.id);
-        track.downloadedPath = null;
-        await _trackRepository.save(track);
+        // 清理该歌单的下载路径记录
+        if (playlistId != null) {
+          track.removeDownloadedPath(playlistId);
+          await _trackRepository.save(track);
+        }
       } else if (!existingTask.isFailed) {
         logDebug('Download task already exists for track: ${track.title}');
         return existingTask; // 已有任务
@@ -180,22 +202,23 @@ class DownloadService with Logging {
         await _downloadRepository.deleteTask(existingTask.id);
       }
     }
-    
-    // 创建下载任务
+
+    // 创建下载任务（保存 playlistId 用于下载完成后更新多路径）
     final priority = await _downloadRepository.getNextPriority();
     final task = DownloadTask()
       ..trackId = track.id
-      ..playlistName = playlistName
+      ..playlistName = effectivePlaylistName
+      ..playlistId = playlistId
       ..order = order
       ..status = DownloadStatus.pending
       ..priority = priority
       ..createdAt = DateTime.now();
-    
+
     final savedTask = await _downloadRepository.saveTask(task);
-    
+
     // 触发调度（事件驱动）
     _triggerSchedule();
-    
+
     return savedTask;
   }
 
@@ -499,9 +522,14 @@ class DownloadService with Logging {
 
       // 保存元数据（使用 task 中保存的 order）
       await _saveMetadata(track, savePath, videoDetail: videoDetail, order: task.order);
-      
-      // 更新歌曲的下载路径
-      track.downloadedPath = savePath;
+
+      // 更新歌曲的下载路径（多路径支持）
+      if (task.playlistId != null) {
+        track.setDownloadedPath(task.playlistId!, savePath);
+      } else {
+        // 没有歌单ID时，使用 0 表示未分类
+        track.setDownloadedPath(0, savePath);
+      }
       await _trackRepository.save(track);
       
       // 更新任务状态为已完成
@@ -561,7 +589,7 @@ class DownloadService with Logging {
   /// 获取下载保存路径
   Future<String> _getDownloadPath(Track track, DownloadTask task) async {
     final settings = await _settingsRepository.get();
-    
+
     // 获取基础下载目录
     String baseDir;
     if (settings.customDownloadDir != null && settings.customDownloadDir!.isNotEmpty) {
@@ -569,24 +597,13 @@ class DownloadService with Logging {
     } else {
       baseDir = await _getDefaultDownloadDir();
     }
-    
-    // 确定子目录（使用 playlistName，如果没有则放入"未分类"）
-    final subDir = task.playlistName != null 
-        ? _sanitizeFileName(task.playlistName!) 
-        : '未分类';
-    
-    // 视频文件夹名
-    final videoFolder = _sanitizeFileName(track.parentTitle ?? track.title);
-    
-    // 音频文件名
-    String fileName;
-    if (track.isPartOfMultiPage && track.pageNum != null) {
-      fileName = 'P${track.pageNum!.toString().padLeft(2, '0')} - ${_sanitizeFileName(track.title)}.m4a';
-    } else {
-      fileName = 'audio.m4a';
-    }
-    
-    return p.join(baseDir, subDir, videoFolder, fileName);
+
+    // 使用 DownloadPathUtils 计算路径
+    return DownloadPathUtils.computeDownloadPath(
+      baseDir: baseDir,
+      playlistName: task.playlistName,
+      track: track,
+    );
   }
 
   /// 获取默认下载目录
@@ -745,102 +762,6 @@ class DownloadService with Logging {
       fileCount: fileCount,
     );
   }
-
-  /// 同步本地下载文件与数据库 Track 记录
-  /// 
-  /// 扫描下载目录中的所有 metadata.json 文件，
-  /// 与数据库中的 Track 进行匹配，并更新 downloadedPath。
-  /// 
-  /// 返回：更新的 Track 数量
-  Future<int> syncDownloadedFiles() async {
-    logDebug('Starting download sync...');
-    
-    final settings = await _settingsRepository.get();
-    final downloadDir = settings.customDownloadDir ?? await _getDefaultDownloadDir();
-    
-    final dir = Directory(downloadDir);
-    if (!await dir.exists()) {
-      logDebug('Download directory does not exist');
-      return 0;
-    }
-    
-    int updatedCount = 0;
-    
-    // 遍历所有子目录（歌单文件夹）
-    await for (final playlistEntity in dir.list()) {
-      if (playlistEntity is! Directory) continue;
-      
-      // 遍历视频文件夹
-      await for (final videoEntity in playlistEntity.list()) {
-        if (videoEntity is! Directory) continue;
-        
-        final metadataFile = File(p.join(videoEntity.path, 'metadata.json'));
-        if (!await metadataFile.exists()) continue;
-        
-        try {
-          final content = await metadataFile.readAsString();
-          final metadata = jsonDecode(content) as Map<String, dynamic>;
-          
-          final sourceId = metadata['sourceId'] as String?;
-          final sourceTypeStr = metadata['sourceType'] as String?;
-          final cid = metadata['cid'] as int?;
-          final pageNum = metadata['pageNum'] as int?;
-          
-          if (sourceId == null || sourceTypeStr == null) continue;
-          
-          final sourceType = SourceType.values.firstWhere(
-            (e) => e.name == sourceTypeStr,
-            orElse: () => SourceType.bilibili,
-          );
-          
-          // 扫描该视频文件夹下的所有 .m4a 文件
-          await for (final audioEntity in videoEntity.list()) {
-            if (audioEntity is! File || !audioEntity.path.endsWith('.m4a')) continue;
-            
-            final audioPath = audioEntity.path;
-            
-            // 确定这个音频文件对应的 pageNum
-            int? audioPageNum = pageNum;
-            final fileName = p.basenameWithoutExtension(audioPath);
-            final pageMatch = RegExp(r'^P(\d+)').firstMatch(fileName);
-            if (pageMatch != null) {
-              audioPageNum = int.tryParse(pageMatch.group(1)!);
-            }
-            
-            // 查找匹配的 Track
-            Track? track;
-            if (cid != null || audioPageNum != null) {
-              // 尝试精确匹配
-              track = await _trackRepository.findBestMatchForRefresh(
-                sourceId,
-                sourceType,
-                cid: cid,
-                pageNum: audioPageNum,
-              );
-            } else {
-              // 简单匹配
-              track = await _trackRepository.getBySourceId(sourceId, sourceType);
-            }
-            
-            if (track != null && track.downloadedPath != audioPath) {
-              // 检查文件是否真实存在
-              if (await File(audioPath).exists()) {
-                track.downloadedPath = audioPath;
-                await _trackRepository.save(track);
-                updatedCount++;
-                logDebug('Updated downloadedPath for track: ${track.title}');
-              }
-            }
-          }
-        } catch (e) {
-          logDebug('Error processing metadata: ${metadataFile.path}, $e');
-        }
-      }
-    }
-    
-    logDebug('Download sync completed. Updated $updatedCount tracks');
-    return updatedCount;
-  }
 }
 
 /// 下载进度事件
@@ -850,7 +771,7 @@ class DownloadProgressEvent {
   final double progress;
   final int downloadedBytes;
   final int? totalBytes;
-  
+
   DownloadProgressEvent({
     required this.taskId,
     required this.trackId,
@@ -865,13 +786,13 @@ class DownloadDirInfo {
   final String path;
   final int totalSize;
   final int fileCount;
-  
+
   DownloadDirInfo({
     required this.path,
     required this.totalSize,
     required this.fileCount,
   });
-  
+
   /// 格式化大小显示
   String get formattedSize {
     if (totalSize < 1024) {

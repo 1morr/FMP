@@ -29,6 +29,9 @@ class DownloadTask {
   @Index()
   late int trackId;
 
+  /// 所属歌单ID（用于下载完成后更新 Track 的多路径记录）
+  int? playlistId;
+
   /// 所属歌单名称（用于确定下载子目录，null=未分类）
   String? playlistName;
 
