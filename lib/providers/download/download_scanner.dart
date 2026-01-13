@@ -11,18 +11,8 @@ import '../../data/models/track.dart';
 class DownloadScanner {
   DownloadScanner._();
 
-  /// 从文件夹名中提取显示名称（移除 _playlistId 后缀）
-  ///
-  /// 格式: "歌单名_123456" -> "歌单名"
+  /// 获取文件夹的显示名称
   static String extractDisplayName(String folderName) {
-    final lastUnderscoreIndex = folderName.lastIndexOf('_');
-    if (lastUnderscoreIndex > 0) {
-      final suffix = folderName.substring(lastUnderscoreIndex + 1);
-      // 检查后缀是否为纯数字
-      if (RegExp(r'^\d+$').hasMatch(suffix)) {
-        return folderName.substring(0, lastUnderscoreIndex);
-      }
-    }
     return folderName;
   }
 
