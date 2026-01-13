@@ -118,7 +118,7 @@ class TrackRepository with Logging {
   Future<List<Track>> getDownloaded() async {
     return _isar.tracks
         .filter()
-        .downloadedPathIsNotNull()
+        .downloadedPathsIsNotEmpty()
         .sortByUpdatedAtDesc()
         .findAll();
   }
@@ -127,16 +127,26 @@ class TrackRepository with Logging {
   Stream<List<Track>> watchDownloaded() {
     return _isar.tracks
         .filter()
-        .downloadedPathIsNotNull()
+        .downloadedPathsIsNotEmpty()
         .sortByUpdatedAtDesc()
         .watch(fireImmediately: true);
   }
 
-  /// 清除歌曲的下载路径
+  /// 清除歌曲的所有下载路径
   Future<void> clearDownloadPath(int id) async {
     final track = await getById(id);
     if (track != null) {
-      track.downloadedPath = null;
+      track.downloadedPlaylistIds = [];
+      track.downloadedPaths = [];
+      await save(track);
+    }
+  }
+
+  /// 清除歌曲在指定歌单中的下载路径
+  Future<void> clearDownloadPathForPlaylist(int trackId, int playlistId) async {
+    final track = await getById(trackId);
+    if (track != null) {
+      track.removeDownloadedPath(playlistId);
       await save(track);
     }
   }

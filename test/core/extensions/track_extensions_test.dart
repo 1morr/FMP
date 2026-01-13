@@ -7,7 +7,7 @@ import 'package:fmp/core/extensions/track_extensions.dart';
 void main() {
   group('TrackExtensions', () {
     group('localCoverPath', () {
-      test('returns null when downloadedPath is null', () {
+      test('returns null when no download path', () {
         final track = Track()
           ..sourceId = 'test123'
           ..sourceType = SourceType.bilibili
@@ -21,7 +21,8 @@ void main() {
           ..sourceId = 'test123'
           ..sourceType = SourceType.bilibili
           ..title = 'Test Track'
-          ..downloadedPath = '/non/existent/path/audio.m4a';
+          ..downloadedPlaylistIds = [0]
+          ..downloadedPaths = ['/non/existent/path/audio.m4a'];
 
         expect(track.localCoverPath, isNull);
       });
@@ -31,17 +32,18 @@ void main() {
         final tempDir = await Directory.systemTemp.createTemp('track_test_');
         final videoDir = Directory('${tempDir.path}/video');
         await videoDir.create();
-        
+
         final coverFile = File('${videoDir.path}/cover.jpg');
         await coverFile.writeAsBytes([0xFF, 0xD8, 0xFF]); // Minimal JPEG header
-        
+
         final audioPath = '${videoDir.path}/audio.m4a';
 
         final track = Track()
           ..sourceId = 'test123'
           ..sourceType = SourceType.bilibili
           ..title = 'Test Track'
-          ..downloadedPath = audioPath;
+          ..downloadedPlaylistIds = [0]
+          ..downloadedPaths = [audioPath];
 
         expect(track.localCoverPath, equals('${videoDir.path}/cover.jpg'));
 
@@ -51,7 +53,7 @@ void main() {
     });
 
     group('localAvatarPath', () {
-      test('returns null when downloadedPath is null', () {
+      test('returns null when no download path', () {
         final track = Track()
           ..sourceId = 'test123'
           ..sourceType = SourceType.bilibili
@@ -65,7 +67,8 @@ void main() {
           ..sourceId = 'test123'
           ..sourceType = SourceType.bilibili
           ..title = 'Test Track'
-          ..downloadedPath = '/non/existent/path/audio.m4a';
+          ..downloadedPlaylistIds = [0]
+          ..downloadedPaths = ['/non/existent/path/audio.m4a'];
 
         expect(track.localAvatarPath, isNull);
       });
@@ -75,17 +78,18 @@ void main() {
         final tempDir = await Directory.systemTemp.createTemp('track_test_');
         final videoDir = Directory('${tempDir.path}/video');
         await videoDir.create();
-        
+
         final avatarFile = File('${videoDir.path}/avatar.jpg');
         await avatarFile.writeAsBytes([0xFF, 0xD8, 0xFF]); // Minimal JPEG header
-        
+
         final audioPath = '${videoDir.path}/audio.m4a';
 
         final track = Track()
           ..sourceId = 'test123'
           ..sourceType = SourceType.bilibili
           ..title = 'Test Track'
-          ..downloadedPath = audioPath;
+          ..downloadedPlaylistIds = [0]
+          ..downloadedPaths = [audioPath];
 
         expect(track.localAvatarPath, equals('${videoDir.path}/avatar.jpg'));
 

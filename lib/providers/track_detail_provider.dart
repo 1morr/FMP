@@ -70,7 +70,7 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
       VideoDetail? detail;
 
       // 已下载歌曲优先从本地 metadata 加载
-      if (track.downloadedPath != null) {
+      if (track.firstDownloadedPath != null) {
         detail = await _loadFromLocalMetadata(track);
       }
 
@@ -96,7 +96,10 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
   /// 从本地 metadata.json 加载详情
   Future<VideoDetail?> _loadFromLocalMetadata(Track track) async {
     try {
-      final dir = Directory(track.downloadedPath!).parent;
+      final downloadPath = track.firstDownloadedPath;
+      if (downloadPath == null) return null;
+
+      final dir = Directory(downloadPath).parent;
       final metadataFile = File('${dir.path}/metadata.json');
       if (!await metadataFile.exists()) return null;
 
