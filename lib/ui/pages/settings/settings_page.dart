@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../data/models/settings.dart';
-import '../../../providers/playback_settings_provider.dart';
 import '../../../providers/theme_provider.dart';
 import '../../../providers/download_provider.dart';
 import '../../../providers/download_settings_provider.dart';
+import '../../../providers/developer_options_provider.dart';
 import '../../router.dart';
 
 /// 设置页
@@ -34,7 +34,6 @@ class SettingsPage extends ConsumerWidget {
           _SettingsSection(
             title: '播放',
             children: [
-              _AutoScrollListTile(),
               SwitchListTile(
                 secondary: const Icon(Icons.skip_next_outlined),
                 title: const Text('自动播放下一首'),
@@ -71,11 +70,7 @@ class SettingsPage extends ConsumerWidget {
           _SettingsSection(
             title: '关于',
             children: [
-              ListTile(
-                leading: const Icon(Icons.info_outline),
-                title: const Text('版本'),
-                subtitle: const Text('1.0.0 (Phase 4)'),
-              ),
+              _VersionListTile(),
               ListTile(
                 leading: const Icon(Icons.code_outlined),
                 title: const Text('开源许可'),
@@ -90,6 +85,8 @@ class SettingsPage extends ConsumerWidget {
               ),
             ],
           ),
+          // 开发者选项（隐藏入口，需要点击版本号7次解锁）
+          _DeveloperOptionsSection(),
         ],
       ),
     );
@@ -290,22 +287,71 @@ class _ThemeColorListTile extends ConsumerWidget {
   }
 }
 
-/// 自动跳转到当前播放设置
-class _AutoScrollListTile extends ConsumerWidget {
+/// 版本号（点击7次解锁开发者选项）
+class _VersionListTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playbackSettings = ref.watch(playbackSettingsProvider);
+    final devOptions = ref.watch(developerOptionsProvider);
+    final notifier = ref.read(developerOptionsProvider.notifier);
 
-    return SwitchListTile(
-      secondary: const Icon(Icons.my_location_outlined),
-      title: const Text('切歌时自动定位'),
-      subtitle: const Text('切换歌曲时自动跳转到队列页面并定位当前播放'),
-      value: playbackSettings.autoScrollToCurrentTrack,
-      onChanged: playbackSettings.isLoading
-          ? null
-          : (value) {
-              ref.read(playbackSettingsProvider.notifier).setAutoScrollToCurrentTrack(value);
-            },
+    return ListTile(
+      leading: const Icon(Icons.info_outline),
+      title: const Text('版本'),
+      subtitle: const Text('1.0.0 (Phase 4)'),
+      onTap: () {
+        notifier.onVersionTap();
+        
+        if (!devOptions.isEnabled) {
+          final remaining = notifier.remainingTaps;
+          if (remaining <= 4 && remaining > 0) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('再点击 $remaining 次启用开发者选项'),
+                duration: const Duration(seconds: 1),
+              ),
+            );
+          } else if (remaining == 0) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('开发者选项已启用'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        }
+      },
+    );
+  }
+}
+
+/// 开发者选项区域（隐藏，需要解锁）
+class _DeveloperOptionsSection extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final devOptions = ref.watch(developerOptionsProvider);
+
+    if (!devOptions.isEnabled) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      children: [
+        const Divider(),
+        _SettingsSection(
+          title: '开发者选项',
+          children: [
+            ListTile(
+              leading: const Icon(Icons.developer_mode_outlined),
+              title: const Text('开发者选项'),
+              subtitle: const Text('调试工具和实验性功能'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.pushNamed(RouteNames.developerOptions),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
