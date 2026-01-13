@@ -49,8 +49,58 @@ class Track {
   /// 流媒体缓存路径
   String? cachedPath;
 
-  /// 离线下载路径
+  /// 离线下载路径（已废弃，保留用于数据迁移）
+  /// 新系统使用 downloadedPlaylistIds + downloadedPaths
+  @Deprecated('Use getDownloadedPath(playlistId) instead')
   String? downloadedPath;
+
+  // ========== 多路径下载支持 ==========
+
+  /// 已下载的歌单ID列表（与 downloadedPaths 并行）
+  List<int> downloadedPlaylistIds = [];
+
+  /// 已下载的路径列表（与 downloadedPlaylistIds 并行）
+  List<String> downloadedPaths = [];
+
+  /// 获取指定歌单的下载路径
+  String? getDownloadedPath(int playlistId) {
+    final index = downloadedPlaylistIds.indexOf(playlistId);
+    return index >= 0 ? downloadedPaths[index] : null;
+  }
+
+  /// 设置指定歌单的下载路径
+  void setDownloadedPath(int playlistId, String path) {
+    final index = downloadedPlaylistIds.indexOf(playlistId);
+    if (index >= 0) {
+      downloadedPaths[index] = path;
+    } else {
+      downloadedPlaylistIds = List.from(downloadedPlaylistIds)..add(playlistId);
+      downloadedPaths = List.from(downloadedPaths)..add(path);
+    }
+  }
+
+  /// 移除指定歌单的下载路径
+  void removeDownloadedPath(int playlistId) {
+    final index = downloadedPlaylistIds.indexOf(playlistId);
+    if (index >= 0) {
+      downloadedPlaylistIds = List.from(downloadedPlaylistIds)..removeAt(index);
+      downloadedPaths = List.from(downloadedPaths)..removeAt(index);
+    }
+  }
+
+  /// 检查指定歌单是否已下载
+  bool isDownloadedInPlaylist(int playlistId) {
+    return downloadedPlaylistIds.contains(playlistId);
+  }
+
+  /// 检查是否有任何下载
+  @ignore
+  bool get hasAnyDownload => downloadedPaths.isNotEmpty;
+
+  /// 获取第一个有效的下载路径（用于播放）
+  @ignore
+  String? get firstDownloadedPath =>
+      downloadedPaths.isNotEmpty ? downloadedPaths.first : null;
 
   /// 播放量/观看数（仅用于搜索结果显示，不持久化）
   @ignore
@@ -98,8 +148,9 @@ class Track {
     return DateTime.now().isBefore(audioUrlExpiry!);
   }
 
-  /// 是否已下载
-  bool get isDownloaded => downloadedPath != null;
+  /// 是否已下载（兼容旧代码，检查是否有任何下载）
+  @Deprecated('Use isDownloadedInPlaylist(playlistId) or hasAnyDownload instead')
+  bool get isDownloaded => hasAnyDownload || downloadedPath != null;
 
   /// 是否已缓存
   bool get isCached => cachedPath != null;
@@ -143,7 +194,10 @@ class Track {
       ..isAvailable = isAvailable
       ..unavailableReason = unavailableReason
       ..cachedPath = cachedPath
+      // ignore: deprecated_member_use_from_same_package
       ..downloadedPath = downloadedPath
+      ..downloadedPlaylistIds = List.from(downloadedPlaylistIds)
+      ..downloadedPaths = List.from(downloadedPaths)
       ..cid = cid
       ..pageNum = pageNum
       ..parentTitle = parentTitle

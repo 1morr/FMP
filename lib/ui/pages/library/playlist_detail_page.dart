@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,6 +7,7 @@ import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../providers/download_provider.dart';
+import '../../../providers/download/download_status_cache.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/now_playing_indicator.dart';
@@ -32,6 +31,23 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   // 缓存分组结果，避免每次 build 重新计算
   List<Track>? _cachedTracks;
   List<TrackGroup>? _cachedGroups;
+
+  @override
+  void initState() {
+    super.initState();
+    // 在页面加载后刷新下载状态缓存
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshDownloadStatusCache();
+    });
+  }
+
+  /// 刷新下载状态缓存
+  Future<void> _refreshDownloadStatusCache() async {
+    final state = ref.read(playlistDetailProvider(widget.playlistId));
+    if (state.tracks.isNotEmpty) {
+      await ref.read(downloadStatusCacheProvider.notifier).refreshCache(state.tracks);
+    }
+  }
 
   /// 获取分组后的 tracks，使用缓存避免重复计算
   List<TrackGroup> _getGroupedTracks(List<Track> tracks) {
@@ -455,11 +471,11 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   
   void _downloadPlaylist(BuildContext context, dynamic playlist) async {
     final downloadService = ref.read(downloadServiceProvider);
-    final result = await downloadService.addPlaylistDownload(playlist);
-    
+    final addedCount = await downloadService.addPlaylistDownload(playlist);
+
     if (context.mounted) {
-      if (result != null) {
-        ToastService.show(context, '已添加歌单"${playlist.name}"到下载队列');
+      if (addedCount > 0) {
+        ToastService.show(context, '已添加 $addedCount 首歌曲到下载队列');
       } else {
         ToastService.show(context, '歌单已在下载队列中或为空');
       }
@@ -534,9 +550,7 @@ class _GroupHeader extends ConsumerWidget {
             ),
           ),
           // 检查是否所有分P都已下载
-          if (group.tracks.every((t) =>
-              t.downloadedPath != null &&
-              File(t.downloadedPath!).existsSync())) ...[
+          if (group.tracks.every((t) => ref.watch(downloadStatusCacheProvider.notifier).isDownloadedInPlaylist(t, playlistId))) ...[
             const SizedBox(width: 8),
             Icon(
               Icons.download_done,
@@ -720,8 +734,7 @@ class _TrackListTile extends ConsumerWidget {
                     ),
                   ),
                   // 检查歌曲是否已下载到本地
-                  if (track.downloadedPath != null &&
-                      File(track.downloadedPath!).existsSync())
+                  if (ref.watch(downloadStatusCacheProvider.notifier).isDownloadedInPlaylist(track, playlistId))
                     Icon(
                       Icons.download_done,
                       size: 14,

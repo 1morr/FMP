@@ -609,10 +609,10 @@ class QueueManager with Logging {
   /// [persist] 是否将 track 保存到数据库，临时播放时设为 false
   Future<Track> ensureAudioUrl(Track track, {int retryCount = 0, bool persist = true}) async {
     // 如果有本地文件路径，检查文件是否存在
-    if (track.downloadedPath != null || track.cachedPath != null) {
-      final localPath = track.downloadedPath ?? track.cachedPath;
+    if (track.firstDownloadedPath != null || track.cachedPath != null) {
+      final localPath = track.firstDownloadedPath ?? track.cachedPath;
       final file = File(localPath!);
-      
+
       if (await file.exists()) {
         logDebug('Using local file for: ${track.title}');
         return track;
@@ -632,7 +632,9 @@ class QueueManager with Logging {
           ..isAvailable = track.isAvailable
           ..unavailableReason = track.unavailableReason
           ..cachedPath = null  // 清除缓存路径
-          ..downloadedPath = null  // 清除下载路径
+          // 清除下载路径列表
+          ..downloadedPlaylistIds = []
+          ..downloadedPaths = []
           ..viewCount = track.viewCount
           ..pageCount = track.pageCount
           ..order = track.order
@@ -705,8 +707,8 @@ class QueueManager with Logging {
     var track = _tracks[nextIdx];
     
     // 检查本地文件是否存在
-    if (track.downloadedPath != null || track.cachedPath != null) {
-      final localPath = track.downloadedPath ?? track.cachedPath;
+    if (track.firstDownloadedPath != null || track.cachedPath != null) {
+      final localPath = track.firstDownloadedPath ?? track.cachedPath;
       if (await File(localPath!).exists()) {
         return; // 本地文件存在，无需预取
       }
