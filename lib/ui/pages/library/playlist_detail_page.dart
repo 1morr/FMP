@@ -493,6 +493,10 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final downloadService = ref.read(downloadServiceProvider);
     final addedCount = await downloadService.addPlaylistDownload(playlist);
 
+    // 歌单封面在 addPlaylistDownload 开始时就已下载完成
+    // 刷新 playlistCoverProvider 以使用本地封面
+    ref.invalidate(playlistCoverProvider(widget.playlistId));
+
     if (context.mounted) {
       if (addedCount > 0) {
         ToastService.show(context, '已添加 $addedCount 首歌曲到下载队列');
