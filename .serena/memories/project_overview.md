@@ -40,6 +40,10 @@
 - **Refactor Phase 1**: 性能优化 ✅ 已完成
 - **Refactor Phase 2**: 代码质量 ✅ 已完成
 - **Refactor Phase 3**: 基础设施 ✅ 已完成 (测试、下载优化、离线模式)
+- **下载系统重构**: ✅ 已完成 (2026-01-14)
+  - 预计算路径模式
+  - DownloadStatusCache 缓存机制
+  - 移除 syncDownloadedFiles
 
 ## 核心功能
 1. **音源集成**: Bilibili (已实现), YouTube (待实现)
@@ -50,11 +54,15 @@
 6. **静音切换**: 带记忆的静音功能，恢复原音量
 7. **桌面特性**: 系统托盘、全局快捷键 (待实现)
 8. **移动特性**: 后台播放、通知栏控制 (待实现)
+9. **下载管理**: 离线下载、批量下载、预计算路径、下载状态缓存
 
 ## 重要记忆文件
 - `audio_system` - 音频系统详细架构文档
 - `architecture` - 整体架构概览
 - `code_style` - 代码风格规范
+- `download_system_details` - 下载系统详细文档
+- `download_system_impl` - 下载系统实现状态
+- `code_issues_2026-01-14` - 代码问题与优化建议
 
 ## 重要文档
 - `docs/PRD.md` - 产品需求文档

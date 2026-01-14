@@ -55,6 +55,7 @@
 | Settings | `data/models/settings.dart` | 应用设置 |
 | SearchHistory | `data/models/search_history.dart` | 搜索历史 |
 | DownloadTask | `data/models/download_task.dart` | 下载任务 |
+| PlaylistDownloadTask | `data/models/playlist_download_task.dart` | 歌单下载任务 |
 
 ### Repositories
 | 仓库 | 文件 | 职责 |
@@ -80,6 +81,9 @@
 | PlaylistService | `services/library/playlist_service.dart` | 歌单业务逻辑 |
 | SearchService | `services/search/search_service.dart` | 多源搜索 |
 | ImportService | `services/import/import_service.dart` | 外部导入 |
+| DownloadService | `services/download/download_service.dart` | 下载管理 |
+| DownloadPathUtils | `services/download/download_path_utils.dart` | 路径计算工具 |
+| PlaylistFolderMigrator | `services/library/playlist_folder_migrator.dart` | 歌单文件夹迁移 |
 
 > **详细音频系统文档见：** `audio_system` 记忆文件
 
@@ -90,6 +94,9 @@
 | audioServiceProvider | `services/audio/audio_provider.dart` | Provider<AudioService> |
 | playlistProvider | `providers/playlist_provider.dart` | StateNotifierProvider |
 | searchProvider | `providers/search_provider.dart` | StateNotifierProvider |
+| downloadServiceProvider | `providers/download/download_providers.dart` | Provider<DownloadService> |
+| downloadStatusCacheProvider | `providers/download/download_status_cache.dart` | StateNotifierProvider |
+| downloadedCategoriesProvider | `providers/download/download_providers.dart` | FutureProvider |
 
 ## UI 结构
 
@@ -103,6 +110,9 @@
 | 音乐库 | `/library` | `ui/pages/library/library_page.dart` |
 | 歌单详情 | `/library/:id` | `ui/pages/library/playlist_detail_page.dart` |
 | 设置 | `/settings` | `ui/pages/settings/settings_page.dart` |
+| 已下载 | `/library/downloaded` | `ui/pages/library/downloaded_page.dart` |
+| 已下载分类 | `/library/downloaded/:path` | `ui/pages/library/downloaded_category_page.dart` |
+| 下载管理 | `/settings/download-manager` | `ui/pages/settings/download_manager_page.dart` |
 
 ### 路由配置
 - 使用 `go_router` 进行声明式路由
@@ -116,3 +126,18 @@
 | Mobile | < 600dp | 底部导航栏 |
 | Tablet | 600-1200dp | 底部/侧边导航 |
 | Desktop | > 1200dp | 侧边导航 + 三栏布局 |
+
+## 下载系统架构
+
+> **详细下载系统文档见：** `download_system_details` 记忆文件
+
+### 核心组件
+- **DownloadService**: 任务调度、文件下载、元数据保存
+- **DownloadStatusCache**: 文件存在性缓存，避免 UI 阻塞
+- **DownloadPathUtils**: 统一的路径计算工具
+- **DownloadScanner**: 文件系统扫描器
+
+### 关键数据流
+1. **路径预计算**: 导入/添加歌曲时 → `DownloadPathUtils.computeDownloadPath()` → 保存到 `track.downloadPaths`
+2. **下载检测**: 进入页面 → `DownloadStatusCache.refreshCache()` → 异步检测 → 触发 UI 重建
+3. **本地播放**: `track.firstDownloadPath` → `AudioService.playFile()`
