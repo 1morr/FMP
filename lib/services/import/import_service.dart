@@ -1,8 +1,4 @@
 import 'dart:async';
-import 'dart:io';
-
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
@@ -167,7 +163,7 @@ class ImportService {
       }
 
       // 获取下载目录（用于预计算路径）
-      final baseDir = await _getDownloadBaseDir();
+      final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
 
       // 导入歌曲
       int addedCount = 0;
@@ -297,7 +293,7 @@ class ImportService {
       );
 
       // 获取下载目录（用于预计算路径）
-      final baseDir = await _getDownloadBaseDir();
+      final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
 
       // 保存原来的 trackIds 用于计算移除数量
       final originalTrackIds = Set<int>.from(playlist.trackIds);
@@ -483,29 +479,6 @@ class ImportService {
       error: error,
     );
     _progressController.add(_currentProgress);
-  }
-
-  /// 获取下载基础目录
-  Future<String> _getDownloadBaseDir() async {
-    final settings = await _settingsRepository.get();
-    if (settings.customDownloadDir != null && settings.customDownloadDir!.isNotEmpty) {
-      return settings.customDownloadDir!;
-    }
-    // 默认下载目录 - 与 DownloadService 保持一致
-    if (Platform.isAndroid) {
-      // Android: 外部存储/Music/FMP/
-      final extDir = await getExternalStorageDirectory();
-      if (extDir != null) {
-        final musicDir = p.join(extDir.parent.parent.parent.parent.path, 'Music', 'FMP');
-        return musicDir;
-      }
-      final appDir = await getApplicationDocumentsDirectory();
-      return p.join(appDir.path, 'FMP');
-    } else {
-      // Windows/其他: 用户文档/FMP/
-      final docsDir = await getApplicationDocumentsDirectory();
-      return p.join(docsDir.path, 'FMP');
-    }
   }
 
   void dispose() {

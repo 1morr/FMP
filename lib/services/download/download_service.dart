@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/constants/app_constants.dart';
@@ -247,15 +246,8 @@ class DownloadService with Logging {
     }
 
     try {
-      final settings = await _settingsRepository.get();
-
       // 获取基础下载目录
-      String baseDir;
-      if (settings.customDownloadDir != null && settings.customDownloadDir!.isNotEmpty) {
-        baseDir = settings.customDownloadDir!;
-      } else {
-        baseDir = await _getDefaultDownloadDir();
-      }
+      final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
 
       // 歌单文件夹路径
       final subDir = _sanitizeFileName(playlist.name);
@@ -577,42 +569,12 @@ class DownloadService with Logging {
 
     // 回退：重新计算路径（不应该发生）
     logDebug('Warning: No precomputed path found, recalculating...');
-    final settings = await _settingsRepository.get();
-    String baseDir;
-    if (settings.customDownloadDir != null && settings.customDownloadDir!.isNotEmpty) {
-      baseDir = settings.customDownloadDir!;
-    } else {
-      baseDir = await _getDefaultDownloadDir();
-    }
+    final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
     return DownloadPathUtils.computeDownloadPath(
       baseDir: baseDir,
       playlistName: task.playlistName,
       track: track,
     );
-  }
-
-  /// 获取默认下载目录
-  Future<String> _getDefaultDownloadDir() async {
-    if (Platform.isAndroid) {
-      // Android: 外部存储/Music/FMP/
-      final extDir = await getExternalStorageDirectory();
-      if (extDir != null) {
-        // 尝试使用 Music 目录
-        final musicDir = Directory(p.join(extDir.parent.parent.parent.parent.path, 'Music', 'FMP'));
-        return musicDir.path;
-      }
-      // 回退到应用目录
-      final appDir = await getApplicationDocumentsDirectory();
-      return p.join(appDir.path, 'FMP');
-    } else if (Platform.isWindows) {
-      // Windows: 用户文档/FMP/
-      final docsDir = await getApplicationDocumentsDirectory();
-      return p.join(docsDir.path, 'FMP');
-    } else {
-      // 其他平台
-      final appDir = await getApplicationDocumentsDirectory();
-      return p.join(appDir.path, 'FMP');
-    }
   }
 
   /// 清理文件名中的特殊字符
@@ -724,8 +686,7 @@ class DownloadService with Logging {
 
   /// 获取下载目录信息
   Future<DownloadDirInfo> getDownloadDirInfo() async {
-    final settings = await _settingsRepository.get();
-    final downloadDir = settings.customDownloadDir ?? await _getDefaultDownloadDir();
+    final downloadDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
     
     final dir = Directory(downloadDir);
     int totalSize = 0;

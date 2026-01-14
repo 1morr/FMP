@@ -5,20 +5,22 @@ import '../utils/duration_formatter.dart';
 
 /// Track 模型扩展方法
 extension TrackExtensions on Track {
-  /// 获取本地封面路径（如果存在）
+  /// 获取本地封面路径（基于第一个下载路径计算）
+  ///
+  /// 注意：此方法不检查文件是否存在，由 ImageLoadingService 处理回退逻辑
   String? get localCoverPath {
     if (firstDownloadPath == null) return null;
     final dir = Directory(firstDownloadPath!).parent;
-    final coverPath = '${dir.path}/cover.jpg';
-    return File(coverPath).existsSync() ? coverPath : null;
+    return '${dir.path}/cover.jpg';
   }
 
-  /// 获取本地头像路径（如果存在）
+  /// 获取本地头像路径（基于第一个下载路径计算）
+  ///
+  /// 注意：此方法不检查文件是否存在，由 ImageLoadingService 处理回退逻辑
   String? get localAvatarPath {
     if (firstDownloadPath == null) return null;
     final dir = Directory(firstDownloadPath!).parent;
-    final avatarPath = '${dir.path}/avatar.jpg';
-    return File(avatarPath).existsSync() ? avatarPath : null;
+    return '${dir.path}/avatar.jpg';
   }
 
   /// 格式化时长显示

@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import '../../data/models/track.dart';
+import '../../data/repositories/settings_repository.dart';
 
 /// 下载路径计算工具类
 ///
@@ -113,5 +117,35 @@ class DownloadPathUtils {
       }
     }
     return null;
+  }
+
+  /// 获取下载基础目录
+  ///
+  /// 优先级：
+  /// 1. 用户自定义目录（settings.customDownloadDir）
+  /// 2. Android: /storage/emulated/0/Music/FMP
+  /// 3. Windows/其他: Documents/FMP
+  static Future<String> getDefaultBaseDir(SettingsRepository settingsRepo) async {
+    final settings = await settingsRepo.get();
+
+    // 1. 优先使用自定义目录
+    if (settings.customDownloadDir != null && settings.customDownloadDir!.isNotEmpty) {
+      return settings.customDownloadDir!;
+    }
+
+    // 2. Android: 外部存储 Music 目录
+    if (Platform.isAndroid) {
+      final extDir = await getExternalStorageDirectory();
+      if (extDir != null) {
+        final musicDir = p.join(extDir.parent.parent.parent.parent.path, 'Music', 'FMP');
+        return musicDir;
+      }
+      final appDir = await getApplicationDocumentsDirectory();
+      return p.join(appDir.path, 'FMP');
+    }
+
+    // 3. Windows/其他: Documents 目录
+    final docsDir = await getApplicationDocumentsDirectory();
+    return p.join(docsDir.path, 'FMP');
   }
 }
