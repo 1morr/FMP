@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -9,6 +10,20 @@ import 'app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Android 后台播放初始化（必须在其他音频初始化之前）
+  if (Platform.isAndroid || Platform.isIOS) {
+    await JustAudioBackground.init(
+      androidNotificationChannelId: 'com.personal.fmp.channel.audio',
+      androidNotificationChannelName: 'FMP 音频播放',
+      androidNotificationChannelDescription: 'FMP 音乐播放器后台播放通知',
+      androidNotificationOngoing: true,
+      androidShowNotificationBadge: true,
+      androidStopForegroundOnPause: true,
+      fastForwardInterval: const Duration(seconds: 10),
+      rewindInterval: const Duration(seconds: 10),
+    );
+  }
 
   // 初始化 media_kit 作为 just_audio 的 Windows/Linux 后端
   // 这替代了 just_audio_windows，避免其平台线程消息队列溢出问题
