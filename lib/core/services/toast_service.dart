@@ -1,15 +1,78 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+/// Toast 消息类型
+enum ToastType {
+  info,
+  success,
+  warning,
+  error,
+}
+
+/// Toast 消息（用于 Stream 传递）
+class ToastMessage {
+  final String message;
+  final ToastType type;
+  final DateTime timestamp;
+
+  ToastMessage({
+    required this.message,
+    this.type = ToastType.info,
+  }) : timestamp = DateTime.now();
+}
 
 /// 统一的消息提示服务
 ///
-/// 使用方法：
+/// 提供两种使用方式：
+/// 1. 静态方法（需要 BuildContext）- 用于 UI 直接调用
+/// 2. Provider 实例（通过 Stream）- 用于后台任务
+///
+/// UI 直接调用示例：
 /// ```dart
 /// ToastService.show(context, '消息内容');
 /// ToastService.success(context, '操作成功');
 /// ToastService.error(context, '操作失败');
 /// ```
+///
+/// 后台任务调用示例：
+/// ```dart
+/// final toastService = ref.read(toastServiceProvider);
+/// toastService.showMessage('消息内容');
+/// ```
 class ToastService {
-  ToastService._();
+  final _messageController = StreamController<ToastMessage>.broadcast();
+
+  /// 消息流（供 UI 层监听）
+  Stream<ToastMessage> get messageStream => _messageController.stream;
+
+  // ==================== 实例方法（通过 Provider 使用）====================
+
+  /// 发送普通消息到流
+  void showInfo(String message) {
+    _messageController.add(ToastMessage(message: message, type: ToastType.info));
+  }
+
+  /// 发送成功消息到流
+  void showSuccess(String message) {
+    _messageController.add(ToastMessage(message: message, type: ToastType.success));
+  }
+
+  /// 发送警告消息到流
+  void showWarning(String message) {
+    _messageController.add(ToastMessage(message: message, type: ToastType.warning));
+  }
+
+  /// 发送错误消息到流
+  void showError(String message) {
+    _messageController.add(ToastMessage(message: message, type: ToastType.error));
+  }
+
+  void dispose() {
+    _messageController.close();
+  }
+
+  // ==================== 静态方法（需要 BuildContext）====================
 
   /// 显示普通消息
   static void show(BuildContext context, String message) {
@@ -85,3 +148,15 @@ class ToastService {
     );
   }
 }
+
+/// Toast 服务 Provider
+final toastServiceProvider = Provider<ToastService>((ref) {
+  final service = ToastService();
+  ref.onDispose(() => service.dispose());
+  return service;
+});
+
+/// Toast 消息流 Provider
+final toastStreamProvider = StreamProvider<ToastMessage>((ref) {
+  return ref.watch(toastServiceProvider).messageStream;
+});

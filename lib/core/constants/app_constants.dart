@@ -118,4 +118,38 @@ class AppConstants {
 
   /// 页面导航延迟
   static const Duration pageNavigationDelay = Duration(milliseconds: 100);
+
+  // ==================== UI 尺寸 ====================
+
+  /// 小圆角
+  static const double borderRadiusSmall = 4.0;
+
+  /// 中圆角
+  static const double borderRadiusMedium = 8.0;
+
+  /// 大圆角
+  static const double borderRadiusLarge = 12.0;
+
+  /// 超大圆角
+  static const double borderRadiusXL = 16.0;
+
+  /// 小缩略图尺寸
+  static const double thumbnailSizeSmall = 40.0;
+
+  /// 中缩略图尺寸
+  static const double thumbnailSizeMedium = 48.0;
+
+  /// 大缩略图尺寸
+  static const double thumbnailSizeLarge = 56.0;
+
+  // ==================== 透明度 ====================
+
+  /// 禁用状态透明度
+  static const double disabledOpacity = 0.5;
+
+  /// 次要内容透明度
+  static const double secondaryOpacity = 0.7;
+
+  /// 占位符背景透明度
+  static const double placeholderOpacity = 0.1;
 }

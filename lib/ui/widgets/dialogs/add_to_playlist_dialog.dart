@@ -448,8 +448,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
           }
           successCount++;
           // 刷新该歌单详情和封面
-          ref.invalidate(playlistDetailProvider(playlistId));
-          ref.invalidate(playlistCoverProvider(playlistId));
+          ref.read(playlistListProvider.notifier).invalidatePlaylistProviders(playlistId);
         } catch (e) {
           // 继续添加到其他歌单
         }

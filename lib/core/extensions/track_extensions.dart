@@ -5,12 +5,13 @@ import '../utils/duration_formatter.dart';
 
 /// Track 模型扩展方法
 extension TrackExtensions on Track {
-  /// 获取本地封面路径（遍历所有下载路径查找）
+  /// 获取本地封面路径（仅返回存在的文件）
   ///
-  /// 返回第一个存在 cover.jpg 的目录路径
+  /// 遍历所有下载路径，返回第一个存在 cover.jpg 的路径
+  /// 如果都不存在，返回 null
   String? get localCoverPath {
     if (downloadPaths.isEmpty) return null;
-    
+
     for (final downloadPath in downloadPaths) {
       final dir = Directory(downloadPath).parent;
       final coverPath = '${dir.path}/cover.jpg';
@@ -18,18 +19,16 @@ extension TrackExtensions on Track {
         return coverPath;
       }
     }
-    
-    // 如果都不存在，返回第一个路径的封面路径（由 ImageLoadingService 处理回退）
-    final firstDir = Directory(downloadPaths.first).parent;
-    return '${firstDir.path}/cover.jpg';
+    return null;
   }
 
-  /// 获取本地头像路径（遍历所有下载路径查找）
+  /// 获取本地头像路径（仅返回存在的文件）
   ///
-  /// 返回第一个存在 avatar.jpg 的目录路径
+  /// 遍历所有下载路径，返回第一个存在 avatar.jpg 的路径
+  /// 如果都不存在，返回 null
   String? get localAvatarPath {
     if (downloadPaths.isEmpty) return null;
-    
+
     for (final downloadPath in downloadPaths) {
       final dir = Directory(downloadPath).parent;
       final avatarPath = '${dir.path}/avatar.jpg';
@@ -37,10 +36,7 @@ extension TrackExtensions on Track {
         return avatarPath;
       }
     }
-    
-    // 如果都不存在，返回第一个路径的头像路径（由 ImageLoadingService 处理回退）
-    final firstDir = Directory(downloadPaths.first).parent;
-    return '${firstDir.path}/avatar.jpg';
+    return null;
   }
 
   /// 格式化时长显示
@@ -49,7 +45,7 @@ extension TrackExtensions on Track {
     return DurationFormatter.formatMs(durationMs!);
   }
 
-  /// 是否有本地封面
+  /// 是否有本地封面（文件实际存在）
   bool get hasLocalCover => localCoverPath != null;
 
   /// 是否有网络封面

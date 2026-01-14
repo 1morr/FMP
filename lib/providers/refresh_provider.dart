@@ -5,7 +5,7 @@ import 'package:equatable/equatable.dart';
 import '../core/constants/app_constants.dart';
 import '../data/models/playlist.dart';
 import '../services/import/import_service.dart';
-import '../services/toast_service.dart';
+import '../core/services/toast_service.dart';
 import '../data/sources/source_provider.dart';
 import 'repository_providers.dart';
 import 'playlist_provider.dart';

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/constants/app_constants.dart';
-import '../services/toast_service.dart';
+import '../core/services/toast_service.dart';
 import 'router.dart';
 import 'layouts/responsive_scaffold.dart';
 

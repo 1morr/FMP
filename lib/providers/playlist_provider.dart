@@ -109,8 +109,7 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
       );
       await loadPlaylists();
       // 刷新歌单详情页和封面
-      _ref.invalidate(playlistDetailProvider(playlistId));
-      _ref.invalidate(playlistCoverProvider(playlistId));
+      invalidatePlaylistProviders(playlistId);
       // 清除下载状态缓存，强制重新检测
       _ref.read(downloadStatusCacheProvider.notifier).clearAll();
       return true;
@@ -147,6 +146,14 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
   /// 清除错误
   void clearError() {
     state = state.copyWith(error: null);
+  }
+
+  /// 刷新指定歌单的相关 Provider
+  /// 
+  /// 统一封装 invalidate 逻辑，避免重复代码
+  void invalidatePlaylistProviders(int playlistId) {
+    _ref.invalidate(playlistDetailProvider(playlistId));
+    _ref.invalidate(playlistCoverProvider(playlistId));
   }
 }
 

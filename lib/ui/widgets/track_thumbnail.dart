@@ -146,7 +146,7 @@ class TrackCover extends StatelessWidget {
       child: AspectRatio(
         aspectRatio: aspectRatio,
         child: Container(
-          color: colorScheme.surfaceContainerHigh,
+          color: colorScheme.surfaceContainerHighest,
           child: _buildImage(colorScheme),
         ),
       ),
@@ -171,7 +171,7 @@ class TrackCover extends StatelessWidget {
       child: Icon(
         Icons.music_note,
         size: 48,
-        color: colorScheme.onSurfaceVariant,
+        color: colorScheme.outline,
       ),
     );
   }
