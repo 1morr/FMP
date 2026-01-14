@@ -604,17 +604,22 @@ class QueueManager with Logging {
   // ========== URL 获取 ==========
 
   /// 确保歌曲有有效的音频 URL
+  /// 
+  /// 返回 (Track, String?) 元组：
+  /// - Track: 更新后的歌曲对象
+  /// - String?: 找到的本地文件路径，如果没有则为 null
+  /// 
   /// 如果获取失败会重试一次
   /// 如果本地文件不存在，会清除路径并回退到在线播放
   /// [persist] 是否将 track 保存到数据库，临时播放时设为 false
-  Future<Track> ensureAudioUrl(Track track, {int retryCount = 0, bool persist = true}) async {
+  Future<(Track, String?)> ensureAudioUrl(Track track, {int retryCount = 0, bool persist = true}) async {
     // 如果有本地文件路径，检查是否有任何一个存在
     if (track.downloadPaths.isNotEmpty) {
       // 遍历所有下载路径，查找第一个存在的文件
       for (final localPath in track.downloadPaths) {
         if (await File(localPath).exists()) {
           logDebug('Using local file for: ${track.title}, path: $localPath');
-          return track;
+          return (track, localPath);
         }
       }
       
@@ -659,10 +664,10 @@ class QueueManager with Logging {
       track = updatedTrack;
     }
 
-    // 如果音频 URL 有效，直接返回
+    // 如果音频 URL 有效，直接返回（无本地文件）
     if (track.hasValidAudioUrl) {
       logDebug('Audio URL still valid for: ${track.title}, expiry: ${track.audioUrlExpiry}');
-      return track;
+      return (track, null);
     }
 
     // 获取音频 URL
@@ -685,7 +690,7 @@ class QueueManager with Logging {
         _tracks[index] = refreshedTrack;
       }
 
-      return refreshedTrack;
+      return (refreshedTrack, null);
     } catch (e) {
       // 如果是第一次尝试且失败，等待后重试一次
       if (retryCount < 1) {

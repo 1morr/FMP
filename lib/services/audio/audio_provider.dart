@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart' as just_audio;
 import '../../core/constants/app_constants.dart';
@@ -383,10 +382,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       _isTemporaryPlay = true;
 
       // 获取音频 URL 并播放（不修改队列，不保存到数据库）
-      final trackWithUrl = await _queueManager.ensureAudioUrl(track, persist: false);
-
-      // 查找第一个存在的本地文件
-      final localPath = await _getFirstExistingLocalPath(trackWithUrl);
+      final (trackWithUrl, localPath) = await _queueManager.ensureAudioUrl(track, persist: false);
       final url = localPath ?? trackWithUrl.audioUrl;
 
       if (url == null) {
@@ -445,9 +441,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       final currentTrack = _queueManager.currentTrack;
       if (currentTrack != null) {
         // 准备歌曲
-        final trackWithUrl = await _queueManager.ensureAudioUrl(currentTrack);
-        // 查找第一个存在的本地文件
-        final localPath = await _getFirstExistingLocalPath(trackWithUrl);
+        final (trackWithUrl, localPath) = await _queueManager.ensureAudioUrl(currentTrack);
         final url = localPath ?? trackWithUrl.audioUrl;
 
         if (url != null) {
@@ -784,19 +778,6 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 获取播放音频所需的 HTTP 请求头
   /// Bilibili 需要 Referer 头才能正常播放
-  /// 获取第一个存在的本地文件路径
-  ///
-  /// 遍历所有下载路径，返回第一个实际存在的文件路径
-  /// 如果没有找到存在的文件，返回 null
-  Future<String?> _getFirstExistingLocalPath(Track track) async {
-    for (final path in track.downloadPaths) {
-      if (await File(path).exists()) {
-        return path;
-      }
-    }
-    return null;
-  }
-
   Map<String, String>? _getHeadersForTrack(Track track) {
     switch (track.sourceType) {
       case SourceType.bilibili:
@@ -845,7 +826,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     try {
       // 确保有音频 URL
       logDebug('Fetching audio URL for: ${track.title}');
-      final trackWithUrl = await _queueManager.ensureAudioUrl(track);
+      final (trackWithUrl, localPath) = await _queueManager.ensureAudioUrl(track);
 
       // 再次检查是否被取代
       if (requestId != _playRequestId) {
@@ -853,8 +834,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         return;
       }
 
-      // 获取播放地址 - 查找第一个存在的本地文件
-      final localPath = await _getFirstExistingLocalPath(trackWithUrl);
+      // 获取播放地址
       final url = localPath ?? trackWithUrl.audioUrl;
 
       if (url == null) {
@@ -952,10 +932,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     if (track == null) return;
 
     try {
-      final trackWithUrl = await _queueManager.ensureAudioUrl(track);
-
-      // 查找第一个存在的本地文件
-      final localPath = await _getFirstExistingLocalPath(trackWithUrl);
+      final (trackWithUrl, localPath) = await _queueManager.ensureAudioUrl(track);
       final url = localPath ?? trackWithUrl.audioUrl;
 
       if (url == null) return;
