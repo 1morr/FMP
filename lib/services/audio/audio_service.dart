@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'package:audio_session/audio_session.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
+import '../../data/models/track.dart';
 
 /// 音频播放服务（单曲模式）
 /// 只负责播放单首歌曲，队列逻辑由 QueueManager 管理
@@ -163,9 +165,32 @@ class AudioService with Logging {
 
   // ========== 音频源设置 ==========
 
+  /// 创建带有 MediaItem 元数据的 AudioSource（用于后台播放通知）
+  AudioSource _createAudioSource(String url, {
+    Map<String, String>? headers,
+    Track? track,
+  }) {
+    final mediaItem = track != null
+        ? MediaItem(
+            id: track.uniqueKey,
+            title: track.title,
+            artist: track.artist ?? '未知艺术家',
+            artUri: track.thumbnailUrl != null ? Uri.parse(track.thumbnailUrl!) : null,
+            duration: track.durationMs != null ? Duration(milliseconds: track.durationMs!) : null,
+          )
+        : null;
+
+    return AudioSource.uri(
+      Uri.parse(url),
+      headers: headers,
+      tag: mediaItem,
+    );
+  }
+
   /// 播放指定 URL
   /// [headers] 可选的 HTTP 请求头，用于需要认证的音频源（如 Bilibili）
-  Future<Duration?> playUrl(String url, {Map<String, String>? headers}) async {
+  /// [track] 可选的 Track 信息，用于后台播放通知显示
+  Future<Duration?> playUrl(String url, {Map<String, String>? headers, Track? track}) async {
     logDebug('Playing URL: ${url.substring(0, url.length > 80 ? 80 : url.length)}...');
     if (headers != null) {
       logDebug('With headers: ${headers.keys.join(", ")}');
@@ -174,17 +199,9 @@ class AudioService with Logging {
       // 先停止当前播放
       await _player.stop();
 
-      // 设置新的 URL（带 headers）
-      Duration? duration;
-      if (headers != null && headers.isNotEmpty) {
-        final audioSource = AudioSource.uri(
-          Uri.parse(url),
-          headers: headers,
-        );
-        duration = await _player.setAudioSource(audioSource);
-      } else {
-        duration = await _player.setUrl(url);
-      }
+      // 设置新的 URL（带 headers 和 MediaItem）
+      final audioSource = _createAudioSource(url, headers: headers, track: track);
+      final duration = await _player.setAudioSource(audioSource);
       logDebug('URL loaded successfully, duration: $duration');
 
       // 确保播放
@@ -212,19 +229,12 @@ class AudioService with Logging {
 
   /// 设置 URL（不自动播放）
   /// [headers] 可选的 HTTP 请求头
-  Future<Duration?> setUrl(String url, {Map<String, String>? headers}) async {
+  /// [track] 可选的 Track 信息，用于后台播放通知显示
+  Future<Duration?> setUrl(String url, {Map<String, String>? headers, Track? track}) async {
     logDebug('Setting URL: ${url.substring(0, url.length > 50 ? 50 : url.length)}...');
     try {
-      Duration? duration;
-      if (headers != null && headers.isNotEmpty) {
-        final audioSource = AudioSource.uri(
-          Uri.parse(url),
-          headers: headers,
-        );
-        duration = await _player.setAudioSource(audioSource);
-      } else {
-        duration = await _player.setUrl(url);
-      }
+      final audioSource = _createAudioSource(url, headers: headers, track: track);
+      final duration = await _player.setAudioSource(audioSource);
       logDebug('URL set, duration: $duration');
       return duration;
     } catch (e, stack) {
@@ -234,14 +244,16 @@ class AudioService with Logging {
   }
 
   /// 播放本地文件
-  Future<Duration?> playFile(String filePath) async {
+  /// [track] 可选的 Track 信息，用于后台播放通知显示
+  Future<Duration?> playFile(String filePath, {Track? track}) async {
     logDebug('Playing file: $filePath');
     try {
       // 先停止当前播放
       await _player.stop();
 
-      // 设置新的文件
-      final duration = await _player.setFilePath(filePath);
+      // 设置新的文件（带 MediaItem）
+      final audioSource = _createFileAudioSource(filePath, track: track);
+      final duration = await _player.setAudioSource(audioSource);
 
       // 确保播放
       await _player.play();
@@ -260,11 +272,31 @@ class AudioService with Logging {
     }
   }
 
+  /// 创建带有 MediaItem 元数据的本地文件 AudioSource
+  AudioSource _createFileAudioSource(String filePath, {Track? track}) {
+    final mediaItem = track != null
+        ? MediaItem(
+            id: track.uniqueKey,
+            title: track.title,
+            artist: track.artist ?? '未知艺术家',
+            artUri: track.thumbnailUrl != null ? Uri.parse(track.thumbnailUrl!) : null,
+            duration: track.durationMs != null ? Duration(milliseconds: track.durationMs!) : null,
+          )
+        : null;
+
+    return AudioSource.file(
+      filePath,
+      tag: mediaItem,
+    );
+  }
+
   /// 设置文件（不自动播放）
-  Future<Duration?> setFile(String filePath) async {
+  /// [track] 可选的 Track 信息，用于后台播放通知显示
+  Future<Duration?> setFile(String filePath, {Track? track}) async {
     logDebug('Setting file: $filePath');
     try {
-      final duration = await _player.setFilePath(filePath);
+      final audioSource = _createFileAudioSource(filePath, track: track);
+      final duration = await _player.setAudioSource(audioSource);
       logDebug('File set, duration: $duration');
       return duration;
     } catch (e, stack) {

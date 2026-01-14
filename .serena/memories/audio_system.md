@@ -211,6 +211,62 @@ final isShuffleEnabledProvider
 final loopModeProvider
 ```
 
+## Android 后台播放
+
+**使用 `just_audio_background` 实现后台播放和通知栏控制**
+
+**初始化（main.dart）：**
+```dart
+import 'package:just_audio_background/just_audio_background.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Android/iOS 后台播放初始化（必须在其他音频初始化之前）
+  if (Platform.isAndroid || Platform.isIOS) {
+    await JustAudioBackground.init(
+      androidNotificationChannelId: 'com.personal.fmp.channel.audio',
+      androidNotificationChannelName: 'FMP 音频播放',
+      androidNotificationOngoing: true,
+      androidStopForegroundOnPause: true,
+      fastForwardInterval: const Duration(seconds: 10),
+      rewindInterval: const Duration(seconds: 10),
+    );
+  }
+  // ...
+}
+```
+
+**MediaItem 元数据（AudioService）：**
+播放时必须传递 Track 信息以显示通知栏元数据：
+```dart
+// AudioService 中创建带 MediaItem 的 AudioSource
+AudioSource _createAudioSource(String url, {Map<String, String>? headers, Track? track}) {
+  final mediaItem = track != null
+      ? MediaItem(
+          id: track.uniqueKey,
+          title: track.title,
+          artist: track.artist ?? '未知艺术家',
+          artUri: track.thumbnailUrl != null ? Uri.parse(track.thumbnailUrl!) : null,
+          duration: track.durationMs != null ? Duration(milliseconds: track.durationMs!) : null,
+        )
+      : null;
+  return AudioSource.uri(Uri.parse(url), headers: headers, tag: mediaItem);
+}
+
+// 调用时传递 track 参数
+await _audioService.playUrl(url, headers: headers, track: trackWithUrl);
+await _audioService.playFile(localPath, track: trackWithUrl);
+```
+
+**AndroidManifest.xml 必需配置：**
+- `WAKE_LOCK` 权限
+- `FOREGROUND_SERVICE` 权限
+- `FOREGROUND_SERVICE_MEDIA_PLAYBACK` 权限（SDK 34+）
+- `AudioServiceActivity` 作为主 Activity
+- `AudioService` 服务声明
+- `MediaButtonReceiver` 接收器
+
 ## Windows 平台后端
 
 **使用 `just_audio_media_kit` 而非 `just_audio_windows`**

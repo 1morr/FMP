@@ -389,12 +389,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         throw Exception('No audio URL available for: ${track.title}');
       }
 
-      // 播放
+      // 播放（传递 Track 信息用于后台播放通知）
       if (localPath != null) {
-        await _audioService.playFile(url);
+        await _audioService.playFile(url, track: trackWithUrl);
       } else {
         final headers = _getHeadersForTrack(trackWithUrl);
-        await _audioService.playUrl(url, headers: headers);
+        await _audioService.playUrl(url, headers: headers, track: trackWithUrl);
       }
 
       // 更新正在播放的歌曲
@@ -844,13 +844,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       final urlType = localPath != null ? "downloaded" : "stream";
       logDebug('Playing track: ${track.title}, URL type: $urlType, source: ${track.sourceType}');
 
-      // 播放
+      // 播放（传递 Track 信息用于后台播放通知）
       if (localPath != null) {
-        await _audioService.playFile(url);
+        await _audioService.playFile(url, track: trackWithUrl);
       } else {
         // 获取该音源所需的 HTTP 请求头
         final headers = _getHeadersForTrack(trackWithUrl);
-        await _audioService.playUrl(url, headers: headers);
+        await _audioService.playUrl(url, headers: headers, track: trackWithUrl);
       }
 
       // 再次检查是否被取代
