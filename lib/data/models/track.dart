@@ -46,9 +46,6 @@ class Track {
   /// 不可用原因
   String? unavailableReason;
 
-  /// 流媒体缓存路径
-  String? cachedPath;
-
   // ========== 歌单归属与下载路径（预计算）==========
 
   /// 所属歌单ID列表（与 downloadPaths 并行）
@@ -139,9 +136,6 @@ class Track {
     return DateTime.now().isBefore(audioUrlExpiry!);
   }
 
-  /// 是否已缓存
-  bool get isCached => cachedPath != null;
-
   /// 是否是多P视频中的一个分P
   bool get isPartOfMultiPage => pageNum != null && pageNum! > 0;
 
@@ -180,7 +174,6 @@ class Track {
       ..audioUrlExpiry = audioUrlExpiry
       ..isAvailable = isAvailable
       ..unavailableReason = unavailableReason
-      ..cachedPath = cachedPath
       ..playlistIds = List.from(playlistIds)
       ..downloadPaths = List.from(downloadPaths)
       ..cid = cid

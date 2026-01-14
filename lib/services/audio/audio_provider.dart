@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart' as just_audio;
 import '../../core/constants/app_constants.dart';
@@ -384,16 +385,16 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // 获取音频 URL 并播放（不修改队列，不保存到数据库）
       final trackWithUrl = await _queueManager.ensureAudioUrl(track, persist: false);
 
-      final url = trackWithUrl.firstDownloadPath ??
-                  trackWithUrl.cachedPath ??
-                  trackWithUrl.audioUrl;
+      // 查找第一个存在的本地文件
+      final localPath = await _getFirstExistingLocalPath(trackWithUrl);
+      final url = localPath ?? trackWithUrl.audioUrl;
 
       if (url == null) {
         throw Exception('No audio URL available for: ${track.title}');
       }
 
       // 播放
-      if (trackWithUrl.firstDownloadPath != null || trackWithUrl.cachedPath != null) {
+      if (localPath != null) {
         await _audioService.playFile(url);
       } else {
         final headers = _getHeadersForTrack(trackWithUrl);
@@ -445,12 +446,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       if (currentTrack != null) {
         // 准备歌曲
         final trackWithUrl = await _queueManager.ensureAudioUrl(currentTrack);
-        final url = trackWithUrl.firstDownloadPath ??
-                    trackWithUrl.cachedPath ??
-                    trackWithUrl.audioUrl;
+        // 查找第一个存在的本地文件
+        final localPath = await _getFirstExistingLocalPath(trackWithUrl);
+        final url = localPath ?? trackWithUrl.audioUrl;
 
         if (url != null) {
-          if (trackWithUrl.firstDownloadPath != null || trackWithUrl.cachedPath != null) {
+          if (localPath != null) {
             await _audioService.setFile(url);
           } else {
             final headers = _getHeadersForTrack(trackWithUrl);
@@ -783,6 +784,19 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 获取播放音频所需的 HTTP 请求头
   /// Bilibili 需要 Referer 头才能正常播放
+  /// 获取第一个存在的本地文件路径
+  ///
+  /// 遍历所有下载路径，返回第一个实际存在的文件路径
+  /// 如果没有找到存在的文件，返回 null
+  Future<String?> _getFirstExistingLocalPath(Track track) async {
+    for (final path in track.downloadPaths) {
+      if (await File(path).exists()) {
+        return path;
+      }
+    }
+    return null;
+  }
+
   Map<String, String>? _getHeadersForTrack(Track track) {
     switch (track.sourceType) {
       case SourceType.bilibili:
@@ -839,20 +853,19 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         return;
       }
 
-      // 获取播放地址
-      final url = trackWithUrl.firstDownloadPath ??
-                  trackWithUrl.cachedPath ??
-                  trackWithUrl.audioUrl;
+      // 获取播放地址 - 查找第一个存在的本地文件
+      final localPath = await _getFirstExistingLocalPath(trackWithUrl);
+      final url = localPath ?? trackWithUrl.audioUrl;
 
       if (url == null) {
         throw Exception('No audio URL available for: ${track.title}');
       }
 
-      final urlType = trackWithUrl.firstDownloadPath != null ? "downloaded" : trackWithUrl.cachedPath != null ? "cached" : "stream";
+      final urlType = localPath != null ? "downloaded" : "stream";
       logDebug('Playing track: ${track.title}, URL type: $urlType, source: ${track.sourceType}');
 
       // 播放
-      if (trackWithUrl.firstDownloadPath != null || trackWithUrl.cachedPath != null) {
+      if (localPath != null) {
         await _audioService.playFile(url);
       } else {
         // 获取该音源所需的 HTTP 请求头
@@ -941,13 +954,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     try {
       final trackWithUrl = await _queueManager.ensureAudioUrl(track);
 
-      final url = trackWithUrl.firstDownloadPath ??
-                  trackWithUrl.cachedPath ??
-                  trackWithUrl.audioUrl;
+      // 查找第一个存在的本地文件
+      final localPath = await _getFirstExistingLocalPath(trackWithUrl);
+      final url = localPath ?? trackWithUrl.audioUrl;
 
       if (url == null) return;
 
-      if (trackWithUrl.firstDownloadPath != null || trackWithUrl.cachedPath != null) {
+      if (localPath != null) {
         await _audioService.setFile(url);
       } else {
         final headers = _getHeadersForTrack(trackWithUrl);

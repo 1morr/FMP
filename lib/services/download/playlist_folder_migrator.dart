@@ -34,8 +34,7 @@ class PlaylistFolderMigrator with Logging {
   }) async {
     if (oldName == newName) return 0;
 
-    final settings = await _settingsRepository.get();
-    final baseDir = settings.customDownloadDir ?? await _getDefaultDownloadDir();
+    final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
 
     // 清理文件名
     final oldFolderName = DownloadPathUtils.sanitizeFileName(oldName);
@@ -193,19 +192,4 @@ class PlaylistFolderMigrator with Logging {
     return true;
   }
 
-  /// 获取默认下载目录
-  Future<String> _getDefaultDownloadDir() async {
-    if (Platform.isAndroid) {
-      // Android: 使用应用文档目录
-      return '/storage/emulated/0/Music/FMP';
-    } else if (Platform.isWindows) {
-      // Windows: 用户文档目录
-      final userProfile = Platform.environment['USERPROFILE'];
-      if (userProfile != null) {
-        return p.join(userProfile, 'Documents', 'FMP');
-      }
-    }
-    // 回退
-    return '/FMP';
-  }
 }

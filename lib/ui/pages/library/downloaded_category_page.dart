@@ -429,9 +429,11 @@ class _GroupHeader extends ConsumerWidget {
     final firstTrack = group.tracks.first;
     final currentTrack = ref.watch(currentTrackProvider);
     // 检查当前播放的是否是这个组的某个分P
-    // 使用 firstDownloadPath 比较，因为文件扫描的 Track 没有数据库 ID
+    // 使用 sourceId + pageNum 比较，因为文件扫描的 Track 没有数据库 ID
     final isPlayingThisGroup = currentTrack != null &&
-        group.tracks.any((t) => t.firstDownloadPath == currentTrack.firstDownloadPath);
+        group.tracks.any((t) =>
+            t.sourceId == currentTrack.sourceId &&
+            t.pageNum == currentTrack.pageNum);
 
     return ListTile(
       onTap: onToggle,
@@ -598,8 +600,10 @@ class _DownloadedTrackTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final currentTrack = ref.watch(currentTrackProvider);
-    // 使用 firstDownloadPath 比较，因为文件扫描的 Track 没有数据库 ID
-    final isPlaying = currentTrack?.firstDownloadPath == track.firstDownloadPath;
+    // 使用 sourceId + pageNum 比较，因为文件扫描的 Track 没有数据库 ID
+    final isPlaying = currentTrack != null &&
+        currentTrack.sourceId == track.sourceId &&
+        currentTrack.pageNum == track.pageNum;
 
     return Padding(
       padding: EdgeInsets.only(left: indent ? 56 : 0),

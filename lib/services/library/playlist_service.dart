@@ -179,7 +179,7 @@ class PlaylistService with Logging {
     }
 
     // 计算下载路径
-    final baseDir = await _getDownloadBaseDir();
+    final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
     final downloadPath = DownloadPathUtils.computeDownloadPath(
       baseDir: baseDir,
       playlistName: playlist.name,
@@ -204,7 +204,7 @@ class PlaylistService with Logging {
     }
 
     // 获取下载基础目录
-    final baseDir = await _getDownloadBaseDir();
+    final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
 
     // 为每个歌曲计算并设置下载路径
     for (final track in tracks) {
@@ -240,29 +240,6 @@ class PlaylistService with Logging {
       } else {
         await _trackRepository.save(track);
       }
-    }
-  }
-
-  /// 获取下载基础目录
-  Future<String> _getDownloadBaseDir() async {
-    final settings = await _settingsRepository.get();
-    if (settings.customDownloadDir != null && settings.customDownloadDir!.isNotEmpty) {
-      return settings.customDownloadDir!;
-    }
-    // 默认下载目录 - 与 DownloadService 保持一致
-    if (Platform.isAndroid) {
-      // Android: 外部存储/Music/FMP/
-      final extDir = await getExternalStorageDirectory();
-      if (extDir != null) {
-        final musicDir = p.join(extDir.parent.parent.parent.parent.path, 'Music', 'FMP');
-        return musicDir;
-      }
-      final appDir = await getApplicationDocumentsDirectory();
-      return p.join(appDir.path, 'FMP');
-    } else {
-      // Windows/其他: 用户文档/FMP/
-      final docsDir = await getApplicationDocumentsDirectory();
-      return p.join(docsDir.path, 'FMP');
     }
   }
 

@@ -172,7 +172,6 @@ class _TrackListView extends StatelessWidget {
                 _DataSection(
                   title: '缓存与下载',
                   data: {
-                    'cachedPath': _truncate(track.cachedPath, 60),
                     'playlistIds': track.playlistIds.isEmpty
                         ? '[]'
                         : track.playlistIds.join(', '),
