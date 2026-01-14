@@ -135,6 +135,10 @@ class PlaylistService with Logging {
           newName: name!,
         );
         logDebug('Migrated $migratedCount files after playlist rename');
+        
+        // 迁移完成后，重新加载歌单的所有歌曲以确保路径更新
+        final tracks = await _trackRepository.getByIds(playlist.trackIds);
+        logDebug('Reloaded ${tracks.length} tracks with updated paths');
       } catch (e, stack) {
         logError('Failed to migrate playlist folder: $e', e, stack);
         // 不抛出异常，文件夹迁移失败不影响歌单重命名
