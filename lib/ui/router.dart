@@ -11,6 +11,7 @@ import 'pages/settings/settings_page.dart';
 import 'pages/settings/download_manager_page.dart';
 import 'pages/settings/developer_options_page.dart';
 import 'pages/settings/database_viewer_page.dart';
+import 'pages/settings/log_viewer_page.dart';
 import 'pages/library/downloaded_page.dart';
 import 'pages/library/downloaded_category_page.dart';
 import '../providers/download_provider.dart';
@@ -31,6 +32,7 @@ class RoutePaths {
   static const String downloadManager = '/settings/download-manager';
   static const String developerOptions = '/settings/developer';
   static const String databaseViewer = '/settings/developer/database';
+  static const String logViewer = '/settings/developer/logs';
 }
 
 /// 路由名称常量
@@ -49,6 +51,7 @@ class RouteNames {
   static const String downloadManager = 'downloadManager';
   static const String developerOptions = 'developerOptions';
   static const String databaseViewer = 'databaseViewer';
+  static const String logViewer = 'logViewer';
 }
 
 /// 应用路由配置
@@ -139,6 +142,12 @@ final appRouter = GoRouter(
                   path: 'database',
                   name: RouteNames.databaseViewer,
                   builder: (context, state) => const DatabaseViewerPage(),
+                ),
+                // 日志查看器
+                GoRoute(
+                  path: 'logs',
+                  name: RouteNames.logViewer,
+                  builder: (context, state) => const LogViewerPage(),
                 ),
               ],
             ),
