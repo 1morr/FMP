@@ -69,10 +69,15 @@ class PlaylistService with Logging {
       throw PlaylistNameExistsException(name);
     }
 
+    // 预计算本地封面路径
+    final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
+    final coverLocalPath = _computePlaylistCoverPath(baseDir, name);
+
     final playlist = Playlist()
       ..name = name
       ..description = description
       ..coverUrl = coverUrl
+      ..coverLocalPath = coverLocalPath
       ..createdAt = DateTime.now();
 
     final id = await _playlistRepository.save(playlist);
@@ -102,6 +107,10 @@ class PlaylistService with Logging {
       }
       playlist.name = name;
       isRenaming = true;
+      
+      // 更新预计算的本地封面路径
+      final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
+      playlist.coverLocalPath = _computePlaylistCoverPath(baseDir, name);
     }
 
     if (description != null) {
@@ -264,7 +273,7 @@ class PlaylistService with Logging {
   /// 获取歌单封面数据（包含本地路径和网络 URL）
   ///
   /// 优先级：
-  /// 1. 本地已下载的歌单封面（playlist_cover.jpg）
+  /// 1. 预计算的本地歌单封面路径（playlist.coverLocalPath）
   /// 2. 第一首已下载歌曲的本地封面
   /// 3. 歌单的网络封面 URL
   /// 4. 第一首歌曲的网络封面 URL
@@ -275,10 +284,9 @@ class PlaylistService with Logging {
     String? localPath;
     String? networkUrl;
 
-    // 检查下载目录中的歌单封面
-    final playlistLocalCover = await _findPlaylistLocalCover(playlist);
-    if (playlistLocalCover != null) {
-      localPath = playlistLocalCover;
+    // 使用预计算的本地封面路径
+    if (playlist.coverLocalPath != null) {
+      localPath = playlist.coverLocalPath;
     }
 
     // 设置网络封面 URL
@@ -305,24 +313,12 @@ class PlaylistService with Logging {
     return PlaylistCoverData(localPath: localPath, networkUrl: networkUrl);
   }
 
-  /// 查找歌单的本地封面文件
-  Future<String?> _findPlaylistLocalCover(Playlist playlist) async {
-    try {
-      // 使用统一的路径计算方法
-      final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
-
-      // 歌单文件夹名称格式：只有歌单名（与 DownloadPathUtils.computeDownloadPath 一致）
-      final subDir = DownloadPathUtils.sanitizeFileName(playlist.name);
-      final coverPath = p.join(baseDir, subDir, 'playlist_cover.jpg');
-      final coverFile = File(coverPath);
-
-      if (await coverFile.exists()) {
-        return coverPath;
-      }
-    } catch (e) {
-      // 忽略错误，返回 null
-    }
-    return null;
+  /// 计算歌单封面的本地路径
+  ///
+  /// 路径格式: {baseDir}/{playlistName}/playlist_cover.jpg
+  String _computePlaylistCoverPath(String baseDir, String playlistName) {
+    final subDir = DownloadPathUtils.sanitizeFileName(playlistName);
+    return p.join(baseDir, subDir, 'playlist_cover.jpg');
   }
 
   /// 获取歌单封面（使用第一首歌的封面或自定义封面）
@@ -344,10 +340,15 @@ class PlaylistService with Logging {
       throw PlaylistNameExistsException(newName);
     }
 
+    // 计算新歌单的封面路径
+    final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
+    final coverLocalPath = _computePlaylistCoverPath(baseDir, newName);
+
     final copy = Playlist()
       ..name = newName
       ..description = original.description
       ..coverUrl = original.coverUrl
+      ..coverLocalPath = coverLocalPath
       ..trackIds = List.from(original.trackIds)
       ..createdAt = DateTime.now();
 

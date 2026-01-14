@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:path/path.dart' as p;
+
 import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
 import '../../data/repositories/playlist_repository.dart';
@@ -147,6 +149,9 @@ class ImportService {
         // 更新现有歌单
         playlist = existingPlaylist;
       } else {
+        // 获取下载目录（用于预计算路径）
+        final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
+        
         // 创建新歌单
         playlist = Playlist()
           ..name = playlistName
@@ -156,6 +161,7 @@ class ImportService {
           ..importSourceType = source.sourceType
           ..refreshIntervalHours = refreshIntervalHours ?? 24
           ..notifyOnUpdate = notifyOnUpdate
+          ..coverLocalPath = _computePlaylistCoverPath(baseDir, playlistName)
           ..createdAt = DateTime.now();
         // 先保存以获取 ID（用于计算下载路径）
         final playlistId = await _playlistRepository.save(playlist);
@@ -479,6 +485,14 @@ class ImportService {
       error: error,
     );
     _progressController.add(_currentProgress);
+  }
+
+  /// 计算歌单封面的本地路径
+  ///
+  /// 路径格式: {baseDir}/{playlistName}/playlist_cover.jpg
+  String _computePlaylistCoverPath(String baseDir, String playlistName) {
+    final subDir = DownloadPathUtils.sanitizeFileName(playlistName);
+    return p.join(baseDir, subDir, 'playlist_cover.jpg');
   }
 
   void dispose() {
