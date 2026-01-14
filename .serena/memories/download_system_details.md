@@ -1,14 +1,17 @@
 # FMP 下载系统详细文档
 
+## 更新记录
+- 2026-01-14: 重构为预计算路径模式，移除 syncDownloadedFiles，新增 DownloadStatusCache
+
 ## 系统架构
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                       UI 层                                  │
-│  download_manager_page, playlist_detail_page, search_page   │
+│  playlist_detail_page, downloaded_page, search_page         │
 │                            │                                 │
 │                            ▼                                 │
-│              downloadServiceProvider                         │
+│    downloadServiceProvider + downloadStatusCacheProvider     │
 └─────────────────────────────────────────────────────────────┘
                              │
                              ▼
@@ -21,535 +24,285 @@
 │  - 文件下载（带进度）                                          │
 │  - 元数据保存                                                 │
 │  - 封面/头像下载                                              │
+│  - 下载前使用预计算的 downloadPaths                           │
 └─────────────────────────────────────────────────────────────┘
                              │
-                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                   DownloadRepository                         │
-│              (lib/data/repositories/download_repository.dart)│
+│                  DownloadStatusCache                         │
+│        (lib/providers/download/download_status_cache.dart)   │
 │                                                              │
 │  职责：                                                       │
-│  - DownloadTask CRUD                                        │
-│  - PlaylistDownloadTask CRUD                                │
-│  - 任务状态管理                                               │
-└─────────────────────────────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      Isar Database                           │
-│  DownloadTask, PlaylistDownloadTask                         │
+│  - 缓存文件存在性检测结果                                     │
+│  - 避免 UI build 时阻塞                                       │
+│  - 异步刷新机制（Future.microtask）                          │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 数据模型
+## 数据模型（2026-01-14 更新）
 
-### DownloadTask（单曲下载任务）
+### Track 字段变更
 
+**旧字段（已移除）：**
+- `downloadedPath` → 单一路径
+- `downloadedPlaylistIds` → 歌单 ID 列表
+
+**新字段：**
 ```dart
-class DownloadTask {
-  int id;
-  int trackId;                    // 关联的歌曲ID
-  int? playlistDownloadTaskId;    // 关联的歌单下载任务（可选）
-  DownloadStatus status;          // pending/downloading/completed/failed/paused
-  double progress;                // 0.0 - 1.0
-  int downloadedBytes;
-  int? totalBytes;
-  String? errorMessage;
-  int priority;                   // 优先级（越小越优先）
-  DateTime createdAt;
-}
-```
-
-### PlaylistDownloadTask（歌单下载任务）
-
-```dart
-class PlaylistDownloadTask {
-  int id;
-  int playlistId;                 // 关联的歌单ID
-  String playlistName;            // 歌单名称（用于文件夹命名）
-  List<int> trackIds;             // 歌单中的所有歌曲ID
-  DownloadStatus status;
-  int priority;
-  DateTime createdAt;
-}
-```
-
-### DownloadStatus 枚举
-
-```dart
-enum DownloadStatus {
-  pending,      // 等待下载
-  downloading,  // 下载中
-  completed,    // 已完成
-  failed,       // 失败
-  paused,       // 已暂停
+class Track {
+  // 预计算的下载路径（按歌单分组）
+  List<int> playlistIds = [];      // 关联的歌单 ID 列表
+  List<String> downloadPaths = []; // 对应的预计算下载路径列表
+  
+  // 获取指定歌单的下载路径
+  String? getDownloadPath(int playlistId) {
+    final index = playlistIds.indexOf(playlistId);
+    return index >= 0 && index < downloadPaths.length ? downloadPaths[index] : null;
+  }
+  
+  // 设置指定歌单的下载路径
+  void setDownloadPath(int playlistId, String path) {
+    final index = playlistIds.indexOf(playlistId);
+    if (index >= 0) {
+      downloadPaths[index] = path;
+    } else {
+      playlistIds.add(playlistId);
+      downloadPaths.add(path);
+    }
+  }
+  
+  // 便捷属性：第一个下载路径（不验证存在性！）
+  String? get firstDownloadPath => downloadPaths.isNotEmpty ? downloadPaths.first : null;
 }
 ```
 
 ---
 
-## 下载服务核心逻辑
+## 预计算路径工作流程
 
-### 1. 初始化
+### 1. 路径计算时机
 
-```dart
-Future<void> initialize() async {
-  // 重置所有 downloading 状态的任务为 paused（防止意外中断）
-  await _downloadRepository.resetDownloadingToPaused();
-  // 启动调度器
-  _startScheduler();
-}
-```
-
-### 2. 调度器
+路径在**歌曲加入歌单时**预计算，而非下载时：
 
 ```dart
-// 每500ms检查一次
-Timer.periodic(const Duration(milliseconds: 500), (_) {
-  _scheduleDownloads();
-});
-
-Future<void> _scheduleDownloads() async {
-  final settings = await _settingsRepository.get();
-  final maxConcurrent = settings.maxConcurrentDownloads;  // 默认3
-  
-  final availableSlots = maxConcurrent - _activeDownloads;
-  if (availableSlots <= 0) return;
-  
-  final pendingTasks = await _downloadRepository.getTasksByStatus(DownloadStatus.pending);
-  
-  for (int i = 0; i < availableSlots && i < pendingTasks.length; i++) {
-    _startDownload(pendingTasks[i]);
-  }
-}
-```
-
-### 3. 单曲下载流程
-
-```dart
-void _startDownload(DownloadTask task) async {
-  // 1. 更新状态为下载中
-  await _downloadRepository.updateTaskStatus(task.id, DownloadStatus.downloading);
-  
-  // 2. 获取歌曲信息
-  final track = await _trackRepository.getById(task.trackId);
-  
-  // 3. 获取音频URL（需要刷新）
-  String audioUrl;
-  if (!_sourceManager.needsRefresh(track) && track.audioUrl != null) {
-    audioUrl = track.audioUrl!;
-  } else {
-    final refreshedTrack = await _sourceManager.refreshAudioUrl(track);
-    audioUrl = refreshedTrack.audioUrl!;
-  }
-  
-  // 4. 确定保存路径
-  final savePath = await _getDownloadPath(track, task);
-  
-  // 5. 下载文件（带进度回调）
-  await _dio.download(
-    audioUrl,
-    savePath,
-    onReceiveProgress: (received, total) {
-      // 节流更新（500ms 或 5% 进度变化）
-      if (shouldUpdate) {
-        _downloadRepository.updateTaskProgress(task.id, progress, received, total);
-        _progressController.add(DownloadProgressEvent(...));
-      }
-    },
+// DownloadPathUtils.computeDownloadPath()
+static String computeDownloadPath({
+  required String baseDir,
+  required String playlistName,
+  required Track track,
+}) {
+  // 文件夹名：sourceId_parentTitle（如 BV1xxx_视频标题）
+  final folderName = sanitizeFileName(
+    '${track.sourceId}_${track.parentTitle ?? track.title}'
   );
   
-  // 6. 获取 VideoDetail（用于完整元数据）
-  VideoDetail? videoDetail = await source.getVideoDetail(track.sourceId);
-  
-  // 7. 保存元数据
-  await _saveMetadata(track, savePath, videoDetail: videoDetail, order: trackOrder);
-  
-  // 8. 更新歌曲的 downloadedPath
-  track.downloadedPath = savePath;
-  await _trackRepository.save(track);
-  
-  // 9. 更新任务状态为完成
-  await _downloadRepository.updateTaskStatus(task.id, DownloadStatus.completed);
-}
-```
-
-### 4. 歌单下载流程
-
-```dart
-Future<PlaylistDownloadTask?> addPlaylistDownload(Playlist playlist) async {
-  // 1. 检查重复
-  final existingTask = await _downloadRepository.getPlaylistTaskByPlaylistId(playlist.id);
-  if (existingTask?.status == DownloadStatus.downloading) {
-    return existingTask;  // 正在下载中，不重复添加
-  }
-  
-  // 2. 获取歌单中的所有歌曲
-  final tracks = await _trackRepository.getByIds(playlist.trackIds);
-  
-  // 3. 创建歌单下载任务
-  final playlistTask = PlaylistDownloadTask()
-    ..playlistId = playlist.id
-    ..playlistName = playlist.name
-    ..trackIds = playlist.trackIds
-    ..status = DownloadStatus.pending;
-  
-  // 4. 下载歌单封面
-  await _downloadPlaylistCover(playlist, savedPlaylistTask);
-  
-  // 5. 为每个歌曲创建下载任务
-  for (final track in tracks) {
-    await addTrackDownload(
-      track,
-      fromPlaylist: playlist,
-      playlistDownloadTaskId: savedPlaylistTask.id,
-    );
-  }
-}
-```
-
----
-
-## 文件存储结构
-
-### 目录结构
-
-```
-下载目录/
-├── 歌单名_歌单ID/
-│   ├── playlist_cover.jpg        # 歌单封面
-│   ├── 视频标题A/
-│   │   ├── audio.m4a             # 单P视频音频
-│   │   ├── cover.jpg             # 视频封面
-│   │   ├── avatar.jpg            # UP主头像（可选）
-│   │   └── metadata.json         # 元数据
-│   ├── 视频标题B_多P/
-│   │   ├── P01 - 分P标题1.m4a    # 多P视频
-│   │   ├── P02 - 分P标题2.m4a
-│   │   ├── cover.jpg
-│   │   ├── avatar.jpg
-│   │   └── metadata.json
-├── 未分类/                        # 单独下载的歌曲
-│   ├── 视频标题/
-│   │   └── ...
-```
-
-### 路径生成逻辑
-
-```dart
-Future<String> _getDownloadPath(Track track, DownloadTask task) async {
-  final baseDir = settings.customDownloadDir ?? await _getDefaultDownloadDir();
-  
-  // 子目录
-  String subDir;
-  if (task.playlistDownloadTaskId != null) {
-    final playlistTask = await _downloadRepository.getPlaylistTaskById(task.playlistDownloadTaskId!);
-    subDir = _sanitizeFileName('${playlistTask.playlistName}_${playlistTask.playlistId}');
-  } else {
-    subDir = '未分类';
-  }
-  
-  // 视频文件夹名
-  final videoFolder = _sanitizeFileName(track.parentTitle ?? track.title);
-  
-  // 音频文件名
+  // 文件名
   String fileName;
-  if (track.isPartOfMultiPage && track.pageNum != null) {
-    fileName = 'P${track.pageNum!.toString().padLeft(2, '0')} - ${_sanitizeFileName(track.title)}.m4a';
+  if (track.pageNum != null && track.pageNum! > 1) {
+    fileName = 'P${track.pageNum}.m4a';
   } else {
-    fileName = 'audio.m4a';
+    fileName = 'P1.m4a';
   }
   
-  return p.join(baseDir, subDir, videoFolder, fileName);
+  return p.join(baseDir, playlistName, folderName, fileName);
 }
 ```
 
-### 文件名清理
+### 2. 路径计算触发位置
+
+| 操作 | 服务 | 方法 |
+|------|------|------|
+| 导入歌单 | ImportService | `importFromUrl()` |
+| 刷新歌单 | ImportService | `refreshPlaylist()` |
+| 添加歌曲到歌单 | PlaylistService | `addTracksToPlaylist()` |
+
+### 3. 下载时的使用
 
 ```dart
-String _sanitizeFileName(String name) {
-  // 将特殊字符转换为全角字符
-  const replacements = {
-    '/': '／', '\\': '＼', ':': '：', '*': '＊',
-    '?': '？', '"': '＂', '<': '＜', '>': '＞', '|': '｜',
-  };
+// DownloadService.addTrackDownload()
+Future<DownloadTask?> addTrackDownload(Track track, {required Playlist fromPlaylist}) async {
+  // 1. 获取预计算的路径
+  final downloadPath = track.getDownloadPath(fromPlaylist.id);
+  if (downloadPath == null) return null;
   
-  String result = name;
-  for (final entry in replacements.entries) {
-    result = result.replaceAll(entry.key, entry.value);
+  // 2. 检查文件是否已存在
+  if (await File(downloadPath).exists()) {
+    return null;  // 跳过已下载
   }
   
-  // 限制长度
-  if (result.length > 200) {
-    result = result.substring(0, 200);
-  }
-  
-  return result.isEmpty ? 'untitled' : result;
+  // 3. 创建下载任务，使用预计算的路径
+  final task = DownloadTask()
+    ..downloadPath = downloadPath;
 }
 ```
 
 ---
 
-## 元数据存储
+## 下载状态检测（DownloadStatusCache）
 
-### metadata.json 结构
+### 设计目的
+避免在 UI build 期间执行同步 I/O 操作（File.existsSync），防止卡顿和 StateNotifier 异常。
 
-```json
-{
-  "sourceId": "BV1xxx",
-  "sourceType": "bilibili",
-  "title": "视频标题",
-  "artist": "UP主名称",
-  "durationMs": 180000,
-  "cid": 12345678,
-  "pageNum": 1,
-  "parentTitle": "父视频标题",
-  "thumbnailUrl": "https://...",
-  "downloadedAt": "2025-01-11T10:00:00Z",
-  "order": 0,
+### 核心方法
+
+```dart
+class DownloadStatusCache extends StateNotifier<Map<String, bool>> {
   
-  // VideoDetail 扩展信息
-  "description": "视频简介",
-  "viewCount": 100000,
-  "likeCount": 5000,
-  "coinCount": 1000,
-  "favoriteCount": 2000,
-  "shareCount": 500,
-  "danmakuCount": 3000,
-  "commentCount": 200,
-  "publishDate": "2025-01-01T00:00:00Z",
-  "ownerName": "UP主",
-  "ownerFace": "https://...",
-  "ownerId": 123456,
-  "hotComments": [
-    {
-      "content": "评论内容",
-      "memberName": "用户名",
-      "memberAvatar": "https://...",
-      "likeCount": 100
+  /// 检查歌曲在指定歌单中是否已下载（只读缓存）
+  bool isDownloadedForPlaylist(Track track, int playlistId) {
+    final path = track.getDownloadPath(playlistId);
+    if (path == null) return false;
+    
+    if (state.containsKey(path)) {
+      return state[path]!;  // 返回缓存值
     }
-  ]
+    
+    // 未缓存：返回 false，异步刷新
+    _scheduleRefresh(path);
+    return false;
+  }
+  
+  /// 异步刷新（延迟到下一个 microtask）
+  void _scheduleRefresh(String path) {
+    Future.microtask(() async {
+      if (!state.containsKey(path)) {
+        final exists = await File(path).exists();
+        state = {...state, path: exists};  // 触发 UI 重建
+      }
+    });
+  }
+  
+  /// 批量预加载（进入页面时调用）
+  Future<void> refreshCache(List<Track> tracks) async {
+    final newState = <String, bool>{};
+    for (final track in tracks) {
+      for (final path in track.downloadPaths) {
+        newState[path] = await File(path).exists();
+      }
+    }
+    state = {...state, ...newState};
+  }
 }
 ```
+
+### UI 使用模式
+
+```dart
+// 正确用法
+ref.watch(downloadStatusCacheProvider);  // 监听状态变化，触发重建
+final cache = ref.read(downloadStatusCacheProvider.notifier);
+final isDownloaded = cache.isDownloadedForPlaylist(track, playlistId);
+
+// 错误用法（会导致 StateNotifierListenerError）
+// ref.watch(downloadStatusCacheProvider.notifier).isDownloadedForPlaylist(...)
+```
+
+---
+
+## 已移除的功能
+
+### ~~syncDownloadedFiles()~~
+**原功能**：扫描下载目录的 metadata.json，与数据库 Track 匹配并恢复 downloadedPath。
+
+**移除原因**：预计算路径模式下，路径在加入歌单时已确定，无需事后同步。
+
+### ~~findBestMatchForRefresh()~~
+**原功能**：刷新歌单时使用多级回退匹配查找已存在的 Track。
+
+**移除原因**：预计算路径模式下，Track 的 downloadPaths 字段直接保存，无需复杂匹配。
+
+---
+
+## 基础目录获取（统一实现）
+
+四个位置使用相同逻辑：
+
+```dart
+Future<String> _getDownloadBaseDir() async {
+  final settings = await _settingsRepository.get();
+  
+  // 1. 优先使用自定义目录
+  if (settings.customDownloadDir != null && settings.customDownloadDir!.isNotEmpty) {
+    return settings.customDownloadDir!;
+  }
+  
+  // 2. Android: /storage/emulated/0/Music/FMP
+  if (Platform.isAndroid) {
+    final extDir = await getExternalStorageDirectory();
+    if (extDir != null) {
+      return p.join(extDir.parent.parent.parent.parent.path, 'Music', 'FMP');
+    }
+    final appDir = await getApplicationDocumentsDirectory();
+    return p.join(appDir.path, 'FMP');
+  }
+  
+  // 3. Windows: C:\Users\xxx\Documents\FMP
+  final docsDir = await getApplicationDocumentsDirectory();
+  return p.join(docsDir.path, 'FMP');
+}
+```
+
+**位置**：
+- `DownloadService._getDefaultDownloadDir()`
+- `ImportService._getDownloadBaseDir()`
+- `PlaylistService._getDownloadBaseDir()`
+- `PlaylistFolderMigrator._getDefaultDownloadDir()`（⚠️ 使用 Platform.environment，实现略有不同）
+
+---
+
+## 已下载页面数据源
+
+已下载页面基于**文件系统扫描**，不依赖数据库：
+
+```dart
+// 扫描文件夹中的音频文件
+final downloadedCategoryTracksProvider = FutureProvider.family<List<Track>, String>((ref, folderPath) async {
+  return DownloadScanner.scanFolderForTracks(folderPath);
+});
+
+// DownloadScanner 从 metadata.json 恢复 Track 信息
+```
+
+**优点**：即使数据库损坏，已下载的文件仍可访问和播放。
 
 ---
 
 ## Provider 结构
 
 ```dart
-// 服务 Provider
+// 核心服务
 final downloadServiceProvider = Provider<DownloadService>
+final downloadStatusCacheProvider = StateNotifierProvider<DownloadStatusCache, Map<String, bool>>
 
-// 任务列表 Provider
+// 任务列表
 final downloadTasksProvider = StreamProvider<List<DownloadTask>>
-final playlistDownloadTasksProvider = StreamProvider<List<PlaylistDownloadTask>>
+final activeDownloadsProvider = Provider<List<DownloadTask>>
+final completedDownloadsProvider = Provider<List<DownloadTask>>
 
-// 便捷 Provider
-final activeDownloadsProvider = Provider<List<DownloadTask>>  // 进行中
-final completedDownloadsProvider = Provider<List<DownloadTask>>  // 已完成
-final isTrackDownloadingProvider = Provider.family<bool, int>  // 某歌曲是否在下载
-
-// 进度流
-final downloadProgressProvider = StreamProvider<DownloadProgressEvent>
-
-// 已下载分类
+// 已下载内容
 final downloadedCategoriesProvider = FutureProvider<List<DownloadedCategory>>
 final downloadedCategoryTracksProvider = FutureProvider.family<List<Track>, String>
 ```
 
 ---
 
-## 下载状态同步机制
+## 常见错误与解决
 
-### 问题背景
-刷新歌单或删除重新导入时，歌曲的 `downloadedPath` 可能丢失，导致已下载标记消失。
+### StateNotifierListenerError
+**症状**：`Tried to modify a provider while the widget tree was building`
 
-### 解决方案
+**原因**：在 build 方法中调用了修改 state 的方法
 
-#### 1. 智能匹配（TrackRepository.findBestMatchForRefresh）
-刷新歌单时使用多级回退匹配：
-1. sourceId + cid 精确匹配
-2. sourceId + pageNum 匹配（如果 cid 变化但 pageNum 相同）
-3. sourceId 匹配已下载的 Track（优先保留下载状态）
-4. 回退到传统 sourceId 匹配
+**解决**：使用 `Future.microtask()` 延迟状态更新
 
-#### 2. 孤儿 Track 清理（startupCleanupProvider）
+### 下载标记不显示
+**症状**：进入歌单页面时下载标记不显示，播放后才显示
 
-应用启动时自动清理无用的 Track 记录：
+**原因**：
+1. `initState` 时 tracks 为空
+2. 使用 `ref.watch(provider.notifier)` 不触发重建
 
-```dart
-// 清理逻辑
-if (!被歌单引用 && !被播放队列引用) {
-  if (downloadedPath == null || !File.existsSync()) {
-    删除 Track 记录
-  }
-}
-```
-
-**保留条件：**
-- 被任意歌单引用
-- 被播放队列引用
-- 有 downloadedPath 且文件实际存在
-
----
-
-#### 3. 主动同步（DownloadService.syncDownloadedFiles）
-扫描下载目录中的 metadata.json，与数据库 Track 匹配并恢复 downloadedPath。
-
-**触发时机：**
-- 进入已下载页面时自动执行
-- 点击已下载页面右上角刷新按钮时执行
-
-```dart
-// 同步逻辑
-Future<int> syncDownloadedFiles() async {
-  // 1. 遍历下载目录的 metadata.json
-  // 2. 读取 sourceId, cid, pageNum
-  // 3. 使用 findBestMatchForRefresh 查找匹配的 Track
-  // 4. 更新 downloadedPath
-}
-```
-
----
-
-## 已下载页面的文件扫描
-
-### 分类获取
-
-```dart
-final downloadedCategoriesProvider = FutureProvider<List<DownloadedCategory>>((ref) async {
-  final downloadDir = Directory(dirInfo.path);
-  
-  await for (final entity in downloadDir.list()) {
-    if (entity is Directory) {
-      final trackCount = await _countAudioFiles(entity);  // 统计 .m4a 文件
-      if (trackCount > 0) {
-        final coverPath = await _findFirstCover(entity);  // 查找封面
-        categories.add(DownloadedCategory(
-          folderName: folderName,
-          displayName: _extractDisplayName(folderName),  // 去掉 _ID 后缀
-          trackCount: trackCount,
-          coverPath: coverPath,
-          folderPath: entity.path,
-        ));
-      }
-    }
-  }
-  
-  // 排序："未分类"放最后
-  categories.sort((a, b) {
-    if (a.folderName == '未分类') return 1;
-    if (b.folderName == '未分类') return -1;
-    return a.displayName.compareTo(b.displayName);
-  });
-});
-```
-
-### Track 扫描
-
-```dart
-Future<List<Track>> _scanFolderForTracks(String folderPath) async {
-  await for (final entity in folder.list()) {
-    if (entity is Directory) {
-      // 读取 metadata.json
-      final metadataFile = File(p.join(entity.path, 'metadata.json'));
-      Map<String, dynamic>? metadata;
-      if (await metadataFile.exists()) {
-        metadata = jsonDecode(await metadataFile.readAsString());
-      }
-      
-      // 扫描 .m4a 文件
-      await for (final audioEntity in entity.list()) {
-        if (audioEntity.path.endsWith('.m4a')) {
-          Track? track;
-          
-          if (metadata != null) {
-            track = _trackFromMetadata(metadata, audioEntity.path);
-            // 多P处理：从文件名提取 pageNum
-            final pageMatch = RegExp(r'^P(\d+)').firstMatch(fileName);
-            if (pageMatch != null) {
-              track.pageNum = int.parse(pageMatch.group(1)!);
-            }
-          }
-          
-          // 无 metadata 时创建基本 Track
-          if (track == null) {
-            track = Track()
-              ..sourceId = p.basename(entity.path)
-              ..title = p.basenameWithoutExtension(audioEntity.path)
-              ..downloadedPath = audioEntity.path;
-          }
-          
-          tracks.add(track);
-        }
-      }
-    }
-  }
-  
-  // 排序：优先 order，其次 parentTitle + pageNum
-  tracks.sort((a, b) {
-    if (a.order != null && b.order != null) {
-      return a.order!.compareTo(b.order!);
-    }
-    if (a.order != null) return -1;
-    if (b.order != null) return 1;
-    // 向后兼容
-    final groupCompare = (a.parentTitle ?? a.title).compareTo(b.parentTitle ?? b.title);
-    if (groupCompare != 0) return groupCompare;
-    return (a.pageNum ?? 0).compareTo(b.pageNum ?? 0);
-  });
-});
-```
-
----
-
-## 下载进度更新节流
-
-为避免 Windows 平台的线程问题，进度更新使用节流策略：
-
-```dart
-DateTime lastProgressUpdate = DateTime.now();
-double lastProgress = 0.0;
-const progressUpdateInterval = Duration(milliseconds: 500);
-
-onReceiveProgress: (received, total) {
-  final progress = received / total;
-  final now = DateTime.now();
-  
-  // 只在以下情况更新：
-  // 1. 距离上次更新超过 500ms
-  // 2. 进度变化超过 5%
-  // 3. 下载完成 (100%)
-  final shouldUpdate = 
-      now.difference(lastProgressUpdate) >= progressUpdateInterval ||
-      (progress - lastProgress) >= 0.05 ||
-      progress >= 1.0;
-  
-  if (shouldUpdate) {
-    lastProgressUpdate = now;
-    lastProgress = progress;
-    _downloadRepository.updateTaskProgress(task.id, progress, received, total);
-    _progressController.add(DownloadProgressEvent(...));
-  }
-}
-```
-
----
-
-## 设置选项
-
-### DownloadImageOption
-
-| 值 | 描述 | 保存内容 |
-|---|------|----------|
-| none | 关闭 | 不下载图片 |
-| coverOnly | 仅封面 | cover.jpg |
-| coverAndAvatar | 封面和头像 | cover.jpg + avatar.jpg |
-
-### maxConcurrentDownloads
-
-- 默认值：3
-- 范围：1-5
-- 控制同时下载的任务数量
+**解决**：
+1. 在 build 中检测 tracks 变化并调用 `refreshCache`
+2. 使用 `ref.watch(provider)` 监听状态 + `ref.read(provider.notifier)` 调用方法

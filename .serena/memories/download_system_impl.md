@@ -1,75 +1,90 @@
-# 下载管理系统 - 实现完成
+# 下载管理系统 - 实现状态
+
+## 更新记录
+- 2026-01-14: 完成预计算路径重构，移除 sync 功能，新增 DownloadStatusCache
 
 ## 实现状态
-✅ **全部 5 个阶段已完成** (2026-01-11)
+✅ **全部功能已完成**
 
-## 已实现的功能
+## 核心架构变更（2026-01-14）
 
-### Phase 1: 核心下载功能
-- ✅ DownloadTask 模型 (添加 playlistDownloadTaskId, priority 字段)
-- ✅ PlaylistDownloadTask 模型
-- ✅ Settings 扩展 (maxConcurrentDownloads, downloadImageOption)
-- ✅ DownloadRepository (CRUD, 流监听)
-- ✅ DownloadService (下载调度、并发控制、文件管理)
-- ✅ 设置页面扩展 (下载管理入口、下载路径显示、并发数、图片选项)
+### Track 模型字段变更
 
-### Phase 2: 下载管理页面
-- ✅ DownloadManagerPage (lib/ui/pages/settings/download_manager_page.dart)
-- ✅ 任务列表按状态分组显示
-- ✅ 进度条和状态图标
-- ✅ 暂停/继续/删除/重试操作
-- ✅ 批量操作 (全部暂停/全部继续/清空队列)
+| 旧字段 | 新字段 | 说明 |
+|--------|--------|------|
+| `downloadedPath: String?` | `downloadPaths: List<String>` | 支持多歌单下载 |
+| `downloadedPlaylistIds: List<int>` | `playlistIds: List<int>` | 简化命名 |
 
-### Phase 3: 歌单下载支持
-- ✅ playlist_detail_page.dart 添加"下载全部"按钮
-- ✅ 分组标题菜单添加"下载全部分P"选项
-- ✅ 单曲菜单添加"下载"选项
-- ✅ search_page.dart 添加下载选项（视频和分P）
+### 新增组件
 
-### Phase 4: 已下载页面
-- ✅ DownloadedPage (lib/ui/pages/library/downloaded_page.dart)
-- ✅ 按 groupKey 分组显示（支持多P视频展开）
-- ✅ 本地封面加载（回退到网络封面）
-- ✅ 删除下载功能
-- ✅ 播放/添加到队列/添加到歌单操作
-- ✅ library_page.dart 添加"已下载"卡片入口
+| 组件 | 位置 | 功能 |
+|------|------|------|
+| `DownloadPathUtils` | `lib/services/download/download_path_utils.dart` | 统一路径计算 |
+| `DownloadStatusCache` | `lib/providers/download/download_status_cache.dart` | 文件存在性缓存 |
+| `PlaylistFolderMigrator` | `lib/services/library/playlist_folder_migrator.dart` | 歌单文件夹重命名 |
 
-### Phase 5: 完善功能
-- ✅ player_page.dart 添加下载菜单选项
-- ✅ 程序重启恢复 (DownloadService.initialize 重置 downloading → paused)
-- ✅ TrackRepository 添加 getDownloaded/watchDownloaded/clearDownloadPath
+### 移除的功能
+
+| 功能 | 原位置 | 移除原因 |
+|------|--------|---------|
+| `syncDownloadedFiles()` | `DownloadService` | 预计算模式无需同步 |
+| `findBestMatchForRefresh()` | `TrackRepository` | 预计算模式无需匹配 |
+| `getBySourceIdPrefix()` | `TrackRepository` | 不再需要前缀匹配 |
 
 ## 文件结构
 
 ### 新增文件
-- lib/data/models/playlist_download_task.dart
-- lib/data/repositories/download_repository.dart
-- lib/services/download/download_service.dart
-- lib/providers/download_provider.dart
-- lib/ui/pages/settings/download_manager_page.dart
-- lib/ui/pages/library/downloaded_page.dart
+- `lib/services/download/download_path_utils.dart` - 路径计算工具
+- `lib/providers/download/download_status_cache.dart` - 状态缓存
+- `lib/services/library/playlist_folder_migrator.dart` - 文件夹迁移
+- `lib/providers/download/download_scanner.dart` - 文件扫描器
+- `lib/ui/pages/library/downloaded_category_page.dart` - 分类详情页
 
 ### 修改文件
-- lib/data/models/download_task.dart (添加字段)
-- lib/data/models/settings.dart (添加下载设置)
-- lib/data/models/models.dart (导出新模型)
-- lib/data/repositories/track_repository.dart (添加下载相关方法)
-- lib/providers/database_provider.dart (注册新集合)
-- lib/ui/router.dart (添加路由)
-- lib/ui/pages/settings/settings_page.dart (添加存储设置区块)
-- lib/ui/pages/library/library_page.dart (添加已下载卡片)
-- lib/ui/pages/library/playlist_detail_page.dart (添加下载选项)
-- lib/ui/pages/search/search_page.dart (添加下载选项)
-- lib/ui/pages/player/player_page.dart (添加下载菜单)
-- pubspec.yaml (添加 path 依赖)
+- `lib/data/models/track.dart` - 字段重构
+- `lib/services/download/download_service.dart` - 使用预计算路径
+- `lib/services/import/import_service.dart` - 导入时计算路径
+- `lib/services/library/playlist_service.dart` - 添加歌曲时计算路径
+- `lib/ui/pages/library/playlist_detail_page.dart` - 使用 DownloadStatusCache
 
 ## 路由
 - `/library/downloaded` → DownloadedPage
+- `/library/downloaded/:folderPath` → DownloadedCategoryPage
 - `/settings/download-manager` → DownloadManagerPage
 
-## 关键设计决策
-1. 下载文件存储在 `{下载路径}/{歌单名}_{歌单ID}/{视频标题}/` 目录
-2. 每个视频文件夹包含 metadata.json 和 cover.jpg
-3. 使用全角字符替换文件名中的特殊字符
-4. 程序重启时将 downloading 状态的任务重置为 paused
-5. 已下载页面优先加载本地封面，回退到网络封面
+## 关键实现细节
+
+### 1. 路径预计算流程
+```
+导入歌单 → ImportService.importFromUrl()
+         → 保存 Playlist 获取 ID
+         → 对每个 Track 调用 DownloadPathUtils.computeDownloadPath()
+         → track.setDownloadPath(playlistId, path)
+         → 保存 Track
+```
+
+### 2. 下载状态检测流程
+```
+进入歌单页面 → initState/build
+            → 检测 tracks.length 变化
+            → WidgetsBinding.addPostFrameCallback
+            → downloadStatusCache.refreshCache(tracks)
+            → 异步检测文件存在性
+            → 更新 state
+            → ref.watch 触发 UI 重建
+```
+
+### 3. 播放时使用本地文件
+```
+播放歌曲 → AudioController._playTrack()
+        → track.firstDownloadPath ?? track.cachedPath ?? track.audioUrl
+        → 如果是本地路径，调用 audioService.playFile()
+        → 否则调用 audioService.playUrl()
+```
+
+## 待优化项（参见 code_issues_2026-01-14）
+
+1. `firstDownloadPath` 不验证文件存在性
+2. `_getDownloadBaseDir` 重复实现
+3. `localCoverPath` 使用同步 I/O
+4. `cachedPath` 字段未使用
