@@ -6,7 +6,6 @@ import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
-import 'core/services/network_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,9 +33,6 @@ void main() async {
     });
   }
 
-  // 初始化网络状态服务
-  await networkService.initialize();
-  
   // TODO: 初始化 Isar 数据库
   // TODO: 初始化音频服务
   // TODO: 初始化平台特定服务（托盘、快捷键等）
