@@ -10,7 +10,7 @@ import '../../data/repositories/queue_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../data/sources/source_provider.dart';
 import '../../providers/database_provider.dart';
-import '../toast_service.dart';
+import '../../core/services/toast_service.dart';
 import 'audio_service.dart';
 import 'queue_manager.dart';
 

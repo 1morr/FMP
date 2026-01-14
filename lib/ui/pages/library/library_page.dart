@@ -198,12 +198,12 @@ class _PlaylistCard extends ConsumerWidget {
                         ? ImageLoadingService.loadImage(
                             localPath: coverData.localPath,
                             networkUrl: coverData.networkUrl,
-                            placeholder: _buildPlaceholder(colorScheme),
+                            placeholder: const ImagePlaceholder.track(),
                             fit: BoxFit.cover,
                           )
-                        : _buildPlaceholder(colorScheme),
-                    loading: () => _buildPlaceholder(colorScheme),
-                    error: (error, stack) => _buildPlaceholder(colorScheme),
+                        : const ImagePlaceholder.track(),
+                    loading: () => const ImagePlaceholder.track(),
+                    error: (error, stack) => const ImagePlaceholder.track(),
                   ),
                   // 刷新指示器覆盖层
                   if (isRefreshing)
@@ -262,18 +262,6 @@ class _PlaylistCard extends ConsumerWidget {
     );
   }
 
-  Widget _buildPlaceholder(ColorScheme colorScheme) {
-    return Container(
-      color: colorScheme.surfaceContainerHighest,
-      child: Center(
-        child: Icon(
-          Icons.music_note,
-          size: 48,
-          color: colorScheme.outline,
-        ),
-      ),
-    );
-  }
 
   void _showOptionsMenu(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
