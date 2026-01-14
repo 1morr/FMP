@@ -5,6 +5,7 @@ import '../data/models/playlist.dart';
 import '../data/models/track.dart';
 import '../services/library/playlist_service.dart';
 import 'database_provider.dart';
+import 'download/download_status_cache.dart';
 import 'repository_providers.dart';
 
 /// PlaylistService Provider
@@ -55,8 +56,9 @@ class PlaylistListState extends Equatable {
 /// 歌单列表控制器
 class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
   final PlaylistService _service;
+  final Ref _ref;
 
-  PlaylistListNotifier(this._service) : super(const PlaylistListState()) {
+  PlaylistListNotifier(this._service, this._ref) : super(const PlaylistListState()) {
     loadPlaylists();
   }
 
@@ -106,6 +108,11 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
         coverUrl: coverUrl,
       );
       await loadPlaylists();
+      // 刷新歌单详情页和封面
+      _ref.invalidate(playlistDetailProvider(playlistId));
+      _ref.invalidate(playlistCoverProvider(playlistId));
+      // 清除下载状态缓存，强制重新检测
+      _ref.read(downloadStatusCacheProvider.notifier).clearAll();
       return true;
     } catch (e) {
       state = state.copyWith(error: e.toString());
@@ -147,7 +154,7 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
 final playlistListProvider =
     StateNotifierProvider<PlaylistListNotifier, PlaylistListState>((ref) {
   final service = ref.watch(playlistServiceProvider);
-  return PlaylistListNotifier(service);
+  return PlaylistListNotifier(service, ref);
 });
 
 /// 歌单详情状态
