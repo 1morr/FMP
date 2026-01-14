@@ -45,7 +45,8 @@
       "mcp__tavily-remote-mcp__tavily_search",
       "mcp__tavily-remote-mcp__tavily_extract",
       "WebFetch(domain:claude.com)",
-      "mcp__plugin_serena_serena__execute_shell_command"
+      "mcp__plugin_serena_serena__execute_shell_command",
+      "mcp__plugin_serena_serena__delete_memory"
     ]
   }
 }
