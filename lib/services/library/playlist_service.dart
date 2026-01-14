@@ -1,5 +1,4 @@
 import '../../data/models/playlist.dart';
-import 'dart:io';
 
 import 'package:isar/isar.dart';
 import 'package:path/path.dart' as p;
@@ -122,26 +121,35 @@ class PlaylistService with Logging {
 
     await _playlistRepository.save(playlist);
 
-    // 歌单改名时迁移下载文件夹
+    // 歌单改名时迁移下载文件夹并更新所有路径
     if (isRenaming) {
+      final migrator = PlaylistFolderMigrator(
+        isar: _isar,
+        settingsRepository: _settingsRepository,
+      );
+
+      // 1. 迁移已下载的文件夹
       try {
-        final migrator = PlaylistFolderMigrator(
-          isar: _isar,
-          settingsRepository: _settingsRepository,
-        );
         final migratedCount = await migrator.migratePlaylistFolder(
           playlist: playlist,
           oldName: oldName,
           newName: name!,
         );
         logDebug('Migrated $migratedCount files after playlist rename');
-        
-        // 迁移完成后，重新加载歌单的所有歌曲以确保路径更新
-        final tracks = await _trackRepository.getByIds(playlist.trackIds);
-        logDebug('Reloaded ${tracks.length} tracks with updated paths');
       } catch (e, stack) {
         logError('Failed to migrate playlist folder: $e', e, stack);
         // 不抛出异常，文件夹迁移失败不影响歌单重命名
+      }
+
+      // 2. 更新所有 Track 的预计算下载路径（包括未下载的）
+      try {
+        final updatedCount = await migrator.updateAllTrackDownloadPaths(
+          playlist: playlist,
+          newName: name!,
+        );
+        logDebug('Updated $updatedCount track download paths');
+      } catch (e, stack) {
+        logError('Failed to update track download paths: $e', e, stack);
       }
     }
 
