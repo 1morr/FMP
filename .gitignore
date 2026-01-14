@@ -117,3 +117,4 @@ logs/
 *.temp
 ~$*
 .claude/settings.local copy.json
+tmpclaude*
