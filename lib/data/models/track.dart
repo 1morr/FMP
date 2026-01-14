@@ -85,11 +85,6 @@ class Track {
     return playlistIds.contains(playlistId);
   }
 
-  /// 获取第一个下载路径（用于播放时遍历查找）
-  @ignore
-  String? get firstDownloadPath =>
-      downloadPaths.isNotEmpty ? downloadPaths.first : null;
-
   /// 播放量/观看数（仅用于搜索结果显示，不持久化）
   @ignore
   int? viewCount;

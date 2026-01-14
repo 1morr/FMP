@@ -70,7 +70,7 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
       VideoDetail? detail;
 
       // 已下载歌曲优先从本地 metadata 加载
-      if (track.firstDownloadPath != null) {
+      if (track.downloadPaths.isNotEmpty) {
         detail = await _loadFromLocalMetadata(track);
       }
 
@@ -93,25 +93,30 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
     }
   }
 
-  /// 从本地 metadata.json 加载详情
+  /// 从本地 metadata.json 加载详情（遍历所有下载路径查找）
   Future<VideoDetail?> _loadFromLocalMetadata(Track track) async {
-    try {
-      final downloadPath = track.firstDownloadPath;
-      if (downloadPath == null) return null;
+    if (track.downloadPaths.isEmpty) return null;
 
-      final dir = Directory(downloadPath).parent;
-      final metadataFile = File('${dir.path}/metadata.json');
-      if (!await metadataFile.exists()) return null;
+    // 遍历所有下载路径，查找第一个存在 metadata.json 的路径
+    for (final downloadPath in track.downloadPaths) {
+      try {
+        final dir = Directory(downloadPath).parent;
+        final metadataFile = File('${dir.path}/metadata.json');
+        if (!await metadataFile.exists()) continue;
 
-      final json = jsonDecode(await metadataFile.readAsString()) as Map<String, dynamic>;
+        final json = jsonDecode(await metadataFile.readAsString()) as Map<String, dynamic>;
 
-      // 检查是否有完整的元数据
-      if (json['viewCount'] == null) return null;
+        // 检查是否有完整的元数据
+        if (json['viewCount'] == null) continue;
 
-      return VideoDetail.fromMetadata(json, track);
-    } catch (e) {
-      return null;
+        return VideoDetail.fromMetadata(json, track);
+      } catch (e) {
+        // 继续尝试下一个路径
+        continue;
+      }
     }
+
+    return null;
   }
 
   /// 刷新当前歌曲详情

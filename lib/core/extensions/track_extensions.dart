@@ -5,22 +5,42 @@ import '../utils/duration_formatter.dart';
 
 /// Track 模型扩展方法
 extension TrackExtensions on Track {
-  /// 获取本地封面路径（基于第一个下载路径计算）
+  /// 获取本地封面路径（遍历所有下载路径查找）
   ///
-  /// 注意：此方法不检查文件是否存在，由 ImageLoadingService 处理回退逻辑
+  /// 返回第一个存在 cover.jpg 的目录路径
   String? get localCoverPath {
-    if (firstDownloadPath == null) return null;
-    final dir = Directory(firstDownloadPath!).parent;
-    return '${dir.path}/cover.jpg';
+    if (downloadPaths.isEmpty) return null;
+    
+    for (final downloadPath in downloadPaths) {
+      final dir = Directory(downloadPath).parent;
+      final coverPath = '${dir.path}/cover.jpg';
+      if (File(coverPath).existsSync()) {
+        return coverPath;
+      }
+    }
+    
+    // 如果都不存在，返回第一个路径的封面路径（由 ImageLoadingService 处理回退）
+    final firstDir = Directory(downloadPaths.first).parent;
+    return '${firstDir.path}/cover.jpg';
   }
 
-  /// 获取本地头像路径（基于第一个下载路径计算）
+  /// 获取本地头像路径（遍历所有下载路径查找）
   ///
-  /// 注意：此方法不检查文件是否存在，由 ImageLoadingService 处理回退逻辑
+  /// 返回第一个存在 avatar.jpg 的目录路径
   String? get localAvatarPath {
-    if (firstDownloadPath == null) return null;
-    final dir = Directory(firstDownloadPath!).parent;
-    return '${dir.path}/avatar.jpg';
+    if (downloadPaths.isEmpty) return null;
+    
+    for (final downloadPath in downloadPaths) {
+      final dir = Directory(downloadPath).parent;
+      final avatarPath = '${dir.path}/avatar.jpg';
+      if (File(avatarPath).existsSync()) {
+        return avatarPath;
+      }
+    }
+    
+    // 如果都不存在，返回第一个路径的头像路径（由 ImageLoadingService 处理回退）
+    final firstDir = Directory(downloadPaths.first).parent;
+    return '${firstDir.path}/avatar.jpg';
   }
 
   /// 格式化时长显示
