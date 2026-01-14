@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:isar/isar.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 import '../../core/extensions/track_extensions.dart';
 import '../../core/logger.dart';
@@ -309,24 +308,11 @@ class PlaylistService with Logging {
   /// 查找歌单的本地封面文件
   Future<String?> _findPlaylistLocalCover(Playlist playlist) async {
     try {
-      final settings = await _settingsRepository.get();
-      String baseDir;
+      // 使用统一的路径计算方法
+      final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
 
-      if (settings.customDownloadDir != null && settings.customDownloadDir!.isNotEmpty) {
-        baseDir = settings.customDownloadDir!;
-      } else {
-        if (Platform.isAndroid) {
-          final dirs = await getExternalStorageDirectories(type: StorageDirectory.music);
-          baseDir = dirs?.first.path ?? (await getApplicationDocumentsDirectory()).path;
-        } else {
-          baseDir = (await getDownloadsDirectory())?.path ?? 
-                    (await getApplicationDocumentsDirectory()).path;
-        }
-        baseDir = p.join(baseDir, 'FMP');
-      }
-
-      // 歌单文件夹名称格式：歌单名_ID
-      final subDir = _sanitizeFileName('${playlist.name}_${playlist.id}');
+      // 歌单文件夹名称格式：只有歌单名（与 DownloadPathUtils.computeDownloadPath 一致）
+      final subDir = DownloadPathUtils.sanitizeFileName(playlist.name);
       final coverPath = p.join(baseDir, subDir, 'playlist_cover.jpg');
       final coverFile = File(coverPath);
 
@@ -337,11 +323,6 @@ class PlaylistService with Logging {
       // 忽略错误，返回 null
     }
     return null;
-  }
-
-  /// 清理文件名中的非法字符
-  String _sanitizeFileName(String name) {
-    return name.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
   }
 
   /// 获取歌单封面（使用第一首歌的封面或自定义封面）
