@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 
@@ -9,9 +10,67 @@ enum LogLevel {
   error,
 }
 
+/// 日志条目
+class LogEntry {
+  final LogLevel level;
+  final String message;
+  final String? tag;
+  final Object? error;
+  final StackTrace? stackTrace;
+  final DateTime timestamp;
+
+  const LogEntry({
+    required this.level,
+    required this.message,
+    this.tag,
+    this.error,
+    this.stackTrace,
+    required this.timestamp,
+  });
+
+  String get levelPrefix => switch (level) {
+    LogLevel.debug => 'D',
+    LogLevel.info => 'I',
+    LogLevel.warning => 'W',
+    LogLevel.error => 'E',
+  };
+
+  String get formattedTime {
+    final h = timestamp.hour.toString().padLeft(2, '0');
+    final m = timestamp.minute.toString().padLeft(2, '0');
+    final s = timestamp.second.toString().padLeft(2, '0');
+    final ms = timestamp.millisecond.toString().padLeft(3, '0');
+    return '$h:$m:$s.$ms';
+  }
+
+  @override
+  String toString() {
+    final tagStr = tag != null ? '[$tag] ' : '';
+    return '[$levelPrefix] $formattedTime $tagStr$message';
+  }
+}
+
 /// 简单日志工具
 class AppLogger {
   static LogLevel _minLevel = kDebugMode ? LogLevel.debug : LogLevel.info;
+
+  /// 日志缓冲区（最多保留 500 条）
+  static final List<LogEntry> _logBuffer = [];
+  static const int _maxBufferSize = 500;
+
+  /// 日志流控制器（用于实时更新）
+  static final _logStreamController = StreamController<LogEntry>.broadcast();
+
+  /// 日志流（用于实时监听）
+  static Stream<LogEntry> get logStream => _logStreamController.stream;
+
+  /// 获取所有缓存的日志
+  static List<LogEntry> get logs => List.unmodifiable(_logBuffer);
+
+  /// 清空日志缓冲区
+  static void clearLogs() {
+    _logBuffer.clear();
+  }
 
   /// 设置最小日志级别
   static void setMinLevel(LogLevel level) {
@@ -56,6 +115,25 @@ class AppLogger {
 
     final tagStr = tag != null ? '[$tag] ' : '';
     final fullMessage = '$prefix $tagStr$message';
+
+    // 创建日志条目
+    final entry = LogEntry(
+      level: level,
+      message: message,
+      tag: tag,
+      error: error,
+      stackTrace: stackTrace,
+      timestamp: DateTime.now(),
+    );
+
+    // 添加到缓冲区
+    _logBuffer.add(entry);
+    if (_logBuffer.length > _maxBufferSize) {
+      _logBuffer.removeAt(0);
+    }
+
+    // 发送到流
+    _logStreamController.add(entry);
 
     // 在 debug 模式下使用 developer.log，release 模式下使用 debugPrint
     if (kDebugMode) {
