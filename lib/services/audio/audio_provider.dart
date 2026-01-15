@@ -169,6 +169,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   bool _isTemporaryPlay = false;
   _TemporaryPlayState? _temporaryState;
 
+  // 基于位置检测的备选切歌定时器（解决后台播放 completed 事件丢失问题）
+  Timer? _positionCheckTimer;
+  static const Duration _positionCheckInterval = Duration(seconds: 1);
+  static const Duration _positionThreshold = Duration(milliseconds: 500);
+
   // 当前正在播放的歌曲（独立于队列，确保 UI 显示与实际播放一致）
   Track? _playingTrack;
 
@@ -228,6 +233,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         _audioService.completedStream.listen(_onTrackCompleted),
       );
 
+      // 启动基于位置检测的备选切歌机制（解决后台播放 completed 事件丢失问题）
+      _startPositionCheckTimer();
+
       // 监听队列状态变化
       _subscriptions.add(
         _queueManager.stateStream.listen(_onQueueStateChanged),
@@ -271,6 +279,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 释放资源
   @override
   void dispose() {
+    _stopPositionCheckTimer();
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
@@ -757,6 +766,37 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     } else {
       // 恢复静音前的音量
       await setVolume(_volumeBeforeMute);
+    }
+  }
+
+  // ========== 基于位置检测的备选切歌机制（解决后台播放 completed 事件丢失问题）========== //
+
+  void _startPositionCheckTimer() {
+    _stopPositionCheckTimer();
+    _positionCheckTimer = Timer.periodic(
+      _positionCheckInterval,
+      (_) => _checkPositionForAutoNext(),
+    );
+    logDebug('Position check timer started');
+  }
+
+  void _stopPositionCheckTimer() {
+    _positionCheckTimer?.cancel();
+    _positionCheckTimer = null;
+  }
+
+  void _checkPositionForAutoNext() {
+    if (!_audioService.isPlaying) return;
+
+    final position = _audioService.position;
+    final duration = _audioService.duration;
+
+    if (duration == null || duration.inMilliseconds <= 0) return;
+
+    final remaining = duration - position;
+    if (remaining <= _positionThreshold) {
+      logDebug('Position check triggered auto-next: position=$position, duration=$duration');
+      _onTrackCompleted(null);
     }
   }
 
