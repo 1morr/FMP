@@ -165,6 +165,42 @@ class AudioService with Logging {
 
   // ========== 音频源设置 ==========
 
+  /// 确保播放并等待状态确认
+  /// 在 Android 上，just_audio_background 的状态同步可能较慢，需要额外等待
+  Future<void> _ensurePlayback() async {
+    // 第一次尝试播放
+    await _player.play();
+
+    // 等待播放状态稳定（Android 上可能需要更长时间）
+    const maxAttempts = 5;
+    const delayBetweenAttempts = Duration(milliseconds: 100);
+
+    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      // 如果已经在播放，成功
+      if (_player.playing) {
+        logDebug('Playback confirmed after ${attempt + 1} attempt(s)');
+        return;
+      }
+
+      // 如果处于 ready 状态但没播放，再次尝试
+      if (_player.processingState == ProcessingState.ready) {
+        logWarning('Player ready but not playing (attempt ${attempt + 1}), retrying...');
+        await _player.play();
+      }
+
+      // 等待一段时间让状态更新
+      await Future.delayed(delayBetweenAttempts);
+    }
+
+    // 最终检查
+    if (!_player.playing && _player.processingState == ProcessingState.ready) {
+      logWarning('Final play attempt after all retries');
+      await _player.play();
+    }
+
+    logDebug('_ensurePlayback completed, playing: ${_player.playing}, state: ${_player.processingState}');
+  }
+
   /// 创建带有 MediaItem 元数据的 AudioSource（用于后台播放通知）
   AudioSource _createAudioSource(String url, {
     Map<String, String>? headers,
@@ -204,14 +240,8 @@ class AudioService with Logging {
       final duration = await _player.setAudioSource(audioSource);
       logDebug('URL loaded successfully, duration: $duration');
 
-      // 确保播放
-      await _player.play();
-
-      // 再次确认播放状态
-      if (!_player.playing) {
-        logWarning('Player not playing after play() call, retrying...');
-        await _player.play();
-      }
+      // 确保播放并等待状态确认
+      await _ensurePlayback();
 
       logDebug('Playback started, duration: $duration, playing: ${_player.playing}');
       return duration;
@@ -255,14 +285,8 @@ class AudioService with Logging {
       final audioSource = _createFileAudioSource(filePath, track: track);
       final duration = await _player.setAudioSource(audioSource);
 
-      // 确保播放
-      await _player.play();
-
-      // 再次确认播放状态
-      if (!_player.playing) {
-        logWarning('Player not playing after play() call, retrying...');
-        await _player.play();
-      }
+      // 确保播放并等待状态确认
+      await _ensurePlayback();
 
       logDebug('File playback started, duration: $duration, playing: ${_player.playing}');
       return duration;
