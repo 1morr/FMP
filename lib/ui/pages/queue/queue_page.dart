@@ -270,7 +270,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
               final isPlaying = index == currentIndex;
 
               return SizedBox(
-                key: ValueKey(track.id),
+                key: ValueKey('queue_${index}_${track.id}'),
                 height: _itemHeight,
                 child: _QueueTrackTile(
                   track: track,
@@ -332,7 +332,7 @@ class _QueueTrackTile extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Dismissible(
-      key: ValueKey('dismiss_${track.id}'),
+      key: ValueKey('dismiss_${index}_${track.id}'),
       direction: DismissDirection.endToStart,
       background: Container(
         alignment: Alignment.centerRight,

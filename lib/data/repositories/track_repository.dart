@@ -2,6 +2,8 @@ import 'package:isar/isar.dart';
 import 'dart:io';
 
 import '../models/track.dart';
+import '../models/playlist.dart';
+import '../models/play_queue.dart';
 import '../../core/logger.dart';
 
 /// Track 数据仓库
@@ -205,7 +207,213 @@ class TrackRepository with Logging {
       await deleteAll(toDelete);
       logDebug('Cleaned up ${toDelete.length} orphan tracks');
     }
-    
+
     return toDelete.length;
+  }
+
+  // ============================================================
+  // Track 引用模式支持方法
+  // ============================================================
+
+  /// 比较两个 Track 的数据完整性
+  bool _hasMoreCompleteData(Track a, Track b) {
+    int scoreA = 0, scoreB = 0;
+    if (a.audioUrl != null && a.audioUrl!.isNotEmpty) scoreA += 10;
+    if (b.audioUrl != null && b.audioUrl!.isNotEmpty) scoreB += 10;
+    if (a.thumbnailUrl != null) scoreA += 5;
+    if (b.thumbnailUrl != null) scoreB += 5;
+    if (a.durationMs != null && a.durationMs! > 0) scoreA += 3;
+    if (b.durationMs != null && b.durationMs! > 0) scoreB += 3;
+    if (a.artist != null && a.artist!.isNotEmpty) scoreA += 2;
+    if (b.artist != null && b.artist!.isNotEmpty) scoreB += 2;
+    return scoreA > scoreB;
+  }
+
+  /// 获取或创建 Track（去重模式）
+  ///
+  /// 根据 sourceId + sourceType + cid 查找现有 Track：
+  /// - 如果存在：更新可能过期的字段（audioUrl 等），返回现有记录
+  /// - 如果不存在：创建新记录
+  ///
+  /// 这是防止 Track 重复的核心方法。
+  Future<Track> getOrCreate(Track track) async {
+    // 查找现有 Track
+    final existing = await getBySourceIdAndCid(
+      track.sourceId,
+      track.sourceType,
+      cid: track.cid,
+    );
+
+    if (existing != null) {
+      logDebug('Found existing track: ${existing.title} (id: ${existing.id})');
+
+      bool needsUpdate = false;
+
+      // 更新 audioUrl（如果新的更新或现有的已过期）
+      if (track.audioUrl != null && track.audioUrl!.isNotEmpty) {
+        if (existing.audioUrl == null ||
+            existing.audioUrl!.isEmpty ||
+            !existing.hasValidAudioUrl) {
+          existing.audioUrl = track.audioUrl;
+          existing.audioUrlExpiry = track.audioUrlExpiry;
+          needsUpdate = true;
+        }
+      }
+
+      // 更新缺失的元数据
+      if (existing.thumbnailUrl == null && track.thumbnailUrl != null) {
+        existing.thumbnailUrl = track.thumbnailUrl;
+        needsUpdate = true;
+      }
+      if (existing.durationMs == null && track.durationMs != null) {
+        existing.durationMs = track.durationMs;
+        needsUpdate = true;
+      }
+      if (existing.artist == null && track.artist != null) {
+        existing.artist = track.artist;
+        needsUpdate = true;
+      }
+
+      if (needsUpdate) {
+        logDebug('Updating existing track with new data');
+        return save(existing);
+      }
+
+      return existing;
+    }
+
+    // 不存在，创建新 Track
+    logDebug('Creating new track: ${track.title}');
+    return save(track);
+  }
+
+  /// 批量获取或创建 Track（去重模式）
+  ///
+  /// 对输入列表进行去重，避免同一批次中有重复。
+  /// 返回的列表顺序与输入顺序一致。
+  Future<List<Track>> getOrCreateAll(List<Track> tracks) async {
+    if (tracks.isEmpty) return [];
+
+    logDebug('getOrCreateAll: processing ${tracks.length} tracks');
+
+    // 使用 Map 按 uniqueKey 去重，保持顺序
+    final Map<String, int> keyToIndex = {};
+    final List<Track> uniqueTracks = [];
+
+    for (var i = 0; i < tracks.length; i++) {
+      final track = tracks[i];
+      final key = track.uniqueKey;
+
+      if (!keyToIndex.containsKey(key)) {
+        keyToIndex[key] = uniqueTracks.length;
+        uniqueTracks.add(track);
+      } else {
+        // 如果已存在，检查是否有更完整的数据
+        final existingIndex = keyToIndex[key]!;
+        if (_hasMoreCompleteData(track, uniqueTracks[existingIndex])) {
+          uniqueTracks[existingIndex] = track;
+        }
+      }
+    }
+
+    // 批量处理去重后的 Track
+    final results = <Track>[];
+    for (final track in uniqueTracks) {
+      results.add(await getOrCreate(track));
+    }
+
+    // 重建原始顺序的结果列表（处理输入中的重复）
+    final finalResults = <Track>[];
+    for (final track in tracks) {
+      final key = track.uniqueKey;
+      final index = keyToIndex[key]!;
+      finalResults.add(results[index]);
+    }
+
+    logDebug('getOrCreateAll: returned ${finalResults.length} tracks (${results.length} unique)');
+    return finalResults;
+  }
+
+  /// 检查 Track 是否被引用（歌单或队列）
+  ///
+  /// 注意：此方法需要遍历所有歌单和队列，性能敏感操作请谨慎使用。
+  Future<bool> isReferenced(int trackId) async {
+    // 检查歌单
+    final playlists = await _isar.playlists.where().findAll();
+    for (final playlist in playlists) {
+      if (playlist.trackIds.contains(trackId)) {
+        return true;
+      }
+    }
+
+    // 检查播放队列
+    final queues = await _isar.playQueues.where().findAll();
+    for (final queue in queues) {
+      if (queue.trackIds.contains(trackId)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /// 检查 Track 是否有已下载的文件
+  Future<bool> hasDownloadedFiles(Track track) async {
+    for (final path in track.downloadPaths) {
+      if (await File(path).exists()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// 清理单个孤儿 Track（如果不被引用且没有下载文件）
+  ///
+  /// 返回 true 表示已删除，false 表示保留
+  Future<bool> cleanupIfOrphan(int trackId) async {
+    final track = await getById(trackId);
+    if (track == null) {
+      logDebug('Track $trackId not found, skipping cleanup');
+      return false;
+    }
+
+    // 检查是否被引用
+    if (await isReferenced(trackId)) {
+      logDebug('Track ${track.title} is still referenced, keeping');
+      return false;
+    }
+
+    // 检查是否有下载文件
+    if (await hasDownloadedFiles(track)) {
+      logDebug('Track ${track.title} has downloaded files, keeping');
+      return false;
+    }
+
+    // 可以安全删除
+    await delete(trackId);
+    logDebug('Cleaned up orphan track: ${track.title} (id: $trackId)');
+    return true;
+  }
+
+  /// 批量清理孤儿 Track
+  ///
+  /// 对给定的 Track ID 列表逐个检查并清理孤儿。
+  /// 返回实际删除的数量。
+  Future<int> cleanupOrphanTracksById(List<int> trackIds) async {
+    if (trackIds.isEmpty) return 0;
+
+    logDebug('cleanupOrphanTracksById: checking ${trackIds.length} tracks');
+    int deletedCount = 0;
+
+    for (final trackId in trackIds) {
+      if (await cleanupIfOrphan(trackId)) {
+        deletedCount++;
+      }
+    }
+
+    if (deletedCount > 0) {
+      logDebug('Cleaned up $deletedCount orphan tracks');
+    }
+    return deletedCount;
   }
 }

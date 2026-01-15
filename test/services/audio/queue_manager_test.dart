@@ -159,53 +159,55 @@ void main() {
     });
   });
 
-  group('Track model queue operations', () {
-    test('copyForQueue creates independent copy', () {
-      final original = Track()
-        ..id = 100
-        ..sourceId = 'test123'
+  group('Track model uniqueness', () {
+    test('uniqueKey includes cid when present', () {
+      final track = Track()
+        ..sourceId = 'BV123456'
         ..sourceType = SourceType.bilibili
-        ..title = 'Original Title'
-        ..artist = 'Artist Name'
-        ..durationMs = 180000;
+        ..title = 'Test Track'
+        ..cid = 12345;
 
-      final copy = original.copyForQueue();
-
-      expect(copy.id, equals(0)); // Reset to auto-increment
-      expect(copy.sourceId, equals(original.sourceId));
-      expect(copy.title, equals(original.title));
-      expect(copy.artist, equals(original.artist));
-      expect(copy.durationMs, equals(original.durationMs));
+      expect(track.uniqueKey, contains('12345'));
+      expect(track.uniqueKey, contains('BV123456'));
     });
 
-    test('copyForQueue preserves download paths', () {
-      final original = Track()
-        ..sourceId = 'test123'
+    test('uniqueKey without cid uses sourceId only', () {
+      final track = Track()
+        ..sourceId = 'BV123456'
         ..sourceType = SourceType.bilibili
-        ..title = 'Test'
-        ..playlistIds = [1, 2]
-        ..downloadPaths = ['/path/to/audio1.m4a', '/path/to/audio2.m4a'];
+        ..title = 'Test Track';
 
-      final copy = original.copyForQueue();
-
-      expect(copy.playlistIds, equals(original.playlistIds));
-      expect(copy.downloadPaths, equals(original.downloadPaths));
+      expect(track.uniqueKey, equals('bilibili:BV123456'));
     });
 
-    test('copyForQueue preserves multi-page info', () {
-      final original = Track()
-        ..sourceId = 'test123'
+    test('tracks with same source and cid have same uniqueKey', () {
+      final track1 = Track()
+        ..id = 1
+        ..sourceId = 'BV123456'
         ..sourceType = SourceType.bilibili
-        ..title = 'P01 - Introduction'
-        ..cid = 12345
-        ..pageNum = 1
-        ..parentTitle = 'Full Video';
+        ..cid = 111;
 
-      final copy = original.copyForQueue();
+      final track2 = Track()
+        ..id = 2
+        ..sourceId = 'BV123456'
+        ..sourceType = SourceType.bilibili
+        ..cid = 111;
 
-      expect(copy.cid, equals(original.cid));
-      expect(copy.pageNum, equals(original.pageNum));
-      expect(copy.parentTitle, equals(original.parentTitle));
+      expect(track1.uniqueKey, equals(track2.uniqueKey));
+    });
+
+    test('tracks with different cid have different uniqueKey', () {
+      final track1 = Track()
+        ..sourceId = 'BV123456'
+        ..sourceType = SourceType.bilibili
+        ..cid = 111;
+
+      final track2 = Track()
+        ..sourceId = 'BV123456'
+        ..sourceType = SourceType.bilibili
+        ..cid = 222;
+
+      expect(track1.uniqueKey, isNot(equals(track2.uniqueKey)));
     });
   });
 
