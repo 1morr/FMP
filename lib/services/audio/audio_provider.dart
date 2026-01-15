@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart' as just_audio;
 import '../../core/constants/app_constants.dart';
@@ -11,7 +13,9 @@ import '../../data/repositories/track_repository.dart';
 import '../../data/sources/source_provider.dart';
 import '../../providers/database_provider.dart';
 import '../../core/services/toast_service.dart';
-import 'audio_service.dart';
+import '../../main.dart' show audioHandler;
+import 'audio_handler.dart';
+import 'audio_service.dart' as audio;
 import 'queue_manager.dart';
 
 /// 播放状态
@@ -150,9 +154,10 @@ class _TemporaryPlayState {
 /// 音频控制器 - 管理所有播放相关的状态和操作
 /// 协调 AudioService（单曲播放）和 QueueManager（队列管理）
 class AudioController extends StateNotifier<PlayerState> with Logging {
-  final AudioService _audioService;
+  final audio.AudioService _audioService;
   final QueueManager _queueManager;
   final ToastService _toastService;
+  final FmpAudioHandler _audioHandler;
 
   final List<StreamSubscription> _subscriptions = [];
   bool _isInitialized = false;
@@ -178,12 +183,14 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   Track? _playingTrack;
 
   AudioController({
-    required AudioService audioService,
+    required audio.AudioService audioService,
     required QueueManager queueManager,
     required ToastService toastService,
+    required FmpAudioHandler audioHandler,
   })  : _audioService = audioService,
         _queueManager = queueManager,
         _toastService = toastService,
+        _audioHandler = audioHandler,
         super(const PlayerState());
 
   /// 是否已初始化
@@ -240,6 +247,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       _subscriptions.add(
         _queueManager.stateStream.listen(_onQueueStateChanged),
       );
+
+      // 设置 AudioHandler 回调（仅在 Android/iOS 上有效）
+      if (Platform.isAndroid || Platform.isIOS) {
+        _setupAudioHandler();
+      }
 
       // 更新初始状态
       _updateQueueState();
@@ -729,6 +741,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     logDebug('Toggling shuffle');
     await _queueManager.toggleShuffle();
     state = state.copyWith(isShuffleEnabled: _queueManager.isShuffleEnabled);
+
+    // 更新 AudioHandler 的随机播放状态（用于通知栏）
+    if (Platform.isAndroid || Platform.isIOS) {
+      _audioHandler.updateShuffleMode(_queueManager.isShuffleEnabled);
+    }
   }
 
   /// 设置循环模式
@@ -736,12 +753,22 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     logDebug('Setting loop mode: $mode');
     await _queueManager.setLoopMode(mode);
     state = state.copyWith(loopMode: mode);
+
+    // 更新 AudioHandler 的循环模式（用于通知栏）
+    if (Platform.isAndroid || Platform.isIOS) {
+      _audioHandler.updateRepeatMode(mode);
+    }
   }
 
   /// 循环切换循环模式
   Future<void> cycleLoopMode() async {
     await _queueManager.cycleLoopMode();
     state = state.copyWith(loopMode: _queueManager.loopMode);
+
+    // 更新 AudioHandler 的循环模式（用于通知栏）
+    if (Platform.isAndroid || Platform.isIOS) {
+      _audioHandler.updateRepeatMode(_queueManager.loopMode);
+    }
   }
 
   // ========== 音量 ==========
@@ -802,10 +829,72 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   // ========== 私有方法 ==========
 
+  /// 设置 AudioHandler 回调函数
+  void _setupAudioHandler() {
+    _audioHandler.onPlay = play;
+    _audioHandler.onPause = pause;
+    _audioHandler.onStop = stop;
+    _audioHandler.onSkipToNext = next;
+    _audioHandler.onSkipToPrevious = previous;
+    _audioHandler.onSeek = seekTo;
+    _audioHandler.onSetRepeatMode = (repeatMode) async {
+      final loopMode = _repeatModeToLoopMode(repeatMode);
+      await setLoopMode(loopMode);
+    };
+    _audioHandler.onSetShuffleMode = (shuffleMode) async {
+      final shouldShuffle = shuffleMode != AudioServiceShuffleMode.none;
+      if (shouldShuffle != _queueManager.isShuffleEnabled) {
+        await toggleShuffle();
+      }
+    };
+
+    // 初始化播放状态
+    _audioHandler.initPlaybackState(
+      isPlaying: _audioService.isPlaying,
+      repeatMode: _loopModeToRepeatMode(_queueManager.loopMode),
+      shuffleMode: _queueManager.isShuffleEnabled
+          ? AudioServiceShuffleMode.all
+          : AudioServiceShuffleMode.none,
+    );
+
+    logDebug('AudioHandler callbacks set up');
+  }
+
+  /// 转换 LoopMode 到 AudioServiceRepeatMode
+  AudioServiceRepeatMode _loopModeToRepeatMode(LoopMode loopMode) {
+    switch (loopMode) {
+      case LoopMode.none:
+        return AudioServiceRepeatMode.none;
+      case LoopMode.one:
+        return AudioServiceRepeatMode.one;
+      case LoopMode.all:
+        return AudioServiceRepeatMode.all;
+    }
+  }
+
+  /// 转换 AudioServiceRepeatMode 到 LoopMode
+  LoopMode _repeatModeToLoopMode(AudioServiceRepeatMode repeatMode) {
+    switch (repeatMode) {
+      case AudioServiceRepeatMode.none:
+        return LoopMode.none;
+      case AudioServiceRepeatMode.one:
+        return LoopMode.one;
+      case AudioServiceRepeatMode.all:
+      case AudioServiceRepeatMode.group:
+        return LoopMode.all;
+    }
+  }
+
   /// 更新正在播放的歌曲（UI 显示用）
   void _updatePlayingTrack(Track track) {
     _playingTrack = track;
     state = state.copyWith(playingTrack: track);
+
+    // 更新 AudioHandler 的媒体信息（用于通知栏显示）
+    if (Platform.isAndroid || Platform.isIOS) {
+      _audioHandler.updateCurrentMediaItem(track);
+    }
+
     logDebug('Updated playing track: ${track.title}');
   }
 
@@ -1003,12 +1092,36 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       isLoading: playerState.processingState == just_audio.ProcessingState.loading,
       processingState: playerState.processingState,
     );
+
+    // 更新 AudioHandler 的播放状态（用于通知栏）
+    if (Platform.isAndroid || Platform.isIOS) {
+      _audioHandler.updatePlaybackState(
+        isPlaying: playerState.playing,
+        position: _audioService.position,
+        bufferedPosition: _audioService.bufferedPosition,
+        processingState: playerState.processingState,
+        duration: _audioService.duration,
+        speed: _audioService.speed,
+      );
+    }
   }
 
   void _onPositionChanged(Duration position) {
     state = state.copyWith(position: position);
     // 更新 QueueManager 的位置（用于恢复播放）
     _queueManager.updatePosition(position);
+
+    // 更新 AudioHandler 的播放状态（用于通知栏进度显示）
+    if (Platform.isAndroid || Platform.isIOS) {
+      _audioHandler.updatePlaybackState(
+        isPlaying: _audioService.isPlaying,
+        position: position,
+        bufferedPosition: _audioService.bufferedPosition,
+        processingState: _audioService.processingState,
+        duration: _audioService.duration,
+        speed: _audioService.speed,
+      );
+    }
   }
 
   void _onDurationChanged(Duration? duration) {
@@ -1137,8 +1250,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 // ========== Providers ==========
 
 /// AudioService Provider
-final audioServiceProvider = Provider<AudioService>((ref) {
-  final service = AudioService();
+final audioServiceProvider = Provider<audio.AudioService>((ref) {
+  final service = audio.AudioService();
   ref.onDispose(() => service.dispose());
   return service;
 });
@@ -1172,6 +1285,7 @@ final audioControllerProvider =
     audioService: audioService,
     queueManager: queueManager,
     toastService: toastService,
+    audioHandler: audioHandler,
   );
 
   // 启动初始化（异步，但不阻塞）

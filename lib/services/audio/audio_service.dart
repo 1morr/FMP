@@ -1,6 +1,6 @@
 import 'dart:async';
+import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:just_audio_background/just_audio_background.dart';
 import 'package:audio_session/audio_session.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
