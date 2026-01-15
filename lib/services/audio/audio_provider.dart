@@ -818,6 +818,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
     state = state.copyWith(isLoading: true, error: null);
     
+    // 立即停止当前播放，避免在获取新 URL 期间继续播放上一首
+    // 这确保了 UI 状态和实际播放状态的一致性
+    await _audioService.stop();
+    
     // 立即更新 playingTrack，确保与 queueTrack 同步
     // 这样即使播放失败，UI 也能正确显示"下一首"等信息
     _updatePlayingTrack(track);
@@ -858,16 +862,6 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         logDebug('Play request $requestId superseded after playUrl, stopping');
         await _audioService.stop();
         return;
-      }
-
-      // 等待一小段时间确保播放状态稳定
-      await Future.delayed(const Duration(milliseconds: 100));
-
-      // 如果还没播放，再次尝试
-      if (!_audioService.isPlaying &&
-          _audioService.processingState == just_audio.ProcessingState.ready) {
-        logWarning('Player ready but not playing, calling play() again');
-        await _audioService.play();
       }
 
       // 预取下一首
