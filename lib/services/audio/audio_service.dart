@@ -20,6 +20,9 @@ class AudioService with Logging {
   // duck 前的音量（用于恢复）
   double _volumeBeforeDuck = 1.0;
 
+  // 中断前是否正在播放（用于判断中断结束后是否恢复播放）
+  bool _wasPlayingBeforeInterruption = false;
+
   // ========== 状态流 ==========
   Stream<PlayerState> get playerStateStream => _player.playerStateStream;
   Stream<Duration> get positionStream => _player.positionStream;
@@ -51,6 +54,7 @@ class AudioService with Logging {
     _subscriptions.add(
       session.interruptionEventStream.listen((event) {
         if (event.begin) {
+          // 中断开始
           switch (event.type) {
             case AudioInterruptionType.duck:
               // 记住 duck 前的音量，以便正确恢复
@@ -59,17 +63,30 @@ class AudioService with Logging {
               break;
             case AudioInterruptionType.pause:
             case AudioInterruptionType.unknown:
-              _player.pause();
+              // 记住中断前是否正在播放，只有正在播放时才在中断结束后恢复
+              _wasPlayingBeforeInterruption = _player.playing;
+              if (_wasPlayingBeforeInterruption) {
+                logDebug('Audio interrupted while playing, will resume after interruption ends');
+                _player.pause();
+              }
               break;
           }
         } else {
+          // 中断结束
           switch (event.type) {
             case AudioInterruptionType.duck:
               // 恢复到 duck 前的音量
               _player.setVolume(_volumeBeforeDuck);
               break;
             case AudioInterruptionType.pause:
-              _player.play();
+              // 只有中断前正在播放时才恢复播放
+              if (_wasPlayingBeforeInterruption) {
+                logDebug('Interruption ended, resuming playback');
+                _player.play();
+              } else {
+                logDebug('Interruption ended, but was not playing before, staying paused');
+              }
+              _wasPlayingBeforeInterruption = false;
               break;
             case AudioInterruptionType.unknown:
               break;
