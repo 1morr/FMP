@@ -116,10 +116,16 @@ class AudioService with Logging {
   Future<void> play() => _player.play();
 
   /// 暂停
-  Future<void> pause() => _player.pause();
+  Future<void> pause() {
+    _cancelEnsurePlayback(); // 取消任何正在进行的播放确认
+    return _player.pause();
+  }
 
   /// 停止
-  Future<void> stop() => _player.stop();
+  Future<void> stop() {
+    _cancelEnsurePlayback(); // 取消任何正在进行的播放确认
+    return _player.stop();
+  }
 
   /// 切换播放/暂停
   Future<void> togglePlayPause() async {
@@ -165,40 +171,41 @@ class AudioService with Logging {
 
   // ========== 音频源设置 ==========
 
-  /// 确保播放并等待状态确认
-  /// 在 Android 上，just_audio_background 的状态同步可能较慢，需要额外等待
+  // 用于取消 _ensurePlayback 的重试逻辑
+  bool _playbackCancelled = false;
+
+  /// 确保播放开始
+  /// 在 Android 上，setAudioSource 后可能需要等待播放器准备好
   Future<void> _ensurePlayback() async {
-    // 第一次尝试播放
+    _playbackCancelled = false;
+    
+    // 等待播放器进入 ready 状态（最多等待 2 秒）
+    if (_player.processingState != ProcessingState.ready) {
+      logDebug('Waiting for player to be ready, current state: ${_player.processingState}');
+      try {
+        await _player.playerStateStream
+            .where((state) => state.processingState == ProcessingState.ready)
+            .first
+            .timeout(const Duration(seconds: 2));
+      } catch (e) {
+        logWarning('Timeout waiting for ready state: ${_player.processingState}');
+      }
+    }
+
+    // 检查是否被取消（用户可能已点击暂停）
+    if (_playbackCancelled) {
+      logDebug('Playback cancelled, not calling play()');
+      return;
+    }
+
+    // 调用播放
     await _player.play();
-
-    // 等待播放状态稳定（Android 上可能需要更长时间）
-    const maxAttempts = 5;
-    const delayBetweenAttempts = Duration(milliseconds: 100);
-
-    for (var attempt = 0; attempt < maxAttempts; attempt++) {
-      // 如果已经在播放，成功
-      if (_player.playing) {
-        logDebug('Playback confirmed after ${attempt + 1} attempt(s)');
-        return;
-      }
-
-      // 如果处于 ready 状态但没播放，再次尝试
-      if (_player.processingState == ProcessingState.ready) {
-        logWarning('Player ready but not playing (attempt ${attempt + 1}), retrying...');
-        await _player.play();
-      }
-
-      // 等待一段时间让状态更新
-      await Future.delayed(delayBetweenAttempts);
-    }
-
-    // 最终检查
-    if (!_player.playing && _player.processingState == ProcessingState.ready) {
-      logWarning('Final play attempt after all retries');
-      await _player.play();
-    }
-
     logDebug('_ensurePlayback completed, playing: ${_player.playing}, state: ${_player.processingState}');
+  }
+
+  /// 取消正在进行的 _ensurePlayback 重试
+  void _cancelEnsurePlayback() {
+    _playbackCancelled = true;
   }
 
   /// 创建带有 MediaItem 元数据的 AudioSource（用于后台播放通知）
