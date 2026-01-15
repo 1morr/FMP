@@ -305,7 +305,8 @@ class QueueManager with Logging {
     _tracks.clear();
     _shuffleOrder.clear();
 
-    final savedTrack = await _trackRepository.save(track);
+    // 使用 getOrCreate 避免重复创建 Track
+    final savedTrack = await _trackRepository.getOrCreate(track);
     _tracks.add(savedTrack);
     _currentIndex = 0;
 
@@ -323,7 +324,8 @@ class QueueManager with Logging {
     _tracks.clear();
     _shuffleOrder.clear();
 
-    final savedTracks = await _trackRepository.saveAll(tracks);
+    // 使用 getOrCreateAll 避免重复创建 Track
+    final savedTracks = await _trackRepository.getOrCreateAll(tracks);
     _tracks.addAll(savedTracks);
     _currentIndex = startIndex.clamp(0, _tracks.length - 1);
 
@@ -344,7 +346,8 @@ class QueueManager with Logging {
     _tracks.clear();
     // 不清空 shuffle order，由外部通过 setShuffleState 设置
 
-    final savedTracks = await _trackRepository.saveAll(tracks);
+    // 使用 getOrCreateAll 避免重复创建 Track
+    final savedTracks = await _trackRepository.getOrCreateAll(tracks);
     _tracks.addAll(savedTracks);
     _currentIndex = startIndex.clamp(0, _tracks.length - 1);
 
@@ -356,8 +359,8 @@ class QueueManager with Logging {
   Future<void> add(Track track) async {
     logDebug('add: ${track.title}');
 
-    // 创建副本以确保每次添加都创建新的数据库记录
-    final savedTrack = await _trackRepository.save(track.copyForQueue());
+    // 使用 getOrCreate 避免重复创建 Track
+    final savedTrack = await _trackRepository.getOrCreate(track);
     _tracks.add(savedTrack);
 
     // 更新 shuffle order
@@ -379,9 +382,8 @@ class QueueManager with Logging {
     logDebug('addAll: ${tracks.length} tracks');
     if (tracks.isEmpty) return;
 
-    // 创建副本以确保每次添加都创建新的数据库记录
-    final copies = tracks.map((t) => t.copyForQueue()).toList();
-    final savedTracks = await _trackRepository.saveAll(copies);
+    // 使用 getOrCreateAll 避免重复创建 Track
+    final savedTracks = await _trackRepository.getOrCreateAll(tracks);
     final startIndex = _tracks.length;
     _tracks.addAll(savedTracks);
 
@@ -410,8 +412,8 @@ class QueueManager with Logging {
       _adjustShuffleOrderForInsert(index);
     }
 
-    // 创建副本以确保每次添加都创建新的数据库记录
-    final savedTrack = await _trackRepository.save(track.copyForQueue());
+    // 使用 getOrCreate 避免重复创建 Track
+    final savedTrack = await _trackRepository.getOrCreate(track);
     _tracks.insert(index, savedTrack);
 
     // 调整当前索引
@@ -440,8 +442,12 @@ class QueueManager with Logging {
   }
 
   /// 移除指定位置的歌曲
-  Future<void> removeAt(int index) async {
+  ///
+  /// [cleanup] 如果为 true，会检查并清理孤儿 Track
+  Future<void> removeAt(int index, {bool cleanup = false}) async {
     if (index < 0 || index >= _tracks.length) return;
+
+    final removedTrack = _tracks[index];
 
     // 从 shuffle order 中移除
     if (isShuffleEnabled) {
@@ -459,6 +465,11 @@ class QueueManager with Logging {
 
     await _persistQueue();
     _notifyStateChanged();
+
+    // 可选：清理孤儿 Track
+    if (cleanup) {
+      await _trackRepository.cleanupIfOrphan(removedTrack.id);
+    }
   }
 
   /// 移除指定歌曲
@@ -544,8 +555,13 @@ class QueueManager with Logging {
   }
 
   /// 清空队列
-  Future<void> clear() async {
+  ///
+  /// [cleanupOrphans] 如果为 true，会检查并清理所有孤儿 Track
+  Future<void> clear({bool cleanupOrphans = false}) async {
     logInfo('Clearing queue');
+
+    // 保存要清理的 Track ID 列表
+    final trackIdsToClean = cleanupOrphans ? _tracks.map((t) => t.id).toList() : <int>[];
 
     _tracks.clear();
     _currentIndex = 0;
@@ -558,6 +574,11 @@ class QueueManager with Logging {
     }
 
     _notifyStateChanged();
+
+    // 可选：清理孤儿 Track
+    if (cleanupOrphans && trackIdsToClean.isNotEmpty) {
+      await _trackRepository.cleanupOrphanTracksById(trackIdsToClean);
+    }
   }
 
   // ========== 播放模式 ==========
