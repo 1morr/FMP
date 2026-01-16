@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'providers/database_provider.dart';
 import 'providers/theme_provider.dart';
+import 'providers/windows_desktop_provider.dart';
 import 'ui/router.dart';
 import 'ui/theme/app_theme.dart';
 
@@ -55,6 +58,11 @@ class FMPApp extends ConsumerWidget {
       data: (_) {
         // 触发后台清理任务（不阻塞 UI）
         ref.read(startupCleanupProvider);
+
+        // Windows: 初始化桌面特性（托盘、快捷键等）
+        if (Platform.isWindows) {
+          ref.watch(windowsDesktopServiceProvider);
+        }
 
         // 从设置中获取主题模式和自定义颜色
         final themeState = ref.watch(themeProvider);
