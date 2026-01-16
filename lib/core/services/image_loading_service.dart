@@ -300,7 +300,12 @@ class _FadeInImageState extends State<_FadeInImage>
           setState(() {
             _isLoaded = true;
           });
-          _controller.forward();
+          // 如果是同步加載（從緩存），跳過動畫直接顯示
+          if (synchronousCall) {
+            _controller.value = 1.0;
+          } else {
+            _controller.forward();
+          }
         }
       },
       onError: (Object error, StackTrace? stackTrace) {
