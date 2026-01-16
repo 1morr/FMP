@@ -118,3 +118,5 @@ logs/
 ~$*
 .claude/settings.local copy.json
 tmpclaude*
+# Git worktrees
+.worktrees/
