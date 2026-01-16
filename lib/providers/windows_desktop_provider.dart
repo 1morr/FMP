@@ -29,8 +29,8 @@ final windowsDesktopServiceProvider = Provider<WindowsDesktopService?>((ref) {
   service.onPrevious = () => controller.previous();
   service.onStop = () => controller.stop();
 
-  // 初始化服务
-  service.initialize();
+  // 初始化服务（不自动注册快捷键，由 globalHotkeysEnabledProvider 控制）
+  service.initialize(enableHotkeys: false);
 
   // 清理
   ref.onDispose(() {
