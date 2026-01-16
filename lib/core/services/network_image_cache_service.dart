@@ -33,13 +33,19 @@ class NetworkImageCacheService {
   static int _loadCounter = 0;
 
   /// 每加载多少张图片后检查一次缓存
-  static const int _checkInterval = 20;
+  static const int _checkInterval = 5;
 
   /// 是否正在执行清理
   static bool _isTrimming = false;
 
   /// 防抖定时器
   static Timer? _debounceTimer;
+
+  /// 缓存大小估算值（字节），用于快速判断是否需要清理
+  static int _estimatedCacheSizeBytes = -1;
+
+  /// 预防性清理阈值（90%）
+  static const double _preemptiveThreshold = 0.9;
 
   /// 设置最大缓存大小（MB）
   ///
@@ -70,9 +76,26 @@ class NetworkImageCacheService {
 
   /// 通知图片已加载
   ///
+  /// [estimatedFileSize] 可选的文件大小估算值（字节），用于快速判断是否需要清理
   /// 每次图片加载完成时调用此方法，会定期触发缓存清理检查
-  static void onImageLoaded() {
+  static void onImageLoaded({int estimatedFileSize = 50000}) {
     _loadCounter++;
+
+    // 更新缓存大小估算值
+    if (_estimatedCacheSizeBytes >= 0) {
+      _estimatedCacheSizeBytes += estimatedFileSize;
+
+      // 检查是否接近限制，需要预防性清理
+      final maxSizeBytes = _maxCacheSizeMB * 1024 * 1024;
+      final threshold = (maxSizeBytes * _preemptiveThreshold).toInt();
+
+      if (_estimatedCacheSizeBytes >= threshold) {
+        // 接近限制，立即触发清理
+        _loadCounter = 0;
+        _scheduleTrimmingCheck(immediate: true);
+        return;
+      }
+    }
 
     // 每加载 _checkInterval 张图片后检查一次
     if (_loadCounter >= _checkInterval) {
@@ -82,14 +105,19 @@ class NetworkImageCacheService {
   }
 
   /// 调度缓存清理检查（带防抖）
-  static void _scheduleTrimmingCheck() {
+  static void _scheduleTrimmingCheck({bool immediate = false}) {
     // 取消之前的定时器
     _debounceTimer?.cancel();
 
-    // 使用防抖，避免短时间内多次触发
-    _debounceTimer = Timer(const Duration(seconds: 2), () {
+    if (immediate) {
+      // 立即执行（用于预防性清理）
       _performTrimmingCheck();
-    });
+    } else {
+      // 使用防抖，避免短时间内多次触发
+      _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+        _performTrimmingCheck();
+      });
+    }
   }
 
   /// 执行缓存清理检查
@@ -99,9 +127,18 @@ class NetworkImageCacheService {
     _isTrimming = true;
     try {
       await trimCacheIfNeeded(_maxCacheSizeMB);
+      // 更新估算值为实际值
+      _estimatedCacheSizeBytes = await getCacheSizeBytes();
     } finally {
       _isTrimming = false;
     }
+  }
+
+  /// 初始化缓存大小估算值
+  ///
+  /// 应该在应用启动时调用，以便后续能够进行预防性清理
+  static Future<void> initializeCacheSizeEstimate() async {
+    _estimatedCacheSizeBytes = await getCacheSizeBytes();
   }
 
   /// 清空所有缓存
@@ -130,6 +167,9 @@ class NetworkImageCacheService {
 
     // 重置缓存管理器，让它重新初始化
     _cacheManager = null;
+
+    // 重置估算值
+    _estimatedCacheSizeBytes = 0;
   }
 
   /// 删除指定 URL 的缓存

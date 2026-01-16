@@ -56,8 +56,9 @@ class DownloadSettingsNotifier extends StateNotifier<DownloadSettingsState> {
     // 同步缓存大小限制到 NetworkImageCacheService
     NetworkImageCacheService.setMaxCacheSizeMB(_settings!.maxCacheSizeMB);
 
-    // 启动时检查并清理超出限制的缓存
-    NetworkImageCacheService.trimCacheIfNeeded(_settings!.maxCacheSizeMB);
+    // 启动时检查并清理超出限制的缓存，并初始化缓存大小估算值
+    await NetworkImageCacheService.trimCacheIfNeeded(_settings!.maxCacheSizeMB);
+    await NetworkImageCacheService.initializeCacheSizeEstimate();
   }
 
   /// 设置最大并发下载数
