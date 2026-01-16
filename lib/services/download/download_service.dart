@@ -57,6 +57,15 @@ class DownloadService with Logging {
   
   /// 调度流订阅
   StreamSubscription<void>? _scheduleSubscription;
+  
+  /// 全局进度更新节流（避免多个并发下载时淹没 Windows 消息队列）
+  DateTime _lastGlobalProgressUpdate = DateTime.now();
+  
+  /// 待发送的进度更新（用于批量处理）
+  final Map<int, DownloadProgressEvent> _pendingProgressUpdates = {};
+  
+  /// 进度更新定时器
+  Timer? _progressUpdateTimer;
 
   DownloadService({
     required DownloadRepository downloadRepository,
@@ -93,6 +102,7 @@ class DownloadService with Logging {
   void dispose() {
     _schedulerTimer?.cancel();
     _scheduleSubscription?.cancel();
+    _progressUpdateTimer?.cancel();
     _scheduleController.close();
     _progressController.close();
     _completionController.close();
@@ -102,6 +112,49 @@ class DownloadService with Logging {
       cancelToken.cancel('Service disposed');
     }
     _activeCancelTokens.clear();
+    _pendingProgressUpdates.clear();
+  }
+  
+  /// 刷新待发送的进度更新（在主线程调用）
+  void _flushPendingProgressUpdates() {
+    if (_pendingProgressUpdates.isEmpty) return;
+    
+    // 复制并清空待发送列表
+    final updates = Map<int, DownloadProgressEvent>.from(_pendingProgressUpdates);
+    _pendingProgressUpdates.clear();
+    
+    // 批量发送所有待处理的进度更新
+    for (final event in updates.values) {
+      _progressController.add(event);
+    }
+    
+    _lastGlobalProgressUpdate = DateTime.now();
+  }
+  
+  /// 添加进度更新（使用全局节流）
+  void _addProgressUpdate(DownloadProgressEvent event) {
+    // 将更新放入待发送队列（相同 taskId 会覆盖旧的更新）
+    _pendingProgressUpdates[event.taskId] = event;
+    
+    final now = DateTime.now();
+    final timeSinceLastUpdate = now.difference(_lastGlobalProgressUpdate);
+    
+    // 全局节流：最多每 300ms 发送一次所有待处理的更新
+    // 这比每个下载 500ms 更激进，但因为是全局的所以总更新频率更低
+    const globalThrottleInterval = Duration(milliseconds: 300);
+    
+    if (timeSinceLastUpdate >= globalThrottleInterval) {
+      // 立即刷新
+      _progressUpdateTimer?.cancel();
+      _flushPendingProgressUpdates();
+    } else {
+      // 设置定时器在节流间隔后刷新
+      _progressUpdateTimer?.cancel();
+      _progressUpdateTimer = Timer(
+        globalThrottleInterval - timeSinceLastUpdate,
+        _flushPendingProgressUpdates,
+      );
+    }
   }
 
   /// 启动调度器（事件驱动 + 周期检查）
@@ -424,10 +477,8 @@ class DownloadService with Logging {
       task.tempFilePath = tempPath;
       await _downloadRepository.saveTask(task);
       
-      // 进度更新节流：避免过于频繁的 UI 更新导致 Windows 线程问题
-      DateTime lastProgressUpdate = DateTime.now();
+      // 进度更新变量（用于检测显著变化）
       double lastProgress = 0.0;
-      const progressUpdateInterval = AppConstants.downloadProgressThrottleInterval;
       
       // 准备下载选项（支持断点续传）
       final options = Options(
@@ -448,21 +499,20 @@ class DownloadService with Logging {
           
           if (actualTotal > 0) {
             final progress = actualReceived / actualTotal;
-            final now = DateTime.now();
             
-            // 只在以下情况更新进度：
-            // 1. 距离上次更新超过 500ms
-            // 2. 进度变化超过 5%
-            // 3. 下载完成 (100%)
-            final shouldUpdate = now.difference(lastProgressUpdate) >= progressUpdateInterval ||
-                (progress - lastProgress) >= 0.05 ||
-                progress >= 1.0;
+            // 只在进度变化超过 2% 或下载完成时更新
+            // 这是第一层过滤，减少需要处理的更新数量
+            final shouldUpdate = (progress - lastProgress) >= 0.02 || progress >= 1.0;
             
             if (shouldUpdate) {
-              lastProgressUpdate = now;
               lastProgress = progress;
+              
+              // 更新数据库（这是本地操作，不会导致线程问题）
               _downloadRepository.updateTaskProgress(task.id, progress, actualReceived, actualTotal);
-              _progressController.add(DownloadProgressEvent(
+              
+              // 使用全局节流机制发送 UI 更新
+              // 这会批量处理所有下载任务的进度，避免淹没 Windows 消息队列
+              _addProgressUpdate(DownloadProgressEvent(
                 taskId: task.id,
                 trackId: task.trackId,
                 progress: progress,
