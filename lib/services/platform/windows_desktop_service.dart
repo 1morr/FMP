@@ -20,6 +20,7 @@ class WindowsDesktopService with TrayListener, WindowListener {
 
   bool _isInitialized = false;
   bool _isMinimizedToTray = false;
+  bool _hotkeysRegistered = false;
 
   // 回调函数，由外部设置
   VoidCallback? onPlayPause;
@@ -34,16 +35,20 @@ class WindowsDesktopService with TrayListener, WindowListener {
   Track? _currentTrack;
 
   /// 初始化 Windows 桌面特性
-  Future<void> initialize() async {
+  /// 
+  /// [enableHotkeys] - 是否启用全局快捷键
+  Future<void> initialize({bool enableHotkeys = true}) async {
     if (_isInitialized) return;
     if (!Platform.isWindows) return;
 
     await _initTray();
-    await _initHotkeys();
+    if (enableHotkeys) {
+      await registerHotkeys();
+    }
     _initWindowListener();
 
     _isInitialized = true;
-    debugPrint('[WindowsDesktopService] Initialized');
+    debugPrint('[WindowsDesktopService] Initialized (hotkeys: $enableHotkeys)');
   }
 
   /// 销毁资源
@@ -175,7 +180,14 @@ class WindowsDesktopService with TrayListener, WindowListener {
   // 全局快捷键
   // ============================================================
 
-  Future<void> _initHotkeys() async {
+  /// 快捷键是否已注册
+  bool get hotkeysRegistered => _hotkeysRegistered;
+
+  /// 注册全局快捷键
+  Future<void> registerHotkeys() async {
+    if (_hotkeysRegistered) return;
+    if (!Platform.isWindows) return;
+
     try {
       // 播放/暂停: Ctrl + Alt + Space
       await hotKeyManager.register(
@@ -229,9 +241,33 @@ class WindowsDesktopService with TrayListener, WindowListener {
         },
       );
 
+      _hotkeysRegistered = true;
       debugPrint('[WindowsDesktopService] Hotkeys registered');
     } catch (e) {
       debugPrint('[WindowsDesktopService] Failed to register hotkeys: $e');
+    }
+  }
+
+  /// 注销全局快捷键
+  Future<void> unregisterHotkeys() async {
+    if (!_hotkeysRegistered) return;
+    if (!Platform.isWindows) return;
+
+    try {
+      await hotKeyManager.unregisterAll();
+      _hotkeysRegistered = false;
+      debugPrint('[WindowsDesktopService] Hotkeys unregistered');
+    } catch (e) {
+      debugPrint('[WindowsDesktopService] Failed to unregister hotkeys: $e');
+    }
+  }
+
+  /// 设置快捷键启用状态
+  Future<void> setHotkeysEnabled(bool enabled) async {
+    if (enabled) {
+      await registerHotkeys();
+    } else {
+      await unregisterHotkeys();
     }
   }
 

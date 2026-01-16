@@ -9,14 +9,13 @@ import 'windows_desktop_provider.dart';
 /// 最小化到托盘设置 Provider
 final minimizeToTrayProvider = StateNotifierProvider<_MinimizeToTrayNotifier, bool>((ref) {
   final settingsRepo = ref.watch(settingsRepositoryProvider);
-  return _MinimizeToTrayNotifier(settingsRepo, ref);
+  return _MinimizeToTrayNotifier(settingsRepo);
 });
 
 class _MinimizeToTrayNotifier extends StateNotifier<bool> {
   final SettingsRepository _repo;
-  final Ref _ref;
 
-  _MinimizeToTrayNotifier(this._repo, this._ref) : super(true) {
+  _MinimizeToTrayNotifier(this._repo) : super(true) {
     _load();
   }
 
@@ -55,6 +54,8 @@ class _GlobalHotkeysNotifier extends StateNotifier<bool> {
   Future<void> _load() async {
     final settings = await _repo.get();
     state = settings.enableGlobalHotkeys;
+    // 应用设置到桌面服务
+    await _desktopService?.setHotkeysEnabled(state);
   }
 
   Future<void> toggle() async {
@@ -62,7 +63,7 @@ class _GlobalHotkeysNotifier extends StateNotifier<bool> {
     final settings = await _repo.get();
     settings.enableGlobalHotkeys = state;
     await _repo.save(settings);
-    // 注意：重新启用/禁用快捷键需要重启应用才能生效
-    // 这是 hotkey_manager 的限制
+    // 立即应用设置
+    await _desktopService?.setHotkeysEnabled(state);
   }
 }
