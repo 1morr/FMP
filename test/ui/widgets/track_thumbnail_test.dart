@@ -114,12 +114,11 @@ void main() {
 
       // NowPlayingIndicator should not be present when disabled
       // We check that the Stack only has one child (the image)
+      // Note: Positioned.child is non-nullable in Flutter, so all Positioned widgets have children
       final stack = tester.widget<Stack>(find.byType(Stack).first);
-      final nonNullChildren = stack.children
-          .where((widget) => widget is! Positioned || widget.child != null)
-          .toList();
+      final childCount = stack.children.length;
       // Only the image should be visible (indicator hidden)
-      expect(nonNullChildren.length, equals(1));
+      expect(childCount, equals(1));
     });
 
     testWidgets('applies default size of 48', (tester) async {

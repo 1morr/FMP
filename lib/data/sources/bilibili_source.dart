@@ -18,7 +18,6 @@ class BilibiliSource extends BaseSource with Logging {
   static const String _searchApi = '$_apiBase/x/web-interface/search/type';
   static const String _favListApi = '$_apiBase/x/v3/fav/resource/list';
   static const String _replyApi = '$_apiBase/x/v2/reply';
-  static const String _statApi = '$_apiBase/x/web-interface/archive/stat';
 
   BilibiliSource() {
     // 生成 buvid3 Cookie（用于绕过 412 风控）

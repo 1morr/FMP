@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
 import 'package:fmp/data/sources/bilibili_source.dart';
@@ -24,17 +25,17 @@ void main() {
           expect(audioUrl, isNotNull);
           expect(audioUrl, isNotEmpty);
           expect(audioUrl, contains('http'));
-          print('Successfully fetched audio URL: ${audioUrl.substring(0, 80)}...');
+          debugPrint('Successfully fetched audio URL: ${audioUrl.substring(0, 80)}...');
         } on BilibiliApiException catch (e) {
           // 如果视频不可用，跳过测试（可能是地区限制或API限制）
           if (e.isUnavailable || e.code == -404) {
-            print('Video unavailable (code: ${e.code}), skipping test: ${e.message}');
+            debugPrint('Video unavailable (code: ${e.code}), skipping test: ${e.message}');
             return;
           }
           rethrow;
         } on DioException catch (e) {
           // 网络错误时跳过
-          print('Network error, skipping test: ${e.message}');
+          debugPrint('Network error, skipping test: ${e.message}');
           return;
         }
       });
@@ -77,15 +78,15 @@ void main() {
             refreshedTrack.audioUrlExpiry!.isAfter(DateTime.now()),
             isTrue,
           );
-          print('Successfully refreshed audio URL');
+          debugPrint('Successfully refreshed audio URL');
         } on BilibiliApiException catch (e) {
           if (e.isUnavailable || e.code == -404) {
-            print('Video unavailable (code: ${e.code}), skipping test: ${e.message}');
+            debugPrint('Video unavailable (code: ${e.code}), skipping test: ${e.message}');
             return;
           }
           rethrow;
         } on DioException catch (e) {
-          print('Network error, skipping test: ${e.message}');
+          debugPrint('Network error, skipping test: ${e.message}');
           return;
         }
       });

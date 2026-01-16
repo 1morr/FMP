@@ -119,40 +119,34 @@ class _ThemeModeListTile extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('选择主题'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RadioListTile<ThemeMode>(
-              title: const Text('跟随系统'),
-              secondary: const Icon(Icons.brightness_auto),
-              value: ThemeMode.system,
-              groupValue: currentMode,
-              onChanged: (value) {
-                ref.read(themeProvider.notifier).setThemeMode(value!);
-                Navigator.pop(context);
-              },
-            ),
-            RadioListTile<ThemeMode>(
-              title: const Text('浅色'),
-              secondary: const Icon(Icons.light_mode),
-              value: ThemeMode.light,
-              groupValue: currentMode,
-              onChanged: (value) {
-                ref.read(themeProvider.notifier).setThemeMode(value!);
-                Navigator.pop(context);
-              },
-            ),
-            RadioListTile<ThemeMode>(
-              title: const Text('深色'),
-              secondary: const Icon(Icons.dark_mode),
-              value: ThemeMode.dark,
-              groupValue: currentMode,
-              onChanged: (value) {
-                ref.read(themeProvider.notifier).setThemeMode(value!);
-                Navigator.pop(context);
-              },
-            ),
-          ],
+        content: RadioGroup<ThemeMode>(
+          groupValue: currentMode,
+          onChanged: (value) {
+            if (value != null) {
+              ref.read(themeProvider.notifier).setThemeMode(value);
+            }
+            Navigator.pop(context);
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RadioListTile<ThemeMode>(
+                title: const Text('跟随系统'),
+                secondary: const Icon(Icons.brightness_auto),
+                value: ThemeMode.system,
+              ),
+              RadioListTile<ThemeMode>(
+                title: const Text('浅色'),
+                secondary: const Icon(Icons.light_mode),
+                value: ThemeMode.light,
+              ),
+              RadioListTile<ThemeMode>(
+                title: const Text('深色'),
+                secondary: const Icon(Icons.dark_mode),
+                value: ThemeMode.dark,
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -503,22 +497,24 @@ class _ConcurrentDownloadsListTile extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('同时下载数量'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: List.generate(5, (index) {
-            final value = index + 1;
-            return RadioListTile<int>(
-              title: Text('$value 个'),
-              value: value,
-              groupValue: current,
-              onChanged: (value) {
-                if (value != null) {
-                  ref.read(downloadSettingsProvider.notifier).setMaxConcurrentDownloads(value);
-                }
-                Navigator.pop(context);
-              },
-            );
-          }),
+        content: RadioGroup<int>(
+          groupValue: current,
+          onChanged: (value) {
+            if (value != null) {
+              ref.read(downloadSettingsProvider.notifier).setMaxConcurrentDownloads(value);
+            }
+            Navigator.pop(context);
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(5, (index) {
+              final value = index + 1;
+              return RadioListTile<int>(
+                title: Text('$value 个'),
+                value: value,
+              );
+            }),
+          ),
         ),
         actions: [
           TextButton(
@@ -557,46 +553,34 @@ class _DownloadImageOptionListTile extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('下载图片'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RadioListTile<DownloadImageOption>(
-              title: const Text('关闭'),
-              subtitle: const Text('不下载任何图片'),
-              value: DownloadImageOption.none,
-              groupValue: current,
-              onChanged: (value) {
-                if (value != null) {
-                  ref.read(downloadSettingsProvider.notifier).setDownloadImageOption(value);
-                }
-                Navigator.pop(context);
-              },
-            ),
-            RadioListTile<DownloadImageOption>(
-              title: const Text('仅封面'),
-              subtitle: const Text('下载视频封面'),
-              value: DownloadImageOption.coverOnly,
-              groupValue: current,
-              onChanged: (value) {
-                if (value != null) {
-                  ref.read(downloadSettingsProvider.notifier).setDownloadImageOption(value);
-                }
-                Navigator.pop(context);
-              },
-            ),
-            RadioListTile<DownloadImageOption>(
-              title: const Text('封面和头像'),
-              subtitle: const Text('下载视频封面和UP主头像'),
-              value: DownloadImageOption.coverAndAvatar,
-              groupValue: current,
-              onChanged: (value) {
-                if (value != null) {
-                  ref.read(downloadSettingsProvider.notifier).setDownloadImageOption(value);
-                }
-                Navigator.pop(context);
-              },
-            ),
-          ],
+        content: RadioGroup<DownloadImageOption>(
+          groupValue: current,
+          onChanged: (value) {
+            if (value != null) {
+              ref.read(downloadSettingsProvider.notifier).setDownloadImageOption(value);
+            }
+            Navigator.pop(context);
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RadioListTile<DownloadImageOption>(
+                title: const Text('关闭'),
+                subtitle: const Text('不下载任何图片'),
+                value: DownloadImageOption.none,
+              ),
+              RadioListTile<DownloadImageOption>(
+                title: const Text('仅封面'),
+                subtitle: const Text('下载视频封面'),
+                value: DownloadImageOption.coverOnly,
+              ),
+              RadioListTile<DownloadImageOption>(
+                title: const Text('封面和头像'),
+                subtitle: const Text('下载视频封面和UP主头像'),
+                value: DownloadImageOption.coverAndAvatar,
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -640,21 +624,23 @@ class _ImageCacheSizeListTile extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('图片缓存大小'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: options.map((sizeMB) {
-            return RadioListTile<int>(
-              title: Text(_formatCacheSize(sizeMB)),
-              value: sizeMB,
-              groupValue: current,
-              onChanged: (value) {
-                if (value != null) {
-                  ref.read(downloadSettingsProvider.notifier).setMaxCacheSizeMB(value);
-                }
-                Navigator.pop(context);
-              },
-            );
-          }).toList(),
+        content: RadioGroup<int>(
+          groupValue: current,
+          onChanged: (value) {
+            if (value != null) {
+              ref.read(downloadSettingsProvider.notifier).setMaxCacheSizeMB(value);
+            }
+            Navigator.pop(context);
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: options.map((sizeMB) {
+              return RadioListTile<int>(
+                title: Text(_formatCacheSize(sizeMB)),
+                value: sizeMB,
+              );
+            }).toList(),
+          ),
         ),
         actions: [
           TextButton(
