@@ -3,6 +3,7 @@ import '../../data/models/playlist.dart';
 import 'package:isar/isar.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/extensions/playlist_extensions.dart';
 import '../../core/extensions/track_extensions.dart';
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
@@ -285,7 +286,7 @@ class PlaylistService with Logging {
   /// 获取歌单封面数据（包含本地路径和网络 URL）
   ///
   /// 优先级：
-  /// 1. 预计算的本地歌单封面路径（playlist.coverLocalPath）
+  /// 1. 本地歌单封面（通过扩展方法检查文件实际存在）
   /// 2. 第一首已下载歌曲的本地封面
   /// 3. 歌单的网络封面 URL
   /// 4. 第一首歌曲的网络封面 URL
@@ -296,15 +297,11 @@ class PlaylistService with Logging {
     String? localPath;
     String? networkUrl;
 
-    // 使用预计算的本地封面路径
-    if (playlist.coverLocalPath != null) {
-      localPath = playlist.coverLocalPath;
-    }
+    // 使用扩展方法检查本地封面是否实际存在
+    localPath = playlist.localCoverPath;
 
     // 设置网络封面 URL
-    if (playlist.coverUrl != null) {
-      networkUrl = playlist.coverUrl;
-    }
+    networkUrl = playlist.coverUrl;
 
     // 如果没有歌单级别的封面，尝试使用第一首歌的封面
     if (localPath == null && networkUrl == null && playlist.trackIds.isNotEmpty) {

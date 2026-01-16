@@ -53,4 +53,25 @@ extension TrackExtensions on Track {
 
   /// 是否有任何封面（本地或网络）
   bool get hasCover => hasLocalCover || hasNetworkCover;
+
+  /// 获取本地音频路径（仅返回存在的文件）
+  ///
+  /// 遍历所有下载路径，返回第一个实际存在的音频文件路径
+  /// 如果都不存在，返回 null
+  String? get localAudioPath {
+    if (downloadPaths.isEmpty) return null;
+
+    for (final downloadPath in downloadPaths) {
+      if (File(downloadPath).existsSync()) {
+        return downloadPath;
+      }
+    }
+    return null;
+  }
+
+  /// 是否有本地音频文件（文件实际存在）
+  bool get hasLocalAudio => localAudioPath != null;
+
+  /// 是否已下载（任意歌单中的文件存在）
+  bool get isDownloaded => hasLocalAudio;
 }
