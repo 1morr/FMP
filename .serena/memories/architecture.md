@@ -96,7 +96,7 @@
 | playlistProvider | `providers/playlist_provider.dart` | StateNotifierProvider |
 | searchProvider | `providers/search_provider.dart` | StateNotifierProvider |
 | downloadServiceProvider | `providers/download/download_providers.dart` | Provider<DownloadService> |
-| downloadStatusCacheProvider | `providers/download/download_status_cache.dart` | StateNotifierProvider |
+| fileExistsCacheProvider | `providers/download/file_exists_cache.dart` | StateNotifierProvider |
 | downloadedCategoriesProvider | `providers/download/download_providers.dart` | FutureProvider |
 
 ## UI 结构
@@ -134,11 +134,11 @@
 
 ### 核心组件
 - **DownloadService**: 任务调度、文件下载、元数据保存
-- **DownloadStatusCache**: 文件存在性缓存，避免 UI 阻塞
+- **FileExistsCache**: 文件存在性缓存，避免 UI build 期间同步 IO
 - **DownloadPathUtils**: 统一的路径计算工具
 - **DownloadScanner**: 文件系统扫描器
 
 ### 关键数据流
 1. **路径预计算**: 导入/添加歌曲时 → `DownloadPathUtils.computeDownloadPath()` → 保存到 `track.downloadPaths`
-2. **下载检测**: 进入页面 → `DownloadStatusCache.refreshCache()` → 异步检测 → 触发 UI 重建
+2. **下载检测**: 进入页面 → `FileExistsCache.refreshCache()` → 异步检测 → 触发 UI 重建
 3. **本地播放**: `track.firstDownloadPath` → `AudioService.playFile()`
