@@ -36,7 +36,7 @@ class DownloadManagerPage extends ConsumerWidget {
                     context: context,
                     builder: (context) => AlertDialog(
                       title: const Text('清空队列'),
-                      content: const Text('确定要清空所有未完成的下载任务吗？'),
+                      content: const Text('确定要清空所有下载任务吗？'),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(context, false),
@@ -51,6 +51,7 @@ class DownloadManagerPage extends ConsumerWidget {
                   );
                   if (confirmed == true) {
                     await downloadService.clearQueue();
+                    await downloadService.clearCompleted();
                   }
                   break;
               }
