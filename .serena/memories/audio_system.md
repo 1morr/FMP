@@ -213,53 +213,131 @@ final loopModeProvider
 
 ## Android 后台播放
 
-**使用 `just_audio_background` 实现后台播放和通知栏控制**
+**使用 `audio_service` 包实现后台播放和通知栏控制**
 
-**初始化（main.dart）：**
+> 注意：项目已从 `just_audio_background` 迁移到 `audio_service`，后者提供更灵活的控制。
+
+### 初始化（main.dart）
+
 ```dart
-import 'package:just_audio_background/just_audio_background.dart';
+import 'package:audio_service/audio_service.dart';
+import 'services/audio/audio_handler.dart';
+
+/// 全局 AudioHandler 实例，供 AudioController 使用
+late FmpAudioHandler audioHandler;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Android/iOS 后台播放初始化（必须在其他音频初始化之前）
+
+  // Android/iOS 后台播放初始化
   if (Platform.isAndroid || Platform.isIOS) {
-    await JustAudioBackground.init(
-      androidNotificationChannelId: 'com.personal.fmp.channel.audio',
-      androidNotificationChannelName: 'FMP 音频播放',
-      androidNotificationOngoing: true,
-      androidStopForegroundOnPause: true,
-      fastForwardInterval: const Duration(seconds: 10),
-      rewindInterval: const Duration(seconds: 10),
+    audioHandler = await AudioService.init(
+      builder: () => FmpAudioHandler(),
+      config: const AudioServiceConfig(
+        androidNotificationChannelId: 'com.personal.fmp.channel.audio',
+        androidNotificationChannelName: 'FMP 音频播放',
+        androidNotificationChannelDescription: 'FMP 音乐播放器后台播放通知',
+        androidNotificationOngoing: true,
+        androidShowNotificationBadge: true,
+        androidStopForegroundOnPause: true,
+        fastForwardInterval: Duration(seconds: 10),
+        rewindInterval: Duration(seconds: 10),
+      ),
     );
+  } else {
+    // 桌面平台创建 dummy handler 保持代码一致性
+    audioHandler = FmpAudioHandler();
   }
   // ...
 }
 ```
 
-**MediaItem 元数据（AudioService）：**
-播放时必须传递 Track 信息以显示通知栏元数据：
-```dart
-// AudioService 中创建带 MediaItem 的 AudioSource
-AudioSource _createAudioSource(String url, {Map<String, String>? headers, Track? track}) {
-  final mediaItem = track != null
-      ? MediaItem(
-          id: track.uniqueKey,
-          title: track.title,
-          artist: track.artist ?? '未知艺术家',
-          artUri: track.thumbnailUrl != null ? Uri.parse(track.thumbnailUrl!) : null,
-          duration: track.durationMs != null ? Duration(milliseconds: track.durationMs!) : null,
-        )
-      : null;
-  return AudioSource.uri(Uri.parse(url), headers: headers, tag: mediaItem);
-}
+### FmpAudioHandler（lib/services/audio/audio_handler.dart）
 
-// 调用时传递 track 参数
-await _audioService.playUrl(url, headers: headers, track: trackWithUrl);
-await _audioService.playFile(localPath, track: trackWithUrl);
+自定义 AudioHandler，处理媒体通知和控制按钮：
+
+```dart
+class FmpAudioHandler extends BaseAudioHandler with SeekHandler {
+  // 回调函数，由 AudioController 设置
+  Future<void> Function()? onPlay;
+  Future<void> Function()? onPause;
+  Future<void> Function()? onStop;
+  Future<void> Function()? onSkipToNext;
+  Future<void> Function()? onSkipToPrevious;
+  Future<void> Function(Duration position)? onSeek;
+  Future<void> Function(AudioServiceRepeatMode mode)? onSetRepeatMode;
+  Future<void> Function(AudioServiceShuffleMode mode)? onSetShuffleMode;
+
+  /// 更新当前播放的媒体项
+  void updateCurrentMediaItem(Track track) {
+    final item = MediaItem(
+      id: track.uniqueKey,
+      title: track.title,
+      artist: track.artist ?? '未知艺术家',
+      artUri: track.thumbnailUrl != null ? Uri.parse(track.thumbnailUrl!) : null,
+      duration: track.durationMs != null ? Duration(milliseconds: track.durationMs!) : null,
+    );
+    mediaItem.add(item);
+  }
+
+  /// 更新播放状态（位置、缓冲、播放中等）
+  void updatePlaybackState({...});
+  
+  /// 更新循环模式
+  void updateRepeatMode(LoopMode loopMode);
+  
+  /// 更新随机播放模式
+  void updateShuffleMode(bool isShuffleEnabled);
+
+  // AudioHandler 回调方法 - 委托给 AudioController
+  @override
+  Future<void> play() async => await onPlay?.call();
+  @override
+  Future<void> pause() async => await onPause?.call();
+  @override
+  Future<void> skipToNext() async => await onSkipToNext?.call();
+  @override
+  Future<void> skipToPrevious() async => await onSkipToPrevious?.call();
+  // ...
+}
 ```
 
-**AndroidManifest.xml 必需配置：**
+### AudioController 集成
+
+```dart
+class AudioController extends StateNotifier<PlayerState> {
+  final FmpAudioHandler _audioHandler;
+
+  /// 设置 AudioHandler 回调
+  void _setupAudioHandler() {
+    _audioHandler.onPlay = play;
+    _audioHandler.onPause = pause;
+    _audioHandler.onStop = stop;
+    _audioHandler.onSkipToNext = next;
+    _audioHandler.onSkipToPrevious = previous;
+    _audioHandler.onSeek = seekTo;
+    // ...
+  }
+
+  /// 播放时更新媒体通知
+  Future<void> _playTrack(Track track, String url, {...}) async {
+    // ... 播放逻辑
+    _audioHandler.updateCurrentMediaItem(track);
+  }
+
+  /// 状态变化时同步到通知
+  void _onPlayerStateChanged(PlayerState state) {
+    _audioHandler.updatePlaybackState(
+      isPlaying: state.isPlaying,
+      position: state.position,
+      // ...
+    );
+  }
+}
+```
+
+### AndroidManifest.xml 必需配置
+
 - `WAKE_LOCK` 权限
 - `FOREGROUND_SERVICE` 权限
 - `FOREGROUND_SERVICE_MEDIA_PLAYBACK` 权限（SDK 34+）

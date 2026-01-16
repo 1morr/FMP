@@ -55,7 +55,6 @@
 | Settings | `data/models/settings.dart` | 应用设置 |
 | SearchHistory | `data/models/search_history.dart` | 搜索历史 |
 | DownloadTask | `data/models/download_task.dart` | 下载任务 |
-| PlaylistDownloadTask | `data/models/playlist_download_task.dart` | 歌单下载任务 |
 
 ### Repositories
 | 仓库 | 文件 | 职责 |
@@ -64,6 +63,7 @@
 | PlaylistRepository | `data/repositories/playlist_repository.dart` | Playlist CRUD |
 | QueueRepository | `data/repositories/queue_repository.dart` | Queue 持久化 |
 | SettingsRepository | `data/repositories/settings_repository.dart` | Settings 管理 |
+| DownloadRepository | `data/repositories/download_repository.dart` | 下载任务管理 |
 
 ### Sources (音源解析)
 | 音源 | 文件 | 状态 |
@@ -78,6 +78,7 @@
 | AudioService | `services/audio/audio_service.dart` | 底层音频播放（封装 just_audio） |
 | AudioController | `services/audio/audio_provider.dart` | 高层音频控制（UI 使用） |
 | QueueManager | `services/audio/queue_manager.dart` | 播放队列管理 |
+| FmpAudioHandler | `services/audio/audio_handler.dart` | Android 媒体通知控制（audio_service） |
 | PlaylistService | `services/library/playlist_service.dart` | 歌单业务逻辑 |
 | SearchService | `services/search/search_service.dart` | 多源搜索 |
 | ImportService | `services/import/import_service.dart` | 外部导入 |

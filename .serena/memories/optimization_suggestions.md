@@ -12,15 +12,8 @@
 
 ## 性能优化
 
-### 1. 本地图片内存缓存
-```dart
-class LocalImageCache {
-  static final _cache = LruCache<String, ImageProvider>(maxSize: 100);
-  static ImageProvider getLocalImage(String path) {
-    return _cache.putIfAbsent(path, () => FileImage(File(path)));
-  }
-}
-```
+### 1. 本地图片内存缓存 ✅ 已实现
+> 已实现于 `lib/core/services/local_image_cache.dart`，集成到 `ImageLoadingService` 中使用。
 
 ### 2. 列表性能
 Multi-P 分组计算在 build 中执行，大型播放列表可能卡顿。
