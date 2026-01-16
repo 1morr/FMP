@@ -37,6 +37,12 @@ class DownloadService with Logging {
   /// 下载进度流
   Stream<DownloadProgressEvent> get progressStream => _progressController.stream;
   
+  /// 下载完成事件流控制器
+  final _completionController = StreamController<DownloadCompletionEvent>.broadcast();
+  
+  /// 下载完成事件流（用于通知 UI 更新缓存）
+  Stream<DownloadCompletionEvent> get completionStream => _completionController.stream;
+  
   /// 当前活跃的下载数量
   int _activeDownloads = 0;
   
@@ -89,6 +95,7 @@ class DownloadService with Logging {
     _scheduleSubscription?.cancel();
     _scheduleController.close();
     _progressController.close();
+    _completionController.close();
     
     // 取消所有进行中的下载
     for (final cancelToken in _activeCancelTokens.values) {
@@ -506,6 +513,13 @@ class DownloadService with Logging {
       
       logDebug('Download completed for track: ${track.title}');
       
+      // 发送下载完成事件，通知 UI 更新缓存
+      _completionController.add(DownloadCompletionEvent(
+        taskId: task.id,
+        trackId: task.trackId,
+        savePath: savePath,
+      ));
+      
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
         logDebug('Download cancelled for task: ${task.id}');
@@ -724,6 +738,19 @@ class DownloadProgressEvent {
     required this.progress,
     required this.downloadedBytes,
     this.totalBytes,
+  });
+}
+
+/// 下载完成事件
+class DownloadCompletionEvent {
+  final int taskId;
+  final int trackId;
+  final String savePath;
+
+  DownloadCompletionEvent({
+    required this.taskId,
+    required this.trackId,
+    required this.savePath,
   });
 }
 
