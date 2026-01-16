@@ -1,26 +1,29 @@
+import 'dart:io';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/models/track.dart';
 import '../constants/app_constants.dart';
 import '../extensions/track_extensions.dart';
-import 'local_image_cache.dart';
 import 'network_image_cache_service.dart';
 
 /// 统一的图片加载服务
 ///
 /// 功能：
 /// - 统一的图片加载优先级：本地 → 网络 → 占位符
-/// - 本地图片：使用 LocalImageCache 进行 LRU 内存缓存
+/// - 本地图片：直接使用 FileImage（Flutter 内置内存缓存）
 /// - 网络图片：使用 CachedNetworkImage 进行内存 + 磁盘缓存
 /// - 提供统一的占位符和错误处理
 /// - 图片加载完成后有淡入效果
+///
+/// 注意：调用方应通过 FileExistsCache 预先验证本地文件存在后再传入 localPath，
+/// 以避免在 build 期间执行同步 IO 操作。
 class ImageLoadingService {
   ImageLoadingService._();
 
-  /// 清空所有图片缓存（本地 + 网络）
+  /// 清空所有图片缓存（网络）
   static Future<void> clearAllCache() async {
-    LocalImageCache.clear();
     await NetworkImageCacheService.clearCache();
   }
 
@@ -29,19 +32,14 @@ class ImageLoadingService {
     await NetworkImageCacheService.clearCache();
   }
 
-  /// 清空本地图片缓存
-  static void clearLocalCache() {
-    LocalImageCache.clear();
-  }
-
   /// 加载图片 Widget
   ///
   /// 按照以下优先级加载：
-  /// 1. 本地图片（如果提供了 localPath 且文件存在）
+  /// 1. 本地图片（如果提供了 localPath）
   /// 2. 网络图片（如果提供了 networkUrl）
   /// 3. 占位符
   ///
-  /// [localPath] 本地文件路径
+  /// [localPath] 本地文件路径（调用方应通过 FileExistsCache 预先验证存在）
   /// [networkUrl] 网络图片 URL
   /// [placeholder] 自定义占位符 Widget
   /// [fit] 图片填充模式
@@ -61,32 +59,31 @@ class ImageLoadingService {
     bool showLoadingIndicator = false,
     Duration fadeInDuration = AppConstants.defaultFadeInDuration,
   }) {
-    // 1. 尝试加载本地图片
+    // 1. 尝试加载本地图片（假设调用方已验证文件存在）
     if (localPath != null) {
-      final imageProvider = LocalImageCache.getLocalImage(localPath);
-      if (imageProvider != null) {
-        return _FadeInImage(
-          image: imageProvider,
-          fit: fit,
-          width: width,
-          height: height,
-          placeholder: placeholder,
-          fadeInDuration: fadeInDuration,
-          errorBuilder: (context, error, stackTrace) {
-            // 本地文件加载失败，尝试网络图片
-            return _loadNetworkOrPlaceholder(
-              networkUrl: networkUrl,
-              placeholder: placeholder,
-              fit: fit,
-              width: width,
-              height: height,
-              headers: headers,
-              showLoadingIndicator: showLoadingIndicator,
-              fadeInDuration: fadeInDuration,
-            );
-          },
-        );
-      }
+      final file = File(localPath);
+      final imageProvider = FileImage(file);
+      return _FadeInImage(
+        image: imageProvider,
+        fit: fit,
+        width: width,
+        height: height,
+        placeholder: placeholder,
+        fadeInDuration: fadeInDuration,
+        errorBuilder: (context, error, stackTrace) {
+          // 本地文件加载失败，尝试网络图片
+          return _loadNetworkOrPlaceholder(
+            networkUrl: networkUrl,
+            placeholder: placeholder,
+            fit: fit,
+            width: width,
+            height: height,
+            headers: headers,
+            showLoadingIndicator: showLoadingIndicator,
+            fadeInDuration: fadeInDuration,
+          );
+        },
+      );
     }
 
     // 2. 尝试加载网络图片或显示占位符

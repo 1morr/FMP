@@ -7,7 +7,7 @@ import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../providers/download_provider.dart';
-import '../../../providers/download/download_status_cache.dart';
+import '../../../providers/download/file_exists_cache.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/now_playing_indicator.dart';
@@ -49,7 +49,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final state = ref.read(playlistDetailProvider(widget.playlistId));
     if (state.tracks.isNotEmpty && state.tracks.length != _lastRefreshedTracksLength) {
       _lastRefreshedTracksLength = state.tracks.length;
-      await ref.read(downloadStatusCacheProvider.notifier).refreshCache(state.tracks);
+      await ref.read(fileExistsCacheProvider.notifier).refreshCache(state.tracks);
     }
   }
 
@@ -60,7 +60,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _lastRefreshedTracksLength = tracks.length;
-          ref.read(downloadStatusCacheProvider.notifier).refreshCache(tracks);
+          ref.read(fileExistsCacheProvider.notifier).refreshCache(tracks);
         }
       });
     }
@@ -531,8 +531,8 @@ class _GroupHeader extends ConsumerWidget {
     final firstTrack = group.tracks.first;
     final currentTrack = ref.watch(currentTrackProvider);
     // Watch 下载状态缓存，以便在缓存更新时重建
-    ref.watch(downloadStatusCacheProvider);
-    final downloadCache = ref.read(downloadStatusCacheProvider.notifier);
+    ref.watch(fileExistsCacheProvider);
+    final downloadCache = ref.read(fileExistsCacheProvider.notifier);
     // 检查当前播放的是否是这个组的某个分P
     // 使用 sourceId + pageNum 比较，因为临时播放的 track 可能没有数据库 ID
     final isPlayingThisGroup = currentTrack != null &&
@@ -713,8 +713,8 @@ class _TrackListTile extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final currentTrack = ref.watch(currentTrackProvider);
     // Watch 下载状态缓存，以便在缓存更新时重建
-    ref.watch(downloadStatusCacheProvider);
-    final downloadCache = ref.read(downloadStatusCacheProvider.notifier);
+    ref.watch(fileExistsCacheProvider);
+    final downloadCache = ref.read(fileExistsCacheProvider.notifier);
     // 使用 sourceId + pageNum 比较，因为临时播放的 track 可能没有数据库 ID
     final isPlaying = currentTrack != null &&
         currentTrack.sourceId == track.sourceId &&

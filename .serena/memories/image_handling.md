@@ -41,21 +41,36 @@ ImageLoadingService.loadAvatar(localPath: path, networkUrl: url);
 - `_FadeInImage` - 本地图片淡入组件
 - `_FadeInNetworkImage` - 网络图片淡入组件
 
-### 0.1. LocalImageCache（本地图片LRU缓存）✅ Phase 1 新增
+### 0.1. FileExistsCache（文件存在检查缓存）✅ 已重构
 
-**文件位置**：`lib/core/services/local_image_cache.dart`
+**文件位置**：`lib/providers/download/file_exists_cache.dart`
 
 **功能**：
-- 缓存本地图片的 ImageProvider，避免重复从文件系统读取
-- 使用 LRU 策略，限制缓存大小（默认 100 条）
-- 自动跳过不存在的文件
+- 缓存文件是否存在的检测结果，避免在 UI build 期间执行同步 IO
+- 支持通用路径检查和 Track 专用方法
+- 未缓存路径会安排异步刷新，刷新完成后触发 UI 重建
 
 **使用方式**：
 ```dart
-final imageProvider = LocalImageCache.getLocalImage(path);
-LocalImageCache.remove(path); // 清理单个缓存
-LocalImageCache.clear(); // 清空所有缓存
+// 在 ConsumerWidget 中
+ref.watch(fileExistsCacheProvider); // 监听变化
+final cache = ref.read(fileExistsCacheProvider.notifier);
+
+// 通用方法
+cache.exists(path);                    // 检查单个路径
+cache.getFirstExisting(paths);         // 批量检查，返回第一个存在的
+
+// Track 专用方法
+cache.isDownloadedForPlaylist(track, playlistId);
+cache.hasAnyDownload(track);
+cache.getFirstExistingPath(track);
+
+// 预加载缓存（进入页面时调用）
+await cache.refreshCache(tracks);
+await cache.preloadPaths(paths);
 ```
+
+**注意**：原 `LocalImageCache` 已移除，本地图片直接使用 `FileImage`（Flutter 内置缓存）
 
 ### 0.2. NetworkImageCacheService（网络图片缓存）✅ 新增
 
@@ -101,14 +116,22 @@ ImageLoadingService.loadImage(
 
 **尺寸**：通常 40-56px
 
-**加载优先级**（已更新为使用 ImageLoadingService）：
+**加载优先级**（使用 FileExistsCache 避免同步 IO）：
 ```dart
-Widget _buildImage(ColorScheme colorScheme) {
+// TrackThumbnail 现在是 ConsumerWidget
+@override
+Widget build(BuildContext context, WidgetRef ref) {
+  ref.watch(fileExistsCacheProvider); // 监听缓存变化
+  final cache = ref.read(fileExistsCacheProvider.notifier);
+  // ...
+}
+
+Widget _buildImage(ColorScheme colorScheme, FileExistsCache cache) {
   final placeholder = _buildPlaceholder(colorScheme);
   
-  // 使用 ImageLoadingService 加载图片（集成 LocalImageCache）
+  // 使用 FileExistsCache 获取本地封面路径（避免同步 IO）
   return ImageLoadingService.loadImage(
-    localPath: track.localCoverPath,
+    localPath: track.getLocalCoverPath(cache),
     networkUrl: track.thumbnailUrl,
     placeholder: placeholder,
     fit: BoxFit.cover,
@@ -170,15 +193,24 @@ Widget _buildImage(ColorScheme colorScheme) {
 
 ```dart
 extension TrackExtensions on Track {
-  /// 获取本地封面路径（遍历所有 downloadPaths，返回第一个存在的）
+  // ===== 同步方法（仅用于非 build 上下文，如音频播放）=====
+  /// 获取本地封面路径（同步 IO，遍历所有 downloadPaths）
   String? get localCoverPath;
   
-  /// 获取本地头像路径（遍历所有 downloadPaths，返回第一个存在的）
+  /// 获取本地头像路径（同步 IO）
   String? get localAvatarPath;
   
-  /// 获取本地音频路径（遍历所有 downloadPaths，返回第一个存在的）
+  /// 获取本地音频路径（同步 IO）
   String? get localAudioPath;
 
+  // ===== 缓存方法（用于 UI 组件）=====
+  /// 获取本地封面路径（使用缓存，避免同步 IO）
+  String? getLocalCoverPath(FileExistsCache cache);
+  
+  /// 获取本地头像路径（使用缓存）
+  String? getLocalAvatarPath(FileExistsCache cache);
+
+  // ===== 辅助属性 =====
   bool get hasLocalCover => localCoverPath != null;
   bool get hasLocalAudio => localAudioPath != null;
   bool get isDownloaded => hasLocalAudio;
@@ -186,6 +218,10 @@ extension TrackExtensions on Track {
   bool get hasCover => hasLocalCover || hasNetworkCover;
 }
 ```
+
+**使用场景**：
+- **UI 组件**：使用 `getLocalCoverPath(cache)` / `getLocalAvatarPath(cache)`
+- **音频播放**：使用 `localAudioPath`（同步方法，在非 build 上下文中调用）
 
 #### PlaylistExtensions
 
@@ -283,14 +319,18 @@ Future<String?> _findFirstCover(Directory folder) async {
 }
 ```
 
-### 3. 歌曲详情面板头像（TrackDetailPanel）✅ 已更新使用 ImageLoadingService
+### 3. 歌曲详情面板头像（TrackDetailPanel）✅ 使用 FileExistsCache
 
 ```dart
-Widget _buildAvatar(BuildContext context, Track? track, VideoDetail detail) {
-  // 使用 ImageLoadingService 加载头像（集成缓存）
+// build 方法中获取缓存
+ref.watch(fileExistsCacheProvider);
+final cache = ref.read(fileExistsCacheProvider.notifier);
+
+Widget _buildAvatar(BuildContext context, Track? track, VideoDetail detail, FileExistsCache cache) {
+  // 使用 ImageLoadingService 加载头像
   // 优先级：本地头像 → 网络头像 → 占位符
   return ImageLoadingService.loadAvatar(
-    localPath: track?.localAvatarPath,
+    localPath: track?.getLocalAvatarPath(cache),
     networkUrl: detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
     size: 32,
   );

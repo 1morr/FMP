@@ -7,7 +7,7 @@ UI (playlist_detail_page, downloaded_page)
            │
            ▼
 ┌─────────────────────────────────────┐
-│       DownloadStatusCache           │  ← 缓存文件存在性
+│       FileExistsCache               │  ← 缓存文件存在性（避免同步 IO）
 │       DownloadService               │  ← 任务调度
 └─────────────────────────────────────┘
            │
@@ -63,15 +63,27 @@ C:\Users\xxx\Documents\FMP\我的收藏\BV1xxx_视频标题\P01.m4a
 - `sanitizeFileName()` - 清理文件名特殊字符
 - `extractSourceIdFromFolderName()` - 从文件夹名提取 sourceId
 
-### 2. DownloadStatusCache (`lib/providers/download/download_status_cache.dart`)
+### 2. FileExistsCache (`lib/providers/download/file_exists_cache.dart`)
 
 避免 UI build 时阻塞 I/O：
 
 ```dart
 // 正确用法
-ref.watch(downloadStatusCacheProvider);  // 监听状态
-final cache = ref.read(downloadStatusCacheProvider.notifier);
+ref.watch(fileExistsCacheProvider);  // 监听状态
+final cache = ref.read(fileExistsCacheProvider.notifier);
+
+// Track 相关
 final isDownloaded = cache.isDownloadedForPlaylist(track, playlistId);
+cache.hasAnyDownload(track);
+cache.getFirstExistingPath(track);
+
+// 通用方法（新增）
+cache.exists(path);               // 检查单个路径
+cache.getFirstExisting(paths);    // 返回第一个存在的路径
+
+// 预加载
+await cache.refreshCache(tracks);
+await cache.preloadPaths(paths);
 ```
 
 ### 3. DownloadService (`lib/services/download/download_service.dart`)

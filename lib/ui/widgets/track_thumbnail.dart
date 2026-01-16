@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/extensions/track_extensions.dart';
 import '../../core/services/image_loading_service.dart';
 import '../../data/models/track.dart';
+import '../../providers/download/file_exists_cache.dart';
 import 'now_playing_indicator.dart';
 
 /// 统一的歌曲封面缩略图组件
@@ -12,7 +14,7 @@ import 'now_playing_indicator.dart';
 /// - 回退到网络封面
 /// - 无封面时显示占位符
 /// - 支持播放中指示器覆盖
-class TrackThumbnail extends StatelessWidget {
+class TrackThumbnail extends ConsumerWidget {
   /// 歌曲数据
   final Track track;
 
@@ -42,8 +44,11 @@ class TrackThumbnail extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    // Watch 文件存在缓存，以便在缓存更新时重建
+    ref.watch(fileExistsCacheProvider);
+    final cache = ref.read(fileExistsCacheProvider.notifier);
 
     return SizedBox(
       width: size,
@@ -57,7 +62,7 @@ class TrackThumbnail extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            _buildImage(colorScheme),
+            _buildImage(colorScheme, cache),
             if (showPlayingIndicator && isPlaying)
               _buildPlayingOverlay(colorScheme),
           ],
@@ -66,12 +71,12 @@ class TrackThumbnail extends StatelessWidget {
     );
   }
 
-  Widget _buildImage(ColorScheme colorScheme) {
+  Widget _buildImage(ColorScheme colorScheme, FileExistsCache cache) {
     final placeholder = _buildPlaceholder(colorScheme);
 
-    // 使用 ImageLoadingService 加载图片（集成 LocalImageCache）
+    // 使用 FileExistsCache 获取本地封面路径（避免同步 IO）
     return ImageLoadingService.loadImage(
-      localPath: track.localCoverPath,
+      localPath: track.getLocalCoverPath(cache),
       networkUrl: track.thumbnailUrl,
       placeholder: placeholder,
       fit: BoxFit.cover,
@@ -112,7 +117,7 @@ class TrackThumbnail extends StatelessWidget {
 /// - 更大的尺寸
 /// - 16:9 宽高比
 /// - 加载指示器
-class TrackCover extends StatelessWidget {
+class TrackCover extends ConsumerWidget {
   /// 歌曲数据
   final Track? track;
 
@@ -138,8 +143,11 @@ class TrackCover extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    // Watch 文件存在缓存，以便在缓存更新时重建
+    ref.watch(fileExistsCacheProvider);
+    final cache = ref.read(fileExistsCacheProvider.notifier);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
@@ -147,18 +155,18 @@ class TrackCover extends StatelessWidget {
         aspectRatio: aspectRatio,
         child: Container(
           color: colorScheme.surfaceContainerHighest,
-          child: _buildImage(colorScheme),
+          child: _buildImage(colorScheme, cache),
         ),
       ),
     );
   }
 
-  Widget _buildImage(ColorScheme colorScheme) {
+  Widget _buildImage(ColorScheme colorScheme, FileExistsCache cache) {
     final placeholder = _buildPlaceholder(colorScheme);
 
-    // 使用 ImageLoadingService 加载图片（集成 LocalImageCache）
+    // 使用 FileExistsCache 获取本地封面路径（避免同步 IO）
     return ImageLoadingService.loadImage(
-      localPath: track?.localCoverPath,
+      localPath: track?.getLocalCoverPath(cache),
       networkUrl: networkUrl ?? track?.thumbnailUrl,
       placeholder: placeholder,
       fit: BoxFit.cover,

@@ -7,6 +7,7 @@ import '../../core/extensions/track_extensions.dart';
 import '../../core/services/image_loading_service.dart';
 import '../../data/models/track.dart';
 import '../../data/models/video_detail.dart';
+import '../../providers/download/file_exists_cache.dart';
 import '../../providers/track_detail_provider.dart';
 import '../../services/audio/audio_provider.dart';
 import 'track_thumbnail.dart';
@@ -160,6 +161,9 @@ class _DetailContent extends ConsumerWidget {
     final detailState = ref.watch(trackDetailProvider);
     final playerState = ref.watch(audioControllerProvider);
     final currentTrack = ref.watch(currentTrackProvider);
+    // Watch 文件存在缓存，以便在缓存更新时重建
+    ref.watch(fileExistsCacheProvider);
+    final cache = ref.read(fileExistsCacheProvider.notifier);
 
     // 获取下一首歌曲（已考虑 shuffle 模式）
     final nextTrack = playerState.upcomingTracks.isNotEmpty
@@ -239,7 +243,7 @@ class _DetailContent extends ConsumerWidget {
         // UP主信息
         Row(
           children: [
-            _buildAvatar(context, currentTrack, detail),
+            _buildAvatar(context, currentTrack, detail, cache),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -415,11 +419,11 @@ class _DetailContent extends ConsumerWidget {
   }
 
   /// 构建UP主头像（优先使用本地头像）
-  Widget _buildAvatar(BuildContext context, Track? track, VideoDetail detail) {
+  Widget _buildAvatar(BuildContext context, Track? track, VideoDetail detail, FileExistsCache cache) {
     // 使用 ImageLoadingService 加载头像（集成缓存）
     // 优先级：本地头像 → 网络头像 → 占位符
     return ImageLoadingService.loadAvatar(
-      localPath: track?.localAvatarPath,
+      localPath: track?.getLocalAvatarPath(cache),
       networkUrl: detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
       size: 32,
     );

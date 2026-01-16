@@ -5,7 +5,7 @@ import '../data/models/playlist.dart';
 import '../data/models/track.dart';
 import '../services/library/playlist_service.dart';
 import 'database_provider.dart';
-import 'download/download_status_cache.dart';
+import 'download/file_exists_cache.dart';
 import 'repository_providers.dart';
 
 /// PlaylistService Provider
@@ -110,8 +110,8 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
       await loadPlaylists();
       // 刷新歌单详情页和封面
       invalidatePlaylistProviders(playlistId);
-      // 清除下载状态缓存，强制重新检测
-      _ref.read(downloadStatusCacheProvider.notifier).clearAll();
+      // 清除文件存在缓存，强制重新检测
+      _ref.read(fileExistsCacheProvider.notifier).clearAll();
       return true;
     } catch (e) {
       state = state.copyWith(error: e.toString());
