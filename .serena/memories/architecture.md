@@ -85,6 +85,7 @@
 | DownloadService | `services/download/download_service.dart` | 下载管理 |
 | DownloadPathUtils | `services/download/download_path_utils.dart` | 路径计算工具 |
 | PlaylistFolderMigrator | `services/library/playlist_folder_migrator.dart` | 歌单文件夹迁移 |
+| WindowsDesktopService | `services/platform/windows_desktop_service.dart` | Windows 桌面特性（托盘、快捷键、窗口管理） |
 
 > **详细音频系统文档见：** `audio_system` 记忆文件
 
@@ -98,6 +99,9 @@
 | downloadServiceProvider | `providers/download/download_providers.dart` | Provider<DownloadService> |
 | fileExistsCacheProvider | `providers/download/file_exists_cache.dart` | StateNotifierProvider |
 | downloadedCategoriesProvider | `providers/download/download_providers.dart` | FutureProvider |
+| windowsDesktopServiceProvider | `providers/windows_desktop_provider.dart` | Provider<WindowsDesktopService?> |
+| minimizeToTrayProvider | `providers/desktop_settings_provider.dart` | StateNotifierProvider<bool> |
+| globalHotkeysEnabledProvider | `providers/desktop_settings_provider.dart` | StateNotifierProvider<bool> |
 
 ## UI 结构
 

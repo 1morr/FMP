@@ -61,6 +61,14 @@ class Settings {
   /// 下载图片选项: 0=none, 1=coverOnly, 2=coverAndAvatar
   int downloadImageOptionIndex = 1;
 
+  // ========== 桌面平台设置 ==========
+
+  /// 关闭窗口时最小化到托盘（仅 Windows）
+  bool minimizeToTrayOnClose = true;
+
+  /// 启用全局快捷键（仅 Windows）
+  bool enableGlobalHotkeys = true;
+
   /// 获取 ThemeMode
   @ignore
   ThemeMode get themeMode {

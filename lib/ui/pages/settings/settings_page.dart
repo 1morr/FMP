@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -10,6 +12,7 @@ import '../../../providers/download_provider.dart';
 import '../../../providers/download_settings_provider.dart';
 import '../../../providers/developer_options_provider.dart';
 import '../../../providers/playback_settings_provider.dart';
+import '../../../providers/desktop_settings_provider.dart';
 import '../../router.dart';
 
 /// 设置页
@@ -61,6 +64,16 @@ class SettingsPage extends ConsumerWidget {
             ],
           ),
           const Divider(),
+          // 桌面设置（仅 Windows）
+          if (Platform.isWindows)
+            _SettingsSection(
+              title: '桌面',
+              children: [
+                _MinimizeToTrayTile(),
+                _GlobalHotkeysTile(),
+              ],
+            ),
+          if (Platform.isWindows) const Divider(),
           // 关于
           _SettingsSection(
             title: '关于',
@@ -726,6 +739,109 @@ class _ClearImageCacheListTileState extends State<_ClearImageCacheListTile> {
             },
             child: const Text('确定'),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 最小化到托盘设置
+class _MinimizeToTrayTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enabled = ref.watch(minimizeToTrayProvider);
+
+    return SwitchListTile(
+      secondary: const Icon(Icons.dock_outlined),
+      title: const Text('最小化到托盘'),
+      subtitle: const Text('关闭窗口时最小化到系统托盘'),
+      value: enabled,
+      onChanged: (_) => ref.read(minimizeToTrayProvider.notifier).toggle(),
+    );
+  }
+}
+
+/// 全局快捷键设置
+class _GlobalHotkeysTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enabled = ref.watch(globalHotkeysEnabledProvider);
+
+    return ListTile(
+      leading: const Icon(Icons.keyboard_outlined),
+      title: const Text('全局快捷键'),
+      subtitle: Text(enabled ? '已启用' : '已禁用'),
+      trailing: Switch(
+        value: enabled,
+        onChanged: (_) => ref.read(globalHotkeysEnabledProvider.notifier).toggle(),
+      ),
+      onTap: () => _showHotkeysInfo(context),
+    );
+  }
+
+  void _showHotkeysInfo(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('全局快捷键'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('以下快捷键在任何应用中都可使用：'),
+            const SizedBox(height: 16),
+            _HotkeyRow(keys: 'Ctrl + Alt + Space', action: '播放/暂停'),
+            _HotkeyRow(keys: 'Ctrl + Alt + →', action: '下一首'),
+            _HotkeyRow(keys: 'Ctrl + Alt + ←', action: '上一首'),
+            _HotkeyRow(keys: 'Ctrl + Alt + S', action: '停止'),
+            const SizedBox(height: 16),
+            Text(
+              '注意：更改此设置需要重启应用才能生效。',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 快捷键行
+class _HotkeyRow extends StatelessWidget {
+  final String keys;
+  final String action;
+
+  const _HotkeyRow({required this.keys, required this.action});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              keys,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(action),
         ],
       ),
     );

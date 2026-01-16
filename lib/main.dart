@@ -56,6 +56,11 @@ void main() async {
       await windowManager.show();
       await windowManager.focus();
     });
+
+    // Windows: 设置关闭窗口时最小化到托盘而不是退出
+    if (Platform.isWindows) {
+      await windowManager.setPreventClose(true);
+    }
   }
 
   // TODO: 初始化 Isar 数据库
