@@ -193,17 +193,21 @@ class _PlaylistCard extends ConsumerWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  coverAsync.when(
-                    data: (coverData) => coverData.hasCover
-                        ? ImageLoadingService.loadImage(
-                            localPath: coverData.localPath,
-                            networkUrl: coverData.networkUrl,
-                            placeholder: const ImagePlaceholder.track(),
-                            fit: BoxFit.cover,
-                          )
-                        : const ImagePlaceholder.track(),
-                    loading: () => const ImagePlaceholder.track(),
-                    error: (error, stack) => const ImagePlaceholder.track(),
+                  Hero(
+                    tag: 'playlist_cover_${playlist.id}',
+                    child: coverAsync.when(
+                      skipLoadingOnReload: true,
+                      data: (coverData) => coverData.hasCover
+                          ? ImageLoadingService.loadImage(
+                              localPath: coverData.localPath,
+                              networkUrl: coverData.networkUrl,
+                              placeholder: const ImagePlaceholder.track(),
+                              fit: BoxFit.cover,
+                            )
+                          : const ImagePlaceholder.track(),
+                      loading: () => const ImagePlaceholder.track(),
+                      error: (error, stack) => const ImagePlaceholder.track(),
+                    ),
                   ),
                   // 刷新指示器覆盖层
                   if (isRefreshing)
