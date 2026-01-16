@@ -51,6 +51,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               if (value == 'speed') {
                 // 延迟显示子菜单，等主菜单关闭后再显示
                 Future.delayed(const Duration(milliseconds: 100), () {
+                  if (!context.mounted) return;
                   _showSpeedMenu(context, controller, playerState.speed, colorScheme);
                 });
               }

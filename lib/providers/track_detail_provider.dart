@@ -75,9 +75,7 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
       }
 
       // 如果本地没有或加载失败，从网络获取
-      if (detail == null) {
-        detail = await _bilibiliSource.getVideoDetail(track.sourceId);
-      }
+      detail ??= await _bilibiliSource.getVideoDetail(track.sourceId);
 
       // 确保加载的还是当前歌曲
       if (_currentSourceId == track.sourceId) {

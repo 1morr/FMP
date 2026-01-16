@@ -162,15 +162,13 @@ class DownloadScanner {
             }
 
             // 如果没有 metadata 或解析失败，创建基本 Track
-            if (track == null) {
-              track = Track()
+            track ??= Track()
                 ..sourceId = sourceIdFromFolder ?? p.basename(entity.path)
                 ..sourceType = SourceType.bilibili
                 ..title = extractDisplayName(p.basename(entity.path))
                 ..playlistIds = [0]
                 ..downloadPaths = [audioEntity.path]
                 ..createdAt = DateTime.now();
-            }
 
             tracks.add(track);
           }

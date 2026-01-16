@@ -50,7 +50,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: Container(
+            body: SizedBox(
               height: 64,
               child: Stack(
                 children: [
