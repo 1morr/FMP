@@ -332,6 +332,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                   final coverAsync =
                       ref.watch(playlistCoverProvider(playlist.id));
 
+                  // 預加載歌單詳情數據
+                  ref.read(playlistDetailProvider(playlist.id));
+
                   return SizedBox(
                     width: 120,
                     child: InkWell(
@@ -350,6 +353,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                               ),
                               clipBehavior: Clip.antiAlias,
                               child: coverAsync.when(
+                                skipLoadingOnReload: true,
                                 data: (coverData) => coverData.hasCover
                                     ? ImageLoadingService.loadImage(
                                         localPath: coverData.localPath,
