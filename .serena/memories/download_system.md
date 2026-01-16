@@ -32,6 +32,13 @@ class Track {
   void setDownloadPath(int playlistId, String path);  // 设置路径
   String? get firstDownloadPath;  // 第一个路径（不验证存在性）
 }
+
+// TrackExtensions (lib/core/extensions/track_extensions.dart)
+extension TrackExtensions on Track {
+  String? get localAudioPath;  // 第一个实际存在的音频路径
+  bool get hasLocalAudio;      // 是否有本地音频
+  bool get isDownloaded;       // 是否已下载（= hasLocalAudio）
+}
 ```
 
 ### 路径计算规则

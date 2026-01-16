@@ -128,30 +128,43 @@ Widget _buildImage(ColorScheme colorScheme) {
 
 ### 3. 本地路径扩展方法
 
+#### TrackExtensions
+
 **文件位置**：`lib/core/extensions/track_extensions.dart`
 
 ```dart
 extension TrackExtensions on Track {
-  /// 获取本地封面路径
-  String? get localCoverPath {
-    if (downloadedPath == null) return null;
-    final dir = Directory(downloadedPath!).parent;
-    final coverPath = '${dir.path}/cover.jpg';
-    return File(coverPath).existsSync() ? coverPath : null;
-  }
-
-  /// 获取本地头像路径
-  String? get localAvatarPath {
-    if (downloadedPath == null) return null;
-    final dir = Directory(downloadedPath!).parent;
-    final avatarPath = '${dir.path}/avatar.jpg';
-    return File(avatarPath).existsSync() ? avatarPath : null;
-  }
+  /// 获取本地封面路径（遍历所有 downloadPaths，返回第一个存在的）
+  String? get localCoverPath;
+  
+  /// 获取本地头像路径（遍历所有 downloadPaths，返回第一个存在的）
+  String? get localAvatarPath;
+  
+  /// 获取本地音频路径（遍历所有 downloadPaths，返回第一个存在的）
+  String? get localAudioPath;
 
   bool get hasLocalCover => localCoverPath != null;
+  bool get hasLocalAudio => localAudioPath != null;
+  bool get isDownloaded => hasLocalAudio;
   bool get hasNetworkCover => thumbnailUrl != null && thumbnailUrl!.isNotEmpty;
   bool get hasCover => hasLocalCover || hasNetworkCover;
 }
+```
+
+#### PlaylistExtensions
+
+**文件位置**：`lib/core/extensions/playlist_extensions.dart`
+
+```dart
+extension PlaylistExtensions on Playlist {
+  /// 获取本地封面路径（检查 coverLocalPath 是否实际存在）
+  String? get localCoverPath;
+
+  bool get hasLocalCover => localCoverPath != null;
+  bool get hasNetworkCover => coverUrl != null && coverUrl!.isNotEmpty;
+  bool get hasCover => hasLocalCover || hasNetworkCover;
+}
+```
 ```
 
 **目录结构**：

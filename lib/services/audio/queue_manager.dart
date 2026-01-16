@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math';
 import '../../core/constants/app_constants.dart';
+import '../../core/extensions/track_extensions.dart';
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
@@ -634,56 +634,15 @@ class QueueManager with Logging {
   /// 如果本地文件不存在，会清除路径并回退到在线播放
   /// [persist] 是否将 track 保存到数据库，临时播放时设为 false
   Future<(Track, String?)> ensureAudioUrl(Track track, {int retryCount = 0, bool persist = true}) async {
-    // 如果有本地文件路径，检查是否有任何一个存在
-    if (track.downloadPaths.isNotEmpty) {
-      // 遍历所有下载路径，查找第一个存在的文件
-      for (final localPath in track.downloadPaths) {
-        if (await File(localPath).exists()) {
-          logDebug('Using local file for: ${track.title}, path: $localPath');
-          return (track, localPath);
-        }
-      }
-      
-      // 所有路径都不存在，清除路径并回退到在线播放
-      logWarning('All local files missing for: ${track.title}, falling back to streaming');
-      final updatedTrack = Track()
-        ..id = track.id
-        ..sourceId = track.sourceId
-        ..sourceType = track.sourceType
-        ..title = track.title
-        ..artist = track.artist
-        ..durationMs = track.durationMs
-        ..thumbnailUrl = track.thumbnailUrl
-        ..audioUrl = track.audioUrl
-        ..audioUrlExpiry = track.audioUrlExpiry
-        ..isAvailable = track.isAvailable
-        ..unavailableReason = track.unavailableReason
-        // 清除下载路径列表
-        ..playlistIds = []
-        ..downloadPaths = []
-        ..viewCount = track.viewCount
-        ..pageCount = track.pageCount
-        ..order = track.order
-        ..cid = track.cid
-        ..pageNum = track.pageNum
-        ..parentTitle = track.parentTitle
-        ..createdAt = track.createdAt
-        ..updatedAt = DateTime.now();
-      
-      // 保存更新后的 track
-      if (persist) {
-        await _trackRepository.save(updatedTrack);
-      }
-      
-      // 更新队列中的 track
-      final index = _tracks.indexWhere((t) => t.id == track.id);
-      if (index >= 0) {
-        _tracks[index] = updatedTrack;
-      }
-      
-      // 继续执行后续逻辑获取在线 URL
-      track = updatedTrack;
+    // 使用扩展方法检查本地音频文件是否存在
+    final localPath = track.localAudioPath;
+    if (localPath != null) {
+      logDebug('Using local file for: ${track.title}, path: $localPath');
+      return (track, localPath);
     }
+    
+    // 本地文件不存在，回退到在线播放
+    // 注意：不清除 downloadPaths，因为这是预计算的路径，用户可能稍后会下载
 
     // 如果音频 URL 有效，直接返回（无本地文件）
     if (track.hasValidAudioUrl) {
@@ -731,16 +690,13 @@ class QueueManager with Logging {
 
     var track = _tracks[nextIdx];
     
-    // 检查本地文件是否存在
-    if (track.downloadPaths.isNotEmpty) {
-      // 遍历所有下载路径，检查是否有存在的文件
-      for (final localPath in track.downloadPaths) {
-        if (await File(localPath).exists()) {
-          return; // 本地文件存在，无需预取
-        }
-      }
-      // 所有文件都不存在，继续预取在线 URL
-    } else if (track.hasValidAudioUrl || _fetchingUrlTrackIds.contains(track.id)) {
+    // 使用扩展方法检查本地音频文件是否存在
+    if (track.hasLocalAudio) {
+      return; // 本地文件存在，无需预取
+    }
+    
+    // 检查是否已有有效的在线 URL 或正在获取中
+    if (track.hasValidAudioUrl || _fetchingUrlTrackIds.contains(track.id)) {
       return;
     }
 
