@@ -170,6 +170,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   Completer<void>? _playLock;
   int _playRequestId = 0;
 
+  // 导航请求ID - 防止快速点击 next/previous 时的竞态条件
+  int _navRequestId = 0;
+
   // 临时播放状态（封装为一个类会更好，但这里保持简单）
   bool _isTemporaryPlay = false;
   _TemporaryPlayState? _temporaryState;
@@ -544,25 +547,23 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 下一首
   Future<void> next() async {
     await _ensureInitialized();
-    logDebug('next() called, isTemporaryPlay: $_isTemporaryPlay');
+    
+    // 获取导航请求 ID，防止快速点击导致竞态条件
+    final navId = ++_navRequestId;
+    logDebug('next() called, navId: $navId, isTemporaryPlay: $_isTemporaryPlay');
 
-    // 检测当前播放的歌曲是否"脱离"了队列
-    final queueTrack = _queueManager.currentTrack;
-    final queue = _queueManager.tracks;
-    final bool isPlayingOutOfQueue = _isTemporaryPlay ||
-        (_playingTrack != null && queueTrack != null && _playingTrack!.id != queueTrack.id) ||
-        (_playingTrack != null && queueTrack == null && queue.isNotEmpty);
-
-    if (isPlayingOutOfQueue) {
-      logDebug('Playing out of queue: going to queue first track');
+    // 只在明确的临时播放模式下才认为是"脱离队列"
+    // 注意：不能用 _playingTrack != queueTrack 来检测，因为快速切歌时这两个值可能暂时不一致
+    if (_isTemporaryPlay) {
+      logDebug('Temporary play mode: restoring saved state');
       
-      if (_isTemporaryPlay && _temporaryState != null) {
-        // 临时播放模式且有保存的状态：恢复到保存的位置
+      if (_temporaryState != null) {
+        // 有保存的状态：恢复到保存的位置
         await _restoreSavedState();
       } else {
-        // 其他脱离队列情况：播放队列的第一首
+        // 没有保存的状态，退出临时播放模式并播放队列第一首
         _isTemporaryPlay = false;
-        _temporaryState = null;
+        final queue = _queueManager.tracks;
         if (queue.isNotEmpty) {
           _queueManager.setCurrentIndex(0);
           final track = _queueManager.currentTrack;
@@ -577,6 +578,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
     final nextIdx = _queueManager.moveToNext();
     if (nextIdx != null) {
+      // 检查是否被更新的导航请求取代
+      if (navId != _navRequestId) {
+        logDebug('next() navId $navId superseded by $_navRequestId, aborting');
+        return;
+      }
       final track = _queueManager.currentTrack;
       if (track != null) {
         await _playTrack(track);
@@ -587,25 +593,22 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 上一首
   Future<void> previous() async {
     await _ensureInitialized();
-    logDebug('previous() called, isTemporaryPlay: $_isTemporaryPlay');
+    
+    // 获取导航请求 ID，防止快速点击导致竞态条件
+    final navId = ++_navRequestId;
+    logDebug('previous() called, navId: $navId, isTemporaryPlay: $_isTemporaryPlay');
 
-    // 检测当前播放的歌曲是否"脱离"了队列
-    final queueTrack = _queueManager.currentTrack;
-    final queue = _queueManager.tracks;
-    final bool isPlayingOutOfQueue = _isTemporaryPlay ||
-        (_playingTrack != null && queueTrack != null && _playingTrack!.id != queueTrack.id) ||
-        (_playingTrack != null && queueTrack == null && queue.isNotEmpty);
-
-    if (isPlayingOutOfQueue) {
-      logDebug('Playing out of queue: going to queue first track');
+    // 只在明确的临时播放模式下才认为是"脱离队列"
+    if (_isTemporaryPlay) {
+      logDebug('Temporary play mode: restoring saved state');
       
-      if (_isTemporaryPlay && _temporaryState != null) {
-        // 临时播放模式且有保存的状态：恢复到保存的位置
+      if (_temporaryState != null) {
+        // 有保存的状态：恢复到保存的位置
         await _restoreSavedState();
       } else {
-        // 其他脱离队列情况：播放队列的第一首
+        // 没有保存的状态，退出临时播放模式并播放队列第一首
         _isTemporaryPlay = false;
-        _temporaryState = null;
+        final queue = _queueManager.tracks;
         if (queue.isNotEmpty) {
           _queueManager.setCurrentIndex(0);
           final track = _queueManager.currentTrack;
@@ -624,6 +627,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     } else {
       final prevIdx = _queueManager.moveToPrevious();
       if (prevIdx != null) {
+        // 检查是否被更新的导航请求取代
+        if (navId != _navRequestId) {
+          logDebug('previous() navId $navId superseded by $_navRequestId, aborting');
+          return;
+        }
         final track = _queueManager.currentTrack;
         if (track != null) {
           await _playTrack(track);
