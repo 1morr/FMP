@@ -409,6 +409,24 @@ Slider(
 
 ## 常见错误及避免方法
 
+### ❌ 错误：在播放操作之后才更新 playingTrack
+```dart
+// 错误！播放操作会触发状态事件，导致 UI 在 playingTrack 更新前重建
+await _audioService.playUrl(url, ...);
+_updatePlayingTrack(track);  // 太晚了！
+```
+
+### ✅ 正确：先更新 playingTrack 再播放
+```dart
+// 正确！在播放操作之前更新，避免 Android 上 UI 刷新延迟
+_updatePlayingTrack(track);
+await _audioService.playUrl(url, ...);
+```
+
+**原因**：`playUrl/playFile` 内部会触发 `playerStateStream` 事件，导致 `_onPlayerStateChanged` 被调用并更新 state。如果 `playingTrack` 还没更新，UI 会显示旧的歌曲信息。在 Android 上这个问题更明显（事件处理时机与 Windows 不同）。
+
+
+
 ### ❌ 错误：UI 直接调用 setVolume 进行静音
 ```dart
 // 错误！不会记住原音量

@@ -410,6 +410,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         throw Exception('No audio URL available for: ${track.title}');
       }
 
+      // 先更新正在播放的歌曲（在播放操作之前更新，避免 Android 上 UI 刷新延迟问题）
+      // 播放操作会触发 playerStateStream 事件，导致 UI 重建，此时 playingTrack 必须已经更新
+      _updatePlayingTrack(trackWithUrl);
+
       // 播放（传递 Track 信息用于后台播放通知）
       if (localPath != null) {
         await _audioService.playFile(url, track: trackWithUrl);
@@ -417,9 +421,6 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         final headers = _getHeadersForTrack(trackWithUrl);
         await _audioService.playUrl(url, headers: headers, track: trackWithUrl);
       }
-
-      // 更新正在播放的歌曲
-      _updatePlayingTrack(trackWithUrl);
       state = state.copyWith(isLoading: false);
 
       // 更新队列状态以显示正确的 upcomingTracks（原队列中的当前歌曲）
