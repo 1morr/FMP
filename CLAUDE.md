@@ -28,12 +28,59 @@ Always use Serena MCP tools for code changes:
 
 Benefits: Precise symbolic editing, better for refactoring, avoids accidental changes.
 
-### 3. Update Memories After Significant Changes
-After making architectural changes, update relevant memories:
+### 3. Update Documentation After Significant Changes ⚠️ IMPORTANT
+
+**在完成重大代码修改后，必须同时更新：**
+1. **本文件 (CLAUDE.md)** - 项目核心文档
+2. **Serena 记忆文件** - 详细架构/实现文档
+
+#### 需要更新 CLAUDE.md 的情况
+
+| 修改类型 | 需要更新的章节 |
+|----------|---------------|
+| 音频架构变更 | "Three-Layer Audio System"、"File Structure" |
+| 核心设计决策变更 | "Key Design Decisions" |
+| 新增核心命令/工具 | "Common Commands" |
+| 状态管理变更 | "State Management: Riverpod" |
+| 数据层变更 | "Data Layer" |
+
+#### 需要更新 Serena 记忆的情况
+
+| 修改类型 | 需要更新的记忆 |
+|----------|---------------|
+| 音频系统架构变更 | `audio_system` |
+| 新增/删除模块、服务 | `architecture` |
+| 依赖包变更 | `project_overview` |
+| 下载系统变更 | `download_system` |
+| UI 页面结构变更 | `ui_pages_details` |
+| 新的设计决策/经验教训 | `refactoring_lessons` |
+
+#### 更新方法
+
+**CLAUDE.md 更新：**
 ```
+mcp__plugin_serena_serena__replace_content(relative_path: "CLAUDE.md", needle: "...", repl: "...", mode: "literal")
+```
+
+**Serena 记忆更新：**
+```
+# 小范围编辑（推荐）
+mcp__plugin_serena_serena__edit_memory(memory_file_name: "...", needle: "旧内容", repl: "新内容", mode: "literal")
+
+# 大范围重写
 mcp__plugin_serena_serena__write_memory(memory_file_name: "...", content: "...")
-mcp__plugin_serena_serena__edit_memory(memory_file_name: "...", needle: "...", repl: "...", mode: "literal")
+
+# 删除过时记忆
+mcp__plugin_serena_serena__delete_memory(memory_file_name: "...")
 ```
+
+#### 检查清单
+
+完成重大修改后，问自己：
+- [ ] 是否添加/删除了依赖包？→ 更新 CLAUDE.md + `project_overview`
+- [ ] 是否添加/删除了服务类？→ 更新 CLAUDE.md "File Structure" + `architecture`
+- [ ] 是否修改了核心架构？→ 更新 CLAUDE.md 相关章节 + 相关记忆
+- [ ] 是否有新的设计决策？→ 更新 CLAUDE.md "Key Design Decisions" + `refactoring_lessons`
 
 ## Project Overview
 
@@ -147,6 +194,7 @@ lib/
 ├── services/audio/
 │   ├── audio_provider.dart   # AudioController + PlayerState + Providers
 │   ├── audio_service.dart    # Low-level just_audio wrapper
+│   ├── audio_handler.dart    # FmpAudioHandler (Android notification via audio_service)
 │   └── queue_manager.dart    # Queue, shuffle, loop, persistence
 ├── data/
 │   ├── models/               # Isar collections (*.dart + *.g.dart)

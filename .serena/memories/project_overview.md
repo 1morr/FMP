@@ -17,7 +17,7 @@
 | 状态管理 | Riverpod | 2.6.x |
 | 本地存储 | Isar | 3.1.x |
 | 音频播放 | just_audio | 0.9.x |
-| 后台播放 | just_audio_background | 0.0.x |
+| 后台播放 | audio_service | 0.18.x |
 | 网络请求 | Dio | 5.8.x |
 | 路由 | go_router | 14.8.x |
 
