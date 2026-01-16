@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/services/image_loading_service.dart';
+import '../../../core/services/network_image_cache_service.dart';
 import '../../../data/models/settings.dart';
 import '../../../providers/theme_provider.dart';
 import '../../../providers/download_provider.dart';
@@ -52,6 +54,15 @@ class SettingsPage extends ConsumerWidget {
                   // TODO: 实现
                 },
               ),
+            ],
+          ),
+          const Divider(),
+          // 缓存设置
+          _SettingsSection(
+            title: '缓存',
+            children: [
+              _ImageCacheSizeListTile(),
+              _ClearImageCacheListTile(),
             ],
           ),
           const Divider(),
@@ -587,6 +598,143 @@ class _DownloadImageOptionListTile extends ConsumerWidget {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('取消'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 图片缓存大小设置
+class _ImageCacheSizeListTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(downloadSettingsProvider);
+    final cacheSizeMB = settings.maxCacheSizeMB;
+    final cacheText = _formatCacheSize(cacheSizeMB);
+
+    return ListTile(
+      leading: const Icon(Icons.storage_outlined),
+      title: const Text('图片缓存大小'),
+      subtitle: Text('最大 $cacheText'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => _showCacheSizeDialog(context, ref, cacheSizeMB),
+    );
+  }
+
+  String _formatCacheSize(int sizeMB) {
+    if (sizeMB >= 1024) {
+      return '${(sizeMB / 1024).toStringAsFixed(1)} GB';
+    }
+    return '$sizeMB MB';
+  }
+
+  void _showCacheSizeDialog(BuildContext context, WidgetRef ref, int current) {
+    final options = [64, 128, 256, 512];
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('图片缓存大小'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: options.map((sizeMB) {
+            return RadioListTile<int>(
+              title: Text(_formatCacheSize(sizeMB)),
+              value: sizeMB,
+              groupValue: current,
+              onChanged: (value) {
+                if (value != null) {
+                  ref.read(downloadSettingsProvider.notifier).setMaxCacheSizeMB(value);
+                }
+                Navigator.pop(context);
+              },
+            );
+          }).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 清除图片缓存
+class _ClearImageCacheListTile extends StatefulWidget {
+  @override
+  State<_ClearImageCacheListTile> createState() =>
+      _ClearImageCacheListTileState();
+}
+
+class _ClearImageCacheListTileState extends State<_ClearImageCacheListTile> {
+  double? _cacheSizeMB;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCacheSize();
+  }
+
+  Future<void> _loadCacheSize() async {
+    final sizeMB = await NetworkImageCacheService.getCacheSizeMB();
+    if (mounted) {
+      setState(() => _cacheSizeMB = sizeMB);
+    }
+  }
+
+  String _formatSize(double mb) {
+    if (mb < 1) {
+      return '${(mb * 1024).toStringAsFixed(1)} KB';
+    }
+    return '${mb.toStringAsFixed(1)} MB';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitle = _cacheSizeMB != null
+        ? '当前缓存: ${_formatSize(_cacheSizeMB!)}'
+        : '正在计算...';
+
+    return ListTile(
+      leading: const Icon(Icons.delete_outline),
+      title: const Text('清除图片缓存'),
+      subtitle: Text(subtitle),
+      onTap: () => _showClearCacheDialog(context),
+    );
+  }
+
+  void _showClearCacheDialog(BuildContext context) {
+    final sizeText = _cacheSizeMB != null
+        ? '\n\n当前缓存大小: ${_formatSize(_cacheSizeMB!)}'
+        : '';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('清除图片缓存'),
+        content: Text('确定要清除所有缓存的图片吗？这不会影响已下载的本地图片。$sizeText'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await ImageLoadingService.clearNetworkCache();
+              // 重新加载缓存大小
+              await _loadCacheSize();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('图片缓存已清除')),
+                );
+              }
+            },
+            child: const Text('确定'),
           ),
         ],
       ),

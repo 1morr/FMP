@@ -418,7 +418,6 @@ class _SettingsListView extends StatelessWidget {
                 _DataSection(
                   title: '存储设置',
                   data: {
-                    'customCacheDir': setting.customCacheDir ?? 'null',
                     'maxCacheSizeMB': setting.maxCacheSizeMB.toString(),
                     'customDownloadDir': setting.customDownloadDir ?? 'null',
                   },
