@@ -191,6 +191,27 @@ int _playRequestId = 0;
 ```
 用于防止快速切歌时的竞态条件，确保只有最新的播放请求会执行。
 
+### 6. 记住播放位置（Remember Playback Position）
+**用途：** 长视频/音频自动记住播放位置，下次播放时从上次位置继续
+
+**触发条件：**
+- 视频时长 > 10 分钟
+- 且播放进度 > 5%
+
+**相关方法：**
+```dart
+// QueueManager
+Future<void> rememberPlaybackPosition(Track track, Duration position);
+Future<Duration?> getRememberedPosition(Track track);
+Future<void> clearRememberedPosition(Track track);
+```
+
+**存储：** 使用 Isar 数据库，`Track.rememberedPositionMs` 字段
+
+**播放时恢复：**
+- `_playTrack()` 内部会调用 `_queueManager.getRememberedPosition()`
+- 如果有记住的位置，自动 seek 到该位置
+
 ## Provider 结构
 
 ```dart

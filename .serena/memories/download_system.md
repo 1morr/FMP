@@ -89,8 +89,33 @@ await cache.preloadPaths(paths);
 ### 3. DownloadService (`lib/services/download/download_service.dart`)
 
 - 并发控制（默认 3 个）
-- 进度节流（500ms 或 5%）
+- **全局进度节流**（2026-01-17 更新）：
+  - 500ms 或 5% 进度变化时才更新
+  - 使用 `_lastGlobalProgressUpdate` 和 `_lastGlobalProgressValue` 全局追踪
+  - 下载完成（100%）总是立即触发更新
+  - 有效减少 UI 重建频率，提升性能
 - 下载前检查文件是否已存在
+
+**进度节流实现：**
+```dart
+DateTime? _lastGlobalProgressUpdate;
+double _lastGlobalProgressValue = 0.0;
+
+void _maybeNotifyProgress(double progress) {
+  final now = DateTime.now();
+  final timeSinceLastUpdate = _lastGlobalProgressUpdate == null
+      ? const Duration(seconds: 1)
+      : now.difference(_lastGlobalProgressUpdate!);
+  final progressDelta = (progress - _lastGlobalProgressValue).abs();
+  
+  // 只有满足条件才更新
+  if (progress >= 1.0 || timeSinceLastUpdate >= const Duration(milliseconds: 500) || progressDelta >= 0.05) {
+    _lastGlobalProgressUpdate = now;
+    _lastGlobalProgressValue = progress;
+    _progressController.add(progress);
+  }
+}
+```
 
 ### 4. DownloadScanner (`lib/providers/download/download_scanner.dart`)
 
