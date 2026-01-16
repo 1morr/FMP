@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/services/network_image_cache_service.dart';
 import '../data/models/settings.dart';
 import '../data/repositories/settings_repository.dart';
 import 'repository_providers.dart';
@@ -8,22 +9,26 @@ import 'repository_providers.dart';
 class DownloadSettingsState {
   final int maxConcurrentDownloads;
   final DownloadImageOption downloadImageOption;
+  final int maxCacheSizeMB;
   final bool isLoading;
 
   const DownloadSettingsState({
     this.maxConcurrentDownloads = 3,
     this.downloadImageOption = DownloadImageOption.coverOnly,
+    this.maxCacheSizeMB = 200,
     this.isLoading = true,
   });
 
   DownloadSettingsState copyWith({
     int? maxConcurrentDownloads,
     DownloadImageOption? downloadImageOption,
+    int? maxCacheSizeMB,
     bool? isLoading,
   }) {
     return DownloadSettingsState(
       maxConcurrentDownloads: maxConcurrentDownloads ?? this.maxConcurrentDownloads,
       downloadImageOption: downloadImageOption ?? this.downloadImageOption,
+      maxCacheSizeMB: maxCacheSizeMB ?? this.maxCacheSizeMB,
       isLoading: isLoading ?? this.isLoading,
     );
   }
@@ -44,8 +49,15 @@ class DownloadSettingsNotifier extends StateNotifier<DownloadSettingsState> {
     state = DownloadSettingsState(
       maxConcurrentDownloads: _settings!.maxConcurrentDownloads,
       downloadImageOption: _settings!.downloadImageOption,
+      maxCacheSizeMB: _settings!.maxCacheSizeMB,
       isLoading: false,
     );
+
+    // 同步缓存大小限制到 NetworkImageCacheService
+    NetworkImageCacheService.setMaxCacheSizeMB(_settings!.maxCacheSizeMB);
+
+    // 启动时检查并清理超出限制的缓存
+    NetworkImageCacheService.trimCacheIfNeeded(_settings!.maxCacheSizeMB);
   }
 
   /// 设置最大并发下载数
@@ -65,6 +77,22 @@ class DownloadSettingsNotifier extends StateNotifier<DownloadSettingsState> {
     _settings!.downloadImageOption = option;
     await _settingsRepository.save(_settings!);
     state = state.copyWith(downloadImageOption: option);
+  }
+
+  /// 设置图片缓存大小上限（MB）
+  Future<void> setMaxCacheSizeMB(int value) async {
+    if (_settings == null) return;
+    if (value < 50) return; // 最小 50MB
+
+    _settings!.maxCacheSizeMB = value;
+    await _settingsRepository.save(_settings!);
+    state = state.copyWith(maxCacheSizeMB: value);
+
+    // 同步缓存大小限制到 NetworkImageCacheService
+    NetworkImageCacheService.setMaxCacheSizeMB(value);
+
+    // 检查并清理超出限制的缓存
+    await NetworkImageCacheService.trimCacheIfNeeded(value);
   }
 }
 

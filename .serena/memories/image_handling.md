@@ -57,6 +57,42 @@ LocalImageCache.remove(path); // 清理单个缓存
 LocalImageCache.clear(); // 清空所有缓存
 ```
 
+### 0.2. NetworkImageCacheService（网络图片缓存）✅ 新增
+
+**文件位置**：`lib/core/services/network_image_cache_service.dart`
+
+**功能**：
+- 使用 `cached_network_image` + `flutter_cache_manager` 实现
+- 内存缓存（快速访问）+ 磁盘缓存（持久化）
+- 缓存有效期：7 天
+- 最大缓存文件数：500 个
+- 用户可在设置中配置缓存大小
+
+**使用方式**：
+```dart
+// 获取缓存管理器
+NetworkImageCacheService.defaultCacheManager;
+NetworkImageCacheService.getCacheManager(maxSizeMB: 500);
+
+// 清除缓存
+await NetworkImageCacheService.clearCache();
+await NetworkImageCacheService.removeFile(url);
+```
+
+**ImageLoadingService 集成**：
+网络图片自动使用 `CachedNetworkImage`，无需手动配置：
+```dart
+ImageLoadingService.loadImage(
+  localPath: track.localCoverPath,
+  networkUrl: track.thumbnailUrl,  // 自动缓存
+  placeholder: placeholder,
+);
+```
+
+**设置页面**：
+- 图片缓存大小：100MB / 200MB / 500MB / 1GB / 2GB
+- 清除图片缓存：一键清除所有网络图片缓存
+
 ### 1. TrackThumbnail（歌曲缩略图）
 
 **文件位置**：`lib/ui/widgets/track_thumbnail.dart`

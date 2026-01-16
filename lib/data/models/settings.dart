@@ -30,8 +30,9 @@ class Settings {
   int? cardColor;
 
   /// 缓存设置
-  String? customCacheDir;
   int maxCacheSizeMB = 128; // 默认 128MB
+
+  /// 下载目录
   String? customDownloadDir;
 
   /// 快捷键配置 (JSON 字符串)

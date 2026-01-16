@@ -1,19 +1,38 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/models/track.dart';
 import '../constants/app_constants.dart';
 import '../extensions/track_extensions.dart';
 import 'local_image_cache.dart';
+import 'network_image_cache_service.dart';
 
 /// 统一的图片加载服务
 ///
 /// 功能：
 /// - 统一的图片加载优先级：本地 → 网络 → 占位符
-/// - 集成 LocalImageCache 用于本地图片缓存
+/// - 本地图片：使用 LocalImageCache 进行 LRU 内存缓存
+/// - 网络图片：使用 CachedNetworkImage 进行内存 + 磁盘缓存
 /// - 提供统一的占位符和错误处理
 /// - 图片加载完成后有淡入效果
 class ImageLoadingService {
   ImageLoadingService._();
+
+  /// 清空所有图片缓存（本地 + 网络）
+  static Future<void> clearAllCache() async {
+    LocalImageCache.clear();
+    await NetworkImageCacheService.clearCache();
+  }
+
+  /// 清空网络图片缓存
+  static Future<void> clearNetworkCache() async {
+    await NetworkImageCacheService.clearCache();
+  }
+
+  /// 清空本地图片缓存
+  static void clearLocalCache() {
+    LocalImageCache.clear();
+  }
 
   /// 加载图片 Widget
   ///
@@ -95,7 +114,7 @@ class ImageLoadingService {
     Duration fadeInDuration = AppConstants.defaultFadeInDuration,
   }) {
     if (networkUrl != null && networkUrl.isNotEmpty) {
-      return _FadeInNetworkImage(
+      return _CachedNetworkImage(
         url: networkUrl,
         fit: fit,
         width: width,
@@ -332,8 +351,13 @@ class _FadeInImageState extends State<_FadeInImage>
   }
 }
 
-/// 带淡入效果的网络图片组件
-class _FadeInNetworkImage extends StatefulWidget {
+/// 带缓存和淡入效果的网络图片组件
+///
+/// 使用 CachedNetworkImage 实现：
+/// - 内存缓存（快速访问）
+/// - 磁盘缓存（持久化存储）
+/// - 淡入动画效果
+class _CachedNetworkImage extends StatelessWidget {
   final String url;
   final BoxFit fit;
   final double? width;
@@ -343,7 +367,7 @@ class _FadeInNetworkImage extends StatefulWidget {
   final bool showLoadingIndicator;
   final Duration fadeInDuration;
 
-  const _FadeInNetworkImage({
+  const _CachedNetworkImage({
     required this.url,
     required this.fit,
     this.width,
@@ -355,98 +379,32 @@ class _FadeInNetworkImage extends StatefulWidget {
   });
 
   @override
-  State<_FadeInNetworkImage> createState() => _FadeInNetworkImageState();
-}
-
-class _FadeInNetworkImageState extends State<_FadeInNetworkImage>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-  bool _isLoaded = false;
-  bool _hasError = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: widget.fadeInDuration,
-      vsync: this,
-    );
-    _animation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeIn,
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onImageLoaded() {
-    if (!_isLoaded && mounted) {
-      setState(() {
-        _isLoaded = true;
-      });
-      _controller.forward();
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (_hasError) {
-      return widget.placeholder;
-    }
-
-    return Stack(
-      fit: StackFit.passthrough,
-      children: [
-        // 占位符或加载指示器
-        if (!_isLoaded)
-          widget.showLoadingIndicator
-              ? Center(
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                  ),
-                )
-              : widget.placeholder,
-        // 图片
-        Opacity(
-          opacity: _isLoaded ? 1.0 : 0.0,
-          child: FadeTransition(
-            opacity: _animation,
-            child: Image.network(
-              widget.url,
-              fit: widget.fit,
-              width: widget.width,
-              height: widget.height,
-              headers: widget.headers,
-              frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                if (wasSynchronouslyLoaded || frame != null) {
-                  // 图片帧加载完成
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    _onImageLoaded();
-                  });
-                }
-                return child;
-              },
-              errorBuilder: (context, error, stackTrace) {
-                if (mounted && !_hasError) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) {
-                      setState(() {
-                        _hasError = true;
-                      });
-                    }
-                  });
-                }
-                return const SizedBox.shrink();
-              },
-            ),
-          ),
-        ),
-      ],
+    return CachedNetworkImage(
+      imageUrl: url,
+      fit: fit,
+      width: width,
+      height: height,
+      httpHeaders: headers,
+      cacheManager: NetworkImageCacheService.defaultCacheManager,
+      fadeInDuration: fadeInDuration,
+      fadeOutDuration: const Duration(milliseconds: 100),
+      placeholder: (context, url) => showLoadingIndicator
+          ? const Center(
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : placeholder,
+      errorWidget: (context, url, error) => placeholder,
+      imageBuilder: (context, imageProvider) {
+        // 图片加载成功，通知缓存服务
+        NetworkImageCacheService.onImageLoaded();
+        return Image(
+          image: imageProvider,
+          fit: fit,
+          width: width,
+          height: height,
+        );
+      },
     );
   }
 }
