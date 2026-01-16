@@ -465,6 +465,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
       final currentTrack = _queueManager.currentTrack;
       if (currentTrack != null) {
+        // 【重要】立即更新 UI，避免 Android 上明显的延迟
+        _updatePlayingTrack(currentTrack);
+        _updateQueueState();
+
         // 准备歌曲
         final (trackWithUrl, localPath) = await _queueManager.ensureAudioUrl(currentTrack);
         final url = localPath ?? trackWithUrl.audioUrl;
@@ -477,7 +481,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
             await _audioService.setUrl(url, headers: headers);
           }
 
-          // 更新正在播放的歌曲
+          // 更新正在播放的歌曲（可能有 URL 更新）
           _updatePlayingTrack(trackWithUrl);
 
           // 恢复播放位置（回退10秒，方便用户回忆上下文）
@@ -954,16 +958,15 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     // 创建新的锁
     _playLock = Completer<void>();
 
-    state = state.copyWith(isLoading: true, error: null);
-    
-    // 立即停止当前播放，避免在获取新 URL 期间继续播放上一首
-    // 这确保了 UI 状态和实际播放状态的一致性
-    await _audioService.stop();
-    
-    // 立即更新 playingTrack，确保与 queueTrack 同步
-    // 这样即使播放失败，UI 也能正确显示"下一首"等信息
+    // 【重要】立即更新 UI，让用户看到切换效果
+    // 必须在任何 await 之前执行，否则 Android 上 stop() 可能导致明显延迟
     _updatePlayingTrack(track);
     _updateQueueState();
+
+    state = state.copyWith(isLoading: true, error: null);
+    
+    // 停止当前播放，避免在获取新 URL 期间继续播放上一首
+    await _audioService.stop();
 
     try {
       // 确保有音频 URL
