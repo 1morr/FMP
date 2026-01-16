@@ -50,6 +50,9 @@ class Settings {
   /// 切歌时自动跳转到队列页面并定位当前歌曲
   bool autoScrollToCurrentTrack = false;
 
+  /// 记住播放位置（应用重启后从上次位置继续播放）
+  bool rememberPlaybackPosition = true;
+
   // ========== 下载设置 ==========
 
   /// 最大并发下载数 (1-5)

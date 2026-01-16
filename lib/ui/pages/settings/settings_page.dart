@@ -9,6 +9,7 @@ import '../../../providers/theme_provider.dart';
 import '../../../providers/download_provider.dart';
 import '../../../providers/download_settings_provider.dart';
 import '../../../providers/developer_options_provider.dart';
+import '../../../providers/playback_settings_provider.dart';
 import '../../router.dart';
 
 /// 设置页
@@ -36,24 +37,7 @@ class SettingsPage extends ConsumerWidget {
           _SettingsSection(
             title: '播放',
             children: [
-              SwitchListTile(
-                secondary: const Icon(Icons.skip_next_outlined),
-                title: const Text('自动播放下一首'),
-                subtitle: const Text('当前歌曲结束后自动播放下一首'),
-                value: true,
-                onChanged: (value) {
-                  // TODO: 实现
-                },
-              ),
-              SwitchListTile(
-                secondary: const Icon(Icons.history_outlined),
-                title: const Text('记住播放位置'),
-                subtitle: const Text('应用重启后从上次位置继续播放'),
-                value: true,
-                onChanged: (value) {
-                  // TODO: 实现
-                },
-              ),
+              _RememberPlaybackPositionTile(),
             ],
           ),
           const Divider(),
@@ -294,6 +278,26 @@ class _ThemeColorListTile extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 记住播放位置开关
+class _RememberPlaybackPositionTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(playbackSettingsProvider);
+
+    return SwitchListTile(
+      secondary: const Icon(Icons.history_outlined),
+      title: const Text('记住播放位置'),
+      subtitle: const Text('应用重启后从上次位置继续播放'),
+      value: settings.isLoading ? true : settings.rememberPlaybackPosition,
+      onChanged: settings.isLoading
+          ? null
+          : (value) {
+              ref.read(playbackSettingsProvider.notifier).setRememberPlaybackPosition(value);
+            },
     );
   }
 }

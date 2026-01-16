@@ -6,6 +6,7 @@ import '../../core/logger.dart';
 import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
 import '../../data/repositories/queue_repository.dart';
+import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../data/sources/source_provider.dart';
 
@@ -15,6 +16,7 @@ import '../../data/sources/source_provider.dart';
 class QueueManager with Logging {
   final QueueRepository _queueRepository;
   final TrackRepository _trackRepository;
+  final SettingsRepository _settingsRepository;
   final SourceManager _sourceManager;
 
   // 队列数据
@@ -135,9 +137,11 @@ class QueueManager with Logging {
   QueueManager({
     required QueueRepository queueRepository,
     required TrackRepository trackRepository,
+    required SettingsRepository settingsRepository,
     required SourceManager sourceManager,
   })  : _queueRepository = queueRepository,
         _trackRepository = trackRepository,
+        _settingsRepository = settingsRepository,
         _sourceManager = sourceManager;
 
   /// 初始化队列（从持久化存储加载）
@@ -146,13 +150,25 @@ class QueueManager with Logging {
     try {
       _currentQueue = await _queueRepository.getOrCreate();
 
+      // 检查是否启用记住播放位置
+      final settings = await _settingsRepository.get();
+      final shouldRestorePosition = settings.rememberPlaybackPosition;
+
       if (_currentQueue!.trackIds.isNotEmpty) {
         logDebug('Loading ${_currentQueue!.trackIds.length} saved tracks');
         _tracks = await _trackRepository.getByIds(_currentQueue!.trackIds);
 
         if (_tracks.isNotEmpty) {
           _currentIndex = _currentQueue!.currentIndex.clamp(0, _tracks.length - 1);
-          _currentPosition = Duration(milliseconds: _currentQueue!.lastPositionMs);
+          
+          // 只有启用了记住播放位置才恢复位置
+          if (shouldRestorePosition) {
+            _currentPosition = Duration(milliseconds: _currentQueue!.lastPositionMs);
+            logDebug('Restored position: $_currentPosition');
+          } else {
+            _currentPosition = Duration.zero;
+            logDebug('Remember position disabled, starting from beginning');
+          }
 
           // 如果启用了随机播放，恢复 shuffle order
           if (isShuffleEnabled) {
@@ -199,6 +215,11 @@ class QueueManager with Logging {
   /// 更新当前播放位置（由 AudioController 调用）
   void updatePosition(Duration position) {
     _currentPosition = position;
+  }
+
+  /// 立即保存当前位置（用于 seek 后立即保存）
+  Future<void> savePositionNow() async {
+    await _savePosition();
   }
 
   /// 获取恢复位置

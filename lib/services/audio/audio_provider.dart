@@ -9,6 +9,7 @@ import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
 import '../../data/sources/bilibili_source.dart';
 import '../../data/repositories/queue_repository.dart';
+import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../data/sources/source_provider.dart';
 import '../../providers/database_provider.dart';
@@ -213,6 +214,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       await _queueManager.initialize();
       logDebug('QueueManager initialized');
 
+      // 保存需要恢复的位置（在设置监听器之前，避免被位置流覆盖）
+      final positionToRestore = _queueManager.savedPosition;
+      logDebug('Position to restore: $positionToRestore');
+
       // 监听播放器状态
       _subscriptions.add(
         _audioService.playerStateStream.listen(_onPlayerStateChanged),
@@ -268,8 +273,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // 恢复播放（如果有保存的歌曲）
       if (_queueManager.currentTrack != null) {
         logDebug('Restoring saved track: ${_queueManager.currentTrack!.title}');
-        // 不自动播放，只设置 URL
-        await _prepareCurrentTrack(autoPlay: false);
+        // 不自动播放，只设置 URL，传入保存的位置
+        await _prepareCurrentTrack(autoPlay: false, initialPosition: positionToRestore);
       }
 
       _isInitialized = true;
@@ -338,6 +343,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 跳转到指定位置
   Future<void> seekTo(Duration position) async {
     await _audioService.seekTo(position);
+    // 立即保存位置，避免 seek 后马上关闭应用导致进度丢失
+    await _queueManager.savePositionNow();
   }
 
   /// 跳转到百分比位置
@@ -355,12 +362,16 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   Future<void> seekForward([Duration? duration]) async {
     final seekDuration = duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
     await _audioService.seekForward(seekDuration);
+    // 立即保存位置
+    await _queueManager.savePositionNow();
   }
 
   /// 快退
   Future<void> seekBackward([Duration? duration]) async {
     final seekDuration = duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
     await _audioService.seekBackward(seekDuration);
+    // 立即保存位置
+    await _queueManager.savePositionNow();
   }
 
   // ========== 队列控制 ==========
@@ -1062,7 +1073,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   /// 准备当前歌曲（不自动播放）
-  Future<void> _prepareCurrentTrack({bool autoPlay = false}) async {
+  Future<void> _prepareCurrentTrack({bool autoPlay = false, Duration? initialPosition}) async {
     final track = _queueManager.currentTrack;
     if (track == null) return;
 
@@ -1082,10 +1093,15 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // 设置正在播放的歌曲（用于 UI 显示）
       _updatePlayingTrack(trackWithUrl);
 
-      // 恢复播放位置
-      final savedPosition = _queueManager.savedPosition;
-      if (savedPosition > Duration.zero) {
-        await _audioService.seekTo(savedPosition);
+      // 恢复播放位置（优先使用传入的位置，否则使用 QueueManager 保存的位置）
+      final positionToSeek = initialPosition ?? _queueManager.savedPosition;
+      logDebug('Attempting to restore position: $positionToSeek');
+      if (positionToSeek > Duration.zero) {
+        logDebug('Seeking to saved position: $positionToSeek');
+        await _audioService.seekTo(positionToSeek);
+        logDebug('Seek completed');
+      } else {
+        logDebug('No saved position to restore (position is zero)');
       }
 
       if (autoPlay) {
@@ -1275,10 +1291,12 @@ final queueManagerProvider = Provider<QueueManager>((ref) {
 
   final queueRepository = QueueRepository(db);
   final trackRepository = TrackRepository(db);
+  final settingsRepository = SettingsRepository(db);
 
   final manager = QueueManager(
     queueRepository: queueRepository,
     trackRepository: trackRepository,
+    settingsRepository: settingsRepository,
     sourceManager: sourceManager,
   );
 
