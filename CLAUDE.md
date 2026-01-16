@@ -178,6 +178,13 @@ When clicking a song in search/playlist pages, it plays temporarily without modi
 ### Mute Toggle
 Volume mute must use `controller.toggleMute()`, NOT `setVolume(0)` / `setVolume(1.0)`. The mute logic remembers the previous volume in `_volumeBeforeMute`.
 
+### Remember Playback Position
+For long videos (>10 min) with progress >5%, the playback position is automatically saved. When replaying, it resumes from the saved position.
+
+- Stored in `Track.rememberedPositionMs` via Isar
+- Uses `rememberPlaybackPosition()`, `getRememberedPosition()`, `clearRememberedPosition()` in QueueManager
+- Automatically restored in `_playTrack()`
+
 ### Shuffle Mode
 Managed in `QueueManager` with `_shuffleOrder` list. When queue is cleared and songs added, shuffle order regenerates automatically.
 
