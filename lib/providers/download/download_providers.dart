@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,7 @@ import '../../services/download/download_service.dart';
 import '../database_provider.dart';
 import 'download_state.dart';
 import 'download_scanner.dart';
+import 'file_exists_cache.dart';
 
 // Re-export for convenience
 export 'download_state.dart';
@@ -52,8 +54,16 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
   // 初始化服务
   service.initialize();
 
+  // 监听下载完成事件，更新 FileExistsCache
+  StreamSubscription<DownloadCompletionEvent>? completionSubscription;
+  completionSubscription = service.completionStream.listen((event) {
+    // 标记文件已存在，触发 UI 更新
+    ref.read(fileExistsCacheProvider.notifier).markAsDownloaded(event.savePath);
+  });
+
   // 在 provider 被销毁时清理
   ref.onDispose(() {
+    completionSubscription?.cancel();
     service.dispose();
   });
 
