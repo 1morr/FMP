@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:simple_icons/simple_icons.dart';
 
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
@@ -687,11 +688,25 @@ class _SearchResultTile extends ConsumerWidget {
       children: [
         // 主视频行
         ListTile(
-          leading: TrackThumbnail(
-            track: track,
-            size: 48,
-            borderRadius: 4,
-            isPlaying: shouldHighlight,
+          leading: SizedBox(
+            width: 48,
+            height: 48,
+            child: Stack(
+              children: [
+                TrackThumbnail(
+                  track: track,
+                  size: 48,
+                  borderRadius: 4,
+                  isPlaying: shouldHighlight,
+                ),
+                // 音源标识（右下角）
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: _SourceBadge(sourceType: track.sourceType),
+                ),
+              ],
+            ),
           ),
           title: Text(
             track.title,
@@ -704,9 +719,6 @@ class _SearchResultTile extends ConsumerWidget {
           ),
           subtitle: Row(
             children: [
-              // 音源标识
-              _SourceBadge(sourceType: track.sourceType),
-              const SizedBox(width: 6),
               if (isLocal) ...[
                 Icon(
                   Icons.check_circle,
@@ -1250,27 +1262,27 @@ class _SourceBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (color, label) = switch (sourceType) {
-      SourceType.bilibili => (const Color(0xFFFB7299), 'B'),
-      SourceType.youtube => (const Color(0xFFFF0000), 'Y'),
+    final (color, icon) = switch (sourceType) {
+      SourceType.bilibili => (const Color(0xFFFB7299), SimpleIcons.bilibili),
+      SourceType.youtube => (const Color(0xFFFF0000), SimpleIcons.youtube),
     };
 
     return Container(
-      width: 18,
-      height: 18,
+      padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
-        color: color,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(4),
-      ),
-      child: Center(
-        child: Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 2,
           ),
-        ),
+        ],
+      ),
+      child: Icon(
+        icon,
+        size: 12,
+        color: color,
       ),
     );
   }

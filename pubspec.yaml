@@ -61,6 +61,7 @@ dependencies:
   collection: ^1.19.1
   equatable: ^2.0.7
   intl: ^0.20.2
+  simple_icons: ^14.6.1
 
 dev_dependencies:
   flutter_test:
