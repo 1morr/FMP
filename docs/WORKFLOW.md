@@ -1033,21 +1033,23 @@ class BilibiliSource extends BaseSource {
 
 ### 5.3 YouTube 音源
 
-| 任务 ID | 任务名称 | 依赖 | 优先级 | 预估复杂度 |
-|---------|----------|------|--------|------------|
-| 5.3.1 | 实现 YouTube ID 解析 | 2.3.1 | P0 | 低 |
-| 5.3.2 | 研究 YouTube 音频获取方案 | 5.3.1 | P0 | 高 |
-| 5.3.3 | 实现视频信息获取 | 5.3.2 | P0 | 高 |
-| 5.3.4 | 实现音频流 URL 获取 | 5.3.2 | P0 | 高 |
-| 5.3.5 | 实现搜索功能 | 5.3.2 | P0 | 高 |
-| 5.3.6 | 实现播放列表解析 | 5.3.3 | P1 | 中 |
+| 任务 ID | 任务名称 | 依赖 | 优先级 | 状态 |
+|---------|----------|------|--------|------|
+| 5.3.1 | 实现 YouTube ID 解析 | 2.3.1 | P0 | ✅ |
+| 5.3.2 | 研究 YouTube 音频获取方案 | 5.3.1 | P0 | ✅ |
+| 5.3.3 | 实现视频信息获取 | 5.3.2 | P0 | ✅ |
+| 5.3.4 | 实现音频流 URL 获取 | 5.3.2 | P0 | ✅ |
+| 5.3.5 | 实现搜索功能 | 5.3.2 | P0 | ✅ |
+| 5.3.6 | 实现播放列表解析 | 5.3.3 | P1 | ✅ |
 
 **验收标准**:
-- [ ] 可从 YouTube URL 解析视频 ID
-- [ ] 可获取视频标题、作者、时长、封面
-- [ ] 可获取音频流 URL 并播放
-- [ ] 搜索功能返回相关结果
-- [ ] 可导入 YouTube 播放列表
+- [x] 可从 YouTube URL 解析视频 ID
+- [x] 可获取视频标题、作者、时长、封面
+- [x] 可获取音频流 URL 并播放
+- [x] 搜索功能返回相关结果
+- [x] 可导入 YouTube 播放列表
+
+> ✅ **Phase 5.3 完成** - YouTubeSource 已实现，使用 youtube_explode_dart 库
 
 ---
 
@@ -1212,11 +1214,17 @@ Phase 3-6 继续...
 ## 当前待办
 
 1. **Phase 4 收尾** - 完善下载管理页面
-2. **Phase 5: 平台特性** - YouTube 音源、快捷键自定义
+2. **Phase 5 收尾** - 快捷键自定义
 3. **UI 细节优化** - 动画、过渡效果、错误提示
 
 ## 最近完成 (2026-01-17)
 
+- ✅ YouTube 音源完整实现（5.3.1-5.3.6）
+  - URL 解析（支持多种格式）
+  - 视频信息获取（标题、作者、时长、封面）
+  - 音频流 URL 获取（优先 audio-only 流）
+  - 搜索功能（分页支持）
+  - 播放列表解析
 - ✅ Windows 系统托盘（图标、右键菜单、当前歌曲显示）
 - ✅ Windows 全局快捷键（Ctrl+Alt+Space/Left/Right/S）
 - ✅ Windows 最小化到托盘
@@ -1301,11 +1309,13 @@ Phase 3-6 继续...
 | `lib/services/platform/windows_desktop_service.dart` | Windows 桌面服务（托盘、快捷键、窗口管理） |
 | `lib/providers/windows_desktop_provider.dart` | Windows 桌面服务 Provider |
 | `lib/providers/desktop_settings_provider.dart` | 桌面设置 Provider（托盘/快捷键开关） |
+| `lib/data/sources/youtube_source.dart` | YouTube 音源实现（youtube_explode_dart） |
 
 ### 依赖配置 (pubspec.yaml)
 - `just_audio: ^0.9.43` - 音频播放核心
 - `just_audio_media_kit: ^2.1.0` - Windows/Linux 平台支持（替代 just_audio_windows）
 - `audio_service: ^0.18.15` - Android 媒体通知
+- `youtube_explode_dart: ^2.3.5` - YouTube 数据提取
 - `tray_manager: ^0.2.3` - Windows 系统托盘
 - `window_manager: ^0.4.3` - 窗口管理
 - `hotkey_manager: ^0.2.3` - 全局快捷键

@@ -165,7 +165,7 @@ void main() async {
 
 - **Models:** Isar collections in `lib/data/models/` (Track, Playlist, PlayQueue, Settings)
 - **Repositories:** CRUD operations in `lib/data/repositories/`
-- **Sources:** Audio source parsers in `lib/data/sources/` (BilibiliSource implemented)
+- **Sources:** Audio source parsers in `lib/data/sources/` (BilibiliSource, YouTubeSource implemented)
 
 ## Key Design Decisions
 

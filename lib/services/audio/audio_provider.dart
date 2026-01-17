@@ -938,7 +938,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   /// 获取播放音频所需的 HTTP 请求头
-  /// Bilibili 需要 Referer 头才能正常播放
+  /// Bilibili 需要 Referer 头，YouTube 需要 Origin 和 Referer 头
   Map<String, String>? _getHeadersForTrack(Track track) {
     switch (track.sourceType) {
       case SourceType.bilibili:
@@ -947,7 +947,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         };
       case SourceType.youtube:
-        return null;
+        return {
+          'Origin': 'https://www.youtube.com',
+          'Referer': 'https://www.youtube.com/',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        };
     }
   }
 

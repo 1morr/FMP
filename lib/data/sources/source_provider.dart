@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/track.dart';
 import 'base_source.dart';
 import 'bilibili_source.dart';
+import 'youtube_source.dart';
 
 /// 音源管理器
 /// 统一管理所有音源，根据URL自动选择正确的音源
@@ -11,8 +12,7 @@ class SourceManager {
   SourceManager() {
     // 注册所有可用音源
     _sources.add(BilibiliSource());
-    // TODO: 添加 YouTube 音源
-    // _sources.add(YouTubeSource());
+    _sources.add(YouTubeSource());
   }
 
   /// 所有可用音源
@@ -147,6 +147,12 @@ final sourceManagerProvider = Provider<SourceManager>((ref) {
 final bilibiliSourceProvider = Provider<BilibiliSource>((ref) {
   final manager = ref.watch(sourceManagerProvider);
   return manager.getSource(SourceType.bilibili) as BilibiliSource;
+});
+
+/// YouTube 音源 Provider
+final youtubeSourceProvider = Provider<YouTubeSource>((ref) {
+  final manager = ref.watch(sourceManagerProvider);
+  return manager.getSource(SourceType.youtube) as YouTubeSource;
 });
 
 /// URL 解析 Provider
