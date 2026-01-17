@@ -181,9 +181,7 @@ class YouTubeSource extends BaseSource with Logging {
         return yt.SortFilters.viewCount;
       case SearchOrder.publishDate:
         return yt.SortFilters.uploadDate;
-      case SearchOrder.danmakuCount:
-        // YouTube 没有弹幕，使用评分作为替代
-        return yt.SortFilters.rating;
+
     }
   }
 

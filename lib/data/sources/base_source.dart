@@ -8,8 +8,6 @@ enum SearchOrder {
   playCount,
   /// 按发布时间排序
   publishDate,
-  /// 按弹幕数排序
-  danmakuCount,
 }
 
 /// 搜索结果

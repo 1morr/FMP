@@ -55,8 +55,6 @@ class BilibiliSource extends BaseSource with Logging {
         return 'click'; // 按播放量
       case SearchOrder.publishDate:
         return 'pubdate'; // 按发布时间
-      case SearchOrder.danmakuCount:
-        return 'dm'; // 按弹幕数
     }
   }
 

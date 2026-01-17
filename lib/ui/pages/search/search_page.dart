@@ -154,10 +154,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           value: SearchOrder.publishDate,
           child: Text('最新发布'),
         ),
-        const PopupMenuItem(
-          value: SearchOrder.danmakuCount,
-          child: Text('最多弹幕'),
-        ),
       ],
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -198,8 +194,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         return '播放量';
       case SearchOrder.publishDate:
         return '最新';
-      case SearchOrder.danmakuCount:
-        return '弹幕';
     }
   }
 
