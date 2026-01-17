@@ -281,10 +281,14 @@ class YouTubeSource extends BaseSource with Logging {
       logDebug(
           'Parsed YouTube playlist: ${playlist.title}, ${allTracks.length} tracks');
 
+      // 使用第一个视频的缩略图作为歌单封面
+      // (playlist.thumbnails 使用播放列表 ID 生成 URL，对视频缩略图无效)
+      final coverUrl = allTracks.isNotEmpty ? allTracks.first.thumbnailUrl : null;
+
       return PlaylistParseResult(
         title: playlist.title,
         description: playlist.description,
-        coverUrl: playlist.thumbnails.highResUrl,
+        coverUrl: coverUrl,
         tracks: allTracks,
         totalCount: allTracks.length,
         sourceUrl: playlistUrl,
