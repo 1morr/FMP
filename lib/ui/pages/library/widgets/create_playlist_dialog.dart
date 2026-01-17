@@ -103,28 +103,44 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
       final name = _nameController.text.trim();
       final description = _descriptionController.text.trim();
 
-      bool success;
       if (isEditing) {
-        success = await notifier.updatePlaylist(
+        final result = await notifier.updatePlaylist(
           playlistId: widget.playlist!.id,
           name: name,
           description: description.isEmpty ? null : description,
         );
+
+        if (mounted) {
+          if (result != null) {
+            Navigator.pop(context);
+            ToastService.success(context, '歌单已更新');
+
+            // 如果有需要手动移动的下载文件，显示提示
+            if (result.needsManualFileMigration) {
+              _showFileMigrationWarning(
+                result.oldDownloadFolder!,
+                result.newDownloadFolder!,
+              );
+            }
+          } else {
+            final error = ref.read(playlistListProvider).error;
+            ToastService.error(context, error ?? '操作失败');
+          }
+        }
       } else {
         final playlist = await notifier.createPlaylist(
           name: name,
           description: description.isEmpty ? null : description,
         );
-        success = playlist != null;
-      }
 
-      if (mounted) {
-        if (success) {
-          Navigator.pop(context);
-          ToastService.success(context, isEditing ? '歌单已更新' : '歌单已创建');
-        } else {
-          final error = ref.read(playlistListProvider).error;
-          ToastService.error(context, error ?? '操作失败');
+        if (mounted) {
+          if (playlist != null) {
+            Navigator.pop(context);
+            ToastService.success(context, '歌单已创建');
+          } else {
+            final error = ref.read(playlistListProvider).error;
+            ToastService.error(context, error ?? '操作失败');
+          }
         }
       }
     } finally {
@@ -132,5 +148,44 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  /// 显示下载文件需要手动移动的提示
+  void _showFileMigrationWarning(String oldFolder, String newFolder) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('已下载文件提示'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('歌单已重命名，但已下载的文件未自动移动。'),
+            const SizedBox(height: 12),
+            const Text('如需继续使用这些文件，请手动将文件夹重命名：'),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: SelectableText(
+                '旧: $oldFolder\n新: $newFolder',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontFamily: 'monospace',
+                    ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('我知道了'),
+          ),
+        ],
+      ),
+    );
   }
 }
