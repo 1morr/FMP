@@ -319,16 +319,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
-        // 当滚动到底部附近时自动加载更多
+        // 当滚动到底部附近时自动加载更多（所有音源同时加载）
         if (notification is ScrollEndNotification) {
           final metrics = notification.metrics;
           if (metrics.pixels >= metrics.maxScrollExtent - 200) {
-            // 对每个有更多内容的音源加载更多
-            for (final entry in state.onlineResults.entries) {
-              if (entry.value.hasMore && !state.isLoading) {
-                ref.read(searchProvider.notifier).loadMore(entry.key);
-                break; // 一次只加载一个音源
-              }
+            if (!state.isLoading) {
+              ref.read(searchProvider.notifier).loadMoreAll();
             }
           }
         }
@@ -380,13 +376,13 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             ),
           ],
 
-          // 在线结果（按音源分组）
-          for (final entry in state.onlineResults.entries) ...[
+          // 在线结果（混合显示）
+          if (state.mixedOnlineTracks.isNotEmpty) ...[
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  _getSourceName(entry.key),
+                  '在线结果 (${state.mixedOnlineTracks.length})',
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
@@ -394,7 +390,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
-                  final track = entry.value.tracks[index];
+                  final track = state.mixedOnlineTracks[index];
                   return _SearchResultTile(
                     track: track,
                     isLocal: false,
@@ -407,7 +403,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                     onPageMenuAction: (page, action) => _handlePageMenuAction(track, page, action),
                   );
                 },
-                childCount: entry.value.tracks.length,
+                childCount: state.mixedOnlineTracks.length,
               ),
             ),
           ],
@@ -708,6 +704,9 @@ class _SearchResultTile extends ConsumerWidget {
           ),
           subtitle: Row(
             children: [
+              // 音源标识
+              _SourceBadge(sourceType: track.sourceType),
+              const SizedBox(width: 6),
               if (isLocal) ...[
                 Icon(
                   Icons.check_circle,
@@ -1238,6 +1237,40 @@ class _LocalTrackTile extends ConsumerWidget {
           ],
         ),
         onTap: onTap,
+      ),
+    );
+  }
+}
+
+/// 音源标识徽章
+class _SourceBadge extends StatelessWidget {
+  final SourceType sourceType;
+
+  const _SourceBadge({required this.sourceType});
+
+  @override
+  Widget build(BuildContext context) {
+    final (color, label) = switch (sourceType) {
+      SourceType.bilibili => (const Color(0xFFFB7299), 'B'),
+      SourceType.youtube => (const Color(0xFFFF0000), 'Y'),
+    };
+
+    return Container(
+      width: 18,
+      height: 18,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Center(
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }

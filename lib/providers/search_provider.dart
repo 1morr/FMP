@@ -47,13 +47,66 @@ class SearchState extends Equatable {
     this.searchOrder = SearchOrder.relevance,
   });
 
-  /// 获取所有在线结果
+  /// 获取所有在线结果（未排序）
   List<Track> get allOnlineTracks {
     final tracks = <Track>[];
     for (final result in onlineResults.values) {
       tracks.addAll(result.tracks);
     }
     return tracks;
+  }
+
+  /// 获取混合排序后的在线结果
+  /// - 综合排序：交替显示不同音源
+  /// - 播放量排序：按播放数降序
+  /// - 发布时间：保持原顺序（各音源已按发布时间排序）
+  List<Track> get mixedOnlineTracks {
+    if (onlineResults.isEmpty) return [];
+
+    switch (searchOrder) {
+      case SearchOrder.relevance:
+        // 交替排序：轮流从各音源取一个
+        return _interleaveResults();
+      case SearchOrder.playCount:
+        // 按播放量降序
+        final tracks = allOnlineTracks;
+        tracks.sort((a, b) => (b.viewCount ?? 0).compareTo(a.viewCount ?? 0));
+        return tracks;
+      case SearchOrder.publishDate:
+        // 发布时间排序：交替显示（各音源已按时间排序）
+        return _interleaveResults();
+    }
+  }
+
+  /// 交替排序：轮流从各音源取结果
+  List<Track> _interleaveResults() {
+    final sourceTypes = onlineResults.keys.toList();
+    if (sourceTypes.isEmpty) return [];
+    if (sourceTypes.length == 1) {
+      return onlineResults[sourceTypes.first]?.tracks ?? [];
+    }
+
+    final result = <Track>[];
+    final iterators = <SourceType, int>{};
+    for (final type in sourceTypes) {
+      iterators[type] = 0;
+    }
+
+    // 轮流从各音源取结果
+    bool hasMore = true;
+    while (hasMore) {
+      hasMore = false;
+      for (final type in sourceTypes) {
+        final tracks = onlineResults[type]?.tracks ?? [];
+        final index = iterators[type]!;
+        if (index < tracks.length) {
+          result.add(tracks[index]);
+          iterators[type] = index + 1;
+          hasMore = true;
+        }
+      }
+    }
+    return result;
   }
 
   /// 是否有结果
@@ -192,6 +245,78 @@ class SearchNotifier extends StateNotifier<SearchState> {
 
       final updatedPages = Map<SourceType, int>.from(state.currentPages);
       updatedPages[sourceType] = nextPage;
+
+      state = state.copyWith(
+        onlineResults: updatedResults,
+        currentPages: updatedPages,
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+    }
+  }
+
+  /// 加载更多（所有有更多结果的音源同时加载）
+  Future<void> loadMoreAll() async {
+    if (state.isLoading) return;
+
+    // 找出所有有更多结果的音源
+    final sourcesToLoad = <SourceType>[];
+    for (final entry in state.onlineResults.entries) {
+      if (entry.value.hasMore) {
+        sourcesToLoad.add(entry.key);
+      }
+    }
+
+    if (sourcesToLoad.isEmpty) return;
+
+    state = state.copyWith(isLoading: true);
+
+    try {
+      // 并行加载所有音源的下一页
+      final futures = <Future<(SourceType, SearchResult)>>[];
+      for (final sourceType in sourcesToLoad) {
+        final currentPage = state.currentPages[sourceType] ?? 1;
+        final nextPage = currentPage + 1;
+        futures.add(
+          _service
+              .searchSource(
+                sourceType,
+                state.query,
+                page: nextPage,
+                order: state.searchOrder,
+              )
+              .then((result) => (sourceType, result)),
+        );
+      }
+
+      final results = await Future.wait(futures);
+
+      // 合并结果
+      final updatedResults =
+          Map<SourceType, SearchResult>.from(state.onlineResults);
+      final updatedPages = Map<SourceType, int>.from(state.currentPages);
+
+      for (final (sourceType, result) in results) {
+        final existingResult = state.onlineResults[sourceType];
+        final mergedTracks = <Track>[
+          ...existingResult?.tracks ?? [],
+          ...result.tracks,
+        ];
+
+        updatedResults[sourceType] = SearchResult(
+          tracks: mergedTracks,
+          totalCount: result.totalCount,
+          page: result.page,
+          pageSize: result.pageSize,
+          hasMore: result.hasMore,
+        );
+
+        updatedPages[sourceType] = result.page;
+      }
 
       state = state.copyWith(
         onlineResults: updatedResults,

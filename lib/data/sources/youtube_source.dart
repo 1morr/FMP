@@ -196,21 +196,31 @@ class YouTubeSource extends BaseSource with Logging {
     try {
       // 获取搜索结果列表（带排序过滤器）
       final filter = _getYouTubeFilter(order);
-      final searchList = await _youtube.search.search(query, filter: filter);
+      var searchList = await _youtube.search.search(query, filter: filter);
 
-      // 计算跳过的数量
-      final skip = (page - 1) * pageSize;
-      final tracks = <Track>[];
+      // 需要跳过的页数（page 从 1 开始）
+      final pagesToSkip = page - 1;
 
-      // 遍历搜索结果
-      var index = 0;
-      for (final video in searchList) {
-        // 跳过前面的结果
-        if (index < skip) {
-          index++;
-          continue;
+      // 调用 nextPage() 跳过前面的页
+      for (var i = 0; i < pagesToSkip; i++) {
+        final nextPageResult = await searchList.nextPage();
+        if (nextPageResult == null) {
+          // 没有更多页了
+          logDebug('YouTube search: no more pages at page $i');
+          return SearchResult(
+            tracks: [],
+            totalCount: i * pageSize,
+            page: page,
+            pageSize: pageSize,
+            hasMore: false,
+          );
         }
+        searchList = nextPageResult;
+      }
 
+      // 从当前页收集结果
+      final tracks = <Track>[];
+      for (final video in searchList) {
         tracks.add(Track()
           ..sourceId = video.id.value
           ..sourceType = SourceType.youtube
@@ -221,14 +231,13 @@ class YouTubeSource extends BaseSource with Logging {
           ..viewCount = video.engagement.viewCount);
 
         if (tracks.length >= pageSize) break;
-        index++;
       }
 
-      // 如果结果不够，尝试获取更多页
-      if (tracks.length < pageSize && searchList.length >= skip + pageSize) {
-        final nextPage = await searchList.nextPage();
-        if (nextPage != null) {
-          for (final video in nextPage) {
+      // 如果结果不够，尝试获取下一页补充
+      if (tracks.length < pageSize) {
+        final nextPageResult = await searchList.nextPage();
+        if (nextPageResult != null) {
+          for (final video in nextPageResult) {
             tracks.add(Track()
               ..sourceId = video.id.value
               ..sourceType = SourceType.youtube
@@ -242,15 +251,17 @@ class YouTubeSource extends BaseSource with Logging {
         }
       }
 
-      logDebug('YouTube search returned ${tracks.length} results for: $query');
+      // 检查是否有下一页
+      final hasMore = tracks.length >= pageSize;
+
+      logDebug('YouTube search returned ${tracks.length} results for: $query, page: $page, hasMore: $hasMore');
 
       return SearchResult(
         tracks: tracks,
-        // YouTube 搜索不返回精确总数，估算一个值
-        totalCount: skip + tracks.length + (tracks.length == pageSize ? 100 : 0),
+        totalCount: page * pageSize + (hasMore ? 100 : 0),
         page: page,
         pageSize: pageSize,
-        hasMore: tracks.length == pageSize,
+        hasMore: hasMore,
       );
     } catch (e) {
       logError('YouTube search failed: $query, error: $e');
