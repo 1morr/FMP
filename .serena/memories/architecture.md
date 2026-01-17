@@ -84,7 +84,7 @@
 | ImportService | `services/import/import_service.dart` | 外部导入 |
 | DownloadService | `services/download/download_service.dart` | 下载管理 |
 | DownloadPathUtils | `services/download/download_path_utils.dart` | 路径计算工具 |
-| PlaylistFolderMigrator | `services/library/playlist_folder_migrator.dart` | 歌单文件夹迁移 |
+| PlaylistFolderMigrator | `services/download/playlist_folder_migrator.dart` | 歌单重命名时更新 Track 下载路径（不移动文件） |
 | WindowsDesktopService | `services/platform/windows_desktop_service.dart` | Windows 桌面特性（托盘、快捷键、窗口管理） |
 
 > **详细音频系统文档见：** `audio_system` 记忆文件
