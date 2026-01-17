@@ -1,11 +1,14 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hotkey_manager/hotkey_manager.dart';
 
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/network_image_cache_service.dart';
+import '../../../data/models/hotkey_config.dart';
 import '../../../data/models/settings.dart';
 import '../../../providers/theme_provider.dart';
 import '../../../providers/download_provider.dart';
@@ -13,6 +16,7 @@ import '../../../providers/download_settings_provider.dart';
 import '../../../providers/developer_options_provider.dart';
 import '../../../providers/playback_settings_provider.dart';
 import '../../../providers/desktop_settings_provider.dart';
+import '../../../providers/hotkey_config_provider.dart';
 import '../../router.dart';
 
 /// 设置页
@@ -771,79 +775,441 @@ class _GlobalHotkeysTile extends ConsumerWidget {
       leading: const Icon(Icons.keyboard_outlined),
       title: const Text('全局快捷键'),
       subtitle: Text(enabled ? '已启用' : '已禁用'),
-      trailing: Switch(
-        value: enabled,
-        onChanged: (_) => ref.read(globalHotkeysEnabledProvider.notifier).toggle(),
-      ),
-      onTap: () => _showHotkeysInfo(context),
-    );
-  }
-
-  void _showHotkeysInfo(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('全局快捷键'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('以下快捷键在任何应用中都可使用：'),
-            const SizedBox(height: 16),
-            _HotkeyRow(keys: 'Ctrl + Alt + Space', action: '播放/暂停'),
-            _HotkeyRow(keys: 'Ctrl + Alt + →', action: '下一首'),
-            _HotkeyRow(keys: 'Ctrl + Alt + ←', action: '上一首'),
-            _HotkeyRow(keys: 'Ctrl + Alt + S', action: '停止'),
-            const SizedBox(height: 16),
-            Text(
-              '注意：更改此设置需要重启应用才能生效。',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('确定'),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: '配置快捷键',
+            onPressed: () => _showHotkeyConfigDialog(context, ref),
+          ),
+          Switch(
+            value: enabled,
+            onChanged: (_) =>
+                ref.read(globalHotkeysEnabledProvider.notifier).toggle(),
           ),
         ],
       ),
+      onTap: () => _showHotkeyConfigDialog(context, ref),
+    );
+  }
+
+  void _showHotkeyConfigDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => const _HotkeyConfigDialog(),
     );
   }
 }
 
-/// 快捷键行
-class _HotkeyRow extends StatelessWidget {
-  final String keys;
-  final String action;
+/// 快捷键配置对话框
+class _HotkeyConfigDialog extends ConsumerStatefulWidget {
+  const _HotkeyConfigDialog();
 
-  const _HotkeyRow({required this.keys, required this.action});
+  @override
+  ConsumerState<_HotkeyConfigDialog> createState() =>
+      _HotkeyConfigDialogState();
+}
+
+class _HotkeyConfigDialogState extends ConsumerState<_HotkeyConfigDialog> {
+  HotkeyAction? _editingAction;
+  Set<HotKeyModifier> _currentModifiers = {};
+  LogicalKeyboardKey? _currentKey;
+  bool _isRecording = false;
 
   @override
   Widget build(BuildContext context) {
+    final config = ref.watch(hotkeyConfigProvider);
+
+    return AlertDialog(
+      title: Row(
+        children: [
+          const Icon(Icons.keyboard_outlined),
+          const SizedBox(width: 8),
+          const Text('配置快捷键'),
+          const Spacer(),
+          TextButton.icon(
+            icon: const Icon(Icons.restore, size: 18),
+            label: const Text('恢复默认'),
+            onPressed: () {
+              ref.read(hotkeyConfigProvider.notifier).resetToDefaults();
+            },
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 500,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '点击快捷键区域后按下新的组合键进行设置',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            ...HotkeyAction.values.map(
+              (action) => _buildHotkeyRow(context, action, config),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('关闭'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHotkeyRow(
+      BuildContext context, HotkeyAction action, HotkeyConfig config) {
+    final binding = config.getBinding(action);
+    final isEditing = _editingAction == action;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(4),
-            ),
+          SizedBox(
+            width: 100,
             child: Text(
-              keys,
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 12,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
+              action.label,
+              style: const TextStyle(fontWeight: FontWeight.w500),
             ),
           ),
           const SizedBox(width: 12),
-          Text(action),
+          Expanded(
+            child: InkWell(
+              onTap: () => _startRecording(action),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isEditing
+                      ? Theme.of(context).colorScheme.primaryContainer
+                      : Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                  border: isEditing
+                      ? Border.all(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 2,
+                        )
+                      : null,
+                ),
+                child: isEditing
+                    ? _buildRecordingDisplay(context)
+                    : Text(
+                        binding?.toDisplayString() ?? '未设置',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          color: binding?.isConfigured == true
+                              ? Theme.of(context).colorScheme.onSurface
+                              : Colors.grey,
+                        ),
+                      ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.clear, size: 20),
+            tooltip: '清除',
+            onPressed: binding?.isConfigured == true
+                ? () {
+                    ref.read(hotkeyConfigProvider.notifier).clearBinding(action);
+                  }
+                : null,
+          ),
         ],
       ),
     );
+  }
+
+  Widget _buildRecordingDisplay(BuildContext context) {
+    if (!_isRecording) {
+      return const Text(
+        '按下新的快捷键...',
+        style: TextStyle(fontStyle: FontStyle.italic),
+      );
+    }
+
+    final parts = <String>[];
+    if (_currentModifiers.contains(HotKeyModifier.control)) parts.add('Ctrl');
+    if (_currentModifiers.contains(HotKeyModifier.alt)) parts.add('Alt');
+    if (_currentModifiers.contains(HotKeyModifier.shift)) parts.add('Shift');
+    if (_currentModifiers.contains(HotKeyModifier.meta)) parts.add('Win');
+
+    if (_currentKey != null) {
+      parts.add(_keyToString(_currentKey!));
+    }
+
+    if (parts.isEmpty) {
+      return const Text(
+        '按下新的快捷键...',
+        style: TextStyle(fontStyle: FontStyle.italic),
+      );
+    }
+
+    return Text(
+      parts.join(' + '),
+      style: const TextStyle(fontFamily: 'monospace'),
+    );
+  }
+
+  void _startRecording(HotkeyAction action) {
+    setState(() {
+      _editingAction = action;
+      _currentModifiers = {};
+      _currentKey = null;
+      _isRecording = true;
+    });
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => _HotkeyRecordingDialog(
+        action: action,
+        onRecorded: (key, modifiers) {
+          Navigator.pop(dialogContext);
+          _saveHotkey(action, key, modifiers);
+        },
+        onCancel: () {
+          Navigator.pop(dialogContext);
+          setState(() {
+            _editingAction = null;
+            _isRecording = false;
+          });
+        },
+      ),
+    );
+  }
+
+  void _saveHotkey(
+      HotkeyAction action, LogicalKeyboardKey key, Set<HotKeyModifier> modifiers) {
+    final newBinding = HotkeyBinding(
+      action: action,
+      key: key,
+      modifiers: modifiers,
+    );
+
+    ref.read(hotkeyConfigProvider.notifier).updateBinding(newBinding);
+
+    setState(() {
+      _editingAction = null;
+      _isRecording = false;
+    });
+  }
+
+  String _keyToString(LogicalKeyboardKey key) {
+    final specialKeys = {
+      LogicalKeyboardKey.space: 'Space',
+      LogicalKeyboardKey.arrowLeft: '←',
+      LogicalKeyboardKey.arrowRight: '→',
+      LogicalKeyboardKey.arrowUp: '↑',
+      LogicalKeyboardKey.arrowDown: '↓',
+      LogicalKeyboardKey.enter: 'Enter',
+      LogicalKeyboardKey.escape: 'Esc',
+      LogicalKeyboardKey.backspace: 'Backspace',
+      LogicalKeyboardKey.delete: 'Delete',
+    };
+
+    if (specialKeys.containsKey(key)) {
+      return specialKeys[key]!;
+    }
+
+    final label = key.keyLabel;
+    if (label.length == 1) {
+      return label.toUpperCase();
+    }
+
+    return label;
+  }
+}
+
+/// 快捷键录制对话框
+class _HotkeyRecordingDialog extends StatefulWidget {
+  final HotkeyAction action;
+  final void Function(LogicalKeyboardKey key, Set<HotKeyModifier> modifiers)
+      onRecorded;
+  final VoidCallback onCancel;
+
+  const _HotkeyRecordingDialog({
+    required this.action,
+    required this.onRecorded,
+    required this.onCancel,
+  });
+
+  @override
+  State<_HotkeyRecordingDialog> createState() => _HotkeyRecordingDialogState();
+}
+
+class _HotkeyRecordingDialogState extends State<_HotkeyRecordingDialog> {
+  final FocusNode _focusNode = FocusNode();
+  final Set<HotKeyModifier> _modifiers = {};
+  LogicalKeyboardKey? _key;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('设置 ${widget.action.label} 快捷键'),
+      content: KeyboardListener(
+        focusNode: _focusNode,
+        autofocus: true,
+        onKeyEvent: _handleKeyEvent,
+        child: Container(
+          width: 300,
+          height: 100,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.primary,
+              width: 2,
+            ),
+          ),
+          child: Center(
+            child: Text(
+              _buildDisplayText(),
+              style: const TextStyle(
+                fontSize: 18,
+                fontFamily: 'monospace',
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: widget.onCancel,
+          child: const Text('取消'),
+        ),
+      ],
+    );
+  }
+
+  String _buildDisplayText() {
+    final parts = <String>[];
+    if (_modifiers.contains(HotKeyModifier.control)) parts.add('Ctrl');
+    if (_modifiers.contains(HotKeyModifier.alt)) parts.add('Alt');
+    if (_modifiers.contains(HotKeyModifier.shift)) parts.add('Shift');
+    if (_modifiers.contains(HotKeyModifier.meta)) parts.add('Win');
+
+    if (_key != null) {
+      parts.add(_keyToString(_key!));
+    }
+
+    if (parts.isEmpty) {
+      return '请按下快捷键组合\n\n(需要至少一个修饰键)';
+    }
+
+    return parts.join(' + ');
+  }
+
+  void _handleKeyEvent(KeyEvent event) {
+    if (event is KeyDownEvent) {
+      final key = event.logicalKey;
+
+      if (key == LogicalKeyboardKey.controlLeft ||
+          key == LogicalKeyboardKey.controlRight) {
+        setState(() => _modifiers.add(HotKeyModifier.control));
+        return;
+      }
+      if (key == LogicalKeyboardKey.altLeft ||
+          key == LogicalKeyboardKey.altRight) {
+        setState(() => _modifiers.add(HotKeyModifier.alt));
+        return;
+      }
+      if (key == LogicalKeyboardKey.shiftLeft ||
+          key == LogicalKeyboardKey.shiftRight) {
+        setState(() => _modifiers.add(HotKeyModifier.shift));
+        return;
+      }
+      if (key == LogicalKeyboardKey.metaLeft ||
+          key == LogicalKeyboardKey.metaRight) {
+        setState(() => _modifiers.add(HotKeyModifier.meta));
+        return;
+      }
+
+      if (key == LogicalKeyboardKey.escape) {
+        widget.onCancel();
+        return;
+      }
+
+      if (_modifiers.isNotEmpty) {
+        setState(() => _key = key);
+        widget.onRecorded(key, _modifiers);
+      }
+    } else if (event is KeyUpEvent) {
+      final key = event.logicalKey;
+      if (key == LogicalKeyboardKey.controlLeft ||
+          key == LogicalKeyboardKey.controlRight) {
+        setState(() => _modifiers.remove(HotKeyModifier.control));
+      }
+      if (key == LogicalKeyboardKey.altLeft ||
+          key == LogicalKeyboardKey.altRight) {
+        setState(() => _modifiers.remove(HotKeyModifier.alt));
+      }
+      if (key == LogicalKeyboardKey.shiftLeft ||
+          key == LogicalKeyboardKey.shiftRight) {
+        setState(() => _modifiers.remove(HotKeyModifier.shift));
+      }
+      if (key == LogicalKeyboardKey.metaLeft ||
+          key == LogicalKeyboardKey.metaRight) {
+        setState(() => _modifiers.remove(HotKeyModifier.meta));
+      }
+    }
+  }
+
+  String _keyToString(LogicalKeyboardKey key) {
+    final specialKeys = {
+      LogicalKeyboardKey.space: 'Space',
+      LogicalKeyboardKey.arrowLeft: '←',
+      LogicalKeyboardKey.arrowRight: '→',
+      LogicalKeyboardKey.arrowUp: '↑',
+      LogicalKeyboardKey.arrowDown: '↓',
+      LogicalKeyboardKey.enter: 'Enter',
+      LogicalKeyboardKey.escape: 'Esc',
+      LogicalKeyboardKey.backspace: 'Backspace',
+      LogicalKeyboardKey.delete: 'Delete',
+      LogicalKeyboardKey.home: 'Home',
+      LogicalKeyboardKey.end: 'End',
+      LogicalKeyboardKey.pageUp: 'PageUp',
+      LogicalKeyboardKey.pageDown: 'PageDown',
+      LogicalKeyboardKey.tab: 'Tab',
+    };
+
+    if (specialKeys.containsKey(key)) {
+      return specialKeys[key]!;
+    }
+
+    if (key.keyId >= LogicalKeyboardKey.f1.keyId &&
+        key.keyId <= LogicalKeyboardKey.f12.keyId) {
+      final fNum = key.keyId - LogicalKeyboardKey.f1.keyId + 1;
+      return 'F$fNum';
+    }
+
+    final label = key.keyLabel;
+    if (label.length == 1) {
+      return label.toUpperCase();
+    }
+
+    return label;
   }
 }

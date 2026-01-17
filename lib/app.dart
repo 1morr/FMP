@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'providers/database_provider.dart';
 import 'providers/desktop_settings_provider.dart';
+import 'providers/hotkey_config_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/windows_desktop_provider.dart';
 import 'ui/router.dart';
@@ -66,6 +67,8 @@ class FMPApp extends ConsumerWidget {
           // 初始化桌面设置（托盘/快捷键开关），会根据保存的设置自动应用
           ref.watch(minimizeToTrayProvider);
           ref.watch(globalHotkeysEnabledProvider);
+          // 加载自定义快捷键配置
+          ref.watch(hotkeyConfigProvider);
         }
 
         // 从设置中获取主题模式和自定义颜色

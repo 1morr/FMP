@@ -820,6 +820,14 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     }
   }
 
+  /// 调整音量
+  ///
+  /// [delta] - 音量变化量，正数增加，负数减少
+  Future<void> adjustVolume(double delta) async {
+    final newVolume = (state.volume + delta).clamp(0.0, 1.0);
+    await setVolume(newVolume);
+  }
+
   // ========== 基于位置检测的备选切歌机制（解决后台播放 completed 事件丢失问题）========== //
 
   void _startPositionCheckTimer() {
