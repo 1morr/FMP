@@ -144,7 +144,28 @@ void _maybeNotifyProgress(double progress) {
 
 ---
 
-## 常见问题解决
+## 歌单重命名与下载文件
+
+### 设计决策（2026-01-18）
+歌单重命名时**不再自动移动**已下载的文件夹。原因：
+- 文件移动可能失败（权限、跨盘、目标存在等）
+- 用户可能不希望文件被自动移动
+- 减少潜在的数据丢失风险
+
+### 当前行为
+1. `PlaylistService.updatePlaylist()` 返回 `PlaylistUpdateResult`
+2. 如果旧下载文件夹存在，结果包含 `oldDownloadFolder` 和 `newDownloadFolder`
+3. UI 显示提示框，告知用户手动移动文件夹
+4. `PlaylistFolderMigrator.updateAllTrackDownloadPaths()` 仍会更新所有 Track 的预计算路径
+
+### 相关代码
+- `PlaylistUpdateResult` - 更新结果类（`playlist_service.dart`）
+- `PlaylistFolderMigrator` - 仅更新路径，不移动文件（`download/playlist_folder_migrator.dart`）
+- `CreatePlaylistDialog._showFileMigrationWarning()` - 显示手动移动提示
+
+---
+
+$1
 
 ### StateNotifierListenerError
 **症状**：`Tried to modify a provider while the widget tree was building`

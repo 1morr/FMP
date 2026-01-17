@@ -194,6 +194,13 @@ Managed in `QueueManager` with `_shuffleOrder` list. When queue is cleared and s
 ### Progress Bar Dragging
 Slider `onChanged` must NOT call `seekToProgress()` directly. Only call seek in `onChangeEnd` to avoid flooding the message queue during continuous dragging. See `player_page.dart` and `mini_player.dart` for correct implementation.
 
+### Playlist Rename - No Auto File Migration
+When renaming a playlist that has downloaded songs, files are **NOT** automatically moved. Instead:
+- `PlaylistService.updatePlaylist()` returns `PlaylistUpdateResult` with old/new folder paths
+- UI shows a dialog prompting user to manually move the folder
+- `PlaylistFolderMigrator.updateAllTrackDownloadPaths()` updates all Track's precomputed paths
+- This avoids potential data loss from failed file operations
+
 ## File Structure Highlights
 
 ```

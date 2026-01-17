@@ -467,15 +467,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     return false;
   }
 
-  String _getSourceName(SourceType type) {
-    switch (type) {
-      case SourceType.bilibili:
-        return 'Bilibili';
-      case SourceType.youtube:
-        return 'YouTube';
-    }
-  }
-
   void _performSearch(String query) {
     if (query.trim().isEmpty) return;
     _focusNode.unfocus();
@@ -1274,7 +1265,7 @@ class _SourceBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 2,
           ),
         ],
