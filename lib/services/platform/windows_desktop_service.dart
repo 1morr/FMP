@@ -72,8 +72,38 @@ class WindowsDesktopService with TrayListener, WindowListener {
   // ============================================================
 
   Future<void> _initTray() async {
-    // 设置托盘图标
-    await trayManager.setIcon('windows/runner/resources/app_icon.ico');
+    // 设置托盘图标 - Windows API 需要绝对路径
+    String? iconPath;
+    
+    // 获取可执行文件所在目录（适用于打包后的应用）
+    final exeDir = File(Platform.resolvedExecutable).parent.path;
+    
+    // 可能的图标路径（按优先级排序）
+    final possiblePaths = [
+      // 打包后：图标在可执行文件同级目录
+      '$exeDir\\app_icon.ico',
+      // 打包后：图标在 data 目录
+      '$exeDir\\data\\app_icon.ico',
+      // 开发模式：项目目录下
+      '${Directory.current.path}\\windows\\runner\\resources\\app_icon.ico',
+    ];
+    
+    for (final path in possiblePaths) {
+      if (File(path).existsSync()) {
+        iconPath = path;
+        break;
+      }
+    }
+    
+    if (iconPath != null) {
+      debugPrint('[WindowsDesktopService] Setting tray icon: $iconPath');
+      await trayManager.setIcon(iconPath);
+    } else {
+      debugPrint('[WindowsDesktopService] Tray icon not found! Tried paths:');
+      for (final path in possiblePaths) {
+        debugPrint('  - $path');
+      }
+    }
 
     // 设置悬停提示
     await trayManager.setToolTip('FMP 音乐播放器');
