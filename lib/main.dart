@@ -4,13 +4,18 @@ import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
+import 'package:smtc_windows/smtc_windows.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
 import 'services/audio/audio_handler.dart';
+import 'services/audio/windows_smtc_handler.dart';
 
 /// 全局 AudioHandler 实例，供 AudioController 使用
 late FmpAudioHandler audioHandler;
+
+/// 全局 Windows SMTC Handler 实例，供 AudioController 使用
+late WindowsSmtcHandler windowsSmtcHandler;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,6 +38,16 @@ void main() async {
   } else {
     // 桌面平台不需要后台播放服务，但为了代码一致性创建一个 dummy handler
     audioHandler = FmpAudioHandler();
+  }
+
+  // Windows 平台初始化 SMTC（媒体键和系统媒体控制）
+  if (Platform.isWindows) {
+    await SMTCWindows.initialize();
+    windowsSmtcHandler = WindowsSmtcHandler();
+    await windowsSmtcHandler.initialize();
+  } else {
+    // 非 Windows 平台创建 dummy handler 保持代码一致性
+    windowsSmtcHandler = WindowsSmtcHandler();
   }
 
   // 初始化 media_kit 作为 just_audio 的 Windows/Linux 后端

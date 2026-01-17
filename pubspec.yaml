@@ -31,6 +31,7 @@ dependencies:
   media_kit_libs_windows_audio: any
   audio_service: ^0.18.15  # Android 媒体通知控制
   audio_session: ^0.1.25
+  smtc_windows: ^1.1.0    # Windows 媒体键和 SMTC 控制
 
   # 网络
   dio: ^5.8.0+1

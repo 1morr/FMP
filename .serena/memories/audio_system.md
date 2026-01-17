@@ -370,6 +370,46 @@ class AudioController extends StateNotifier<PlayerState> {
 
 ## Windows 平台后端
 
+### 媒体键和 SMTC 支持
+
+**使用 `smtc_windows` 包实现 Windows 系统媒体传输控制 (SMTC)**
+
+> 注意：`smtc_windows` 需要 Rust 环境，请确保已安装 rustup
+
+**初始化（main.dart）：**
+```dart
+import 'package:smtc_windows/smtc_windows.dart';
+import 'services/audio/windows_smtc_handler.dart';
+
+late WindowsSmtcHandler windowsSmtcHandler;
+
+void main() async {
+  // ... 其他初始化
+
+  // Windows 平台初始化 SMTC
+  if (Platform.isWindows) {
+    await SMTCWindows.initialize();
+    windowsSmtcHandler = WindowsSmtcHandler();
+    await windowsSmtcHandler.initialize();
+  } else {
+    windowsSmtcHandler = WindowsSmtcHandler();
+  }
+}
+```
+
+**WindowsSmtcHandler（lib/services/audio/windows_smtc_handler.dart）：**
+- 处理媒体键事件（播放/暂停/上一曲/下一曲/停止）
+- 更新媒体元数据（标题、艺术家、封面）
+- 更新播放状态和时间线
+- 与 AudioController 通过回调函数连接
+
+**AudioController 集成：**
+- `_setupWindowsSmtc()` 设置回调函数
+- `_updatePlayingTrack()` 同步更新媒体信息
+- `_onPlayerStateChanged()` / `_onPositionChanged()` 同步更新播放状态
+
+### 音频后端
+
 **使用 `just_audio_media_kit` 而非 `just_audio_windows`**
 
 `just_audio_windows` 存在已知的平台线程问题（[GitHub Issue #30](https://github.com/bdlukaa/just_audio_windows/issues/30)），

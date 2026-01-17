@@ -56,7 +56,8 @@
       "Skill(superpowers:writing-plans)",
       "Skill(superpowers:subagent-driven-development)",
       "Bash(find:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(rustup:*)"
     ]
   }
 }

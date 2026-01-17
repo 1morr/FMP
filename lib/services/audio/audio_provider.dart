@@ -14,8 +14,9 @@ import '../../data/repositories/track_repository.dart';
 import '../../data/sources/source_provider.dart';
 import '../../providers/database_provider.dart';
 import '../../core/services/toast_service.dart';
-import '../../main.dart' show audioHandler;
+import '../../main.dart' show audioHandler, windowsSmtcHandler;
 import 'audio_handler.dart';
+import 'windows_smtc_handler.dart';
 import 'audio_service.dart' as audio;
 import 'queue_manager.dart';
 
@@ -159,6 +160,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   final QueueManager _queueManager;
   final ToastService _toastService;
   final FmpAudioHandler _audioHandler;
+  final WindowsSmtcHandler _windowsSmtcHandler;
 
   final List<StreamSubscription> _subscriptions = [];
   bool _isInitialized = false;
@@ -191,10 +193,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     required QueueManager queueManager,
     required ToastService toastService,
     required FmpAudioHandler audioHandler,
+    required WindowsSmtcHandler windowsSmtcHandler,
   })  : _audioService = audioService,
         _queueManager = queueManager,
         _toastService = toastService,
         _audioHandler = audioHandler,
+        _windowsSmtcHandler = windowsSmtcHandler,
         super(const PlayerState());
 
   /// 是否已初始化
@@ -259,6 +263,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // 设置 AudioHandler 回调（仅在 Android/iOS 上有效）
       if (Platform.isAndroid || Platform.isIOS) {
         _setupAudioHandler();
+      }
+
+      // 设置 Windows SMTC 回调（仅在 Windows 上有效）
+      if (Platform.isWindows) {
+        _setupWindowsSmtc();
       }
 
       // 更新初始状态
@@ -892,6 +901,18 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     logDebug('AudioHandler callbacks set up');
   }
 
+  /// 设置 Windows SMTC 回调函数
+  void _setupWindowsSmtc() {
+    _windowsSmtcHandler.onPlay = play;
+    _windowsSmtcHandler.onPause = pause;
+    _windowsSmtcHandler.onStop = stop;
+    _windowsSmtcHandler.onSkipToNext = next;
+    _windowsSmtcHandler.onSkipToPrevious = previous;
+    _windowsSmtcHandler.onSeek = seekTo;
+
+    logDebug('Windows SMTC callbacks set up');
+  }
+
   /// 转换 LoopMode 到 AudioServiceRepeatMode
   AudioServiceRepeatMode _loopModeToRepeatMode(LoopMode loopMode) {
     switch (loopMode) {
@@ -927,6 +948,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       _audioHandler.updateCurrentMediaItem(track);
     }
 
+    // 更新 Windows SMTC 的媒体信息
+    if (Platform.isWindows) {
+      _windowsSmtcHandler.updateCurrentMediaItem(track);
+    }
+
     logDebug('Updated playing track: ${track.title}');
   }
 
@@ -934,6 +960,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   void _clearPlayingTrack() {
     _playingTrack = null;
     state = state.copyWith(playingTrack: null);
+
+    // 更新 Windows SMTC 为停止状态
+    if (Platform.isWindows) {
+      _windowsSmtcHandler.setStoppedState();
+    }
+
     logDebug('Cleared playing track');
   }
 
@@ -1144,6 +1176,15 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         speed: _audioService.speed,
       );
     }
+
+    // 更新 Windows SMTC 的播放状态
+    if (Platform.isWindows) {
+      _windowsSmtcHandler.updatePlaybackState(
+        isPlaying: playerState.playing,
+        position: _audioService.position,
+        duration: _audioService.duration,
+      );
+    }
   }
 
   void _onPositionChanged(Duration position) {
@@ -1160,6 +1201,15 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         processingState: _audioService.processingState,
         duration: _audioService.duration,
         speed: _audioService.speed,
+      );
+    }
+
+    // 更新 Windows SMTC 的播放状态（用于进度显示）
+    if (Platform.isWindows) {
+      _windowsSmtcHandler.updatePlaybackState(
+        isPlaying: _audioService.isPlaying,
+        position: position,
+        duration: _audioService.duration,
       );
     }
   }
@@ -1330,6 +1380,7 @@ final audioControllerProvider =
     queueManager: queueManager,
     toastService: toastService,
     audioHandler: audioHandler,
+    windowsSmtcHandler: windowsSmtcHandler,
   );
 
   // 启动初始化（异步，但不阻塞）
