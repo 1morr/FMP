@@ -11,7 +11,8 @@ enum HotkeyAction {
   stop('停止'),
   volumeUp('增大音量'),
   volumeDown('减小音量'),
-  mute('静音');
+  mute('静音'),
+  toggleWindow('显示/隐藏窗口');
 
   final String label;
   const HotkeyAction(this.label);
@@ -232,6 +233,11 @@ class HotkeyConfig {
       HotkeyAction.mute: HotkeyBinding(
         action: HotkeyAction.mute,
         key: LogicalKeyboardKey.keyM,
+        modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
+      ),
+      HotkeyAction.toggleWindow: HotkeyBinding(
+        action: HotkeyAction.toggleWindow,
+        key: LogicalKeyboardKey.keyW,
         modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
       ),
     });
