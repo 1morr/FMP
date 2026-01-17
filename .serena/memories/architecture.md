@@ -70,7 +70,7 @@
 |------|------|------|
 | BaseSource | `data/sources/base_source.dart` | 抽象基类 |
 | BilibiliSource | `data/sources/bilibili_source.dart` | ✅ 已实现 |
-| YouTubeSource | - | ⏳ 待实现 |
+| YouTubeSource | `data/sources/youtube_source.dart` | ✅ 已实现 (youtube_explode_dart) |
 
 ### Services
 | 服务 | 文件 | 职责 |
