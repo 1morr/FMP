@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import '../../data/models/playlist.dart';
 
 import 'package:isar/isar.dart';
@@ -12,6 +14,28 @@ import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../download/download_path_utils.dart';
 import '../download/playlist_folder_migrator.dart';
+
+/// 歌单更新结果
+class PlaylistUpdateResult {
+  /// 更新后的歌单
+  final Playlist playlist;
+
+  /// 如果重命名了歌单且有已下载的文件，这里会是旧文件夹路径
+  /// 为 null 表示无需手动移动文件
+  final String? oldDownloadFolder;
+
+  /// 新文件夹路径（仅当 oldDownloadFolder 不为空时有值）
+  final String? newDownloadFolder;
+
+  const PlaylistUpdateResult({
+    required this.playlist,
+    this.oldDownloadFolder,
+    this.newDownloadFolder,
+  });
+
+  /// 是否需要用户手动移动下载文件夹
+  bool get needsManualFileMigration => oldDownloadFolder != null;
+}
 
 /// 歌单封面数据
 class PlaylistCoverData {
@@ -86,7 +110,10 @@ class PlaylistService with Logging {
   }
 
   /// 更新歌单信息
-  Future<Playlist> updatePlaylist({
+  ///
+  /// 返回 [PlaylistUpdateResult]，如果重命名了歌单且有已下载的文件，
+  /// 结果中会包含旧文件夹路径，提示用户手动移动。
+  Future<PlaylistUpdateResult> updatePlaylist({
     required int playlistId,
     String? name,
     String? description,
@@ -99,6 +126,8 @@ class PlaylistService with Logging {
 
     final oldName = playlist.name;
     bool isRenaming = false;
+    String? oldDownloadFolder;
+    String? newDownloadFolder;
 
     // 检查新名称是否已存在（排除当前歌单）
     if (name != null && name != playlist.name) {
@@ -107,10 +136,19 @@ class PlaylistService with Logging {
       }
       playlist.name = name;
       isRenaming = true;
-      
+
       // 更新预计算的本地封面路径
       final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
       playlist.coverLocalPath = _computePlaylistCoverPath(baseDir, name);
+
+      // 检查旧文件夹是否存在（有下载文件）
+      final oldFolderName = DownloadPathUtils.sanitizeFileName(oldName);
+      final oldFolder = Directory(p.join(baseDir, oldFolderName));
+      if (await oldFolder.exists()) {
+        oldDownloadFolder = oldFolder.path;
+        final newFolderName = DownloadPathUtils.sanitizeFileName(name);
+        newDownloadFolder = p.join(baseDir, newFolderName);
+      }
     }
 
     if (description != null) {
@@ -122,27 +160,14 @@ class PlaylistService with Logging {
 
     await _playlistRepository.save(playlist);
 
-    // 歌单改名时迁移下载文件夹并更新所有路径
+    // 歌单改名时只更新预计算路径，不再自动移动文件
     if (isRenaming) {
       final migrator = PlaylistFolderMigrator(
         isar: _isar,
         settingsRepository: _settingsRepository,
       );
 
-      // 1. 迁移已下载的文件夹
-      try {
-        final migratedCount = await migrator.migratePlaylistFolder(
-          playlist: playlist,
-          oldName: oldName,
-          newName: name!,
-        );
-        logDebug('Migrated $migratedCount files after playlist rename');
-      } catch (e, stack) {
-        logError('Failed to migrate playlist folder: $e', e, stack);
-        // 不抛出异常，文件夹迁移失败不影响歌单重命名
-      }
-
-      // 2. 更新所有 Track 的预计算下载路径（包括未下载的）
+      // 更新所有 Track 的预计算下载路径（包括未下载的）
       try {
         final updatedCount = await migrator.updateAllTrackDownloadPaths(
           playlist: playlist,
@@ -154,7 +179,11 @@ class PlaylistService with Logging {
       }
     }
 
-    return playlist;
+    return PlaylistUpdateResult(
+      playlist: playlist,
+      oldDownloadFolder: oldDownloadFolder,
+      newDownloadFolder: newDownloadFolder,
+    );
   }
 
   /// 删除歌单

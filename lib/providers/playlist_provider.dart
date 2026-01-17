@@ -4,6 +4,9 @@ import 'package:equatable/equatable.dart';
 import '../data/models/playlist.dart';
 import '../data/models/track.dart';
 import '../services/library/playlist_service.dart';
+
+// 导出 PlaylistUpdateResult 供 UI 使用
+export '../services/library/playlist_service.dart' show PlaylistUpdateResult;
 import 'database_provider.dart';
 import 'download/file_exists_cache.dart';
 import 'repository_providers.dart';
@@ -94,14 +97,17 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
   }
 
   /// 更新歌单
-  Future<bool> updatePlaylist({
+  ///
+  /// 返回 [PlaylistUpdateResult]，如果失败返回 null。
+  /// 如果重命名了歌单且有已下载的文件，结果中会包含旧文件夹路径。
+  Future<PlaylistUpdateResult?> updatePlaylist({
     required int playlistId,
     String? name,
     String? description,
     String? coverUrl,
   }) async {
     try {
-      await _service.updatePlaylist(
+      final result = await _service.updatePlaylist(
         playlistId: playlistId,
         name: name,
         description: description,
@@ -112,10 +118,10 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
       invalidatePlaylistProviders(playlistId);
       // 清除文件存在缓存，强制重新检测
       _ref.read(fileExistsCacheProvider.notifier).clearAll();
-      return true;
+      return result;
     } catch (e) {
       state = state.copyWith(error: e.toString());
-      return false;
+      return null;
     }
   }
 
