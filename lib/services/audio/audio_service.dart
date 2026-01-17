@@ -23,6 +23,9 @@ class AudioService with Logging {
   // 中断前是否正在播放（用于判断中断结束后是否恢复播放）
   bool _wasPlayingBeforeInterruption = false;
 
+  // 是否已触发过 completion 事件（防止重复触发）
+  bool _hasCompletionFired = false;
+
   // ========== 状态流 ==========
   Stream<PlayerState> get playerStateStream => _player.playerStateStream;
   Stream<Duration> get positionStream => _player.positionStream;
@@ -106,8 +109,15 @@ class AudioService with Logging {
     _subscriptions.add(
       _player.playerStateStream.listen((state) {
         if (state.processingState == ProcessingState.completed) {
-          logDebug('Track completed');
-          _completedController.add(null);
+          // 防止重复触发 completion 事件（在 seek 或 play 时会重置 _hasCompletionFired）
+          if (!_hasCompletionFired) {
+            _hasCompletionFired = true;
+            logDebug('Track completed');
+            _completedController.add(null);
+          }
+        } else {
+          // 状态不再是 completed，重置标志
+          _hasCompletionFired = false;
         }
       }),
     );
@@ -156,7 +166,11 @@ class AudioService with Logging {
   // ========== 进度控制 ==========
 
   /// 跳转到指定位置
-  Future<void> seekTo(Duration position) => _player.seek(position);
+  Future<void> seekTo(Duration position) {
+    // 重置 completion 标志，允许再次触发 completion 事件
+    _hasCompletionFired = false;
+    return _player.seek(position);
+  }
 
   /// 快进
   Future<void> seekForward([Duration? duration]) async {
@@ -257,6 +271,7 @@ class AudioService with Logging {
     }
     try {
       // 先停止当前播放
+      _hasCompletionFired = false;  // 重置 completion 标志
       await _player.stop();
 
       // 设置新的 URL（带 headers 和 MediaItem）
@@ -303,6 +318,7 @@ class AudioService with Logging {
     logDebug('Playing file: $filePath');
     try {
       // 先停止当前播放
+      _hasCompletionFired = false;  // 重置 completion 标志
       await _player.stop();
 
       // 设置新的文件（带 MediaItem）

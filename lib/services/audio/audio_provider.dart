@@ -1238,10 +1238,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       try {
         // 单曲循环优先：即使在临时播放模式下也继续循环播放
         if (_queueManager.loopMode == LoopMode.one) {
-          // 单曲循环：seek 到开头并重新播放
-          logDebug('LoopOne mode: seeking to start and playing (temporaryPlay: $_isTemporaryPlay)');
-          await _audioService.seekTo(Duration.zero);
-          await _audioService.play();
+          // 单曲循环：重新播放当前歌曲
+          // 注意：不能使用 seekTo + play，因为在 completed 状态下 seekTo 可能无法正确重置状态
+          logDebug('LoopOne mode: replaying current track (temporaryPlay: $_isTemporaryPlay)');
+          final track = _playingTrack;
+          if (track != null) {
+            await _playTrack(track);
+          }
           return;
         }
 
