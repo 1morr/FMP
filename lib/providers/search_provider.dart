@@ -42,7 +42,7 @@ class SearchState extends Equatable {
     this.onlineResults = const {},
     this.isLoading = false,
     this.error,
-    this.enabledSources = const {SourceType.bilibili},
+    this.enabledSources = const {SourceType.bilibili, SourceType.youtube},
     this.currentPages = const {},
     this.searchOrder = SearchOrder.relevance,
   });
