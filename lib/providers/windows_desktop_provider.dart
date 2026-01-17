@@ -28,6 +28,9 @@ final windowsDesktopServiceProvider = Provider<WindowsDesktopService?>((ref) {
   service.onNext = () => controller.next();
   service.onPrevious = () => controller.previous();
   service.onStop = () => controller.stop();
+  service.onVolumeUp = () => controller.adjustVolume(0.1);
+  service.onVolumeDown = () => controller.adjustVolume(-0.1);
+  service.onMute = () => controller.toggleMute();
 
   // 初始化服务（不自动注册快捷键，由 globalHotkeysEnabledProvider 控制）
   service.initialize(enableHotkeys: false);

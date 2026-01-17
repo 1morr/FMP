@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../data/models/hotkey_config.dart';
 import '../../data/models/track.dart';
 
 /// Windows 桌面特性服务
@@ -21,12 +21,16 @@ class WindowsDesktopService with TrayListener, WindowListener {
   bool _isInitialized = false;
   bool _isMinimizedToTray = false;
   bool _hotkeysRegistered = false;
+  HotkeyConfig? _hotkeyConfig;
 
   // 回调函数，由外部设置
   VoidCallback? onPlayPause;
   VoidCallback? onNext;
   VoidCallback? onPrevious;
   VoidCallback? onStop;
+  VoidCallback? onVolumeUp;
+  VoidCallback? onVolumeDown;
+  VoidCallback? onMute;
   VoidCallback? onShowWindow;
   VoidCallback? onQuit;
 
@@ -35,7 +39,7 @@ class WindowsDesktopService with TrayListener, WindowListener {
   Track? _currentTrack;
 
   /// 初始化 Windows 桌面特性
-  /// 
+  ///
   /// [enableHotkeys] - 是否启用全局快捷键
   Future<void> initialize({bool enableHotkeys = true}) async {
     if (_isInitialized) return;
@@ -183,68 +187,70 @@ class WindowsDesktopService with TrayListener, WindowListener {
   /// 快捷键是否已注册
   bool get hotkeysRegistered => _hotkeysRegistered;
 
+  /// 应用快捷键配置
+  Future<void> applyHotkeyConfig(HotkeyConfig config) async {
+    _hotkeyConfig = config;
+    if (_hotkeysRegistered) {
+      // 重新注册快捷键
+      await unregisterHotkeys();
+      await registerHotkeys();
+    }
+  }
+
   /// 注册全局快捷键
   Future<void> registerHotkeys() async {
     if (_hotkeysRegistered) return;
     if (!Platform.isWindows) return;
 
     try {
-      // 播放/暂停: Ctrl + Alt + Space
-      await hotKeyManager.register(
-        HotKey(
-          key: LogicalKeyboardKey.space,
-          modifiers: [HotKeyModifier.control, HotKeyModifier.alt],
-          scope: HotKeyScope.system,
-        ),
-        keyDownHandler: (hotKey) {
-          debugPrint('[WindowsDesktopService] Hotkey: Play/Pause');
-          onPlayPause?.call();
-        },
-      );
+      final config = _hotkeyConfig ?? HotkeyConfig.defaults();
 
-      // 下一首: Ctrl + Alt + Right
-      await hotKeyManager.register(
-        HotKey(
-          key: LogicalKeyboardKey.arrowRight,
-          modifiers: [HotKeyModifier.control, HotKeyModifier.alt],
-          scope: HotKeyScope.system,
-        ),
-        keyDownHandler: (hotKey) {
-          debugPrint('[WindowsDesktopService] Hotkey: Next');
-          onNext?.call();
-        },
-      );
+      // 注册所有配置的快捷键
+      for (final action in HotkeyAction.values) {
+        final binding = config.getBinding(action);
+        if (binding == null || !binding.isConfigured) continue;
 
-      // 上一首: Ctrl + Alt + Left
-      await hotKeyManager.register(
-        HotKey(
-          key: LogicalKeyboardKey.arrowLeft,
-          modifiers: [HotKeyModifier.control, HotKeyModifier.alt],
-          scope: HotKeyScope.system,
-        ),
-        keyDownHandler: (hotKey) {
-          debugPrint('[WindowsDesktopService] Hotkey: Previous');
-          onPrevious?.call();
-        },
-      );
+        final hotKey = binding.toHotKey();
+        if (hotKey == null) continue;
 
-      // 停止: Ctrl + Alt + S
-      await hotKeyManager.register(
-        HotKey(
-          key: LogicalKeyboardKey.keyS,
-          modifiers: [HotKeyModifier.control, HotKeyModifier.alt],
-          scope: HotKeyScope.system,
-        ),
-        keyDownHandler: (hotKey) {
-          debugPrint('[WindowsDesktopService] Hotkey: Stop');
-          onStop?.call();
-        },
-      );
+        await hotKeyManager.register(
+          hotKey,
+          keyDownHandler: (key) => _handleHotkeyAction(action),
+        );
+      }
 
       _hotkeysRegistered = true;
       debugPrint('[WindowsDesktopService] Hotkeys registered');
     } catch (e) {
       debugPrint('[WindowsDesktopService] Failed to register hotkeys: $e');
+    }
+  }
+
+  /// 处理快捷键动作
+  void _handleHotkeyAction(HotkeyAction action) {
+    debugPrint('[WindowsDesktopService] Hotkey: ${action.label}');
+    switch (action) {
+      case HotkeyAction.playPause:
+        onPlayPause?.call();
+        break;
+      case HotkeyAction.next:
+        onNext?.call();
+        break;
+      case HotkeyAction.previous:
+        onPrevious?.call();
+        break;
+      case HotkeyAction.stop:
+        onStop?.call();
+        break;
+      case HotkeyAction.volumeUp:
+        onVolumeUp?.call();
+        break;
+      case HotkeyAction.volumeDown:
+        onVolumeDown?.call();
+        break;
+      case HotkeyAction.mute:
+        onMute?.call();
+        break;
     }
   }
 
