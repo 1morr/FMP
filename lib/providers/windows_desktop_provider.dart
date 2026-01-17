@@ -16,10 +16,16 @@ final windowsDesktopServiceProvider = Provider<WindowsDesktopService?>((ref) {
 
   // 监听播放状态变化，更新托盘
   ref.listen(audioControllerProvider, (previous, next) {
-    service.updatePlaybackState(
-      isPlaying: next.isPlaying,
-      currentTrack: next.currentTrack,
-    );
+    // 只有当播放状态或当前曲目真正变化时才更新
+    final isPlayingChanged = previous?.isPlaying != next.isPlaying;
+    final trackChanged = previous?.currentTrack?.id != next.currentTrack?.id;
+    
+    if (isPlayingChanged || trackChanged) {
+      service.updatePlaybackState(
+        isPlaying: next.isPlaying,
+        currentTrack: next.currentTrack,
+      );
+    }
   });
 
   // 设置回调函数

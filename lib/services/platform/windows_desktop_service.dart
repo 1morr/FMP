@@ -91,39 +91,43 @@ class WindowsDesktopService with TrayListener, WindowListener {
         ? '${_currentTrack!.title}\n${_currentTrack!.artist ?? "未知艺术家"}'
         : '未在播放';
 
+    debugPrint('[WindowsDesktopService] Updating tray menu, isPlaying: $_isPlaying');
+
     final menu = Menu(
       items: [
         MenuItem(
+          key: 'track_info',
           label: trackInfo,
           disabled: true,
         ),
         MenuItem.separator(),
         MenuItem(
+          key: 'play_pause',
           label: _isPlaying ? '暂停' : '播放',
-          onClick: (_) => onPlayPause?.call(),
         ),
         MenuItem(
+          key: 'previous',
           label: '上一首',
-          onClick: (_) => onPrevious?.call(),
         ),
         MenuItem(
+          key: 'next',
           label: '下一首',
-          onClick: (_) => onNext?.call(),
         ),
         MenuItem.separator(),
         MenuItem(
+          key: 'show_window',
           label: '显示窗口',
-          onClick: (_) => _showWindow(),
         ),
         MenuItem.separator(),
         MenuItem(
+          key: 'quit',
           label: '退出',
-          onClick: (_) => _handleQuit(),
         ),
       ],
     );
 
     await trayManager.setContextMenu(menu);
+    debugPrint('[WindowsDesktopService] Tray menu updated');
   }
 
   /// 更新托盘工具提示（显示当前歌曲）
@@ -168,16 +172,36 @@ class WindowsDesktopService with TrayListener, WindowListener {
 
   @override
   void onTrayIconRightMouseDown() {
+    debugPrint('[WindowsDesktopService] Right mouse down on tray icon');
     // 右键点击：显示菜单
     trayManager.popUpContextMenu();
   }
 
   @override
-  void onTrayIconRightMouseUp() {}
+  void onTrayIconRightMouseUp() {
+    debugPrint('[WindowsDesktopService] Right mouse up on tray icon');
+  }
 
   @override
   void onTrayMenuItemClick(MenuItem menuItem) {
-    // 菜单项点击已通过 MenuItem.onClick 处理
+    debugPrint('[WindowsDesktopService] Menu item clicked: ${menuItem.key}');
+    switch (menuItem.key) {
+      case 'play_pause':
+        onPlayPause?.call();
+        break;
+      case 'previous':
+        onPrevious?.call();
+        break;
+      case 'next':
+        onNext?.call();
+        break;
+      case 'show_window':
+        _showWindow();
+        break;
+      case 'quit':
+        _handleQuit();
+        break;
+    }
   }
 
   // ============================================================
