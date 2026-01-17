@@ -1186,29 +1186,31 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     // 使用 Future.microtask 来避免在流监听器中直接操作
     Future.microtask(() async {
       try {
-        // 检查是否是临时播放模式
+        // 单曲循环优先：即使在临时播放模式下也继续循环播放
+        if (_queueManager.loopMode == LoopMode.one) {
+          // 单曲循环：seek 到开头并重新播放
+          logDebug('LoopOne mode: seeking to start and playing (temporaryPlay: $_isTemporaryPlay)');
+          await _audioService.seekTo(Duration.zero);
+          await _audioService.play();
+          return;
+        }
+
+        // 检查是否是临时播放模式（非单曲循环时才恢复队列）
         if (_isTemporaryPlay) {
           logDebug('Temporary play completed, restoring saved state');
           await _restoreSavedState();
           return;
         }
         
-        if (_queueManager.loopMode == LoopMode.one) {
-          // 单曲循环：seek 到开头并重新播放
-          logDebug('LoopOne mode: seeking to start and playing');
-          await _audioService.seekTo(Duration.zero);
-          await _audioService.play();
-        } else {
-          // 移动到下一首
-          final nextIdx = _queueManager.moveToNext();
-          if (nextIdx != null) {
-            final track = _queueManager.currentTrack;
-            if (track != null) {
-              await _playTrack(track);
-            }
-          } else {
-            logDebug('No next track available');
+        // 移动到下一首
+        final nextIdx = _queueManager.moveToNext();
+        if (nextIdx != null) {
+          final track = _queueManager.currentTrack;
+          if (track != null) {
+            await _playTrack(track);
           }
+        } else {
+          logDebug('No next track available');
         }
       } finally {
         _isHandlingCompletion = false;

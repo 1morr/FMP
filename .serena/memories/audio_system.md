@@ -131,6 +131,8 @@ Future<void> setVolume(double volume) async {
 ### 2. 临时播放功能
 **用途：** 搜索页/歌单页点击歌曲时，临时播放该歌曲，播放完成后恢复原队列位置
 
+**单曲循环优先：** 如果设置了单曲循环模式（`LoopMode.one`），临时播放的歌曲会继续循环播放，而不是恢复原队列。只有在非单曲循环模式下，临时播放结束后才会恢复原队列
+
 **相关字段：**
 ```dart
 bool _isTemporaryPlay = false;
