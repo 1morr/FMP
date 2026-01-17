@@ -89,6 +89,11 @@ await cache.preloadPaths(paths);
 ### 3. DownloadService (`lib/services/download/download_service.dart`)
 
 - 并发控制（默认 3 个）
+- **批量添加模式**（2026-01-18 更新）：
+  - `addTrackDownload` 支持 `skipSchedule` 参数
+  - 批量添加时设为 `true` 避免每个任务都触发调度
+  - 所有任务添加完成后调用 `triggerSchedule()` 统一开始下载
+  - 确保"暂停全部"能暂停所有任务（而非只暂停已添加的部分）
 - **全局进度节流**（2026-01-17 更新）：
   - 500ms 或 5% 进度变化时才更新
   - 使用 `_lastGlobalProgressUpdate` 和 `_lastGlobalProgressValue` 全局追踪

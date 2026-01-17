@@ -663,7 +663,7 @@ class _GroupHeader extends ConsumerWidget {
         onAddAllToQueue();
         break;
       case 'download_all':
-        // 下载所有分P
+        // 下载所有分P（批量添加后统一触发调度）
         final downloadService = ref.read(downloadServiceProvider);
         final state = ref.read(playlistDetailProvider(playlistId));
         final playlist = state.playlist;
@@ -674,8 +674,13 @@ class _GroupHeader extends ConsumerWidget {
           final result = await downloadService.addTrackDownload(
             track,
             fromPlaylist: playlist,
+            skipSchedule: true,  // 批量添加时跳过调度
           );
           if (result != null) addedCount++;
+        }
+        // 所有任务添加完成后统一触发调度
+        if (addedCount > 0) {
+          downloadService.triggerSchedule();
         }
         if (context.mounted) {
           ToastService.show(context, '已添加 $addedCount 个分P到下载队列');

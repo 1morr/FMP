@@ -177,6 +177,11 @@ class DownloadService with Logging {
     _scheduleController.add(null);
   }
 
+  /// 手动触发下载调度（公开方法，用于批量添加后统一启动下载）
+  void triggerSchedule() {
+    _triggerSchedule();
+  }
+
   /// 调度下载任务
   Future<void> _scheduleDownloads() async {
     if (_isScheduling) return;
@@ -209,10 +214,12 @@ class DownloadService with Logging {
   /// 
   /// [fromPlaylist] 必须提供，歌曲必须属于某个歌单才能下载
   /// [order] 在歌单中的顺序位置（从0开始）
+  /// [skipSchedule] 为 true 时不触发下载调度（用于批量添加）
   Future<DownloadTask?> addTrackDownload(
     Track track, {
     required Playlist fromPlaylist,
     int? order,
+    bool skipSchedule = false,
   }) async {
     logDebug('Adding download task for track: ${track.title}');
 
@@ -260,8 +267,10 @@ class DownloadService with Logging {
 
     final savedTask = await _downloadRepository.saveTask(task);
 
-    // 触发调度（事件驱动）
-    _triggerSchedule();
+    // 触发调度（事件驱动），批量添加时跳过
+    if (!skipSchedule) {
+      _triggerSchedule();
+    }
 
     return savedTask;
   }
@@ -281,17 +290,23 @@ class DownloadService with Logging {
     // 下载歌单封面
     await _downloadPlaylistCover(playlist);
 
-    // 为每个歌曲创建下载任务
+    // 为每个歌曲创建下载任务（批量添加，不立即触发调度）
     int addedCount = 0;
     for (int i = 0; i < tracks.length; i++) {
       final task = await addTrackDownload(
         tracks[i],
         fromPlaylist: playlist,
         order: i,
+        skipSchedule: true,  // 批量添加时跳过调度
       );
       if (task != null) {
         addedCount++;
       }
+    }
+
+    // 所有任务添加完成后，统一触发调度
+    if (addedCount > 0) {
+      _triggerSchedule();
     }
 
     logDebug('Added $addedCount download tasks for playlist: ${playlist.name}');
