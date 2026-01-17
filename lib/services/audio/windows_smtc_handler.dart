@@ -40,7 +40,6 @@ class WindowsSmtcHandler with Logging {
           album: '',
           albumArtist: '',
           artist: '',
-          thumbnail: '',
         ),
         timeline: const PlaybackTimeline(
           startTimeMs: 0,
@@ -98,12 +97,13 @@ class WindowsSmtcHandler with Logging {
     if (_smtc == null) return;
 
     try {
+      final thumbnail = track.thumbnailUrl;
       _smtc!.updateMetadata(MusicMetadata(
         title: track.title,
         album: '',
         albumArtist: '',
         artist: track.artist ?? '未知艺术家',
-        thumbnail: track.thumbnailUrl ?? '',
+        thumbnail: (thumbnail != null && thumbnail.isNotEmpty) ? thumbnail : null,
       ));
       logDebug('SMTC updated media item: ${track.title}');
     } catch (e) {
