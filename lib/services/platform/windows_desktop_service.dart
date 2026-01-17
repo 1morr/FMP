@@ -275,6 +275,18 @@ class WindowsDesktopService with TrayListener, WindowListener {
       case HotkeyAction.mute:
         onMute?.call();
         break;
+      case HotkeyAction.toggleWindow:
+        _toggleWindow();
+        break;
+    }
+  }
+
+  /// 切换窗口显示/隐藏
+  Future<void> _toggleWindow() async {
+    if (_isMinimizedToTray) {
+      await _showWindow();
+    } else {
+      await minimizeToTray();
     }
   }
 
