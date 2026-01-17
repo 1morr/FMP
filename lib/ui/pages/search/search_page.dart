@@ -121,6 +121,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             'Bilibili',
             state.enabledSources.contains(SourceType.bilibili),
           ),
+          _buildSourceChip(
+            context,
+            SourceType.youtube,
+            'YouTube',
+            state.enabledSources.contains(SourceType.youtube),
+          ),
           const Spacer(),
           // 排序按钮
           _buildSortButton(context, state),

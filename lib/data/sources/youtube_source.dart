@@ -172,6 +172,21 @@ class YouTubeSource extends BaseSource with Logging {
     return track;
   }
 
+  /// 将 SearchOrder 转换为 YouTube 搜索过滤器
+  yt.SearchFilter _getYouTubeFilter(SearchOrder order) {
+    switch (order) {
+      case SearchOrder.relevance:
+        return yt.SortFilters.relevance;
+      case SearchOrder.playCount:
+        return yt.SortFilters.viewCount;
+      case SearchOrder.publishDate:
+        return yt.SortFilters.uploadDate;
+      case SearchOrder.danmakuCount:
+        // YouTube 没有弹幕，使用评分作为替代
+        return yt.SortFilters.rating;
+    }
+  }
+
   @override
   Future<SearchResult> search(
     String query, {
@@ -179,10 +194,11 @@ class YouTubeSource extends BaseSource with Logging {
     int pageSize = 20,
     SearchOrder order = SearchOrder.relevance,
   }) async {
-    logDebug('Searching YouTube for: $query, page: $page');
+    logDebug('Searching YouTube for: $query, page: $page, order: $order');
     try {
-      // 获取搜索结果列表
-      final searchList = await _youtube.search.search(query);
+      // 获取搜索结果列表（带排序过滤器）
+      final filter = _getYouTubeFilter(order);
+      final searchList = await _youtube.search.search(query, filter: filter);
 
       // 计算跳过的数量
       final skip = (page - 1) * pageSize;
