@@ -222,8 +222,9 @@ class PlaylistDetailState extends Equatable {
 class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
   final PlaylistService _service;
   final int playlistId;
+  final Ref _ref;
 
-  PlaylistDetailNotifier(this._service, this.playlistId)
+  PlaylistDetailNotifier(this._service, this.playlistId, this._ref)
       : super(const PlaylistDetailState()) {
     loadPlaylist();
   }
@@ -255,6 +256,9 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
     try {
       await _service.addTrackToPlaylist(playlistId, track);
       await loadPlaylist();
+      // 刷新相关 providers（封面可能已更新，歌单列表也需要更新）
+      _ref.invalidate(playlistCoverProvider(playlistId));
+      _ref.invalidate(allPlaylistsProvider);
       return true;
     } catch (e) {
       state = state.copyWith(error: e.toString());
@@ -267,6 +271,9 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
     try {
       await _service.removeTrackFromPlaylist(playlistId, trackId);
       await loadPlaylist();
+      // 刷新相关 providers（封面可能已更新，歌单列表也需要更新）
+      _ref.invalidate(playlistCoverProvider(playlistId));
+      _ref.invalidate(allPlaylistsProvider);
       return true;
     } catch (e) {
       state = state.copyWith(error: e.toString());
@@ -285,6 +292,8 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
       state = state.copyWith(tracks: tracks);
 
       await _service.reorderPlaylistTracks(playlistId, oldIndex, newIndex);
+      // 刷新封面 provider（第一首歌可能已改变）
+      _ref.invalidate(playlistCoverProvider(playlistId));
       return true;
     } catch (e) {
       // 回滚
@@ -299,7 +308,7 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
 final playlistDetailProvider = StateNotifierProvider.family<
     PlaylistDetailNotifier, PlaylistDetailState, int>((ref, playlistId) {
   final service = ref.watch(playlistServiceProvider);
-  return PlaylistDetailNotifier(service, playlistId);
+  return PlaylistDetailNotifier(service, playlistId, ref);
 });
 
 /// 歌单封面 Provider

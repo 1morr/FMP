@@ -315,9 +315,29 @@ class DownloadService with Logging {
   }
 
   /// 下载歌单封面到分类文件夹
+  ///
+  /// 封面来源逻辑：
+  /// - Bilibili 歌单：使用 playlist.coverUrl（API 返回的收藏夹封面）
+  /// - YouTube/手动创建歌单：使用第一首歌曲的 thumbnailUrl
+  /// 
+  /// 总是覆盖已存在的 playlist_cover.jpg（获取最新封面）
   Future<void> _downloadPlaylistCover(Playlist playlist) async {
-    if (playlist.coverUrl == null || playlist.coverUrl!.isEmpty) {
-      logDebug('Playlist has no cover URL: ${playlist.name}');
+    String? coverUrl;
+
+    // 根据歌单类型选择封面来源
+    if (playlist.importSourceType == SourceType.bilibili) {
+      // Bilibili 歌单：使用 API 返回的封面
+      coverUrl = playlist.coverUrl;
+    } else {
+      // YouTube/手动创建歌单：使用第一首歌曲的封面
+      if (playlist.trackIds.isNotEmpty) {
+        final firstTrack = await _trackRepository.getById(playlist.trackIds.first);
+        coverUrl = firstTrack?.thumbnailUrl;
+      }
+    }
+
+    if (coverUrl == null || coverUrl.isEmpty) {
+      logDebug('No cover URL available for playlist: ${playlist.name}');
       return;
     }
 
@@ -334,9 +354,9 @@ class DownloadService with Logging {
         await playlistFolder.create(recursive: true);
       }
 
-      // 下载封面到歌单文件夹
+      // 下载封面到歌单文件夹（总是覆盖）
       final coverPath = p.join(playlistFolder.path, 'playlist_cover.jpg');
-      await _dio.download(playlist.coverUrl!, coverPath);
+      await _dio.download(coverUrl, coverPath);
       logDebug('Downloaded playlist cover: ${playlist.name}');
     } catch (e) {
       logDebug('Failed to download playlist cover: $e');

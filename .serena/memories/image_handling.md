@@ -292,6 +292,25 @@ coverAsync.when(
   3. 歌单的网络封面 URL
   4. 第一首歌曲的网络封面 URL
 
+**歌单封面动态更新机制**（2026-01-18 新增）：
+
+| 歌单类型 | coverUrl 来源 | 更新时机 |
+|----------|--------------|----------|
+| Bilibili 歌单 | API 返回的收藏夹封面 | 每次刷新歌单时更新 |
+| YouTube 歌单 | 第一首歌曲的 thumbnailUrl | 刷新/添加/移除/重排序歌曲时更新 |
+| 手动创建歌单 | 第一首歌曲的 thumbnailUrl | 添加/移除/重排序歌曲时更新 |
+
+**触发封面更新的操作**：
+- `ImportService.refreshPlaylist()` - YouTube 更新为第一首歌封面，Bilibili 更新为 API 封面
+- `PlaylistService.addTrackToPlaylist()` - 如果歌单之前为空，更新封面
+- `PlaylistService.addTracksToPlaylist()` - 如果歌单之前为空，更新封面
+- `PlaylistService.removeTrackFromPlaylist()` - 如果移除的是第一首歌，更新封面
+- `PlaylistService.reorderPlaylistTracks()` - 如果第一首歌变了，更新封面
+
+**关键方法**：`PlaylistService._updateCoverUrlForNonBilibiliPlaylist()`
+- 仅对非 Bilibili 歌单生效
+- 将 `coverUrl` 设为第一首歌曲的 `thumbnailUrl`（如果歌单为空则设为 null）
+
 ### 2. 已下载分类卡片（DownloadedPage）✅ 已更新使用 ImageLoadingService
 
 ```dart
@@ -416,13 +435,32 @@ static Future<void> ensureAvatarDirExists(String baseDir, SourceType sourceType)
 
 ### 歌单封面下载
 
+歌单封面来源根据歌单类型不同：
+- **Bilibili 歌单**：使用 `playlist.coverUrl`（API 返回的收藏夹封面）
+- **YouTube/手动创建歌单**：使用第一首歌曲的 `thumbnailUrl`
+
+总是覆盖已存在的 `playlist_cover.jpg`（获取最新封面）。
+
 ```dart
-Future<void> _downloadPlaylistCover(Playlist playlist, PlaylistDownloadTask task) async {
-  if (playlist.coverUrl == null) return;
+Future<void> _downloadPlaylistCover(Playlist playlist) async {
+  String? coverUrl;
+
+  // 根据歌单类型选择封面来源
+  if (playlist.importSourceType == SourceType.bilibili) {
+    coverUrl = playlist.coverUrl;  // Bilibili: API 封面
+  } else {
+    // YouTube/手动创建: 第一首歌曲的封面
+    if (playlist.trackIds.isNotEmpty) {
+      final firstTrack = await _trackRepository.getById(playlist.trackIds.first);
+      coverUrl = firstTrack?.thumbnailUrl;
+    }
+  }
+  
+  if (coverUrl == null || coverUrl.isEmpty) return;
   
   final playlistFolder = Directory(p.join(baseDir, subDir));
   final coverPath = p.join(playlistFolder.path, 'playlist_cover.jpg');
-  await _dio.download(playlist.coverUrl!, coverPath);
+  await _dio.download(coverUrl, coverPath);  // 总是覆盖
 }
 ```
 
