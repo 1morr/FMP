@@ -8,7 +8,6 @@ import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/download_provider.dart';
 import '../../../services/audio/audio_provider.dart';
-import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/track_group/track_group.dart';
 import '../../widgets/track_thumbnail.dart';
@@ -116,6 +115,10 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
     return SliverAppBar(
       expandedHeight: 280,
       pinned: true,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, color: Colors.white),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
       flexibleSpace: FlexibleSpaceBar(
         background: Stack(
           fit: StackFit.expand,
@@ -505,14 +508,6 @@ class _GroupHeader extends ConsumerWidget {
                 ),
               ),
               const PopupMenuItem(
-                value: 'add_to_playlist',
-                child: ListTile(
-                  leading: Icon(Icons.playlist_add),
-                  title: Text('添加到歌单'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuItem(
                 value: 'delete_all',
                 child: ListTile(
                   leading: Icon(Icons.delete_outline),
@@ -535,9 +530,7 @@ class _GroupHeader extends ConsumerWidget {
       case 'add_all_to_queue':
         onAddAllToQueue();
         break;
-      case 'add_to_playlist':
-        showAddToPlaylistDialog(context: context, tracks: group.tracks);
-        break;
+
       case 'delete_all':
         final confirmed = await showDialog<bool>(
           context: context,
@@ -685,15 +678,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
-                if (!isPartOfMultiPage)
-                  const PopupMenuItem(
-                    value: 'add_to_playlist',
-                    child: ListTile(
-                      leading: Icon(Icons.playlist_add),
-                      title: Text('添加到歌单'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
+
                 const PopupMenuItem(
                   value: 'delete',
                   child: ListTile(
@@ -721,9 +706,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
         ref.read(audioControllerProvider.notifier).addToQueue(track);
         ToastService.show(context, '已添加到播放队列');
         break;
-      case 'add_to_playlist':
-        showAddToPlaylistDialog(context: context, track: track);
-        break;
+
       case 'delete':
         final confirmed = await showDialog<bool>(
           context: context,
