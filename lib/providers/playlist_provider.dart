@@ -89,6 +89,8 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
         coverUrl: coverUrl,
       );
       await loadPlaylists();
+      // 同步刷新 allPlaylistsProvider，确保添加到歌单弹窗显示最新列表
+      _ref.invalidate(allPlaylistsProvider);
       return playlist;
     } catch (e) {
       state = state.copyWith(error: e.toString());
@@ -114,6 +116,8 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
         coverUrl: coverUrl,
       );
       await loadPlaylists();
+      // 同步刷新 allPlaylistsProvider，确保添加到歌单弹窗显示最新列表
+      _ref.invalidate(allPlaylistsProvider);
       // 刷新歌单详情页和封面
       invalidatePlaylistProviders(playlistId);
       // 清除文件存在缓存，强制重新检测
@@ -130,6 +134,8 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
     try {
       await _service.deletePlaylist(playlistId);
       await loadPlaylists();
+      // 同步刷新 allPlaylistsProvider，确保添加到歌单弹窗不再显示已删除的歌单
+      _ref.invalidate(allPlaylistsProvider);
       return true;
     } catch (e) {
       state = state.copyWith(error: e.toString());
@@ -142,6 +148,8 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
     try {
       final playlist = await _service.duplicatePlaylist(playlistId, newName);
       await loadPlaylists();
+      // 同步刷新 allPlaylistsProvider，确保添加到歌单弹窗显示最新列表
+      _ref.invalidate(allPlaylistsProvider);
       return playlist;
     } catch (e) {
       state = state.copyWith(error: e.toString());
