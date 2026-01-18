@@ -7,6 +7,7 @@ import '../data/models/playlist.dart';
 import '../services/import/import_service.dart';
 import '../core/services/toast_service.dart';
 import '../data/sources/source_provider.dart';
+import 'database_provider.dart';
 import 'repository_providers.dart';
 import 'playlist_provider.dart';
 
@@ -117,11 +118,14 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
 
     final settingsRepo = _ref.read(settingsRepositoryProvider);
     
+    final isar = await _ref.read(databaseProvider.future);
+    
     final importService = ImportService(
       sourceManager: sourceManager,
       playlistRepository: playlistRepo,
       trackRepository: trackRepo,
       settingsRepository: settingsRepo,
+      isar: isar,
     );
 
     // 初始化刷新状态
