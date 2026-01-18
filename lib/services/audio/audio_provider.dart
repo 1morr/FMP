@@ -137,21 +137,16 @@ class PlayerState {
 }
 
 /// 临时播放保存的状态
+/// 注意：不保存队列内容，恢复时直接使用当前队列
 class _TemporaryPlayState {
-  final List<Track> queue;
   final int index;
   final Duration position;
   final bool isPlaying;
-  final List<int> shuffleOrder;
-  final int shuffleIndex;
 
   const _TemporaryPlayState({
-    required this.queue,
     required this.index,
     required this.position,
     required this.isPlaying,
-    required this.shuffleOrder,
-    required this.shuffleIndex,
   });
 }
 
@@ -479,16 +474,14 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       }
 
       // 只在第一次进入临时播放时保存状态（避免连续临时播放时覆盖原始状态）
+      // 注意：不保存队列内容，恢复时直接使用当前队列（用户可能在临时播放期间修改队列）
       if (!_isTemporaryPlay && _queueManager.currentTrack != null) {
         _temporaryState = _TemporaryPlayState(
-          queue: List.from(_queueManager.tracks),
           index: _queueManager.currentIndex,
           position: _audioService.position,
           isPlaying: _audioService.isPlaying,
-          shuffleOrder: List.from(_queueManager.shuffleOrder),
-          shuffleIndex: _queueManager.shuffleIndex,
         );
-        logDebug('Saved queue state: ${_temporaryState!.queue.length} tracks, index: ${_temporaryState!.index}, shuffleOrder: ${_temporaryState!.shuffleOrder.length}');
+        logDebug('Saved playback state: index: ${_temporaryState!.index}, position: ${_temporaryState!.position}');
       }
 
       _isTemporaryPlay = true;
@@ -597,7 +590,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     _temporaryState = null;
   }
 
-  /// 恢复保存的队列状态
+  /// 恢复保存的播放状态
+  /// 注意：直接使用当前队列，不恢复队列内容（用户可能在临时播放期间修改了队列）
   Future<void> _restoreSavedState() async {
     final saved = _temporaryState;
     if (saved == null) {
@@ -606,16 +600,23 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       return;
     }
 
-    logDebug('Restoring queue state: ${saved.queue.length} tracks, index: ${saved.index}, shuffleOrder: ${saved.shuffleOrder.length}');
+    logDebug('Restoring playback state: index: ${saved.index}, position: ${saved.position}');
 
     try {
-      // 恢复 shuffle 状态（必须在 restoreQueue 之前设置）
-      if (saved.shuffleOrder.isNotEmpty) {
-        _queueManager.setShuffleState(saved.shuffleOrder, saved.shuffleIndex);
+      final queue = _queueManager.tracks;
+      
+      // 如果队列为空，直接退出临时播放模式
+      if (queue.isEmpty) {
+        logDebug('Queue is empty, exiting temporary play mode');
+        _isTemporaryPlay = false;
+        _clearSavedState();
+        _updateQueueState();
+        return;
       }
 
-      // 恢复队列（不会重新生成 shuffle order）
-      await _queueManager.restoreQueue(saved.queue, startIndex: saved.index);
+      // 将索引限制在有效范围内（队列可能在临时播放期间被修改）
+      final targetIndex = saved.index.clamp(0, queue.length - 1);
+      _queueManager.setCurrentIndex(targetIndex);
 
       final currentTrack = _queueManager.currentTrack;
       if (currentTrack != null) {
@@ -657,11 +658,14 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       _clearSavedState();
 
       _updateQueueState();
-      logInfo('Queue state restored successfully');
+      logInfo('Playback state restored successfully');
     } catch (e, stack) {
-      logError('Failed to restore queue state', e, stack);
+      logError('Failed to restore playback state', e, stack);
       _isTemporaryPlay = false;
       _clearSavedState();
+    } finally {
+      // 確保 isLoading 被重置（防止在臨時播放期間點擊下一首時 UI 卡在加載狀態）
+      state = state.copyWith(isLoading: false);
     }
   }
 
@@ -1467,22 +1471,17 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         (_playingTrack != null && queueTrack == null && queue.isNotEmpty);
 
     if (isPlayingOutOfQueue) {
-      // 当前播放的歌曲脱离队列：点击"下一首"会去到队列的第一首
-      if (_isTemporaryPlay && saved != null && saved.index < saved.queue.length) {
-        // 临时播放模式且有保存的状态：显示原队列中从保存位置开始的歌曲
-        if (_queueManager.isShuffleEnabled && saved.shuffleOrder.isNotEmpty) {
-          // Shuffle 模式：按 shuffle order 获取后续歌曲
-          upcomingTracks = [];
-          for (var i = saved.shuffleIndex; i < saved.shuffleOrder.length && upcomingTracks.length < 5; i++) {
-            final trackIndex = saved.shuffleOrder[i];
-            if (trackIndex >= 0 && trackIndex < saved.queue.length) {
-              upcomingTracks.add(saved.queue[trackIndex]);
-            }
-          }
+      // 当前播放的歌曲脱离队列：点击"下一首"会去到队列中保存的索引位置
+      if (_isTemporaryPlay && saved != null && queue.isNotEmpty) {
+        // 临时播放模式：显示当前队列中从保存位置开始的歌曲
+        final targetIndex = saved.index.clamp(0, queue.length - 1);
+        if (_queueManager.isShuffleEnabled) {
+          // Shuffle 模式：从当前 shuffle 索引获取后续歌曲
+          upcomingTracks = _queueManager.getUpcomingTracksFromIndex(targetIndex, count: 5);
         } else {
-          // 顺序模式：显示原队列中从保存位置开始的歌曲（最多5首）
-          final endIndex = (saved.index + 5).clamp(0, saved.queue.length);
-          upcomingTracks = saved.queue.sublist(saved.index, endIndex);
+          // 顺序模式：显示当前队列中从保存位置开始的歌曲（最多5首）
+          final endIndex = (targetIndex + 5).clamp(0, queue.length);
+          upcomingTracks = queue.sublist(targetIndex, endIndex);
         }
       } else {
         // 没有保存的状态，或非临时播放但脱离队列：显示当前队列从索引 0 开始的歌曲

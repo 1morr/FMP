@@ -236,7 +236,40 @@ await _player.setAudioSource(audioSource);
 **關鍵點**：
 - 多個檢查點：在 `await` 操作後都要檢查 `requestId != _playRequestId`
 - 鎖的安全完成：使用 `completeIf` 而非直接 `complete()`
-- 正確的狀態管理：`completedSuccessfully` 標誌 + finally 塊處理。當 `leading` 中包含複雜組件（如 `Row`）時，會觸發額外的佈局計算，導致性能問題。
+- 正確的狀態管理：`completedSuccessfully` 標誌 + finally 塊處理
+
+### 10. 所有異步方法必須在 finally 塊中重置 isLoading (2026-01-19)
+
+**問題**：臨時播放時點擊「下一首」導致 UI 一直顯示 loading 狀態。
+
+**原因**：`_restoreSavedState()` 方法在正常完成時沒有重置 `isLoading`，只在異常時重置。
+
+```dart
+// ❌ 錯誤 - 只在異常時重置
+Future<void> _restoreSavedState() async {
+  try {
+    // ... 恢復邏輯 ...
+  } catch (e) {
+    _isTemporaryPlay = false;
+    _clearSavedState();
+  }
+  // 正常完成時沒有重置 isLoading！
+}
+
+// ✅ 正確 - 使用 finally 塊確保一定重置
+Future<void> _restoreSavedState() async {
+  try {
+    // ... 恢復邏輯 ...
+  } catch (e) {
+    _isTemporaryPlay = false;
+    _clearSavedState();
+  } finally {
+    state = state.copyWith(isLoading: false);
+  }
+}
+```
+
+**經驗**：任何設置了 `isLoading = true` 的方法，都必須在 `finally` 塊中重置它。即使在正常流程中已經重置，`finally` 塊可以作為雙重保險，處理所有可能的退出路徑（early return、異常等）。。當 `leading` 中包含複雜組件（如 `Row`）時，會觸發額外的佈局計算，導致性能問題。
 
 **解決方案**：放棄 `ListTile`，使用 `InkWell` + `Padding` + `Row` 構建扁平的自定義佈局。
 
