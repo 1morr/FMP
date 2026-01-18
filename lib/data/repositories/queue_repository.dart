@@ -25,7 +25,7 @@ class QueueRepository with Logging {
 
   /// 保存播放队列
   Future<int> save(PlayQueue queue) async {
-    logDebug('Saving queue: ${queue.trackIds.length} tracks, index: ${queue.currentIndex}');
+    // logDebug('Saving queue: ${queue.trackIds.length} tracks, index: ${queue.currentIndex}');
     queue.lastUpdated = DateTime.now();
     return _isar.writeTxn(() => _isar.playQueues.put(queue));
   }

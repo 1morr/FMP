@@ -155,6 +155,25 @@ class _TemporaryPlayState {
   });
 }
 
+/// 带有请求 ID 的锁包装类
+/// 用于确保只有正确的请求才能完成锁，避免完成错误的锁
+class _LockWithId {
+  final int requestId;
+  final Completer<void> completer;
+
+  _LockWithId(this.requestId) : completer = Completer<void>();
+
+  /// 只有当锁仍然属于指定请求时才完成
+  void completeIf(int expectedRequestId) {
+    if (requestId == expectedRequestId && !completer.isCompleted) {
+      completer.complete();
+    }
+  }
+
+  /// 检查锁是否属于指定请求
+  bool belongsTo(int checkRequestId) => requestId == checkRequestId;
+}
+
 /// 音频控制器 - 管理所有播放相关的状态和操作
 /// 协调 AudioService（单曲播放）和 QueueManager（队列管理）
 class AudioController extends StateNotifier<PlayerState> with Logging {
@@ -173,7 +192,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   bool _isHandlingCompletion = false;
 
   // 播放锁 - 防止快速切歌时的竞态条件
-  Completer<void>? _playLock;
+  _LockWithId? _playLock;
   int _playRequestId = 0;
 
   // 导航请求ID - 防止快速点击 next/previous 时的竞态条件
@@ -411,10 +430,54 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 用于搜索页面和歌单页面点击歌曲时的行为
   Future<void> playTemporary(Track track) async {
     await _ensureInitialized();
+
+    // 【重要】在等待锁之前就立即更新 UI，让用户看到即时反馈
+    // 即使后续操作被阻塞，用户也能看到歌曲信息已切换
+    _updatePlayingTrack(track);
+    _updateQueueState();
+
+    // 获取请求 ID，用于防止竞态条件
+    final requestId = ++_playRequestId;
+    logInfo('Playing temporary track: ${track.title} (requestId: $requestId)');
+
+    // 等待之前的播放操作完成
+    if (_playLock != null && !_playLock!.completer.isCompleted) {
+      logDebug('Waiting for previous play operation to complete...');
+
+      // 立即完成旧的锁，让旧请求可以快速退出
+      // 使用旧锁自己的 requestId 来完成它，不会影响新锁
+      _playLock!.completeIf(_playLock!.requestId);
+
+      // 等待旧锁完成（这会立即返回，因为我们已经完成了它）
+      await _playLock!.completer.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          logWarning('Previous play operation timed out, proceeding anyway');
+        },
+      );
+    }
+
+    // 检查是否已被新请求取代（在等待锁的过程中可能有更新的请求）
+    if (requestId != _playRequestId) {
+      logDebug('Temporary play request $requestId superseded by $_playRequestId, aborting');
+      return;
+    }
+
+    // 创建新的锁（直接覆盖旧的）
+    _playLock = _LockWithId(requestId);
+
     state = state.copyWith(isLoading: true, error: null);
-    logInfo('Playing temporary track: ${track.title}');
+
+    // 标志：请求是否成功完成（用于 finally 块中决定是否重置 isLoading）
+    bool completedSuccessfully = false;
 
     try {
+      // 再次检查是否被取代
+      if (requestId != _playRequestId) {
+        logDebug('Temporary play request $requestId superseded before saving state, aborting');
+        return;
+      }
+
       // 只在第一次进入临时播放时保存状态（避免连续临时播放时覆盖原始状态）
       if (!_isTemporaryPlay && _queueManager.currentTrack != null) {
         _temporaryState = _TemporaryPlayState(
@@ -430,17 +493,30 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
       _isTemporaryPlay = true;
 
+      // 停止当前播放，避免在获取新 URL 期间继续播放上一首
+      await _audioService.stop();
+
+      // 再次检查是否被取代
+      if (requestId != _playRequestId) {
+        logDebug('Temporary play request $requestId superseded after stop, aborting');
+        return;
+      }
+
       // 获取音频 URL 并播放（不修改队列，不保存到数据库）
+      logDebug('Fetching audio URL for temporary track: ${track.title}');
       final (trackWithUrl, localPath) = await _queueManager.ensureAudioUrl(track, persist: false);
+
+      // 再次检查是否被取代
+      if (requestId != _playRequestId) {
+        logDebug('Temporary play request $requestId superseded after URL fetch, aborting');
+        return;
+      }
+
       final url = localPath ?? trackWithUrl.audioUrl;
 
       if (url == null) {
         throw Exception('No audio URL available for: ${track.title}');
       }
-
-      // 先更新正在播放的歌曲（在播放操作之前更新，避免 Android 上 UI 刷新延迟问题）
-      // 播放操作会触发 playerStateStream 事件，导致 UI 重建，此时 playingTrack 必须已经更新
-      _updatePlayingTrack(trackWithUrl);
 
       // 播放（传递 Track 信息用于后台播放通知）
       if (localPath != null) {
@@ -449,7 +525,19 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         final headers = _getHeadersForTrack(trackWithUrl);
         await _audioService.playUrl(url, headers: headers, track: trackWithUrl);
       }
+
+      // 再次检查是否被取代
+      if (requestId != _playRequestId) {
+        logDebug('Temporary play request $requestId superseded after playUrl, stopping');
+        await _audioService.stop();
+        return;
+      }
+
+      // 更新正在播放的歌曲（可能有 URL 更新）
+      _updatePlayingTrack(trackWithUrl);
+
       state = state.copyWith(isLoading: false);
+      completedSuccessfully = true;
 
       // 更新队列状态以显示正确的 upcomingTracks（原队列中的当前歌曲）
       _updateQueueState();
@@ -489,6 +577,17 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       } else {
         _isTemporaryPlay = false;
         _temporaryState = null;
+      }
+    } finally {
+      // 释放锁：只有当锁仍然属于当前请求时才完成
+      // 使用 completeIf 方法确保不会意外完成其他请求的锁
+      _playLock?.completeIf(requestId);
+
+      // 如果请求没有成功完成，且已被新请求取代，重置 isLoading
+      // 新请求会接管 UI 状态，但需要清除这个请求的加载状态
+      if (!completedSuccessfully && requestId != _playRequestId) {
+        logDebug('Request $requestId was superseded, resetting isLoading');
+        state = state.copyWith(isLoading: false);
       }
     }
   }
@@ -1045,14 +1144,23 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 播放指定歌曲
   Future<void> _playTrack(Track track) async {
+    // 【重要】立即更新 UI，让用户看到即时反馈
+    _updatePlayingTrack(track);
+    _updateQueueState();
+
     // 获取当前请求ID，用于检测是否被新请求取代
     final requestId = ++_playRequestId;
     logDebug('_playTrack started for: ${track.title} (requestId: $requestId)');
 
     // 等待之前的播放操作完成
-    if (_playLock != null && !_playLock!.isCompleted) {
+    if (_playLock != null && !_playLock!.completer.isCompleted) {
       logDebug('Waiting for previous play operation to complete...');
-      await _playLock!.future.timeout(
+
+      // 立即完成旧的锁，让旧请求可以快速退出
+      _playLock!.completeIf(_playLock!.requestId);
+
+      // 等待旧锁完成（这会立即返回，因为我们已经完成了它）
+      await _playLock!.completer.future.timeout(
         const Duration(seconds: 5),
         onTimeout: () {
           logWarning('Previous play operation timed out, proceeding anyway');
@@ -1062,20 +1170,18 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
     // 检查是否已被新请求取代
     if (requestId != _playRequestId) {
-      logDebug('Play request $requestId superseded by $requestId, aborting');
+      logDebug('Play request $requestId superseded by $_playRequestId, aborting');
       return;
     }
 
-    // 创建新的锁
-    _playLock = Completer<void>();
-
-    // 【重要】立即更新 UI，让用户看到切换效果
-    // 必须在任何 await 之前执行，否则 Android 上 stop() 可能导致明显延迟
-    _updatePlayingTrack(track);
-    _updateQueueState();
+    // 创建新的锁（直接覆盖旧的）
+    _playLock = _LockWithId(requestId);
 
     state = state.copyWith(isLoading: true, error: null);
-    
+
+    // 标志：请求是否成功完成（用于 finally 块中决定是否重置 isLoading）
+    bool completedSuccessfully = false;
+
     // 停止当前播放，避免在获取新 URL 期间继续播放上一首
     await _audioService.stop();
 
@@ -1123,6 +1229,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       _updatePlayingTrack(trackWithUrl, recordHistory: true);
 
       state = state.copyWith(isLoading: false);
+      completedSuccessfully = true;
       logDebug('_playTrack completed successfully for: ${track.title}');
     } on just_audio.PlayerInterruptedException catch (e) {
       // 播放被中断（通常是因为新的播放请求），不作为错误处理
@@ -1165,9 +1272,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       state = state.copyWith(error: e.toString(), isLoading: false);
       _toastService.showError('播放失败: ${track.title}');
     } finally {
-      // 释放锁
-      if (!_playLock!.isCompleted) {
-        _playLock!.complete();
+      // 释放锁：只有当锁仍然属于当前请求时才完成
+      _playLock?.completeIf(requestId);
+
+      // 如果请求没有成功完成，且已被新请求取代，重置 isLoading
+      if (!completedSuccessfully && requestId != _playRequestId) {
+        logDebug('Play request $requestId was superseded, resetting isLoading');
+        state = state.copyWith(isLoading: false);
       }
     }
   }
