@@ -274,6 +274,21 @@ class AudioService with Logging {
       _hasCompletionFired = false;  // 重置 completion 标志
       await _player.stop();
 
+      // 等待播放器进入 idle 状态，确保底层播放器完全清理
+      // 这对 just_audio_media_kit 特别重要，否则会出现 "Player already exists" 错误
+      if (_player.processingState != ProcessingState.idle) {
+        logDebug('Waiting for player to be idle, current state: ${_player.processingState}');
+        try {
+          await _player.playerStateStream
+              .where((state) => state.processingState == ProcessingState.idle)
+              .first
+              .timeout(const Duration(milliseconds: 500));
+          logDebug('Player is now idle');
+        } catch (e) {
+          logWarning('Timeout waiting for idle state, proceeding anyway: ${_player.processingState}');
+        }
+      }
+
       // 设置新的 URL（带 headers 和 MediaItem）
       final audioSource = _createAudioSource(url, headers: headers, track: track);
       final duration = await _player.setAudioSource(audioSource);
@@ -320,6 +335,20 @@ class AudioService with Logging {
       // 先停止当前播放
       _hasCompletionFired = false;  // 重置 completion 标志
       await _player.stop();
+
+      // 等待播放器进入 idle 状态，确保底层播放器完全清理
+      if (_player.processingState != ProcessingState.idle) {
+        logDebug('Waiting for player to be idle, current state: ${_player.processingState}');
+        try {
+          await _player.playerStateStream
+              .where((state) => state.processingState == ProcessingState.idle)
+              .first
+              .timeout(const Duration(milliseconds: 500));
+          logDebug('Player is now idle');
+        } catch (e) {
+          logWarning('Timeout waiting for idle state, proceeding anyway: ${_player.processingState}');
+        }
+      }
 
       // 设置新的文件（带 MediaItem）
       final audioSource = _createFileAudioSource(filePath, track: track);
