@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 
 import '../../../core/services/image_loading_service.dart';
+import '../../../core/services/network_image_cache_service.dart';
 import '../../../data/models/hotkey_config.dart';
 import '../../../data/models/settings.dart';
 import '../../../providers/theme_provider.dart';
@@ -677,29 +678,52 @@ class _ClearImageCacheListTile extends StatefulWidget {
 }
 
 class _ClearImageCacheListTileState extends State<_ClearImageCacheListTile> {
-  bool _isClearing = false;
+  double? _cacheSizeMB;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCacheSize();
+  }
+
+  Future<void> _loadCacheSize() async {
+    final sizeMB = await NetworkImageCacheService.getCacheSizeMB();
+    if (mounted) {
+      setState(() => _cacheSizeMB = sizeMB);
+    }
+  }
+
+  String _formatSize(double mb) {
+    if (mb < 1) {
+      return '${(mb * 1024).toStringAsFixed(1)} KB';
+    }
+    return '${mb.toStringAsFixed(1)} MB';
+  }
 
   @override
   Widget build(BuildContext context) {
+    final subtitle = _cacheSizeMB != null
+        ? '当前缓存: ${_formatSize(_cacheSizeMB!)}'
+        : '正在计算...';
+
     return ListTile(
       leading: const Icon(Icons.delete_outline),
       title: const Text('清除图片缓存'),
-      subtitle: const Text('清除网络图片缓存'),
-      trailing: _isClearing ? const SizedBox(
-        width: 24,
-        height: 24,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      ) : null,
-      onTap: _isClearing ? null : () => _showClearCacheDialog(context),
+      subtitle: Text(subtitle),
+      onTap: () => _showClearCacheDialog(context),
     );
   }
 
   void _showClearCacheDialog(BuildContext context) {
+    final sizeText = _cacheSizeMB != null
+        ? '\n\n当前缓存大小: ${_formatSize(_cacheSizeMB!)}'
+        : '';
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('清除图片缓存'),
-        content: const Text('确定要清除所有缓存的图片吗？这不会影响已下载的本地图片。'),
+        content: Text('确定要清除所有缓存的图片吗？这不会影响已下载的本地图片。$sizeText'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -707,13 +731,12 @@ class _ClearImageCacheListTileState extends State<_ClearImageCacheListTile> {
           ),
           FilledButton(
             onPressed: () async {
-              final messenger = ScaffoldMessenger.of(context);
               Navigator.pop(context);
-              setState(() => _isClearing = true);
               await ImageLoadingService.clearNetworkCache();
-              if (mounted) {
-                setState(() => _isClearing = false);
-                messenger.showSnackBar(
+              // 重新加载缓存大小
+              await _loadCacheSize();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('图片缓存已清除')),
                 );
               }
