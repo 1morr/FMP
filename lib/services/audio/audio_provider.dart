@@ -1191,7 +1191,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     state = state.copyWith(
       isPlaying: playerState.playing,
       isBuffering: playerState.processingState == just_audio.ProcessingState.buffering,
-      isLoading: playerState.processingState == just_audio.ProcessingState.loading,
+      isLoading: state.isLoading || playerState.processingState == just_audio.ProcessingState.loading,
       processingState: playerState.processingState,
     );
 
