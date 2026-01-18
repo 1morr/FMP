@@ -258,41 +258,27 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
               child: Row(
                 children: [
                   // 封面
-                  Hero(
-                    tag: 'playlist_cover_${widget.playlistId}',
-                    child: Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.3),
-                            blurRadius: 10,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: coverAsync.when(
-                        skipLoadingOnReload: true,
-                        data: (coverData) => coverData.hasCover
-                            ? ImageLoadingService.loadImage(
-                                localPath: coverData.localPath,
-                                networkUrl: coverData.networkUrl,
-                                placeholder: Container(
-                                  color: colorScheme.primaryContainer,
-                                  child: Center(
-                                    child: Icon(
-                                      Icons.music_note,
-                                      size: 48,
-                                      color: colorScheme.primary,
-                                    ),
-                                  ),
-                                ),
-                                fit: BoxFit.cover,
-                              )
-                            : Container(
+                  Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: coverAsync.when(
+                      skipLoadingOnReload: true,
+                      data: (coverData) => coverData.hasCover
+                          ? ImageLoadingService.loadImage(
+                              localPath: coverData.localPath,
+                              networkUrl: coverData.networkUrl,
+                              placeholder: Container(
                                 color: colorScheme.primaryContainer,
                                 child: Center(
                                   child: Icon(
@@ -302,11 +288,22 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                                   ),
                                 ),
                               ),
-                        loading: () => Container(
-                            color: colorScheme.surfaceContainerHighest),
-                        error: (error, stack) => Container(
-                            color: colorScheme.surfaceContainerHighest),
-                      ),
+                              fit: BoxFit.cover,
+                            )
+                          : Container(
+                              color: colorScheme.primaryContainer,
+                              child: Center(
+                                child: Icon(
+                                  Icons.music_note,
+                                  size: 48,
+                                  color: colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                      loading: () => Container(
+                          color: colorScheme.surfaceContainerHighest),
+                      error: (error, stack) => Container(
+                          color: colorScheme.surfaceContainerHighest),
                     ),
                   ),
                   const SizedBox(width: 16),
