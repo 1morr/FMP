@@ -9,13 +9,14 @@ import 'base_source.dart';
 class YouTubeSource extends BaseSource with Logging {
   late final yt.YoutubeExplode _youtube;
 
-  // 熱門搜索關鍵字（用於模擬熱門內容）
-  static const Map<String, List<String>> _trendingSearchQueries = {
-    'now': ['trending music 2024', 'popular songs', 'viral hits'],
-    'music': ['music video', 'official music video', 'new music 2024'],
-    'gaming': ['gaming highlights', 'game trailer', 'gameplay'],
-    'movies': ['movie trailer', 'official trailer 2024', 'film trailer'],
-  };
+  // 熱門搜索關鍵字
+  static const List<String> _trendingMusicQueries = [
+    'Music Video',
+    'Official Music Video',
+    'MV',
+    'Official MV',
+    'VOCALOID',
+  ];
 
   YouTubeSource() {
     _youtube = yt.YoutubeExplode();
@@ -433,68 +434,97 @@ class YouTubeSource extends BaseSource with Logging {
 
   // ==================== InnerTube API 熱門影片 ====================
 
-  /// 獲取熱門影片（使用搜索作為替代方案）
-  /// [category] 可選分類: 'now' (默認), 'music', 'gaming', 'movies'
-  /// 限制為最近一個月內上傳的影片，按播放量排序
-  Future<List<Track>> getTrendingVideos({String category = 'now'}) async {
-    logDebug('Getting YouTube trending videos via search, category: $category');
+  /// 獲取熱門音樂影片（使用搜索作為替代方案）
+  /// 限制為最近 7 天內上傳的影片，按播放量排序
+  /// 搜索多個關鍵字以獲取更多樣的結果
+  Future<List<Track>> getTrendingVideos({String category = 'music'}) async {
+    logDebug('Getting YouTube trending videos via search');
     try {
-      // 獲取該分類的搜索關鍵字
-      final queries = _trendingSearchQueries[category] ?? _trendingSearchQueries['now']!;
-      final query = queries.first;
-
-      // 使用 lastMonth 篩選器搜索最近一個月的影片
-      var searchList = await _youtube.search.search(
-        query,
-        filter: yt.UploadDateFilter.lastMonth,
-      );
-
-      // 收集足夠多的結果以便按播放量排序
+      // 用於去重的 Set
+      final seenIds = <String>{};
       final allTracks = <Track>[];
-      const maxResults = 60; // 收集更多結果以便排序
 
-      // 第一頁結果
-      for (final video in searchList) {
-        allTracks.add(Track()
-          ..sourceId = video.id.value
-          ..sourceType = SourceType.youtube
-          ..title = video.title
-          ..artist = video.author
-          ..channelId = video.channelId.value
-          ..durationMs = video.duration?.inMilliseconds ?? 0
-          ..thumbnailUrl = video.thumbnails.highResUrl
-          ..viewCount = video.engagement.viewCount);
+      // 搜索所有關鍵字
+      final queriesToUse = _trendingMusicQueries;
+      const resultsPerQuery = 20;
 
-        if (allTracks.length >= maxResults) break;
+      for (final query in queriesToUse) {
+        try {
+          logDebug('Searching YouTube for: $query');
+
+          // 使用 lastWeek 篩選器搜索最近 7 天的影片
+          var searchList = await _youtube.search.search(
+            query,
+            filter: yt.UploadDateFilter.lastWeek,
+          );
+
+          var tracksFromQuery = 0;
+
+          // 第一頁結果
+          for (final video in searchList) {
+            if (seenIds.contains(video.id.value)) continue;
+            seenIds.add(video.id.value);
+
+            allTracks.add(Track()
+              ..sourceId = video.id.value
+              ..sourceType = SourceType.youtube
+              ..title = video.title
+              ..artist = video.author
+              ..channelId = video.channelId.value
+              ..durationMs = video.duration?.inMilliseconds ?? 0
+              ..thumbnailUrl = video.thumbnails.highResUrl
+              ..viewCount = video.engagement.viewCount);
+
+            tracksFromQuery++;
+            if (tracksFromQuery >= resultsPerQuery) break;
+          }
+
+          // 如果結果不夠，嘗試獲取更多頁
+          while (tracksFromQuery < resultsPerQuery) {
+            final nextPage = await searchList.nextPage();
+            if (nextPage == null) break;
+            searchList = nextPage;
+
+            for (final video in searchList) {
+              if (seenIds.contains(video.id.value)) continue;
+              seenIds.add(video.id.value);
+
+              allTracks.add(Track()
+                ..sourceId = video.id.value
+                ..sourceType = SourceType.youtube
+                ..title = video.title
+                ..artist = video.author
+                ..channelId = video.channelId.value
+                ..durationMs = video.duration?.inMilliseconds ?? 0
+                ..thumbnailUrl = video.thumbnails.highResUrl
+                ..viewCount = video.engagement.viewCount);
+
+              tracksFromQuery++;
+              if (tracksFromQuery >= resultsPerQuery) break;
+            }
+          }
+
+          logDebug('Got $tracksFromQuery tracks from query: $query');
+        } catch (e) {
+          // 單個關鍵字搜索失敗，記錄錯誤但繼續搜索其他關鍵字
+          logError('Failed to search for "$query": $e');
+        }
       }
 
-      // 如果結果不夠，嘗試獲取更多頁
-      while (allTracks.length < maxResults) {
-        final nextPage = await searchList.nextPage();
-        if (nextPage == null) break;
-        searchList = nextPage;
-
-        for (final video in searchList) {
-          allTracks.add(Track()
-            ..sourceId = video.id.value
-            ..sourceType = SourceType.youtube
-            ..title = video.title
-            ..artist = video.author
-            ..channelId = video.channelId.value
-            ..durationMs = video.duration?.inMilliseconds ?? 0
-            ..thumbnailUrl = video.thumbnails.highResUrl
-            ..viewCount = video.engagement.viewCount);
-
-          if (allTracks.length >= maxResults) break;
-        }
+      // 如果完全沒有結果，拋出異常
+      if (allTracks.isEmpty) {
+        throw YouTubeApiException(
+          code: 'no_results',
+          message: 'No trending videos found from any query',
+        );
       }
 
       // 按播放量降序排序
       allTracks.sort((a, b) => (b.viewCount ?? 0).compareTo(a.viewCount ?? 0));
 
-      // 返回前 30 個結果
-      final result = allTracks.take(30).toList();
-      logDebug('Got ${result.length} trending videos for category: $category (from ${allTracks.length} candidates)');
+      // 返回前 100 個結果
+      final result = allTracks.take(100).toList();
+      logDebug('Got ${result.length} trending videos (from ${allTracks.length} candidates)');
       return result;
     } catch (e) {
       logError('Failed to get YouTube trending videos: $e');
