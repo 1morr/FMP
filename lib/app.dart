@@ -58,9 +58,6 @@ class FMPApp extends ConsumerWidget {
         ),
       ),
       data: (_) {
-        // 触发后台清理任务（不阻塞 UI）
-        ref.read(startupCleanupProvider);
-
         // Windows: 初始化桌面特性（托盘、快捷键等）
         if (Platform.isWindows) {
           ref.watch(windowsDesktopServiceProvider);
