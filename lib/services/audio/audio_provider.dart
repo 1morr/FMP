@@ -11,8 +11,10 @@ import '../../data/sources/bilibili_source.dart';
 import '../../data/repositories/queue_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
+import '../../data/repositories/play_history_repository.dart';
 import '../../data/sources/source_provider.dart';
 import '../../providers/database_provider.dart';
+import '../../providers/repository_providers.dart';
 import '../../core/services/toast_service.dart';
 import '../../main.dart' show audioHandler, windowsSmtcHandler;
 import 'audio_handler.dart';
@@ -161,6 +163,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   final ToastService _toastService;
   final FmpAudioHandler _audioHandler;
   final WindowsSmtcHandler _windowsSmtcHandler;
+  final PlayHistoryRepository? _playHistoryRepository;
 
   final List<StreamSubscription> _subscriptions = [];
   bool _isInitialized = false;
@@ -194,11 +197,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     required ToastService toastService,
     required FmpAudioHandler audioHandler,
     required WindowsSmtcHandler windowsSmtcHandler,
+    PlayHistoryRepository? playHistoryRepository,
   })  : _audioService = audioService,
         _queueManager = queueManager,
         _toastService = toastService,
         _audioHandler = audioHandler,
         _windowsSmtcHandler = windowsSmtcHandler,
+        _playHistoryRepository = playHistoryRepository,
         super(const PlayerState());
 
   /// 是否已初始化
@@ -969,7 +974,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   /// 更新正在播放的歌曲（UI 显示用）
-  void _updatePlayingTrack(Track track) {
+  void _updatePlayingTrack(Track track, {bool recordHistory = false}) {
     _playingTrack = track;
     state = state.copyWith(playingTrack: track);
 
@@ -983,7 +988,28 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       _windowsSmtcHandler.updateCurrentMediaItem(track);
     }
 
+    // 只在明确要求时记录到播放历史（避免重复记录）
+    if (recordHistory) {
+      _recordPlayHistory(track);
+    }
+
     logDebug('Updated playing track: ${track.title}');
+  }
+
+  /// 记录播放历史（异步，不阻塞播放）
+  void _recordPlayHistory(Track track) {
+    final repo = _playHistoryRepository;
+    if (repo == null) return;
+    
+    // 异步记录，不阻塞播放
+    Future.microtask(() async {
+      try {
+        await repo.addHistory(track);
+        logDebug('Recorded play history: ${track.title}');
+      } catch (e) {
+        logWarning('Failed to record play history: $e');
+      }
+    });
   }
 
   /// 清除正在播放的歌曲
@@ -1093,8 +1119,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // 预取下一首
       _queueManager.prefetchNext();
 
-      // 更新正在播放的歌曲
-      _updatePlayingTrack(trackWithUrl);
+      // 更新正在播放的歌曲（并记录到播放历史）
+      _updatePlayingTrack(trackWithUrl, recordHistory: true);
 
       state = state.copyWith(isLoading: false);
       logDebug('_playTrack completed successfully for: ${track.title}');
@@ -1411,6 +1437,14 @@ final audioControllerProvider =
   final audioService = ref.watch(audioServiceProvider);
   final queueManager = ref.watch(queueManagerProvider);
   final toastService = ref.watch(toastServiceProvider);
+  
+  // 获取播放历史仓库（可能为 null，如果数据库未初始化）
+  PlayHistoryRepository? playHistoryRepository;
+  try {
+    playHistoryRepository = ref.watch(playHistoryRepositoryProvider);
+  } catch (_) {
+    // 数据库未初始化时忽略
+  }
 
   final controller = AudioController(
     audioService: audioService,
@@ -1418,6 +1452,7 @@ final audioControllerProvider =
     toastService: toastService,
     audioHandler: audioHandler,
     windowsSmtcHandler: windowsSmtcHandler,
+    playHistoryRepository: playHistoryRepository,
   );
 
   // 启动初始化（异步，但不阻塞）
