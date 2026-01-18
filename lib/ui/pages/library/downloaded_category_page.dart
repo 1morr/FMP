@@ -30,6 +30,18 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
   List<Track>? _cachedTracks;
   List<TrackGroup>? _cachedGroups;
 
+  /// 刷新数据
+  Future<void> _refresh() async {
+    // 清除缓存
+    setState(() {
+      _cachedTracks = null;
+      _cachedGroups = null;
+    });
+    // 使 provider 失效并等待重新加载
+    ref.invalidate(downloadedCategoryTracksProvider(widget.category.folderPath));
+    await ref.read(downloadedCategoryTracksProvider(widget.category.folderPath).future);
+  }
+
   /// 获取分组后的 tracks，使用缓存避免重复计算
   List<TrackGroup> _getGroupedTracks(List<Track> tracks) {
     // 检查是否需要重新计算
@@ -119,6 +131,16 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
         icon: const Icon(Icons.arrow_back, color: Colors.white),
         onPressed: () => Navigator.of(context).pop(),
       ),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: _refresh,
+            tooltip: '刷新',
+          ),
+        ),
+      ],
       flexibleSpace: FlexibleSpaceBar(
         background: Stack(
           fit: StackFit.expand,

@@ -56,11 +56,22 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
   // 初始化服务
   service.initialize();
 
-  // 监听下载完成事件，更新 FileExistsCache
+  // 监听下载完成事件，更新缓存和已下载页面
   StreamSubscription<DownloadCompletionEvent>? completionSubscription;
   completionSubscription = service.completionStream.listen((event) {
     // 标记文件已存在，触发 UI 更新
     ref.read(fileExistsCacheProvider.notifier).markAsDownloaded(event.savePath);
+    
+    // 使用 microtask 延迟刷新，避免循环依赖
+    Future.microtask(() {
+      // 刷新已下载分类列表和分类详情，使新下载的歌曲显示出来
+      ref.invalidate(downloadedCategoriesProvider);
+      // 从保存路径中提取分类文件夹路径并刷新对应的分类详情
+      // savePath 结构: 下载目录/歌单文件夹/视频文件夹/audio.m4a
+      // 需要获取歌单文件夹路径（上两级）
+      final categoryFolderPath = p.dirname(p.dirname(event.savePath));
+      ref.invalidate(downloadedCategoryTracksProvider(categoryFolderPath));
+    });
   });
 
   // 在 provider 被销毁时清理
@@ -166,9 +177,10 @@ final downloadedTracksProvider = StreamProvider<List<Track>>((ref) {
 
 /// 已下载分类列表 Provider
 final downloadedCategoriesProvider = FutureProvider<List<DownloadedCategory>>((ref) async {
-  final service = ref.watch(downloadServiceProvider);
-  final dirInfo = await service.getDownloadDirInfo();
-  final downloadDir = Directory(dirInfo.path);
+  // 直接获取下载目录，避免循环依赖 downloadServiceProvider
+  final settingsRepo = SettingsRepository(ref.watch(databaseProvider).requireValue);
+  final downloadPath = await DownloadPathUtils.getDefaultBaseDir(settingsRepo);
+  final downloadDir = Directory(downloadPath);
 
   if (!await downloadDir.exists()) {
     return [];
