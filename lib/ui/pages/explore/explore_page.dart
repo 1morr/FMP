@@ -5,6 +5,7 @@ import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/popular_provider.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../../services/cache/ranking_cache_service.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/track_thumbnail.dart';
 
@@ -24,12 +25,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-
-    // 初始加载音乐分类
-    Future.microtask(() {
-      ref.read(rankingVideosProvider.notifier).loadCategory(BilibiliCategory.music);
-      ref.read(youtubeTrendingProvider.notifier).loadCategory(YouTubeCategory.music);
-    });
+    // 不再需要手動加載，直接使用緩存服務的數據
   }
 
   @override
@@ -62,22 +58,64 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
   }
 
   Widget _buildBilibiliTab() {
-    final state = ref.watch(rankingVideosProvider);
-    return _buildRankingContent(
-      tracks: state.currentTracks,
-      isLoading: state.isLoading,
-      error: state.error,
-      onRefresh: () => ref.read(rankingVideosProvider.notifier).refresh(),
+    final asyncValue = ref.watch(cachedBilibiliRankingProvider);
+    return asyncValue.when(
+      data: (tracks) => _buildRankingContent(
+        tracks: tracks,
+        isLoading: false,
+        error: null,
+        onRefresh: () async {
+          // 觸發緩存刷新
+          final service = ref.read(rankingCacheServiceProvider);
+          await service.refreshBilibili();
+        },
+      ),
+      loading: () => _buildRankingContent(
+        tracks: [],
+        isLoading: true,
+        error: null,
+        onRefresh: () async {},
+      ),
+      error: (_, _) => _buildRankingContent(
+        tracks: [],
+        isLoading: false,
+        error: '載入失敗',
+        onRefresh: () async {
+          final service = ref.read(rankingCacheServiceProvider);
+          await service.refreshBilibili();
+        },
+      ),
     );
   }
 
   Widget _buildYouTubeTab() {
-    final state = ref.watch(youtubeTrendingProvider);
-    return _buildRankingContent(
-      tracks: state.currentTracks,
-      isLoading: state.isLoading,
-      error: state.error,
-      onRefresh: () => ref.read(youtubeTrendingProvider.notifier).refresh(),
+    final asyncValue = ref.watch(cachedYouTubeRankingProvider);
+    return asyncValue.when(
+      data: (tracks) => _buildRankingContent(
+        tracks: tracks,
+        isLoading: false,
+        error: null,
+        onRefresh: () async {
+          // 觸發緩存刷新
+          final service = ref.read(rankingCacheServiceProvider);
+          await service.refreshYouTube();
+        },
+      ),
+      loading: () => _buildRankingContent(
+        tracks: [],
+        isLoading: true,
+        error: null,
+        onRefresh: () async {},
+      ),
+      error: (_, _) => _buildRankingContent(
+        tracks: [],
+        isLoading: false,
+        error: '載入失敗',
+        onRefresh: () async {
+          final service = ref.read(rankingCacheServiceProvider);
+          await service.refreshYouTube();
+        },
+      ),
     );
   }
 

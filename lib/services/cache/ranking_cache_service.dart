@@ -13,9 +13,9 @@ import '../../data/sources/youtube_source.dart';
 /// - 應用啟動時立即獲取數據
 /// - 每小時自動後台刷新
 /// - 用戶進入首頁時直接顯示緩存，無需等待
+/// - 緩存完整數據，首頁預覽只顯示前 10 首，探索頁使用完整緩存
 class RankingCacheService {
   static const _refreshInterval = Duration(hours: 1);
-  static const _previewCount = 10;
 
   /// 全局單例實例，在 main.dart 中初始化
   static late final RankingCacheService instance;
@@ -70,8 +70,8 @@ class RankingCacheService {
   Future<void> _refreshAll() async {
     // 並行獲取兩個數據源
     await Future.wait([
-      _refreshBilibili(),
-      _refreshYouTube(),
+      refreshBilibili(),
+      refreshYouTube(),
     ]);
 
     // 首次加載完成
@@ -82,10 +82,10 @@ class RankingCacheService {
   }
 
   /// 刷新 Bilibili 數據
-  Future<void> _refreshBilibili() async {
+  Future<void> refreshBilibili() async {
     try {
       final tracks = await _bilibiliSource.getRankingVideos(rid: 3); // 音樂分區
-      _bilibiliTracks = tracks.take(_previewCount).toList();
+      _bilibiliTracks = tracks; // 緩存完整數據
       _bilibiliLoaded = true;
       _notifyStateChange();
       debugPrint('[RankingCache] Bilibili 緩存已刷新: ${_bilibiliTracks.length} 首');
@@ -96,10 +96,10 @@ class RankingCacheService {
   }
 
   /// 刷新 YouTube 數據
-  Future<void> _refreshYouTube() async {
+  Future<void> refreshYouTube() async {
     try {
       final tracks = await _youtubeSource.getTrendingVideos(category: 'music');
-      _youtubeTracks = tracks.take(_previewCount).toList();
+      _youtubeTracks = tracks; // 緩存完整數據
       _youtubeLoaded = true;
       _notifyStateChange();
       debugPrint('[RankingCache] YouTube 緩存已刷新: ${_youtubeTracks.length} 首');
