@@ -435,23 +435,67 @@ class YouTubeSource extends BaseSource with Logging {
 
   /// 獲取熱門影片（使用搜索作為替代方案）
   /// [category] 可選分類: 'now' (默認), 'music', 'gaming', 'movies'
+  /// 限制為最近一個月內上傳的影片，按播放量排序
   Future<List<Track>> getTrendingVideos({String category = 'now'}) async {
     logDebug('Getting YouTube trending videos via search, category: $category');
     try {
       // 獲取該分類的搜索關鍵字
       final queries = _trendingSearchQueries[category] ?? _trendingSearchQueries['now']!;
-      
-      // 使用第一個關鍵字進行搜索，按觀看次數排序
       final query = queries.first;
-      final searchResult = await search(
+
+      // 使用 lastMonth 篩選器搜索最近一個月的影片
+      var searchList = await _youtube.search.search(
         query,
-        page: 1,
-        pageSize: 30,
-        order: SearchOrder.playCount,
+        filter: yt.UploadDateFilter.lastMonth,
       );
-      
-      logDebug('Got ${searchResult.tracks.length} trending videos for category: $category');
-      return searchResult.tracks;
+
+      // 收集足夠多的結果以便按播放量排序
+      final allTracks = <Track>[];
+      const maxResults = 60; // 收集更多結果以便排序
+
+      // 第一頁結果
+      for (final video in searchList) {
+        allTracks.add(Track()
+          ..sourceId = video.id.value
+          ..sourceType = SourceType.youtube
+          ..title = video.title
+          ..artist = video.author
+          ..channelId = video.channelId.value
+          ..durationMs = video.duration?.inMilliseconds ?? 0
+          ..thumbnailUrl = video.thumbnails.highResUrl
+          ..viewCount = video.engagement.viewCount);
+
+        if (allTracks.length >= maxResults) break;
+      }
+
+      // 如果結果不夠，嘗試獲取更多頁
+      while (allTracks.length < maxResults) {
+        final nextPage = await searchList.nextPage();
+        if (nextPage == null) break;
+        searchList = nextPage;
+
+        for (final video in searchList) {
+          allTracks.add(Track()
+            ..sourceId = video.id.value
+            ..sourceType = SourceType.youtube
+            ..title = video.title
+            ..artist = video.author
+            ..channelId = video.channelId.value
+            ..durationMs = video.duration?.inMilliseconds ?? 0
+            ..thumbnailUrl = video.thumbnails.highResUrl
+            ..viewCount = video.engagement.viewCount);
+
+          if (allTracks.length >= maxResults) break;
+        }
+      }
+
+      // 按播放量降序排序
+      allTracks.sort((a, b) => (b.viewCount ?? 0).compareTo(a.viewCount ?? 0));
+
+      // 返回前 30 個結果
+      final result = allTracks.take(30).toList();
+      logDebug('Got ${result.length} trending videos for category: $category (from ${allTracks.length} candidates)');
+      return result;
     } catch (e) {
       logError('Failed to get YouTube trending videos: $e');
       if (e is YouTubeApiException) rethrow;
