@@ -9,6 +9,14 @@ import 'base_source.dart';
 class YouTubeSource extends BaseSource with Logging {
   late final yt.YoutubeExplode _youtube;
 
+  // 熱門搜索關鍵字（用於模擬熱門內容）
+  static const Map<String, List<String>> _trendingSearchQueries = {
+    'now': ['trending music 2024', 'popular songs', 'viral hits'],
+    'music': ['music video', 'official music video', 'new music 2024'],
+    'gaming': ['gaming highlights', 'game trailer', 'gameplay'],
+    'movies': ['movie trailer', 'official trailer 2024', 'film trailer'],
+  };
+
   YouTubeSource() {
     _youtube = yt.YoutubeExplode();
   }
@@ -420,6 +428,37 @@ class YouTubeSource extends BaseSource with Logging {
       return true;
     } catch (_) {
       return false;
+    }
+  }
+
+  // ==================== InnerTube API 熱門影片 ====================
+
+  /// 獲取熱門影片（使用搜索作為替代方案）
+  /// [category] 可選分類: 'now' (默認), 'music', 'gaming', 'movies'
+  Future<List<Track>> getTrendingVideos({String category = 'now'}) async {
+    logDebug('Getting YouTube trending videos via search, category: $category');
+    try {
+      // 獲取該分類的搜索關鍵字
+      final queries = _trendingSearchQueries[category] ?? _trendingSearchQueries['now']!;
+      
+      // 使用第一個關鍵字進行搜索，按觀看次數排序
+      final query = queries.first;
+      final searchResult = await search(
+        query,
+        page: 1,
+        pageSize: 30,
+        order: SearchOrder.playCount,
+      );
+      
+      logDebug('Got ${searchResult.tracks.length} trending videos for category: $category');
+      return searchResult.tracks;
+    } catch (e) {
+      logError('Failed to get YouTube trending videos: $e');
+      if (e is YouTubeApiException) rethrow;
+      throw YouTubeApiException(
+        code: 'error',
+        message: 'Failed to get trending videos: $e',
+      );
     }
   }
 

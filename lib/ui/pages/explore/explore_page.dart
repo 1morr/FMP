@@ -21,12 +21,13 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
 
     // 初始加载
     Future.microtask(() {
       ref.read(popularVideosProvider.notifier).load();
       ref.read(rankingVideosProvider.notifier).loadCategory(BilibiliCategory.music);
+      ref.read(youtubeTrendingProvider.notifier).loadCategory(YouTubeCategory.music);
     });
   }
 
@@ -46,8 +47,9 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: '热门'),
-            Tab(text: '排行榜'),
+            Tab(text: 'B站热门'),
+            Tab(text: 'B站排行'),
+            Tab(text: 'YouTube'),
           ],
         ),
       ),
@@ -56,6 +58,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
         children: [
           _buildPopularTab(colorScheme),
           _buildRankingTab(colorScheme),
+          _buildYouTubeTab(colorScheme),
         ],
       ),
     );
@@ -180,6 +183,94 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
         itemBuilder: (context, index) {
           final track = state.currentTracks[index];
           return _buildRankingTile(track, index + 1, colorScheme);
+        },
+      ),
+    );
+  }
+
+  Widget _buildYouTubeTab(ColorScheme colorScheme) {
+    final state = ref.watch(youtubeTrendingProvider);
+
+    return Column(
+      children: [
+        // 分類選擇器
+        SizedBox(
+          height: 48,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            itemCount: YouTubeCategory.values.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final category = YouTubeCategory.values[index];
+              final isSelected = category == state.selectedCategory;
+              return FilterChip(
+                label: Text(category.label),
+                selected: isSelected,
+                onSelected: (selected) {
+                  if (selected) {
+                    ref.read(youtubeTrendingProvider.notifier).loadCategory(category);
+                  }
+                },
+              );
+            },
+          ),
+        ),
+        const Divider(height: 1),
+        // YouTube 熱門內容
+        Expanded(
+          child: _buildYouTubeContent(state, colorScheme),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildYouTubeContent(YouTubeTrendingState state, ColorScheme colorScheme) {
+    if (state.isLoading && state.currentTracks.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (state.error != null && state.currentTracks.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 48, color: colorScheme.error),
+            const SizedBox(height: 16),
+            Text(
+              'YouTube 熱門暫時無法獲取',
+              style: TextStyle(color: colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '可能因為 API 限制或網路問題',
+              style: TextStyle(
+                fontSize: 12,
+                color: colorScheme.outline,
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => ref.read(youtubeTrendingProvider.notifier).refresh(),
+              child: const Text('重試'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (state.currentTracks.isEmpty) {
+      return const Center(child: Text('暫無數據'));
+    }
+
+    return RefreshIndicator(
+      onRefresh: () => ref.read(youtubeTrendingProvider.notifier).refresh(),
+      child: ListView.builder(
+        padding: const EdgeInsets.only(bottom: 100),
+        itemCount: state.currentTracks.length,
+        itemBuilder: (context, index) {
+          final track = state.currentTracks[index];
+          return _buildTrackTile(track, colorScheme);
         },
       ),
     );

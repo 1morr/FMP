@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models/track.dart';
 import '../data/sources/bilibili_source.dart';
+import '../data/sources/youtube_source.dart';
 
 /// Bilibili 分区 ID
 enum BilibiliCategory {
@@ -203,4 +204,106 @@ final homePopularPreviewProvider = FutureProvider.autoDispose<List<Track>>((ref)
 final homeMusicRankingPreviewProvider = FutureProvider.autoDispose<List<Track>>((ref) async {
   final source = BilibiliSource();
   return source.getRankingVideos(rid: BilibiliCategory.music.rid);
+});
+
+// ==================== YouTube 熱門 ====================
+
+/// YouTube 熱門分類
+enum YouTubeCategory {
+  now('now', '熱門'),
+  music('music', '音樂'),
+  gaming('gaming', '遊戲'),
+  movies('movies', '電影');
+
+  final String id;
+  final String label;
+  const YouTubeCategory(this.id, this.label);
+}
+
+/// YouTube 熱門視頻狀態
+class YouTubeTrendingState {
+  final Map<YouTubeCategory, List<Track>> tracksByCategory;
+  final YouTubeCategory selectedCategory;
+  final bool isLoading;
+  final String? error;
+
+  const YouTubeTrendingState({
+    this.tracksByCategory = const {},
+    this.selectedCategory = YouTubeCategory.music,
+    this.isLoading = false,
+    this.error,
+  });
+
+  List<Track> get currentTracks => tracksByCategory[selectedCategory] ?? [];
+
+  YouTubeTrendingState copyWith({
+    Map<YouTubeCategory, List<Track>>? tracksByCategory,
+    YouTubeCategory? selectedCategory,
+    bool? isLoading,
+    String? error,
+  }) {
+    return YouTubeTrendingState(
+      tracksByCategory: tracksByCategory ?? this.tracksByCategory,
+      selectedCategory: selectedCategory ?? this.selectedCategory,
+      isLoading: isLoading ?? this.isLoading,
+      error: error,
+    );
+  }
+}
+
+/// YouTube 熱門 Provider
+final youtubeTrendingProvider =
+    StateNotifierProvider<YouTubeTrendingNotifier, YouTubeTrendingState>((ref) {
+  return YouTubeTrendingNotifier(YouTubeSource());
+});
+
+class YouTubeTrendingNotifier extends StateNotifier<YouTubeTrendingState> {
+  final YouTubeSource _source;
+
+  YouTubeTrendingNotifier(this._source) : super(const YouTubeTrendingState());
+
+  /// 加載指定分類的熱門視頻
+  Future<void> loadCategory(YouTubeCategory category) async {
+    // 如果已經加載過，直接切換
+    if (state.tracksByCategory.containsKey(category)) {
+      state = state.copyWith(selectedCategory: category);
+      return;
+    }
+
+    state = state.copyWith(isLoading: true, selectedCategory: category, error: null);
+
+    try {
+      final tracks = await _source.getTrendingVideos(category: category.id);
+      state = state.copyWith(
+        tracksByCategory: {...state.tracksByCategory, category: tracks},
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+    }
+  }
+
+  /// 刷新當前分類
+  Future<void> refresh() async {
+    final category = state.selectedCategory;
+    state = state.copyWith(
+      tracksByCategory: Map.from(state.tracksByCategory)..remove(category),
+    );
+    await loadCategory(category);
+  }
+}
+
+/// 首頁 YouTube 熱門預覽 Provider
+final homeYouTubeTrendingPreviewProvider = FutureProvider.autoDispose<List<Track>>((ref) async {
+  final source = YouTubeSource();
+  try {
+    final tracks = await source.getTrendingVideos(category: 'music');
+    return tracks.take(10).toList();
+  } catch (e) {
+    // 如果 YouTube API 失敗，返回空列表
+    return [];
+  }
 });
