@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/track.dart';
 import '../data/sources/bilibili_source.dart';
 import '../data/sources/youtube_source.dart';
+import '../services/cache/ranking_cache_service.dart';
 
 /// Bilibili 分区 ID
 enum BilibiliCategory {
@@ -100,11 +101,19 @@ class RankingVideosNotifier extends StateNotifier<RankingState> {
   }
 }
 
-/// 首页 Bilibili 音乐排行预览 Provider
-final homeBilibiliMusicRankingProvider = FutureProvider.autoDispose<List<Track>>((ref) async {
-  final source = BilibiliSource();
-  final tracks = await source.getRankingVideos(rid: BilibiliCategory.music.rid);
-  return tracks.take(10).toList();
+/// 首頁 Bilibili 音樂排行預覽 Provider（使用緩存服務）
+final homeBilibiliMusicRankingProvider = StreamProvider<List<Track>>((ref) async* {
+  final service = ref.watch(rankingCacheServiceProvider);
+
+  // 發送當前緩存（如果有）
+  if (service.bilibiliTracks.isNotEmpty) {
+    yield service.bilibiliTracks;
+  }
+
+  // 監聽後續更新
+  await for (final _ in service.stateChanges) {
+    yield service.bilibiliTracks;
+  }
 });
 
 // ==================== YouTube 熱門 ====================
@@ -197,14 +206,17 @@ class YouTubeTrendingNotifier extends StateNotifier<YouTubeTrendingState> {
   }
 }
 
-/// 首頁 YouTube 音樂排行預覽 Provider
-final homeYouTubeMusicRankingProvider = FutureProvider.autoDispose<List<Track>>((ref) async {
-  final source = YouTubeSource();
-  try {
-    final tracks = await source.getTrendingVideos(category: 'music');
-    return tracks.take(10).toList();
-  } catch (e) {
-    // 如果 YouTube API 失敗，返回空列表
-    return [];
+/// 首頁 YouTube 音樂排行預覽 Provider（使用緩存服務）
+final homeYouTubeMusicRankingProvider = StreamProvider<List<Track>>((ref) async* {
+  final service = ref.watch(rankingCacheServiceProvider);
+
+  // 發送當前緩存（如果有）
+  if (service.youtubeTracks.isNotEmpty) {
+    yield service.youtubeTracks;
+  }
+
+  // 監聯後續更新
+  await for (final _ in service.stateChanges) {
+    yield service.youtubeTracks;
   }
 });

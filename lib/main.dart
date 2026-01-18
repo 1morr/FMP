@@ -10,6 +10,7 @@ import 'package:window_manager/window_manager.dart';
 import 'app.dart';
 import 'services/audio/audio_handler.dart';
 import 'services/audio/windows_smtc_handler.dart';
+import 'services/cache/ranking_cache_service.dart';
 
 /// 全局 AudioHandler 实例，供 AudioController 使用
 late FmpAudioHandler audioHandler;
@@ -77,6 +78,10 @@ void main() async {
       await windowManager.setPreventClose(true);
     }
   }
+
+  // 初始化首頁排行榜緩存服務（後台加載，不阻塞啟動）
+  RankingCacheService.instance = RankingCacheService();
+  RankingCacheService.instance.initialize(); // 不等待，後台執行
 
   runApp(
     const ProviderScope(
