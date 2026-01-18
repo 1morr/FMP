@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/services/image_loading_service.dart';
+import '../../../core/services/toast_service.dart';
 import '../../../data/models/play_history.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/playlist_provider.dart';
@@ -10,6 +11,8 @@ import '../../../providers/play_history_provider.dart';
 import '../../../providers/popular_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
+import '../../widgets/dialogs/add_to_playlist_dialog.dart';
+import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/track_thumbnail.dart';
 
 /// 首页
@@ -69,74 +72,82 @@ class _HomePageState extends ConsumerState<HomePage> {
       return const SizedBox.shrink();
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // 寬度大於 600 時並排顯示
-        final isWideScreen = constraints.maxWidth > 600;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 區域標題
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Row(
+            children: [
+              Text(
+                '最近熱門',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () => context.go(RoutePaths.explore),
+                child: const Text('更多'),
+              ),
+            ],
+          ),
+        ),
+        // 排行榜內容
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isWideScreen = constraints.maxWidth > 600;
 
-        if (isWideScreen) {
-          // 並排佈局
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Bilibili 排行榜
-                Expanded(
-                  child: _buildRankingCard(
-                    context,
-                    colorScheme,
-                    title: 'B站音樂排行',
-                    badge: 'Bilibili',
-                    badgeColor: const Color(0xFFFB7299),
-                    asyncValue: bilibiliAsync,
-                  ),
+            if (isWideScreen) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _buildRankingCard(
+                        context,
+                        colorScheme,
+                        title: 'Bilibili',
+                        asyncValue: bilibiliAsync,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildRankingCard(
+                        context,
+                        colorScheme,
+                        title: 'YouTube',
+                        asyncValue: youtubeAsync,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 16),
-                // YouTube 排行榜
-                Expanded(
-                  child: _buildRankingCard(
-                    context,
-                    colorScheme,
-                    title: 'YouTube 熱門',
-                    badge: 'YouTube',
-                    badgeColor: const Color(0xFFFF0000),
-                    asyncValue: youtubeAsync,
-                  ),
+              );
+            } else {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    _buildRankingCard(
+                      context,
+                      colorScheme,
+                      title: 'Bilibili',
+                      asyncValue: bilibiliAsync,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildRankingCard(
+                      context,
+                      colorScheme,
+                      title: 'YouTube',
+                      asyncValue: youtubeAsync,
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          );
-        } else {
-          // 上下佈局
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: Column(
-              children: [
-                // Bilibili 排行榜
-                _buildRankingCard(
-                  context,
-                  colorScheme,
-                  title: 'B站音樂排行',
-                  badge: 'Bilibili',
-                  badgeColor: const Color(0xFFFB7299),
-                  asyncValue: bilibiliAsync,
-                ),
-                const SizedBox(height: 16),
-                // YouTube 排行榜
-                _buildRankingCard(
-                  context,
-                  colorScheme,
-                  title: 'YouTube 熱門',
-                  badge: 'YouTube',
-                  badgeColor: const Color(0xFFFF0000),
-                  asyncValue: youtubeAsync,
-                ),
-              ],
-            ),
-          );
-        }
-      },
+              );
+            }
+          },
+        ),
+      ],
     );
   }
 
@@ -145,214 +156,59 @@ class _HomePageState extends ConsumerState<HomePage> {
     BuildContext context,
     ColorScheme colorScheme, {
     required String title,
-    required String badge,
-    required Color badgeColor,
     required AsyncValue<List<Track>> asyncValue,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 標題行
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-            child: Row(
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleSmall,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 簡單的標題
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: badgeColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    badge,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: badgeColor,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                TextButton(
-                  onPressed: () => context.go(RoutePaths.explore),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: const Text('更多'),
-                ),
-              ],
-            ),
           ),
-          // 排行列表
-          asyncValue.when(
-            loading: () => const SizedBox(
-              height: 200,
-              child: Center(child: CircularProgressIndicator()),
-            ),
-            error: (e, s) => SizedBox(
-              height: 100,
-              child: Center(
-                child: Text(
-                  '載入失敗',
-                  style: TextStyle(color: colorScheme.outline),
-                ),
-              ),
-            ),
-            data: (tracks) {
-              if (tracks.isEmpty) {
-                return SizedBox(
-                  height: 100,
-                  child: Center(
-                    child: Text(
-                      '暫無數據',
-                      style: TextStyle(color: colorScheme.outline),
-                    ),
-                  ),
-                );
-              }
-              // 顯示前 5 條
-              final displayTracks = tracks.take(5).toList();
-              return Column(
-                children: [
-                  for (int i = 0; i < displayTracks.length; i++)
-                    _buildRankingItem(
-                      context,
-                      colorScheme,
-                      rank: i + 1,
-                      track: displayTracks[i],
-                    ),
-                  const SizedBox(height: 8),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 構建排行榜項目
-  Widget _buildRankingItem(
-    BuildContext context,
-    ColorScheme colorScheme, {
-    required int rank,
-    required Track track,
-  }) {
-    // 排名顏色
-    Color rankColor;
-    if (rank == 1) {
-      rankColor = const Color(0xFFFFD700); // 金色
-    } else if (rank == 2) {
-      rankColor = const Color(0xFFC0C0C0); // 銀色
-    } else if (rank == 3) {
-      rankColor = const Color(0xFFCD7F32); // 銅色
-    } else {
-      rankColor = colorScheme.outline;
-    }
-
-    return InkWell(
-      onTap: () {
-        ref.read(audioControllerProvider.notifier).playTemporary(track);
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Row(
-          children: [
-            // 排名
-            SizedBox(
-              width: 24,
-              child: Text(
-                '$rank',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: rank <= 3 ? FontWeight.bold : FontWeight.normal,
-                  color: rankColor,
-                ),
-              ),
-            ),
-            // 封面
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(4),
-                color: colorScheme.surfaceContainerHighest,
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: track.thumbnailUrl != null
-                  ? ImageLoadingService.loadImage(
-                      networkUrl: track.thumbnailUrl,
-                      placeholder: Icon(
-                        Icons.music_note,
-                        size: 20,
-                        color: colorScheme.outline,
-                      ),
-                      fit: BoxFit.cover,
-                    )
-                  : Icon(
-                      Icons.music_note,
-                      size: 20,
-                      color: colorScheme.outline,
-                    ),
-            ),
-            const SizedBox(width: 12),
-            // 標題和藝術家
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    track.title,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (track.artist != null)
-                    Text(
-                      track.artist!,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.outline,
-                          ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                ],
-              ),
-            ),
-            // 播放量
-            if (track.viewCount != null)
-              Text(
-                _formatViewCount(track.viewCount!),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.outline,
-                    ),
-              ),
-          ],
         ),
-      ),
+        // 排行列表
+        asyncValue.when(
+          loading: () => const SizedBox(
+            height: 200,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (e, s) => SizedBox(
+            height: 100,
+            child: Center(
+              child: Text(
+                '載入失敗',
+                style: TextStyle(color: colorScheme.outline),
+              ),
+            ),
+          ),
+          data: (tracks) {
+            if (tracks.isEmpty) {
+              return SizedBox(
+                height: 100,
+                child: Center(
+                  child: Text(
+                    '暫無數據',
+                    style: TextStyle(color: colorScheme.outline),
+                  ),
+                ),
+              );
+            }
+            final displayTracks = tracks.take(5).toList();
+            return Column(
+              children: [
+                for (int i = 0; i < displayTracks.length; i++)
+                  _RankingTrackTile(track: displayTracks[i], rank: i + 1),
+              ],
+            );
+          },
+        ),
+      ],
     );
-  }
-
-  String _formatViewCount(int count) {
-    if (count >= 100000000) {
-      return '${(count / 100000000).toStringAsFixed(1)}亿';
-    } else if (count >= 10000) {
-      return '${(count / 10000).toStringAsFixed(1)}万';
-    }
-    return count.toString();
   }
 
   Widget _buildRecentPlaylists(BuildContext context, ColorScheme colorScheme) {
@@ -629,5 +485,142 @@ class _HomePageState extends ConsumerState<HomePage> {
             )),
       ],
     );
+  }
+}
+
+/// 排行榜歌曲項目（類似搜索結果項目）
+class _RankingTrackTile extends ConsumerWidget {
+  final Track track;
+  final int rank;
+
+  const _RankingTrackTile({required this.track, required this.rank});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final currentTrack = ref.watch(currentTrackProvider);
+    final isPlaying = currentTrack != null &&
+        currentTrack.sourceId == track.sourceId &&
+        currentTrack.pageNum == track.pageNum;
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 0),
+      leading: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 排名數字
+          SizedBox(
+            width: 24,
+            child: Text(
+              '$rank',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.outline,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // 封面或播放指示器
+          SizedBox(
+            width: 48,
+            height: 48,
+            child: isPlaying
+                ? Center(
+                    child: NowPlayingIndicator(
+                      size: 28,
+                      color: colorScheme.primary,
+                    ),
+                  )
+                : TrackThumbnail(
+                    track: track,
+                    size: 48,
+                    borderRadius: 4,
+                  ),
+          ),
+        ],
+      ),
+      title: Text(
+        track.title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: isPlaying ? colorScheme.primary : null,
+          fontWeight: isPlaying ? FontWeight.w600 : null,
+        ),
+      ),
+      subtitle: Text(
+        track.artist ?? '未知藝術家',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: colorScheme.outline,
+            ),
+      ),
+      trailing: PopupMenuButton<String>(
+        icon: Icon(
+          Icons.more_vert,
+          color: colorScheme.onSurfaceVariant,
+        ),
+        onSelected: (value) => _handleMenuAction(context, ref, value),
+        itemBuilder: (context) => [
+          const PopupMenuItem(
+            value: 'play',
+            child: ListTile(
+              leading: Icon(Icons.play_arrow),
+              title: Text('播放'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'play_next',
+            child: ListTile(
+              leading: Icon(Icons.queue_play_next),
+              title: Text('下一首播放'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'add_to_queue',
+            child: ListTile(
+              leading: Icon(Icons.add_to_queue),
+              title: Text('添加到隊列'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'add_to_playlist',
+            child: ListTile(
+              leading: Icon(Icons.playlist_add),
+              title: Text('添加到歌單'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        ],
+      ),
+      onTap: () {
+        ref.read(audioControllerProvider.notifier).playTemporary(track);
+      },
+    );
+  }
+
+  void _handleMenuAction(BuildContext context, WidgetRef ref, String action) {
+    final controller = ref.read(audioControllerProvider.notifier);
+
+    switch (action) {
+      case 'play':
+        controller.playTemporary(track);
+        break;
+      case 'play_next':
+        controller.addNext(track);
+        ToastService.show(context, '已添加到下一首');
+        break;
+      case 'add_to_queue':
+        controller.addToQueue(track);
+        ToastService.show(context, '已添加到播放隊列');
+        break;
+      case 'add_to_playlist':
+        showAddToPlaylistDialog(context: context, track: track);
+        break;
+    }
   }
 }
