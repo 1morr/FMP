@@ -409,8 +409,26 @@ class ImportService with Logging {
       // 更新歌单
       playlist.trackIds = newTrackIds;
       playlist.lastRefreshed = DateTime.now();
-      if (result.coverUrl != null && playlist.coverUrl == null) {
-        playlist.coverUrl = result.coverUrl;
+      
+      // 更新封面 URL：
+      // - Bilibili 歌单：每次刷新都使用 API 返回的封面
+      // - YouTube 歌单：使用第一首歌曲的封面
+      if (playlist.importSourceType == SourceType.bilibili) {
+        // Bilibili：每次刷新都更新为 API 返回的封面
+        if (result.coverUrl != null) {
+          playlist.coverUrl = result.coverUrl;
+        }
+      } else {
+        // YouTube：使用第一首歌曲的封面
+        if (newTrackIds.isNotEmpty) {
+          final firstTrack = await _trackRepository.getById(newTrackIds.first);
+          if (firstTrack?.thumbnailUrl != null) {
+            playlist.coverUrl = firstTrack!.thumbnailUrl;
+          }
+        } else {
+          // 歌单为空时清空封面
+          playlist.coverUrl = null;
+        }
       }
       await _playlistRepository.save(playlist);
 

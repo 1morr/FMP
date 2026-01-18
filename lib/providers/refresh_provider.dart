@@ -166,9 +166,10 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
             ),
       );
 
-      // 刷新歌单列表和详情
+      // 刷新歌单列表、详情和封面
       _ref.read(playlistListProvider.notifier).loadPlaylists();
       _ref.invalidate(playlistDetailProvider(playlistId));
+      _ref.invalidate(playlistCoverProvider(playlistId));
       _ref.invalidate(allPlaylistsProvider);
 
       // 使用 ToastService 显示成功提示（不依赖 context）

@@ -273,9 +273,21 @@ class PlaylistService with Logging {
     // 设置下载路径（在数据库返回的最新对象上操作）
     existingTrack.setDownloadPath(playlistId, downloadPath);
 
+    // 记录添加前是否为空（用于判断是否需要更新封面）
+    final wasEmpty = playlist.trackIds.isEmpty;
+
     // 保存歌曲
     final savedTrack = await _trackRepository.save(existingTrack);
     await _playlistRepository.addTrack(playlistId, savedTrack.id);
+
+    // 如果这是第一首歌，更新非 Bilibili 歌单的封面
+    if (wasEmpty) {
+      // 重新获取歌单以获得最新的 trackIds
+      final updatedPlaylist = await _playlistRepository.getById(playlistId);
+      if (updatedPlaylist != null) {
+        await _updateCoverUrlForNonBilibiliPlaylist(updatedPlaylist);
+      }
+    }
   }
 
   /// 批量添加歌曲到歌单
@@ -314,6 +326,9 @@ class PlaylistService with Logging {
       track.setDownloadPath(playlistId, downloadPath);
     }
 
+    // 记录添加前是否为空（用于判断是否需要更新封面）
+    final wasEmpty = playlist.trackIds.isEmpty;
+
     // 保存所有歌曲
     final savedTracks = await _trackRepository.saveAll(tracksToAdd);
     final trackIds = savedTracks.map((t) => t.id).toList();
@@ -322,12 +337,27 @@ class PlaylistService with Logging {
     if (tracksToAdd.length < existingTracks.length) {
       logDebug('Added ${tracksToAdd.length}/${existingTracks.length} tracks to playlist $playlistId (${existingTracks.length - tracksToAdd.length} already existed)');
     }
+
+    // 如果之前是空歌单，更新非 Bilibili 歌单的封面
+    if (wasEmpty && tracksToAdd.isNotEmpty) {
+      // 重新获取歌单以获得最新的 trackIds
+      final updatedPlaylist = await _playlistRepository.getById(playlistId);
+      if (updatedPlaylist != null) {
+        await _updateCoverUrlForNonBilibiliPlaylist(updatedPlaylist);
+      }
+    }
   }
 
   /// 从歌单移除歌曲
   /// 
   /// 同时清理该歌单的下载路径，如果歌曲不属于任何歌单则删除
   Future<void> removeTrackFromPlaylist(int playlistId, int trackId) async {
+    // 先获取歌单，检查被移除的是否是第一首歌
+    final playlist = await _playlistRepository.getById(playlistId);
+    final wasFirstTrack = playlist != null && 
+        playlist.trackIds.isNotEmpty && 
+        playlist.trackIds.first == trackId;
+
     await _playlistRepository.removeTrack(playlistId, trackId);
 
     // 移除该歌单的下载路径
@@ -343,6 +373,14 @@ class PlaylistService with Logging {
         await _trackRepository.save(track);
       }
     }
+
+    // 如果移除的是第一首歌，更新非 Bilibili 歌单的封面
+    if (wasFirstTrack) {
+      final updatedPlaylist = await _playlistRepository.getById(playlistId);
+      if (updatedPlaylist != null) {
+        await _updateCoverUrlForNonBilibiliPlaylist(updatedPlaylist);
+      }
+    }
   }
 
   /// 重新排序歌单中的歌曲
@@ -355,6 +393,8 @@ class PlaylistService with Logging {
     if (playlist == null) return;
 
     final trackIds = List<int>.from(playlist.trackIds);
+    final originalFirstTrackId = trackIds.isNotEmpty ? trackIds.first : null;
+    
     final trackId = trackIds.removeAt(oldIndex);
 
     // 调整插入位置
@@ -362,6 +402,16 @@ class PlaylistService with Logging {
     trackIds.insert(insertIndex, trackId);
 
     await _playlistRepository.reorderTracks(playlistId, trackIds);
+
+    // 检查第一首歌是否改变，如果改变则更新非 Bilibili 歌单的封面
+    final newFirstTrackId = trackIds.isNotEmpty ? trackIds.first : null;
+    if (originalFirstTrackId != newFirstTrackId) {
+      // 重新获取歌单
+      final updatedPlaylist = await _playlistRepository.getById(playlistId);
+      if (updatedPlaylist != null) {
+        await _updateCoverUrlForNonBilibiliPlaylist(updatedPlaylist);
+      }
+    }
   }
 
   /// 获取歌单封面数据（包含本地路径和网络 URL）
@@ -417,6 +467,30 @@ class PlaylistService with Logging {
   String _computePlaylistCoverPath(String baseDir, String playlistName) {
     final subDir = DownloadPathUtils.sanitizeFileName(playlistName);
     return p.join(baseDir, subDir, 'playlist_cover.jpg');
+  }
+
+  /// 更新非 Bilibili 歌单的封面 URL
+  ///
+  /// 对于非 Bilibili 歌单（手动创建或 YouTube 导入），封面始终使用第一首歌曲的缩略图。
+  /// 当歌单中的歌曲顺序发生变化时调用此方法。
+  Future<void> _updateCoverUrlForNonBilibiliPlaylist(Playlist playlist) async {
+    // Bilibili 歌单使用 API 返回的封面，不在此处更新
+    if (playlist.importSourceType == SourceType.bilibili) {
+      return;
+    }
+
+    String? newCoverUrl;
+    if (playlist.trackIds.isNotEmpty) {
+      final firstTrack = await _trackRepository.getById(playlist.trackIds.first);
+      newCoverUrl = firstTrack?.thumbnailUrl;
+    }
+
+    // 只有当封面确实变化时才更新
+    if (playlist.coverUrl != newCoverUrl) {
+      playlist.coverUrl = newCoverUrl;
+      await _playlistRepository.save(playlist);
+      logDebug('Updated playlist cover for "${playlist.name}" to: $newCoverUrl');
+    }
   }
 
   /// 获取歌单封面（使用第一首歌的封面或自定义封面）
