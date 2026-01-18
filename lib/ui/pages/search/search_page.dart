@@ -679,25 +679,11 @@ class _SearchResultTile extends ConsumerWidget {
       children: [
         // 主视频行
         ListTile(
-          leading: SizedBox(
-            width: 48,
-            height: 48,
-            child: Stack(
-              children: [
-                TrackThumbnail(
-                  track: track,
-                  size: 48,
-                  borderRadius: 4,
-                  isPlaying: shouldHighlight,
-                ),
-                // 音源标识（右下角）
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: _SourceBadge(sourceType: track.sourceType),
-                ),
-              ],
-            ),
+          leading: TrackThumbnail(
+            track: track,
+            size: 48,
+            borderRadius: 4,
+            isPlaying: shouldHighlight,
           ),
           title: Text(
             track.title,
@@ -740,6 +726,9 @@ class _SearchResultTile extends ConsumerWidget {
                       ),
                 ),
               ],
+              // 音源标识（播放数右边）
+              const SizedBox(width: 8),
+              _SourceBadge(sourceType: track.sourceType),
               if (hasMultiplePages) ...[
                 const SizedBox(width: 8),
                 Container(
@@ -762,11 +751,15 @@ class _SearchResultTile extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (track.durationMs != null)
-                Text(
-                  DurationFormatter.formatMs(track.durationMs!),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.outline,
-                      ),
+                SizedBox(
+                  width: 48,
+                  child: Text(
+                    DurationFormatter.formatMs(track.durationMs!),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.outline,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               if (isLoading)
                 const Padding(
@@ -1253,28 +1246,16 @@ class _SourceBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (color, icon) = switch (sourceType) {
-      SourceType.bilibili => (const Color(0xFFFB7299), SimpleIcons.bilibili),
-      SourceType.youtube => (const Color(0xFFFF0000), SimpleIcons.youtube),
+    final colorScheme = Theme.of(context).colorScheme;
+    final icon = switch (sourceType) {
+      SourceType.bilibili => SimpleIcons.bilibili,
+      SourceType.youtube => SimpleIcons.youtube,
     };
 
-    return Container(
-      padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(4),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 2,
-          ),
-        ],
-      ),
-      child: Icon(
-        icon,
-        size: 12,
-        color: color,
-      ),
+    return Icon(
+      icon,
+      size: 14,
+      color: colorScheme.outline,
     );
   }
 }
