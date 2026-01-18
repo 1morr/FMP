@@ -118,12 +118,9 @@ final homeBilibiliMusicRankingProvider = StreamProvider<List<Track>>((ref) async
 
 // ==================== YouTube 熱門 ====================
 
-/// YouTube 熱門分類
+/// YouTube 熱門分類（目前只使用 music）
 enum YouTubeCategory {
-  now('now', '熱門'),
-  music('music', '音樂'),
-  gaming('gaming', '遊戲'),
-  movies('movies', '電影');
+  music('music', '音樂');
 
   final String id;
   final String label;
