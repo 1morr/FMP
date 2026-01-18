@@ -503,103 +503,117 @@ class _RankingTrackTile extends ConsumerWidget {
         currentTrack.sourceId == track.sourceId &&
         currentTrack.pageNum == track.pageNum;
 
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 0),
-      leading: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 排名數字
-          SizedBox(
-            width: 24,
-            child: Text(
-              '$rank',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.outline,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(width: 12),
-          // 封面或播放指示器
-          SizedBox(
-            width: 48,
-            height: 48,
-            child: isPlaying
-                ? Center(
-                    child: NowPlayingIndicator(
-                      size: 28,
-                      color: colorScheme.primary,
-                    ),
-                  )
-                : TrackThumbnail(
-                    track: track,
-                    size: 48,
-                    borderRadius: 4,
-                  ),
-          ),
-        ],
-      ),
-      title: Text(
-        track.title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: isPlaying ? colorScheme.primary : null,
-          fontWeight: isPlaying ? FontWeight.w600 : null,
-        ),
-      ),
-      subtitle: Text(
-        track.artist ?? '未知藝術家',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: colorScheme.outline,
-            ),
-      ),
-      trailing: PopupMenuButton<String>(
-        icon: Icon(
-          Icons.more_vert,
-          color: colorScheme.onSurfaceVariant,
-        ),
-        onSelected: (value) => _handleMenuAction(context, ref, value),
-        itemBuilder: (context) => [
-          const PopupMenuItem(
-            value: 'play',
-            child: ListTile(
-              leading: Icon(Icons.play_arrow),
-              title: Text('播放'),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-          const PopupMenuItem(
-            value: 'play_next',
-            child: ListTile(
-              leading: Icon(Icons.queue_play_next),
-              title: Text('下一首播放'),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-          const PopupMenuItem(
-            value: 'add_to_queue',
-            child: ListTile(
-              leading: Icon(Icons.add_to_queue),
-              title: Text('添加到隊列'),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-          const PopupMenuItem(
-            value: 'add_to_playlist',
-            child: ListTile(
-              leading: Icon(Icons.playlist_add),
-              title: Text('添加到歌單'),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        ],
-      ),
+    return InkWell(
       onTap: () {
         ref.read(audioControllerProvider.notifier).playTemporary(track);
       },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            // 排名數字
+            SizedBox(
+              width: 24,
+              child: Text(
+                '$rank',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.outline,
+                    ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // 封面或播放指示器
+            SizedBox(
+              width: 48,
+              height: 48,
+              child: isPlaying
+                  ? Center(
+                      child: NowPlayingIndicator(
+                        size: 28,
+                        color: colorScheme.primary,
+                      ),
+                    )
+                  : TrackThumbnail(
+                      track: track,
+                      size: 48,
+                      borderRadius: 4,
+                    ),
+            ),
+            const SizedBox(width: 12),
+            // 標題和副標題
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    track.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: isPlaying ? colorScheme.primary : null,
+                          fontWeight: isPlaying ? FontWeight.w600 : null,
+                        ),
+                  ),
+                  if (track.artist != null)
+                    Text(
+                      track.artist!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.outline,
+                          ),
+                    ),
+                ],
+              ),
+            ),
+            // 菜單按鈕
+            PopupMenuButton<String>(
+              icon: Icon(
+                Icons.more_vert,
+                size: 20,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              onSelected: (value) => _handleMenuAction(context, ref, value),
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'play',
+                  child: ListTile(
+                    leading: Icon(Icons.play_arrow),
+                    title: Text('播放'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'play_next',
+                  child: ListTile(
+                    leading: Icon(Icons.queue_play_next),
+                    title: Text('下一首播放'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'add_to_queue',
+                  child: ListTile(
+                    leading: Icon(Icons.add_to_queue),
+                    title: Text('添加到隊列'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'add_to_playlist',
+                  child: ListTile(
+                    leading: Icon(Icons.playlist_add),
+                    title: Text('添加到歌單'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
