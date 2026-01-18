@@ -186,12 +186,64 @@ final nextTrack = playerState.upcomingTracks.isNotEmpty
 final nextTrack = queue[currentIndex + 1];
 ```
 
-### 5. 播放锁（防止竞态）
+### 5. 播放锁（防止竞态）- 2026-01-19 更新
+
+**问题**：快速连续点击多首歌曲时，会加载所有点击过的歌曲而不是只加载最后一个，导致根据加载速度轮流播放。同时可能出现：
+- `Player already exists` 错误（just_audio_media_kit）
+- `isLoading` 状态卡住不重置
+
+**解决方案**：请求 ID 机制 + 带 ID 的锁包装类
+
 ```dart
-Completer<void>? _playLock;
-int _playRequestId = 0;
+/// 带有请求 ID 的锁包装类
+class _LockWithId {
+  final int requestId;
+  final Completer<void> completer;
+
+  _LockWithId(this.requestId) : completer = Completer<void>();
+
+  void completeIf(int expectedRequestId) {
+    if (requestId == expectedRequestId && !completer.isCompleted) {
+      completer.complete();
+    }
+  }
+}
+
+class AudioController {
+  _LockWithId? _playLock;
+  int _playRequestId = 0;
+}
 ```
-用于防止快速切歌时的竞态条件，确保只有最新的播放请求会执行。
+
+**关键实现模式**：
+1. **UI 立即更新** - 在任何 `await` 之前调用 `_updatePlayingTrack()`
+2. **立即完成旧锁** - 新请求到来时立即调用 `completeIf()`
+3. **多个检查点** - 每个 `await` 后都检查 `requestId != _playRequestId`
+4. **安全完成锁** - 使用 `completeIf()` 而非直接 `complete()`
+5. **finally 处理** - 确保 abort 时 `isLoading` 被重置
+
+**AudioService 修复** - 等待播放器 idle 状态：
+
+```dart
+// playUrl/playFile 中
+await _player.stop();
+
+// 等待播放器进入 idle 状态，确保底层播放器完全清理
+// 这对 just_audio_media_kit 特别重要，否则会出现 "Player already exists" 错误
+if (_player.processingState != ProcessingState.idle) {
+  try {
+    await _player.playerStateStream
+        .where((state) => state.processingState == ProcessingState.idle)
+        .first
+        .timeout(const Duration(milliseconds: 500));
+  } catch (e) {
+    logWarning('Timeout waiting for idle state, proceeding anyway');
+  }
+}
+
+// 现在可以安全地设置新的 audio source
+await _player.setAudioSource(audioSource);
+```
 
 ### 6. 记住播放位置（Remember Playback Position）
 **用途：** 长视频/音频自动记住播放位置，下次播放时从上次位置继续

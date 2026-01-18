@@ -189,7 +189,67 @@ For long videos (>10 min) with progress >5%, the playback position is automatica
 Managed in `QueueManager` with `_shuffleOrder` list. When queue is cleared and songs added, shuffle order regenerates automatically.
 
 ### Play Lock (Race Condition Prevention)
-`AudioController` uses `_playLock` and `_playRequestId` to prevent race conditions during rapid track switching.
+`AudioController` uses `_playLock` (wrapped in `_LockWithId`) and `_playRequestId` to prevent race conditions during rapid track switching.
+
+**Implementation pattern:**
+```dart
+class _LockWithId {
+  final int requestId;
+  final Completer<void> completer;
+  void completeIf(int expectedRequestId) {
+    if (requestId == expectedRequestId && !completer.isCompleted) {
+      completer.complete();
+    }
+  }
+}
+
+Future<void> playTemporary(Track track) async {
+  // Update UI FIRST (before any await)
+  _updatePlayingTrack(track);
+  _updateQueueState();
+
+  final requestId = ++_playRequestId;
+
+  // Immediately complete old lock so old request can exit fast
+  if (_playLock != null && !_playLock!.completer.isCompleted) {
+    _playLock!.completeIf(_playLock!.requestId);
+    await _playLock!.completer.future.timeout(...);
+  }
+
+  // Check if superseded at multiple points
+  if (requestId != _playRequestId) return;
+
+  _playLock = _LockWithId(requestId);
+  bool completedSuccessfully = false;
+
+  try {
+    // ... await operations, check requestId after each ...
+    completedSuccessfully = true;
+  } finally {
+    _playLock?.completeIf(requestId);
+    // Reset isLoading if aborted
+    if (!completedSuccessfully && requestId != _playRequestId) {
+      state = state.copyWith(isLoading: false);
+    }
+  }
+}
+```
+
+**AudioService also waits for player idle state:**
+```dart
+await _player.stop();
+
+// Wait for idle state before setting new audio source
+// This prevents "Player already exists" errors with just_audio_media_kit
+if (_player.processingState != ProcessingState.idle) {
+  await _player.playerStateStream
+      .where((s) => s.processingState == ProcessingState.idle)
+      .first
+      .timeout(const Duration(milliseconds: 500));
+}
+
+await _player.setAudioSource(audioSource);
+```
 
 ### Progress Bar Dragging
 Slider `onChanged` must NOT call `seekToProgress()` directly. Only call seek in `onChangeEnd` to avoid flooding the message queue during continuous dragging. See `player_page.dart` and `mini_player.dart` for correct implementation.
@@ -201,21 +261,61 @@ When renaming a playlist that has downloaded songs, files are **NOT** automatica
 - `PlaylistFolderMigrator.updateAllTrackDownloadPaths()` updates all Track's precomputed paths
 - This avoids potential data loss from failed file operations
 
+### Home Page Ranking Cache (Proactive Background Refresh)
+Home page ranking data (Bilibili/YouTube) is cached and refreshed in the background every hour.
+
+- `RankingCacheService` initialized in `main.dart` at app startup
+- Data fetched immediately on startup, then refreshed every hour via `Timer.periodic`
+- UI always displays cached data instantly (no loading after first launch)
+- Uses `StreamProvider` to notify UI when cache updates
+- YouTube uses search API with `UploadDateFilter.lastMonth` (InnerTube API unstable), sorted by viewCount locally
+
+### ListTile Performance in Lists
+**Avoid putting `Row` inside `ListTile.leading`** - this causes layout jitter during scrolling.
+
+Use flat custom layout instead:
+```dart
+// ✓ Correct - flat layout
+InkWell(
+  onTap: () => ...,
+  child: Padding(
+    padding: EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+    child: Row(children: [/* rank, thumbnail, info, menu */]),
+  ),
+)
+
+// ✗ Wrong - causes layout issues
+ListTile(
+  leading: Row(children: [/* rank, thumbnail */]),  // Performance problem!
+  ...
+)
+```
+
 ## File Structure Highlights
 
 ```
 lib/
-├── services/audio/
-│   ├── audio_provider.dart   # AudioController + PlayerState + Providers
-│   ├── audio_service.dart    # Low-level just_audio wrapper
-│   ├── audio_handler.dart    # FmpAudioHandler (Android notification via audio_service)
-│   └── queue_manager.dart    # Queue, shuffle, loop, persistence
+├── services/
+│   ├── audio/
+│   │   ├── audio_provider.dart   # AudioController + PlayerState + Providers
+│   │   ├── audio_service.dart    # Low-level just_audio wrapper
+│   │   ├── audio_handler.dart    # FmpAudioHandler (Android notification via audio_service)
+│   │   └── queue_manager.dart    # Queue, shuffle, loop, persistence
+│   └── cache/
+│       └── ranking_cache_service.dart  # 首頁排行榜緩存（主動後台刷新）
 ├── data/
 │   ├── models/               # Isar collections (*.dart + *.g.dart)
 │   ├── repositories/         # Data access layer
-│   └── sources/              # Audio source parsers (Bilibili)
+│   └── sources/              # Audio source parsers (Bilibili, YouTube)
 ├── ui/
-│   ├── pages/                # Full pages (home, search, player, etc.)
+│   ├── pages/                # Full pages
+│   │   ├── home/             # 首頁（快捷操作、最近熱門預覽）
+│   │   ├── explore/          # 探索頁（完整排行榜）
+│   │   ├── search/           # 搜索頁
+│   │   ├── player/           # 全屏播放器
+│   │   ├── queue/            # 播放隊列
+│   │   ├── library/          # 音樂庫、歌單詳情、已下載
+│   │   └── settings/         # 設置、下載管理
 │   ├── widgets/              # Shared widgets
 │   └── layouts/              # Responsive layouts
 └── providers/                # Riverpod providers

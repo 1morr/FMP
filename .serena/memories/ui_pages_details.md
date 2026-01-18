@@ -4,7 +4,8 @@
 
 | 页面 | 文件路径 | 主要功能 |
 |------|----------|----------|
-| 首页 | `ui/pages/home/home_page.dart` | 快捷操作、URL播放、当前播放、歌单预览、队列预览 |
+| 首页 | `ui/pages/home/home_page.dart` | 快捷操作、URL播放、当前播放、最近熱門排行、歌单预览、队列预览 |
+| 探索 | `ui/pages/explore/explore_page.dart` | Bilibili/YouTube 音樂完整排行榜 |
 | 搜索 | `ui/pages/search/search_page.dart` | 多源搜索、搜索历史、分P展开 |
 | 播放队列 | `ui/pages/queue/queue_page.dart` | 队列管理、拖拽排序、当前位置定位 |
 | 音乐库 | `ui/pages/library/library_page.dart` | 歌单网格、导入、刷新 |
@@ -34,18 +35,91 @@
    - 显示：封面（TrackThumbnail）、标题、艺术家、播放/暂停按钮
    - 点击跳转到全屏播放器
 
-4. **最近歌单横向列表**
+4. **最近熱門區域**（2026-01-19 更新）
+   - 標題："最近熱門" + "更多"按鈕（跳轉到探索頁）
+   - 響應式佈局：
+     - 窄屏（< 600dp）：堆疊顯示 Bilibili 和 YouTube
+     - 寬屏：並排顯示兩個排行榜
+   - 每個排行榜：
+     - 簡單文字標題（"Bilibili" / "YouTube"，無 badge）
+     - 前 10 首歌曲預覽
+     - 使用 `_RankingTrackTile` 統一樣式
+   - 項目樣式：
+     - 排名數字 + 縮略圖（48x48） + 標題/藝術家 + 菜單按鈕
+     - 正在播放時顯示 `NowPlayingIndicator` 替代縮略圖
+     - 使用自定義 `InkWell` + `Row` 佈局（非 ListTile，避免性能問題）
+
+5. **最近歌单横向列表**
    - 显示最多3个歌单
    - 使用 `playlistCoverProvider` 获取封面
    - 封面来源：歌单中第一首歌的 thumbnailUrl
 
-5. **接下来播放预览**
+6. **接下来播放预览**
    - 使用 `playerState.upcomingTracks.take(3)` 获取
    - **重要**：已考虑 shuffle 模式
 
 ---
 
-## 2. 搜索页 (SearchPage)
+## 2. 探索页 (ExplorePage)（2026-01-19 新增）
+
+### 功能概述
+
+顯示 Bilibili 和 YouTube 音樂排行榜的完整列表（首頁只顯示前 10 首預覽）。
+
+### 功能模块
+
+1. **TabBar 切換**
+   - 兩個 Tab：Bilibili、YouTube
+   - 無分類選擇（只顯示音樂排行）
+
+2. **排行榜列表**
+   - 使用緩存數據（`cachedBilibiliRankingProvider` / `cachedYouTubeRankingProvider`）
+   - 下拉刷新觸發緩存服務刷新
+   - 項目樣式與首頁統一
+
+3. **項目樣式 `_ExploreTrackTile`**
+   - 排名數字（簡單樣式，無金銀銅顏色）
+   - 縮略圖 48x48（正在播放時顯示 `NowPlayingIndicator`）
+   - 標題 + 藝術家 + 播放量（格式化為萬/億）
+   - 菜單按鈕：播放、下一首播放、添加到隊列、添加到歌單
+   - 使用 `InkWell` + `Padding` + `Row` 自定義佈局（避免 ListTile 性能問題）
+
+### 關鍵實現
+
+```dart
+// 使用自定義佈局避免 ListTile.leading 中放 Row 的性能問題
+InkWell(
+  onTap: () => controller.playTemporary(track),
+  child: Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+    child: Row(
+      children: [
+        // 排名數字
+        SizedBox(width: 24, child: Text('$rank')),
+        const SizedBox(width: 12),
+        // 縮略圖或播放指示器
+        TrackThumbnail(track: track, size: 48, borderRadius: 4, isPlaying: isPlaying),
+        const SizedBox(width: 12),
+        // 標題和副標題
+        Expanded(child: Column(...)),
+        // 菜單按鈕
+        PopupMenuButton<String>(...),
+      ],
+    ),
+  ),
+)
+
+// 播放量格式化
+String _formatViewCount(int count) {
+  if (count >= 100000000) return '${(count / 100000000).toStringAsFixed(1)}億';
+  if (count >= 10000) return '${(count / 10000).toStringAsFixed(1)}萬';
+  return count.toString();
+}
+```
+
+---
+
+## 3. 搜索页 (SearchPage)
 
 ### 功能模块
 
@@ -90,7 +164,7 @@ if (hasMultiplePages) {
 
 ---
 
-## 3. 播放队列页 (QueuePage)
+## 4. 播放队列页 (QueuePage)
 
 ### 功能模块
 
@@ -137,7 +211,7 @@ onReorder: (oldIndex, newIndex) {
 
 ---
 
-## 4. 音乐库页 (LibraryPage)
+## 5. 音乐库页 (LibraryPage)
 
 ### 功能模块
 
@@ -170,7 +244,7 @@ final coverAsync = ref.watch(playlistCoverProvider(playlist.id));
 
 ---
 
-## 5. 歌单详情页 (PlaylistDetailPage)
+## 6. 歌单详情页 (PlaylistDetailPage)
 
 ### 功能模块
 
@@ -217,7 +291,7 @@ if (group.tracks.every((t) =>
 
 ---
 
-## 6. 已下载页 (DownloadedPage)
+## 7. 已下载页 (DownloadedPage)
 
 ### 功能模块
 
@@ -251,7 +325,7 @@ await for (final entity in downloadDir.list()) {
 
 ---
 
-## 7. 已下载分类详情页 (DownloadedCategoryPage)
+## 8. 已下载分类详情页 (DownloadedCategoryPage)
 
 ### 功能模块
 
@@ -293,7 +367,7 @@ final isPlaying = currentTrack?.downloadedPath == track.downloadedPath;
 
 ---
 
-## 8. 全屏播放器页 (PlayerPage)
+## 9. 全屏播放器页 (PlayerPage)
 
 ### 功能模块
 
@@ -344,7 +418,7 @@ Slider(
 
 ---
 
-## 9. 迷你播放器 (MiniPlayer)
+## 10. 迷你播放器 (MiniPlayer)
 
 ### 功能模块
 
@@ -384,7 +458,7 @@ onHorizontalDragEnd: (details) {
 
 ---
 
-## 10. 歌曲详情面板 (TrackDetailPanel)
+## 11. 歌曲详情面板 (TrackDetailPanel)
 
 ### 功能（仅桌面端显示）
 
