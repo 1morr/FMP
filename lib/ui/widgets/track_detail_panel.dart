@@ -516,65 +516,31 @@ class _DescriptionSectionState extends State<_DescriptionSection> {
           ],
         ),
         const SizedBox(height: 12),
-        Stack(
-          children: [
-            Text(
-              widget.description,
-              key: _textKey,
-              style: textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                height: 1.6,
-              ),
-              maxLines: _isExpanded ? null : 6,
-              overflow: _isExpanded ? null : TextOverflow.ellipsis,
-            ),
-            if (_needsExpansion && !_isExpanded)
-              Positioned(
-                right: 0,
-                bottom: 0,
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _isExpanded = true;
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.only(left: 24),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          colorScheme.surfaceContainerLow.withValues(alpha: 0),
-                          colorScheme.surfaceContainerLow,
-                          colorScheme.surfaceContainerLow,
-                        ],
-                        stops: const [0.0, 0.3, 1.0],
-                      ),
-                    ),
-                    child: Text(
-                      '展开',
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.primary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
+        // 简介文本
+        Text(
+          widget.description,
+          key: _textKey,
+          style: textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            height: 1.6,
+          ),
+          maxLines: _isExpanded ? null : 6,
+          overflow: _isExpanded ? null : TextOverflow.ellipsis,
         ),
-        if (_isExpanded && _needsExpansion)
+        // 展开/收起按钮 - 固定在右下角
+        if (_needsExpansion)
           Align(
             alignment: Alignment.centerRight,
             child: GestureDetector(
               onTap: () {
                 setState(() {
-                  _isExpanded = false;
+                  _isExpanded = !_isExpanded;
                 });
               },
               child: Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  '收起',
+                  _isExpanded ? '收起' : '展开',
                   style: textTheme.bodyMedium?.copyWith(
                     color: colorScheme.primary,
                     fontWeight: FontWeight.w500,
