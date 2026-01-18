@@ -12,7 +12,6 @@ import '../../../data/models/settings.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/database_provider.dart';
 import '../../../providers/playback_settings_provider.dart';
-import '../../../core/services/network_image_cache_service.dart';
 import '../../router.dart';
 
 /// 开发者选项页面
@@ -53,7 +52,6 @@ class DeveloperOptionsPage extends ConsumerWidget {
             title: '数据管理',
             children: [
               _DatabaseInfoTile(),
-              _ImageCacheSizeInfoTile(),
               _ResetDataTile(),
             ],
           ),
@@ -161,57 +159,6 @@ class _DatabaseInfo {
     required this.trackCount,
     required this.playlistCount,
   });
-}
-
-/// 图片缓存大小信息显示
-class _ImageCacheSizeInfoTile extends StatefulWidget {
-  @override
-  State<_ImageCacheSizeInfoTile> createState() => _ImageCacheSizeInfoTileState();
-}
-
-class _ImageCacheSizeInfoTileState extends State<_ImageCacheSizeInfoTile> {
-  double? _cacheSizeMB;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadCacheSize();
-  }
-
-  Future<void> _loadCacheSize() async {
-    final sizeMB = await NetworkImageCacheService.getCacheSizeMB();
-    if (mounted) {
-      setState(() => _cacheSizeMB = sizeMB);
-    }
-  }
-
-  String _formatSize(double mb) {
-    if (mb < 1) {
-      return '${(mb * 1024).toStringAsFixed(1)} KB';
-    }
-    if (mb >= 1024) {
-      return '${(mb / 1024).toStringAsFixed(1)} GB';
-    }
-    return '${mb.toStringAsFixed(1)} MB';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final sizeText = _cacheSizeMB != null
-        ? _formatSize(_cacheSizeMB!)
-        : '加载中...';
-
-    return ListTile(
-      leading: const Icon(Icons.image_outlined),
-      title: const Text('图片缓存'),
-      subtitle: Text('当前大小: $sizeText'),
-      trailing: IconButton(
-        icon: const Icon(Icons.refresh),
-        onPressed: _loadCacheSize,
-        tooltip: '刷新',
-      ),
-    );
-  }
 }
 
 /// 重置数据按钮
