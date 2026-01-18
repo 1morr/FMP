@@ -331,20 +331,7 @@ class _QueueTrackTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Dismissible(
-      key: ValueKey('dismiss_${index}_${track.id}'),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 16),
-        color: colorScheme.errorContainer,
-        child: Icon(
-          Icons.delete,
-          color: colorScheme.onErrorContainer,
-        ),
-      ),
-      onDismissed: (_) => onRemove(),
-      child: ListTile(
+    return ListTile(
         leading: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -399,7 +386,6 @@ class _QueueTrackTile extends StatelessWidget {
           ],
         ),
         onTap: onTap,
-      ),
-    );
+      );
   }
 }
