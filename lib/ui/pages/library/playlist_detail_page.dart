@@ -585,7 +585,7 @@ class _GroupHeader extends ConsumerWidget {
             ),
           ),
           // 检查是否所有分P都已下载
-          if (group.tracks.every((t) => downloadCache.isDownloadedForPlaylist(t, playlistId))) ...[
+          if (group.tracks.every((t) => downloadCache.hasAnyDownload(t))) ...[
             const SizedBox(width: 8),
             Icon(
               Icons.download_done,
@@ -788,7 +788,7 @@ class _TrackListTile extends ConsumerWidget {
                     ),
                   ),
                   // 检查歌曲是否已下载到本地
-                  if (downloadCache.isDownloadedForPlaylist(track, playlistId))
+                  if (downloadCache.hasAnyDownload(track))
                     Icon(
                       Icons.download_done,
                       size: 14,
