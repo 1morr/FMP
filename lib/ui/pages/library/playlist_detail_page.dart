@@ -146,6 +146,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
 
   /// 构建分组项
   Widget _buildGroupItem(BuildContext context, TrackGroup group) {
+    final state = ref.read(playlistDetailProvider(widget.playlistId));
+    final isImported = state.playlist?.isImported ?? false;
+
     // 如果组只有一个track，显示普通样式
     if (group.tracks.length == 1) {
       return _TrackListTile(
@@ -153,6 +156,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         playlistId: widget.playlistId,
         onTap: () => _playTrack(group.tracks.first),
         isPartOfMultiPage: false,
+        isImported: isImported,
       );
     }
 
@@ -169,6 +173,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           onPlayFirst: () => _playTrack(group.tracks.first),
           onAddAllToQueue: () => _addAllToQueue(context, group.tracks),
           playlistId: widget.playlistId,
+          isImported: isImported,
         ),
         // 展开的分P列表
         if (isExpanded)
@@ -177,6 +182,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                 playlistId: widget.playlistId,
                 onTap: () => _playTrack(track),
                 isPartOfMultiPage: true,
+                isImported: isImported,
                 indent: true,
               )),
       ],
@@ -517,6 +523,7 @@ class _GroupHeader extends ConsumerWidget {
   final VoidCallback onPlayFirst;
   final VoidCallback onAddAllToQueue;
   final int playlistId;
+  final bool isImported;
 
   const _GroupHeader({
     required this.group,
@@ -525,6 +532,7 @@ class _GroupHeader extends ConsumerWidget {
     required this.onPlayFirst,
     required this.onAddAllToQueue,
     required this.playlistId,
+    required this.isImported,
   });
 
   @override
@@ -636,14 +644,16 @@ class _GroupHeader extends ConsumerWidget {
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
-              const PopupMenuItem(
-                value: 'remove_all',
-                child: ListTile(
-                  leading: Icon(Icons.remove_circle_outline),
-                  title: Text('从歌单移除全部'),
-                  contentPadding: EdgeInsets.zero,
+              // 外部导入的歌单不允许手动移除歌曲
+              if (!isImported)
+                const PopupMenuItem(
+                  value: 'remove_all',
+                  child: ListTile(
+                    leading: Icon(Icons.remove_circle_outline),
+                    title: Text('从歌单移除全部'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
                 ),
-              ),
             ],
           ),
         ],
@@ -706,12 +716,14 @@ class _TrackListTile extends ConsumerWidget {
   final VoidCallback onTap;
   final bool isPartOfMultiPage;
   final bool indent;
+  final bool isImported;
 
   const _TrackListTile({
     required this.track,
     required this.playlistId,
     required this.onTap,
     required this.isPartOfMultiPage,
+    required this.isImported,
     this.indent = false,
   });
 
@@ -838,14 +850,16 @@ class _TrackListTile extends ConsumerWidget {
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
-                const PopupMenuItem(
-                  value: 'remove',
-                  child: ListTile(
-                    leading: Icon(Icons.remove_circle_outline),
-                    title: Text('从歌单移除'),
-                    contentPadding: EdgeInsets.zero,
+                // 外部导入的歌单不允许手动移除歌曲
+                if (!isImported)
+                  const PopupMenuItem(
+                    value: 'remove',
+                    child: ListTile(
+                      leading: Icon(Icons.remove_circle_outline),
+                      title: Text('从歌单移除'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
                   ),
-                ),
               ],
             ),
           ],
