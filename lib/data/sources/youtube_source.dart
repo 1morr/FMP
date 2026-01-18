@@ -75,6 +75,7 @@ class YouTubeSource extends BaseSource with Logging {
         ..sourceType = SourceType.youtube
         ..title = video.title
         ..artist = video.author
+        ..channelId = video.channelId.value
         ..durationMs = video.duration?.inMilliseconds ?? 0
         ..thumbnailUrl = video.thumbnails.highResUrl
         ..viewCount = video.engagement.viewCount;
@@ -125,6 +126,7 @@ class YouTubeSource extends BaseSource with Logging {
         author: video.author,
         authorAvatarUrl: channelLogoUrl,
         thumbnailUrl: video.thumbnails.highResUrl,
+        channelId: video.channelId.value,
         durationMs: video.duration?.inMilliseconds ?? 0,
         viewCount: video.engagement.viewCount,
         likeCount: video.engagement.likeCount ?? 0,
@@ -307,6 +309,7 @@ class YouTubeSource extends BaseSource with Logging {
           ..sourceType = SourceType.youtube
           ..title = video.title
           ..artist = video.author
+          ..channelId = video.channelId.value
           ..durationMs = video.duration?.inMilliseconds ?? 0
           ..thumbnailUrl = video.thumbnails.highResUrl
           ..viewCount = video.engagement.viewCount);
@@ -324,6 +327,7 @@ class YouTubeSource extends BaseSource with Logging {
               ..sourceType = SourceType.youtube
               ..title = video.title
               ..artist = video.author
+              ..channelId = video.channelId.value
               ..durationMs = video.duration?.inMilliseconds ?? 0
               ..thumbnailUrl = video.thumbnails.highResUrl
               ..viewCount = video.engagement.viewCount);
@@ -380,6 +384,7 @@ class YouTubeSource extends BaseSource with Logging {
           ..sourceType = SourceType.youtube
           ..title = video.title
           ..artist = video.author
+          ..channelId = video.channelId.value
           ..durationMs = video.duration?.inMilliseconds ?? 0
           ..thumbnailUrl = video.thumbnails.highResUrl);
       }

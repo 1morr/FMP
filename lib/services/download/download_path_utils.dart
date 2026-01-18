@@ -148,4 +148,29 @@ class DownloadPathUtils {
     final docsDir = await getApplicationDocumentsDirectory();
     return p.join(docsDir.path, 'FMP');
   }
+
+  /// 計算頭像的存儲路徑
+  ///
+  /// 格式: {baseDir}/avatars/{platform}/{creatorId}.jpg
+  ///
+  /// [baseDir] 下載根目錄
+  /// [sourceType] 音源類型（bilibili 或 youtube）
+  /// [creatorId] 創作者 ID（Bilibili ownerId 或 YouTube channelId）
+  static String getAvatarPath({
+    required String baseDir,
+    required SourceType sourceType,
+    required String creatorId,
+  }) {
+    final platform = sourceType == SourceType.bilibili ? 'bilibili' : 'youtube';
+    return p.join(baseDir, 'avatars', platform, '$creatorId.jpg');
+  }
+
+  /// 確保頭像目錄存在
+  static Future<void> ensureAvatarDirExists(String baseDir, SourceType sourceType) async {
+    final platform = sourceType == SourceType.bilibili ? 'bilibili' : 'youtube';
+    final dir = Directory(p.join(baseDir, 'avatars', platform));
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+  }
 }

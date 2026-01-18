@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
 import '../../data/models/track.dart';
 import '../../providers/download/file_exists_cache.dart';
 import '../utils/duration_formatter.dart';
@@ -23,21 +25,33 @@ extension TrackExtensions on Track {
     return cache.getFirstExisting(coverPaths);
   }
 
-  /// 获取本地头像路径（使用缓存，适用于 UI 组件）
+  /// 獲取本地頭像路徑（使用集中式頭像文件夾）
   ///
-  /// 遍历所有下载路径，返回第一个存在 avatar.jpg 的路径
-  /// 如果都不存在，返回 null
+  /// 頭像存儲在 {baseDir}/avatars/{platform}/{creatorId}.jpg
+  /// - Bilibili: avatars/bilibili/{ownerId}.jpg
+  /// - YouTube: avatars/youtube/{channelId}.jpg
   ///
-  /// [cache] FileExistsCache 实例，从 ref.read(fileExistsCacheProvider.notifier) 获取
-  String? getLocalAvatarPath(FileExistsCache cache) {
-    if (downloadPaths.isEmpty) return null;
+  /// [cache] FileExistsCache 實例
+  /// [baseDir] 下載基礎目錄，從 downloadBaseDirProvider 獲取
+  String? getLocalAvatarPath(FileExistsCache cache, {String? baseDir}) {
+    if (baseDir == null) return null;
 
-    final avatarPaths = downloadPaths.map((p) {
-      final dir = Directory(p).parent;
-      return '${dir.path}/avatar.jpg';
-    }).toList();
+    // 獲取創作者 ID
+    final creatorId = sourceType == SourceType.bilibili
+        ? ownerId?.toString()
+        : channelId;
 
-    return cache.getFirstExisting(avatarPaths);
+    // 如果沒有創作者 ID，無法查找頭像
+    if (creatorId == null || creatorId.isEmpty || creatorId == '0') {
+      return null;
+    }
+
+    // 構建集中式頭像路徑
+    final platform = sourceType == SourceType.bilibili ? 'bilibili' : 'youtube';
+    final avatarPath = p.join(baseDir, 'avatars', platform, '$creatorId.jpg');
+
+    // 使用緩存檢查文件是否存在
+    return cache.exists(avatarPath) ? avatarPath : null;
   }
 
   /// 格式化时长显示
