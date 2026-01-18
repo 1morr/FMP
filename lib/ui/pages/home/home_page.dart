@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -43,12 +45,16 @@ class _HomePageState extends ConsumerState<HomePage> {
               // 我的歌单
               _buildRecentPlaylists(context, colorScheme),
 
-              // 最近播放历史
-              _buildRecentHistory(context, colorScheme),
+              // 正在播放
+              if (playerState.hasCurrentTrack)
+                _buildNowPlaying(context, playerState, colorScheme),
 
               // 队列预览
               if (playerState.queue.isNotEmpty)
                 _buildQueuePreview(context, playerState, colorScheme),
+
+              // 最近播放历史
+              _buildRecentHistory(context, colorScheme),
 
               const SizedBox(height: 100), // 为迷你播放器留出空间
             ],
@@ -81,7 +87,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           child: Row(
             children: [
               Text(
-                '最近熱門',
+                '近期熱門',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const Spacer(),
@@ -163,7 +169,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       children: [
         // 簡單的標題
         Padding(
-          padding: const EdgeInsets.only(bottom: 4),
+          padding: const EdgeInsets.only(left: 18, bottom: 4),
           child: Text(
             title,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -220,14 +226,8 @@ class _HomePageState extends ConsumerState<HomePage> {
       data: (lists) {
         if (lists.isEmpty) return const SizedBox.shrink();
 
-        // 根据屏幕宽度响应式计算显示数量
-        final screenWidth = MediaQuery.of(context).size.width;
-        final itemWidth = 120.0 + 12.0; // 卡片宽度 + 间距
-        final padding = 32.0; // 左右内边距
-        final availableWidth = screenWidth - padding;
-        final calculatedItems = (availableWidth / itemWidth).floor();
-        final maxItems = calculatedItems.clamp(1, lists.length);
-        final recentLists = lists.take(maxItems).toList();
+        // 最多显示 10 个歌单
+        final recentLists = lists.take(10).toList();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -250,10 +250,19 @@ class _HomePageState extends ConsumerState<HomePage> {
             ),
             SizedBox(
               height: 152,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: recentLists.length,
+              child: ScrollConfiguration(
+                // 允许鼠标拖拽滚动（桌面端支持）
+                behavior: ScrollConfiguration.of(context).copyWith(
+                  dragDevices: {
+                    PointerDeviceKind.touch,
+                    PointerDeviceKind.mouse,
+                    PointerDeviceKind.trackpad,
+                  },
+                ),
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: recentLists.length,
                 separatorBuilder: (context, index) => const SizedBox(width: 12),
                 itemBuilder: (context, index) {
                   final playlist = recentLists[index];
@@ -322,6 +331,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     ),
                   );
                 },
+                ),
               ),
             ),
           ],
@@ -332,12 +342,22 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   Widget _buildRecentHistory(BuildContext context, ColorScheme colorScheme) {
     final historyAsync = ref.watch(recentPlayHistoryProvider);
+    final currentTrack = ref.watch(audioControllerProvider).currentTrack;
 
     return historyAsync.when(
       loading: () => const SizedBox.shrink(),
       error: (e, s) => const SizedBox.shrink(),
       data: (historyList) {
-        if (historyList.isEmpty) return const SizedBox.shrink();
+        // 过滤掉当前正在播放的歌曲
+        final filteredList = currentTrack != null
+            ? historyList
+                .where((h) =>
+                    h.sourceId != currentTrack.sourceId ||
+                    h.sourceType != currentTrack.sourceType)
+                .toList()
+            : historyList;
+
+        if (filteredList.isEmpty) return const SizedBox.shrink();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -357,15 +377,26 @@ class _HomePageState extends ConsumerState<HomePage> {
             ),
             SizedBox(
               height: 160,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: historyList.length,
-                separatorBuilder: (context, index) => const SizedBox(width: 12),
-                itemBuilder: (context, index) {
-                  final history = historyList[index];
-                  return _buildHistoryItem(context, history, colorScheme);
-                },
+              child: ScrollConfiguration(
+                // 允许鼠标拖拽滚动（桌面端支持）
+                behavior: ScrollConfiguration.of(context).copyWith(
+                  dragDevices: {
+                    PointerDeviceKind.touch,
+                    PointerDeviceKind.mouse,
+                    PointerDeviceKind.trackpad,
+                  },
+                ),
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: filteredList.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(width: 12),
+                  itemBuilder: (context, index) {
+                    final history = filteredList[index];
+                    return _buildHistoryItem(context, history, colorScheme);
+                  },
+                ),
               ),
             ),
           ],
@@ -431,7 +462,84 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  Widget _buildQueuePreview(
+  Widget _buildNowPlaying(
+    BuildContext context,
+    PlayerState playerState,
+    ColorScheme colorScheme,
+  ) {
+    final track = playerState.currentTrack!;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Text(
+            '正在播放',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Card(
+            color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+            child: InkWell(
+              onTap: () => ref.read(audioControllerProvider.notifier).togglePlayPause(),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    // 封面
+                    TrackThumbnail(
+                      track: track,
+                      size: 56,
+                      borderRadius: 8,
+                    ),
+                    const SizedBox(width: 12),
+                    // 信息
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            track.title,
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            track.artist ?? '未知艺术家',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    // 控制按钮
+                    IconButton(
+                      icon: Icon(
+                        playerState.isPlaying ? Icons.pause : Icons.play_arrow,
+                      ),
+                      onPressed: () =>
+                          ref.read(audioControllerProvider.notifier).togglePlayPause(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+    Widget _buildQueuePreview(
     BuildContext context,
     PlayerState playerState,
     ColorScheme colorScheme,
@@ -459,7 +567,11 @@ class _HomePageState extends ConsumerState<HomePage> {
             ],
           ),
         ),
-        ...upNext.map((track) => ListTile(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            children: upNext.map((track) => ListTile(
+              contentPadding: const EdgeInsets.only(left: 18),
               leading: TrackThumbnail(
                 track: track,
                 size: 40,
@@ -482,7 +594,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ref.read(audioControllerProvider.notifier).playAt(trackIndex);
                 }
               },
-            )),
+            )).toList(),
+          ),
+        ),
       ],
     );
   }
@@ -507,8 +621,9 @@ class _RankingTrackTile extends ConsumerWidget {
       onTap: () {
         ref.read(audioControllerProvider.notifier).playTemporary(track);
       },
+      borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
         child: Row(
           children: [
             // 排名數字
