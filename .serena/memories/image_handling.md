@@ -194,12 +194,6 @@ Widget _buildImage(ColorScheme colorScheme) {
 ```dart
 extension TrackExtensions on Track {
   // ===== 同步方法（仅用于非 build 上下文，如音频播放）=====
-  /// 获取本地封面路径（同步 IO，遍历所有 downloadPaths）
-  String? get localCoverPath;
-  
-  /// 获取本地头像路径（同步 IO）
-  String? get localAvatarPath;
-  
   /// 获取本地音频路径（同步 IO）
   String? get localAudioPath;
 
@@ -207,20 +201,26 @@ extension TrackExtensions on Track {
   /// 获取本地封面路径（使用缓存，避免同步 IO）
   String? getLocalCoverPath(FileExistsCache cache);
   
-  /// 获取本地头像路径（使用缓存）
-  String? getLocalAvatarPath(FileExistsCache cache);
+  /// 獲取本地頭像路徑（使用集中式頭像文件夾）
+  /// 需要傳入 baseDir（從 downloadBaseDirProvider 獲取）
+  String? getLocalAvatarPath(FileExistsCache cache, {String? baseDir});
 
   // ===== 辅助属性 =====
-  bool get hasLocalCover => localCoverPath != null;
   bool get hasLocalAudio => localAudioPath != null;
   bool get isDownloaded => hasLocalAudio;
   bool get hasNetworkCover => thumbnailUrl != null && thumbnailUrl!.isNotEmpty;
-  bool get hasCover => hasLocalCover || hasNetworkCover;
 }
 ```
 
+**Track 模型新增字段**：
+```dart
+int? ownerId;      // Bilibili UP主 ID（用於頭像查找）
+String? channelId; // YouTube 頻道 ID（用於頭像查找）
+```
+
 **使用场景**：
-- **UI 组件**：使用 `getLocalCoverPath(cache)` / `getLocalAvatarPath(cache)`
+- **封面**：`getLocalCoverPath(cache)` - 從視頻文件夾讀取
+- **頭像**：`getLocalAvatarPath(cache, baseDir: baseDir)` - 從集中式文件夾讀取
 - **音频播放**：使用 `localAudioPath`（同步方法，在非 build 上下文中调用）
 
 #### PlaylistExtensions
@@ -242,14 +242,24 @@ extension PlaylistExtensions on Playlist {
 **目录结构**：
 ```
 下载目录/
-├── 歌单名_ID/
-│   ├── playlist_cover.jpg    # 歌单封面
-│   ├── 视频标题/
-│   │   ├── audio.m4a         # 音频文件
-│   │   ├── cover.jpg         # 视频封面
-│   │   ├── avatar.jpg        # UP主头像（可选）
-│   │   └── metadata.json     # 元数据
+├── avatars/                       # 集中式头像文件夾（避免重複下載）
+│   ├── bilibili/
+│   │   └── {ownerId}.jpg          # 例如 546195.jpg
+│   └── youtube/
+│       └── {channelId}.jpg        # 例如 UCq-Fj5jknLsUf-MWSy4_brA.jpg
+├── 歌单名/
+│   ├── playlist_cover.jpg         # 歌单封面
+│   ├── {sourceId}_{视频标题}/
+│   │   ├── audio.m4a              # 音频文件
+│   │   ├── cover.jpg              # 视频封面
+│   │   └── metadata.json          # 元数据（包含 ownerId/channelId）
 ```
+
+**頭像去重機制**：
+- 同一創作者的頭像只下載一次
+- Bilibili 使用 `ownerId` (UP主 mid)
+- YouTube 使用 `channelId` (頻道 ID)
+- 每次下載會覆蓋已有頭像（獲取最新頭像）
 
 ---
 
@@ -319,18 +329,21 @@ Future<String?> _findFirstCover(Directory folder) async {
 }
 ```
 
-### 3. 歌曲详情面板头像（TrackDetailPanel）✅ 使用 FileExistsCache
+### 3. 歌曲详情面板头像（TrackDetailPanel）✅ 使用集中式頭像
 
 ```dart
-// build 方法中获取缓存
+// build 方法中获取缓存和 baseDir
 ref.watch(fileExistsCacheProvider);
 final cache = ref.read(fileExistsCacheProvider.notifier);
+final baseDirAsync = ref.watch(downloadBaseDirProvider);
+final baseDir = baseDirAsync.valueOrNull;
 
-Widget _buildAvatar(BuildContext context, Track? track, VideoDetail detail, FileExistsCache cache) {
+Widget _buildAvatar(BuildContext context, Track? track, VideoDetail detail, 
+                    FileExistsCache cache, String? baseDir) {
   // 使用 ImageLoadingService 加载头像
-  // 优先级：本地头像 → 网络头像 → 占位符
+  // 優先級：本地頭像（集中式文件夾） → 网络头像 → 占位符
   return ImageLoadingService.loadAvatar(
-    localPath: track?.getLocalAvatarPath(cache),
+    localPath: track?.getLocalAvatarPath(cache, baseDir: baseDir),
     networkUrl: detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
     size: 32,
   );
@@ -360,19 +373,45 @@ Future<void> _saveMetadata(Track track, String audioPath, {VideoDetail? videoDet
   final settings = await _settingsRepository.get();
   final videoDir = Directory(p.dirname(audioPath));
 
-  // 下载封面
+  // 下载封面（保存到視頻文件夾）
   if (settings.downloadImageOption != DownloadImageOption.none && track.thumbnailUrl != null) {
     final coverPath = p.join(videoDir.path, 'cover.jpg');
     await _dio.download(track.thumbnailUrl!, coverPath);
   }
 
-  // 下载头像
+  // 下載創作者頭像到集中式文件夾（避免重複下載）
   if (settings.downloadImageOption == DownloadImageOption.coverAndAvatar &&
       videoDetail != null && videoDetail.ownerFace.isNotEmpty) {
-    final avatarPath = p.join(videoDir.path, 'avatar.jpg');
-    await _dio.download(videoDetail.ownerFace, avatarPath);
+    final creatorId = track.sourceType == SourceType.bilibili
+        ? videoDetail.ownerId.toString()
+        : videoDetail.channelId;
+    
+    if (creatorId.isNotEmpty && creatorId != '0') {
+      final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
+      await DownloadPathUtils.ensureAvatarDirExists(baseDir, track.sourceType);
+      
+      final avatarPath = DownloadPathUtils.getAvatarPath(
+        baseDir: baseDir,
+        sourceType: track.sourceType,
+        creatorId: creatorId,
+      );
+      await _dio.download(videoDetail.ownerFace, avatarPath);  // 總是覆蓋獲取最新
+    }
   }
 }
+```
+
+**DownloadPathUtils 頭像相關方法**：
+```dart
+// 計算頭像路徑
+static String getAvatarPath({
+  required String baseDir,
+  required SourceType sourceType,
+  required String creatorId,
+});
+
+// 確保頭像目錄存在
+static Future<void> ensureAvatarDirExists(String baseDir, SourceType sourceType);
 ```
 
 ### 歌单封面下载

@@ -736,6 +736,7 @@ class DownloadService with Logging {
         'ownerName': videoDetail.ownerName,
         'ownerFace': videoDetail.ownerFace,
         'ownerId': videoDetail.ownerId,
+        'channelId': videoDetail.channelId,
         'hotComments': videoDetail.hotComments.map((c) => {
           'content': c.content,
           'memberName': c.memberName,
@@ -758,13 +759,31 @@ class DownloadService with Logging {
       }
     }
 
-    // 下载UP主头像（如果设置为"封面和头像"且有头像URL）
+    // 下載創作者頭像到集中式文件夾（如果設置為"封面和頭像"且有頭像URL）
     if (settings.downloadImageOption == DownloadImageOption.coverAndAvatar &&
         videoDetail != null &&
         videoDetail.ownerFace.isNotEmpty) {
       try {
-        final avatarPath = p.join(videoDir.path, 'avatar.jpg');
-        await _dio.download(videoDetail.ownerFace, avatarPath);
+        // 獲取創作者 ID
+        final creatorId = track.sourceType == SourceType.bilibili
+            ? videoDetail.ownerId.toString()
+            : videoDetail.channelId;
+
+        // 只有當有有效的創作者 ID 時才下載頭像
+        if (creatorId.isNotEmpty && creatorId != '0') {
+          final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
+
+          // 確保頭像目錄存在
+          await DownloadPathUtils.ensureAvatarDirExists(baseDir, track.sourceType);
+
+          // 計算頭像路徑並下載（總是覆蓋以獲取最新頭像）
+          final avatarPath = DownloadPathUtils.getAvatarPath(
+            baseDir: baseDir,
+            sourceType: track.sourceType,
+            creatorId: creatorId,
+          );
+          await _dio.download(videoDetail.ownerFace, avatarPath);
+        }
       } catch (e) {
         logDebug('Failed to download avatar: $e');
       }

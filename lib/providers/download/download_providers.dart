@@ -11,7 +11,9 @@ import '../../data/repositories/track_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/sources/source_provider.dart';
 import '../../services/download/download_service.dart';
+import '../../services/download/download_path_utils.dart';
 import '../database_provider.dart';
+import '../repository_providers.dart';
 import 'download_state.dart';
 import 'download_scanner.dart';
 import 'file_exists_cache.dart';
@@ -114,6 +116,12 @@ final downloadProgressProvider = StreamProvider<DownloadProgressEvent>((ref) {
 final downloadDirInfoProvider = FutureProvider<DownloadDirInfo>((ref) async {
   final service = ref.watch(downloadServiceProvider);
   return service.getDownloadDirInfo();
+});
+
+/// 下載基礎目錄 Provider
+final downloadBaseDirProvider = FutureProvider<String>((ref) async {
+  final settingsRepo = ref.watch(settingsRepositoryProvider);
+  return DownloadPathUtils.getDefaultBaseDir(settingsRepo);
 });
 
 // ==================== Track Providers ====================

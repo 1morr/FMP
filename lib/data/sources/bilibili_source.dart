@@ -123,6 +123,7 @@ class BilibiliSource extends BaseSource with Logging {
         ..sourceType = SourceType.bilibili
         ..title = data['title'] ?? 'Unknown'
         ..artist = data['owner']?['name']
+        ..ownerId = data['owner']?['mid'] as int?
         ..durationMs = ((data['duration'] as int?) ?? 0) * 1000
         ..thumbnailUrl = data['pic'];
 
@@ -266,6 +267,7 @@ class BilibiliSource extends BaseSource with Logging {
           ..sourceType = SourceType.bilibili
           ..title = _cleanHtmlTags(item['title'] ?? 'Unknown')
           ..artist = item['author']
+          ..ownerId = item['mid'] as int?
           ..durationMs = _parseDuration(item['duration'] ?? '0:00')
           ..thumbnailUrl = _fixImageUrl(item['pic'])
           ..viewCount = item['play'] as int?;
@@ -324,6 +326,7 @@ class BilibiliSource extends BaseSource with Logging {
           ..sourceType = SourceType.bilibili
           ..title = item['title'] ?? 'Unknown'
           ..artist = item['upper']?['name']
+          ..ownerId = item['upper']?['mid'] as int?
           ..durationMs = ((item['duration'] as int?) ?? 0) * 1000
           ..thumbnailUrl = item['cover']
           ..pageCount = item['page'] as int? ?? 1);
@@ -354,6 +357,7 @@ class BilibiliSource extends BaseSource with Logging {
             ..sourceType = SourceType.bilibili
             ..title = item['title'] ?? 'Unknown'
             ..artist = item['upper']?['name']
+            ..ownerId = item['upper']?['mid'] as int?
             ..durationMs = ((item['duration'] as int?) ?? 0) * 1000
             ..thumbnailUrl = item['cover']
             ..pageCount = item['page'] as int? ?? 1);

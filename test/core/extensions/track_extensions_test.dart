@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/core/extensions/track_extensions.dart';
 import 'package:fmp/providers/download/file_exists_cache.dart';
+import 'package:path/path.dart' as p;
 
 /// Test helper: FileExistsCache with pre-populated state
 class TestFileExistsCache extends FileExistsCache {
@@ -75,42 +76,89 @@ void main() {
     });
 
     group('getLocalAvatarPath', () {
-      test('returns null when no download path', () {
+      test('returns null when baseDir is null', () {
+        final track = Track()
+          ..sourceId = 'test123'
+          ..sourceType = SourceType.bilibili
+          ..title = 'Test Track'
+          ..ownerId = 12345;
+
+        final cache = TestFileExistsCache({});
+        expect(track.getLocalAvatarPath(cache, baseDir: null), isNull);
+      });
+
+      test('returns null when ownerId is null for Bilibili', () {
         final track = Track()
           ..sourceId = 'test123'
           ..sourceType = SourceType.bilibili
           ..title = 'Test Track';
 
         final cache = TestFileExistsCache({});
-        expect(track.getLocalAvatarPath(cache), isNull);
+        expect(track.getLocalAvatarPath(cache, baseDir: '/downloads'), isNull);
       });
 
-      test('returns null when avatar.jpg does not exist in cache', () {
+      test('returns null when channelId is null for YouTube', () {
+        final track = Track()
+          ..sourceId = 'test123'
+          ..sourceType = SourceType.youtube
+          ..title = 'Test Track';
+
+        final cache = TestFileExistsCache({});
+        expect(track.getLocalAvatarPath(cache, baseDir: '/downloads'), isNull);
+      });
+
+      test('returns null when avatar does not exist for Bilibili', () {
+        const baseDir = '/downloads';
+        final avatarPath = p.join(baseDir, 'avatars', 'bilibili', '12345.jpg');
+
         final track = Track()
           ..sourceId = 'test123'
           ..sourceType = SourceType.bilibili
           ..title = 'Test Track'
-          ..playlistIds = [0]
-          ..downloadPaths = ['/some/path/audio.m4a'];
+          ..ownerId = 12345;
 
         final cache = TestFileExistsCache({
-          '/some/path/avatar.jpg': false,
+          avatarPath: false,
         });
-        expect(track.getLocalAvatarPath(cache), isNull);
+        expect(track.getLocalAvatarPath(cache, baseDir: baseDir), isNull);
       });
 
-      test('returns avatar path when avatar.jpg exists in cache', () {
+      test('returns avatar path for Bilibili when file exists', () {
+        const baseDir = '/downloads';
+        final avatarPath = p.join(baseDir, 'avatars', 'bilibili', '12345.jpg');
+
         final track = Track()
           ..sourceId = 'test123'
           ..sourceType = SourceType.bilibili
           ..title = 'Test Track'
-          ..playlistIds = [0]
-          ..downloadPaths = ['/some/path/audio.m4a'];
+          ..ownerId = 12345;
 
         final cache = TestFileExistsCache({
-          '/some/path/avatar.jpg': true,
+          avatarPath: true,
         });
-        expect(track.getLocalAvatarPath(cache), equals('/some/path/avatar.jpg'));
+        expect(
+          track.getLocalAvatarPath(cache, baseDir: baseDir),
+          equals(avatarPath),
+        );
+      });
+
+      test('returns avatar path for YouTube when file exists', () {
+        const baseDir = '/downloads';
+        final avatarPath = p.join(baseDir, 'avatars', 'youtube', 'UCq-Fj5jknLsUf-MWSy4_brA.jpg');
+
+        final track = Track()
+          ..sourceId = 'testYT123'
+          ..sourceType = SourceType.youtube
+          ..title = 'Test Track'
+          ..channelId = 'UCq-Fj5jknLsUf-MWSy4_brA';
+
+        final cache = TestFileExistsCache({
+          avatarPath: true,
+        });
+        expect(
+          track.getLocalAvatarPath(cache, baseDir: baseDir),
+          equals(avatarPath),
+        );
       });
     });
 

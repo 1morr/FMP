@@ -28,6 +28,12 @@ class Track {
   /// 艺术家/UP主名称
   String? artist;
 
+  /// Bilibili UP主 ID（用於頭像查找）
+  int? ownerId;
+
+  /// YouTube 頻道 ID（用於頭像查找）
+  String? channelId;
+
   /// 时长（毫秒）
   int? durationMs;
 

@@ -51,6 +51,7 @@ class VideoDetail {
   final String ownerName;
   final String ownerFace;
   final int ownerId;
+  final String channelId; // YouTube 頻道 ID
   final int viewCount;
   final int likeCount;
   final int coinCount;
@@ -71,6 +72,7 @@ class VideoDetail {
     required this.ownerName,
     required this.ownerFace,
     required this.ownerId,
+    this.channelId = '',
     required this.viewCount,
     required this.likeCount,
     required this.coinCount,
@@ -105,6 +107,7 @@ class VideoDetail {
       ownerName: json['ownerName']?.toString() ?? json['artist']?.toString() ?? track.artist ?? '',
       ownerFace: json['ownerFace']?.toString() ?? '',
       ownerId: json['ownerId'] as int? ?? 0,
+      channelId: json['channelId']?.toString() ?? '',
       viewCount: json['viewCount'] as int? ?? 0,
       likeCount: json['likeCount'] as int? ?? 0,
       coinCount: json['coinCount'] as int? ?? 0,
@@ -140,6 +143,7 @@ class VideoDetail {
     required String author,
     String? authorAvatarUrl,
     String? thumbnailUrl,
+    String channelId = '',
     int durationMs = 0,
     int viewCount = 0,
     int likeCount = 0,
@@ -154,6 +158,7 @@ class VideoDetail {
       ownerName: author,
       ownerFace: authorAvatarUrl ?? '',
       ownerId: 0,
+      channelId: channelId,
       viewCount: viewCount,
       likeCount: likeCount,
       coinCount: 0, // YouTube 没有投币功能
