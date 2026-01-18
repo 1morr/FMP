@@ -1181,8 +1181,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       if (autoPlay) {
         await _audioService.play();
       }
+
+      // 确保清除加载状态
+      state = state.copyWith(isLoading: false);
     } catch (e) {
       logError('Failed to prepare track: ${track.title}', e);
+      state = state.copyWith(isLoading: false);
     }
   }
 
