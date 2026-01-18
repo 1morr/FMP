@@ -17,6 +17,7 @@ import '../../data/repositories/track_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/sources/source_provider.dart';
 import '../../data/sources/bilibili_source.dart';
+import '../../data/sources/youtube_source.dart';
 import 'download_path_utils.dart';
 
 /// 下载服务
@@ -557,11 +558,18 @@ class DownloadService with Logging {
       }
 
       // 如果没有完整 metadata，尝试获取 VideoDetail
-      if (!hasFullMetadata && track.sourceType == SourceType.bilibili) {
+      if (!hasFullMetadata) {
         try {
-          final source = _sourceManager.getSource(SourceType.bilibili);
-          if (source is BilibiliSource) {
-            videoDetail = await source.getVideoDetail(track.sourceId);
+          if (track.sourceType == SourceType.bilibili) {
+            final source = _sourceManager.getSource(SourceType.bilibili);
+            if (source is BilibiliSource) {
+              videoDetail = await source.getVideoDetail(track.sourceId);
+            }
+          } else if (track.sourceType == SourceType.youtube) {
+            final source = _sourceManager.getSource(SourceType.youtube);
+            if (source is YouTubeSource) {
+              videoDetail = await source.getVideoDetail(track.sourceId);
+            }
           }
         } catch (e) {
           logDebug('Failed to get video detail: $e');
