@@ -216,6 +216,18 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     return SliverAppBar(
       expandedHeight: 280,
       pinned: true,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, color: Colors.white),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+      actions: [
+        if (state.tracks.isNotEmpty && playlist != null)
+          IconButton(
+            icon: const Icon(Icons.download_outlined, color: Colors.white),
+            onPressed: () => _downloadPlaylist(context, playlist),
+            tooltip: '下载全部',
+          ),
+      ],
       flexibleSpace: FlexibleSpaceBar(
         background: Stack(
           fit: StackFit.expand,
@@ -402,44 +414,25 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     BuildContext context,
     List<Track> tracks,
   ) {
-    final state = ref.watch(playlistDetailProvider(widget.playlistId));
-    final playlist = state.playlist;
-    
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed:
-                      tracks.isEmpty ? null : () => _playAll(tracks, context),
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text('添加所有'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed:
-                      tracks.isEmpty ? null : () => _shufflePlay(tracks, context),
-                  icon: const Icon(Icons.shuffle),
-                  label: const Text('随机添加'),
-                ),
-              ),
-            ],
+          Expanded(
+            child: FilledButton.icon(
+              onPressed:
+                  tracks.isEmpty ? null : () => _playAll(tracks, context),
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('添加所有'),
+            ),
           ),
-          const SizedBox(height: 12),
-          // 下载按钮
-          SizedBox(
-            width: double.infinity,
+          const SizedBox(width: 12),
+          Expanded(
             child: OutlinedButton.icon(
-              onPressed: tracks.isEmpty || playlist == null 
-                  ? null 
-                  : () => _downloadPlaylist(context, playlist),
-              icon: const Icon(Icons.download_outlined),
-              label: const Text('下载全部'),
+              onPressed:
+                  tracks.isEmpty ? null : () => _shufflePlay(tracks, context),
+              icon: const Icon(Icons.shuffle),
+              label: const Text('随机添加'),
             ),
           ),
         ],
