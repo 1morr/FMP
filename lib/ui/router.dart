@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import 'pages/home/home_page.dart';
 import 'pages/search/search_page.dart';
+import 'pages/explore/explore_page.dart';
 import 'pages/player/player_page.dart';
 import 'pages/queue/queue_page.dart';
 import 'pages/library/library_page.dart';
@@ -23,6 +24,7 @@ class RoutePaths {
 
   static const String home = '/';
   static const String search = '/search';
+  static const String explore = '/explore';
   static const String player = '/player';
   static const String queue = '/queue';
   static const String library = '/library';
@@ -41,6 +43,7 @@ class RouteNames {
 
   static const String home = 'home';
   static const String search = 'search';
+  static const String explore = 'explore';
   static const String player = 'player';
   static const String queue = 'queue';
   static const String library = 'library';
@@ -74,6 +77,13 @@ final appRouter = GoRouter(
           name: RouteNames.search,
           pageBuilder: (context, state) => const NoTransitionPage(
             child: SearchPage(),
+          ),
+        ),
+        GoRoute(
+          path: RoutePaths.explore,
+          name: RouteNames.explore,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: ExplorePage(),
           ),
         ),
         GoRoute(
