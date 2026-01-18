@@ -121,6 +121,53 @@ class VideoDetail {
     );
   }
 
+  /// 从 YouTube 数据创建 VideoDetail
+  /// [videoId] YouTube 视频 ID
+  /// [title] 视频标题
+  /// [description] 视频描述
+  /// [author] 频道名称
+  /// [authorAvatarUrl] 频道头像 URL
+  /// [thumbnailUrl] 缩略图 URL
+  /// [durationMs] 时长（毫秒）
+  /// [viewCount] 播放数
+  /// [likeCount] 点赞数
+  /// [publishDate] 发布日期
+  /// [comments] 热门评论列表
+  factory VideoDetail.fromYouTube({
+    required String videoId,
+    required String title,
+    required String description,
+    required String author,
+    String? authorAvatarUrl,
+    String? thumbnailUrl,
+    int durationMs = 0,
+    int viewCount = 0,
+    int likeCount = 0,
+    DateTime? publishDate,
+    List<VideoComment> comments = const [],
+  }) {
+    return VideoDetail(
+      bvid: videoId,
+      title: title,
+      description: description,
+      coverUrl: thumbnailUrl ?? '',
+      ownerName: author,
+      ownerFace: authorAvatarUrl ?? '',
+      ownerId: 0,
+      viewCount: viewCount,
+      likeCount: likeCount,
+      coinCount: 0, // YouTube 没有投币功能
+      favoriteCount: 0, // YouTube 无法直接获取收藏数
+      shareCount: 0,
+      danmakuCount: 0, // YouTube 没有弹幕
+      commentCount: 0, // 需要额外 API 获取
+      publishDate: publishDate ?? DateTime.now(),
+      durationSeconds: durationMs ~/ 1000,
+      hotComments: comments,
+      pages: [],
+    );
+  }
+
   /// 是否有多个分P
   bool get hasMultiplePages => pages.length > 1;
 

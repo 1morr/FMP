@@ -58,7 +58,8 @@
       "Bash(find:*)",
       "Bash(ls:*)",
       "Bash(rustup:*)",
-      "Bash(git show:*)"
+      "Bash(git show:*)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }
