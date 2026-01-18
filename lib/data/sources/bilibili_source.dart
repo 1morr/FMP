@@ -18,7 +18,6 @@ class BilibiliSource extends BaseSource with Logging {
   static const String _searchApi = '$_apiBase/x/web-interface/search/type';
   static const String _favListApi = '$_apiBase/x/v3/fav/resource/list';
   static const String _replyApi = '$_apiBase/x/v2/reply';
-  static const String _popularApi = '$_apiBase/x/web-interface/popular';
   static const String _rankingApi = '$_apiBase/x/web-interface/ranking/v2';
 
   BilibiliSource() {
@@ -583,44 +582,7 @@ class BilibiliSource extends BaseSource with Logging {
     }
   }
 
-  // ========== 热门视频 API ==========
-
-  /// 获取热门视频（综合热门）
-  /// [page] 页码，从 1 开始
-  /// [pageSize] 每页数量，默认 20
-  Future<List<Track>> getPopularVideos({int page = 1, int pageSize = 20}) async {
-    try {
-      final response = await _dio.get(
-        _popularApi,
-        queryParameters: {
-          'ps': pageSize,
-          'pn': page,
-        },
-      );
-
-      _checkResponse(response.data);
-
-      final list = response.data['data']['list'] as List? ?? [];
-      
-      return list.map((item) {
-        final owner = item['owner'] ?? {};
-        final stat = item['stat'] ?? {};
-        
-        return Track()
-          ..sourceId = item['bvid'] ?? ''
-          ..sourceType = SourceType.bilibili
-          ..title = item['title'] ?? ''
-          ..artist = owner['name'] ?? ''
-          ..ownerId = owner['mid'] as int?
-          ..durationMs = ((item['duration'] as int?) ?? 0) * 1000
-          ..thumbnailUrl = _fixImageUrl(item['pic'])
-          ..viewCount = stat['view'] as int?
-          ..createdAt = DateTime.now();
-      }).toList();
-    } on DioException catch (e) {
-      throw _handleDioError(e);
-    }
-  }
+  // ========== 排行榜视频 API ==========
 
   /// 获取排行榜视频
   /// [rid] 分区 ID：0=全站，1=动画，3=音乐，4=游戏，5=娱乐，36=科技，119=鬼畜，129=舞蹈，155=时尚，160=生活，181=影视

@@ -22,101 +22,7 @@ enum BilibiliCategory {
   const BilibiliCategory(this.rid, this.label);
 }
 
-/// 热门视频状态
-class PopularState {
-  final List<Track> tracks;
-  final bool isLoading;
-  final String? error;
-  final int currentPage;
-  final bool hasMore;
-
-  const PopularState({
-    this.tracks = const [],
-    this.isLoading = false,
-    this.error,
-    this.currentPage = 1,
-    this.hasMore = true,
-  });
-
-  PopularState copyWith({
-    List<Track>? tracks,
-    bool? isLoading,
-    String? error,
-    int? currentPage,
-    bool? hasMore,
-  }) {
-    return PopularState(
-      tracks: tracks ?? this.tracks,
-      isLoading: isLoading ?? this.isLoading,
-      error: error,
-      currentPage: currentPage ?? this.currentPage,
-      hasMore: hasMore ?? this.hasMore,
-    );
-  }
-}
-
-/// 热门视频 Provider
-final popularVideosProvider =
-    StateNotifierProvider<PopularVideosNotifier, PopularState>((ref) {
-  return PopularVideosNotifier(BilibiliSource());
-});
-
-class PopularVideosNotifier extends StateNotifier<PopularState> {
-  final BilibiliSource _source;
-
-  PopularVideosNotifier(this._source) : super(const PopularState());
-
-  /// 加载热门视频
-  Future<void> load() async {
-    if (state.isLoading) return;
-
-    state = state.copyWith(isLoading: true, error: null);
-
-    try {
-      final tracks = await _source.getPopularVideos(page: 1, pageSize: 20);
-      state = state.copyWith(
-        tracks: tracks,
-        isLoading: false,
-        currentPage: 1,
-        hasMore: tracks.length >= 20,
-      );
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      );
-    }
-  }
-
-  /// 加载更多
-  Future<void> loadMore() async {
-    if (state.isLoading || !state.hasMore) return;
-
-    state = state.copyWith(isLoading: true);
-
-    try {
-      final nextPage = state.currentPage + 1;
-      final tracks = await _source.getPopularVideos(page: nextPage, pageSize: 20);
-      state = state.copyWith(
-        tracks: [...state.tracks, ...tracks],
-        isLoading: false,
-        currentPage: nextPage,
-        hasMore: tracks.length >= 20,
-      );
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      );
-    }
-  }
-
-  /// 刷新
-  Future<void> refresh() async {
-    state = const PopularState();
-    await load();
-  }
-}
+// ==================== Bilibili 排行榜 ====================
 
 /// 排行榜视频状态
 class RankingState {
@@ -194,16 +100,11 @@ class RankingVideosNotifier extends StateNotifier<RankingState> {
   }
 }
 
-/// 首页热门预览 Provider（只加载少量数据）
-final homePopularPreviewProvider = FutureProvider.autoDispose<List<Track>>((ref) async {
+/// 首页 Bilibili 音乐排行预览 Provider
+final homeBilibiliMusicRankingProvider = FutureProvider.autoDispose<List<Track>>((ref) async {
   final source = BilibiliSource();
-  return source.getPopularVideos(page: 1, pageSize: 10);
-});
-
-/// 首页音乐排行预览 Provider
-final homeMusicRankingPreviewProvider = FutureProvider.autoDispose<List<Track>>((ref) async {
-  final source = BilibiliSource();
-  return source.getRankingVideos(rid: BilibiliCategory.music.rid);
+  final tracks = await source.getRankingVideos(rid: BilibiliCategory.music.rid);
+  return tracks.take(10).toList();
 });
 
 // ==================== YouTube 熱門 ====================
@@ -296,8 +197,8 @@ class YouTubeTrendingNotifier extends StateNotifier<YouTubeTrendingState> {
   }
 }
 
-/// 首頁 YouTube 熱門預覽 Provider
-final homeYouTubeTrendingPreviewProvider = FutureProvider.autoDispose<List<Track>>((ref) async {
+/// 首頁 YouTube 音樂排行預覽 Provider
+final homeYouTubeMusicRankingProvider = FutureProvider.autoDispose<List<Track>>((ref) async {
   final source = YouTubeSource();
   try {
     final tracks = await source.getTrendingVideos(category: 'music');

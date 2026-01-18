@@ -6,7 +6,7 @@ import '../../../data/models/track.dart';
 import '../../../providers/popular_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 
-/// 探索页面 - 显示热门和排行榜内容
+/// 探索页面 - 显示排行榜内容
 class ExplorePage extends ConsumerStatefulWidget {
   const ExplorePage({super.key});
 
@@ -21,11 +21,10 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
 
     // 初始加载
     Future.microtask(() {
-      ref.read(popularVideosProvider.notifier).load();
       ref.read(rankingVideosProvider.notifier).loadCategory(BilibiliCategory.music);
       ref.read(youtubeTrendingProvider.notifier).loadCategory(YouTubeCategory.music);
     });
@@ -47,7 +46,6 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: 'B站热门'),
             Tab(text: 'B站排行'),
             Tab(text: 'YouTube'),
           ],
@@ -56,59 +54,9 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildPopularTab(colorScheme),
           _buildRankingTab(colorScheme),
           _buildYouTubeTab(colorScheme),
         ],
-      ),
-    );
-  }
-
-  Widget _buildPopularTab(ColorScheme colorScheme) {
-    final state = ref.watch(popularVideosProvider);
-
-    if (state.tracks.isEmpty && state.isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (state.error != null && state.tracks.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('加载失败: ${state.error}'),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () => ref.read(popularVideosProvider.notifier).refresh(),
-              child: const Text('重试'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: () => ref.read(popularVideosProvider.notifier).refresh(),
-      child: ListView.builder(
-        padding: const EdgeInsets.only(bottom: 100),
-        itemCount: state.tracks.length + (state.hasMore ? 1 : 0),
-        itemBuilder: (context, index) {
-          if (index == state.tracks.length) {
-            // 加载更多
-            if (!state.isLoading) {
-              Future.microtask(
-                () => ref.read(popularVideosProvider.notifier).loadMore(),
-              );
-            }
-            return const Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
-
-          final track = state.tracks[index];
-          return _buildTrackTile(track, colorScheme);
-        },
       ),
     );
   }
@@ -270,58 +218,9 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
         itemCount: state.currentTracks.length,
         itemBuilder: (context, index) {
           final track = state.currentTracks[index];
-          return _buildTrackTile(track, colorScheme);
+          return _buildRankingTile(track, index + 1, colorScheme);
         },
       ),
-    );
-  }
-
-  Widget _buildTrackTile(Track track, ColorScheme colorScheme) {
-    return ListTile(
-      leading: SizedBox(
-        width: 80,
-        height: 60,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: track.thumbnailUrl != null
-              ? ImageLoadingService.loadImage(
-                  networkUrl: track.thumbnailUrl,
-                  placeholder: const Icon(Icons.music_note),
-                  fit: BoxFit.cover,
-                )
-              : Container(
-                  color: colorScheme.surfaceContainerHighest,
-                  child: const Icon(Icons.music_note),
-                ),
-        ),
-      ),
-      title: Text(
-        track.title,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: Row(
-        children: [
-          Expanded(
-            child: Text(
-              track.artist ?? '',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (track.viewCount != null)
-            Text(
-              _formatViewCount(track.viewCount!),
-              style: TextStyle(
-                fontSize: 12,
-                color: colorScheme.outline,
-              ),
-            ),
-        ],
-      ),
-      onTap: () {
-        ref.read(audioControllerProvider.notifier).playTemporary(track);
-      },
     );
   }
 
