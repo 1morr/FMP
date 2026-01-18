@@ -57,7 +57,8 @@
       "Skill(superpowers:subagent-driven-development)",
       "Bash(find:*)",
       "Bash(ls:*)",
-      "Bash(rustup:*)"
+      "Bash(rustup:*)",
+      "Bash(git show:*)"
     ]
   }
 }
