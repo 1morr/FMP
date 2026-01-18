@@ -177,30 +177,35 @@ class TrackRepository with Logging {
   ///
   /// [referencedTrackIds] 被歌单或播放队列引用的 Track ID 集合
   /// 返回：删除的 Track 数量
+  /// 
+  /// 使用并行文件检查优化性能。
   Future<int> cleanupOrphanTracks(Set<int> referencedTrackIds) async {
     final allTracks = await getAll();
+    
+    // 筛选出未被引用的 tracks
+    final unreferencedTracks = allTracks
+        .where((t) => !referencedTrackIds.contains(t.id))
+        .toList();
+    
+    if (unreferencedTracks.isEmpty) {
+      return 0;
+    }
+    
+    logDebug('Checking ${unreferencedTracks.length} unreferenced tracks for cleanup');
+
+    // 并行检查所有文件是否存在（大幅提升性能）
+    final fileExistsFutures = unreferencedTracks
+        .map((track) => _hasAnyExistingFile(track))
+        .toList();
+    
+    final fileExistsResults = await Future.wait(fileExistsFutures);
+    
+    // 收集需要删除的 track IDs
     final toDelete = <int>[];
-
-    for (final track in allTracks) {
-      // 如果被引用，保留
-      if (referencedTrackIds.contains(track.id)) {
-        continue;
+    for (var i = 0; i < unreferencedTracks.length; i++) {
+      if (!fileExistsResults[i]) {
+        toDelete.add(unreferencedTracks[i].id);
       }
-
-      // 如果有任何下载路径且文件存在，保留
-      bool hasExistingFile = false;
-      for (final path in track.downloadPaths) {
-        if (await File(path).exists()) {
-          hasExistingFile = true;
-          break;
-        }
-      }
-      if (hasExistingFile) {
-        continue;
-      }
-
-      // 否则标记为删除
-      toDelete.add(track.id);
     }
 
     if (toDelete.isNotEmpty) {
@@ -209,6 +214,16 @@ class TrackRepository with Logging {
     }
 
     return toDelete.length;
+  }
+  
+  /// 检查 track 是否有任何存在的下载文件
+  Future<bool> _hasAnyExistingFile(Track track) async {
+    for (final path in track.downloadPaths) {
+      if (await File(path).exists()) {
+        return true;
+      }
+    }
+    return false;
   }
 
   // ============================================================
