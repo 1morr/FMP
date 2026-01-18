@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/services/toast_service.dart';
 import '../../../../data/sources/source_provider.dart';
+import '../../../../providers/database_provider.dart';
 import '../../../../providers/playlist_provider.dart';
 import '../../../../providers/repository_providers.dart';
 import '../../../../services/import/import_service.dart';
@@ -166,14 +167,15 @@ class _ImportUrlDialogState extends ConsumerState<ImportUrlDialog> {
       final sourceManager = ref.read(sourceManagerProvider);
       final playlistRepo = ref.read(playlistRepositoryProvider);
       final trackRepo = ref.read(trackRepositoryProvider);
-
       final settingsRepo = ref.read(settingsRepositoryProvider);
+      final isar = await ref.read(databaseProvider.future);
       
       final importService = ImportService(
         sourceManager: sourceManager,
         playlistRepository: playlistRepo,
         trackRepository: trackRepo,
         settingsRepository: settingsRepo,
+        isar: isar,
       );
 
       // 监听进度

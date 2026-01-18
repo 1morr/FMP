@@ -1,7 +1,9 @@
 import 'dart:async';
 
+import 'package:isar/isar.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/logger.dart';
 import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
 import '../../data/repositories/playlist_repository.dart';
@@ -72,11 +74,12 @@ class ImportResult {
 }
 
 /// 外部导入服务
-class ImportService {
+class ImportService with Logging {
   final SourceManager _sourceManager;
   final PlaylistRepository _playlistRepository;
   final TrackRepository _trackRepository;
   final SettingsRepository _settingsRepository;
+  final Isar _isar;
 
   // 导入进度流
   final _progressController = StreamController<ImportProgress>.broadcast();
@@ -89,10 +92,12 @@ class ImportService {
     required PlaylistRepository playlistRepository,
     required TrackRepository trackRepository,
     required SettingsRepository settingsRepository,
+    required Isar isar,
   })  : _sourceManager = sourceManager,
         _playlistRepository = playlistRepository,
         _trackRepository = trackRepository,
-        _settingsRepository = settingsRepository;
+        _settingsRepository = settingsRepository,
+        _isar = isar;
 
   /// 从 URL 导入歌单/收藏夹
   Future<ImportResult> importFromUrl(
@@ -368,9 +373,38 @@ class ImportService {
         }
       }
 
-      // 计算被移除的歌曲数量（在原来列表中但不在新列表中的）
+      // 计算被移除的歌曲（在原来列表中但不在新列表中的）
       final newTrackIdSet = Set<int>.from(newTrackIds);
-      final removedCount = originalTrackIds.difference(newTrackIdSet).length;
+      final removedTrackIds = originalTrackIds.difference(newTrackIdSet);
+      final removedCount = removedTrackIds.length;
+
+      // 清理被移除的 tracks 的 playlistIds 和 downloadPaths
+      if (removedTrackIds.isNotEmpty) {
+        final removedTracks = await _trackRepository.getByIds(removedTrackIds.toList());
+        final tracksToDelete = <int>[];
+        final tracksToUpdate = <Track>[];
+
+        for (final track in removedTracks) {
+          track.removeDownloadPath(playlist.id);
+          if (track.playlistIds.isEmpty) {
+            tracksToDelete.add(track.id);
+          } else {
+            tracksToUpdate.add(track);
+          }
+        }
+
+        // 批量删除孤儿 tracks
+        if (tracksToDelete.isNotEmpty) {
+          await _isar.writeTxn(() => _isar.tracks.deleteAll(tracksToDelete));
+          logDebug('Deleted ${tracksToDelete.length} orphan tracks after playlist refresh');
+        }
+
+        // 批量更新其他 tracks
+        if (tracksToUpdate.isNotEmpty) {
+          await _trackRepository.saveAll(tracksToUpdate);
+          logDebug('Updated ${tracksToUpdate.length} tracks after playlist refresh');
+        }
+      }
 
       // 更新歌单
       playlist.trackIds = newTrackIds;

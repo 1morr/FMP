@@ -96,7 +96,28 @@ Future<void> addTrackToPlaylist(int playlistId, Track track) async {
 2. 删除歌单 B → 数据库更新为 playlistIds=[A]
 3. 用缓存的旧 track 添加到歌单 C → 旧数据 playlistIds=[A,B,C] 覆盖数据库
 
-### 7. 批量操作优化删除性能 (2026-01-18)
+### 7. refreshPlaylist 必须清理被移除的 tracks (2026-01-18)
+
+**问题**：刷新导入的歌单时，如果远程移除了某些歌曲，只更新了 `Playlist.trackIds`，但没有清理对应 Track 的 `playlistIds` 和 `downloadPaths`。
+
+```dart
+// 错误 - 只计算了移除数量，没有清理 tracks
+final removedCount = originalTrackIds.difference(newTrackIdSet).length;
+playlist.trackIds = newTrackIds;  // Track 数据不一致！
+
+// 正确 - 清理被移除的 tracks
+final removedTrackIds = originalTrackIds.difference(newTrackIdSet);
+if (removedTrackIds.isNotEmpty) {
+  final removedTracks = await _trackRepository.getByIds(removedTrackIds.toList());
+  for (final track in removedTracks) {
+    track.removeDownloadPath(playlist.id);
+    // 如果 playlistIds 为空，删除 track
+  }
+}
+playlist.trackIds = newTrackIds;
+```
+
+$1
 
 **问题**：逐个查询和保存导致删除大歌单极慢（N 首歌 = 2N 次数据库操作）。
 
