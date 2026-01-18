@@ -38,3 +38,12 @@ final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
   }
   return SettingsRepository(db);
 });
+
+/// Play History Repository Provider
+final playHistoryRepositoryProvider = Provider<PlayHistoryRepository>((ref) {
+  final db = ref.watch(databaseProvider).valueOrNull;
+  if (db == null) {
+    throw StateError('Database not initialized');
+  }
+  return PlayHistoryRepository(db);
+});

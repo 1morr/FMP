@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/services/image_loading_service.dart';
+import '../../../data/models/play_history.dart';
 import '../../../providers/playlist_provider.dart';
+import '../../../providers/play_history_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
 import '../../widgets/track_thumbnail.dart';
@@ -32,6 +34,9 @@ class _HomePageState extends ConsumerState<HomePage> {
 
               // 我的歌单
               _buildRecentPlaylists(context, colorScheme),
+
+              // 最近播放历史
+              _buildRecentHistory(context, colorScheme),
 
               // 队列预览
               if (playerState.queue.isNotEmpty)
@@ -161,6 +166,107 @@ class _HomePageState extends ConsumerState<HomePage> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildRecentHistory(BuildContext context, ColorScheme colorScheme) {
+    final historyAsync = ref.watch(recentPlayHistoryProvider);
+
+    return historyAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (e, s) => const SizedBox.shrink(),
+      data: (historyList) {
+        if (historyList.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Row(
+                children: [
+                  Text(
+                    '最近播放',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const Spacer(),
+                  // TODO: 查看全部历史页面
+                ],
+              ),
+            ),
+            SizedBox(
+              height: 160,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: historyList.length,
+                separatorBuilder: (context, index) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final history = historyList[index];
+                  return _buildHistoryItem(context, history, colorScheme);
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildHistoryItem(
+    BuildContext context,
+    PlayHistory history,
+    ColorScheme colorScheme,
+  ) {
+    return SizedBox(
+      width: 120,
+      height: 160,
+      child: InkWell(
+        onTap: () {
+          // 将历史记录转换为 Track 并播放
+          final track = history.toTrack();
+          ref.read(audioControllerProvider.notifier).playTemporary(track);
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 封面 (120x120)
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: colorScheme.surfaceContainerHighest,
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: history.thumbnailUrl != null
+                  ? ImageLoadingService.loadImage(
+                      networkUrl: history.thumbnailUrl,
+                      placeholder: Icon(
+                        Icons.music_note,
+                        size: 40,
+                        color: colorScheme.outline,
+                      ),
+                      fit: BoxFit.cover,
+                    )
+                  : Icon(
+                      Icons.music_note,
+                      size: 40,
+                      color: colorScheme.outline,
+                    ),
+            ),
+            const SizedBox(height: 4),
+            // 标题 (剩余 36px 空间，约2行文本)
+            Text(
+              history.title,
+              style: Theme.of(context).textTheme.bodySmall,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
     );
   }
 

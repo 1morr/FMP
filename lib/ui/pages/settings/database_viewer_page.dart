@@ -10,6 +10,7 @@ import '../../../data/models/play_queue.dart';
 import '../../../data/models/settings.dart';
 import '../../../data/models/search_history.dart';
 import '../../../data/models/download_task.dart';
+import '../../../data/models/play_history.dart';
 
 /// 数据库查看页面
 class DatabaseViewerPage extends ConsumerStatefulWidget {
@@ -26,6 +27,7 @@ class _DatabaseViewerPageState extends ConsumerState<DatabaseViewerPage> {
     'Track',
     'Playlist',
     'PlayQueue',
+    'PlayHistory',
     'Settings',
     'SearchHistory',
     'DownloadTask',
@@ -109,6 +111,7 @@ class _DatabaseViewerPageState extends ConsumerState<DatabaseViewerPage> {
       'Track' => _TrackListView(isar: isar),
       'Playlist' => _PlaylistListView(isar: isar),
       'PlayQueue' => _PlayQueueListView(isar: isar),
+      'PlayHistory' => _PlayHistoryListView(isar: isar),
       'Settings' => _SettingsListView(isar: isar),
       'SearchHistory' => _SearchHistoryListView(isar: isar),
       'DownloadTask' => _DownloadTaskListView(isar: isar),
@@ -451,6 +454,71 @@ class _SettingsListView extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+/// PlayHistory 列表视图
+class _PlayHistoryListView extends StatelessWidget {
+  final Isar isar;
+
+  const _PlayHistoryListView({required this.isar});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<PlayHistory>>(
+      future: isar.playHistorys.where().sortByPlayedAtDesc().findAll(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final histories = snapshot.data ?? [];
+        return _buildList(
+          context,
+          itemCount: histories.length,
+          headerText: '共 ${histories.length} 条记录',
+          itemBuilder: (index) {
+            final history = histories[index];
+            return _DataCard(
+              title: history.title,
+              subtitle: 'ID: ${history.id} | ${_formatDateTime(history.playedAt)}',
+              sections: [
+                _DataSection(
+                  title: '基本信息',
+                  data: {
+                    'id': history.id.toString(),
+                    'sourceId': history.sourceId,
+                    'sourceType': history.sourceType.name,
+                    'cid': history.cid?.toString() ?? 'null',
+                    'trackKey': history.trackKey,
+                  },
+                ),
+                _DataSection(
+                  title: '媒体信息',
+                  data: {
+                    'title': history.title,
+                    'artist': history.artist ?? 'null',
+                    'durationMs': history.durationMs?.toString() ?? 'null',
+                    'formattedDuration': history.formattedDuration,
+                    'thumbnailUrl': _truncate(history.thumbnailUrl, 60),
+                  },
+                ),
+                _DataSection(
+                  title: '播放时间',
+                  data: {
+                    'playedAt': history.playedAt.toIso8601String(),
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  String _formatDateTime(DateTime dt) {
+    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 }
 
