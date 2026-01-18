@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/ui/widgets/track_thumbnail.dart';
@@ -12,11 +13,13 @@ void main() {
         ..title = 'Test Track';
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: TrackThumbnail(
-              track: track,
-              size: 64,
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: TrackThumbnail(
+                track: track,
+                size: 64,
+              ),
             ),
           ),
         ),
@@ -34,11 +37,13 @@ void main() {
         ..title = 'Test Track';
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: TrackThumbnail(
-              track: track,
-              size: 48,
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: TrackThumbnail(
+                track: track,
+                size: 48,
+              ),
             ),
           ),
         ),
@@ -54,12 +59,14 @@ void main() {
         ..title = 'Test Track';
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: TrackThumbnail(
-              track: track,
-              size: 48,
-              borderRadius: 8,
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: TrackThumbnail(
+                track: track,
+                size: 48,
+                borderRadius: 8,
+              ),
             ),
           ),
         ),
@@ -77,20 +84,26 @@ void main() {
         ..title = 'Test Track';
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: TrackThumbnail(
-              track: track,
-              size: 48,
-              showPlayingIndicator: true,
-              isPlaying: true,
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: TrackThumbnail(
+                track: track,
+                size: 48,
+                showPlayingIndicator: true,
+                isPlaying: true,
+              ),
             ),
           ),
         ),
       );
 
-      // Should find the playing overlay (Stack with multiple children)
-      expect(find.byType(Stack), findsOneWidget);
+      // Should find the playing overlay (Stack inside TrackThumbnail with 2 children)
+      final stack = tester.widget<Stack>(find.descendant(
+        of: find.byType(TrackThumbnail),
+        matching: find.byType(Stack),
+      ));
+      expect(stack.children.length, equals(2)); // image + overlay
     });
 
     testWidgets('hides playing indicator when showPlayingIndicator is false', (tester) async {
@@ -100,13 +113,15 @@ void main() {
         ..title = 'Test Track';
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: TrackThumbnail(
-              track: track,
-              size: 48,
-              showPlayingIndicator: false,
-              isPlaying: true,
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: TrackThumbnail(
+                track: track,
+                size: 48,
+                showPlayingIndicator: false,
+                isPlaying: true,
+              ),
             ),
           ),
         ),
@@ -114,11 +129,12 @@ void main() {
 
       // NowPlayingIndicator should not be present when disabled
       // We check that the Stack only has one child (the image)
-      // Note: Positioned.child is non-nullable in Flutter, so all Positioned widgets have children
-      final stack = tester.widget<Stack>(find.byType(Stack).first);
-      final childCount = stack.children.length;
+      final stack = tester.widget<Stack>(find.descendant(
+        of: find.byType(TrackThumbnail),
+        matching: find.byType(Stack),
+      ));
       // Only the image should be visible (indicator hidden)
-      expect(childCount, equals(1));
+      expect(stack.children.length, equals(1));
     });
 
     testWidgets('applies default size of 48', (tester) async {
@@ -128,9 +144,11 @@ void main() {
         ..title = 'Test Track';
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: TrackThumbnail(track: track),
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: TrackThumbnail(track: track),
+            ),
           ),
         ),
       );
@@ -149,11 +167,13 @@ void main() {
         ..title = 'Test Track';
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SizedBox(
-              width: 320,
-              child: TrackCover(track: track),
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 320,
+                child: TrackCover(track: track),
+              ),
             ),
           ),
         ),
@@ -170,13 +190,15 @@ void main() {
         ..title = 'Test Track';
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SizedBox(
-              width: 200,
-              child: TrackCover(
-                track: track,
-                aspectRatio: 1.0,
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 200,
+                child: TrackCover(
+                  track: track,
+                  aspectRatio: 1.0,
+                ),
               ),
             ),
           ),
@@ -189,11 +211,13 @@ void main() {
 
     testWidgets('shows placeholder when no track provided', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SizedBox(
-              width: 320,
-              child: const TrackCover(),
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 320,
+                child: const TrackCover(),
+              ),
             ),
           ),
         ),
@@ -210,13 +234,15 @@ void main() {
         ..thumbnailUrl = 'https://example.com/track.jpg';
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SizedBox(
-              width: 320,
-              child: TrackCover(
-                track: track,
-                networkUrl: 'https://example.com/custom.jpg',
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 320,
+                child: TrackCover(
+                  track: track,
+                  networkUrl: 'https://example.com/custom.jpg',
+                ),
               ),
             ),
           ),
@@ -229,11 +255,13 @@ void main() {
 
     testWidgets('applies custom border radius', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SizedBox(
-              width: 320,
-              child: const TrackCover(borderRadius: 24),
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 320,
+                child: const TrackCover(borderRadius: 24),
+              ),
             ),
           ),
         ),
