@@ -86,6 +86,7 @@
 | DownloadPathUtils | `services/download/download_path_utils.dart` | 路径计算工具 |
 | PlaylistFolderMigrator | `services/download/playlist_folder_migrator.dart` | 歌单重命名时更新 Track 下载路径（不移动文件） |
 | WindowsDesktopService | `services/platform/windows_desktop_service.dart` | Windows 桌面特性（托盘、快捷键、窗口管理） |
+| RankingCacheService | `services/cache/ranking_cache_service.dart` | 首頁排行榜緩存（主動後台刷新，每小時更新） |
 
 > **详细音频系统文档见：** `audio_system` 记忆文件
 
@@ -102,6 +103,9 @@
 | windowsDesktopServiceProvider | `providers/windows_desktop_provider.dart` | Provider<WindowsDesktopService?> |
 | minimizeToTrayProvider | `providers/desktop_settings_provider.dart` | StateNotifierProvider<bool> |
 | globalHotkeysEnabledProvider | `providers/desktop_settings_provider.dart` | StateNotifierProvider<bool> |
+| rankingCacheServiceProvider | `services/cache/ranking_cache_service.dart` | Provider<RankingCacheService> |
+| homeBilibiliMusicRankingProvider | `providers/popular_provider.dart` | StreamProvider<List<Track>>（緩存版） |
+| homeYouTubeMusicRankingProvider | `providers/popular_provider.dart` | StreamProvider<List<Track>>（緩存版） |
 
 ## UI 结构
 
@@ -109,6 +113,7 @@
 | 页面 | 路径 | 文件 |
 |------|------|------|
 | 首页 | `/` | `ui/pages/home/home_page.dart` |
+| 探索 | `/explore` | `ui/pages/explore/explore_page.dart` |
 | 搜索 | `/search` | `ui/pages/search/search_page.dart` |
 | 播放器 | `/player` | `ui/pages/player/player_page.dart` |
 | 队列 | `/queue` | `ui/pages/queue/queue_page.dart` |

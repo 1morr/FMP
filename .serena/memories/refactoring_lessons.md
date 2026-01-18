@@ -98,6 +98,148 @@ Future<void> addTrackToPlaylist(int playlistId, Track track) async {
 
 ### 7. refreshPlaylist 必须清理被移除的 tracks (2026-01-18)
 
+**問題**：刷新導入的歌單時，如果遠程移除了某些歌曲，只更新了 `Playlist.trackIds`，但沒有清理對應 Track 的 `playlistIds` 和 `downloadPaths`。
+
+### 8. ListTile 的 leading 中放 Row 會導致滾動卡頓 (2026-01-19)
+
+**問題**：在 `ListTile.leading` 中放置 `Row`（包含排名數字和縮略圖）會導致列表滾動時卡頓。
+
+```dart
+// 錯誤 - 會導致額外的佈局計算
+ListTile(
+  leading: Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      SizedBox(width: 28, child: Text('$rank')),
+      const SizedBox(width: 12),
+      TrackThumbnail(track: track, size: 48),
+    ],
+  ),
+  ...
+)
+
+// 正確 - 使用扁平的自定義佈局
+InkWell(
+  onTap: () => ...,
+  child: Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+    child: Row(
+      children: [
+        SizedBox(width: 24, child: Text('$rank')),
+        const SizedBox(width: 12),
+        TrackThumbnail(track: track, size: 48, borderRadius: 4),
+        const SizedBox(width: 12),
+        Expanded(child: Column(...)),  // 標題和副標題
+        PopupMenuButton(...),  // 菜單按鈕
+      ],
+    ),
+  ),
+)
+```
+
+**原因**：`ListTile` 對 `leading` 有特殊的佈局約束處理。當 `leading` 中包含複雜組件（如 `Row`）時，會觸發額外的佈局計算，導致性能問題。
+
+**解決方案**：放棄 `ListTile`，使用 `InkWell` + `Padding` + `Row` 構建扁平的自定義佈局。
+
+### 9. 快速連續切歌的競態條件防護 (2026-01-19)
+
+**問題**：快速點擊多首歌曲時，會加載所有點擊過的歌曲而不是只加載最後一個，導致根據加載速度輪流播放。同時可能出現 `Player already exists` 錯誤。
+
+**解決方案**：
+
+1. **請求 ID 機制** - 每個播放請求都有唯一 ID，舊請求會被新請求取代
+2. **帶 ID 的鎖包裝類** - 確保只有正確的請求才能完成鎖
+3. **UI 立即更新** - 在任何 `await` 之前更新 UI
+4. **等待播放器 idle** - 設置新的 audio source 前確保播放器完全清理
+5. **finally 塊處理 isLoading** - 請求被 abort 時重置加載狀態
+
+**實現**：
+
+```dart
+// 帶有請求 ID 的鎖包裝類
+class _LockWithId {
+  final int requestId;
+  final Completer<void> completer;
+
+  _LockWithId(this.requestId) : completer = Completer<void>();
+
+  void completeIf(int expectedRequestId) {
+    if (requestId == expectedRequestId && !completer.isCompleted) {
+      completer.complete();
+    }
+  }
+}
+
+// AudioController
+class AudioController {
+  _LockWithId? _playLock;
+  int _playRequestId = 0;
+
+  Future<void> playTemporary(Track track) async {
+    // 【重要】立即更新 UI
+    _updatePlayingTrack(track);
+    _updateQueueState();
+
+    final requestId = ++_playRequestId;
+
+    // 立即完成舊鎖，讓舊請求可以快速退出
+    if (_playLock != null && !_playLock!.completer.isCompleted) {
+      _playLock!.completeIf(_playLock!.requestId);
+      await _playLock!.completer.future.timeout(...);
+    }
+
+    // 檢查是否被取代
+    if (requestId != _playRequestId) {
+      return;  // abort
+    }
+
+    _playLock = _LockWithId(requestId);
+    bool completedSuccessfully = false;
+
+    try {
+      // ... 播放邏輯，多處檢查 requestId ...
+      completedSuccessfully = true;
+    } finally {
+      _playLock?.completeIf(requestId);
+      // 如果沒有成功完成且被取代，重置 isLoading
+      if (!completedSuccessfully && requestId != _playRequestId) {
+        state = state.copyWith(isLoading: false);
+      }
+    }
+  }
+}
+```
+
+**AudioService 修復** - 等待播放器 idle 狀態：
+
+```dart
+// AudioService.playUrl/playFile
+await _player.stop();
+
+// 等待播放器進入 idle 狀態，確保底層播放器完全清理
+// 這對 just_audio_media_kit 特別重要，否則會出現 "Player already exists" 錯誤
+if (_player.processingState != ProcessingState.idle) {
+  try {
+    await _player.playerStateStream
+        .where((state) => state.processingState == ProcessingState.idle)
+        .first
+        .timeout(const Duration(milliseconds: 500));
+  } catch (e) {
+    // 超時也繼續
+  }
+}
+
+// 現在可以安全地設置新的 audio source
+await _player.setAudioSource(audioSource);
+```
+
+**關鍵點**：
+- 多個檢查點：在 `await` 操作後都要檢查 `requestId != _playRequestId`
+- 鎖的安全完成：使用 `completeIf` 而非直接 `complete()`
+- 正確的狀態管理：`completedSuccessfully` 標誌 + finally 塊處理。當 `leading` 中包含複雜組件（如 `Row`）時，會觸發額外的佈局計算，導致性能問題。
+
+**解決方案**：放棄 `ListTile`，使用 `InkWell` + `Padding` + `Row` 構建扁平的自定義佈局。
+
 **问题**：刷新导入的歌单时，如果远程移除了某些歌曲，只更新了 `Playlist.trackIds`，但没有清理对应 Track 的 `playlistIds` 和 `downloadPaths`。
 
 ```dart
