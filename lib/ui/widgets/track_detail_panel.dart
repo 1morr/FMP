@@ -267,7 +267,7 @@ class _DetailContent extends ConsumerWidget {
         const SizedBox(height: 16),
 
         // 简化的统计数据
-        _buildSimpleStats(context),
+        _buildSimpleStats(context, currentTrack),
 
         // 下一首
         if (nextTrack != null) ...[
@@ -298,8 +298,11 @@ class _DetailContent extends ConsumerWidget {
     );
   }
 
-  /// 简化的统计数据（只显示播放数、点赞数、收藏数）
-  Widget _buildSimpleStats(BuildContext context) {
+  /// 简化的统计数据（播放数、点赞数、收藏数）
+  /// YouTube 不显示收藏数（API 无法获取）
+  Widget _buildSimpleStats(BuildContext context, Track? track) {
+    final isYouTube = track?.sourceType == SourceType.youtube;
+    
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
@@ -315,12 +318,14 @@ class _DetailContent extends ConsumerWidget {
           Icons.thumb_up_rounded,
           detail.formattedLikeCount,
         ),
-        _buildStatChip(
-          context,
-          Icons.star_rounded,
-          detail.formattedFavoriteCount,
-          iconSize: 24,
-        ),
+        // YouTube 不显示收藏数
+        if (!isYouTube)
+          _buildStatChip(
+            context,
+            Icons.star_rounded,
+            detail.formattedFavoriteCount,
+            iconSize: 24,
+          ),
       ],
     );
   }

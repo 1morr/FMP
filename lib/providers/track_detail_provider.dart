@@ -6,11 +6,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/track.dart';
 import '../data/models/video_detail.dart';
 import '../data/sources/bilibili_source.dart';
+import '../data/sources/youtube_source.dart';
 import '../services/audio/audio_provider.dart';
 
 /// Bilibili 数据源 Provider
 final bilibiliSourceProvider = Provider<BilibiliSource>((ref) {
   return BilibiliSource();
+});
+
+/// YouTube 数据源 Provider
+final youtubeSourceProvider = Provider<YouTubeSource>((ref) {
+  return YouTubeSource();
 });
 
 /// 当前播放歌曲详情状态
@@ -43,27 +49,45 @@ class TrackDetailState {
 /// 歌曲详情 Notifier
 class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
   final BilibiliSource _bilibiliSource;
+  final YouTubeSource _youtubeSource;
   String? _currentSourceId;
+  SourceType? _currentSourceType;
 
-  TrackDetailNotifier(this._bilibiliSource) : super(const TrackDetailState());
+  TrackDetailNotifier(this._bilibiliSource, this._youtubeSource)
+      : super(const TrackDetailState());
 
   /// 加载歌曲详情
   Future<void> loadDetail(Track? track) async {
-    // 如果没有歌曲或不是 Bilibili 源，清空详情
-    if (track == null || track.sourceType != SourceType.bilibili) {
+    // 如果没有歌曲，清空详情
+    if (track == null) {
       if (state.detail != null) {
         state = const TrackDetailState();
       }
       _currentSourceId = null;
+      _currentSourceType = null;
+      return;
+    }
+
+    // 只支持 Bilibili 和 YouTube 源
+    if (track.sourceType != SourceType.bilibili &&
+        track.sourceType != SourceType.youtube) {
+      if (state.detail != null) {
+        state = const TrackDetailState();
+      }
+      _currentSourceId = null;
+      _currentSourceType = null;
       return;
     }
 
     // 如果是同一首歌曲，不重复加载
-    if (_currentSourceId == track.sourceId && state.detail != null) {
+    if (_currentSourceId == track.sourceId &&
+        _currentSourceType == track.sourceType &&
+        state.detail != null) {
       return;
     }
 
     _currentSourceId = track.sourceId;
+    _currentSourceType = track.sourceType;
     state = state.copyWith(isLoading: true, clearError: true);
 
     try {
@@ -75,14 +99,22 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
       }
 
       // 如果本地没有或加载失败，从网络获取
-      detail ??= await _bilibiliSource.getVideoDetail(track.sourceId);
+      if (detail == null) {
+        if (track.sourceType == SourceType.bilibili) {
+          detail = await _bilibiliSource.getVideoDetail(track.sourceId);
+        } else if (track.sourceType == SourceType.youtube) {
+          detail = await _youtubeSource.getVideoDetail(track.sourceId);
+        }
+      }
 
       // 确保加载的还是当前歌曲
-      if (_currentSourceId == track.sourceId) {
+      if (_currentSourceId == track.sourceId &&
+          _currentSourceType == track.sourceType) {
         state = TrackDetailState(detail: detail);
       }
     } catch (e) {
-      if (_currentSourceId == track.sourceId) {
+      if (_currentSourceId == track.sourceId &&
+          _currentSourceType == track.sourceType) {
         state = state.copyWith(
           isLoading: false,
           error: e.toString(),
@@ -119,13 +151,18 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
 
   /// 刷新当前歌曲详情
   Future<void> refresh() async {
-    if (state.detail == null) return;
+    if (state.detail == null || _currentSourceType == null) return;
     
-    final bvid = state.detail!.bvid;
+    final sourceId = state.detail!.bvid;
     state = state.copyWith(isLoading: true, clearError: true);
 
     try {
-      final detail = await _bilibiliSource.getVideoDetail(bvid);
+      VideoDetail detail;
+      if (_currentSourceType == SourceType.bilibili) {
+        detail = await _bilibiliSource.getVideoDetail(sourceId);
+      } else {
+        detail = await _youtubeSource.getVideoDetail(sourceId);
+      }
       state = TrackDetailState(detail: detail);
     } catch (e) {
       state = state.copyWith(
@@ -138,6 +175,7 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
   /// 清空详情
   void clear() {
     _currentSourceId = null;
+    _currentSourceType = null;
     state = const TrackDetailState();
   }
 }
@@ -146,7 +184,8 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
 final trackDetailProvider =
     StateNotifierProvider<TrackDetailNotifier, TrackDetailState>((ref) {
   final bilibiliSource = ref.watch(bilibiliSourceProvider);
-  final notifier = TrackDetailNotifier(bilibiliSource);
+  final youtubeSource = ref.watch(youtubeSourceProvider);
+  final notifier = TrackDetailNotifier(bilibiliSource, youtubeSource);
 
   // 监听当前播放的歌曲变化
   ref.listen<Track?>(currentTrackProvider, (previous, next) {
