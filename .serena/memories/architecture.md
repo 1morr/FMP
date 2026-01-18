@@ -79,7 +79,7 @@
 | AudioController | `services/audio/audio_provider.dart` | 高层音频控制（UI 使用） |
 | QueueManager | `services/audio/queue_manager.dart` | 播放队列管理 |
 | FmpAudioHandler | `services/audio/audio_handler.dart` | Android 媒体通知控制（audio_service） |
-| PlaylistService | `services/library/playlist_service.dart` | 歌单业务逻辑 |
+| PlaylistService | `services/library/playlist_service.dart` | 歌单业务逻辑（使用 getOrCreate 防止数据不同步，批量操作优化） |
 | SearchService | `services/search/search_service.dart` | 多源搜索 |
 | ImportService | `services/import/import_service.dart` | 外部导入 |
 | DownloadService | `services/download/download_service.dart` | 下载管理 |

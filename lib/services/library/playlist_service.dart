@@ -186,44 +186,80 @@ class PlaylistService with Logging {
 
   /// 删除歌单
   /// 
-  /// 同时清理不被其他歌单引用的孤立歌曲
+  /// 同时清理不被其他歌单引用的孤立歌曲。
+  /// 使用批量操作优化性能，避免逐个查询和保存。
   Future<void> deletePlaylist(int playlistId) async {
     // 获取歌单信息
     final playlist = await _playlistRepository.getById(playlistId);
     if (playlist == null) return;
 
     final trackIds = playlist.trackIds;
+    
+    if (trackIds.isEmpty) {
+      // 没有歌曲，直接删除歌单
+      await _playlistRepository.delete(playlistId);
+      return;
+    }
 
-    // 删除歌单
-    await _playlistRepository.delete(playlistId);
+    // 批量获取所有 tracks（一次数据库查询）
+    final tracks = await _trackRepository.getByIds(trackIds);
+    
+    // 分类处理
+    final toDelete = <int>[];
+    final toUpdate = <Track>[];
 
-    // 清理孤立歌曲：移除该歌单的下载路径，如果歌曲不属于任何歌单则删除
-    for (final trackId in trackIds) {
-      final track = await _trackRepository.getById(trackId);
-      if (track == null) continue;
-
+    for (final track in tracks) {
       // 移除该歌单的下载路径
       track.removeDownloadPath(playlistId);
 
       // 检查是否还属于其他歌单
       if (track.playlistIds.isEmpty) {
-        // 不属于任何歌单，删除歌曲记录
-        await _trackRepository.delete(trackId);
-        logDebug('Deleted orphan track: ${track.title}');
+        toDelete.add(track.id);
       } else {
-        // 还属于其他歌单，保存更新
-        await _trackRepository.save(track);
+        toUpdate.add(track);
       }
     }
+
+    // 使用单个事务批量操作（大幅提升性能）
+    await _isar.writeTxn(() async {
+      // 删除歌单
+      await _isar.playlists.delete(playlistId);
+      
+      // 批量删除孤儿 tracks
+      if (toDelete.isNotEmpty) {
+        await _isar.tracks.deleteAll(toDelete);
+        logDebug('Batch deleted ${toDelete.length} orphan tracks');
+      }
+      
+      // 批量更新其他 tracks
+      if (toUpdate.isNotEmpty) {
+        for (final track in toUpdate) {
+          track.updatedAt = DateTime.now();
+        }
+        await _isar.tracks.putAll(toUpdate);
+        logDebug('Batch updated ${toUpdate.length} tracks');
+      }
+    });
   }
 
   /// 添加歌曲到歌单
   /// 
-  /// 同时预计算并设置下载路径
+  /// 同时预计算并设置下载路径。
+  /// 使用 getOrCreate 确保使用数据库中的最新数据，避免缓存导致的数据不同步问题。
   Future<void> addTrackToPlaylist(int playlistId, Track track) async {
     final playlist = await _playlistRepository.getById(playlistId);
     if (playlist == null) {
       throw PlaylistNotFoundException(playlistId);
+    }
+
+    // 先获取数据库中最新的 track 或创建新的
+    // 这避免了使用缓存的旧 track 对象导致 playlistIds/downloadPaths 数据不同步
+    final existingTrack = await _trackRepository.getOrCreate(track);
+    
+    // 检查是否已在该歌单中
+    if (existingTrack.playlistIds.contains(playlistId)) {
+      logDebug('Track ${existingTrack.title} already in playlist $playlistId, skipping');
+      return;
     }
 
     // 计算下载路径
@@ -231,31 +267,45 @@ class PlaylistService with Logging {
     final downloadPath = DownloadPathUtils.computeDownloadPath(
       baseDir: baseDir,
       playlistName: playlist.name,
-      track: track,
+      track: existingTrack,
     );
 
-    // 设置下载路径
-    track.setDownloadPath(playlistId, downloadPath);
+    // 设置下载路径（在数据库返回的最新对象上操作）
+    existingTrack.setDownloadPath(playlistId, downloadPath);
 
     // 保存歌曲
-    final savedTrack = await _trackRepository.save(track);
+    final savedTrack = await _trackRepository.save(existingTrack);
     await _playlistRepository.addTrack(playlistId, savedTrack.id);
   }
 
   /// 批量添加歌曲到歌单
   /// 
-  /// 同时预计算并设置下载路径
+  /// 同时预计算并设置下载路径。
+  /// 使用 getOrCreateAll 确保使用数据库中的最新数据，避免缓存导致的数据不同步问题。
   Future<void> addTracksToPlaylist(int playlistId, List<Track> tracks) async {
     final playlist = await _playlistRepository.getById(playlistId);
     if (playlist == null) {
       throw PlaylistNotFoundException(playlistId);
     }
 
+    // 先获取数据库中最新的 tracks 或创建新的
+    final existingTracks = await _trackRepository.getOrCreateAll(tracks);
+    
+    // 过滤掉已在该歌单中的 tracks
+    final tracksToAdd = existingTracks
+        .where((t) => !t.playlistIds.contains(playlistId))
+        .toList();
+    
+    if (tracksToAdd.isEmpty) {
+      logDebug('All ${tracks.length} tracks already in playlist $playlistId, skipping');
+      return;
+    }
+
     // 获取下载基础目录
     final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
 
-    // 为每个歌曲计算并设置下载路径
-    for (final track in tracks) {
+    // 为每个歌曲计算并设置下载路径（在数据库返回的最新对象上操作）
+    for (final track in tracksToAdd) {
       final downloadPath = DownloadPathUtils.computeDownloadPath(
         baseDir: baseDir,
         playlistName: playlist.name,
@@ -265,9 +315,13 @@ class PlaylistService with Logging {
     }
 
     // 保存所有歌曲
-    final savedTracks = await _trackRepository.saveAll(tracks);
+    final savedTracks = await _trackRepository.saveAll(tracksToAdd);
     final trackIds = savedTracks.map((t) => t.id).toList();
     await _playlistRepository.addTracks(playlistId, trackIds);
+    
+    if (tracksToAdd.length < existingTracks.length) {
+      logDebug('Added ${tracksToAdd.length}/${existingTracks.length} tracks to playlist $playlistId (${existingTracks.length - tracksToAdd.length} already existed)');
+    }
   }
 
   /// 从歌单移除歌曲

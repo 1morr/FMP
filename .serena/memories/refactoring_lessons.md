@@ -72,9 +72,53 @@ String? get firstExistingPath async => ...;  // 编译错误
 Future<String?> getFirstExistingPath() async => ...;
 ```
 
+### 6. addTrackToPlaylist 必须使用 getOrCreate (2026-01-18)
+
+**问题**：使用 `save()` 直接保存传入的 track 对象会导致 playlistIds/downloadPaths 数据不同步。
+
+```dart
+// 错误 - 缓存的旧 track 数据会覆盖数据库最新数据
+Future<void> addTrackToPlaylist(int playlistId, Track track) async {
+  track.setDownloadPath(playlistId, path);
+  await _trackRepository.save(track);  // 可能用旧数据覆盖
+}
+
+// 正确 - 先从数据库获取最新数据
+Future<void> addTrackToPlaylist(int playlistId, Track track) async {
+  final existingTrack = await _trackRepository.getOrCreate(track);  // 获取最新数据
+  existingTrack.setDownloadPath(playlistId, path);
+  await _trackRepository.save(existingTrack);
+}
+```
+
+**场景**：
+1. Track 在歌单 A、B 中 → playlistIds=[A,B]
+2. 删除歌单 B → 数据库更新为 playlistIds=[A]
+3. 用缓存的旧 track 添加到歌单 C → 旧数据 playlistIds=[A,B,C] 覆盖数据库
+
+### 7. 批量操作优化删除性能 (2026-01-18)
+
+**问题**：逐个查询和保存导致删除大歌单极慢（N 首歌 = 2N 次数据库操作）。
+
+```dart
+// 优化前 - O(2N) 数据库操作
+for (final trackId in trackIds) {
+  final track = await _trackRepository.getById(trackId);  // N 次查询
+  await _trackRepository.save(track);  // N 次写入
+}
+
+// 优化后 - O(3) 数据库操作
+final tracks = await _trackRepository.getByIds(trackIds);  // 1 次批量查询
+await _isar.writeTxn(() async {
+  await _isar.playlists.delete(playlistId);  // 1 次删除
+  await _isar.tracks.deleteAll(toDelete);    // 1 次批量删除
+  await _isar.tracks.putAll(toUpdate);       // 1 次批量更新
+});
+```
+
 ---
 
-## 共享组件清单
+$1
 
 | 组件 | 位置 | 用途 |
 |------|------|------|
