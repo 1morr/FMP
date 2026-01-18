@@ -173,59 +173,6 @@ class TrackRepository with Logging {
     }
   }
 
-  /// 清理孤儿 Track（不被任何歌单/队列引用，且本地文件不存在的）
-  ///
-  /// [referencedTrackIds] 被歌单或播放队列引用的 Track ID 集合
-  /// 返回：删除的 Track 数量
-  /// 
-  /// 使用并行文件检查优化性能。
-  Future<int> cleanupOrphanTracks(Set<int> referencedTrackIds) async {
-    final allTracks = await getAll();
-    
-    // 筛选出未被引用的 tracks
-    final unreferencedTracks = allTracks
-        .where((t) => !referencedTrackIds.contains(t.id))
-        .toList();
-    
-    if (unreferencedTracks.isEmpty) {
-      return 0;
-    }
-    
-    logDebug('Checking ${unreferencedTracks.length} unreferenced tracks for cleanup');
-
-    // 并行检查所有文件是否存在（大幅提升性能）
-    final fileExistsFutures = unreferencedTracks
-        .map((track) => _hasAnyExistingFile(track))
-        .toList();
-    
-    final fileExistsResults = await Future.wait(fileExistsFutures);
-    
-    // 收集需要删除的 track IDs
-    final toDelete = <int>[];
-    for (var i = 0; i < unreferencedTracks.length; i++) {
-      if (!fileExistsResults[i]) {
-        toDelete.add(unreferencedTracks[i].id);
-      }
-    }
-
-    if (toDelete.isNotEmpty) {
-      await deleteAll(toDelete);
-      logDebug('Cleaned up ${toDelete.length} orphan tracks');
-    }
-
-    return toDelete.length;
-  }
-  
-  /// 检查 track 是否有任何存在的下载文件
-  Future<bool> _hasAnyExistingFile(Track track) async {
-    for (final path in track.downloadPaths) {
-      if (await File(path).exists()) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   // ============================================================
   // Track 引用模式支持方法
   // ============================================================
@@ -380,55 +327,5 @@ class TrackRepository with Logging {
       }
     }
     return false;
-  }
-
-  /// 清理单个孤儿 Track（如果不被引用且没有下载文件）
-  ///
-  /// 返回 true 表示已删除，false 表示保留
-  Future<bool> cleanupIfOrphan(int trackId) async {
-    final track = await getById(trackId);
-    if (track == null) {
-      logDebug('Track $trackId not found, skipping cleanup');
-      return false;
-    }
-
-    // 检查是否被引用
-    if (await isReferenced(trackId)) {
-      logDebug('Track ${track.title} is still referenced, keeping');
-      return false;
-    }
-
-    // 检查是否有下载文件
-    if (await hasDownloadedFiles(track)) {
-      logDebug('Track ${track.title} has downloaded files, keeping');
-      return false;
-    }
-
-    // 可以安全删除
-    await delete(trackId);
-    logDebug('Cleaned up orphan track: ${track.title} (id: $trackId)');
-    return true;
-  }
-
-  /// 批量清理孤儿 Track
-  ///
-  /// 对给定的 Track ID 列表逐个检查并清理孤儿。
-  /// 返回实际删除的数量。
-  Future<int> cleanupOrphanTracksById(List<int> trackIds) async {
-    if (trackIds.isEmpty) return 0;
-
-    logDebug('cleanupOrphanTracksById: checking ${trackIds.length} tracks');
-    int deletedCount = 0;
-
-    for (final trackId in trackIds) {
-      if (await cleanupIfOrphan(trackId)) {
-        deletedCount++;
-      }
-    }
-
-    if (deletedCount > 0) {
-      logDebug('Cleaned up $deletedCount orphan tracks');
-    }
-    return deletedCount;
   }
 }

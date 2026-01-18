@@ -463,12 +463,8 @@ class QueueManager with Logging {
   }
 
   /// 移除指定位置的歌曲
-  ///
-  /// [cleanup] 如果为 true，会检查并清理孤儿 Track
-  Future<void> removeAt(int index, {bool cleanup = false}) async {
+  Future<void> removeAt(int index) async {
     if (index < 0 || index >= _tracks.length) return;
-
-    final removedTrack = _tracks[index];
 
     // 从 shuffle order 中移除
     if (isShuffleEnabled) {
@@ -486,11 +482,6 @@ class QueueManager with Logging {
 
     await _persistQueue();
     _notifyStateChanged();
-
-    // 可选：清理孤儿 Track
-    if (cleanup) {
-      await _trackRepository.cleanupIfOrphan(removedTrack.id);
-    }
   }
 
   /// 移除指定歌曲
@@ -576,13 +567,8 @@ class QueueManager with Logging {
   }
 
   /// 清空队列
-  ///
-  /// [cleanupOrphans] 如果为 true，会检查并清理所有孤儿 Track
-  Future<void> clear({bool cleanupOrphans = false}) async {
+  Future<void> clear() async {
     logInfo('Clearing queue');
-
-    // 保存要清理的 Track ID 列表
-    final trackIdsToClean = cleanupOrphans ? _tracks.map((t) => t.id).toList() : <int>[];
 
     _tracks.clear();
     _currentIndex = 0;
@@ -595,11 +581,6 @@ class QueueManager with Logging {
     }
 
     _notifyStateChanged();
-
-    // 可选：清理孤儿 Track
-    if (cleanupOrphans && trackIdsToClean.isNotEmpty) {
-      await _trackRepository.cleanupOrphanTracksById(trackIdsToClean);
-    }
   }
 
   // ========== 播放模式 ==========
