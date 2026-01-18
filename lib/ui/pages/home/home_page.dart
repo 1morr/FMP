@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/services/image_loading_service.dart';
 import '../../../data/models/play_history.dart';
+import '../../../data/models/track.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../providers/play_history_provider.dart';
+import '../../../providers/popular_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
 import '../../widgets/track_thumbnail.dart';
@@ -32,6 +34,9 @@ class _HomePageState extends ConsumerState<HomePage> {
             children: [
               const SizedBox(height: 8),
 
+              // 热门推荐
+              _buildPopularPreview(context, colorScheme),
+
               // 我的歌单
               _buildRecentPlaylists(context, colorScheme),
 
@@ -48,6 +53,189 @@ class _HomePageState extends ConsumerState<HomePage> {
         ),
       ),
     );
+  }
+
+  Widget _buildPopularPreview(BuildContext context, ColorScheme colorScheme) {
+    final popularAsync = ref.watch(homePopularPreviewProvider);
+
+    return popularAsync.when(
+      loading: () => _buildSectionLoading(context, '热门推荐'),
+      error: (e, s) => const SizedBox.shrink(),
+      data: (tracks) {
+        if (tracks.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Row(
+                children: [
+                  Text(
+                    '热门推荐',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      'Bilibili',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () => context.go(RoutePaths.explore),
+                    child: const Text('更多'),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(
+              height: 160,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: tracks.length,
+                separatorBuilder: (context, index) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final track = tracks[index];
+                  return _buildPopularItem(context, track, colorScheme);
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildPopularItem(
+    BuildContext context,
+    Track track,
+    ColorScheme colorScheme,
+  ) {
+    return SizedBox(
+      width: 120,
+      height: 160,
+      child: InkWell(
+        onTap: () {
+          ref.read(audioControllerProvider.notifier).playTemporary(track);
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 封面
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: colorScheme.surfaceContainerHighest,
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  track.thumbnailUrl != null
+                      ? ImageLoadingService.loadImage(
+                          networkUrl: track.thumbnailUrl,
+                          placeholder: Icon(
+                            Icons.local_fire_department,
+                            size: 40,
+                            color: colorScheme.outline,
+                          ),
+                          fit: BoxFit.cover,
+                        )
+                      : Icon(
+                          Icons.local_fire_department,
+                          size: 40,
+                          color: colorScheme.outline,
+                        ),
+                  // 播放量标签
+                  if (track.viewCount != null)
+                    Positioned(
+                      right: 4,
+                      bottom: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.play_arrow,
+                              size: 12,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              _formatViewCount(track.viewCount!),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            // 标题
+            Text(
+              track.title,
+              style: Theme.of(context).textTheme.bodySmall,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionLoading(BuildContext context, String title) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+        ),
+        const SizedBox(
+          height: 160,
+          child: Center(
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatViewCount(int count) {
+    if (count >= 100000000) {
+      return '${(count / 100000000).toStringAsFixed(1)}亿';
+    } else if (count >= 10000) {
+      return '${(count / 10000).toStringAsFixed(1)}万';
+    }
+    return count.toString();
   }
 
   Widget _buildRecentPlaylists(BuildContext context, ColorScheme colorScheme) {
