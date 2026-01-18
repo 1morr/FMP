@@ -134,6 +134,39 @@ class QueueManager with Logging {
     return upcoming;
   }
 
+  /// 从指定索引获取接下来要播放的歌曲列表（考虑 shuffle 模式）
+  /// 用于临时播放模式下显示恢复后将要播放的歌曲
+  List<Track> getUpcomingTracksFromIndex(int fromIndex, {int count = 5}) {
+    if (_tracks.isEmpty) return [];
+
+    final safeIndex = fromIndex.clamp(0, _tracks.length - 1);
+    final List<Track> upcoming = [];
+    int addedCount = 0;
+
+    if (isShuffleEnabled && _shuffleOrder.isNotEmpty) {
+      // 随机模式：找到对应的 shuffle 索引，然后获取后续歌曲
+      // 注意：这里从 safeIndex 对应的 shuffle 位置开始
+      final shuffleIdx = _shuffleOrder.indexOf(safeIndex);
+      if (shuffleIdx >= 0) {
+        for (var i = shuffleIdx; i < _shuffleOrder.length && addedCount < count; i++) {
+          final trackIndex = _shuffleOrder[i];
+          if (trackIndex >= 0 && trackIndex < _tracks.length) {
+            upcoming.add(_tracks[trackIndex]);
+            addedCount++;
+          }
+        }
+      }
+    } else {
+      // 顺序模式：从指定索引开始获取歌曲
+      for (var i = safeIndex; i < _tracks.length && addedCount < count; i++) {
+        upcoming.add(_tracks[i]);
+        addedCount++;
+      }
+    }
+
+    return upcoming;
+  }
+
   QueueManager({
     required QueueRepository queueRepository,
     required TrackRepository trackRepository,

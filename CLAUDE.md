@@ -173,7 +173,10 @@ void main() async {
 When clicking a song in search/playlist pages, it plays temporarily without modifying the queue. After completion, the original queue position is restored (minus 10 seconds).
 
 - Uses `playTemporary()` method, NOT `playTrack()`
-- Saved state: `_savedQueue`, `_savedIndex`, `_savedPosition`, `_savedIsPlaying`
+- Saved state: `_temporaryState` with `index`, `position`, `isPlaying` (does NOT save queue content)
+- On restore: Uses current queue directly, user's queue modifications during temporary play are preserved
+- Index is clamped to valid range if queue was modified
+- **Important**: All async methods that affect `isLoading` MUST reset it in `finally` block to handle all exit paths
 
 ### Mute Toggle
 Volume mute must use `controller.toggleMute()`, NOT `setVolume(0)` / `setVolume(1.0)`. The mute logic remembers the previous volume in `_volumeBeforeMute`.

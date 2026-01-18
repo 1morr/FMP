@@ -133,19 +133,28 @@ Future<void> setVolume(double volume) async {
 
 **单曲循环优先：** 如果设置了单曲循环模式（`LoopMode.one`），临时播放的歌曲会继续循环播放，而不是恢复原队列。只有在非单曲循环模式下，临时播放结束后才会恢复原队列
 
+**设计决策（2026-01-19 简化）：**
+- **不保存队列内容** - 只保存索引和位置，恢复时直接使用当前队列
+- **用户可在临时播放期间修改队列** - 修改会被保留，不会被覆盖
+- **索引自动限制** - 恢复时如果保存的索引超出当前队列范围，会 clamp 到有效范围
+
 **相关字段：**
 ```dart
 bool _isTemporaryPlay = false;
-List<Track>? _savedQueue;
-int? _savedIndex;
-Duration? _savedPosition;
-bool _savedIsPlaying = false;
+_TemporaryPlayState? _temporaryState;
+
+/// 临时播放保存的状态（不保存队列内容）
+class _TemporaryPlayState {
+  final int index;        // 保存的队列索引
+  final Duration position; // 保存的播放位置
+  final bool isPlaying;   // 保存的播放状态
+}
 ```
 
 **流程：**
-1. `playTemporary(track)` - 保存当前状态，播放临时歌曲
+1. `playTemporary(track)` - 保存当前索引和位置（不保存队列），播放临时歌曲
 2. 歌曲完成时 `_onTrackCompleted` 检测到 `_isTemporaryPlay`
-3. `_restoreSavedState()` - 恢复队列，回退10秒，如果之前在播放则继续播放
+3. `_restoreSavedState()` - 直接使用当前队列，恢复到保存的索引位置，回退10秒，如果之前在播放则继续播放
 
 ### 3. 静音切换
 **实现位置：** 仅在 AudioController（不在 AudioService）
