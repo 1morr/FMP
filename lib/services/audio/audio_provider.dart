@@ -450,11 +450,41 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       _updateQueueState();
 
       logDebug('Temporary playback started for: ${track.title}');
+    } on just_audio.PlayerInterruptedException catch (e) {
+      // 播放被中断（通常是因为新的播放请求），不作为错误处理
+      logDebug('Temporary playback interrupted for ${track.title}: ${e.message}');
+      state = state.copyWith(isLoading: false);
+    } on BilibiliApiException catch (e) {
+      // Bilibili API 错误（如视频不可用、版权限制等）
+      logWarning('Bilibili API error for temporary track ${track.title}: ${e.message}');
+
+      // 临时播放失败，尝试恢复原队列
+      state = state.copyWith(isLoading: false);
+
+      if (e.isUnavailable || e.isGeoRestricted) {
+        _toastService.showWarning('无法播放「${track.title}」');
+      } else {
+        _toastService.showError('播放失败: ${e.message}');
+      }
+
+      // 如果有保存的状态，尝试恢复
+      if (_temporaryState != null) {
+        await _restoreSavedState();
+      } else {
+        _isTemporaryPlay = false;
+      }
     } catch (e, stack) {
       logError('Failed to play temporary track: ${track.title}', e, stack);
-      _isTemporaryPlay = false;
-      _temporaryState = null;
       state = state.copyWith(error: e.toString(), isLoading: false);
+      _toastService.showError('播放失败: ${track.title}');
+
+      // 如果有保存的状态，尝试恢复
+      if (_temporaryState != null) {
+        await _restoreSavedState();
+      } else {
+        _isTemporaryPlay = false;
+        _temporaryState = null;
+      }
     }
   }
 

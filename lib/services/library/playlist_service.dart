@@ -5,8 +5,6 @@ import '../../data/models/playlist.dart';
 import 'package:isar/isar.dart';
 import 'package:path/path.dart' as p;
 
-import '../../core/extensions/playlist_extensions.dart';
-import '../../core/extensions/track_extensions.dart';
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
 import '../../data/repositories/playlist_repository.dart';
@@ -315,7 +313,7 @@ class PlaylistService with Logging {
   /// 获取歌单封面数据（包含本地路径和网络 URL）
   ///
   /// 优先级：
-  /// 1. 本地歌单封面（通过扩展方法检查文件实际存在）
+  /// 1. 本地歌单封面（异步检查文件实际存在）
   /// 2. 第一首已下载歌曲的本地封面
   /// 3. 歌单的网络封面 URL
   /// 4. 第一首歌曲的网络封面 URL
@@ -326,8 +324,12 @@ class PlaylistService with Logging {
     String? localPath;
     String? networkUrl;
 
-    // 使用扩展方法检查本地封面是否实际存在
-    localPath = playlist.localCoverPath;
+    // 异步检查歌单本地封面是否存在
+    if (playlist.coverLocalPath != null) {
+      if (await File(playlist.coverLocalPath!).exists()) {
+        localPath = playlist.coverLocalPath;
+      }
+    }
 
     // 设置网络封面 URL
     networkUrl = playlist.coverUrl;
@@ -336,10 +338,14 @@ class PlaylistService with Logging {
     if (localPath == null && networkUrl == null && playlist.trackIds.isNotEmpty) {
       final firstTrack = await _trackRepository.getById(playlist.trackIds.first);
       if (firstTrack != null) {
-        // 检查第一首歌的本地封面
-        final trackLocalCover = firstTrack.localCoverPath;
-        if (trackLocalCover != null) {
-          localPath = trackLocalCover;
+        // 异步检查第一首歌的本地封面
+        for (final downloadPath in firstTrack.downloadPaths) {
+          final dir = Directory(downloadPath).parent;
+          final coverPath = '${dir.path}/cover.jpg';
+          if (await File(coverPath).exists()) {
+            localPath = coverPath;
+            break;
+          }
         }
         // 设置网络封面
         if (firstTrack.thumbnailUrl != null) {
