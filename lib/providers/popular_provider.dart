@@ -105,14 +105,14 @@ class RankingVideosNotifier extends StateNotifier<RankingState> {
 final homeBilibiliMusicRankingProvider = StreamProvider<List<Track>>((ref) async* {
   final service = ref.watch(rankingCacheServiceProvider);
 
-  // 發送當前緩存（如果有）
+  // 發送當前緩存的前 10 首（如果有）
   if (service.bilibiliTracks.isNotEmpty) {
-    yield service.bilibiliTracks;
+    yield service.bilibiliTracks.take(10).toList();
   }
 
   // 監聽後續更新
   await for (final _ in service.stateChanges) {
-    yield service.bilibiliTracks;
+    yield service.bilibiliTracks.take(10).toList();
   }
 });
 
@@ -207,12 +207,44 @@ class YouTubeTrendingNotifier extends StateNotifier<YouTubeTrendingState> {
 final homeYouTubeMusicRankingProvider = StreamProvider<List<Track>>((ref) async* {
   final service = ref.watch(rankingCacheServiceProvider);
 
-  // 發送當前緩存（如果有）
+  // 發送當前緩存的前 10 首（如果有）
+  if (service.youtubeTracks.isNotEmpty) {
+    yield service.youtubeTracks.take(10).toList();
+  }
+
+  // 監聯後續更新
+  await for (final _ in service.stateChanges) {
+    yield service.youtubeTracks.take(10).toList();
+  }
+});
+
+// ==================== 緩存排行榜（探索頁使用） ====================
+
+/// Bilibili 完整緩存排行榜 Provider（探索頁使用）
+final cachedBilibiliRankingProvider = StreamProvider<List<Track>>((ref) async* {
+  final service = ref.watch(rankingCacheServiceProvider);
+
+  // 發送當前完整緩存（如果有）
+  if (service.bilibiliTracks.isNotEmpty) {
+    yield service.bilibiliTracks;
+  }
+
+  // 監聽後續更新
+  await for (final _ in service.stateChanges) {
+    yield service.bilibiliTracks;
+  }
+});
+
+/// YouTube 完整緩存排行榜 Provider（探索頁使用）
+final cachedYouTubeRankingProvider = StreamProvider<List<Track>>((ref) async* {
+  final service = ref.watch(rankingCacheServiceProvider);
+
+  // 發送當前完整緩存（如果有）
   if (service.youtubeTracks.isNotEmpty) {
     yield service.youtubeTracks;
   }
 
-  // 監聯後續更新
+  // 監聽後續更新
   await for (final _ in service.stateChanges) {
     yield service.youtubeTracks;
   }
