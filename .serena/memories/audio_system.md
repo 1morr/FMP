@@ -366,7 +366,7 @@ void _onPlayerStateChanged(just_audio.PlayerState playerState) {
   state = state.copyWith(
     isPlaying: playerState.playing,
     isBuffering: playerState.processingState == just_audio.ProcessingState.buffering,
-    // 加载中时保持 true，防止播放器事件覆盖 URL 获取期间的状态
+    // 防止播放器事件覆盖 URL 获取期间的状态
     isLoading: _context.isInLoadingState || 
                playerState.processingState == just_audio.ProcessingState.loading,
     processingState: playerState.processingState,
@@ -374,7 +374,7 @@ void _onPlayerStateChanged(just_audio.PlayerState playerState) {
 }
 
 void _onPositionChanged(Duration position) {
-  // 加载中忽略位置更新（防止旧歌曲位置覆盖已重置的进度条）
+  // 加载期间忽略位置更新（防止旧歌曲位置覆盖已重置的进度条）
   if (_context.isInLoadingState) return;
   
   state = state.copyWith(position: position);

@@ -237,13 +237,13 @@ This prevents race conditions like: temporary play loading → user clicks next 
 ```dart
 void _onPlayerStateChanged(just_audio.PlayerState playerState) {
   state = state.copyWith(
-    isLoading: _manualLoading || _context.isInLoadingState || 
+    isLoading: _context.isInLoadingState || 
                playerState.processingState == ProcessingState.loading,
   );
 }
 
 void _onPositionChanged(Duration position) {
-  if (_manualLoading || _context.isInLoadingState) return;
+  if (_context.isInLoadingState) return;
   state = state.copyWith(position: position);
 }
 ```
