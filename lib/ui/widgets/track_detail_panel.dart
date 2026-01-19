@@ -11,6 +11,7 @@ import '../../providers/download/download_providers.dart';
 import '../../providers/download/file_exists_cache.dart';
 import '../../providers/track_detail_provider.dart';
 import '../../services/audio/audio_provider.dart';
+import '../../services/platform/url_launcher_service.dart';
 import 'track_thumbnail.dart';
 
 /// 右侧歌曲详情面板（桌面模式）
@@ -178,56 +179,11 @@ class _DetailContent extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        // 封面
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: AspectRatio(
-            aspectRatio: 16 / 9,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                TrackCover(
-                  track: currentTrack,
-                  networkUrl: detail.coverUrl,
-                  aspectRatio: 16 / 9,
-                  borderRadius: 0,
-                ),
-                // 时长标签
-                Positioned(
-                  right: 10,
-                  bottom: 10,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.75),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      detail.formattedDuration,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-                // 加载指示器
-                if (detailState.isLoading)
-                  Positioned.fill(
-                    child: Container(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      child: const Center(
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
+        // 封面（可点击打开视频）
+        _ClickableCover(
+          track: currentTrack,
+          detail: detail,
+          detailState: detailState,
         ),
 
         const SizedBox(height: 20),
@@ -245,10 +201,15 @@ class _DetailContent extends ConsumerWidget {
 
         const SizedBox(height: 12),
 
-        // UP主信息
+        // UP主信息（头像可点击进入频道）
         Row(
           children: [
-            _buildAvatar(context, currentTrack, detail, cache, baseDir),
+            _ClickableAvatar(
+              track: currentTrack,
+              detail: detail,
+              cache: cache,
+              baseDir: baseDir,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -427,15 +388,145 @@ class _DetailContent extends ConsumerWidget {
       ],
     );
   }
+}
 
-  /// 構建 UP 主頭像（優先使用本地頭像）
-  Widget _buildAvatar(BuildContext context, Track? track, VideoDetail detail, FileExistsCache cache, String? baseDir) {
-    // 使用 ImageLoadingService 加載頭像（集成緩存）
-    // 優先級：本地頭像 → 網絡頭像 → 占位符
-    return ImageLoadingService.loadAvatar(
-      localPath: track?.getLocalAvatarPath(cache, baseDir: baseDir),
-      networkUrl: detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
-      size: 32,
+/// 可点击的封面（点击打开视频）
+class _ClickableCover extends StatefulWidget {
+  final Track? track;
+  final VideoDetail detail;
+  final TrackDetailState detailState;
+
+  const _ClickableCover({
+    required this.track,
+    required this.detail,
+    required this.detailState,
+  });
+
+  @override
+  State<_ClickableCover> createState() => _ClickableCoverState();
+}
+
+class _ClickableCoverState extends State<_ClickableCover> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.track != null
+            ? () => UrlLauncherService.instance.openVideo(widget.track!)
+            : null,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                TrackCover(
+                  track: widget.track,
+                  networkUrl: widget.detail.coverUrl,
+                  aspectRatio: 16 / 9,
+                  borderRadius: 0,
+                ),
+                // 时长标签
+                Positioned(
+                  right: 10,
+                  bottom: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.75),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      widget.detail.formattedDuration,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+                // 加载指示器
+                if (widget.detailState.isLoading)
+                  Positioned.fill(
+                    child: Container(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      child: const Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  ),
+                // 悬停时显示的遮罩提示（仅桌面）
+                if (!widget.detailState.isLoading)
+                  AnimatedOpacity(
+                    opacity: _isHovered ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 150),
+                    child: Container(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      child: const Center(
+                        child: Icon(
+                          Icons.open_in_new,
+                          color: Colors.white,
+                          size: 48,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 可点击的头像（点击进入 UP主/频道）
+class _ClickableAvatar extends StatelessWidget {
+  final Track? track;
+  final VideoDetail detail;
+  final FileExistsCache cache;
+  final String? baseDir;
+
+  const _ClickableAvatar({
+    required this.track,
+    required this.detail,
+    required this.cache,
+    required this.baseDir,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: track != null
+            ? () => UrlLauncherService.instance.openChannel(track!)
+            : null,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant,
+              width: 1,
+            ),
+          ),
+          child: ImageLoadingService.loadAvatar(
+            localPath: track?.getLocalAvatarPath(cache, baseDir: baseDir),
+            networkUrl: detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
+            size: 32,
+          ),
+        ),
+      ),
     );
   }
 }
