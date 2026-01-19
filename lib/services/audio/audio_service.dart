@@ -5,11 +5,16 @@ import 'package:audio_session/audio_session.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
+import '../saf/saf_service.dart';
+import 'saf_audio_source.dart';
 
 /// 音频播放服务（单曲模式）
 /// 只负责播放单首歌曲，队列逻辑由 QueueManager 管理
 class AudioService with Logging {
+  final SafService _safService;
   final AudioPlayer _player = AudioPlayer();
+  
+  AudioService({required SafService safService}) : _safService = safService;
 
   // 完成事件控制器
   final _completedController = StreamController<void>.broadcast();
@@ -350,8 +355,8 @@ class AudioService with Logging {
         }
       }
 
-      // 设置新的文件（带 MediaItem）
-      final audioSource = _createFileAudioSource(filePath, track: track);
+      // 设置新的文件（带 MediaItem，支持 content:// URI）
+      final audioSource = await _createFileAudioSource(filePath, track: track);
       final duration = await _player.setAudioSource(audioSource);
 
       // 确保播放并等待状态确认
@@ -365,18 +370,30 @@ class AudioService with Logging {
     }
   }
 
-  /// 创建带有 MediaItem 元数据的本地文件 AudioSource
-  AudioSource _createFileAudioSource(String filePath, {Track? track}) {
-    final mediaItem = track != null
-        ? MediaItem(
-            id: track.uniqueKey,
-            title: track.title,
-            artist: track.artist ?? '未知艺术家',
-            artUri: track.thumbnailUrl != null ? Uri.parse(track.thumbnailUrl!) : null,
-            duration: track.durationMs != null ? Duration(milliseconds: track.durationMs!) : null,
-          )
-        : null;
+  /// 创建 MediaItem 元数据
+  MediaItem? _createMediaItem(Track? track) {
+    if (track == null) return null;
+    return MediaItem(
+      id: track.uniqueKey,
+      title: track.title,
+      artist: track.artist ?? '未知艺术家',
+      artUri: track.thumbnailUrl != null ? Uri.parse(track.thumbnailUrl!) : null,
+      duration: track.durationMs != null ? Duration(milliseconds: track.durationMs!) : null,
+    );
+  }
 
+  /// 创建带有 MediaItem 元数据的本地文件 AudioSource
+  /// 
+  /// 支持普通文件路径和 Android SAF content:// URI
+  Future<AudioSource> _createFileAudioSource(String filePath, {Track? track}) async {
+    final mediaItem = _createMediaItem(track);
+
+    if (SafService.isContentUri(filePath)) {
+      // Android SAF content:// URI
+      return SafAudioSource.create(filePath, _safService, tag: mediaItem);
+    }
+
+    // 普通文件路径
     return AudioSource.file(
       filePath,
       tag: mediaItem,
@@ -388,7 +405,7 @@ class AudioService with Logging {
   Future<Duration?> setFile(String filePath, {Track? track}) async {
     logDebug('Setting file: $filePath');
     try {
-      final audioSource = _createFileAudioSource(filePath, track: track);
+      final audioSource = await _createFileAudioSource(filePath, track: track);
       final duration = await _player.setAudioSource(audioSource);
       logDebug('File set, duration: $duration');
       return duration;
