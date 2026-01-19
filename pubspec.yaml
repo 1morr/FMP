@@ -41,6 +41,7 @@ dependencies:
 
   # 路由
   go_router: ^14.8.1
+  url_launcher: ^6.3.1
 
   # UI 组件
   flutter_reorderable_list: ^1.3.1
