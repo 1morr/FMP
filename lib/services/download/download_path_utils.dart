@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../data/models/track.dart';
 import '../../data/repositories/settings_repository.dart';
+import '../saf/saf_service.dart';
 
 /// 下载路径计算工具类
 ///
@@ -123,8 +124,10 @@ class DownloadPathUtils {
   ///
   /// 优先级：
   /// 1. 用户自定义目录（settings.customDownloadDir）
-  /// 2. Android: /storage/emulated/0/Music/FMP
+  /// 2. Android: 返回空字符串（强制用户通过 SAF 选择目录）
   /// 3. Windows/其他: Documents/FMP
+  ///
+  /// 返回空字符串表示未设置下载目录，调用方应提示用户先设置
   static Future<String> getDefaultBaseDir(SettingsRepository settingsRepo) async {
     final settings = await settingsRepo.get();
 
@@ -133,21 +136,28 @@ class DownloadPathUtils {
       return settings.customDownloadDir!;
     }
 
-    // 2. Android: 外部存储 Music 目录
+    // 2. Android: 返回空字符串，强制用户选择目录
+    // 由于 Android Scoped Storage 限制，无法直接写入公共目录
     if (Platform.isAndroid) {
-      final extDir = await getExternalStorageDirectory();
-      if (extDir != null) {
-        final musicDir = p.join(extDir.parent.parent.parent.parent.path, 'Music', 'FMP');
-        return musicDir;
-      }
-      final appDir = await getApplicationDocumentsDirectory();
-      return p.join(appDir.path, 'FMP');
+      return '';
     }
 
     // 3. Windows/其他: Documents 目录
     final docsDir = await getApplicationDocumentsDirectory();
     return p.join(docsDir.path, 'FMP');
   }
+
+  /// 检查下载目录是否已设置
+  ///
+  /// Android 必须通过 SAF 选择目录才能下载
+  /// Windows 有默认目录，始终返回 true
+  static Future<bool> isDownloadDirConfigured(SettingsRepository settingsRepo) async {
+    final baseDir = await getDefaultBaseDir(settingsRepo);
+    return baseDir.isNotEmpty;
+  }
+
+  /// 判断路径是否为 SAF content:// URI
+  static bool isContentUri(String path) => SafService.isContentUri(path);
 
   /// 計算頭像的存儲路徑
   ///
