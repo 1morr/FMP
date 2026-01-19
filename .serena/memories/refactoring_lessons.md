@@ -298,60 +298,54 @@ isLoading: playerState.processingState == just_audio.ProcessingState.loading,
 2. `_audioService.stop()` 觸發 `_onPlayerStateChanged`，把 `isLoading` 設回 `false`
 3. `_onPositionChanged` 持續接收舊歌曲的位置，覆蓋 `position: Duration.zero`
 
-**解決方案**：引入 `_manualLoading` 標誌
+**解決方案**：使用 `_context.isInLoadingState`（`activeRequestId > 0`）
 
 ```dart
 class AudioController {
-  // 手動加載標誌 - 用於 URL 獲取期間保持 loading 狀態
-  bool _manualLoading = false;
+  // 統一的播放上下文
+  _PlaybackContext _context = const _PlaybackContext();
 
   void _onPlayerStateChanged(just_audio.PlayerState playerState) {
     state = state.copyWith(
       isPlaying: playerState.playing,
       isBuffering: playerState.processingState == just_audio.ProcessingState.buffering,
-      // 手動標誌優先，防止播放器事件覆蓋
-      isLoading: _manualLoading || playerState.processingState == just_audio.ProcessingState.loading,
+      // 使用 _context.isInLoadingState 防止播放器事件覆蓋
+      isLoading: _context.isInLoadingState || playerState.processingState == just_audio.ProcessingState.loading,
       processingState: playerState.processingState,
     );
   }
 
   void _onPositionChanged(Duration position) {
-    // 手動加載期間忽略位置更新（防止舊歌曲位置覆蓋已重置的進度條）
-    if (_manualLoading) return;
+    // 加載期間忽略位置更新
+    if (_context.isInLoadingState) return;
     state = state.copyWith(position: position);
     // ...
   }
 
-  Future<void> _playTrack(Track track) async {
-    // 1. 保存當前狀態（playTemporary 需要）
-    final savedPosition = _audioService.position;
-    final savedIsPlaying = _audioService.isPlaying;
-
-    // 2. 立即更新 UI
-    _updatePlayingTrack(track);
-    _updateQueueState();
-
-    // 3. 設置手動加載標誌，防止播放器事件覆蓋
-    _manualLoading = true;
+  int _enterLoadingState() {
     state = state.copyWith(isLoading: true, position: Duration.zero, error: null);
+    final requestId = ++_playRequestId;
+    _context = _context.copyWith(activeRequestId: requestId);
+    return requestId;
+  }
 
-    // 4. 停止當前播放（此時播放器事件不會覆蓋 isLoading 和 position）
-    await _audioService.stop();
-
-    // ... 獲取 URL 和播放 ...
-
-    // 5. 完成時重置標誌
-    _manualLoading = false;
-    state = state.copyWith(isLoading: false);
+  void _exitLoadingState(int requestId, Track? trackWithUrl, {...}) {
+    if (requestId == _playRequestId) {
+      state = state.copyWith(isLoading: false);
+      _context = _context.copyWith(activeRequestId: 0, ...);
+      // ...
+    }
   }
 }
 ```
 
 **關鍵點**：
-- `_manualLoading = true` 必須在 `stop()` 之前設置
-- `_onPlayerStateChanged` 檢查 `_manualLoading` 來決定 `isLoading`
-- `_onPositionChanged` 在 `_manualLoading` 時直接返回，不更新位置
-- 每個 `isLoading: false` 之前都要設置 `_manualLoading = false`
+- `_enterLoadingState()` 設置 `activeRequestId > 0`，觸發 `isInLoadingState`
+- `_onPlayerStateChanged` 檢查 `_context.isInLoadingState` 來決定 `isLoading`
+- `_onPositionChanged` 在加載狀態時直接返回，不更新位置
+- `_exitLoadingState()` 將 `activeRequestId` 重置為 0
+
+> **注意**：Phase 2 重構（2026-01-19）已將獨立的 `_manualLoading` 字段移除，統一使用 `_context.isInLoadingState`
 
 ### 13. next()/previous()/_onTrackCompleted() 必須檢測完整的「脫離隊列」狀態 (2026-01-19)
 
@@ -452,10 +446,10 @@ Future<void> _executePlayRequest({
 ```
 
 **关键点**：
-- 用 `_context.mode` 替代 `_isTemporaryPlay`
-- 用 `_context.isInLoadingState` 替代 `_manualLoading`
+- 用 `_context.mode` 替代 `_isTemporaryPlay`（Phase 2 已移除旧字段）
+- 用 `_context.isInLoadingState` 替代 `_manualLoading`（Phase 2 已移除旧字段）
 - 用 `_context.hasSavedState` 检查是否有保存的临时状态
-- 清理临时状态用 `_context = _context.copyWith(mode: PlayMode.queue, savedQueueIndex: null, ...)`
+- 清理临时状态用 `_context = _context.copyWith(mode: PlayMode.queue, clearSavedState: true)`
 
 ### 15. 所有有独立 URL 获取逻辑的方法都必须使用 _playRequestId (2026-01-19)
 
@@ -509,6 +503,29 @@ Future<void> _restoreSavedState() async {
 **受影响的方法**：
 - `_restoreSavedState()` - 恢复临时播放状态
 - `_prepareCurrentTrack()` - 初始化时准备当前歌曲（不自动播放，风险较低）
+
+### 16. 引入统一状态管理后应及时清理遗留字段 (2026-01-19 Phase 2)
+
+**问题**：Phase 1 引入 `_PlaybackContext` 后，为了安全起见保留了旧字段（`_isTemporaryPlay`, `_manualLoading`）作为兼容层。这导致：
+1. 两套状态需要同时维护
+2. 容易出现不一致（如 `clearQueue()` 使用旧字段而非新字段）
+3. 代码复杂度增加，新维护者难以理解
+
+**解决方案**：Phase 2 彻底移除遗留字段
+
+**清理步骤**：
+1. 修复使用旧字段的代码（`clearQueue()` 改用 `_context.isTemporary`）
+2. 移除 `_isTemporaryPlay` 字段及所有使用处
+3. 移除 `_manualLoading` 字段及所有使用处
+4. 更新辅助方法（`_enterLoadingState()` 等）
+5. 更新事件监听器（`_onPlayerStateChanged()` 等）
+6. 简化冗余逻辑（`playTemporary()` 中的重复 if）
+7. 清理过时的 Phase 注释
+
+**经验**：
+- 引入新的统一状态管理后，应该尽快清理旧字段，而不是长期保留兼容层
+- 分阶段重构时，记录清晰的 Phase 注释有助于后续清理
+- 使用搜索工具确保所有使用处都被更新
 
 **问题**：刷新导入的歌单时，如果远程移除了某些歌曲，只更新了 `Playlist.trackIds`，但没有清理对应 Track 的 `playlistIds` 和 `downloadPaths`。
 
