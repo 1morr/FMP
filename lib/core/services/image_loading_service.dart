@@ -510,19 +510,45 @@ class ImagePlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final effectiveIconSize = iconSize ?? (size != null ? size! * 0.5 : 24);
 
-    return Container(
-      width: size,
-      height: size,
-      color: backgroundColor ?? colorScheme.surfaceContainerHighest,
-      child: Center(
-        child: Icon(
-          icon,
-          size: effectiveIconSize,
-          color: iconColor ?? colorScheme.outline,
+    // 如果指定了固定大小，使用固定布局
+    if (size != null) {
+      final effectiveIconSize = iconSize ?? size! * 0.5;
+      return Container(
+        width: size,
+        height: size,
+        color: backgroundColor ?? colorScheme.surfaceContainerHighest,
+        child: Center(
+          child: Icon(
+            icon,
+            size: effectiveIconSize,
+            color: iconColor ?? colorScheme.outline,
+          ),
         ),
-      ),
+      );
+    }
+
+    // 没有指定固定大小时，使用 LayoutBuilder 让图标根据容器大小自适应
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 取容器较小边的 40% 作为图标大小，最小 24，最大 64
+        final containerSize = constraints.biggest.shortestSide;
+        final effectiveIconSize = iconSize ??
+            (containerSize.isFinite
+                ? (containerSize * 0.4).clamp(24.0, 64.0)
+                : 24.0);
+
+        return Container(
+          color: backgroundColor ?? colorScheme.surfaceContainerHighest,
+          child: Center(
+            child: Icon(
+              icon,
+              size: effectiveIconSize,
+              color: iconColor ?? colorScheme.outline,
+            ),
+          ),
+        );
+      },
     );
   }
 }
