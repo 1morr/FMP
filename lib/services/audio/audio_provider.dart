@@ -136,18 +136,73 @@ class PlayerState {
   }
 }
 
-/// 临时播放保存的状态
-/// 注意：不保存队列内容，恢复时直接使用当前队列
-class _TemporaryPlayState {
-  final int index;
-  final Duration position;
-  final bool isPlaying;
+/// 播放模式枚举
+enum PlayMode {
+  /// 正常隊列播放
+  queue,
+  /// 臨時播放（播放完成後恢復原隊列位置）
+  temporary,
+  /// 脫離隊列（隊列被清空或修改後的狀態，播放的歌曲不在隊列中）
+  detached,
+}
 
-  const _TemporaryPlayState({
-    required this.index,
-    required this.position,
-    required this.isPlaying,
+/// 統一的內部播放上下文
+/// 整合了之前分散的狀態字段：_isTemporaryPlay, _temporaryState, _manualLoading, _playRequestId
+class _PlaybackContext {
+  /// 當前播放模式
+  final PlayMode mode;
+  
+  /// 活動的請求 ID（用於防止競態條件）
+  /// 當 > 0 時，表示正在進行播放請求，相當於之前的 _manualLoading = true
+  final int activeRequestId;
+
+  /// 臨時播放保存的隊列索引
+  final int? savedQueueIndex;
+  
+  /// 臨時播放保存的播放位置
+  final Duration? savedPosition;
+  
+  /// 臨時播放保存的播放狀態（是否正在播放）
+  final bool? savedWasPlaying;
+
+  const _PlaybackContext({
+    this.mode = PlayMode.queue,
+    this.activeRequestId = 0,
+    this.savedQueueIndex,
+    this.savedPosition,
+    this.savedWasPlaying,
   });
+
+  /// 是否處於臨時播放模式
+  bool get isTemporary => mode == PlayMode.temporary;
+  
+  /// 是否處於加載狀態（正在進行播放請求）
+  bool get isInLoadingState => activeRequestId > 0;
+  
+  /// 是否有保存的臨時播放狀態
+  bool get hasSavedState => savedQueueIndex != null;
+
+  _PlaybackContext copyWith({
+    PlayMode? mode,
+    int? activeRequestId,
+    int? savedQueueIndex,
+    Duration? savedPosition,
+    bool? savedWasPlaying,
+    bool clearSavedState = false,
+  }) {
+    return _PlaybackContext(
+      mode: mode ?? this.mode,
+      activeRequestId: activeRequestId ?? this.activeRequestId,
+      savedQueueIndex: clearSavedState ? null : (savedQueueIndex ?? this.savedQueueIndex),
+      savedPosition: clearSavedState ? null : (savedPosition ?? this.savedPosition),
+      savedWasPlaying: clearSavedState ? null : (savedWasPlaying ?? this.savedWasPlaying),
+    );
+  }
+
+  @override
+  String toString() {
+    return '_PlaybackContext(mode: $mode, activeRequestId: $activeRequestId, savedQueueIndex: $savedQueueIndex, savedPosition: $savedPosition, savedWasPlaying: $savedWasPlaying)';
+  }
 }
 
 /// 带有请求 ID 的锁包装类
@@ -197,9 +252,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   // 播放器状态事件不会覆盖这个标志
   bool _manualLoading = false;
 
-  // 临时播放状态（封装为一个类会更好，但这里保持简单）
+  // 临时播放状态（保留 _isTemporaryPlay 作为向后兼容層）
   bool _isTemporaryPlay = false;
-  _TemporaryPlayState? _temporaryState;
+
+  // 統一的播放上下文（管理所有播放狀態）
+  _PlaybackContext _context = const _PlaybackContext();
 
   // 基于位置检测的备选切歌定时器（解决后台播放 completed 事件丢失问题）
   Timer? _positionCheckTimer;
@@ -434,179 +491,82 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     final savedPosition = _audioService.position;
     final savedIsPlaying = _audioService.isPlaying;
 
-    // 【重要】立即更新 UI 和状态，让用户看到即时反馈
-    // 1. 更新显示的歌曲信息
-    // 2. 设置 loading 状态和重置进度条
-    // 3. 停止当前播放（防止点击播放按钮继续播放旧歌曲）
-    _updatePlayingTrack(track);
-    _updateQueueState();
-    _manualLoading = true;  // 设置手动加载标志，防止播放器事件覆盖
-    state = state.copyWith(isLoading: true, position: Duration.zero, error: null);
-    await _audioService.stop();
+    logInfo('Playing temporary track: ${track.title}');
 
-    // 获取请求 ID，用于防止竞态条件
-    final requestId = ++_playRequestId;
-    logInfo('Playing temporary track: ${track.title} (requestId: $requestId)');
-
-    // 等待之前的播放操作完成
-    if (_playLock != null && !_playLock!.completer.isCompleted) {
-      logDebug('Waiting for previous play operation to complete...');
-
-      // 立即完成旧的锁，让旧请求可以快速退出
-      // 使用旧锁自己的 requestId 来完成它，不会影响新锁
-      _playLock!.completeIf(_playLock!.requestId);
-
-      // 等待旧锁完成（这会立即返回，因为我们已经完成了它）
-      await _playLock!.completer.future.timeout(
-        const Duration(seconds: 5),
-        onTimeout: () {
-          logWarning('Previous play operation timed out, proceeding anyway');
-        },
+    // 只在第一次进入临时播放时保存状态（避免连续临时播放时覆盖原始状态）
+    // 使用 _context 來管理狀態（Phase 4：移除 _temporaryState）
+    if (!_context.isTemporary && _queueManager.currentTrack != null) {
+      _context = _context.copyWith(
+        mode: PlayMode.temporary,
+        savedQueueIndex: _queueManager.currentIndex,
+        savedPosition: savedPosition,
+        savedWasPlaying: savedIsPlaying,
       );
+      logDebug('Saved playback state: index: ${_context.savedQueueIndex}, position: ${_context.savedPosition}');
     }
 
-    // 检查是否已被新请求取代（在等待锁的过程中可能有更新的请求）
-    if (requestId != _playRequestId) {
-      logDebug('Temporary play request $requestId superseded by $_playRequestId, aborting');
-      return;
+    _isTemporaryPlay = true;
+    if (_context.mode != PlayMode.temporary) {
+      _context = _context.copyWith(mode: PlayMode.temporary);
     }
-
-    // 创建新的锁（直接覆盖旧的）
-    _playLock = _LockWithId(requestId);
-
-    // 标志：请求是否成功完成（用于 finally 块中决定是否重置 isLoading）
-    bool completedSuccessfully = false;
 
     try {
-      // 再次检查是否被取代
-      if (requestId != _playRequestId) {
-        logDebug('Temporary play request $requestId superseded before saving state, aborting');
-        return;
-      }
-
-      // 只在第一次进入临时播放时保存状态（避免连续临时播放时覆盖原始状态）
-      // 注意：不保存队列内容，恢复时直接使用当前队列（用户可能在临时播放期间修改队列）
-      if (!_isTemporaryPlay && _queueManager.currentTrack != null) {
-        _temporaryState = _TemporaryPlayState(
-          index: _queueManager.currentIndex,
-          position: savedPosition,  // 使用开头保存的值（stop() 会重置 _audioService.position）
-          isPlaying: savedIsPlaying,  // 使用开头保存的值
-        );
-        logDebug('Saved playback state: index: ${_temporaryState!.index}, position: ${_temporaryState!.position}');
-      }
-
-      _isTemporaryPlay = true;
-
-      // 获取音频 URL 并播放（不修改队列，不保存到数据库）
-      logDebug('Fetching audio URL for temporary track: ${track.title}');
-      final (trackWithUrl, localPath) = await _queueManager.ensureAudioUrl(track, persist: false);
-
-      // 再次检查是否被取代
-      if (requestId != _playRequestId) {
-        logDebug('Temporary play request $requestId superseded after URL fetch, aborting');
-        return;
-      }
-
-      final url = localPath ?? trackWithUrl.audioUrl;
-
-      if (url == null) {
-        throw Exception('No audio URL available for: ${track.title}');
-      }
-
-      // 播放（传递 Track 信息用于后台播放通知）
-      if (localPath != null) {
-        await _audioService.playFile(url, track: trackWithUrl);
-      } else {
-        final headers = _getHeadersForTrack(trackWithUrl);
-        await _audioService.playUrl(url, headers: headers, track: trackWithUrl);
-      }
-
-      // 再次检查是否被取代
-      if (requestId != _playRequestId) {
-        logDebug('Temporary play request $requestId superseded after playUrl, stopping');
-        await _audioService.stop();
-        return;
-      }
-
-      // 更新正在播放的歌曲（可能有 URL 更新）
-      _updatePlayingTrack(trackWithUrl);
-
-      _manualLoading = false;
-      state = state.copyWith(isLoading: false);
-      completedSuccessfully = true;
-
-      // 更新队列状态以显示正确的 upcomingTracks（原队列中的当前歌曲）
-      _updateQueueState();
-
-      logDebug('Temporary playback started for: ${track.title}');
-    } on just_audio.PlayerInterruptedException catch (e) {
-      // 播放被中断（通常是因为新的播放请求），不作为错误处理
-      logDebug('Temporary playback interrupted for ${track.title}: ${e.message}');
-      _manualLoading = false;
-      state = state.copyWith(isLoading: false);
+      await _executePlayRequest(
+        track: track,
+        mode: PlayMode.temporary,
+        persist: false,
+        recordHistory: false,
+        prefetchNext: false,
+      );
     } on BilibiliApiException catch (e) {
-      // Bilibili API 错误（如视频不可用、版权限制等）
+      // Bilibili API 错误：尝试恢复原队列
       logWarning('Bilibili API error for temporary track ${track.title}: ${e.message}');
-
-      // 临时播放失败，尝试恢复原队列
-      _manualLoading = false;
-      state = state.copyWith(isLoading: false);
-
       if (e.isUnavailable || e.isGeoRestricted) {
         _toastService.showWarning('无法播放「${track.title}」');
       } else {
         _toastService.showError('播放失败: ${e.message}');
       }
-
-      // 如果有保存的状态，尝试恢复
-      if (_temporaryState != null) {
+      // 使用 _context.hasSavedState 來判斷（Phase 4）
+      if (_context.hasSavedState) {
         await _restoreSavedState();
       } else {
         _isTemporaryPlay = false;
+        _context = _context.copyWith(mode: PlayMode.queue, clearSavedState: true);
       }
     } catch (e, stack) {
       logError('Failed to play temporary track: ${track.title}', e, stack);
-      state = state.copyWith(error: e.toString(), isLoading: false);
       _toastService.showError('播放失败: ${track.title}');
-
-      // 如果有保存的状态，尝试恢复
-      if (_temporaryState != null) {
+      if (_context.hasSavedState) {
         await _restoreSavedState();
       } else {
         _isTemporaryPlay = false;
-        _temporaryState = null;
-      }
-    } finally {
-      // 释放锁：只有当锁仍然属于当前请求时才完成
-      // 使用 completeIf 方法确保不会意外完成其他请求的锁
-      _playLock?.completeIf(requestId);
-
-      // 如果请求没有成功完成，且已被新请求取代，重置 isLoading
-      // 新请求会接管 UI 状态，但需要清除这个请求的加载状态
-      if (!completedSuccessfully && requestId != _playRequestId) {
-        logDebug('Request $requestId was superseded, resetting isLoading');
-        _manualLoading = false;
-      state = state.copyWith(isLoading: false);
+        _context = _context.copyWith(mode: PlayMode.queue, clearSavedState: true);
       }
     }
-  }
-
-  /// 清除保存的队列状态
-  void _clearSavedState() {
-    _temporaryState = null;
   }
 
   /// 恢复保存的播放状态
   /// 注意：直接使用当前队列，不恢复队列内容（用户可能在临时播放期间修改了队列）
   Future<void> _restoreSavedState() async {
-    final saved = _temporaryState;
-    if (saved == null) {
+    // 【重要】递增 _playRequestId 来取消任何正在进行的播放请求
+    // 这样可以防止临时播放的 URL 获取完成后继续播放
+    final requestId = ++_playRequestId;
+    _context = _context.copyWith(activeRequestId: requestId);
+    logDebug('_restoreSavedState started (requestId: $requestId)');
+
+    // 使用 _context 獲取保存的狀態（Phase 4：移除對 _temporaryState 的依賴）
+    if (!_context.hasSavedState) {
       logDebug('No saved state to restore');
       _isTemporaryPlay = false;
+      _context = _context.copyWith(mode: PlayMode.queue, clearSavedState: true);
       return;
     }
 
-    logDebug('Restoring playback state: index: ${saved.index}, position: ${saved.position}');
+    final savedIndex = _context.savedQueueIndex!;
+    final savedPosition = _context.savedPosition ?? Duration.zero;
+    final savedWasPlaying = _context.savedWasPlaying ?? false;
+
+    logDebug('Restoring playback state: index: $savedIndex, position: $savedPosition');
 
     try {
       final queue = _queueManager.tracks;
@@ -615,21 +575,18 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       if (queue.isEmpty) {
         logDebug('Queue is empty, exiting temporary play mode');
         _isTemporaryPlay = false;
-        _clearSavedState();
+        _context = _context.copyWith(mode: PlayMode.queue, clearSavedState: true);
         _updateQueueState();
         return;
       }
 
       // 将索引限制在有效范围内（队列可能在临时播放期间被修改）
-      final targetIndex = saved.index.clamp(0, queue.length - 1);
+      final targetIndex = savedIndex.clamp(0, queue.length - 1);
       _queueManager.setCurrentIndex(targetIndex);
 
       final currentTrack = _queueManager.currentTrack;
       if (currentTrack != null) {
         // 【重要】立即更新 UI 和状态，让用户看到即时反馈
-        // 1. 更新显示的歌曲信息
-        // 2. 设置 loading 状态和重置进度条
-        // 3. 停止当前播放（防止点击播放按钮继续播放临时歌曲）
         _updatePlayingTrack(currentTrack);
         _updateQueueState();
         state = state.copyWith(isLoading: true, position: Duration.zero, error: null);
@@ -637,6 +594,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
         // 准备歌曲
         final (trackWithUrl, localPath) = await _queueManager.ensureAudioUrl(currentTrack);
+        
+        // 【重要】检查是否被新请求取代（例如用户在恢复期间又点击了其他歌曲）
+        if (_isSuperseded(requestId)) {
+          logDebug('_restoreSavedState request $requestId superseded after URL fetch, aborting');
+          return;
+        }
+        
         final url = localPath ?? trackWithUrl.audioUrl;
 
         if (url != null) {
@@ -646,38 +610,43 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
             final headers = _getHeadersForTrack(trackWithUrl);
             await _audioService.setUrl(url, headers: headers);
           }
+          
+          // 检查是否被取代
+          if (_isSuperseded(requestId)) {
+            logDebug('_restoreSavedState request $requestId superseded after setUrl, aborting');
+            await _audioService.stop();
+            return;
+          }
 
           // 更新正在播放的歌曲（可能有 URL 更新）
           _updatePlayingTrack(trackWithUrl);
 
           // 恢复播放位置（回退10秒，方便用户回忆上下文）
-          if (saved.position > Duration.zero) {
-            final restorePosition = saved.position - const Duration(seconds: AppConstants.temporaryPlayRestoreOffsetSeconds);
+          if (savedPosition > Duration.zero) {
+            final restorePosition = savedPosition - const Duration(seconds: AppConstants.temporaryPlayRestoreOffsetSeconds);
             await _audioService.seekTo(restorePosition.isNegative ? Duration.zero : restorePosition);
           }
 
           // 如果之前正在播放，恢复播放
-          if (saved.isPlaying) {
+          if (savedWasPlaying) {
             await _audioService.play();
             logDebug('Resumed playback after restore');
           }
         }
       }
 
-      // 先清除临时播放状态，再更新 UI
+      // 清除临时播放状态
       _isTemporaryPlay = false;
-      _clearSavedState();
+      _context = _context.copyWith(mode: PlayMode.queue, clearSavedState: true);
 
       _updateQueueState();
       logInfo('Playback state restored successfully');
     } catch (e, stack) {
       logError('Failed to restore playback state', e, stack);
       _isTemporaryPlay = false;
-      _clearSavedState();
+      _context = _context.copyWith(mode: PlayMode.queue, clearSavedState: true);
     } finally {
-      // 確保 isLoading 被重置（防止在臨時播放期間點擊下一首時 UI 卡在加載狀態）
-      _manualLoading = false;
-      state = state.copyWith(isLoading: false);
+      _resetLoadingState();
     }
   }
 
@@ -724,34 +693,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
     // 获取导航请求 ID，防止快速点击导致竞态条件
     final navId = ++_navRequestId;
-    logDebug('next() called, navId: $navId, isTemporaryPlay: $_isTemporaryPlay');
+    logDebug('next() called, navId: $navId, isPlayingOutOfQueue: $_isPlayingOutOfQueue');
 
-    // 检测当前播放的歌曲是否"脱离"了队列（使用与 _updateQueueState 相同的逻辑）
-    final queue = _queueManager.tracks;
-    final queueTrack = _queueManager.currentTrack;
-    final isPlayingOutOfQueue = _isTemporaryPlay ||
-        (_playingTrack != null && queueTrack != null && _playingTrack!.id != queueTrack.id) ||
-        (_playingTrack != null && queueTrack == null && queue.isNotEmpty);
-
-    if (isPlayingOutOfQueue) {
-      logDebug('Playing out of queue: restoring to queue');
-
-      if (_isTemporaryPlay && _temporaryState != null) {
-        // 临时播放模式且有保存的状态：恢复到保存的位置
-        await _restoreSavedState();
-      } else {
-        // 其他脱离队列情况：退出临时播放模式并播放队列第一首
-        _isTemporaryPlay = false;
-        _temporaryState = null;
-        if (queue.isNotEmpty) {
-          _queueManager.setCurrentIndex(0);
-          final track = _queueManager.currentTrack;
-          if (track != null) {
-            await _playTrack(track);
-          }
-        }
-        _updateQueueState();
-      }
+    // 使用統一的脫離隊列檢測（Phase 3）
+    if (_isPlayingOutOfQueue) {
+      logDebug('Playing out of queue: returning to queue');
+      await _returnToQueue();
       return;
     }
 
@@ -775,34 +722,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
     // 获取导航请求 ID，防止快速点击导致竞态条件
     final navId = ++_navRequestId;
-    logDebug('previous() called, navId: $navId, isTemporaryPlay: $_isTemporaryPlay');
+    logDebug('previous() called, navId: $navId, isPlayingOutOfQueue: $_isPlayingOutOfQueue');
 
-    // 检测当前播放的歌曲是否"脱离"了队列（使用与 _updateQueueState 相同的逻辑）
-    final queue = _queueManager.tracks;
-    final queueTrack = _queueManager.currentTrack;
-    final isPlayingOutOfQueue = _isTemporaryPlay ||
-        (_playingTrack != null && queueTrack != null && _playingTrack!.id != queueTrack.id) ||
-        (_playingTrack != null && queueTrack == null && queue.isNotEmpty);
-
-    if (isPlayingOutOfQueue) {
-      logDebug('Playing out of queue: restoring to queue');
-
-      if (_isTemporaryPlay && _temporaryState != null) {
-        // 临时播放模式且有保存的状态：恢复到保存的位置
-        await _restoreSavedState();
-      } else {
-        // 其他脱离队列情况：退出临时播放模式并播放队列第一首
-        _isTemporaryPlay = false;
-        _temporaryState = null;
-        if (queue.isNotEmpty) {
-          _queueManager.setCurrentIndex(0);
-          final track = _queueManager.currentTrack;
-          if (track != null) {
-            await _playTrack(track);
-          }
-        }
-        _updateQueueState();
-      }
+    // 使用統一的脫離隊列檢測（Phase 3）
+    if (_isPlayingOutOfQueue) {
+      logDebug('Playing out of queue: returning to queue');
+      await _returnToQueue();
       return;
     }
 
@@ -909,6 +834,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     logInfo('Clearing queue');
     try {
       await _queueManager.clear();
+      // 同步更新 _context（Phase 1：與舊字段並存）
+      // 如果還有歌曲在播放，且不是臨時播放模式，則進入 detached 模式
+      if (_playingTrack != null && !_isTemporaryPlay) {
+        _context = _context.copyWith(mode: PlayMode.detached);
+        logDebug('Entered detached mode after clearing queue');
+      }
       _updateQueueState();
     } catch (e, stack) {
       logError('Failed to clear queue', e, stack);
@@ -1169,30 +1100,78 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     }
   }
 
-  /// 播放指定歌曲
-  Future<void> _playTrack(Track track) async {
-    // 【重要】立即更新 UI 和状态，让用户看到即时反馈
-    // 1. 更新显示的歌曲信息
-    // 2. 设置 loading 状态和重置进度条
-    // 3. 停止当前播放（防止点击播放按钮继续播放旧歌曲）
+  // ========== 統一播放入口（Phase 2）========== //
+
+  /// 進入加載狀態（統一的 UI 更新邏輯）
+  /// 返回請求 ID，用於後續的取代檢測
+  int _enterLoadingState() {
+    _manualLoading = true;
+    state = state.copyWith(isLoading: true, position: Duration.zero, error: null);
+    final requestId = ++_playRequestId;
+    _context = _context.copyWith(activeRequestId: requestId);
+    return requestId;
+  }
+
+  /// 退出加載狀態
+  /// [requestId] - 當前請求的 ID，用於驗證是否應該退出
+  /// [trackWithUrl] - 成功獲取 URL 後的歌曲（用於更新 playingTrack）
+  /// [mode] - 播放模式（用於更新 _context）
+  /// [recordHistory] - 是否記錄播放歷史
+  void _exitLoadingState(int requestId, Track? trackWithUrl, {PlayMode? mode, bool recordHistory = false}) {
+    // 只有當請求沒有被取代時才更新狀態
+    if (requestId == _playRequestId) {
+      _manualLoading = false;
+      state = state.copyWith(isLoading: false);
+      _context = _context.copyWith(activeRequestId: 0, mode: mode);
+      
+      if (trackWithUrl != null) {
+        _updatePlayingTrack(trackWithUrl, recordHistory: recordHistory);
+      }
+    }
+  }
+
+  /// 重置加載狀態（在請求被取代或失敗時使用）
+  void _resetLoadingState() {
+    _manualLoading = false;
+    state = state.copyWith(isLoading: false);
+    _context = _context.copyWith(activeRequestId: 0);
+  }
+
+  /// 檢查當前請求是否已被新請求取代
+  bool _isSuperseded(int requestId) {
+    return requestId != _playRequestId;
+  }
+
+  /// 統一的播放請求入口
+  /// 所有播放操作都應該通過這個方法來執行
+  /// 
+  /// [track] - 要播放的歌曲
+  /// [mode] - 播放模式（queue/temporary/detached）
+  /// [persist] - 是否將 URL 保存到數據庫
+  /// [recordHistory] - 是否記錄播放歷史
+  /// [prefetchNext] - 是否預取下一首
+  Future<void> _executePlayRequest({
+    required Track track,
+    required PlayMode mode,
+    bool persist = true,
+    bool recordHistory = true,
+    bool prefetchNext = true,
+  }) async {
+    // 階段 1：立即更新 UI（在任何 await 之前）
     _updatePlayingTrack(track);
     _updateQueueState();
-    _manualLoading = true;  // 设置手动加载标志，防止播放器事件覆盖
-    state = state.copyWith(isLoading: true, position: Duration.zero, error: null);
-    await _audioService.stop();
 
-    // 获取当前请求ID，用于检测是否被新请求取代
-    final requestId = ++_playRequestId;
-    logDebug('_playTrack started for: ${track.title} (requestId: $requestId)');
+    // 階段 2：進入加載狀態
+    final requestId = _enterLoadingState();
+    logDebug('_executePlayRequest started for: ${track.title} (requestId: $requestId, mode: $mode)');
+
+    // 階段 3：停止當前播放
+    await _audioService.stop();
 
     // 等待之前的播放操作完成
     if (_playLock != null && !_playLock!.completer.isCompleted) {
       logDebug('Waiting for previous play operation to complete...');
-
-      // 立即完成旧的锁，让旧请求可以快速退出
       _playLock!.completeIf(_playLock!.requestId);
-
-      // 等待旧锁完成（这会立即返回，因为我们已经完成了它）
       await _playLock!.completer.future.timeout(
         const Duration(seconds: 5),
         onTimeout: () {
@@ -1201,118 +1180,167 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       );
     }
 
-    // 检查是否已被新请求取代
-    if (requestId != _playRequestId) {
+    // 檢查是否已被取代
+    if (_isSuperseded(requestId)) {
       logDebug('Play request $requestId superseded by $_playRequestId, aborting');
       return;
     }
 
-    // 创建新的锁（直接覆盖旧的）
+    // 創建新的鎖
     _playLock = _LockWithId(requestId);
-
-    // 标志：请求是否成功完成（用于 finally 块中决定是否重置 isLoading）
     bool completedSuccessfully = false;
 
     try {
-      // 确保有音频 URL
+      // 階段 4：獲取 URL
       logDebug('Fetching audio URL for: ${track.title}');
-      final (trackWithUrl, localPath) = await _queueManager.ensureAudioUrl(track);
+      final (trackWithUrl, localPath) = await _queueManager.ensureAudioUrl(track, persist: persist);
 
-      // 再次检查是否被取代
-      if (requestId != _playRequestId) {
+      // 檢查是否被取代
+      if (_isSuperseded(requestId)) {
         logDebug('Play request $requestId superseded after URL fetch, aborting');
         return;
       }
 
-      // 获取播放地址
       final url = localPath ?? trackWithUrl.audioUrl;
-
       if (url == null) {
         throw Exception('No audio URL available for: ${track.title}');
       }
 
-      final urlType = localPath != null ? "downloaded" : "stream";
+      final urlType = localPath != null ? 'downloaded' : 'stream';
       logDebug('Playing track: ${track.title}, URL type: $urlType, source: ${track.sourceType}');
 
-      // 播放（传递 Track 信息用于后台播放通知）
+      // 階段 5：播放
       if (localPath != null) {
         await _audioService.playFile(url, track: trackWithUrl);
       } else {
-        // 获取该音源所需的 HTTP 请求头
         final headers = _getHeadersForTrack(trackWithUrl);
         await _audioService.playUrl(url, headers: headers, track: trackWithUrl);
       }
 
-      // 再次检查是否被取代
-      if (requestId != _playRequestId) {
+      // 檢查是否被取代
+      if (_isSuperseded(requestId)) {
         logDebug('Play request $requestId superseded after playUrl, stopping');
         await _audioService.stop();
         return;
       }
 
-      // 预取下一首
-      _queueManager.prefetchNext();
-
-      // 更新正在播放的歌曲（并记录到播放历史）
-      _updatePlayingTrack(trackWithUrl, recordHistory: true);
-
-      _manualLoading = false;
-      state = state.copyWith(isLoading: false);
-      completedSuccessfully = true;
-      logDebug('_playTrack completed successfully for: ${track.title}');
-    } on just_audio.PlayerInterruptedException catch (e) {
-      // 播放被中断（通常是因为新的播放请求），不作为错误处理
-      logDebug('Playback interrupted for ${track.title}: ${e.message}');
-      _manualLoading = false;
-      state = state.copyWith(isLoading: false);
-    } on BilibiliApiException catch (e) {
-      // Bilibili API 错误（如视频不可用、版权限制等）
-      logWarning('Bilibili API error for ${track.title}: ${e.message}');
-      
-      // 如果视频不可用，尝试跳到下一首
-      if (e.isUnavailable || e.isGeoRestricted) {
-        logInfo('Track unavailable: ${track.title}');
-        // 检查是否有下一首可播放
-        final nextIdx = _queueManager.getNextIndex();
-        if (nextIdx != null) {
-          // 有下一首，显示提示并跳过
-          _manualLoading = false;
-      state = state.copyWith(isLoading: false);
-          _toastService.showWarning('无法播放「${track.title}」，已跳过');
-          Future.delayed(const Duration(milliseconds: 300), () {
-            next();
-          });
-        } else {
-          // 没有下一首，停止当前播放并显示提示
-          await _audioService.stop();
-          state = state.copyWith(
-            error: '无法播放: ${e.message}',
-            isLoading: false,
-          );
-          _toastService.showError('无法播放「${track.title}」');
-        }
-      } else {
-        state = state.copyWith(
-          error: '无法播放: ${e.message}',
-          isLoading: false,
-        );
+      // 預取下一首
+      if (prefetchNext) {
+        _queueManager.prefetchNext();
       }
+
+      // 階段 6：完成
+      _exitLoadingState(requestId, trackWithUrl, mode: mode, recordHistory: recordHistory);
+      completedSuccessfully = true;
+      
+      // 更新隊列狀態
+      _updateQueueState();
+      
+      logDebug('_executePlayRequest completed successfully for: ${track.title}');
+    } on just_audio.PlayerInterruptedException catch (e) {
+      logDebug('Playback interrupted for ${track.title}: ${e.message}');
+      _resetLoadingState();
+    } on BilibiliApiException catch (e) {
+      logWarning('Bilibili API error for ${track.title}: ${e.message}');
+      _handleBilibiliError(track, e, mode);
     } catch (e, stack) {
       logError('Failed to play track: ${track.title}', e, stack);
       await _audioService.stop();
       state = state.copyWith(error: e.toString(), isLoading: false);
+      _resetLoadingState();
       _toastService.showError('播放失败: ${track.title}');
     } finally {
-      // 释放锁：只有当锁仍然属于当前请求时才完成
       _playLock?.completeIf(requestId);
-
-      // 如果请求没有成功完成，且已被新请求取代，重置 isLoading
-      if (!completedSuccessfully && requestId != _playRequestId) {
+      
+      if (!completedSuccessfully && _isSuperseded(requestId)) {
         logDebug('Play request $requestId was superseded, resetting isLoading');
-        _manualLoading = false;
-      state = state.copyWith(isLoading: false);
+        _resetLoadingState();
       }
     }
+  }
+
+  /// 處理 Bilibili API 錯誤的統一邏輯
+  void _handleBilibiliError(Track track, BilibiliApiException e, PlayMode mode) {
+    if (e.isUnavailable || e.isGeoRestricted) {
+      logInfo('Track unavailable: ${track.title}');
+      final nextIdx = _queueManager.getNextIndex();
+      if (nextIdx != null && mode == PlayMode.queue) {
+        _resetLoadingState();
+        _toastService.showWarning('无法播放「${track.title}」，已跳过');
+        Future.delayed(const Duration(milliseconds: 300), () {
+          next();
+        });
+      } else {
+        _audioService.stop();
+        state = state.copyWith(
+          error: '无法播放: ${e.message}',
+          isLoading: false,
+        );
+        _resetLoadingState();
+        _toastService.showError('无法播放「${track.title}」');
+      }
+    } else {
+      state = state.copyWith(
+        error: '无法播放: ${e.message}',
+        isLoading: false,
+      );
+      _resetLoadingState();
+    }
+  }
+
+  // ========== 脫離隊列檢測（Phase 3）========== //
+
+  /// 檢測當前是否脫離隊列
+  /// 情況1：臨時播放模式
+  /// 情況2：清空隊列後繼續播放的歌曲
+  /// 情況3：播放的歌曲與隊列當前位置不一致
+  bool get _isPlayingOutOfQueue {
+    final queueTrack = _queueManager.currentTrack;
+    final queue = _queueManager.tracks;
+    
+    return _context.mode == PlayMode.temporary ||
+           _context.mode == PlayMode.detached ||
+           (_playingTrack != null && queueTrack != null && _playingTrack!.id != queueTrack.id) ||
+           (_playingTrack != null && queueTrack == null && queue.isNotEmpty);
+  }
+
+  /// 統一「返回隊列」邏輯
+  /// 如果有保存的臨時播放狀態，恢復到該位置
+  /// 否則播放隊列第一首
+  Future<void> _returnToQueue() async {
+    if (_context.isTemporary && _context.hasSavedState) {
+      await _restoreSavedState();
+    } else {
+      await _playFirstInQueue();
+    }
+  }
+
+  /// 播放隊列第一首歌曲
+  Future<void> _playFirstInQueue() async {
+    // 清除臨時播放狀態
+    _isTemporaryPlay = false;
+    _context = _context.copyWith(mode: PlayMode.queue, clearSavedState: true);
+    
+    final queue = _queueManager.tracks;
+    if (queue.isNotEmpty) {
+      _queueManager.setCurrentIndex(0);
+      final track = _queueManager.currentTrack;
+      if (track != null) {
+        await _playTrack(track);
+      }
+    }
+    _updateQueueState();
+  }
+
+  /// 播放指定歌曲（委託給統一入口）
+  Future<void> _playTrack(Track track) async {
+    await _executePlayRequest(
+      track: track,
+      mode: PlayMode.queue,
+      persist: true,
+      recordHistory: true,
+      prefetchNext: true,
+    );
   }
 
   /// 准备当前歌曲（不自动播放）
@@ -1366,8 +1394,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     state = state.copyWith(
       isPlaying: playerState.playing,
       isBuffering: playerState.processingState == just_audio.ProcessingState.buffering,
-      // 手动加载标志优先，防止播放器状态事件覆盖 URL 获取期间的 loading 状态
-      isLoading: _manualLoading || playerState.processingState == just_audio.ProcessingState.loading,
+      // 使用 _context.isInLoadingState 或 _manualLoading（Phase 5：逐步遷移）
+      // 防止播放器状态事件覆盖 URL 获取期间的 loading 状态
+      isLoading: _manualLoading || _context.isInLoadingState || playerState.processingState == just_audio.ProcessingState.loading,
       processingState: playerState.processingState,
     );
 
@@ -1394,8 +1423,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   void _onPositionChanged(Duration position) {
-    // 手动加载期间忽略位置更新（防止旧歌曲的位置覆盖已重置的进度条）
-    if (_manualLoading) return;
+    // 加载期间忽略位置更新（防止旧歌曲的位置覆盖已重置的进度条）
+    // 使用 _context.isInLoadingState 或 _manualLoading（Phase 5：逐步遷移）
+    if (_manualLoading || _context.isInLoadingState) return;
 
     state = state.copyWith(position: position);
     // 更新 QueueManager 的位置（用于恢复播放）
@@ -1440,7 +1470,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     if (_isHandlingCompletion) return;
     _isHandlingCompletion = true;
 
-    logDebug('Track completed, loopMode: ${_queueManager.loopMode}, shuffle: ${_queueManager.isShuffleEnabled}, temporaryPlay: $_isTemporaryPlay');
+    logDebug('Track completed, loopMode: ${_queueManager.loopMode}, shuffle: ${_queueManager.isShuffleEnabled}, isPlayingOutOfQueue: $_isPlayingOutOfQueue');
 
     // 使用 Future.microtask 来避免在流监听器中直接操作
     Future.microtask(() async {
@@ -1448,8 +1478,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         // 单曲循环优先：即使在临时播放模式下也继续循环播放
         if (_queueManager.loopMode == LoopMode.one) {
           // 单曲循环：重新播放当前歌曲
-          // 注意：不能使用 seekTo + play，因为在 completed 状态下 seekTo 可能无法正确重置状态
-          logDebug('LoopOne mode: replaying current track (temporaryPlay: $_isTemporaryPlay)');
+          logDebug('LoopOne mode: replaying current track');
           final track = _playingTrack;
           if (track != null) {
             await _playTrack(track);
@@ -1457,36 +1486,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
           return;
         }
 
-        // 检测当前播放的歌曲是否"脱离"了队列（使用与 next() 相同的逻辑）
-        final queue = _queueManager.tracks;
-        final queueTrack = _queueManager.currentTrack;
-        final isPlayingOutOfQueue = _isTemporaryPlay ||
-            (_playingTrack != null && queueTrack != null && _playingTrack!.id != queueTrack.id) ||
-            (_playingTrack != null && queueTrack == null && queue.isNotEmpty);
-
-        if (isPlayingOutOfQueue) {
+        // 使用統一的脫離隊列檢測（Phase 3）
+        if (_isPlayingOutOfQueue) {
           logDebug('Track completed while playing out of queue');
-
-          if (_isTemporaryPlay && _temporaryState != null) {
-            // 临时播放模式且有保存的状态：恢复到保存的位置
-            logDebug('Restoring saved state');
-            await _restoreSavedState();
-          } else {
-            // 其他脱离队列情况：退出临时播放模式，播放队列第一首
-            _isTemporaryPlay = false;
-            _temporaryState = null;
-            if (queue.isNotEmpty) {
-              logDebug('Playing first track in queue');
-              _queueManager.setCurrentIndex(0);
-              final track = _queueManager.currentTrack;
-              if (track != null) {
-                await _playTrack(track);
-              }
-            } else {
-              logDebug('Queue is empty, nothing to play');
-              _updateQueueState();
-            }
-          }
+          await _returnToQueue();
           return;
         }
 
@@ -1513,7 +1516,6 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   void _updateQueueState() {
     final queue = _queueManager.tracks;
     final currentIndex = _queueManager.currentIndex;
-    final saved = _temporaryState;
 
     // 队列中当前位置的歌曲（注意：这与 playingTrack 可能不同）
     final queueTrack = _queueManager.currentTrack;
@@ -1523,18 +1525,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     bool canPlayPrevious;
     bool canPlayNext;
 
-    // 检测当前播放的歌曲是否"脱离"了队列
-    // 情况1：临时播放模式
-    // 情况2：清空队列后继续播放的歌曲（_playingTrack 存在但与 queueTrack 不同）
-    final bool isPlayingOutOfQueue = _isTemporaryPlay ||
-        (_playingTrack != null && queueTrack != null && _playingTrack!.id != queueTrack.id) ||
-        (_playingTrack != null && queueTrack == null && queue.isNotEmpty);
-
-    if (isPlayingOutOfQueue) {
+    // 使用統一的脫離隊列檢測（Phase 3）
+    if (_isPlayingOutOfQueue) {
       // 当前播放的歌曲脱离队列：点击"下一首"会去到队列中保存的索引位置
-      if (_isTemporaryPlay && saved != null && queue.isNotEmpty) {
+      // 使用 _context 來判斷（Phase 4）
+      if (_context.isTemporary && _context.hasSavedState && queue.isNotEmpty) {
         // 临时播放模式：显示当前队列中从保存位置开始的歌曲
-        final targetIndex = saved.index.clamp(0, queue.length - 1);
+        final targetIndex = _context.savedQueueIndex!.clamp(0, queue.length - 1);
         if (_queueManager.isShuffleEnabled) {
           // Shuffle 模式：从当前 shuffle 索引获取后续歌曲
           upcomingTracks = _queueManager.getUpcomingTracksFromIndex(targetIndex, count: 5);
@@ -1558,7 +1555,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       canPlayNext = _queueManager.hasNext;
     }
 
-    logDebug('Updating queue state: ${queue.length} tracks, index: $currentIndex, queueTrack: ${queueTrack?.title ?? "null"}, playingTrack: ${_playingTrack?.title ?? "null"}, isTemporaryPlay: $_isTemporaryPlay');
+    logDebug('Updating queue state: ${queue.length} tracks, index: $currentIndex, queueTrack: ${queueTrack?.title ?? "null"}, playingTrack: ${_playingTrack?.title ?? "null"}, isPlayingOutOfQueue: $_isPlayingOutOfQueue');
     state = state.copyWith(
       queue: queue,
       upcomingTracks: upcomingTracks,

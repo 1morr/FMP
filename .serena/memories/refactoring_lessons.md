@@ -396,6 +396,120 @@ if (isPlayingOutOfQueue) {
 
 **時序問題**：位置檢測定時器可能比播放器完成事件先觸發 `_onTrackCompleted`，第一次調用清除 `_isTemporaryPlay` 後，第二次調用會錯誤地調用 `moveToNext()`。使用完整的 `isPlayingOutOfQueue` 檢測可以避免這個問題，因為即使 `_isTemporaryPlay` 被清除，`_playingTrack.id != queueTrack.id` 仍然成立。
 
+### 14. 使用 PlaybackContext 统一状态管理 (2026-01-19)
+
+**问题**：`AudioController` 中有多个分散的状态字段管理播放模式和加载状态：
+- `_isTemporaryPlay` - 是否临时播放
+- `_temporaryState` - 保存的队列状态
+- `_manualLoading` - 手动加载标志
+- `_playLock` / `_playRequestId` - 播放锁和请求 ID
+
+这些字段之间有复杂的交互关系，容易遗漏同步更新。
+
+**解决方案**：引入 `PlayMode` 枚举和 `_PlaybackContext` 类统一管理：
+
+```dart
+enum PlayMode {
+  queue,      // 正常队列播放
+  temporary,  // 临时播放（播放完成后恢复）
+  detached,   // 脱离队列（如队列清空后继续播放）
+}
+
+class _PlaybackContext {
+  final PlayMode mode;
+  final int activeRequestId;     // 当前活动的请求 ID（0 表示无活动请求）
+  final int? savedQueueIndex;    // 临时播放保存的队列索引
+  final Duration? savedPosition; // 临时播放保存的播放位置
+  final bool? savedWasPlaying;   // 临时播放保存的播放状态
+  
+  bool get isTemporary => mode == PlayMode.temporary;
+  bool get isInLoadingState => activeRequestId > 0;  // 替代 _manualLoading
+  bool get hasSavedState => savedQueueIndex != null;
+  
+  _PlaybackContext copyWith({...});
+}
+```
+
+**好处**：
+1. **单一真相来源** - 所有播放模式状态在一个对象中
+2. **不可变更新** - 使用 `copyWith` 更新，更安全
+3. **便捷 getter** - `isTemporary`, `isInLoadingState`, `hasSavedState` 等
+4. **减少重复检测** - `_isPlayingOutOfQueue` getter 使用 `_context.mode`
+
+**统一播放入口**：
+
+```dart
+Future<void> _executePlayRequest({
+  required Track track,
+  required PlayMode mode,
+  bool persist = true,
+  bool recordHistory = true,
+  bool prefetchNext = true,
+}) async {
+  // 所有播放操作都通过这个入口
+  // _playTrack() 和 playTemporary() 都调用它
+}
+```
+
+**关键点**：
+- 用 `_context.mode` 替代 `_isTemporaryPlay`
+- 用 `_context.isInLoadingState` 替代 `_manualLoading`
+- 用 `_context.hasSavedState` 检查是否有保存的临时状态
+- 清理临时状态用 `_context = _context.copyWith(mode: PlayMode.queue, savedQueueIndex: null, ...)`
+
+### 15. 所有有独立 URL 获取逻辑的方法都必须使用 _playRequestId (2026-01-19)
+
+**问题**：临时播放正在获取 URL 时，用户点击"下一首"，恢复操作开始。但临时播放的 URL 获取完成后，仍然播放了临时歌曲，覆盖了恢复操作。
+
+**原因**：`_restoreSavedState()` 有自己的 URL 获取逻辑，但没有使用 `_playRequestId` 机制来取消旧请求。
+
+```dart
+// ❌ 错误 - _restoreSavedState() 没有递增 _playRequestId
+Future<void> _restoreSavedState() async {
+  // ... 准备工作 ...
+  final (trackWithUrl, localPath) = await _queueManager.ensureAudioUrl(currentTrack);
+  // 此时临时播放的 URL 获取可能也完成了，它不知道已经被取代
+  await _audioService.setUrl(url);
+  await _audioService.play();
+}
+
+// ✅ 正确 - 开始时递增 _playRequestId，并在 await 后检查取代
+Future<void> _restoreSavedState() async {
+  // 【重要】递增 _playRequestId 来取消任何正在进行的播放请求
+  final requestId = ++_playRequestId;
+  _context = _context.copyWith(activeRequestId: requestId);
+  
+  // ... 准备工作 ...
+  
+  final (trackWithUrl, localPath) = await _queueManager.ensureAudioUrl(currentTrack);
+  
+  // 检查是否被取代
+  if (_isSuperseded(requestId)) {
+    logDebug('_restoreSavedState superseded after URL fetch, aborting');
+    return;
+  }
+  
+  await _audioService.setUrl(url);
+  
+  // 再次检查
+  if (_isSuperseded(requestId)) {
+    await _audioService.stop();
+    return;
+  }
+  
+  await _audioService.play();
+}
+```
+
+**经验**：任何有独立 URL 获取逻辑的方法（不通过 `_executePlayRequest()`）都必须：
+1. 开始时递增 `_playRequestId`
+2. 每个 `await` 点后检查 `_isSuperseded(requestId)`
+3. 如果被取代，立即中止并清理
+
+**受影响的方法**：
+- `_restoreSavedState()` - 恢复临时播放状态
+- `_prepareCurrentTrack()` - 初始化时准备当前歌曲（不自动播放，风险较低）
+
 **问题**：刷新导入的歌单时，如果远程移除了某些歌曲，只更新了 `Playlist.trackIds`，但没有清理对应 Track 的 `playlistIds` 和 `downloadPaths`。
 
 ```dart
