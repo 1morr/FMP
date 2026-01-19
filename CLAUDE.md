@@ -173,10 +173,11 @@ void main() async {
 When clicking a song in search/playlist pages, it plays temporarily without modifying the queue. After completion, the original queue position is restored (minus 10 seconds).
 
 - Uses `playTemporary()` method, NOT `playTrack()`
-- Saved state: `_temporaryState` with `index`, `position`, `isPlaying` (does NOT save queue content)
+- Saved state is stored in `_context` with `savedQueueIndex`, `savedPosition`, `savedWasPlaying` (does NOT save queue content)
+- Uses `_executePlayRequest()` with `mode: PlayMode.temporary`
 - On restore: Uses current queue directly, user's queue modifications during temporary play are preserved
 - Index is clamped to valid range if queue was modified
-- **Important**: All async methods that affect `isLoading` MUST reset it in `finally` block to handle all exit paths
+- **Important**: All async methods use unified `_enterLoadingState()` / `_exitLoadingState()` helpers
 
 ### Mute Toggle
 Volume mute must use `controller.toggleMute()`, NOT `setVolume(0)` / `setVolume(1.0)`. The mute logic remembers the previous volume in `_volumeBeforeMute`.
@@ -191,61 +192,61 @@ For long videos (>10 min) with progress >5%, the playback position is automatica
 ### Shuffle Mode
 Managed in `QueueManager` with `_shuffleOrder` list. When queue is cleared and songs added, shuffle order regenerates automatically.
 
-### Play Lock (Race Condition Prevention)
-`AudioController` uses `_playLock` (wrapped in `_LockWithId`), `_playRequestId`, and `_manualLoading` to prevent race conditions during rapid track switching.
+### PlaybackContext and Play Lock (Race Condition Prevention)
+`AudioController` uses a unified `_PlaybackContext` class to manage playback state and prevent race conditions during rapid track switching.
 
-**Implementation pattern:**
+**New Architecture (2026-01 Refactoring):**
 ```dart
-class _LockWithId {
-  final int requestId;
-  final Completer<void> completer;
-  void completeIf(int expectedRequestId) {
-    if (requestId == expectedRequestId && !completer.isCompleted) {
-      completer.complete();
-    }
-  }
+/// 播放模式枚举
+enum PlayMode {
+  queue,      // 正常隊列播放
+  temporary,  // 臨時播放（播放完成後恢復）
+  detached,   // 脫離隊列（隊列被清空後的狀態）
 }
 
-class AudioController {
-  _LockWithId? _playLock;
-  int _playRequestId = 0;
-  bool _manualLoading = false;  // Prevents player events from overriding UI state
-}
-
-Future<void> _playTrack(Track track) async {
-  // 1. Update UI FIRST (before any await)
-  _updatePlayingTrack(track);
-  _updateQueueState();
-
-  // 2. Set manual loading flag to prevent player events from overriding
-  _manualLoading = true;
-  state = state.copyWith(isLoading: true, position: Duration.zero, error: null);
-  await _audioService.stop();
-
-  final requestId = ++_playRequestId;
-
-  // ... lock handling, URL fetch, playback ...
-
-  // 3. Reset flag when done
-  _manualLoading = false;
-  state = state.copyWith(isLoading: false);
-}
-
-// Player state listener respects _manualLoading
-void _onPlayerStateChanged(just_audio.PlayerState playerState) {
-  state = state.copyWith(
-    isLoading: _manualLoading || playerState.processingState == ProcessingState.loading,
-    // ...
-  );
-}
-
-// Position listener ignores updates during manual loading
-void _onPositionChanged(Duration position) {
-  if (_manualLoading) return;  // Prevent old track position from overriding reset
-  state = state.copyWith(position: position);
+/// 統一的內部播放上下文
+class _PlaybackContext {
+  final PlayMode mode;
+  final int activeRequestId;  // > 0 表示正在加載
+  final int? savedQueueIndex;
+  final Duration? savedPosition;
+  final bool? savedWasPlaying;
+  
+  bool get isTemporary => mode == PlayMode.temporary;
+  bool get isInLoadingState => activeRequestId > 0;
+  bool get hasSavedState => savedQueueIndex != null;
 }
 ```
 
+**Key methods:**
+- `_executePlayRequest()` - unified play entry point for all playback
+- `_enterLoadingState()` / `_exitLoadingState()` - manage loading UI
+- `_isPlayingOutOfQueue` getter - detect when playing outside queue
+- `_returnToQueue()` - unified logic to return to queue
+
+**Important: Methods with independent URL fetching must use `_playRequestId`:**
+
+Any method that fetches URLs outside of `_executePlayRequest()` (e.g., `_restoreSavedState()`) must:
+1. Increment `_playRequestId` at the start to cancel in-flight requests
+2. Check `_isSuperseded(requestId)` after each `await`
+3. Abort immediately if superseded
+
+This prevents race conditions like: temporary play loading → user clicks next → restore starts → temporary play finishes and overwrites restore.
+
+**Player state listeners use `_context.isInLoadingState`:**
+```dart
+void _onPlayerStateChanged(just_audio.PlayerState playerState) {
+  state = state.copyWith(
+    isLoading: _manualLoading || _context.isInLoadingState || 
+               playerState.processingState == ProcessingState.loading,
+  );
+}
+
+void _onPositionChanged(Duration position) {
+  if (_manualLoading || _context.isInLoadingState) return;
+  state = state.copyWith(position: position);
+}
+```
 
 **AudioService also waits for player idle state:**
 ```dart

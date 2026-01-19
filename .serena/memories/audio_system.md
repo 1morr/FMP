@@ -97,16 +97,48 @@ class PlayerState {
 - 添加到队列不会影响当前播放显示
 - 临时播放、恢复队列等场景更加健壮
 
-### 0.1 "脱离队列"状态检测
-当 `playingTrack` 与 `queueTrack` 不一致时，称为"脱离队列"状态。发生场景：
-1. **临时播放模式** - `_isTemporaryPlay = true`
-2. **清空队列后继续播放** - 队列被清空但歌曲继续播放，之后添加新歌曲
+### 0.1 "脱离队列"状态检测（2026-01-19 统一重构）
+当 `playingTrack` 与 `queueTrack` 不一致时，称为"脱离队列"状态。
+
+**统一检测逻辑 `_isPlayingOutOfQueue` getter：**
+```dart
+bool get _isPlayingOutOfQueue {
+  final queueTrack = _queueManager.currentTrack;
+  final queue = _queueManager.tracks;
+  
+  // 1. 临时播放模式
+  // 2. 脱离队列模式（如队列清空后继续播放）
+  // 3. 正在播放的歌曲与队列当前位置不一致
+  // 4. 正在播放但队列当前位置为空（队列不为空但索引不在范围内）
+  return _context.mode == PlayMode.temporary ||
+         _context.mode == PlayMode.detached ||
+         (_playingTrack != null && queueTrack != null && _playingTrack!.id != queueTrack.id) ||
+         (_playingTrack != null && queueTrack == null && queue.isNotEmpty);
+}
+```
+
+**发生场景：**
+1. **临时播放模式** - `_context.mode == PlayMode.temporary`
+2. **脱离队列模式** - `_context.mode == PlayMode.detached`（如队列清空后继续播放，之后又添加新歌曲）
 3. **其他不一致情况** - `_playingTrack.id != queueTrack.id`
 
 **行为：**
 - `upcomingTracks` 显示队列从索引 0 开始的歌曲
-- 点击"下一首"/"上一首"会播放队列的第一首
+- 点击"下一首"/"上一首"调用 `_returnToQueue()` 回到队列播放
 - `canPlayNext`/`canPlayPrevious` 只要队列不为空就为 true
+
+**`_returnToQueue()` 方法：**
+```dart
+Future<void> _returnToQueue() async {
+  _context = _context.copyWith(
+    mode: PlayMode.queue,
+    savedQueueIndex: null,
+    savedPosition: null,
+    savedWasPlaying: null,
+  );
+  await _playFirstInQueue();
+}
+```
 
 ### 1. 委托模式
 AudioController 中的基础播放方法（play, pause, seekTo 等）是对 AudioService 的委托：
@@ -128,33 +160,56 @@ Future<void> setVolume(double volume) async {
 - AudioService 保持简单，只负责播放器操作
 - AudioController 可以添加业务逻辑
 
-### 2. 临时播放功能
+### 2. 临时播放功能（PlaybackContext 重构 2026-01-19）
 **用途：** 搜索页/歌单页点击歌曲时，临时播放该歌曲，播放完成后恢复原队列位置
 
 **单曲循环优先：** 如果设置了单曲循环模式（`LoopMode.one`），临时播放的歌曲会继续循环播放，而不是恢复原队列。只有在非单曲循环模式下，临时播放结束后才会恢复原队列
 
-**设计决策（2026-01-19 简化）：**
+**设计决策：**
 - **不保存队列内容** - 只保存索引和位置，恢复时直接使用当前队列
 - **用户可在临时播放期间修改队列** - 修改会被保留，不会被覆盖
 - **索引自动限制** - 恢复时如果保存的索引超出当前队列范围，会 clamp 到有效范围
 
-**相关字段：**
+**使用 `_PlaybackContext` 管理状态：**
 ```dart
-bool _isTemporaryPlay = false;
-_TemporaryPlayState? _temporaryState;
+/// 播放上下文 - 统一管理所有播放状态
+class _PlaybackContext {
+  final PlayMode mode;           // queue, temporary, detached
+  final int activeRequestId;     // 当前活动的请求 ID（0 表示无活动请求）
+  final int? savedQueueIndex;    // 临时播放保存的队列索引
+  final Duration? savedPosition; // 临时播放保存的播放位置
+  final bool? savedWasPlaying;   // 临时播放保存的播放状态
+  
+  bool get isTemporary => mode == PlayMode.temporary;
+  bool get isInLoadingState => activeRequestId > 0;
+  bool get hasSavedState => savedQueueIndex != null;
+  
+  _PlaybackContext copyWith({...});
+}
 
-/// 临时播放保存的状态（不保存队列内容）
-class _TemporaryPlayState {
-  final int index;        // 保存的队列索引
-  final Duration position; // 保存的播放位置
-  final bool isPlaying;   // 保存的播放状态
+/// 播放模式
+enum PlayMode {
+  queue,      // 正常队列播放
+  temporary,  // 临时播放（播放完成后恢复）
+  detached,   // 脱离队列（如队列清空后继续播放）
 }
 ```
 
 **流程：**
-1. `playTemporary(track)` - 保存当前索引和位置（不保存队列），播放临时歌曲
-2. 歌曲完成时 `_onTrackCompleted` 检测到 `_isTemporaryPlay`
+1. `playTemporary(track)` - 设置 `_context` 为 `PlayMode.temporary` 并保存当前索引和位置
+2. 歌曲完成时 `_onTrackCompleted` 检测到 `_context.isTemporary`
 3. `_restoreSavedState()` - 直接使用当前队列，恢复到保存的索引位置，回退10秒，如果之前在播放则继续播放
+
+**重要：`_restoreSavedState()` 必须使用 `_playRequestId` 机制**
+
+`_restoreSavedState()` 有自己的 URL 获取逻辑，必须：
+1. 开始时递增 `_playRequestId` 来取消任何正在进行的播放请求
+2. URL 获取后检查 `_isSuperseded(requestId)`
+3. setUrl 后再次检查 `_isSuperseded(requestId)`
+
+这样可以防止以下场景的竞态条件：
+- 临时播放正在获取 URL → 用户点击"下一首" → 恢复操作取消临时播放
+- 恢复操作正在获取 URL → 用户点击新歌曲 → 新歌曲取消恢复操作
 
 ### 3. 静音切换
 **实现位置：** 仅在 AudioController（不在 AudioService）
@@ -195,7 +250,7 @@ final nextTrack = playerState.upcomingTracks.isNotEmpty
 final nextTrack = queue[currentIndex + 1];
 ```
 
-### 5. 播放锁（防止竞态）- 2026-01-19 更新
+### 5. PlaybackContext 和播放锁（2026-01-19 重构）
 
 **问题**：快速连续点击多首歌曲时，会加载所有点击过的歌曲而不是只加载最后一个，导致根据加载速度轮流播放。同时可能出现：
 - `Player already exists` 错误（just_audio_media_kit）
@@ -203,9 +258,31 @@ final nextTrack = queue[currentIndex + 1];
 - 进度条不立即重置，仍显示旧歌曲进度
 - 点击播放按钮会继续播放旧歌曲
 
-**解决方案**：请求 ID 机制 + 带 ID 的锁包装类 + 手动加载标志
+**解决方案**：`_PlaybackContext` 统一管理 + 请求 ID 机制 + 锁包装类
 
 ```dart
+/// 播放模式
+enum PlayMode {
+  queue,      // 正常队列播放
+  temporary,  // 临时播放（播放完成后恢复）
+  detached,   // 脱离队列（如队列清空后继续播放）
+}
+
+/// 播放上下文 - 统一管理所有播放相关状态
+class _PlaybackContext {
+  final PlayMode mode;
+  final int activeRequestId;     // 当前活动的请求 ID（0 表示无活动请求）
+  final int? savedQueueIndex;    // 临时播放保存的队列索引
+  final Duration? savedPosition; // 临时播放保存的播放位置
+  final bool? savedWasPlaying;   // 临时播放保存的播放状态
+  
+  bool get isTemporary => mode == PlayMode.temporary;
+  bool get isInLoadingState => activeRequestId > 0;
+  bool get hasSavedState => savedQueueIndex != null;
+  
+  _PlaybackContext copyWith({...});
+}
+
 /// 带有请求 ID 的锁包装类
 class _LockWithId {
   final int requestId;
@@ -223,79 +300,89 @@ class _LockWithId {
 class AudioController {
   _LockWithId? _playLock;
   int _playRequestId = 0;
-  
-  // 手动加载标志 - 防止播放器状态事件覆盖 UI 状态
-  bool _manualLoading = false;
+  _PlaybackContext _context = const _PlaybackContext();  // 统一状态管理
 }
 ```
 
-**关键实现模式**：
-
-1. **UI 立即更新** - 在任何 `await` 之前更新所有状态：
+**统一播放入口 `_executePlayRequest()`：**
 ```dart
-Future<void> _playTrack(Track track) async {
-  // 1. 立即更新歌曲信息
+Future<void> _executePlayRequest({
+  required Track track,
+  required PlayMode mode,
+  bool persist = true,
+  bool recordHistory = true,
+  bool prefetchNext = true,
+}) async {
+  // 1. 立即更新 UI
   _updatePlayingTrack(track);
   _updateQueueState();
   
-  // 2. 设置手动加载标志，防止播放器事件覆盖
-  _manualLoading = true;
-  state = state.copyWith(isLoading: true, position: Duration.zero, error: null);
-  
-  // 3. 停止当前播放（此时播放器事件不会覆盖 isLoading 和 position）
+  // 2. 进入加载状态
+  _enterLoadingState();
   await _audioService.stop();
   
-  // ... 获取 URL 和播放 ...
+  final requestId = ++_playRequestId;
+  _context = _context.copyWith(mode: mode, activeRequestId: requestId);
   
-  // 4. 完成时重置标志
-  _manualLoading = false;
-  state = state.copyWith(isLoading: false);
+  // 3. 锁机制处理并发
+  final existingLock = _playLock;
+  final newLock = _LockWithId(requestId);
+  _playLock = newLock;
+  existingLock?.completeIf(existingLock.requestId);
+  
+  // 4. 获取 URL 并播放
+  // ... URL 获取逻辑 ...
+  
+  // 5. 检查是否被取代
+  if (_isSuperseded(requestId)) {
+    newLock.completeIf(requestId);
+    return;
+  }
+  
+  // 6. 完成时退出加载状态
+  _exitLoadingState(requestId);
 }
 ```
 
-2. **播放器状态事件处理** - 使用 `_manualLoading` 防止覆盖：
+**辅助方法：**
+```dart
+void _enterLoadingState() {
+  state = state.copyWith(isLoading: true, position: Duration.zero, error: null);
+}
+
+void _exitLoadingState(int requestId) {
+  if (_context.activeRequestId == requestId) {
+    _context = _context.copyWith(activeRequestId: 0);
+    state = state.copyWith(isLoading: false);
+  }
+}
+
+bool _isSuperseded(int requestId) => _playRequestId != requestId;
+```
+
+**播放器状态事件处理** - 使用 `_context.isInLoadingState` 防止覆盖：
 ```dart
 void _onPlayerStateChanged(just_audio.PlayerState playerState) {
   state = state.copyWith(
     isPlaying: playerState.playing,
     isBuffering: playerState.processingState == just_audio.ProcessingState.buffering,
-    // 手动标志优先，防止播放器事件覆盖 URL 获取期间的 loading 状态
-    isLoading: _manualLoading || playerState.processingState == just_audio.ProcessingState.loading,
+    // 加载中时保持 true，防止播放器事件覆盖 URL 获取期间的状态
+    isLoading: _context.isInLoadingState || 
+               playerState.processingState == just_audio.ProcessingState.loading,
     processingState: playerState.processingState,
   );
 }
 
 void _onPositionChanged(Duration position) {
-  // 手动加载期间忽略位置更新（防止旧歌曲位置覆盖已重置的进度条）
-  if (_manualLoading) return;
+  // 加载中忽略位置更新（防止旧歌曲位置覆盖已重置的进度条）
+  if (_context.isInLoadingState) return;
   
   state = state.copyWith(position: position);
   // ...
 }
 ```
 
-3. **playTemporary 特殊处理** - 需要在 stop() 前保存位置：
-```dart
-Future<void> playTemporary(Track track) async {
-  // 在 stop() 前保存，因为 stop() 会重置这些值
-  final savedPosition = _audioService.position;
-  final savedIsPlaying = _audioService.isPlaying;
-  
-  // 然后设置 _manualLoading 和停止音频
-  _manualLoading = true;
-  state = state.copyWith(isLoading: true, position: Duration.zero);
-  await _audioService.stop();
-  
-  // 后续保存临时状态时使用保存的值
-  _temporaryState = _TemporaryPlayState(
-    index: _queueManager.currentIndex,
-    position: savedPosition,  // 使用保存的值
-    isPlaying: savedIsPlaying,
-  );
-}
-```
-
-4. **AudioService 修复** - 等待播放器 idle 状态：
+**AudioService 修复** - 等待播放器 idle 状态：
 ```dart
 // playUrl/playFile 中
 await _player.stop();
