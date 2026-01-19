@@ -193,6 +193,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   // 导航请求ID - 防止快速点击 next/previous 时的竞态条件
   int _navRequestId = 0;
 
+  // 手动加载标志 - 用于 URL 获取期间保持 loading 状态
+  // 播放器状态事件不会覆盖这个标志
+  bool _manualLoading = false;
+
   // 临时播放状态（封装为一个类会更好，但这里保持简单）
   bool _isTemporaryPlay = false;
   _TemporaryPlayState? _temporaryState;
@@ -426,10 +430,19 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   Future<void> playTemporary(Track track) async {
     await _ensureInitialized();
 
-    // 【重要】在等待锁之前就立即更新 UI，让用户看到即时反馈
-    // 即使后续操作被阻塞，用户也能看到歌曲信息已切换
+    // 【重要】立即保存当前状态（在任何 async 操作之前，因为 stop() 会重置这些值）
+    final savedPosition = _audioService.position;
+    final savedIsPlaying = _audioService.isPlaying;
+
+    // 【重要】立即更新 UI 和状态，让用户看到即时反馈
+    // 1. 更新显示的歌曲信息
+    // 2. 设置 loading 状态和重置进度条
+    // 3. 停止当前播放（防止点击播放按钮继续播放旧歌曲）
     _updatePlayingTrack(track);
     _updateQueueState();
+    _manualLoading = true;  // 设置手动加载标志，防止播放器事件覆盖
+    state = state.copyWith(isLoading: true, position: Duration.zero, error: null);
+    await _audioService.stop();
 
     // 获取请求 ID，用于防止竞态条件
     final requestId = ++_playRequestId;
@@ -461,8 +474,6 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     // 创建新的锁（直接覆盖旧的）
     _playLock = _LockWithId(requestId);
 
-    state = state.copyWith(isLoading: true, error: null);
-
     // 标志：请求是否成功完成（用于 finally 块中决定是否重置 isLoading）
     bool completedSuccessfully = false;
 
@@ -478,22 +489,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       if (!_isTemporaryPlay && _queueManager.currentTrack != null) {
         _temporaryState = _TemporaryPlayState(
           index: _queueManager.currentIndex,
-          position: _audioService.position,
-          isPlaying: _audioService.isPlaying,
+          position: savedPosition,  // 使用开头保存的值（stop() 会重置 _audioService.position）
+          isPlaying: savedIsPlaying,  // 使用开头保存的值
         );
         logDebug('Saved playback state: index: ${_temporaryState!.index}, position: ${_temporaryState!.position}');
       }
 
       _isTemporaryPlay = true;
-
-      // 停止当前播放，避免在获取新 URL 期间继续播放上一首
-      await _audioService.stop();
-
-      // 再次检查是否被取代
-      if (requestId != _playRequestId) {
-        logDebug('Temporary play request $requestId superseded after stop, aborting');
-        return;
-      }
 
       // 获取音频 URL 并播放（不修改队列，不保存到数据库）
       logDebug('Fetching audio URL for temporary track: ${track.title}');
@@ -529,6 +531,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // 更新正在播放的歌曲（可能有 URL 更新）
       _updatePlayingTrack(trackWithUrl);
 
+      _manualLoading = false;
       state = state.copyWith(isLoading: false);
       completedSuccessfully = true;
 
@@ -539,12 +542,14 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     } on just_audio.PlayerInterruptedException catch (e) {
       // 播放被中断（通常是因为新的播放请求），不作为错误处理
       logDebug('Temporary playback interrupted for ${track.title}: ${e.message}');
+      _manualLoading = false;
       state = state.copyWith(isLoading: false);
     } on BilibiliApiException catch (e) {
       // Bilibili API 错误（如视频不可用、版权限制等）
       logWarning('Bilibili API error for temporary track ${track.title}: ${e.message}');
 
       // 临时播放失败，尝试恢复原队列
+      _manualLoading = false;
       state = state.copyWith(isLoading: false);
 
       if (e.isUnavailable || e.isGeoRestricted) {
@@ -580,7 +585,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // 新请求会接管 UI 状态，但需要清除这个请求的加载状态
       if (!completedSuccessfully && requestId != _playRequestId) {
         logDebug('Request $requestId was superseded, resetting isLoading');
-        state = state.copyWith(isLoading: false);
+        _manualLoading = false;
+      state = state.copyWith(isLoading: false);
       }
     }
   }
@@ -620,9 +626,14 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
       final currentTrack = _queueManager.currentTrack;
       if (currentTrack != null) {
-        // 【重要】立即更新 UI，避免 Android 上明显的延迟
+        // 【重要】立即更新 UI 和状态，让用户看到即时反馈
+        // 1. 更新显示的歌曲信息
+        // 2. 设置 loading 状态和重置进度条
+        // 3. 停止当前播放（防止点击播放按钮继续播放临时歌曲）
         _updatePlayingTrack(currentTrack);
         _updateQueueState();
+        state = state.copyWith(isLoading: true, position: Duration.zero, error: null);
+        await _audioService.stop();
 
         // 准备歌曲
         final (trackWithUrl, localPath) = await _queueManager.ensureAudioUrl(currentTrack);
@@ -665,6 +676,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       _clearSavedState();
     } finally {
       // 確保 isLoading 被重置（防止在臨時播放期間點擊下一首時 UI 卡在加載狀態）
+      _manualLoading = false;
       state = state.copyWith(isLoading: false);
     }
   }
@@ -1148,9 +1160,15 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 播放指定歌曲
   Future<void> _playTrack(Track track) async {
-    // 【重要】立即更新 UI，让用户看到即时反馈
+    // 【重要】立即更新 UI 和状态，让用户看到即时反馈
+    // 1. 更新显示的歌曲信息
+    // 2. 设置 loading 状态和重置进度条
+    // 3. 停止当前播放（防止点击播放按钮继续播放旧歌曲）
     _updatePlayingTrack(track);
     _updateQueueState();
+    _manualLoading = true;  // 设置手动加载标志，防止播放器事件覆盖
+    state = state.copyWith(isLoading: true, position: Duration.zero, error: null);
+    await _audioService.stop();
 
     // 获取当前请求ID，用于检测是否被新请求取代
     final requestId = ++_playRequestId;
@@ -1181,13 +1199,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     // 创建新的锁（直接覆盖旧的）
     _playLock = _LockWithId(requestId);
 
-    state = state.copyWith(isLoading: true, error: null);
-
     // 标志：请求是否成功完成（用于 finally 块中决定是否重置 isLoading）
     bool completedSuccessfully = false;
-
-    // 停止当前播放，避免在获取新 URL 期间继续播放上一首
-    await _audioService.stop();
 
     try {
       // 确保有音频 URL
@@ -1232,12 +1245,14 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // 更新正在播放的歌曲（并记录到播放历史）
       _updatePlayingTrack(trackWithUrl, recordHistory: true);
 
+      _manualLoading = false;
       state = state.copyWith(isLoading: false);
       completedSuccessfully = true;
       logDebug('_playTrack completed successfully for: ${track.title}');
     } on just_audio.PlayerInterruptedException catch (e) {
       // 播放被中断（通常是因为新的播放请求），不作为错误处理
       logDebug('Playback interrupted for ${track.title}: ${e.message}');
+      _manualLoading = false;
       state = state.copyWith(isLoading: false);
     } on BilibiliApiException catch (e) {
       // Bilibili API 错误（如视频不可用、版权限制等）
@@ -1250,7 +1265,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         final nextIdx = _queueManager.getNextIndex();
         if (nextIdx != null) {
           // 有下一首，显示提示并跳过
-          state = state.copyWith(isLoading: false);
+          _manualLoading = false;
+      state = state.copyWith(isLoading: false);
           _toastService.showWarning('无法播放「${track.title}」，已跳过');
           Future.delayed(const Duration(milliseconds: 300), () {
             next();
@@ -1282,7 +1298,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // 如果请求没有成功完成，且已被新请求取代，重置 isLoading
       if (!completedSuccessfully && requestId != _playRequestId) {
         logDebug('Play request $requestId was superseded, resetting isLoading');
-        state = state.copyWith(isLoading: false);
+        _manualLoading = false;
+      state = state.copyWith(isLoading: false);
       }
     }
   }
@@ -1324,9 +1341,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       }
 
       // 确保清除加载状态
+      _manualLoading = false;
       state = state.copyWith(isLoading: false);
     } catch (e) {
       logError('Failed to prepare track: ${track.title}', e);
+      _manualLoading = false;
       state = state.copyWith(isLoading: false);
     }
   }
@@ -1336,7 +1355,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     state = state.copyWith(
       isPlaying: playerState.playing,
       isBuffering: playerState.processingState == just_audio.ProcessingState.buffering,
-      isLoading: state.isLoading || playerState.processingState == just_audio.ProcessingState.loading,
+      // 手动加载标志优先，防止播放器状态事件覆盖 URL 获取期间的 loading 状态
+      isLoading: _manualLoading || playerState.processingState == just_audio.ProcessingState.loading,
       processingState: playerState.processingState,
     );
 
@@ -1363,6 +1383,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   void _onPositionChanged(Duration position) {
+    // 手动加载期间忽略位置更新（防止旧歌曲的位置覆盖已重置的进度条）
+    if (_manualLoading) return;
+
     state = state.copyWith(position: position);
     // 更新 QueueManager 的位置（用于恢复播放）
     _queueManager.updatePosition(position);
