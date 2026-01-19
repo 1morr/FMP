@@ -3,17 +3,12 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/track.dart';
-import '../../services/saf/file_exists_service.dart';
-import '../../services/saf/saf_service.dart';
 
 /// 文件存在检查缓存
 ///
-/// 缓存文件是否存在的检测结果，避免在 UI 渲染时频繁进行同步 IO 操作。
-/// 支持普通文件路径和 Android SAF content:// URI。
+/// 缓存文件是否存在的检测结果，避免在 UI 渲染时频繁进行同步 IO 操作
 class FileExistsCache extends StateNotifier<Map<String, bool>> {
-  final FileExistsService _fileExistsService;
-
-  FileExistsCache(this._fileExistsService) : super({});
+  FileExistsCache() : super({});
 
   // ============== 通用方法（新增）==============
 
@@ -98,52 +93,17 @@ class FileExistsCache extends StateNotifier<Map<String, bool>> {
   
   /// 同步获取第一个存在的下载路径（阻塞式，用于非 build 上下文）
   ///
-  /// 此方法会直接执行文件检测，仅在非 build 上下文中使用。
-  /// 注意：对于 content:// URI，如果未缓存则只能返回 null，因为无法同步检测。
+  /// 此方法会直接执行文件检测，仅在非 build 上下文中使用
   String? getFirstExistingPathSync(Track track) {
     for (final path in track.downloadPaths) {
       bool fileExists;
       if (state.containsKey(path)) {
         fileExists = state[path]!;
-      } else if (SafService.isContentUri(path)) {
-        // content:// URI 无法同步检测，安排异步刷新
-        _scheduleRefresh(path);
-        continue;
       } else {
         fileExists = File(path).existsSync();
         // 注意：不在这里更新 state，因为可能在 build 中被间接调用
       }
       if (fileExists) return path;
-    }
-    return null;
-  }
-
-  /// 异步获取第一个存在的下载路径
-  ///
-  /// 推荐使用此方法替代 getFirstExistingPathSync，支持 content:// URI
-  Future<String?> getFirstExistingPathAsync(Track track) async {
-    // 先检查缓存
-    for (final path in track.downloadPaths) {
-      if (state.containsKey(path) && state[path]!) {
-        return path;
-      }
-    }
-
-    // 缓存未命中，执行检测并更新缓存
-    final updates = <String, bool>{};
-    for (final path in track.downloadPaths) {
-      if (!state.containsKey(path)) {
-        final exists = await _fileExistsService.exists(path);
-        updates[path] = exists;
-        if (exists) {
-          state = {...state, ...updates};
-          return path;
-        }
-      }
-    }
-
-    if (updates.isNotEmpty) {
-      state = {...state, ...updates};
     }
     return null;
   }
@@ -154,7 +114,7 @@ class FileExistsCache extends StateNotifier<Map<String, bool>> {
   void _scheduleRefresh(String path) {
     Future.microtask(() async {
       if (!state.containsKey(path)) {
-        final fileExists = await _fileExistsService.exists(path);
+        final fileExists = await File(path).exists();
         state = {...state, path: fileExists};
       }
     });
@@ -166,7 +126,7 @@ class FileExistsCache extends StateNotifier<Map<String, bool>> {
       final updates = <String, bool>{};
       for (final path in paths) {
         if (!state.containsKey(path)) {
-          updates[path] = await _fileExistsService.exists(path);
+          updates[path] = await File(path).exists();
         }
       }
       if (updates.isNotEmpty) {
@@ -183,7 +143,7 @@ class FileExistsCache extends StateNotifier<Map<String, bool>> {
 
     for (final track in tracks) {
       for (final path in track.downloadPaths) {
-        newState[path] = await _fileExistsService.exists(path);
+        newState[path] = await File(path).exists();
       }
     }
 
@@ -197,7 +157,7 @@ class FileExistsCache extends StateNotifier<Map<String, bool>> {
     final updates = <String, bool>{};
     for (final path in paths) {
       if (!state.containsKey(path)) {
-        updates[path] = await _fileExistsService.exists(path);
+        updates[path] = await File(path).exists();
       }
     }
     if (updates.isNotEmpty) {
@@ -210,7 +170,7 @@ class FileExistsCache extends StateNotifier<Map<String, bool>> {
     final path = track.getDownloadPath(playlistId);
     if (path == null) return false;
 
-    final fileExists = await _fileExistsService.exists(path);
+    final fileExists = await File(path).exists();
     state = {...state, path: fileExists};
     return fileExists;
   }
@@ -252,22 +212,10 @@ class FileExistsCache extends StateNotifier<Map<String, bool>> {
   }
 }
 
-// ============== Providers ==============
-
-/// SAF 服务 Provider
-final safServiceProvider = Provider<SafService>((ref) {
-  return SafService();
-});
-
-/// 文件存在检测服务 Provider
-final fileExistsServiceProvider = Provider<FileExistsService>((ref) {
-  return FileExistsService(ref.watch(safServiceProvider));
-});
-
 /// 文件存在检查缓存 Provider
 final fileExistsCacheProvider =
     StateNotifierProvider<FileExistsCache, Map<String, bool>>((ref) {
-  return FileExistsCache(ref.watch(fileExistsServiceProvider));
+  return FileExistsCache();
 });
 
 // 向后兼容的别名（标记为 @Deprecated，在迁移完成后可删除）
