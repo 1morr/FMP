@@ -200,8 +200,10 @@ final nextTrack = queue[currentIndex + 1];
 **问题**：快速连续点击多首歌曲时，会加载所有点击过的歌曲而不是只加载最后一个，导致根据加载速度轮流播放。同时可能出现：
 - `Player already exists` 错误（just_audio_media_kit）
 - `isLoading` 状态卡住不重置
+- 进度条不立即重置，仍显示旧歌曲进度
+- 点击播放按钮会继续播放旧歌曲
 
-**解决方案**：请求 ID 机制 + 带 ID 的锁包装类
+**解决方案**：请求 ID 机制 + 带 ID 的锁包装类 + 手动加载标志
 
 ```dart
 /// 带有请求 ID 的锁包装类
@@ -221,24 +223,84 @@ class _LockWithId {
 class AudioController {
   _LockWithId? _playLock;
   int _playRequestId = 0;
+  
+  // 手动加载标志 - 防止播放器状态事件覆盖 UI 状态
+  bool _manualLoading = false;
 }
 ```
 
 **关键实现模式**：
-1. **UI 立即更新** - 在任何 `await` 之前调用 `_updatePlayingTrack()`
-2. **立即完成旧锁** - 新请求到来时立即调用 `completeIf()`
-3. **多个检查点** - 每个 `await` 后都检查 `requestId != _playRequestId`
-4. **安全完成锁** - 使用 `completeIf()` 而非直接 `complete()`
-5. **finally 处理** - 确保 abort 时 `isLoading` 被重置
 
-**AudioService 修复** - 等待播放器 idle 状态：
+1. **UI 立即更新** - 在任何 `await` 之前更新所有状态：
+```dart
+Future<void> _playTrack(Track track) async {
+  // 1. 立即更新歌曲信息
+  _updatePlayingTrack(track);
+  _updateQueueState();
+  
+  // 2. 设置手动加载标志，防止播放器事件覆盖
+  _manualLoading = true;
+  state = state.copyWith(isLoading: true, position: Duration.zero, error: null);
+  
+  // 3. 停止当前播放（此时播放器事件不会覆盖 isLoading 和 position）
+  await _audioService.stop();
+  
+  // ... 获取 URL 和播放 ...
+  
+  // 4. 完成时重置标志
+  _manualLoading = false;
+  state = state.copyWith(isLoading: false);
+}
+```
 
+2. **播放器状态事件处理** - 使用 `_manualLoading` 防止覆盖：
+```dart
+void _onPlayerStateChanged(just_audio.PlayerState playerState) {
+  state = state.copyWith(
+    isPlaying: playerState.playing,
+    isBuffering: playerState.processingState == just_audio.ProcessingState.buffering,
+    // 手动标志优先，防止播放器事件覆盖 URL 获取期间的 loading 状态
+    isLoading: _manualLoading || playerState.processingState == just_audio.ProcessingState.loading,
+    processingState: playerState.processingState,
+  );
+}
+
+void _onPositionChanged(Duration position) {
+  // 手动加载期间忽略位置更新（防止旧歌曲位置覆盖已重置的进度条）
+  if (_manualLoading) return;
+  
+  state = state.copyWith(position: position);
+  // ...
+}
+```
+
+3. **playTemporary 特殊处理** - 需要在 stop() 前保存位置：
+```dart
+Future<void> playTemporary(Track track) async {
+  // 在 stop() 前保存，因为 stop() 会重置这些值
+  final savedPosition = _audioService.position;
+  final savedIsPlaying = _audioService.isPlaying;
+  
+  // 然后设置 _manualLoading 和停止音频
+  _manualLoading = true;
+  state = state.copyWith(isLoading: true, position: Duration.zero);
+  await _audioService.stop();
+  
+  // 后续保存临时状态时使用保存的值
+  _temporaryState = _TemporaryPlayState(
+    index: _queueManager.currentIndex,
+    position: savedPosition,  // 使用保存的值
+    isPlaying: savedIsPlaying,
+  );
+}
+```
+
+4. **AudioService 修复** - 等待播放器 idle 状态：
 ```dart
 // playUrl/playFile 中
 await _player.stop();
 
 // 等待播放器进入 idle 状态，确保底层播放器完全清理
-// 这对 just_audio_media_kit 特别重要，否则会出现 "Player already exists" 错误
 if (_player.processingState != ProcessingState.idle) {
   try {
     await _player.playerStateStream
@@ -246,11 +308,10 @@ if (_player.processingState != ProcessingState.idle) {
         .first
         .timeout(const Duration(milliseconds: 500));
   } catch (e) {
-    logWarning('Timeout waiting for idle state, proceeding anyway');
+    // 超时也继续
   }
 }
 
-// 现在可以安全地设置新的 audio source
 await _player.setAudioSource(audioSource);
 ```
 

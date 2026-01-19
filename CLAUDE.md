@@ -192,7 +192,7 @@ For long videos (>10 min) with progress >5%, the playback position is automatica
 Managed in `QueueManager` with `_shuffleOrder` list. When queue is cleared and songs added, shuffle order regenerates automatically.
 
 ### Play Lock (Race Condition Prevention)
-`AudioController` uses `_playLock` (wrapped in `_LockWithId`) and `_playRequestId` to prevent race conditions during rapid track switching.
+`AudioController` uses `_playLock` (wrapped in `_LockWithId`), `_playRequestId`, and `_manualLoading` to prevent race conditions during rapid track switching.
 
 **Implementation pattern:**
 ```dart
@@ -206,37 +206,46 @@ class _LockWithId {
   }
 }
 
-Future<void> playTemporary(Track track) async {
-  // Update UI FIRST (before any await)
+class AudioController {
+  _LockWithId? _playLock;
+  int _playRequestId = 0;
+  bool _manualLoading = false;  // Prevents player events from overriding UI state
+}
+
+Future<void> _playTrack(Track track) async {
+  // 1. Update UI FIRST (before any await)
   _updatePlayingTrack(track);
   _updateQueueState();
 
+  // 2. Set manual loading flag to prevent player events from overriding
+  _manualLoading = true;
+  state = state.copyWith(isLoading: true, position: Duration.zero, error: null);
+  await _audioService.stop();
+
   final requestId = ++_playRequestId;
 
-  // Immediately complete old lock so old request can exit fast
-  if (_playLock != null && !_playLock!.completer.isCompleted) {
-    _playLock!.completeIf(_playLock!.requestId);
-    await _playLock!.completer.future.timeout(...);
-  }
+  // ... lock handling, URL fetch, playback ...
 
-  // Check if superseded at multiple points
-  if (requestId != _playRequestId) return;
+  // 3. Reset flag when done
+  _manualLoading = false;
+  state = state.copyWith(isLoading: false);
+}
 
-  _playLock = _LockWithId(requestId);
-  bool completedSuccessfully = false;
+// Player state listener respects _manualLoading
+void _onPlayerStateChanged(just_audio.PlayerState playerState) {
+  state = state.copyWith(
+    isLoading: _manualLoading || playerState.processingState == ProcessingState.loading,
+    // ...
+  );
+}
 
-  try {
-    // ... await operations, check requestId after each ...
-    completedSuccessfully = true;
-  } finally {
-    _playLock?.completeIf(requestId);
-    // Reset isLoading if aborted
-    if (!completedSuccessfully && requestId != _playRequestId) {
-      state = state.copyWith(isLoading: false);
-    }
-  }
+// Position listener ignores updates during manual loading
+void _onPositionChanged(Duration position) {
+  if (_manualLoading) return;  // Prevent old track position from overriding reset
+  state = state.copyWith(position: position);
 }
 ```
+
 
 **AudioService also waits for player idle state:**
 ```dart

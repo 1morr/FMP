@@ -269,9 +269,90 @@ Future<void> _restoreSavedState() async {
 }
 ```
 
-**經驗**：任何設置了 `isLoading = true` 的方法，都必須在 `finally` 塊中重置它。即使在正常流程中已經重置，`finally` 塊可以作為雙重保險，處理所有可能的退出路徑（early return、異常等）。。當 `leading` 中包含複雜組件（如 `Row`）時，會觸發額外的佈局計算，導致性能問題。
+**經驗**：任何設置了 `isLoading = true` 的方法，都必須在 `finally` 塊中重置它。即使在正常流程中已經重置，`finally` 塊可以作為雙重保險，處理所有可能的退出路徑（early return、異常等）。
 
-**解決方案**：放棄 `ListTile`，使用 `InkWell` + `Padding` + `Row` 構建扁平的自定義佈局。
+### 11. 播放器狀態監聽器不能用 `||` 保留 loading 狀態 (2026-01-19)
+
+**問題**：在 `_onPlayerStateChanged` 中使用 `state.isLoading || playerState.processingState == loading` 會導致 `isLoading` 只能變成 `true`，永遠不能通過播放器狀態變成 `false`。這導致 Android 上歌曲成功播放後仍顯示 loading。
+
+**原因**：`||` 運算符意味著只要 `state.isLoading` 是 `true`，結果就會是 `true`。即使我們顯式調用 `copyWith(isLoading: false)`，如果播放器狀態事件在之後觸發，`isLoading` 會再次被設為 `true`。
+
+```dart
+// ❌ 錯誤 - isLoading 只能變成 true，不能通過播放器狀態變成 false
+isLoading: state.isLoading || playerState.processingState == just_audio.ProcessingState.loading,
+
+// ✅ 正確 - isLoading 純粹反映播放器狀態
+isLoading: playerState.processingState == just_audio.ProcessingState.loading,
+```
+
+**经验**：播放器狀態監聽器應該純粹反映播放器狀態，不要嘗試「保留」先前的狀態值。
+
+### 12. 切歌時必須立即更新所有 UI 狀態 (2026-01-19)
+
+**問題**：點擊下一首後，在歌曲實際開始播放之前：
+1. 按鈕顯示「播放」而非「加載中」，點擊會播放舊歌曲
+2. 進度條不會重置，仍顯示舊歌曲的進度
+
+**根本原因**：
+1. `isLoading` 和 `position` 設置被播放器狀態事件覆蓋
+2. `_audioService.stop()` 觸發 `_onPlayerStateChanged`，把 `isLoading` 設回 `false`
+3. `_onPositionChanged` 持續接收舊歌曲的位置，覆蓋 `position: Duration.zero`
+
+**解決方案**：引入 `_manualLoading` 標誌
+
+```dart
+class AudioController {
+  // 手動加載標誌 - 用於 URL 獲取期間保持 loading 狀態
+  bool _manualLoading = false;
+
+  void _onPlayerStateChanged(just_audio.PlayerState playerState) {
+    state = state.copyWith(
+      isPlaying: playerState.playing,
+      isBuffering: playerState.processingState == just_audio.ProcessingState.buffering,
+      // 手動標誌優先，防止播放器事件覆蓋
+      isLoading: _manualLoading || playerState.processingState == just_audio.ProcessingState.loading,
+      processingState: playerState.processingState,
+    );
+  }
+
+  void _onPositionChanged(Duration position) {
+    // 手動加載期間忽略位置更新（防止舊歌曲位置覆蓋已重置的進度條）
+    if (_manualLoading) return;
+    state = state.copyWith(position: position);
+    // ...
+  }
+
+  Future<void> _playTrack(Track track) async {
+    // 1. 保存當前狀態（playTemporary 需要）
+    final savedPosition = _audioService.position;
+    final savedIsPlaying = _audioService.isPlaying;
+
+    // 2. 立即更新 UI
+    _updatePlayingTrack(track);
+    _updateQueueState();
+
+    // 3. 設置手動加載標誌，防止播放器事件覆蓋
+    _manualLoading = true;
+    state = state.copyWith(isLoading: true, position: Duration.zero, error: null);
+
+    // 4. 停止當前播放（此時播放器事件不會覆蓋 isLoading 和 position）
+    await _audioService.stop();
+
+    // ... 獲取 URL 和播放 ...
+
+    // 5. 完成時重置標誌
+    _manualLoading = false;
+    state = state.copyWith(isLoading: false);
+  }
+}
+```
+
+**關鍵點**：
+- `_manualLoading = true` 必須在 `stop()` 之前設置
+- `_onPlayerStateChanged` 檢查 `_manualLoading` 來決定 `isLoading`
+- `_onPositionChanged` 在 `_manualLoading` 時直接返回，不更新位置
+- 每個 `isLoading: false` 之前都要設置 `_manualLoading = false`
+
 
 **问题**：刷新导入的歌单时，如果远程移除了某些歌曲，只更新了 `Playlist.trackIds`，但没有清理对应 Track 的 `playlistIds` 和 `downloadPaths`。
 
