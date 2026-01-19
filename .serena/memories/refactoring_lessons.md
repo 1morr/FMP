@@ -353,6 +353,48 @@ class AudioController {
 - `_onPositionChanged` 在 `_manualLoading` 時直接返回，不更新位置
 - 每個 `isLoading: false` 之前都要設置 `_manualLoading = false`
 
+### 13. next()/previous()/_onTrackCompleted() 必須檢測完整的「脫離隊列」狀態 (2026-01-19)
+
+**問題**：
+1. 隊列為空時進行臨時播放，添加歌曲後點擊「下一首」播放第二首而非第一首
+2. 臨時歌曲自然結束時，剛添加的歌曲自動播放第二首
+
+**原因**：`next()` 和 `_onTrackCompleted()` 只檢查 `_isTemporaryPlay`，但「脫離隊列」還有其他情況：
+- 隊列被清空但歌曲繼續播放
+- `_playingTrack.id != queueTrack.id`
+
+當這些情況發生時，`_isTemporaryPlay` 可能是 false，所以會錯誤地調用 `moveToNext()`，從索引 0 移動到索引 1。
+
+**修復**：使用與 `_updateQueueState()` 相同的完整檢測邏輯：
+
+```dart
+// 檢測是否脫離隊列（next/previous/_onTrackCompleted 都要用這個邏輯）
+final queue = _queueManager.tracks;
+final queueTrack = _queueManager.currentTrack;
+final isPlayingOutOfQueue = _isTemporaryPlay ||
+    (_playingTrack != null && queueTrack != null && _playingTrack!.id != queueTrack.id) ||
+    (_playingTrack != null && queueTrack == null && queue.isNotEmpty);
+
+if (isPlayingOutOfQueue) {
+  if (_isTemporaryPlay && _temporaryState != null) {
+    // 有保存的狀態：恢復
+    await _restoreSavedState();
+  } else {
+    // 無保存狀態：播放隊列第一首
+    _isTemporaryPlay = false;
+    _temporaryState = null;
+    if (queue.isNotEmpty) {
+      _queueManager.setCurrentIndex(0);
+      await _playTrack(_queueManager.currentTrack!);
+    }
+  }
+  return;
+}
+
+// 只有正常隊列播放才調用 moveToNext()/moveToPrevious()
+```
+
+**時序問題**：位置檢測定時器可能比播放器完成事件先觸發 `_onTrackCompleted`，第一次調用清除 `_isTemporaryPlay` 後，第二次調用會錯誤地調用 `moveToNext()`。使用完整的 `isPlayingOutOfQueue` 檢測可以避免這個問題，因為即使 `_isTemporaryPlay` 被清除，`_playingTrack.id != queueTrack.id` 仍然成立。
 
 **问题**：刷新导入的歌单时，如果远程移除了某些歌曲，只更新了 `Playlist.trackIds`，但没有清理对应 Track 的 `playlistIds` 和 `downloadPaths`。
 

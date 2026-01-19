@@ -721,23 +721,28 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 下一首
   Future<void> next() async {
     await _ensureInitialized();
-    
+
     // 获取导航请求 ID，防止快速点击导致竞态条件
     final navId = ++_navRequestId;
     logDebug('next() called, navId: $navId, isTemporaryPlay: $_isTemporaryPlay');
 
-    // 只在明确的临时播放模式下才认为是"脱离队列"
-    // 注意：不能用 _playingTrack != queueTrack 来检测，因为快速切歌时这两个值可能暂时不一致
-    if (_isTemporaryPlay) {
-      logDebug('Temporary play mode: restoring saved state');
-      
-      if (_temporaryState != null) {
-        // 有保存的状态：恢复到保存的位置
+    // 检测当前播放的歌曲是否"脱离"了队列（使用与 _updateQueueState 相同的逻辑）
+    final queue = _queueManager.tracks;
+    final queueTrack = _queueManager.currentTrack;
+    final isPlayingOutOfQueue = _isTemporaryPlay ||
+        (_playingTrack != null && queueTrack != null && _playingTrack!.id != queueTrack.id) ||
+        (_playingTrack != null && queueTrack == null && queue.isNotEmpty);
+
+    if (isPlayingOutOfQueue) {
+      logDebug('Playing out of queue: restoring to queue');
+
+      if (_isTemporaryPlay && _temporaryState != null) {
+        // 临时播放模式且有保存的状态：恢复到保存的位置
         await _restoreSavedState();
       } else {
-        // 没有保存的状态，退出临时播放模式并播放队列第一首
+        // 其他脱离队列情况：退出临时播放模式并播放队列第一首
         _isTemporaryPlay = false;
-        final queue = _queueManager.tracks;
+        _temporaryState = null;
         if (queue.isNotEmpty) {
           _queueManager.setCurrentIndex(0);
           final track = _queueManager.currentTrack;
@@ -767,22 +772,28 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 上一首
   Future<void> previous() async {
     await _ensureInitialized();
-    
+
     // 获取导航请求 ID，防止快速点击导致竞态条件
     final navId = ++_navRequestId;
     logDebug('previous() called, navId: $navId, isTemporaryPlay: $_isTemporaryPlay');
 
-    // 只在明确的临时播放模式下才认为是"脱离队列"
-    if (_isTemporaryPlay) {
-      logDebug('Temporary play mode: restoring saved state');
-      
-      if (_temporaryState != null) {
-        // 有保存的状态：恢复到保存的位置
+    // 检测当前播放的歌曲是否"脱离"了队列（使用与 _updateQueueState 相同的逻辑）
+    final queue = _queueManager.tracks;
+    final queueTrack = _queueManager.currentTrack;
+    final isPlayingOutOfQueue = _isTemporaryPlay ||
+        (_playingTrack != null && queueTrack != null && _playingTrack!.id != queueTrack.id) ||
+        (_playingTrack != null && queueTrack == null && queue.isNotEmpty);
+
+    if (isPlayingOutOfQueue) {
+      logDebug('Playing out of queue: restoring to queue');
+
+      if (_isTemporaryPlay && _temporaryState != null) {
+        // 临时播放模式且有保存的状态：恢复到保存的位置
         await _restoreSavedState();
       } else {
-        // 没有保存的状态，退出临时播放模式并播放队列第一首
+        // 其他脱离队列情况：退出临时播放模式并播放队列第一首
         _isTemporaryPlay = false;
-        final queue = _queueManager.tracks;
+        _temporaryState = null;
         if (queue.isNotEmpty) {
           _queueManager.setCurrentIndex(0);
           final track = _queueManager.currentTrack;
@@ -1446,14 +1457,40 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
           return;
         }
 
-        // 检查是否是临时播放模式（非单曲循环时才恢复队列）
-        if (_isTemporaryPlay) {
-          logDebug('Temporary play completed, restoring saved state');
-          await _restoreSavedState();
+        // 检测当前播放的歌曲是否"脱离"了队列（使用与 next() 相同的逻辑）
+        final queue = _queueManager.tracks;
+        final queueTrack = _queueManager.currentTrack;
+        final isPlayingOutOfQueue = _isTemporaryPlay ||
+            (_playingTrack != null && queueTrack != null && _playingTrack!.id != queueTrack.id) ||
+            (_playingTrack != null && queueTrack == null && queue.isNotEmpty);
+
+        if (isPlayingOutOfQueue) {
+          logDebug('Track completed while playing out of queue');
+
+          if (_isTemporaryPlay && _temporaryState != null) {
+            // 临时播放模式且有保存的状态：恢复到保存的位置
+            logDebug('Restoring saved state');
+            await _restoreSavedState();
+          } else {
+            // 其他脱离队列情况：退出临时播放模式，播放队列第一首
+            _isTemporaryPlay = false;
+            _temporaryState = null;
+            if (queue.isNotEmpty) {
+              logDebug('Playing first track in queue');
+              _queueManager.setCurrentIndex(0);
+              final track = _queueManager.currentTrack;
+              if (track != null) {
+                await _playTrack(track);
+              }
+            } else {
+              logDebug('Queue is empty, nothing to play');
+              _updateQueueState();
+            }
+          }
           return;
         }
-        
-        // 移动到下一首
+
+        // 正常队列播放：移动到下一首
         final nextIdx = _queueManager.moveToNext();
         if (nextIdx != null) {
           final track = _queueManager.currentTrack;
