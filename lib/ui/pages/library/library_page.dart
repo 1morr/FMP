@@ -117,30 +117,18 @@ class LibraryPage extends ConsumerWidget {
     WidgetRef ref,
     List<Playlist> playlists,
   ) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // 响应式网格列数
-        final crossAxisCount = constraints.maxWidth > 900
-            ? 5
-            : constraints.maxWidth > 600
-                ? 4
-                : constraints.maxWidth > 400
-                    ? 3
-                    : 2;
-
-        return GridView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            childAspectRatio: 0.8,
-          ),
-          itemCount: playlists.length,
-          itemBuilder: (context, index) {
-            return _PlaylistCard(playlist: playlists[index]);
-          },
-        );
+    // 使用 maxCrossAxisExtent 实现平滑缩放，卡片大小随窗口连续变化
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 200, // 卡片最大宽度
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+        childAspectRatio: 0.8,
+      ),
+      itemCount: playlists.length,
+      itemBuilder: (context, index) {
+        return _PlaylistCard(playlist: playlists[index]);
       },
     );
   }
