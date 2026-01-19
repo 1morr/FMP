@@ -195,6 +195,8 @@ class _ImportUrlDialogState extends ConsumerState<ImportUrlDialog> {
 
       // 刷新歌单列表
       ref.read(playlistListProvider.notifier).loadPlaylists();
+      // 同步刷新 allPlaylistsProvider，确保首页"我的歌单"显示最新列表
+      ref.invalidate(allPlaylistsProvider);
 
       if (mounted) {
         Navigator.pop(context);
