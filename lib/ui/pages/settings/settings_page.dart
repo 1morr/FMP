@@ -8,6 +8,7 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/network_image_cache_service.dart';
+import '../../../core/services/toast_service.dart';
 import '../../../data/models/hotkey_config.dart';
 import '../../../data/models/settings.dart';
 import '../../../providers/theme_provider.dart';
@@ -17,6 +18,9 @@ import '../../../providers/developer_options_provider.dart';
 import '../../../providers/playback_settings_provider.dart';
 import '../../../providers/desktop_settings_provider.dart';
 import '../../../providers/hotkey_config_provider.dart';
+import '../../../providers/saf_providers.dart';
+import '../../../providers/repository_providers.dart';
+import '../../../services/saf/saf_service.dart';
 import '../../router.dart';
 
 /// 设置页
@@ -430,9 +434,10 @@ class _DownloadManagerListTile extends StatelessWidget {
 class _DownloadPathListTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final dirInfoAsync = ref.watch(downloadDirInfoProvider);
+    final baseDirAsync = ref.watch(downloadBaseDirProvider);
+    final settingsAsync = ref.watch(settingsProvider);
 
-    return dirInfoAsync.when(
+    return baseDirAsync.when(
       loading: () => const ListTile(
         leading: Icon(Icons.folder_outlined),
         title: Text('下载路径'),
@@ -443,17 +448,70 @@ class _DownloadPathListTile extends ConsumerWidget {
         title: const Text('下载路径'),
         subtitle: Text('加载失败: $e'),
       ),
-      data: (info) => ListTile(
-        leading: const Icon(Icons.folder_outlined),
-        title: const Text('下载路径'),
-        subtitle: Text(info.path),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => _showPathDialog(context, info.path),
-      ),
+      data: (baseDir) {
+        final isConfigured = baseDir.isNotEmpty;
+        final displayName = settingsAsync.maybeWhen(
+          data: (settings) => settings.customDownloadDirDisplayName,
+          orElse: () => null,
+        );
+
+        // Android 未设置时显示警告
+        final showWarning = Platform.isAndroid && !isConfigured;
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(
+                Icons.folder_outlined,
+                color: showWarning ? Colors.orange : null,
+              ),
+              title: const Text('下载路径'),
+              subtitle: Text(
+                isConfigured
+                    ? (displayName ?? baseDir)
+                    : (Platform.isAndroid ? '未设置（点击选择）' : '默认路径'),
+                style: showWarning
+                    ? const TextStyle(color: Colors.orange)
+                    : null,
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _showPathDialog(context, ref, baseDir, displayName),
+            ),
+            if (showWarning)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber, color: Colors.orange[700], size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        '请先选择下载目录，否则无法下载音乐',
+                        style: TextStyle(color: Colors.orange[800], fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 
-  void _showPathDialog(BuildContext context, String currentPath) {
+  void _showPathDialog(
+    BuildContext context,
+    WidgetRef ref,
+    String currentPath,
+    String? displayName,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -462,34 +520,89 @@ class _DownloadPathListTile extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('当前路径:', style: Theme.of(context).textTheme.labelMedium),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(8),
+            if (currentPath.isNotEmpty) ...[
+              Text('当前路径:', style: Theme.of(context).textTheme.labelMedium),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  displayName ?? currentPath,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ),
-              child: Text(
-                currentPath,
-                style: Theme.of(context).textTheme.bodySmall,
+              const SizedBox(height: 16),
+            ],
+            if (Platform.isAndroid)
+              const Text(
+                '由于 Android 系统限制，需要您选择一个目录来存放下载的音乐文件。\n\n建议选择「Music」或「Download」文件夹下的子目录。',
+                style: TextStyle(fontSize: 13),
+              )
+            else
+              Text(
+                '默认存储在：${currentPath.isNotEmpty ? currentPath : "Documents/FMP"}',
+                style: const TextStyle(fontSize: 13),
               ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              '提示：修改下载路径功能即将推出',
-              style: TextStyle(color: Colors.grey),
-            ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('确定'),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _selectDirectory(context, ref);
+            },
+            child: Text(currentPath.isEmpty ? '选择目录' : '更改目录'),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _selectDirectory(BuildContext context, WidgetRef ref) async {
+    final safService = ref.read(safServiceProvider);
+    final settingsRepo = ref.read(settingsRepositoryProvider);
+
+    try {
+      final selectedPath = await safService.pickDirectory();
+
+      if (selectedPath == null) {
+        return; // 用户取消了选择
+      }
+
+      // 获取显示名称
+      String displayName;
+      if (SafService.isContentUri(selectedPath)) {
+        displayName = await safService.getDisplayName(selectedPath);
+      } else {
+        displayName = selectedPath;
+      }
+
+      // 保存到设置
+      final settings = await settingsRepo.get();
+      settings.customDownloadDir = selectedPath;
+      settings.customDownloadDirDisplayName = displayName;
+      await settingsRepo.save(settings);
+
+      // 刷新相关 providers
+      ref.invalidate(downloadBaseDirProvider);
+      ref.invalidate(settingsProvider);
+      ref.invalidate(downloadedCategoriesProvider);
+
+      if (context.mounted) {
+        ToastService.show(context, '下载目录已设置为：$displayName');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ToastService.show(context, '选择目录失败：$e');
+      }
+    }
   }
 }
 
