@@ -248,7 +248,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               ),
             ),
             SizedBox(
-              height: 152,
+              height: 170,
               child: ScrollConfiguration(
                 // 允许鼠标拖拽滚动（桌面端支持）
                 behavior: ScrollConfiguration.of(context).copyWith(
@@ -273,59 +273,63 @@ class _HomePageState extends ConsumerState<HomePage> {
 
                   return SizedBox(
                     width: 120,
-                    child: InkWell(
-                      onTap: () => context.go('/library/${playlist.id}'),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // 封面
-                          AspectRatio(
-                            aspectRatio: 1,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                                color: colorScheme.surfaceContainerHighest,
-                              ),
-                              clipBehavior: Clip.antiAlias,
-                              child: coverAsync.when(
-                                skipLoadingOnReload: true,
-                                data: (coverData) => coverData.hasCover
-                                    ? ImageLoadingService.loadImage(
-                                        localPath: coverData.localPath,
-                                        networkUrl: coverData.networkUrl,
-                                        placeholder: Icon(
+                    child: Card(
+                      margin: EdgeInsets.zero,
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: () => context.go('/library/${playlist.id}'),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // 封面
+                            AspectRatio(
+                              aspectRatio: 1,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: colorScheme.surfaceContainerHighest,
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: coverAsync.when(
+                                  skipLoadingOnReload: true,
+                                  data: (coverData) => coverData.hasCover
+                                      ? ImageLoadingService.loadImage(
+                                          localPath: coverData.localPath,
+                                          networkUrl: coverData.networkUrl,
+                                          placeholder: Icon(
+                                            Icons.album,
+                                            size: 40,
+                                            color: colorScheme.outline,
+                                          ),
+                                          fit: BoxFit.cover,
+                                        )
+                                      : Icon(
                                           Icons.album,
                                           size: 40,
                                           color: colorScheme.outline,
                                         ),
-                                        fit: BoxFit.cover,
-                                      )
-                                    : Icon(
-                                        Icons.album,
-                                        size: 40,
-                                        color: colorScheme.outline,
-                                      ),
-                                loading: () => const Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                                error: (e, s) => Icon(
-                                  Icons.album,
-                                  size: 40,
-                                  color: colorScheme.outline,
+                                  loading: () => const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                  error: (e, s) => Icon(
+                                    Icons.album,
+                                    size: 40,
+                                    color: colorScheme.outline,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          // 名称
-                          Text(
-                            playlist.name,
-                            style: Theme.of(context).textTheme.bodySmall,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                            // 名称 - 添加 padding 與音樂庫頁面一致
+                            Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: Text(
+                                playlist.name,
+                                style: Theme.of(context).textTheme.bodySmall,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -375,7 +379,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               ),
             ),
             SizedBox(
-              height: 160,
+              height: 170,
               child: ScrollConfiguration(
                 // 允许鼠标拖拽滚动（桌面端支持）
                 behavior: ScrollConfiguration.of(context).copyWith(
@@ -411,51 +415,55 @@ class _HomePageState extends ConsumerState<HomePage> {
   ) {
     return SizedBox(
       width: 120,
-      height: 160,
-      child: InkWell(
-        onTap: () {
-          // 将历史记录转换为 Track 并播放
-          final track = history.toTrack();
-          ref.read(audioControllerProvider.notifier).playTemporary(track);
-        },
-        borderRadius: BorderRadius.circular(8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 封面 (120x120)
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: colorScheme.surfaceContainerHighest,
+      child: Card(
+        margin: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            // 将历史记录转换为 Track 并播放
+            final track = history.toTrack();
+            ref.read(audioControllerProvider.notifier).playTemporary(track);
+          },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 封面
+              AspectRatio(
+                aspectRatio: 1,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: history.thumbnailUrl != null
+                      ? ImageLoadingService.loadImage(
+                          networkUrl: history.thumbnailUrl,
+                          placeholder: Icon(
+                            Icons.music_note,
+                            size: 40,
+                            color: colorScheme.outline,
+                          ),
+                          fit: BoxFit.cover,
+                        )
+                      : Icon(
+                          Icons.music_note,
+                          size: 40,
+                          color: colorScheme.outline,
+                        ),
+                ),
               ),
-              clipBehavior: Clip.antiAlias,
-              child: history.thumbnailUrl != null
-                  ? ImageLoadingService.loadImage(
-                      networkUrl: history.thumbnailUrl,
-                      placeholder: Icon(
-                        Icons.music_note,
-                        size: 40,
-                        color: colorScheme.outline,
-                      ),
-                      fit: BoxFit.cover,
-                    )
-                  : Icon(
-                      Icons.music_note,
-                      size: 40,
-                      color: colorScheme.outline,
-                    ),
-            ),
-            const SizedBox(height: 4),
-            // 标题 (剩余 36px 空间，约2行文本)
-            Text(
-              history.title,
-              style: Theme.of(context).textTheme.bodySmall,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+              // 标题 - 添加 padding 與音樂庫頁面一致
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Text(
+                  history.title,
+                  style: Theme.of(context).textTheme.bodySmall,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
