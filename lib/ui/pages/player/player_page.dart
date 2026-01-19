@@ -1,9 +1,16 @@
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/extensions/track_extensions.dart';
+import '../../../core/services/image_loading_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../core/utils/icon_helpers.dart';
 import '../../../data/models/play_queue.dart';
+import '../../../data/models/track.dart';
+import '../../../data/models/video_detail.dart';
+import '../../../providers/download/file_exists_cache.dart';
+import '../../../providers/download/download_providers.dart';
+import '../../../providers/track_detail_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/track_thumbnail.dart';
 
@@ -43,12 +50,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           // 桌面端音量控制（紧凑版）
           if (isDesktop)
             _buildCompactVolumeControl(context, playerState, controller, colorScheme),
-          // 更多选项（包含倍速）
+          // 更多选项（包含信息、倍速）
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             offset: const Offset(0, 48), // 向下偏移，与子菜单位置一致
             onSelected: (value) async {
-              if (value == 'speed') {
+              if (value == 'info') {
+                // 延迟显示弹窗，等主菜单关闭后再显示
+                Future.delayed(const Duration(milliseconds: 100), () {
+                  if (!context.mounted) return;
+                  _showTrackInfoDialog(context, colorScheme);
+                });
+              } else if (value == 'speed') {
                 // 延迟显示子菜单，等主菜单关闭后再显示
                 Future.delayed(const Duration(milliseconds: 100), () {
                   if (!context.mounted) return;
@@ -57,6 +70,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               }
             },
             itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'info',
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, size: 20),
+                    const SizedBox(width: 12),
+                    const Text('信息'),
+                  ],
+                ),
+              ),
               PopupMenuItem(
                 value: 'speed',
                 child: Row(
@@ -433,4 +456,706 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     LoopMode.all => '列表循环',
     LoopMode.one => '单曲循环',
   };
+
+  /// 显示视频信息弹窗
+  void _showTrackInfoDialog(BuildContext context, ColorScheme colorScheme) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const _TrackInfoDialog(),
+    );
+  }
+}
+
+/// 视频信息弹窗
+class _TrackInfoDialog extends ConsumerWidget {
+  const _TrackInfoDialog();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final detailState = ref.watch(trackDetailProvider);
+    final playerState = ref.watch(audioControllerProvider);
+    final currentTrack = playerState.currentTrack;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    // Watch 文件存在缓存和下载基础目录
+    ref.watch(fileExistsCacheProvider);
+    final cache = ref.read(fileExistsCacheProvider.notifier);
+    final baseDirAsync = ref.watch(downloadBaseDirProvider);
+    final baseDir = baseDirAsync.valueOrNull;
+
+    final isYouTube = currentTrack?.sourceType == SourceType.youtube;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 顶部拖动手柄
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          // 标题栏
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 20,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '视频信息',
+                  style: textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          ),
+
+          const Divider(height: 1),
+
+          // 内容区域
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: detailState.detail != null
+                  ? _DetailContent(
+                      detail: detailState.detail!,
+                      isYouTube: isYouTube,
+                      track: currentTrack,
+                      cache: cache,
+                      baseDir: baseDir,
+                    )
+                  : detailState.isLoading
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(40),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      : _BasicInfoContent(track: currentTrack),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 详情内容（有 VideoDetail 数据）
+class _DetailContent extends StatelessWidget {
+  final VideoDetail detail;
+  final bool isYouTube;
+  final Track? track;
+  final FileExistsCache cache;
+  final String? baseDir;
+
+  const _DetailContent({
+    required this.detail,
+    required this.isYouTube,
+    required this.track,
+    required this.cache,
+    required this.baseDir,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 标题
+        Text(
+          detail.title,
+          style: textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+            height: 1.3,
+          ),
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+        ),
+
+        const SizedBox(height: 16),
+
+        // UP主信息（带头像）
+        Row(
+          children: [
+            // 头像
+            ImageLoadingService.loadAvatar(
+              localPath: track?.getLocalAvatarPath(cache, baseDir: baseDir),
+              networkUrl: detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
+              size: 40,
+            ),
+            const SizedBox(width: 12),
+            // UP主名称
+            Expanded(
+              child: Text(
+                detail.ownerName,
+                style: textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 16),
+
+        // 统计数据
+        Wrap(
+          spacing: 16,
+          runSpacing: 8,
+          children: [
+            _buildStatItem(
+              context,
+              Icons.play_arrow_rounded,
+              detail.formattedViewCount,
+            ),
+            _buildStatItem(
+              context,
+              Icons.thumb_up_rounded,
+              detail.formattedLikeCount,
+            ),
+            // YouTube 不显示收藏数
+            if (!isYouTube)
+              _buildStatItem(
+                context,
+                Icons.star_rounded,
+                detail.formattedFavoriteCount,
+              ),
+            _buildStatItem(
+              context,
+              Icons.calendar_today_outlined,
+              detail.formattedPublishDate,
+            ),
+            _buildStatItem(
+              context,
+              Icons.schedule_outlined,
+              detail.formattedDuration,
+            ),
+          ],
+        ),
+
+        // 简介（支持展开/收起）
+        if (detail.description.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          const Divider(),
+          const SizedBox(height: 16),
+          _DescriptionSection(description: detail.description),
+        ],
+
+        // 热门评论（带翻页）
+        if (detail.hotComments.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          const Divider(),
+          const SizedBox(height: 16),
+          _CommentPager(comments: detail.hotComments),
+        ],
+
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  Widget _buildStatItem(BuildContext context, IconData icon, String value) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 16,
+          color: colorScheme.primary.withValues(alpha: 0.8),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          value,
+          style: textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 评论分页组件（手动翻页 + 动画）
+class _CommentPager extends StatefulWidget {
+  final List<VideoComment> comments;
+
+  const _CommentPager({required this.comments});
+
+  @override
+  State<_CommentPager> createState() => _CommentPagerState();
+}
+
+class _CommentPagerState extends State<_CommentPager> {
+  int _currentIndex = 0;
+  bool _isForward = true;
+  final GlobalKey _containerKey = GlobalKey();
+
+  List<VideoComment> get _commentsToShow => widget.comments.take(3).toList();
+
+  bool get _hasPrevious => _currentIndex > 0;
+  bool get _hasNext => _currentIndex < _commentsToShow.length - 1;
+
+  @override
+  void didUpdateWidget(_CommentPager oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.comments != widget.comments) {
+      setState(() {
+        _currentIndex = 0;
+        _isForward = true;
+      });
+    }
+  }
+
+  void _goToPrevious() {
+    if (_hasPrevious) {
+      setState(() {
+        _isForward = false;
+        _currentIndex--;
+      });
+    }
+  }
+
+  void _goToNext() {
+    setState(() {
+      _isForward = true;
+      if (_hasNext) {
+        _currentIndex++;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final comments = _commentsToShow;
+
+    if (comments.isEmpty) return const SizedBox.shrink();
+
+    final currentComment = comments[_currentIndex];
+
+    return Column(
+      key: _containerKey,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 标题栏
+        Row(
+          children: [
+            Icon(
+              Icons.format_quote_rounded,
+              size: 18,
+              color: colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '热门评论',
+                style: textTheme.titleSmall?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            // 翻页按钮（小圆形）
+            if (comments.length > 1) ...[
+              _buildSmallNavButton(
+                icon: Icons.chevron_left_rounded,
+                onPressed: _hasPrevious ? _goToPrevious : null,
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  '${_currentIndex + 1}/${comments.length}',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              _buildSmallNavButton(
+                icon: Icons.chevron_right_rounded,
+                onPressed: _hasNext ? () => _goToNext() : null,
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 14),
+
+        // 评论内容（带动画）
+        ClipRect(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            transitionBuilder: (child, animation) {
+              final offsetAnimation = Tween<Offset>(
+                begin: Offset(_isForward ? 1.0 : -1.0, 0.0),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              ));
+              return SlideTransition(
+                position: offsetAnimation,
+                child: FadeTransition(
+                  opacity: animation,
+                  child: child,
+                ),
+              );
+            },
+            child: Container(
+              key: ValueKey(_currentIndex),
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    currentComment.content,
+                    style: textTheme.bodyMedium?.copyWith(
+                      height: 1.6,
+                    ),
+                    maxLines: 5,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.thumb_up_outlined,
+                        size: 14,
+                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        currentComment.formattedLikeCount,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        currentComment.memberName,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSmallNavButton({
+    required IconData icon,
+    required VoidCallback? onPressed,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isEnabled = onPressed != null;
+
+    return Material(
+      color: isEnabled
+          ? colorScheme.primaryContainer.withValues(alpha: 0.5)
+          : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: Icon(
+            icon,
+            size: 16,
+            color: isEnabled
+                ? colorScheme.primary
+                : colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 基础信息（没有 VideoDetail 数据）
+class _BasicInfoContent extends StatelessWidget {
+  final Track? track;
+
+  const _BasicInfoContent({required this.track});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    if (track == null) {
+      return Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.music_note_outlined,
+              size: 48,
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '暂无播放信息',
+              style: textTheme.bodyLarge?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 标题
+        Text(
+          track!.title,
+          style: textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+
+        const SizedBox(height: 8),
+
+        // 作者
+        Row(
+          children: [
+            Icon(
+              Icons.person_outline,
+              size: 20,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                track!.artist ?? '未知作者',
+                style: textTheme.bodyLarge?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 16),
+
+        // 时长
+        Row(
+          children: [
+            Icon(
+              Icons.schedule_outlined,
+              size: 20,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              DurationFormatter.formatMs(track!.durationMs ?? 0),
+              style: textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 20),
+
+        // 提示信息
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                size: 18,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '详细信息加载中...',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+}
+
+/// 简介部分（支持展开/收起）
+class _DescriptionSection extends StatefulWidget {
+  final String description;
+
+  const _DescriptionSection({required this.description});
+
+  @override
+  State<_DescriptionSection> createState() => _DescriptionSectionState();
+}
+
+class _DescriptionSectionState extends State<_DescriptionSection> {
+  bool _isExpanded = false;
+  bool _needsExpansion = false;
+  final GlobalKey _textKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkIfNeedsExpansion();
+    });
+  }
+
+  @override
+  void didUpdateWidget(_DescriptionSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.description != widget.description) {
+      _isExpanded = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkIfNeedsExpansion();
+      });
+    }
+  }
+
+  void _checkIfNeedsExpansion() {
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: widget.description,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          height: 1.6,
+        ),
+      ),
+      maxLines: 6,
+      textDirection: TextDirection.ltr,
+    );
+
+    final renderBox = _textKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox != null) {
+      textPainter.layout(maxWidth: renderBox.size.width);
+      setState(() {
+        _needsExpansion = textPainter.didExceedMaxLines;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.info_outline_rounded,
+              size: 18,
+              color: colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '简介',
+              style: textTheme.titleSmall?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        // 简介文本
+        Text(
+          widget.description,
+          key: _textKey,
+          style: textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            height: 1.6,
+          ),
+          maxLines: _isExpanded ? null : 6,
+          overflow: _isExpanded ? null : TextOverflow.ellipsis,
+        ),
+        // 展开/收起按钮 - 固定在右下角
+        if (_needsExpansion)
+          Align(
+            alignment: Alignment.centerRight,
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _isExpanded = !_isExpanded;
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  _isExpanded ? '收起' : '展开',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 }
