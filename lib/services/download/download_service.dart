@@ -4,7 +4,6 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
@@ -19,7 +18,6 @@ import '../../data/repositories/settings_repository.dart';
 import '../../data/sources/source_provider.dart';
 import '../../data/sources/bilibili_source.dart';
 import '../../data/sources/youtube_source.dart';
-import '../saf/saf_service.dart';
 import 'download_path_utils.dart';
 
 /// 下载服务
@@ -28,7 +26,6 @@ class DownloadService with Logging {
   final TrackRepository _trackRepository;
   final SettingsRepository _settingsRepository;
   final SourceManager _sourceManager;
-  final SafService _safService;
   
   final Dio _dio;
   
@@ -76,12 +73,10 @@ class DownloadService with Logging {
     required TrackRepository trackRepository,
     required SettingsRepository settingsRepository,
     required SourceManager sourceManager,
-    required SafService safService,
   })  : _downloadRepository = downloadRepository,
         _trackRepository = trackRepository,
         _settingsRepository = settingsRepository,
         _sourceManager = sourceManager,
-        _safService = safService,
         _dio = Dio(BaseOptions(
           connectTimeout: AppConstants.downloadConnectTimeout,
           receiveTimeout: const Duration(minutes: 30),
@@ -495,34 +490,18 @@ class DownloadService with Logging {
       
       // 确定保存路径
       final savePath = await _getDownloadPath(track, task);
-      final isSafPath = SafService.isContentUri(savePath);
+      final tempPath = '$savePath.downloading';
       
-      // SAF 路径需要特殊处理：先下载到应用私有目录，再复制到 SAF
-      String localTempPath;
-      String? safTargetPath;
-      
-      if (isSafPath) {
-        // 为 SAF 创建本地临时路径
-        final tempDir = await getTemporaryDirectory();
-        final safTempDir = Directory(p.join(tempDir.path, 'saf_downloads'));
-        if (!await safTempDir.exists()) {
-          await safTempDir.create(recursive: true);
-        }
-        localTempPath = p.join(safTempDir.path, '${task.id}_${track.sourceId}.m4a.downloading');
-        safTargetPath = savePath;
-      } else {
-        localTempPath = '$savePath.downloading';
-        // 确保目录存在（仅普通文件路径）
-        final dir = Directory(p.dirname(savePath));
-        if (!await dir.exists()) {
-          await dir.create(recursive: true);
-        }
+      // 确保目录存在
+      final dir = Directory(p.dirname(savePath));
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
       }
       
       // 断点续传：检查是否有已下载的部分
       int resumePosition = 0;
-      final tempFile = File(localTempPath);
-      if (task.canResume && task.tempFilePath == localTempPath && await tempFile.exists()) {
+      final tempFile = File(tempPath);
+      if (task.canResume && task.tempFilePath == tempPath && await tempFile.exists()) {
         resumePosition = await tempFile.length();
         logDebug('Resuming download from position: $resumePosition');
       } else if (await tempFile.exists()) {
@@ -531,7 +510,7 @@ class DownloadService with Logging {
       }
       
       // 保存临时文件路径到任务
-      task.tempFilePath = localTempPath;
+      task.tempFilePath = tempPath;
       await _downloadRepository.saveTask(task);
       
       // 进度更新变量（用于检测显著变化）
@@ -545,7 +524,7 @@ class DownloadService with Logging {
       // 下载文件（使用临时路径）
       await _dio.download(
         audioUrl,
-        localTempPath,
+        tempPath,
         cancelToken: cancelToken,
         deleteOnError: false, // 保留部分下载的文件用于续传
         options: options,
@@ -581,28 +560,17 @@ class DownloadService with Logging {
         },
       );
       
-      // 下载完成，处理文件
-      String finalSavePath;
-      if (isSafPath && safTargetPath != null) {
-        // SAF: 复制到目标位置
-        finalSavePath = await _copyToSaf(tempFile, safTargetPath, track, task);
-        // 删除本地临时文件
-        await tempFile.delete();
-      } else {
-        // 普通文件：重命名为正式文件
-        await tempFile.rename(savePath);
-        finalSavePath = savePath;
-      }
+      // 下载完成，将临时文件重命名为正式文件
+      await tempFile.rename(savePath);
 
       // 获取 VideoDetail（用于保存完整元数据）
       VideoDetail? videoDetail;
-      final videoDir = isSafPath ? null : Directory(p.dirname(finalSavePath));
-      final metadataFile = isSafPath ? null : File(p.join(videoDir!.path, 'metadata.json'));
+      final videoDir = Directory(p.dirname(savePath));
+      final metadataFile = File(p.join(videoDir.path, 'metadata.json'));
 
       // 检查是否已有完整的 metadata（多P视频只获取一次）
-      // SAF 不支持元数据存储，跳过
-      bool hasFullMetadata = isSafPath;
-      if (!isSafPath && metadataFile != null && await metadataFile.exists()) {
+      bool hasFullMetadata = false;
+      if (await metadataFile.exists()) {
         try {
           final existing = jsonDecode(await metadataFile.readAsString());
           hasFullMetadata = existing['viewCount'] != null;
@@ -628,10 +596,8 @@ class DownloadService with Logging {
         }
       }
 
-      // 保存元数据（仅普通文件路径，SAF 不支持额外元数据文件）
-      if (!isSafPath) {
-        await _saveMetadata(track, finalSavePath, videoDetail: videoDetail, order: task.order);
-      }
+      // 保存元数据（使用 task 中保存的 order）
+      await _saveMetadata(track, savePath, videoDetail: videoDetail, order: task.order);
 
       // 路径已在添加到歌单时预计算，无需再次设置
       
@@ -644,7 +610,7 @@ class DownloadService with Logging {
       _completionController.add(DownloadCompletionEvent(
         taskId: task.id,
         trackId: task.trackId,
-        savePath: finalSavePath,
+        savePath: savePath,
       ));
       
     } on DioException catch (e) {
@@ -694,107 +660,6 @@ class DownloadService with Logging {
     } catch (e) {
       logDebug('Failed to save resume progress: $e');
     }
-  }
-
-  /// 将下载的文件复制到 SAF 目录
-  /// 
-  /// [localFile] 本地临时文件
-  /// [safTargetPath] SAF 目标路径（content:// URI 格式的虚拟路径）
-  /// [track] 歌曲信息
-  /// [task] 下载任务
-  /// 
-  /// 返回实际写入的 SAF 文件 URI
-  Future<String> _copyToSaf(
-    File localFile,
-    String safTargetPath,
-    Track track,
-    DownloadTask task,
-  ) async {
-    // 解析 SAF 路径
-    // 格式: content://xxx/tree/yyy 表示基础目录
-    // 我们需要在其中创建子目录和文件
-    final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
-    if (!SafService.isContentUri(baseDir)) {
-      throw Exception('SAF base directory not configured');
-    }
-    
-    // 创建歌单子目录
-    final playlistName = task.playlistName ?? '未分类';
-    final sanitizedPlaylistName = DownloadPathUtils.sanitizeFileName(playlistName);
-    
-    String? playlistDirUri;
-    try {
-      playlistDirUri = await _safService.createDirectory(baseDir, sanitizedPlaylistName);
-    } catch (e) {
-      // 目录可能已存在，尝试查找
-      final dirs = await _safService.listDirectory(baseDir);
-      final existing = dirs.where((d) => d.isDirectory && d.name == sanitizedPlaylistName).firstOrNull;
-      if (existing != null) {
-        playlistDirUri = existing.uri;
-      } else {
-        rethrow;
-      }
-    }
-    
-    if (playlistDirUri == null) {
-      throw Exception('Failed to create playlist directory: $sanitizedPlaylistName');
-    }
-    
-    // 创建视频文件夹
-    final parentTitle = track.parentTitle ?? track.title;
-    final videoFolderName = '${track.sourceId}_${DownloadPathUtils.sanitizeFileName(parentTitle)}';
-    
-    String? videoFolderUri;
-    try {
-      videoFolderUri = await _safService.createDirectory(playlistDirUri, videoFolderName);
-    } catch (e) {
-      // 目录可能已存在，尝试查找
-      final dirs = await _safService.listDirectory(playlistDirUri);
-      final existing = dirs.where((d) => d.isDirectory && d.name == videoFolderName).firstOrNull;
-      if (existing != null) {
-        videoFolderUri = existing.uri;
-      } else {
-        rethrow;
-      }
-    }
-    
-    if (videoFolderUri == null) {
-      throw Exception('Failed to create video folder: $videoFolderName');
-    }
-    
-    // 确定文件名
-    String fileName;
-    if (track.isPartOfMultiPage && track.pageNum != null) {
-      fileName = 'P${track.pageNum!.toString().padLeft(2, '0')}.m4a';
-    } else {
-      fileName = 'audio.m4a';
-    }
-    
-    // 创建音频文件
-    String? audioFileUri;
-    try {
-      audioFileUri = await _safService.createFile(videoFolderUri, fileName, mimeType: 'audio/mp4');
-    } catch (e) {
-      // 文件可能已存在，尝试查找并覆盖
-      final files = await _safService.listDirectory(videoFolderUri);
-      final existing = files.where((f) => !f.isDirectory && f.name == fileName).firstOrNull;
-      if (existing != null) {
-        audioFileUri = existing.uri;
-      } else {
-        rethrow;
-      }
-    }
-    
-    if (audioFileUri == null) {
-      throw Exception('Failed to create audio file: $fileName');
-    }
-    
-    // 读取本地文件并写入 SAF
-    final bytes = await localFile.readAsBytes();
-    await _safService.writeToFile(audioFileUri, bytes);
-    
-    logDebug('File copied to SAF: $audioFileUri');
-    return audioFileUri;
   }
 
   /// 获取下载保存路径

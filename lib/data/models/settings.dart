@@ -33,13 +33,7 @@ class Settings {
   int maxCacheSizeMB = 128; // 默认 128MB
 
   /// 下载目录
-  /// - Windows: 文件路径
-  /// - Android: content:// URI
   String? customDownloadDir;
-
-  /// 下载目录显示名称（用于 UI 显示）
-  /// Android SAF 的 content:// URI 不可读，需要单独存储显示名称
-  String? customDownloadDirDisplayName;
 
   /// 快捷键配置 (JSON 字符串)
   String? hotkeyConfig;

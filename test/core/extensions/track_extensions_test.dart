@@ -4,13 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/core/extensions/track_extensions.dart';
 import 'package:fmp/providers/download/file_exists_cache.dart';
-import 'package:fmp/services/saf/saf_service.dart';
-import 'package:fmp/services/saf/file_exists_service.dart';
 import 'package:path/path.dart' as p;
 
 /// Test helper: FileExistsCache with pre-populated state
 class TestFileExistsCache extends FileExistsCache {
-  TestFileExistsCache(Map<String, bool> initialState) : super(FileExistsService(SafService())) {
+  TestFileExistsCache(Map<String, bool> initialState) : super() {
     state = initialState;
   }
 

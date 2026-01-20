@@ -5,15 +5,12 @@ import 'package:path/path.dart' as p;
 
 import '../../data/models/track.dart';
 import '../../services/download/download_path_utils.dart';
-import '../../services/saf/saf_service.dart';
 
 /// 下载文件扫描工具类
 ///
-/// 负责扫描本地文件系统和 SAF 目录，获取已下载的歌曲信息
+/// 负责扫描本地文件系统，获取已下载的歌曲信息
 class DownloadScanner {
-  final SafService _safService;
-  
-  DownloadScanner(this._safService);
+  DownloadScanner._();
 
   /// 获取文件夹的显示名称
   ///
@@ -195,114 +192,5 @@ class DownloadScanner {
     });
 
     return tracks;
-  }
-
-  /// 扫描 SAF 目录获取已下载的 Track 列表
-  ///
-  /// SAF 目录结构: {baseDir}/{playlistName}/{sourceId_title}/P01.m4a
-  /// 注意：SAF 不支持 metadata.json，只能从文件名推断信息
-  Future<List<Track>> scanSafFolderForTracks(String folderUri) async {
-    final tracks = <Track>[];
-
-    try {
-      // 遍历视频文件夹
-      final videoFolders = await _safService.listDirectory(folderUri);
-
-      for (final videoFolder in videoFolders.where((f) => f.isDirectory)) {
-        final folderName = videoFolder.name;
-        final sourceId = extractSourceId(folderName);
-        final displayName = extractDisplayName(folderName);
-
-        // 扫描视频文件夹中的音频文件
-        final files = await _safService.listDirectory(videoFolder.uri);
-
-        for (final file in files.where((f) => !f.isDirectory && f.name.endsWith('.m4a'))) {
-          final fileName = p.basenameWithoutExtension(file.name);
-
-          // 解析文件名确定页码
-          int? pageNum;
-          String title = displayName;
-
-          // 新格式: P01.m4a, P02.m4a
-          final newPageMatch = RegExp(r'^P(\d+)$').firstMatch(fileName);
-          // 旧格式: P01 - xxx.m4a
-          final oldPageMatch = RegExp(r'^P(\d+)\s*-\s*(.+)$').firstMatch(fileName);
-
-          if (newPageMatch != null) {
-            pageNum = int.tryParse(newPageMatch.group(1)!);
-          } else if (oldPageMatch != null) {
-            pageNum = int.tryParse(oldPageMatch.group(1)!);
-            title = oldPageMatch.group(2)!;
-          }
-
-          final track = Track()
-            ..sourceId = sourceId ?? folderName
-            ..sourceType = SourceType.bilibili // 默认，无法从 SAF 确定
-            ..title = title
-            ..parentTitle = displayName
-            ..pageNum = pageNum
-            ..playlistIds = [0]
-            ..downloadPaths = [file.uri]
-            ..createdAt = DateTime.now();
-
-          tracks.add(track);
-        }
-      }
-    } catch (e) {
-      // 扫描失败，返回空列表
-    }
-
-    // 排序
-    tracks.sort((a, b) {
-      final groupCompare = (a.parentTitle ?? a.title).compareTo(b.parentTitle ?? b.title);
-      if (groupCompare != 0) return groupCompare;
-      return (a.pageNum ?? 0).compareTo(b.pageNum ?? 0);
-    });
-
-    return tracks;
-  }
-
-  /// 统一扫描方法，自动检测路径类型
-  Future<List<Track>> scanForTracks(String path) async {
-    if (SafService.isContentUri(path)) {
-      return scanSafFolderForTracks(path);
-    } else {
-      return scanFolderForTracks(path);
-    }
-  }
-
-  /// 扫描 SAF 目录获取封面
-  Future<String?> findFirstCoverSaf(String folderUri) async {
-    try {
-      // 1. 检查歌单封面
-      final files = await _safService.listDirectory(folderUri);
-      final playlistCover = files.where((f) => !f.isDirectory && f.name == 'playlist_cover.jpg').firstOrNull;
-      if (playlistCover != null) {
-        return playlistCover.uri;
-      }
-
-      // 2. 遍历子文件夹查找第一首歌的封面
-      for (final folder in files.where((f) => f.isDirectory)) {
-        final subFiles = await _safService.listDirectory(folder.uri);
-        final cover = subFiles.where((f) => !f.isDirectory && f.name == 'cover.jpg').firstOrNull;
-        if (cover != null) {
-          return cover.uri;
-        }
-      }
-    } catch (_) {}
-    return null;
-  }
-
-  /// 统计 SAF 目录中的音频文件数量
-  Future<int> countAudioFilesSaf(String folderUri) async {
-    int count = 0;
-    try {
-      final folders = await _safService.listDirectory(folderUri);
-      for (final folder in folders.where((f) => f.isDirectory)) {
-        final files = await _safService.listDirectory(folder.uri);
-        count += files.where((f) => !f.isDirectory && f.name.endsWith('.m4a')).length;
-      }
-    } catch (_) {}
-    return count;
   }
 }
