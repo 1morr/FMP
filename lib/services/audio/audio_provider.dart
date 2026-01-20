@@ -510,7 +510,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         track: track,
         mode: PlayMode.temporary,
         persist: false,
-        recordHistory: false,
+        recordHistory: true,
         prefetchNext: false,
       );
     } on BilibiliApiException catch (e) {
