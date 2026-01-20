@@ -12,10 +12,8 @@ import '../../data/repositories/settings_repository.dart';
 import '../../data/sources/source_provider.dart';
 import '../../services/download/download_service.dart';
 import '../../services/download/download_path_utils.dart';
-import '../../services/saf/saf_service.dart';
 import '../database_provider.dart';
 import '../repository_providers.dart';
-import '../saf_providers.dart';
 import 'download_state.dart';
 import 'download_scanner.dart';
 import 'file_exists_cache.dart';
@@ -47,14 +45,12 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
   final trackRepo = TrackRepository(ref.watch(databaseProvider).requireValue);
   final settingsRepo = SettingsRepository(ref.watch(databaseProvider).requireValue);
   final sourceManager = ref.watch(sourceManagerProvider);
-  final safService = ref.watch(safServiceProvider);
 
   final service = DownloadService(
     downloadRepository: downloadRepo,
     trackRepository: trackRepo,
     settingsRepository: settingsRepo,
     sourceManager: sourceManager,
-    safService: safService,
   );
 
   // 初始化服务
@@ -179,73 +175,34 @@ final downloadedTracksProvider = StreamProvider<List<Track>>((ref) {
 
 // ==================== Category Providers ====================
 
-/// DownloadScanner Provider
-final downloadScannerProvider = Provider<DownloadScanner>((ref) {
-  final safService = ref.watch(safServiceProvider);
-  return DownloadScanner(safService);
-});
-
 /// 已下载分类列表 Provider
 final downloadedCategoriesProvider = FutureProvider<List<DownloadedCategory>>((ref) async {
   // 直接获取下载目录，避免循环依赖 downloadServiceProvider
   final settingsRepo = SettingsRepository(ref.watch(databaseProvider).requireValue);
-  final safService = ref.watch(safServiceProvider);
-  final scanner = ref.watch(downloadScannerProvider);
   final downloadPath = await DownloadPathUtils.getDefaultBaseDir(settingsRepo);
+  final downloadDir = Directory(downloadPath);
 
-  // 未设置下载目录
-  if (downloadPath.isEmpty) {
+  if (!await downloadDir.exists()) {
     return [];
   }
 
   final categories = <DownloadedCategory>[];
 
-  if (SafService.isContentUri(downloadPath)) {
-    // SAF 目录扫描
-    try {
-      final folders = await safService.listDirectory(downloadPath);
-      for (final folder in folders.where((f) => f.isDirectory)) {
-        final trackCount = await scanner.countAudioFilesSaf(folder.uri);
+  // 扫描所有子文件夹
+  await for (final entity in downloadDir.list()) {
+    if (entity is Directory) {
+      final folderName = p.basename(entity.path);
+      final trackCount = await DownloadScanner.countAudioFiles(entity);
 
-        if (trackCount > 0) {
-          final coverPath = await scanner.findFirstCoverSaf(folder.uri);
-          categories.add(DownloadedCategory(
-            folderName: folder.name,
-            displayName: DownloadScanner.extractDisplayName(folder.name),
-            trackCount: trackCount,
-            coverPath: coverPath,
-            folderPath: folder.uri,
-          ));
-        }
-      }
-    } catch (e) {
-      // SAF 权限可能已失效
-      return [];
-    }
-  } else {
-    // 普通文件系统扫描
-    final downloadDir = Directory(downloadPath);
-
-    if (!await downloadDir.exists()) {
-      return [];
-    }
-
-    // 扫描所有子文件夹
-    await for (final entity in downloadDir.list()) {
-      if (entity is Directory) {
-        final folderName = p.basename(entity.path);
-        final trackCount = await DownloadScanner.countAudioFiles(entity);
-
-        if (trackCount > 0) {
-          final coverPath = await DownloadScanner.findFirstCover(entity);
-          categories.add(DownloadedCategory(
-            folderName: folderName,
-            displayName: DownloadScanner.extractDisplayName(folderName),
-            trackCount: trackCount,
-            coverPath: coverPath,
-            folderPath: entity.path,
-          ));
-        }
+      if (trackCount > 0) {
+        final coverPath = await DownloadScanner.findFirstCover(entity);
+        categories.add(DownloadedCategory(
+          folderName: folderName,
+          displayName: DownloadScanner.extractDisplayName(folderName),
+          trackCount: trackCount,
+          coverPath: coverPath,
+          folderPath: entity.path,
+        ));
       }
     }
   }
@@ -262,6 +219,5 @@ final downloadedCategoriesProvider = FutureProvider<List<DownloadedCategory>>((r
 
 /// 获取指定分类文件夹中的已下载歌曲（基于本地文件扫描）
 final downloadedCategoryTracksProvider = FutureProvider.family<List<Track>, String>((ref, folderPath) async {
-  final scanner = ref.watch(downloadScannerProvider);
-  return scanner.scanForTracks(folderPath);
+  return DownloadScanner.scanFolderForTracks(folderPath);
 });

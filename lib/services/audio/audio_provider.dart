@@ -21,7 +21,6 @@ import 'audio_handler.dart';
 import 'windows_smtc_handler.dart';
 import 'audio_service.dart' as audio;
 import 'queue_manager.dart';
-import '../../providers/saf_providers.dart';
 
 /// 播放状态
 class PlayerState {
@@ -1551,8 +1550,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
 /// AudioService Provider
 final audioServiceProvider = Provider<audio.AudioService>((ref) {
-  final safService = ref.watch(safServiceProvider);
-  final service = audio.AudioService(safService: safService);
+  final service = audio.AudioService();
   ref.onDispose(() => service.dispose());
   return service;
 });
