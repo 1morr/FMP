@@ -223,8 +223,6 @@ class _HomePageState extends ConsumerState<HomePage> {
       loading: () => const SizedBox.shrink(),
       error: (e, s) => const SizedBox.shrink(),
       data: (lists) {
-        if (lists.isEmpty) return const SizedBox.shrink();
-
         // 最多显示 10 个歌单
         final recentLists = lists.take(10).toList();
 
@@ -240,104 +238,172 @@ class _HomePageState extends ConsumerState<HomePage> {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const Spacer(),
-                  TextButton(
-                    onPressed: () => context.go(RoutePaths.library),
-                    child: const Text('查看全部'),
-                  ),
+                  if (lists.isNotEmpty)
+                    TextButton(
+                      onPressed: () => context.go(RoutePaths.library),
+                      child: const Text('查看全部'),
+                    ),
                 ],
               ),
             ),
-            SizedBox(
-              height: 170,
-              child: ScrollConfiguration(
-                // 允许鼠标拖拽滚动（桌面端支持）
-                behavior: ScrollConfiguration.of(context).copyWith(
-                  dragDevices: {
-                    PointerDeviceKind.touch,
-                    PointerDeviceKind.mouse,
-                    PointerDeviceKind.trackpad,
-                  },
-                ),
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: recentLists.length,
-                separatorBuilder: (context, index) => const SizedBox(width: 12),
-                itemBuilder: (context, index) {
-                  final playlist = recentLists[index];
-                  final coverAsync =
-                      ref.watch(playlistCoverProvider(playlist.id));
+            // 歌单为空时显示占位卡片
+            if (lists.isEmpty)
+              _buildEmptyPlaylistPlaceholder(context, colorScheme)
+            else
+              LayoutBuilder(
+              builder: (context, constraints) {
+                // 根据窗口宽度计算卡片大小，平滑缩放
+                final cardWidth =
+                    (constraints.maxWidth / 4).clamp(100.0, 140.0);
+                final cardHeight = cardWidth / 0.8; // 保持 0.8 的宽高比
 
-                  // 預加載歌單詳情數據
-                  ref.read(playlistDetailProvider(playlist.id));
+                return SizedBox(
+                  height: cardHeight,
+                  child: ScrollConfiguration(
+                    // 允许鼠标拖拽滚动（桌面端支持）
+                    behavior: ScrollConfiguration.of(context).copyWith(
+                      dragDevices: {
+                        PointerDeviceKind.touch,
+                        PointerDeviceKind.mouse,
+                        PointerDeviceKind.trackpad,
+                      },
+                    ),
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: recentLists.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(width: 12),
+                      itemBuilder: (context, index) {
+                        final playlist = recentLists[index];
+                        final coverAsync =
+                            ref.watch(playlistCoverProvider(playlist.id));
 
-                  return SizedBox(
-                    width: 120,
-                    child: Card(
-                      margin: EdgeInsets.zero,
-                      clipBehavior: Clip.antiAlias,
-                      child: InkWell(
-                        onTap: () => context.go('/library/${playlist.id}'),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // 封面
-                            AspectRatio(
-                              aspectRatio: 1,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: colorScheme.surfaceContainerHighest,
-                                ),
-                                clipBehavior: Clip.antiAlias,
-                                child: coverAsync.when(
-                                  skipLoadingOnReload: true,
-                                  data: (coverData) => coverData.hasCover
-                                      ? ImageLoadingService.loadImage(
-                                          localPath: coverData.localPath,
-                                          networkUrl: coverData.networkUrl,
-                                          placeholder: Icon(
-                                            Icons.album,
-                                            size: 40,
-                                            color: colorScheme.outline,
-                                          ),
-                                          fit: BoxFit.cover,
-                                        )
-                                      : Icon(
-                                          Icons.album,
-                                          size: 40,
-                                          color: colorScheme.outline,
+                        // 預加載歌單詳情數據
+                        ref.read(playlistDetailProvider(playlist.id));
+
+                        return SizedBox(
+                          width: cardWidth,
+                          child: Card(
+                            margin: EdgeInsets.zero,
+                            clipBehavior: Clip.antiAlias,
+                            child: InkWell(
+                              onTap: () =>
+                                  context.go('/library/${playlist.id}'),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // 封面 - 使用 Expanded 与音乐库一致
+                                  Expanded(
+                                    child: Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        coverAsync.when(
+                                          skipLoadingOnReload: true,
+                                          data: (coverData) =>
+                                              coverData.hasCover
+                                                  ? ImageLoadingService
+                                                      .loadImage(
+                                                      localPath:
+                                                          coverData.localPath,
+                                                      networkUrl:
+                                                          coverData.networkUrl,
+                                                      placeholder:
+                                                          const ImagePlaceholder
+                                                              .playlist(),
+                                                      fit: BoxFit.cover,
+                                                    )
+                                                  : const ImagePlaceholder
+                                                      .playlist(),
+                                          loading: () =>
+                                              const ImagePlaceholder.playlist(),
+                                          error: (e, s) =>
+                                              const ImagePlaceholder.playlist(),
                                         ),
-                                  loading: () => const Center(
-                                    child: CircularProgressIndicator(),
+                                      ],
+                                    ),
                                   ),
-                                  error: (e, s) => Icon(
-                                    Icons.album,
-                                    size: 40,
-                                    color: colorScheme.outline,
+                                  // 名称
+                                  Padding(
+                                    padding: const EdgeInsets.all(8),
+                                    child: Text(
+                                      playlist.name,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
-                                ),
+                                ],
                               ),
                             ),
-                            // 名称 - 添加 padding 與音樂庫頁面一致
-                            Padding(
-                              padding: const EdgeInsets.all(8),
-                              child: Text(
-                                playlist.name,
-                                style: Theme.of(context).textTheme.bodySmall,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyPlaylistPlaceholder(
+    BuildContext context,
+    ColorScheme colorScheme,
+  ) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = (constraints.maxWidth / 4).clamp(100.0, 140.0);
+        final cardHeight = cardWidth / 0.8;
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: SizedBox(
+            width: cardWidth,
+            height: cardHeight,
+            child: Card(
+              margin: EdgeInsets.zero,
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => context.go(RoutePaths.library),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 封面区域 - 与普通歌单卡片结构一致
+                    Expanded(
+                      child: Container(
+                        color: colorScheme.surfaceContainerHighest,
+                        child: Center(
+                          child: Icon(
+                            Icons.add,
+                            size: 32,
+                            color: colorScheme.outline,
+                          ),
                         ),
                       ),
                     ),
-                  );
-                },
+                    // 标题区域 - 与普通歌单卡片结构一致
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        '创建歌单',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: colorScheme.outline,
+                            ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ],
+          ),
         );
       },
     );
@@ -378,29 +444,39 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ],
               ),
             ),
-            SizedBox(
-              height: 170,
-              child: ScrollConfiguration(
-                // 允许鼠标拖拽滚动（桌面端支持）
-                behavior: ScrollConfiguration.of(context).copyWith(
-                  dragDevices: {
-                    PointerDeviceKind.touch,
-                    PointerDeviceKind.mouse,
-                    PointerDeviceKind.trackpad,
-                  },
-                ),
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: filteredList.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(width: 12),
-                  itemBuilder: (context, index) {
-                    final history = filteredList[index];
-                    return _buildHistoryItem(context, history, colorScheme);
-                  },
-                ),
-              ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                // 根据窗口宽度计算卡片大小，平滑缩放
+                final cardWidth =
+                    (constraints.maxWidth / 4).clamp(100.0, 140.0);
+                final cardHeight = cardWidth / 0.8; // 保持 0.8 的宽高比
+
+                return SizedBox(
+                  height: cardHeight,
+                  child: ScrollConfiguration(
+                    // 允许鼠标拖拽滚动（桌面端支持）
+                    behavior: ScrollConfiguration.of(context).copyWith(
+                      dragDevices: {
+                        PointerDeviceKind.touch,
+                        PointerDeviceKind.mouse,
+                        PointerDeviceKind.trackpad,
+                      },
+                    ),
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: filteredList.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(width: 12),
+                      itemBuilder: (context, index) {
+                        final history = filteredList[index];
+                        return _buildHistoryItem(
+                            context, history, colorScheme, cardWidth);
+                      },
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         );
@@ -412,9 +488,10 @@ class _HomePageState extends ConsumerState<HomePage> {
     BuildContext context,
     PlayHistory history,
     ColorScheme colorScheme,
+    double cardWidth,
   ) {
     return SizedBox(
-      width: 120,
+      width: cardWidth,
       child: Card(
         margin: EdgeInsets.zero,
         clipBehavior: Clip.antiAlias,
@@ -427,32 +504,22 @@ class _HomePageState extends ConsumerState<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 封面
-              AspectRatio(
-                aspectRatio: 1,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: history.thumbnailUrl != null
-                      ? ImageLoadingService.loadImage(
-                          networkUrl: history.thumbnailUrl,
-                          placeholder: Icon(
-                            Icons.music_note,
-                            size: 40,
-                            color: colorScheme.outline,
-                          ),
-                          fit: BoxFit.cover,
-                        )
-                      : Icon(
-                          Icons.music_note,
-                          size: 40,
-                          color: colorScheme.outline,
-                        ),
+              // 封面 - 使用 Expanded 与音乐库一致
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    history.thumbnailUrl != null
+                        ? ImageLoadingService.loadImage(
+                            networkUrl: history.thumbnailUrl,
+                            placeholder: const ImagePlaceholder.track(),
+                            fit: BoxFit.cover,
+                          )
+                        : const ImagePlaceholder.track(),
+                  ],
                 ),
               ),
-              // 标题 - 添加 padding 與音樂庫頁面一致
+              // 标题
               Padding(
                 padding: const EdgeInsets.all(8),
                 child: Text(
