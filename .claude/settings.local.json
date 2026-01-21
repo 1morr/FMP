@@ -61,7 +61,8 @@
       "Bash(git show:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(findstr:*)",
-      "mcp__plugin_serena_serena__insert_before_symbol"
+      "mcp__plugin_serena_serena__insert_before_symbol",
+      "Skill(sc:brainstorm)"
     ]
   }
 }
