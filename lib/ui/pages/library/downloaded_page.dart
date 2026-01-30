@@ -8,7 +8,9 @@ import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/download_provider.dart';
+import '../../../providers/download_path_provider.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../../services/download/download_path_sync_service.dart';
 import '../../router.dart';
 
 /// 已下载页面 - 显示分类网格
@@ -35,6 +37,30 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
     await ref.read(downloadedCategoriesProvider.future);
   }
 
+  Future<void> _refreshAndSync() async {
+    final syncService = ref.read(downloadPathSyncServiceProvider);
+
+    if (!mounted) return;
+
+    final result = await showDialog<(int, int)?>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _SyncProgressDialog(syncService: syncService),
+    );
+
+    if (result != null && mounted) {
+      final (updated, orphans) = result;
+      // 刷新分类列表
+      ref.invalidate(downloadedCategoriesProvider);
+
+      final message = StringBuffer('同步完成: 更新 $updated 首');
+      if (orphans > 0) {
+        message.write(', 未匹配文件 $orphans 个');
+      }
+      ToastService.show(context, message.toString());
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(downloadedCategoriesProvider);
@@ -44,6 +70,11 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
       appBar: AppBar(
         title: const Text('已下载'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.sync),
+            tooltip: '同步本地文件',
+            onPressed: _refreshAndSync,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: '刷新',
@@ -144,6 +175,82 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
           },
         );
       },
+    );
+  }
+}
+
+/// 同步进度对话框
+class _SyncProgressDialog extends StatefulWidget {
+  final DownloadPathSyncService syncService;
+
+  const _SyncProgressDialog({required this.syncService});
+
+  @override
+  State<_SyncProgressDialog> createState() => _SyncProgressDialogState();
+}
+
+class _SyncProgressDialogState extends State<_SyncProgressDialog> {
+  int _current = 0;
+  int _total = 0;
+  String _status = '正在扫描...';
+  bool _isComplete = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _executeSync();
+  }
+
+  Future<void> _executeSync() async {
+    try {
+      final (updated, orphans) = await widget.syncService.syncLocalFiles(
+        onProgress: (current, total) {
+          if (mounted) {
+            setState(() {
+              _current = current;
+              _total = total;
+              _status = '正在扫描 ($current/$total)...';
+            });
+          }
+        },
+      );
+
+      if (mounted) {
+        Navigator.pop(context, (updated, orphans));
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _status = '同步失败: $e';
+          _isComplete = true;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('同步本地文件'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!_isComplete)
+            CircularProgressIndicator(
+              value: _total > 0 ? _current / _total : null,
+            ),
+          const SizedBox(height: 16),
+          Text(_status),
+        ],
+      ),
+      actions: _isComplete
+          ? [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('关闭'),
+              ),
+            ]
+          : null,
     );
   }
 }

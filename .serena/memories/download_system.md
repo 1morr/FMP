@@ -127,6 +127,35 @@ void _maybeNotifyProgress(double progress) {
 
 已下载页面数据源：扫描文件系统，不依赖数据库
 
+### 5. DownloadPathSyncService (`lib/services/download/download_path_sync_service.dart`)
+
+**Phase 4 新增** - 负责扫描本地文件并同步到数据库
+
+```dart
+class DownloadPathSyncService {
+  /// 同步本地文件到数据库
+  /// 返回 (更新数量, 孤儿文件数量)
+  Future<(int updated, int orphans)> syncLocalFiles({
+    void Function(int current, int total)? onProgress,
+  });
+
+  /// 清理无效的下载路径
+  Future<int> cleanupInvalidPaths();
+
+  /// 获取孤儿文件列表（本地存在但数据库无匹配）
+  Future<List<OrphanFileInfo>> getOrphanFiles();
+}
+
+// Provider
+final downloadPathSyncServiceProvider = Provider<DownloadPathSyncService>(...);
+```
+
+**匹配规则**：sourceId + sourceType + cid (+ pageNum for multi-part videos)
+
+**使用场景**：
+- 已下载页面的"同步本地文件"按钮
+- 用户更换下载路径后重新扫描
+
 ---
 
 ## 文件结构
