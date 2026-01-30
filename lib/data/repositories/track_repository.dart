@@ -372,4 +372,48 @@ class TrackRepository with Logging {
     }
     return false;
   }
+
+  /// 清理无效的下载路径
+  ///
+  /// 检查数据库中的所有下载路径，移除不存在的
+  /// 返回清理的 Track 数量
+  Future<int> cleanupInvalidDownloadPaths() async {
+    logDebug('Cleaning up invalid download paths...');
+    int cleaned = 0;
+
+    await _isar.writeTxn(() async {
+      final tracks = await _isar.tracks
+          .filter()
+          .downloadPathsIsNotEmpty()
+          .findAll();
+      
+      for (final track in tracks) {
+        final validPaths = <String>[];
+        final validPlaylistIds = <int>[];
+
+        for (int i = 0; i < track.downloadPaths.length; i++) {
+          try {
+            if (File(track.downloadPaths[i]).existsSync()) {
+              validPaths.add(track.downloadPaths[i]);
+              if (i < track.playlistIds.length) {
+                validPlaylistIds.add(track.playlistIds[i]);
+              }
+            }
+          } catch (_) {
+            // 路径无效，跳过
+          }
+        }
+
+        if (validPaths.length != track.downloadPaths.length) {
+          track.downloadPaths = validPaths;
+          track.playlistIds = validPlaylistIds;
+          await _isar.tracks.put(track);
+          cleaned++;
+        }
+      }
+    });
+
+    logDebug('Cleaned up invalid download paths for $cleaned tracks');
+    return cleaned;
+  }
 }
