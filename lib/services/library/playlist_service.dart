@@ -244,8 +244,8 @@ class PlaylistService with Logging {
 
   /// 添加歌曲到歌单
   /// 
-  /// 同时预计算并设置下载路径。
   /// 使用 getOrCreate 确保使用数据库中的最新数据，避免缓存导致的数据不同步问题。
+  /// 注意：下载路径不再预计算，将在实际下载完成时由 DownloadService 设置。
   Future<void> addTrackToPlaylist(int playlistId, Track track) async {
     final playlist = await _playlistRepository.getById(playlistId);
     if (playlist == null) {
@@ -262,16 +262,8 @@ class PlaylistService with Logging {
       return;
     }
 
-    // 计算下载路径
-    final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
-    final downloadPath = DownloadPathUtils.computeDownloadPath(
-      baseDir: baseDir,
-      playlistName: playlist.name,
-      track: existingTrack,
-    );
-
-    // 设置下载路径（在数据库返回的最新对象上操作）
-    existingTrack.setDownloadPath(playlistId, downloadPath);
+    // 将歌单 ID 添加到 track 的 playlistIds（不设置下载路径）
+    existingTrack.playlistIds = List.from(existingTrack.playlistIds)..add(playlistId);
 
     // 记录添加前是否为空（用于判断是否需要更新封面）
     final wasEmpty = playlist.trackIds.isEmpty;
@@ -292,8 +284,8 @@ class PlaylistService with Logging {
 
   /// 批量添加歌曲到歌单
   /// 
-  /// 同时预计算并设置下载路径。
   /// 使用 getOrCreateAll 确保使用数据库中的最新数据，避免缓存导致的数据不同步问题。
+  /// 注意：下载路径不再预计算，将在实际下载完成时由 DownloadService 设置。
   Future<void> addTracksToPlaylist(int playlistId, List<Track> tracks) async {
     final playlist = await _playlistRepository.getById(playlistId);
     if (playlist == null) {
@@ -313,17 +305,9 @@ class PlaylistService with Logging {
       return;
     }
 
-    // 获取下载基础目录
-    final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
-
-    // 为每个歌曲计算并设置下载路径（在数据库返回的最新对象上操作）
+    // 将歌单 ID 添加到每个 track 的 playlistIds（不设置下载路径）
     for (final track in tracksToAdd) {
-      final downloadPath = DownloadPathUtils.computeDownloadPath(
-        baseDir: baseDir,
-        playlistName: playlist.name,
-        track: track,
-      );
-      track.setDownloadPath(playlistId, downloadPath);
+      track.playlistIds = List.from(track.playlistIds)..add(playlistId);
     }
 
     // 记录添加前是否为空（用于判断是否需要更新封面）

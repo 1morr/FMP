@@ -19,38 +19,39 @@ UI (playlist_detail_page, downloaded_page)
 
 ---
 
-## 核心设计：预计算路径模式
+## 核心设计：按需路径模式（2026-01 重构）
+
+### 设计变更
+**旧模式（已废弃）**：歌曲加入歌单时预计算下载路径
+**新模式**：下载路径仅在实际下载完成时保存
 
 ### Track 模型关键字段
 
 ```dart
 class Track {
   List<int> playlistIds = [];      // 关联的歌单 ID
-  List<String> downloadPaths = []; // 对应的预计算下载路径
-  
-  String? getDownloadPath(int playlistId);  // 获取指定歌单的路径
-  void setDownloadPath(int playlistId, String path);  // 设置路径
-  String? get firstDownloadPath;  // 第一个路径（不验证存在性）
+  List<String> downloadPaths = []; // 实际下载完成后的路径
 }
 
 // TrackExtensions (lib/core/extensions/track_extensions.dart)
 extension TrackExtensions on Track {
-  String? get localAudioPath;  // 第一个实际存在的音频路径
-  bool get hasLocalAudio;      // 是否有本地音频
-  bool get isDownloaded;       // 是否已下载（= hasLocalAudio）
+  bool get isDownloaded;           // downloadPaths.isNotEmpty（简化判断）
+  String? get localAudioPath;      // 第一个实际存在的音频路径
+  List<String> get validDownloadPaths;  // 过滤出实际存在的路径
+  bool get hasLocalAudio;          // localAudioPath != null
 }
 ```
 
-### 路径计算规则
+### 路径设置时机
+- **添加歌曲到歌单**：只添加 playlistId，不设置 downloadPath
+- **下载完成时**：由 DownloadService 调用 `trackRepository.addDownloadPath()` 保存实际路径
 
+### TrackRepository 新方法
+```dart
+Future<void> addDownloadPath(int trackId, int? playlistId, String path);
+Future<void> clearAllDownloadPaths();
+Future<int> cleanupInvalidDownloadPaths();  // 清理无效路径，返回清理数量
 ```
-{baseDir}/{playlistName}/{sourceId}_{parentTitle}/P{n}.m4a
-
-示例：
-C:\Users\xxx\Documents\FMP\我的收藏\BV1xxx_视频标题\P01.m4a
-```
-
-**路径计算时机**：歌曲加入歌单时（导入/刷新/手动添加）
 
 ---
 

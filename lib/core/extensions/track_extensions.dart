@@ -8,6 +8,47 @@ import '../utils/duration_formatter.dart';
 
 /// Track 模型扩展方法
 extension TrackExtensions on Track {
+  /// 简化逻辑：有路径就认为已下载
+  ///
+  /// 注意：这假设路径有效。使用时如果文件不存在会自动清空。
+  bool get isDownloaded => downloadPaths.isNotEmpty;
+
+  /// 获取本地音频路径
+  ///
+  /// 尝试使用第一个有效路径，如果都不存在返回 null
+  String? get localAudioPath {
+    if (downloadPaths.isEmpty) return null;
+
+    for (final downloadPath in downloadPaths) {
+      try {
+        if (File(downloadPath).existsSync()) {
+          return downloadPath;
+        }
+      } catch (_) {
+        // 路径无效，继续检查下一个
+      }
+    }
+    return null;
+  }
+
+  /// 清理无效的下载路径
+  ///
+  /// 检查所有路径，移除不存在的
+  /// 返回清理后的路径列表
+  List<String> get validDownloadPaths {
+    final valid = <String>[];
+    for (final path in downloadPaths) {
+      try {
+        if (File(path).existsSync()) {
+          valid.add(path);
+        }
+      } catch (_) {
+        // 路径无效，跳过
+      }
+    }
+    return valid;
+  }
+
   /// 获取本地封面路径（使用缓存，适用于 UI 组件）
   ///
   /// 遍历所有下载路径，返回第一个存在 cover.jpg 的路径
@@ -23,6 +64,26 @@ extension TrackExtensions on Track {
     }).toList();
 
     return cache.getFirstExisting(coverPaths);
+  }
+
+  /// 获取本地封面路径（不使用缓存）
+  ///
+  /// 遍历所有下载路径，返回第一个存在 cover.jpg 的路径
+  String? getLocalCoverPathSync() {
+    if (downloadPaths.isEmpty) return null;
+
+    for (final path in downloadPaths) {
+      try {
+        final dir = Directory(path).parent;
+        final coverFile = File(p.join(dir.path, 'cover.jpg'));
+        if (coverFile.existsSync()) {
+          return coverFile.path;
+        }
+      } catch (_) {
+        // 路径无效，继续
+      }
+    }
+    return null;
   }
 
   /// 獲取本地頭像路徑（使用集中式頭像文件夾）
@@ -63,27 +124,6 @@ extension TrackExtensions on Track {
   /// 是否有网络封面
   bool get hasNetworkCover => thumbnailUrl != null && thumbnailUrl!.isNotEmpty;
 
-  /// 获取本地音频路径（仅返回存在的文件）
-  ///
-  /// 遍历所有下载路径，返回第一个实际存在的音频文件路径
-  /// 如果都不存在，返回 null
-  ///
-  /// 注意：此方法可以在服务层使用（如 QueueManager），
-  /// 因为音频路径检查通常不在 UI build 上下文中。
-  String? get localAudioPath {
-    if (downloadPaths.isEmpty) return null;
-
-    for (final downloadPath in downloadPaths) {
-      if (File(downloadPath).existsSync()) {
-        return downloadPath;
-      }
-    }
-    return null;
-  }
-
   /// 是否有本地音频文件（文件实际存在）
   bool get hasLocalAudio => localAudioPath != null;
-
-  /// 是否已下载（任意歌单中的文件存在）
-  bool get isDownloaded => hasLocalAudio;
 }
