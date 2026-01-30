@@ -9,6 +9,8 @@ import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/download_provider.dart';
 import '../../../providers/download_path_provider.dart';
+import '../../../providers/download/file_exists_cache.dart';
+import '../../../providers/playlist_provider.dart' show allPlaylistsProvider, playlistDetailProvider;
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/download/download_path_sync_service.dart';
 import '../../router.dart';
@@ -53,6 +55,17 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
       // 刷新分类列表
       ref.invalidate(downloadedCategoriesProvider);
 
+      if (updated > 0) {
+        // 刷新文件存在性缓存
+        ref.invalidate(fileExistsCacheProvider);
+        // 刷新所有歌单详情（因为 track 的 downloadPaths 已更新）
+        final playlists = await ref.read(allPlaylistsProvider.future);
+        for (final playlist in playlists) {
+          ref.invalidate(playlistDetailProvider(playlist.id));
+        }
+      }
+
+      if (!mounted) return;
       final message = StringBuffer('同步完成: 更新 $updated 首');
       if (orphans > 0) {
         message.write(', 未匹配文件 $orphans 个');

@@ -28,16 +28,20 @@ class DownloadPathManager {
     String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
     if (selectedDirectory == null) return null;
 
-    if (!await _verifyWritePermission(selectedDirectory)) {
-      if (context.mounted) {
-        _showPermissionError(context);
+    // Android 使用 SAF (Storage Access Framework)，权限由系统在选择时授予
+    // 只在 Windows 等桌面平台验证写入权限
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      if (!await _verifyWritePermission(selectedDirectory)) {
+        if (context.mounted) {
+          _showPermissionError(context);
+        }
+        return null;
       }
-      return null;
     }
     return selectedDirectory;
   }
 
-  /// 验证目录写入权限
+  /// 验证目录写入权限（仅用于桌面平台）
   Future<bool> _verifyWritePermission(String path) async {
     try {
       final testFile = File('$path/.fmp_test');
