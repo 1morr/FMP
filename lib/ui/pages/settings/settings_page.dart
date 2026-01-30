@@ -11,17 +11,14 @@ import '../../../core/services/network_image_cache_service.dart';
 import '../../../data/models/hotkey_config.dart';
 import '../../../data/models/settings.dart';
 import '../../../providers/theme_provider.dart';
-import '../../../providers/download_provider.dart';
 import '../../../providers/download_settings_provider.dart';
 import '../../../providers/developer_options_provider.dart';
 import '../../../providers/playback_settings_provider.dart';
 import '../../../providers/desktop_settings_provider.dart';
 import '../../../providers/hotkey_config_provider.dart';
-import '../../../core/services/toast_service.dart';
 import '../../../providers/download_path_provider.dart';
-import '../../../providers/download/file_exists_cache.dart';
-import '../../../providers/download/download_providers.dart';
 import '../../router.dart';
+import '../../widgets/change_download_path_dialog.dart';
 
 /// 设置页
 class SettingsPage extends ConsumerWidget {
@@ -494,58 +491,7 @@ class _DownloadPathListTile extends ConsumerWidget {
   }
 
   Future<void> _changeDownloadPath(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('更改下载路径'),
-        content: const Text(
-          '更改下载路径将清空所有已保存的下载路径信息。\n\n'
-          '下载的文件不会被删除，但需要重新扫描才能显示。\n\n'
-          '是否继续？',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: const Text('继续'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && context.mounted) {
-      await _executePathChange(context, ref);
-    }
-  }
-
-  Future<void> _executePathChange(BuildContext context, WidgetRef ref) async {
-    final pathManager = ref.read(downloadPathManagerProvider);
-    final trackRepo = ref.read(trackRepositoryProvider);
-
-    // 选择新路径
-    final newPath = await pathManager.selectDirectory(context);
-    if (newPath == null) return;
-
-    // 清空所有下载路径
-    await trackRepo.clearAllDownloadPaths();
-
-    // 保存新路径
-    await pathManager.saveDownloadPath(newPath);
-
-    // 刷新相关 Provider
-    ref.invalidate(fileExistsCacheProvider);
-    ref.invalidate(downloadedCategoriesProvider);
-    ref.invalidate(downloadPathProvider);
-
-    if (context.mounted) {
-      ToastService.show(context, '下载路径已更改');
-    }
+    await ChangeDownloadPathDialog.show(context, ref);
   }
 
   void _showPathInfo(BuildContext context, WidgetRef ref) {
