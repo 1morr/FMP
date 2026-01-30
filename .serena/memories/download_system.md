@@ -55,6 +55,49 @@ Future<int> cleanupInvalidDownloadPaths();  // 清理无效路径，返回清理
 
 ---
 
+## Android 存储权限（2026-01-31 新增）
+
+### 问题背景
+Android 10+ 引入分区存储（Scoped Storage），传统的 `WRITE_EXTERNAL_STORAGE` 权限不再有效。
+`file_picker.getDirectoryPath()` 返回的路径字符串无法直接通过 `dart:io` 的 `File` 类访问。
+
+### 解决方案
+使用 `MANAGE_EXTERNAL_STORAGE` 权限（Android 11+）访问外部存储。
+
+### 关键文件
+
+**AndroidManifest.xml**:
+```xml
+<uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+    tools:ignore="ScopedStorage"/>
+```
+
+**StoragePermissionService** (`lib/services/storage_permission_service.dart`):
+```dart
+class StoragePermissionService {
+  /// 检查存储权限
+  static Future<bool> hasStoragePermission();
+  
+  /// 请求存储权限（带解释对话框）
+  static Future<bool> requestStoragePermission(BuildContext context);
+}
+```
+
+### 权限请求流程
+1. 用户点击选择下载路径
+2. `DownloadPathManager.selectDirectory()` 调用 `StoragePermissionService.requestStoragePermission()`
+3. 显示解释对话框："为了将音乐下载到您选择的文件夹，应用需要访问设备存储的权限..."
+4. 用户点击"继续"后跳转到系统设置页面
+5. 用户在设置中允许 FMP 访问所有文件
+6. 返回应用后选择下载文件夹
+
+### 注意事项
+- Google Play 对 `MANAGE_EXTERNAL_STORAGE` 有特殊要求，上架需提交权限使用说明
+- 权限被永久拒绝时，引导用户去设置页面手动开启
+- 非 Android 平台不需要此权限流程
+
+---
+
 ## 关键组件
 
 ### 1. DownloadPathUtils (`lib/services/download/download_path_utils.dart`)
@@ -214,7 +257,30 @@ $1
 
 ---
 
-### 6. ChangeDownloadPathDialog (`lib/ui/widgets/change_download_path_dialog.dart`)
+### 6. DownloadPathManager (`lib/services/download/download_path_manager.dart`)
+
+管理下载路径的选择、验证和持久化。
+
+```dart
+class DownloadPathManager {
+  /// 检查是否已配置下载路径
+  Future<bool> hasConfiguredPath();
+  
+  /// 选择下载目录（Android 会先请求存储权限）
+  Future<String?> selectDirectory(BuildContext context);
+  
+  /// 保存/获取/清除下载路径
+  Future<void> saveDownloadPath(String path);
+  Future<String?> getCurrentDownloadPath();
+  Future<void> clearDownloadPath();
+}
+```
+
+**Android 权限集成**：`selectDirectory()` 在 Android 上会先调用 `StoragePermissionService.requestStoragePermission()`，只有权限获得后才进行目录选择。
+
+---
+
+### 7. ChangeDownloadPathDialog (`lib/ui/widgets/change_download_path_dialog.dart`)
 
 **Phase 5 新增** - 更改下载路径的对话框组件
 
@@ -243,3 +309,26 @@ class ChangeDownloadPathDialog {
 - `/library/downloaded` → DownloadedPage（已下载分类列表）
 - `/library/downloaded/:folderPath` → DownloadedCategoryPage（分类详情）
 - `/settings/download-manager` → DownloadManagerPage（任务管理）
+
+---
+
+## Android 平台限制（2026-01-31）
+
+### 分区存储 (Scoped Storage) 限制
+
+从 Android 11 开始，应用无法直接使用 File API 访问公共存储目录（如 `/storage/emulated/0/Music`）。`file_picker` 的 `getDirectoryPath()` 返回的传统路径在 Android 11+ 上会抛出 `PathAccessException: Operation not permitted`。
+
+### 解决方案
+
+**DownloadPathUtils.getDefaultBaseDir()** 已修改：
+- Android 平台自动使用 `getExternalStorageDirectory()` 返回的私有外部存储目录
+- 路径格式：`/storage/emulated/0/Android/data/{package_name}/files/FMP`
+- 无需额外权限，应用可自由读写
+- 缺点：卸载应用时会被删除（但用户可备份）
+
+**DownloadPathManager.selectDirectory()** 已修改：
+- Android 平台禁用手动选择目录
+- 显示提示对话框告知用户下载路径自动设置
+
+**设置页面 UI** 已修改：
+- Android 平台隐藏"更改下载路径"选项

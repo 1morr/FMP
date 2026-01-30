@@ -274,6 +274,14 @@ When renaming a playlist that has downloaded songs, files are **NOT** automatica
 - This avoids potential data loss from failed file operations
 - Note: Precomputed paths are no longer used - download paths are saved when downloads complete
 
+### Android Storage Permission (MANAGE_EXTERNAL_STORAGE)
+Android 10+ 引入分区存储，传统的 `WRITE_EXTERNAL_STORAGE` 不再有效。使用 `MANAGE_EXTERNAL_STORAGE` 权限访问外部存储。
+
+- `StoragePermissionService` 处理权限请求逻辑
+- `DownloadPathManager.selectDirectory()` 在 Android 上先请求权限再选择目录
+- 权限请求显示解释对话框，引导用户到系统设置页面授权
+- Google Play 上架需要提交权限使用说明
+
 ### Home Page Ranking Cache (Proactive Background Refresh)
 Home page ranking data (Bilibili/YouTube) is cached and refreshed in the background every hour.
 
@@ -314,8 +322,13 @@ lib/
 │   │   ├── audio_service.dart    # Low-level just_audio wrapper
 │   │   ├── audio_handler.dart    # FmpAudioHandler (Android notification via audio_service)
 │   │   └── queue_manager.dart    # Queue, shuffle, loop, persistence
-│   └── cache/
+│   ├── cache/
 │       └── ranking_cache_service.dart  # 首頁排行榜緩存（主動後台刷新）
+│   ├── download/
+│   │   ├── download_service.dart       # 下載任務調度
+│   │   ├── download_path_manager.dart  # 下載路徑選擇和管理
+│   │   └── download_path_utils.dart    # 路徑計算工具
+│   └── storage_permission_service.dart # Android 存儲權限請求（MANAGE_EXTERNAL_STORAGE）
 ├── data/
 │   ├── models/               # Isar collections (*.dart + *.g.dart)
 │   ├── repositories/         # Data access layer
