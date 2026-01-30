@@ -8,6 +8,7 @@ import '../../../data/models/track.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../providers/download_provider.dart';
 import '../../../providers/download/file_exists_cache.dart';
+import '../../../core/extensions/track_extensions.dart';
 import '../../../providers/download_path_provider.dart';
 import '../../widgets/download_path_setup_dialog.dart';
 import '../../../services/audio/audio_provider.dart';
@@ -42,29 +43,41 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     super.initState();
     // 初始刷新
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refreshDownloadStatusCache();
+      _preloadCoverPaths();
     });
   }
 
-  /// 刷新下载状态缓存
-  Future<void> _refreshDownloadStatusCache() async {
+  /// 预加载封面图路径缓存
+  Future<void> _preloadCoverPaths() async {
     final state = ref.read(playlistDetailProvider(widget.playlistId));
     if (state.tracks.isNotEmpty && state.tracks.length != _lastRefreshedTracksLength) {
       _lastRefreshedTracksLength = state.tracks.length;
-      final paths = state.tracks.expand((t) => t.downloadPaths).toList();
-      await ref.read(fileExistsCacheProvider.notifier).preloadPaths(paths);
+      // 预加载封面路径（用于 TrackThumbnail）
+      final coverPaths = state.tracks
+          .where((t) => t.downloadPaths.isNotEmpty)
+          .map((t) => '${t.downloadPaths.first.replaceAll(RegExp(r'[/\\][^/\\]+$'), '')}/cover.jpg')
+          .toList();
+      if (coverPaths.isNotEmpty) {
+        await ref.read(fileExistsCacheProvider.notifier).preloadPaths(coverPaths);
+      }
     }
   }
 
-  /// 检查并刷新缓存（在 build 中调用，当 tracks 变化时）
-  void _checkAndRefreshCache(List<Track> tracks) {
+  /// 检查并预加载缓存（在 build 中调用，当 tracks 变化时）
+  void _checkAndPreloadCache(List<Track> tracks) {
     if (tracks.isNotEmpty && tracks.length != _lastRefreshedTracksLength) {
       // 使用 addPostFrameCallback 避免在 build 期间修改 state
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _lastRefreshedTracksLength = tracks.length;
-          final paths = tracks.expand((t) => t.downloadPaths).toList();
-          ref.read(fileExistsCacheProvider.notifier).preloadPaths(paths);
+          // 预加载封面路径
+          final coverPaths = tracks
+              .where((t) => t.downloadPaths.isNotEmpty)
+              .map((t) => '${t.downloadPaths.first.replaceAll(RegExp(r'[/\\][^/\\]+$'), '')}/cover.jpg')
+              .toList();
+          if (coverPaths.isNotEmpty) {
+            ref.read(fileExistsCacheProvider.notifier).preloadPaths(coverPaths);
+          }
         }
       });
     }
@@ -112,7 +125,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final tracks = state.tracks;
 
     // 检查并刷新下载状态缓存（当 tracks 变化时）
-    _checkAndRefreshCache(tracks);
+    _checkAndPreloadCache(tracks);
 
     // 使用缓存的分组结果，避免每次 build 重新计算
     final groupedTracks = _getGroupedTracks(tracks);
@@ -550,9 +563,6 @@ class _GroupHeader extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final firstTrack = group.tracks.first;
     final currentTrack = ref.watch(currentTrackProvider);
-    // Watch 下载状态缓存，以便在缓存更新时重建
-    ref.watch(fileExistsCacheProvider);
-    final downloadCache = ref.read(fileExistsCacheProvider.notifier);
     // 检查当前播放的是否是这个组的某个分P
     // 使用 sourceId + pageNum 比较，因为临时播放的 track 可能没有数据库 ID
     final isPlayingThisGroup = currentTrack != null &&
@@ -596,8 +606,8 @@ class _GroupHeader extends ConsumerWidget {
                   ),
             ),
           ),
-          // 检查是否所有分P都已下载
-          if (group.tracks.every((t) => t.downloadPaths.any((p) => downloadCache.exists(p)))) ...[
+          // 检查是否所有分P都已下载（直接检查 downloadPaths）
+          if (group.tracks.every((t) => t.isDownloaded)) ...[
             const SizedBox(width: 8),
             Icon(
               Icons.download_done,
@@ -749,9 +759,6 @@ class _TrackListTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final currentTrack = ref.watch(currentTrackProvider);
-    // Watch 下载状态缓存，以便在缓存更新时重建
-    ref.watch(fileExistsCacheProvider);
-    final downloadCache = ref.read(fileExistsCacheProvider.notifier);
     // 使用 sourceId + pageNum 比较，因为临时播放的 track 可能没有数据库 ID
     final isPlaying = currentTrack != null &&
         currentTrack.sourceId == track.sourceId &&
@@ -807,8 +814,8 @@ class _TrackListTile extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  // 检查歌曲是否已下载到本地
-                  if (track.downloadPaths.any((p) => downloadCache.exists(p)))
+                  // 检查歌曲是否已下载到本地（直接检查 downloadPaths）
+                  if (track.isDownloaded)
                     Icon(
                       Icons.download_done,
                       size: 14,

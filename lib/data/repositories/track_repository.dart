@@ -288,7 +288,7 @@ class TrackRepository with Logging {
         existing.artist = track.artist;
         needsUpdate = true;
       }
-
+      
       if (needsUpdate) {
         logDebug('Updating existing track with new data');
         return save(existing);

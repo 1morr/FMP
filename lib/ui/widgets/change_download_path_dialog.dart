@@ -4,6 +4,7 @@ import '../../providers/download_path_provider.dart';
 import '../../providers/repository_providers.dart';
 import '../../providers/download/file_exists_cache.dart';
 import '../../providers/download/download_providers.dart' show downloadedCategoriesProvider;
+import '../../providers/playlist_provider.dart' show allPlaylistsProvider, playlistDetailProvider;
 
 /// 更改下载路径对话框
 ///
@@ -136,6 +137,12 @@ class _ChangeDownloadPathDialogState
       ref.invalidate(fileExistsCacheProvider);
       ref.invalidate(downloadedCategoriesProvider);
       ref.invalidate(downloadPathProvider);
+      
+      // 刷新所有歌单详情（因为下载路径被清空了）
+      final playlists = await ref.read(allPlaylistsProvider.future);
+      for (final playlist in playlists) {
+        ref.invalidate(playlistDetailProvider(playlist.id));
+      }
 
       if (mounted) {
         // 保存 messenger 引用，避免跨异步间隙使用 context
