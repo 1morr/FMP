@@ -18,6 +18,7 @@ import '../repository_providers.dart';
 import 'download_state.dart';
 import 'download_scanner.dart';
 import 'file_exists_cache.dart';
+import '../playlist_provider.dart' show playlistDetailProvider;
 
 // Re-export for convenience
 export 'download_state.dart';
@@ -74,6 +75,11 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
       // 需要获取歌单文件夹路径（上两级）
       final categoryFolderPath = p.dirname(p.dirname(event.savePath));
       ref.invalidate(downloadedCategoryTracksProvider(categoryFolderPath));
+      
+      // 刷新歌单详情，使下载状态显示正确
+      if (event.playlistId != null) {
+        ref.invalidate(playlistDetailProvider(event.playlistId!));
+      }
     });
   });
 

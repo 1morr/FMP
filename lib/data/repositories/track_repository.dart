@@ -165,9 +165,18 @@ class TrackRepository with Logging {
     final effectivePlaylistId = playlistId ?? 0;
     final index = track.playlistIds.indexOf(effectivePlaylistId);
     
-    if (index >= 0) {
-      // 更新现有路径
+    if (index >= 0 && index < track.downloadPaths.length) {
+      // 更新现有路径（playlistIds 和 downloadPaths 同步）
       track.downloadPaths[index] = path;
+    } else if (index >= 0) {
+      // playlistIds 有该条目但 downloadPaths 没有对应元素，扩展 downloadPaths
+      final newPaths = List<String>.from(track.downloadPaths);
+      // 填充空字符串直到索引位置
+      while (newPaths.length <= index) {
+        newPaths.add('');
+      }
+      newPaths[index] = path;
+      track.downloadPaths = newPaths;
     } else {
       // 添加新歌单和路径
       track.playlistIds = List.from(track.playlistIds)..add(effectivePlaylistId);

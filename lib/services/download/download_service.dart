@@ -230,12 +230,13 @@ class DownloadService with Logging {
 
     final playlistId = fromPlaylist.id;
 
-    // 获取预计算的下载路径
-    final downloadPath = track.getDownloadPath(playlistId);
-    if (downloadPath == null) {
-      logError('Track ${track.title} has no download path for playlist ${fromPlaylist.name}');
-      return null;
-    }
+    // 计算下载路径（运行时计算，不再依赖预计算路径）
+    final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
+    final downloadPath = DownloadPathUtils.computeDownloadPath(
+      baseDir: baseDir,
+      playlistName: fromPlaylist.name,
+      track: track,
+    );
 
     // 检查文件是否已存在
     if (await File(downloadPath).exists()) {
@@ -615,6 +616,7 @@ class DownloadService with Logging {
       _completionController.add(DownloadCompletionEvent(
         taskId: task.id,
         trackId: task.trackId,
+        playlistId: task.playlistId,
         savePath: savePath,
       ));
       
@@ -669,18 +671,8 @@ class DownloadService with Logging {
 
   /// 获取下载保存路径
   /// 
-  /// 使用 Track 中预计算的路径
+  /// 运行时计算路径（不再依赖预计算路径）
   Future<String> _getDownloadPath(Track track, DownloadTask task) async {
-    // 优先使用预计算的路径
-    if (task.playlistId != null) {
-      final path = track.getDownloadPath(task.playlistId!);
-      if (path != null) {
-        return path;
-      }
-    }
-
-    // 回退：重新计算路径（不应该发生）
-    logDebug('Warning: No precomputed path found, recalculating...');
     final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
     return DownloadPathUtils.computeDownloadPath(
       baseDir: baseDir,
@@ -862,11 +854,13 @@ class DownloadProgressEvent {
 class DownloadCompletionEvent {
   final int taskId;
   final int trackId;
+  final int? playlistId;
   final String savePath;
 
   DownloadCompletionEvent({
     required this.taskId,
     required this.trackId,
+    this.playlistId,
     required this.savePath,
   });
 }
