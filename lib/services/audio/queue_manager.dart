@@ -675,9 +675,16 @@ class QueueManager with Logging {
       logDebug('Using local file for: ${track.title}, path: $localPath');
       return (track, localPath);
     }
-    
+
     // 本地文件不存在，回退到在线播放
-    // 注意：不清除 downloadPaths，因为这是预计算的路径，用户可能稍后会下载
+    // 如果有下载路径但文件不存在，清除这些无效路径
+    if (track.downloadPaths.isNotEmpty && persist) {
+      logDebug('Local file not found but downloadPaths exist for: ${track.title}, clearing paths');
+      await _trackRepository.clearDownloadPath(track.id);
+      // 更新本地 track 对象
+      track.downloadPaths = [];
+      track.playlistIds = [];
+    }
 
     // 如果音频 URL 有效，直接返回（无本地文件）
     if (track.hasValidAudioUrl) {

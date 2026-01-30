@@ -6,6 +6,7 @@ import '../../core/services/image_loading_service.dart';
 import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
 import '../../providers/download/file_exists_cache.dart';
+import '../../providers/repository_providers.dart';
 import '../../services/library/playlist_service.dart';
 import 'now_playing_indicator.dart';
 
@@ -64,7 +65,7 @@ class TrackThumbnail extends ConsumerWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            _buildImage(colorScheme, cache),
+            _buildImage(colorScheme, cache, ref),
             if (showPlayingIndicator && isPlaying)
               _buildPlayingOverlay(colorScheme),
           ],
@@ -73,12 +74,22 @@ class TrackThumbnail extends ConsumerWidget {
     );
   }
 
-  Widget _buildImage(ColorScheme colorScheme, FileExistsCache cache) {
+  Widget _buildImage(ColorScheme colorScheme, FileExistsCache cache, WidgetRef ref) {
     final placeholder = _buildPlaceholder(colorScheme);
 
     // 使用 FileExistsCache 获取本地封面路径（避免同步 IO）
+    final localCoverPath = track.getLocalCoverPath(cache);
+
+    // 如果 downloadPaths 非空但本地封面不存在，说明文件可能被删除
+    // 异步清除无效路径（避免在 build 期间修改状态）
+    if (track.downloadPaths.isNotEmpty && localCoverPath == null) {
+      Future.microtask(() {
+        ref.read(trackRepositoryProvider).clearDownloadPath(track.id);
+      });
+    }
+
     return ImageLoadingService.loadImage(
-      localPath: track.getLocalCoverPath(cache),
+      localPath: localCoverPath,
       networkUrl: track.thumbnailUrl,
       placeholder: placeholder,
       fit: BoxFit.cover,
