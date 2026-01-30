@@ -153,6 +153,50 @@ class TrackRepository with Logging {
     }
   }
 
+  /// 添加下载路径
+  ///
+  /// [trackId] Track ID
+  /// [playlistId] 歌单 ID，null 表示添加到通用列表 (playlistId = 0)
+  /// [path] 下载路径
+  Future<void> addDownloadPath(int trackId, int? playlistId, String path) async {
+    final track = await getById(trackId);
+    if (track == null) return;
+
+    final effectivePlaylistId = playlistId ?? 0;
+    final index = track.playlistIds.indexOf(effectivePlaylistId);
+    
+    if (index >= 0) {
+      // 更新现有路径
+      track.downloadPaths[index] = path;
+    } else {
+      // 添加新歌单和路径
+      track.playlistIds = List.from(track.playlistIds)..add(effectivePlaylistId);
+      track.downloadPaths = List.from(track.downloadPaths)..add(path);
+    }
+    
+    await save(track);
+    logDebug('Added download path for track $trackId: $path');
+  }
+
+  /// 清除所有 Track 的下载路径
+  Future<void> clearAllDownloadPaths() async {
+    logDebug('Clearing all download paths...');
+    await _isar.writeTxn(() async {
+      final tracks = await _isar.tracks
+          .filter()
+          .downloadPathsIsNotEmpty()
+          .findAll();
+      
+      for (final track in tracks) {
+        track.playlistIds = [];
+        track.downloadPaths = [];
+      }
+      
+      await _isar.tracks.putAll(tracks);
+    });
+    logDebug('Cleared download paths for all tracks');
+  }
+
   /// 标记歌曲为不可用
   Future<void> markUnavailable(int id, String reason) async {
     final track = await getById(id);

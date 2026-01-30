@@ -12,6 +12,7 @@ import '../../data/repositories/settings_repository.dart';
 import '../../data/sources/source_provider.dart';
 import '../../services/download/download_service.dart';
 import '../../services/download/download_path_utils.dart';
+import '../download_path_provider.dart';
 import '../database_provider.dart';
 import '../repository_providers.dart';
 import 'download_state.dart';
@@ -45,12 +46,14 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
   final trackRepo = TrackRepository(ref.watch(databaseProvider).requireValue);
   final settingsRepo = SettingsRepository(ref.watch(databaseProvider).requireValue);
   final sourceManager = ref.watch(sourceManagerProvider);
+  final pathManager = ref.watch(downloadPathManagerProvider);
 
   final service = DownloadService(
     downloadRepository: downloadRepo,
     trackRepository: trackRepo,
     settingsRepository: settingsRepo,
     sourceManager: sourceManager,
+    pathManager: pathManager,
   );
 
   // 初始化服务
