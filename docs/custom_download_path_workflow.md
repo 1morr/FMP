@@ -131,21 +131,58 @@ flutter analyze
 ```
 
 **验收标准**:
-- [ ] 依赖安装成功
-- [ ] 无分析错误
+- [x] 依赖安装成功
+- [x] 无分析错误
 
 ---
 
-#### Task 1.2: 创建 DownloadPathManager 服务 (2-3小时)
+#### Task 1.1b: Android 存储权限配置 (30分钟) ✅ 已完成 (2026-01-31)
+
+**问题背景**: Android 10+ 分区存储限制导致 `file_picker` 选择的路径无法直接通过 `dart:io` 访问。
+
+**文件 1**: `android/app/src/main/AndroidManifest.xml`
+
+添加权限声明:
+```xml
+<!-- Android 11+ 需要此权限来访问外部存储 -->
+<uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+    tools:ignore="ScopedStorage"/>
+```
+
+**文件 2**: `lib/services/storage_permission_service.dart`
+
+创建权限请求服务:
+```dart
+class StoragePermissionService {
+  /// 检查存储权限
+  static Future<bool> hasStoragePermission();
+  
+  /// 请求存储权限（带解释对话框）
+  static Future<bool> requestStoragePermission(BuildContext context);
+}
+```
+
+**验收标准**:
+- [x] AndroidManifest 添加 MANAGE_EXTERNAL_STORAGE 权限
+- [x] StoragePermissionService 创建完成
+- [x] 权限请求显示解释对话框
+- [x] 权限被拒绝时引导用户到设置页面
+
+**注意**: Google Play 上架需要提交权限使用说明。
+
+---
+
+#### Task 1.2: 创建 DownloadPathManager 服务 (2-3小时) ✅ 已完成
 
 **文件**: `lib/services/download/download_path_manager.dart`
 
-**代码模板**:
+**代码模板**（包含 Android 权限请求）:
 ```dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../data/repositories/settings_repository.dart';
+import '../storage_permission_service.dart';
 
 class DownloadPathManager {
   final SettingsRepository _settingsRepo;
@@ -158,10 +195,22 @@ class DownloadPathManager {
            settings.customDownloadDir!.isNotEmpty;
   }
 
+  /// 选择下载目录
+  /// Android 11+ 需要先请求 MANAGE_EXTERNAL_STORAGE 权限
   Future<String?> selectDirectory(BuildContext context) async {
+    // Android 11+ 需要先请求存储权限
+    if (Platform.isAndroid) {
+      final hasPermission =
+          await StoragePermissionService.requestStoragePermission(context);
+      if (!hasPermission) {
+        return null;
+      }
+    }
+
     String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
     if (selectedDirectory == null) return null;
 
+    // 验证写入权限（所有平台）
     if (!await _verifyWritePermission(selectedDirectory)) {
       if (context.mounted) {
         _showPermissionError(context);
