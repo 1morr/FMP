@@ -18,10 +18,14 @@ class DownloadPathSyncService with Logging {
   /// 同步本地文件到数据库
   ///
   /// 扫描下载目录，匹配 Track 并更新下载路径
-  /// 返回 (更新数量, 孤儿文件数量)
-  Future<(int updated, int orphans)> syncLocalFiles({
+  /// 同时清理数据库中无效的下载路径（本地文件不存在）
+  /// 返回 (更新数量, 清理的无效路径数量)
+  Future<(int updated, int cleaned)> syncLocalFiles({
     void Function(int current, int total)? onProgress,
   }) async {
+    // 首先清理数据库中无效的下载路径
+    final cleaned = await cleanupInvalidPaths();
+
     final basePath = await _pathManager.getCurrentDownloadPath();
     if (basePath == null) {
       throw Exception('下载路径未配置');
@@ -29,11 +33,10 @@ class DownloadPathSyncService with Logging {
 
     final baseDir = Directory(basePath);
     if (!await baseDir.exists()) {
-      return (0, 0);
+      return (0, cleaned);
     }
 
     int updated = 0;
-    int orphans = 0;
     int processed = 0;
 
     // 获取所有子文件夹
@@ -49,23 +52,21 @@ class DownloadPathSyncService with Logging {
 
     for (final folder in folders) {
       final result = await _syncFolder(folder);
-      updated += result.$1;
-      orphans += result.$2;
+      updated += result;
 
       processed++;
       onProgress?.call(processed, total);
     }
 
-    logDebug('Sync complete: updated $updated, orphans $orphans');
-    return (updated, orphans);
+    logDebug('Sync complete: updated $updated, cleaned $cleaned');
+    return (updated, cleaned);
   }
 
   /// 同步单个文件夹
-  Future<(int updated, int orphans)> _syncFolder(Directory folder) async {
+  Future<int> _syncFolder(Directory folder) async {
     try {
       final tracks = await DownloadScanner.scanFolderForTracks(folder.path);
       int updated = 0;
-      int orphans = 0;
 
       for (final scannedTrack in tracks) {
         final existingTrack = await _findMatchingTrack(scannedTrack);
@@ -81,15 +82,13 @@ class DownloadPathSyncService with Logging {
             updated++;
             logDebug('Updated download path for: ${existingTrack.title}');
           }
-        } else {
-          orphans++;
         }
       }
 
-      return (updated, orphans);
+      return updated;
     } catch (e) {
       logDebug('Error syncing folder ${folder.path}: $e');
-      return (0, 0);
+      return 0;
     }
   }
 
@@ -132,51 +131,4 @@ class DownloadPathSyncService with Logging {
     logDebug('Cleaned $cleaned tracks with invalid paths');
     return cleaned;
   }
-
-  /// 获取孤儿文件列表
-  ///
-  /// 返回本地存在但数据库中没有匹配的文件信息
-  Future<List<OrphanFileInfo>> getOrphanFiles() async {
-    final basePath = await _pathManager.getCurrentDownloadPath();
-    if (basePath == null) return [];
-
-    final baseDir = Directory(basePath);
-    if (!await baseDir.exists()) return [];
-
-    final orphans = <OrphanFileInfo>[];
-
-    await for (final entity in baseDir.list()) {
-      if (entity is Directory) {
-        final tracks = await DownloadScanner.scanFolderForTracks(entity.path);
-        for (final track in tracks) {
-          final existingTrack = await _findMatchingTrack(track);
-          if (existingTrack == null) {
-            orphans.add(OrphanFileInfo(
-              title: track.title,
-              path: track.downloadPaths.firstOrNull,
-              sourceId: track.sourceId,
-              sourceType: track.sourceType,
-            ));
-          }
-        }
-      }
-    }
-
-    return orphans;
-  }
-}
-
-/// 孤儿文件信息
-class OrphanFileInfo {
-  final String title;
-  final String? path;
-  final String sourceId;
-  final SourceType sourceType;
-
-  OrphanFileInfo({
-    required this.title,
-    this.path,
-    required this.sourceId,
-    required this.sourceType,
-  });
 }

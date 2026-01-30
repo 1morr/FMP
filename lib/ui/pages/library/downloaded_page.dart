@@ -51,11 +51,11 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
     );
 
     if (result != null && mounted) {
-      final (updated, orphans) = result;
+      final (updated, cleaned) = result;
       // 刷新分类列表
       ref.invalidate(downloadedCategoriesProvider);
 
-      if (updated > 0) {
+      if (updated > 0 || cleaned > 0) {
         // 刷新文件存在性缓存
         ref.invalidate(fileExistsCacheProvider);
         // 刷新所有歌单详情（因为 track 的 downloadPaths 已更新）
@@ -66,9 +66,10 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
       }
 
       if (!mounted) return;
+
       final message = StringBuffer('同步完成: 更新 $updated 首');
-      if (orphans > 0) {
-        message.write(', 未匹配文件 $orphans 个');
+      if (cleaned > 0) {
+        message.write(', 清理 $cleaned 个无效路径');
       }
       ToastService.show(context, message.toString());
     }
@@ -216,7 +217,7 @@ class _SyncProgressDialogState extends State<_SyncProgressDialog> {
 
   Future<void> _executeSync() async {
     try {
-      final (updated, orphans) = await widget.syncService.syncLocalFiles(
+      final (updated, cleaned) = await widget.syncService.syncLocalFiles(
         onProgress: (current, total) {
           if (mounted) {
             setState(() {
@@ -229,7 +230,7 @@ class _SyncProgressDialogState extends State<_SyncProgressDialog> {
       );
 
       if (mounted) {
-        Navigator.pop(context, (updated, orphans));
+        Navigator.pop(context, (updated, cleaned));
       }
     } catch (e) {
       if (mounted) {
