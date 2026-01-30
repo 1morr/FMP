@@ -63,7 +63,11 @@ class Track {
   /// 获取指定歌单的下载路径
   String? getDownloadPath(int playlistId) {
     final index = playlistIds.indexOf(playlistId);
-    return index >= 0 ? downloadPaths[index] : null;
+    // 安全检查：确保 downloadPaths 有对应的元素
+    if (index >= 0 && index < downloadPaths.length) {
+      return downloadPaths[index];
+    }
+    return null;
   }
 
   /// 设置指定歌单的下载路径

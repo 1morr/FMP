@@ -491,7 +491,7 @@ class _DownloadPathListTile extends ConsumerWidget {
   }
 
   Future<void> _changeDownloadPath(BuildContext context, WidgetRef ref) async {
-    await ChangeDownloadPathDialog.show(context, ref);
+    await ChangeDownloadPathDialog.show(context);
   }
 
   void _showPathInfo(BuildContext context, WidgetRef ref) {

@@ -4,124 +4,127 @@ import '../../providers/download_path_provider.dart';
 import '../../providers/repository_providers.dart';
 import '../../providers/download/file_exists_cache.dart';
 import '../../providers/download/download_providers.dart' show downloadedCategoriesProvider;
-import '../../core/services/toast_service.dart';
 
 /// 更改下载路径对话框
 ///
 /// 用于设置页面的下载路径变更流程。
-/// 包含两次确认（防止误操作）和加载状态显示。
-class ChangeDownloadPathDialog {
+/// 使用 ConsumerStatefulWidget 以便在异步操作期间管理状态。
+class ChangeDownloadPathDialog extends ConsumerStatefulWidget {
+  const ChangeDownloadPathDialog({super.key});
+
   /// 显示更改下载路径对话框
-  ///
-  /// 流程：
-  /// 1. 显示确认对话框，警告用户更改会清空数据库路径
-  /// 2. 用户确认后，显示加载状态
-  /// 3. 选择新路径
-  /// 4. 清空数据库路径并保存新路径
-  /// 5. 刷新相关 Provider
-  static Future<void> show(BuildContext context, WidgetRef ref) async {
-    // 第一次确认
-    final confirmed = await showDialog<bool>(
+  static Future<bool?> show(BuildContext context) {
+    return showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('更改下载路径'),
-        content: const Text(
+      barrierDismissible: false,
+      builder: (context) => const ChangeDownloadPathDialog(),
+    );
+  }
+
+  @override
+  ConsumerState<ChangeDownloadPathDialog> createState() =>
+      _ChangeDownloadPathDialogState();
+}
+
+class _ChangeDownloadPathDialogState
+    extends ConsumerState<ChangeDownloadPathDialog> {
+  /// 当前状态
+  _DialogState _state = _DialogState.confirmation;
+
+  /// 错误信息
+  String? _error;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(_getTitle()),
+      content: _buildContent(),
+      actions: _buildActions(),
+    );
+  }
+
+  String _getTitle() {
+    switch (_state) {
+      case _DialogState.confirmation:
+        return '更改下载路径';
+      case _DialogState.selecting:
+        return '选择文件夹';
+      case _DialogState.processing:
+        return '正在更新';
+      case _DialogState.error:
+        return '错误';
+    }
+  }
+
+  Widget _buildContent() {
+    switch (_state) {
+      case _DialogState.confirmation:
+        return const Text(
           '更改下载路径将清空所有已保存的下载路径信息。\n\n'
           '下载的文件不会被删除，但需要重新扫描才能显示。\n\n'
           '是否继续？',
-        ),
-        actions: [
+        );
+      case _DialogState.selecting:
+      case _DialogState.processing:
+        return const SizedBox(
+          height: 50,
+          child: Center(child: CircularProgressIndicator()),
+        );
+      case _DialogState.error:
+        return Text(_error ?? '未知错误');
+    }
+  }
+
+  List<Widget>? _buildActions() {
+    switch (_state) {
+      case _DialogState.confirmation:
+        return [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('取消'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: _onContinue,
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
             child: const Text('继续'),
           ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !context.mounted) return;
-
-    // 执行路径变更
-    await _executePathChange(context, ref);
+        ];
+      case _DialogState.selecting:
+      case _DialogState.processing:
+        return null; // 隐藏按钮
+      case _DialogState.error:
+        return [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('关闭'),
+          ),
+        ];
+    }
   }
 
-  static Future<void> _executePathChange(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
+  Future<void> _onContinue() async {
     final pathManager = ref.read(downloadPathManagerProvider);
     final trackRepo = ref.read(trackRepositoryProvider);
 
-    // 显示加载状态
-    BuildContext? loadingContext;
-    if (context.mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) {
-          loadingContext = ctx;
-          return const Center(
-            child: Card(
-              child: Padding(
-                padding: EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('正在选择文件夹...'),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      );
-    }
+    // 显示选择状态
+    setState(() => _state = _DialogState.selecting);
 
     try {
-      // 选择新路径
+      // 打开文件选择器
       final newPath = await pathManager.selectDirectory(context);
 
-      // 关闭加载对话框
-      if (loadingContext != null && loadingContext!.mounted) {
-        Navigator.pop(loadingContext!);
+      if (!mounted) return;
+
+      if (newPath == null) {
+        // 用户取消，返回确认状态
+        setState(() => _state = _DialogState.confirmation);
+        return;
       }
 
-      if (newPath == null) return;
-
-      // 显示处理中状态
-      if (context.mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) {
-            loadingContext = ctx;
-            return const Center(
-              child: Card(
-                child: Padding(
-                  padding: EdgeInsets.all(24.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text('正在更新设置...'),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      }
+      // 显示处理状态
+      setState(() => _state = _DialogState.processing);
 
       // 清空所有下载路径
       await trackRepo.clearAllDownloadPaths();
@@ -129,27 +132,39 @@ class ChangeDownloadPathDialog {
       // 保存新路径
       await pathManager.saveDownloadPath(newPath);
 
-      // 关闭加载对话框
-      if (loadingContext != null && loadingContext!.mounted) {
-        Navigator.pop(loadingContext!);
-      }
-
       // 刷新相关 Provider
       ref.invalidate(fileExistsCacheProvider);
       ref.invalidate(downloadedCategoriesProvider);
       ref.invalidate(downloadPathProvider);
 
-      if (context.mounted) {
-        ToastService.show(context, '下载路径已更改，请点击刷新按钮扫描本地文件');
+      if (mounted) {
+        // 保存 messenger 引用，避免跨异步间隙使用 context
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        Navigator.pop(context, true);
+        // 延迟显示 toast，确保对话框已关闭
+        if (messenger != null) {
+          Future.delayed(const Duration(milliseconds: 100), () {
+            messenger.showSnackBar(
+              const SnackBar(content: Text('下载路径已更改，请点击刷新按钮扫描本地文件')),
+            );
+          });
+        }
       }
     } catch (e) {
-      // 关闭加载对话框
-      if (loadingContext != null && loadingContext!.mounted) {
-        Navigator.pop(loadingContext!);
-      }
-      if (context.mounted) {
-        ToastService.show(context, '更改路径失败: $e');
+      if (mounted) {
+        setState(() {
+          _state = _DialogState.error;
+          _error = e.toString();
+        });
       }
     }
   }
+}
+
+/// 对话框状态
+enum _DialogState {
+  confirmation, // 确认阶段
+  selecting,    // 正在选择文件夹
+  processing,   // 正在处理
+  error,        // 错误
 }
