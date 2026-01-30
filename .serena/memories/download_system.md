@@ -212,6 +212,30 @@ $1
 
 ---
 
+### 6. ChangeDownloadPathDialog (`lib/ui/widgets/change_download_path_dialog.dart`)
+
+**Phase 5 新增** - 更改下载路径的对话框组件
+
+```dart
+class ChangeDownloadPathDialog {
+  /// 显示更改下载路径对话框
+  /// 流程：确认 → 选择新路径 → 清空数据库路径 → 保存新路径
+  static Future<void> show(BuildContext context, WidgetRef ref);
+}
+```
+
+**功能**：
+- 两次确认防止误操作
+- 显示加载状态（选择文件夹中、更新设置中）
+- 清空所有 Track 的 downloadPaths
+- 刷新相关 Provider（fileExistsCacheProvider, downloadedCategoriesProvider, downloadPathProvider）
+- 提示用户点击刷新按钮扫描本地文件
+
+**使用场景**：
+- 设置页面的"更改下载路径"选项
+
+---
+
 ## 路由
 
 - `/library/downloaded` → DownloadedPage（已下载分类列表）
