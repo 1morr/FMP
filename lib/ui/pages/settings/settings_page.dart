@@ -17,6 +17,10 @@ import '../../../providers/developer_options_provider.dart';
 import '../../../providers/playback_settings_provider.dart';
 import '../../../providers/desktop_settings_provider.dart';
 import '../../../providers/hotkey_config_provider.dart';
+import '../../../core/services/toast_service.dart';
+import '../../../providers/download_path_provider.dart';
+import '../../../providers/download/file_exists_cache.dart';
+import '../../../providers/download/download_providers.dart';
 import '../../router.dart';
 
 /// 设置页
@@ -430,9 +434,9 @@ class _DownloadManagerListTile extends StatelessWidget {
 class _DownloadPathListTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final dirInfoAsync = ref.watch(downloadDirInfoProvider);
+    final downloadPathAsync = ref.watch(downloadPathProvider);
 
-    return dirInfoAsync.when(
+    return downloadPathAsync.when(
       loading: () => const ListTile(
         leading: Icon(Icons.folder_outlined),
         title: Text('下载路径'),
@@ -443,43 +447,126 @@ class _DownloadPathListTile extends ConsumerWidget {
         title: const Text('下载路径'),
         subtitle: Text('加载失败: $e'),
       ),
-      data: (info) => ListTile(
+      data: (downloadPath) => ListTile(
         leading: const Icon(Icons.folder_outlined),
         title: const Text('下载路径'),
-        subtitle: Text(info.path),
+        subtitle: Text(
+          downloadPath ?? '未设置',
+          style: TextStyle(
+            color: downloadPath == null
+                ? Theme.of(context).colorScheme.error
+                : null,
+          ),
+        ),
         trailing: const Icon(Icons.chevron_right),
-        onTap: () => _showPathDialog(context, info.path),
+        onTap: () => _showDownloadPathOptions(context, ref),
       ),
     );
   }
 
-  void _showPathDialog(BuildContext context, String currentPath) {
+  void _showDownloadPathOptions(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.folder_open),
+              title: const Text('更改下载路径'),
+              onTap: () {
+                Navigator.pop(context);
+                _changeDownloadPath(context, ref);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('当前路径信息'),
+              onTap: () {
+                Navigator.pop(context);
+                _showPathInfo(context, ref);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _changeDownloadPath(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('更改下载路径'),
+        content: const Text(
+          '更改下载路径将清空所有已保存的下载路径信息。\n\n'
+          '下载的文件不会被删除，但需要重新扫描才能显示。\n\n'
+          '是否继续？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('继续'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      await _executePathChange(context, ref);
+    }
+  }
+
+  Future<void> _executePathChange(BuildContext context, WidgetRef ref) async {
+    final pathManager = ref.read(downloadPathManagerProvider);
+    final trackRepo = ref.read(trackRepositoryProvider);
+
+    // 选择新路径
+    final newPath = await pathManager.selectDirectory(context);
+    if (newPath == null) return;
+
+    // 清空所有下载路径
+    await trackRepo.clearAllDownloadPaths();
+
+    // 保存新路径
+    await pathManager.saveDownloadPath(newPath);
+
+    // 刷新相关 Provider
+    ref.invalidate(fileExistsCacheProvider);
+    ref.invalidate(downloadedCategoriesProvider);
+    ref.invalidate(downloadPathProvider);
+
+    if (context.mounted) {
+      ToastService.show(context, '下载路径已更改');
+    }
+  }
+
+  void _showPathInfo(BuildContext context, WidgetRef ref) {
+    final downloadPath = ref.read(downloadPathProvider).value;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('下载路径'),
+        title: const Text('下载路径信息'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('当前路径:', style: Theme.of(context).textTheme.labelMedium),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(8),
+            Text('当前路径: ${downloadPath ?? "未设置"}'),
+            if (downloadPath != null) ...[
+              const SizedBox(height: 8),
+              const Text(
+                '提示: 修改路径将清空数据库中的下载路径记录',
+                style: TextStyle(fontSize: 12),
               ),
-              child: Text(
-                currentPath,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              '提示：修改下载路径功能即将推出',
-              style: TextStyle(color: Colors.grey),
-            ),
+            ],
           ],
         ),
         actions: [
