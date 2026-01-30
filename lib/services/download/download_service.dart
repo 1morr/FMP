@@ -19,6 +19,7 @@ import '../../data/sources/source_provider.dart';
 import '../../data/sources/bilibili_source.dart';
 import '../../data/sources/youtube_source.dart';
 import 'download_path_utils.dart';
+import 'download_path_manager.dart';
 
 /// 下载服务
 class DownloadService with Logging {
@@ -26,6 +27,7 @@ class DownloadService with Logging {
   final TrackRepository _trackRepository;
   final SettingsRepository _settingsRepository;
   final SourceManager _sourceManager;
+  final DownloadPathManager _pathManager;
   
   final Dio _dio;
   
@@ -73,10 +75,12 @@ class DownloadService with Logging {
     required TrackRepository trackRepository,
     required SettingsRepository settingsRepository,
     required SourceManager sourceManager,
+    required DownloadPathManager pathManager,
   })  : _downloadRepository = downloadRepository,
         _trackRepository = trackRepository,
         _settingsRepository = settingsRepository,
         _sourceManager = sourceManager,
+        _pathManager = pathManager,
         _dio = Dio(BaseOptions(
           connectTimeout: AppConstants.downloadConnectTimeout,
           receiveTimeout: const Duration(minutes: 30),
@@ -599,7 +603,8 @@ class DownloadService with Logging {
       // 保存元数据（使用 task 中保存的 order）
       await _saveMetadata(track, savePath, videoDetail: videoDetail, order: task.order);
 
-      // 路径已在添加到歌单时预计算，无需再次设置
+      // 保存实际下载路径到 Track
+      await _trackRepository.addDownloadPath(track.id, task.playlistId, savePath);
       
       // 更新任务状态为已完成
       await _downloadRepository.updateTaskStatus(task.id, DownloadStatus.completed);
