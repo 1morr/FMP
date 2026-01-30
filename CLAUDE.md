@@ -271,8 +271,8 @@ Slider `onChanged` must NOT call `seekToProgress()` directly. Only call seek in 
 When renaming a playlist that has downloaded songs, files are **NOT** automatically moved. Instead:
 - `PlaylistService.updatePlaylist()` returns `PlaylistUpdateResult` with old/new folder paths
 - UI shows a dialog prompting user to manually move the folder
-- `PlaylistFolderMigrator.updateAllTrackDownloadPaths()` updates all Track's precomputed paths
 - This avoids potential data loss from failed file operations
+- Note: Precomputed paths are no longer used - download paths are saved when downloads complete
 
 ### Home Page Ranking Cache (Proactive Background Refresh)
 Home page ranking data (Bilibili/YouTube) is cached and refreshed in the background every hour.

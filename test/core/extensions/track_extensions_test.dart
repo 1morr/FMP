@@ -8,13 +8,19 @@ import 'package:path/path.dart' as p;
 
 /// Test helper: FileExistsCache with pre-populated state
 class TestFileExistsCache extends FileExistsCache {
-  TestFileExistsCache(Map<String, bool> initialState) : super() {
+  TestFileExistsCache(Set<String> initialState) : super() {
     state = initialState;
   }
 
-  /// Update a single path's existence
+  /// Mark a path as existing or not
   void setExists(String path, bool exists) {
-    state = {...state, path: exists};
+    if (exists) {
+      state = {...state, path};
+    } else {
+      final newState = Set<String>.from(state);
+      newState.remove(path);
+      state = newState;
+    }
   }
 }
 
@@ -39,9 +45,8 @@ void main() {
           ..playlistIds = [0]
           ..downloadPaths = ['/some/path/audio.m4a'];
 
-        final cache = TestFileExistsCache({
-          '/some/path/cover.jpg': false,
-        });
+        // Empty set = no files exist
+        final cache = TestFileExistsCache({});
         expect(track.getLocalCoverPath(cache), isNull);
       });
 
@@ -54,7 +59,7 @@ void main() {
           ..downloadPaths = ['/some/path/audio.m4a'];
 
         final cache = TestFileExistsCache({
-          '/some/path/cover.jpg': true,
+          '/some/path/cover.jpg',
         });
         expect(track.getLocalCoverPath(cache), equals('/some/path/cover.jpg'));
       });
@@ -67,9 +72,9 @@ void main() {
           ..playlistIds = [0, 1]
           ..downloadPaths = ['/path1/audio.m4a', '/path2/audio.m4a'];
 
+        // Only /path2/cover.jpg exists
         final cache = TestFileExistsCache({
-          '/path1/cover.jpg': false,
-          '/path2/cover.jpg': true,
+          '/path2/cover.jpg',
         });
         expect(track.getLocalCoverPath(cache), equals('/path2/cover.jpg'));
       });
@@ -109,7 +114,6 @@ void main() {
 
       test('returns null when avatar does not exist for Bilibili', () {
         const baseDir = '/downloads';
-        final avatarPath = p.join(baseDir, 'avatars', 'bilibili', '12345.jpg');
 
         final track = Track()
           ..sourceId = 'test123'
@@ -117,9 +121,8 @@ void main() {
           ..title = 'Test Track'
           ..ownerId = 12345;
 
-        final cache = TestFileExistsCache({
-          avatarPath: false,
-        });
+        // Empty set = file does not exist
+        final cache = TestFileExistsCache({});
         expect(track.getLocalAvatarPath(cache, baseDir: baseDir), isNull);
       });
 
@@ -134,7 +137,7 @@ void main() {
           ..ownerId = 12345;
 
         final cache = TestFileExistsCache({
-          avatarPath: true,
+          avatarPath,
         });
         expect(
           track.getLocalAvatarPath(cache, baseDir: baseDir),
@@ -153,7 +156,7 @@ void main() {
           ..channelId = 'UCq-Fj5jknLsUf-MWSy4_brA';
 
         final cache = TestFileExistsCache({
-          avatarPath: true,
+          avatarPath,
         });
         expect(
           track.getLocalAvatarPath(cache, baseDir: baseDir),

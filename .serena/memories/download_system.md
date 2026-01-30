@@ -66,25 +66,27 @@ Future<int> cleanupInvalidDownloadPaths();  // 清理无效路径，返回清理
 
 ### 2. FileExistsCache (`lib/providers/download/file_exists_cache.dart`)
 
-避免 UI build 时阻塞 I/O：
+**Phase 6 简化** - 避免 UI build 时阻塞 I/O。
+
+状态类型：`Set<String>`（只缓存存在的路径）
 
 ```dart
 // 正确用法
 ref.watch(fileExistsCacheProvider);  // 监听状态
 final cache = ref.read(fileExistsCacheProvider.notifier);
 
-// Track 相关
-final isDownloaded = cache.isDownloadedForPlaylist(track, playlistId);
-cache.hasAnyDownload(track);
-cache.getFirstExistingPath(track);
-
-// 通用方法（新增）
-cache.exists(path);               // 检查单个路径
+// 核心方法
+cache.exists(path);               // 检查路径是否存在（带缓存）
 cache.getFirstExisting(paths);    // 返回第一个存在的路径
 
-// 预加载
-await cache.refreshCache(tracks);
-await cache.preloadPaths(paths);
+// 缓存管理
+await cache.preloadPaths(paths);  // 批量预加载
+cache.markAsExisting(path);       // 标记已存在（下载完成后调用）
+cache.remove(path);               // 移除缓存
+cache.clearAll();                 // 清空所有缓存
+
+// 注意：Track 相关方法已移除（isDownloadedForPlaylist, hasAnyDownload 等）
+// 下载状态判断改为：track.downloadPaths.any((p) => cache.exists(p))
 ```
 
 ### 3. DownloadService (`lib/services/download/download_service.dart`)
@@ -186,12 +188,12 @@ final downloadPathSyncServiceProvider = Provider<DownloadPathSyncService>(...);
 1. `PlaylistService.updatePlaylist()` 返回 `PlaylistUpdateResult`
 2. 如果旧下载文件夹存在，结果包含 `oldDownloadFolder` 和 `newDownloadFolder`
 3. UI 显示提示框，告知用户手动移动文件夹
-4. `PlaylistFolderMigrator.updateAllTrackDownloadPaths()` 仍会更新所有 Track 的预计算路径
 
 ### 相关代码
 - `PlaylistUpdateResult` - 更新结果类（`playlist_service.dart`）
-- `PlaylistFolderMigrator` - 仅更新路径，不移动文件（`download/playlist_folder_migrator.dart`）
 - `CreatePlaylistDialog._showFileMigrationWarning()` - 显示手动移动提示
+
+**注意**：`PlaylistFolderMigrator` 已在 Phase 6 删除（不再需要预计算路径更新）
 
 ---
 

@@ -51,7 +51,8 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final state = ref.read(playlistDetailProvider(widget.playlistId));
     if (state.tracks.isNotEmpty && state.tracks.length != _lastRefreshedTracksLength) {
       _lastRefreshedTracksLength = state.tracks.length;
-      await ref.read(fileExistsCacheProvider.notifier).refreshCache(state.tracks);
+      final paths = state.tracks.expand((t) => t.downloadPaths).toList();
+      await ref.read(fileExistsCacheProvider.notifier).preloadPaths(paths);
     }
   }
 
@@ -62,7 +63,8 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _lastRefreshedTracksLength = tracks.length;
-          ref.read(fileExistsCacheProvider.notifier).refreshCache(tracks);
+          final paths = tracks.expand((t) => t.downloadPaths).toList();
+          ref.read(fileExistsCacheProvider.notifier).preloadPaths(paths);
         }
       });
     }
@@ -595,7 +597,7 @@ class _GroupHeader extends ConsumerWidget {
             ),
           ),
           // 检查是否所有分P都已下载
-          if (group.tracks.every((t) => downloadCache.hasAnyDownload(t))) ...[
+          if (group.tracks.every((t) => t.downloadPaths.any((p) => downloadCache.exists(p)))) ...[
             const SizedBox(width: 8),
             Icon(
               Icons.download_done,
@@ -806,7 +808,7 @@ class _TrackListTile extends ConsumerWidget {
                     ),
                   ),
                   // 检查歌曲是否已下载到本地
-                  if (downloadCache.hasAnyDownload(track))
+                  if (track.downloadPaths.any((p) => downloadCache.exists(p)))
                     Icon(
                       Icons.download_done,
                       size: 14,
