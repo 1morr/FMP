@@ -63,7 +63,7 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
   StreamSubscription<DownloadCompletionEvent>? completionSubscription;
   completionSubscription = service.completionStream.listen((event) {
     // 标记文件已存在，触发 UI 更新
-    ref.read(fileExistsCacheProvider.notifier).markAsDownloaded(event.savePath);
+    ref.read(fileExistsCacheProvider.notifier).markAsExisting(event.savePath);
     
     // 使用 microtask 延迟刷新，避免循环依赖
     Future.microtask(() {

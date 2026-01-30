@@ -11,7 +11,7 @@ import '../../data/repositories/playlist_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../download/download_path_utils.dart';
-import '../download/playlist_folder_migrator.dart';
+
 
 /// 歌单更新结果
 class PlaylistUpdateResult {
@@ -123,7 +123,6 @@ class PlaylistService with Logging {
     }
 
     final oldName = playlist.name;
-    bool isRenaming = false;
     String? oldDownloadFolder;
     String? newDownloadFolder;
 
@@ -133,7 +132,6 @@ class PlaylistService with Logging {
         throw PlaylistNameExistsException(name);
       }
       playlist.name = name;
-      isRenaming = true;
 
       // 更新预计算的本地封面路径
       final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
@@ -158,24 +156,8 @@ class PlaylistService with Logging {
 
     await _playlistRepository.save(playlist);
 
-    // 歌单改名时只更新预计算路径，不再自动移动文件
-    if (isRenaming) {
-      final migrator = PlaylistFolderMigrator(
-        isar: _isar,
-        settingsRepository: _settingsRepository,
-      );
-
-      // 更新所有 Track 的预计算下载路径（包括未下载的）
-      try {
-        final updatedCount = await migrator.updateAllTrackDownloadPaths(
-          playlist: playlist,
-          newName: name!,
-        );
-        logDebug('Updated $updatedCount track download paths');
-      } catch (e, stack) {
-        logError('Failed to update track download paths: $e', e, stack);
-      }
-    }
+    // 注：歌单改名不再需要更新预计算路径
+    // 新架构下，下载路径在下载完成时保存到 Track.downloadPaths
 
     return PlaylistUpdateResult(
       playlist: playlist,
