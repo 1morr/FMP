@@ -8,6 +8,8 @@ import '../../../data/models/track.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../providers/download_provider.dart';
 import '../../../providers/download/file_exists_cache.dart';
+import '../../../providers/download_path_provider.dart';
+import '../../widgets/download_path_setup_dialog.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/now_playing_indicator.dart';
@@ -496,6 +498,14 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   }
   
   void _downloadPlaylist(BuildContext context, dynamic playlist) async {
+    // 检查路径配置
+    final pathManager = ref.read(downloadPathManagerProvider);
+    if (!await pathManager.hasConfiguredPath()) {
+      if (!context.mounted) return;
+      final configured = await DownloadPathSetupDialog.show(context);
+      if (configured != true) return;
+    }
+
     final downloadService = ref.read(downloadServiceProvider);
     final addedCount = await downloadService.addPlaylistDownload(playlist);
 
@@ -668,6 +678,14 @@ class _GroupHeader extends ConsumerWidget {
         onAddAllToQueue();
         break;
       case 'download_all':
+        // 检查路径配置
+        final pathManager = ref.read(downloadPathManagerProvider);
+        if (!await pathManager.hasConfiguredPath()) {
+          if (!context.mounted) return;
+          final configured = await DownloadPathSetupDialog.show(context);
+          if (configured != true) return;
+        }
+
         // 下载所有分P（批量添加后统一触发调度）
         final downloadService = ref.read(downloadServiceProvider);
         final state = ref.read(playlistDetailProvider(playlistId));
@@ -878,6 +896,14 @@ class _TrackListTile extends ConsumerWidget {
         ToastService.show(context, '已添加到播放队列');
         break;
       case 'download':
+        // 检查路径配置
+        final pathManager = ref.read(downloadPathManagerProvider);
+        if (!await pathManager.hasConfiguredPath()) {
+          if (!context.mounted) return;
+          final configured = await DownloadPathSetupDialog.show(context);
+          if (configured != true) return;
+        }
+
         final downloadService = ref.read(downloadServiceProvider);
         final state = ref.read(playlistDetailProvider(playlistId));
         final playlist = state.playlist;
