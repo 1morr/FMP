@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../data/repositories/settings_repository.dart';
+import '../storage_permission_service.dart';
 
 /// 下载路径管理器
 ///
@@ -25,19 +26,26 @@ class DownloadPathManager {
   ///
   /// 返回选择的路径，如果用户取消或权限不足返回 null
   Future<String?> selectDirectory(BuildContext context) async {
-    String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
-    if (selectedDirectory == null) return null;
-
-    // Android 使用 SAF (Storage Access Framework)，权限由系统在选择时授予
-    // 只在 Windows 等桌面平台验证写入权限
-    if (!Platform.isAndroid && !Platform.isIOS) {
-      if (!await _verifyWritePermission(selectedDirectory)) {
-        if (context.mounted) {
-          _showPermissionError(context);
-        }
+    // Android 11+ 需要先请求存储权限
+    if (Platform.isAndroid) {
+      final hasPermission =
+          await StoragePermissionService.requestStoragePermission(context);
+      if (!hasPermission) {
         return null;
       }
     }
+
+    String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+    if (selectedDirectory == null) return null;
+
+    // 验证写入权限（所有平台）
+    if (!await _verifyWritePermission(selectedDirectory)) {
+      if (context.mounted) {
+        _showPermissionError(context);
+      }
+      return null;
+    }
+
     return selectedDirectory;
   }
 
