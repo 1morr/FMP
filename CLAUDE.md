@@ -154,6 +154,24 @@ void main() async {
 }
 ```
 
+**Important: YouTube Stream Format Priority**
+
+`just_audio_media_kit` creates a local HTTP proxy (`http://127.0.0.1:PORT/...`) to inject headers when `AudioSource.uri()` is called with headers. This proxy has a critical issue:
+
+**ALL audio-only streams fail through the proxy**, regardless of format:
+- `audio/webm` (opus codec) - Fails
+- `audio/mp4` (AAC codec) - Fails
+
+Only **muxed streams** (video+audio combined) work reliably through the proxy.
+
+Stream priority in `YouTubeSource.getAudioUrl()`:
+1. **Muxed** (video+audio single file) - Works reliably with the proxy ✓
+2. **HLS** (m3u8 segmented) - Works, may have threading warnings on Windows
+
+Audio-only streams are NOT used because they consistently fail with the proxy.
+
+This means YouTube playback uses slightly more bandwidth (video data included) but is much more reliable.
+
 ### State Management: Riverpod
 
 - `audioControllerProvider` - Main audio state (PlayerState)

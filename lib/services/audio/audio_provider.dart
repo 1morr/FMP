@@ -1228,6 +1228,35 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       _handleBilibiliError(track, e, mode);
     } catch (e, stack) {
       logError('Failed to play track: ${track.title}', e, stack);
+
+      // Try fallback URL for YouTube tracks (e.g. audio-only stream proxy failure)
+      if (track.sourceType == SourceType.youtube && !_isSuperseded(requestId)) {
+        try {
+          logInfo('Attempting fallback stream for: ${track.title}');
+          final fallbackUrl = await _queueManager.getAlternativeAudioUrl(track);
+          
+          if (fallbackUrl != null && !_isSuperseded(requestId)) {
+            final headers = _getHeadersForTrack(track);
+            await _audioService.playUrl(fallbackUrl, headers: headers, track: track);
+            
+            if (!_isSuperseded(requestId)) {
+              track.audioUrl = fallbackUrl;
+              _exitLoadingState(requestId, track, mode: mode, recordHistory: recordHistory);
+              completedSuccessfully = true;
+              _updateQueueState();
+              logInfo('Fallback playback succeeded for: ${track.title}');
+
+              if (prefetchNext) {
+                _queueManager.prefetchNext();
+              }
+              return;
+            }
+          }
+        } catch (fallbackError) {
+          logError('Fallback also failed for: ${track.title}', fallbackError);
+        }
+      }
+
       await _audioService.stop();
       state = state.copyWith(error: e.toString(), isLoading: false);
       _resetLoadingState();

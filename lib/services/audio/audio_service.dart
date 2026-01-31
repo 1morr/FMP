@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
@@ -207,29 +208,66 @@ class AudioService with Logging {
 
   /// 确保播放开始
   /// 在 Android 上，setAudioSource 后可能需要等待播放器准备好
+  /// 同时检测流打开失败（播放器从 loading 回到 idle）
   Future<void> _ensurePlayback() async {
     _playbackCancelled = false;
     
-    // 等待播放器进入 ready 状态（最多等待 2 秒）
-    if (_player.processingState != ProcessingState.ready) {
-      logDebug('Waiting for player to be ready, current state: ${_player.processingState}');
+    final currentState = _player.processingState;
+    logDebug('_ensurePlayback called, current state: $currentState');
+    
+    // If player is already idle after setAudioSource, the source failed to load
+    // (setAudioSource should leave player in loading/buffering/ready, not idle)
+    if (currentState == ProcessingState.idle) {
+      logError('Stream failed to open: player already in idle state after setAudioSource');
+      throw Exception('Stream failed to open');
+    }
+    
+    // If already ready, no need to wait
+    if (currentState == ProcessingState.ready) {
+      logDebug('Player already ready');
+    } else {
+      // Wait for player to reach ready state (success) or detect failure (idle)
+      logDebug('Waiting for player to be ready...');
       try {
-        await _player.playerStateStream
-            .where((state) => state.processingState == ProcessingState.ready)
+        final playerState = await _player.playerStateStream
+            .where((s) {
+              logDebug('_ensurePlayback stream event: ${s.processingState}');
+              // Success: player is ready
+              if (s.processingState == ProcessingState.ready) {
+                return true;
+              }
+              // Failure: player went to idle (source failed to load)
+              if (s.processingState == ProcessingState.idle) {
+                return true;
+              }
+              // Keep waiting for loading/buffering states
+              return false;
+            })
             .first
-            .timeout(const Duration(seconds: 2));
-      } catch (e) {
-        logWarning('Timeout waiting for ready state: ${_player.processingState}');
+            .timeout(const Duration(seconds: 5));
+
+        // Check if the stream failed to open
+        if (playerState.processingState == ProcessingState.idle) {
+          logError('Stream failed to open: player returned to idle state');
+          throw Exception('Stream failed to open');
+        }
+        logDebug('Player is ready');
+      } on TimeoutException {
+        logWarning('Timeout waiting for ready state, current: ${_player.processingState}');
+        // After timeout, if player is not ready, treat as failure
+        if (_player.processingState != ProcessingState.ready) {
+          throw Exception('Stream loading timed out (state: ${_player.processingState})');
+        }
       }
     }
 
-    // 检查是否被取消（用户可能已点击暂停）
+    // Check if playback was cancelled (user may have clicked pause)
     if (_playbackCancelled) {
       logDebug('Playback cancelled, not calling play()');
       return;
     }
 
-    // 调用播放
+    // Start playback
     await _player.play();
     logDebug('_ensurePlayback completed, playing: ${_player.playing}, state: ${_player.processingState}');
   }
@@ -291,7 +329,44 @@ class AudioService with Logging {
 
       // 设置新的 URL（带 headers 和 MediaItem）
       final audioSource = _createAudioSource(url, headers: headers, track: track);
-      final duration = await _player.setAudioSource(audioSource);
+      
+      // just_audio_media_kit 使用本地代理注入 headers，如果代理失败，setAudioSource 会永久挂起
+      // 通过同时监听 player 状态来检测失败（loading → idle 说明流打开失败）
+      final completer = Completer<Duration?>();
+      
+      // 监听 idle 状态（失败检测）
+      // skip(1) 跳过当前状态（stop() 后可能是 idle），只检测新的 idle 事件
+      final idleWatcher = _player.playerStateStream
+          .skip(1)
+          .where((s) => s.processingState == ProcessingState.idle)
+          .listen((s) {
+        if (!completer.isCompleted) {
+          logError('Stream failed to open: player went idle during setAudioSource');
+          completer.completeError(Exception('Stream failed to open'));
+        }
+      });
+      
+      // 启动 setAudioSource
+      _player.setAudioSource(audioSource).then((d) {
+        if (!completer.isCompleted) {
+          completer.complete(d);
+        }
+      }).catchError((e) {
+        if (!completer.isCompleted) {
+          completer.completeError(e);
+        }
+      });
+      
+      Duration? duration;
+      try {
+        duration = await completer.future.timeout(const Duration(seconds: 10));
+      } on TimeoutException {
+        logError('setAudioSource timed out after 10 seconds, player state: ${_player.processingState}');
+        throw Exception('Stream loading timed out');
+      } finally {
+        await idleWatcher.cancel();
+      }
+      
       logDebug('URL loaded successfully, duration: $duration');
 
       // 确保播放并等待状态确认

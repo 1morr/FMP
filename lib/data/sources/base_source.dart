@@ -77,6 +77,14 @@ abstract class BaseSource {
   /// 用于 URL 过期时重新获取
   Future<Track> refreshAudioUrl(Track track);
 
+  /// 获取备选音频 URL（当主 URL 播放失败时使用）
+  /// [sourceId] 音源 ID
+  /// [failedUrl] 之前失败的 URL（用于排除相同流类型）
+  /// 返回 null 表示没有可用的备选 URL
+  Future<String?> getAlternativeAudioUrl(String sourceId, {String? failedUrl}) async {
+    return null; // 默认不支持备选 URL
+  }
+
   /// 搜索歌曲
   /// [query] 搜索关键词
   /// [page] 页码（从1开始）
