@@ -644,6 +644,21 @@ void main() async {
 }
 ```
 
+**重要：just_audio_media_kit 代理问题**
+
+`just_audio_media_kit` 在传递 headers 时会创建本地 HTTP 代理（`http://127.0.0.1:PORT/...`）。
+该代理对 **所有 audio-only 流都有问题**：
+
+| 流类型 | 格式 | 代理结果 |
+|--------|------|----------|
+| audio-only | webm/opus | ❌ Failed to open |
+| audio-only | mp4/aac | ❌ Failed to open |
+| muxed | mp4 (video+audio) | ✅ 正常工作 |
+| HLS | m3u8 | ✅ 正常工作（有线程警告） |
+
+**结论：** YouTube 播放必须使用 **muxed 流**（包含视频轨道），虽然带宽略高但更可靠。
+`YouTubeSource.getAudioUrl()` 优先返回 muxed 流，HLS 作为备选。
+
 ## 进度条拖动最佳实践
 
 **问题：** 如果 Slider 的 `onChanged` 直接调用 `seekToProgress()`，连续拖动会产生大量 seek 请求，

@@ -208,30 +208,26 @@ class YouTubeSource extends BaseSource with Logging {
         ],
       );
 
-      // 优先尝试 HLS 流（m3u8 格式，兼容性最好）
-      if (manifest.hls.isNotEmpty) {
-        final hlsStream = manifest.hls.first;
-        logDebug('Got HLS stream for $videoId');
-        return hlsStream.url.toString();
-      }
-
-      // 其次尝试 muxed 流（包含视频和音频，兼容性较好）
+      // 优先使用 muxed 流（视频+音频单文件）
+      // 注意：just_audio_media_kit 的代理对纯音频流（audio-only）有问题
+      // 不管是 webm/opus 还是 mp4/aac，audio-only 流都无法通过代理播放
+      // 只有 muxed 流（包含视频轨道）能正常工作
       if (manifest.muxed.isNotEmpty) {
         final muxedStream = manifest.muxed.withHighestBitrate();
         logDebug(
-            'Using muxed stream for $videoId, bitrate: ${muxedStream.bitrate}');
+            'Got muxed stream for $videoId, bitrate: ${muxedStream.bitrate}');
         return muxedStream.url.toString();
       }
 
-      // 最后尝试 audio-only 流
-      if (manifest.audioOnly.isNotEmpty) {
-        final audioStream = manifest.audioOnly.withHighestBitrate();
-        logDebug(
-            'Got audio-only stream for $videoId, bitrate: ${audioStream.bitrate}');
-        return audioStream.url.toString();
+      // 如果没有 muxed 流，尝试 HLS 流（m3u8 分段加载）
+      // Windows 上可能有 "Failed to post message to main thread" 警告，但播放正常
+      if (manifest.hls.isNotEmpty) {
+        final hlsStream = manifest.hls.first;
+        logDebug('Got HLS stream for $videoId (fallback)');
+        return hlsStream.url.toString();
       }
 
-      logError('No audio stream available for YouTube video: $videoId');
+      logError('No muxed or HLS stream available for YouTube video: $videoId');
       throw YouTubeApiException(
         code: 'no_stream',
         message: 'No audio stream available',
@@ -248,6 +244,49 @@ class YouTubeSource extends BaseSource with Logging {
         code: 'error',
         message: 'Failed to get audio URL: $e',
       );
+    }
+  }
+
+  /// 获取备选音频 URL（跳过 audio-only 流，尝试 muxed 和 HLS）
+  /// 当 audio-only 流因代理问题无法播放时使用
+  @override
+  Future<String?> getAlternativeAudioUrl(String videoId, {String? failedUrl}) async {
+    logDebug('Getting alternative audio URL for YouTube video: $videoId');
+    try {
+      final manifest = await _youtube.videos.streams.getManifest(
+        videoId,
+        ytClients: [
+          yt.YoutubeApiClient.ios,
+          yt.YoutubeApiClient.safari,
+          yt.YoutubeApiClient.android,
+        ],
+      );
+
+      // 尝试 muxed 流（单文件，包含视频和音频）
+      if (manifest.muxed.isNotEmpty) {
+        final muxedStream = manifest.muxed.withHighestBitrate();
+        final url = muxedStream.url.toString();
+        if (url != failedUrl) {
+          logDebug('Got alternative muxed stream for $videoId, bitrate: ${muxedStream.bitrate}');
+          return url;
+        }
+      }
+
+      // 尝试 HLS 流（m3u8 分段格式）
+      if (manifest.hls.isNotEmpty) {
+        final hlsStream = manifest.hls.first;
+        final url = hlsStream.url.toString();
+        if (url != failedUrl) {
+          logDebug('Got alternative HLS stream for $videoId');
+          return url;
+        }
+      }
+
+      logWarning('No alternative audio URL available for: $videoId');
+      return null;
+    } catch (e) {
+      logError('Failed to get alternative audio URL for $videoId: $e');
+      return null;
     }
   }
 

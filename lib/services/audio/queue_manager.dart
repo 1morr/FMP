@@ -725,6 +725,15 @@ class QueueManager with Logging {
     }
   }
 
+  /// 获取备选音频 URL（当主 URL 播放失败时使用）
+  Future<String?> getAlternativeAudioUrl(Track track, {String? failedUrl}) async {
+    final source = _sourceManager.getSource(track.sourceType);
+    if (source == null) return null;
+    
+    logDebug('Getting alternative audio URL for: ${track.title}');
+    return await source.getAlternativeAudioUrl(track.sourceId, failedUrl: failedUrl);
+  }
+
   /// 预取下一首歌曲的 URL
   Future<void> prefetchNext() async {
     final nextIdx = getNextIndex();
