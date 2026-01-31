@@ -8,6 +8,25 @@ enum SourceType {
   youtube,
 }
 
+/// 歌单归属与下载路径信息（嵌入式对象）
+@embedded
+class PlaylistDownloadInfo {
+  /// 所属歌单ID
+  int playlistId = 0;
+
+  /// 下载路径（空字符串表示未下载）
+  String downloadPath = '';
+
+  PlaylistDownloadInfo();
+
+  /// 是否已下载
+  bool get isDownloaded => downloadPath.isNotEmpty;
+
+  @override
+  String toString() =>
+      'PlaylistDownloadInfo(playlistId: $playlistId, downloadPath: $downloadPath)';
+}
+
 /// 歌曲/音频实体
 @collection
 class Track {
@@ -52,48 +71,118 @@ class Track {
   /// 不可用原因
   String? unavailableReason;
 
-  // ========== 歌单归属与下载路径（预计算）==========
+  // ========== 歌单归属与下载路径（使用 @embedded PlaylistDownloadInfo）==========
 
-  /// 所属歌单ID列表（与 downloadPaths 并行）
+  /// 歌单归属与下载信息列表
+  List<PlaylistDownloadInfo> playlistInfo = [];
+
+  // ========== 旧字段（仅用于迁移，迁移后始终为空）==========
+
+  /// @deprecated 使用 playlistInfo 代替。仅保留用于迁移。
   List<int> playlistIds = [];
 
-  /// 预计算的下载路径列表（与 playlistIds 并行）
+  /// @deprecated 使用 playlistInfo 代替。仅保留用于迁移。
   List<String> downloadPaths = [];
+
+  // ========== 新的辅助方法 ==========
 
   /// 获取指定歌单的下载路径
   String? getDownloadPath(int playlistId) {
-    final index = playlistIds.indexOf(playlistId);
-    // 安全检查：确保 downloadPaths 有对应的元素
-    if (index >= 0 && index < downloadPaths.length) {
-      return downloadPaths[index];
+    for (final info in playlistInfo) {
+      if (info.playlistId == playlistId) {
+        return info.downloadPath.isEmpty ? null : info.downloadPath;
+      }
     }
     return null;
   }
 
   /// 设置指定歌单的下载路径
+  ///
+  /// 注意：必须创建新的列表和对象，否则 Isar 无法检测到 @embedded 对象的变更
   void setDownloadPath(int playlistId, String path) {
-    final index = playlistIds.indexOf(playlistId);
-    if (index >= 0) {
-      downloadPaths[index] = path;
-    } else {
-      playlistIds = List.from(playlistIds)..add(playlistId);
-      downloadPaths = List.from(downloadPaths)..add(path);
+    final newInfos = <PlaylistDownloadInfo>[];
+    bool found = false;
+
+    for (final info in playlistInfo) {
+      if (info.playlistId == playlistId) {
+        // 创建新对象以确保 Isar 检测到变更
+        newInfos.add(PlaylistDownloadInfo()
+          ..playlistId = playlistId
+          ..downloadPath = path);
+        found = true;
+      } else {
+        // 复制现有对象
+        newInfos.add(PlaylistDownloadInfo()
+          ..playlistId = info.playlistId
+          ..downloadPath = info.downloadPath);
+      }
     }
+
+    if (!found) {
+      // 如果不在任何歌单中，添加新条目
+      newInfos.add(PlaylistDownloadInfo()
+        ..playlistId = playlistId
+        ..downloadPath = path);
+    }
+
+    playlistInfo = newInfos;
   }
 
-  /// 移除指定歌单的下载路径
-  void removeDownloadPath(int playlistId) {
-    final index = playlistIds.indexOf(playlistId);
-    if (index >= 0) {
-      playlistIds = List.from(playlistIds)..removeAt(index);
-      downloadPaths = List.from(downloadPaths)..removeAt(index);
-    }
+  /// 从歌单中移除（同时移除下载路径关联）
+  void removeFromPlaylist(int playlistId) {
+    playlistInfo =
+        List.from(playlistInfo)..removeWhere((i) => i.playlistId == playlistId);
   }
 
   /// 检查是否属于指定歌单
   bool belongsToPlaylist(int playlistId) {
-    return playlistIds.contains(playlistId);
+    return playlistInfo.any((i) => i.playlistId == playlistId);
   }
+
+  /// 添加到歌单（不影响下载路径）
+  void addToPlaylist(int playlistId) {
+    if (!belongsToPlaylist(playlistId)) {
+      playlistInfo = List.from(playlistInfo)
+        ..add(PlaylistDownloadInfo()..playlistId = playlistId);
+    }
+  }
+
+  /// 清除所有下载路径（保留歌单关联）
+  ///
+  /// 注意：必须创建新的列表和对象，否则 Isar 无法检测到 @embedded 对象的变更
+  void clearAllDownloadPaths() {
+    playlistInfo = playlistInfo
+        .map((info) => PlaylistDownloadInfo()
+          ..playlistId = info.playlistId
+          ..downloadPath = '')
+        .toList();
+  }
+
+  /// 清除指定歌单的下载路径（保留歌单关联）
+  ///
+  /// 注意：必须创建新的列表和对象，否则 Isar 无法检测到 @embedded 对象的变更
+  void clearDownloadPathForPlaylist(int playlistId) {
+    playlistInfo = playlistInfo
+        .map((info) => PlaylistDownloadInfo()
+          ..playlistId = info.playlistId
+          ..downloadPath = info.playlistId == playlistId ? '' : info.downloadPath)
+        .toList();
+  }
+
+  // ========== @ignore 便捷 getters ==========
+
+  /// 所有歌单ID列表
+  @ignore
+  List<int> get allPlaylistIds => playlistInfo.map((i) => i.playlistId).toList();
+
+  /// 所有下载路径列表（不含空字符串）
+  @ignore
+  List<String> get allDownloadPaths =>
+      playlistInfo.map((i) => i.downloadPath).where((p) => p.isNotEmpty).toList();
+
+  /// 是否有任何下载
+  @ignore
+  bool get hasAnyDownload => playlistInfo.any((i) => i.downloadPath.isNotEmpty);
 
   /// 播放量/观看数（仅用于搜索结果显示，不持久化）
   @ignore

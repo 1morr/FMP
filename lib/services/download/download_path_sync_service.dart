@@ -72,11 +72,11 @@ class DownloadPathSyncService with Logging {
         final existingTrack = await _findMatchingTrack(scannedTrack);
 
         if (existingTrack != null) {
-          final path = scannedTrack.downloadPaths.firstOrNull;
-          if (path != null && !existingTrack.downloadPaths.contains(path)) {
+          final path = scannedTrack.allDownloadPaths.firstOrNull;
+          if (path != null && !existingTrack.allDownloadPaths.contains(path)) {
             await _trackRepo.addDownloadPath(
               existingTrack.id,
-              scannedTrack.playlistIds.firstOrNull,
+              scannedTrack.allPlaylistIds.firstOrNull,
               path,
             );
             updated++;

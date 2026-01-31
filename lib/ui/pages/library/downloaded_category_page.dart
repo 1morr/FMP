@@ -585,7 +585,7 @@ class _GroupHeader extends ConsumerWidget {
     final trackRepo = ref.read(trackRepositoryProvider);
     for (final track in group.tracks) {
       // 删除所有下载路径对应的文件
-      for (final path in track.downloadPaths) {
+      for (final path in track.allDownloadPaths) {
         final file = File(path);
         if (await file.exists()) {
           await file.delete();
@@ -761,7 +761,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
     final trackRepo = ref.read(trackRepositoryProvider);
 
     // 删除所有下载路径对应的文件
-    for (final path in track.downloadPaths) {
+    for (final path in track.allDownloadPaths) {
       final file = File(path);
       if (await file.exists()) {
         await file.delete();

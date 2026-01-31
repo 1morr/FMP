@@ -54,8 +54,8 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       _lastRefreshedTracksLength = state.tracks.length;
       // 预加载封面路径（用于 TrackThumbnail）
       final coverPaths = state.tracks
-          .where((t) => t.downloadPaths.isNotEmpty)
-          .map((t) => '${t.downloadPaths.first.replaceAll(RegExp(r'[/\\][^/\\]+$'), '')}/cover.jpg')
+          .where((t) => t.hasAnyDownload)
+              .map((t) => '${t.allDownloadPaths.first.replaceAll(RegExp(r'[/\\][^/\\]+$'), '')}/cover.jpg')
           .toList();
       if (coverPaths.isNotEmpty) {
         await ref.read(fileExistsCacheProvider.notifier).preloadPaths(coverPaths);
@@ -72,8 +72,8 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           _lastRefreshedTracksLength = tracks.length;
           // 预加载封面路径
           final coverPaths = tracks
-              .where((t) => t.downloadPaths.isNotEmpty)
-              .map((t) => '${t.downloadPaths.first.replaceAll(RegExp(r'[/\\][^/\\]+$'), '')}/cover.jpg')
+              .where((t) => t.hasAnyDownload)
+              .map((t) => '${t.allDownloadPaths.first.replaceAll(RegExp(r'[/\\][^/\\]+$'), '')}/cover.jpg')
               .toList();
           if (coverPaths.isNotEmpty) {
             ref.read(fileExistsCacheProvider.notifier).preloadPaths(coverPaths);
