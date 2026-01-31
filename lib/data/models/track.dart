@@ -121,7 +121,8 @@ class Track {
   /// 创建时间
   DateTime createdAt = DateTime.now();
 
-  /// 更新时间
+  /// 更新时间（添加索引用于已下载排序查询优化）
+  @Index()
   DateTime? updatedAt;
 
   /// 复合索引用于快速查找

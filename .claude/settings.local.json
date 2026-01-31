@@ -62,7 +62,12 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(findstr:*)",
       "mcp__plugin_serena_serena__insert_before_symbol",
-      "Skill(sc:brainstorm)"
+      "Skill(sc:brainstorm)",
+      "Bash(python scripts/bilibili_api_demo.py:*)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_network_requests",
+      "mcp__plugin_playwright_playwright__browser_evaluate",
+      "mcp__plugin_playwright_playwright__browser_close"
     ]
   }
 }
