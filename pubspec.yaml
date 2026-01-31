@@ -25,10 +25,11 @@ dependencies:
   path: ^1.9.0
 
   # 音频播放
-  just_audio: ^0.9.43
-  # 使用 media_kit 后端替代 just_audio_windows（解决 Windows 平台消息队列溢出问题）
-  just_audio_media_kit: ^2.1.0
-  media_kit_libs_windows_audio: any
+  # 直接使用 media_kit（原生支持 httpHeaders，解决了 just_audio_media_kit 代理问题）
+  media_kit: ^1.1.11
+  media_kit_libs_windows_audio: ^1.0.9  # Windows 音频支持
+  media_kit_libs_android_audio: ^1.3.6  # Android 音频支持
+  rxdart: ^0.28.0  # 用于流组合（BehaviorSubject 等）
   audio_service: ^0.18.15  # Android 媒体通知控制
   audio_session: ^0.1.25
   smtc_windows: ^1.1.0    # Windows 媒体键和 SMTC 控制

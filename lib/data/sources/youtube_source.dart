@@ -209,9 +209,8 @@ class YouTubeSource extends BaseSource with Logging {
       );
 
       // 优先使用 muxed 流（视频+音频单文件）
-      // 注意：just_audio_media_kit 的代理对纯音频流（audio-only）有问题
-      // 不管是 webm/opus 还是 mp4/aac，audio-only 流都无法通过代理播放
-      // 只有 muxed 流（包含视频轨道）能正常工作
+      // media_kit (libmpv) 在 Windows 上无法打开 audio-only 流（无论 webm/opus 还是 mp4/aac）
+      // 错误："Failed to open ..."，只有 muxed 流能正常工作
       if (manifest.muxed.isNotEmpty) {
         final muxedStream = manifest.muxed.withHighestBitrate();
         logDebug(
@@ -219,8 +218,7 @@ class YouTubeSource extends BaseSource with Logging {
         return muxedStream.url.toString();
       }
 
-      // 如果没有 muxed 流，尝试 HLS 流（m3u8 分段加载）
-      // Windows 上可能有 "Failed to post message to main thread" 警告，但播放正常
+      // 备选：HLS 流（m3u8 分段加载）
       if (manifest.hls.isNotEmpty) {
         final hlsStream = manifest.hls.first;
         logDebug('Got HLS stream for $videoId (fallback)');
@@ -247,8 +245,8 @@ class YouTubeSource extends BaseSource with Logging {
     }
   }
 
-  /// 获取备选音频 URL（跳过 audio-only 流，尝试 muxed 和 HLS）
-  /// 当 audio-only 流因代理问题无法播放时使用
+  /// 获取备选音频 URL（尝试不同类型的流）
+  /// 当主流无法播放时使用
   @override
   Future<String?> getAlternativeAudioUrl(String videoId, {String? failedUrl}) async {
     logDebug('Getting alternative audio URL for YouTube video: $videoId');
@@ -271,6 +269,8 @@ class YouTubeSource extends BaseSource with Logging {
           return url;
         }
       }
+
+      // 注意：audio-only 流在 Windows 上不可用（media_kit/libmpv 限制）
 
       // 尝试 HLS 流（m3u8 分段格式）
       if (manifest.hls.isNotEmpty) {

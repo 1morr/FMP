@@ -36,11 +36,11 @@
            │                              │
            ▼                              ▼
 ┌─────────────────────────┐    ┌─────────────────────────────┐
-│      AudioService       │    │       QueueManager          │
-│   (audio_service.dart)  │    │    (queue_manager.dart)     │
+│  MediaKitAudioService   │    │       QueueManager          │
+│(media_kit_audio_service)│    │    (queue_manager.dart)     │
 │                         │    │                             │
 │ 职责：                   │    │ 职责：                       │
-│ - 封装 just_audio       │    │ - 管理播放队列               │
+│ - 封装 media_kit        │    │ - 管理播放队列               │
 │ - 单曲播放控制           │    │ - Shuffle 逻辑              │
 │ - 音频会话处理           │    │ - Loop 模式                 │
 │                         │    │ - 队列持久化                 │
@@ -53,17 +53,14 @@
 │                         │    │ - toggleShuffle             │
 │ 不包含：                 │    │ - setLoopMode               │
 │ - toggleMute (已移除)   │    │ - ensureAudioUrl            │
-│ - 队列逻辑              │    │ - prefetchNext              │
-└─────────────────────────┘    └─────────────────────────────┘
+└─────────────────────────┘    │ - prefetchNext              │
            │                              │
            ▼                              ▼
 ┌─────────────────────────┐    ┌─────────────────────────────┐
-│       just_audio        │    │      Isar Database          │
-│    (AudioPlayer)        │    │   (QueueRepository, etc.)   │
-│           │             │    └─────────────────────────────┘
-│           ▼             │
-│  just_audio_media_kit   │
-│    (Windows/Linux)      │
+│       media_kit         │    │      Isar Database          │
+│    (Player)             │    │   (QueueRepository, etc.)   │
+│  原生 httpHeaders 支持   │    └─────────────────────────────┘
+│  无需代理，音频流正常     │
 └─────────────────────────┘
 ```
 
@@ -619,45 +616,28 @@ void main() async {
 
 ### 音频后端
 
-**使用 `just_audio_media_kit` 而非 `just_audio_windows`**
+**直接使用 `media_kit`（不通过 `just_audio`）**
 
-`just_audio_windows` 存在已知的平台线程问题（[GitHub Issue #30](https://github.com/bdlukaa/just_audio_windows/issues/30)），
-在长视频 seek 操作时会导致 "Failed to post message to main thread" 错误和应用卡死。
+之前的 `just_audio` + `just_audio_media_kit` 方案已被替换。原因：
+- `just_audio_media_kit` 在传递 headers 时创建本地 HTTP 代理
+- 该代理对所有 audio-only 流都有问题，只有 muxed 流能工作
 
-**解决方案：**
-```yaml
-# pubspec.yaml
-dependencies:
-  just_audio: ^0.9.43
-  just_audio_media_kit: ^2.1.0      # 替代 just_audio_windows
-  media_kit_libs_windows_audio: any  # media_kit 的 Windows 音频库
-```
+**现在的方案：**
+- `media_kit` 原生支持 `httpHeaders`（通过 `Media(url, httpHeaders: headers)`）
+- 无需代理，所有流类型都能正常工作
+- YouTube 播放现在优先使用 audio-only 流（带宽更低）
 
-```dart
-// main.dart
-import 'package:just_audio_media_kit/just_audio_media_kit.dart';
+**自定义类型** (`audio_types.dart`):
+- `FmpAudioProcessingState` - 替代 `just_audio.ProcessingState`
+- `MediaKitPlayerState` - 从 media_kit 事件合成
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  JustAudioMediaKit.ensureInitialized();  // 必须在使用音频前调用
-  // ...
-}
-```
+**音量转换**：media_kit 使用 0-100 范围，应用使用 0-1 范围。转换在 `MediaKitAudioService` 中处理。
 
-**重要：just_audio_media_kit 代理问题**
+**YouTube 流优先级**：
+1. **Muxed**（视频+音频）- Windows 必需（libmpv 无法打开 audio-only 流）
+2. **HLS**（m3u8 分段）- 备选
 
-`just_audio_media_kit` 在传递 headers 时会创建本地 HTTP 代理（`http://127.0.0.1:PORT/...`）。
-该代理对 **所有 audio-only 流都有问题**：
-
-| 流类型 | 格式 | 代理结果 |
-|--------|------|----------|
-| audio-only | webm/opus | ❌ Failed to open |
-| audio-only | mp4/aac | ❌ Failed to open |
-| muxed | mp4 (video+audio) | ✅ 正常工作 |
-| HLS | m3u8 | ✅ 正常工作（有线程警告） |
-
-**结论：** YouTube 播放必须使用 **muxed 流**（包含视频轨道），虽然带宽略高但更可靠。
-`YouTubeSource.getAudioUrl()` 优先返回 muxed 流，HLS 作为备选。
+注意：Audio-only 流（无论 webm/opus 还是 mp4/aac）在 Windows 上都会失败，错误为 "Failed to open"。这是 libmpv/media_kit 的限制，与代理或 headers 传递方式无关。
 
 ## 进度条拖动最佳实践
 
@@ -762,7 +742,8 @@ session.becomingNoisyEventStream.listen((_) {
 
 | 文件 | 职责 |
 |------|------|
-| `lib/services/audio/audio_service.dart` | 底层播放控制 |
+| `lib/services/audio/media_kit_audio_service.dart` | 底层播放控制（media_kit） |
+| `lib/services/audio/audio_types.dart` | 自定义类型（FmpAudioProcessingState 等） |
 | `lib/services/audio/audio_provider.dart` | AudioController + PlayerState + Providers |
 | `lib/services/audio/queue_manager.dart` | 队列管理 |
 | `lib/ui/pages/player/player_page.dart` | 全屏播放器页面 |

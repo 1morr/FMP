@@ -125,52 +125,57 @@ UI (player_page, mini_player)
          │                    │
          ▼                    ▼
 ┌─────────────────┐  ┌─────────────────┐
-│  AudioService   │  │  QueueManager   │
-│ (just_audio)    │  │ (queue logic)   │
+│MediaKitAudioSvc │  │  QueueManager   │
+│(media_kit direct│  │ (queue logic)   │
 │ Low-level play  │  │ Shuffle, loop   │
 │ control         │  │ Persistence     │
 └─────────────────┘  └─────────────────┘
          │
          ▼
 ┌─────────────────┐
-│just_audio_media_kit│  ← Windows/Linux backend
+│   media_kit      │  ← Native httpHeaders, no proxy
 └─────────────────┘
 ```
 
 **Key Rule:** UI must call `AudioController` methods, never `AudioService` directly.
 
-### Windows Audio Backend
+### Audio Backend (media_kit)
 
-Uses `just_audio_media_kit` instead of `just_audio_windows`. The latter has platform threading issues causing "Failed to post message to main thread" errors during seek operations on long videos.
+Uses `media_kit` directly (not through `just_audio`). This replaces the previous `just_audio` + `just_audio_media_kit` setup.
+
+**Why the migration:**
+- `just_audio_media_kit` created a local HTTP proxy when headers were provided
+- The proxy had compatibility issues with various stream types
+- Direct `media_kit` usage provides cleaner architecture and native header support
+
+**Current architecture:**
+- `media_kit` supports `httpHeaders` natively via `Media(url, httpHeaders: headers)`
+- No proxy needed, cleaner code path
+- **Note:** audio-only streams still fail on Windows (libmpv limitation, not proxy-related)
+- YouTube playback uses muxed streams (video+audio) for reliability
 
 Required initialization in `main.dart`:
 ```dart
-import 'package:just_audio_media_kit/just_audio_media_kit.dart';
+import 'package:media_kit/media_kit.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  JustAudioMediaKit.ensureInitialized();
+  MediaKit.ensureInitialized();
   // ...
 }
 ```
 
-**Important: YouTube Stream Format Priority**
+**Custom types** (`audio_types.dart`):
+- `FmpAudioProcessingState` - Replaces `just_audio.ProcessingState`
+- `MediaKitPlayerState` - Synthesized from media_kit events
 
-`just_audio_media_kit` creates a local HTTP proxy (`http://127.0.0.1:PORT/...`) to inject headers when `AudioSource.uri()` is called with headers. This proxy has a critical issue:
+**Volume conversion**: media_kit uses 0-100 range, app uses 0-1 range. Conversion handled in `MediaKitAudioService`.
 
-**ALL audio-only streams fail through the proxy**, regardless of format:
-- `audio/webm` (opus codec) - Fails
-- `audio/mp4` (AAC codec) - Fails
+**YouTube Stream Format Priority**:
+1. **Muxed** (video+audio) - Required on Windows (libmpv can't open audio-only streams)
+2. **HLS** (m3u8 segmented) - Fallback
 
-Only **muxed streams** (video+audio combined) work reliably through the proxy.
-
-Stream priority in `YouTubeSource.getAudioUrl()`:
-1. **Muxed** (video+audio single file) - Works reliably with the proxy ✓
-2. **HLS** (m3u8 segmented) - Works, may have threading warnings on Windows
-
-Audio-only streams are NOT used because they consistently fail with the proxy.
-
-This means YouTube playback uses slightly more bandwidth (video data included) but is much more reliable.
+Note: Audio-only streams (webm/opus, mp4/aac) fail with "Failed to open" error on Windows regardless of how headers are passed. This is a libmpv/media_kit limitation.
 
 ### State Management: Riverpod
 
@@ -336,10 +341,11 @@ ListTile(
 lib/
 ├── services/
 │   ├── audio/
-│   │   ├── audio_provider.dart   # AudioController + PlayerState + Providers
-│   │   ├── audio_service.dart    # Low-level just_audio wrapper
-│   │   ├── audio_handler.dart    # FmpAudioHandler (Android notification via audio_service)
-│   │   └── queue_manager.dart    # Queue, shuffle, loop, persistence
+│   │   ├── audio_provider.dart          # AudioController + PlayerState + Providers
+│   │   ├── media_kit_audio_service.dart # Low-level media_kit wrapper
+│   │   ├── audio_types.dart             # FmpAudioProcessingState, MediaKitPlayerState
+│   │   ├── audio_handler.dart           # FmpAudioHandler (Android notification via audio_service)
+│   │   └── queue_manager.dart           # Queue, shuffle, loop, persistence
 │   ├── cache/
 │       └── ranking_cache_service.dart  # 首頁排行榜緩存（主動後台刷新）
 │   ├── download/

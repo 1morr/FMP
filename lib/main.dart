@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:just_audio_media_kit/just_audio_media_kit.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:smtc_windows/smtc_windows.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -41,9 +41,9 @@ void main() async {
     audioHandler = FmpAudioHandler();
   }
 
-  // 初始化 media_kit 作为 just_audio 的 Windows/Linux 后端
-  // 这替代了 just_audio_windows，避免其平台线程消息队列溢出问题
-  JustAudioMediaKit.ensureInitialized();
+  // 初始化 media_kit（直接使用，不通过 just_audio）
+  // 原生支持 httpHeaders，解决了 just_audio_media_kit 代理对 audio-only 流的兼容性问题
+  MediaKit.ensureInitialized();
 
   // Windows 平台初始化（并行化 SMTC 和窗口管理器以优化启动时间）
   if (Platform.isWindows) {
