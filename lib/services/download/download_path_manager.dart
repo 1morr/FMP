@@ -83,13 +83,20 @@ class DownloadPathManager {
 
   /// 显示权限错误对话框
   void _showPermissionError(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        icon: Icon(
+          Icons.folder_off_outlined,
+          color: colorScheme.error,
+          size: 32,
+        ),
         title: const Text('权限不足'),
         content: const Text('无法写入所选目录，请选择其他位置或授予必要权限。'),
         actions: [
-          TextButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('确定'),
           ),
