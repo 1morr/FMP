@@ -81,14 +81,15 @@ class RankingCacheService {
     }
   }
 
-  /// 刷新 Bilibili 數據
+  /// 刷新 Bilibili 數據（使用 rid=1003 音樂區排行榜）
   Future<void> refreshBilibili() async {
     try {
-      final tracks = await _bilibiliSource.getRankingVideos(rid: 3); // 音樂分區
+      // rid=1003 是音樂區排行榜的正確 ID（網頁 /v/popular/rank/music 使用此 ID）
+      final tracks = await _bilibiliSource.getRankingVideos(rid: 1003);
       _bilibiliTracks = tracks; // 緩存完整數據
       _bilibiliLoaded = true;
       _notifyStateChange();
-      debugPrint('[RankingCache] Bilibili 緩存已刷新: ${_bilibiliTracks.length} 首');
+      debugPrint('[RankingCache] Bilibili 音樂排行榜緩存已刷新: ${_bilibiliTracks.length} 首');
     } catch (e) {
       debugPrint('[RankingCache] Bilibili 刷新失敗: $e');
       // 失敗時保留舊緩存
