@@ -1172,6 +1172,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     // 創建新的鎖
     _playLock = _LockWithId(requestId);
     bool completedSuccessfully = false;
+    String? attemptedUrl; // 保存嘗試播放的 URL，用於 fallback 時排除
 
     try {
       // 階段 4：獲取 URL
@@ -1185,6 +1186,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       }
 
       final url = localPath ?? trackWithUrl.audioUrl;
+      attemptedUrl = url; // 保存用於 fallback
       if (url == null) {
         throw Exception('No audio URL available for: ${track.title}');
       }
@@ -1229,8 +1231,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // Try fallback URL for YouTube tracks (e.g. audio-only stream proxy failure)
       if (track.sourceType == SourceType.youtube && !_isSuperseded(requestId)) {
         try {
-          logInfo('Attempting fallback stream for: ${track.title}');
-          final fallbackUrl = await _queueManager.getAlternativeAudioUrl(track);
+          logInfo('Attempting fallback stream for: ${track.title} (failed URL: $attemptedUrl)');
+          final fallbackUrl = await _queueManager.getAlternativeAudioUrl(track, failedUrl: attemptedUrl);
           
           if (fallbackUrl != null && !_isSuperseded(requestId)) {
             final headers = _getHeadersForTrack(track);
