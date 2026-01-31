@@ -37,11 +37,30 @@ class _ChangeDownloadPathDialogState
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return AlertDialog(
+      icon: _buildIcon(colorScheme),
       title: Text(_getTitle()),
-      content: _buildContent(),
-      actions: _buildActions(),
+      content: _buildContent(colorScheme),
+      actions: _buildActions(colorScheme),
     );
+  }
+
+  Widget? _buildIcon(ColorScheme colorScheme) {
+    return switch (_state) {
+      _DialogState.confirmation => Icon(
+          Icons.folder_copy_outlined,
+          color: colorScheme.primary,
+          size: 32,
+        ),
+      _DialogState.selecting || _DialogState.processing => null,
+      _DialogState.error => Icon(
+          Icons.error_outline,
+          color: colorScheme.error,
+          size: 32,
+        ),
+    };
   }
 
   String _getTitle() {
@@ -53,30 +72,75 @@ class _ChangeDownloadPathDialogState
       case _DialogState.processing:
         return '正在更新';
       case _DialogState.error:
-        return '错误';
+        return '操作失败';
     }
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(ColorScheme colorScheme) {
     switch (_state) {
       case _DialogState.confirmation:
-        return const Text(
-          '更改下载路径将清空所有已保存的下载路径信息。\n\n'
-          '下载的文件不会被删除，但需要重新扫描才能显示。\n\n'
-          '是否继续？',
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('更改下载路径将清空所有已保存的下载路径信息。'),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 20,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '下载的文件不会被删除，但需要重新扫描才能显示。',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         );
       case _DialogState.selecting:
+        return const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(height: 16),
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('请选择新的下载文件夹...'),
+            SizedBox(height: 8),
+          ],
+        );
       case _DialogState.processing:
-        return const SizedBox(
-          height: 50,
-          child: Center(child: CircularProgressIndicator()),
+        return const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(height: 16),
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('正在更新设置...'),
+            SizedBox(height: 8),
+          ],
         );
       case _DialogState.error:
         return Text(_error ?? '未知错误');
     }
   }
 
-  List<Widget>? _buildActions() {
+  List<Widget> _buildActions(ColorScheme colorScheme) {
     switch (_state) {
       case _DialogState.confirmation:
         return [
@@ -87,17 +151,33 @@ class _ChangeDownloadPathDialogState
           FilledButton(
             onPressed: _onContinue,
             style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
+              backgroundColor: colorScheme.error,
             ),
             child: const Text('继续'),
           ),
         ];
       case _DialogState.selecting:
       case _DialogState.processing:
-        return null; // 隐藏按钮
-      case _DialogState.error:
         return [
           TextButton(
+            onPressed: null,
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: null,
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: colorScheme.onPrimary,
+              ),
+            ),
+          ),
+        ];
+      case _DialogState.error:
+        return [
+          FilledButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('关闭'),
           ),
@@ -137,7 +217,7 @@ class _ChangeDownloadPathDialogState
       ref.invalidate(fileExistsCacheProvider);
       ref.invalidate(downloadedCategoriesProvider);
       ref.invalidate(downloadPathProvider);
-      
+
       // 刷新所有歌单详情（因为下载路径被清空了）
       final playlists = await ref.read(allPlaylistsProvider.future);
       for (final playlist in playlists) {

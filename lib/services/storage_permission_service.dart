@@ -77,13 +77,50 @@ class StoragePermissionService {
 
   /// 显示权限解释对话框
   static Future<bool> _showPermissionExplanationDialog(BuildContext context) async {
+    final colorScheme = Theme.of(context).colorScheme;
+    
     return await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
+            icon: Icon(
+              Icons.folder_outlined,
+              color: colorScheme.primary,
+              size: 32,
+            ),
             title: const Text('需要存储权限'),
-            content: const Text(
-              '为了将音乐下载到您选择的文件夹，应用需要访问设备存储的权限。\n\n'
-              '点击"继续"后，请在系统设置中允许 FMP 访问所有文件。',
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('为了将音乐下载到您选择的文件夹，应用需要访问设备存储的权限。'),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.touch_app_outlined,
+                        size: 20,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          '点击「继续」后，请在系统设置中允许 FMP 访问所有文件。',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
             actions: [
               TextButton(
@@ -102,9 +139,16 @@ class StoragePermissionService {
 
   /// 显示引导用户去设置的对话框
   static Future<void> _showGoToSettingsDialog(BuildContext context) async {
+    final colorScheme = Theme.of(context).colorScheme;
+    
     final goToSettings = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        icon: Icon(
+          Icons.block_outlined,
+          color: colorScheme.error,
+          size: 32,
+        ),
         title: const Text('权限被拒绝'),
         content: const Text(
           '存储权限已被拒绝。如果您想使用自定义下载路径，请在设置中手动授予权限。',

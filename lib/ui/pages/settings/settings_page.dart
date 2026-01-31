@@ -465,26 +465,30 @@ class _DownloadPathListTile extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.folder_open),
-              title: const Text('更改下载路径'),
-              onTap: () {
-                Navigator.pop(context);
-                _changeDownloadPath(context, ref);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.info_outline),
-              title: const Text('当前路径信息'),
-              onTap: () {
-                Navigator.pop(context);
-                _showPathInfo(context, ref);
-              },
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!Platform.isAndroid)
+                ListTile(
+                  leading: const Icon(Icons.folder_open),
+                  title: const Text('更改下载路径'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _changeDownloadPath(context, ref);
+                  },
+                ),
+              ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: const Text('当前路径信息'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showPathInfo(context, ref);
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -496,27 +500,65 @@ class _DownloadPathListTile extends ConsumerWidget {
 
   void _showPathInfo(BuildContext context, WidgetRef ref) {
     final downloadPath = ref.read(downloadPathProvider).value;
+    final colorScheme = Theme.of(context).colorScheme;
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        icon: Icon(
+          Icons.folder_outlined,
+          color: colorScheme.primary,
+          size: 32,
+        ),
         title: const Text('下载路径信息'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('当前路径: ${downloadPath ?? "未设置"}'),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: SelectableText(
+                downloadPath ?? '未设置',
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  color: downloadPath == null
+                      ? colorScheme.error
+                      : colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
             if (downloadPath != null) ...[
-              const SizedBox(height: 8),
-              const Text(
-                '提示: 修改路径将清空数据库中的下载路径记录',
-                style: TextStyle(fontSize: 12),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '修改路径将清空数据库中的下载路径记录',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ],
         ),
         actions: [
-          TextButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('确定'),
           ),
