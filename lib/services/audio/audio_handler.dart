@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:audio_service/audio_service.dart';
-import 'package:just_audio/just_audio.dart' as just_audio;
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
+import 'audio_types.dart';
 
 /// 自定义 AudioHandler，用于 Android 媒体通知控制
 /// 提供上一首、下一首、随机播放、循环模式等控制按钮
@@ -78,7 +78,7 @@ class FmpAudioHandler extends BaseAudioHandler with SeekHandler, Logging {
     required bool isPlaying,
     required Duration position,
     required Duration bufferedPosition,
-    required just_audio.ProcessingState processingState,
+    required FmpAudioProcessingState processingState,
     Duration? duration,
     double speed = 1.0,
   }) {
@@ -114,18 +114,18 @@ class FmpAudioHandler extends BaseAudioHandler with SeekHandler, Logging {
     logDebug('Updated shuffle mode: $audioShuffleMode');
   }
 
-  /// 映射 just_audio 的 ProcessingState 到 AudioProcessingState
-  AudioProcessingState _mapProcessingState(just_audio.ProcessingState state) {
+  /// 映射 FmpAudioProcessingState 到 AudioProcessingState
+  AudioProcessingState _mapProcessingState(FmpAudioProcessingState state) {
     switch (state) {
-      case just_audio.ProcessingState.idle:
+      case FmpAudioProcessingState.idle:
         return AudioProcessingState.idle;
-      case just_audio.ProcessingState.loading:
+      case FmpAudioProcessingState.loading:
         return AudioProcessingState.loading;
-      case just_audio.ProcessingState.buffering:
+      case FmpAudioProcessingState.buffering:
         return AudioProcessingState.buffering;
-      case just_audio.ProcessingState.ready:
+      case FmpAudioProcessingState.ready:
         return AudioProcessingState.ready;
-      case just_audio.ProcessingState.completed:
+      case FmpAudioProcessingState.completed:
         return AudioProcessingState.completed;
     }
   }

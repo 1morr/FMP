@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:just_audio/just_audio.dart' as just_audio;
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
@@ -19,7 +18,8 @@ import '../../core/services/toast_service.dart';
 import '../../main.dart' show audioHandler, windowsSmtcHandler;
 import 'audio_handler.dart';
 import 'windows_smtc_handler.dart';
-import 'audio_service.dart' as audio;
+import 'audio_types.dart';
+import 'media_kit_audio_service.dart';
 import 'queue_manager.dart';
 
 /// 播放状态
@@ -27,7 +27,7 @@ class PlayerState {
   final bool isPlaying;
   final bool isBuffering;
   final bool isLoading;
-  final just_audio.ProcessingState processingState;
+  final FmpAudioProcessingState processingState;
   final Duration position;
   final Duration? duration;
   final Duration bufferedPosition;
@@ -49,7 +49,7 @@ class PlayerState {
     this.isPlaying = false,
     this.isBuffering = false,
     this.isLoading = false,
-    this.processingState = just_audio.ProcessingState.idle,
+    this.processingState = FmpAudioProcessingState.idle,
     this.position = Duration.zero,
     this.duration,
     this.bufferedPosition = Duration.zero,
@@ -95,7 +95,7 @@ class PlayerState {
     bool? isPlaying,
     bool? isBuffering,
     bool? isLoading,
-    just_audio.ProcessingState? processingState,
+    FmpAudioProcessingState? processingState,
     Duration? position,
     Duration? duration,
     Duration? bufferedPosition,
@@ -227,7 +227,7 @@ class _LockWithId {
 /// 音频控制器 - 管理所有播放相关的状态和操作
 /// 协调 AudioService（单曲播放）和 QueueManager（队列管理）
 class AudioController extends StateNotifier<PlayerState> with Logging {
-  final audio.AudioService _audioService;
+  final MediaKitAudioService _audioService;
   final QueueManager _queueManager;
   final ToastService _toastService;
   final FmpAudioHandler _audioHandler;
@@ -260,7 +260,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   Track? _playingTrack;
 
   AudioController({
-    required audio.AudioService audioService,
+    required MediaKitAudioService audioService,
     required QueueManager queueManager,
     required ToastService toastService,
     required FmpAudioHandler audioHandler,
@@ -1220,9 +1220,6 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       _updateQueueState();
       
       logDebug('_executePlayRequest completed successfully for: ${track.title}');
-    } on just_audio.PlayerInterruptedException catch (e) {
-      logDebug('Playback interrupted for ${track.title}: ${e.message}');
-      _resetLoadingState();
     } on BilibiliApiException catch (e) {
       logWarning('Bilibili API error for ${track.title}: ${e.message}');
       _handleBilibiliError(track, e, mode);
@@ -1398,13 +1395,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     }
   }
 
-  void _onPlayerStateChanged(just_audio.PlayerState playerState) {
+  void _onPlayerStateChanged(MediaKitPlayerState playerState) {
     logDebug('PlayerState changed: playing=${playerState.playing}, processingState=${playerState.processingState}');
     state = state.copyWith(
       isPlaying: playerState.playing,
-      isBuffering: playerState.processingState == just_audio.ProcessingState.buffering,
+      isBuffering: playerState.processingState == FmpAudioProcessingState.buffering,
       // 防止播放器状态事件覆盖 URL 获取期间的 loading 状态
-      isLoading: _context.isInLoadingState || playerState.processingState == just_audio.ProcessingState.loading,
+      isLoading: _context.isInLoadingState || playerState.processingState == FmpAudioProcessingState.loading,
       processingState: playerState.processingState,
     );
 
@@ -1578,8 +1575,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 // ========== Providers ==========
 
 /// AudioService Provider
-final audioServiceProvider = Provider<audio.AudioService>((ref) {
-  final service = audio.AudioService();
+final audioServiceProvider = Provider<MediaKitAudioService>((ref) {
+  final service = MediaKitAudioService();
   ref.onDispose(() => service.dispose());
   return service;
 });
