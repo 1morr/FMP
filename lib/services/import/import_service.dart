@@ -385,8 +385,8 @@ class ImportService with Logging {
         final tracksToUpdate = <Track>[];
 
         for (final track in removedTracks) {
-          track.removeDownloadPath(playlist.id);
-          if (track.playlistIds.isEmpty) {
+          track.removeFromPlaylist(playlist.id);
+          if (track.playlistInfo.isEmpty) {
             tracksToDelete.add(track.id);
           } else {
             tracksToUpdate.add(track);

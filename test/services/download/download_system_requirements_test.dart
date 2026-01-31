@@ -51,8 +51,9 @@ void main() {
         ..sourceType = SourceType.bilibili
         ..title = 'Test Song';
 
-      // 新 Track 的 downloadPaths 应为空
-      expect(track.downloadPaths, isEmpty);
+      // 新 Track 的 playlistInfo 应为空
+      expect(track.playlistInfo, isEmpty);
+      expect(track.hasAnyDownload, isFalse);
       expect(track.isDownloaded, isFalse);
     });
 
@@ -68,11 +69,11 @@ void main() {
         ..sourceId = 'BV123456789'
         ..sourceType = SourceType.bilibili
         ..title = 'Test Song'
-        ..playlistIds = [playlist.id];
+        ..playlistInfo = [PlaylistDownloadInfo()..playlistId = playlist.id];
 
-      // playlistIds 可以有值，但 downloadPaths 应为空（未下载）
-      expect(track.playlistIds, isNotEmpty);
-      expect(track.downloadPaths, isEmpty);
+      // playlistInfo 可以有值，但 downloadPath 为空（未下载）
+      expect(track.playlistInfo, isNotEmpty);
+      expect(track.hasAnyDownload, isFalse);
       expect(track.isDownloaded, isFalse);
     });
 
@@ -82,60 +83,54 @@ void main() {
         ..sourceId = 'BV123456789'
         ..sourceType = SourceType.bilibili
         ..title = 'Test Song'
-        ..playlistIds = [1]
-        ..downloadPaths = ['/path/to/downloaded/audio.m4a'];
+        ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 1..downloadPath = '/path/to/downloaded/audio.m4a'];
 
-      expect(track.downloadPaths, isNotEmpty);
+      expect(track.hasAnyDownload, isTrue);
       expect(track.isDownloaded, isTrue);
     });
   });
 
   group('Requirement 3: 修改下载路径时清空所有数据库路径', () {
-    test('clearAllDownloadPaths 应清空所有 Track 的路径', () {
+    test('clearAllDownloadPaths 应清空所有 Track 的路径（保留歌单关联）', () {
       // 模拟清空操作前后的状态
       
       // 清空前
       final tracksBefore = [
         Track()
-          ..playlistIds = [1]
-          ..downloadPaths = ['/old/path/song1.m4a'],
+          ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 1..downloadPath = '/old/path/song1.m4a'],
         Track()
-          ..playlistIds = [1, 2]
-          ..downloadPaths = ['/old/path/song2.m4a', '/old/path2/song2.m4a'],
+          ..playlistInfo = [
+            PlaylistDownloadInfo()..playlistId = 1..downloadPath = '/old/path/song2.m4a',
+            PlaylistDownloadInfo()..playlistId = 2..downloadPath = '/old/path2/song2.m4a',
+          ],
       ];
 
       expect(tracksBefore[0].isDownloaded, isTrue);
       expect(tracksBefore[1].isDownloaded, isTrue);
 
-      // 清空后
-      final tracksAfter = [
-        Track()
-          ..playlistIds = []
-          ..downloadPaths = [],
-        Track()
-          ..playlistIds = []
-          ..downloadPaths = [],
-      ];
+      // 清空后（使用 clearAllDownloadPaths 方法）
+      tracksBefore[0].clearAllDownloadPaths();
+      tracksBefore[1].clearAllDownloadPaths();
 
-      expect(tracksAfter[0].isDownloaded, isFalse);
-      expect(tracksAfter[1].isDownloaded, isFalse);
-      expect(tracksAfter[0].playlistIds, isEmpty);
-      expect(tracksAfter[1].playlistIds, isEmpty);
+      // 下载路径被清除但歌单关联保留
+      expect(tracksBefore[0].isDownloaded, isFalse);
+      expect(tracksBefore[1].isDownloaded, isFalse);
+      expect(tracksBefore[0].allPlaylistIds, isNotEmpty); // 歌单关联保留
+      expect(tracksBefore[1].allPlaylistIds, isNotEmpty); // 歌单关联保留
     });
   });
 
   group('Requirement 4: 简化已下载标记显示机制', () {
     test('isDownloaded: 有下载路径就返回 true', () {
       final track = Track()
-        ..downloadPaths = ['/path/to/audio.m4a'];
+        ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = '/path/to/audio.m4a'];
 
       // TrackExtensions.isDownloaded 简化逻辑
       expect(track.isDownloaded, isTrue);
     });
 
     test('isDownloaded: 无下载路径返回 false', () {
-      final track = Track()
-        ..downloadPaths = [];
+      final track = Track();
 
       expect(track.isDownloaded, isFalse);
     });
@@ -189,7 +184,7 @@ void main() {
         ..sourceType = SourceType.bilibili
         ..cid = 12345
         ..title = 'Local Song'
-        ..downloadPaths = ['/local/path/audio.m4a'];
+        ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = '/local/path/audio.m4a'];
 
       // 数据库中的 Track
       final existingTrack = Track()
@@ -197,8 +192,7 @@ void main() {
         ..sourceId = 'BV123456789'
         ..sourceType = SourceType.bilibili
         ..cid = 12345
-        ..title = 'Local Song'
-        ..downloadPaths = [];
+        ..title = 'Local Song';
 
       // 匹配成功后，应该更新 existingTrack 的 downloadPaths
       expect(existingTrack.sourceId, equals(scannedTrack.sourceId));
@@ -206,7 +200,7 @@ void main() {
       expect(existingTrack.cid, equals(scannedTrack.cid));
       
       // 添加路径后
-      existingTrack.downloadPaths = scannedTrack.downloadPaths;
+      existingTrack.setDownloadPath(0, '/local/path/audio.m4a');
       expect(existingTrack.isDownloaded, isTrue);
     });
 
@@ -280,13 +274,12 @@ void main() {
       final track = Track()
         ..id = 1
         ..sourceId = 'BV123'
-        ..sourceType = SourceType.bilibili
-        ..downloadPaths = [];
+        ..sourceType = SourceType.bilibili;
 
       expect(track.isDownloaded, isFalse);
 
-      // 同步后 addDownloadPath
-      track.downloadPaths = ['/synced/path/audio.m4a'];
+      // 同步后 setDownloadPath
+      track.setDownloadPath(0, '/synced/path/audio.m4a');
 
       expect(track.isDownloaded, isTrue);
     });
@@ -294,16 +287,15 @@ void main() {
     test('修改下载路径后所有 Track 应失去已下载标记', () {
       // 修改路径前
       final tracks = [
-        Track()..downloadPaths = ['/old/path1.m4a'],
-        Track()..downloadPaths = ['/old/path2.m4a'],
+        Track()..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = '/old/path1.m4a'],
+        Track()..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = '/old/path2.m4a'],
       ];
 
       expect(tracks.every((t) => t.isDownloaded), isTrue);
 
-      // 修改路径后 clearAllDownloadPaths
+      // 修改路径后 clearAllDownloadPaths（保留歌单关联）
       for (final track in tracks) {
-        track.playlistIds = [];
-        track.downloadPaths = [];
+        track.clearAllDownloadPaths();
       }
 
       expect(tracks.every((t) => !t.isDownloaded), isTrue);
@@ -321,12 +313,12 @@ void main() {
         ..sourceId = 'BV123'
         ..sourceType = SourceType.bilibili
         ..audioUrl = 'https://example.com/audio.m4a'
-        ..downloadPaths = ['/local/audio.m4a'];
+        ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = '/local/audio.m4a'];
 
       // 模拟选择播放源的逻辑
       String? getPlaySource(Track t) {
         // 尝试获取本地路径
-        final localPath = t.downloadPaths.firstOrNull;
+        final localPath = t.allDownloadPaths.firstOrNull;
         if (localPath != null) {
           // 在实际代码中会检查 File(localPath).existsSync()
           // 这里假设存在
@@ -351,11 +343,11 @@ void main() {
         ..sourceId = 'BV123'
         ..sourceType = SourceType.bilibili
         ..audioUrl = 'https://example.com/audio.m4a'
-        ..downloadPaths = ['/nonexistent/audio.m4a'];
+        ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = '/nonexistent/audio.m4a'];
 
       // 模拟 localAudioPath 为 null（文件不存在）
       String? localAudioPath;
-      for (final path in track.downloadPaths) {
+      for (final path in track.allDownloadPaths) {
         try {
           if (File(path).existsSync()) {
             localAudioPath = path;
@@ -371,7 +363,7 @@ void main() {
       expect(playSource, equals('https://example.com/audio.m4a'));
 
       // 清除无效路径（在实际代码中会调用 trackRepo.clearDownloadPath）
-      track.downloadPaths = [];
+      track.clearAllDownloadPaths();
       expect(track.isDownloaded, isFalse);
     });
   });

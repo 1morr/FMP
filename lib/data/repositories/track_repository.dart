@@ -73,6 +73,9 @@ class TrackRepository with Logging {
   /// 保存歌曲并返回更新后的歌曲
   Future<Track> save(Track track) async {
     logDebug('Saving track: ${track.title} (id: ${track.id}, sourceId: ${track.sourceId})');
+    logDebug('  playlistInfo: ${track.playlistInfo.map((i) => "playlist=${i.playlistId}:path=${i.downloadPath.isNotEmpty ? "HAS_PATH" : "EMPTY"}").join(", ")}');
+    // 打印调用栈以找出谁在调用 save
+    logDebug('  caller: ${StackTrace.current.toString().split('\n').take(5).join(' -> ')}');
     track.updatedAt = DateTime.now();
     final id = await _isar.writeTxn(() => _isar.tracks.put(track));
     track.id = id;
@@ -120,7 +123,7 @@ class TrackRepository with Logging {
   Future<List<Track>> getDownloaded() async {
     return _isar.tracks
         .filter()
-        .downloadPathsIsNotEmpty()
+        .playlistInfoElement((q) => q.downloadPathIsNotEmpty())
         .sortByUpdatedAtDesc()
         .findAll();
   }
@@ -129,26 +132,25 @@ class TrackRepository with Logging {
   Stream<List<Track>> watchDownloaded() {
     return _isar.tracks
         .filter()
-        .downloadPathsIsNotEmpty()
+        .playlistInfoElement((q) => q.downloadPathIsNotEmpty())
         .sortByUpdatedAtDesc()
         .watch(fireImmediately: true);
   }
 
-  /// 清除歌曲的所有下载路径
+  /// 清除歌曲的所有下载路径（保留歌单关联）
   Future<void> clearDownloadPath(int id) async {
     final track = await getById(id);
     if (track != null) {
-      track.playlistIds = [];
-      track.downloadPaths = [];
+      track.clearAllDownloadPaths();
       await save(track);
     }
   }
 
-  /// 清除歌曲在指定歌单中的下载路径
+  /// 清除歌曲在指定歌单中的下载路径（保留歌单关联）
   Future<void> clearDownloadPathForPlaylist(int trackId, int playlistId) async {
     final track = await getById(trackId);
     if (track != null) {
-      track.removeDownloadPath(playlistId);
+      track.clearDownloadPathForPlaylist(playlistId);
       await save(track);
     }
   }
@@ -160,45 +162,30 @@ class TrackRepository with Logging {
   /// [path] 下载路径
   Future<void> addDownloadPath(int trackId, int? playlistId, String path) async {
     final track = await getById(trackId);
-    if (track == null) return;
+    if (track == null) {
+      logWarning('addDownloadPath: track $trackId not found!');
+      return;
+    }
 
     final effectivePlaylistId = playlistId ?? 0;
-    final index = track.playlistIds.indexOf(effectivePlaylistId);
-    
-    if (index >= 0 && index < track.downloadPaths.length) {
-      // 更新现有路径（playlistIds 和 downloadPaths 同步）
-      track.downloadPaths[index] = path;
-    } else if (index >= 0) {
-      // playlistIds 有该条目但 downloadPaths 没有对应元素，扩展 downloadPaths
-      final newPaths = List<String>.from(track.downloadPaths);
-      // 填充空字符串直到索引位置
-      while (newPaths.length <= index) {
-        newPaths.add('');
-      }
-      newPaths[index] = path;
-      track.downloadPaths = newPaths;
-    } else {
-      // 添加新歌单和路径
-      track.playlistIds = List.from(track.playlistIds)..add(effectivePlaylistId);
-      track.downloadPaths = List.from(track.downloadPaths)..add(path);
-    }
-    
+    logDebug('addDownloadPath: BEFORE setDownloadPath - playlistInfo: ${track.playlistInfo.map((i) => "playlist=${i.playlistId}:path=${i.downloadPath.isNotEmpty}").join(", ")}');
+    track.setDownloadPath(effectivePlaylistId, path);
+    logDebug('addDownloadPath: AFTER setDownloadPath - playlistInfo: ${track.playlistInfo.map((i) => "playlist=${i.playlistId}:path=${i.downloadPath.isNotEmpty}").join(", ")}');
     await save(track);
     logDebug('Added download path for track $trackId: $path');
   }
 
-  /// 清除所有 Track 的下载路径
+  /// 清除所有 Track 的下载路径（保留歌单关联）
   Future<void> clearAllDownloadPaths() async {
     logDebug('Clearing all download paths...');
     await _isar.writeTxn(() async {
       final tracks = await _isar.tracks
           .filter()
-          .downloadPathsIsNotEmpty()
+          .playlistInfoElement((q) => q.downloadPathIsNotEmpty())
           .findAll();
       
       for (final track in tracks) {
-        track.playlistIds = [];
-        track.downloadPaths = [];
+        track.clearAllDownloadPaths();
       }
       
       await _isar.tracks.putAll(tracks);
@@ -374,7 +361,7 @@ class TrackRepository with Logging {
 
   /// 检查 Track 是否有已下载的文件
   Future<bool> hasDownloadedFiles(Track track) async {
-    for (final path in track.downloadPaths) {
+    for (final path in track.allDownloadPaths) {
       if (await File(path).exists()) {
         return true;
       }
@@ -384,7 +371,8 @@ class TrackRepository with Logging {
 
   /// 清理无效的下载路径
   ///
-  /// 检查数据库中的所有下载路径，移除不存在的
+  /// 检查数据库中的所有下载路径，移除不存在的文件路径
+  /// 保留歌单关联，仅清除无效的 downloadPath
   /// 返回清理的 Track 数量
   Future<int> cleanupInvalidDownloadPaths() async {
     logDebug('Cleaning up invalid download paths...');
@@ -393,29 +381,48 @@ class TrackRepository with Logging {
     await _isar.writeTxn(() async {
       final tracks = await _isar.tracks
           .filter()
-          .downloadPathsIsNotEmpty()
+          .playlistInfoElement((q) => q.downloadPathIsNotEmpty())
           .findAll();
       
       for (final track in tracks) {
-        final validPaths = <String>[];
-        final validPlaylistIds = <int>[];
+        bool hasChanges = false;
 
-        for (int i = 0; i < track.downloadPaths.length; i++) {
-          try {
-            if (File(track.downloadPaths[i]).existsSync()) {
-              validPaths.add(track.downloadPaths[i]);
-              if (i < track.playlistIds.length) {
-                validPlaylistIds.add(track.playlistIds[i]);
+        // 检查哪些路径需要清除
+        for (final info in track.playlistInfo) {
+          if (info.downloadPath.isNotEmpty) {
+            try {
+              if (!File(info.downloadPath).existsSync()) {
+                hasChanges = true;
+                break;
               }
+            } catch (_) {
+              hasChanges = true;
+              break;
             }
-          } catch (_) {
-            // 路径无效，跳过
           }
         }
 
-        if (validPaths.length != track.downloadPaths.length) {
-          track.downloadPaths = validPaths;
-          track.playlistIds = validPlaylistIds;
+        if (hasChanges) {
+          // 创建新的列表，确保 Isar 检测到变更
+          track.playlistInfo = track.playlistInfo
+              .map((info) {
+                if (info.downloadPath.isEmpty) {
+                  return PlaylistDownloadInfo()
+                    ..playlistId = info.playlistId
+                    ..downloadPath = '';
+                }
+                try {
+                  if (File(info.downloadPath).existsSync()) {
+                    return PlaylistDownloadInfo()
+                      ..playlistId = info.playlistId
+                      ..downloadPath = info.downloadPath;
+                  }
+                } catch (_) {}
+                return PlaylistDownloadInfo()
+                  ..playlistId = info.playlistId
+                  ..downloadPath = '';
+              })
+              .toList();
           await _isar.tracks.put(track);
           cleaned++;
         }

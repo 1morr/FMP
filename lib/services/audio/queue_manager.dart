@@ -677,13 +677,10 @@ class QueueManager with Logging {
     }
 
     // 本地文件不存在，回退到在线播放
-    // 如果有下载路径但文件不存在，清除这些无效路径
-    if (track.downloadPaths.isNotEmpty && persist) {
-      logDebug('Local file not found but downloadPaths exist for: ${track.title}, clearing paths');
-      await _trackRepository.clearDownloadPath(track.id);
-      // 更新本地 track 对象
-      track.downloadPaths = [];
-      track.playlistIds = [];
+    // 注意：不再在这里清除下载路径，避免与正在进行的下载产生竞争条件
+    // 无效的下载路径会在应用启动时由 cleanupInvalidDownloadPaths() 统一清理
+    if (track.hasAnyDownload) {
+      logDebug('Local file not found for: ${track.title}, falling back to online URL');
     }
 
     // 如果音频 URL 有效，直接返回（无本地文件）
@@ -702,7 +699,21 @@ class QueueManager with Logging {
     try {
       final refreshedTrack = await source.refreshAudioUrl(track);
       if (persist) {
-        await _trackRepository.save(refreshedTrack);
+        // 【重要】从数据库获取最新的 track 数据，避免覆盖并发修改（如下载路径）
+        // 这样做是因为 refreshAudioUrl 修改的是传入的 track 对象，
+        // 但该对象可能是从内存队列中获取的旧版本，不包含最新的下载路径
+        final freshTrack = await _trackRepository.getById(track.id);
+        if (freshTrack != null) {
+          // 只复制 URL 相关字段到最新的 track
+          freshTrack.audioUrl = refreshedTrack.audioUrl;
+          freshTrack.audioUrlExpiry = refreshedTrack.audioUrlExpiry;
+          await _trackRepository.save(freshTrack);
+          // 也更新 refreshedTrack 的 playlistInfo 以确保返回的数据是最新的
+          refreshedTrack.playlistInfo = freshTrack.playlistInfo;
+        } else {
+          // track 被删除了？回退到保存刷新后的 track
+          await _trackRepository.save(refreshedTrack);
+        }
       }
       logDebug('Successfully fetched audio URL for: ${track.title}');
 

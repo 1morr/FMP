@@ -191,11 +191,11 @@ class PlaylistService with Logging {
     final toUpdate = <Track>[];
 
     for (final track in tracks) {
-      // 移除该歌单的下载路径
-      track.removeDownloadPath(playlistId);
+      // 移除该歌单的关联
+      track.removeFromPlaylist(playlistId);
 
       // 检查是否还属于其他歌单
-      if (track.playlistIds.isEmpty) {
+      if (track.playlistInfo.isEmpty) {
         toDelete.add(track.id);
       } else {
         toUpdate.add(track);
@@ -239,13 +239,13 @@ class PlaylistService with Logging {
     final existingTrack = await _trackRepository.getOrCreate(track);
     
     // 检查是否已在该歌单中
-    if (existingTrack.playlistIds.contains(playlistId)) {
+    if (existingTrack.belongsToPlaylist(playlistId)) {
       logDebug('Track ${existingTrack.title} already in playlist $playlistId, skipping');
       return;
     }
 
-    // 将歌单 ID 添加到 track 的 playlistIds（不设置下载路径）
-    existingTrack.playlistIds = List.from(existingTrack.playlistIds)..add(playlistId);
+    // 将歌单 ID 添加到 track 的 playlistInfo（不设置下载路径）
+    existingTrack.addToPlaylist(playlistId);
 
     // 记录添加前是否为空（用于判断是否需要更新封面）
     final wasEmpty = playlist.trackIds.isEmpty;
@@ -279,7 +279,7 @@ class PlaylistService with Logging {
     
     // 过滤掉已在该歌单中的 tracks
     final tracksToAdd = existingTracks
-        .where((t) => !t.playlistIds.contains(playlistId))
+        .where((t) => !t.belongsToPlaylist(playlistId))
         .toList();
     
     if (tracksToAdd.isEmpty) {
@@ -287,9 +287,9 @@ class PlaylistService with Logging {
       return;
     }
 
-    // 将歌单 ID 添加到每个 track 的 playlistIds（不设置下载路径）
+    // 将歌单 ID 添加到每个 track 的 playlistInfo（不设置下载路径）
     for (final track in tracksToAdd) {
-      track.playlistIds = List.from(track.playlistIds)..add(playlistId);
+      track.addToPlaylist(playlistId);
     }
 
     // 记录添加前是否为空（用于判断是否需要更新封面）
@@ -326,12 +326,12 @@ class PlaylistService with Logging {
 
     await _playlistRepository.removeTrack(playlistId, trackId);
 
-    // 移除该歌单的下载路径
+    // 移除该歌单的关联
     final track = await _trackRepository.getById(trackId);
     if (track != null) {
-      track.removeDownloadPath(playlistId);
+      track.removeFromPlaylist(playlistId);
 
-      if (track.playlistIds.isEmpty) {
+      if (track.playlistInfo.isEmpty) {
         // 不属于任何歌单，删除歌曲记录
         await _trackRepository.delete(trackId);
         logDebug('Deleted orphan track: ${track.title}');
@@ -409,7 +409,7 @@ class PlaylistService with Logging {
       final firstTrack = await _trackRepository.getById(playlist.trackIds.first);
       if (firstTrack != null) {
         // 异步检查第一首歌的本地封面
-        for (final downloadPath in firstTrack.downloadPaths) {
+        for (final downloadPath in firstTrack.allDownloadPaths) {
           final dir = Directory(downloadPath).parent;
           final coverPath = '${dir.path}/cover.jpg';
           if (await File(coverPath).exists()) {

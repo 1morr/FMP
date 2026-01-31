@@ -6,7 +6,6 @@ import '../../core/services/image_loading_service.dart';
 import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
 import '../../providers/download/file_exists_cache.dart';
-import '../../providers/repository_providers.dart';
 import '../../services/library/playlist_service.dart';
 import 'now_playing_indicator.dart';
 
@@ -80,13 +79,9 @@ class TrackThumbnail extends ConsumerWidget {
     // 使用 FileExistsCache 获取本地封面路径（避免同步 IO）
     final localCoverPath = track.getLocalCoverPath(cache);
 
-    // 如果 downloadPaths 非空但本地封面不存在，说明文件可能被删除
-    // 异步清除无效路径（避免在 build 期间修改状态）
-    if (track.downloadPaths.isNotEmpty && localCoverPath == null) {
-      Future.microtask(() {
-        ref.read(trackRepositoryProvider).clearDownloadPath(track.id);
-      });
-    }
+    // 注意：不再根据封面是否存在来清除下载路径
+    // 因为下载音频不一定有封面，这会导致误删刚下载的音频路径
+    // 无效路径由应用启动时的 cleanupInvalidDownloadPaths() 统一清理
 
     return ImageLoadingService.loadImage(
       localPath: localCoverPath,

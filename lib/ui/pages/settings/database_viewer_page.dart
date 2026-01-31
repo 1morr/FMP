@@ -175,12 +175,13 @@ class _TrackListView extends StatelessWidget {
                 _DataSection(
                   title: '缓存与下载',
                   data: {
-                    'playlistIds': track.playlistIds.isEmpty
+                    'playlistInfo': track.playlistInfo.isEmpty
                         ? '[]'
-                        : track.playlistIds.join(', '),
-                    'downloadPaths': track.downloadPaths.isEmpty
+                        : track.playlistInfo.map((i) => 'playlist=${i.playlistId}: ${_truncate(i.downloadPath, 30)}').join('\n'),
+                    'allPlaylistIds': track.allPlaylistIds.isEmpty
                         ? '[]'
-                        : track.downloadPaths.map((p) => _truncate(p, 40)).join('\n'),
+                        : track.allPlaylistIds.join(', '),
+                    'hasAnyDownload': track.hasAnyDownload.toString(),
                   },
                 ),
                 _DataSection(

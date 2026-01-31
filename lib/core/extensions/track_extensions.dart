@@ -11,15 +11,15 @@ extension TrackExtensions on Track {
   /// 简化逻辑：有路径就认为已下载
   ///
   /// 注意：这假设路径有效。使用时如果文件不存在会自动清空。
-  bool get isDownloaded => downloadPaths.isNotEmpty;
+  bool get isDownloaded => hasAnyDownload;
 
   /// 获取本地音频路径
   ///
   /// 尝试使用第一个有效路径，如果都不存在返回 null
   String? get localAudioPath {
-    if (downloadPaths.isEmpty) return null;
+    if (!hasAnyDownload) return null;
 
-    for (final downloadPath in downloadPaths) {
+    for (final downloadPath in allDownloadPaths) {
       try {
         if (File(downloadPath).existsSync()) {
           return downloadPath;
@@ -37,7 +37,7 @@ extension TrackExtensions on Track {
   /// 返回清理后的路径列表
   List<String> get validDownloadPaths {
     final valid = <String>[];
-    for (final path in downloadPaths) {
+    for (final path in allDownloadPaths) {
       try {
         if (File(path).existsSync()) {
           valid.add(path);
@@ -56,9 +56,9 @@ extension TrackExtensions on Track {
   ///
   /// [cache] FileExistsCache 实例，从 ref.read(fileExistsCacheProvider.notifier) 获取
   String? getLocalCoverPath(FileExistsCache cache) {
-    if (downloadPaths.isEmpty) return null;
+    if (!hasAnyDownload) return null;
 
-    final coverPaths = downloadPaths.map((p) {
+    final coverPaths = allDownloadPaths.map((p) {
       final dir = Directory(p).parent;
       return '${dir.path}/cover.jpg';
     }).toList();
@@ -70,9 +70,9 @@ extension TrackExtensions on Track {
   ///
   /// 遍历所有下载路径，返回第一个存在 cover.jpg 的路径
   String? getLocalCoverPathSync() {
-    if (downloadPaths.isEmpty) return null;
+    if (!hasAnyDownload) return null;
 
-    for (final path in downloadPaths) {
+    for (final path in allDownloadPaths) {
       try {
         final dir = Directory(path).parent;
         final coverFile = File(p.join(dir.path, 'cover.jpg'));
