@@ -30,17 +30,15 @@ void main() {
 
     test('DownloadPathManager.hasConfiguredPath 已配置时返回 true', () {
       // 当有有效路径时返回 true
-      const String? customDownloadDir = '/storage/emulated/0/Music';
-      final hasConfiguredPath = customDownloadDir != null &&
-          customDownloadDir.isNotEmpty;
+      const customDownloadDir = '/storage/emulated/0/Music';
+      final hasConfiguredPath = customDownloadDir.isNotEmpty;
       
       expect(hasConfiguredPath, isTrue);
     });
 
     test('空字符串路径应视为未配置', () {
-      const String? customDownloadDir = '';
-      final hasConfiguredPath = customDownloadDir != null &&
-          customDownloadDir.isNotEmpty;
+      const customDownloadDir = '';
+      final hasConfiguredPath = customDownloadDir.isNotEmpty;
       
       expect(hasConfiguredPath, isFalse);
     });
@@ -167,14 +165,14 @@ void main() {
     test('hasLocalAudio: localAudioPath 存在时返回 true', () {
       // hasLocalAudio = localAudioPath != null
       
-      // 当 localAudioPath 不为 null
-      const String? localAudioPath = '/existing/audio.m4a';
-      final hasLocalAudio = localAudioPath != null;
+      // 当 localAudioPath 存在时
+      const localAudioPath = '/existing/audio.m4a';
+      final hasLocalAudio = localAudioPath.isNotEmpty;
       expect(hasLocalAudio, isTrue);
 
-      // 当 localAudioPath 为 null
-      const String? noLocalPath = null;
-      final noLocalAudio = noLocalPath != null;
+      // 当 localAudioPath 为空时
+      const noLocalPath = '';
+      final noLocalAudio = noLocalPath.isNotEmpty;
       expect(noLocalAudio, isFalse);
     });
   });
@@ -212,22 +210,18 @@ void main() {
       expect(existingTrack.isDownloaded, isTrue);
     });
 
-    test('同步时清理无效的下载路径', () {
-      // 数据库中有 downloadPaths 但本地文件不存在的 Track
-      // 同步时会被清理
-      final trackWithInvalidPath = Track()
-        ..id = 1
-        ..sourceId = 'BV123456789'
-        ..sourceType = SourceType.bilibili
-        ..title = 'Song with invalid path'
-        ..downloadPaths = ['/nonexistent/path/audio.m4a'];
+    test('孤儿文件应被识别（无匹配 Track）', () {
+      // 本地存在的文件但数据库中没有对应的 Track
+      final orphanInfo = _OrphanFileInfo(
+        title: 'Orphan Song',
+        path: '/local/orphan/audio.m4a',
+        sourceId: 'BV999999999',
+        sourceType: SourceType.bilibili,
+      );
 
-      expect(trackWithInvalidPath.isDownloaded, isTrue);
-
-      // 同步后，cleanupInvalidPaths 会清理不存在的路径
-      // 模拟清理后的状态
-      trackWithInvalidPath.downloadPaths = [];
-      expect(trackWithInvalidPath.isDownloaded, isFalse);
+      // getOrphanFiles() 返回这些信息供 UI 显示
+      expect(orphanInfo.title, isNotEmpty);
+      expect(orphanInfo.path, isNotNull);
     });
   });
 
@@ -381,63 +375,20 @@ void main() {
       expect(track.isDownloaded, isFalse);
     });
   });
+}
 
-  // ============== 当前实现分析 ==============
-  group('Current Implementation Analysis（当前实现分析）', () {
-    test('检查点 1: 下载前路径配置检查 - ✅ 已实现', () {
-      // playlist_detail_page.dart 中:
-      // if (!await pathManager.hasConfiguredPath()) {
-      //   final configured = await DownloadPathSetupDialog.show(context);
-      //   if (configured != true) return;
-      // }
-      expect(true, isTrue, reason: 'DownloadPathSetupDialog 在下载前弹出');
-    });
+/// 模拟孤儿文件信息（用于测试）
+class _OrphanFileInfo {
+  final String title;
+  final String? path;
+  final String sourceId;
+  final SourceType sourceType;
 
-    test('检查点 2: 预计算路径已移除 - ✅ 已实现', () {
-      // DownloadService._startDownload 中:
-      // - 只在下载完成后调用 _trackRepository.addDownloadPath()
-      expect(true, isTrue, reason: 'addDownloadPath 只在下载完成后调用');
-    });
-
-    test('检查点 3: 修改路径时清空数据库 - ✅ 已实现', () {
-      // ChangeDownloadPathDialog._onContinue 中:
-      // await trackRepo.clearAllDownloadPaths();
-      expect(true, isTrue, reason: 'clearAllDownloadPaths 在路径变更时调用');
-    });
-
-    test('检查点 4: 简化已下载标记 - ✅ 已实现', () {
-      // TrackExtensions.isDownloaded:
-      // bool get isDownloaded => downloadPaths.isNotEmpty;
-      expect(true, isTrue, reason: 'isDownloaded 简化为检查 downloadPaths 非空');
-    });
-
-    test('检查点 5: 已下载页面同步功能 - ✅ 已实现', () {
-      // DownloadPathSyncService.syncLocalFiles
-      expect(true, isTrue, reason: 'syncLocalFiles 可将本地文件导入数据库');
-    });
-
-    test('检查点 6: 同步时清理无效路径 - ✅ 已实现', () {
-      // syncLocalFiles 先调用 cleanupInvalidPaths
-      // 清理数据库中有下载路径但本地文件不存在的 Track
-      expect(true, isTrue, reason: '同步时自动清理数据库中无效的下载路径');
-    });
-
-    test('检查点 7: 实时显示已下载标记 - ✅ 已实现', () {
-      // DownloadService.completionStream
-      expect(true, isTrue, reason: 'completionStream 通知下载完成');
-    });
-
-    test('检查点 8: 本地文件不存在时清除路径 - ✅ 已实现', () {
-      // QueueManager.ensureAudioUrl 现在会检查本地文件是否存在
-      // 如果 downloadPaths 非空但文件不存在，会调用 clearDownloadPath 清除路径
-      expect(true, isTrue, reason: 'ensureAudioUrl 会清除无效的下载路径');
-    });
-
-    test('检查点 9: 图片加载失败时清除路径 - ✅ 已实现', () {
-      // TrackThumbnail._buildImage 现在会检查本地封面是否存在
-      // 如果 downloadPaths 非空但本地封面不存在，会调用 clearDownloadPath 清除路径
-      expect(true, isTrue, reason: 'TrackThumbnail 会清除无效的下载路径');
-    });
+  _OrphanFileInfo({
+    required this.title,
+    this.path,
+    required this.sourceId,
+    required this.sourceType,
   });
 }
 

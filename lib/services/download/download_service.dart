@@ -19,7 +19,6 @@ import '../../data/sources/source_provider.dart';
 import '../../data/sources/bilibili_source.dart';
 import '../../data/sources/youtube_source.dart';
 import 'download_path_utils.dart';
-import 'download_path_manager.dart';
 
 /// 下载服务
 class DownloadService with Logging {
@@ -27,7 +26,7 @@ class DownloadService with Logging {
   final TrackRepository _trackRepository;
   final SettingsRepository _settingsRepository;
   final SourceManager _sourceManager;
-  final DownloadPathManager _pathManager;
+
   
   final Dio _dio;
   
@@ -75,12 +74,10 @@ class DownloadService with Logging {
     required TrackRepository trackRepository,
     required SettingsRepository settingsRepository,
     required SourceManager sourceManager,
-    required DownloadPathManager pathManager,
   })  : _downloadRepository = downloadRepository,
         _trackRepository = trackRepository,
         _settingsRepository = settingsRepository,
         _sourceManager = sourceManager,
-        _pathManager = pathManager,
         _dio = Dio(BaseOptions(
           connectTimeout: AppConstants.downloadConnectTimeout,
           receiveTimeout: const Duration(minutes: 30),
