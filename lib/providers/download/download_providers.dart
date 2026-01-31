@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:isolate';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
@@ -181,45 +181,25 @@ final downloadedTracksProvider = StreamProvider<List<Track>>((ref) {
 // ==================== Category Providers ====================
 
 /// 已下载分类列表 Provider
+/// 
+/// 使用 Isolate.run() 在单独的 isolate 中执行文件扫描，
+/// 避免阻塞 UI 线程
 final downloadedCategoriesProvider = FutureProvider<List<DownloadedCategory>>((ref) async {
   // 直接获取下载目录，避免循环依赖 downloadServiceProvider
   final settingsRepo = SettingsRepository(ref.watch(databaseProvider).requireValue);
   final downloadPath = await DownloadPathUtils.getDefaultBaseDir(settingsRepo);
-  final downloadDir = Directory(downloadPath);
 
-  if (!await downloadDir.exists()) {
-    return [];
-  }
-
-  final categories = <DownloadedCategory>[];
-
-  // 扫描所有子文件夹
-  await for (final entity in downloadDir.list()) {
-    if (entity is Directory) {
-      final folderName = p.basename(entity.path);
-      final trackCount = await DownloadScanner.countAudioFiles(entity);
-
-      if (trackCount > 0) {
-        final coverPath = await DownloadScanner.findFirstCover(entity);
-        categories.add(DownloadedCategory(
-          folderName: folderName,
-          displayName: DownloadScanner.extractDisplayName(folderName),
-          trackCount: trackCount,
-          coverPath: coverPath,
-          folderPath: entity.path,
-        ));
-      }
-    }
-  }
-
-  // 按名称排序，但"未分类"放最后
-  categories.sort((a, b) {
-    if (a.folderName == '未分类') return 1;
-    if (b.folderName == '未分类') return -1;
-    return a.displayName.compareTo(b.displayName);
-  });
-
-  return categories;
+  // 在单独的 isolate 中执行文件扫描
+  final results = await Isolate.run(() => scanCategoriesInIsolate(ScanCategoriesParams(downloadPath)));
+  
+  // 转换为 DownloadedCategory
+  return results.map((r) => DownloadedCategory(
+    folderName: r.folderName,
+    displayName: r.displayName,
+    trackCount: r.trackCount,
+    coverPath: r.coverPath,
+    folderPath: r.folderPath,
+  )).toList();
 });
 
 /// 获取指定分类文件夹中的已下载歌曲（基于本地文件扫描）

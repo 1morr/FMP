@@ -41,42 +41,24 @@ void main() async {
     audioHandler = FmpAudioHandler();
   }
 
-  // Windows 平台初始化 SMTC（媒体键和系统媒体控制）
-  if (Platform.isWindows) {
-    await SMTCWindows.initialize();
-    windowsSmtcHandler = WindowsSmtcHandler();
-    await windowsSmtcHandler.initialize();
-  } else {
-    // 非 Windows 平台创建 dummy handler 保持代码一致性
-    windowsSmtcHandler = WindowsSmtcHandler();
-  }
-
   // 初始化 media_kit 作为 just_audio 的 Windows/Linux 后端
   // 这替代了 just_audio_windows，避免其平台线程消息队列溢出问题
   JustAudioMediaKit.ensureInitialized();
 
-  // 仅在桌面平台初始化窗口管理器
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    await windowManager.ensureInitialized();
-
-    const windowOptions = WindowOptions(
-      minimumSize: Size(400, 500), // 最小窗口大小
-      size: Size(1280, 800), // 默认窗口大小
-      center: true,
-      backgroundColor: Colors.transparent,
-      skipTaskbar: false,
-      titleBarStyle: TitleBarStyle.normal,
-    );
-
-    await windowManager.waitUntilReadyToShow(windowOptions, () async {
-      await windowManager.show();
-      await windowManager.focus();
-    });
-
-    // Windows: 设置关闭窗口时最小化到托盘而不是退出
-    if (Platform.isWindows) {
-      await windowManager.setPreventClose(true);
-    }
+  // Windows 平台初始化（并行化 SMTC 和窗口管理器以优化启动时间）
+  if (Platform.isWindows) {
+    // 并行初始化 SMTC 和 WindowManager
+    await Future.wait([
+      _initializeSmtc(),
+      _initializeWindowManager(),
+    ]);
+  } else if (Platform.isLinux || Platform.isMacOS) {
+    // 非 Windows 桌面平台只初始化窗口管理器
+    windowsSmtcHandler = WindowsSmtcHandler();
+    await _initializeWindowManager();
+  } else {
+    // 移动平台不需要窗口管理
+    windowsSmtcHandler = WindowsSmtcHandler();
   }
 
   // 初始化首頁排行榜緩存服務（後台加載，不阻塞啟動）
@@ -88,4 +70,35 @@ void main() async {
       child: FMPApp(),
     ),
   );
+}
+
+/// 初始化 Windows SMTC（系统媒体传输控制）
+Future<void> _initializeSmtc() async {
+  await SMTCWindows.initialize();
+  windowsSmtcHandler = WindowsSmtcHandler();
+  await windowsSmtcHandler.initialize();
+}
+
+/// 初始化桌面窗口管理器
+Future<void> _initializeWindowManager() async {
+  await windowManager.ensureInitialized();
+
+  const windowOptions = WindowOptions(
+    minimumSize: Size(400, 500), // 最小窗口大小
+    size: Size(1280, 800), // 默认窗口大小
+    center: true,
+    backgroundColor: Colors.transparent,
+    skipTaskbar: false,
+    titleBarStyle: TitleBarStyle.normal,
+  );
+
+  await windowManager.waitUntilReadyToShow(windowOptions, () async {
+    await windowManager.show();
+    await windowManager.focus();
+  });
+
+  // Windows: 设置关闭窗口时最小化到托盘而不是退出
+  if (Platform.isWindows) {
+    await windowManager.setPreventClose(true);
+  }
 }

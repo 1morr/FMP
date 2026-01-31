@@ -6,6 +6,112 @@ import 'package:path/path.dart' as p;
 import '../../data/models/track.dart';
 import '../../services/download/download_path_utils.dart';
 
+/// 参数类（用于 Isolate.run()）
+class ScanCategoriesParams {
+  final String downloadPath;
+  const ScanCategoriesParams(this.downloadPath);
+}
+
+/// 结果类（用于 Isolate.run()）
+class ScanResult {
+  final String folderName;
+  final String displayName;
+  final int trackCount;
+  final String? coverPath;
+  final String folderPath;
+
+  const ScanResult({
+    required this.folderName,
+    required this.displayName,
+    required this.trackCount,
+    this.coverPath,
+    required this.folderPath,
+  });
+}
+
+/// 在单独的 isolate 中扫描已下载分类
+/// 
+/// 这是一个顶级函数，可以被 Isolate.run() 调用
+Future<List<ScanResult>> scanCategoriesInIsolate(ScanCategoriesParams params) async {
+  final downloadDir = Directory(params.downloadPath);
+  
+  if (!await downloadDir.exists()) {
+    return [];
+  }
+
+  final results = <ScanResult>[];
+
+  // 扫描所有子文件夹
+  await for (final entity in downloadDir.list()) {
+    if (entity is Directory) {
+      final folderName = p.basename(entity.path);
+      final trackCount = await _countAudioFilesInternal(entity);
+
+      if (trackCount > 0) {
+        final coverPath = await _findFirstCoverInternal(entity);
+        results.add(ScanResult(
+          folderName: folderName,
+          displayName: _extractDisplayNameInternal(folderName),
+          trackCount: trackCount,
+          coverPath: coverPath,
+          folderPath: entity.path,
+        ));
+      }
+    }
+  }
+
+  // 按名称排序，但"未分类"放最后
+  results.sort((a, b) {
+    if (a.folderName == '未分类') return 1;
+    if (b.folderName == '未分类') return -1;
+    return a.displayName.compareTo(b.displayName);
+  });
+
+  return results;
+}
+
+/// 内部函数：提取显示名称（用于 isolate）
+String _extractDisplayNameInternal(String folderName) {
+  final underscoreIndex = folderName.indexOf('_');
+  if (underscoreIndex > 0) {
+    return folderName.substring(underscoreIndex + 1);
+  }
+  return folderName;
+}
+
+/// 内部函数：查找封面（用于 isolate）
+Future<String?> _findFirstCoverInternal(Directory folder) async {
+  try {
+    final playlistCoverFile = File(p.join(folder.path, 'playlist_cover.jpg'));
+    if (await playlistCoverFile.exists()) {
+      return playlistCoverFile.path;
+    }
+
+    await for (final entity in folder.list()) {
+      if (entity is Directory) {
+        final coverFile = File(p.join(entity.path, 'cover.jpg'));
+        if (await coverFile.exists()) {
+          return coverFile.path;
+        }
+      }
+    }
+  } catch (_) {}
+  return null;
+}
+
+/// 内部函数：统计音频文件数量（用于 isolate）
+Future<int> _countAudioFilesInternal(Directory folder) async {
+  int count = 0;
+  try {
+    await for (final entity in folder.list(recursive: true)) {
+      if (entity is File && entity.path.endsWith('.m4a')) {
+        count++;
+      }
+    }
+  } catch (_) {}
+  return count;
+}
+
 /// 下载文件扫描工具类
 ///
 /// 负责扫描本地文件系统，获取已下载的歌曲信息
@@ -17,13 +123,7 @@ class DownloadScanner {
   /// 新格式: sourceId_title → 返回 title
   /// 旧格式: title → 直接返回
   static String extractDisplayName(String folderName) {
-    // 尝试从新格式提取 (sourceId_title)
-    final underscoreIndex = folderName.indexOf('_');
-    if (underscoreIndex > 0) {
-      return folderName.substring(underscoreIndex + 1);
-    }
-    // 旧格式或无下划线，直接返回
-    return folderName;
+    return _extractDisplayNameInternal(folderName);
   }
 
   /// 从文件夹名提取 sourceId
@@ -36,37 +136,12 @@ class DownloadScanner {
 
   /// 查找文件夹中的封面（优先歌单封面，其次第一首歌的封面）
   static Future<String?> findFirstCover(Directory folder) async {
-    try {
-      // 1. 优先检查歌单封面
-      final playlistCoverFile = File(p.join(folder.path, 'playlist_cover.jpg'));
-      if (await playlistCoverFile.exists()) {
-        return playlistCoverFile.path;
-      }
-
-      // 2. 遍历子文件夹（视频文件夹）查找第一首歌的封面
-      await for (final entity in folder.list()) {
-        if (entity is Directory) {
-          final coverFile = File(p.join(entity.path, 'cover.jpg'));
-          if (await coverFile.exists()) {
-            return coverFile.path;
-          }
-        }
-      }
-    } catch (_) {}
-    return null;
+    return _findFirstCoverInternal(folder);
   }
 
   /// 统计文件夹中的音频文件数量
   static Future<int> countAudioFiles(Directory folder) async {
-    int count = 0;
-    try {
-      await for (final entity in folder.list(recursive: true)) {
-        if (entity is File && entity.path.endsWith('.m4a')) {
-          count++;
-        }
-      }
-    } catch (_) {}
-    return count;
+    return _countAudioFilesInternal(folder);
   }
 
   /// 从 metadata.json 创建 Track 对象
