@@ -101,7 +101,7 @@ class _AddRadioDialogState extends ConsumerState<AddRadioDialog> {
             ],
             const SizedBox(height: 12),
             Text(
-              '支持 YouTube 和 Bilibili 直播',
+              '目前僅支持 Bilibili 直播',
               style: TextStyle(
                 color: colorScheme.onSurfaceVariant,
                 fontSize: 12,

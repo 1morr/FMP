@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/logger.dart';
 import '../../data/models/radio_station.dart';
+import '../../data/models/track.dart'; // for SourceType
 import '../../data/repositories/radio_repository.dart';
 import '../../providers/database_provider.dart';
 import '../audio/media_kit_audio_service.dart';
@@ -281,9 +282,9 @@ class RadioController extends StateNotifier<RadioState> with Logging {
         throw Exception('無法解析此 URL，請確認是有效的直播間連結');
       }
 
-      // 檢查是否已存在
+      // 檢查是否已存在（目前只支持 Bilibili）
       if (await _repository.exists(
-          parseResult.sourceType, parseResult.sourceId)) {
+          SourceType.bilibili, parseResult.sourceId)) {
         throw Exception('此電台已存在');
       }
 
