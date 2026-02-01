@@ -269,6 +269,43 @@ class QueueManager with Logging {
     await _queueRepository.save(_currentQueue!);
   }
 
+  // ========== Mix 播放列表狀態 ==========
+
+  /// 是否為 Mix 播放模式
+  bool get isMixMode => _currentQueue?.isMixMode ?? false;
+
+  /// Mix 播放列表 ID
+  String? get mixPlaylistId => _currentQueue?.mixPlaylistId;
+
+  /// Mix 種子視頻 ID
+  String? get mixSeedVideoId => _currentQueue?.mixSeedVideoId;
+
+  /// Mix 播放列表標題
+  String? get mixTitle => _currentQueue?.mixTitle;
+
+  /// 設置 Mix 播放模式
+  Future<void> setMixMode({
+    required bool enabled,
+    String? playlistId,
+    String? seedVideoId,
+    String? title,
+  }) async {
+    if (_currentQueue == null) return;
+    
+    _currentQueue!.isMixMode = enabled;
+    _currentQueue!.mixPlaylistId = enabled ? playlistId : null;
+    _currentQueue!.mixSeedVideoId = enabled ? seedVideoId : null;
+    _currentQueue!.mixTitle = enabled ? title : null;
+    
+    await _queueRepository.save(_currentQueue!);
+    logDebug('Mix mode ${enabled ? "enabled" : "disabled"}: playlistId=$playlistId, title=$title');
+  }
+
+  /// 清除 Mix 模式
+  Future<void> clearMixMode() async {
+    await setMixMode(enabled: false);
+  }
+
   /// 获取下一首歌曲的索引
   int? getNextIndex() {
     if (_tracks.isEmpty) return null;

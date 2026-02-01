@@ -802,7 +802,7 @@ class _RankingTrackTile extends ConsumerWidget {
     return count.toString();
   }
 
-  void _handleMenuAction(BuildContext context, WidgetRef ref, String action) {
+  void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
     final controller = ref.read(audioControllerProvider.notifier);
 
     switch (action) {
@@ -810,12 +810,16 @@ class _RankingTrackTile extends ConsumerWidget {
         controller.playTemporary(track);
         break;
       case 'play_next':
-        controller.addNext(track);
-        ToastService.show(context, '已添加到下一首');
+        final added = await controller.addNext(track);
+        if (added && context.mounted) {
+          ToastService.show(context, '已添加到下一首');
+        }
         break;
       case 'add_to_queue':
-        controller.addToQueue(track);
-        ToastService.show(context, '已添加到播放隊列');
+        final added = await controller.addToQueue(track);
+        if (added && context.mounted) {
+          ToastService.show(context, '已添加到播放隊列');
+        }
         break;
       case 'add_to_playlist':
         showAddToPlaylistDialog(context: context, track: track);

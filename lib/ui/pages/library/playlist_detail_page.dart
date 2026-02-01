@@ -164,6 +164,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   Widget _buildGroupItem(BuildContext context, TrackGroup group) {
     final state = ref.read(playlistDetailProvider(widget.playlistId));
     final isImported = state.playlist?.isImported ?? false;
+    final isMix = state.playlist?.isMix ?? false;
 
     // 如果组只有一个track，显示普通样式
     if (group.tracks.length == 1) {
@@ -174,6 +175,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         onTap: () => _playTrack(group.tracks.first),
         isPartOfMultiPage: false,
         isImported: isImported,
+        isMix: isMix,
       );
     }
 
@@ -192,6 +194,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           playlistId: widget.playlistId,
           playlistName: state.playlist?.name ?? '',
           isImported: isImported,
+          isMix: isMix,
         ),
         // 展开的分P列表
         if (isExpanded)
@@ -203,6 +206,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                 isPartOfMultiPage: true,
                 isImported: isImported,
                 indent: true,
+                isMix: isMix,
               )),
       ],
     );
@@ -218,10 +222,12 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     });
   }
 
-  void _addAllToQueue(BuildContext context, List<Track> tracks) {
+  void _addAllToQueue(BuildContext context, List<Track> tracks) async {
     final controller = ref.read(audioControllerProvider.notifier);
-    controller.addAllToQueue(tracks);
-    ToastService.show(context, '已添加 ${tracks.length} 个分P到队列');
+    final added = await controller.addAllToQueue(tracks);
+    if (added && context.mounted) {
+      ToastService.show(context, '已添加 ${tracks.length} 个分P到队列');
+    }
   }
 
   Widget _buildSliverAppBar(
@@ -509,17 +515,21 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     );
   }
 
-  void _playAll(List<Track> tracks, BuildContext context) {
+  void _playAll(List<Track> tracks, BuildContext context) async {
     final controller = ref.read(audioControllerProvider.notifier);
-    controller.addAllToQueue(tracks);
-    ToastService.show(context, '已添加 ${tracks.length} 首歌曲到队列');
+    final added = await controller.addAllToQueue(tracks);
+    if (added && context.mounted) {
+      ToastService.show(context, '已添加 ${tracks.length} 首歌曲到队列');
+    }
   }
 
-  void _shufflePlay(List<Track> tracks, BuildContext context) {
+  void _shufflePlay(List<Track> tracks, BuildContext context) async {
     final controller = ref.read(audioControllerProvider.notifier);
     final shuffled = List<Track>.from(tracks)..shuffle();
-    controller.addAllToQueue(shuffled);
-    ToastService.show(context, '已随机添加 ${tracks.length} 首歌曲到队列');
+    final added = await controller.addAllToQueue(shuffled);
+    if (added && context.mounted) {
+      ToastService.show(context, '已随机添加 ${tracks.length} 首歌曲到队列');
+    }
   }
 
   void _playMix(List<Track> tracks, BuildContext context) {
@@ -578,6 +588,7 @@ class _GroupHeader extends ConsumerWidget {
   final int playlistId;
   final String playlistName;
   final bool isImported;
+  final bool isMix;
 
   const _GroupHeader({
     required this.group,
@@ -588,6 +599,7 @@ class _GroupHeader extends ConsumerWidget {
     required this.playlistId,
     required this.playlistName,
     required this.isImported,
+    this.isMix = false,
   });
 
   @override
@@ -659,7 +671,7 @@ class _GroupHeader extends ConsumerWidget {
             ),
             onPressed: onToggle,
           ),
-          // 菜单
+          // 菜单（Mix 歌單不會有多P視頻，但保留基本菜單）
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) => _handleMenuAction(context, ref, value),
@@ -778,6 +790,7 @@ class _TrackListTile extends ConsumerWidget {
   final bool isPartOfMultiPage;
   final bool indent;
   final bool isImported;
+  final bool isMix;
 
   const _TrackListTile({
     required this.track,
@@ -787,6 +800,7 @@ class _TrackListTile extends ConsumerWidget {
     required this.isPartOfMultiPage,
     required this.isImported,
     this.indent = false,
+    this.isMix = false,
   });
 
   @override
@@ -871,56 +885,58 @@ class _TrackListTile extends ConsumerWidget {
                   textAlign: TextAlign.center,
                 ),
               ),
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, size: 20),
-              onSelected: (value) => _handleMenuAction(context, ref, value),
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'play_next',
-                  child: ListTile(
-                    leading: Icon(Icons.queue_play_next),
-                    title: Text('下一首播放'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'add_to_queue',
-                  child: ListTile(
-                    leading: Icon(Icons.add_to_queue),
-                    title: Text('添加到队列'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'download',
-                  child: ListTile(
-                    leading: Icon(Icons.download_outlined),
-                    title: Text('下载'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                // 分P不显示"添加到歌单"选项
-                if (!isPartOfMultiPage)
+            // Mix 歌單不顯示菜單（所有操作都不支持）
+            if (!isMix)
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, size: 20),
+                onSelected: (value) => _handleMenuAction(context, ref, value),
+                itemBuilder: (context) => [
                   const PopupMenuItem(
-                    value: 'add_to_playlist',
+                    value: 'play_next',
                     child: ListTile(
-                      leading: Icon(Icons.playlist_add),
-                      title: Text('添加到歌单'),
+                      leading: Icon(Icons.queue_play_next),
+                      title: Text('下一首播放'),
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
-                // 外部导入的歌单不允许手动移除歌曲
-                if (!isImported)
                   const PopupMenuItem(
-                    value: 'remove',
+                    value: 'add_to_queue',
                     child: ListTile(
-                      leading: Icon(Icons.remove_circle_outline),
-                      title: Text('从歌单移除'),
+                      leading: Icon(Icons.add_to_queue),
+                      title: Text('添加到队列'),
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
-              ],
-            ),
+                  const PopupMenuItem(
+                    value: 'download',
+                    child: ListTile(
+                      leading: Icon(Icons.download_outlined),
+                      title: Text('下载'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  // 分P不显示"添加到歌单"选项
+                  if (!isPartOfMultiPage)
+                    const PopupMenuItem(
+                      value: 'add_to_playlist',
+                      child: ListTile(
+                        leading: Icon(Icons.playlist_add),
+                        title: Text('添加到歌单'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  // 外部导入的歌单不允许手动移除歌曲
+                  if (!isImported)
+                    const PopupMenuItem(
+                      value: 'remove',
+                      child: ListTile(
+                        leading: Icon(Icons.remove_circle_outline),
+                        title: Text('从歌单移除'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                ],
+              ),
           ],
         ),
         onTap: onTap,
@@ -931,12 +947,16 @@ class _TrackListTile extends ConsumerWidget {
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
     switch (action) {
       case 'play_next':
-        ref.read(audioControllerProvider.notifier).addNext(track);
-        ToastService.show(context, '已添加到下一首');
+        final addedNext = await ref.read(audioControllerProvider.notifier).addNext(track);
+        if (addedNext && context.mounted) {
+          ToastService.show(context, '已添加到下一首');
+        }
         break;
       case 'add_to_queue':
-        ref.read(audioControllerProvider.notifier).addToQueue(track);
-        ToastService.show(context, '已添加到播放队列');
+        final addedToQueue = await ref.read(audioControllerProvider.notifier).addToQueue(track);
+        if (addedToQueue && context.mounted) {
+          ToastService.show(context, '已添加到播放队列');
+        }
         break;
       case 'download':
         // 检查路径配置
