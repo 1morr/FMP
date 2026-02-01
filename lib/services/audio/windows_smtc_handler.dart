@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:smtc_windows/smtc_windows.dart';
 import '../../core/logger.dart';
+import '../../data/models/radio_station.dart';
 import '../../data/models/track.dart';
 
 /// Windows SMTC (System Media Transport Controls) 处理器
@@ -108,6 +109,50 @@ class WindowsSmtcHandler with Logging {
       logDebug('SMTC updated media item: ${track.title}');
     } catch (e) {
       logError('Failed to update SMTC metadata: $e');
+    }
+  }
+
+  /// 更新当前播放的电台元数据
+  void updateCurrentRadioStation(RadioStation station) {
+    if (_smtc == null) return;
+
+    try {
+      _smtc!.updateMetadata(MusicMetadata(
+        title: station.title,
+        album: '直播中',
+        albumArtist: '',
+        artist: station.hostName ?? '未知主播',
+        thumbnail: station.thumbnailUrl,
+      ));
+      logDebug('SMTC updated radio station: ${station.title}');
+    } catch (e) {
+      logError('Failed to update SMTC radio metadata: $e');
+    }
+  }
+
+  /// 更新电台播放状态（直播流没有时长）
+  void updateRadioPlaybackState({
+    required bool isPlaying,
+  }) {
+    if (_smtc == null) return;
+
+    try {
+      if (isPlaying) {
+        _smtc!.setPlaybackStatus(PlaybackStatus.playing);
+      } else {
+        _smtc!.setPlaybackStatus(PlaybackStatus.paused);
+      }
+
+      // 直播流：时间线设为 0（不显示进度条）
+      _smtc!.updateTimeline(const PlaybackTimeline(
+        startTimeMs: 0,
+        endTimeMs: 0,
+        positionMs: 0,
+        minSeekTimeMs: 0,
+        maxSeekTimeMs: 0,
+      ));
+    } catch (e) {
+      logError('Failed to update SMTC radio playback state: $e');
     }
   }
 

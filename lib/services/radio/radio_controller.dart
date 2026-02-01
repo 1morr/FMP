@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +7,7 @@ import '../../core/logger.dart';
 import '../../data/models/radio_station.dart';
 import '../../data/models/track.dart'; // for SourceType
 import '../../data/repositories/radio_repository.dart';
+import '../../main.dart' show windowsSmtcHandler;
 import '../../providers/database_provider.dart';
 import '../audio/media_kit_audio_service.dart';
 import '../audio/audio_types.dart';
@@ -221,6 +223,42 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     _playerStateSubscription = _audioService.playerStateStream.listen(
       _onPlayerStateChanged,
     );
+
+    // 設置 SMTC 回調（僅 Windows）
+    _setupSmtcCallbacks();
+  }
+
+  /// 設置 Windows SMTC 回調
+  void _setupSmtcCallbacks() {
+    if (!Platform.isWindows) return;
+
+    // 注意：電台不需要上一首/下一首功能
+    // 這些回調會在電台播放時覆蓋音樂播放的回調
+  }
+
+  /// 更新 SMTC 顯示當前電台（僅 Windows）
+  void _updateSmtc(RadioStation station) {
+    if (!Platform.isWindows) return;
+
+    // 設置電台的 SMTC 回調
+    windowsSmtcHandler.onPlay = resume;
+    windowsSmtcHandler.onPause = pause;
+    windowsSmtcHandler.onStop = stop;
+    // 電台不需要上一首/下一首
+    windowsSmtcHandler.onSkipToNext = null;
+    windowsSmtcHandler.onSkipToPrevious = null;
+    windowsSmtcHandler.onSeek = null;
+
+    // 更新元數據和播放狀態
+    windowsSmtcHandler.updateCurrentRadioStation(station);
+    windowsSmtcHandler.updateRadioPlaybackState(isPlaying: true);
+  }
+
+  /// 清除 SMTC 狀態（僅 Windows）
+  void _clearSmtc() {
+    if (!Platform.isWindows) return;
+
+    windowsSmtcHandler.setStoppedState();
   }
 
   /// 設置互斥機制：音樂播放時自動停止電台
@@ -340,6 +378,9 @@ class RadioController extends StateNotifier<RadioState> with Logging {
 
       // 啟動定時器
       _startTimers();
+
+      // 更新 SMTC（僅 Windows）
+      _updateSmtc(station);
     } catch (e) {
       if (_isSuperseded(requestId)) return;
       logError('Failed to play radio station: $e');
@@ -375,6 +416,9 @@ class RadioController extends StateNotifier<RadioState> with Logging {
 
     _playStartTime = null;
     _currentStreamInfo = null;
+
+    // 更新 SMTC 為停止狀態（僅 Windows）
+    _clearSmtc();
   }
 
   /// 暫停播放（保留電台資訊，可重新播放）
@@ -393,6 +437,11 @@ class RadioController extends StateNotifier<RadioState> with Logging {
 
     _playStartTime = null;
     // 保留 _currentStreamInfo 以便快速恢復
+
+    // 更新 SMTC 為暫停狀態（僅 Windows）
+    if (Platform.isWindows && state.currentStation != null) {
+      windowsSmtcHandler.updateRadioPlaybackState(isPlaying: false);
+    }
   }
 
   /// 恢復播放當前電台
@@ -528,10 +577,16 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     // 只在電台播放模式下處理
     if (state.currentStation == null) return;
 
+    final wasPlaying = state.isPlaying;
     state = state.copyWith(
       isPlaying: playerState.playing,
       isBuffering: playerState.processingState == FmpAudioProcessingState.buffering,
     );
+
+    // 同步 SMTC 播放狀態（僅 Windows）
+    if (Platform.isWindows && wasPlaying != playerState.playing) {
+      windowsSmtcHandler.updateRadioPlaybackState(isPlaying: playerState.playing);
+    }
 
     // 處理播放結束（可能是斷流）
     if (playerState.processingState == FmpAudioProcessingState.completed) {
