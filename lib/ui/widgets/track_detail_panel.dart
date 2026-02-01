@@ -12,6 +12,8 @@ import '../../providers/download/file_exists_cache.dart';
 import '../../providers/track_detail_provider.dart';
 import '../../services/audio/audio_provider.dart';
 import '../../services/platform/url_launcher_service.dart';
+import '../../services/radio/radio_controller.dart';
+import '../../data/models/radio_station.dart';
 import 'track_thumbnail.dart';
 
 /// 右侧歌曲详情面板（桌面模式）
@@ -24,6 +26,15 @@ class TrackDetailPanel extends ConsumerWidget {
     final detailState = ref.watch(trackDetailProvider);
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+
+    // 检查电台是否正在播放（优先于歌曲信息）
+    final radioState = ref.watch(radioControllerProvider);
+    if (radioState.hasCurrentStation) {
+      return Container(
+        color: colorScheme.surfaceContainerLow,
+        child: _RadioDetailContent(radioState: radioState),
+      );
+    }
 
     // 没有播放歌曲时的空状态
     if (currentTrack == null) {
@@ -911,6 +922,502 @@ class _CommentPagerState extends State<_CommentPager> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 电台详情内容组件
+class _RadioDetailContent extends StatelessWidget {
+  final RadioState radioState;
+
+  const _RadioDetailContent({required this.radioState});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final station = radioState.currentStation!;
+
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        // 封面（可点击打开直播间）
+        _RadioClickableCover(station: station),
+
+        const SizedBox(height: 20),
+
+        // 标题（可点击跳转到直播间）
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: () => UrlLauncherService.instance.openBilibiliLive(station.sourceId),
+            child: Text(
+              station.title,
+              style: textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                height: 1.3,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // 主播信息（可点击进入空间）
+        if (station.hostName != null)
+          MouseRegion(
+            cursor: station.hostUid != null
+                ? SystemMouseCursors.click
+                : SystemMouseCursors.basic,
+            child: GestureDetector(
+              onTap: station.hostUid != null
+                  ? () => UrlLauncherService.instance.openBilibiliSpace(station.hostUid!)
+                  : null,
+              child: Row(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: colorScheme.outlineVariant,
+                        width: 1,
+                      ),
+                    ),
+                    child: ClipOval(
+                      child: SizedBox(
+                        width: 32,
+                        height: 32,
+                        child: station.hostAvatarUrl != null
+                            ? Image.network(
+                                station.hostAvatarUrl!,
+                                width: 32,
+                                height: 32,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    _buildAvatarPlaceholder(context, 32),
+                              )
+                            : _buildAvatarPlaceholder(context, 32),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      station.hostName!,
+                      style: textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (station.hostUid != null)
+                    Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                ],
+              ),
+            ),
+          ),
+
+        const SizedBox(height: 16),
+
+        // 统计数据
+        _buildSimpleStats(context),
+
+        // 公告
+        if (radioState.announcement != null && radioState.announcement!.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          const Divider(),
+          const SizedBox(height: 16),
+          _RadioExpandableSection(
+            icon: Icons.campaign_outlined,
+            title: '主播公告',
+            content: radioState.announcement!,
+          ),
+        ],
+
+        // 简介
+        if (radioState.description != null && radioState.description!.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          const Divider(),
+          const SizedBox(height: 16),
+          _RadioExpandableSection(
+            icon: Icons.info_outline_rounded,
+            title: '简介',
+            content: radioState.description!,
+          ),
+        ],
+
+        // 标签
+        if (radioState.tags != null && radioState.tags!.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          const Divider(),
+          const SizedBox(height: 16),
+          _buildTagsSection(context, radioState.tags!),
+        ],
+
+        const SizedBox(height: 32),
+      ],
+    );
+  }
+
+  /// 简化的统计数据
+  Widget _buildSimpleStats(BuildContext context) {
+    return Wrap(
+      spacing: 16,
+      runSpacing: 8,
+      children: [
+        if (radioState.viewerCount != null)
+          _buildStatItem(
+            context,
+            Icons.visibility_rounded,
+            _formatCount(radioState.viewerCount!),
+          ),
+        if (radioState.isPlaying)
+          _buildStatItem(
+            context,
+            Icons.schedule_outlined,
+            _formatDuration(radioState.playDuration),
+          ),
+        if (radioState.areaName != null)
+          _buildStatItem(
+            context,
+            Icons.category_outlined,
+            radioState.areaName!,
+          ),
+        _buildStatItem(
+          context,
+          radioState.isPlaying ? Icons.radio_button_checked : Icons.radio_button_off,
+          radioState.isPlaying ? '直播中' : '已停止',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatItem(BuildContext context, IconData icon, String value) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 18,
+          color: colorScheme.primary.withValues(alpha: 0.8),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          value,
+          style: textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTagsSection(BuildContext context, String tags) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final tagList = tags.split(',').where((t) => t.trim().isNotEmpty).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.tag, size: 18, color: colorScheme.primary),
+            const SizedBox(width: 8),
+            Text(
+              '标签',
+              style: textTheme.titleSmall?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: tagList.map((tag) => Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              tag.trim(),
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          )).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAvatarPlaceholder(BuildContext context, double size) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: size,
+      height: size,
+      color: colorScheme.surfaceContainerHighest,
+      child: Icon(
+        Icons.person,
+        size: size * 0.6,
+        color: colorScheme.onSurfaceVariant,
+      ),
+    );
+  }
+
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+
+    if (hours > 0) {
+      return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    }
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  String _formatCount(int count) {
+    if (count >= 10000) {
+      return '${(count / 10000).toStringAsFixed(1)}万';
+    }
+    return count.toString();
+  }
+}
+
+/// 电台可点击封面
+class _RadioClickableCover extends StatefulWidget {
+  final RadioStation station;
+
+  const _RadioClickableCover({required this.station});
+
+  @override
+  State<_RadioClickableCover> createState() => _RadioClickableCoverState();
+}
+
+class _RadioClickableCoverState extends State<_RadioClickableCover> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: () => UrlLauncherService.instance.openBilibiliLive(widget.station.sourceId),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // 封面图片
+                widget.station.thumbnailUrl != null
+                    ? Image.network(
+                        widget.station.thumbnailUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            _buildCoverPlaceholder(context),
+                      )
+                    : _buildCoverPlaceholder(context),
+                // LIVE 标签
+                Positioned(
+                  left: 10,
+                  top: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'LIVE',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                // 悬停遮罩
+                AnimatedOpacity(
+                  opacity: _isHovered ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 150),
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    child: const Center(
+                      child: Icon(
+                        Icons.open_in_new,
+                        color: Colors.white,
+                        size: 48,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCoverPlaceholder(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      color: colorScheme.surfaceContainerHighest,
+      child: Center(
+        child: Icon(
+          Icons.radio,
+          size: 64,
+          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+        ),
+      ),
+    );
+  }
+}
+
+/// 电台可展开部分（公告/简介）
+class _RadioExpandableSection extends StatefulWidget {
+  final IconData icon;
+  final String title;
+  final String content;
+
+  const _RadioExpandableSection({
+    required this.icon,
+    required this.title,
+    required this.content,
+  });
+
+  @override
+  State<_RadioExpandableSection> createState() => _RadioExpandableSectionState();
+}
+
+class _RadioExpandableSectionState extends State<_RadioExpandableSection> {
+  bool _isExpanded = false;
+  bool _needsExpansion = false;
+  final GlobalKey _textKey = GlobalKey();
+
+  static const int _maxLines = 4;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkIfNeedsExpansion();
+    });
+  }
+
+  @override
+  void didUpdateWidget(_RadioExpandableSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.content != widget.content) {
+      _isExpanded = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkIfNeedsExpansion();
+      });
+    }
+  }
+
+  void _checkIfNeedsExpansion() {
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: widget.content,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          height: 1.6,
+        ),
+      ),
+      maxLines: _maxLines,
+      textDirection: TextDirection.ltr,
+    );
+
+    final renderBox = _textKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox != null) {
+      textPainter.layout(maxWidth: renderBox.size.width);
+      if (mounted) {
+        setState(() {
+          _needsExpansion = textPainter.didExceedMaxLines;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(widget.icon, size: 18, color: colorScheme.primary),
+            const SizedBox(width: 8),
+            Text(
+              widget.title,
+              style: textTheme.titleSmall?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          widget.content,
+          key: _textKey,
+          style: textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            height: 1.6,
+          ),
+          maxLines: _isExpanded ? null : _maxLines,
+          overflow: _isExpanded ? null : TextOverflow.ellipsis,
+        ),
+        if (_needsExpansion)
+          Align(
+            alignment: Alignment.centerRight,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _isExpanded = !_isExpanded;
+                  });
+                },
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    _isExpanded ? '收起' : '展开',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
