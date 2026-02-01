@@ -153,7 +153,7 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
 
     // 觀眾數
     if (radioState.viewerCount != null) {
-      parts.add('${_formatCount(radioState.viewerCount!)}觀看');
+      parts.add('${_formatCount(radioState.viewerCount!)}觀眾');
     }
 
     // 重連/緩衝狀態

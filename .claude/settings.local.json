@@ -73,7 +73,8 @@
       "Bash(gh search:*)",
       "Bash(gh issue view:*)",
       "Bash(curl:*)",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(dart run:*)"
     ]
   }
 }

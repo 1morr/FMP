@@ -64,6 +64,8 @@ class RadioSource with Logging {
       '$_biliLiveApiBase/room/v1/Room/playUrl';
   static const String _biliRoomInitApi =
       '$_biliLiveApiBase/room/v1/Room/room_init';
+  static const String _biliOnlineGoldRankApi =
+      '$_biliLiveApiBase/xlive/general-interface/v1/rank/getOnlineGoldRank';
 
   // YouTube URL 檢測正則（用於提示用戶）
   static final _youtubeRegex = RegExp(
@@ -180,6 +182,44 @@ class RadioSource with Logging {
       liveStartTime: liveStartTime,
       isLive: data['live_status'] == 1,
     );
+  }
+
+  /// 獲取高能用戶數（更準確的觀眾數據）
+  /// 使用 xlive/general-interface/v1/rank/getOnlineGoldRank API
+  Future<int?> getHighEnergyUserCount(RadioStation station) async {
+    try {
+      final realRoomId = await _getBiliRealRoomId(station.sourceId);
+
+      // 先獲取主播 uid
+      final roomResponse = await _dio.get(
+        _biliRoomInfoApi,
+        queryParameters: {'room_id': realRoomId},
+      );
+
+      if (roomResponse.data['code'] != 0) {
+        return null;
+      }
+
+      final uid = roomResponse.data['data']['uid'];
+
+      // 獲取高能用戶排行榜
+      final response = await _dio.get(
+        _biliOnlineGoldRankApi,
+        queryParameters: {
+          'ruid': uid,
+          'roomId': realRoomId,
+          'page': 1,
+          'pageSize': 1, // 只需要 onlineNum，不需要完整列表
+        },
+      );
+
+      if (response.data['code'] == 0) {
+        return response.data['data']['onlineNum'] as int?;
+      }
+    } catch (e) {
+      logWarning('Failed to get high energy user count: $e');
+    }
+    return null;
   }
 
   /// 獲取 Bilibili 直播流地址
