@@ -65,8 +65,8 @@ class _AppShellState extends ConsumerState<AppShell> {
     final location = GoRouterState.of(context).uri.path;
     if (location.startsWith(RoutePaths.search)) return 1;
     if (location.startsWith(RoutePaths.queue)) return 2;
-    if (location.startsWith(RoutePaths.radio)) return 3;
-    if (location.startsWith(RoutePaths.library)) return 4;
+    if (location.startsWith(RoutePaths.library)) return 3;
+    if (location.startsWith(RoutePaths.radio)) return 4;
     if (location.startsWith(RoutePaths.settings)) return 5;
     return 0; // home
   }
@@ -84,10 +84,10 @@ class _AppShellState extends ConsumerState<AppShell> {
         context.go(RoutePaths.queue);
         break;
       case 3:
-        context.go(RoutePaths.radio);
+        context.go(RoutePaths.library);
         break;
       case 4:
-        context.go(RoutePaths.library);
+        context.go(RoutePaths.radio);
         break;
       case 5:
         context.go(RoutePaths.settings);
