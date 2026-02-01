@@ -39,14 +39,14 @@ const List<NavDestination> destinations = [
     label: '队列',
   ),
   NavDestination(
-    icon: Icons.radio_outlined,
-    selectedIcon: Icons.radio,
-    label: '电台',
-  ),
-  NavDestination(
     icon: Icons.library_music_outlined,
     selectedIcon: Icons.library_music,
     label: '音乐库',
+  ),
+  NavDestination(
+    icon: Icons.radio_outlined,
+    selectedIcon: Icons.radio,
+    label: '电台',
   ),
   NavDestination(
     icon: Icons.settings_outlined,
