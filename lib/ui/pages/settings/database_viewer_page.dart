@@ -177,7 +177,7 @@ class _TrackListView extends StatelessWidget {
                   data: {
                     'playlistInfo': track.playlistInfo.isEmpty
                         ? '[]'
-                        : track.playlistInfo.map((i) => 'playlist=${i.playlistId}: ${_truncate(i.downloadPath, 30)}').join('\n'),
+                        : track.playlistInfo.map((i) => 'playlist=${i.playlistId}(${i.playlistName}): ${_truncate(i.downloadPath, 50)}').join('\n'),
                     'allPlaylistIds': track.allPlaylistIds.isEmpty
                         ? '[]'
                         : track.allPlaylistIds.join(', '),
@@ -613,7 +613,8 @@ class _DownloadTaskListView extends StatelessWidget {
                 _DataSection(
                   title: '文件信息',
                   data: {
-                    'tempFilePath': _truncate(task.tempFilePath, 60),
+                    'savePath': _truncate(task.savePath, 80),
+                    'tempFilePath': _truncate(task.tempFilePath, 80),
                     'canResume': task.canResume.toString(),
                   },
                 ),

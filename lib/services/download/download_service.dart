@@ -625,7 +625,7 @@ class DownloadService with Logging {
 
       // A3: 验证文件存在后才保存下载路径到 Track
       if (await File(savePath).exists()) {
-        await _trackRepository.addDownloadPath(track.id, task.playlistId, savePath);
+        await _trackRepository.addDownloadPath(track.id, task.playlistId, task.playlistName, savePath);
       } else {
         logError('Download completed but file not found at: $savePath');
         throw Exception('Downloaded file not found at expected path');

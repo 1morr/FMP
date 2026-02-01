@@ -690,13 +690,15 @@ class QueueManager with Logging {
         final newInfos = <PlaylistDownloadInfo>[];
         for (final info in track.playlistInfo) {
           if (invalidPaths.contains(info.downloadPath)) {
-            // 清除无效路径但保留歌单关联
+            // 清除无效路径但保留歌单关联和名称
             newInfos.add(PlaylistDownloadInfo()
               ..playlistId = info.playlistId
+              ..playlistName = info.playlistName
               ..downloadPath = '');
           } else {
             newInfos.add(PlaylistDownloadInfo()
               ..playlistId = info.playlistId
+              ..playlistName = info.playlistName
               ..downloadPath = info.downloadPath);
           }
         }
@@ -714,9 +716,10 @@ class QueueManager with Logging {
     if (invalidPaths.isNotEmpty && persist) {
       final newInfos = <PlaylistDownloadInfo>[];
       for (final info in track.playlistInfo) {
-        // 清除所有路径但保留歌单关联
+        // 清除所有路径但保留歌单关联和名称
         newInfos.add(PlaylistDownloadInfo()
           ..playlistId = info.playlistId
+          ..playlistName = info.playlistName
           ..downloadPath = '');
       }
       track.playlistInfo = newInfos;

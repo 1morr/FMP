@@ -167,8 +167,9 @@ class TrackRepository with Logging {
   ///
   /// [trackId] Track ID
   /// [playlistId] 歌单 ID，null 表示添加到通用列表 (playlistId = 0)
+  /// [playlistName] 歌单名称（用于下载路径匹配）
   /// [path] 下载路径
-  Future<void> addDownloadPath(int trackId, int? playlistId, String path) async {
+  Future<void> addDownloadPath(int trackId, int? playlistId, String? playlistName, String path) async {
     final track = await getById(trackId);
     if (track == null) {
       logWarning('addDownloadPath: track $trackId not found!');
@@ -176,9 +177,9 @@ class TrackRepository with Logging {
     }
 
     final effectivePlaylistId = playlistId ?? 0;
-    logDebug('addDownloadPath: BEFORE setDownloadPath - playlistInfo: ${track.playlistInfo.map((i) => "playlist=${i.playlistId}:path=${i.downloadPath.isNotEmpty}").join(", ")}');
-    track.setDownloadPath(effectivePlaylistId, path);
-    logDebug('addDownloadPath: AFTER setDownloadPath - playlistInfo: ${track.playlistInfo.map((i) => "playlist=${i.playlistId}:path=${i.downloadPath.isNotEmpty}").join(", ")}');
+    logDebug('addDownloadPath: BEFORE setDownloadPath - playlistInfo: ${track.playlistInfo.map((i) => "playlist=${i.playlistId}(${i.playlistName}):path=${i.downloadPath.isNotEmpty}").join(", ")}');
+    track.setDownloadPath(effectivePlaylistId, path, playlistName: playlistName);
+    logDebug('addDownloadPath: AFTER setDownloadPath - playlistInfo: ${track.playlistInfo.map((i) => "playlist=${i.playlistId}(${i.playlistName}):path=${i.downloadPath.isNotEmpty}").join(", ")}');
     await save(track);
     logDebug('Added download path for track $trackId: $path');
   }
