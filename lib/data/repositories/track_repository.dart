@@ -185,20 +185,35 @@ class TrackRepository with Logging {
 
   /// 清除所有 Track 的下载路径（保留歌单关联）
   Future<void> clearAllDownloadPaths() async {
-    logDebug('Clearing all download paths...');
-    await _isar.writeTxn(() async {
-      final tracks = await _isar.tracks
-          .filter()
-          .playlistInfoElement((q) => q.downloadPathIsNotEmpty())
-          .findAll();
-      
-      for (final track in tracks) {
-        track.clearAllDownloadPaths();
-      }
-      
-      await _isar.tracks.putAll(tracks);
-    });
-    logDebug('Cleared download paths for all tracks');
+    logDebug('clearAllDownloadPaths: Starting');
+    try {
+      await _isar.writeTxn(() async {
+        logDebug('clearAllDownloadPaths: Inside transaction, querying tracks');
+        final tracks = await _isar.tracks
+            .filter()
+            .playlistInfoElement((q) => q.downloadPathIsNotEmpty())
+            .findAll();
+        logDebug('clearAllDownloadPaths: Found ${tracks.length} tracks with download paths');
+        
+        if (tracks.isEmpty) {
+          logDebug('clearAllDownloadPaths: No tracks to clear');
+          return;
+        }
+        
+        for (final track in tracks) {
+          track.clearAllDownloadPaths();
+        }
+        
+        logDebug('clearAllDownloadPaths: Saving ${tracks.length} tracks');
+        await _isar.tracks.putAll(tracks);
+        logDebug('clearAllDownloadPaths: Done');
+      });
+      logDebug('clearAllDownloadPaths: Transaction completed');
+    } catch (e, stackTrace) {
+      logDebug('clearAllDownloadPaths: ERROR - $e');
+      logDebug('clearAllDownloadPaths: StackTrace - $stackTrace');
+      rethrow;
+    }
   }
 
   /// 标记歌曲为不可用

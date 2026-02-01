@@ -208,11 +208,16 @@ class _ChangeDownloadPathDialogState
       setState(() => _state = _DialogState.processing);
 
       // A1: 清空所有下载路径
+      debugPrint('[ChangeDownloadPath] Clearing all download paths...');
       await trackRepo.clearAllDownloadPaths();
+      debugPrint('[ChangeDownloadPath] Download paths cleared');
 
       // A1: 清除已完成和失败的下载任务
+      debugPrint('[ChangeDownloadPath] Getting download service...');
       final downloadService = ref.read(downloadServiceProvider);
+      debugPrint('[ChangeDownloadPath] Clearing completed/error tasks...');
       await downloadService.clearCompletedAndErrorTasks();
+      debugPrint('[ChangeDownloadPath] Completed/error tasks cleared');
 
       // 保存新路径
       await pathManager.saveDownloadPath(newPath);

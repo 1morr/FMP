@@ -48,15 +48,31 @@ class DownloadRepository with Logging {
 
   /// 清除已完成和失败的任务（用于启动时清理）
   Future<int> clearCompletedAndErrorTasks() async {
-    return _isar.writeTxn(() async {
-      final tasks = await _isar.downloadTasks
-          .filter()
-          .statusEqualTo(DownloadStatus.completed)
-          .or()
-          .statusEqualTo(DownloadStatus.failed)
-          .findAll();
-      return _isar.downloadTasks.deleteAll(tasks.map((t) => t.id).toList());
-    });
+    logDebug('clearCompletedAndErrorTasks: Starting');
+    try {
+      return await _isar.writeTxn(() async {
+        logDebug('clearCompletedAndErrorTasks: Inside transaction, querying tasks');
+        final tasks = await _isar.downloadTasks
+            .filter()
+            .statusEqualTo(DownloadStatus.completed)
+            .or()
+            .statusEqualTo(DownloadStatus.failed)
+            .findAll();
+        logDebug('clearCompletedAndErrorTasks: Found ${tasks.length} tasks to delete');
+        if (tasks.isEmpty) {
+          return 0;
+        }
+        final ids = tasks.map((t) => t.id).toList();
+        logDebug('clearCompletedAndErrorTasks: Deleting task ids: $ids');
+        final result = await _isar.downloadTasks.deleteAll(ids);
+        logDebug('clearCompletedAndErrorTasks: Deleted $result tasks');
+        return result;
+      });
+    } catch (e, stackTrace) {
+      logDebug('clearCompletedAndErrorTasks: ERROR - $e');
+      logDebug('clearCompletedAndErrorTasks: StackTrace - $stackTrace');
+      rethrow;
+    }
   }
 
   /// 根据状态获取下载任务

@@ -251,6 +251,20 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
     }
   }
 
+  /// 静默刷新歌曲数据（不显示 loading 状态，用于下载完成后更新标记）
+  Future<void> refreshTracks() async {
+    try {
+      final result = await _service.getPlaylistWithTracks(playlistId);
+      if (result != null) {
+        state = state.copyWith(
+          tracks: result.tracks,
+        );
+      }
+    } catch (_) {
+      // 静默刷新失败不影响 UI
+    }
+  }
+
   /// 添加歌曲到歌单
   Future<bool> addTrack(Track track) async {
     try {
