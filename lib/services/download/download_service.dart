@@ -221,12 +221,10 @@ class DownloadService with Logging {
   /// 添加单曲下载任务
   /// 
   /// [fromPlaylist] 必须提供，歌曲必须属于某个歌单才能下载
-  /// [order] 在歌单中的顺序位置（从0开始）
   /// [skipSchedule] 为 true 时不触发下载调度（用于批量添加）
   Future<DownloadTask?> addTrackDownload(
     Track track, {
     required Playlist fromPlaylist,
-    int? order,
     bool skipSchedule = false,
   }) async {
     logDebug('Adding download task for track: ${track.title}');
@@ -271,7 +269,6 @@ class DownloadService with Logging {
       ..playlistName = fromPlaylist.name
       ..playlistId = playlistId
       ..savePath = downloadPath  // 保存计划路径用于去重
-      ..order = order
       ..status = DownloadStatus.pending
       ..priority = priority
       ..createdAt = DateTime.now();
@@ -307,7 +304,6 @@ class DownloadService with Logging {
       final task = await addTrackDownload(
         tracks[i],
         fromPlaylist: playlist,
-        order: i,
         skipSchedule: true,  // 批量添加时跳过调度
       );
       if (task != null) {
@@ -620,8 +616,8 @@ class DownloadService with Logging {
         }
       }
 
-      // 保存元数据（使用 task 中保存的 order）
-      await _saveMetadata(track, savePath, videoDetail: videoDetail, order: task.order);
+      // 保存元数据
+      await _saveMetadata(track, savePath, videoDetail: videoDetail);
 
       // A3: 验证文件存在后才保存下载路径到 Track
       if (await File(savePath).exists()) {
@@ -740,8 +736,7 @@ class DownloadService with Logging {
   }
 
   /// 保存元数据
-  /// [order] 在歌单中的顺序位置
-  Future<void> _saveMetadata(Track track, String audioPath, {VideoDetail? videoDetail, int? order}) async {
+  Future<void> _saveMetadata(Track track, String audioPath, {VideoDetail? videoDetail}) async {
     final settings = await _settingsRepository.get();
     final videoDir = Directory(p.dirname(audioPath));
 
@@ -758,8 +753,6 @@ class DownloadService with Logging {
       'parentTitle': track.parentTitle,
       'thumbnailUrl': track.thumbnailUrl,
       'downloadedAt': DateTime.now().toIso8601String(),
-      // 歌单顺序
-      'order': order,
     };
 
     // 添加 VideoDetail 扩展信息
