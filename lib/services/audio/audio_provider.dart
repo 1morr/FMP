@@ -262,14 +262,13 @@ class _MixPlaylistState {
   final Set<String> seenVideoIds;
 
   /// 是否正在加載更多
-  bool isLoadingMore;
+  bool isLoadingMore = false;
 
   _MixPlaylistState({
     required this.playlistId,
     required this.seedVideoId,
     required this.title,
     Set<String>? seenVideoIds,
-    this.isLoadingMore = false,
   }) : seenVideoIds = seenVideoIds ?? {};
 
   /// 添加影片 ID 到已見集合
