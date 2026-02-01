@@ -320,7 +320,7 @@ Home page ranking data (Bilibili/YouTube) is cached and refreshed in the backgro
 - Data fetched immediately on startup, then refreshed every hour via `Timer.periodic`
 - UI always displays cached data instantly (no loading after first launch)
 - Uses `StreamProvider` to notify UI when cache updates
-- YouTube uses search API with `UploadDateFilter.lastMonth` (InnerTube API unstable), sorted by viewCount locally
+- YouTube uses "New This Week" playlist from YouTube Music channel (InnerTube Browse API), falls back to search if unavailable
 
 ### ListTile Performance in Lists
 **Avoid putting `Row` inside `ListTile.leading`** - this causes layout jitter during scrolling.
