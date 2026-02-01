@@ -206,7 +206,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '${widget.category.trackCount} 首歌曲 · ${DurationFormatter.formatLong(totalDuration)}',
+                          '${tracks.length} 首歌曲 · ${DurationFormatter.formatLong(totalDuration)}',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: Colors.white60,
                               ),

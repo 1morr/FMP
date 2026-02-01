@@ -166,7 +166,6 @@ class DownloadScanner {
         ..pageNum = json['pageNum'] as int?
         ..parentTitle = json['parentTitle'] as String?
         ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = audioPath]
-        ..order = json['order'] as int?
         ..createdAt = DateTime.tryParse(json['downloadedAt'] as String? ?? '') ?? DateTime.now();
     } catch (_) {
       return null;
@@ -249,16 +248,8 @@ class DownloadScanner {
       }
     }
 
-    // 按 order 排序，如果没有 order 则按 parentTitle + pageNum 排序（向后兼容）
+    // 按 parentTitle + pageNum 排序（多P视频按分P顺序）
     tracks.sort((a, b) {
-      // 优先使用 order 排序
-      if (a.order != null && b.order != null) {
-        return a.order!.compareTo(b.order!);
-      }
-      // 如果只有一个有 order，有 order 的排前面
-      if (a.order != null) return -1;
-      if (b.order != null) return 1;
-      // 都没有 order，按原来的方式排序（向后兼容）
       final groupCompare = (a.parentTitle ?? a.title).compareTo(b.parentTitle ?? b.title);
       if (groupCompare != 0) return groupCompare;
       return (a.pageNum ?? 0).compareTo(b.pageNum ?? 0);

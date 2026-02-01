@@ -11,6 +11,7 @@ import '../../../data/models/settings.dart';
 import '../../../data/models/search_history.dart';
 import '../../../data/models/download_task.dart';
 import '../../../data/models/play_history.dart';
+import '../../../data/models/radio_station.dart';
 
 /// 数据库查看页面
 class DatabaseViewerPage extends ConsumerStatefulWidget {
@@ -31,6 +32,7 @@ class _DatabaseViewerPageState extends ConsumerState<DatabaseViewerPage> {
     'Settings',
     'SearchHistory',
     'DownloadTask',
+    'RadioStation',
   ];
 
   @override
@@ -115,6 +117,7 @@ class _DatabaseViewerPageState extends ConsumerState<DatabaseViewerPage> {
       'Settings' => _SettingsListView(isar: isar),
       'SearchHistory' => _SearchHistoryListView(isar: isar),
       'DownloadTask' => _DownloadTaskListView(isar: isar),
+      'RadioStation' => _RadioStationListView(isar: isar),
       _ => const Center(child: Text('未知集合')),
     };
   }
@@ -153,6 +156,8 @@ class _TrackListView extends StatelessWidget {
                     'sourceType': track.sourceType.name,
                     'title': track.title,
                     'artist': track.artist ?? 'null',
+                    'ownerId': track.ownerId?.toString() ?? 'null',
+                    'channelId': track.channelId ?? 'null',
                     'durationMs': track.durationMs?.toString() ?? 'null',
                   },
                 ),
@@ -262,6 +267,14 @@ class _PlaylistListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
+                  title: 'Mix 播放列表',
+                  data: {
+                    'isMix': playlist.isMix.toString(),
+                    'mixPlaylistId': playlist.mixPlaylistId ?? 'null',
+                    'mixSeedVideoId': playlist.mixSeedVideoId ?? 'null',
+                  },
+                ),
+                _DataSection(
                   title: '歌曲列表',
                   data: {
                     'trackCount': playlist.trackIds.length.toString(),
@@ -338,6 +351,15 @@ class _PlayQueueListView extends StatelessWidget {
                     'originalOrder': queue.originalOrder == null
                         ? 'null'
                         : '${queue.originalOrder!.take(10).join(', ')}${queue.originalOrder!.length > 10 ? '...' : ''}',
+                  },
+                ),
+                _DataSection(
+                  title: 'Mix 模式',
+                  data: {
+                    'isMixMode': queue.isMixMode.toString(),
+                    'mixPlaylistId': queue.mixPlaylistId ?? 'null',
+                    'mixSeedVideoId': queue.mixSeedVideoId ?? 'null',
+                    'mixTitle': queue.mixTitle ?? 'null',
                   },
                 ),
                 _DataSection(
@@ -442,11 +464,24 @@ class _SettingsListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '其他设置',
+                  title: '播放设置',
                   data: {
                     'autoScrollToCurrentTrack': setting.autoScrollToCurrentTrack.toString(),
-                    'enabledSources': setting.enabledSources.join(', '),
+                    'rememberPlaybackPosition': setting.rememberPlaybackPosition.toString(),
+                  },
+                ),
+                _DataSection(
+                  title: '桌面平台设置',
+                  data: {
+                    'minimizeToTrayOnClose': setting.minimizeToTrayOnClose.toString(),
+                    'enableGlobalHotkeys': setting.enableGlobalHotkeys.toString(),
                     'hotkeyConfig': setting.hotkeyConfig ?? 'null',
+                  },
+                ),
+                _DataSection(
+                  title: '其他设置',
+                  data: {
+                    'enabledSources': setting.enabledSources.join(', '),
                   },
                 ),
               ],
@@ -597,7 +632,6 @@ class _DownloadTaskListView extends StatelessWidget {
                     'trackId': task.trackId.toString(),
                     'playlistId': task.playlistId?.toString() ?? 'null',
                     'playlistName': task.playlistName ?? 'null',
-                    'order': task.order?.toString() ?? 'null',
                     'priority': task.priority.toString(),
                   },
                 ),
@@ -629,6 +663,79 @@ class _DownloadTaskListView extends StatelessWidget {
                   data: {
                     'createdAt': task.createdAt.toIso8601String(),
                     'completedAt': task.completedAt?.toIso8601String() ?? 'null',
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+/// RadioStation 列表视图
+class _RadioStationListView extends StatelessWidget {
+  final Isar isar;
+
+  const _RadioStationListView({required this.isar});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<RadioStation>>(
+      future: isar.radioStations.where().findAll(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final stations = snapshot.data ?? [];
+        return _buildList(
+          context,
+          itemCount: stations.length,
+          headerText: '共 ${stations.length} 条记录',
+          itemBuilder: (index) {
+            final station = stations[index];
+            return _DataCard(
+              title: station.title,
+              subtitle: 'ID: ${station.id} | ${station.sourceType.name}',
+              sections: [
+                _DataSection(
+                  title: '基本信息',
+                  data: {
+                    'id': station.id.toString(),
+                    'url': _truncate(station.url, 60),
+                    'title': station.title,
+                    'sourceType': station.sourceType.name,
+                    'sourceId': station.sourceId,
+                  },
+                ),
+                _DataSection(
+                  title: '主播信息',
+                  data: {
+                    'hostName': station.hostName ?? 'null',
+                    'hostUid': station.hostUid?.toString() ?? 'null',
+                    'hostAvatarUrl': _truncate(station.hostAvatarUrl, 60),
+                  },
+                ),
+                _DataSection(
+                  title: '媒体信息',
+                  data: {
+                    'thumbnailUrl': _truncate(station.thumbnailUrl, 60),
+                  },
+                ),
+                _DataSection(
+                  title: '排序与收藏',
+                  data: {
+                    'sortOrder': station.sortOrder.toString(),
+                    'isFavorite': station.isFavorite.toString(),
+                    'note': station.note ?? 'null',
+                  },
+                ),
+                _DataSection(
+                  title: '时间戳',
+                  data: {
+                    'createdAt': station.createdAt.toIso8601String(),
+                    'lastPlayedAt': station.lastPlayedAt?.toIso8601String() ?? 'null',
                   },
                 ),
               ],

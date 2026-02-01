@@ -39,9 +39,6 @@ class DownloadTask {
   @Index()
   String? savePath;
 
-  /// 在歌单中的顺序位置（从0开始）
-  int? order;
-
   /// 下载状态
   @Enumerated(EnumType.name)
   DownloadStatus status = DownloadStatus.pending;
