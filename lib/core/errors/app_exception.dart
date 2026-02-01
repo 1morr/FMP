@@ -109,7 +109,7 @@ class ErrorHandler with Logging {
     );
   }
 
-  static NetworkException _handleDioError(DioException error) {
+  static AppException _handleDioError(DioException error) {
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
         return NetworkException(
@@ -146,21 +146,21 @@ class ErrorHandler with Logging {
             '请求的资源不存在',
             code: '404',
             originalError: error,
-          ) as NetworkException;
+          );
         }
         if (statusCode == 403 || statusCode == 401) {
           return PermissionException(
             '没有权限访问',
             code: statusCode.toString(),
             originalError: error,
-          ) as NetworkException;
+          );
         }
         if (statusCode != null && statusCode >= 500) {
           return ServerException(
             '服务器错误 ($statusCode)',
             statusCode: statusCode,
             originalError: error,
-          ) as NetworkException;
+          );
         }
         return NetworkException(
           '请求失败 ($statusCode)',
@@ -169,7 +169,7 @@ class ErrorHandler with Logging {
         );
 
       case DioExceptionType.cancel:
-        return CancelledException() as NetworkException;
+        return CancelledException();
 
       case DioExceptionType.connectionError:
         return NetworkException(

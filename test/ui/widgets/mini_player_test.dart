@@ -59,6 +59,7 @@ void main() {
                     left: 0,
                     right: 0,
                     child: SizedBox(
+                      key: const Key('progress_bar_container'),
                       height: progressBarHeight,
                       child: const LinearProgressIndicator(value: 0.5),
                     ),
@@ -70,7 +71,8 @@ void main() {
         ),
       );
 
-      final sizedBox = tester.widget<SizedBox>(find.byType(SizedBox));
+      // Find the specific SizedBox containing the progress bar by key
+      final sizedBox = tester.widget<SizedBox>(find.byKey(const Key('progress_bar_container')));
       expect(sizedBox.height, equals(progressBarHeight));
     });
   });
