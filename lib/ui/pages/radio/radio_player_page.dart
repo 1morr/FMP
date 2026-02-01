@@ -510,16 +510,19 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // 標題（點擊跳轉到直播間）
-                        GestureDetector(
-                          onTap: () => UrlLauncherService.instance.openBilibiliLive(station.sourceId),
-                          child: Text(
-                            station.title,
-                            style: textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              height: 1.3,
+                        MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            onTap: () => UrlLauncherService.instance.openBilibiliLive(station.sourceId),
+                            child: Text(
+                              station.title,
+                              style: textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                height: 1.3,
+                              ),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
 
@@ -527,46 +530,51 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
 
                         // 主播信息（點擊跳轉到個人空間）
                         if (station.hostName != null)
-                          GestureDetector(
-                            onTap: station.hostUid != null
-                                ? () => UrlLauncherService.instance.openBilibiliSpace(station.hostUid!)
-                                : null,
-                            child: Row(
-                              children: [
-                                ClipOval(
-                                  child: SizedBox(
-                                    width: 40,
-                                    height: 40,
-                                    child: station.hostAvatarUrl != null
-                                        ? Image.network(
-                                            station.hostAvatarUrl!,
-                                            width: 40,
-                                            height: 40,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (context, error, stackTrace) =>
-                                                _buildAvatarPlaceholder(colorScheme),
-                                          )
-                                        : _buildAvatarPlaceholder(colorScheme),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    station.hostName!,
-                                    style: textTheme.bodyLarge?.copyWith(
-                                      fontWeight: FontWeight.w500,
+                          MouseRegion(
+                            cursor: station.hostUid != null
+                                ? SystemMouseCursors.click
+                                : SystemMouseCursors.basic,
+                            child: GestureDetector(
+                              onTap: station.hostUid != null
+                                  ? () => UrlLauncherService.instance.openBilibiliSpace(station.hostUid!)
+                                  : null,
+                              child: Row(
+                                children: [
+                                  ClipOval(
+                                    child: SizedBox(
+                                      width: 40,
+                                      height: 40,
+                                      child: station.hostAvatarUrl != null
+                                          ? Image.network(
+                                              station.hostAvatarUrl!,
+                                              width: 40,
+                                              height: 40,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error, stackTrace) =>
+                                                  _buildAvatarPlaceholder(colorScheme),
+                                            )
+                                          : _buildAvatarPlaceholder(colorScheme),
                                     ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ),
-                                if (station.hostUid != null)
-                                  Icon(
-                                    Icons.chevron_right,
-                                    size: 20,
-                                    color: colorScheme.onSurfaceVariant,
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      station.hostName!,
+                                      style: textTheme.bodyLarge?.copyWith(
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
-                              ],
+                                  if (station.hostUid != null)
+                                    Icon(
+                                      Icons.chevron_right,
+                                      size: 20,
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                ],
+                              ),
                             ),
                           ),
 
@@ -718,15 +726,18 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
         if (needsExpansion)
           Align(
             alignment: Alignment.centerRight,
-            child: GestureDetector(
-              onTap: onToggle,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  isExpanded ? '收起' : '展開',
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w500,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: onToggle,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    isExpanded ? '收起' : '展開',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ),
