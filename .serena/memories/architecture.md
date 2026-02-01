@@ -70,7 +70,9 @@
 |------|------|------|
 | BaseSource | `data/sources/base_source.dart` | 抽象基类 |
 | BilibiliSource | `data/sources/bilibili_source.dart` | ✅ 已实现 |
-| YouTubeSource | `data/sources/youtube_source.dart` | ✅ 已实现 (youtube_explode_dart) |
+| YouTubeSource | `data/sources/youtube_source.dart` | ✅ 已实现 (youtube_explode_dart + InnerTube) |
+
+> **YouTubeSource Mix 功能**：支持 YouTube Mix/Radio 播放列表（RD 開頭的 ID），使用 InnerTube `/next` API 動態獲取歌曲。詳見 `mix_playlist_design` 記憶。
 
 ### Services
 | 服务 | 文件 | 职责 |

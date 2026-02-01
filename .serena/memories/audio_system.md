@@ -399,7 +399,71 @@ if (_player.processingState != ProcessingState.idle) {
 await _player.setAudioSource(audioSource);
 ```
 
-### 6. 记住播放位置（Remember Playback Position）
+### 6. Mix 播放模式（YouTube Mix/Radio）
+
+**用途：** 播放 YouTube Mix/Radio 播放列表（ID 以 "RD" 開頭），這是動態生成的無限播放列表。
+
+**新增 PlayMode：**
+```dart
+enum PlayMode {
+  queue,      // 正常队列播放
+  temporary,  // 临时播放
+  detached,   // 脱离队列
+  mix,        // Mix 播放模式（新增）
+}
+```
+
+**_MixPlaylistState（AudioController 內部）：**
+```dart
+class _MixPlaylistState {
+  final String playlistId;     // RDxxxxxx
+  final String seedVideoId;    // 種子視頻 ID
+  final String title;          // 歌單標題
+  final Set<String> seenVideoIds = {};  // 去重用
+  bool isLoadingMore = false;
+}
+```
+
+**持久化（跨 App 重啟保留）：**
+```dart
+// PlayQueue 新增欄位
+bool isMixMode = false;
+String? mixPlaylistId;
+String? mixSeedVideoId;
+String? mixTitle;
+
+// QueueManager 新增方法
+Future<void> setMixMode({required bool enabled, String? playlistId, String? seedVideoId, String? title});
+Future<void> clearMixMode();
+```
+
+**初始化時恢復：**
+```dart
+// AudioController.initialize()
+if (_queueManager.isMixMode) {
+  _mixState = _MixPlaylistState(
+    playlistId: _queueManager.mixPlaylistId!,
+    seedVideoId: _queueManager.mixSeedVideoId!,
+    title: _queueManager.mixTitle!,
+  );
+  _mixState!.addSeenVideoIds(_queueManager.tracks.map((t) => t.sourceId));
+  _context = _context.copyWith(mode: PlayMode.mix);
+  state = state.copyWith(isMixMode: true, mixTitle: _queueManager.mixTitle);
+}
+```
+
+**關鍵行為：**
+- **禁止 shuffle** - 按鈕禁用（灰色），tooltip 顯示 "Mix 模式不支持隨機播放"
+- **禁止 addToQueue/addNext** - 返回 `false`，顯示 Toast "Mix 播放列表不支持添加歌曲"
+- **自動加載更多** - 播放到最後 1-2 首時自動調用 `_loadMoreMixTracks()`
+- **退出 Mix 模式** - `clearQueue()` 或播放其他歌單時自動退出
+
+**UI 變更：**
+- 隊列頁標題：`Mix · {歌單名稱}`（使用 60% 可用寬度，超長截斷）
+- 歌單詳情頁：Mix 歌單的歌曲隱藏整個 PopupMenu（不顯示下載/添加等選項）
+- 播放器頁面：shuffle 按鈕禁用
+
+### 7. 记住播放位置（Remember Playback Position）
 **用途：** 长视频/音频自动记住播放位置，下次播放时从上次位置继续
 
 **触发条件：**

@@ -215,6 +215,27 @@ For long videos (>10 min) with progress >5%, the playback position is automatica
 ### Shuffle Mode
 Managed in `QueueManager` with `_shuffleOrder` list. When queue is cleared and songs added, shuffle order regenerates automatically.
 
+### Mix Playlist Mode (YouTube Mix/Radio)
+YouTube Mix/Radio playlists (ID starts with "RD") are dynamic infinite playlists. They are imported as "references" (no tracks saved), and tracks are fetched from InnerTube API at runtime.
+
+**Key behaviors:**
+- Shuffle disabled (button greyed out with tooltip)
+- addToQueue/addNext blocked (returns false, shows toast)
+- Auto-loads more tracks when approaching queue end
+- State persisted across app restart via `PlayQueue` model fields (`isMixMode`, `mixPlaylistId`, `mixSeedVideoId`, `mixTitle`)
+
+**UI changes:**
+- Queue page title: "Mix · {playlist name}" (60% max width, truncated)
+- Playlist detail page: PopupMenuButton hidden for Mix tracks (no download/add options)
+- Player page: shuffle button disabled
+
+**Implementation files:**
+- `lib/data/sources/youtube_source.dart` - `getMixPlaylistInfo()`, `fetchMixTracks()`
+- `lib/services/audio/audio_provider.dart` - `playMixPlaylist()`, `_MixPlaylistState`, `PlayMode.mix`
+- `lib/services/audio/queue_manager.dart` - `setMixMode()`, `clearMixMode()`, Mix state persistence
+
+See `mix_playlist_design` memory for full implementation details.
+
 ### PlaybackContext and Play Lock (Race Condition Prevention)
 `AudioController` uses a unified `_PlaybackContext` class to manage playback state and prevent race conditions during rapid track switching.
 
