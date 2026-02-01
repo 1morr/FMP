@@ -37,13 +37,43 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   // 上次刷新缓存时的 tracks 长度，用于检测变化
   int _lastRefreshedTracksLength = -1;
 
+  // 滚动控制器，用于跟踪 AppBar 收起状态
+  final ScrollController _scrollController = ScrollController();
+  double _scrollOffset = 0;
+
+  // AppBar 收起阈值（expandedHeight - kToolbarHeight）
+  static const double _collapseThreshold = 280 - kToolbarHeight;
+
   @override
   void initState() {
     super.initState();
+    // 监听滚动位置
+    _scrollController.addListener(_onScroll);
     // 初始刷新
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _preloadCoverPaths();
     });
+  }
+
+  void _onScroll() {
+    final offset = _scrollController.offset;
+    // 只在跨越阈值时更新状态，避免频繁 rebuild
+    final wasCollapsed = _scrollOffset >= _collapseThreshold;
+    final isCollapsed = offset >= _collapseThreshold;
+    if (wasCollapsed != isCollapsed) {
+      setState(() {
+        _scrollOffset = offset;
+      });
+    } else {
+      _scrollOffset = offset;
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
   }
 
   /// 预加载封面图路径缓存
@@ -131,6 +161,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
 
     return Scaffold(
       body: CustomScrollView(
+        controller: _scrollController,
         slivers: [
           // 折叠式应用栏
           _buildSliverAppBar(context, playlist, state),
@@ -238,21 +269,25 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final coverAsync = ref.watch(playlistCoverProvider(widget.playlistId));
 
+    // 根据滚动位置决定图标颜色：展开时白色，收起时使用主题色
+    final isCollapsed = _scrollOffset >= _collapseThreshold;
+    final iconColor = isCollapsed ? colorScheme.onSurface : Colors.white;
+
     return SliverAppBar(
       expandedHeight: 280,
       pinned: true,
-      // 返回按钮 - 白色
+      // 返回按钮 - 根据收起状态切换颜色
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.white),
+        icon: Icon(Icons.arrow_back, color: iconColor),
         onPressed: () => Navigator.of(context).pop(),
       ),
-      // 下载按钮 - 白色，添加右边距使其与左边返回按钮对称（Mix 歌單不支持下載）
+      // 下载按钮 - 根据收起状态切换颜色（Mix 歌單不支持下載）
       actions: [
         if (state.tracks.isNotEmpty && state.playlist != null && !(state.playlist!.isMix))
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: IconButton(
-              icon: const Icon(Icons.download_outlined, color: Colors.white),
+              icon: Icon(Icons.download_outlined, color: iconColor),
               onPressed: () => _downloadPlaylist(context, state.playlist!),
               tooltip: '下载全部',
             ),
