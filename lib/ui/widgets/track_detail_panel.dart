@@ -934,7 +934,6 @@ class _RadioDetailContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final station = radioState.currentStation!;
 
@@ -965,63 +964,26 @@ class _RadioDetailContent extends StatelessWidget {
 
         const SizedBox(height: 12),
 
-        // 主播信息（可点击进入空间）
+        // 主播信息（头像可点击进入空间）
         if (station.hostName != null)
-          MouseRegion(
-            cursor: station.hostUid != null
-                ? SystemMouseCursors.click
-                : SystemMouseCursors.basic,
-            child: GestureDetector(
-              onTap: station.hostUid != null
-                  ? () => UrlLauncherService.instance.openBilibiliSpace(station.hostUid!)
-                  : null,
-              child: Row(
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: colorScheme.outlineVariant,
-                        width: 1,
-                      ),
-                    ),
-                    child: ClipOval(
-                      child: SizedBox(
-                        width: 32,
-                        height: 32,
-                        child: station.hostAvatarUrl != null
-                            ? Image.network(
-                                station.hostAvatarUrl!,
-                                width: 32,
-                                height: 32,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    _buildAvatarPlaceholder(context, 32),
-                              )
-                            : _buildAvatarPlaceholder(context, 32),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      station.hostName!,
-                      style: textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (station.hostUid != null)
-                    Icon(
-                      Icons.chevron_right,
-                      size: 18,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                ],
+          Row(
+            children: [
+              _RadioClickableAvatar(
+                hostAvatarUrl: station.hostAvatarUrl,
+                hostUid: station.hostUid,
               ),
-            ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  station.hostName!,
+                  style: textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
 
         const SizedBox(height: 16),
@@ -1165,20 +1127,6 @@ class _RadioDetailContent extends StatelessWidget {
     );
   }
 
-  Widget _buildAvatarPlaceholder(BuildContext context, double size) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      width: size,
-      height: size,
-      color: colorScheme.surfaceContainerHighest,
-      child: Icon(
-        Icons.person,
-        size: size * 0.6,
-        color: colorScheme.onSurfaceVariant,
-      ),
-    );
-  }
-
   String _formatDuration(Duration duration) {
     final hours = duration.inHours;
     final minutes = duration.inMinutes.remainder(60);
@@ -1291,6 +1239,70 @@ class _RadioClickableCoverState extends State<_RadioClickableCover> {
           size: 64,
           color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
         ),
+      ),
+    );
+  }
+}
+
+/// 电台可点击头像（点击进入主播空间）
+class _RadioClickableAvatar extends StatelessWidget {
+  final String? hostAvatarUrl;
+  final int? hostUid;
+
+  const _RadioClickableAvatar({
+    this.hostAvatarUrl,
+    this.hostUid,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return MouseRegion(
+      cursor: hostUid != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      child: GestureDetector(
+        onTap: hostUid != null
+            ? () => UrlLauncherService.instance.openBilibiliSpace(hostUid!)
+            : null,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: colorScheme.outlineVariant,
+              width: 1,
+            ),
+          ),
+          child: ClipOval(
+            child: SizedBox(
+              width: 32,
+              height: 32,
+              child: hostAvatarUrl != null
+                  ? Image.network(
+                      hostAvatarUrl!,
+                      width: 32,
+                      height: 32,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          _buildPlaceholder(context),
+                    )
+                  : _buildPlaceholder(context),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlaceholder(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: 32,
+      height: 32,
+      color: colorScheme.surfaceContainerHighest,
+      child: Icon(
+        Icons.person,
+        size: 19,
+        color: colorScheme.onSurfaceVariant,
       ),
     );
   }
