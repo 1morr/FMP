@@ -312,6 +312,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   // 当前正在播放的歌曲（独立于队列，确保 UI 显示与实际播放一致）
   Track? _playingTrack;
 
+  /// 播放開始前的回調（用於互斥機制，如停止電台播放）
+  Future<void> Function()? onPlaybackStarting;
+
   // Mix 播放列表状态（僅在 Mix 模式下有效）
   _MixPlaylistState? _mixState;
 
@@ -1393,6 +1396,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     // 階段 2：進入加載狀態
     final requestId = _enterLoadingState();
     logDebug('_executePlayRequest started for: ${track.title} (requestId: $requestId, mode: $mode)');
+
+    // 互斥：停止電台播放（如果有）
+    await onPlaybackStarting?.call();
 
     // 階段 3：停止當前播放
     await _audioService.stop();

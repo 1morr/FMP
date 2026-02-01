@@ -69,7 +69,9 @@
       "mcp__plugin_playwright_playwright__browser_evaluate",
       "mcp__plugin_playwright_playwright__browser_close",
       "mcp__tavily-remote-mcp__tavily_research",
-      "mcp__plugin_playwright_playwright__browser_snapshot"
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "Bash(gh search:*)",
+      "Bash(gh issue view:*)"
     ]
   }
 }
