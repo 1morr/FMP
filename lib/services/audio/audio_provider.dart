@@ -7,6 +7,7 @@ import '../../core/logger.dart';
 import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
 import '../../data/sources/bilibili_source.dart';
+import '../../data/sources/youtube_source.dart';
 import '../../data/repositories/queue_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
@@ -46,6 +47,10 @@ class PlayerState {
   /// 隊列版本號，每次隊列結構變化（打亂、恢復順序等）時遞增
   /// 用於讓 UI 檢測是否需要同步
   final int queueVersion;
+  /// 是否處於 Mix 播放模式
+  final bool isMixMode;
+  /// Mix 播放列表標題（隊列頁顯示用）
+  final String? mixTitle;
   final String? error;
 
   const PlayerState({
@@ -68,6 +73,8 @@ class PlayerState {
     this.canPlayPrevious = false,
     this.canPlayNext = false,
     this.queueVersion = 0,
+    this.isMixMode = false,
+    this.mixTitle,
     this.error,
   });
 
@@ -115,6 +122,8 @@ class PlayerState {
     bool? canPlayPrevious,
     bool? canPlayNext,
     int? queueVersion,
+    bool? isMixMode,
+    String? mixTitle,
     String? error,
   }) {
     return PlayerState(
@@ -137,6 +146,8 @@ class PlayerState {
       canPlayPrevious: canPlayPrevious ?? this.canPlayPrevious,
       canPlayNext: canPlayNext ?? this.canPlayNext,
       queueVersion: queueVersion ?? this.queueVersion,
+      isMixMode: isMixMode ?? this.isMixMode,
+      mixTitle: mixTitle ?? this.mixTitle,
       error: error,
     );
   }
@@ -150,6 +161,8 @@ enum PlayMode {
   temporary,
   /// 脫離隊列（隊列被清空或修改後的狀態，播放的歌曲不在隊列中）
   detached,
+  /// Mix 播放列表模式（無限加載，禁止隨機和添加歌曲）
+  mix,
 }
 
 /// 統一的內部播放上下文
@@ -181,7 +194,10 @@ class _PlaybackContext {
 
   /// 是否處於臨時播放模式
   bool get isTemporary => mode == PlayMode.temporary;
-  
+
+  /// 是否處於 Mix 播放模式
+  bool get isMix => mode == PlayMode.mix;
+
   /// 是否處於加載狀態（正在進行播放請求）
   bool get isInLoadingState => activeRequestId > 0;
   
@@ -230,6 +246,38 @@ class _LockWithId {
   bool belongsTo(int checkRequestId) => requestId == checkRequestId;
 }
 
+/// Mix 播放列表狀態
+/// 用於追蹤 Mix 模式下的播放列表信息和去重
+class _MixPlaylistState {
+  /// Mix 播放列表 ID（以 RD 開頭）
+  final String playlistId;
+
+  /// 種子影片 ID（用於首次加載）
+  final String seedVideoId;
+
+  /// Mix 播放列表標題
+  final String title;
+
+  /// 已見過的影片 ID 集合（用於去重）
+  final Set<String> seenVideoIds;
+
+  /// 是否正在加載更多
+  bool isLoadingMore;
+
+  _MixPlaylistState({
+    required this.playlistId,
+    required this.seedVideoId,
+    required this.title,
+    Set<String>? seenVideoIds,
+    this.isLoadingMore = false,
+  }) : seenVideoIds = seenVideoIds ?? {};
+
+  /// 添加影片 ID 到已見集合
+  void addSeenVideoIds(Iterable<String> ids) {
+    seenVideoIds.addAll(ids);
+  }
+}
+
 /// 音频控制器 - 管理所有播放相关的状态和操作
 /// 协调 AudioService（单曲播放）和 QueueManager（队列管理）
 class AudioController extends StateNotifier<PlayerState> with Logging {
@@ -264,6 +312,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   // 当前正在播放的歌曲（独立于队列，确保 UI 显示与实际播放一致）
   Track? _playingTrack;
+
+  // Mix 播放列表状态（僅在 Mix 模式下有效）
+  _MixPlaylistState? _mixState;
 
   AudioController({
     required MediaKitAudioService audioService,
@@ -664,6 +715,76 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   Future<void> playPlaylist(List<Track> tracks, {int startIndex = 0}) =>
       playAll(tracks, startIndex: startIndex);
 
+  /// 播放 Mix 播放列表
+  /// 
+  /// Mix 播放列表是 YouTube 自動生成的播放列表（RD 開頭），使用特殊的播放模式：
+  /// - 禁止隨機播放
+  /// - 禁止添加/插入歌曲到隊列
+  /// - 播放到最後一首時自動加載更多
+  /// - 清空隊列時退出 Mix 模式
+  Future<void> playMixPlaylist({
+    required String playlistId,
+    required String seedVideoId,
+    required String title,
+    required List<Track> tracks,
+    int startIndex = 0,
+  }) async {
+    await _ensureInitialized();
+    state = state.copyWith(isLoading: true, error: null);
+    logInfo('Playing Mix playlist: $title with ${tracks.length} tracks');
+
+    try {
+      // 清空當前隊列並設置 Mix 模式
+      await _queueManager.clear();
+      
+      // 初始化 Mix 狀態
+      _mixState = _MixPlaylistState(
+        playlistId: playlistId,
+        seedVideoId: seedVideoId,
+        title: title,
+      );
+      // 記錄已加載的視頻 ID（用於去重）
+      _mixState!.addSeenVideoIds(tracks.map((t) => t.sourceId));
+
+      // 添加歌曲到隊列
+      await _queueManager.playAll(tracks, startIndex: startIndex);
+
+      // 更新 PlayerState（先設置，因為 _executePlayRequest 會重置 isLoading）
+      state = state.copyWith(
+        isMixMode: true,
+        mixTitle: title,
+      );
+
+      // 播放第一首（使用 PlayMode.mix 以保持 Mix 模式）
+      final currentTrack = _queueManager.currentTrack;
+      if (currentTrack != null) {
+        await _executePlayRequest(
+          track: currentTrack,
+          mode: PlayMode.mix,
+          persist: true,
+          recordHistory: true,
+        );
+      }
+    } catch (e, stack) {
+      logError('Failed to play Mix playlist', e, stack);
+      _exitMixMode();
+      state = state.copyWith(error: e.toString(), isLoading: false);
+    }
+  }
+
+  /// 退出 Mix 模式
+  void _exitMixMode() {
+    if (_mixState != null) {
+      logDebug('Exiting Mix mode');
+      _mixState = null;
+      _context = _context.copyWith(mode: PlayMode.queue);
+      state = state.copyWith(
+        isMixMode: false,
+        mixTitle: null,
+      );
+    }
+  }
+
   /// 播放队列中指定索引的歌曲
   Future<void> playAt(int index) async {
     await _ensureInitialized();
@@ -746,6 +867,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 添加到队列
   Future<void> addToQueue(Track track) async {
     await _ensureInitialized();
+    
+    // Mix 模式下禁止添加歌曲
+    if (_context.isMix) {
+      _toastService.showInfo('Mix 播放列表不支持添加歌曲');
+      return;
+    }
+    
     logInfo('Adding to queue: ${track.title}');
     try {
       await _queueManager.add(track);
@@ -759,6 +887,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 批量添加到队列
   Future<void> addAllToQueue(List<Track> tracks) async {
     await _ensureInitialized();
+    
+    // Mix 模式下禁止添加歌曲
+    if (_context.isMix) {
+      _toastService.showInfo('Mix 播放列表不支持添加歌曲');
+      return;
+    }
+    
     logInfo('Adding ${tracks.length} tracks to queue');
     try {
       await _queueManager.addAll(tracks);
@@ -772,6 +907,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 添加到下一首
   Future<void> addNext(Track track) async {
     await _ensureInitialized();
+    
+    // Mix 模式下禁止添加歌曲
+    if (_context.isMix) {
+      _toastService.showInfo('Mix 播放列表不支持添加歌曲');
+      return;
+    }
+    
     logInfo('Adding next: ${track.title}');
     try {
       await _queueManager.addNext(track);
@@ -811,6 +953,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 随机打乱队列（破坏性）
   Future<void> shuffleQueue() async {
     await _ensureInitialized();
+    
+    // Mix 模式下禁止隨機播放
+    if (_context.isMix) {
+      _toastService.showInfo('Mix 播放列表不支持隨機播放');
+      return;
+    }
+    
     logInfo('Shuffling queue');
     try {
       await _queueManager.shuffle();
@@ -827,6 +976,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     logInfo('Clearing queue');
     try {
       await _queueManager.clear();
+      
+      // 退出 Mix 模式（如果有）
+      if (_context.isMix) {
+        _exitMixMode();
+      }
+      
       // 如果還有歌曲在播放，且不是臨時播放模式，則進入 detached 模式
       if (_playingTrack != null && !_context.isTemporary) {
         _context = _context.copyWith(mode: PlayMode.detached);
@@ -855,6 +1010,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 切换随机播放
   Future<void> toggleShuffle() async {
+    // Mix 模式下禁止隨機播放
+    if (_context.isMix) {
+      _toastService.showInfo('Mix 播放列表不支持隨機播放');
+      return;
+    }
+    
     logDebug('Toggling shuffle');
     await _queueManager.toggleShuffle();
     state = state.copyWith(isShuffleEnabled: _queueManager.isShuffleEnabled);
@@ -1074,6 +1235,45 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     logDebug('Cleared playing track');
   }
 
+  /// 加載更多 Mix 播放列表歌曲
+  /// 
+  /// 使用當前隊列最後一首歌曲的 videoId 請求更多歌曲
+  Future<void> _loadMoreMixTracks() async {
+    if (_mixState == null || _mixState!.isLoadingMore) return;
+
+    final queue = _queueManager.tracks;
+    if (queue.isEmpty) return;
+
+    final lastTrack = queue.last;
+    _mixState!.isLoadingMore = true;
+    logInfo('Loading more Mix tracks from: ${lastTrack.title}');
+
+    try {
+      final youtubeSource = YouTubeSource();
+      final result = await youtubeSource.fetchMixTracks(
+        playlistId: _mixState!.playlistId,
+        currentVideoId: lastTrack.sourceId,
+      );
+
+      // 過濾已存在的歌曲（去重）
+      final newTracks = result.tracks.where((t) => !_mixState!.seenVideoIds.contains(t.sourceId)).toList();
+      
+      if (newTracks.isNotEmpty) {
+        logDebug('Adding ${newTracks.length} new tracks to Mix queue');
+        _mixState!.addSeenVideoIds(newTracks.map((t) => t.sourceId));
+        await _queueManager.addAll(newTracks);
+        _updateQueueState();
+      } else {
+        logDebug('No new tracks to add (all duplicates)');
+      }
+    } catch (e, stack) {
+      logError('Failed to load more Mix tracks', e, stack);
+      _toastService.showInfo('加載更多歌曲失敗');
+    } finally {
+      _mixState!.isLoadingMore = false;
+    }
+  }
+
   /// 获取播放音频所需的 HTTP 请求头
   /// Bilibili 需要 Referer 头，YouTube 需要 Origin 和 Referer 头
   Map<String, String>? _getHeadersForTrack(Track track) {
@@ -1227,6 +1427,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // 更新隊列狀態
       _updateQueueState();
       
+      // Mix 模式：當開始播放最後一首時，立即加載更多歌曲
+      if (mode == PlayMode.mix && _queueManager.currentIndex == _queueManager.tracks.length - 1) {
+        logDebug('Mix mode: started playing last track, loading more...');
+        // 使用 unawaited 避免阻塞當前播放
+        unawaited(_loadMoreMixTracks());
+      }
+      
       logDebug('_executePlayRequest completed successfully for: ${track.title}');
     } on BilibiliApiException catch (e) {
       logWarning('Bilibili API error for ${track.title}: ${e.message}');
@@ -1350,9 +1557,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 播放指定歌曲（委託給統一入口）
   Future<void> _playTrack(Track track) async {
+    // 保持當前模式：如果在 Mix 模式，繼續使用 Mix 模式
+    final currentMode = _context.isMix ? PlayMode.mix : PlayMode.queue;
     await _executePlayRequest(
       track: track,
-      mode: PlayMode.queue,
+      mode: currentMode,
       persist: true,
       recordHistory: true,
       prefetchNext: true,

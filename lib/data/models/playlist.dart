@@ -37,6 +37,15 @@ class Playlist {
   /// 是否在更新时通知
   bool notifyOnUpdate = true;
 
+  /// 是否為 YouTube Mix/Radio 播放列表（動態生成，不保存 tracks）
+  bool isMix = false;
+
+  /// Mix 播放列表 ID（如 RDTbFSpvlaugc）
+  String? mixPlaylistId;
+
+  /// Mix 種子視頻 ID（用於首次加載）
+  String? mixSeedVideoId;
+
   /// 关联的歌曲ID列表（有序）
   List<int> trackIds = [];
 
