@@ -82,11 +82,7 @@ String _extractDisplayNameInternal(String folderName) {
 /// 内部函数：查找封面（用于 isolate）
 Future<String?> _findFirstCoverInternal(Directory folder) async {
   try {
-    final playlistCoverFile = File(p.join(folder.path, 'playlist_cover.jpg'));
-    if (await playlistCoverFile.exists()) {
-      return playlistCoverFile.path;
-    }
-
+    // 查找第一个歌曲子文件夹中的 cover.jpg
     await for (final entity in folder.list()) {
       if (entity is Directory) {
         final coverFile = File(p.join(entity.path, 'cover.jpg'));
