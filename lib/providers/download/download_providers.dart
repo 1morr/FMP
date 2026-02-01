@@ -14,15 +14,12 @@ import '../../services/download/download_service.dart';
 import '../../services/download/download_path_utils.dart';
 import '../database_provider.dart';
 import '../repository_providers.dart';
-import 'download_state.dart';
 import 'download_scanner.dart';
 import 'file_exists_cache.dart';
 import '../playlist_provider.dart' show playlistDetailProvider;
 
 // Re-export for convenience
-export 'download_state.dart';
 export 'download_scanner.dart';
-export 'download_extensions.dart';
 
 // ==================== Repository Providers ====================
 
@@ -117,12 +114,6 @@ final downloadTasksProvider = StreamProvider<List<DownloadTask>>((ref) {
   return repo.watchAllTasks();
 });
 
-/// 下载任务状态 Provider (根据状态过滤)
-final downloadTasksByStatusProvider = FutureProvider.family<List<DownloadTask>, DownloadStatus>((ref, status) async {
-  final repo = ref.watch(downloadRepositoryProvider);
-  return repo.getTasksByStatus(status);
-});
-
 /// 进行中的下载任务 Provider
 final activeDownloadsProvider = Provider<List<DownloadTask>>((ref) {
   final tasks = ref.watch(downloadTasksProvider);
@@ -193,12 +184,6 @@ final trackByIdProvider = FutureProvider.family<Track?, int>((ref, trackId) asyn
   return trackRepo.getById(trackId);
 });
 
-/// 已下载的歌曲列表 Provider
-final downloadedTracksProvider = StreamProvider<List<Track>>((ref) {
-  final trackRepo = ref.watch(trackRepositoryProvider);
-  return trackRepo.watchDownloaded();
-});
-
 // ==================== Category Providers ====================
 
 /// 已下载分类列表 Provider
@@ -210,17 +195,8 @@ final downloadedCategoriesProvider = FutureProvider<List<DownloadedCategory>>((r
   final settingsRepo = SettingsRepository(ref.watch(databaseProvider).requireValue);
   final downloadPath = await DownloadPathUtils.getDefaultBaseDir(settingsRepo);
 
-  // 在单独的 isolate 中执行文件扫描
-  final results = await Isolate.run(() => scanCategoriesInIsolate(ScanCategoriesParams(downloadPath)));
-  
-  // 转换为 DownloadedCategory
-  return results.map((r) => DownloadedCategory(
-    folderName: r.folderName,
-    displayName: r.displayName,
-    trackCount: r.trackCount,
-    coverPath: r.coverPath,
-    folderPath: r.folderPath,
-  )).toList();
+  // 在单独的 isolate 中执行文件扫描，直接返回 DownloadedCategory 列表
+  return Isolate.run(() => scanCategoriesInIsolate(ScanCategoriesParams(downloadPath)));
 });
 
 /// 获取指定分类文件夹中的已下载歌曲（基于本地文件扫描）
