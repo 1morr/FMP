@@ -173,9 +173,6 @@ class ImportService with Logging {
         playlist.id = playlistId;
       }
 
-      // 获取下载目录（用于预计算路径）
-      final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
-
       // 导入歌曲
       int addedCount = 0;
       int skippedCount = 0;
@@ -200,13 +197,8 @@ class ImportService with Logging {
           if (existing != null) {
             // 歌曲已存在，添加到歌单（如果不在）
             if (!playlist.trackIds.contains(existing.id)) {
-              // 计算并设置下载路径
-              final downloadPath = DownloadPathUtils.computeDownloadPath(
-                baseDir: baseDir,
-                playlistName: playlist.name,
-                track: existing,
-              );
-              existing.setDownloadPath(playlist.id, downloadPath);
+              // 只添加歌单关联，不预计算下载路径（路径在下载完成时设置）
+              existing.addToPlaylist(playlist.id, playlistName: playlist.name);
               await _trackRepository.save(existing);
               
               // 创建可变列表副本，避免 fixed-length list 错误
@@ -218,13 +210,8 @@ class ImportService with Logging {
               skippedCount++;
             }
           } else {
-            // 计算并设置下载路径
-            final downloadPath = DownloadPathUtils.computeDownloadPath(
-              baseDir: baseDir,
-              playlistName: playlist.name,
-              track: track,
-            );
-            track.setDownloadPath(playlist.id, downloadPath);
+            // 只添加歌单关联，不预计算下载路径（路径在下载完成时设置）
+            track.addToPlaylist(playlist.id, playlistName: playlist.name);
             
             // 保存新歌曲
             final savedTrack = await _trackRepository.save(track);
@@ -303,9 +290,6 @@ class ImportService with Logging {
         current: 0,
       );
 
-      // 获取下载目录（用于预计算路径）
-      final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
-
       // 保存原来的 trackIds 用于计算移除数量
       final originalTrackIds = Set<int>.from(playlist.trackIds);
 
@@ -333,36 +317,21 @@ class ImportService with Logging {
           if (existing != null) {
             newTrackIds.add(existing.id);
             if (!playlist.trackIds.contains(existing.id)) {
-              // 新添加到歌单的 Track，计算并设置下载路径
-              final downloadPath = DownloadPathUtils.computeDownloadPath(
-                baseDir: baseDir,
-                playlistName: playlist.name,
-                track: existing,
-              );
-              existing.setDownloadPath(playlist.id, downloadPath);
+              // 新添加到歌单的 Track，只添加歌单关联（路径在下载完成时设置）
+              existing.addToPlaylist(playlist.id, playlistName: playlist.name);
               await _trackRepository.save(existing);
               addedCount++;
             } else {
-              // 已在歌单中，检查是否已有下载路径
+              // 已在歌单中，确保有歌单关联
               if (!existing.belongsToPlaylist(playlist.id)) {
-                final downloadPath = DownloadPathUtils.computeDownloadPath(
-                  baseDir: baseDir,
-                  playlistName: playlist.name,
-                  track: existing,
-                );
-                existing.setDownloadPath(playlist.id, downloadPath);
+                existing.addToPlaylist(playlist.id, playlistName: playlist.name);
                 await _trackRepository.save(existing);
               }
               skippedCount++;
             }
           } else {
-            // 计算并设置下载路径
-            final downloadPath = DownloadPathUtils.computeDownloadPath(
-              baseDir: baseDir,
-              playlistName: playlist.name,
-              track: track,
-            );
-            track.setDownloadPath(playlist.id, downloadPath);
+            // 只添加歌单关联，不预计算下载路径（路径在下载完成时设置）
+            track.addToPlaylist(playlist.id, playlistName: playlist.name);
             
             final savedTrack = await _trackRepository.save(track);
             newTrackIds.add(savedTrack.id);
