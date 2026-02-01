@@ -455,18 +455,21 @@ class _LiveInfoDialog extends ConsumerWidget {
                       if (station.hostName != null)
                         Row(
                           children: [
-                            // 主播頭像佔位
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: colorScheme.surfaceContainerHighest,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.person,
-                                size: 24,
-                                color: colorScheme.onSurfaceVariant,
+                            // 主播頭像
+                            ClipOval(
+                              child: SizedBox(
+                                width: 40,
+                                height: 40,
+                                child: station.hostAvatarUrl != null
+                                    ? Image.network(
+                                        station.hostAvatarUrl!,
+                                        width: 40,
+                                        height: 40,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) =>
+                                            _buildAvatarPlaceholder(colorScheme),
+                                      )
+                                    : _buildAvatarPlaceholder(colorScheme),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -559,6 +562,19 @@ class _LiveInfoDialog extends ConsumerWidget {
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAvatarPlaceholder(ColorScheme colorScheme) {
+    return Container(
+      width: 40,
+      height: 40,
+      color: colorScheme.surfaceContainerHighest,
+      child: Icon(
+        Icons.person,
+        size: 24,
+        color: colorScheme.onSurfaceVariant,
       ),
     );
   }
