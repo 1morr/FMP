@@ -372,251 +372,335 @@ class RadioPlayerPage extends ConsumerWidget {
 }
 
 /// 直播間信息彈窗
-class _LiveInfoDialog extends ConsumerWidget {
+class _LiveInfoDialog extends StatefulWidget {
   final RadioState state;
 
   const _LiveInfoDialog({required this.state});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  State<_LiveInfoDialog> createState() => _LiveInfoDialogState();
+}
+
+class _LiveInfoDialogState extends State<_LiveInfoDialog> {
+  bool _isAnnouncementExpanded = false;
+  bool _isDescriptionExpanded = false;
+  bool _announcementNeedsExpansion = false;
+  bool _descriptionNeedsExpansion = false;
+  final GlobalKey _announcementKey = GlobalKey();
+  final GlobalKey _descriptionKey = GlobalKey();
+
+  static const int _maxLines = 4;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkIfNeedsExpansion();
+    });
+  }
+
+  void _checkIfNeedsExpansion() {
+    final textStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
+      height: 1.6,
+    );
+
+    // 檢查公告是否需要展開
+    if (widget.state.announcement != null && widget.state.announcement!.isNotEmpty) {
+      final announcementPainter = TextPainter(
+        text: TextSpan(text: widget.state.announcement!, style: textStyle),
+        maxLines: _maxLines,
+        textDirection: TextDirection.ltr,
+      );
+      final box = _announcementKey.currentContext?.findRenderObject() as RenderBox?;
+      if (box != null) {
+        announcementPainter.layout(maxWidth: box.size.width);
+        if (mounted) {
+          setState(() {
+            _announcementNeedsExpansion = announcementPainter.didExceedMaxLines;
+          });
+        }
+      }
+    }
+
+    // 檢查簡介是否需要展開
+    if (widget.state.description != null && widget.state.description!.isNotEmpty) {
+      final descriptionPainter = TextPainter(
+        text: TextSpan(text: widget.state.description!, style: textStyle),
+        maxLines: _maxLines,
+        textDirection: TextDirection.ltr,
+      );
+      final box = _descriptionKey.currentContext?.findRenderObject() as RenderBox?;
+      if (box != null) {
+        descriptionPainter.layout(maxWidth: box.size.width);
+        if (mounted) {
+          setState(() {
+            _descriptionNeedsExpansion = descriptionPainter.didExceedMaxLines;
+          });
+        }
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final station = state.currentStation;
+    final station = widget.state.currentStation;
+    final screenHeight = MediaQuery.of(context).size.height;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: screenHeight * 0.75,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 頂部拖動手柄
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(2),
+      child: Container(
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerLow,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 頂部拖動手柄
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
 
-          // 標題欄
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.info_outline_rounded,
-                  size: 20,
-                  color: colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '直播間信息',
-                  style: textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+            // 標題欄
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 20,
+                    color: colorScheme.primary,
                   ),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Text(
+                    '直播間信息',
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
             ),
-          ),
 
-          const Divider(height: 1),
+            const Divider(height: 1),
 
-          // 內容區域
-          Flexible(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: station == null
-                  ? const Text('無法獲取直播間信息')
-                  : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 標題
-                      Text(
-                        station.title,
-                        style: textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          height: 1.3,
+            // 內容區域
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: station == null
+                    ? const Text('無法獲取直播間信息')
+                    : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 標題
+                        Text(
+                          station.title,
+                          style: textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            height: 1.3,
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
 
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 16),
 
-                      // 主播信息
-                      if (station.hostName != null)
-                        Row(
-                          children: [
-                            // 主播頭像
-                            ClipOval(
-                              child: SizedBox(
-                                width: 40,
-                                height: 40,
-                                child: station.hostAvatarUrl != null
-                                    ? Image.network(
-                                        station.hostAvatarUrl!,
-                                        width: 40,
-                                        height: 40,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) =>
-                                            _buildAvatarPlaceholder(colorScheme),
-                                      )
-                                    : _buildAvatarPlaceholder(colorScheme),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                station.hostName!,
-                                style: textTheme.bodyLarge?.copyWith(
-                                  fontWeight: FontWeight.w500,
+                        // 主播信息
+                        if (station.hostName != null)
+                          Row(
+                            children: [
+                              ClipOval(
+                                child: SizedBox(
+                                  width: 40,
+                                  height: 40,
+                                  child: station.hostAvatarUrl != null
+                                      ? Image.network(
+                                          station.hostAvatarUrl!,
+                                          width: 40,
+                                          height: 40,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) =>
+                                              _buildAvatarPlaceholder(colorScheme),
+                                        )
+                                      : _buildAvatarPlaceholder(colorScheme),
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                               ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  station.hostName!,
+                                  style: textTheme.bodyLarge?.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+
+                        const SizedBox(height: 16),
+
+                        // 統計數據
+                        Wrap(
+                          spacing: 16,
+                          runSpacing: 8,
+                          children: [
+                            if (widget.state.viewerCount != null)
+                              _buildStatItem(
+                                context,
+                                Icons.visibility_rounded,
+                                '${_formatCount(widget.state.viewerCount!)} 觀眾',
+                              ),
+                            if (widget.state.isPlaying)
+                              _buildStatItem(
+                                context,
+                                Icons.schedule_outlined,
+                                '已播放 ${_formatDuration(widget.state.playDuration)}',
+                              ),
+                            if (widget.state.liveStartTime != null)
+                              _buildStatItem(
+                                context,
+                                Icons.play_circle_outline,
+                                '開播於 ${_formatDateTime(widget.state.liveStartTime!)}',
+                              ),
+                            if (widget.state.areaName != null)
+                              _buildStatItem(
+                                context,
+                                Icons.category_outlined,
+                                widget.state.areaName!,
+                              ),
+                            _buildStatItem(
+                              context,
+                              widget.state.isPlaying
+                                  ? Icons.radio_button_checked
+                                  : Icons.radio_button_off,
+                              widget.state.isPlaying ? '直播中' : '已停止',
                             ),
                           ],
                         ),
 
-                      const SizedBox(height: 16),
-
-                      // 統計數據
-                      Wrap(
-                        spacing: 16,
-                        runSpacing: 8,
-                        children: [
-                          // 觀看人數
-                          if (state.viewerCount != null)
-                            _buildStatItem(
-                              context,
-                              Icons.visibility_rounded,
-                              '${_formatCount(state.viewerCount!)} 觀眾',
-                            ),
-                          // 已播放時長
-                          if (state.isPlaying)
-                            _buildStatItem(
-                              context,
-                              Icons.schedule_outlined,
-                              '已播放 ${_formatDuration(state.playDuration)}',
-                            ),
-                          // 開播時間
-                          if (state.liveStartTime != null)
-                            _buildStatItem(
-                              context,
-                              Icons.play_circle_outline,
-                              '開播於 ${_formatDateTime(state.liveStartTime!)}',
-                            ),
-                          // 分區
-                          if (state.areaName != null)
-                            _buildStatItem(
-                              context,
-                              Icons.category_outlined,
-                              state.areaName!,
-                            ),
-                          // 直播狀態
-                          _buildStatItem(
+                        // 主播公告
+                        if (widget.state.announcement != null &&
+                            widget.state.announcement!.isNotEmpty) ...[
+                          const SizedBox(height: 20),
+                          const Divider(),
+                          const SizedBox(height: 16),
+                          _buildExpandableSection(
                             context,
-                            state.isPlaying
-                                ? Icons.radio_button_checked
-                                : Icons.radio_button_off,
-                            state.isPlaying ? '直播中' : '已停止',
+                            icon: Icons.campaign_outlined,
+                            title: '主播公告',
+                            content: widget.state.announcement!,
+                            textKey: _announcementKey,
+                            isExpanded: _isAnnouncementExpanded,
+                            needsExpansion: _announcementNeedsExpansion,
+                            onToggle: () {
+                              setState(() {
+                                _isAnnouncementExpanded = !_isAnnouncementExpanded;
+                              });
+                            },
                           ),
                         ],
-                      ),
 
-                      // 主播公告
-                      if (state.announcement != null &&
-                          state.announcement!.isNotEmpty) ...[
+                        // 直播間簡介
+                        if (widget.state.description != null &&
+                            widget.state.description!.isNotEmpty) ...[
+                          const SizedBox(height: 20),
+                          const Divider(),
+                          const SizedBox(height: 16),
+                          _buildExpandableSection(
+                            context,
+                            icon: Icons.info_outline_rounded,
+                            title: '簡介',
+                            content: widget.state.description!,
+                            textKey: _descriptionKey,
+                            isExpanded: _isDescriptionExpanded,
+                            needsExpansion: _descriptionNeedsExpansion,
+                            onToggle: () {
+                              setState(() {
+                                _isDescriptionExpanded = !_isDescriptionExpanded;
+                              });
+                            },
+                          ),
+                        ],
+
+                        // 標籤
+                        if (widget.state.tags != null &&
+                            widget.state.tags!.isNotEmpty) ...[
+                          const SizedBox(height: 20),
+                          const Divider(),
+                          const SizedBox(height: 16),
+                          _buildTagsSection(context, widget.state.tags!),
+                        ],
+
                         const SizedBox(height: 20),
-                        const Divider(),
-                        const SizedBox(height: 16),
-                        _buildSection(
-                          context,
-                          icon: Icons.campaign_outlined,
-                          title: '主播公告',
-                          content: state.announcement!,
-                        ),
-                      ],
 
-                      // 直播間簡介
-                      if (state.description != null &&
-                          state.description!.isNotEmpty) ...[
-                        const SizedBox(height: 20),
-                        const Divider(),
-                        const SizedBox(height: 16),
-                        _buildSection(
-                          context,
-                          icon: Icons.info_outline_rounded,
-                          title: '簡介',
-                          content: state.description!,
-                        ),
-                      ],
-
-                      // 標籤
-                      if (state.tags != null &&
-                          state.tags!.isNotEmpty) ...[
-                        const SizedBox(height: 20),
-                        const Divider(),
-                        const SizedBox(height: 16),
-                        _buildTagsSection(context, state.tags!),
-                      ],
-
-                      const SizedBox(height: 20),
-
-                      // 直播間連結
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.link,
-                              size: 18,
-                              color: colorScheme.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                station.url,
-                                style: textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                        // 直播間連結
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.link,
+                                size: 18,
+                                color: colorScheme.primary,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  station.url,
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
 
-                      const SizedBox(height: 20),
-                    ],
-                  ),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildSection(
+  Widget _buildExpandableSection(
     BuildContext context, {
     required IconData icon,
     required String title,
     required String content,
+    required GlobalKey textKey,
+    required bool isExpanded,
+    required bool needsExpansion,
+    required VoidCallback onToggle,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
@@ -640,11 +724,31 @@ class _LiveInfoDialog extends ConsumerWidget {
         const SizedBox(height: 12),
         Text(
           content,
+          key: textKey,
           style: textTheme.bodyMedium?.copyWith(
             color: colorScheme.onSurfaceVariant,
             height: 1.6,
           ),
+          maxLines: isExpanded ? null : _maxLines,
+          overflow: isExpanded ? null : TextOverflow.ellipsis,
         ),
+        if (needsExpansion)
+          Align(
+            alignment: Alignment.centerRight,
+            child: GestureDetector(
+              onTap: onToggle,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  isExpanded ? '收起' : '展開',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
