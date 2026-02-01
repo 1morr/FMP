@@ -1,5 +1,9 @@
+import 'dart:convert';
+
+import 'package:dio/dio.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt;
 
+import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../models/track.dart';
 import '../models/video_detail.dart';
@@ -8,6 +12,13 @@ import 'base_source.dart';
 /// YouTube 音源实现
 class YouTubeSource extends BaseSource with Logging {
   late final yt.YoutubeExplode _youtube;
+  late final Dio _dio;
+
+  // InnerTube API 配置
+  static const String _innerTubeApiBase = 'https://www.youtube.com/youtubei/v1';
+  static const String _innerTubeApiKey = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
+  static const String _innerTubeClientName = 'WEB';
+  static const String _innerTubeClientVersion = '2.20260128.05.00';
 
   // 熱門搜索關鍵字
   static const List<String> _trendingMusicQueries = [
@@ -20,6 +31,15 @@ class YouTubeSource extends BaseSource with Logging {
 
   YouTubeSource() {
     _youtube = yt.YoutubeExplode();
+    _dio = Dio(BaseOptions(
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+      connectTimeout: AppConstants.networkConnectTimeout,
+      receiveTimeout: AppConstants.networkReceiveTimeout,
+    ));
   }
 
   @override
@@ -405,6 +425,163 @@ class YouTubeSource extends BaseSource with Logging {
     }
   }
 
+  // ==================== Mix/Radio 播放列表支持 ====================
+
+  /// 判斷播放列表 ID 是否為 YouTube 自動生成的 Mix/Radio 播放列表
+  /// Mix 播放列表 ID 以 "RD" 開頭，後跟種子影片 ID
+  bool _isMixPlaylistId(String playlistId) {
+    return playlistId.startsWith('RD');
+  }
+
+  /// 從 URL 中提取 list= 參數值
+  String? _extractListParam(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return null;
+    return uri.queryParameters['list'];
+  }
+
+  /// 從 URL 中提取 v= 參數值（影片 ID）
+  String? _extractVideoIdParam(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return null;
+    return uri.queryParameters['v'];
+  }
+
+  /// 使用 InnerTube /next API 解析 Mix/Radio 播放列表
+  Future<PlaylistParseResult> _parseMixPlaylist(
+    String playlistUrl,
+    String playlistId,
+  ) async {
+    // 從 playlistId 中提取種子影片 ID（去掉 "RD" 前綴）
+    // 也嘗試從 URL 提取 v= 參數
+    final seedVideoId = _extractVideoIdParam(playlistUrl) ??
+        (playlistId.length > 2 ? playlistId.substring(2) : null);
+
+    if (seedVideoId == null || seedVideoId.isEmpty) {
+      throw YouTubeApiException(
+        code: 'invalid_url',
+        message: 'Cannot extract seed video ID from Mix playlist URL',
+      );
+    }
+
+    logDebug('Parsing Mix playlist: $playlistId (seed: $seedVideoId)');
+
+    try {
+      final response = await _dio.post(
+        '$_innerTubeApiBase/next?key=$_innerTubeApiKey',
+        data: jsonEncode({
+          'videoId': seedVideoId,
+          'playlistId': playlistId,
+          'context': {
+            'client': {
+              'clientName': _innerTubeClientName,
+              'clientVersion': _innerTubeClientVersion,
+              'hl': 'zh-TW',
+              'gl': 'TW',
+            },
+          },
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        throw YouTubeApiException(
+          code: 'api_error',
+          message: 'InnerTube API returned status ${response.statusCode}',
+        );
+      }
+
+      final data = response.data is String
+          ? jsonDecode(response.data as String) as Map<String, dynamic>
+          : response.data as Map<String, dynamic>;
+
+      // 解析播放列表數據
+      // 路徑: contents.twoColumnWatchNextResults.playlist.playlist
+      final twoColumn = data['contents']?['twoColumnWatchNextResults'];
+      final playlistData = twoColumn?['playlist']?['playlist'];
+
+      if (playlistData == null) {
+        throw YouTubeApiException(
+          code: 'parse_error',
+          message: 'Mix playlist data not found in API response',
+        );
+      }
+
+      final title = playlistData['title'] as String? ?? 'Mix';
+      final contents = playlistData['contents'] as List? ?? [];
+
+      final allTracks = <Track>[];
+      for (final item in contents) {
+        final renderer = item['playlistPanelVideoRenderer'] as Map<String, dynamic>?;
+        if (renderer == null) continue;
+
+        final videoId = renderer['videoId'] as String?;
+        if (videoId == null) continue;
+
+        // 解析標題
+        final titleObj = renderer['title'];
+        final trackTitle = titleObj?['simpleText'] as String? ??
+            (titleObj?['runs'] as List?)?.firstOrNull?['text'] as String? ??
+            'Unknown';
+
+        // 解析頻道名（作為 artist）
+        final bylineRuns = renderer['shortBylineText']?['runs'] as List?;
+        final artist = bylineRuns?.firstOrNull?['text'] as String? ?? '';
+
+        // 解析時長
+        final lengthText = renderer['lengthText']?['simpleText'] as String?;
+        final durationMs = _parseDurationText(lengthText);
+
+        // 解析縮圖
+        final thumbnails = renderer['thumbnail']?['thumbnails'] as List?;
+        final thumbnailUrl = thumbnails?.isNotEmpty == true
+            ? thumbnails!.last['url'] as String?
+            : 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
+
+        allTracks.add(Track()
+          ..sourceId = videoId
+          ..sourceType = SourceType.youtube
+          ..title = trackTitle
+          ..artist = artist
+          ..durationMs = durationMs
+          ..thumbnailUrl = thumbnailUrl);
+      }
+
+      logDebug('Parsed Mix playlist: $title, ${allTracks.length} tracks');
+
+      // 使用第一個影片的縮圖作為封面
+      final coverUrl = allTracks.isNotEmpty ? allTracks.first.thumbnailUrl : null;
+
+      return PlaylistParseResult(
+        title: title,
+        description: 'YouTube Mix playlist',
+        coverUrl: coverUrl,
+        tracks: allTracks,
+        totalCount: allTracks.length,
+        sourceUrl: playlistUrl,
+      );
+    } on DioException catch (e) {
+      logError('InnerTube API request failed: ${e.message}');
+      throw YouTubeApiException(
+        code: 'network_error',
+        message: 'Failed to fetch Mix playlist: ${e.message}',
+      );
+    }
+  }
+
+  /// 解析時長字串（如 "4:39" 或 "1:23:45"）為毫秒
+  int _parseDurationText(String? text) {
+    if (text == null || text.isEmpty) return 0;
+    try {
+      final parts = text.split(':').map(int.parse).toList();
+      if (parts.length == 2) {
+        return (parts[0] * 60 + parts[1]) * 1000;
+      } else if (parts.length == 3) {
+        return (parts[0] * 3600 + parts[1] * 60 + parts[2]) * 1000;
+      }
+    } catch (_) {}
+    return 0;
+  }
+
   @override
   Future<PlaylistParseResult> parsePlaylist(
     String playlistUrl, {
@@ -413,7 +590,10 @@ class YouTubeSource extends BaseSource with Logging {
   }) async {
     logDebug('Parsing YouTube playlist: $playlistUrl');
     try {
-      final playlistId = _parsePlaylistId(playlistUrl);
+      // 先嘗試從 URL 中提取 list= 參數
+      final listParam = _extractListParam(playlistUrl);
+      final playlistId = listParam ?? _parsePlaylistId(playlistUrl);
+
       if (playlistId == null) {
         throw YouTubeApiException(
           code: 'invalid_url',
@@ -421,7 +601,12 @@ class YouTubeSource extends BaseSource with Logging {
         );
       }
 
-      // 获取播放列表元数据
+      // Mix/Radio 播放列表使用 InnerTube API
+      if (_isMixPlaylistId(playlistId)) {
+        return _parseMixPlaylist(playlistUrl, playlistId);
+      }
+
+      // 普通播放列表使用 youtube_explode_dart
       final playlist = await _youtube.playlists.get(playlistId);
 
       // 获取所有视频
@@ -441,7 +626,6 @@ class YouTubeSource extends BaseSource with Logging {
           'Parsed YouTube playlist: ${playlist.title}, ${allTracks.length} tracks');
 
       // 使用第一个视频的缩略图作为歌单封面
-      // (playlist.thumbnails 使用播放列表 ID 生成 URL，对视频缩略图无效)
       final coverUrl = allTracks.isNotEmpty ? allTracks.first.thumbnailUrl : null;
 
       return PlaylistParseResult(
@@ -453,6 +637,7 @@ class YouTubeSource extends BaseSource with Logging {
         sourceUrl: playlistUrl,
       );
     } catch (e) {
+      if (e is YouTubeApiException) rethrow;
       logError('Failed to parse YouTube playlist: $playlistUrl, error: $e');
       throw YouTubeApiException(
         code: 'error',
@@ -578,6 +763,7 @@ class YouTubeSource extends BaseSource with Logging {
   /// 释放资源
   void dispose() {
     _youtube.close();
+    _dio.close();
   }
 }
 
