@@ -67,7 +67,9 @@ class _AddRadioDialogState extends ConsumerState<AddRadioDialog> {
 
     return AlertDialog(
       title: const Text('添加電台'),
-      content: Form(
+      content: SizedBox(
+        width: 400,
+        child: Form(
         key: _formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -109,6 +111,7 @@ class _AddRadioDialogState extends ConsumerState<AddRadioDialog> {
             ),
           ],
         ),
+      ),
       ),
       actions: [
         TextButton(
