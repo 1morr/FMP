@@ -80,9 +80,13 @@ class RadioPlayerPage extends ConsumerWidget {
 
                   // 電台資訊
                   _buildStationInfo(context, radioState, colorScheme),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 16),
 
-                  // 狀態行（代替進度條）
+                  // LIVE 標記
+                  _buildLiveTag(radioState),
+                  const SizedBox(height: 16),
+
+                  // 狀態行
                   _buildStatusBar(context, radioState, colorScheme),
                   const SizedBox(height: 24),
 
@@ -134,7 +138,7 @@ class RadioPlayerPage extends ConsumerWidget {
     );
   }
 
-  /// 電台資訊
+  /// 電台資訊（固定高度，避免佈局跳動）
   Widget _buildStationInfo(
     BuildContext context,
     RadioState state,
@@ -142,104 +146,101 @@ class RadioPlayerPage extends ConsumerWidget {
   ) {
     final station = state.currentStation;
 
-    return Column(
-      children: [
-        Text(
-          station?.title ?? '未知電台',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          station?.hostName ?? '直播中',
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
+    return SizedBox(
+      height: 80, // 固定高度：標題兩行 + 間距 + 主播名一行
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            station?.title ?? '未知電台',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            station?.hostName ?? '直播中',
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
   }
 
-  /// 狀態行（代替進度條，顯示 LIVE 標記、播放時長、觀眾數等）
+  /// LIVE 標記（固定高度，避免佈局跳動）
+  Widget _buildLiveTag(RadioState state) {
+    return SizedBox(
+      height: 24,
+      child: AnimatedOpacity(
+        opacity: state.isPlaying ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 150),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.red,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: const Text(
+            'LIVE',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 狀態行（固定高度，避免佈局跳動）
   Widget _buildStatusBar(
     BuildContext context,
     RadioState state,
     ColorScheme colorScheme,
   ) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // LIVE 標記
-        if (state.isPlaying) ...[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.red,
-              borderRadius: BorderRadius.circular(4),
+    return SizedBox(
+      height: 24, // 固定高度
+      child: Text(
+        _getStatusText(state),
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: state.isReconnecting
+                  ? colorScheme.error
+                  : colorScheme.onSurfaceVariant,
             ),
-            child: const Text(
-              'LIVE',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-        ],
-
-        // 已播放時長
-        if (state.isPlaying)
-          Text(
-            _formatDuration(state.playDuration),
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-          ),
-
-        // 觀眾數
-        if (state.viewerCount != null) ...[
-          if (state.isPlaying)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text(
-                '·',
-                style: TextStyle(color: colorScheme.onSurfaceVariant),
-              ),
-            ),
-          Text(
-            '${_formatCount(state.viewerCount!)} 觀眾',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-          ),
-        ],
-
-        // 重連/緩衝狀態
-        if (state.isReconnecting)
-          Text(
-            '重連中...',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.error,
-                ),
-          ),
-        if (state.isBuffering && !state.isReconnecting)
-          Text(
-            '緩衝中...',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-          ),
-      ],
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
     );
+  }
+
+  /// 獲取狀態文字
+  String _getStatusText(RadioState state) {
+    if (state.isReconnecting) {
+      return '重連中...';
+    }
+    if (state.isBuffering) {
+      return '緩衝中...';
+    }
+    if (!state.isPlaying) {
+      return '已暫停';
+    }
+
+    final parts = <String>[];
+    parts.add(_formatDuration(state.playDuration));
+    if (state.viewerCount != null) {
+      parts.add('${_formatCount(state.viewerCount!)} 觀眾');
+    }
+    return parts.join(' · ');
   }
 
   /// 播放控制按鈕
@@ -278,9 +279,9 @@ class RadioPlayerPage extends ConsumerWidget {
               : FilledButton(
                   onPressed: () {
                     if (state.isPlaying) {
-                      controller.stop();
-                    } else if (state.currentStation != null) {
-                      controller.play(state.currentStation!);
+                      controller.pause();
+                    } else {
+                      controller.resume();
                     }
                   },
                   style: FilledButton.styleFrom(
@@ -290,7 +291,7 @@ class RadioPlayerPage extends ConsumerWidget {
                     padding: EdgeInsets.zero,
                   ),
                   child: Icon(
-                    state.isPlaying ? Icons.stop : Icons.play_arrow,
+                    state.isPlaying ? Icons.pause : Icons.play_arrow,
                     size: 40,
                   ),
                 ),
