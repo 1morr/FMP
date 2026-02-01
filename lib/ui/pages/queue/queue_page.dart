@@ -27,6 +27,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
   /// 本地队列副本，用于解决拖拽时的闪烁问题
   List<Track>? _localQueue;
   int? _localCurrentIndex;
+  int? _lastQueueVersion;
 
   @override
   void initState() {
@@ -72,17 +73,14 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     final autoScroll = ref.watch(autoScrollToCurrentTrackProvider);
 
     // 同步本地队列与provider
-    // 当provider队列与本地队列内容一致时（只是顺序可能不同），不需要同步
-    // 只有在长度变化或元素变化时才需要同步
-    final providerIds = providerQueue.map((t) => t.id).toSet();
-    final localIds = _localQueue?.map((t) => t.id).toSet();
-    final needsSync = _localQueue == null ||
-        providerQueue.length != _localQueue!.length ||
-        !providerIds.containsAll(localIds ?? {}) ||
-        !localIds!.containsAll(providerIds);
+    // 当provider队列版本变化时（打乱、恢复顺序、添加/删除歌曲等），需要同步
+    // 拖拽重排时本地先更新、后同步到provider，不受此影响
+    final queueVersion = playerState.queueVersion;
+    final needsSync = _localQueue == null || _lastQueueVersion != queueVersion;
 
     if (needsSync) {
       _localQueue = List.from(providerQueue);
+      _lastQueueVersion = queueVersion;
     }
     // 始终同步当前播放索引（不影响队列顺序）
     _localCurrentIndex = providerCurrentIndex;
