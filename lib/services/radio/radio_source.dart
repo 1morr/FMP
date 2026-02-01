@@ -11,6 +11,7 @@ class LiveRoomInfo {
   final String? thumbnailUrl;
   final String? hostName;
   final String? hostAvatarUrl;
+  final int? hostUid;
   final int? viewerCount;
   final DateTime? liveStartTime;
   final bool isLive;
@@ -25,6 +26,7 @@ class LiveRoomInfo {
     this.thumbnailUrl,
     this.hostName,
     this.hostAvatarUrl,
+    this.hostUid,
     this.viewerCount,
     this.liveStartTime,
     this.isLive = false,
@@ -174,9 +176,10 @@ class RadioSource with Logging {
       }
     }
 
-    // 獲取主播名稱和頭像（需要單獨 API）
+    // 獲取主播名稱、頭像和 UID（需要單獨 API）
     String? hostName;
     String? hostAvatarUrl;
+    int? hostUid;
     try {
       final anchorResponse = await _dio.get(
         _biliAnchorInfoApi,
@@ -186,6 +189,7 @@ class RadioSource with Logging {
         final info = anchorResponse.data['data']?['info'];
         hostName = info?['uname'];
         hostAvatarUrl = info?['face'];
+        hostUid = info?['uid'];
       }
     } catch (e) {
       logWarning('Failed to get anchor info: $e');
@@ -210,6 +214,7 @@ class RadioSource with Logging {
       thumbnailUrl: data['user_cover'] ?? data['keyframe'],
       hostName: hostName,
       hostAvatarUrl: hostAvatarUrl,
+      hostUid: hostUid,
       viewerCount: data['online'],
       liveStartTime: liveStartTime,
       isLive: data['live_status'] == 1,
@@ -324,7 +329,8 @@ class RadioSource with Logging {
       station.thumbnailUrl = info.thumbnailUrl;
       station.hostName = info.hostName;
       station.hostAvatarUrl = info.hostAvatarUrl;
-      logInfo('Station info: title=${info.title}, cover=${info.thumbnailUrl != null}, host=${info.hostName}, avatar=${info.hostAvatarUrl != null}');
+      station.hostUid = info.hostUid;
+      logInfo('Station info: title=${info.title}, cover=${info.thumbnailUrl != null}, host=${info.hostName}, uid=${info.hostUid}');
 
       if (!info.isLive) {
         logWarning('Station ${station.sourceId} is not currently live');

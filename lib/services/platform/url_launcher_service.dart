@@ -64,6 +64,36 @@ class UrlLauncherService {
     );
   }
 
+  /// 打開 Bilibili 直播間
+  ///
+  /// [roomId] - 直播間房間號
+  Future<bool> openBilibiliLive(String roomId) async {
+    if (Platform.isAndroid || Platform.isIOS) {
+      // 移動平台：優先嘗試 App
+      final appScheme = 'bilibili://live/$roomId';
+      final appLaunched = await _launchUrl(appScheme);
+      if (appLaunched) return true;
+    }
+
+    // 桌面平台或 App 啟動失敗：打開網頁
+    return _launchUrl('https://live.bilibili.com/$roomId');
+  }
+
+  /// 打開 Bilibili 用戶空間
+  ///
+  /// [uid] - 用戶 UID
+  Future<bool> openBilibiliSpace(int uid) async {
+    if (Platform.isAndroid || Platform.isIOS) {
+      // 移動平台：優先嘗試 App
+      final appScheme = 'bilibili://space/$uid';
+      final appLaunched = await _launchUrl(appScheme);
+      if (appLaunched) return true;
+    }
+
+    // 桌面平台或 App 啟動失敗：打開網頁
+    return _launchUrl('https://space.bilibili.com/$uid');
+  }
+
   /// 内部启动方法
   Future<bool> _launch({
     required _LaunchType type,

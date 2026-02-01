@@ -12,6 +12,7 @@ import '../../../providers/download/file_exists_cache.dart';
 import '../../../providers/download/download_providers.dart';
 import '../../../providers/track_detail_provider.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../../services/platform/url_launcher_service.dart';
 import '../../widgets/track_thumbnail.dart';
 
 /// 播放器页面（全屏）
@@ -588,41 +589,56 @@ class _DetailContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 标题
-        Text(
-          detail.title,
-          style: textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-            height: 1.3,
+        // 标题（点击跳转到视频页面）
+        GestureDetector(
+          onTap: track != null
+              ? () => UrlLauncherService.instance.openVideo(track!)
+              : null,
+          child: Text(
+            detail.title,
+            style: textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              height: 1.3,
+            ),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
           ),
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
         ),
 
         const SizedBox(height: 16),
 
-        // UP主信息（带头像）
-        Row(
-          children: [
-            // 头像
-            ImageLoadingService.loadAvatar(
-              localPath: track?.getLocalAvatarPath(cache, baseDir: baseDir),
-              networkUrl: detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
-              size: 40,
-            ),
-            const SizedBox(width: 12),
-            // UP主名称
-            Expanded(
-              child: Text(
-                detail.ownerName,
-                style: textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.w500,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+        // UP主信息（点击跳转到频道/空间）
+        GestureDetector(
+          onTap: track != null
+              ? () => UrlLauncherService.instance.openChannel(track!)
+              : null,
+          child: Row(
+            children: [
+              // 头像
+              ImageLoadingService.loadAvatar(
+                localPath: track?.getLocalAvatarPath(cache, baseDir: baseDir),
+                networkUrl: detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
+                size: 40,
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              // UP主名称
+              Expanded(
+                child: Text(
+                  detail.ownerName,
+                  style: textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
         ),
 
         const SizedBox(height: 16),
