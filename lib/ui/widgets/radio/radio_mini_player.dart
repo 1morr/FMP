@@ -84,7 +84,10 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
                 ),
               ),
 
-              // 播放/停止按鈕
+              // 同步按鈕
+              _buildSyncButton(radioState, radioController, colorScheme),
+
+              // 播放/暫停按鈕
               _buildPlayStopButton(radioState, radioController, colorScheme),
 
               // 桌面端音量控制
@@ -208,6 +211,30 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
                 }
               },
             ),
+    );
+  }
+
+  /// 同步按鈕（重新載入直播流）
+  Widget _buildSyncButton(
+    RadioState state,
+    RadioController controller,
+    ColorScheme colorScheme,
+  ) {
+    final isDisabled = state.isBuffering || state.isLoading || !state.isPlaying;
+
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        icon: Icon(
+          Icons.sync,
+          size: 22,
+          color: isDisabled ? colorScheme.onSurfaceVariant.withValues(alpha: 0.38) : null,
+        ),
+        tooltip: '同步直播',
+        onPressed: isDisabled ? null : () => controller.sync(),
+      ),
     );
   }
 

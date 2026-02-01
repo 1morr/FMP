@@ -450,6 +450,12 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     await play(state.currentStation!);
   }
 
+  /// 同步直播（重新載入流以獲取最新進度）
+  Future<void> sync() async {
+    if (state.currentStation == null) return;
+    await play(state.currentStation!);
+  }
+
   /// 添加電台
   Future<RadioStation?> addStation(String url) async {
     try {

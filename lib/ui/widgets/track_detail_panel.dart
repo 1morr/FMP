@@ -927,15 +927,17 @@ class _CommentPagerState extends State<_CommentPager> {
 }
 
 /// 电台详情内容组件
-class _RadioDetailContent extends StatelessWidget {
+class _RadioDetailContent extends ConsumerWidget {
   final RadioState radioState;
 
   const _RadioDetailContent({required this.radioState});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final station = radioState.currentStation!;
+    final radioController = ref.read(radioControllerProvider.notifier);
 
     return ListView(
       padding: const EdgeInsets.all(20),
@@ -964,7 +966,7 @@ class _RadioDetailContent extends StatelessWidget {
 
         const SizedBox(height: 12),
 
-        // 主播信息（头像可点击进入空间）
+        // 主播信息（头像可点击进入空间）+ 同步按钮
         if (station.hostName != null)
           Row(
             children: [
@@ -983,6 +985,8 @@ class _RadioDetailContent extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              // 同步按钮
+              _buildSyncButton(radioController, colorScheme),
             ],
           ),
 
@@ -1058,6 +1062,27 @@ class _RadioDetailContent extends StatelessWidget {
           radioState.isPlaying ? '直播中' : '已停止',
         ),
       ],
+    );
+  }
+
+  /// 同步按钮
+  Widget _buildSyncButton(
+    RadioController controller,
+    ColorScheme colorScheme,
+  ) {
+    final isDisabled = radioState.isBuffering || radioState.isLoading || !radioState.isPlaying;
+
+    return IconButton(
+      onPressed: isDisabled ? null : () => controller.sync(),
+      icon: Icon(
+        Icons.sync,
+        size: 20,
+        color: isDisabled
+            ? colorScheme.onSurfaceVariant.withValues(alpha: 0.38)
+            : colorScheme.primary,
+      ),
+      tooltip: '同步直播',
+      visualDensity: VisualDensity.compact,
     );
   }
 

@@ -43,25 +43,50 @@ class RadioPlayerPage extends ConsumerWidget {
             icon: const Icon(Icons.more_vert),
             offset: const Offset(0, 48),
             onSelected: (value) {
-              if (value == 'info') {
+              if (value == 'sync') {
+                radioController.sync();
+              } else if (value == 'info') {
                 Future.delayed(const Duration(milliseconds: 100), () {
                   if (!context.mounted) return;
                   _showLiveInfoDialog(context, radioState, colorScheme);
                 });
               }
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'info',
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, size: 20),
-                    SizedBox(width: 12),
-                    Text('信息'),
-                  ],
+            itemBuilder: (context) {
+              final isDisabled = radioState.isBuffering || radioState.isLoading || !radioState.isPlaying;
+              return [
+                PopupMenuItem(
+                  value: 'sync',
+                  enabled: !isDisabled,
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.sync,
+                        size: 20,
+                        color: isDisabled ? colorScheme.onSurfaceVariant.withValues(alpha: 0.38) : null,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        '同步直播',
+                        style: isDisabled
+                            ? TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.38))
+                            : null,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                const PopupMenuItem(
+                  value: 'info',
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 20),
+                      SizedBox(width: 12),
+                      Text('信息'),
+                    ],
+                  ),
+                ),
+              ];
+            },
           ),
         ],
       ),
@@ -254,7 +279,7 @@ class RadioPlayerPage extends ConsumerWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // 播放/停止按鈕（大）
+        // 播放/暫停按鈕（大）
         SizedBox(
           width: buttonSize,
           height: buttonSize,
