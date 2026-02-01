@@ -6,40 +6,58 @@ import 'package:path/path.dart' as p;
 import '../../data/models/track.dart';
 import '../../services/download/download_path_utils.dart';
 
-/// 参数类（用于 Isolate.run()）
-class ScanCategoriesParams {
-  final String downloadPath;
-  const ScanCategoriesParams(this.downloadPath);
-}
-
-/// 结果类（用于 Isolate.run()）
-class ScanResult {
+/// 已下载分类（文件夹）数据模型
+class DownloadedCategory {
+  /// 原始文件夹名
   final String folderName;
+
+  /// 显示名称（去掉 _id 后缀）
   final String displayName;
+
+  /// 歌曲数量
   final int trackCount;
+
+  /// 第一首歌的封面路径
   final String? coverPath;
+
+  /// 完整文件夹路径
   final String folderPath;
 
-  const ScanResult({
+  const DownloadedCategory({
     required this.folderName,
     required this.displayName,
     required this.trackCount,
     this.coverPath,
     required this.folderPath,
   });
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is DownloadedCategory && other.folderPath == folderPath;
+  }
+
+  @override
+  int get hashCode => folderPath.hashCode;
+}
+
+/// 参数类（用于 Isolate.run()）
+class ScanCategoriesParams {
+  final String downloadPath;
+  const ScanCategoriesParams(this.downloadPath);
 }
 
 /// 在单独的 isolate 中扫描已下载分类
 /// 
 /// 这是一个顶级函数，可以被 Isolate.run() 调用
-Future<List<ScanResult>> scanCategoriesInIsolate(ScanCategoriesParams params) async {
+Future<List<DownloadedCategory>> scanCategoriesInIsolate(ScanCategoriesParams params) async {
   final downloadDir = Directory(params.downloadPath);
   
   if (!await downloadDir.exists()) {
     return [];
   }
 
-  final results = <ScanResult>[];
+  final results = <DownloadedCategory>[];
 
   // 扫描所有子文件夹
   await for (final entity in downloadDir.list()) {
@@ -49,7 +67,7 @@ Future<List<ScanResult>> scanCategoriesInIsolate(ScanCategoriesParams params) as
 
       if (trackCount > 0) {
         final coverPath = await _findFirstCoverInternal(entity);
-        results.add(ScanResult(
+        results.add(DownloadedCategory(
           folderName: folderName,
           displayName: _extractDisplayNameInternal(folderName),
           trackCount: trackCount,
@@ -80,19 +98,55 @@ String _extractDisplayNameInternal(String folderName) {
 }
 
 /// 内部函数：查找封面（用于 isolate）
+/// 
+/// 按照与歌曲列表相同的排序逻辑（parentTitle/title 字母顺序），
+/// 返回排序后第一首歌的封面，确保封面与歌曲列表第一首一致。
 Future<String?> _findFirstCoverInternal(Directory folder) async {
   try {
-    // 查找第一个歌曲子文件夹中的 cover.jpg
+    // 收集所有子文件夹及其排序信息
+    final subFolders = <_FolderSortInfo>[];
+    
     await for (final entity in folder.list()) {
       if (entity is Directory) {
         final coverFile = File(p.join(entity.path, 'cover.jpg'));
         if (await coverFile.exists()) {
-          return coverFile.path;
+          // 读取 metadata.json 获取排序用的 title
+          String sortKey = p.basename(entity.path);
+          final metadataFile = File(p.join(entity.path, 'metadata.json'));
+          if (await metadataFile.exists()) {
+            try {
+              final content = await metadataFile.readAsString();
+              final metadata = jsonDecode(content) as Map<String, dynamic>;
+              // 使用与 scanFolderForTracks 相同的排序逻辑
+              sortKey = (metadata['parentTitle'] as String?) ?? 
+                        (metadata['title'] as String?) ?? 
+                        sortKey;
+            } catch (_) {}
+          }
+          subFolders.add(_FolderSortInfo(
+            coverPath: coverFile.path,
+            sortKey: sortKey,
+          ));
         }
       }
     }
+    
+    if (subFolders.isEmpty) return null;
+    
+    // 按 sortKey 排序（与歌曲列表排序逻辑一致）
+    subFolders.sort((a, b) => a.sortKey.compareTo(b.sortKey));
+    
+    return subFolders.first.coverPath;
   } catch (_) {}
   return null;
+}
+
+/// 用于封面排序的辅助类
+class _FolderSortInfo {
+  final String coverPath;
+  final String sortKey;
+  
+  _FolderSortInfo({required this.coverPath, required this.sortKey});
 }
 
 /// 内部函数：统计音频文件数量（用于 isolate）

@@ -133,7 +133,7 @@ class StoragePermissionService {
 
 ### 2. FileExistsCache (`lib/providers/download/file_exists_cache.dart`)
 
-**Phase 6 简化** - 避免 UI build 时阻塞 I/O。
+**用途** - 避免 UI build 时阻塞 I/O，缓存文件存在性检查结果。
 
 状态类型：`Set<String>`（只缓存存在的路径）
 
@@ -155,6 +155,12 @@ cache.clearAll();                 // 清空所有缓存
 // 注意：Track 相关方法已移除（isDownloadedForPlaylist, hasAnyDownload 等）
 // 下载状态判断改为：track.downloadPaths.any((p) => cache.exists(p))
 ```
+
+**主要使用场景**:
+- `TrackThumbnail` / `PlaylistCover` - 检查本地封面是否存在
+- `TrackDetailPanel` / `PlayerPage` - 显示本地图片
+- `PlaylistDetailPage` - 预加载封面路径
+- 下载完成后标记文件存在，触发 UI 更新
 
 ### 3. DownloadService (`lib/services/download/download_service.dart`)
 
@@ -195,6 +201,17 @@ void _maybeNotifyProgress(double progress) {
 ### 4. DownloadScanner (`lib/providers/download/download_scanner.dart`)
 
 已下载页面数据源：扫描文件系统，不依赖数据库
+
+**包含的类**:
+- `DownloadedCategory` - 已下载分类（文件夹）数据模型
+- `ScanCategoriesParams` - Isolate 扫描参数
+- `DownloadScanner` - 扫描工具类
+
+**关键方法**:
+- `scanCategoriesInIsolate()` - 在 Isolate 中扫描已下载分类，返回 `List<DownloadedCategory>`
+- `DownloadScanner.scanFolderForTracks()` - 扫描单个文件夹获取 Track 列表
+
+**注意**: `download_state.dart` 和 `download_extensions.dart` 已删除（2026-02 简化）
 
 ### 5. DownloadPathSyncService (`lib/services/download/download_path_sync_service.dart`)
 
