@@ -147,6 +147,13 @@ class Track {
     }
   }
 
+  /// 检查是否已为指定歌单下载
+  bool isDownloadedForPlaylist(int playlistId) {
+    final info =
+        playlistInfo.where((i) => i.playlistId == playlistId).firstOrNull;
+    return info != null && info.downloadPath.isNotEmpty;
+  }
+
   /// 清除所有下载路径（保留歌单关联）
   ///
   /// 注意：必须创建新的列表和对象，否则 Isar 无法检测到 @embedded 对象的变更

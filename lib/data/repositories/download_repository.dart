@@ -38,6 +38,27 @@ class DownloadRepository with Logging {
         .findFirst();
   }
 
+  /// 根据 savePath 获取下载任务（用于任务去重）
+  Future<DownloadTask?> getTaskBySavePath(String savePath) async {
+    return _isar.downloadTasks
+        .filter()
+        .savePathEqualTo(savePath)
+        .findFirst();
+  }
+
+  /// 清除已完成和失败的任务（用于启动时清理）
+  Future<int> clearCompletedAndErrorTasks() async {
+    return _isar.writeTxn(() async {
+      final tasks = await _isar.downloadTasks
+          .filter()
+          .statusEqualTo(DownloadStatus.completed)
+          .or()
+          .statusEqualTo(DownloadStatus.failed)
+          .findAll();
+      return _isar.downloadTasks.deleteAll(tasks.map((t) => t.id).toList());
+    });
+  }
+
   /// 根据状态获取下载任务
   Future<List<DownloadTask>> getTasksByStatus(DownloadStatus status) async {
     return _isar.downloadTasks

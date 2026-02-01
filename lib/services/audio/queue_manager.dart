@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 import '../../core/constants/app_constants.dart';
 import '../../core/extensions/track_extensions.dart';
@@ -666,20 +667,62 @@ class QueueManager with Logging {
   /// - String?: 找到的本地文件路径，如果没有则为 null
   /// 
   /// 如果获取失败会重试一次
-  /// 如果本地文件不存在，会清除路径并回退到在线播放
+  /// 本地文件检查逻辑（B1）：检查所有路径，使用第一个存在的，仅清除不存在的
   /// [persist] 是否将 track 保存到数据库，临时播放时设为 false
   Future<(Track, String?)> ensureAudioUrl(Track track, {int retryCount = 0, bool persist = true}) async {
-    // 使用扩展方法检查本地音频文件是否存在
-    final localPath = track.localAudioPath;
+    // B1: 检查所有下载路径，找到第一个存在的文件
+    String? localPath;
+    final invalidPaths = <String>[];
+    
+    for (final path in track.allDownloadPaths) {
+      if (File(path).existsSync()) {
+        localPath = path;
+        break;
+      } else {
+        invalidPaths.add(path);
+      }
+    }
+    
+    // 如果找到有效的本地文件
     if (localPath != null) {
+      // B1: 清除无效路径（仅清除不存在的，不清除有效的）
+      if (invalidPaths.isNotEmpty && persist) {
+        final newInfos = <PlaylistDownloadInfo>[];
+        for (final info in track.playlistInfo) {
+          if (invalidPaths.contains(info.downloadPath)) {
+            // 清除无效路径但保留歌单关联
+            newInfos.add(PlaylistDownloadInfo()
+              ..playlistId = info.playlistId
+              ..downloadPath = '');
+          } else {
+            newInfos.add(PlaylistDownloadInfo()
+              ..playlistId = info.playlistId
+              ..downloadPath = info.downloadPath);
+          }
+        }
+        track.playlistInfo = newInfos;
+        await _trackRepository.save(track);
+        logDebug('Cleared ${invalidPaths.length} invalid paths for: ${track.title}');
+      }
+      
       logDebug('Using local file for: ${track.title}, path: $localPath');
       return (track, localPath);
     }
 
-    // 本地文件不存在，回退到在线播放
-    // 注意：不再在这里清除下载路径，避免与正在进行的下载产生竞争条件
-    // 无效的下载路径会在应用启动时由 cleanupInvalidDownloadPaths() 统一清理
-    if (track.hasAnyDownload) {
+    // 本地文件都不存在，回退到在线播放
+    // B1: 清除所有无效路径
+    if (invalidPaths.isNotEmpty && persist) {
+      final newInfos = <PlaylistDownloadInfo>[];
+      for (final info in track.playlistInfo) {
+        // 清除所有路径但保留歌单关联
+        newInfos.add(PlaylistDownloadInfo()
+          ..playlistId = info.playlistId
+          ..downloadPath = '');
+      }
+      track.playlistInfo = newInfos;
+      await _trackRepository.save(track);
+      logDebug('Cleared all ${invalidPaths.length} invalid paths for: ${track.title}, falling back to online URL');
+    } else if (track.hasAnyDownload) {
       logDebug('Local file not found for: ${track.title}, falling back to online URL');
     }
 

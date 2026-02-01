@@ -91,6 +91,12 @@ class DownloadService with Logging {
   Future<void> initialize() async {
     logDebug('Initializing DownloadService');
     
+    // 清除已完成和失败的任务（A2: 启动时清理）
+    final clearedCount = await _downloadRepository.clearCompletedAndErrorTasks();
+    if (clearedCount > 0) {
+      logDebug('Cleared $clearedCount completed/error tasks at startup');
+    }
+    
     // 重置所有 downloading 状态的任务为 paused
     await _downloadRepository.resetDownloadingToPaused();
     
@@ -241,15 +247,16 @@ class DownloadService with Logging {
       return null; // 跳过下载
     }
 
-    // 检查是否已有此歌曲在此歌单的下载任务
-    final existingTask = await _downloadRepository.getTaskByTrackIdAndPlaylist(track.id, playlistId);
+    // A2: 按 savePath 去重（而非 trackId）
+    // 这允许同一首歌下载到不同歌单（不同路径）
+    final existingTask = await _downloadRepository.getTaskBySavePath(downloadPath);
     if (existingTask != null) {
       if (existingTask.isCompleted) {
         // 任务已完成但文件不存在，清理记录并重新下载
         logDebug('Downloaded file missing, re-queueing: ${track.title}');
         await _downloadRepository.deleteTask(existingTask.id);
       } else if (!existingTask.isFailed) {
-        logDebug('Download task already exists for track: ${track.title}');
+        logDebug('Download task already exists for path: $downloadPath');
         return existingTask; // 已有任务
       } else {
         // 失败的任务，删除后重新创建
@@ -263,6 +270,7 @@ class DownloadService with Logging {
       ..trackId = track.id
       ..playlistName = fromPlaylist.name
       ..playlistId = playlistId
+      ..savePath = downloadPath  // 保存计划路径用于去重
       ..order = order
       ..status = DownloadStatus.pending
       ..priority = priority
@@ -457,6 +465,12 @@ class DownloadService with Logging {
     await _downloadRepository.clearCompleted();
   }
 
+  /// 清除已完成和失败的任务（A1: 用于更改下载路径时）
+  Future<int> clearCompletedAndErrorTasks() async {
+    logDebug('Clearing completed and error tasks');
+    return await _downloadRepository.clearCompletedAndErrorTasks();
+  }
+
   /// 开始下载任务
   Future<void> _startDownload(DownloadTask task) async {
     if (_activeCancelTokens.containsKey(task.id)) {
@@ -601,8 +615,13 @@ class DownloadService with Logging {
       // 保存元数据（使用 task 中保存的 order）
       await _saveMetadata(track, savePath, videoDetail: videoDetail, order: task.order);
 
-      // 保存实际下载路径到 Track
-      await _trackRepository.addDownloadPath(track.id, task.playlistId, savePath);
+      // A3: 验证文件存在后才保存下载路径到 Track
+      if (await File(savePath).exists()) {
+        await _trackRepository.addDownloadPath(track.id, task.playlistId, savePath);
+      } else {
+        logError('Download completed but file not found at: $savePath');
+        throw Exception('Downloaded file not found at expected path');
+      }
       
       // 更新任务状态为已完成
       await _downloadRepository.updateTaskStatus(task.id, DownloadStatus.completed);

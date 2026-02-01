@@ -8,7 +8,6 @@ import '../../../data/models/track.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../providers/download_provider.dart';
 import '../../../providers/download/file_exists_cache.dart';
-import '../../../core/extensions/track_extensions.dart';
 import '../../../providers/download_path_provider.dart';
 import '../../widgets/download_path_setup_dialog.dart';
 import '../../../services/audio/audio_provider.dart';
@@ -606,8 +605,8 @@ class _GroupHeader extends ConsumerWidget {
                   ),
             ),
           ),
-          // 检查是否所有分P都已下载（直接检查 downloadPaths）
-          if (group.tracks.every((t) => t.isDownloaded)) ...[
+          // 检查是否所有分P都已下载（使用 playlist-specific 检查）
+          if (group.tracks.every((t) => t.isDownloadedForPlaylist(playlistId))) ...[
             const SizedBox(width: 8),
             Icon(
               Icons.download_done,
@@ -814,8 +813,8 @@ class _TrackListTile extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  // 检查歌曲是否已下载到本地（直接检查 downloadPaths）
-                  if (track.isDownloaded)
+                  // 检查歌曲是否已下载到本歌单（使用 playlist-specific 检查）
+                  if (track.isDownloadedForPlaylist(playlistId))
                     Icon(
                       Icons.download_done,
                       size: 14,

@@ -290,6 +290,14 @@ await _player.setAudioSource(audioSource);
 ### Progress Bar Dragging
 Slider `onChanged` must NOT call `seekToProgress()` directly. Only call seek in `onChangeEnd` to avoid flooding the message queue during continuous dragging. See `player_page.dart` and `mini_player.dart` for correct implementation.
 
+### Download System Simplification (2026-02)
+- **Path deduplication by `savePath`** (not trackId) - same track can download to multiple playlists
+- **File verification before saving path** - verify file exists after download completes
+- **Smart path clearing** - only clear non-existing paths when playing, not proactively
+- **Sync replaces paths** - local files are authority, sync REPLACES all DB paths
+- **Provider debouncing** - completion events use 300ms debouncing for bulk operations
+- **Playlist-specific download marks** - UI shows download status per playlist
+
 ### Playlist Rename - No Auto File Migration
 When renaming a playlist that has downloaded songs, files are **NOT** automatically moved. Instead:
 - `PlaylistService.updatePlaylist()` returns `PlaylistUpdateResult` with old/new folder paths
