@@ -8,7 +8,7 @@ UI (playlist_detail_page, downloaded_page)
            ▼
 ┌─────────────────────────────────────┐
 │       FileExistsCache               │  ← 缓存文件存在性（避免同步 IO）
-│       DownloadService               │  ← 任务调度
+│       DownloadService               │  ← 任务调度（按 savePath 去重）
 └─────────────────────────────────────┘
            │
            ▼
@@ -17,6 +17,21 @@ UI (playlist_detail_page, downloaded_page)
 └─────────────────────────────────────┘
 ```
 
+### 2026-02 重构：简化下载系统
+
+**核心变更：**
+1. **A1**: 更改下载路径 → 清空所有 DB 路径和已完成/失败任务
+2. **A2**: 任务按 `savePath` 去重（非 trackId），启动时清理已完成/失败任务
+3. **A3**: 验证文件存在后才保存路径
+4. **B1**: 播放时检查所有路径，使用第一个存在的，仅清除不存在的
+5. **B2**: 仅在文件不存在时清除路径（非封面缺失等）
+6. **C1**: 同步时跳过无 metadata 的本地文件
+7. **C2**: 本地文件添加 playlistId=0
+8. **C3**: 同步时 REPLACE 所有 DB 路径（本地文件是权威来源）
+9. **D1-D3**: Provider 使用 debouncing 批量刷新
+10. **E2**: 删除歌单 → 仅移除该歌单关联，保留其他引用和文件
+11. **E3**: 从歌单移除歌曲 → 移除该歌单的路径和关联
+
 ---
 
 ## 核心设计：按需路径模式（2026-01 重构）
@@ -24,6 +39,15 @@ UI (playlist_detail_page, downloaded_page)
 ### 设计变更
 **旧模式（已废弃）**：歌曲加入歌单时预计算下载路径
 **新模式**：下载路径仅在实际下载完成时保存
+
+### Track 模型新增方法
+
+```dart
+// 检查是否已为指定歌单下载
+bool isDownloadedForPlaylist(int playlistId);
+
+// getDownloadPath(playlistId) 已存在
+```
 
 ### Track 模型关键字段
 

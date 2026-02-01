@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/download_path_provider.dart';
 import '../../providers/repository_providers.dart';
 import '../../providers/download/file_exists_cache.dart';
-import '../../providers/download/download_providers.dart' show downloadedCategoriesProvider;
+import '../../providers/download/download_providers.dart' show downloadedCategoriesProvider, downloadServiceProvider;
 import '../../providers/playlist_provider.dart' show allPlaylistsProvider, playlistDetailProvider;
 
 /// 更改下载路径对话框
@@ -207,8 +207,12 @@ class _ChangeDownloadPathDialogState
       // 显示处理状态
       setState(() => _state = _DialogState.processing);
 
-      // 清空所有下载路径
+      // A1: 清空所有下载路径
       await trackRepo.clearAllDownloadPaths();
+
+      // A1: 清除已完成和失败的下载任务
+      final downloadService = ref.read(downloadServiceProvider);
+      await downloadService.clearCompletedAndErrorTasks();
 
       // 保存新路径
       await pathManager.saveDownloadPath(newPath);

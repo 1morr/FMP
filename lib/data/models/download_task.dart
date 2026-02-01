@@ -35,6 +35,10 @@ class DownloadTask {
   /// 所属歌单名称（用于确定下载子目录，null=未分类）
   String? playlistName;
 
+  /// 计划保存路径（用于任务去重）
+  @Index()
+  String? savePath;
+
   /// 在歌单中的顺序位置（从0开始）
   int? order;
 

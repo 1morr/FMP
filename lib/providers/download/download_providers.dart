@@ -56,31 +56,50 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
   // 初始化服务
   service.initialize();
 
-  // 监听下载完成事件，更新缓存和已下载页面
+  // D1-D3: 监听下载完成事件，使用 debouncing 批量处理
+  Timer? debounceTimer;
+  final pendingPlaylistIds = <int>{};
+  final pendingCategoryPaths = <String>{};
+  bool categoriesNeedRefresh = false;
+
+  void flushInvalidations() {
+    if (categoriesNeedRefresh) {
+      ref.invalidate(downloadedCategoriesProvider);
+      categoriesNeedRefresh = false;
+    }
+    for (final categoryPath in pendingCategoryPaths) {
+      ref.invalidate(downloadedCategoryTracksProvider(categoryPath));
+    }
+    pendingCategoryPaths.clear();
+    for (final playlistId in pendingPlaylistIds) {
+      ref.invalidate(playlistDetailProvider(playlistId));
+    }
+    pendingPlaylistIds.clear();
+  }
+
   StreamSubscription<DownloadCompletionEvent>? completionSubscription;
   completionSubscription = service.completionStream.listen((event) {
     // 标记文件已存在，触发 UI 更新
     ref.read(fileExistsCacheProvider.notifier).markAsExisting(event.savePath);
     
-    // 使用 microtask 延迟刷新，避免循环依赖
-    Future.microtask(() {
-      // 刷新已下载分类列表和分类详情，使新下载的歌曲显示出来
-      ref.invalidate(downloadedCategoriesProvider);
-      // 从保存路径中提取分类文件夹路径并刷新对应的分类详情
-      // savePath 结构: 下载目录/歌单文件夹/视频文件夹/audio.m4a
-      // 需要获取歌单文件夹路径（上两级）
-      final categoryFolderPath = p.dirname(p.dirname(event.savePath));
-      ref.invalidate(downloadedCategoryTracksProvider(categoryFolderPath));
-      
-      // 刷新歌单详情，使下载状态显示正确
-      if (event.playlistId != null) {
-        ref.invalidate(playlistDetailProvider(event.playlistId!));
-      }
+    // 收集需要刷新的内容
+    categoriesNeedRefresh = true;
+    final categoryFolderPath = p.dirname(p.dirname(event.savePath));
+    pendingCategoryPaths.add(categoryFolderPath);
+    if (event.playlistId != null) {
+      pendingPlaylistIds.add(event.playlistId!);
+    }
+    
+    // D1-D3: 使用 debouncing，300ms 后批量刷新
+    debounceTimer?.cancel();
+    debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      Future.microtask(flushInvalidations);
     });
   });
 
   // 在 provider 被销毁时清理
   ref.onDispose(() {
+    debounceTimer?.cancel();
     completionSubscription?.cancel();
     service.dispose();
   });

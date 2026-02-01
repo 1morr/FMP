@@ -137,6 +137,14 @@ class TrackRepository with Logging {
         .watch(fireImmediately: true);
   }
 
+  /// 获取所有有下载路径的 Track（用于同步服务）
+  Future<List<Track>> getAllTracksWithDownloads() async {
+    return _isar.tracks
+        .filter()
+        .playlistInfoElement((q) => q.downloadPathIsNotEmpty())
+        .findAll();
+  }
+
   /// 清除歌曲的所有下载路径（保留歌单关联）
   Future<void> clearDownloadPath(int id) async {
     final track = await getById(id);
