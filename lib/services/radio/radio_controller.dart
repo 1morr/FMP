@@ -359,7 +359,24 @@ class RadioController extends StateNotifier<RadioState> with Logging {
 
       // 保存
       final id = await _repository.save(station);
-      return await _repository.getById(id);
+      final savedStation = await _repository.getById(id);
+
+      // 立即刷新新電台的直播狀態
+      if (savedStation != null) {
+        try {
+          final isLive = await _radioSource.isLive(savedStation);
+          state = state.copyWith(
+            liveStatus: {...state.liveStatus, savedStation.id: isLive},
+          );
+        } catch (e) {
+          logWarning('Failed to check live status for new station: $e');
+          state = state.copyWith(
+            liveStatus: {...state.liveStatus, savedStation.id: false},
+          );
+        }
+      }
+
+      return savedStation;
     } catch (e) {
       logError('Failed to add station: $e');
       rethrow;
