@@ -55,8 +55,11 @@ class RadioSource with Logging {
 
   // Bilibili 直播 API
   static const String _biliLiveApiBase = 'https://api.live.bilibili.com';
+  // 使用 v1 API，不需要 WBI 簽名
   static const String _biliRoomInfoApi =
-      '$_biliLiveApiBase/xlive/web-room/v1/index/getInfoByRoom';
+      '$_biliLiveApiBase/room/v1/Room/get_info';
+  static const String _biliAnchorInfoApi =
+      '$_biliLiveApiBase/live_user/v1/UserInfo/get_anchor_in_room';
   static const String _biliPlayUrlApi =
       '$_biliLiveApiBase/room/v1/Room/playUrl';
   static const String _biliRoomInitApi =
@@ -73,6 +76,7 @@ class RadioSource with Logging {
       headers: {
         'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://live.bilibili.com/',
       },
       connectTimeout: AppConstants.networkConnectTimeout,
       receiveTimeout: AppConstants.networkReceiveTimeout,
@@ -129,33 +133,52 @@ class RadioSource with Logging {
   Future<LiveRoomInfo> getLiveInfo(RadioStation station) async {
     final realRoomId = await _getBiliRealRoomId(station.sourceId);
 
+    // 使用 v1 API 獲取房間資訊
     final response = await _dio.get(
       _biliRoomInfoApi,
       queryParameters: {'room_id': realRoomId},
     );
 
     if (response.data['code'] != 0) {
-      throw Exception('Failed to get room info: ${response.data['message']}');
+      throw Exception('Failed to get room info: ${response.data['code']}');
     }
 
     final data = response.data['data'];
-    final roomInfo = data['room_info'];
-    final anchorInfo = data['anchor_info'];
 
-    // 解析開播時間
+    // 解析開播時間（v1 API 格式：字符串 "2024-01-01 12:00:00" 或時間戳）
     DateTime? liveStartTime;
-    final liveTime = roomInfo['live_start_time'];
-    if (liveTime != null && liveTime is int && liveTime > 0) {
-      liveStartTime = DateTime.fromMillisecondsSinceEpoch(liveTime * 1000);
+    final liveTime = data['live_time'];
+    if (liveTime != null) {
+      if (liveTime is int && liveTime > 0) {
+        liveStartTime = DateTime.fromMillisecondsSinceEpoch(liveTime * 1000);
+      } else if (liveTime is String && liveTime != '0000-00-00 00:00:00') {
+        try {
+          liveStartTime = DateTime.parse(liveTime.replaceFirst(' ', 'T'));
+        } catch (_) {}
+      }
+    }
+
+    // 獲取主播名稱（需要單獨 API）
+    String? hostName;
+    try {
+      final anchorResponse = await _dio.get(
+        _biliAnchorInfoApi,
+        queryParameters: {'roomid': realRoomId},
+      );
+      if (anchorResponse.data['code'] == 0) {
+        hostName = anchorResponse.data['data']?['info']?['uname'];
+      }
+    } catch (e) {
+      logWarning('Failed to get anchor info: $e');
     }
 
     return LiveRoomInfo(
-      title: roomInfo['title'] ?? '未知直播間',
-      thumbnailUrl: roomInfo['cover'] ?? roomInfo['keyframe'],
-      hostName: anchorInfo?['base_info']?['uname'],
-      viewerCount: roomInfo['online'],
+      title: data['title'] ?? '未知直播間',
+      thumbnailUrl: data['user_cover'] ?? data['keyframe'],
+      hostName: hostName,
+      viewerCount: data['online'],
       liveStartTime: liveStartTime,
-      isLive: roomInfo['live_status'] == 1,
+      isLive: data['live_status'] == 1,
     );
   }
 
@@ -171,9 +194,6 @@ class RadioSource with Logging {
         'quality': 4, // 原畫質量
         'qn': 10000,
       },
-      options: Options(
-        headers: {'Referer': 'https://live.bilibili.com/'},
-      ),
     );
 
     if (response.data['code'] != 0) {
@@ -224,12 +244,13 @@ class RadioSource with Logging {
       station.title = info.title;
       station.thumbnailUrl = info.thumbnailUrl;
       station.hostName = info.hostName;
+      logInfo('Station info: title=${info.title}, cover=${info.thumbnailUrl != null}, host=${info.hostName}');
 
       if (!info.isLive) {
         logWarning('Station ${station.sourceId} is not currently live');
       }
-    } catch (e) {
-      logWarning('Failed to get station info, using defaults: $e');
+    } catch (e, stack) {
+      logWarning('Failed to get station info: $e\n$stack');
       station.title = 'Bilibili 直播間 ${parseResult.sourceId}';
     }
 
