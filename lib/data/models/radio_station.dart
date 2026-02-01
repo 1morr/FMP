@@ -25,6 +25,9 @@ class RadioStation {
   /// 主播頭像 URL
   String? hostAvatarUrl;
 
+  /// 主播 UID（用於跳轉到個人空間）
+  int? hostUid;
+
   /// 音源類型 (bilibili, youtube)
   @Index()
   @Enumerated(EnumType.name)

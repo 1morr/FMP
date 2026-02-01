@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/icon_helpers.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../../services/platform/url_launcher_service.dart';
 import '../../../services/radio/radio_controller.dart';
 
 /// 電台播放器頁面（全屏）
@@ -508,51 +509,65 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
                     : Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // 標題
-                        Text(
-                          station.title,
-                          style: textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            height: 1.3,
+                        // 標題（點擊跳轉到直播間）
+                        GestureDetector(
+                          onTap: () => UrlLauncherService.instance.openBilibiliLive(station.sourceId),
+                          child: Text(
+                            station.title,
+                            style: textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              height: 1.3,
+                            ),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
                         ),
 
                         const SizedBox(height: 16),
 
-                        // 主播信息
+                        // 主播信息（點擊跳轉到個人空間）
                         if (station.hostName != null)
-                          Row(
-                            children: [
-                              ClipOval(
-                                child: SizedBox(
-                                  width: 40,
-                                  height: 40,
-                                  child: station.hostAvatarUrl != null
-                                      ? Image.network(
-                                          station.hostAvatarUrl!,
-                                          width: 40,
-                                          height: 40,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) =>
-                                              _buildAvatarPlaceholder(colorScheme),
-                                        )
-                                      : _buildAvatarPlaceholder(colorScheme),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  station.hostName!,
-                                  style: textTheme.bodyLarge?.copyWith(
-                                    fontWeight: FontWeight.w500,
+                          GestureDetector(
+                            onTap: station.hostUid != null
+                                ? () => UrlLauncherService.instance.openBilibiliSpace(station.hostUid!)
+                                : null,
+                            child: Row(
+                              children: [
+                                ClipOval(
+                                  child: SizedBox(
+                                    width: 40,
+                                    height: 40,
+                                    child: station.hostAvatarUrl != null
+                                        ? Image.network(
+                                            station.hostAvatarUrl!,
+                                            width: 40,
+                                            height: 40,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) =>
+                                                _buildAvatarPlaceholder(colorScheme),
+                                          )
+                                        : _buildAvatarPlaceholder(colorScheme),
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    station.hostName!,
+                                    style: textTheme.bodyLarge?.copyWith(
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (station.hostUid != null)
+                                  Icon(
+                                    Icons.chevron_right,
+                                    size: 20,
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                              ],
+                            ),
                           ),
 
                         const SizedBox(height: 16),
@@ -648,38 +663,6 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
                           const SizedBox(height: 16),
                           _buildTagsSection(context, widget.state.tags!),
                         ],
-
-                        const SizedBox(height: 20),
-
-                        // 直播間連結
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.link,
-                                size: 18,
-                                color: colorScheme.primary,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  station.url,
-                                  style: textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
 
                         const SizedBox(height: 20),
                       ],
