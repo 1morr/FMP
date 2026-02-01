@@ -467,8 +467,16 @@ class DownloadService with Logging {
 
   /// 清除已完成和失败的任务（A1: 用于更改下载路径时）
   Future<int> clearCompletedAndErrorTasks() async {
-    logDebug('Clearing completed and error tasks');
-    return await _downloadRepository.clearCompletedAndErrorTasks();
+    logDebug('Clearing completed and error tasks - calling repository');
+    try {
+      final result = await _downloadRepository.clearCompletedAndErrorTasks();
+      logDebug('Clearing completed and error tasks - done, cleared $result tasks');
+      return result;
+    } catch (e, stackTrace) {
+      logDebug('Clearing completed and error tasks - ERROR: $e');
+      logDebug('StackTrace: $stackTrace');
+      rethrow;
+    }
   }
 
   /// 开始下载任务

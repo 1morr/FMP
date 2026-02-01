@@ -71,8 +71,10 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
       ref.invalidate(downloadedCategoryTracksProvider(categoryPath));
     }
     pendingCategoryPaths.clear();
+    // 使用静默刷新而不是 invalidate，避免页面闪烁
     for (final playlistId in pendingPlaylistIds) {
-      ref.invalidate(playlistDetailProvider(playlistId));
+      final notifier = ref.read(playlistDetailProvider(playlistId).notifier);
+      notifier.refreshTracks();
     }
     pendingPlaylistIds.clear();
   }
