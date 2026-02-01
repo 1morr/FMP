@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/breakpoints.dart';
 import '../../services/audio/audio_provider.dart';
+import '../../services/radio/radio_controller.dart';
 import '../widgets/player/mini_player.dart';
+import '../widgets/radio/radio_mini_player.dart';
 import '../widgets/track_detail_panel.dart';
 
 /// 导航目的地定义
@@ -35,6 +37,11 @@ const List<NavDestination> destinations = [
     icon: Icons.queue_music_outlined,
     selectedIcon: Icons.queue_music,
     label: '队列',
+  ),
+  NavDestination(
+    icon: Icons.radio_outlined,
+    selectedIcon: Icons.radio,
+    label: '电台',
   ),
   NavDestination(
     icon: Icons.library_music_outlined,
@@ -106,7 +113,7 @@ class _MobileLayout extends StatelessWidget {
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const MiniPlayer(),
+          const _MiniPlayerSwitch(),
           NavigationBar(
             selectedIndex: selectedIndex,
             onDestinationSelected: onDestinationSelected,
@@ -157,7 +164,7 @@ class _TabletLayout extends StatelessWidget {
           Expanded(child: child),
         ],
       ),
-      bottomNavigationBar: const MiniPlayer(),
+      bottomNavigationBar: const _MiniPlayerSwitch(),
     );
   }
 }
@@ -251,7 +258,7 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
           ],
         ],
       ),
-      bottomNavigationBar: const MiniPlayer(),
+      bottomNavigationBar: const _MiniPlayerSwitch(),
     );
   }
 
@@ -374,5 +381,24 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
         ],
       ),
     );
+  }
+}
+
+/// 迷你播放器切換器 - 根據當前播放模式顯示音樂或電台迷你播放器
+class _MiniPlayerSwitch extends ConsumerWidget {
+  const _MiniPlayerSwitch();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isRadioPlaying = ref.watch(isRadioPlayingProvider);
+    final hasRadioStation = ref.watch(radioControllerProvider).hasCurrentStation;
+
+    // 電台正在播放或有電台站點時，顯示電台迷你播放器
+    if (isRadioPlaying || hasRadioStation) {
+      return const RadioMiniPlayer();
+    }
+
+    // 否則顯示普通音樂迷你播放器
+    return const MiniPlayer();
   }
 }

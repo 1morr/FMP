@@ -13,6 +13,7 @@ import 'pages/settings/download_manager_page.dart';
 import 'pages/settings/developer_options_page.dart';
 import 'pages/settings/database_viewer_page.dart';
 import 'pages/settings/log_viewer_page.dart';
+import 'pages/radio/radio_page.dart';
 import 'pages/library/downloaded_page.dart';
 import 'pages/library/downloaded_category_page.dart';
 import '../providers/download_provider.dart';
@@ -27,6 +28,7 @@ class RoutePaths {
   static const String explore = '/explore';
   static const String player = '/player';
   static const String queue = '/queue';
+  static const String radio = '/radio';
   static const String library = '/library';
   static const String settings = '/settings';
   static const String playlistDetail = '/library/:id';
@@ -46,6 +48,7 @@ class RouteNames {
   static const String explore = 'explore';
   static const String player = 'player';
   static const String queue = 'queue';
+  static const String radio = 'radio';
   static const String library = 'library';
   static const String settings = 'settings';
   static const String playlistDetail = 'playlistDetail';
@@ -91,6 +94,13 @@ final appRouter = GoRouter(
           name: RouteNames.queue,
           pageBuilder: (context, state) => const NoTransitionPage(
             child: QueuePage(),
+          ),
+        ),
+        GoRoute(
+          path: RoutePaths.radio,
+          name: RouteNames.radio,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: RadioPage(),
           ),
         ),
         GoRoute(

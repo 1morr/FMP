@@ -9,6 +9,7 @@ import '../data/models/settings.dart';
 import '../data/models/search_history.dart';
 import '../data/models/download_task.dart';
 import '../data/models/play_history.dart';
+import '../data/models/radio_station.dart';
 
 /// Isar 数据库 Provider
 final databaseProvider = FutureProvider<Isar>((ref) async {
@@ -23,6 +24,7 @@ final databaseProvider = FutureProvider<Isar>((ref) async {
       SearchHistorySchema,
       DownloadTaskSchema,
       PlayHistorySchema,
+      RadioStationSchema,
     ],
     directory: dir.path,
     name: 'fmp_database',
