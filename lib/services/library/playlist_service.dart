@@ -244,8 +244,8 @@ class PlaylistService with Logging {
       return;
     }
 
-    // 将歌单 ID 添加到 track 的 playlistInfo（不设置下载路径）
-    existingTrack.addToPlaylist(playlistId);
+    // 将歌单 ID 和名称添加到 track 的 playlistInfo（不设置下载路径）
+    existingTrack.addToPlaylist(playlistId, playlistName: playlist.name);
 
     // 记录添加前是否为空（用于判断是否需要更新封面）
     final wasEmpty = playlist.trackIds.isEmpty;
@@ -287,9 +287,9 @@ class PlaylistService with Logging {
       return;
     }
 
-    // 将歌单 ID 添加到每个 track 的 playlistInfo（不设置下载路径）
+    // 将歌单 ID 和名称添加到每个 track 的 playlistInfo（不设置下载路径）
     for (final track in tracksToAdd) {
-      track.addToPlaylist(playlistId);
+      track.addToPlaylist(playlistId, playlistName: playlist.name);
     }
 
     // 记录添加前是否为空（用于判断是否需要更新封面）

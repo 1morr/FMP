@@ -116,10 +116,12 @@ class DownloadPathSyncService with Logging {
 
         if (existingTrack != null) {
           // C3: REPLACE all playlistInfo - 本地文件是权威来源
-          // C2: 添加 playlistId=0 表示不属于任何特定歌单
+          // C2: 使用文件夹名称作为 playlistName，方便歌单页面匹配
+          final folderName = folder.path.split(RegExp(r'[/\\]')).last;
           existingTrack.playlistInfo = [
             PlaylistDownloadInfo()
               ..playlistId = 0
+              ..playlistName = folderName
               ..downloadPath = localPath,
           ];
 

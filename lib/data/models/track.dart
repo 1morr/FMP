@@ -14,6 +14,9 @@ class PlaylistDownloadInfo {
   /// 所属歌单ID
   int playlistId = 0;
 
+  /// 所属歌单名称（用于下载路径匹配，歌单重命名时需同步更新）
+  String playlistName = '';
+
   /// 下载路径（空字符串表示未下载）
   String downloadPath = '';
 
@@ -24,7 +27,7 @@ class PlaylistDownloadInfo {
 
   @override
   String toString() =>
-      'PlaylistDownloadInfo(playlistId: $playlistId, downloadPath: $downloadPath)';
+      'PlaylistDownloadInfo(playlistId: $playlistId, name: $playlistName, downloadPath: $downloadPath)';
 }
 
 /// 歌曲/音频实体
@@ -86,11 +89,20 @@ class Track {
 
   // ========== 新的辅助方法 ==========
 
-  /// 获取指定歌单的下载路径
-  String? getDownloadPath(int playlistId) {
+  /// 获取指定歌单的下载路径（优先按名称匹配，兼容旧数据按ID匹配）
+  String? getDownloadPath(int playlistId, {String? playlistName}) {
+    // 优先按名称匹配
+    if (playlistName != null && playlistName.isNotEmpty) {
+      for (final info in playlistInfo) {
+        if (info.playlistName == playlistName && info.downloadPath.isNotEmpty) {
+          return info.downloadPath;
+        }
+      }
+    }
+    // 降级按 ID 匹配（兼容旧数据）
     for (final info in playlistInfo) {
-      if (info.playlistId == playlistId) {
-        return info.downloadPath.isEmpty ? null : info.downloadPath;
+      if (info.playlistId == playlistId && info.downloadPath.isNotEmpty) {
+        return info.downloadPath;
       }
     }
     return null;
@@ -99,7 +111,7 @@ class Track {
   /// 设置指定歌单的下载路径
   ///
   /// 注意：必须创建新的列表和对象，否则 Isar 无法检测到 @embedded 对象的变更
-  void setDownloadPath(int playlistId, String path) {
+  void setDownloadPath(int playlistId, String path, {String? playlistName}) {
     final newInfos = <PlaylistDownloadInfo>[];
     bool found = false;
 
@@ -108,12 +120,14 @@ class Track {
         // 创建新对象以确保 Isar 检测到变更
         newInfos.add(PlaylistDownloadInfo()
           ..playlistId = playlistId
+          ..playlistName = playlistName ?? info.playlistName
           ..downloadPath = path);
         found = true;
       } else {
         // 复制现有对象
         newInfos.add(PlaylistDownloadInfo()
           ..playlistId = info.playlistId
+          ..playlistName = info.playlistName
           ..downloadPath = info.downloadPath);
       }
     }
@@ -122,6 +136,7 @@ class Track {
       // 如果不在任何歌单中，添加新条目
       newInfos.add(PlaylistDownloadInfo()
         ..playlistId = playlistId
+        ..playlistName = playlistName ?? ''
         ..downloadPath = path);
     }
 
@@ -140,18 +155,27 @@ class Track {
   }
 
   /// 添加到歌单（不影响下载路径）
-  void addToPlaylist(int playlistId) {
+  void addToPlaylist(int playlistId, {String? playlistName}) {
     if (!belongsToPlaylist(playlistId)) {
       playlistInfo = List.from(playlistInfo)
-        ..add(PlaylistDownloadInfo()..playlistId = playlistId);
+        ..add(PlaylistDownloadInfo()
+          ..playlistId = playlistId
+          ..playlistName = playlistName ?? '');
     }
   }
 
-  /// 检查是否已为指定歌单下载
-  bool isDownloadedForPlaylist(int playlistId) {
-    final info =
-        playlistInfo.where((i) => i.playlistId == playlistId).firstOrNull;
-    return info != null && info.downloadPath.isNotEmpty;
+  /// 检查是否已为指定歌单下载（优先按名称匹配，兼容旧数据按ID匹配）
+  bool isDownloadedForPlaylist(int playlistId, {String? playlistName}) {
+    // 优先按名称匹配
+    if (playlistName != null && playlistName.isNotEmpty) {
+      final byName = playlistInfo.where((i) => i.playlistName == playlistName).firstOrNull;
+      if (byName != null && byName.downloadPath.isNotEmpty) {
+        return true;
+      }
+    }
+    // 降级按 ID 匹配（兼容旧数据）
+    final byId = playlistInfo.where((i) => i.playlistId == playlistId).firstOrNull;
+    return byId != null && byId.downloadPath.isNotEmpty;
   }
 
   /// 清除所有下载路径（保留歌单关联）
@@ -161,6 +185,7 @@ class Track {
     playlistInfo = playlistInfo
         .map((info) => PlaylistDownloadInfo()
           ..playlistId = info.playlistId
+          ..playlistName = info.playlistName
           ..downloadPath = '')
         .toList();
   }
@@ -172,6 +197,7 @@ class Track {
     playlistInfo = playlistInfo
         .map((info) => PlaylistDownloadInfo()
           ..playlistId = info.playlistId
+          ..playlistName = info.playlistName
           ..downloadPath = info.playlistId == playlistId ? '' : info.downloadPath)
         .toList();
   }

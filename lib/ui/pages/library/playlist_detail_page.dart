@@ -170,6 +170,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       return _TrackListTile(
         track: group.tracks.first,
         playlistId: widget.playlistId,
+        playlistName: state.playlist?.name ?? '',
         onTap: () => _playTrack(group.tracks.first),
         isPartOfMultiPage: false,
         isImported: isImported,
@@ -189,6 +190,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           onPlayFirst: () => _playTrack(group.tracks.first),
           onAddAllToQueue: () => _addAllToQueue(context, group.tracks),
           playlistId: widget.playlistId,
+          playlistName: state.playlist?.name ?? '',
           isImported: isImported,
         ),
         // 展开的分P列表
@@ -196,6 +198,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           ...group.tracks.map((track) => _TrackListTile(
                 track: track,
                 playlistId: widget.playlistId,
+                playlistName: state.playlist?.name ?? '',
                 onTap: () => _playTrack(track),
                 isPartOfMultiPage: true,
                 isImported: isImported,
@@ -545,6 +548,7 @@ class _GroupHeader extends ConsumerWidget {
   final VoidCallback onPlayFirst;
   final VoidCallback onAddAllToQueue;
   final int playlistId;
+  final String playlistName;
   final bool isImported;
 
   const _GroupHeader({
@@ -554,6 +558,7 @@ class _GroupHeader extends ConsumerWidget {
     required this.onPlayFirst,
     required this.onAddAllToQueue,
     required this.playlistId,
+    required this.playlistName,
     required this.isImported,
   });
 
@@ -606,7 +611,7 @@ class _GroupHeader extends ConsumerWidget {
             ),
           ),
           // 检查是否所有分P都已下载（使用 playlist-specific 检查）
-          if (group.tracks.every((t) => t.isDownloadedForPlaylist(playlistId))) ...[
+          if (group.tracks.every((t) => t.isDownloadedForPlaylist(playlistId, playlistName: playlistName))) ...[
             const SizedBox(width: 8),
             Icon(
               Icons.download_done,
@@ -740,6 +745,7 @@ class _GroupHeader extends ConsumerWidget {
 class _TrackListTile extends ConsumerWidget {
   final Track track;
   final int playlistId;
+  final String playlistName;
   final VoidCallback onTap;
   final bool isPartOfMultiPage;
   final bool indent;
@@ -748,6 +754,7 @@ class _TrackListTile extends ConsumerWidget {
   const _TrackListTile({
     required this.track,
     required this.playlistId,
+    required this.playlistName,
     required this.onTap,
     required this.isPartOfMultiPage,
     required this.isImported,
@@ -814,7 +821,7 @@ class _TrackListTile extends ConsumerWidget {
                     ),
                   ),
                   // 检查歌曲是否已下载到本歌单（使用 playlist-specific 检查）
-                  if (track.isDownloadedForPlaylist(playlistId))
+                  if (track.isDownloadedForPlaylist(playlistId, playlistName: playlistName))
                     Icon(
                       Icons.download_done,
                       size: 14,
