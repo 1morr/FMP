@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,7 +8,6 @@ import '../../../core/services/toast_service.dart';
 import '../../../data/models/radio_station.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../widgets/radio/add_radio_dialog.dart';
-import '../../widgets/radio/radio_list_tile.dart';
 
 /// 電台頁面
 class RadioPage extends ConsumerStatefulWidget {
@@ -16,22 +18,63 @@ class RadioPage extends ConsumerStatefulWidget {
 }
 
 class _RadioPageState extends ConsumerState<RadioPage> {
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // 進入頁面時刷新
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(radioControllerProvider.notifier).refreshAllLiveStatus();
+    });
+    // 每分鐘刷新
+    _refreshTimer = Timer.periodic(
+      const Duration(minutes: 1),
+      (_) => ref.read(radioControllerProvider.notifier).refreshAllLiveStatus(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final radioState = ref.watch(radioControllerProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      body: SafeArea(
-        child: radioState.stations.isEmpty
-            ? _buildEmptyState(context, colorScheme)
-            : _buildStationList(context, radioState, colorScheme),
+      appBar: AppBar(
+        title: const Text('電台'),
+        actions: [
+          // 刷新按鈕
+          IconButton(
+            onPressed: radioState.isRefreshingStatus
+                ? null
+                : () => ref
+                    .read(radioControllerProvider.notifier)
+                    .refreshAllLiveStatus(),
+            icon: radioState.isRefreshingStatus
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh),
+            tooltip: '刷新狀態',
+          ),
+          IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: '添加電台',
+            onPressed: () => AddRadioDialog.show(context),
+          ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => AddRadioDialog.show(context),
-        tooltip: '添加電台',
-        child: const Icon(Icons.add),
-      ),
+      body: radioState.stations.isEmpty
+          ? _buildEmptyState(context, colorScheme)
+          : _buildStationGrid(context, radioState, colorScheme),
     );
   }
 
@@ -59,119 +102,55 @@ class _RadioPageState extends ConsumerState<RadioPage> {
                   color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                 ),
           ),
-          const SizedBox(height: 100), // Space for mini player
+          const SizedBox(height: 100),
         ],
       ),
     );
   }
 
-  Widget _buildStationList(
+  Widget _buildStationGrid(
     BuildContext context,
     RadioState radioState,
     ColorScheme colorScheme,
   ) {
+    // 排序：正在直播的排前面，同狀態內保持原有順序
+    final sortedStations = List<RadioStation>.from(radioState.stations)
+      ..sort((a, b) {
+        final aLive = radioState.isStationLive(a.id) ? 0 : 1;
+        final bLive = radioState.isStationLive(b.id) ? 0 : 1;
+        return aLive.compareTo(bLive);
+      });
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 標題欄
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Row(
-            children: [
-              Text(
-                '電台',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const Spacer(),
-              if (radioState.isPlaying)
-                _buildNowPlayingChip(radioState, colorScheme),
-            ],
-          ),
-        ),
+        // 錯誤/重連提示
+        if (radioState.error != null || radioState.reconnectMessage != null)
+          _buildStatusBanner(radioState, colorScheme),
 
-        // 錯誤提示
-        if (radioState.error != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Card(
-              color: colorScheme.errorContainer,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    Icon(Icons.error_outline,
-                        color: colorScheme.onErrorContainer, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        radioState.error!,
-                        style: TextStyle(
-                          color: colorScheme.onErrorContainer,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-        // 重連提示
-        if (radioState.reconnectMessage != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Card(
-              color: colorScheme.secondaryContainer,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: colorScheme.onSecondaryContainer,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      radioState.reconnectMessage!,
-                      style: TextStyle(
-                        color: colorScheme.onSecondaryContainer,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-        // 電台列表
+        // 網格列表
         Expanded(
-          child: ReorderableListView.builder(
-            padding: const EdgeInsets.only(bottom: 100),
-            itemCount: radioState.stations.length,
-            onReorder: (oldIndex, newIndex) => _onReorder(
-              radioState.stations,
-              oldIndex,
-              newIndex,
+          child: GridView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 140,
+              mainAxisSpacing: 16,
+              crossAxisSpacing: 16,
+              childAspectRatio: 0.75,
             ),
+            itemCount: sortedStations.length,
             itemBuilder: (context, index) {
-              final station = radioState.stations[index];
+              final station = sortedStations[index];
+              final isLive = radioState.isStationLive(station.id);
               final isCurrentPlaying =
                   radioState.currentStation?.id == station.id;
 
-              return RadioStationTile(
-                key: ValueKey(station.id),
+              return _RadioStationCard(
                 station: station,
+                isLive: isLive,
                 isPlaying: isCurrentPlaying && radioState.isPlaying,
                 isLoading: isCurrentPlaying && radioState.isLoading,
                 onTap: () => _onStationTap(station, isCurrentPlaying, radioState),
-                onEdit: () => _showEditDialog(context, station),
-                onDelete: () => _showDeleteConfirm(context, station),
+                onLongPress: () => _showOptionsMenu(context, station),
               );
             },
           ),
@@ -180,20 +159,66 @@ class _RadioPageState extends ConsumerState<RadioPage> {
     );
   }
 
-  Widget _buildNowPlayingChip(RadioState radioState, ColorScheme colorScheme) {
-    final duration = radioState.playDuration;
-    final formatted = _formatDuration(duration);
+  Widget _buildStatusBanner(RadioState radioState, ColorScheme colorScheme) {
+    if (radioState.error != null) {
+      return Container(
+        margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colorScheme.errorContainer,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.error_outline,
+                color: colorScheme.onErrorContainer, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                radioState.error!,
+                style: TextStyle(
+                  color: colorScheme.onErrorContainer,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
-    return Chip(
-      avatar: const Icon(Icons.graphic_eq, size: 16),
-      label: Text(formatted),
-      side: BorderSide.none,
-      backgroundColor: colorScheme.primaryContainer,
-      labelStyle: TextStyle(
-        color: colorScheme.onPrimaryContainer,
-        fontSize: 12,
-      ),
-    );
+    if (radioState.reconnectMessage != null) {
+      return Container(
+        margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colorScheme.secondaryContainer,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: colorScheme.onSecondaryContainer,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              radioState.reconnectMessage!,
+              style: TextStyle(
+                color: colorScheme.onSecondaryContainer,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
   void _onStationTap(
@@ -204,23 +229,44 @@ class _RadioPageState extends ConsumerState<RadioPage> {
     final controller = ref.read(radioControllerProvider.notifier);
 
     if (isCurrentPlaying && radioState.isPlaying) {
-      // 正在播放此電台 → 停止
       controller.stop();
     } else {
-      // 播放此電台
       controller.play(station);
     }
   }
 
-  void _onReorder(List<RadioStation> stations, int oldIndex, int newIndex) {
-    if (oldIndex < newIndex) newIndex -= 1;
-    final newOrder = List<RadioStation>.from(stations);
-    final item = newOrder.removeAt(oldIndex);
-    newOrder.insert(newIndex, item);
+  void _showOptionsMenu(BuildContext context, RadioStation station) {
+    final colorScheme = Theme.of(context).colorScheme;
 
-    ref
-        .read(radioControllerProvider.notifier)
-        .reorderStations(newOrder.map((s) => s.id).toList());
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.edit),
+                title: const Text('編輯電台'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showEditDialog(context, station);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.delete, color: colorScheme.error),
+                title: Text('刪除電台', style: TextStyle(color: colorScheme.error)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showDeleteConfirm(context, station);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _showEditDialog(
@@ -294,15 +340,173 @@ class _RadioPageState extends ConsumerState<RadioPage> {
       }
     }
   }
+}
 
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    final seconds = duration.inSeconds.remainder(60);
+/// 電台卡片
+class _RadioStationCard extends StatelessWidget {
+  final RadioStation station;
+  final bool isLive;
+  final bool isPlaying;
+  final bool isLoading;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
-    if (hours > 0) {
-      return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-    }
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  const _RadioStationCard({
+    required this.station,
+    required this.isLive,
+    required this.isPlaying,
+    required this.isLoading,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return InkWell(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      borderRadius: BorderRadius.circular(12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 圓形封面
+          Stack(
+            children: [
+              // 封面圖
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colorScheme.surfaceContainerHighest,
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: station.thumbnailUrl != null
+                    ? ColorFiltered(
+                        colorFilter: isLive
+                            ? const ColorFilter.mode(
+                                Colors.transparent,
+                                BlendMode.multiply,
+                              )
+                            : const ColorFilter.matrix(<double>[
+                                0.2126, 0.7152, 0.0722, 0, 0,
+                                0.2126, 0.7152, 0.0722, 0, 0,
+                                0.2126, 0.7152, 0.0722, 0, 0,
+                                0, 0, 0, 1, 0,
+                              ]),
+                        child: CachedNetworkImage(
+                          imageUrl: station.thumbnailUrl!,
+                          fit: BoxFit.cover,
+                          width: 100,
+                          height: 100,
+                          placeholder: (context, url) => _buildPlaceholder(colorScheme),
+                          errorWidget: (context, url, error) =>
+                              _buildPlaceholder(colorScheme),
+                        ),
+                      )
+                    : _buildPlaceholder(colorScheme),
+              ),
+
+              // 正在直播紅點
+              if (isLive)
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: colorScheme.surface,
+                        width: 2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.red.withValues(alpha: 0.5),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // 播放中指示器
+              if (isPlaying || isLoading)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: colorScheme.primary.withValues(alpha: 0.4),
+                    ),
+                    child: Center(
+                      child: isLoading
+                          ? SizedBox(
+                              width: 32,
+                              height: 32,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 3,
+                                color: colorScheme.onPrimary,
+                              ),
+                            )
+                          : Icon(
+                              Icons.graphic_eq,
+                              color: colorScheme.onPrimary,
+                              size: 32,
+                            ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+
+          const SizedBox(height: 8),
+
+          // 標題
+          Text(
+            station.title,
+            style: textTheme.bodyMedium?.copyWith(
+              fontWeight: isPlaying ? FontWeight.bold : null,
+              color: isLive
+                  ? (isPlaying ? colorScheme.primary : colorScheme.onSurface)
+                  : colorScheme.onSurfaceVariant,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+
+          // 主播名稱
+          if (station.hostName != null)
+            Text(
+              station.hostName!,
+              style: textTheme.bodySmall?.copyWith(
+                color: isLive
+                    ? colorScheme.onSurfaceVariant
+                    : colorScheme.outline,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlaceholder(ColorScheme colorScheme) {
+    return Container(
+      color: colorScheme.surfaceContainerHighest,
+      child: Icon(
+        Icons.radio,
+        size: 40,
+        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+      ),
+    );
   }
 }

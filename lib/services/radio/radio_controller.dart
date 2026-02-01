@@ -17,6 +17,12 @@ class RadioState {
   /// 所有電台列表
   final List<RadioStation> stations;
 
+  /// 各電台的直播狀態 (stationId -> isLive)
+  final Map<int, bool> liveStatus;
+
+  /// 是否正在刷新直播狀態
+  final bool isRefreshingStatus;
+
   /// 正在播放的電台
   final RadioStation? currentStation;
 
@@ -49,6 +55,8 @@ class RadioState {
 
   const RadioState({
     this.stations = const [],
+    this.liveStatus = const {},
+    this.isRefreshingStatus = false,
     this.currentStation,
     this.isPlaying = false,
     this.isLoading = false,
@@ -73,8 +81,13 @@ class RadioState {
     return DateTime.now().difference(liveStartTime!);
   }
 
+  /// 檢查電台是否正在直播
+  bool isStationLive(int stationId) => liveStatus[stationId] ?? false;
+
   RadioState copyWith({
     List<RadioStation>? stations,
+    Map<int, bool>? liveStatus,
+    bool? isRefreshingStatus,
     RadioStation? currentStation,
     bool clearCurrentStation = false,
     bool? isPlaying,
@@ -93,6 +106,8 @@ class RadioState {
   }) {
     return RadioState(
       stations: stations ?? this.stations,
+      liveStatus: liveStatus ?? this.liveStatus,
+      isRefreshingStatus: isRefreshingStatus ?? this.isRefreshingStatus,
       currentStation:
           clearCurrentStation ? null : (currentStation ?? this.currentStation),
       isPlaying: isPlaying ?? this.isPlaying,
@@ -340,6 +355,30 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     } catch (e) {
       logWarning('Failed to refresh station info: $e');
     }
+  }
+
+  /// 刷新所有電台的直播狀態
+  Future<void> refreshAllLiveStatus() async {
+    if (state.stations.isEmpty || state.isRefreshingStatus) return;
+
+    state = state.copyWith(isRefreshingStatus: true);
+
+    final newStatus = <int, bool>{};
+
+    for (final station in state.stations) {
+      try {
+        final isLive = await _radioSource.isLive(station);
+        newStatus[station.id] = isLive;
+      } catch (e) {
+        logWarning('Failed to check live status for ${station.title}: $e');
+        newStatus[station.id] = false;
+      }
+    }
+
+    state = state.copyWith(
+      liveStatus: newStatus,
+      isRefreshingStatus: false,
+    );
   }
 
   // ========== Private Methods ==========
