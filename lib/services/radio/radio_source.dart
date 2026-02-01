@@ -14,6 +14,11 @@ class LiveRoomInfo {
   final int? viewerCount;
   final DateTime? liveStartTime;
   final bool isLive;
+  final String? description;
+  final String? tags;
+  final String? announcement;
+  final String? areaName;
+  final String? parentAreaName;
 
   const LiveRoomInfo({
     required this.title,
@@ -23,6 +28,11 @@ class LiveRoomInfo {
     this.viewerCount,
     this.liveStartTime,
     this.isLive = false,
+    this.description,
+    this.tags,
+    this.announcement,
+    this.areaName,
+    this.parentAreaName,
   });
 }
 
@@ -68,6 +78,8 @@ class RadioSource with Logging {
       '$_biliLiveApiBase/room/v1/Room/room_init';
   static const String _biliOnlineGoldRankApi =
       '$_biliLiveApiBase/xlive/general-interface/v1/rank/getOnlineGoldRank';
+  static const String _biliRoomNewsApi =
+      '$_biliLiveApiBase/room_ex/v1/RoomNews/get';
 
   // YouTube URL 檢測正則（用於提示用戶）
   static final _youtubeRegex = RegExp(
@@ -179,6 +191,20 @@ class RadioSource with Logging {
       logWarning('Failed to get anchor info: $e');
     }
 
+    // 獲取主播公告
+    String? announcement;
+    try {
+      final newsResponse = await _dio.get(
+        _biliRoomNewsApi,
+        queryParameters: {'roomid': realRoomId},
+      );
+      if (newsResponse.data['code'] == 0) {
+        announcement = newsResponse.data['data']?['content'];
+      }
+    } catch (e) {
+      logWarning('Failed to get room news: $e');
+    }
+
     return LiveRoomInfo(
       title: data['title'] ?? '未知直播間',
       thumbnailUrl: data['user_cover'] ?? data['keyframe'],
@@ -187,6 +213,13 @@ class RadioSource with Logging {
       viewerCount: data['online'],
       liveStartTime: liveStartTime,
       isLive: data['live_status'] == 1,
+      description: data['description']?.toString().isNotEmpty == true
+          ? data['description']
+          : null,
+      tags: data['tags']?.toString().isNotEmpty == true ? data['tags'] : null,
+      announcement: announcement,
+      areaName: data['area_name'],
+      parentAreaName: data['parent_area_name'],
     );
   }
 

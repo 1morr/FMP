@@ -53,6 +53,18 @@ class RadioState {
   /// 重連狀態訊息
   final String? reconnectMessage;
 
+  /// 直播間簡介
+  final String? description;
+
+  /// 直播間標籤
+  final String? tags;
+
+  /// 主播公告
+  final String? announcement;
+
+  /// 分區名稱
+  final String? areaName;
+
   const RadioState({
     this.stations = const [],
     this.liveStatus = const {},
@@ -67,6 +79,10 @@ class RadioState {
     this.playDuration = Duration.zero,
     this.reconnectAttempts = 0,
     this.reconnectMessage,
+    this.description,
+    this.tags,
+    this.announcement,
+    this.areaName,
   });
 
   /// 是否有電台在播放
@@ -103,6 +119,14 @@ class RadioState {
     int? reconnectAttempts,
     String? reconnectMessage,
     bool clearReconnectMessage = false,
+    String? description,
+    bool clearDescription = false,
+    String? tags,
+    bool clearTags = false,
+    String? announcement,
+    bool clearAnnouncement = false,
+    String? areaName,
+    bool clearAreaName = false,
   }) {
     return RadioState(
       stations: stations ?? this.stations,
@@ -123,6 +147,12 @@ class RadioState {
       reconnectMessage: clearReconnectMessage
           ? null
           : (reconnectMessage ?? this.reconnectMessage),
+      description:
+          clearDescription ? null : (description ?? this.description),
+      tags: clearTags ? null : (tags ?? this.tags),
+      announcement:
+          clearAnnouncement ? null : (announcement ?? this.announcement),
+      areaName: clearAreaName ? null : (areaName ?? this.areaName),
     );
   }
 }
@@ -259,6 +289,12 @@ class RadioController extends StateNotifier<RadioState> with Logging {
         playDuration: Duration.zero,
         viewerCount: viewerCount,
         liveStartTime: liveInfo?.liveStartTime,
+        description: liveInfo?.description,
+        tags: liveInfo?.tags,
+        announcement: liveInfo?.announcement,
+        areaName: liveInfo?.areaName != null
+            ? '${liveInfo!.parentAreaName ?? ''} · ${liveInfo.areaName}'
+            : null,
       );
 
       // 更新最後播放時間
@@ -290,6 +326,10 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       clearLiveStartTime: true,
       reconnectAttempts: 0,
       clearReconnectMessage: true,
+      clearDescription: true,
+      clearTags: true,
+      clearAnnouncement: true,
+      clearAreaName: true,
     );
 
     _playStartTime = null;

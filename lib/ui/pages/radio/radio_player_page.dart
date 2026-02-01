@@ -431,11 +431,12 @@ class _LiveInfoDialog extends ConsumerWidget {
           const Divider(height: 1),
 
           // 內容區域
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: station == null
-                ? const Text('無法獲取直播間信息')
-                : Column(
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: station == null
+                  ? const Text('無法獲取直播間信息')
+                  : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // 標題
@@ -514,6 +515,13 @@ class _LiveInfoDialog extends ConsumerWidget {
                               Icons.play_circle_outline,
                               '開播於 ${_formatDateTime(state.liveStartTime!)}',
                             ),
+                          // 分區
+                          if (state.areaName != null)
+                            _buildStatItem(
+                              context,
+                              Icons.category_outlined,
+                              state.areaName!,
+                            ),
                           // 直播狀態
                           _buildStatItem(
                             context,
@@ -524,6 +532,43 @@ class _LiveInfoDialog extends ConsumerWidget {
                           ),
                         ],
                       ),
+
+                      // 主播公告
+                      if (state.announcement != null &&
+                          state.announcement!.isNotEmpty) ...[
+                        const SizedBox(height: 20),
+                        const Divider(),
+                        const SizedBox(height: 16),
+                        _buildSection(
+                          context,
+                          icon: Icons.campaign_outlined,
+                          title: '主播公告',
+                          content: state.announcement!,
+                        ),
+                      ],
+
+                      // 直播間簡介
+                      if (state.description != null &&
+                          state.description!.isNotEmpty) ...[
+                        const SizedBox(height: 20),
+                        const Divider(),
+                        const SizedBox(height: 16),
+                        _buildSection(
+                          context,
+                          icon: Icons.info_outline_rounded,
+                          title: '簡介',
+                          content: state.description!,
+                        ),
+                      ],
+
+                      // 標籤
+                      if (state.tags != null &&
+                          state.tags!.isNotEmpty) ...[
+                        const SizedBox(height: 20),
+                        const Divider(),
+                        const SizedBox(height: 16),
+                        _buildTagsSection(context, state.tags!),
+                      ],
 
                       const SizedBox(height: 20),
 
@@ -560,9 +605,90 @@ class _LiveInfoDialog extends ConsumerWidget {
                       const SizedBox(height: 20),
                     ],
                   ),
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSection(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String content,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 18, color: colorScheme.primary),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: textTheme.titleSmall?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          content,
+          style: textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            height: 1.6,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTagsSection(BuildContext context, String tags) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final tagList = tags.split(',').where((t) => t.trim().isNotEmpty).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.tag, size: 18, color: colorScheme.primary),
+            const SizedBox(width: 8),
+            Text(
+              '標籤',
+              style: textTheme.titleSmall?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: tagList.map((tag) => Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              tag.trim(),
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          )).toList(),
+        ),
+      ],
     );
   }
 
