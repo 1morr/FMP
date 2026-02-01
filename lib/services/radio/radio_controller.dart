@@ -32,6 +32,9 @@ class RadioState {
   /// 是否正在載入
   final bool isLoading;
 
+  /// 正在載入的電台 ID（用於顯示正確的載入指示器）
+  final int? loadingStationId;
+
   /// 是否正在緩衝
   final bool isBuffering;
 
@@ -72,6 +75,7 @@ class RadioState {
     this.currentStation,
     this.isPlaying = false,
     this.isLoading = false,
+    this.loadingStationId,
     this.isBuffering = false,
     this.error,
     this.viewerCount,
@@ -108,6 +112,8 @@ class RadioState {
     bool clearCurrentStation = false,
     bool? isPlaying,
     bool? isLoading,
+    int? loadingStationId,
+    bool clearLoadingStationId = false,
     bool? isBuffering,
     String? error,
     bool clearError = false,
@@ -136,6 +142,9 @@ class RadioState {
           clearCurrentStation ? null : (currentStation ?? this.currentStation),
       isPlaying: isPlaying ?? this.isPlaying,
       isLoading: isLoading ?? this.isLoading,
+      loadingStationId: clearLoadingStationId
+          ? null
+          : (loadingStationId ?? this.loadingStationId),
       isBuffering: isBuffering ?? this.isBuffering,
       error: clearError ? null : (error ?? this.error),
       viewerCount:
@@ -167,6 +176,9 @@ class RadioController extends StateNotifier<RadioState> with Logging {
   // 定時器
   Timer? _playDurationTimer;
   Timer? _infoRefreshTimer;
+
+  // 播放請求 ID（用於取消過期請求）
+  int _playRequestId = 0;
 
   // 訂閱
   StreamSubscription? _playerStateSubscription;
@@ -231,39 +243,62 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     state = state.copyWith(stations: stations);
   }
 
+  /// 檢查請求是否已被取代
+  bool _isSuperseded(int requestId) => requestId != _playRequestId;
+
   /// 播放電台
   Future<void> play(RadioStation station) async {
-    if (state.isLoading) return;
+    // 增加請求 ID，取消之前的請求
+    final requestId = ++_playRequestId;
+
+    // 立即更新 UI 顯示新電台（迷你播放器和詳情面板會立即切換）
+    state = state.copyWith(
+      currentStation: station,
+      isLoading: true,
+      loadingStationId: station.id,
+      isPlaying: false,
+      error: null,
+      clearError: true,
+      reconnectAttempts: 0,
+      clearReconnectMessage: true,
+      // 清除舊電台的資訊
+      clearViewerCount: true,
+      clearLiveStartTime: true,
+      clearDescription: true,
+      clearTags: true,
+      clearAnnouncement: true,
+      clearAreaName: true,
+      playDuration: Duration.zero,
+    );
 
     try {
-      state = state.copyWith(
-        isLoading: true,
-        error: null,
-        clearError: true,
-        reconnectAttempts: 0,
-        clearReconnectMessage: true,
-      );
-
       // 互斥：先停止音樂播放
       await _pauseMusicPlayback();
+      if (_isSuperseded(requestId)) return;
 
       // 獲取流地址
       final streamInfo = await _radioSource.getStreamUrl(station);
+      if (_isSuperseded(requestId)) return;
       _currentStreamInfo = streamInfo;
 
       // 獲取即時資訊
       LiveRoomInfo? liveInfo;
       try {
         liveInfo = await _radioSource.getLiveInfo(station);
+        if (_isSuperseded(requestId)) return;
         if (!liveInfo.isLive) {
-          state = state.copyWith(
-            isLoading: false,
-            error: '直播間尚未開播',
-          );
+          if (!_isSuperseded(requestId)) {
+            state = state.copyWith(
+              isLoading: false,
+              clearLoadingStationId: true,
+              error: '直播間尚未開播',
+            );
+          }
           return;
         }
       } catch (e) {
         logWarning('Failed to get live info, continuing anyway: $e');
+        if (_isSuperseded(requestId)) return;
       }
 
       // 開始播放
@@ -271,6 +306,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
         streamInfo.url,
         headers: streamInfo.headers,
       );
+      if (_isSuperseded(requestId)) return;
 
       // 獲取高能用戶數（作為觀眾數）
       int? viewerCount;
@@ -279,12 +315,14 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       } catch (e) {
         logWarning('Failed to get initial viewer count: $e');
       }
+      if (_isSuperseded(requestId)) return;
 
       // 更新狀態
       _playStartTime = DateTime.now();
       state = state.copyWith(
         currentStation: station,
         isLoading: false,
+        clearLoadingStationId: true,
         isPlaying: true,
         playDuration: Duration.zero,
         viewerCount: viewerCount,
@@ -303,9 +341,11 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       // 啟動定時器
       _startTimers();
     } catch (e) {
+      if (_isSuperseded(requestId)) return;
       logError('Failed to play radio station: $e');
       state = state.copyWith(
         isLoading: false,
+        clearLoadingStationId: true,
         error: '播放失敗: $e',
       );
     }
@@ -320,6 +360,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       clearCurrentStation: true,
       isPlaying: false,
       isLoading: false,
+      clearLoadingStationId: true,
       isBuffering: false,
       playDuration: Duration.zero,
       clearViewerCount: true,

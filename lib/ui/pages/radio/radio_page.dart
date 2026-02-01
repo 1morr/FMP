@@ -148,7 +148,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
                 station: station,
                 isLive: isLive,
                 isPlaying: isCurrentPlaying && radioState.isPlaying,
-                isLoading: isCurrentPlaying && radioState.isLoading,
+                isLoading: radioState.loadingStationId == station.id,
                 onTap: () => _onStationTap(station, isCurrentPlaying, radioState),
                 onLongPress: () => _showOptionsMenu(context, station),
               );
