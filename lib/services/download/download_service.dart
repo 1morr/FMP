@@ -295,9 +295,6 @@ class DownloadService with Logging {
       return 0;
     }
 
-    // 下载歌单封面
-    await _downloadPlaylistCover(playlist);
-
     // 为每个歌曲创建下载任务（批量添加，不立即触发调度）
     int addedCount = 0;
     for (int i = 0; i < tracks.length; i++) {
@@ -318,55 +315,6 @@ class DownloadService with Logging {
 
     logDebug('Added $addedCount download tasks for playlist: ${playlist.name}');
     return addedCount;
-  }
-
-  /// 下载歌单封面到分类文件夹
-  ///
-  /// 封面来源逻辑：
-  /// - Bilibili 歌单：使用 playlist.coverUrl（API 返回的收藏夹封面）
-  /// - YouTube/手动创建歌单：使用第一首歌曲的 thumbnailUrl
-  /// 
-  /// 总是覆盖已存在的 playlist_cover.jpg（获取最新封面）
-  Future<void> _downloadPlaylistCover(Playlist playlist) async {
-    String? coverUrl;
-
-    // 根据歌单类型选择封面来源
-    if (playlist.importSourceType == SourceType.bilibili) {
-      // Bilibili 歌单：使用 API 返回的封面
-      coverUrl = playlist.coverUrl;
-    } else {
-      // YouTube/手动创建歌单：使用第一首歌曲的封面
-      if (playlist.trackIds.isNotEmpty) {
-        final firstTrack = await _trackRepository.getById(playlist.trackIds.first);
-        coverUrl = firstTrack?.thumbnailUrl;
-      }
-    }
-
-    if (coverUrl == null || coverUrl.isEmpty) {
-      logDebug('No cover URL available for playlist: ${playlist.name}');
-      return;
-    }
-
-    try {
-      // 获取基础下载目录
-      final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
-
-      // 歌单文件夹路径
-      final subDir = _sanitizeFileName(playlist.name);
-      final playlistFolder = Directory(p.join(baseDir, subDir));
-
-      // 确保目录存在
-      if (!await playlistFolder.exists()) {
-        await playlistFolder.create(recursive: true);
-      }
-
-      // 下载封面到歌单文件夹（总是覆盖）
-      final coverPath = p.join(playlistFolder.path, 'playlist_cover.jpg');
-      await _dio.download(coverUrl, coverPath);
-      logDebug('Downloaded playlist cover: ${playlist.name}');
-    } catch (e) {
-      logDebug('Failed to download playlist cover: $e');
-    }
   }
 
   /// 暂停下载任务
@@ -701,39 +649,6 @@ class DownloadService with Logging {
     );
   }
 
-  /// 清理文件名中的特殊字符
-  String _sanitizeFileName(String name) {
-    // 将特殊字符转换为全角字符
-    const replacements = {
-      '/': '／',  // U+FF0F
-      '\\': '＼', // U+FF3C
-      ':': '：',  // U+FF1A
-      '*': '＊',  // U+FF0A
-      '?': '？',  // U+FF1F
-      '"': '＂',  // U+FF02
-      '<': '＜',  // U+FF1C
-      '>': '＞',  // U+FF1E
-      '|': '｜',  // U+FF5C
-    };
-    
-    String result = name;
-    for (final entry in replacements.entries) {
-      result = result.replaceAll(entry.key, entry.value);
-    }
-    
-    // 移除首尾空格和点
-    result = result.trim();
-    while (result.endsWith('.')) {
-      result = result.substring(0, result.length - 1);
-    }
-    
-    // 限制长度 (Windows 路径限制考虑)
-    if (result.length > 200) {
-      result = result.substring(0, 200);
-    }
-    
-    return result.isEmpty ? 'untitled' : result;
-  }
 
   /// 保存元数据
   Future<void> _saveMetadata(Track track, String audioPath, {VideoDetail? videoDetail}) async {
