@@ -16,7 +16,7 @@
 | 编程语言 | Dart | 3.10+ |
 | 状态管理 | Riverpod | 2.6.x |
 | 本地存储 | Isar | 3.1.x |
-| 音频播放 | just_audio | 0.9.x |
+| 音频播放 | media_kit | (直接使用，非 just_audio) |
 | 后台播放 | audio_service | 0.18.x |
 | 网络请求 | Dio | 5.8.x |
 | 路由 | go_router | 14.8.x |
@@ -57,14 +57,16 @@
 9. **移动特性**: 后台播放、通知栏控制 ✅ (上一首/下一首已实现)
 10. **下载管理**: 离线下载、批量下载、预计算路径、下载状态缓存、进度节流
 11. **网络图片缓存**: CachedNetworkImage 本地缓存封面图片
+12. **YouTube Mix/Radio 播放**: 支持導入和播放 YouTube Mix 播放列表（動態無限播放列表），使用 InnerTube API，狀態跨重啟持久化
 
 ## 重要记忆文件
-- `audio_system` - 音频系统详细架构文档（含记住播放位置功能）
+- `audio_system` - 音频系统详细架构文档（含记住播放位置、Mix 模式功能）
 - `architecture` - 整体架构概览
 - `code_style` - 代码风格规范
 - `download_system` - 下载系统文档（含进度节流机制）
 - `image_handling` - 图片处理与缓存
 - `ui_pages_details` - UI 页面详情
+- `mix_playlist_design` - YouTube Mix 播放列表完整設計與實現文檔
 
 ## 重要文档
 - `docs/PRD.md` - 产品需求文档

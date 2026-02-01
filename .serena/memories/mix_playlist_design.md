@@ -203,12 +203,57 @@ contents.twoColumnWatchNextResults.playlist.playlist
   - Title shows "Mix - {playlist name} (count)" in Mix mode
   - Hidden shuffle button in Mix mode
 
-### Phase 4: Import Service ✅
-- Added import for `YouTubeSource`
-- Modified `importFromUrl()` to detect Mix URLs using `YouTubeSource.isMixPlaylistUrl()`
-- Added `_importMixPlaylist()` method:
-  - Uses `getMixPlaylistInfo()` to get metadata
-  - Creates Playlist with `isMix=true`, `mixPlaylistId`, `mixSeedVideoId`
-  - Does NOT save any tracks (tracks loaded dynamically)
-  - Sets `refreshIntervalHours = null` (Mix doesn't need scheduled refresh)
-- Modified `refreshPlaylist()` to skip Mix playlists (returns empty result)
+### Phase 6: Mix Mode Persistence ✅
+- **`lib/data/models/play_queue.dart`**:
+  - Added `isMixMode` (bool) - whether currently in Mix mode
+  - Added `mixPlaylistId` (String?) - RD playlist ID
+  - Added `mixSeedVideoId` (String?) - seed video for first load
+  - Added `mixTitle` (String?) - playlist title for display
+  - Regenerated Isar code with build_runner
+
+- **`lib/services/audio/queue_manager.dart`**:
+  - Added getters: `isMixMode`, `mixPlaylistId`, `mixSeedVideoId`, `mixTitle`
+  - Added `setMixMode()` method to persist Mix state to Isar
+  - Added `clearMixMode()` helper method
+
+- **`lib/services/audio/audio_provider.dart`**:
+  - `playMixPlaylist()` now calls `_queueManager.setMixMode()` to persist
+  - `_exitMixMode()` now calls `_queueManager.clearMixMode()` to clear
+  - `initialize()` restores Mix mode from persisted state on app startup
+
+### Phase 7: UI Polish ✅
+- **Queue operations return bool for toast control**:
+  - `addToQueue()`, `addAllToQueue()`, `addNext()` return `bool` instead of `void`
+  - Returns `false` when blocked (Mix mode), `true` on success
+  - UI callers only show success toast when method returns `true`
+  - Fixes double toast issue (success toast before error toast)
+
+- **`lib/ui/pages/player/player_page.dart`** & **`lib/ui/widgets/player/mini_player.dart`**:
+  - Shuffle button disabled (greyed out) in Mix mode instead of showing toast
+  - Tooltip shows "Mix 模式不支持隨機播放" when disabled
+
+- **`lib/ui/pages/library/playlist_detail_page.dart`**:
+  - Added `isMix` parameter to `_TrackListTile` and `_GroupHeader`
+  - PopupMenuButton entirely hidden for Mix playlist tracks (not just items)
+  - Prevents downloading Mix tracks (which causes them to disappear)
+
+- **`lib/ui/pages/queue/queue_page.dart`**:
+  - Title shows "Mix · {playlist name}" with truncation
+  - Uses `LayoutBuilder` to constrain title to 60% of available width
+  - Normal mode shows "播放队列 (count)"
+
+```dart
+title: LayoutBuilder(
+  builder: (context, constraints) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.6),
+      child: Text(
+        isMixMode
+            ? 'Mix · ${mixTitle ?? ''}'
+            : '播放队列 (${queue.length})',
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  },
+),
+```
