@@ -33,13 +33,7 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
     });
   }
 
-  Future<void> _refresh() async {
-    // 刷新分类列表
-    ref.invalidate(downloadedCategoriesProvider);
-    await ref.read(downloadedCategoriesProvider.future);
-  }
-
-  Future<void> _refreshAndSync() async {
+  Future<void> _syncLocalFiles() async {
     final syncService = ref.read(downloadPathSyncServiceProvider);
 
     if (!mounted) return;
@@ -87,12 +81,7 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
           IconButton(
             icon: const Icon(Icons.sync),
             tooltip: '同步本地文件',
-            onPressed: _refreshAndSync,
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
-            onPressed: _refresh,
+            onPressed: _syncLocalFiles,
           ),
           IconButton(
             icon: const Icon(Icons.download),
@@ -112,8 +101,8 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
               Text('加载失败: $error'),
               const SizedBox(height: 16),
               FilledButton.icon(
-                onPressed: _refresh,
-                icon: const Icon(Icons.refresh),
+                onPressed: _syncLocalFiles,
+                icon: const Icon(Icons.sync),
                 label: const Text('重试'),
               ),
             ],
