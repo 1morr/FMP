@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/radio_station.dart';
 import '../../../services/radio/radio_controller.dart';
+import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/radio/add_radio_dialog.dart';
 
 /// 電台頁面
@@ -454,10 +455,10 @@ class _RadioStationCard extends StatelessWidget {
                                 color: colorScheme.onPrimary,
                               ),
                             )
-                          : Icon(
-                              Icons.graphic_eq,
+                          : NowPlayingIndicator(
                               color: colorScheme.onPrimary,
                               size: 32,
+                              isPlaying: true,
                             ),
                     ),
                   ),
