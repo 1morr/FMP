@@ -14,6 +14,7 @@ import 'pages/settings/developer_options_page.dart';
 import 'pages/settings/database_viewer_page.dart';
 import 'pages/settings/log_viewer_page.dart';
 import 'pages/radio/radio_page.dart';
+import 'pages/radio/radio_player_page.dart';
 import 'pages/library/downloaded_page.dart';
 import 'pages/library/downloaded_category_page.dart';
 import '../providers/download_provider.dart';
@@ -29,6 +30,7 @@ class RoutePaths {
   static const String player = '/player';
   static const String queue = '/queue';
   static const String radio = '/radio';
+  static const String radioPlayer = '/radio-player';
   static const String library = '/library';
   static const String settings = '/settings';
   static const String playlistDetail = '/library/:id';
@@ -49,6 +51,7 @@ class RouteNames {
   static const String player = 'player';
   static const String queue = 'queue';
   static const String radio = 'radio';
+  static const String radioPlayer = 'radioPlayer';
   static const String library = 'library';
   static const String settings = 'settings';
   static const String playlistDetail = 'playlistDetail';
@@ -181,6 +184,26 @@ final appRouter = GoRouter(
       name: RouteNames.player,
       pageBuilder: (context, state) => CustomTransitionPage(
         child: const PlayerPage(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 1),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            )),
+            child: child,
+          );
+        },
+      ),
+    ),
+    // 電台播放器頁面（不在 Shell 內）
+    GoRoute(
+      path: RoutePaths.radioPlayer,
+      name: RouteNames.radioPlayer,
+      pageBuilder: (context, state) => CustomTransitionPage(
+        child: const RadioPlayerPage(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return SlideTransition(
             position: Tween<Offset>(

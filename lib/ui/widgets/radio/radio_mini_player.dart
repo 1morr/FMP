@@ -1,20 +1,37 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/utils/icon_helpers.dart';
+import '../../../services/audio/audio_provider.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../router.dart';
 
 /// 電台迷你播放器
 /// 顯示在頁面底部，展示當前播放的電台資訊和控制按鈕
-class RadioMiniPlayer extends ConsumerWidget {
+/// 樣式與音樂迷你播放器一致
+class RadioMiniPlayer extends ConsumerStatefulWidget {
   const RadioMiniPlayer({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final radioState = ref.watch(radioControllerProvider);
+  ConsumerState<RadioMiniPlayer> createState() => _RadioMiniPlayerState();
+}
+
+class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
+  /// 是否為桌面平台
+  bool get isDesktop =>
+      Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+
+  @override
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final radioState = ref.watch(radioControllerProvider);
+    final radioController = ref.read(radioControllerProvider.notifier);
+    // 使用 AudioController 管理音量（共享同一個 AudioService）
+    final audioState = ref.watch(audioControllerProvider);
+    final audioController = ref.read(audioControllerProvider.notifier);
 
     // 沒有電台在播放時不顯示
     if (!radioState.hasCurrentStation) {
@@ -22,10 +39,9 @@ class RadioMiniPlayer extends ConsumerWidget {
     }
 
     final station = radioState.currentStation!;
-    final controller = ref.read(radioControllerProvider.notifier);
 
     return GestureDetector(
-      onTap: () => context.go(RoutePaths.radio),
+      onTap: () => context.push(RoutePaths.radioPlayer),
       child: Container(
         height: 64,
         decoration: BoxDecoration(
@@ -53,7 +69,10 @@ class RadioMiniPlayer extends ConsumerWidget {
                   children: [
                     Text(
                       station.title,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(
                             fontWeight: FontWeight.w500,
                           ),
                       maxLines: 1,
@@ -65,43 +84,15 @@ class RadioMiniPlayer extends ConsumerWidget {
                 ),
               ),
 
-              // LIVE 標記
-              if (radioState.isPlaying)
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    'LIVE',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
+              // 播放/停止按鈕
+              _buildPlayStopButton(radioState, radioController, colorScheme),
 
-              // 載入指示器
-              if (radioState.isLoading || radioState.isBuffering)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8),
-                  child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-
-              // 停止按鈕
-              IconButton(
-                icon: const Icon(Icons.stop),
-                iconSize: 28,
-                onPressed: () => controller.stop(),
-                tooltip: '停止',
-              ),
+              // 桌面端音量控制
+              if (isDesktop) ...[
+                const SizedBox(width: 8),
+                _buildVolumeControl(
+                    context, audioState, audioController, colorScheme),
+              ],
             ],
           ),
         ),
@@ -150,6 +141,11 @@ class RadioMiniPlayer extends ConsumerWidget {
   ) {
     final parts = <String>[];
 
+    // 主播名稱
+    if (radioState.currentStation?.hostName != null) {
+      parts.add(radioState.currentStation!.hostName!);
+    }
+
     // 已播放時長
     if (radioState.isPlaying) {
       parts.add(_formatDuration(radioState.playDuration));
@@ -174,6 +170,151 @@ class RadioMiniPlayer extends ConsumerWidget {
           ),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  /// 播放/停止按鈕
+  Widget _buildPlayStopButton(
+    RadioState state,
+    RadioController controller,
+    ColorScheme colorScheme,
+  ) {
+    // 使用固定尺寸的 SizedBox 包裝，確保載入和正常狀態下大小一致
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: state.isBuffering || state.isLoading
+          ? Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  color: colorScheme.primary,
+                  strokeWidth: 2,
+                ),
+              ),
+            )
+          : IconButton(
+              padding: EdgeInsets.zero,
+              icon: Icon(
+                state.isPlaying ? Icons.stop : Icons.play_arrow,
+                size: 28,
+              ),
+              onPressed: () {
+                if (state.isPlaying) {
+                  controller.stop();
+                } else if (state.currentStation != null) {
+                  controller.play(state.currentStation!);
+                }
+              },
+            ),
+    );
+  }
+
+  /// 音量控制（僅桌面端）
+  Widget _buildVolumeControl(
+    BuildContext context,
+    PlayerState state,
+    AudioController controller,
+    ColorScheme colorScheme,
+  ) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isNarrow = screenWidth < 600;
+
+    // 窄屏時使用彈出式音量控制
+    if (isNarrow) {
+      return MenuAnchor(
+        builder: (context, menuController, child) {
+          return IconButton(
+            icon: Icon(
+              getVolumeIcon(state.volume),
+              size: 20,
+            ),
+            visualDensity: VisualDensity.compact,
+            tooltip: '音量',
+            onPressed: () {
+              if (menuController.isOpen) {
+                menuController.close();
+              } else {
+                menuController.open();
+              }
+            },
+          );
+        },
+        style: MenuStyle(
+          padding: WidgetStatePropertyAll(EdgeInsets.zero),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        alignmentOffset: const Offset(0, -170),
+        menuChildren: [
+          SizedBox(
+            width: 40,
+            height: 120,
+            child: RotatedBox(
+              quarterTurns: 3,
+              child: SliderTheme(
+                data: SliderThemeData(
+                  trackHeight: 4,
+                  thumbShape:
+                      const RoundSliderThumbShape(enabledThumbRadius: 6),
+                  overlayShape:
+                      const RoundSliderOverlayShape(overlayRadius: 12),
+                  activeTrackColor: colorScheme.primary,
+                  inactiveTrackColor: colorScheme.surfaceContainerHighest,
+                  thumbColor: colorScheme.primary,
+                  overlayColor: colorScheme.primary.withValues(alpha: 0.2),
+                ),
+                child: Slider(
+                  value: state.volume,
+                  min: 0.0,
+                  max: 1.0,
+                  onChanged: (value) => controller.setVolume(value),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // 寬屏時顯示完整音量控制
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 靜音/音量圖標按鈕
+        IconButton(
+          icon: Icon(
+            getVolumeIcon(state.volume),
+            size: 20,
+          ),
+          visualDensity: VisualDensity.compact,
+          tooltip: state.volume > 0 ? '靜音' : '取消靜音',
+          onPressed: () => controller.toggleMute(),
+        ),
+        // 音量滑塊
+        SizedBox(
+          width: 100,
+          child: SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 4,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+              activeTrackColor: colorScheme.primary,
+              inactiveTrackColor: colorScheme.surfaceContainerHighest,
+              thumbColor: colorScheme.primary,
+              overlayColor: colorScheme.primary.withValues(alpha: 0.2),
+            ),
+            child: Slider(
+              value: state.volume,
+              min: 0.0,
+              max: 1.0,
+              onChanged: (value) => controller.setVolume(value),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
