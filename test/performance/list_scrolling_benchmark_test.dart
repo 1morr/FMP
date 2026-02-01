@@ -39,7 +39,7 @@ void main() {
                     height: 48,
                     color: Colors.grey,
                   ),
-                  title: Text(track.title ?? ''),
+                  title: Text(track.title),
                   subtitle: Text(track.artist ?? ''),
                   trailing: Text(track.formattedDuration),
                 );
@@ -80,7 +80,7 @@ void main() {
                     height: 48,
                     color: Colors.grey,
                   ),
-                  title: Text(track.title ?? ''),
+                  title: Text(track.title),
                   subtitle: Text(track.artist ?? ''),
                 );
               },
@@ -118,7 +118,7 @@ void main() {
                     height: 48,
                     color: Colors.grey,
                   ),
-                  title: Text(track.title ?? ''),
+                  title: Text(track.title),
                   subtitle: Text(track.artist ?? ''),
                 );
               },
@@ -198,7 +198,7 @@ void main() {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                track.title ?? '',
+                                track.title,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -306,7 +306,7 @@ void main() {
 
       // Filter by title
       final evenTracks =
-          tracks.where((t) => t.title?.contains('Even') ?? false).toList();
+          tracks.where((t) => t.title.contains('Even')).toList();
 
       // Sort by duration
       final sortedByDuration = List<Track>.from(tracks)
@@ -345,7 +345,7 @@ void main() {
         for (final term in searchTerms) {
           final termLower = term.toLowerCase();
           tracks.where((t) {
-            final title = t.title?.toLowerCase() ?? '';
+            final title = t.title.toLowerCase();
             final artist = t.artist?.toLowerCase() ?? '';
             return title.contains(termLower) || artist.contains(termLower);
           }).toList();
