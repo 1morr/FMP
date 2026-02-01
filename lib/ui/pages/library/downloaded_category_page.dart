@@ -30,6 +30,41 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
   List<Track>? _cachedTracks;
   List<TrackGroup>? _cachedGroups;
 
+  // 滚动控制器，用于跟踪 AppBar 收起状态
+  final ScrollController _scrollController = ScrollController();
+  double _scrollOffset = 0;
+
+  // AppBar 收起阈值（expandedHeight - kToolbarHeight）
+  static const double _collapseThreshold = 280 - kToolbarHeight;
+
+  @override
+  void initState() {
+    super.initState();
+    // 监听滚动位置
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    final offset = _scrollController.offset;
+    // 只在跨越阈值时更新状态，避免频繁 rebuild
+    final wasCollapsed = _scrollOffset >= _collapseThreshold;
+    final isCollapsed = offset >= _collapseThreshold;
+    if (wasCollapsed != isCollapsed) {
+      setState(() {
+        _scrollOffset = offset;
+      });
+    } else {
+      _scrollOffset = offset;
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   /// 刷新数据
   Future<void> _refresh() async {
     // 清除缓存
@@ -60,6 +95,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
     return Scaffold(
       body: tracksAsync.when(
         loading: () => CustomScrollView(
+          controller: _scrollController,
           slivers: [
             _buildSliverAppBar(context, []),
             const SliverFillRemaining(
@@ -68,6 +104,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
           ],
         ),
         error: (error, stack) => CustomScrollView(
+          controller: _scrollController,
           slivers: [
             _buildSliverAppBar(context, []),
             SliverFillRemaining(
@@ -89,6 +126,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
           final groupedTracks = _getGroupedTracks(tracks);
 
           return CustomScrollView(
+            controller: _scrollController,
             slivers: [
               // 折叠式应用栏
               _buildSliverAppBar(context, tracks),
@@ -124,18 +162,22 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
     final colorScheme = Theme.of(context).colorScheme;
     final totalDuration = _calculateTotalDuration(tracks);
 
+    // 根据滚动位置决定图标颜色：展开时白色，收起时使用主题色
+    final isCollapsed = _scrollOffset >= _collapseThreshold;
+    final iconColor = isCollapsed ? colorScheme.onSurface : Colors.white;
+
     return SliverAppBar(
       expandedHeight: 280,
       pinned: true,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.white),
+        icon: Icon(Icons.arrow_back, color: iconColor),
         onPressed: () => Navigator.of(context).pop(),
       ),
       actions: [
         Padding(
           padding: const EdgeInsets.only(right: 8),
           child: IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
+            icon: Icon(Icons.refresh, color: iconColor),
             onPressed: _refresh,
             tooltip: '刷新',
           ),
