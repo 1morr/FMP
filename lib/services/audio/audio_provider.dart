@@ -1001,11 +1001,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   Future<void> shuffleQueue() async {
     await _ensureInitialized();
     
-    // Mix 模式下禁止隨機播放
-    if (_context.isMix) {
-      _toastService.showInfo('Mix 播放列表不支持隨機播放');
-      return;
-    }
+    // Mix 模式下禁止隨機播放（UI 應該已禁用按鈕，這是額外保護）
+    if (_context.isMix) return;
     
     logInfo('Shuffling queue');
     try {
@@ -1057,11 +1054,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 切换随机播放
   Future<void> toggleShuffle() async {
-    // Mix 模式下禁止隨機播放
-    if (_context.isMix) {
-      _toastService.showInfo('Mix 播放列表不支持隨機播放');
-      return;
-    }
+    // Mix 模式下禁止隨機播放（UI 應該已禁用按鈕，這是額外保護）
+    if (_context.isMix) return;
     
     logDebug('Toggling shuffle');
     await _queueManager.toggleShuffle();

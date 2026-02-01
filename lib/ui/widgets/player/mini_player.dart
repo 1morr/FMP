@@ -262,7 +262,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
     );
   }
 
-  /// 顺序/乱序按钮
+  /// 顺序/乱序按钮（Mix 模式下禁用）
   Widget _buildShuffleButton(
     PlayerState state,
     AudioController controller,
@@ -274,9 +274,11 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
         size: 20,
       ),
       color: state.isShuffleEnabled ? colorScheme.primary : null,
-      tooltip: state.isShuffleEnabled ? '随机播放' : '顺序播放',
+      tooltip: state.isMixMode 
+          ? 'Mix 模式不支持隨機播放' 
+          : (state.isShuffleEnabled ? '随机播放' : '顺序播放'),
       visualDensity: VisualDensity.compact,
-      onPressed: () => controller.toggleShuffle(),
+      onPressed: state.isMixMode ? null : () => controller.toggleShuffle(),
     );
   }
 

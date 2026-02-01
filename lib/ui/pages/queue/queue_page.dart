@@ -109,12 +109,23 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     _lastCurrentIndex = currentIndex;
 
     final isMixMode = playerState.isMixMode;
+    final mixTitle = playerState.mixTitle;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isMixMode
-            ? 'Mix (${queue.length})'
-            : '播放队列 (${queue.length})'),
+        title: LayoutBuilder(
+          builder: (context, constraints) {
+            return ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.8),
+              child: Text(
+                isMixMode
+                    ? 'Mix · ${mixTitle ?? ''}'
+                    : '播放队列 (${queue.length})',
+                overflow: TextOverflow.ellipsis,
+              ),
+            );
+          },
+        ),
         actions: [
           if (queue.isNotEmpty) ...[
             if (!isMixMode)

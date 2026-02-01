@@ -273,12 +273,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        // 顺序/乱序按钮
+        // 顺序/乱序按钮（Mix 模式下禁用）
         IconButton(
           icon: Icon(state.isShuffleEnabled ? Icons.shuffle : Icons.arrow_forward),
           color: state.isShuffleEnabled ? colorScheme.primary : null,
-          onPressed: () => controller.toggleShuffle(),
-          tooltip: state.isShuffleEnabled ? '随机播放' : '顺序播放',
+          onPressed: state.isMixMode ? null : () => controller.toggleShuffle(),
+          tooltip: state.isMixMode 
+              ? 'Mix 模式不支持隨機播放' 
+              : (state.isShuffleEnabled ? '随机播放' : '顺序播放'),
         ),
 
         // 上一首
