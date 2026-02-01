@@ -43,6 +43,13 @@ class _RadioPageState extends ConsumerState<RadioPage> {
 
   @override
   Widget build(BuildContext context) {
+    // 監聽錯誤並顯示 Toast
+    ref.listen<RadioState>(radioControllerProvider, (previous, next) {
+      if (next.error != null && next.error != previous?.error) {
+        ToastService.show(context, next.error!);
+      }
+    });
+
     final radioState = ref.watch(radioControllerProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -124,9 +131,9 @@ class _RadioPageState extends ConsumerState<RadioPage> {
 
     return Column(
       children: [
-        // 錯誤/重連提示
-        if (radioState.error != null || radioState.reconnectMessage != null)
-          _buildStatusBanner(radioState, colorScheme),
+        // 重連提示（錯誤已改為 Toast 顯示）
+        if (radioState.reconnectMessage != null)
+          _buildReconnectBanner(radioState, colorScheme),
 
         // 網格列表
         Expanded(
@@ -160,66 +167,35 @@ class _RadioPageState extends ConsumerState<RadioPage> {
     );
   }
 
-  Widget _buildStatusBanner(RadioState radioState, ColorScheme colorScheme) {
-    if (radioState.error != null) {
-      return Container(
-        margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: colorScheme.errorContainer,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.error_outline,
-                color: colorScheme.onErrorContainer, size: 20),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                radioState.error!,
-                style: TextStyle(
-                  color: colorScheme.onErrorContainer,
-                  fontSize: 13,
-                ),
-              ),
+  Widget _buildReconnectBanner(RadioState radioState, ColorScheme colorScheme) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: colorScheme.onSecondaryContainer,
             ),
-          ],
-        ),
-      );
-    }
-
-    if (radioState.reconnectMessage != null) {
-      return Container(
-        margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: colorScheme.secondaryContainer,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: colorScheme.onSecondaryContainer,
-              ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            radioState.reconnectMessage!,
+            style: TextStyle(
+              color: colorScheme.onSecondaryContainer,
+              fontSize: 13,
             ),
-            const SizedBox(width: 8),
-            Text(
-              radioState.reconnectMessage!,
-              style: TextStyle(
-                color: colorScheme.onSecondaryContainer,
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return const SizedBox.shrink();
+          ),
+        ],
+      ),
+    );
   }
 
   void _onStationTap(
