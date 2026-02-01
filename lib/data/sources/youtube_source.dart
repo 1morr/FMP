@@ -20,7 +20,11 @@ class YouTubeSource extends BaseSource with Logging {
   static const String _innerTubeClientName = 'WEB';
   static const String _innerTubeClientVersion = '2.20260128.05.00';
 
-  // 熱門搜索關鍵字
+  // YouTube Music 頻道 "New This Week" 播放列表 ID
+  // https://www.youtube.com/playlist?list=OLPPnm121Qlcoo7kKykmswKG0IepmDUVpag
+  static const String _newThisWeekPlaylistId = 'OLPPnm121Qlcoo7kKykmswKG0IepmDUVpag';
+
+  // 熱門搜索關鍵字（後備方案）
   static const List<String> _trendingMusicQueries = [
     'Music Video',
     'Official Music Video',
@@ -728,27 +732,170 @@ class YouTubeSource extends BaseSource with Logging {
     }
   }
 
-  // ==================== InnerTube API 熱門影片 ====================
+  // ==================== YouTube Music "New This Week" 排行榜 ====================
 
-  /// 獲取熱門音樂影片（使用搜索作為替代方案）
-  /// 限制為最近 7 天內上傳的影片，按播放量排序
-  /// 搜索多個關鍵字以獲取更多樣的結果
-  Future<List<Track>> getTrendingVideos({String category = 'music'}) async {
-    logDebug('Getting YouTube trending videos via search');
+  /// 解析觀看次數文字為數字（如 "14M views" → 14000000, "2.2M views" → 2200000）
+  int _parseViewCountText(String? text) {
+    if (text == null || text.isEmpty) return 0;
     try {
-      // 用於去重的 Set
+      // 去除 " views" 後綴和逗號
+      var cleaned = text
+          .replaceAll(RegExp(r'\s*views?\s*', caseSensitive: false), '')
+          .replaceAll(',', '')
+          .trim();
+      if (cleaned.isEmpty) return 0;
+
+      double multiplier = 1;
+      if (cleaned.endsWith('B') || cleaned.endsWith('b')) {
+        multiplier = 1e9;
+        cleaned = cleaned.substring(0, cleaned.length - 1);
+      } else if (cleaned.endsWith('M') || cleaned.endsWith('m')) {
+        multiplier = 1e6;
+        cleaned = cleaned.substring(0, cleaned.length - 1);
+      } else if (cleaned.endsWith('K') || cleaned.endsWith('k')) {
+        multiplier = 1e3;
+        cleaned = cleaned.substring(0, cleaned.length - 1);
+      }
+
+      final number = double.tryParse(cleaned.trim());
+      return number != null ? (number * multiplier).round() : 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// 獲取 YouTube Music "New This Week" 播放列表作為熱門排行
+  ///
+  /// 使用 InnerTube Browse API 獲取 YouTube Music 頻道
+  /// (UC-9-kyTW8ZkZNDHQJ6FgpwQ) 的 "New This Week" 官方策劃播放列表。
+  /// 播放列表每週更新，包含本週最熱門的新 MV。
+  ///
+  /// 如果 InnerTube API 失敗，回退到搜索方案。
+  Future<List<Track>> getTrendingVideos({String category = 'music'}) async {
+    logDebug('Getting YouTube trending videos via New This Week playlist');
+    try {
+      final tracks = await _fetchNewThisWeekPlaylist();
+      if (tracks.isNotEmpty) {
+        logDebug('Got ${tracks.length} tracks from New This Week playlist');
+        return tracks;
+      }
+      // 播放列表為空，回退到搜索方案
+      logWarning('New This Week playlist returned empty, falling back to search');
+      return _getTrendingViaSearch();
+    } catch (e) {
+      logWarning('Failed to fetch New This Week playlist: $e, falling back to search');
+      return _getTrendingViaSearch();
+    }
+  }
+
+  /// 使用 InnerTube Browse API 獲取 "New This Week" 播放列表
+  Future<List<Track>> _fetchNewThisWeekPlaylist() async {
+    final browseId = 'VL$_newThisWeekPlaylistId';
+    logDebug('Fetching New This Week playlist via InnerTube browse: $browseId');
+
+    final response = await _dio.post(
+      '$_innerTubeApiBase/browse?key=$_innerTubeApiKey',
+      data: jsonEncode({
+        'browseId': browseId,
+        'context': {
+          'client': {
+            'clientName': _innerTubeClientName,
+            'clientVersion': _innerTubeClientVersion,
+            'hl': 'en',
+            'gl': 'US',
+          },
+        },
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw YouTubeApiException(
+        code: 'api_error',
+        message: 'InnerTube browse API returned status ${response.statusCode}',
+      );
+    }
+
+    final data = response.data is String
+        ? jsonDecode(response.data as String) as Map<String, dynamic>
+        : response.data as Map<String, dynamic>;
+
+    // 解析路徑:
+    // contents.twoColumnBrowseResultsRenderer.tabs[0].tabRenderer.content
+    //   .sectionListRenderer.contents[0].itemSectionRenderer.contents[0]
+    //   .playlistVideoListRenderer.contents
+    final tabs =
+        data['contents']?['twoColumnBrowseResultsRenderer']?['tabs'] as List?;
+    final tabContent = tabs?.firstOrNull?['tabRenderer']?['content'];
+    final sectionContents =
+        tabContent?['sectionListRenderer']?['contents'] as List?;
+    final itemContents =
+        sectionContents?.firstOrNull?['itemSectionRenderer']?['contents']
+            as List?;
+    final videoList = itemContents
+        ?.firstOrNull?['playlistVideoListRenderer']?['contents'] as List?;
+
+    if (videoList == null || videoList.isEmpty) {
+      throw YouTubeApiException(
+        code: 'parse_error',
+        message: 'New This Week playlist data not found in API response',
+      );
+    }
+
+    final tracks = <Track>[];
+    for (final item in videoList) {
+      final renderer = item['playlistVideoRenderer'] as Map<String, dynamic>?;
+      if (renderer == null) continue;
+
+      final videoId = renderer['videoId'] as String?;
+      if (videoId == null) continue;
+
+      // 標題
+      final titleRuns = renderer['title']?['runs'] as List?;
+      final title = titleRuns?.firstOrNull?['text'] as String? ?? 'Unknown';
+
+      // 藝人/頻道名
+      final bylineRuns = renderer['shortBylineText']?['runs'] as List?;
+      final artist = bylineRuns?.firstOrNull?['text'] as String? ?? '';
+
+      // 時長
+      final lengthText = renderer['lengthText']?['simpleText'] as String?;
+      final durationMs = _parseDurationText(lengthText);
+
+      // 觀看次數
+      final videoInfoRuns = renderer['videoInfo']?['runs'] as List?;
+      final viewCountText = videoInfoRuns?.firstOrNull?['text'] as String?;
+      final viewCount = _parseViewCountText(viewCountText);
+
+      // 縮圖
+      final thumbnails = renderer['thumbnail']?['thumbnails'] as List?;
+      final thumbnailUrl = thumbnails?.isNotEmpty == true
+          ? thumbnails!.last['url'] as String?
+          : 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
+
+      tracks.add(Track()
+        ..sourceId = videoId
+        ..sourceType = SourceType.youtube
+        ..title = title
+        ..artist = artist
+        ..durationMs = durationMs
+        ..thumbnailUrl = thumbnailUrl
+        ..viewCount = viewCount);
+    }
+
+    logDebug('Parsed New This Week playlist: ${tracks.length} tracks');
+    return tracks;
+  }
+
+  /// 後備方案：使用搜索 API 獲取熱門影片
+  Future<List<Track>> _getTrendingViaSearch() async {
+    logDebug('Getting YouTube trending videos via search (fallback)');
+    try {
       final seenIds = <String>{};
       final allTracks = <Track>[];
-
-      // 搜索所有關鍵字
-      final queriesToUse = _trendingMusicQueries;
       const resultsPerQuery = 20;
 
-      for (final query in queriesToUse) {
+      for (final query in _trendingMusicQueries) {
         try {
-          logDebug('Searching YouTube for: $query');
-
-          // 使用 lastWeek 篩選器搜索最近 7 天的影片
           var searchList = await _youtube.search.search(
             query,
             filter: yt.UploadDateFilter.lastWeek,
@@ -756,7 +903,6 @@ class YouTubeSource extends BaseSource with Logging {
 
           var tracksFromQuery = 0;
 
-          // 第一頁結果
           for (final video in searchList) {
             if (seenIds.contains(video.id.value)) continue;
             seenIds.add(video.id.value);
@@ -775,7 +921,6 @@ class YouTubeSource extends BaseSource with Logging {
             if (tracksFromQuery >= resultsPerQuery) break;
           }
 
-          // 如果結果不夠，嘗試獲取更多頁
           while (tracksFromQuery < resultsPerQuery) {
             final nextPage = await searchList.nextPage();
             if (nextPage == null) break;
@@ -799,15 +944,11 @@ class YouTubeSource extends BaseSource with Logging {
               if (tracksFromQuery >= resultsPerQuery) break;
             }
           }
-
-          logDebug('Got $tracksFromQuery tracks from query: $query');
         } catch (e) {
-          // 單個關鍵字搜索失敗，記錄錯誤但繼續搜索其他關鍵字
           logError('Failed to search for "$query": $e');
         }
       }
 
-      // 如果完全沒有結果，拋出異常
       if (allTracks.isEmpty) {
         throw YouTubeApiException(
           code: 'no_results',
@@ -815,15 +956,12 @@ class YouTubeSource extends BaseSource with Logging {
         );
       }
 
-      // 按播放量降序排序
       allTracks.sort((a, b) => (b.viewCount ?? 0).compareTo(a.viewCount ?? 0));
-
-      // 返回前 100 個結果
       final result = allTracks.take(100).toList();
-      logDebug('Got ${result.length} trending videos (from ${allTracks.length} candidates)');
+      logDebug('Got ${result.length} trending videos via search fallback');
       return result;
     } catch (e) {
-      logError('Failed to get YouTube trending videos: $e');
+      logError('Failed to get YouTube trending videos via search: $e');
       if (e is YouTubeApiException) rethrow;
       throw YouTubeApiException(
         code: 'error',

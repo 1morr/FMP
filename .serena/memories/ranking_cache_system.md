@@ -98,23 +98,35 @@ static const _previewCount = 10;                      // 首頁預覽數量
 - 刷新失敗時保留舊緩存，不清空數據
 - 錯誤會打印到 debug 日誌，但不影響用戶體驗
 
-## YouTube 數據源特殊處理
+## YouTube 數據源：New This Week 播放列表
 
-由於 YouTube 的 InnerTube API 無法穩定獲取熱門視頻，改用搜索 API 作為替代方案：
+使用 YouTube Music 頻道 (UC-9-kyTW8ZkZNDHQJ6FgpwQ) 的 "New This Week" 官方播放列表作為排行榜數據源。
+
+**播放列表信息：**
+- ID: `OLPPnm121Qlcoo7kKykmswKG0IepmDUVpag`
+- 說明: "The hottest videos of the week."
+- 每週更新（約 40-50 首熱門新 MV）
+
+**獲取方式：InnerTube Browse API**
 
 ```dart
 // YouTubeSource.getTrendingVideos()
-// 1. 使用 UploadDateFilter.lastMonth 篩選最近一個月的視頻
-var searchList = await _youtube.search.search(
-  query,
-  filter: yt.UploadDateFilter.lastMonth,
-);
-
-// 2. 獲取最多 60 個結果（多頁）
-// 3. 本地按播放量排序，取前 30 個
-allTracks.sort((a, b) => (b.viewCount ?? 0).compareTo(a.viewCount ?? 0));
-return allTracks.take(30).toList();
+// 1. 優先使用 InnerTube Browse API 獲取 "New This Week" 播放列表
+//    POST /youtubei/v1/browse  browseId: "VL" + playlistId
+// 2. 如果失敗，回退到搜索方案（多關鍵字 + lastWeek 篩選 + 播放量排序）
 ```
+
+**數據解析路徑：**
+```
+response.contents.twoColumnBrowseResultsRenderer.tabs[0].tabRenderer.content
+  .sectionListRenderer.contents[0].itemSectionRenderer.contents[0]
+  .playlistVideoListRenderer.contents[].playlistVideoRenderer
+```
+
+**關鍵方法：**
+- `_fetchNewThisWeekPlaylist()` - InnerTube Browse API 主方案
+- `_getTrendingViaSearch()` - 搜索 API 後備方案
+- `_parseViewCountText()` - 解析 "14M views" 格式的觀看次數
 
 ## 探索頁面使用
 
