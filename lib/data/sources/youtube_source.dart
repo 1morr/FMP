@@ -429,48 +429,81 @@ class YouTubeSource extends BaseSource with Logging {
 
   /// 判斷播放列表 ID 是否為 YouTube 自動生成的 Mix/Radio 播放列表
   /// Mix 播放列表 ID 以 "RD" 開頭，後跟種子影片 ID
-  bool _isMixPlaylistId(String playlistId) {
+  static bool isMixPlaylistId(String playlistId) {
     return playlistId.startsWith('RD');
   }
 
-  /// 從 URL 中提取 list= 參數值
-  String? _extractListParam(String url) {
+  /// 判斷 URL 是否為 Mix/Radio 播放列表
+  static bool isMixPlaylistUrl(String url) {
     final uri = Uri.tryParse(url);
-    if (uri == null) return null;
-    return uri.queryParameters['list'];
+    if (uri == null) return false;
+    final listParam = uri.queryParameters['list'];
+    if (listParam == null) return false;
+    return isMixPlaylistId(listParam);
   }
 
-  /// 從 URL 中提取 v= 參數值（影片 ID）
-  String? _extractVideoIdParam(String url) {
+  /// 從 URL 中提取 Mix 播放列表相關資訊
+  static ({String? playlistId, String? seedVideoId}) extractMixInfo(String url) {
     final uri = Uri.tryParse(url);
-    if (uri == null) return null;
-    return uri.queryParameters['v'];
+    if (uri == null) return (playlistId: null, seedVideoId: null);
+
+    final playlistId = uri.queryParameters['list'];
+    final videoId = uri.queryParameters['v'];
+
+    // 如果沒有 v= 參數，嘗試從 playlistId 提取種子 ID
+    final seedVideoId = videoId ??
+        (playlistId != null && playlistId.length > 2 ? playlistId.substring(2) : null);
+
+    return (playlistId: playlistId, seedVideoId: seedVideoId);
   }
 
-  /// 使用 InnerTube /next API 解析 Mix/Radio 播放列表
-  Future<PlaylistParseResult> _parseMixPlaylist(
-    String playlistUrl,
-    String playlistId,
-  ) async {
-    // 從 playlistId 中提取種子影片 ID（去掉 "RD" 前綴）
-    // 也嘗試從 URL 提取 v= 參數
-    final seedVideoId = _extractVideoIdParam(playlistUrl) ??
-        (playlistId.length > 2 ? playlistId.substring(2) : null);
+  /// 獲取 Mix 播放列表基本信息（用於導入時只存元數據）
+  /// 這是一個輕量級方法，只獲取標題和封面，不保存 tracks
+  Future<MixPlaylistInfo> getMixPlaylistInfo(String url) async {
+    final mixInfo = extractMixInfo(url);
+    final playlistId = mixInfo.playlistId;
+    final seedVideoId = mixInfo.seedVideoId;
 
-    if (seedVideoId == null || seedVideoId.isEmpty) {
+    if (playlistId == null || seedVideoId == null) {
       throw YouTubeApiException(
         code: 'invalid_url',
-        message: 'Cannot extract seed video ID from Mix playlist URL',
+        message: 'Cannot extract Mix playlist info from URL',
       );
     }
 
-    logDebug('Parsing Mix playlist: $playlistId (seed: $seedVideoId)');
+    logDebug('Getting Mix playlist info: $playlistId (seed: $seedVideoId)');
+
+    // 調用 fetchMixTracks 獲取數據，但只返回元數據
+    final result = await fetchMixTracks(
+      playlistId: playlistId,
+      currentVideoId: seedVideoId,
+    );
+
+    // 使用第一個影片的縮圖作為封面
+    final coverUrl = result.tracks.isNotEmpty ? result.tracks.first.thumbnailUrl : null;
+
+    return MixPlaylistInfo(
+      title: result.title,
+      playlistId: playlistId,
+      seedVideoId: seedVideoId,
+      coverUrl: coverUrl,
+    );
+  }
+
+  /// 獲取 Mix 播放列表的 tracks（用於加載和加載更多）
+  /// [playlistId] Mix 播放列表 ID（以 RD 開頭）
+  /// [currentVideoId] 當前/種子影片 ID（首次加載用種子 ID，加載更多用最後一首的 ID）
+  Future<MixFetchResult> fetchMixTracks({
+    required String playlistId,
+    required String currentVideoId,
+  }) async {
+    logDebug('Fetching Mix tracks: $playlistId (current: $currentVideoId)');
 
     try {
       final response = await _dio.post(
         '$_innerTubeApiBase/next?key=$_innerTubeApiKey',
         data: jsonEncode({
-          'videoId': seedVideoId,
+          'videoId': currentVideoId,
           'playlistId': playlistId,
           'context': {
             'client': {
@@ -495,7 +528,6 @@ class YouTubeSource extends BaseSource with Logging {
           : response.data as Map<String, dynamic>;
 
       // 解析播放列表數據
-      // 路徑: contents.twoColumnWatchNextResults.playlist.playlist
       final twoColumn = data['contents']?['twoColumnWatchNextResults'];
       final playlistData = twoColumn?['playlist']?['playlist'];
 
@@ -509,7 +541,7 @@ class YouTubeSource extends BaseSource with Logging {
       final title = playlistData['title'] as String? ?? 'Mix';
       final contents = playlistData['contents'] as List? ?? [];
 
-      final allTracks = <Track>[];
+      final tracks = <Track>[];
       for (final item in contents) {
         final renderer = item['playlistPanelVideoRenderer'] as Map<String, dynamic>?;
         if (renderer == null) continue;
@@ -537,7 +569,7 @@ class YouTubeSource extends BaseSource with Logging {
             ? thumbnails!.last['url'] as String?
             : 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
 
-        allTracks.add(Track()
+        tracks.add(Track()
           ..sourceId = videoId
           ..sourceType = SourceType.youtube
           ..title = trackTitle
@@ -546,19 +578,9 @@ class YouTubeSource extends BaseSource with Logging {
           ..thumbnailUrl = thumbnailUrl);
       }
 
-      logDebug('Parsed Mix playlist: $title, ${allTracks.length} tracks');
+      logDebug('Fetched Mix tracks: $title, ${tracks.length} tracks');
 
-      // 使用第一個影片的縮圖作為封面
-      final coverUrl = allTracks.isNotEmpty ? allTracks.first.thumbnailUrl : null;
-
-      return PlaylistParseResult(
-        title: title,
-        description: 'YouTube Mix playlist',
-        coverUrl: coverUrl,
-        tracks: allTracks,
-        totalCount: allTracks.length,
-        sourceUrl: playlistUrl,
-      );
+      return MixFetchResult(title: title, tracks: tracks);
     } on DioException catch (e) {
       logError('InnerTube API request failed: ${e.message}');
       throw YouTubeApiException(
@@ -566,6 +588,56 @@ class YouTubeSource extends BaseSource with Logging {
         message: 'Failed to fetch Mix playlist: ${e.message}',
       );
     }
+  }
+
+  /// 從 URL 中提取 list= 參數值
+  String? _extractListParam(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return null;
+    return uri.queryParameters['list'];
+  }
+
+  /// 從 URL 中提取 v= 參數值（影片 ID）
+  String? _extractVideoIdParam(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return null;
+    return uri.queryParameters['v'];
+  }
+
+  /// 使用 InnerTube /next API 解析 Mix/Radio 播放列表
+  /// 內部使用 fetchMixTracks 獲取數據
+  Future<PlaylistParseResult> _parseMixPlaylist(
+    String playlistUrl,
+    String playlistId,
+  ) async {
+    // 從 URL 或 playlistId 提取種子影片 ID
+    final seedVideoId = _extractVideoIdParam(playlistUrl) ??
+        (playlistId.length > 2 ? playlistId.substring(2) : null);
+
+    if (seedVideoId == null || seedVideoId.isEmpty) {
+      throw YouTubeApiException(
+        code: 'invalid_url',
+        message: 'Cannot extract seed video ID from Mix playlist URL',
+      );
+    }
+
+    // 使用公共方法獲取 tracks
+    final result = await fetchMixTracks(
+      playlistId: playlistId,
+      currentVideoId: seedVideoId,
+    );
+
+    // 使用第一個影片的縮圖作為封面
+    final coverUrl = result.tracks.isNotEmpty ? result.tracks.first.thumbnailUrl : null;
+
+    return PlaylistParseResult(
+      title: result.title,
+      description: 'YouTube Mix playlist',
+      coverUrl: coverUrl,
+      tracks: result.tracks,
+      totalCount: result.tracks.length,
+      sourceUrl: playlistUrl,
+    );
   }
 
   /// 解析時長字串（如 "4:39" 或 "1:23:45"）為毫秒
@@ -602,7 +674,7 @@ class YouTubeSource extends BaseSource with Logging {
       }
 
       // Mix/Radio 播放列表使用 InnerTube API
-      if (_isMixPlaylistId(playlistId)) {
+      if (isMixPlaylistId(playlistId)) {
         return _parseMixPlaylist(playlistUrl, playlistId);
       }
 
@@ -765,6 +837,32 @@ class YouTubeSource extends BaseSource with Logging {
     _youtube.close();
     _dio.close();
   }
+}
+
+/// Mix 播放列表基本信息（用於導入時只存元數據）
+class MixPlaylistInfo {
+  final String title;
+  final String playlistId;
+  final String seedVideoId;
+  final String? coverUrl;
+
+  const MixPlaylistInfo({
+    required this.title,
+    required this.playlistId,
+    required this.seedVideoId,
+    this.coverUrl,
+  });
+}
+
+/// Mix 播放列表獲取結果（用於加載 tracks）
+class MixFetchResult {
+  final String title;
+  final List<Track> tracks;
+
+  const MixFetchResult({
+    required this.title,
+    required this.tracks,
+  });
 }
 
 /// YouTube API 错误

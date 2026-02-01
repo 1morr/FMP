@@ -3,6 +3,7 @@ import 'package:equatable/equatable.dart';
 
 import '../data/models/playlist.dart';
 import '../data/models/track.dart';
+import '../data/sources/youtube_source.dart';
 import '../services/library/playlist_service.dart';
 
 // 导出 PlaylistUpdateResult 供 UI 使用
@@ -235,11 +236,21 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
     try {
       final result = await _service.getPlaylistWithTracks(playlistId);
       if (result != null) {
-        state = state.copyWith(
-          playlist: result.playlist,
-          tracks: result.tracks,
-          isLoading: false,
-        );
+        // Mix 歌單：從 InnerTube API 動態加載 tracks
+        if (result.playlist.isMix) {
+          state = state.copyWith(
+            playlist: result.playlist,
+            tracks: const [],  // 先顯示空列表
+            isLoading: true,
+          );
+          await _loadMixTracks(result.playlist);
+        } else {
+          state = state.copyWith(
+            playlist: result.playlist,
+            tracks: result.tracks,
+            isLoading: false,
+          );
+        }
       } else {
         state = state.copyWith(
           isLoading: false,
@@ -248,6 +259,35 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
       }
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  /// 從 InnerTube API 加載 Mix 播放列表的 tracks
+  Future<void> _loadMixTracks(Playlist playlist) async {
+    try {
+      if (playlist.mixPlaylistId == null || playlist.mixSeedVideoId == null) {
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Mix 播放列表缺少必要信息',
+        );
+        return;
+      }
+
+      final youtubeSource = YouTubeSource();
+      final result = await youtubeSource.fetchMixTracks(
+        playlistId: playlist.mixPlaylistId!,
+        currentVideoId: playlist.mixSeedVideoId!,
+      );
+
+      state = state.copyWith(
+        tracks: result.tracks,
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: '加載 Mix 播放列表失敗: $e',
+      );
     }
   }
 

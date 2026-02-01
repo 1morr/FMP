@@ -11,6 +11,7 @@ import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../data/sources/bilibili_source.dart';
 import '../../data/sources/source_provider.dart';
+import '../../data/sources/youtube_source.dart';
 import '../download/download_path_utils.dart';
 
 /// 导入进度
@@ -113,6 +114,16 @@ class ImportService with Logging {
       final source = _sourceManager.detectSource(url);
       if (source == null) {
         throw ImportException('无法识别的 URL 格式');
+      }
+
+      // 檢測是否為 YouTube Mix 播放列表（RD 開頭）
+      if (source is YouTubeSource && YouTubeSource.isMixPlaylistUrl(url)) {
+        return _importMixPlaylist(
+          url: url,
+          customName: customName,
+          refreshIntervalHours: refreshIntervalHours,
+          notifyOnUpdate: notifyOnUpdate,
+        );
       }
 
       // 解析播放列表
@@ -244,6 +255,80 @@ class ImportService with Logging {
     }
   }
 
+  /// 導入 YouTube Mix 播放列表
+  /// 
+  /// Mix 播放列表是動態生成的，只保存元數據（不保存 tracks）
+  /// tracks 會在進入歌單頁時從 InnerTube API 實時獲取
+  Future<ImportResult> _importMixPlaylist({
+    required String url,
+    String? customName,
+    int? refreshIntervalHours,
+    bool notifyOnUpdate = true,
+  }) async {
+    _updateProgress(status: ImportStatus.parsing, currentItem: '解析 Mix 播放列表...');
+
+    try {
+      final youtubeSource = YouTubeSource();
+      
+      // 獲取 Mix 播放列表基本信息
+      final mixInfo = await youtubeSource.getMixPlaylistInfo(url);
+      
+      _updateProgress(
+        status: ImportStatus.importing,
+        currentItem: '正在創建歌單...',
+      );
+
+      // 創建歌單名稱
+      final playlistName = customName ?? mixInfo.title;
+      final existingPlaylist = await _playlistRepository.getByName(playlistName);
+
+      Playlist playlist;
+      if (existingPlaylist != null) {
+        // 更新現有歌單（Mix 歌單只更新元數據）
+        playlist = existingPlaylist
+          ..coverUrl = mixInfo.coverUrl
+          ..mixPlaylistId = mixInfo.playlistId
+          ..mixSeedVideoId = mixInfo.seedVideoId
+          ..updatedAt = DateTime.now();
+      } else {
+        // 獲取下載目錄（用於封面路徑）
+        final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
+        
+        // 創建新的 Mix 歌單
+        playlist = Playlist()
+          ..name = playlistName
+          ..description = 'YouTube Mix 播放列表'
+          ..coverUrl = mixInfo.coverUrl
+          ..sourceUrl = url
+          ..importSourceType = SourceType.youtube
+          ..isMix = true
+          ..mixPlaylistId = mixInfo.playlistId
+          ..mixSeedVideoId = mixInfo.seedVideoId
+          ..refreshIntervalHours = null  // Mix 不需要定時刷新
+          ..notifyOnUpdate = notifyOnUpdate
+          ..coverLocalPath = _computePlaylistCoverPath(baseDir, playlistName)
+          ..createdAt = DateTime.now();
+      }
+
+      // 保存歌單（Mix 歌單不保存 tracks）
+      await _playlistRepository.save(playlist);
+
+      _updateProgress(status: ImportStatus.completed);
+
+      logInfo('Mix playlist imported: ${playlist.name} (playlistId: ${mixInfo.playlistId})');
+
+      return ImportResult(
+        playlist: playlist,
+        addedCount: 0,  // Mix 歌單不保存 tracks
+        skippedCount: 0,
+        errors: [],
+      );
+    } catch (e) {
+      _updateProgress(status: ImportStatus.failed, error: e.toString());
+      rethrow;
+    }
+  }
+
   /// 刷新导入的歌单
   Future<ImportResult> refreshPlaylist(int playlistId) async {
     final playlist = await _playlistRepository.getById(playlistId);
@@ -253,6 +338,17 @@ class ImportService with Logging {
 
     if (!playlist.isImported || playlist.sourceUrl == null) {
       throw ImportException('这不是导入的歌单');
+    }
+
+    // Mix 播放列表不需要刷新（tracks 是動態加載的）
+    if (playlist.isMix) {
+      logDebug('Skipping refresh for Mix playlist: ${playlist.name}');
+      return ImportResult(
+        playlist: playlist,
+        addedCount: 0,
+        skippedCount: 0,
+        errors: [],
+      );
     }
 
     _updateProgress(status: ImportStatus.parsing, currentItem: '正在刷新...');

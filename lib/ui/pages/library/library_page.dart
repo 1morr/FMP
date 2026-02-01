@@ -229,20 +229,35 @@ class _PlaylistCard extends ConsumerWidget {
                   const SizedBox(height: 2),
                   Row(
                     children: [
-                      if (playlist.isImported) ...[
+                      if (playlist.isMix) ...[
                         Icon(
-                          Icons.link,
+                          Icons.radio,
                           size: 12,
-                          color: colorScheme.primary,
+                          color: colorScheme.tertiary,
                         ),
                         const SizedBox(width: 4),
+                        Text(
+                          'Mix',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: colorScheme.tertiary,
+                              ),
+                        ),
+                      ] else ...[
+                        if (playlist.isImported) ...[
+                          Icon(
+                            Icons.link,
+                            size: 12,
+                            color: colorScheme.primary,
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                        Text(
+                          '${playlist.trackCount} 首',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: colorScheme.outline,
+                              ),
+                        ),
                       ],
-                      Text(
-                        '${playlist.trackCount} 首',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colorScheme.outline,
-                            ),
-                      ),
                     ],
                   ),
                 ],

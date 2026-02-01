@@ -240,9 +240,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         icon: const Icon(Icons.arrow_back, color: Colors.white),
         onPressed: () => Navigator.of(context).pop(),
       ),
-      // 下载按钮 - 白色，添加右边距使其与左边返回按钮对称
+      // 下载按钮 - 白色，添加右边距使其与左边返回按钮对称（Mix 歌單不支持下載）
       actions: [
-        if (state.tracks.isNotEmpty && state.playlist != null)
+        if (state.tracks.isNotEmpty && state.playlist != null && !(state.playlist!.isMix))
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: IconButton(
@@ -388,7 +388,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                                     color: Colors.white60,
                                   ),
                         ),
-                        if (playlist.isImported) ...[
+                        if (playlist.isImported || playlist.isMix) ...[
                           const SizedBox(height: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -396,25 +396,31 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: colorScheme.primaryContainer,
+                              color: playlist.isMix
+                                  ? colorScheme.tertiaryContainer
+                                  : colorScheme.primaryContainer,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  Icons.link,
+                                  playlist.isMix ? Icons.radio : Icons.link,
                                   size: 14,
-                                  color: colorScheme.onPrimaryContainer,
+                                  color: playlist.isMix
+                                      ? colorScheme.onTertiaryContainer
+                                      : colorScheme.onPrimaryContainer,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  '已导入',
+                                  playlist.isMix ? 'Mix' : '已导入',
                                   style: Theme.of(context)
                                       .textTheme
                                       .labelSmall
                                       ?.copyWith(
-                                        color: colorScheme.onPrimaryContainer,
+                                        color: playlist.isMix
+                                            ? colorScheme.onTertiaryContainer
+                                            : colorScheme.onPrimaryContainer,
                                         fontWeight: FontWeight.w500,
                                       ),
                                 ),
@@ -438,27 +444,35 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     BuildContext context,
     List<Track> tracks,
   ) {
+    final state = ref.read(playlistDetailProvider(widget.playlistId));
+    final isMix = state.playlist?.isMix ?? false;
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
           Expanded(
             child: FilledButton.icon(
-              onPressed:
-                  tracks.isEmpty ? null : () => _playAll(tracks, context),
+              onPressed: tracks.isEmpty
+                  ? null
+                  : isMix
+                      ? () => _playMix(tracks, context)
+                      : () => _playAll(tracks, context),
               icon: const Icon(Icons.play_arrow),
-              label: const Text('添加所有'),
+              label: Text(isMix ? '播放 Mix' : '添加所有'),
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed:
-                  tracks.isEmpty ? null : () => _shufflePlay(tracks, context),
-              icon: const Icon(Icons.shuffle),
-              label: const Text('随机添加'),
+          if (!isMix) ...[
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed:
+                    tracks.isEmpty ? null : () => _shufflePlay(tracks, context),
+                icon: const Icon(Icons.shuffle),
+                label: const Text('随机添加'),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -506,6 +520,20 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final shuffled = List<Track>.from(tracks)..shuffle();
     controller.addAllToQueue(shuffled);
     ToastService.show(context, '已随机添加 ${tracks.length} 首歌曲到队列');
+  }
+
+  void _playMix(List<Track> tracks, BuildContext context) {
+    final state = ref.read(playlistDetailProvider(widget.playlistId));
+    final playlist = state.playlist;
+    if (playlist == null || !playlist.isMix) return;
+
+    final controller = ref.read(audioControllerProvider.notifier);
+    controller.playMixPlaylist(
+      playlistId: playlist.mixPlaylistId!,
+      seedVideoId: playlist.mixSeedVideoId!,
+      title: playlist.name,
+      tracks: tracks,
+    );
   }
 
   void _playTrack(Track track) {

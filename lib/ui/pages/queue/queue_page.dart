@@ -108,19 +108,24 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     }
     _lastCurrentIndex = currentIndex;
 
+    final isMixMode = playerState.isMixMode;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('播放队列 (${queue.length})'),
+        title: Text(isMixMode
+            ? 'Mix (${queue.length})'
+            : '播放队列 (${queue.length})'),
         actions: [
           if (queue.isNotEmpty) ...[
-            IconButton(
-              icon: const Icon(Icons.shuffle),
-              tooltip: '随机打乱',
-              onPressed: () {
-                ref.read(audioControllerProvider.notifier).shuffleQueue();
-                ToastService.show(context, '队列已打乱');
-              },
-            ),
+            if (!isMixMode)
+              IconButton(
+                icon: const Icon(Icons.shuffle),
+                tooltip: '随机打乱',
+                onPressed: () {
+                  ref.read(audioControllerProvider.notifier).shuffleQueue();
+                  ToastService.show(context, '队列已打乱');
+                },
+              ),
             IconButton(
               icon: const Icon(Icons.delete_outline),
               tooltip: '清空队列',
