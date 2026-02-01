@@ -43,6 +43,9 @@ class PlayerState {
   final Track? queueTrack;
   final List<Track> queue;
   final List<Track> upcomingTracks;
+  /// 隊列版本號，每次隊列結構變化（打亂、恢復順序等）時遞增
+  /// 用於讓 UI 檢測是否需要同步
+  final int queueVersion;
   final String? error;
 
   const PlayerState({
@@ -64,6 +67,7 @@ class PlayerState {
     this.upcomingTracks = const [],
     this.canPlayPrevious = false,
     this.canPlayNext = false,
+    this.queueVersion = 0,
     this.error,
   });
 
@@ -110,6 +114,7 @@ class PlayerState {
     List<Track>? upcomingTracks,
     bool? canPlayPrevious,
     bool? canPlayNext,
+    int? queueVersion,
     String? error,
   }) {
     return PlayerState(
@@ -131,6 +136,7 @@ class PlayerState {
       upcomingTracks: upcomingTracks ?? this.upcomingTracks,
       canPlayPrevious: canPlayPrevious ?? this.canPlayPrevious,
       canPlayNext: canPlayNext ?? this.canPlayNext,
+      queueVersion: queueVersion ?? this.queueVersion,
       error: error,
     );
   }
@@ -1570,6 +1576,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       loopMode: _queueManager.loopMode,
       canPlayPrevious: canPlayPrevious,
       canPlayNext: canPlayNext,
+      queueVersion: state.queueVersion + 1,
     );
   }
 }
