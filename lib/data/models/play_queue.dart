@@ -44,6 +44,20 @@ class PlayQueue {
   /// 上次更新时间
   DateTime? lastUpdated;
 
+  // ========== Mix 播放列表狀態 ==========
+
+  /// 是否為 Mix 播放模式
+  bool isMixMode = false;
+
+  /// Mix 播放列表 ID（如 RDTbFSpvlaugc）
+  String? mixPlaylistId;
+
+  /// Mix 種子視頻 ID（用於首次加載）
+  String? mixSeedVideoId;
+
+  /// Mix 播放列表標題
+  String? mixTitle;
+
   /// 队列长度
   int get length => trackIds.length;
 

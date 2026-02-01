@@ -403,6 +403,31 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // 更新初始状态
       _updateQueueState();
 
+      // 恢復 Mix 播放模式（如果之前是 Mix 模式）
+      if (_queueManager.isMixMode) {
+        final playlistId = _queueManager.mixPlaylistId;
+        final seedVideoId = _queueManager.mixSeedVideoId;
+        final title = _queueManager.mixTitle;
+        
+        if (playlistId != null && seedVideoId != null && title != null) {
+          logDebug('Restoring Mix mode: $title');
+          _mixState = _MixPlaylistState(
+            playlistId: playlistId,
+            seedVideoId: seedVideoId,
+            title: title,
+          );
+          // 將已有的歌曲添加到 seenVideoIds（避免重複加載）
+          _mixState!.addSeenVideoIds(_queueManager.tracks.map((t) => t.sourceId));
+          
+          // 更新 context 和 state
+          _context = _context.copyWith(mode: PlayMode.mix);
+          state = state.copyWith(
+            isMixMode: true,
+            mixTitle: title,
+          );
+        }
+      }
+
       // 恢复音量
       final savedVolume = _queueManager.savedVolume;
       await _audioService.setVolume(savedVolume);
@@ -749,6 +774,14 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // 添加歌曲到隊列
       await _queueManager.playAll(tracks, startIndex: startIndex);
 
+      // 持久化 Mix 狀態到數據庫
+      await _queueManager.setMixMode(
+        enabled: true,
+        playlistId: playlistId,
+        seedVideoId: seedVideoId,
+        title: title,
+      );
+
       // 更新 PlayerState（先設置，因為 _executePlayRequest 會重置 isLoading）
       state = state.copyWith(
         isMixMode: true,
@@ -782,6 +815,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         isMixMode: false,
         mixTitle: null,
       );
+      // 清除持久化的 Mix 狀態
+      _queueManager.clearMixMode();
     }
   }
 
@@ -865,62 +900,74 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   /// 添加到队列
-  Future<void> addToQueue(Track track) async {
+  /// 
+  /// 返回 true 表示添加成功，false 表示被阻止（例如 Mix 模式）
+  Future<bool> addToQueue(Track track) async {
     await _ensureInitialized();
     
     // Mix 模式下禁止添加歌曲
     if (_context.isMix) {
       _toastService.showInfo('Mix 播放列表不支持添加歌曲');
-      return;
+      return false;
     }
     
     logInfo('Adding to queue: ${track.title}');
     try {
       await _queueManager.add(track);
       _updateQueueState();
+      return true;
     } catch (e, stack) {
       logError('Failed to add track to queue', e, stack);
       state = state.copyWith(error: e.toString());
+      return false;
     }
   }
 
   /// 批量添加到队列
-  Future<void> addAllToQueue(List<Track> tracks) async {
+  /// 
+  /// 返回 true 表示添加成功，false 表示被阻止（例如 Mix 模式）
+  Future<bool> addAllToQueue(List<Track> tracks) async {
     await _ensureInitialized();
     
     // Mix 模式下禁止添加歌曲
     if (_context.isMix) {
       _toastService.showInfo('Mix 播放列表不支持添加歌曲');
-      return;
+      return false;
     }
     
     logInfo('Adding ${tracks.length} tracks to queue');
     try {
       await _queueManager.addAll(tracks);
       _updateQueueState();
+      return true;
     } catch (e, stack) {
       logError('Failed to add tracks to queue', e, stack);
       state = state.copyWith(error: e.toString());
+      return false;
     }
   }
 
   /// 添加到下一首
-  Future<void> addNext(Track track) async {
+  /// 
+  /// 返回 true 表示添加成功，false 表示被阻止（例如 Mix 模式）
+  Future<bool> addNext(Track track) async {
     await _ensureInitialized();
     
     // Mix 模式下禁止添加歌曲
     if (_context.isMix) {
       _toastService.showInfo('Mix 播放列表不支持添加歌曲');
-      return;
+      return false;
     }
     
     logInfo('Adding next: ${track.title}');
     try {
       await _queueManager.addNext(track);
       _updateQueueState();
+      return true;
     } catch (e, stack) {
       logError('Failed to add track as next', e, stack);
       state = state.copyWith(error: e.toString());
+      return false;
     }
   }
 

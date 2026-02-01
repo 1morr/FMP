@@ -567,15 +567,17 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       case 'play_next':
         if (hasMultiplePages) {
           // 多P视频：添加所有分P
+          bool anyAdded = false;
           for (final page in pages) {
-            controller.addNext(page.toTrack(track));
+            final added = await controller.addNext(page.toTrack(track));
+            if (added) anyAdded = true;
           }
-          if (mounted) {
+          if (anyAdded && mounted) {
             ToastService.show(context, '已添加${pages.length}个分P到下一首');
           }
         } else {
-          controller.addNext(track);
-          if (mounted) {
+          final added = await controller.addNext(track);
+          if (added && mounted) {
             ToastService.show(context, '已添加到下一首');
           }
         }
@@ -583,15 +585,17 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       case 'add_to_queue':
         if (hasMultiplePages) {
           // 多P视频：添加所有分P
+          bool anyAdded = false;
           for (final page in pages) {
-            controller.addToQueue(page.toTrack(track));
+            final added = await controller.addToQueue(page.toTrack(track));
+            if (added) anyAdded = true;
           }
-          if (mounted) {
+          if (anyAdded && mounted) {
             ToastService.show(context, '已添加${pages.length}个分P到播放队列');
           }
         } else {
-          controller.addToQueue(track);
-          if (mounted) {
+          final added = await controller.addToQueue(track);
+          if (added && mounted) {
             ToastService.show(context, '已添加到播放队列');
           }
         }
@@ -623,12 +627,16 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         controller.playTemporary(pageTrack);
         break;
       case 'play_next':
-        controller.addNext(pageTrack);
-        ToastService.show(context, '已添加到下一首');
+        final added = await controller.addNext(pageTrack);
+        if (added && mounted) {
+          ToastService.show(context, '已添加到下一首');
+        }
         break;
       case 'add_to_queue':
-        controller.addToQueue(pageTrack);
-        ToastService.show(context, '已添加到播放队列');
+        final added = await controller.addToQueue(pageTrack);
+        if (added && mounted) {
+          ToastService.show(context, '已添加到播放队列');
+        }
         break;
 
     }
@@ -1104,26 +1112,34 @@ class _LocalGroupTile extends ConsumerWidget {
         onPlayTrack(group.firstTrack);
         break;
       case 'play_next':
+        bool anyAdded = false;
         for (final track in group.tracks) {
-          controller.addNext(track);
+          final added = await controller.addNext(track);
+          if (added) anyAdded = true;
         }
-        ToastService.show(
-          context,
-          group.hasMultipleParts
-              ? '已添加${group.partCount}个分P到下一首'
-              : '已添加到下一首',
-        );
+        if (anyAdded && context.mounted) {
+          ToastService.show(
+            context,
+            group.hasMultipleParts
+                ? '已添加${group.partCount}个分P到下一首'
+                : '已添加到下一首',
+          );
+        }
         break;
       case 'add_to_queue':
+        bool anyAdded = false;
         for (final track in group.tracks) {
-          controller.addToQueue(track);
+          final added = await controller.addToQueue(track);
+          if (added) anyAdded = true;
         }
-        ToastService.show(
-          context,
-          group.hasMultipleParts
-              ? '已添加${group.partCount}个分P到播放队列'
-              : '已添加到播放队列',
-        );
+        if (anyAdded && context.mounted) {
+          ToastService.show(
+            context,
+            group.hasMultipleParts
+                ? '已添加${group.partCount}个分P到播放队列'
+                : '已添加到播放队列',
+          );
+        }
         break;
 
       case 'add_to_playlist':

@@ -420,10 +420,12 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
     });
   }
 
-  void _addAllToQueue(BuildContext context, List<Track> tracks) {
+  void _addAllToQueue(BuildContext context, List<Track> tracks) async {
     final controller = ref.read(audioControllerProvider.notifier);
-    controller.addAllToQueue(tracks);
-    ToastService.show(context, '已添加 ${tracks.length} 个分P到队列');
+    final added = await controller.addAllToQueue(tracks);
+    if (added && context.mounted) {
+      ToastService.show(context, '已添加 ${tracks.length} 个分P到队列');
+    }
   }
 
   void _playTrack(Track track) {
@@ -721,12 +723,16 @@ class _DownloadedTrackTile extends ConsumerWidget {
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
     switch (action) {
       case 'play_next':
-        ref.read(audioControllerProvider.notifier).addNext(track);
-        ToastService.show(context, '已添加到下一首');
+        final added = await ref.read(audioControllerProvider.notifier).addNext(track);
+        if (added && context.mounted) {
+          ToastService.show(context, '已添加到下一首');
+        }
         break;
       case 'add_to_queue':
-        ref.read(audioControllerProvider.notifier).addToQueue(track);
-        ToastService.show(context, '已添加到播放队列');
+        final added = await ref.read(audioControllerProvider.notifier).addToQueue(track);
+        if (added && context.mounted) {
+          ToastService.show(context, '已添加到播放队列');
+        }
         break;
 
       case 'delete':
