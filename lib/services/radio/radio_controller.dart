@@ -377,6 +377,30 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     _currentStreamInfo = null;
   }
 
+  /// 暫停播放（保留電台資訊，可重新播放）
+  Future<void> pause() async {
+    _stopTimers();
+    await _audioService.stop();
+
+    state = state.copyWith(
+      isPlaying: false,
+      isLoading: false,
+      clearLoadingStationId: true,
+      isBuffering: false,
+      reconnectAttempts: 0,
+      clearReconnectMessage: true,
+    );
+
+    _playStartTime = null;
+    // 保留 _currentStreamInfo 以便快速恢復
+  }
+
+  /// 恢復播放當前電台
+  Future<void> resume() async {
+    if (state.currentStation == null) return;
+    await play(state.currentStation!);
+  }
+
   /// 添加電台
   Future<RadioStation?> addStation(String url) async {
     try {

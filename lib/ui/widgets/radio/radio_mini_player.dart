@@ -173,7 +173,7 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
     );
   }
 
-  /// 播放/停止按鈕
+  /// 播放/暫停按鈕
   Widget _buildPlayStopButton(
     RadioState state,
     RadioController controller,
@@ -197,14 +197,14 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
           : IconButton(
               padding: EdgeInsets.zero,
               icon: Icon(
-                state.isPlaying ? Icons.stop : Icons.play_arrow,
+                state.isPlaying ? Icons.pause : Icons.play_arrow,
                 size: 28,
               ),
               onPressed: () {
                 if (state.isPlaying) {
-                  controller.stop();
-                } else if (state.currentStation != null) {
-                  controller.play(state.currentStation!);
+                  controller.pause();
+                } else {
+                  controller.resume();
                 }
               },
             ),

@@ -205,9 +205,15 @@ class _RadioPageState extends ConsumerState<RadioPage> {
   ) {
     final controller = ref.read(radioControllerProvider.notifier);
 
-    if (isCurrentPlaying && radioState.isPlaying) {
-      controller.stop();
+    if (isCurrentPlaying) {
+      // 點擊當前電台：切換播放/暫停
+      if (radioState.isPlaying) {
+        controller.pause();
+      } else {
+        controller.resume();
+      }
     } else {
+      // 點擊其他電台：播放該電台
       controller.play(station);
     }
   }
