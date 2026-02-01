@@ -12,6 +12,7 @@ import '../../../providers/playlist_provider.dart';
 import '../../../providers/play_history_provider.dart';
 import '../../../providers/popular_provider.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../../services/radio/radio_controller.dart';
 import '../../router.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/track_thumbnail.dart';
@@ -542,6 +543,10 @@ class _HomePageState extends ConsumerState<HomePage> {
     ColorScheme colorScheme,
   ) {
     final track = playerState.currentTrack!;
+    // 檢查電台是否正在播放
+    final isRadioPlaying = ref.watch(isRadioPlayingProvider);
+    // 音樂實際播放狀態：電台播放時，音樂處於暫停狀態
+    final isMusicPlaying = playerState.isPlaying && !isRadioPlaying;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -558,7 +563,17 @@ class _HomePageState extends ConsumerState<HomePage> {
           child: Card(
             color: colorScheme.primaryContainer.withValues(alpha: 0.3),
             child: InkWell(
-              onTap: () => ref.read(audioControllerProvider.notifier).togglePlayPause(),
+              onTap: () {
+                if (isRadioPlaying) {
+                          // 電台播放中，點擊播放音樂（會自動停止電台）
+                          final index = playerState.currentIndex;
+                          if (index != null && index >= 0) {
+                            ref.read(audioControllerProvider.notifier).playAt(index);
+                          }
+                } else {
+                  ref.read(audioControllerProvider.notifier).togglePlayPause();
+                }
+              },
               borderRadius: BorderRadius.circular(12),
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -598,10 +613,19 @@ class _HomePageState extends ConsumerState<HomePage> {
                     // 控制按钮
                     IconButton(
                       icon: Icon(
-                        playerState.isPlaying ? Icons.pause : Icons.play_arrow,
+                        isMusicPlaying ? Icons.pause : Icons.play_arrow,
                       ),
-                      onPressed: () =>
-                          ref.read(audioControllerProvider.notifier).togglePlayPause(),
+                      onPressed: () {
+                        if (isRadioPlaying) {
+                          // 電台播放中，點擊播放音樂（會自動停止電台）
+                          final index = playerState.currentIndex;
+                          if (index != null && index >= 0) {
+                            ref.read(audioControllerProvider.notifier).playAt(index);
+                          }
+                        } else {
+                          ref.read(audioControllerProvider.notifier).togglePlayPause();
+                        }
+                      },
                     ),
                   ],
                 ),
