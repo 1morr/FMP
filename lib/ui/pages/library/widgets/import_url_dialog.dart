@@ -51,7 +51,7 @@ class _ImportUrlDialogState extends ConsumerState<ImportUrlDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '支持导入 B站 收藏夹和 YouTube 播放列表',
+                '支持导入 B站收藏夹、YouTube 播放列表和 Mix',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colorScheme.outline,
                     ),
