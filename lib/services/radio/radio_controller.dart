@@ -242,6 +242,14 @@ class RadioController extends StateNotifier<RadioState> with Logging {
         headers: streamInfo.headers,
       );
 
+      // 獲取高能用戶數（作為觀眾數）
+      int? viewerCount;
+      try {
+        viewerCount = await _radioSource.getHighEnergyUserCount(station);
+      } catch (e) {
+        logWarning('Failed to get initial viewer count: $e');
+      }
+
       // 更新狀態
       _playStartTime = DateTime.now();
       state = state.copyWith(
@@ -249,7 +257,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
         isLoading: false,
         isPlaying: true,
         playDuration: Duration.zero,
-        viewerCount: liveInfo?.viewerCount,
+        viewerCount: viewerCount,
         liveStartTime: liveInfo?.liveStartTime,
       );
 
@@ -342,16 +350,16 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     await _repository.toggleFavorite(id);
   }
 
-  /// 刷新電台資訊
+  /// 刷新電台資訊（使用高能用戶數作為觀眾數）
   Future<void> refreshStationInfo() async {
     if (state.currentStation == null) return;
 
     try {
-      final info = await _radioSource.getLiveInfo(state.currentStation!);
-      state = state.copyWith(
-        viewerCount: info.viewerCount,
-        liveStartTime: info.liveStartTime,
-      );
+      // 使用高能用戶數 API（更準確的觀眾數據）
+      final count = await _radioSource.getHighEnergyUserCount(state.currentStation!);
+      if (count != null) {
+        state = state.copyWith(viewerCount: count);
+      }
     } catch (e) {
       logWarning('Failed to refresh station info: $e');
     }
@@ -468,9 +476,9 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       (_) => _updatePlayDuration(),
     );
 
-    // 每 5 分鐘刷新房間資訊
+    // 每 1 分鐘刷新高能用戶數
     _infoRefreshTimer = Timer.periodic(
-      const Duration(minutes: 5),
+      const Duration(minutes: 1),
       (_) => refreshStationInfo(),
     );
   }
