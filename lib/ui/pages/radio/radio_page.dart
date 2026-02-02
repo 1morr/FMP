@@ -10,7 +10,7 @@ import '../../../services/radio/radio_controller.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/radio/add_radio_dialog.dart';
 
-/// 電台頁面
+/// 电台页面
 class RadioPage extends ConsumerStatefulWidget {
   const RadioPage({super.key});
 
@@ -24,11 +24,11 @@ class _RadioPageState extends ConsumerState<RadioPage> {
   @override
   void initState() {
     super.initState();
-    // 進入頁面時刷新
+    // 进入页面时刷新
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(radioControllerProvider.notifier).refreshAllLiveStatus();
     });
-    // 每分鐘刷新
+    // 每分钟刷新
     _refreshTimer = Timer.periodic(
       const Duration(minutes: 1),
       (_) => ref.read(radioControllerProvider.notifier).refreshAllLiveStatus(),
@@ -43,7 +43,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
 
   @override
   Widget build(BuildContext context) {
-    // 監聽錯誤並顯示 Toast
+    // 监听错误并显示 Toast
     ref.listen<RadioState>(radioControllerProvider, (previous, next) {
       if (next.error != null && next.error != previous?.error) {
         ToastService.show(context, next.error!);
@@ -55,9 +55,9 @@ class _RadioPageState extends ConsumerState<RadioPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('電台'),
+        title: const Text('电台'),
         actions: [
-          // 刷新按鈕
+          // 刷新按钮
           IconButton(
             onPressed: radioState.isRefreshingStatus
                 ? null
@@ -71,11 +71,11 @@ class _RadioPageState extends ConsumerState<RadioPage> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.refresh),
-            tooltip: '刷新狀態',
+            tooltip: '刷新状态',
           ),
           IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: '添加電台',
+            icon: const Icon(Icons.add_link),
+            tooltip: '添加电台',
             onPressed: () => AddRadioDialog.show(context),
           ),
         ],
@@ -100,12 +100,12 @@ class _RadioPageState extends ConsumerState<RadioPage> {
             ),
             const SizedBox(height: 24),
             Text(
-              '還沒有電台',
+              '还没有电台',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
             Text(
-              '添加 Bilibili 直播間來收聽',
+              '添加 Bilibili 直播间来收听',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colorScheme.outline,
                   ),
@@ -114,8 +114,8 @@ class _RadioPageState extends ConsumerState<RadioPage> {
             const SizedBox(height: 32),
             FilledButton.icon(
               onPressed: () => AddRadioDialog.show(context),
-              icon: const Icon(Icons.add),
-              label: const Text('添加電台'),
+              icon: const Icon(Icons.add_link),
+              label: const Text('添加电台'),
             ),
           ],
         ),
@@ -128,7 +128,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
     RadioState radioState,
     ColorScheme colorScheme,
   ) {
-    // 排序：正在直播的排前面，同狀態內保持原有順序
+    // 排序：正在直播的排前面，同状态内保持原有顺序
     final sortedStations = List<RadioStation>.from(radioState.stations)
       ..sort((a, b) {
         final aLive = radioState.isStationLive(a.id) ? 0 : 1;
@@ -138,19 +138,19 @@ class _RadioPageState extends ConsumerState<RadioPage> {
 
     return Column(
       children: [
-        // 重連提示（錯誤已改為 Toast 顯示）
+        // 重连提示（错误已改为 Toast 显示）
         if (radioState.reconnectMessage != null)
           _buildReconnectBanner(radioState, colorScheme),
 
-        // 網格列表
+        // 网格列表
         Expanded(
           child: GridView.builder(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
             gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 140,
+              maxCrossAxisExtent: 200,
               mainAxisSpacing: 16,
               crossAxisSpacing: 16,
-              childAspectRatio: 0.75,
+              childAspectRatio: 0.8,
             ),
             itemCount: sortedStations.length,
             itemBuilder: (context, index) {
@@ -213,14 +213,14 @@ class _RadioPageState extends ConsumerState<RadioPage> {
     final controller = ref.read(radioControllerProvider.notifier);
 
     if (isCurrentPlaying) {
-      // 點擊當前電台：切換播放/暫停
+      // 点击当前电台：切换播放/暂停
       if (radioState.isPlaying) {
         controller.pause();
       } else {
         controller.resume();
       }
     } else {
-      // 點擊其他電台：播放該電台
+      // 点击其他电台：播放该电台
       controller.play(station);
     }
   }
@@ -238,7 +238,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
             children: [
               ListTile(
                 leading: const Icon(Icons.edit),
-                title: const Text('編輯電台'),
+                title: const Text('编辑电台'),
                 onTap: () {
                   Navigator.pop(context);
                   _showEditDialog(context, station);
@@ -246,7 +246,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
               ),
               ListTile(
                 leading: Icon(Icons.delete, color: colorScheme.error),
-                title: Text('刪除電台', style: TextStyle(color: colorScheme.error)),
+                title: Text('删除电台', style: TextStyle(color: colorScheme.error)),
                 onTap: () {
                   Navigator.pop(context);
                   _showDeleteConfirm(context, station);
@@ -266,11 +266,11 @@ class _RadioPageState extends ConsumerState<RadioPage> {
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('編輯電台'),
+        title: const Text('编辑电台'),
         content: TextField(
           controller: titleController,
           decoration: const InputDecoration(
-            labelText: '電台名稱',
+            labelText: '电台名称',
             border: OutlineInputBorder(),
           ),
           autofocus: true,
@@ -284,7 +284,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
           FilledButton(
             onPressed: () =>
                 Navigator.of(context).pop(titleController.text.trim()),
-            child: const Text('確認'),
+            child: const Text('确认'),
           ),
         ],
       ),
@@ -296,7 +296,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
       station.title = result;
       await ref.read(radioControllerProvider.notifier).updateStation(station);
       if (context.mounted) {
-        ToastService.show(context, '電台已更新');
+        ToastService.show(context, '电台已更新');
       }
     }
   }
@@ -306,8 +306,8 @@ class _RadioPageState extends ConsumerState<RadioPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('刪除電台'),
-        content: Text('確定要刪除「${station.title}」嗎？'),
+        title: const Text('删除电台'),
+        content: Text('确定要删除「${station.title}」吗？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -318,7 +318,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
-            child: const Text('刪除'),
+            child: const Text('删除'),
           ),
         ],
       ),
@@ -329,13 +329,13 @@ class _RadioPageState extends ConsumerState<RadioPage> {
           .read(radioControllerProvider.notifier)
           .deleteStation(station.id);
       if (context.mounted) {
-        ToastService.show(context, '電台已刪除');
+        ToastService.show(context, '电台已删除');
       }
     }
   }
 }
 
-/// 電台卡片
+/// 电台卡片
 class _RadioStationCard extends StatelessWidget {
   final RadioStation station;
   final bool isLive;
@@ -363,103 +363,117 @@ class _RadioStationCard extends StatelessWidget {
       onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(12),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          // 圓形封面
-          Stack(
-            children: [
-              // 封面圖
-              Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: colorScheme.surfaceContainerHighest,
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: ColorFiltered(
-                    colorFilter: isLive
-                        ? const ColorFilter.mode(
-                            Colors.transparent,
-                            BlendMode.multiply,
-                          )
-                        : const ColorFilter.matrix(<double>[
-                            0.2126, 0.7152, 0.0722, 0, 0,
-                            0.2126, 0.7152, 0.0722, 0, 0,
-                            0.2126, 0.7152, 0.0722, 0, 0,
-                            0, 0, 0, 1, 0,
-                          ]),
-                    child: ImageLoadingService.loadImage(
-                      networkUrl: station.thumbnailUrl,
-                      placeholder: _buildPlaceholder(colorScheme),
-                      fit: BoxFit.cover,
-                      width: 100,
-                      height: 100,
-                    ),
-                  ),
-              ),
-
-              // 正在直播紅點
-              if (isLive)
-                Positioned(
-                  top: 4,
-                  right: 4,
-                  child: Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: colorScheme.surface,
-                        width: 2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.red.withValues(alpha: 0.5),
-                          blurRadius: 4,
-                          spreadRadius: 1,
+          // 圆形封面 - 使用 Expanded 填充剩余空间，加 padding 缩小
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: LayoutBuilder(
+              builder: (context, constraints) {
+                // 取宽高的较小值作为圆形直径，保证圆形不变形
+                final size = constraints.maxWidth < constraints.maxHeight
+                    ? constraints.maxWidth
+                    : constraints.maxHeight;
+                return Center(
+                  child: SizedBox(
+                    width: size,
+                    height: size,
+                    child: Stack(
+                      children: [
+                        // 封面图
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: colorScheme.surfaceContainerHighest,
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: ColorFiltered(
+                            colorFilter: isLive
+                                ? const ColorFilter.mode(
+                                    Colors.transparent,
+                                    BlendMode.multiply,
+                                  )
+                                : const ColorFilter.matrix(<double>[
+                                    0.2126, 0.7152, 0.0722, 0, 0,
+                                    0.2126, 0.7152, 0.0722, 0, 0,
+                                    0.2126, 0.7152, 0.0722, 0, 0,
+                                    0, 0, 0, 1, 0,
+                                  ]),
+                            child: ImageLoadingService.loadImage(
+                              networkUrl: station.thumbnailUrl,
+                              placeholder: _buildPlaceholder(colorScheme),
+                              fit: BoxFit.cover,
+                              width: size,
+                              height: size,
+                            ),
+                          ),
                         ),
+
+                        // 正在直播红点
+                        if (isLive)
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: Container(
+                              width: 16,
+                              height: 16,
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: colorScheme.surface,
+                                  width: 2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.red.withValues(alpha: 0.5),
+                                    blurRadius: 4,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                        // 播放中指示器
+                        if (isPlaying || isLoading)
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: colorScheme.primary.withValues(alpha: 0.4),
+                              ),
+                              child: Center(
+                                child: isLoading
+                                    ? SizedBox(
+                                        width: size * 0.32,
+                                        height: size * 0.32,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 3,
+                                          color: colorScheme.onPrimary,
+                                        ),
+                                      )
+                                    : NowPlayingIndicator(
+                                        color: colorScheme.onPrimary,
+                                        size: size * 0.32,
+                                        isPlaying: true,
+                                      ),
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
-                ),
-
-              // 播放中指示器
-              if (isPlaying || isLoading)
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: colorScheme.primary.withValues(alpha: 0.4),
-                    ),
-                    child: Center(
-                      child: isLoading
-                          ? SizedBox(
-                              width: 32,
-                              height: 32,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 3,
-                                color: colorScheme.onPrimary,
-                              ),
-                            )
-                          : NowPlayingIndicator(
-                              color: colorScheme.onPrimary,
-                              size: 32,
-                              isPlaying: true,
-                            ),
-                    ),
-                  ),
-                ),
-            ],
+                );
+              },
+            ),
+            ),
           ),
 
-          const SizedBox(height: 8),
-
-          // 標題
+          // 标题
           Text(
             station.title,
-            style: textTheme.bodyMedium?.copyWith(
+            style: textTheme.titleSmall?.copyWith(
               fontWeight: isPlaying ? FontWeight.bold : null,
               color: isLive
                   ? (isPlaying ? colorScheme.primary : colorScheme.onSurface)
@@ -470,7 +484,7 @@ class _RadioStationCard extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
 
-          // 主播名稱
+          // 主播名称
           if (station.hostName != null)
             Text(
               station.hostName!,
