@@ -66,52 +66,63 @@ class _AddRadioDialogState extends ConsumerState<AddRadioDialog> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return AlertDialog(
-      title: const Text('添加電台'),
+      title: const Text('从 URL 导入'),
       content: SizedBox(
         width: 400,
         child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextFormField(
-              controller: _urlController,
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: '直播間 URL',
-                hintText: 'https://live.bilibili.com/123456',
-                border: OutlineInputBorder(),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return '請輸入直播間 URL';
-                }
-                return null;
-              },
-              onFieldSubmitted: (_) => _handleAdd(),
-            ),
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 12),
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                _errorMessage!,
-                style: TextStyle(
-                  color: colorScheme.error,
-                  fontSize: 12,
+                '添加 Bilibili 直播间作为电台',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.outline,
+                    ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _urlController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'URL',
+                  hintText: '粘贴直播间链接',
+                  prefixIcon: Icon(Icons.link),
                 ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return '请输入直播间 URL';
+                  }
+                  return null;
+                },
+                onFieldSubmitted: (_) => _handleAdd(),
               ),
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colorScheme.errorContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.error, color: colorScheme.error, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: TextStyle(color: colorScheme.error),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
-            const SizedBox(height: 12),
-            Text(
-              '目前僅支持 Bilibili 直播',
-              style: TextStyle(
-                color: colorScheme.onSurfaceVariant,
-                fontSize: 12,
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
       ),
       actions: [
         TextButton(
