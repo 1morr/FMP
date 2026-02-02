@@ -1650,6 +1650,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         await _audioService.play();
       }
 
+      // 預取下一首歌曲的 URL（程序重啟後首次切歌不需要等待）
+      _queueManager.prefetchNext();
+
       // 确保清除加载状态
       _resetLoadingState();
     } catch (e) {
