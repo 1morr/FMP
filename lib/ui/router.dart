@@ -11,6 +11,7 @@ import 'pages/library/playlist_detail_page.dart';
 import 'pages/settings/settings_page.dart';
 import 'pages/settings/download_manager_page.dart';
 import 'pages/settings/developer_options_page.dart';
+import 'pages/settings/audio_settings_page.dart';
 import 'pages/settings/database_viewer_page.dart';
 import 'pages/settings/log_viewer_page.dart';
 import 'pages/radio/radio_page.dart';
@@ -36,6 +37,7 @@ class RoutePaths {
   static const String playlistDetail = '/library/:id';
   static const String downloaded = '/library/downloaded';
   static const String downloadManager = '/settings/download-manager';
+  static const String audioSettings = '/settings/audio';
   static const String developerOptions = '/settings/developer';
   static const String databaseViewer = '/settings/developer/database';
   static const String logViewer = '/settings/developer/logs';
@@ -58,6 +60,7 @@ class RouteNames {
   static const String downloaded = 'downloaded';
   static const String downloadedCategory = 'downloadedCategory';
   static const String downloadManager = 'downloadManager';
+  static const String audioSettings = 'audioSettings';
   static const String developerOptions = 'developerOptions';
   static const String databaseViewer = 'databaseViewer';
   static const String logViewer = 'logViewer';
@@ -153,6 +156,12 @@ final appRouter = GoRouter(
               path: 'download-manager',
               name: RouteNames.downloadManager,
               builder: (context, state) => const DownloadManagerPage(),
+            ),
+            // 音频质量设置页面
+            GoRoute(
+              path: 'audio',
+              name: RouteNames.audioSettings,
+              builder: (context, state) => const AudioSettingsPage(),
             ),
             // 开发者选项页面
             GoRoute(

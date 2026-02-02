@@ -4,8 +4,10 @@ import 'package:audio_service/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
+import '../../data/models/settings.dart';
 import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
+import '../../data/sources/base_source.dart';
 import '../../data/sources/bilibili_source.dart';
 import '../../data/sources/youtube_source.dart';
 import '../../data/repositories/queue_repository.dart';
@@ -53,6 +55,16 @@ class PlayerState {
   final String? mixTitle;
   final String? error;
 
+  // ========== 音频流元信息 ==========
+  /// 当前音频流码率 (bps)
+  final int? currentBitrate;
+  /// 当前音频流容器格式 (mp4, webm, m4a)
+  final String? currentContainer;
+  /// 当前音频流编码 (aac, opus)
+  final String? currentCodec;
+  /// 当前流类型 (audioOnly, muxed, hls)
+  final StreamType? currentStreamType;
+
   const PlayerState({
     this.isPlaying = false,
     this.isBuffering = false,
@@ -76,6 +88,10 @@ class PlayerState {
     this.isMixMode = false,
     this.mixTitle,
     this.error,
+    this.currentBitrate,
+    this.currentContainer,
+    this.currentCodec,
+    this.currentStreamType,
   });
 
   /// 向后兼容：返回正在播放的歌曲
@@ -125,6 +141,10 @@ class PlayerState {
     bool? isMixMode,
     String? mixTitle,
     String? error,
+    int? currentBitrate,
+    String? currentContainer,
+    String? currentCodec,
+    StreamType? currentStreamType,
   }) {
     return PlayerState(
       isPlaying: isPlaying ?? this.isPlaying,
@@ -149,6 +169,10 @@ class PlayerState {
       isMixMode: isMixMode ?? this.isMixMode,
       mixTitle: mixTitle ?? this.mixTitle,
       error: error,
+      currentBitrate: currentBitrate ?? this.currentBitrate,
+      currentContainer: currentContainer ?? this.currentContainer,
+      currentCodec: currentCodec ?? this.currentCodec,
+      currentStreamType: currentStreamType ?? this.currentStreamType,
     );
   }
 }
@@ -1351,10 +1375,24 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// [trackWithUrl] - 成功獲取 URL 後的歌曲（用於更新 playingTrack）
   /// [mode] - 播放模式（用於更新 _context）
   /// [recordHistory] - 是否記錄播放歷史
-  void _exitLoadingState(int requestId, Track? trackWithUrl, {PlayMode? mode, bool recordHistory = false}) {
+  /// [streamResult] - 音頻流選擇結果（碼率、格式等信息）
+  void _exitLoadingState(
+    int requestId, 
+    Track? trackWithUrl, {
+    PlayMode? mode, 
+    bool recordHistory = false,
+    AudioStreamResult? streamResult,
+  }) {
     // 只有當請求沒有被取代時才更新狀態
     if (requestId == _playRequestId) {
-      state = state.copyWith(isLoading: false);
+      state = state.copyWith(
+        isLoading: false,
+        // 更新音頻流信息
+        currentBitrate: streamResult?.bitrate,
+        currentContainer: streamResult?.container,
+        currentCodec: streamResult?.codec,
+        currentStreamType: streamResult?.streamType,
+      );
       _context = _context.copyWith(activeRequestId: 0, mode: mode);
       
       if (trackWithUrl != null) {
@@ -1429,7 +1467,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     try {
       // 階段 4：獲取 URL
       logDebug('Fetching audio URL for: ${track.title}');
-      final (trackWithUrl, localPath) = await _queueManager.ensureAudioUrl(track, persist: persist);
+      final (trackWithUrl, localPath, streamResult) = await _queueManager.ensureAudioStream(track, persist: persist);
 
       // 檢查是否被取代
       if (_isSuperseded(requestId)) {
@@ -1467,7 +1505,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       }
 
       // 階段 6：完成
-      _exitLoadingState(requestId, trackWithUrl, mode: mode, recordHistory: recordHistory);
+      _exitLoadingState(requestId, trackWithUrl, mode: mode, recordHistory: recordHistory, streamResult: streamResult);
       completedSuccessfully = true;
       
       // 更新隊列狀態
@@ -1491,15 +1529,16 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       if (track.sourceType == SourceType.youtube && !_isSuperseded(requestId)) {
         try {
           logInfo('Attempting fallback stream for: ${track.title} (failed URL: $attemptedUrl)');
-          final fallbackUrl = await _queueManager.getAlternativeAudioUrl(track, failedUrl: attemptedUrl);
+          final fallbackResult = await _queueManager.getAlternativeAudioStream(track, failedUrl: attemptedUrl);
           
-          if (fallbackUrl != null && !_isSuperseded(requestId)) {
+          if (fallbackResult != null && !_isSuperseded(requestId)) {
+            final fallbackUrl = fallbackResult.url;
             final headers = _getHeadersForTrack(track);
             await _audioService.playUrl(fallbackUrl, headers: headers, track: track);
             
             if (!_isSuperseded(requestId)) {
               track.audioUrl = fallbackUrl;
-              _exitLoadingState(requestId, track, mode: mode, recordHistory: recordHistory);
+              _exitLoadingState(requestId, track, mode: mode, recordHistory: recordHistory, streamResult: fallbackResult);
               completedSuccessfully = true;
               _updateQueueState();
               logInfo('Fallback playback succeeded for: ${track.title}');

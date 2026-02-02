@@ -1,4 +1,64 @@
+import '../models/settings.dart';
 import '../models/track.dart';
+
+/// 音频流配置
+class AudioStreamConfig {
+  /// 音质等级
+  final AudioQualityLevel qualityLevel;
+
+  /// 格式优先级（按顺序尝试，使用第一个可用格式）
+  final List<AudioFormat> formatPriority;
+
+  /// 流类型优先级（按顺序尝试）
+  final List<StreamType> streamPriority;
+
+  const AudioStreamConfig({
+    this.qualityLevel = AudioQualityLevel.high,
+    this.formatPriority = const [
+      AudioFormat.aac,
+      AudioFormat.opus,
+    ],
+    this.streamPriority = const [
+      StreamType.audioOnly,
+      StreamType.muxed,
+      StreamType.hls,
+    ],
+  });
+
+  /// 默认配置（高音质、兼容优先）
+  static const defaultConfig = AudioStreamConfig();
+}
+
+/// 音频流结果（包含元信息）
+class AudioStreamResult {
+  /// 音频流 URL
+  final String url;
+
+  /// 码率 (bps)
+  final int? bitrate;
+
+  /// 容器格式 (mp4, webm, m4a)
+  final String? container;
+
+  /// 编码 (aac, opus)
+  final String? codec;
+
+  /// 流类型
+  final StreamType streamType;
+
+  const AudioStreamResult({
+    required this.url,
+    this.bitrate,
+    this.container,
+    this.codec,
+    required this.streamType,
+  });
+
+  @override
+  String toString() =>
+      'AudioStreamResult(bitrate: ${bitrate != null ? "${(bitrate! / 1000).round()}kbps" : "unknown"}, '
+      'container: $container, codec: $codec, streamType: $streamType)';
+}
 
 /// 搜索排序方式
 enum SearchOrder {
@@ -69,20 +129,55 @@ abstract class BaseSource {
   /// [sourceId] 音源ID（如 BV号、YouTube视频ID）
   Future<Track> getTrackInfo(String sourceId);
 
-  /// 获取音频流 URL
+  /// 获取音频流（包含元信息）
+  /// [sourceId] 音源ID
+  /// [config] 音频流配置（码率、格式、流类型优先级）
   /// 返回的 URL 可能会过期，需要定期刷新
-  Future<String> getAudioUrl(String sourceId);
+  Future<AudioStreamResult> getAudioStream(
+    String sourceId, {
+    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+  });
+
+  /// 获取音频流 URL（简化版，仅返回 URL）
+  /// 内部调用 getAudioStream 并提取 URL
+  Future<String> getAudioUrl(String sourceId, {AudioStreamConfig? config}) async {
+    final result = await getAudioStream(
+      sourceId,
+      config: config ?? AudioStreamConfig.defaultConfig,
+    );
+    return result.url;
+  }
 
   /// 刷新歌曲的音频 URL
   /// 用于 URL 过期时重新获取
   Future<Track> refreshAudioUrl(Track track);
 
-  /// 获取备选音频 URL（当主 URL 播放失败时使用）
+  /// 获取备选音频流（当主 URL 播放失败时使用）
   /// [sourceId] 音源 ID
   /// [failedUrl] 之前失败的 URL（用于排除相同流类型）
-  /// 返回 null 表示没有可用的备选 URL
-  Future<String?> getAlternativeAudioUrl(String sourceId, {String? failedUrl}) async {
-    return null; // 默认不支持备选 URL
+  /// [config] 音频流配置
+  /// 返回 null 表示没有可用的备选流
+  Future<AudioStreamResult?> getAlternativeAudioStream(
+    String sourceId, {
+    String? failedUrl,
+    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+  }) async {
+    return null; // 默认不支持备选流
+  }
+
+  /// 获取备选音频 URL（简化版）
+  /// 内部调用 getAlternativeAudioStream 并提取 URL
+  Future<String?> getAlternativeAudioUrl(
+    String sourceId, {
+    String? failedUrl,
+    AudioStreamConfig? config,
+  }) async {
+    final result = await getAlternativeAudioStream(
+      sourceId,
+      failedUrl: failedUrl,
+      config: config ?? AudioStreamConfig.defaultConfig,
+    );
+    return result?.url;
   }
 
   /// 搜索歌曲

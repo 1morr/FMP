@@ -45,6 +45,13 @@ class SettingsPage extends ConsumerWidget {
           _SettingsSection(
             title: '播放',
             children: [
+              ListTile(
+                leading: const Icon(Icons.graphic_eq),
+                title: const Text('音频质量'),
+                subtitle: const Text('码率、格式、流优先级'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push(RoutePaths.audioSettings),
+              ),
               _RememberPlaybackPositionTile(),
             ],
           ),

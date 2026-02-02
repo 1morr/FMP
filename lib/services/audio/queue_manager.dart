@@ -4,11 +4,13 @@ import 'dart:math';
 import '../../core/constants/app_constants.dart';
 import '../../core/extensions/track_extensions.dart';
 import '../../core/logger.dart';
+import '../../data/models/settings.dart';
 import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
 import '../../data/repositories/queue_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
+import '../../data/sources/base_source.dart';
 import '../../data/sources/source_provider.dart';
 
 /// 播放队列管理器（纯队列逻辑）
@@ -819,13 +821,147 @@ class QueueManager with Logging {
     }
   }
 
-  /// 获取备选音频 URL（当主 URL 播放失败时使用）
-  Future<String?> getAlternativeAudioUrl(Track track, {String? failedUrl}) async {
+  /// 确保歌曲有有效的音频流（返回流元信息）
+  /// 
+  /// 返回 (Track, String?, AudioStreamResult?) 元组：
+  /// - Track: 更新后的歌曲对象
+  /// - String?: 找到的本地文件路径，如果没有则为 null
+  /// - AudioStreamResult?: 在线流信息（含码率/格式），如果使用本地文件则为 null
+  Future<(Track, String?, AudioStreamResult?)> ensureAudioStream(
+    Track track, {
+    int retryCount = 0,
+    bool persist = true,
+  }) async {
+    // 检查本地文件
+    String? localPath;
+    final invalidPaths = <String>[];
+    
+    for (final path in track.allDownloadPaths) {
+      if (File(path).existsSync()) {
+        localPath = path;
+        break;
+      } else {
+        invalidPaths.add(path);
+      }
+    }
+    
+    // 如果找到有效的本地文件
+    if (localPath != null) {
+      // 清除无效路径
+      if (invalidPaths.isNotEmpty && persist) {
+        final newInfos = <PlaylistDownloadInfo>[];
+        for (final info in track.playlistInfo) {
+          if (invalidPaths.contains(info.downloadPath)) {
+            newInfos.add(PlaylistDownloadInfo()
+              ..playlistId = info.playlistId
+              ..playlistName = info.playlistName
+              ..downloadPath = '');
+          } else {
+            newInfos.add(PlaylistDownloadInfo()
+              ..playlistId = info.playlistId
+              ..playlistName = info.playlistName
+              ..downloadPath = info.downloadPath);
+          }
+        }
+        track.playlistInfo = newInfos;
+        await _trackRepository.save(track);
+      }
+      
+      logDebug('Using local file for: ${track.title}');
+      return (track, localPath, null);
+    }
+
+    // 清除所有无效路径（如果需要）
+    if (invalidPaths.isNotEmpty && persist) {
+      final newInfos = <PlaylistDownloadInfo>[];
+      for (final info in track.playlistInfo) {
+        newInfos.add(PlaylistDownloadInfo()
+          ..playlistId = info.playlistId
+          ..playlistName = info.playlistName
+          ..downloadPath = '');
+      }
+      track.playlistInfo = newInfos;
+      await _trackRepository.save(track);
+    }
+
+    // 获取在线音频流（使用用户设置的音频配置）
+    logDebug('Fetching audio stream for: ${track.title} (attempt ${retryCount + 1})');
+    final source = _sourceManager.getSource(track.sourceType);
+    if (source == null) {
+      throw Exception('No source available for ${track.sourceType}');
+    }
+
+    try {
+      final config = await _buildAudioStreamConfig(track.sourceType);
+      final streamResult = await source.getAudioStream(track.sourceId, config: config);
+      
+      // 更新 track 的 URL
+      track.audioUrl = streamResult.url;
+      track.audioUrlExpiry = DateTime.now().add(const Duration(hours: 1));
+      track.updatedAt = DateTime.now();
+      
+      if (persist) {
+        final freshTrack = await _trackRepository.getById(track.id);
+        if (freshTrack != null) {
+          freshTrack.audioUrl = track.audioUrl;
+          freshTrack.audioUrlExpiry = track.audioUrlExpiry;
+          await _trackRepository.save(freshTrack);
+          track.playlistInfo = freshTrack.playlistInfo;
+        } else {
+          await _trackRepository.save(track);
+        }
+      }
+      
+      logDebug('Got audio stream for ${track.title}: ${streamResult}');
+
+      // 更新队列中的 track
+      final index = _tracks.indexWhere((t) => t.id == track.id);
+      if (index >= 0) {
+        _tracks[index] = track;
+      }
+
+      return (track, null, streamResult);
+    } catch (e) {
+      if (retryCount < 1) {
+        logWarning('Failed to fetch audio stream for ${track.title}, retrying: $e');
+        await Future.delayed(AppConstants.queueSaveRetryDelay);
+        return ensureAudioStream(track, retryCount: retryCount + 1, persist: persist);
+      }
+      logError('Failed to fetch audio stream for ${track.title} after ${retryCount + 1} attempts', e);
+      rethrow;
+    }
+  }
+
+  /// 获取备选音频流（当主 URL 播放失败时使用）
+  Future<AudioStreamResult?> getAlternativeAudioStream(Track track, {String? failedUrl}) async {
     final source = _sourceManager.getSource(track.sourceType);
     if (source == null) return null;
     
-    logDebug('Getting alternative audio URL for: ${track.title}');
-    return await source.getAlternativeAudioUrl(track.sourceId, failedUrl: failedUrl);
+    logDebug('Getting alternative audio stream for: ${track.title}');
+    final config = await _buildAudioStreamConfig(track.sourceType);
+    return await source.getAlternativeAudioStream(track.sourceId, failedUrl: failedUrl, config: config);
+  }
+
+  /// 获取备选音频 URL（简化版，向后兼容）
+  Future<String?> getAlternativeAudioUrl(Track track, {String? failedUrl}) async {
+    final result = await getAlternativeAudioStream(track, failedUrl: failedUrl);
+    return result?.url;
+  }
+
+  /// 根据设置构建音频流配置
+  Future<AudioStreamConfig> _buildAudioStreamConfig(SourceType sourceType) async {
+    final settings = await _settingsRepository.get();
+    
+    // 根据源类型选择流优先级
+    final streamPriority = sourceType == SourceType.youtube
+        ? settings.youtubeStreamPriorityList
+        : settings.bilibiliStreamPriorityList;
+
+    return AudioStreamConfig(
+      qualityLevel: settings.audioQualityLevel,
+      formatPriority: settings.audioFormatPriorityList,
+      streamPriority: streamPriority,
+    );
   }
 
   /// 预取下一首歌曲的 URL
