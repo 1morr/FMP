@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../providers/download_provider.dart';
+
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/playlist.dart';
@@ -27,7 +29,14 @@ class LibraryPage extends ConsumerWidget {
         leading: IconButton(
           icon: const Icon(Icons.download_done),
           tooltip: '已下载',
-          onPressed: () => context.pushNamed(RouteNames.downloaded),
+          onPressed: () async {
+            // 先刷新數據，等待完成後再導航，避免顯示舊封面
+            ref.invalidate(downloadedCategoriesProvider);
+            await ref.read(downloadedCategoriesProvider.future);
+            if (context.mounted) {
+              context.pushNamed(RouteNames.downloaded);
+            }
+          },
         ),
         title: const Text('音乐库'),
         actions: [
