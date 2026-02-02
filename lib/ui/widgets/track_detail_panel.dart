@@ -562,6 +562,7 @@ class _ClickableCoverState extends State<_ClickableCover> {
                   networkUrl: widget.detail.coverUrl,
                   aspectRatio: 16 / 9,
                   borderRadius: 0,
+                  highResolution: true,
                 ),
                 // 时长标签
                 Positioned(

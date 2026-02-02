@@ -47,6 +47,8 @@ class ImageLoadingService {
   /// [fit] 图片填充模式
   /// [width] 宽度
   /// [height] 高度
+  /// [targetDisplaySize] 用于 URL 优化的目标显示尺寸（覆盖 width/height）
+  ///                     设置为较大值（如 480、720）可获取高清图片
   /// [headers] 网络请求头（用于需要认证的图片）
   /// [showLoadingIndicator] 是否显示加载指示器
   /// [fadeInDuration] 淡入动画时长
@@ -57,6 +59,7 @@ class ImageLoadingService {
     BoxFit fit = BoxFit.cover,
     double? width,
     double? height,
+    double? targetDisplaySize,
     Map<String, String>? headers,
     bool showLoadingIndicator = false,
     Duration fadeInDuration = AppConstants.defaultFadeInDuration,
@@ -80,6 +83,7 @@ class ImageLoadingService {
             fit: fit,
             width: width,
             height: height,
+            targetDisplaySize: targetDisplaySize,
             headers: headers,
             showLoadingIndicator: showLoadingIndicator,
             fadeInDuration: fadeInDuration,
@@ -95,6 +99,7 @@ class ImageLoadingService {
       fit: fit,
       width: width,
       height: height,
+      targetDisplaySize: targetDisplaySize,
       headers: headers,
       showLoadingIndicator: showLoadingIndicator,
       fadeInDuration: fadeInDuration,
@@ -108,13 +113,14 @@ class ImageLoadingService {
     BoxFit fit = BoxFit.cover,
     double? width,
     double? height,
+    double? targetDisplaySize,
     Map<String, String>? headers,
     bool showLoadingIndicator = false,
     Duration fadeInDuration = AppConstants.defaultFadeInDuration,
   }) {
     if (networkUrl != null && networkUrl.isNotEmpty) {
-      // 根据显示尺寸优化 URL
-      final displaySize = width ?? height;
+      // 根据显示尺寸优化 URL（优先使用 targetDisplaySize）
+      final displaySize = targetDisplaySize ?? width ?? height;
       final optimizedUrl = ThumbnailUrlUtils.getOptimizedUrl(
         networkUrl,
         displaySize: displaySize,

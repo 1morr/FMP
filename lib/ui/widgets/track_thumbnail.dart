@@ -125,6 +125,7 @@ class TrackThumbnail extends ConsumerWidget {
 /// - 更大的尺寸
 /// - 16:9 宽高比
 /// - 加载指示器
+/// - 高清模式（用于背景图片）
 class TrackCover extends ConsumerWidget {
   /// 歌曲数据
   final Track? track;
@@ -141,6 +142,10 @@ class TrackCover extends ConsumerWidget {
   /// 是否显示加载指示器
   final bool showLoadingIndicator;
 
+  /// 是否使用高清图片（用于背景等大尺寸显示）
+  /// 设为 true 时会请求 480px 分辨率的图片
+  final bool highResolution;
+
   const TrackCover({
     super.key,
     this.track,
@@ -148,6 +153,7 @@ class TrackCover extends ConsumerWidget {
     this.aspectRatio = 16 / 9,
     this.borderRadius = 16,
     this.showLoadingIndicator = true,
+    this.highResolution = false,
   });
 
   @override
@@ -173,12 +179,14 @@ class TrackCover extends ConsumerWidget {
     final placeholder = _buildPlaceholder(colorScheme);
 
     // 使用 FileExistsCache 获取本地封面路径（避免同步 IO）
+    // 高清模式使用 480px 分辨率（YouTube sddefault / Bilibili 640w）
     return ImageLoadingService.loadImage(
       localPath: track?.getLocalCoverPath(cache),
       networkUrl: networkUrl ?? track?.thumbnailUrl,
       placeholder: placeholder,
       fit: BoxFit.cover,
       showLoadingIndicator: showLoadingIndicator,
+      targetDisplaySize: highResolution ? 480.0 : null,
     );
   }
 
