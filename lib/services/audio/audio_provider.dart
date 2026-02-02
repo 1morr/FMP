@@ -434,9 +434,16 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         final playlistId = _queueManager.mixPlaylistId;
         final seedVideoId = _queueManager.mixSeedVideoId;
         final title = _queueManager.mixTitle;
-        
+
         if (playlistId != null && seedVideoId != null && title != null) {
           logDebug('Restoring Mix mode: $title');
+
+          // Mix 模式不支持隨機播放，確保關閉
+          if (_queueManager.isShuffleEnabled) {
+            await _queueManager.setShuffle(false);
+            state = state.copyWith(isShuffleEnabled: false);
+          }
+
           _mixState = _MixPlaylistState(
             playlistId: playlistId,
             seedVideoId: seedVideoId,
@@ -787,7 +794,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     try {
       // 清空當前隊列並設置 Mix 模式
       await _queueManager.clear();
-      
+
+      // Mix 模式不支持隨機播放，強制關閉
+      if (_queueManager.isShuffleEnabled) {
+        await _queueManager.setShuffle(false);
+        state = state.copyWith(isShuffleEnabled: false);
+      }
+
       // 初始化 Mix 狀態
       _mixState = _MixPlaylistState(
         playlistId: playlistId,
