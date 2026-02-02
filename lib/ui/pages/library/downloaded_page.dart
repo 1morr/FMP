@@ -24,14 +24,8 @@ class DownloadedPage extends ConsumerStatefulWidget {
 }
 
 class _DownloadedPageState extends ConsumerState<DownloadedPage> {
-  @override
-  void initState() {
-    super.initState();
-    // 进入页面时刷新数据
-    Future.microtask(() {
-      ref.invalidate(downloadedCategoriesProvider);
-    });
-  }
+  // initState 中不再強制刷新，因為導航前已經預加載了數據
+  // 這避免了"先顯示舊封面再顯示新封面"的閃爍問題
 
   Future<void> _syncLocalFiles() async {
     final syncService = ref.read(downloadPathSyncServiceProvider);
