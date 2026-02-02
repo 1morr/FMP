@@ -18,9 +18,6 @@ class Playlist {
   /// 自定义封面 URL
   String? coverUrl;
 
-  /// 本地封面路径
-  String? coverLocalPath;
-
   /// 导入源 URL（B站收藏夹/YouTube播放列表 URL）
   String? sourceUrl;
 

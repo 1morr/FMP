@@ -1,18 +1,15 @@
 import 'dart:async';
 
 import 'package:isar/isar.dart';
-import 'package:path/path.dart' as p;
 
 import '../../core/logger.dart';
 import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
 import '../../data/repositories/playlist_repository.dart';
-import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../data/sources/bilibili_source.dart';
 import '../../data/sources/source_provider.dart';
 import '../../data/sources/youtube_source.dart';
-import '../download/download_path_utils.dart';
 
 /// 导入进度
 class ImportProgress {
@@ -79,7 +76,6 @@ class ImportService with Logging {
   final SourceManager _sourceManager;
   final PlaylistRepository _playlistRepository;
   final TrackRepository _trackRepository;
-  final SettingsRepository _settingsRepository;
   final Isar _isar;
 
   // 导入进度流
@@ -92,12 +88,10 @@ class ImportService with Logging {
     required SourceManager sourceManager,
     required PlaylistRepository playlistRepository,
     required TrackRepository trackRepository,
-    required SettingsRepository settingsRepository,
     required Isar isar,
   })  : _sourceManager = sourceManager,
         _playlistRepository = playlistRepository,
         _trackRepository = trackRepository,
-        _settingsRepository = settingsRepository,
         _isar = isar;
 
   /// 从 URL 导入歌单/收藏夹
@@ -165,9 +159,6 @@ class ImportService with Logging {
         // 更新现有歌单
         playlist = existingPlaylist;
       } else {
-        // 获取下载目录（用于预计算路径）
-        final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
-        
         // 创建新歌单
         playlist = Playlist()
           ..name = playlistName
@@ -177,7 +168,6 @@ class ImportService with Logging {
           ..importSourceType = source.sourceType
           ..refreshIntervalHours = refreshIntervalHours ?? 24
           ..notifyOnUpdate = notifyOnUpdate
-          ..coverLocalPath = _computePlaylistCoverPath(baseDir, playlistName)
           ..createdAt = DateTime.now();
         // 先保存以获取 ID（用于计算下载路径）
         final playlistId = await _playlistRepository.save(playlist);
@@ -291,9 +281,6 @@ class ImportService with Logging {
           ..mixSeedVideoId = mixInfo.seedVideoId
           ..updatedAt = DateTime.now();
       } else {
-        // 獲取下載目錄（用於封面路徑）
-        final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
-        
         // 創建新的 Mix 歌單
         playlist = Playlist()
           ..name = playlistName
@@ -306,7 +293,6 @@ class ImportService with Logging {
           ..mixSeedVideoId = mixInfo.seedVideoId
           ..refreshIntervalHours = null  // Mix 不需要定時刷新
           ..notifyOnUpdate = notifyOnUpdate
-          ..coverLocalPath = _computePlaylistCoverPath(baseDir, playlistName)
           ..createdAt = DateTime.now();
       }
 
@@ -602,14 +588,6 @@ class ImportService with Logging {
       error: error,
     );
     _progressController.add(_currentProgress);
-  }
-
-  /// 计算歌单封面的本地路径
-  ///
-  /// 路径格式: {baseDir}/{playlistName}/playlist_cover.jpg
-  String _computePlaylistCoverPath(String baseDir, String playlistName) {
-    final subDir = DownloadPathUtils.sanitizeFileName(playlistName);
-    return p.join(baseDir, subDir, 'playlist_cover.jpg');
   }
 
   void dispose() {

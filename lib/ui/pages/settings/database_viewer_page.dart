@@ -251,7 +251,6 @@ class _PlaylistListView extends StatelessWidget {
                   title: '封面',
                   data: {
                     'coverUrl': _truncate(playlist.coverUrl, 60),
-                    'coverLocalPath': _truncate(playlist.coverLocalPath, 60),
                   },
                 ),
                 _DataSection(
