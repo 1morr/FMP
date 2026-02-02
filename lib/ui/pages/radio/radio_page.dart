@@ -145,7 +145,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
         // 網格列表
         Expanded(
           child: GridView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
             gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
               maxCrossAxisExtent: 140,
               mainAxisSpacing: 16,
@@ -315,6 +315,9 @@ class _RadioPageState extends ConsumerState<RadioPage> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
             child: const Text('刪除'),
           ),
         ],
