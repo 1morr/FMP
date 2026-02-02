@@ -400,6 +400,22 @@ ListTile(
 )
 ```
 
+### Image Thumbnail Optimization (2026-02)
+Network images are automatically optimized to reduce memory and bandwidth usage.
+
+**ThumbnailUrlUtils** (`lib/core/utils/thumbnail_url_utils.dart`):
+- Converts high-res image URLs to appropriately-sized thumbnails
+- Bilibili: adds `@{size}w.jpg` suffix (200/400/640/1280)
+- YouTube: selects quality tier (default/mq/hq/sd/maxres) + webp format
+- Reduces download size from ~700 KB to ~20 KB for thumbnails
+
+**ImageLoadingService integration**:
+- Automatically calls `ThumbnailUrlUtils.getOptimizedUrl()` based on display size
+- Also sets `memCacheWidth`/`memCacheHeight` as fallback for unsupported URLs
+- Decoded bitmap memory reduced from ~8 MB (1920×1080) to ~160 KB (200×200)
+
+See `image_handling` memory for full implementation details.
+
 ## File Structure Highlights
 
 ```
