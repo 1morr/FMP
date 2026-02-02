@@ -284,8 +284,8 @@ class RadioController extends StateNotifier<RadioState> with Logging {
   /// 檢查請求是否已被取代
   bool _isSuperseded(int requestId) => requestId != _playRequestId;
 
-  /// 播放電台
-  Future<void> play(RadioStation station) async {
+  /// 播放電台（帶自動重試）
+  Future<void> play(RadioStation station, {bool isRetry = false}) async {
     // 增加請求 ID，取消之前的請求
     final requestId = ++_playRequestId;
 
@@ -383,6 +383,15 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       _updateSmtc(station);
     } catch (e) {
       if (_isSuperseded(requestId)) return;
+
+      // 如果是流打開失敗且不是重試，嘗試重新獲取流地址並重試
+      final errorStr = e.toString();
+      if (!isRetry && errorStr.contains('Stream failed to open')) {
+        logWarning('Stream failed to open, retrying with fresh URL...');
+        await play(station, isRetry: true);
+        return;
+      }
+
       logError('Failed to play radio station: $e');
       state = state.copyWith(
         isLoading: false,
