@@ -274,8 +274,7 @@ class Playlist {
   late String name;
 
   String? description;
-  String? coverUrl;          // 自定义封面
-  String? coverLocalPath;    // 本地封面路径
+  String? coverUrl;          // 自定义封面（网络 URL）
 
   // 导入源信息（如果是从外部导入的）
   String? sourceUrl;         // B站收藏夹/YouTube播放列表 URL

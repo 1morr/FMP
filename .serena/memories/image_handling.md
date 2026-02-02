@@ -223,22 +223,6 @@ String? channelId; // YouTube 頻道 ID（用於頭像查找）
 - **頭像**：`getLocalAvatarPath(cache, baseDir: baseDir)` - 從集中式文件夾讀取
 - **音频播放**：使用 `localAudioPath`（同步方法，在非 build 上下文中调用）
 
-#### PlaylistExtensions
-
-**文件位置**：`lib/core/extensions/playlist_extensions.dart`
-
-```dart
-extension PlaylistExtensions on Playlist {
-  /// 获取本地封面路径（检查 coverLocalPath 是否实际存在）
-  String? get localCoverPath;
-
-  bool get hasLocalCover => localCoverPath != null;
-  bool get hasNetworkCover => coverUrl != null && coverUrl!.isNotEmpty;
-  bool get hasCover => hasLocalCover || hasNetworkCover;
-}
-```
-```
-
 **目录结构**：
 ```
 下载目录/
@@ -433,36 +417,17 @@ static String getAvatarPath({
 static Future<void> ensureAvatarDirExists(String baseDir, SourceType sourceType);
 ```
 
-### 歌单封面下载
+### 歌单封面（2026-02 简化）
 
-歌单封面来源根据歌单类型不同：
-- **Bilibili 歌单**：使用 `playlist.coverUrl`（API 返回的收藏夹封面）
-- **YouTube/手动创建歌单**：使用第一首歌曲的 `thumbnailUrl`
+**当前行为**：歌单封面不再单独下载。歌单封面显示优先级：
+1. 第一首已下载歌曲的本地封面
+2. 歌单的网络封面 URL（`playlist.coverUrl`）
+3. 第一首歌曲的网络封面 URL
 
-总是覆盖已存在的 `playlist_cover.jpg`（获取最新封面）。
-
-```dart
-Future<void> _downloadPlaylistCover(Playlist playlist) async {
-  String? coverUrl;
-
-  // 根据歌单类型选择封面来源
-  if (playlist.importSourceType == SourceType.bilibili) {
-    coverUrl = playlist.coverUrl;  // Bilibili: API 封面
-  } else {
-    // YouTube/手动创建: 第一首歌曲的封面
-    if (playlist.trackIds.isNotEmpty) {
-      final firstTrack = await _trackRepository.getById(playlist.trackIds.first);
-      coverUrl = firstTrack?.thumbnailUrl;
-    }
-  }
-  
-  if (coverUrl == null || coverUrl.isEmpty) return;
-  
-  final playlistFolder = Directory(p.join(baseDir, subDir));
-  final coverPath = p.join(playlistFolder.path, 'playlist_cover.jpg');
-  await _dio.download(coverUrl, coverPath);  // 总是覆盖
-}
-```
+**已移除**：
+- `playlist_cover.jpg` 不再下载
+- `Playlist.coverLocalPath` 字段已删除
+- `PlaylistExtensions` 扩展已删除
 
 ---
 
