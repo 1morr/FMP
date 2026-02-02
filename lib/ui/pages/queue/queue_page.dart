@@ -18,7 +18,10 @@ class QueuePage extends ConsumerStatefulWidget {
   ConsumerState<QueuePage> createState() => _QueuePageState();
 }
 
-class _QueuePageState extends ConsumerState<QueuePage> {
+class _QueuePageState extends ConsumerState<QueuePage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   ScrollController? _scrollController;
   static const double _itemHeight = 72.0;
   bool _initialScrollDone = false;
@@ -66,6 +69,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // AutomaticKeepAliveClientMixin 必須調用
     final colorScheme = Theme.of(context).colorScheme;
     final playerState = ref.watch(audioControllerProvider);
     final providerQueue = playerState.queue;
