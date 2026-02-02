@@ -14,6 +14,7 @@
 | 已下载分类详情 | `ui/pages/library/downloaded_category_page.dart` | 本地文件扫描显示 |
 | 全屏播放器 | `ui/pages/player/player_page.dart` | 封面、进度条、控制按钮、音量（桌面） |
 | 设置 | `ui/pages/settings/settings_page.dart` | 主题、播放、存储设置 |
+| 音频设置 | `ui/pages/settings/audio_settings_page.dart` | 音质等级、格式/流类型优先级 |
 | 下载管理 | `ui/pages/settings/download_manager_page.dart` | 下载任务列表、进度 |
 
 ---
@@ -496,6 +497,74 @@ Timer.periodic(const Duration(seconds: 10), (timer) {
     _goToNext(wrap: true);  // wrap=true 表示到末尾回到第一条
   }
 });
+```
+
+---
+
+## 12. 音频设置页 (AudioSettingsPage)（2026-02 新增）
+
+### 功能概述
+
+用户可配置的音频质量设置，包括全局音质等级和各音源的格式/流类型优先级。
+
+### 功能模块
+
+1. **全局音质等级**
+   - 标题："全局音质等级"
+   - 提示："适用于所有音源"
+   - 选项：高（最高码率）、中（平衡音质与流量）、低（省流量）
+   - 使用 `RadioGroup<AudioQualityLevel>` 实现
+
+2. **YouTube 格式优先级**
+   - 标题："YouTube 格式优先级"
+   - 提示："仅对 YouTube 生效，按顺序尝试第一个可用格式"
+   - 选项：Opus (WebM)、AAC (MP4)
+   - 使用 `ReorderableListView` 实现拖拽排序
+   - **注意**：Bilibili 只支持 AAC，此设置对 Bilibili 无影响
+
+3. **YouTube 流优先级**
+   - 标题："YouTube 流优先级"
+   - 选项：纯音频流（省流量）、混合流（兼容性好）、HLS 流（分段，适合直播）
+   - 使用 `ReorderableListView` 实现拖拽排序
+
+4. **Bilibili 流优先级**
+   - 标题："Bilibili 流优先级"
+   - 选项：纯音频流（DASH）、混合流（durl）
+   - 使用 `ReorderableListView` 实现拖拽排序
+   - **注意**：Bilibili 直播始终是混合流
+
+### 关键组件
+
+```dart
+// 音质等级选择
+class _QualityLevelSection extends StatelessWidget {
+  // 使用 RadioGroup + RadioListTile
+}
+
+// 格式优先级（可拖拽）
+class _FormatPrioritySection extends StatelessWidget {
+  // 使用 ReorderableListView.builder
+  // 每项有拖拽手柄 + 序号 + 名称 + 描述
+}
+
+// 流类型优先级（可拖拽）
+class _StreamPrioritySection extends StatelessWidget {
+  // 参数化支持不同音源（YouTube/Bilibili）
+  // availableTypes 限制可用选项
+}
+```
+
+### 数据流
+
+```dart
+// 读取设置
+final audioSettings = ref.watch(audioSettingsProvider);
+
+// 更新设置
+ref.read(audioSettingsProvider.notifier).setQualityLevel(level);
+ref.read(audioSettingsProvider.notifier).setFormatPriority(newPriority);
+ref.read(audioSettingsProvider.notifier).setYoutubeStreamPriority(newPriority);
+ref.read(audioSettingsProvider.notifier).setBilibiliStreamPriority(newPriority);
 ```
 
 ---

@@ -348,6 +348,37 @@ Home page ranking data (Bilibili/YouTube) is cached and refreshed in the backgro
 - Uses `StreamProvider` to notify UI when cache updates
 - YouTube uses "New This Week" playlist from YouTube Music channel (InnerTube Browse API), falls back to search if unavailable
 
+### Audio Quality Settings (2026-02)
+User-configurable audio quality settings for different sources.
+
+**Settings Model** (`lib/data/models/settings.dart`):
+- `AudioQualityLevel` enum: high, medium, low (global, applies to all sources)
+- `AudioFormat` enum: opus, aac (YouTube only - Bilibili only has AAC)
+- `StreamType` enum: audioOnly, muxed, hls
+
+**Provider** (`lib/providers/audio_settings_provider.dart`):
+- `audioSettingsProvider` - StateNotifierProvider for audio quality settings
+- Settings persisted via Isar Settings model
+
+**UI** (`lib/ui/pages/settings/audio_settings_page.dart`):
+- "全局音质等级" - Quality level selection (high/medium/low), applies to all sources
+- "YouTube 格式优先级" - Format priority (Opus/AAC), only affects YouTube
+- "YouTube 流优先级" - Stream type priority (audioOnly/muxed/hls)
+- "Bilibili 流优先级" - Stream type priority (audioOnly/muxed)
+
+**Source Integration**:
+- `AudioStreamConfig` passed to source `getAudioUrl()` methods
+- `AudioStreamResult` returned with bitrate, container, codec, streamType info
+- `QueueManager` reads settings and builds config for sources
+
+**PlayerState Display**:
+- `currentBitrate`, `currentContainer`, `currentCodec`, `currentStreamType` fields
+- Displayed in player info dialog and track detail panel
+
+**Key Limitations**:
+- Bilibili only supports AAC format, format priority has no effect
+- Bilibili live streams are always muxed (video+audio), no audio-only option
+
 ### ListTile Performance in Lists
 **Avoid putting `Row` inside `ListTile.leading`** - this causes layout jitter during scrolling.
 
