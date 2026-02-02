@@ -88,30 +88,37 @@ class _RadioPageState extends ConsumerState<RadioPage> {
 
   Widget _buildEmptyState(BuildContext context, ColorScheme colorScheme) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.radio,
-            size: 64,
-            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '還沒有電台',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '點擊右下角按鈕添加直播間',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                ),
-          ),
-          const SizedBox(height: 100),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.radio,
+              size: 80,
+              color: colorScheme.outline,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              '還沒有電台',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '添加 Bilibili 直播間來收聽',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.outline,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            FilledButton.icon(
+              onPressed: () => AddRadioDialog.show(context),
+              icon: const Icon(Icons.add),
+              label: const Text('添加電台'),
+            ),
+          ],
+        ),
       ),
     );
   }
