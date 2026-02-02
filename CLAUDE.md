@@ -17,6 +17,7 @@ Key memories:
 - `architecture` - Overall project architecture
 - `project_overview` - Project status and features
 - `code_style` - Code style conventions
+- `ui_coding_patterns` - **UI 页面开发必读** - 统一编码模式、组件使用规范
 
 ### 2. Use Serena for Code Modifications
 Always use Serena MCP tools for code changes:
@@ -415,6 +416,62 @@ Network images are automatically optimized to reduce memory and bandwidth usage.
 - Decoded bitmap memory reduced from ~8 MB (1920×1080) to ~160 KB (200×200)
 
 See `image_handling` memory for full implementation details.
+
+## UI Page Development Guidelines
+
+### 4. Ensure Code Consistency Across Pages ⚠️ CRITICAL
+
+在创建新页面或修改现有页面前，**必须**阅读 `ui_coding_patterns` 记忆：
+
+```
+mcp__plugin_serena_serena__read_memory(memory_file_name: "ui_coding_patterns")
+```
+
+#### 核心原则
+
+1. **使用统一组件**：
+   - 歌曲封面 → `TrackThumbnail` / `TrackCover`
+   - 头像 → `ImageLoadingService.loadAvatar()`
+   - 其他图片 → `ImageLoadingService.loadImage()`
+   - **禁止**直接使用 `Image.network()` 或 `Image.file()`
+
+2. **FileExistsCache 模式**：
+   ```dart
+   ref.watch(fileExistsCacheProvider);  // 监听变化
+   final cache = ref.read(fileExistsCacheProvider.notifier);  // 读取
+   final localPath = track.getLocalCoverPath(cache);  // 使用
+   ```
+
+3. **播放状态判断**（统一逻辑）：
+   ```dart
+   final currentTrack = ref.watch(currentTrackProvider);
+   final isPlaying = currentTrack != null &&
+       currentTrack.sourceId == track.sourceId &&
+       currentTrack.pageNum == track.pageNum;
+   ```
+
+4. **菜单操作**：参考 `ExplorePage` 或 `HomePage` 中的 `_handleMenuAction` 实现
+
+5. **刷新模式**：使用 `RefreshIndicator` + `ref.invalidate()` 或 cache service
+
+6. **列表底部留白**：`padding: const EdgeInsets.only(bottom: 100)` 为迷你播放器留空间
+
+#### 相似页面对照
+
+| 新建/修改页面 | 应参考的页面 | 统一点 |
+|--------------|-------------|--------|
+| 任何带歌曲列表的页面 | `ExplorePage` | TrackTile 样式、菜单 |
+| 带分组的歌曲列表 | `PlaylistDetailPage` | 多P分组逻辑 |
+| 网格卡片页面 | `LibraryPage` / `DownloadedPage` | 卡片样式、长按菜单 |
+
+#### 检查清单
+
+创建或修改页面时，确认：
+- [ ] 图片加载使用统一组件
+- [ ] FileExistsCache 正确使用（watch + read）
+- [ ] 播放状态判断逻辑统一
+- [ ] 菜单操作与其他页面一致
+- [ ] 错误/空状态处理符合规范
 
 ## File Structure Highlights
 

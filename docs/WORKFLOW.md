@@ -124,8 +124,8 @@ dependencies:
   path_provider: ^2.1.0
 
   # 音频播放
-  just_audio: ^0.9.36
-  just_audio_background: ^0.0.1-beta.11
+  media_kit: ^1.1.11
+  audio_service: ^0.18.15
   audio_session: ^0.1.18
 
   # 网络
@@ -354,7 +354,7 @@ final databaseProvider = FutureProvider<Isar>((ref) async {
 **文件**: `lib/services/audio/audio_service.dart`
 
 ```dart
-import 'package:just_audio/just_audio.dart';
+import 'package:media_kit/media_kit.dart';
 import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
 
@@ -437,7 +437,7 @@ class AudioService {
 - [x] 进度控制正常工作
 - [x] 播放模式切换正常工作
 
-> ✅ **Phase 2.1 完成** - AudioService 完整实现，集成 just_audio + just_audio_windows
+> ✅ **Phase 2.1 完成** - AudioService 完整实现，集成 media_kit
 
 ---
 
@@ -461,7 +461,7 @@ class AudioService {
 **文件**: `lib/services/audio/queue_manager.dart`
 
 ```dart
-import 'package:just_audio/just_audio.dart';
+import 'package:media_kit/media_kit.dart';
 import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
 import '../../data/repositories/queue_repository.dart';
@@ -996,7 +996,7 @@ class BilibiliSource extends BaseSource {
 | 任务 ID | 任务名称 | 依赖 | 优先级 | 状态 |
 |---------|----------|------|--------|------|
 | 5.1.1 | 配置 AndroidManifest | 2.1.1 | P0 | ✅ |
-| 5.1.2 | 集成 just_audio_background | 5.1.1 | P0 | ✅ |
+| 5.1.2 | 集成 audio_service (Android 媒体通知) | 5.1.1 | P0 | ✅ |
 | 5.1.3 | 实现通知栏控制（含上下首） | 5.1.2 | P0 | ✅ |
 | 5.1.4 | 实现锁屏控制 | 5.1.2 | P1 | ✅ |
 | 5.1.5 | 测试后台播放稳定性 | 5.1.3 | P0 | 🔄 |
@@ -1240,7 +1240,7 @@ Phase 3-6 继续...
 |------|------|------|----------|
 | B站 API 变更 | 高 | 中 | 监控 API 变化，设计可替换的解析层 |
 | YouTube 解析困难 | 高 | 高 | 先完成 B站，YouTube 作为 Phase 5 独立处理 |
-| just_audio 兼容性问题 | 中 | 低 | 保持依赖版本稳定，测试多平台 |
+| media_kit 兼容性问题 | 中 | 低 | 保持依赖版本稳定，测试多平台 |
 | Isar 性能问题 | 中 | 低 | 添加合适索引，优化查询 |
 | Windows 桌面 API 限制 | 低 | 中 | 提前验证 tray_manager 和 hotkey_manager |
 
@@ -1401,8 +1401,9 @@ Phase 3-6 继续...
 | `test/scenarios/offline_scenarios_test.dart` | 离线场景错误处理测试 |
 
 ### 依赖配置 (pubspec.yaml)
-- `just_audio: ^0.9.43` - 音频播放核心
-- `just_audio_media_kit: ^2.1.0` - Windows/Linux 平台支持（替代 just_audio_windows）
+- `media_kit: ^1.1.11` - 音频播放核心（原生 httpHeaders 支持）
+- `media_kit_libs_windows_audio: ^1.0.9` - Windows 平台支持
+- `media_kit_libs_android_audio: ^1.3.6` - Android 平台支持
 - `audio_service: ^0.18.15` - Android 媒体通知
 - `youtube_explode_dart: ^2.3.5` - YouTube 数据提取
 - `tray_manager: ^0.2.3` - Windows 系统托盘

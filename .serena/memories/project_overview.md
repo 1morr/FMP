@@ -16,17 +16,17 @@
 | 编程语言 | Dart | 3.10+ |
 | 状态管理 | Riverpod | 2.6.x |
 | 本地存储 | Isar | 3.1.x |
-| 音频播放 | media_kit | (直接使用，非 just_audio) |
-| 后台播放 | audio_service | 0.18.x |
+| 音频播放 | media_kit | 1.1.x (直接使用，原生 httpHeaders) |
+| 后台播放 | audio_service | 0.18.x (Android 媒体通知) |
+| Windows 媒体 | smtc_windows | 1.1.x (Windows SMTC 媒体键) |
 | 网络请求 | Dio | 5.8.x |
 | 路由 | go_router | 14.8.x |
 
 ### 平台特定依赖
-- **Windows/Linux**: tray_manager, window_manager, hotkey_manager, just_audio_media_kit, media_kit_libs_windows_audio
-- **Android**: just_audio_background, permission_handler
+- **Windows**: tray_manager, window_manager, hotkey_manager, media_kit_libs_windows_audio, smtc_windows
+- **Android**: media_kit_libs_android_audio, audio_service, permission_handler
 
-> **注意**: Windows 平台使用 `just_audio_media_kit` 而非 `just_audio_windows`，
-> 后者存在平台线程问题，会导致长视频 seek 时消息队列溢出。详见 `audio_system` memory。
+> **注意**: 音频播放直接使用 `media_kit`，原生支持 `httpHeaders`，解决了原 `just_audio_media_kit` 代理方案的兼容性问题。详见 `audio_system` memory。
 
 ## 开发进度
 - **Phase 1**: 基础架构 ✅ 已完成

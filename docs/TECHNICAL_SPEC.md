@@ -17,8 +17,9 @@
 | 编程语言 | Dart | 3.x | 类型安全，空安全 |
 | 状态管理 | Riverpod | 2.x+ | 响应式，可测试 |
 | 本地存储 | Isar | 3.x | 高性能 NoSQL |
-| 音频播放 | just_audio | 0.9.x | 功能全面 |
-| 后台播放 | just_audio_background | 0.0.x | Android/iOS 后台 |
+| 音频播放 | media_kit | 1.1.x | 直接使用，原生 httpHeaders |
+| 后台播放 | audio_service | 0.18.x | Android 媒体通知控制 |
+| Windows 媒体 | smtc_windows | 1.1.x | Windows SMTC 媒体键 |
 
 ### 1.2 平台特定依赖
 
@@ -33,7 +34,7 @@
 | 功能 | 包名 | 说明 |
 |------|------|------|
 | 权限管理 | permission_handler | 存储权限等 |
-| 后台服务 | just_audio_background | 通知栏控制 |
+| 后台服务 | audio_service | 媒体通知栏控制 |
 
 ### 1.3 公共依赖
 
@@ -207,7 +208,7 @@ lib/
 ┌─────────────────────────────────────────────────────────────────┐
 │                      External Layer                              │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐            │
-│  │   Isar   │ │just_audio│ │  Dio/HTTP │ │ Platform │            │
+│  │   Isar   │ │media_kit │ │  Dio/HTTP │ │ Platform │            │
 │  │ Database │ │  Player  │ │  Client   │ │   APIs   │            │
 │  └──────────┘ └──────────┘ └──────────┘ └──────────┘            │
 └─────────────────────────────────────────────────────────────────┘
@@ -1025,8 +1026,8 @@ dependencies:
   path_provider: ^2.1.0
 
   # 音频播放
-  just_audio: ^0.9.36
-  just_audio_background: ^0.0.1-beta.11
+  media_kit: ^1.1.11
+  audio_service: ^0.18.15
   audio_session: ^0.1.18
 
   # 网络
@@ -1075,7 +1076,7 @@ dev_dependencies:
 
 ### 11.3 相关资源
 
-- [just_audio 文档](https://pub.dev/packages/just_audio)
+- [media_kit 文档](https://pub.dev/packages/media_kit)
 - [Isar 文档](https://isar.dev)
 - [Riverpod 文档](https://riverpod.dev)
 - [Flutter 响应式布局指南](https://docs.flutter.dev/ui/layout/responsive)

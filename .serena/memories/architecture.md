@@ -38,7 +38,7 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │                      External Layer                              │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐            │
-│  │   Isar   │ │just_audio│ │  Dio/HTTP │ │ Platform │            │
+│  │   Isar   │ │media_kit │ │  Dio/HTTP │ │ Platform │            │
 │  │ Database │ │  Player  │ │  Client   │ │   APIs   │            │
 │  └──────────┘ └──────────┘ └──────────┘ └──────────┘            │
 └─────────────────────────────────────────────────────────────────┘
@@ -77,7 +77,7 @@
 ### Services
 | 服务 | 文件 | 职责 |
 |------|------|------|
-| AudioService | `services/audio/audio_service.dart` | 底层音频播放（封装 just_audio） |
+| MediaKitAudioService | `services/audio/media_kit_audio_service.dart` | 底层音频播放（封装 media_kit） |
 | AudioController | `services/audio/audio_provider.dart` | 高层音频控制（UI 使用） |
 | QueueManager | `services/audio/queue_manager.dart` | 播放队列管理 |
 | FmpAudioHandler | `services/audio/audio_handler.dart` | Android 媒体通知控制（audio_service） |
@@ -86,7 +86,7 @@
 | ImportService | `services/import/import_service.dart` | 外部导入 |
 | DownloadService | `services/download/download_service.dart` | 下载管理 |
 | DownloadPathUtils | `services/download/download_path_utils.dart` | 路径计算工具 |
-| PlaylistFolderMigrator | `services/download/playlist_folder_migrator.dart` | 歌单重命名时更新 Track 下载路径（不移动文件） |
+
 | WindowsDesktopService | `services/platform/windows_desktop_service.dart` | Windows 桌面特性（托盘、快捷键、窗口管理） |
 | RankingCacheService | `services/cache/ranking_cache_service.dart` | 首頁排行榜緩存（主動後台刷新，每小時更新） |
 

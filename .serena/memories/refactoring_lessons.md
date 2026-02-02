@@ -217,7 +217,7 @@ class AudioController {
 await _player.stop();
 
 // 等待播放器進入 idle 狀態，確保底層播放器完全清理
-// 這對 just_audio_media_kit 特別重要，否則會出現 "Player already exists" 錯誤
+// 確保播放器完全清理後再設置新的音頻源
 if (_player.processingState != ProcessingState.idle) {
   try {
     await _player.playerStateStream
@@ -279,10 +279,10 @@ Future<void> _restoreSavedState() async {
 
 ```dart
 // ❌ 錯誤 - isLoading 只能變成 true，不能通過播放器狀態變成 false
-isLoading: state.isLoading || playerState.processingState == just_audio.ProcessingState.loading,
+isLoading: state.isLoading || playerState.processingState == FmpAudioProcessingState.loading,
 
 // ✅ 正確 - isLoading 純粹反映播放器狀態
-isLoading: playerState.processingState == just_audio.ProcessingState.loading,
+isLoading: playerState.processingState == FmpAudioProcessingState.loading,
 ```
 
 **经验**：播放器狀態監聽器應該純粹反映播放器狀態，不要嘗試「保留」先前的狀態值。
@@ -305,12 +305,12 @@ class AudioController {
   // 統一的播放上下文
   _PlaybackContext _context = const _PlaybackContext();
 
-  void _onPlayerStateChanged(just_audio.PlayerState playerState) {
+  void _onPlayerStateChanged(MediaKitPlayerState playerState) {
     state = state.copyWith(
       isPlaying: playerState.playing,
-      isBuffering: playerState.processingState == just_audio.ProcessingState.buffering,
+      isBuffering: playerState.processingState == FmpAudioProcessingState.buffering,
       // 使用 _context.isInLoadingState 防止播放器事件覆蓋
-      isLoading: _context.isInLoadingState || playerState.processingState == just_audio.ProcessingState.loading,
+      isLoading: _context.isInLoadingState || playerState.processingState == FmpAudioProcessingState.loading,
       processingState: playerState.processingState,
     );
   }
