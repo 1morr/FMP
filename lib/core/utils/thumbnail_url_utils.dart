@@ -152,8 +152,9 @@ class ThumbnailUrlUtils {
   static String _selectYouTubeQuality(int targetSize) {
     // 档位对应的短边尺寸
     // default: 90, mq: 180, hq: 360, sd: 480, maxres: 720
-    // 注意：default 和 mqdefault 不是所有视频都有，使用 hqdefault 作为最小档位
-    if (targetSize <= 360) return 'hqdefault';  // 最小使用 hqdefault（几乎所有视频都有）
+    if (targetSize <= 90) return 'default';
+    if (targetSize <= 180) return 'mqdefault';
+    if (targetSize <= 360) return 'hqdefault';
     if (targetSize <= 480) return 'sddefault';
     return 'maxresdefault';
   }
