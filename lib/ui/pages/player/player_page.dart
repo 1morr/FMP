@@ -6,6 +6,7 @@ import '../../../core/services/image_loading_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../core/utils/icon_helpers.dart';
 import '../../../data/models/play_queue.dart';
+import '../../../data/models/settings.dart';
 import '../../../data/models/track.dart';
 import '../../../data/models/video_detail.dart';
 import '../../../providers/download/file_exists_cache.dart';
@@ -542,22 +543,33 @@ class _TrackInfoDialog extends ConsumerWidget {
           Flexible(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
-              child: detailState.detail != null
-                  ? _DetailContent(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 视频详情内容
+                  if (detailState.detail != null)
+                    _DetailContent(
                       detail: detailState.detail!,
                       isYouTube: isYouTube,
                       track: currentTrack,
                       cache: cache,
                       baseDir: baseDir,
                     )
-                  : detailState.isLoading
-                      ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(40),
-                            child: CircularProgressIndicator(),
-                          ),
-                        )
-                      : _BasicInfoContent(track: currentTrack),
+                  else if (detailState.isLoading)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(40),
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
+                  else
+                    _BasicInfoContent(track: currentTrack),
+                  // 音频技术信息
+                  if (playerState.currentBitrate != null ||
+                      playerState.currentContainer != null)
+                    _AudioInfoSection(playerState: playerState),
+                ],
+              ),
             ),
           ),
         ],
@@ -1061,6 +1073,127 @@ class _BasicInfoContent extends StatelessWidget {
 
         const SizedBox(height: 20),
       ],
+    );
+  }
+}
+
+/// 音频技术信息部分
+class _AudioInfoSection extends StatelessWidget {
+  final PlayerState playerState;
+
+  const _AudioInfoSection({required this.playerState});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    // 格式化码率显示
+    String? formatBitrate(int? bitrate) {
+      if (bitrate == null) return null;
+      if (bitrate >= 1000) {
+        return '${(bitrate / 1000).toStringAsFixed(0)} kbps';
+      }
+      return '$bitrate bps';
+    }
+
+    // 格式化流类型显示
+    String? formatStreamType(StreamType? type) {
+      if (type == null) return null;
+      switch (type) {
+        case StreamType.audioOnly:
+          return '纯音频';
+        case StreamType.muxed:
+          return '混合流';
+        case StreamType.hls:
+          return 'HLS';
+      }
+    }
+
+    final bitrate = formatBitrate(playerState.currentBitrate);
+    final container = playerState.currentContainer?.toUpperCase();
+    final codec = playerState.currentCodec?.toUpperCase();
+    final streamType = formatStreamType(playerState.currentStreamType);
+
+    // 如果没有任何信息，不显示此部分
+    if (bitrate == null && container == null && codec == null && streamType == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 8),
+        const Divider(),
+        const SizedBox(height: 16),
+
+        // 标题
+        Row(
+          children: [
+            Icon(
+              Icons.graphic_eq,
+              size: 18,
+              color: colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '音频信息',
+              style: textTheme.titleSmall?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // 信息标签
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            if (bitrate != null)
+              _buildInfoChip(context, Icons.speed, bitrate),
+            if (container != null)
+              _buildInfoChip(context, Icons.folder_outlined, container),
+            if (codec != null)
+              _buildInfoChip(context, Icons.audiotrack_outlined, codec),
+            if (streamType != null)
+              _buildInfoChip(context, Icons.stream, streamType),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoChip(BuildContext context, IconData icon, String label) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

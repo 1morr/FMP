@@ -13,6 +13,34 @@ enum DownloadImageOption {
   coverAndAvatar,
 }
 
+/// 音质等级
+enum AudioQualityLevel {
+  /// 最高码率
+  high,
+  /// 中等码率
+  medium,
+  /// 最低码率（省流量）
+  low,
+}
+
+/// 音频格式（用户可排序优先级）
+enum AudioFormat {
+  /// Opus 编码 (WebM 容器，音质好、体积小，兼容性稍差)
+  opus,
+  /// AAC 编码 (MP4/M4A 容器，兼容性好)
+  aac,
+}
+
+/// 流类型
+enum StreamType {
+  /// 纯音频流
+  audioOnly,
+  /// 混合流 (视频+音频)
+  muxed,
+  /// HLS 分段流 (仅 YouTube)
+  hls,
+}
+
 /// 应用设置实体（单例模式，始终使用 ID 0）
 @collection
 class Settings {
@@ -68,6 +96,21 @@ class Settings {
 
   /// 启用全局快捷键（仅 Windows）
   bool enableGlobalHotkeys = true;
+
+  // ========== 音频质量设置 ==========
+
+  /// 音质等级: 0=high, 1=medium, 2=low
+  int audioQualityLevelIndex = 0;
+
+  /// 格式优先级 (逗号分隔: "aac,opus,m4a,webm")
+  /// 按顺序尝试，第一个可用的格式被选中
+  String audioFormatPriority = 'aac,opus';
+
+  /// YouTube 流优先级 (逗号分隔: "audioOnly,muxed,hls")
+  String youtubeStreamPriority = 'audioOnly,muxed,hls';
+
+  /// Bilibili 流优先级 (逗号分隔: "audioOnly,muxed")
+  String bilibiliStreamPriority = 'audioOnly,muxed';
 
   /// 获取 ThemeMode
   @ignore
@@ -133,6 +176,124 @@ class Settings {
         downloadImageOptionIndex = 2;
         break;
     }
+  }
+
+  /// 获取音质等级
+  @ignore
+  AudioQualityLevel get audioQualityLevel {
+    switch (audioQualityLevelIndex) {
+      case 1:
+        return AudioQualityLevel.medium;
+      case 2:
+        return AudioQualityLevel.low;
+      default:
+        return AudioQualityLevel.high;
+    }
+  }
+
+  /// 设置音质等级
+  set audioQualityLevel(AudioQualityLevel level) {
+    switch (level) {
+      case AudioQualityLevel.high:
+        audioQualityLevelIndex = 0;
+        break;
+      case AudioQualityLevel.medium:
+        audioQualityLevelIndex = 1;
+        break;
+      case AudioQualityLevel.low:
+        audioQualityLevelIndex = 2;
+        break;
+    }
+  }
+
+  /// 获取格式优先级列表
+  @ignore
+  List<AudioFormat> get audioFormatPriorityList {
+    if (audioFormatPriority.isEmpty) {
+      return [AudioFormat.aac, AudioFormat.opus];
+    }
+    return audioFormatPriority.split(',').map((s) {
+      switch (s.trim()) {
+        case 'opus':
+          return AudioFormat.opus;
+        default:
+          return AudioFormat.aac;
+      }
+    }).toList();
+  }
+
+  /// 设置格式优先级列表
+  set audioFormatPriorityList(List<AudioFormat> list) {
+    audioFormatPriority = list.map((f) {
+      switch (f) {
+        case AudioFormat.opus:
+          return 'opus';
+        case AudioFormat.aac:
+          return 'aac';
+      }
+    }).join(',');
+  }
+
+  /// 获取 YouTube 流优先级列表
+  @ignore
+  List<StreamType> get youtubeStreamPriorityList {
+    if (youtubeStreamPriority.isEmpty) {
+      return [StreamType.audioOnly, StreamType.muxed, StreamType.hls];
+    }
+    return youtubeStreamPriority.split(',').map((s) {
+      switch (s.trim()) {
+        case 'muxed':
+          return StreamType.muxed;
+        case 'hls':
+          return StreamType.hls;
+        default:
+          return StreamType.audioOnly;
+      }
+    }).toList();
+  }
+
+  /// 设置 YouTube 流优先级列表
+  set youtubeStreamPriorityList(List<StreamType> list) {
+    youtubeStreamPriority = list.map((t) {
+      switch (t) {
+        case StreamType.audioOnly:
+          return 'audioOnly';
+        case StreamType.muxed:
+          return 'muxed';
+        case StreamType.hls:
+          return 'hls';
+      }
+    }).join(',');
+  }
+
+  /// 获取 Bilibili 流优先级列表
+  @ignore
+  List<StreamType> get bilibiliStreamPriorityList {
+    if (bilibiliStreamPriority.isEmpty) {
+      return [StreamType.audioOnly, StreamType.muxed];
+    }
+    return bilibiliStreamPriority.split(',').map((s) {
+      switch (s.trim()) {
+        case 'muxed':
+          return StreamType.muxed;
+        default:
+          return StreamType.audioOnly;
+      }
+    }).toList();
+  }
+
+  /// 设置 Bilibili 流优先级列表
+  set bilibiliStreamPriorityList(List<StreamType> list) {
+    bilibiliStreamPriority = list.map((t) {
+      switch (t) {
+        case StreamType.audioOnly:
+          return 'audioOnly';
+        case StreamType.muxed:
+          return 'muxed';
+        case StreamType.hls:
+          return 'hls';
+      }
+    }).join(',');
   }
 
   @override

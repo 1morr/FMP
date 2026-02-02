@@ -1,8 +1,10 @@
-import 'package:dio/dio.dart';
 import 'dart:math';
+
+import 'package:dio/dio.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
+import '../models/settings.dart';
 import '../models/track.dart';
 import '../models/video_detail.dart';
 import 'base_source.dart';
@@ -141,8 +143,11 @@ class BilibiliSource extends BaseSource with Logging {
   }
 
   @override
-  Future<String> getAudioUrl(String bvid) async {
-    logDebug('Getting audio URL for bvid: $bvid');
+  Future<AudioStreamResult> getAudioStream(
+    String bvid, {
+    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+  }) async {
+    logDebug('Getting audio stream for bvid: $bvid with config: qualityLevel=${config.qualityLevel}');
     try {
       // 1. 获取视频 cid
       final viewResponse = await _dio.get(
@@ -159,62 +164,149 @@ class BilibiliSource extends BaseSource with Logging {
       }
       logDebug('Got cid: $cid for bvid: $bvid');
 
-      // 2. 获取播放 URL（DASH 格式）
-      final playUrlResponse = await _dio.get(
-        _playUrlApi,
-        queryParameters: {
-          'bvid': bvid,
-          'cid': cid,
-          'fnval': 16, // DASH 格式
-          'qn': 0, // 最高画质
-          'fourk': 1,
-        },
-      );
-
-      _checkResponse(playUrlResponse.data);
-
-      final dash = playUrlResponse.data['data']['dash'];
-      if (dash == null) {
-        // 尝试获取普通格式
-        logDebug('No DASH format available for $bvid, trying durl format');
-        final durl = playUrlResponse.data['data']['durl'];
-        if (durl != null && durl is List && durl.isNotEmpty) {
-          final url = durl[0]['url'] as String;
-          logDebug('Got durl format URL for $bvid (length: ${url.length})');
-          return url;
-        }
-        logError('No audio stream available for $bvid');
-        throw Exception('No audio stream available');
-      }
-
-      // 从 DASH 格式中获取音频流
-      final audios = dash['audio'] as List?;
-      if (audios == null || audios.isEmpty) {
-        logError('No audio stream in DASH for $bvid');
-        throw Exception('No audio stream in DASH');
-      }
-
-      // 按带宽排序，选择最高音质
-      audios.sort(
-          (a, b) => (b['bandwidth'] as int).compareTo(a['bandwidth'] as int));
-
-      // 优先使用 baseUrl，备用 backupUrl
-      final bestAudio = audios.first;
-      final audioUrl = bestAudio['baseUrl'] ?? bestAudio['base_url'] ?? bestAudio['backupUrl']?[0];
-      
-      if (audioUrl == null) {
-        logError('No audio URL in DASH response for $bvid');
-        throw Exception('No audio URL in DASH response');
-      }
-
-      logDebug('Got audio URL for $bvid, bandwidth: ${bestAudio['bandwidth']}, URL length: ${audioUrl.length}');
-      return audioUrl;
+      return _getAudioStreamWithCid(bvid, cid, config);
     } on BilibiliApiException catch (e) {
       logError('Bilibili API error for $bvid: code=${e.code}, message=${e.message}');
       rethrow;
     } on DioException catch (e) {
       logError('Network error getting audio URL for $bvid: ${e.type}, ${e.message}');
       throw _handleDioError(e);
+    }
+  }
+
+  /// 使用指定 cid 获取音频流
+  Future<AudioStreamResult> _getAudioStreamWithCid(
+    String bvid,
+    int cid,
+    AudioStreamConfig config,
+  ) async {
+    // 按流类型优先级尝试
+    for (final streamType in config.streamPriority) {
+      try {
+        final result = await _tryGetStreamByType(bvid, cid, streamType, config);
+        if (result != null) {
+          return result;
+        }
+      } catch (e) {
+        logDebug('Stream type $streamType failed for $bvid:$cid: $e');
+      }
+    }
+
+    logError('No audio stream available for $bvid:$cid');
+    throw Exception('No audio stream available');
+  }
+
+  /// 根据流类型获取对应的流
+  Future<AudioStreamResult?> _tryGetStreamByType(
+    String bvid,
+    int cid,
+    StreamType streamType,
+    AudioStreamConfig config,
+  ) async {
+    switch (streamType) {
+      case StreamType.audioOnly:
+        return _tryGetDashStream(bvid, cid, config);
+      case StreamType.muxed:
+        return _tryGetDurlStream(bvid, cid);
+      case StreamType.hls:
+        return null; // Bilibili 不支持 HLS
+    }
+  }
+
+  /// 尝试获取 DASH 音频流（需要 fnval=16）
+  Future<AudioStreamResult?> _tryGetDashStream(
+    String bvid,
+    int cid,
+    AudioStreamConfig config,
+  ) async {
+    final response = await _dio.get(
+      _playUrlApi,
+      queryParameters: {
+        'bvid': bvid,
+        'cid': cid,
+        'fnval': 16, // DASH 格式
+        'qn': 0,
+        'fourk': 1,
+      },
+    );
+
+    _checkResponse(response.data);
+    final data = response.data['data'];
+    
+    final dash = data['dash'];
+    if (dash == null) return null;
+
+    final audios = dash['audio'] as List?;
+    if (audios == null || audios.isEmpty) return null;
+
+    // 按带宽排序
+    final sortedAudios = List<Map<String, dynamic>>.from(audios);
+    sortedAudios.sort((a, b) => (b['bandwidth'] as int).compareTo(a['bandwidth'] as int));
+
+    // 根据音质等级选择
+    final selected = _selectByQualityLevel(sortedAudios, config.qualityLevel);
+    if (selected == null) return null;
+
+    final audioUrl = selected['baseUrl'] ?? selected['base_url'] ?? (selected['backupUrl'] as List?)?[0];
+    if (audioUrl == null) return null;
+
+    final bandwidth = selected['bandwidth'] as int;
+    logDebug('Got DASH audio stream for $bvid:$cid, bandwidth: $bandwidth');
+
+    return AudioStreamResult(
+      url: audioUrl,
+      bitrate: bandwidth,
+      container: 'm4a',
+      codec: 'aac',
+      streamType: StreamType.audioOnly,
+    );
+  }
+
+  /// 尝试获取 durl 流（混合流，需要 fnval=0）
+  Future<AudioStreamResult?> _tryGetDurlStream(
+    String bvid,
+    int cid,
+  ) async {
+    final response = await _dio.get(
+      _playUrlApi,
+      queryParameters: {
+        'bvid': bvid,
+        'cid': cid,
+        'fnval': 0, // durl 格式（混合流）
+        'qn': 120, // 请求高画质
+      },
+    );
+
+    _checkResponse(response.data);
+    final data = response.data['data'];
+
+    final durl = data['durl'];
+    if (durl == null || durl is! List || durl.isEmpty) return null;
+
+    final url = durl[0]['url'] as String?;
+    if (url == null) return null;
+
+    logDebug('Got durl (muxed) stream for $bvid:$cid');
+    return AudioStreamResult(
+      url: url,
+      bitrate: null, // durl 格式不提供准确的音频码率
+      container: 'flv',
+      codec: null,
+      streamType: StreamType.muxed,
+    );
+  }
+
+  /// 根据音质等级选择
+  T? _selectByQualityLevel<T>(List<T> sortedItems, AudioQualityLevel level) {
+    if (sortedItems.isEmpty) return null;
+
+    switch (level) {
+      case AudioQualityLevel.high:
+        return sortedItems.first;
+      case AudioQualityLevel.medium:
+        return sortedItems[sortedItems.length ~/ 2];
+      case AudioQualityLevel.low:
+        return sortedItems.last;
     }
   }
 
@@ -416,59 +508,15 @@ class BilibiliSource extends BaseSource with Logging {
     }
   }
 
-  /// 获取指定分P的音频URL
-  Future<String> getAudioUrlWithCid(String bvid, int cid) async {
-    logDebug('Getting audio URL for bvid: $bvid, cid: $cid');
+  /// 获取指定分P的音频流
+  Future<AudioStreamResult> getAudioStreamWithCid(
+    String bvid,
+    int cid, {
+    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+  }) async {
+    logDebug('Getting audio stream for bvid: $bvid, cid: $cid');
     try {
-      final playUrlResponse = await _dio.get(
-        _playUrlApi,
-        queryParameters: {
-          'bvid': bvid,
-          'cid': cid,
-          'fnval': 16, // DASH 格式
-          'qn': 0, // 最高画质
-          'fourk': 1,
-        },
-      );
-
-      _checkResponse(playUrlResponse.data);
-
-      final dash = playUrlResponse.data['data']['dash'];
-      if (dash == null) {
-        // 尝试获取普通格式
-        logDebug('No DASH format available for $bvid:$cid, trying durl format');
-        final durl = playUrlResponse.data['data']['durl'];
-        if (durl != null && durl is List && durl.isNotEmpty) {
-          final url = durl[0]['url'] as String;
-          logDebug('Got durl format URL for $bvid:$cid (length: ${url.length})');
-          return url;
-        }
-        logError('No audio stream available for $bvid:$cid');
-        throw Exception('No audio stream available');
-      }
-
-      // 从 DASH 格式中获取音频流
-      final audios = dash['audio'] as List?;
-      if (audios == null || audios.isEmpty) {
-        logError('No audio stream in DASH for $bvid:$cid');
-        throw Exception('No audio stream in DASH');
-      }
-
-      // 按带宽排序，选择最高音质
-      audios.sort(
-          (a, b) => (b['bandwidth'] as int).compareTo(a['bandwidth'] as int));
-
-      // 优先使用 baseUrl，备用 backupUrl
-      final bestAudio = audios.first;
-      final audioUrl = bestAudio['baseUrl'] ?? bestAudio['base_url'] ?? bestAudio['backupUrl']?[0];
-      
-      if (audioUrl == null) {
-        logError('No audio URL in DASH response for $bvid:$cid');
-        throw Exception('No audio URL in DASH response');
-      }
-
-      logDebug('Got audio URL for $bvid:$cid, bandwidth: ${bestAudio['bandwidth']}, URL length: ${audioUrl.length}');
-      return audioUrl;
+      return _getAudioStreamWithCid(bvid, cid, config);
     } on BilibiliApiException catch (e) {
       logError('Bilibili API error for $bvid:$cid: code=${e.code}, message=${e.message}');
       rethrow;
@@ -476,6 +524,12 @@ class BilibiliSource extends BaseSource with Logging {
       logError('Network error getting audio URL for $bvid:$cid: ${e.type}, ${e.message}');
       throw _handleDioError(e);
     }
+  }
+
+  /// 获取指定分P的音频URL（简化版，向后兼容）
+  Future<String> getAudioUrlWithCid(String bvid, int cid, {AudioStreamConfig? config}) async {
+    final result = await getAudioStreamWithCid(bvid, cid, config: config ?? AudioStreamConfig.defaultConfig);
+    return result.url;
   }
 
   /// 获取视频详细信息（包括统计数据和UP主信息）

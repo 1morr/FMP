@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/extensions/track_extensions.dart';
 import '../../core/services/image_loading_service.dart';
+import '../../data/models/settings.dart';
 import '../../data/models/track.dart';
 import '../../data/models/video_detail.dart';
 import '../../providers/download/download_providers.dart';
@@ -262,12 +263,21 @@ class _DetailContent extends ConsumerWidget {
           _DescriptionSection(description: detail.description),
         ],
 
-        // 热门评论（放在最下方）
+        // 热门评论
         if (detail.hotComments.isNotEmpty) ...[
           const SizedBox(height: 20),
           const Divider(),
           const SizedBox(height: 16),
           _CommentPager(comments: detail.hotComments),
+        ],
+
+        // 音频信息（放在最下方）
+        if (playerState.currentBitrate != null ||
+            playerState.currentContainer != null) ...[
+          const SizedBox(height: 20),
+          const Divider(),
+          const SizedBox(height: 16),
+          _buildAudioInfo(context, playerState),
         ],
 
         const SizedBox(height: 32),
@@ -331,6 +341,116 @@ class _DetailContent extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+
+  /// 音频技术信息
+  Widget _buildAudioInfo(BuildContext context, PlayerState playerState) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    // 格式化码率显示
+    String? formatBitrate(int? bitrate) {
+      if (bitrate == null) return null;
+      if (bitrate >= 1000) {
+        return '${(bitrate / 1000).toStringAsFixed(0)} kbps';
+      }
+      return '$bitrate bps';
+    }
+
+    // 格式化流类型显示
+    String? formatStreamType(StreamType? type) {
+      if (type == null) return null;
+      switch (type) {
+        case StreamType.audioOnly:
+          return '纯音频';
+        case StreamType.muxed:
+          return '混合流';
+        case StreamType.hls:
+          return 'HLS';
+      }
+    }
+
+    final bitrate = formatBitrate(playerState.currentBitrate);
+    final container = playerState.currentContainer?.toUpperCase();
+    final codec = playerState.currentCodec?.toUpperCase();
+    final streamType = formatStreamType(playerState.currentStreamType);
+
+    // 如果没有任何信息，不显示
+    if (bitrate == null && container == null && codec == null && streamType == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 标题
+        Row(
+          children: [
+            Icon(
+              Icons.graphic_eq,
+              size: 18,
+              color: colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '音频信息',
+              style: textTheme.titleSmall?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        // 信息标签
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            if (bitrate != null)
+              _buildAudioChip(context, Icons.speed, bitrate),
+            if (container != null)
+              _buildAudioChip(context, Icons.folder_outlined, container),
+            if (codec != null)
+              _buildAudioChip(context, Icons.audiotrack_outlined, codec),
+            if (streamType != null)
+              _buildAudioChip(context, Icons.stream, streamType),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAudioChip(BuildContext context, IconData icon, String label) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 13,
+            color: colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

@@ -5,6 +5,7 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt;
 
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
+import '../models/settings.dart';
 import '../models/track.dart';
 import '../models/video_detail.dart';
 import 'base_source.dart';
@@ -219,112 +220,85 @@ class YouTubeSource extends BaseSource with Logging {
   }
 
   @override
-  Future<String> getAudioUrl(String videoId) async {
-    logDebug('Getting audio URL for YouTube video: $videoId');
-    try {
-      // 优先使用 androidVr 客户端获取 audio-only 流
-      // 经测试，只有 androidVr 客户端的 audio-only 流可正常访问
-      // 其他客户端（android, ios）的 audio-only 流返回 HTTP 403
+  Future<AudioStreamResult> getAudioStream(
+    String videoId, {
+    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+  }) async {
+    logDebug('Getting audio stream for YouTube video: $videoId with config: qualityLevel=${config.qualityLevel}, streamPriority=${config.streamPriority}');
+    
+    // 按流类型优先级尝试
+    for (final streamType in config.streamPriority) {
       try {
-        final vrManifest = await _youtube.videos.streams.getManifest(
-          videoId,
-          ytClients: [yt.YoutubeApiClient.androidVr],
-        );
-
-        if (vrManifest.audioOnly.isNotEmpty) {
-          // 优先选择 mp4 格式，兼容性更好
-          final audioStreams = vrManifest.audioOnly.toList();
-          audioStreams.sort((a, b) => b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond));
-
-          // 找 mp4 格式的最高码率
-          final mp4Stream = audioStreams.where((s) => s.container.name == 'mp4').firstOrNull;
-          if (mp4Stream != null) {
-            logDebug('Got audio-only mp4 stream for $videoId via androidVr, bitrate: ${mp4Stream.bitrate}');
-            return mp4Stream.url.toString();
-          }
-
-          // 没有 mp4 就用最高码率的
-          final bestStream = audioStreams.first;
-          logDebug('Got audio-only ${bestStream.container.name} stream for $videoId via androidVr, bitrate: ${bestStream.bitrate}');
-          return bestStream.url.toString();
+        final result = await _tryGetStream(videoId, streamType, config);
+        if (result != null) {
+          return result;
         }
       } catch (e) {
-        logDebug('androidVr audio-only failed for $videoId: $e, trying muxed fallback');
+        logDebug('Stream type $streamType failed for $videoId: $e');
       }
+    }
 
-      // 后备方案：使用 muxed 流
-      final manifest = await _youtube.videos.streams.getManifest(
-        videoId,
-        ytClients: [
-          yt.YoutubeApiClient.ios,
-          yt.YoutubeApiClient.safari,
-          yt.YoutubeApiClient.android,
-        ],
-      );
+    logError('No audio stream available for YouTube video: $videoId');
+    throw YouTubeApiException(
+      code: 'no_stream',
+      message: 'No audio stream available',
+    );
+  }
 
-      if (manifest.muxed.isNotEmpty) {
-        final muxedStream = manifest.muxed.withHighestBitrate();
-        logDebug('Got muxed stream for $videoId (fallback), bitrate: ${muxedStream.bitrate}');
-        return muxedStream.url.toString();
-      }
-
-      // 最后备选：HLS 流
-      if (manifest.hls.isNotEmpty) {
-        final hlsStream = manifest.hls.first;
-        logDebug('Got HLS stream for $videoId (fallback)');
-        return hlsStream.url.toString();
-      }
-
-      logError('No audio stream available for YouTube video: $videoId');
-      throw YouTubeApiException(
-        code: 'no_stream',
-        message: 'No audio stream available',
-      );
-    } on yt.VideoUnplayableException catch (e) {
-      logError('YouTube video unplayable: $videoId, reason: $e');
-      throw YouTubeApiException(
-        code: 'unplayable',
-        message: 'Video is unplayable: $e',
-      );
-    } catch (e) {
-      logError('Failed to get YouTube audio URL: $videoId, error: $e');
-      throw YouTubeApiException(
-        code: 'error',
-        message: 'Failed to get audio URL: $e',
-      );
+  /// 尝试获取指定类型的流
+  Future<AudioStreamResult?> _tryGetStream(
+    String videoId,
+    StreamType streamType,
+    AudioStreamConfig config,
+  ) async {
+    switch (streamType) {
+      case StreamType.audioOnly:
+        return _tryGetAudioOnlyStream(videoId, config);
+      case StreamType.muxed:
+        return _tryGetMuxedStream(videoId, config);
+      case StreamType.hls:
+        return _tryGetHlsStream(videoId, config);
     }
   }
 
-  /// 获取备选音频 URL（尝试不同类型的流）
-  /// 当主流无法播放时使用
-  @override
-  Future<String?> getAlternativeAudioUrl(String videoId, {String? failedUrl}) async {
-    logDebug('Getting alternative audio URL for YouTube video: $videoId');
+  /// 尝试获取 audio-only 流（androidVr 客户端）
+  Future<AudioStreamResult?> _tryGetAudioOnlyStream(
+    String videoId,
+    AudioStreamConfig config,
+  ) async {
     try {
-      // 先尝试 androidVr 的 audio-only 流
-      try {
-        final vrManifest = await _youtube.videos.streams.getManifest(
-          videoId,
-          ytClients: [yt.YoutubeApiClient.androidVr],
+      final vrManifest = await _youtube.videos.streams.getManifest(
+        videoId,
+        ytClients: [yt.YoutubeApiClient.androidVr],
+      );
+
+      if (vrManifest.audioOnly.isEmpty) return null;
+
+      final audioStreams = vrManifest.audioOnly.toList();
+      final selected = _selectBestStream(audioStreams, config);
+      
+      if (selected != null) {
+        logDebug('Got audio-only stream for $videoId: ${selected.bitrate}, ${selected.container.name}');
+        return AudioStreamResult(
+          url: selected.url.toString(),
+          bitrate: selected.bitrate.bitsPerSecond,
+          container: selected.container.name,
+          codec: selected.audioCodec,
+          streamType: StreamType.audioOnly,
         );
-
-        if (vrManifest.audioOnly.isNotEmpty) {
-          final audioStreams = vrManifest.audioOnly.toList();
-          audioStreams.sort((a, b) => b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond));
-
-          // 找一个不同于 failedUrl 的流
-          for (final stream in audioStreams) {
-            final url = stream.url.toString();
-            if (url != failedUrl) {
-              logDebug('Got alternative audio-only stream for $videoId via androidVr');
-              return url;
-            }
-          }
-        }
-      } catch (e) {
-        logDebug('androidVr alternative failed for $videoId: $e');
       }
+    } catch (e) {
+      logDebug('Audio-only stream failed for $videoId: $e');
+    }
+    return null;
+  }
 
+  /// 尝试获取 muxed 流
+  Future<AudioStreamResult?> _tryGetMuxedStream(
+    String videoId,
+    AudioStreamConfig config,
+  ) async {
+    try {
       final manifest = await _youtube.videos.streams.getManifest(
         videoId,
         ytClients: [
@@ -334,32 +308,262 @@ class YouTubeSource extends BaseSource with Logging {
         ],
       );
 
-      // 尝试 muxed 流（单文件，包含视频和音频）
-      if (manifest.muxed.isNotEmpty) {
-        final muxedStream = manifest.muxed.withHighestBitrate();
-        final url = muxedStream.url.toString();
-        if (url != failedUrl) {
-          logDebug('Got alternative muxed stream for $videoId, bitrate: ${muxedStream.bitrate}');
-          return url;
+      if (manifest.muxed.isEmpty) return null;
+
+      // muxed 流按码率排序选择
+      final muxedStreams = manifest.muxed.toList();
+      muxedStreams.sort((a, b) => b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond));
+      
+      final selected = _selectByQualityLevel(muxedStreams, config.qualityLevel);
+      
+      if (selected != null) {
+        logDebug('Got muxed stream for $videoId: ${selected.bitrate}, ${selected.container.name}');
+        return AudioStreamResult(
+          url: selected.url.toString(),
+          bitrate: selected.bitrate.bitsPerSecond,
+          container: selected.container.name,
+          codec: selected.audioCodec,
+          streamType: StreamType.muxed,
+        );
+      }
+    } catch (e) {
+      logDebug('Muxed stream failed for $videoId: $e');
+    }
+    return null;
+  }
+
+  /// 尝试获取 HLS 流
+  Future<AudioStreamResult?> _tryGetHlsStream(
+    String videoId,
+    AudioStreamConfig config,
+  ) async {
+    try {
+      final manifest = await _youtube.videos.streams.getManifest(
+        videoId,
+        ytClients: [yt.YoutubeApiClient.safari],
+      );
+
+      if (manifest.hls.isEmpty) return null;
+
+      final hlsStream = manifest.hls.first;
+      logDebug('Got HLS stream for $videoId');
+      return AudioStreamResult(
+        url: hlsStream.url.toString(),
+        bitrate: null, // HLS 不提供准确码率
+        container: 'm3u8',
+        codec: null,
+        streamType: StreamType.hls,
+      );
+    } catch (e) {
+      logDebug('HLS stream failed for $videoId: $e');
+    }
+    return null;
+  }
+
+  /// 根据配置选择最佳 audio-only 流
+  yt.AudioOnlyStreamInfo? _selectBestStream(
+    List<yt.AudioOnlyStreamInfo> streams,
+    AudioStreamConfig config,
+  ) {
+    if (streams.isEmpty) return null;
+
+    // 按码率排序
+    streams.sort((a, b) => b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond));
+
+    // 按格式优先级筛选
+    for (final format in config.formatPriority) {
+      final matching = streams.where((s) => _matchesFormat(s, format)).toList();
+      if (matching.isNotEmpty) {
+        return _selectByQualityLevel(matching, config.qualityLevel);
+      }
+    }
+
+    // 如果没有匹配的格式，按码率选择
+    return _selectByQualityLevel(streams, config.qualityLevel);
+  }
+
+  /// 检查流是否匹配指定格式
+  bool _matchesFormat(yt.AudioOnlyStreamInfo stream, AudioFormat format) {
+    final container = stream.container.name.toLowerCase();
+    final codec = stream.audioCodec.toLowerCase();
+    
+    switch (format) {
+      case AudioFormat.opus:
+        // Opus 编码通常在 WebM 容器中
+        return codec.contains('opus') || container == 'webm';
+      case AudioFormat.aac:
+        // AAC 编码通常在 MP4/M4A 容器中
+        return container == 'mp4' || container == 'm4a' || 
+               codec.contains('aac') || codec.contains('mp4a');
+    }
+  }
+
+  /// 根据音质等级选择流
+  T? _selectByQualityLevel<T>(List<T> sortedStreams, AudioQualityLevel level) {
+    if (sortedStreams.isEmpty) return null;
+
+    switch (level) {
+      case AudioQualityLevel.high:
+        return sortedStreams.first; // 最高码率
+      case AudioQualityLevel.medium:
+        return sortedStreams[sortedStreams.length ~/ 2]; // 中间
+      case AudioQualityLevel.low:
+        return sortedStreams.last; // 最低码率
+    }
+  }
+
+  /// 获取备选音频流（尝试不同类型的流）
+  /// 当主流无法播放时使用
+  @override
+  Future<AudioStreamResult?> getAlternativeAudioStream(
+    String videoId, {
+    String? failedUrl,
+    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+  }) async {
+    logDebug('Getting alternative audio stream for YouTube video: $videoId');
+    try {
+      // 按流类型优先级尝试，跳过已失败的 URL
+      for (final streamType in config.streamPriority) {
+        try {
+          final result = await _tryGetAlternativeStream(videoId, streamType, config, failedUrl);
+          if (result != null) {
+            return result;
+          }
+        } catch (e) {
+          logDebug('Alternative stream type $streamType failed for $videoId: $e');
         }
       }
 
-      // 尝试 HLS 流（m3u8 分段格式）
-      if (manifest.hls.isNotEmpty) {
-        final hlsStream = manifest.hls.first;
+      logWarning('No alternative audio stream available for: $videoId');
+      return null;
+    } catch (e) {
+      logError('Failed to get alternative audio stream for $videoId: $e');
+      return null;
+    }
+  }
+
+  /// 尝试获取指定类型的备选流（排除已失败的 URL）
+  Future<AudioStreamResult?> _tryGetAlternativeStream(
+    String videoId,
+    StreamType streamType,
+    AudioStreamConfig config,
+    String? failedUrl,
+  ) async {
+    switch (streamType) {
+      case StreamType.audioOnly:
+        return _tryGetAlternativeAudioOnlyStream(videoId, config, failedUrl);
+      case StreamType.muxed:
+        return _tryGetAlternativeMuxedStream(videoId, config, failedUrl);
+      case StreamType.hls:
+        return _tryGetAlternativeHlsStream(videoId, config, failedUrl);
+    }
+  }
+
+  Future<AudioStreamResult?> _tryGetAlternativeAudioOnlyStream(
+    String videoId,
+    AudioStreamConfig config,
+    String? failedUrl,
+  ) async {
+    try {
+      final vrManifest = await _youtube.videos.streams.getManifest(
+        videoId,
+        ytClients: [yt.YoutubeApiClient.androidVr],
+      );
+
+      if (vrManifest.audioOnly.isEmpty) return null;
+
+      final audioStreams = vrManifest.audioOnly.toList();
+      audioStreams.sort((a, b) => b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond));
+
+      // 找一个不同于 failedUrl 的流
+      for (final stream in audioStreams) {
+        final url = stream.url.toString();
+        if (url != failedUrl) {
+          logDebug('Got alternative audio-only stream for $videoId');
+          return AudioStreamResult(
+            url: url,
+            bitrate: stream.bitrate.bitsPerSecond,
+            container: stream.container.name,
+            codec: stream.audioCodec,
+            streamType: StreamType.audioOnly,
+          );
+        }
+      }
+    } catch (e) {
+      logDebug('Alternative audio-only stream failed for $videoId: $e');
+    }
+    return null;
+  }
+
+  Future<AudioStreamResult?> _tryGetAlternativeMuxedStream(
+    String videoId,
+    AudioStreamConfig config,
+    String? failedUrl,
+  ) async {
+    try {
+      final manifest = await _youtube.videos.streams.getManifest(
+        videoId,
+        ytClients: [
+          yt.YoutubeApiClient.ios,
+          yt.YoutubeApiClient.safari,
+          yt.YoutubeApiClient.android,
+        ],
+      );
+
+      if (manifest.muxed.isEmpty) return null;
+
+      final muxedStreams = manifest.muxed.toList();
+      muxedStreams.sort((a, b) => b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond));
+
+      for (final stream in muxedStreams) {
+        final url = stream.url.toString();
+        if (url != failedUrl) {
+          logDebug('Got alternative muxed stream for $videoId');
+          return AudioStreamResult(
+            url: url,
+            bitrate: stream.bitrate.bitsPerSecond,
+            container: stream.container.name,
+            codec: stream.audioCodec,
+            streamType: StreamType.muxed,
+          );
+        }
+      }
+    } catch (e) {
+      logDebug('Alternative muxed stream failed for $videoId: $e');
+    }
+    return null;
+  }
+
+  Future<AudioStreamResult?> _tryGetAlternativeHlsStream(
+    String videoId,
+    AudioStreamConfig config,
+    String? failedUrl,
+  ) async {
+    try {
+      final manifest = await _youtube.videos.streams.getManifest(
+        videoId,
+        ytClients: [yt.YoutubeApiClient.safari],
+      );
+
+      if (manifest.hls.isEmpty) return null;
+
+      for (final hlsStream in manifest.hls) {
         final url = hlsStream.url.toString();
         if (url != failedUrl) {
           logDebug('Got alternative HLS stream for $videoId');
-          return url;
+          return AudioStreamResult(
+            url: url,
+            bitrate: null,
+            container: 'm3u8',
+            codec: null,
+            streamType: StreamType.hls,
+          );
         }
       }
-
-      logWarning('No alternative audio URL available for: $videoId');
-      return null;
     } catch (e) {
-      logError('Failed to get alternative audio URL for $videoId: $e');
-      return null;
+      logDebug('Alternative HLS stream failed for $videoId: $e');
     }
+    return null;
   }
 
   @override
