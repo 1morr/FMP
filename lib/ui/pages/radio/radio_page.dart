@@ -362,142 +362,146 @@ class _RadioStationCard extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(12),
-      child: Column(
-        children: [
-          // 圆形封面 - 使用 Expanded 填充剩余空间，加 padding 缩小
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: LayoutBuilder(
-              builder: (context, constraints) {
-                // 取宽高的较小值作为圆形直径，保证圆形不变形
-                final size = constraints.maxWidth < constraints.maxHeight
-                    ? constraints.maxWidth
-                    : constraints.maxHeight;
-                return Center(
-                  child: SizedBox(
-                    width: size,
-                    height: size,
-                    child: Stack(
-                      children: [
-                        // 封面图
-                        Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: colorScheme.surfaceContainerHighest,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // 封面大小 = 卡片宽度 - 水平padding
+          final coverSize = constraints.maxWidth - 40; // 20 * 2
+
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              // 圆形封面
+              Padding(
+                padding: const EdgeInsets.only(left: 20, right: 20, top: 20),
+                child: SizedBox(
+                  width: coverSize,
+                  height: coverSize,
+                  child: Stack(
+                    children: [
+                      // 封面图
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: colorScheme.surfaceContainerHighest,
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: ColorFiltered(
+                          colorFilter: isLive
+                              ? const ColorFilter.mode(
+                                  Colors.transparent,
+                                  BlendMode.multiply,
+                                )
+                              : const ColorFilter.matrix(<double>[
+                                  0.2126, 0.7152, 0.0722, 0, 0,
+                                  0.2126, 0.7152, 0.0722, 0, 0,
+                                  0.2126, 0.7152, 0.0722, 0, 0,
+                                  0, 0, 0, 1, 0,
+                                ]),
+                          child: ImageLoadingService.loadImage(
+                            networkUrl: station.thumbnailUrl,
+                            placeholder: _buildPlaceholder(colorScheme),
+                            fit: BoxFit.cover,
+                            width: coverSize,
+                            height: coverSize,
                           ),
-                          clipBehavior: Clip.antiAlias,
-                          child: ColorFiltered(
-                            colorFilter: isLive
-                                ? const ColorFilter.mode(
-                                    Colors.transparent,
-                                    BlendMode.multiply,
-                                  )
-                                : const ColorFilter.matrix(<double>[
-                                    0.2126, 0.7152, 0.0722, 0, 0,
-                                    0.2126, 0.7152, 0.0722, 0, 0,
-                                    0.2126, 0.7152, 0.0722, 0, 0,
-                                    0, 0, 0, 1, 0,
-                                  ]),
-                            child: ImageLoadingService.loadImage(
-                              networkUrl: station.thumbnailUrl,
-                              placeholder: _buildPlaceholder(colorScheme),
-                              fit: BoxFit.cover,
-                              width: size,
-                              height: size,
+                        ),
+                      ),
+
+                      // 正在直播红点
+                      if (isLive)
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: Container(
+                            width: 16,
+                            height: 16,
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: colorScheme.surface,
+                                width: 2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.red.withValues(alpha: 0.5),
+                                  blurRadius: 4,
+                                  spreadRadius: 1,
+                                ),
+                              ],
                             ),
                           ),
                         ),
 
-                        // 正在直播红点
-                        if (isLive)
-                          Positioned(
-                            top: 4,
-                            right: 4,
-                            child: Container(
-                              width: 16,
-                              height: 16,
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: colorScheme.surface,
-                                  width: 2,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.red.withValues(alpha: 0.5),
-                                    blurRadius: 4,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
-                              ),
+                      // 播放中指示器
+                      if (isPlaying || isLoading)
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: colorScheme.primary.withValues(alpha: 0.4),
                             ),
-                          ),
-
-                        // 播放中指示器
-                        if (isPlaying || isLoading)
-                          Positioned.fill(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: colorScheme.primary.withValues(alpha: 0.4),
-                              ),
-                              child: Center(
-                                child: isLoading
-                                    ? SizedBox(
-                                        width: size * 0.32,
-                                        height: size * 0.32,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 3,
-                                          color: colorScheme.onPrimary,
-                                        ),
-                                      )
-                                    : NowPlayingIndicator(
+                            child: Center(
+                              child: isLoading
+                                  ? SizedBox(
+                                      width: coverSize * 0.32,
+                                      height: coverSize * 0.32,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 3,
                                         color: colorScheme.onPrimary,
-                                        size: size * 0.32,
-                                        isPlaying: true,
                                       ),
-                              ),
+                                    )
+                                  : NowPlayingIndicator(
+                                      color: colorScheme.onPrimary,
+                                      size: coverSize * 0.32,
+                                      isPlaying: true,
+                                    ),
                             ),
                           ),
-                      ],
-                    ),
+                        ),
+                    ],
                   ),
-                );
-              },
-            ),
-            ),
-          ),
-
-          // 标题
-          Text(
-            station.title,
-            style: textTheme.titleSmall?.copyWith(
-              fontWeight: isPlaying ? FontWeight.bold : null,
-              color: isLive
-                  ? (isPlaying ? colorScheme.primary : colorScheme.onSurface)
-                  : colorScheme.onSurfaceVariant,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-          ),
-
-          // 主播名称
-          if (station.hostName != null)
-            Text(
-              station.hostName!,
-              style: textTheme.bodySmall?.copyWith(
-                color: isLive
-                    ? colorScheme.onSurfaceVariant
-                    : colorScheme.outline,
+                ),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-            ),
-        ],
+
+              const SizedBox(height: 8),
+
+              // 标题
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  station.title,
+                  style: textTheme.titleSmall?.copyWith(
+                    fontWeight: isPlaying ? FontWeight.bold : null,
+                    color: isLive
+                        ? (isPlaying ? colorScheme.primary : colorScheme.onSurface)
+                        : colorScheme.onSurfaceVariant,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+
+              // 主播名称
+              if (station.hostName != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    station.hostName!,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: isLive
+                          ? colorScheme.onSurfaceVariant
+                          : colorScheme.outline,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
