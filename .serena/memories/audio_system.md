@@ -250,7 +250,7 @@ final nextTrack = queue[currentIndex + 1];
 ### 5. PlaybackContext 和播放锁（2026-01-19 重构）
 
 **问题**：快速连续点击多首歌曲时，会加载所有点击过的歌曲而不是只加载最后一个，导致根据加载速度轮流播放。同时可能出现：
-- `Player already exists` 错误（just_audio_media_kit）
+- 播放器状态不一致错误
 - `isLoading` 状态卡住不重置
 - 进度条不立即重置，仍显示旧歌曲进度
 - 点击播放按钮会继续播放旧歌曲
@@ -359,13 +359,13 @@ bool _isSuperseded(int requestId) => _playRequestId != requestId;
 
 **播放器状态事件处理** - 使用 `_context.isInLoadingState` 防止覆盖：
 ```dart
-void _onPlayerStateChanged(just_audio.PlayerState playerState) {
+void _onPlayerStateChanged(MediaKitPlayerState playerState) {
   state = state.copyWith(
     isPlaying: playerState.playing,
-    isBuffering: playerState.processingState == just_audio.ProcessingState.buffering,
+    isBuffering: playerState.processingState == FmpAudioProcessingState.buffering,
     // 防止播放器事件覆盖 URL 获取期间的状态
     isLoading: _context.isInLoadingState || 
-               playerState.processingState == just_audio.ProcessingState.loading,
+               playerState.processingState == FmpAudioProcessingState.loading,
     processingState: playerState.processingState,
   );
 }
@@ -379,24 +379,13 @@ void _onPositionChanged(Duration position) {
 }
 ```
 
-**AudioService 修复** - 等待播放器 idle 状态：
+**MediaKitAudioService 实现** - 直接使用 media_kit，无需等待 idle 状态：
 ```dart
-// playUrl/playFile 中
+// playUrl 中
 await _player.stop();
-
-// 等待播放器进入 idle 状态，确保底层播放器完全清理
-if (_player.processingState != ProcessingState.idle) {
-  try {
-    await _player.playerStateStream
-        .where((state) => state.processingState == ProcessingState.idle)
-        .first
-        .timeout(const Duration(milliseconds: 500));
-  } catch (e) {
-    // 超时也继续
-  }
-}
-
-await _player.setAudioSource(audioSource);
+// media_kit 支持原生 httpHeaders，直接打开 URL
+await _player.open(Media(url, httpHeaders: headers));
+await _player.play();
 ```
 
 ### 6. Mix 播放模式（YouTube Mix/Radio）
@@ -778,7 +767,7 @@ controller.toggleMute();
 ```
 
 ### ❌ 错误：在 AudioService 添加业务逻辑
-AudioService 应该保持简单，只封装 just_audio。
+AudioService 应该保持简单，只封装 media_kit。
 
 ### ✅ 正确：业务逻辑放在 AudioController
 队列管理、状态持久化、临时播放等逻辑都在 AudioController。
