@@ -91,26 +91,30 @@ class _QualityLevelSection extends StatelessWidget {
                 ),
           ),
         ),
-        RadioListTile<AudioQualityLevel>(
-          title: const Text('高'),
-          subtitle: const Text('最高码率，音质最佳'),
-          value: AudioQualityLevel.high,
+        RadioGroup<AudioQualityLevel>(
           groupValue: currentLevel,
-          onChanged: (value) => onChanged(value!),
-        ),
-        RadioListTile<AudioQualityLevel>(
-          title: const Text('中'),
-          subtitle: const Text('中等码率，平衡音质与流量'),
-          value: AudioQualityLevel.medium,
-          groupValue: currentLevel,
-          onChanged: (value) => onChanged(value!),
-        ),
-        RadioListTile<AudioQualityLevel>(
-          title: const Text('低'),
-          subtitle: const Text('最低码率，省流量'),
-          value: AudioQualityLevel.low,
-          groupValue: currentLevel,
-          onChanged: (value) => onChanged(value!),
+          onChanged: (value) {
+            if (value != null) onChanged(value);
+          },
+          child: Column(
+            children: [
+              RadioListTile<AudioQualityLevel>(
+                title: const Text('高'),
+                subtitle: const Text('最高码率，音质最佳'),
+                value: AudioQualityLevel.high,
+              ),
+              RadioListTile<AudioQualityLevel>(
+                title: const Text('中'),
+                subtitle: const Text('中等码率，平衡音质与流量'),
+                value: AudioQualityLevel.medium,
+              ),
+              RadioListTile<AudioQualityLevel>(
+                title: const Text('低'),
+                subtitle: const Text('最低码率，省流量'),
+                value: AudioQualityLevel.low,
+              ),
+            ],
+          ),
         ),
       ],
     );
