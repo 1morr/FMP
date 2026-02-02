@@ -4,7 +4,6 @@ import 'dart:math';
 import '../../core/constants/app_constants.dart';
 import '../../core/extensions/track_extensions.dart';
 import '../../core/logger.dart';
-import '../../data/models/settings.dart';
 import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
 import '../../data/repositories/queue_repository.dart';
@@ -912,7 +911,7 @@ class QueueManager with Logging {
         }
       }
       
-      logDebug('Got audio stream for ${track.title}: ${streamResult}');
+      logDebug('Got audio stream for ${track.title}: $streamResult');
 
       // 更新队列中的 track
       final index = _tracks.indexWhere((t) => t.id == track.id);
