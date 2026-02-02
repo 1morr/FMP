@@ -66,26 +66,6 @@ extension TrackExtensions on Track {
     return cache.getFirstExisting(coverPaths);
   }
 
-  /// 获取本地封面路径（不使用缓存）
-  ///
-  /// 遍历所有下载路径，返回第一个存在 cover.jpg 的路径
-  String? getLocalCoverPathSync() {
-    if (!hasAnyDownload) return null;
-
-    for (final path in allDownloadPaths) {
-      try {
-        final dir = Directory(path).parent;
-        final coverFile = File(p.join(dir.path, 'cover.jpg'));
-        if (coverFile.existsSync()) {
-          return coverFile.path;
-        }
-      } catch (_) {
-        // 路径无效，继续
-      }
-    }
-    return null;
-  }
-
   /// 獲取本地頭像路徑（使用集中式頭像文件夾）
   ///
   /// 頭像存儲在 {baseDir}/avatars/{platform}/{creatorId}.jpg
