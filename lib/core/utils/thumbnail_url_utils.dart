@@ -128,13 +128,20 @@ class ThumbnailUrlUtils {
 
     // 替换 URL 中的质量参数
     // 常见格式：/vi/{videoId}/hqdefault.jpg 或 /vi_webp/{videoId}/hqdefault.webp
-    final pattern = RegExp(r'/vi(?:_webp)?/([^/]+)/[^/]+\.(jpg|webp)');
+    final pattern = RegExp(r'/vi(_webp)?/([^/]+)/[^/]+\.(jpg|webp)');
 
     final match = pattern.firstMatch(url);
     if (match != null) {
-      final videoId = match.group(1);
-      // 使用 vi_webp 获取 webp 格式（更小）
-      return 'https://i.ytimg.com/vi_webp/$videoId/$quality.webp';
+      final isWebp = match.group(1) != null; // 原始 URL 是否使用 webp
+      final videoId = match.group(2);
+      final ext = match.group(3); // 保持原始扩展名
+
+      // 保持原始格式（不强制转换为 webp，因为不是所有视频都支持）
+      if (isWebp) {
+        return 'https://i.ytimg.com/vi_webp/$videoId/$quality.webp';
+      } else {
+        return 'https://i.ytimg.com/vi/$videoId/$quality.$ext';
+      }
     }
 
     // 无法解析的 URL 原样返回
@@ -145,9 +152,8 @@ class ThumbnailUrlUtils {
   static String _selectYouTubeQuality(int targetSize) {
     // 档位对应的短边尺寸
     // default: 90, mq: 180, hq: 360, sd: 480, maxres: 720
-    if (targetSize <= 90) return 'default';
-    if (targetSize <= 180) return 'mqdefault';
-    if (targetSize <= 360) return 'hqdefault';
+    // 注意：default 和 mqdefault 不是所有视频都有，使用 hqdefault 作为最小档位
+    if (targetSize <= 360) return 'hqdefault';  // 最小使用 hqdefault（几乎所有视频都有）
     if (targetSize <= 480) return 'sddefault';
     return 'maxresdefault';
   }
