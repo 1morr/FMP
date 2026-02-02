@@ -222,7 +222,37 @@ class YouTubeSource extends BaseSource with Logging {
   Future<String> getAudioUrl(String videoId) async {
     logDebug('Getting audio URL for YouTube video: $videoId');
     try {
-      // 使用多个客户端获取流，iOS/Safari 客户端通常有更好的兼容性
+      // 优先使用 androidVr 客户端获取 audio-only 流
+      // 经测试，只有 androidVr 客户端的 audio-only 流可正常访问
+      // 其他客户端（android, ios）的 audio-only 流返回 HTTP 403
+      try {
+        final vrManifest = await _youtube.videos.streams.getManifest(
+          videoId,
+          ytClients: [yt.YoutubeApiClient.androidVr],
+        );
+
+        if (vrManifest.audioOnly.isNotEmpty) {
+          // 优先选择 mp4 格式，兼容性更好
+          final audioStreams = vrManifest.audioOnly.toList();
+          audioStreams.sort((a, b) => b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond));
+
+          // 找 mp4 格式的最高码率
+          final mp4Stream = audioStreams.where((s) => s.container.name == 'mp4').firstOrNull;
+          if (mp4Stream != null) {
+            logDebug('Got audio-only mp4 stream for $videoId via androidVr, bitrate: ${mp4Stream.bitrate}');
+            return mp4Stream.url.toString();
+          }
+
+          // 没有 mp4 就用最高码率的
+          final bestStream = audioStreams.first;
+          logDebug('Got audio-only ${bestStream.container.name} stream for $videoId via androidVr, bitrate: ${bestStream.bitrate}');
+          return bestStream.url.toString();
+        }
+      } catch (e) {
+        logDebug('androidVr audio-only failed for $videoId: $e, trying muxed fallback');
+      }
+
+      // 后备方案：使用 muxed 流
       final manifest = await _youtube.videos.streams.getManifest(
         videoId,
         ytClients: [
@@ -232,24 +262,20 @@ class YouTubeSource extends BaseSource with Logging {
         ],
       );
 
-      // 优先使用 muxed 流（视频+音频单文件）
-      // media_kit (libmpv) 在 Windows 上无法打开 audio-only 流（无论 webm/opus 还是 mp4/aac）
-      // 错误："Failed to open ..."，只有 muxed 流能正常工作
       if (manifest.muxed.isNotEmpty) {
         final muxedStream = manifest.muxed.withHighestBitrate();
-        logDebug(
-            'Got muxed stream for $videoId, bitrate: ${muxedStream.bitrate}');
+        logDebug('Got muxed stream for $videoId (fallback), bitrate: ${muxedStream.bitrate}');
         return muxedStream.url.toString();
       }
 
-      // 备选：HLS 流（m3u8 分段加载）
+      // 最后备选：HLS 流
       if (manifest.hls.isNotEmpty) {
         final hlsStream = manifest.hls.first;
         logDebug('Got HLS stream for $videoId (fallback)');
         return hlsStream.url.toString();
       }
 
-      logError('No muxed or HLS stream available for YouTube video: $videoId');
+      logError('No audio stream available for YouTube video: $videoId');
       throw YouTubeApiException(
         code: 'no_stream',
         message: 'No audio stream available',
@@ -275,6 +301,30 @@ class YouTubeSource extends BaseSource with Logging {
   Future<String?> getAlternativeAudioUrl(String videoId, {String? failedUrl}) async {
     logDebug('Getting alternative audio URL for YouTube video: $videoId');
     try {
+      // 先尝试 androidVr 的 audio-only 流
+      try {
+        final vrManifest = await _youtube.videos.streams.getManifest(
+          videoId,
+          ytClients: [yt.YoutubeApiClient.androidVr],
+        );
+
+        if (vrManifest.audioOnly.isNotEmpty) {
+          final audioStreams = vrManifest.audioOnly.toList();
+          audioStreams.sort((a, b) => b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond));
+
+          // 找一个不同于 failedUrl 的流
+          for (final stream in audioStreams) {
+            final url = stream.url.toString();
+            if (url != failedUrl) {
+              logDebug('Got alternative audio-only stream for $videoId via androidVr');
+              return url;
+            }
+          }
+        }
+      } catch (e) {
+        logDebug('androidVr alternative failed for $videoId: $e');
+      }
+
       final manifest = await _youtube.videos.streams.getManifest(
         videoId,
         ytClients: [
@@ -293,8 +343,6 @@ class YouTubeSource extends BaseSource with Logging {
           return url;
         }
       }
-
-      // 注意：audio-only 流在 Windows 上不可用（media_kit/libmpv 限制）
 
       // 尝试 HLS 流（m3u8 分段格式）
       if (manifest.hls.isNotEmpty) {

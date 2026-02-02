@@ -697,11 +697,18 @@ void main() async {
 
 **音量转换**：media_kit 使用 0-100 范围，应用使用 0-1 范围。转换在 `MediaKitAudioService` 中处理。
 
-**YouTube 流优先级**：
-1. **Muxed**（视频+音频）- Windows 必需（libmpv 无法打开 audio-only 流）
-2. **HLS**（m3u8 分段）- 备选
+**YouTube 流优先级（2026-02 更新）**：
+1. **Audio-only via androidVr client** - 优先使用（带宽最低，无视频数据）
+2. **Muxed**（视频+音频）- androidVr 失败时的后备
+3. **HLS**（m3u8 分段）- 最后备选
 
-注意：Audio-only 流（无论 webm/opus 还是 mp4/aac）在 Windows 上都会失败，错误为 "Failed to open"。这是 libmpv/media_kit 的限制，与代理或 headers 传递方式无关。
+**重要发现（2026-02）**：只有 `YoutubeApiClient.androidVr` 客户端产生的 audio-only 流 URL 可以正常访问。其他客户端（`android`, `ios`, `safari`）的 audio-only 流返回 HTTP 403。androidVr 客户端的 URL 包含 `c=ANDROID_VR` 参数。
+
+**带宽对比**：
+- Audio-only (mp4/aac): ~128-256 kbps
+- Muxed (360p video+audio): ~500-1000 kbps
+
+**实现**：`YouTubeSource.getAudioUrl()` 优先尝试 androidVr 客户端获取 audio-only 流，失败则回退到 muxed 流。
 
 ## 进度条拖动最佳实践
 

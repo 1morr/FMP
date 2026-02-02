@@ -172,10 +172,15 @@ void main() async {
 **Volume conversion**: media_kit uses 0-100 range, app uses 0-1 range. Conversion handled in `MediaKitAudioService`.
 
 **YouTube Stream Format Priority**:
-1. **Muxed** (video+audio) - Required on Windows (libmpv can't open audio-only streams)
-2. **HLS** (m3u8 segmented) - Fallback
+1. **Audio-only via androidVr client** - Preferred (lowest bandwidth, no video data)
+2. **Muxed** (video+audio) - Fallback if androidVr fails
+3. **HLS** (m3u8 segmented) - Last resort
 
-Note: Audio-only streams (webm/opus, mp4/aac) fail with "Failed to open" error on Windows regardless of how headers are passed. This is a libmpv/media_kit limitation.
+**Important Discovery (2026-02)**: Only the `YoutubeApiClient.androidVr` client produces audio-only stream URLs that are HTTP accessible. Other clients (`android`, `ios`, `safari`) return HTTP 403 for audio-only streams. The androidVr client URLs contain `c=ANDROID_VR` parameter.
+
+**Bandwidth comparison**:
+- Audio-only (mp4/aac): ~128-256 kbps
+- Muxed (360p video+audio): ~500-1000 kbps
 
 ### State Management: Riverpod
 

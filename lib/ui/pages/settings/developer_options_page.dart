@@ -13,6 +13,7 @@ import '../../../data/models/track.dart';
 import '../../../providers/database_provider.dart';
 import '../../../providers/playback_settings_provider.dart';
 import '../../router.dart';
+import '../debug/youtube_stream_test_page.dart';
 
 /// 开发者选项页面
 class DeveloperOptionsPage extends ConsumerWidget {
@@ -43,6 +44,17 @@ class DeveloperOptionsPage extends ConsumerWidget {
                 subtitle: const Text('查看和浏览 Isar 数据库内容'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.pushNamed(RouteNames.databaseViewer),
+              ),
+              ListTile(
+                leading: const Icon(Icons.music_note_outlined),
+                title: const Text('YouTube 流测试'),
+                subtitle: const Text('测试 Audio-only / Muxed / HLS 流播放'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const YouTubeStreamTestPage(),
+                  ),
+                ),
               ),
             ],
           ),
