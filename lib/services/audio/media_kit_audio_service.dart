@@ -338,6 +338,26 @@ class MediaKitAudioService with Logging {
     await _player.seek(newPosition < Duration.zero ? Duration.zero : newPosition);
   }
 
+  /// 嘗試跳到直播流的最新位置
+  /// 返回 true 表示成功 seek，false 表示無法 seek（需要重新連接）
+  Future<bool> seekToLive() async {
+    // 獲取當前 duration
+    final currentDuration = _duration ?? Duration.zero;
+    
+    // 如果 duration 為 0 或太短，無法 seek
+    if (currentDuration.inSeconds < 5) {
+      logDebug('seekToLive: duration too short (${currentDuration.inSeconds}s), cannot seek');
+      return false;
+    }
+    
+    // 嘗試 seek 到接近末尾（留 1 秒緩衝）
+    final targetPosition = currentDuration - const Duration(seconds: 1);
+    logDebug('seekToLive: seeking to $targetPosition (duration: $currentDuration)');
+    
+    await _player.seek(targetPosition);
+    return true;
+  }
+
   // ========== 播放速度 ==========
 
   /// 设置播放速度 (0.5 - 2.0)

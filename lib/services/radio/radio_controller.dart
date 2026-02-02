@@ -450,9 +450,20 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     await play(state.currentStation!);
   }
 
-  /// 同步直播（重新載入流以獲取最新進度）
+  /// 同步直播（嘗試跳到最新進度，若無法 seek 則重新連接）
   Future<void> sync() async {
     if (state.currentStation == null) return;
+    if (!state.isPlaying) return;
+
+    // 先嘗試 seek 到直播流末尾
+    final success = await _audioService.seekToLive();
+    if (success) {
+      logInfo('Synced to live edge via seek');
+      return;
+    }
+
+    // 無法 seek，重新連接流
+    logInfo('Cannot seek, reconnecting stream');
     await play(state.currentStation!);
   }
 
