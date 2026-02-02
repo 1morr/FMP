@@ -108,6 +108,7 @@
 | rankingCacheServiceProvider | `services/cache/ranking_cache_service.dart` | Provider<RankingCacheService> |
 | homeBilibiliMusicRankingProvider | `providers/popular_provider.dart` | StreamProvider<List<Track>>（緩存版） |
 | homeYouTubeMusicRankingProvider | `providers/popular_provider.dart` | StreamProvider<List<Track>>（緩存版） |
+| audioSettingsProvider | `providers/audio_settings_provider.dart` | StateNotifierProvider<AudioSettingsNotifier, AudioSettingsState> |
 
 ## UI 结构
 
@@ -125,6 +126,7 @@
 | 已下载 | `/library/downloaded` | `ui/pages/library/downloaded_page.dart` |
 | 已下载分类 | `/library/downloaded/:path` | `ui/pages/library/downloaded_category_page.dart` |
 | 下载管理 | `/settings/download-manager` | `ui/pages/settings/download_manager_page.dart` |
+| 音频设置 | `/settings/audio` | `ui/pages/settings/audio_settings_page.dart` |
 
 ### 路由配置
 - 使用 `go_router` 进行声明式路由

@@ -809,6 +809,125 @@ session.becomingNoisyEventStream.listen((_) {
 });
 ```
 
+## 音频质量设置（2026-02）
+
+### 概述
+
+用户可配置的音频质量设置，支持码率等级、格式优先级和流类型优先级。
+
+### 数据模型
+
+**Settings 模型新增枚举** (`lib/data/models/settings.dart`)：
+
+```dart
+/// 音质等级（全局，适用于所有音源）
+enum AudioQualityLevel {
+  high,   // 最高码率
+  medium, // 中等码率
+  low,    // 最低码率（省流量）
+}
+
+/// 音频格式（仅对 YouTube 有效，Bilibili 只有 AAC）
+enum AudioFormat {
+  opus,  // Opus (WebM) - 音质好、体积小，兼容性稍差
+  aac,   // AAC (MP4) - 兼容性最好
+}
+
+/// 流类型
+enum StreamType {
+  audioOnly,  // 纯音频流（省流量）
+  muxed,      // 混合流（视频+音频）
+  hls,        // HLS 分段流（仅 YouTube）
+}
+```
+
+**Settings 模型新增字段**：
+- `audioQualityLevelIndex` - 音质等级索引
+- `audioFormatPriority` - 格式优先级（逗号分隔字符串）
+- `youtubeStreamPriority` - YouTube 流优先级
+- `bilibiliStreamPriority` - Bilibili 流优先级
+
+### Provider
+
+**AudioSettingsProvider** (`lib/providers/audio_settings_provider.dart`)：
+
+```dart
+class AudioSettingsState {
+  final AudioQualityLevel qualityLevel;
+  final List<AudioFormat> formatPriority;
+  final List<StreamType> youtubeStreamPriority;
+  final List<StreamType> bilibiliStreamPriority;
+  final bool isLoading;
+}
+
+class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
+  Future<void> setQualityLevel(AudioQualityLevel level);
+  Future<void> setFormatPriority(List<AudioFormat> priority);
+  Future<void> setYoutubeStreamPriority(List<StreamType> priority);
+  Future<void> setBilibiliStreamPriority(List<StreamType> priority);
+}
+
+final audioSettingsProvider = StateNotifierProvider<...>;
+```
+
+### Source 集成
+
+**AudioStreamConfig** - 传递给 source 的配置：
+```dart
+class AudioStreamConfig {
+  final AudioQualityLevel qualityLevel;
+  final List<AudioFormat> formatPriority;
+  final List<StreamType> streamPriority;
+}
+```
+
+**AudioStreamResult** - source 返回的结果：
+```dart
+class AudioStreamResult {
+  final String url;
+  final int? bitrate;         // 码率 (bps)
+  final String? container;    // 容器格式 (mp4, webm, flv)
+  final String? codec;        // 编码 (aac, opus)
+  final StreamType streamType;
+}
+```
+
+**QueueManager** 集成：
+- 读取 `audioSettingsProvider` 获取用户设置
+- 构建 `AudioStreamConfig` 传递给 source
+- 从 `AudioStreamResult` 提取元信息传递给 AudioController
+
+### PlayerState 新增字段
+
+```dart
+class PlayerState {
+  final int? currentBitrate;      // 当前码率 (bps)
+  final String? currentContainer; // 当前容器格式
+  final String? currentCodec;     // 当前编码
+  final StreamType? currentStreamType; // 当前流类型
+}
+```
+
+### UI 显示
+
+**设置页面** (`lib/ui/pages/settings/audio_settings_page.dart`)：
+- 全局音质等级（高/中/低）- 适用于所有音源
+- YouTube 格式优先级（可拖拽排序 Opus/AAC）- 仅对 YouTube 有效
+- YouTube 流优先级（audioOnly/muxed/hls）
+- Bilibili 流优先级（audioOnly/muxed）
+
+**播放器信息弹窗** (`lib/ui/pages/player/player_page.dart`)：
+- 显示码率、容器格式、编码、流类型
+
+**歌曲详情面板** (`lib/ui/widgets/track_detail_panel.dart`)：
+- 底部"音频信息"区域显示技术参数
+
+### 关键限制
+
+1. **Bilibili 格式限制**：Bilibili 只支持 AAC 格式，格式优先级设置对其无影响
+2. **Bilibili 直播流**：直播流始终是 muxed（视频+音频混合），无法获取纯音频流
+3. **YouTube androidVr**：只有 androidVr 客户端的 audio-only 流 URL 可以正常访问
+
 ## 文件位置
 
 | 文件 | 职责 |
@@ -817,6 +936,8 @@ session.becomingNoisyEventStream.listen((_) {
 | `lib/services/audio/audio_types.dart` | 自定义类型（FmpAudioProcessingState 等） |
 | `lib/services/audio/audio_provider.dart` | AudioController + PlayerState + Providers |
 | `lib/services/audio/queue_manager.dart` | 队列管理 |
+| `lib/providers/audio_settings_provider.dart` | 音频质量设置 Provider |
 | `lib/ui/pages/player/player_page.dart` | 全屏播放器页面 |
 | `lib/ui/widgets/player/mini_player.dart` | 底部迷你播放器 |
 | `lib/ui/pages/queue/queue_page.dart` | 队列页面 |
+| `lib/ui/pages/settings/audio_settings_page.dart` | 音频设置页面 |
