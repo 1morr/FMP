@@ -100,6 +100,8 @@ class RankingCacheService {
   Future<void> refreshYouTube() async {
     try {
       final tracks = await _youtubeSource.getTrendingVideos(category: 'music');
+      // 按播放數降序排序
+      tracks.sort((a, b) => (b.viewCount ?? 0).compareTo(a.viewCount ?? 0));
       _youtubeTracks = tracks; // 緩存完整數據
       _youtubeLoaded = true;
       _notifyStateChange();
