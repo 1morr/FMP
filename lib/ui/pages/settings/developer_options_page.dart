@@ -11,6 +11,7 @@ import '../../../data/models/playlist.dart';
 import '../../../data/models/settings.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/database_provider.dart';
+import '../../../core/services/network_image_cache_service.dart';
 import '../../../providers/playback_settings_provider.dart';
 import '../../router.dart';
 import '../debug/youtube_stream_test_page.dart';
@@ -31,6 +32,7 @@ class DeveloperOptionsPage extends ConsumerWidget {
           _SettingsSection(
             title: '调试工具',
             children: [
+              const _MemoryInfoTile(),
               ListTile(
                 leading: const Icon(Icons.article_outlined),
                 title: const Text('实时日志'),
@@ -170,6 +172,121 @@ class _DatabaseInfo {
     required this.size,
     required this.trackCount,
     required this.playlistCount,
+  });
+}
+
+/// 内存信息显示
+class _MemoryInfoTile extends StatefulWidget {
+  const _MemoryInfoTile();
+
+  @override
+  State<_MemoryInfoTile> createState() => _MemoryInfoTileState();
+}
+
+class _MemoryInfoTileState extends State<_MemoryInfoTile> {
+  _MemoryInfo? _memoryInfo;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMemoryInfo();
+  }
+
+  Future<void> _loadMemoryInfo() async {
+    setState(() => _isLoading = true);
+
+    try {
+      // 获取图片缓存大小
+      final imageCacheMB = await NetworkImageCacheService.getCacheSizeMB();
+      final maxImageCacheMB = NetworkImageCacheService.maxCacheSizeMB;
+
+      // 获取进程内存信息（仅限支持的平台）
+      int? rssBytes;
+      if (Platform.isAndroid || Platform.isWindows || Platform.isLinux) {
+        rssBytes = ProcessInfo.currentRss;
+      }
+
+      setState(() {
+        _memoryInfo = _MemoryInfo(
+          imageCacheMB: imageCacheMB,
+          maxImageCacheMB: maxImageCacheMB,
+          rssBytes: rssBytes,
+        );
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const ListTile(
+        leading: Icon(Icons.memory),
+        title: Text('内存使用'),
+        subtitle: Text('加载中...'),
+      );
+    }
+
+    final info = _memoryInfo;
+    if (info == null) {
+      return ListTile(
+        leading: const Icon(Icons.memory),
+        title: const Text('内存使用'),
+        subtitle: const Text('无法获取内存信息'),
+        trailing: IconButton(
+          icon: const Icon(Icons.refresh),
+          onPressed: _loadMemoryInfo,
+        ),
+      );
+    }
+
+    final subtitleParts = <String>[];
+
+    // 图片缓存
+    subtitleParts.add(
+      '图片缓存: ${info.imageCacheMB.toStringAsFixed(1)} / ${info.maxImageCacheMB} MB',
+    );
+
+    // 进程内存（如果可用）
+    if (info.rssBytes != null) {
+      subtitleParts.add('进程内存 (RSS): ${_formatBytes(info.rssBytes!)}');
+    }
+
+    return ListTile(
+      leading: const Icon(Icons.memory),
+      title: const Text('内存使用'),
+      subtitle: Text(subtitleParts.join('\n')),
+      isThreeLine: info.rssBytes != null,
+      trailing: IconButton(
+        icon: const Icon(Icons.refresh),
+        onPressed: _loadMemoryInfo,
+        tooltip: '刷新',
+      ),
+    );
+  }
+}
+
+class _MemoryInfo {
+  final double imageCacheMB;
+  final int maxImageCacheMB;
+  final int? rssBytes;
+
+  _MemoryInfo({
+    required this.imageCacheMB,
+    required this.maxImageCacheMB,
+    this.rssBytes,
   });
 }
 
