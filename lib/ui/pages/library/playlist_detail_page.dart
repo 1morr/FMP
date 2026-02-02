@@ -311,6 +311,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                         networkUrl: coverData.networkUrl,
                         placeholder: Container(color: colorScheme.primaryContainer),
                         fit: BoxFit.cover,
+                        targetDisplaySize: 480,  // 高清背景
                       ),
                     )
                   : Container(color: colorScheme.primaryContainer),
