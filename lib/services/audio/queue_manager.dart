@@ -676,6 +676,23 @@ class QueueManager with Logging {
     _notifyStateChanged();
   }
 
+  /// 直接設置隨機播放狀態
+  Future<void> setShuffle(bool enabled) async {
+    if (_currentQueue == null) return;
+    if (_currentQueue!.isShuffleEnabled == enabled) return;
+
+    _currentQueue!.isShuffleEnabled = enabled;
+    await _queueRepository.save(_currentQueue!);
+
+    if (enabled) {
+      _generateShuffleOrder();
+    } else {
+      _clearShuffleOrder();
+    }
+
+    _notifyStateChanged();
+  }
+
   /// 设置循环模式
   Future<void> setLoopMode(LoopMode mode) async {
     if (_currentQueue == null) return;
