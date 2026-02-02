@@ -478,6 +478,69 @@ Future<void> _downloadPlaylistCover(Playlist playlist) async {
 
 ---
 
+## 图片 URL 优化（2026-02 新增）
+
+### ThumbnailUrlUtils
+
+**文件位置**：`lib/core/utils/thumbnail_url_utils.dart`
+
+**功能**：
+- 将高清图片 URL 转换为适合显示尺寸的缩略图 URL
+- 减少网络传输量（700 KB → 20 KB）
+- 减少磁盘缓存占用
+- 减少内存占用（解码后的位图更小）
+
+**支持的图片源**：
+
+| 来源 | URL 格式 | 优化方式 |
+|------|---------|---------|
+| Bilibili | `hdslb.com/bfs/xxx.jpg` | 添加 `@{size}w.jpg` 后缀 |
+| YouTube 缩略图 | `ytimg.com/vi/{id}/xxx.jpg` | 选择合适的质量档位 + webp 格式 |
+| YouTube 头像 | `ggpht.com/xxx=s{size}` | 替换尺寸参数 |
+
+**尺寸档位**：
+
+| 档位 | Bilibili | YouTube 缩略图 | YouTube 头像 |
+|------|---------|---------------|-------------|
+| 小 (≤120px) | 200w | default (90p) | 48 |
+| 中 (≤200px) | 200w | mqdefault (180p) | 88 |
+| 大 (≤400px) | 400w | hqdefault (360p) | 176 |
+| 超大 (≤640px) | 640w | sddefault (480p) | 240 |
+
+**使用方式**：
+```dart
+// 自动根据显示尺寸优化
+ThumbnailUrlUtils.getOptimizedUrl(url, displaySize: 48);
+
+// 便捷方法
+ThumbnailUrlUtils.getSmallThumbnail(url);   // 120px
+ThumbnailUrlUtils.getMediumThumbnail(url);  // 200px
+ThumbnailUrlUtils.getLargeThumbnail(url);   // 480px
+```
+
+**ImageLoadingService 集成**：
+`ImageLoadingService._loadNetworkOrPlaceholder()` 已自动使用 `ThumbnailUrlUtils`，
+根据 `width`/`height` 参数自动优化 URL。
+
+### memCacheWidth/memCacheHeight 后备
+
+即使 URL 优化不生效（如不支持的 URL 格式），`_CachedNetworkImage` 也会使用
+`memCacheWidth`/`memCacheHeight` 参数限制内存缓存中的图片尺寸：
+
+```dart
+final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+final memCacheWidth = width != null ? (width! * devicePixelRatio).toInt() : null;
+final memCacheHeight = height != null ? (height! * devicePixelRatio).toInt() : null;
+
+CachedNetworkImage(
+  // ...
+  memCacheWidth: memCacheWidth,
+  memCacheHeight: memCacheHeight,
+)
+```
+
+---
+
 ## 图片加载最佳实践
 
 ### 1. 使用 TrackThumbnail/TrackCover 组件

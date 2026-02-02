@@ -7,6 +7,7 @@ import '../../data/models/playlist.dart';
 import '../../providers/download/file_exists_cache.dart';
 import '../constants/app_constants.dart';
 import '../extensions/playlist_extensions.dart';
+import '../utils/thumbnail_url_utils.dart';
 import 'network_image_cache_service.dart';
 
 /// 统一的图片加载服务
@@ -112,8 +113,15 @@ class ImageLoadingService {
     Duration fadeInDuration = AppConstants.defaultFadeInDuration,
   }) {
     if (networkUrl != null && networkUrl.isNotEmpty) {
+      // 根据显示尺寸优化 URL
+      final displaySize = width ?? height;
+      final optimizedUrl = ThumbnailUrlUtils.getOptimizedUrl(
+        networkUrl,
+        displaySize: displaySize,
+      );
+
       return _CachedNetworkImage(
-        url: networkUrl,
+        url: optimizedUrl,
         fit: fit,
         width: width,
         height: height,
@@ -385,6 +393,7 @@ class _FadeInImageState extends State<_FadeInImage>
 /// - 内存缓存（快速访问）
 /// - 磁盘缓存（持久化存储）
 /// - 淡入动画效果
+/// - 限制内存缓存尺寸（减少内存占用）
 class _CachedNetworkImage extends StatelessWidget {
   final String url;
   final BoxFit fit;
@@ -408,6 +417,11 @@ class _CachedNetworkImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 计算内存缓存尺寸（考虑设备像素比）
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final memCacheWidth = width != null ? (width! * devicePixelRatio).toInt() : null;
+    final memCacheHeight = height != null ? (height! * devicePixelRatio).toInt() : null;
+
     return CachedNetworkImage(
       imageUrl: url,
       fit: fit,
@@ -417,6 +431,9 @@ class _CachedNetworkImage extends StatelessWidget {
       cacheManager: NetworkImageCacheService.defaultCacheManager,
       fadeInDuration: fadeInDuration,
       fadeOutDuration: const Duration(milliseconds: 100),
+      // 限制内存缓存中的图片尺寸，减少内存占用
+      memCacheWidth: memCacheWidth,
+      memCacheHeight: memCacheHeight,
       placeholder: (context, url) => showLoadingIndicator
           ? const Center(
               child: CircularProgressIndicator(strokeWidth: 2),
