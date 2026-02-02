@@ -1,5 +1,5 @@
 import 'dart:io' show Platform;
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/services/image_loading_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -140,15 +140,11 @@ class RadioPlayerPage extends ConsumerWidget {
           ],
         ),
         clipBehavior: Clip.antiAlias,
-        child: station.thumbnailUrl != null
-            ? CachedNetworkImage(
-                imageUrl: station.thumbnailUrl!,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => _buildCoverPlaceholder(colorScheme),
-                errorWidget: (context, url, error) =>
-                    _buildCoverPlaceholder(colorScheme),
-              )
-            : _buildCoverPlaceholder(colorScheme),
+        child: ImageLoadingService.loadImage(
+          networkUrl: station.thumbnailUrl,
+          placeholder: _buildCoverPlaceholder(colorScheme),
+          fit: BoxFit.cover,
+        ),
       ),
     );
   }
@@ -566,21 +562,9 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
                                   : null,
                               child: Row(
                                 children: [
-                                  ClipOval(
-                                    child: SizedBox(
-                                      width: 40,
-                                      height: 40,
-                                      child: station.hostAvatarUrl != null
-                                          ? Image.network(
-                                              station.hostAvatarUrl!,
-                                              width: 40,
-                                              height: 40,
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (context, error, stackTrace) =>
-                                                  _buildAvatarPlaceholder(colorScheme),
-                                            )
-                                          : _buildAvatarPlaceholder(colorScheme),
-                                    ),
+                                  ImageLoadingService.loadAvatar(
+                                    networkUrl: station.hostAvatarUrl,
+                                    size: 40,
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
@@ -813,19 +797,6 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
           )).toList(),
         ),
       ],
-    );
-  }
-
-  Widget _buildAvatarPlaceholder(ColorScheme colorScheme) {
-    return Container(
-      width: 40,
-      height: 40,
-      color: colorScheme.surfaceContainerHighest,
-      child: Icon(
-        Icons.person,
-        size: 24,
-        color: colorScheme.onSurfaceVariant,
-      ),
     );
   }
 

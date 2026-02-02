@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/services/image_loading_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -377,30 +377,26 @@ class _RadioStationCard extends StatelessWidget {
                   color: colorScheme.surfaceContainerHighest,
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: station.thumbnailUrl != null
-                    ? ColorFiltered(
-                        colorFilter: isLive
-                            ? const ColorFilter.mode(
-                                Colors.transparent,
-                                BlendMode.multiply,
-                              )
-                            : const ColorFilter.matrix(<double>[
-                                0.2126, 0.7152, 0.0722, 0, 0,
-                                0.2126, 0.7152, 0.0722, 0, 0,
-                                0.2126, 0.7152, 0.0722, 0, 0,
-                                0, 0, 0, 1, 0,
-                              ]),
-                        child: CachedNetworkImage(
-                          imageUrl: station.thumbnailUrl!,
-                          fit: BoxFit.cover,
-                          width: 100,
-                          height: 100,
-                          placeholder: (context, url) => _buildPlaceholder(colorScheme),
-                          errorWidget: (context, url, error) =>
-                              _buildPlaceholder(colorScheme),
-                        ),
-                      )
-                    : _buildPlaceholder(colorScheme),
+                child: ColorFiltered(
+                    colorFilter: isLive
+                        ? const ColorFilter.mode(
+                            Colors.transparent,
+                            BlendMode.multiply,
+                          )
+                        : const ColorFilter.matrix(<double>[
+                            0.2126, 0.7152, 0.0722, 0, 0,
+                            0.2126, 0.7152, 0.0722, 0, 0,
+                            0.2126, 0.7152, 0.0722, 0, 0,
+                            0, 0, 0, 1, 0,
+                          ]),
+                    child: ImageLoadingService.loadImage(
+                      networkUrl: station.thumbnailUrl,
+                      placeholder: _buildPlaceholder(colorScheme),
+                      fit: BoxFit.cover,
+                      width: 100,
+                      height: 100,
+                    ),
+                  ),
               ),
 
               // 正在直播紅點
