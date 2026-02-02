@@ -3,10 +3,7 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
-import '../../data/models/playlist.dart';
-import '../../providers/download/file_exists_cache.dart';
 import '../constants/app_constants.dart';
-import '../extensions/playlist_extensions.dart';
 import '../utils/thumbnail_url_utils.dart';
 import 'network_image_cache_service.dart';
 
@@ -139,69 +136,6 @@ class ImageLoadingService {
     }
 
     return placeholder;
-  }
-
-  /// 加载歌单封面
-  ///
-  /// 专门用于 Playlist 的封面图片加载，自动处理本地/网络优先级
-  /// 
-  /// 优先级：
-  /// 1. 歌单本地封面（playlist.coverLocalPath）
-  /// 2. 第一首已下载歌曲的本地封面
-  /// 3. 歌单的网络封面 URL
-  /// 4. 第一首歌曲的网络封面 URL
-  /// 5. 占位符
-  ///
-  /// [playlist] 歌单数据
-  /// [cache] FileExistsCache 实例（用于检查本地文件是否存在）
-  /// [firstTrackLocalCover] 第一首歌曲的本地封面路径（可选）
-  /// [firstTrackNetworkCover] 第一首歌曲的网络封面 URL（可选）
-  /// [size] 图片尺寸（正方形）
-  /// [borderRadius] 圆角半径
-  /// [placeholderIcon] 占位符图标
-  /// [placeholderIconSize] 占位符图标大小（默认为 size 的一半）
-  static Widget loadPlaylistCover(
-    Playlist playlist, {
-    required FileExistsCache cache,
-    String? firstTrackLocalCover,
-    String? firstTrackNetworkCover,
-    double? size,
-    double borderRadius = 4,
-    IconData placeholderIcon = Icons.album,
-    double? placeholderIconSize,
-  }) {
-    return Builder(
-      builder: (context) {
-        final colorScheme = Theme.of(context).colorScheme;
-
-        final placeholder = _buildIconPlaceholder(
-          colorScheme: colorScheme,
-          icon: placeholderIcon,
-          iconSize: placeholderIconSize ?? (size != null ? size * 0.5 : 24),
-        );
-
-        // 1. 检查歌单本地封面
-        String? localPath = playlist.getLocalCoverPath(cache);
-        
-        // 2. 如果歌单没有本地封面，尝试第一首歌的本地封面
-        localPath ??= firstTrackLocalCover;
-
-        // 3. 网络封面优先级：歌单封面 → 第一首歌封面
-        String? networkUrl = playlist.coverUrl;
-        if (networkUrl == null || networkUrl.isEmpty) {
-          networkUrl = firstTrackNetworkCover;
-        }
-
-        return loadImage(
-          localPath: localPath,
-          networkUrl: networkUrl,
-          placeholder: placeholder,
-          fit: BoxFit.cover,
-          width: size,
-          height: size,
-        );
-      },
-    );
   }
 
   /// 加载头像图片

@@ -167,14 +167,12 @@ class _ImportUrlDialogState extends ConsumerState<ImportUrlDialog> {
       final sourceManager = ref.read(sourceManagerProvider);
       final playlistRepo = ref.read(playlistRepositoryProvider);
       final trackRepo = ref.read(trackRepositoryProvider);
-      final settingsRepo = ref.read(settingsRepositoryProvider);
       final isar = await ref.read(databaseProvider.future);
       
       final importService = ImportService(
         sourceManager: sourceManager,
         playlistRepository: playlistRepo,
         trackRepository: trackRepo,
-        settingsRepository: settingsRepo,
         isar: isar,
       );
 

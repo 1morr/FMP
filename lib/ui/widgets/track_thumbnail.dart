@@ -3,10 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/extensions/track_extensions.dart';
 import '../../core/services/image_loading_service.dart';
-import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
 import '../../providers/download/file_exists_cache.dart';
-import '../../services/library/playlist_service.dart';
 import 'now_playing_indicator.dart';
 
 /// 统一的歌曲封面缩略图组件
@@ -201,104 +199,4 @@ class TrackCover extends ConsumerWidget {
   }
 }
 
-/// 统一的歌单封面缩略图组件
-///
-/// 功能：
-/// - 优先显示本地封面（已下载歌单封面）
-/// - 回退到第一首歌的本地/网络封面
-/// - 无封面时显示占位符
-///
-/// 使用示例：
-/// ```dart
-/// PlaylistThumbnail(
-///   playlist: playlist,
-///   coverData: coverData, // 从 playlistCoverProvider 获取
-///   size: 120,
-/// )
-/// ```
-class PlaylistThumbnail extends ConsumerWidget {
-  /// 歌单数据
-  final Playlist playlist;
 
-  /// 封面数据（从 playlistCoverProvider 获取）
-  final PlaylistCoverData? coverData;
-
-  /// 缩略图尺寸（宽高相等）
-  final double size;
-
-  /// 圆角半径
-  final double borderRadius;
-
-  /// 占位符图标
-  final IconData placeholderIcon;
-
-  /// 占位符图标大小（默认为 size 的一半）
-  final double? iconSize;
-
-  const PlaylistThumbnail({
-    super.key,
-    required this.playlist,
-    this.coverData,
-    this.size = 48,
-    this.borderRadius = 8,
-    this.placeholderIcon = Icons.album,
-    this.iconSize,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-    // Watch 文件存在缓存，以便在缓存更新时重建
-    ref.watch(fileExistsCacheProvider);
-    final cache = ref.read(fileExistsCacheProvider.notifier);
-
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(borderRadius),
-          color: colorScheme.surfaceContainerHighest,
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: _buildImage(colorScheme, cache),
-      ),
-    );
-  }
-
-  Widget _buildImage(ColorScheme colorScheme, FileExistsCache cache) {
-    final placeholder = _buildPlaceholder(colorScheme);
-
-    // 如果有 coverData，使用它
-    if (coverData != null) {
-      return ImageLoadingService.loadImage(
-        localPath: coverData!.localPath,
-        networkUrl: coverData!.networkUrl,
-        placeholder: placeholder,
-        fit: BoxFit.cover,
-        width: size,
-        height: size,
-      );
-    }
-
-    // 否则直接使用 playlist 信息（不包含第一首歌的封面）
-    return ImageLoadingService.loadPlaylistCover(
-      playlist,
-      cache: cache,
-      size: size,
-      borderRadius: borderRadius,
-      placeholderIcon: placeholderIcon,
-      placeholderIconSize: iconSize,
-    );
-  }
-
-  Widget _buildPlaceholder(ColorScheme colorScheme) {
-    return Center(
-      child: Icon(
-        placeholderIcon,
-        size: iconSize ?? size * 0.5,
-        color: colorScheme.outline,
-      ),
-    );
-  }
-}
