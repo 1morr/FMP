@@ -364,9 +364,9 @@ class _PlaylistCard extends ConsumerWidget {
     }
 
     final controller = ref.read(audioControllerProvider.notifier);
-    controller.addAllToQueue(result.tracks);
+    final added = await controller.addAllToQueue(result.tracks);
     
-    if (context.mounted) {
+    if (added && context.mounted) {
       ToastService.show(context, '已添加 ${result.tracks.length} 首歌曲到队列');
     }
   }
@@ -384,9 +384,9 @@ class _PlaylistCard extends ConsumerWidget {
 
     final controller = ref.read(audioControllerProvider.notifier);
     final shuffled = List<Track>.from(result.tracks)..shuffle();
-    controller.addAllToQueue(shuffled);
+    final added = await controller.addAllToQueue(shuffled);
     
-    if (context.mounted) {
+    if (added && context.mounted) {
       ToastService.show(context, '已随机添加 ${result.tracks.length} 首歌曲到队列');
     }
   }

@@ -116,29 +116,31 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.download_done,
-            size: 64,
-            color: colorScheme.outline,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '暂无已下载的歌曲',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: colorScheme.outline,
-                ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '在歌曲菜单中选择"下载"来下载歌曲',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.outline,
-                ),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.download_done,
+              size: 80,
+              color: colorScheme.outline,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              '暂无已下载的歌曲',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '在歌曲菜单中选择"下载"来下载歌曲',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.outline,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -147,30 +149,18 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
     BuildContext context,
     List<DownloadedCategory> categories,
   ) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // 响应式网格列数 - 与音乐库页面相同
-        final crossAxisCount = constraints.maxWidth > 900
-            ? 5
-            : constraints.maxWidth > 600
-                ? 4
-                : constraints.maxWidth > 400
-                    ? 3
-                    : 2;
-
-        return GridView.builder(
-          padding: const EdgeInsets.all(16),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            childAspectRatio: 0.8,
-          ),
-          itemCount: categories.length,
-          itemBuilder: (context, index) {
-            return _CategoryCard(category: categories[index]);
-          },
-        );
+    // 使用 maxCrossAxisExtent 实现平滑缩放，与音乐库页面一致
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 200,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+        childAspectRatio: 0.8,
+      ),
+      itemCount: categories.length,
+      itemBuilder: (context, index) {
+        return _CategoryCard(category: categories[index]);
       },
     );
   }
