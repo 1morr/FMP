@@ -85,7 +85,13 @@ class MediaKitAudioService with Logging {
     logInfo('Initializing MediaKitAudioService...');
 
     // 创建 media_kit 播放器
-    _player = Player();
+    // 优化内存：将 demuxer 缓存从默认的 32 MB 降低到 8 MB
+    // 对于纯音频播放，8 MB 缓冲足够（约 4-5 分钟的 256kbps 音频）
+    _player = Player(
+      configuration: const PlayerConfiguration(
+        bufferSize: 8 * 1024 * 1024, // 8 MB（默认 32 MB）
+      ),
+    );
 
     // 配置音频会话
     _session = await AudioSession.instance;

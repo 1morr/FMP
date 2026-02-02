@@ -66,149 +66,128 @@ class RouteNames {
   static const String logViewer = 'logViewer';
 }
 
-/// 用于 StatefulShellRoute 的 navigator key
+/// 用于根导航的 navigator key
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
+/// Shell 内部导航的 navigator key
+final _shellNavigatorKey = GlobalKey<NavigatorState>();
+
 /// 应用路由配置
+/// 使用普通 ShellRoute 以优化内存（页面切换时销毁非活动页面）
 final appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: RoutePaths.home,
   routes: [
-    // StatefulShellRoute - 使用 IndexedStack 保持页面状态
-    StatefulShellRoute.indexedStack(
-      builder: (context, state, navigationShell) => AppShell(
-        navigationShell: navigationShell,
-      ),
-      branches: [
-        // 首页分支
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: RoutePaths.home,
-              name: RouteNames.home,
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: HomePage(),
-              ),
-            ),
-          ],
+    // ShellRoute - 页面切换时销毁非活动页面，优化内存
+    ShellRoute(
+      navigatorKey: _shellNavigatorKey,
+      builder: (context, state, child) => AppShell(child: child),
+      routes: [
+        // 首页
+        GoRoute(
+          path: RoutePaths.home,
+          name: RouteNames.home,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: HomePage(),
+          ),
         ),
-        // 搜索分支
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: RoutePaths.search,
-              name: RouteNames.search,
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: SearchPage(),
-              ),
-            ),
-          ],
+        // 搜索
+        GoRoute(
+          path: RoutePaths.search,
+          name: RouteNames.search,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: SearchPage(),
+          ),
         ),
-        // 队列分支
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: RoutePaths.queue,
-              name: RouteNames.queue,
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: QueuePage(),
-              ),
-            ),
-          ],
+        // 队列
+        GoRoute(
+          path: RoutePaths.queue,
+          name: RouteNames.queue,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: QueuePage(),
+          ),
         ),
-        // 音乐库分支
-        StatefulShellBranch(
+        // 音乐库
+        GoRoute(
+          path: RoutePaths.library,
+          name: RouteNames.library,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: LibraryPage(),
+          ),
           routes: [
+            // 已下载页面
             GoRoute(
-              path: RoutePaths.library,
-              name: RouteNames.library,
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: LibraryPage(),
-              ),
+              path: 'downloaded',
+              name: RouteNames.downloaded,
+              builder: (context, state) => const DownloadedPage(),
               routes: [
-                // 已下载页面
+                // 已下载分类详情页
                 GoRoute(
-                  path: 'downloaded',
-                  name: RouteNames.downloaded,
-                  builder: (context, state) => const DownloadedPage(),
-                  routes: [
-                    // 已下载分类详情页
-                    GoRoute(
-                      path: ':folderName',
-                      name: RouteNames.downloadedCategory,
-                      builder: (context, state) {
-                        final category = state.extra as DownloadedCategory;
-                        return DownloadedCategoryPage(category: category);
-                      },
-                    ),
-                  ],
-                ),
-                // 歌单详情页作为 library 的子路由
-                GoRoute(
-                  path: ':id',
-                  name: RouteNames.playlistDetail,
+                  path: ':folderName',
+                  name: RouteNames.downloadedCategory,
                   builder: (context, state) {
-                    final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
-                    return PlaylistDetailPage(playlistId: id);
+                    final category = state.extra as DownloadedCategory;
+                    return DownloadedCategoryPage(category: category);
                   },
                 ),
               ],
             ),
-          ],
-        ),
-        // 电台分支
-        StatefulShellBranch(
-          routes: [
+            // 歌单详情页作为 library 的子路由
             GoRoute(
-              path: RoutePaths.radio,
-              name: RouteNames.radio,
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: RadioPage(),
-              ),
+              path: ':id',
+              name: RouteNames.playlistDetail,
+              builder: (context, state) {
+                final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+                return PlaylistDetailPage(playlistId: id);
+              },
             ),
           ],
         ),
-        // 设置分支
-        StatefulShellBranch(
+        // 电台
+        GoRoute(
+          path: RoutePaths.radio,
+          name: RouteNames.radio,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: RadioPage(),
+          ),
+        ),
+        // 设置
+        GoRoute(
+          path: RoutePaths.settings,
+          name: RouteNames.settings,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: SettingsPage(),
+          ),
           routes: [
+            // 下载管理页面作为 settings 的子路由
             GoRoute(
-              path: RoutePaths.settings,
-              name: RouteNames.settings,
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: SettingsPage(),
-              ),
+              path: 'download-manager',
+              name: RouteNames.downloadManager,
+              builder: (context, state) => const DownloadManagerPage(),
+            ),
+            // 音频质量设置页面
+            GoRoute(
+              path: 'audio',
+              name: RouteNames.audioSettings,
+              builder: (context, state) => const AudioSettingsPage(),
+            ),
+            // 开发者选项页面
+            GoRoute(
+              path: 'developer',
+              name: RouteNames.developerOptions,
+              builder: (context, state) => const DeveloperOptionsPage(),
               routes: [
-                // 下载管理页面作为 settings 的子路由
+                // 数据库查看器
                 GoRoute(
-                  path: 'download-manager',
-                  name: RouteNames.downloadManager,
-                  builder: (context, state) => const DownloadManagerPage(),
+                  path: 'database',
+                  name: RouteNames.databaseViewer,
+                  builder: (context, state) => const DatabaseViewerPage(),
                 ),
-                // 音频质量设置页面
+                // 日志查看器
                 GoRoute(
-                  path: 'audio',
-                  name: RouteNames.audioSettings,
-                  builder: (context, state) => const AudioSettingsPage(),
-                ),
-                // 开发者选项页面
-                GoRoute(
-                  path: 'developer',
-                  name: RouteNames.developerOptions,
-                  builder: (context, state) => const DeveloperOptionsPage(),
-                  routes: [
-                    // 数据库查看器
-                    GoRoute(
-                      path: 'database',
-                      name: RouteNames.databaseViewer,
-                      builder: (context, state) => const DatabaseViewerPage(),
-                    ),
-                    // 日志查看器
-                    GoRoute(
-                      path: 'logs',
-                      name: RouteNames.logViewer,
-                      builder: (context, state) => const LogViewerPage(),
-                    ),
-                  ],
+                  path: 'logs',
+                  name: RouteNames.logViewer,
+                  builder: (context, state) => const LogViewerPage(),
                 ),
               ],
             ),

@@ -21,6 +21,12 @@ late WindowsSmtcHandler windowsSmtcHandler;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // 限制 Flutter 图片内存缓存大小，减少内存占用
+  // 默认值：maximumSize = 1000, maximumSizeBytes = 100 MB
+  // 优化后：maximumSize = 200, maximumSizeBytes = 50 MB
+  PaintingBinding.instance.imageCache.maximumSize = 200;
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 50 * 1024 * 1024;
+
   // Android/iOS 后台播放初始化（使用 audio_service 替代 just_audio_background）
   if (Platform.isAndroid || Platform.isIOS) {
     audioHandler = await AudioService.init(
