@@ -14,6 +14,7 @@ import 'audio_types.dart';
 /// 解决了 just_audio_media_kit 代理对 audio-only 流的兼容性问题
 class MediaKitAudioService with Logging {
   late final Player _player;
+  late final AudioSession _session;
 
   // 完成事件控制器
   final _completedController = StreamController<void>.broadcast();
@@ -87,12 +88,12 @@ class MediaKitAudioService with Logging {
     _player = Player();
 
     // 配置音频会话
-    final session = await AudioSession.instance;
-    await session.configure(const AudioSessionConfiguration.music());
+    _session = await AudioSession.instance;
+    await _session.configure(const AudioSessionConfiguration.music());
 
     // 监听音频会话中断
     _subscriptions.add(
-      session.interruptionEventStream.listen((event) {
+      _session.interruptionEventStream.listen((event) {
         if (event.begin) {
           // 中断开始
           switch (event.type) {
@@ -137,7 +138,7 @@ class MediaKitAudioService with Logging {
 
     // 监听音频设备变化（如耳机拔出）
     _subscriptions.add(
-      session.becomingNoisyEventStream.listen((_) {
+      _session.becomingNoisyEventStream.listen((_) {
         pause();
       }),
     );
@@ -296,6 +297,8 @@ class MediaKitAudioService with Logging {
   Future<void> stop() async {
     _cancelEnsurePlayback();
     await _player.stop();
+    // 释放音频焦点
+    await _session.setActive(false);
     // 重置状态，确保 _synthesizeProcessingState 返回 idle
     _isCompleted = false;
     _isBuffering = false;
@@ -456,6 +459,9 @@ class MediaKitAudioService with Logging {
         processingState: FmpAudioProcessingState.loading,
       ));
 
+      // 激活音频会话（请求音频焦点）
+      await _session.setActive(true);
+
       // 使用 media_kit 直接打开 URL，原生支持 httpHeaders（不需要代理）
       final media = Media(url, httpHeaders: headers);
       await _player.open(media, play: false);
@@ -491,6 +497,9 @@ class MediaKitAudioService with Logging {
     try {
       // 设置加载状态
       _processingStateController.add(FmpAudioProcessingState.loading);
+
+      // 激活音频会话（请求音频焦点）
+      await _session.setActive(true);
 
       final media = Media(url, httpHeaders: headers);
       await _player.open(media, play: false);
@@ -533,6 +542,9 @@ class MediaKitAudioService with Logging {
         processingState: FmpAudioProcessingState.loading,
       ));
 
+      // 激活音频会话（请求音频焦点）
+      await _session.setActive(true);
+
       // 使用 media_kit 打开本地文件
       final media = Media(filePath);
       await _player.open(media, play: false);
@@ -565,6 +577,9 @@ class MediaKitAudioService with Logging {
     try {
       // 设置加载状态
       _processingStateController.add(FmpAudioProcessingState.loading);
+
+      // 激活音频会话（请求音频焦点）
+      await _session.setActive(true);
 
       final media = Media(filePath);
       await _player.open(media, play: false);
