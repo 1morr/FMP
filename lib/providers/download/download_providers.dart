@@ -20,6 +20,7 @@ import '../playlist_provider.dart' show playlistDetailProvider;
 
 // Re-export for convenience
 export 'download_scanner.dart';
+export '../../services/download/download_service.dart' show DownloadResult;
 
 // ==================== Repository Providers ====================
 

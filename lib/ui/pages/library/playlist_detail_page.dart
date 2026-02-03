@@ -797,7 +797,7 @@ class _GroupHeader extends ConsumerWidget {
             fromPlaylist: playlist,
             skipSchedule: true,  // 批量添加时跳过调度
           );
-          if (result != null) addedCount++;
+          if (result == DownloadResult.created) addedCount++;
         }
         // 所有任务添加完成后统一触发调度
         if (addedCount > 0) {
@@ -1024,15 +1024,23 @@ class _TrackListTile extends ConsumerWidget {
           fromPlaylist: playlist,
         );
         if (context.mounted) {
-          if (result != null) {
-            ToastService.showWithAction(
-              context,
-              '已添加到下载队列',
-              actionLabel: '查看',
-              onAction: () => context.pushNamed(RouteNames.downloadManager),
-            );
-          } else {
-            ToastService.show(context, '歌曲已下载或已在队列中');
+          switch (result) {
+            case DownloadResult.created:
+              ToastService.showWithAction(
+                context,
+                '已添加到下载队列',
+                actionLabel: '查看',
+                onAction: () => context.pushNamed(RouteNames.downloadManager),
+              );
+            case DownloadResult.alreadyDownloaded:
+              ToastService.show(context, '歌曲已下载');
+            case DownloadResult.taskExists:
+              ToastService.showWithAction(
+                context,
+                '下载任务已存在',
+                actionLabel: '查看',
+                onAction: () => context.pushNamed(RouteNames.downloadManager),
+              );
           }
         }
         break;
