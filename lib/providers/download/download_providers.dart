@@ -82,6 +82,9 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
     // 标记文件已存在，触发 UI 更新
     ref.read(fileExistsCacheProvider.notifier).markAsExisting(event.savePath);
     
+    // 清除内存中的进度（下载完成）
+    ref.read(downloadProgressStateProvider.notifier).remove(event.taskId);
+    
     // 收集需要刷新的内容
     categoriesNeedRefresh = true;
     final categoryFolderPath = p.dirname(p.dirname(event.savePath));
@@ -96,11 +99,23 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
       Future.microtask(flushInvalidations);
     });
   });
+  
+  // 监听进度流并更新内存状态
+  StreamSubscription<DownloadProgressEvent>? progressSubscription;
+  progressSubscription = service.progressStream.listen((event) {
+    ref.read(downloadProgressStateProvider.notifier).update(
+      event.taskId,
+      event.progress,
+      event.downloadedBytes,
+      event.totalBytes,
+    );
+  });
 
   // 在 provider 被销毁时清理
   ref.onDispose(() {
     debounceTimer?.cancel();
     completionSubscription?.cancel();
+    progressSubscription?.cancel();
     service.dispose();
   });
 
@@ -135,7 +150,31 @@ final completedDownloadsProvider = Provider<List<DownloadTask>>((ref) {
 
 // ==================== Progress Providers ====================
 
-/// 下载进度流 Provider
+/// 内存中的下载进度状态（避免频繁写数据库触发 Isar watch）
+/// Key: taskId, Value: (progress, downloadedBytes, totalBytes)
+class DownloadProgressState extends StateNotifier<Map<int, (double, int, int?)>> {
+  DownloadProgressState() : super({});
+  
+  void update(int taskId, double progress, int downloadedBytes, int? totalBytes) {
+    state = {...state, taskId: (progress, downloadedBytes, totalBytes)};
+  }
+  
+  void remove(int taskId) {
+    state = Map.from(state)..remove(taskId);
+  }
+  
+  void clear() {
+    state = {};
+  }
+  
+  (double, int, int?)? getProgress(int taskId) => state[taskId];
+}
+
+final downloadProgressStateProvider = StateNotifierProvider<DownloadProgressState, Map<int, (double, int, int?)>>((ref) {
+  return DownloadProgressState();
+});
+
+/// 下载进度流 Provider（原始 stream，进度更新由 downloadServiceProvider 处理）
 final downloadProgressProvider = StreamProvider<DownloadProgressEvent>((ref) {
   final service = ref.watch(downloadServiceProvider);
   return service.progressStream;

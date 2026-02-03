@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
@@ -40,7 +41,10 @@ class DownloadService with Logging {
   
   final Dio _dio;
   
-  /// 正在进行的下载任务
+  /// 正在进行的下载任务（保存 Isolate 和 ReceivePort 以支持取消）
+  final Map<int, ({Isolate isolate, ReceivePort receivePort})> _activeDownloadIsolates = {};
+  
+  /// 旧的取消令牌（保留用于非 Isolate 下载，如果需要回退）
   final Map<int, CancelToken> _activeCancelTokens = {};
   
   /// 下载进度流控制器
@@ -70,13 +74,11 @@ class DownloadService with Logging {
   /// 调度流订阅
   StreamSubscription<void>? _scheduleSubscription;
   
-  /// 全局进度更新节流（避免多个并发下载时淹没 Windows 消息队列）
-  DateTime _lastGlobalProgressUpdate = DateTime.now();
+  /// 待发送的进度更新（仅在内存中累积，由定时器统一处理）
+  /// Key: taskId, Value: (trackId, progress, downloadedBytes, totalBytes)
+  final Map<int, (int, double, int, int)> _pendingProgressUpdates = {};
   
-  /// 待发送的进度更新（用于批量处理）
-  final Map<int, DownloadProgressEvent> _pendingProgressUpdates = {};
-  
-  /// 进度更新定时器
+  /// 进度更新定时器（主线程定时器，统一处理所有进度更新）
   Timer? _progressUpdateTimer;
 
   DownloadService({
@@ -113,6 +115,9 @@ class DownloadService with Logging {
     // 启动调度器
     _startScheduler();
     
+    // 启动进度更新定时器（在主线程中统一处理进度更新）
+    _startProgressUpdateTimer();
+    
     logDebug('DownloadService initialized');
   }
 
@@ -125,7 +130,14 @@ class DownloadService with Logging {
     _progressController.close();
     _completionController.close();
     
-    // 取消所有进行中的下载
+    // 取消所有进行中的 Isolate 下载
+    for (final entry in _activeDownloadIsolates.values) {
+      entry.receivePort.close();
+      entry.isolate.kill();
+    }
+    _activeDownloadIsolates.clear();
+    
+    // 兼容旧的 CancelToken
     for (final cancelToken in _activeCancelTokens.values) {
       cancelToken.cancel('Service disposed');
     }
@@ -133,46 +145,51 @@ class DownloadService with Logging {
     _pendingProgressUpdates.clear();
   }
   
-  /// 刷新待发送的进度更新（在主线程调用）
+  /// 刷新待发送的进度更新（在主线程定时器中调用）
+  /// 注意：进度更新只发送到 stream，不写入数据库
+  /// 这样可以避免 Isar watch 频繁触发 UI 重建
   void _flushPendingProgressUpdates() {
     if (_pendingProgressUpdates.isEmpty) return;
     
     // 复制并清空待发送列表
-    final updates = Map<int, DownloadProgressEvent>.from(_pendingProgressUpdates);
+    final updates = Map<int, (int, double, int, int)>.from(_pendingProgressUpdates);
     _pendingProgressUpdates.clear();
     
-    // 批量发送所有待处理的进度更新
-    for (final event in updates.values) {
-      _progressController.add(event);
+    // 批量发送 UI 通知（进度只保存在内存中，不写数据库）
+    for (final entry in updates.entries) {
+      final taskId = entry.key;
+      final (trackId, progress, downloadedBytes, totalBytes) = entry.value;
+      
+      // 只发送 UI 通知，不写数据库
+      // 数据库只在下载完成/暂停/失败时更新
+      _progressController.add(DownloadProgressEvent(
+        taskId: taskId,
+        trackId: trackId,
+        progress: progress,
+        downloadedBytes: downloadedBytes,
+        totalBytes: totalBytes,
+      ));
     }
-    
-    _lastGlobalProgressUpdate = DateTime.now();
   }
   
-  /// 添加进度更新（使用全局节流）
-  void _addProgressUpdate(DownloadProgressEvent event) {
-    // 将更新放入待发送队列（相同 taskId 会覆盖旧的更新）
-    _pendingProgressUpdates[event.taskId] = event;
-    
-    final now = DateTime.now();
-    final timeSinceLastUpdate = now.difference(_lastGlobalProgressUpdate);
-    
-    // 全局节流：最多每 300ms 发送一次所有待处理的更新
-    // 这比每个下载 500ms 更激进，但因为是全局的所以总更新频率更低
-    const globalThrottleInterval = Duration(milliseconds: 300);
-    
-    if (timeSinceLastUpdate >= globalThrottleInterval) {
-      // 立即刷新
-      _progressUpdateTimer?.cancel();
-      _flushPendingProgressUpdates();
-    } else {
-      // 设置定时器在节流间隔后刷新
-      _progressUpdateTimer?.cancel();
-      _progressUpdateTimer = Timer(
-        globalThrottleInterval - timeSinceLastUpdate,
-        _flushPendingProgressUpdates,
-      );
-    }
+  /// 启动进度更新定时器（主线程定时器）
+  void _startProgressUpdateTimer() {
+    _progressUpdateTimer?.cancel();
+    // 每 1000ms 在主线程中统一处理所有进度更新
+    // 这样可以避免：
+    // 1. 在 IO 线程中直接跨线程通信
+    // 2. 过多消息导致 Windows PostMessage 队列溢出
+    _progressUpdateTimer = Timer.periodic(
+      const Duration(milliseconds: 1000),
+      (_) => _flushPendingProgressUpdates(),
+    );
+  }
+  
+  /// 记录进度更新（仅更新内存，不触发任何 IO 或跨线程通信）
+  /// 由 Dio 的 onReceiveProgress 回调调用（在 IO 线程中）
+  void _recordProgressUpdate(int taskId, int trackId, double progress, int downloadedBytes, int totalBytes) {
+    // 只更新内存中的 Map，完全线程安全（Dart 的 Map 操作是原子的）
+    _pendingProgressUpdates[taskId] = (trackId, progress, downloadedBytes, totalBytes);
   }
 
   /// 启动调度器（事件驱动 + 周期检查）
@@ -385,11 +402,19 @@ class DownloadService with Logging {
   Future<void> pauseTask(int taskId) async {
     logDebug('Pausing download task: $taskId');
     
-    // 取消正在进行的下载
+    // 取消正在进行的 Isolate 下载
+    final isolateInfo = _activeDownloadIsolates.remove(taskId);
+    if (isolateInfo != null) {
+      isolateInfo.receivePort.close();
+      isolateInfo.isolate.kill();
+      _activeDownloads--;
+    }
+    
+    // 兼容旧的 CancelToken（如果有的话）
     final cancelToken = _activeCancelTokens.remove(taskId);
     if (cancelToken != null) {
       cancelToken.cancel('User paused');
-      _activeDownloads--;
+      if (isolateInfo == null) _activeDownloads--;
     }
     
     await _downloadRepository.updateTaskStatus(taskId, DownloadStatus.paused);
@@ -406,11 +431,19 @@ class DownloadService with Logging {
   Future<void> cancelTask(int taskId) async {
     logDebug('Canceling download task: $taskId');
     
-    // 取消正在进行的下载
+    // 取消正在进行的 Isolate 下载
+    final isolateInfo = _activeDownloadIsolates.remove(taskId);
+    if (isolateInfo != null) {
+      isolateInfo.receivePort.close();
+      isolateInfo.isolate.kill();
+      _activeDownloads--;
+    }
+    
+    // 兼容旧的 CancelToken
     final cancelToken = _activeCancelTokens.remove(taskId);
     if (cancelToken != null) {
       cancelToken.cancel('User cancelled');
-      _activeDownloads--;
+      if (isolateInfo == null) _activeDownloads--;
     }
     
     await _downloadRepository.deleteTask(taskId);
@@ -436,7 +469,14 @@ class DownloadService with Logging {
   Future<void> pauseAll() async {
     logDebug('Pausing all downloads');
     
-    // 取消所有进行中的下载
+    // 取消所有进行中的 Isolate 下载
+    for (final entry in _activeDownloadIsolates.entries) {
+      entry.value.receivePort.close();
+      entry.value.isolate.kill();
+    }
+    _activeDownloadIsolates.clear();
+    
+    // 兼容旧的 CancelToken
     for (final entry in _activeCancelTokens.entries) {
       entry.value.cancel('User paused all');
     }
@@ -457,7 +497,14 @@ class DownloadService with Logging {
   Future<void> clearQueue() async {
     logDebug('Clearing download queue');
 
-    // 取消所有进行中的下载
+    // 取消所有进行中的 Isolate 下载
+    for (final entry in _activeDownloadIsolates.entries) {
+      entry.value.receivePort.close();
+      entry.value.isolate.kill();
+    }
+    _activeDownloadIsolates.clear();
+    
+    // 兼容旧的 CancelToken
     for (final entry in _activeCancelTokens.entries) {
       entry.value.cancel('Queue cleared');
     }
@@ -489,15 +536,13 @@ class DownloadService with Logging {
 
   /// 开始下载任务
   Future<void> _startDownload(DownloadTask task) async {
-    if (_activeCancelTokens.containsKey(task.id)) {
+    // 检查是否已经在下载（Isolate 或旧的 CancelToken）
+    if (_activeDownloadIsolates.containsKey(task.id) || _activeCancelTokens.containsKey(task.id)) {
       logDebug('Task already downloading: ${task.id}');
       return;
     }
     
     logDebug('Starting download for track: ${task.trackId}');
-    
-    final cancelToken = CancelToken();
-    _activeCancelTokens[task.id] = cancelToken;
     _activeDownloads++;
     
     try {
@@ -545,52 +590,70 @@ class DownloadService with Logging {
       task.status = DownloadStatus.downloading;
       await _downloadRepository.saveTask(task);
       
-      // 进度更新变量（用于检测显著变化）
-      double lastProgress = 0.0;
+      // 使用 Isolate 进行下载，避免在主线程中进行网络 I/O
+      // 这可以解决 Windows 上的 "Failed to post message to main thread" 错误
+      final receivePort = ReceivePort();
+      final headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': 'https://www.bilibili.com',
+      };
       
-      // 准备下载选项（支持断点续传）
-      final options = Options(
-        headers: resumePosition > 0 ? {'Range': 'bytes=$resumePosition-'} : null,
+      final isolate = await Isolate.spawn(
+        _isolateDownload,
+        _IsolateDownloadParams(
+          url: audioUrl,
+          savePath: tempPath,
+          headers: headers,
+          resumePosition: resumePosition,
+          sendPort: receivePort.sendPort,
+        ),
       );
       
-      // 下载文件（使用临时路径）
-      await _dio.download(
-        audioUrl,
-        tempPath,
-        cancelToken: cancelToken,
-        deleteOnError: false, // 保留部分下载的文件用于续传
-        options: options,
-        onReceiveProgress: (received, total) {
-          // 断点续传时需要加上已下载部分
-          final actualReceived = received + resumePosition;
-          final actualTotal = total != -1 ? total + resumePosition : task.totalBytes ?? -1;
-          
-          if (actualTotal > 0) {
-            final progress = actualReceived / actualTotal;
-            
-            // 只在进度变化超过 2% 或下载完成时更新
-            // 这是第一层过滤，减少需要处理的更新数量
-            final shouldUpdate = (progress - lastProgress) >= 0.02 || progress >= 1.0;
-            
-            if (shouldUpdate) {
-              lastProgress = progress;
-              
-              // 更新数据库（这是本地操作，不会导致线程问题）
-              _downloadRepository.updateTaskProgress(task.id, progress, actualReceived, actualTotal);
-              
-              // 使用全局节流机制发送 UI 更新
-              // 这会批量处理所有下载任务的进度，避免淹没 Windows 消息队列
-              _addProgressUpdate(DownloadProgressEvent(
-                taskId: task.id,
-                trackId: task.trackId,
-                progress: progress,
-                downloadedBytes: actualReceived,
-                totalBytes: actualTotal,
-              ));
-            }
+      // 保存 Isolate 引用以支持取消
+      _activeDownloadIsolates[task.id] = (isolate: isolate, receivePort: receivePort);
+      
+      // 监听来自 Isolate 的消息
+      String? downloadError;
+      bool wasCancelled = false;
+      await for (final message in receivePort) {
+        if (message is _IsolateMessage) {
+          switch (message.type) {
+            case _IsolateMessageType.progress:
+              final data = message.data as Map<String, dynamic>;
+              final progress = data['progress'] as double;
+              final received = data['received'] as int;
+              final total = data['total'] as int;
+              _recordProgressUpdate(task.id, task.trackId, progress, received, total);
+              break;
+            case _IsolateMessageType.completed:
+              receivePort.close();
+              break;
+            case _IsolateMessageType.error:
+              downloadError = message.data as String;
+              receivePort.close();
+              break;
           }
-        },
-      );
+        } else if (message == 'cancelled') {
+          wasCancelled = true;
+          receivePort.close();
+          break;
+        }
+      }
+      
+      // 清理 Isolate 引用
+      _activeDownloadIsolates.remove(task.id);
+      isolate.kill();
+      
+      // 如果被取消，不抛异常，让 finally 处理
+      if (wasCancelled) {
+        logDebug('Download cancelled for task: ${task.id}');
+        await _saveResumeProgress(task);
+        return;
+      }
+      
+      if (downloadError != null) {
+        throw Exception('Download failed: $downloadError');
+      }
       
       // 下载完成，将临时文件重命名为正式文件
       await tempFile.rename(savePath);
@@ -677,6 +740,8 @@ class DownloadService with Logging {
         errorMessage: e.toString(),
       );
     } finally {
+      // 清理 Isolate 引用（如果还存在的话）
+      _activeDownloadIsolates.remove(task.id);
       _activeCancelTokens.remove(task.id);
       _activeDownloads--;
       // 下载完成后触发调度，继续下一个任务（事件驱动）
@@ -884,5 +949,101 @@ class DownloadDirInfo {
     } else {
       return '${(totalSize / 1024 / 1024 / 1024).toStringAsFixed(1)} GB';
     }
+  }
+}
+
+// ==================== Isolate 下载相关 ====================
+
+/// Isolate 下载参数
+class _IsolateDownloadParams {
+  final String url;
+  final String savePath;
+  final Map<String, String> headers;
+  final int resumePosition;
+  final SendPort sendPort;
+
+  _IsolateDownloadParams({
+    required this.url,
+    required this.savePath,
+    required this.headers,
+    required this.resumePosition,
+    required this.sendPort,
+  });
+}
+
+/// Isolate 下载消息类型
+enum _IsolateMessageType {
+  progress,
+  completed,
+  error,
+}
+
+/// Isolate 下载消息
+class _IsolateMessage {
+  final _IsolateMessageType type;
+  final dynamic data;
+
+  _IsolateMessage(this.type, this.data);
+}
+
+/// 在 Isolate 中执行下载（顶层函数）
+Future<void> _isolateDownload(_IsolateDownloadParams params) async {
+  final sendPort = params.sendPort;
+  
+  try {
+    final client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 30);
+    
+    final request = await client.getUrl(Uri.parse(params.url));
+    
+    // 添加 headers
+    params.headers.forEach((key, value) {
+      request.headers.set(key, value);
+    });
+    
+    // 断点续传
+    if (params.resumePosition > 0) {
+      request.headers.set('Range', 'bytes=${params.resumePosition}-');
+    }
+    
+    final response = await request.close();
+    
+    if (response.statusCode >= 400) {
+      sendPort.send(_IsolateMessage(_IsolateMessageType.error, 'HTTP ${response.statusCode}'));
+      return;
+    }
+    
+    final file = File(params.savePath);
+    final sink = file.openWrite(mode: params.resumePosition > 0 ? FileMode.append : FileMode.write);
+    
+    final contentLength = response.contentLength;
+    final totalBytes = contentLength > 0 ? contentLength + params.resumePosition : -1;
+    int receivedBytes = params.resumePosition;
+    double lastProgress = 0;
+    
+    await for (final chunk in response) {
+      sink.add(chunk);
+      receivedBytes += chunk.length;
+      
+      if (totalBytes > 0) {
+        final progress = receivedBytes / totalBytes;
+        // 每 5% 发送一次进度更新
+        if ((progress - lastProgress) >= 0.05 || progress >= 1.0) {
+          lastProgress = progress;
+          sendPort.send(_IsolateMessage(_IsolateMessageType.progress, {
+            'progress': progress,
+            'received': receivedBytes,
+            'total': totalBytes,
+          }));
+        }
+      }
+    }
+    
+    await sink.close();
+    client.close();
+    
+    sendPort.send(_IsolateMessage(_IsolateMessageType.completed, null));
+  } catch (e) {
+    sendPort.send(_IsolateMessage(_IsolateMessageType.error, e.toString()));
   }
 }

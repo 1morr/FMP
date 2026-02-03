@@ -324,6 +324,8 @@ Slider `onChanged` must NOT call `seekToProgress()` directly. Only call seek in 
 - **Sync replaces paths** - local files are authority, sync REPLACES all DB paths
 - **Provider debouncing** - completion events use 300ms debouncing for bulk operations
 - **Playlist-specific download marks** - UI shows download status per playlist
+- **Isolate download (Windows)** - network I/O runs in separate Isolate to avoid PostMessage queue overflow
+- **In-memory progress state** - progress updates stored in memory only, not written to DB (avoids Isar watch triggers)
 
 ### Playlist Rename - No Auto File Migration
 When renaming a playlist that has downloaded songs, files are **NOT** automatically moved. Instead:
