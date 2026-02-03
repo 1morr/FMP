@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/services/image_loading_service.dart';
+import '../../router.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
@@ -605,7 +607,12 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
 
     if (context.mounted) {
       if (addedCount > 0) {
-        ToastService.show(context, '已添加 $addedCount 首歌曲到下载队列');
+        ToastService.showWithAction(
+          context,
+          '已添加 $addedCount 首歌曲到下载队列',
+          actionLabel: '查看',
+          onAction: () => context.pushNamed(RouteNames.downloadManager),
+        );
       } else {
         ToastService.show(context, '歌单已在下载队列中或为空');
       }
@@ -795,9 +802,14 @@ class _GroupHeader extends ConsumerWidget {
         // 所有任务添加完成后统一触发调度
         if (addedCount > 0) {
           downloadService.triggerSchedule();
-        }
-        if (context.mounted) {
-          ToastService.show(context, '已添加 $addedCount 个分P到下载队列');
+          if (context.mounted) {
+            ToastService.showWithAction(
+              context,
+              '已添加 $addedCount 个分P到下载队列',
+              actionLabel: '查看',
+              onAction: () => context.pushNamed(RouteNames.downloadManager),
+            );
+          }
         }
         break;
       case 'add_to_playlist':
@@ -1012,10 +1024,16 @@ class _TrackListTile extends ConsumerWidget {
           fromPlaylist: playlist,
         );
         if (context.mounted) {
-          ToastService.show(
-            context,
-            result != null ? '已添加到下载队列' : '歌曲已下载或已在队列中',
-          );
+          if (result != null) {
+            ToastService.showWithAction(
+              context,
+              '已添加到下载队列',
+              actionLabel: '查看',
+              onAction: () => context.pushNamed(RouteNames.downloadManager),
+            );
+          } else {
+            ToastService.show(context, '歌曲已下载或已在队列中');
+          }
         }
         break;
       case 'add_to_playlist':
