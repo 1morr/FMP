@@ -1,9 +1,9 @@
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/services/image_loading_service.dart';
 import '../../../core/utils/icon_helpers.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/radio/radio_controller.dart';
@@ -109,17 +109,13 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
       child: SizedBox(
         width: 48,
         height: 48,
-        child: station.thumbnailUrl != null
-            ? CachedNetworkImage(
-                imageUrl: station.thumbnailUrl!,
-                width: 48,
-                height: 48,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => _buildPlaceholder(colorScheme),
-                errorWidget: (context, url, error) =>
-                    _buildPlaceholder(colorScheme),
-              )
-            : _buildPlaceholder(colorScheme),
+        child: ImageLoadingService.loadImage(
+            networkUrl: station.thumbnailUrl,
+            placeholder: _buildPlaceholder(colorScheme),
+            fit: BoxFit.cover,
+            width: 48,
+            height: 48,
+          ),
       ),
     );
   }

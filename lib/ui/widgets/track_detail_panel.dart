@@ -135,6 +135,7 @@ class TrackDetailPanel extends ConsumerWidget {
                 track: track,
                 aspectRatio: 1,
                 borderRadius: 0,
+                highResolution: true,
               ),
             ),
           ),
@@ -1321,14 +1322,12 @@ class _RadioClickableCoverState extends State<_RadioClickableCover> {
               fit: StackFit.expand,
               children: [
                 // 封面图片
-                widget.station.thumbnailUrl != null
-                    ? Image.network(
-                        widget.station.thumbnailUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            _buildCoverPlaceholder(context),
-                      )
-                    : _buildCoverPlaceholder(context),
+                ImageLoadingService.loadImage(
+                  networkUrl: widget.station.thumbnailUrl,
+                  placeholder: _buildCoverPlaceholder(context),
+                  fit: BoxFit.cover,
+                  targetDisplaySize: 480,  // 高清背景
+                ),
                 // LIVE 标签
                 Positioned(
                   left: 10,
@@ -1422,16 +1421,13 @@ class _RadioClickableAvatar extends StatelessWidget {
             child: SizedBox(
               width: 32,
               height: 32,
-              child: hostAvatarUrl != null
-                  ? Image.network(
-                      hostAvatarUrl!,
-                      width: 32,
-                      height: 32,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          _buildPlaceholder(context),
-                    )
-                  : _buildPlaceholder(context),
+              child: ImageLoadingService.loadImage(
+                networkUrl: hostAvatarUrl,
+                placeholder: _buildPlaceholder(context),
+                fit: BoxFit.cover,
+                width: 32,
+                height: 32,
+              ),
             ),
           ),
         ),

@@ -158,6 +158,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                 track: track,
                 aspectRatio: 1,
                 borderRadius: 0, // Container 已有圆角
+                highResolution: true,
               )
             : Center(
                 child: Icon(

@@ -144,6 +144,7 @@ class RadioPlayerPage extends ConsumerWidget {
           networkUrl: station.thumbnailUrl,
           placeholder: _buildCoverPlaceholder(colorScheme),
           fit: BoxFit.cover,
+          targetDisplaySize: 480,  // 高清封面
         ),
       ),
     );
