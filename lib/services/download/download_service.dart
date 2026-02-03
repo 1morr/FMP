@@ -254,7 +254,13 @@ class DownloadService with Logging {
         logDebug('Downloaded file missing, re-queueing: ${track.title}');
         await _downloadRepository.deleteTask(existingTask.id);
       } else if (!existingTask.isFailed) {
-        logDebug('Download task already exists for path: $downloadPath');
+        // 如果任务是 paused 状态，恢复为 pending 以便调度处理
+        if (existingTask.isPaused) {
+          logDebug('Resuming paused task for path: $downloadPath');
+          await _downloadRepository.updateTaskStatus(existingTask.id, DownloadStatus.pending);
+        } else {
+          logDebug('Download task already exists for path: $downloadPath');
+        }
         return existingTask; // 已有任务
       } else {
         // 失败的任务，删除后重新创建
@@ -283,7 +289,7 @@ class DownloadService with Logging {
     return savedTask;
   }
 
-  /// 添加歌单下载任务（以单曲形式下载所有歌曲）
+  /// 添加歌单下载任务（批量一次性添加所有歌曲）
   /// 返回添加的下载任务数量
   Future<int> addPlaylistDownload(Playlist playlist) async {
     logDebug('Adding playlist download: ${playlist.name}');
@@ -295,26 +301,116 @@ class DownloadService with Logging {
       return 0;
     }
 
-    // 为每个歌曲创建下载任务（批量添加，不立即触发调度）
-    int addedCount = 0;
-    for (int i = 0; i < tracks.length; i++) {
-      final task = await addTrackDownload(
-        tracks[i],
-        fromPlaylist: playlist,
-        skipSchedule: true,  // 批量添加时跳过调度
-      );
-      if (task != null) {
-        addedCount++;
-      }
-    }
+    try {
+      final playlistId = playlist.id;
 
-    // 所有任务添加完成后，统一触发调度
-    if (addedCount > 0) {
+      // 1. 批量计算所有下载路径
+      final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
+      final trackPaths = <Track, String>{};
+      for (final track in tracks) {
+        trackPaths[track] = DownloadPathUtils.computeDownloadPath(
+          baseDir: baseDir,
+          playlistName: playlist.name,
+          track: track,
+        );
+      }
+
+      // 2. 并行检查文件是否已存在
+      final pathsList = trackPaths.values.toList();
+      final existsResults = await Future.wait(
+        pathsList.map((path) => File(path).exists()),
+      );
+      final existingFiles = <String>{};
+      for (var i = 0; i < pathsList.length; i++) {
+        if (existsResults[i]) {
+          existingFiles.add(pathsList[i]);
+        }
+      }
+
+      // 3. 过滤掉已有文件的 track，收集需要处理的 savePath
+      final pathsToCheck = <String>[];
+      final filteredTracks = <Track, String>{};
+      for (final entry in trackPaths.entries) {
+        if (!existingFiles.contains(entry.value)) {
+          filteredTracks[entry.key] = entry.value;
+          pathsToCheck.add(entry.value);
+        }
+      }
+
+      if (filteredTracks.isEmpty) {
+        logDebug('All tracks already downloaded: ${playlist.name}');
+        return 0;
+      }
+
+      // 4. 批量查询已有任务（按 savePath 去重）
+      final existingTasks = await _downloadRepository.getTasksBySavePaths(pathsToCheck);
+
+      // 5. 处理已有任务，收集需要新建的任务
+      final newTasks = <DownloadTask>[];
+      final tasksToResume = <int>[]; // 需要从 paused 恢复为 pending 的任务 ID
+      final tasksToDelete = <int>[]; // 需要删除后重建的任务 ID
+      int existingActiveCount = 0; // 已有的有效任务数
+
+      final basePriority = await _downloadRepository.getNextPriority();
+
+      for (final entry in filteredTracks.entries) {
+        final track = entry.key;
+        final downloadPath = entry.value;
+        final existingTask = existingTasks[downloadPath];
+
+        if (existingTask != null) {
+          if (existingTask.isCompleted) {
+            // 任务已完成但文件不存在，需要删除后重建
+            tasksToDelete.add(existingTask.id);
+          } else if (existingTask.isFailed) {
+            // 失败的任务，删除后重建
+            tasksToDelete.add(existingTask.id);
+          } else if (existingTask.isPaused) {
+            // 暂停的任务，恢复为 pending
+            tasksToResume.add(existingTask.id);
+            existingActiveCount++;
+            continue;
+          } else {
+            // pending 或 downloading，跳过
+            existingActiveCount++;
+            continue;
+          }
+        }
+
+        // 创建新任务对象
+        newTasks.add(DownloadTask()
+          ..trackId = track.id
+          ..playlistName = playlist.name
+          ..playlistId = playlistId
+          ..savePath = downloadPath
+          ..status = DownloadStatus.pending
+          ..priority = basePriority + newTasks.length
+          ..createdAt = DateTime.now());
+      }
+
+      // 6. 批量删除需要重建的任务
+      if (tasksToDelete.isNotEmpty) {
+        await _downloadRepository.deleteTasks(tasksToDelete);
+      }
+
+      // 7. 批量恢复 paused 任务
+      if (tasksToResume.isNotEmpty) {
+        await _downloadRepository.updateTasksStatus(tasksToResume, DownloadStatus.pending);
+      }
+
+      // 8. 批量保存新任务
+      if (newTasks.isNotEmpty) {
+        await _downloadRepository.saveTasks(newTasks);
+      }
+
+      final addedCount = newTasks.length + existingActiveCount;
+      logDebug('Added ${newTasks.length} new + ${tasksToResume.length} resumed + '
+          '${existingActiveCount - tasksToResume.length} existing tasks for playlist: ${playlist.name}');
+      return addedCount;
+    } finally {
+      // 批量添加完成，触发调度
       _triggerSchedule();
     }
-
-    logDebug('Added $addedCount download tasks for playlist: ${playlist.name}');
-    return addedCount;
   }
 
   /// 暂停下载任务

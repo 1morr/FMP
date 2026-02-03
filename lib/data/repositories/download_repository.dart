@@ -46,6 +46,19 @@ class DownloadRepository with Logging {
         .findFirst();
   }
 
+  /// 批量根据 savePath 获取下载任务（用于批量去重）
+  /// 返回 Map<savePath, DownloadTask>
+  Future<Map<String, DownloadTask>> getTasksBySavePaths(List<String> savePaths) async {
+    if (savePaths.isEmpty) return {};
+    
+    final tasks = await _isar.downloadTasks
+        .filter()
+        .anyOf(savePaths, (q, path) => q.savePathEqualTo(path))
+        .findAll();
+    
+    return {for (final task in tasks) if (task.savePath != null) task.savePath!: task};
+  }
+
   /// 清除已完成和失败的任务（用于启动时清理）
   Future<int> clearCompletedAndErrorTasks() async {
     logDebug('clearCompletedAndErrorTasks: Starting');
@@ -156,6 +169,23 @@ class DownloadRepository with Logging {
         }
         await _isar.downloadTasks.put(task);
       }
+    });
+  }
+
+  /// 批量更新任务状态
+  Future<void> updateTasksStatus(List<int> ids, DownloadStatus status) async {
+    if (ids.isEmpty) return;
+    await _isar.writeTxn(() async {
+      final tasks = await _isar.downloadTasks.getAll(ids);
+      for (final task in tasks) {
+        if (task != null) {
+          task.status = status;
+          if (status == DownloadStatus.completed) {
+            task.completedAt = DateTime.now();
+          }
+        }
+      }
+      await _isar.downloadTasks.putAll(tasks.whereType<DownloadTask>().toList());
     });
   }
 
