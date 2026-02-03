@@ -17,6 +17,7 @@ import '../../data/repositories/download_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/sources/source_provider.dart';
+import '../../data/sources/base_source.dart';
 import '../../data/sources/bilibili_source.dart';
 import '../../data/sources/youtube_source.dart';
 import 'download_path_utils.dart';
@@ -534,6 +535,22 @@ class DownloadService with Logging {
     }
   }
 
+  /// 根据用户设置构建音频流配置（与播放时使用相同逻辑）
+  Future<AudioStreamConfig> _buildAudioStreamConfig(SourceType sourceType) async {
+    final settings = await _settingsRepository.get();
+    
+    // 根据源类型选择流优先级
+    final streamPriority = sourceType == SourceType.youtube
+        ? settings.youtubeStreamPriorityList
+        : settings.bilibiliStreamPriorityList;
+
+    return AudioStreamConfig(
+      qualityLevel: settings.audioQualityLevel,
+      formatPriority: settings.audioFormatPriorityList,
+      streamPriority: streamPriority,
+    );
+  }
+
   /// 开始下载任务
   Future<void> _startDownload(DownloadTask task) async {
     // 检查是否已经在下载（Isolate 或旧的 CancelToken）
@@ -554,15 +571,24 @@ class DownloadService with Logging {
         throw Exception('Track not found: ${task.trackId}');
       }
       
-      // 获取音频 URL
-      String audioUrl;
-      if (!_sourceManager.needsRefresh(track) && track.audioUrl != null) {
-        audioUrl = track.audioUrl!;
-      } else {
-        final refreshedTrack = await _sourceManager.refreshAudioUrl(track);
-        audioUrl = refreshedTrack.audioUrl!;
-        await _trackRepository.save(refreshedTrack);
+      // 获取音频 URL（使用用户设置的音频配置，与播放时逻辑一致）
+      final source = _sourceManager.getSource(track.sourceType);
+      if (source == null) {
+        throw Exception('No source available for ${track.sourceType}');
       }
+      
+      final config = await _buildAudioStreamConfig(track.sourceType);
+      final streamResult = await source.getAudioStream(track.sourceId, config: config);
+      final audioUrl = streamResult.url;
+      
+      // 更新 track 的 URL 信息
+      track.audioUrl = audioUrl;
+      track.audioUrlExpiry = DateTime.now().add(const Duration(hours: 1));
+      track.updatedAt = DateTime.now();
+      await _trackRepository.save(track);
+      
+      logDebug('Got audio stream for download: ${track.title}, '
+          'quality=${config.qualityLevel}, bitrate=${streamResult.bitrate}');
       
       // 确定保存路径
       final savePath = await _getDownloadPath(track, task);
