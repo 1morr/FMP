@@ -209,6 +209,8 @@ class DownloadService with Logging {
       // 启动下载
       for (int i = 0; i < availableSlots && i < pendingTasks.length; i++) {
         final task = pendingTasks[i];
+        // 先更新状态为下载中（await 确保 DB 写入完成，UI 能立即看到变化）
+        await _downloadRepository.updateTaskStatus(task.id, DownloadStatus.downloading);
         _startDownload(task);
       }
     } catch (e, stack) {
@@ -533,8 +535,7 @@ class DownloadService with Logging {
     _activeDownloads++;
     
     try {
-      // 更新状态为下载中
-      await _downloadRepository.updateTaskStatus(task.id, DownloadStatus.downloading);
+      // 状态已在 _scheduleDownloads 中更新为 downloading
       
       // 获取歌曲信息
       final track = await _trackRepository.getById(task.trackId);
@@ -573,8 +574,9 @@ class DownloadService with Logging {
         await tempFile.delete();
       }
       
-      // 保存临时文件路径到任务
+      // 保存临时文件路径到任务（确保状态正确，因为传入的 task 对象可能是旧状态）
       task.tempFilePath = tempPath;
+      task.status = DownloadStatus.downloading;
       await _downloadRepository.saveTask(task);
       
       // 进度更新变量（用于检测显著变化）

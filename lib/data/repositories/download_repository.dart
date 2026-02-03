@@ -47,7 +47,7 @@ class DownloadRepository with Logging {
   }
 
   /// 批量根据 savePath 获取下载任务（用于批量去重）
-  /// 返回 Map<savePath, DownloadTask>
+  /// 返回 savePath -> DownloadTask 的映射
   Future<Map<String, DownloadTask>> getTasksBySavePaths(List<String> savePaths) async {
     if (savePaths.isEmpty) return {};
     
