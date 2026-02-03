@@ -566,9 +566,78 @@ await _isar.writeTxn(() async {
 });
 ```
 
+### 17. Windows 平台下载导致 "Failed to post message to main thread" (2026-02)
+
+**问题**：在 Windows 上进行多文件下载时，控制台出现大量 `Failed to post message to main thread` 错误，程序严重卡顿。
+
+**根本原因**（多层问题）：
+
+1. **Dio 的 onReceiveProgress 回调**：在网络 I/O 线程中执行，频繁的跨线程消息导致 Windows PostMessage 队列溢出
+2. **Isar watch 触发**：进度更新写入数据库会触发 `watchAllTasks()` stream，导致 UI 频繁重建
+
+**尝试过但无效的方案**：
+- 进度更新节流（300ms/500ms）- 减少频率但问题仍在
+- 移除 onReceiveProgress 中的数据库写入 - 问题仍在
+- 完全禁用 onReceiveProgress 回调 - 问题仍在（说明问题不只是回调）
+
+**最终解决方案**：使用 `Isolate` 在独立进程中执行下载
+
+```dart
+// 1. 创建顶层下载函数（在 Isolate 中执行）
+Future<void> _isolateDownload(_IsolateDownloadParams params) async {
+  final client = HttpClient();  // 使用 HttpClient 而非 Dio
+  final request = await client.getUrl(Uri.parse(params.url));
+  final response = await request.close();
+  
+  final sink = File(params.savePath).openWrite();
+  await for (final chunk in response) {
+    sink.add(chunk);
+    // 每 5% 发送进度更新
+    if ((progress - lastProgress) >= 0.05) {
+      params.sendPort.send(_IsolateMessage(_IsolateMessageType.progress, {...}));
+    }
+  }
+  params.sendPort.send(_IsolateMessage(_IsolateMessageType.completed, null));
+}
+
+// 2. DownloadService 中使用 Isolate
+final receivePort = ReceivePort();
+final isolate = await Isolate.spawn(_isolateDownload, params);
+_activeDownloadIsolates[task.id] = (isolate: isolate, receivePort: receivePort);
+
+// 3. 取消使用 isolate.kill() 而非 CancelToken
+void pauseTask(int taskId) {
+  final isolateInfo = _activeDownloadIsolates.remove(taskId);
+  if (isolateInfo != null) {
+    isolateInfo.receivePort.close();
+    isolateInfo.isolate.kill();
+  }
+}
+```
+
+**配套修改**：进度不写数据库，只保存在内存中
+
+```dart
+// download_providers.dart
+class DownloadProgressState extends StateNotifier<Map<int, (double, int, int?)>> {
+  void update(int taskId, double progress, int downloadedBytes, int? totalBytes);
+}
+
+// download_manager_page.dart - UI 从内存读取进度
+final progressState = ref.watch(downloadProgressStateProvider);
+final memProgress = progressState[task.id];
+final progress = memProgress?.$1 ?? task.progress;  // 优先内存，回退数据库
+```
+
+**经验**：
+- Windows 的 PostMessage 队列有限制，高频跨线程通信会溢出
+- 网络 I/O 密集型操作应该在独立 Isolate 中执行
+- Isar 的 watch 机制会在每次写入时触发，不适合高频更新场景
+- 使用内存状态 + 定时持久化模式可以兼顾性能和数据安全
+
 ---
 
-$1
+## 常用工具组件
 
 | 组件 | 位置 | 用途 |
 |------|------|------|

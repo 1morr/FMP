@@ -165,38 +165,79 @@ cache.clearAll();                 // 清空所有缓存
 ### 3. DownloadService (`lib/services/download/download_service.dart`)
 
 - 并发控制（默认 3 个）
-- **批量添加模式**（2026-01-18 更新）：
-  - `addTrackDownload` 支持 `skipSchedule` 参数
-  - 批量添加时设为 `true` 避免每个任务都触发调度
-  - 所有任务添加完成后调用 `triggerSchedule()` 统一开始下载
-  - 确保"暂停全部"能暂停所有任务（而非只暂停已添加的部分）
-- **全局进度节流**（2026-01-17 更新）：
-  - 500ms 或 5% 进度变化时才更新
-  - 使用 `_lastGlobalProgressUpdate` 和 `_lastGlobalProgressValue` 全局追踪
-  - 下载完成（100%）总是立即触发更新
-  - 有效减少 UI 重建频率，提升性能
+- **Isolate 下载**（2026-02 更新）：解决 Windows 上 "Failed to post message to main thread" 错误
+- **批量添加模式**（2026-01-18 更新）
+- **内存进度状态**（2026-02 更新）：进度不写数据库，避免 Isar watch 频繁触发 UI 重建
 - 下载前检查文件是否已存在
 
-**进度节流实现：**
-```dart
-DateTime? _lastGlobalProgressUpdate;
-double _lastGlobalProgressValue = 0.0;
+#### Windows 平台 Isolate 下载（2026-02 新增）
 
-void _maybeNotifyProgress(double progress) {
-  final now = DateTime.now();
-  final timeSinceLastUpdate = _lastGlobalProgressUpdate == null
-      ? const Duration(seconds: 1)
-      : now.difference(_lastGlobalProgressUpdate!);
-  final progressDelta = (progress - _lastGlobalProgressValue).abs();
-  
-  // 只有满足条件才更新
-  if (progress >= 1.0 || timeSinceLastUpdate >= const Duration(milliseconds: 500) || progressDelta >= 0.05) {
-    _lastGlobalProgressUpdate = now;
-    _lastGlobalProgressValue = progress;
-    _progressController.add(progress);
-  }
-}
+**问题背景**：
+在 Windows 上进行多文件下载时，会出现 `Failed to post message to main thread` 错误并导致程序卡顿。
+原因是 Dio 的 `onReceiveProgress` 回调在网络 I/O 线程中执行，频繁的跨线程消息会导致 Windows 消息队列溢出。
+
+**解决方案**：使用 `Isolate` 在独立进程中执行下载，完全隔离网络 I/O 和主线程。
+
+```dart
+// Isolate 下载架构
+主线程 → Isolate.spawn() ─→ [独立 Isolate]
+                            │ HttpClient（非 Dio）
+                            │ 文件写入
+                            │ 进度计算
+                            └─→ SendPort (每5%一次) → 主线程
 ```
+
+**关键实现**：
+```dart
+// 顶层函数（在 Isolate 中执行）
+Future<void> _isolateDownload(_IsolateDownloadParams params) async {
+  final client = HttpClient();
+  final request = await client.getUrl(Uri.parse(params.url));
+  params.headers.forEach((key, value) => request.headers.set(key, value));
+  
+  final response = await request.close();
+  final sink = File(params.savePath).openWrite();
+  
+  await for (final chunk in response) {
+    sink.add(chunk);
+    // 每 5% 发送进度更新
+    if ((progress - lastProgress) >= 0.05) {
+      params.sendPort.send(_IsolateMessage(_IsolateMessageType.progress, {...}));
+    }
+  }
+  
+  params.sendPort.send(_IsolateMessage(_IsolateMessageType.completed, null));
+}
+
+// DownloadService 中使用
+final isolate = await Isolate.spawn(_isolateDownload, params);
+_activeDownloadIsolates[task.id] = (isolate: isolate, receivePort: receivePort);
+```
+
+**取消机制**：使用 `isolate.kill()` 替代 `CancelToken`
+
+#### 内存进度状态（2026-02 新增）
+
+**问题**：原来进度更新会写入 Isar 数据库，触发 `watchAllTasks()` stream 更新，导致 UI 频繁重建。
+
+**解决方案**：进度只保存在内存中，通过 `downloadProgressStateProvider` 管理。
+
+```dart
+// lib/providers/download/download_providers.dart
+class DownloadProgressState extends StateNotifier<Map<int, (double, int, int?)>> {
+  void update(int taskId, double progress, int downloadedBytes, int? totalBytes);
+  void remove(int taskId);
+}
+
+final downloadProgressStateProvider = StateNotifierProvider<DownloadProgressState, ...>(...);
+
+// UI 使用（download_manager_page.dart）
+final progressState = ref.watch(downloadProgressStateProvider);
+final memProgress = progressState[task.id];
+final progress = memProgress?.$1 ?? task.progress;  // 优先内存，回退数据库
+```
+
+**数据库写入时机**：只在下载完成/暂停/失败时更新数据库状态，不写进度
 
 ### 4. DownloadScanner (`lib/providers/download/download_scanner.dart`)
 
