@@ -53,6 +53,8 @@ class PlayerState {
   final bool isMixMode;
   /// Mix 播放列表標題（隊列頁顯示用）
   final String? mixTitle;
+  /// 是否正在加載更多 Mix 歌曲
+  final bool isLoadingMoreMix;
   final String? error;
 
   // ========== 音频流元信息 ==========
@@ -87,6 +89,7 @@ class PlayerState {
     this.queueVersion = 0,
     this.isMixMode = false,
     this.mixTitle,
+    this.isLoadingMoreMix = false,
     this.error,
     this.currentBitrate,
     this.currentContainer,
@@ -140,6 +143,7 @@ class PlayerState {
     int? queueVersion,
     bool? isMixMode,
     String? mixTitle,
+    bool? isLoadingMoreMix,
     String? error,
     int? currentBitrate,
     String? currentContainer,
@@ -168,6 +172,7 @@ class PlayerState {
       queueVersion: queueVersion ?? this.queueVersion,
       isMixMode: isMixMode ?? this.isMixMode,
       mixTitle: mixTitle ?? this.mixTitle,
+      isLoadingMoreMix: isLoadingMoreMix ?? this.isLoadingMoreMix,
       error: error,
       currentBitrate: currentBitrate ?? this.currentBitrate,
       currentContainer: currentContainer ?? this.currentContainer,
@@ -1316,41 +1321,104 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   /// 加載更多 Mix 播放列表歌曲
-  /// 
-  /// 使用當前隊列最後一首歌曲的 videoId 請求更多歌曲
+  ///
+  /// 使用重試機制確保每次至少獲取 10 首新歌曲：
+  /// 1. 先用最後一首歌曲作為種子重試 3 次
+  /// 2. 如果仍不足，嘗試用隊列中其他歌曲作為種子
+  /// 3. 最多嘗試 10 次，每次間隔 1 秒
+  /// 4. 收集所有新歌曲後一次性添加到隊列
   Future<void> _loadMoreMixTracks() async {
     if (_mixState == null || _mixState!.isLoadingMore) return;
 
     final queue = _queueManager.tracks;
     if (queue.isEmpty) return;
 
-    final lastTrack = queue.last;
     _mixState!.isLoadingMore = true;
-    logInfo('Loading more Mix tracks from: ${lastTrack.title}');
+    state = state.copyWith(isLoadingMoreMix: true);
+    logInfo('Loading more Mix tracks...');
+
+    const minNewTracksRequired = 10;
+    const maxAttempts = 10;
+    const sameVideoRetries = 3;
+    const retryDelay = Duration(seconds: 1);
+
+    // 收集所有新歌曲，最後一次性添加
+    final collectedTracks = <Track>[];
+    final collectedVideoIds = <String>{};
+    int attempt = 0;
 
     try {
       final youtubeSource = YouTubeSource();
-      final result = await youtubeSource.fetchMixTracks(
-        playlistId: _mixState!.playlistId,
-        currentVideoId: lastTrack.sourceId,
-      );
 
-      // 過濾已存在的歌曲（去重）
-      final newTracks = result.tracks.where((t) => !_mixState!.seenVideoIds.contains(t.sourceId)).toList();
-      
-      if (newTracks.isNotEmpty) {
-        logDebug('Adding ${newTracks.length} new tracks to Mix queue');
-        _mixState!.addSeenVideoIds(newTracks.map((t) => t.sourceId));
-        await _queueManager.addAll(newTracks);
+      while (collectedTracks.length < minNewTracksRequired && attempt < maxAttempts) {
+        attempt++;
+
+        // 選擇種子視頻：前 3 次用最後一首，之後用不同的視頻
+        String seedVideoId;
+        if (attempt <= sameVideoRetries) {
+          seedVideoId = queue.last.sourceId;
+          logDebug('Attempt $attempt/$maxAttempts: using last track as seed ($seedVideoId)');
+        } else {
+          // 從隊列倒數第 2 ~ 倒數第 10 首中選擇一個不同的種子
+          final seedIndex = queue.length - 1 - (attempt - sameVideoRetries);
+          if (seedIndex >= 0) {
+            seedVideoId = queue[seedIndex].sourceId;
+            logDebug('Attempt $attempt/$maxAttempts: using track at index $seedIndex as seed ($seedVideoId)');
+          } else {
+            seedVideoId = queue.last.sourceId;
+            logDebug('Attempt $attempt/$maxAttempts: fallback to last track as seed ($seedVideoId)');
+          }
+        }
+
+        try {
+          final result = await youtubeSource.fetchMixTracks(
+            playlistId: _mixState!.playlistId,
+            currentVideoId: seedVideoId,
+          );
+
+          // 過濾已存在的歌曲（包括已在隊列中的和本輪已收集的）
+          final newTracks = result.tracks
+              .where((t) => !_mixState!.seenVideoIds.contains(t.sourceId) &&
+                           !collectedVideoIds.contains(t.sourceId))
+              .toList();
+
+          if (newTracks.isNotEmpty) {
+            logDebug('Attempt $attempt: got ${newTracks.length} new tracks (total: ${collectedTracks.length + newTracks.length})');
+            collectedTracks.addAll(newTracks);
+            collectedVideoIds.addAll(newTracks.map((t) => t.sourceId));
+          } else {
+            logDebug('Attempt $attempt: no new tracks (all duplicates)');
+          }
+
+          // 如果還沒達到目標且還有重試次數，等待後繼續
+          if (collectedTracks.length < minNewTracksRequired && attempt < maxAttempts) {
+            await Future.delayed(retryDelay);
+          }
+        } catch (e) {
+          logWarning('Attempt $attempt failed: $e');
+          // 單次請求失敗，等待後繼續嘗試
+          if (attempt < maxAttempts) {
+            await Future.delayed(retryDelay);
+          }
+        }
+      }
+
+      // 一次性添加所有收集到的新歌曲
+      if (collectedTracks.isNotEmpty) {
+        logInfo('Mix load complete: adding ${collectedTracks.length} new tracks in $attempt attempts');
+        _mixState!.addSeenVideoIds(collectedTracks.map((t) => t.sourceId));
+        await _queueManager.addAll(collectedTracks);
         _updateQueueState();
       } else {
-        logDebug('No new tracks to add (all duplicates)');
+        logWarning('Mix load failed: no new tracks after $attempt attempts');
+        _toastService.showInfo('無法獲取更多歌曲，請稍後重試');
       }
     } catch (e, stack) {
       logError('Failed to load more Mix tracks', e, stack);
       _toastService.showInfo('加載更多歌曲失敗');
     } finally {
       _mixState!.isLoadingMore = false;
+      state = state.copyWith(isLoadingMoreMix: false);
     }
   }
 

@@ -110,6 +110,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
 
     final isMixMode = playerState.isMixMode;
     final mixTitle = playerState.mixTitle;
+    final isLoadingMoreMix = playerState.isLoadingMoreMix;
 
     return Scaffold(
       appBar: AppBar(
@@ -147,7 +148,14 @@ class _QueuePageState extends ConsumerState<QueuePage> {
       ),
       body: queue.isEmpty
           ? _buildEmptyState(context, colorScheme)
-          : _buildQueueList(context, queue, currentIndex, colorScheme),
+          : _buildQueueList(
+              context,
+              queue,
+              currentIndex,
+              colorScheme,
+              isMixMode: isMixMode,
+              isLoadingMoreMix: isLoadingMoreMix,
+            ),
     );
   }
 
@@ -188,8 +196,14 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     BuildContext context,
     List<Track> queue,
     int currentIndex,
-    ColorScheme colorScheme,
-  ) {
+    ColorScheme colorScheme, {
+    required bool isMixMode,
+    required bool isLoadingMoreMix,
+  }) {
+    // Mix 模式下在底部添加加载指示器/留白区域
+    final hasBottomIndicator = isMixMode;
+    final itemCount = hasBottomIndicator ? queue.length + 1 : queue.length;
+
     return Column(
       children: [
         // 当前播放提示 - 可点击跳转
@@ -231,9 +245,11 @@ class _QueuePageState extends ConsumerState<QueuePage> {
         Expanded(
           child: ReorderableListView.builder(
             scrollController: _scrollController!,
-            itemCount: queue.length,
+            itemCount: itemCount,
             buildDefaultDragHandles: false,
             onReorder: (oldIndex, newIndex) {
+              // 忽略底部指示器的重排序
+              if (oldIndex >= queue.length || newIndex > queue.length) return;
               // ReorderableListView 的 newIndex 在向下移动时需要减 1
               if (newIndex > oldIndex) newIndex--;
               if (oldIndex == newIndex) return;
@@ -280,6 +296,26 @@ class _QueuePageState extends ConsumerState<QueuePage> {
               );
             },
             itemBuilder: (context, index) {
+              // 底部指示器（Mix 模式下显示加载动画或留白）
+              if (index == queue.length) {
+                return SizedBox(
+                  key: const ValueKey('queue_bottom_indicator'),
+                  height: 48,
+                  child: isLoadingMoreMix
+                      ? Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: colorScheme.outline,
+                            ),
+                          ),
+                        )
+                      : null,
+                );
+              }
+
               final track = queue[index];
               final isPlaying = index == currentIndex;
 
