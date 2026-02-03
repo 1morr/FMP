@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
+import '../../../core/services/image_loading_service.dart';
 import '../../../data/models/radio_station.dart';
 import '../../../data/models/track.dart';
 
@@ -125,17 +125,13 @@ class RadioStationTile extends ConsumerWidget {
         // 封面圖
         ClipRRect(
           borderRadius: borderRadius,
-          child: station.thumbnailUrl != null
-              ? CachedNetworkImage(
-                  imageUrl: station.thumbnailUrl!,
-                  width: size,
-                  height: size,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => _buildPlaceholder(colorScheme),
-                  errorWidget: (context, url, error) =>
-                      _buildPlaceholder(colorScheme),
-                )
-              : _buildPlaceholder(colorScheme),
+          child: ImageLoadingService.loadImage(
+              networkUrl: station.thumbnailUrl,
+              placeholder: _buildPlaceholder(colorScheme),
+              fit: BoxFit.cover,
+              width: size,
+              height: size,
+            ),
         ),
 
         // 播放中指示器
