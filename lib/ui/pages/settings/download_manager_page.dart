@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/download_task.dart';
 import '../../../providers/download_provider.dart';
+import '../../../providers/download_settings_provider.dart';
 
 /// 下载管理页面
 class DownloadManagerPage extends ConsumerWidget {
@@ -117,11 +118,17 @@ class DownloadManagerPage extends ConsumerWidget {
           final failed = tasks.where((t) => t.isFailed).toList();
           final completed = tasks.where((t) => t.isCompleted).toList();
 
+          // 获取最大并发下载数，用于固定"正在下载"区域高度
+          final maxConcurrent = ref.watch(maxConcurrentDownloadsProvider);
+
           return ListView(
             children: [
-              if (downloading.isNotEmpty) ...[
+              if (downloading.isNotEmpty || pending.isNotEmpty) ...[
                 _SectionHeader(title: '正在下载', count: downloading.length),
-                ...downloading.map((task) => _DownloadTaskTile(task: task)),
+                _FixedHeightDownloadingSection(
+                  tasks: downloading,
+                  maxSlots: maxConcurrent,
+                ),
               ],
               if (pending.isNotEmpty) ...[
                 _SectionHeader(title: '等待中', count: pending.length),
@@ -141,6 +148,41 @@ class DownloadManagerPage extends ConsumerWidget {
               ],
             ],
           );
+        },
+      ),
+    );
+  }
+}
+
+/// 固定高度的正在下载区域
+/// 根据 maxConcurrentDownloads 设置固定高度，避免下方内容跳动
+class _FixedHeightDownloadingSection extends ConsumerWidget {
+  final List<DownloadTask> tasks;
+  final int maxSlots;
+
+  // 每个 ListTile 的估算高度（包括进度条和边距）
+  static const double _tileHeight = 88.0;
+
+  const _FixedHeightDownloadingSection({
+    required this.tasks,
+    required this.maxSlots,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fixedHeight = _tileHeight * maxSlots;
+
+    return SizedBox(
+      height: fixedHeight,
+      child: ListView.builder(
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: maxSlots,
+        itemBuilder: (context, index) {
+          if (index < tasks.length) {
+            return _DownloadTaskTile(task: tasks[index]);
+          }
+          // 空槽位占位符
+          return SizedBox(height: _tileHeight);
         },
       ),
     );
@@ -197,6 +239,15 @@ class _DownloadTaskTile extends ConsumerWidget {
     final downloadService = ref.watch(downloadServiceProvider);
     final trackAsync = ref.watch(trackByIdProvider(task.trackId));
     
+    // 从内存中获取实时进度（如果有的话）
+    final progressState = ref.watch(downloadProgressStateProvider);
+    final memProgress = progressState[task.id];
+    
+    // 优先使用内存中的进度，否则使用数据库中的进度
+    final progress = memProgress?.$1 ?? task.progress;
+    final downloadedBytes = memProgress?.$2 ?? task.downloadedBytes;
+    final totalBytes = memProgress?.$3 ?? task.totalBytes;
+    
     final title = trackAsync.maybeWhen(
       data: (track) => track?.title ?? '未知歌曲',
       orElse: () => '加载中...',
@@ -226,12 +277,12 @@ class _DownloadTaskTile extends ConsumerWidget {
           if (task.isDownloading || task.isPending) ...[
             const SizedBox(height: 4),
             LinearProgressIndicator(
-              value: task.progress,
+              value: progress,
               backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
             ),
             const SizedBox(height: 2),
             Text(
-              _buildProgressText(),
+              _buildProgressText(progress, downloadedBytes, totalBytes),
               style: Theme.of(context).textTheme.labelSmall,
             ),
           ],
@@ -299,13 +350,14 @@ class _DownloadTaskTile extends ConsumerWidget {
     }
   }
 
-  String _buildProgressText() {
-    if (task.totalBytes != null && task.totalBytes! > 0) {
-      final downloaded = _formatBytes(task.downloadedBytes);
-      final total = _formatBytes(task.totalBytes!);
-      return '$downloaded / $total (${task.formattedProgress})';
+  String _buildProgressText(double progress, int downloadedBytes, int? totalBytes) {
+    final percentText = '${(progress * 100).toStringAsFixed(1)}%';
+    if (totalBytes != null && totalBytes > 0) {
+      final downloaded = _formatBytes(downloadedBytes);
+      final total = _formatBytes(totalBytes);
+      return '$downloaded / $total ($percentText)';
     }
-    return task.formattedProgress;
+    return percentText;
   }
 
   String _formatBytes(int bytes) {
