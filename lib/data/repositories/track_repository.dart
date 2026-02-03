@@ -461,8 +461,10 @@ class TrackRepository with Logging {
   ///
   /// 孤立 Track 的定义：
   /// - 不在当前播放队列中（通过 excludeTrackIds 排除）
-  /// - 不属于任何歌单（playlistInfo 中没有有效的 playlistId）
-  /// - 没有已下载的文件
+  /// - 不属于任何歌单（playlistInfo 中没有 playlistId > 0 的条目）
+  ///
+  /// 注意：不检查 downloadPath。playlistId=0 的下载路径只是 scanner 扫描发现的，
+  /// 下次打开已下载页面时 scanner 会重新创建。删除数据库记录不影响本地文件。
   ///
   /// 返回删除的 Track 数量
   Future<int> deleteOrphanTracks({List<int> excludeTrackIds = const []}) async {
@@ -480,27 +482,11 @@ class TrackRepository with Logging {
         continue;
       }
 
-      // 检查是否属于任何歌单
+      // 检查是否属于任何歌单（playlistId > 0）
       final belongsToPlaylist = track.playlistInfo.any(
         (info) => info.playlistId > 0,
       );
       if (belongsToPlaylist) {
-        continue;
-      }
-
-      // 检查是否有已下载的文件
-      bool hasDownloads = false;
-      for (final path in track.allDownloadPaths) {
-        if (path.isNotEmpty) {
-          try {
-            if (File(path).existsSync()) {
-              hasDownloads = true;
-              break;
-            }
-          } catch (_) {}
-        }
-      }
-      if (hasDownloads) {
         continue;
       }
 
