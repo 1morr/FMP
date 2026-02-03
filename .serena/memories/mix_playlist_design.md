@@ -86,6 +86,36 @@ class _MixPlaylistState {
 - 臨時播放不受影響
 - 播放到最後一首時自動調用 `_loadMoreMixTracks()`
 
+### 自動加載更多歌曲的重試機制（2026-02 更新）
+YouTube InnerTube API 的 Mix 播放列表每次返回約 25 首歌曲，但大部分可能與已有隊列重複。
+為確保播放到最後一首時一定能獲取到新歌曲，實現了以下重試策略：
+
+**配置參數：**
+- `minNewTracksRequired = 10`：每次加載至少獲取 10 首新歌曲
+- `maxAttempts = 10`：最多嘗試 10 次
+- `sameVideoRetries = 3`：用同一種子視頻重試次數
+- `retryDelay = 1 秒`：每次重試間隔
+
+**策略：**
+1. 前 3 次嘗試：使用隊列最後一首歌曲作為種子（`queue.last.sourceId`）
+2. 第 4-10 次嘗試：依次使用隊列倒數第 2、3、4... 首歌曲作為種子
+3. 每次請求後過濾重複歌曲，累計新歌曲數量
+4. 達到 10 首新歌或用完重試次數後結束
+
+**日誌輸出：**
+```
+[INFO] Loading more Mix tracks...
+[DEBUG] Attempt 1/10: using last track as seed (videoId)
+[DEBUG] Attempt 1: got 3 new tracks (total: 3)
+[DEBUG] Attempt 2/10: using last track as seed (videoId)
+[DEBUG] Attempt 2: no new tracks (all duplicates)
+[DEBUG] Attempt 3/10: using last track as seed (videoId)
+[DEBUG] Attempt 3: got 5 new tracks (total: 8)
+[DEBUG] Attempt 4/10: using track at index N as seed (videoId)
+[DEBUG] Attempt 4: got 4 new tracks (total: 12)
+[INFO] Mix load complete: added 12 new tracks in 4 attempts
+```
+
 ### 退出 Mix 模式
 - 調用 `clearQueue()` 時清除 `_mixState`
 - 播放其他歌單時自動退出
