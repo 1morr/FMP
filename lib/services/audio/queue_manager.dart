@@ -217,6 +217,10 @@ class QueueManager with Logging {
       // 启动定期保存
       _startPositionSaver();
 
+      // 清理孤立的 Track 记录（不属于任何歌单且不在队列中的 tracks）
+      // 使用 unawaited 避免阻塞初始化
+      unawaited(_cleanupOrphanTracks());
+
       logInfo('QueueManager initialized with ${_tracks.length} tracks');
     } catch (e, stack) {
       logError('Failed to initialize QueueManager', e, stack);
@@ -1082,6 +1086,25 @@ class QueueManager with Logging {
     _savePositionTimer = Timer.periodic(AppConstants.positionSaveInterval, (_) {
       _savePosition();
     });
+  }
+
+  /// 清理孤立的 Track 记录
+  ///
+  /// 在应用启动时调用，删除不属于任何歌单且不在当前队列中的 tracks。
+  /// 这些 tracks 通常来自临时播放或 Mix 播放列表。
+  Future<void> _cleanupOrphanTracks() async {
+    try {
+      final currentTrackIds = _tracks.map((t) => t.id).toList();
+      final deleted = await _trackRepository.deleteOrphanTracks(
+        excludeTrackIds: currentTrackIds,
+      );
+      if (deleted > 0) {
+        logInfo('Cleaned up $deleted orphan tracks on startup');
+      }
+    } catch (e) {
+      // 清理失败不影响正常使用，只记录警告
+      logWarning('Failed to cleanup orphan tracks: $e');
+    }
   }
 
   Future<void> _persistQueue() async {

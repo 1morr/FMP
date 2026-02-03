@@ -456,4 +456,69 @@ class TrackRepository with Logging {
     logDebug('Cleaned up invalid download paths for $cleaned tracks');
     return cleaned;
   }
+
+  /// 删除孤立的 Track 记录
+  ///
+  /// 孤立 Track 的定义：
+  /// - 不在当前播放队列中（通过 excludeTrackIds 排除）
+  /// - 不属于任何歌单（playlistInfo 中没有有效的 playlistId）
+  /// - 没有已下载的文件
+  ///
+  /// 返回删除的 Track 数量
+  Future<int> deleteOrphanTracks({List<int> excludeTrackIds = const []}) async {
+    logDebug('Deleting orphan tracks (excluding ${excludeTrackIds.length} queue tracks)...');
+
+    final excludeSet = excludeTrackIds.toSet();
+    final toDelete = <int>[];
+
+    // 获取所有 tracks
+    final allTracks = await _isar.tracks.where().findAll();
+
+    for (final track in allTracks) {
+      // 跳过当前队列中的 tracks
+      if (excludeSet.contains(track.id)) {
+        continue;
+      }
+
+      // 检查是否属于任何歌单
+      final belongsToPlaylist = track.playlistInfo.any(
+        (info) => info.playlistId > 0,
+      );
+      if (belongsToPlaylist) {
+        continue;
+      }
+
+      // 检查是否有已下载的文件
+      bool hasDownloads = false;
+      for (final path in track.allDownloadPaths) {
+        if (path.isNotEmpty) {
+          try {
+            if (File(path).existsSync()) {
+              hasDownloads = true;
+              break;
+            }
+          } catch (_) {}
+        }
+      }
+      if (hasDownloads) {
+        continue;
+      }
+
+      // 这是一个孤立的 track，标记为删除
+      toDelete.add(track.id);
+    }
+
+    if (toDelete.isEmpty) {
+      logDebug('No orphan tracks to delete');
+      return 0;
+    }
+
+    // 批量删除
+    await _isar.writeTxn(() async {
+      await _isar.tracks.deleteAll(toDelete);
+    });
+
+    logInfo('Deleted ${toDelete.length} orphan tracks');
+    return toDelete.length;
+  }
 }
