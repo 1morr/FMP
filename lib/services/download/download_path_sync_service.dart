@@ -21,8 +21,8 @@ class DownloadPathSyncService with Logging {
   /// C1: 跳过没有有效 metadata 的文件
   /// C2: 本地文件添加 playlistId=0
   /// C3: 本地文件是权威来源 - 替换所有 DB 路径
-  /// 返回 (更新数量, 孤儿文件数量)
-  Future<(int updated, int orphans)> syncLocalFiles({
+  /// 返回 (新增路径数量, 移除路径数量)
+  Future<(int added, int removed)> syncLocalFiles({
     void Function(int current, int total)? onProgress,
   }) async {
     final basePath = await _pathManager.getCurrentDownloadPath();
@@ -35,13 +35,15 @@ class DownloadPathSyncService with Logging {
       return (0, 0);
     }
 
-    int updated = 0;
-    int orphans = 0;
+    int added = 0;
+    int removed = 0;
     int processed = 0;
 
     // 收集所有匹配的 Track ID（用于清理不存在的路径）
     final matchedTrackIds = <int>{};
     final tracksToUpdate = <Track>[];
+    // 记录哪些 track 在同步前已有下载路径
+    final tracksWithExistingPaths = <int>{};
 
     // 获取所有子文件夹
     final folders = <Directory>[];
@@ -61,8 +63,10 @@ class DownloadPathSyncService with Logging {
       for (final result in results.matched) {
         matchedTrackIds.add(result.track.id);
         tracksToUpdate.add(result.track);
+        if (result.hadExistingPaths) {
+          tracksWithExistingPaths.add(result.track.id);
+        }
       }
-      orphans += results.orphanCount;
 
       processed++;
       onProgress?.call(processed, total);
@@ -71,8 +75,13 @@ class DownloadPathSyncService with Logging {
     // 第二步：批量更新 Track（C3: 替换所有路径）
     for (final track in tracksToUpdate) {
       await _trackRepo.save(track);
-      updated++;
-      logDebug('Replaced download paths for: ${track.title}');
+      // 如果之前没有下载路径，则计为新增
+      if (!tracksWithExistingPaths.contains(track.id)) {
+        added++;
+        logDebug('Added download path for: ${track.title}');
+      } else {
+        logDebug('Replaced download paths for: ${track.title}');
+      }
     }
 
     // 第三步：清理数据库中不在本地的路径
@@ -82,18 +91,18 @@ class DownloadPathSyncService with Logging {
         // 这个 Track 没有在本地找到匹配文件，清除其路径
         track.clearAllDownloadPaths();
         await _trackRepo.save(track);
+        removed++;
         logDebug('Cleared paths for track not found locally: ${track.title}');
       }
     }
 
-    logDebug('Sync complete: updated $updated, orphans $orphans');
-    return (updated, orphans);
+    logDebug('Sync complete: added $added, removed $removed');
+    return (added, removed);
   }
 
   /// 扫描并匹配单个文件夹
   Future<_ScanResult> _scanAndMatchFolder(Directory folder) async {
     final matched = <_MatchedTrack>[];
-    int orphanCount = 0;
 
     try {
       final tracks = await DownloadScanner.scanFolderForTracks(folder.path);
@@ -102,19 +111,20 @@ class DownloadPathSyncService with Logging {
         // C1: 跳过没有有效 metadata 的文件
         if (scannedTrack.sourceId.isEmpty) {
           logDebug('Skipping file without valid sourceId: ${folder.path}');
-          orphanCount++;
           continue;
         }
 
         final localPath = scannedTrack.allDownloadPaths.firstOrNull;
         if (localPath == null) {
-          orphanCount++;
           continue;
         }
 
         final existingTrack = await _findMatchingTrack(scannedTrack);
 
         if (existingTrack != null) {
+          // 记录同步前是否已有下载路径
+          final hadExistingPaths = existingTrack.hasAnyDownload;
+
           // C3: REPLACE all playlistInfo - 本地文件是权威来源
           // C2: 使用文件夹名称作为 playlistName，方便歌单页面匹配
           final folderName = folder.path.split(RegExp(r'[/\\]')).last;
@@ -125,17 +135,18 @@ class DownloadPathSyncService with Logging {
               ..downloadPath = localPath,
           ];
 
-          matched.add(_MatchedTrack(track: existingTrack, localPath: localPath));
-        } else {
-          // 本地文件没有匹配的数据库记录
-          orphanCount++;
+          matched.add(_MatchedTrack(
+            track: existingTrack,
+            localPath: localPath,
+            hadExistingPaths: hadExistingPaths,
+          ));
         }
       }
     } catch (e) {
       logDebug('Error scanning folder ${folder.path}: $e');
     }
 
-    return _ScanResult(matched: matched, orphanCount: orphanCount);
+    return _ScanResult(matched: matched);
   }
 
   /// 查找匹配的 Track
@@ -182,15 +193,19 @@ class DownloadPathSyncService with Logging {
 /// 扫描结果
 class _ScanResult {
   final List<_MatchedTrack> matched;
-  final int orphanCount;
 
-  _ScanResult({required this.matched, required this.orphanCount});
+  _ScanResult({required this.matched});
 }
 
 /// 匹配的 Track 和本地路径
 class _MatchedTrack {
   final Track track;
   final String localPath;
+  final bool hadExistingPaths;
 
-  _MatchedTrack({required this.track, required this.localPath});
+  _MatchedTrack({
+    required this.track,
+    required this.localPath,
+    required this.hadExistingPaths,
+  });
 }
