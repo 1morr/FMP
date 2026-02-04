@@ -195,7 +195,8 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final currentTrack = ref.watch(currentTrackProvider);
-    final hasTrack = currentTrack != null;
+    final radioState = ref.watch(radioControllerProvider);
+    final hasTrack = currentTrack != null || radioState.hasCurrentStation;
 
     return Scaffold(
       body: Row(
