@@ -5,6 +5,7 @@ import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/playlist_provider.dart';
+import '../../../providers/repository_providers.dart';
 import '../track_thumbnail.dart';
 
 /// 显示添加到歌单对话框（单个track）
@@ -40,8 +41,10 @@ class _AddToPlaylistSheet extends ConsumerStatefulWidget {
 
 class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
   final _newPlaylistController = TextEditingController();
-  final Set<int> _selectedPlaylistIds = {};
+  Set<int> _selectedPlaylistIds = {};
+  Set<int> _originalPlaylistIds = {};  // 原始状态：打开对话框时 track 已在的歌单
   bool _isAdding = false;
+  bool _isInitialized = false;
 
   @override
   void dispose() {
@@ -49,10 +52,57 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
     super.dispose();
   }
 
+  /// 初始化选中状态：预选已添加歌单中的歌单
+  Future<void> _initializeSelection(List<Track> tracks, List<dynamic> playlists) async {
+    if (_isInitialized) return;
+
+    // 先从数据库获取最新的 track 数据（包含 playlistInfo）
+    final trackRepo = ref.read(trackRepositoryProvider);
+    final loadedTracks = <Track>[];
+    for (final track in tracks) {
+      try {
+        final saved = await trackRepo.getOrCreate(track);
+        loadedTracks.add(saved);
+      } catch (_) {
+        // 如果获取失败，使用原始 track
+        loadedTracks.add(track);
+      }
+    }
+
+    // 对于多个 track，只有所有 track 都在的歌单才预选
+    // 对于单个 track，预选它所在的歌单
+    final Set<int> preselectedIds = {};
+    final manualPlaylists = playlists.where((p) => !p.isImported).toList();
+
+    for (final playlist in manualPlaylists) {
+      final playlistId = playlist.id;
+      // 检查是否所有 tracks 都在这个歌单中
+      final allInPlaylist = loadedTracks.every((track) => track.belongsToPlaylist(playlistId));
+      if (allInPlaylist) {
+        preselectedIds.add(playlistId);
+      }
+    }
+
+    _originalPlaylistIds = Set.from(preselectedIds);
+    _selectedPlaylistIds = Set.from(preselectedIds);
+    _isInitialized = true;
+
+    if (mounted) {
+      setState(() {});  // 触发 UI 更新
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final playlists = ref.watch(allPlaylistsProvider);
+
+    // 初始化选中状态（在数据加载完成后）
+    playlists.whenData((lists) {
+      if (!_isInitialized && mounted) {
+        _initializeSelection(widget.tracks, lists);
+      }
+    });
 
     return DraggableScrollableSheet(
       initialChildSize: 0.8,
@@ -324,34 +374,29 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                 },
               ),
             ),
-            // 确认按钮
-            if (_selectedPlaylistIds.isNotEmpty)
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: _isAdding ? null : _addToSelectedPlaylists,
-                      icon: _isAdding
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.playlist_add),
-                      label: Text(
-                        _isAdding
-                            ? '添加中...'
-                            : '添加到 ${_selectedPlaylistIds.length} 个歌单',
-                      ),
-                    ),
+            // 确认按钮（始终显示，允许全部取消勾选来移出歌单）
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _isAdding ? null : _updateSelectedPlaylists,
+                    icon: _isAdding
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.save),
+                    label: Text(_getConfirmButtonText()),
                   ),
                 ),
               ),
+            ),
           ],
         );
       },
@@ -429,8 +474,42 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
     _newPlaylistController.clear();
   }
 
-  Future<void> _addToSelectedPlaylists() async {
-    if (_selectedPlaylistIds.isEmpty) return;
+  /// 获取确认按钮文本
+  String _getConfirmButtonText() {
+    if (_isAdding) {
+      return '保存中...';
+    }
+
+    // 计算变化
+    final toAdd = _selectedPlaylistIds.difference(_originalPlaylistIds);
+    final toRemove = _originalPlaylistIds.difference(_selectedPlaylistIds);
+
+    if (toAdd.isEmpty && toRemove.isEmpty) {
+      // 没有变化
+      return '保存';
+    } else if (toAdd.isNotEmpty && toRemove.isEmpty) {
+      // 只添加
+      return '添加到 ${toAdd.length} 个歌单';
+    } else if (toRemove.isNotEmpty && toAdd.isEmpty) {
+      // 只移除
+      return '从 ${toRemove.length} 个歌单移出';
+    } else {
+      // 同时添加和移除
+      return '添加 ${toAdd.length} 个，移出 ${toRemove.length} 个';
+    }
+  }
+
+  /// 更新选中的歌单（同时处理添加和移除）
+  Future<void> _updateSelectedPlaylists() async {
+    // 计算变化
+    final toAdd = _selectedPlaylistIds.difference(_originalPlaylistIds);
+    final toRemove = _originalPlaylistIds.difference(_selectedPlaylistIds);
+
+    // 没有变化，直接关闭
+    if (toAdd.isEmpty && toRemove.isEmpty) {
+      Navigator.pop(context, true);
+      return;
+    }
 
     setState(() {
       _isAdding = true;
@@ -438,37 +517,62 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
 
     try {
       final service = ref.read(playlistServiceProvider);
-      int successCount = 0;
+      int addSuccessCount = 0;
+      int removeSuccessCount = 0;
 
-      for (final playlistId in _selectedPlaylistIds) {
+      // 先处理移除
+      for (final playlistId in toRemove) {
         try {
-          // 添加所有tracks
           for (final track in widget.tracks) {
-            await service.addTrackToPlaylist(playlistId, track);
+            // 获取最新的 track ID（可能已经被保存到数据库）
+            final savedTrack = await ref.read(trackRepositoryProvider).getOrCreate(track);
+            await service.removeTrackFromPlaylist(playlistId, savedTrack.id);
           }
-          successCount++;
-          // 刷新该歌单详情和封面
+          removeSuccessCount++;
           ref.read(playlistListProvider.notifier).invalidatePlaylistProviders(playlistId);
         } catch (e) {
-          // 继续添加到其他歌单
+          // 继续处理其他歌单
         }
       }
 
-      // 刷新歌单列表（两个 provider 都要刷新）
+      // 再处理添加
+      for (final playlistId in toAdd) {
+        try {
+          for (final track in widget.tracks) {
+            await service.addTrackToPlaylist(playlistId, track);
+          }
+          addSuccessCount++;
+          ref.read(playlistListProvider.notifier).invalidatePlaylistProviders(playlistId);
+        } catch (e) {
+          // 继续处理其他歌单
+        }
+      }
+
+      // 刷新歌单列表
       ref.invalidate(allPlaylistsProvider);
       await ref.read(playlistListProvider.notifier).loadPlaylists();
 
       if (mounted) {
-        if (successCount == _selectedPlaylistIds.length) {
-          ToastService.success(context, '已添加到 $successCount 个歌单');
+        // 根据操作结果显示不同的提示
+        final totalChanged = toAdd.length + toRemove.length;
+        final totalSuccess = addSuccessCount + removeSuccessCount;
+
+        if (totalSuccess == totalChanged) {
+          if (toAdd.isNotEmpty && toRemove.isNotEmpty) {
+            ToastService.success(context, '已添加 $addSuccessCount 个，移出 $removeSuccessCount 个');
+          } else if (toAdd.isNotEmpty) {
+            ToastService.success(context, '已添加到 $addSuccessCount 个歌单');
+          } else {
+            ToastService.success(context, '已从 $removeSuccessCount 个歌单移出');
+          }
         } else {
-          ToastService.warning(context, '成功添加到 $successCount/${_selectedPlaylistIds.length} 个歌单');
+          ToastService.warning(context, '完成 $totalSuccess/$totalChanged 个操作');
         }
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
-        ToastService.error(context, '添加失败: $e');
+        ToastService.error(context, '操作失败: $e');
       }
     } finally {
       if (mounted) {
