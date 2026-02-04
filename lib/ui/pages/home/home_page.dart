@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:ui';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -17,6 +16,7 @@ import '../../../services/radio/radio_controller.dart';
 import '../../router.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/now_playing_indicator.dart';
+import '../../widgets/horizontal_scroll_section.dart';
 import '../../widgets/track_thumbnail.dart';
 
 /// 首页
@@ -263,92 +263,71 @@ class _HomePageState extends ConsumerState<HomePage> {
                     (constraints.maxWidth / 4).clamp(100.0, 140.0);
                 final cardHeight = cardWidth / 0.8; // 保持 0.8 的宽高比
 
-                return SizedBox(
-                  height: cardHeight,
-                  child: ScrollConfiguration(
-                    // 允许鼠标拖拽滚动（桌面端支持）
-                    behavior: ScrollConfiguration.of(context).copyWith(
-                      dragDevices: {
-                        PointerDeviceKind.touch,
-                        PointerDeviceKind.mouse,
-                        PointerDeviceKind.trackpad,
-                      },
-                    ),
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: recentLists.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(width: 12),
-                      itemBuilder: (context, index) {
-                        final playlist = recentLists[index];
-                        final coverAsync =
-                            ref.watch(playlistCoverProvider(playlist.id));
+                // 构建歌单卡片列表
+                final playlistCards = recentLists.map((playlist) {
+                  final coverAsync =
+                      ref.watch(playlistCoverProvider(playlist.id));
 
-                        // 預加載歌單詳情數據
-                        ref.read(playlistDetailProvider(playlist.id));
+                  // 預加載歌單詳情數據
+                  ref.read(playlistDetailProvider(playlist.id));
 
-                        return SizedBox(
-                          width: cardWidth,
-                          child: Card(
-                            margin: EdgeInsets.zero,
-                            clipBehavior: Clip.antiAlias,
-                            child: InkWell(
-                              onTap: () =>
-                                  context.go('/library/${playlist.id}'),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                  return SizedBox(
+                    width: cardWidth,
+                    child: Card(
+                      margin: EdgeInsets.zero,
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: () => context.go('/library/${playlist.id}'),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // 封面 - 使用 Expanded 与音乐库一致
+                            Expanded(
+                              child: Stack(
+                                fit: StackFit.expand,
                                 children: [
-                                  // 封面 - 使用 Expanded 与音乐库一致
-                                  Expanded(
-                                    child: Stack(
-                                      fit: StackFit.expand,
-                                      children: [
-                                        coverAsync.when(
-                                          skipLoadingOnReload: true,
-                                          data: (coverData) =>
-                                              coverData.hasCover
-                                                  ? ImageLoadingService
-                                                      .loadImage(
-                                                      localPath:
-                                                          coverData.localPath,
-                                                      networkUrl:
-                                                          coverData.networkUrl,
-                                                      placeholder:
-                                                          const ImagePlaceholder
-                                                              .playlist(),
-                                                      fit: BoxFit.cover,
-                                                    )
-                                                  : const ImagePlaceholder
-                                                      .playlist(),
-                                          loading: () =>
-                                              const ImagePlaceholder.playlist(),
-                                          error: (e, s) =>
-                                              const ImagePlaceholder.playlist(),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  // 名称
-                                  Padding(
-                                    padding: const EdgeInsets.all(8),
-                                    child: Text(
-                                      playlist.name,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                                  coverAsync.when(
+                                    skipLoadingOnReload: true,
+                                    data: (coverData) => coverData.hasCover
+                                        ? ImageLoadingService.loadImage(
+                                            localPath: coverData.localPath,
+                                            networkUrl: coverData.networkUrl,
+                                            placeholder:
+                                                const ImagePlaceholder
+                                                    .playlist(),
+                                            fit: BoxFit.cover,
+                                          )
+                                        : const ImagePlaceholder.playlist(),
+                                    loading: () =>
+                                        const ImagePlaceholder.playlist(),
+                                    error: (e, s) =>
+                                        const ImagePlaceholder.playlist(),
                                   ),
                                 ],
                               ),
                             ),
-                          ),
-                        );
-                      },
+                            // 名称
+                            Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: Text(
+                                playlist.name,
+                                style:
+                                    Theme.of(context).textTheme.bodySmall,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
+                  );
+                }).toList();
+
+                return HorizontalScrollSection(
+                  height: cardHeight,
+                  itemWidth: cardWidth,
+                  children: playlistCards,
                 );
               },
             ),
@@ -457,30 +436,16 @@ class _HomePageState extends ConsumerState<HomePage> {
                     (constraints.maxWidth / 4).clamp(100.0, 140.0);
                 final cardHeight = cardWidth / 0.8; // 保持 0.8 的宽高比
 
-                return SizedBox(
+                // 构建历史卡片列表
+                final historyCards = filteredList
+                    .map((history) =>
+                        _buildHistoryItem(context, history, colorScheme, cardWidth))
+                    .toList();
+
+                return HorizontalScrollSection(
                   height: cardHeight,
-                  child: ScrollConfiguration(
-                    // 允许鼠标拖拽滚动（桌面端支持）
-                    behavior: ScrollConfiguration.of(context).copyWith(
-                      dragDevices: {
-                        PointerDeviceKind.touch,
-                        PointerDeviceKind.mouse,
-                        PointerDeviceKind.trackpad,
-                      },
-                    ),
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: filteredList.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(width: 12),
-                      itemBuilder: (context, index) {
-                        final history = filteredList[index];
-                        return _buildHistoryItem(
-                            context, history, colorScheme, cardWidth);
-                      },
-                    ),
-                  ),
+                  itemWidth: cardWidth,
+                  children: historyCards,
                 );
               },
             ),
@@ -739,42 +704,27 @@ class _HomePageState extends ConsumerState<HomePage> {
             ],
           ),
         ),
-        SizedBox(
+        HorizontalScrollSection(
           height: 140,
-          child: ScrollConfiguration(
-            behavior: ScrollConfiguration.of(context).copyWith(
-              dragDevices: {
-                PointerDeviceKind.touch,
-                PointerDeviceKind.mouse,
-                PointerDeviceKind.trackpad,
-              },
-            ),
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: sortedStations.length,
-              separatorBuilder: (context, index) => const SizedBox(width: 12),
-              itemBuilder: (context, index) {
-                final station = sortedStations[index];
-                final isLive = radioState.isStationLive(station.id);
-                final isCurrentPlaying =
-                    radioState.currentStation?.id == station.id;
-                final isPlaying = isCurrentPlaying && radioState.isPlaying;
-                final isLoading = radioState.loadingStationId == station.id;
+          itemWidth: 120,
+          children: sortedStations.map((station) {
+            final isLive = radioState.isStationLive(station.id);
+            final isCurrentPlaying =
+                radioState.currentStation?.id == station.id;
+            final isPlaying = isCurrentPlaying && radioState.isPlaying;
+            final isLoading = radioState.loadingStationId == station.id;
 
-                return SizedBox(
-                  width: 120,
-                  child: _HomeRadioStationCard(
-                    station: station,
-                    isLive: isLive,
-                    isPlaying: isPlaying,
-                    isLoading: isLoading,
-                    onTap: () => _onRadioStationTap(station, isCurrentPlaying, radioState),
-                  ),
-                );
-              },
-            ),
-          ),
+            return SizedBox(
+              width: 120,
+              child: _HomeRadioStationCard(
+                station: station,
+                isLive: isLive,
+                isPlaying: isPlaying,
+                isLoading: isLoading,
+                onTap: () => _onRadioStationTap(station, isCurrentPlaying, radioState),
+              ),
+            );
+          }).toList(),
         ),
       ],
     );
