@@ -161,14 +161,7 @@ class _HorizontalScrollSectionState extends State<HorizontalScrollSection> {
                     return false;
                   },
                   child: ScrollConfiguration(
-                    behavior: _isDesktop
-                        ? _DesktopScrollBehavior()
-                        : ScrollConfiguration.of(context).copyWith(
-                            dragDevices: {
-                              PointerDeviceKind.touch,
-                              PointerDeviceKind.trackpad,
-                            },
-                          ),
+                    behavior: _NoScrollbarScrollBehavior(),
                     child: ListView.separated(
                       controller: _scrollController,
                       scrollDirection: Axis.horizontal,
@@ -304,10 +297,23 @@ class _ArrowButton extends StatelessWidget {
   }
 }
 
-/// Custom scroll behavior for desktop that disables mouse drag
-class _DesktopScrollBehavior extends ScrollBehavior {
+/// Custom scroll behavior that hides the scrollbar and disables mouse drag on desktop
+class _NoScrollbarScrollBehavior extends ScrollBehavior {
   @override
-  Set<PointerDeviceKind> get dragDevices => const {};
+  Set<PointerDeviceKind> get dragDevices => const {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.trackpad,
+      };
+
+  @override
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    // Return child without scrollbar
+    return child;
+  }
 
   @override
   Widget buildOverscrollIndicator(
@@ -316,10 +322,5 @@ class _DesktopScrollBehavior extends ScrollBehavior {
     ScrollableDetails details,
   ) {
     return child;
-  }
-
-  @override
-  ScrollPhysics getScrollPhysics(BuildContext context) {
-    return const NeverScrollableScrollPhysics();
   }
 }
