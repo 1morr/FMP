@@ -229,14 +229,11 @@ class _HorizontalScrollSectionState extends State<HorizontalScrollSection> {
                 if (_isDesktop && _isHovering && _canScrollLeft)
                   Positioned(
                     left: 8,
-                    top: 0,
-                    bottom: 0,
-                    child: Center(
-                      child: _ArrowButton(
-                        icon: Icons.chevron_left,
-                        onPressed: () => _scrollByItems(-visibleItems),
-                        colorScheme: colorScheme,
-                      ),
+                    top: 40,
+                    child: _ArrowButton(
+                      icon: Icons.chevron_left,
+                      onPressed: () => _scrollByItems(-visibleItems),
+                      colorScheme: colorScheme,
                     ),
                   ),
 
@@ -244,14 +241,11 @@ class _HorizontalScrollSectionState extends State<HorizontalScrollSection> {
                 if (_isDesktop && _isHovering && _canScrollRight)
                   Positioned(
                     right: 8,
-                    top: 0,
-                    bottom: 0,
-                    child: Center(
-                      child: _ArrowButton(
-                        icon: Icons.chevron_right,
-                        onPressed: () => _scrollByItems(visibleItems),
-                        colorScheme: colorScheme,
-                      ),
+                    top: 40,
+                    child: _ArrowButton(
+                      icon: Icons.chevron_right,
+                      onPressed: () => _scrollByItems(visibleItems),
+                      colorScheme: colorScheme,
                     ),
                   ),
               ],
@@ -285,10 +279,10 @@ class _ArrowButton extends StatelessWidget {
         customBorder: const CircleBorder(),
         onTap: onPressed,
         child: Padding(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(6),
           child: Icon(
             icon,
-            size: 24,
+            size: 22,
             color: colorScheme.onSurface,
           ),
         ),
