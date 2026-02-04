@@ -12,7 +12,6 @@ class RadioStationTile extends ConsumerWidget {
   final bool isPlaying;
   final bool isLoading;
   final VoidCallback? onTap;
-  final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
   const RadioStationTile({
@@ -21,7 +20,6 @@ class RadioStationTile extends ConsumerWidget {
     this.isPlaying = false,
     this.isLoading = false,
     this.onTap,
-    this.onEdit,
     this.onDelete,
   });
 
@@ -79,25 +77,12 @@ class RadioStationTile extends ConsumerWidget {
                 ),
                 onSelected: (value) {
                   switch (value) {
-                    case 'edit':
-                      onEdit?.call();
-                      break;
                     case 'delete':
                       onDelete?.call();
                       break;
                   }
                 },
                 itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: Row(
-                      children: [
-                        Icon(Icons.edit, size: 20),
-                        SizedBox(width: 12),
-                        Text('編輯'),
-                      ],
-                    ),
-                  ),
                   const PopupMenuItem(
                     value: 'delete',
                     child: Row(

@@ -147,9 +147,9 @@ class _RadioPageState extends ConsumerState<RadioPage> {
           child: GridView.builder(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
             gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 200,
-              mainAxisSpacing: 16,
-              crossAxisSpacing: 16,
+              maxCrossAxisExtent: 160,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
               childAspectRatio: 0.8,
             ),
             itemCount: sortedStations.length,
@@ -237,14 +237,6 @@ class _RadioPageState extends ConsumerState<RadioPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: const Icon(Icons.edit),
-                title: const Text('编辑电台'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showEditDialog(context, station);
-                },
-              ),
-              ListTile(
                 leading: Icon(Icons.delete, color: colorScheme.error),
                 title: Text('删除电台', style: TextStyle(color: colorScheme.error)),
                 onTap: () {
@@ -257,48 +249,6 @@ class _RadioPageState extends ConsumerState<RadioPage> {
         ),
       ),
     );
-  }
-
-  Future<void> _showEditDialog(
-      BuildContext context, RadioStation station) async {
-    final titleController = TextEditingController(text: station.title);
-
-    final result = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('编辑电台'),
-        content: TextField(
-          controller: titleController,
-          decoration: const InputDecoration(
-            labelText: '电台名称',
-            border: OutlineInputBorder(),
-          ),
-          autofocus: true,
-          onSubmitted: (value) => Navigator.of(context).pop(value),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(null),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.of(context).pop(titleController.text.trim()),
-            child: const Text('确认'),
-          ),
-        ],
-      ),
-    );
-
-    titleController.dispose();
-
-    if (result != null && result.isNotEmpty && result != station.title) {
-      station.title = result;
-      await ref.read(radioControllerProvider.notifier).updateStation(station);
-      if (context.mounted) {
-        ToastService.show(context, '电台已更新');
-      }
-    }
   }
 
   Future<void> _showDeleteConfirm(
