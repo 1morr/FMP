@@ -159,7 +159,6 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: ListView.builder(
-        padding: const EdgeInsets.only(bottom: 100),
         itemCount: tracks.length,
         itemBuilder: (context, index) {
           final track = tracks[index];
