@@ -562,7 +562,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     }
   }
 
-  /// 刷新所有電台的直播狀態
+  /// 刷新所有電台的直播狀態和資訊（封面、標題、主播名）
   Future<void> refreshAllLiveStatus() async {
     if (state.stations.isEmpty || state.isRefreshingStatus) return;
 
@@ -572,8 +572,29 @@ class RadioController extends StateNotifier<RadioState> with Logging {
 
     for (final station in state.stations) {
       try {
-        final isLive = await _radioSource.isLive(station);
-        newStatus[station.id] = isLive;
+        // 獲取完整直播間資訊
+        final info = await _radioSource.getLiveInfo(station);
+        newStatus[station.id] = info.isLive;
+
+        // 更新電台資訊（封面、標題、主播名）
+        bool needsUpdate = false;
+        if (info.thumbnailUrl != null && info.thumbnailUrl != station.thumbnailUrl) {
+          station.thumbnailUrl = info.thumbnailUrl;
+          needsUpdate = true;
+        }
+        if (info.title.isNotEmpty && info.title != station.title) {
+          station.title = info.title;
+          needsUpdate = true;
+        }
+        if (info.hostName != null && info.hostName != station.hostName) {
+          station.hostName = info.hostName;
+          needsUpdate = true;
+        }
+
+        // 保存到數據庫
+        if (needsUpdate) {
+          await _repository.save(station);
+        }
       } catch (e) {
         logWarning('Failed to check live status for ${station.title}: $e');
         newStatus[station.id] = false;
