@@ -11,6 +11,7 @@ import 'app.dart';
 import 'services/audio/audio_handler.dart';
 import 'services/audio/windows_smtc_handler.dart';
 import 'services/cache/ranking_cache_service.dart';
+import 'services/radio/radio_refresh_service.dart';
 
 /// 全局 AudioHandler 实例，供 AudioController 使用
 late FmpAudioHandler audioHandler;
@@ -70,6 +71,10 @@ void main() async {
   // 初始化首頁排行榜緩存服務（後台加載，不阻塞啟動）
   RankingCacheService.instance = RankingCacheService();
   RankingCacheService.instance.initialize(); // 不等待，後台執行
+
+  // 初始化電台刷新服務（後台加載，不阻塞啟動）
+  // 注意：Repository 由 RadioController 設置，定時刷新在設置後自動啟動
+  RadioRefreshService.instance = RadioRefreshService();
 
   runApp(
     const ProviderScope(
