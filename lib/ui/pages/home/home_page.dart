@@ -229,8 +229,8 @@ class _HomePageState extends ConsumerState<HomePage> {
       loading: () => const SizedBox.shrink(),
       error: (e, s) => const SizedBox.shrink(),
       data: (lists) {
-        // 最多显示 10 个歌单
-        final recentLists = lists.take(10).toList();
+        // 最多显示 20 个歌单
+        final recentLists = lists.take(20).toList();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -396,22 +396,15 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   Widget _buildRecentHistory(BuildContext context, ColorScheme colorScheme) {
     final historyAsync = ref.watch(recentPlayHistoryProvider);
-    final currentTrack = ref.watch(audioControllerProvider).currentTrack;
 
     return historyAsync.when(
       loading: () => const SizedBox.shrink(),
       error: (e, s) => const SizedBox.shrink(),
       data: (historyList) {
-        // 过滤掉当前正在播放的歌曲
-        final filteredList = currentTrack != null
-            ? historyList
-                .where((h) =>
-                    h.sourceId != currentTrack.sourceId ||
-                    h.sourceType != currentTrack.sourceType)
-                .toList()
-            : historyList;
+        // 最多显示 20 个
+        final displayList = historyList.take(20).toList();
 
-        if (filteredList.isEmpty) return const SizedBox.shrink();
+        if (displayList.isEmpty) return const SizedBox.shrink();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -437,7 +430,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 final cardHeight = cardWidth / 0.8; // 保持 0.8 的宽高比
 
                 // 构建历史卡片列表
-                final historyCards = filteredList
+                final historyCards = displayList
                     .map((history) =>
                         _buildHistoryItem(context, history, colorScheme, cardWidth))
                     .toList();
@@ -684,6 +677,8 @@ class _HomePageState extends ConsumerState<HomePage> {
         final bLive = radioState.isStationLive(b.id) ? 0 : 1;
         return aLive.compareTo(bLive);
       });
+    // 最多显示 20 个
+    final displayStations = sortedStations.take(20).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -707,7 +702,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         HorizontalScrollSection(
           height: 140,
           itemWidth: 120,
-          children: sortedStations.map((station) {
+          children: displayStations.map((station) {
             final isLive = radioState.isStationLive(station.id);
             final isCurrentPlaying =
                 radioState.currentStation?.id == station.id;
