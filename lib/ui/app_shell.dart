@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+import 'package:go_router/go_router.dart' show StatefulNavigationShell;
 
 import '../core/constants/app_constants.dart';
 import '../core/services/toast_service.dart';
 import 'layouts/responsive_scaffold.dart';
-import 'router.dart';
 
 /// 应用外壳 - 包含导航栏和迷你播放器
 class AppShell extends ConsumerStatefulWidget {
-  final Widget child;
+  final StatefulNavigationShell navigationShell;
 
-  const AppShell({super.key, required this.child});
+  const AppShell({super.key, required this.navigationShell});
 
   @override
   ConsumerState<AppShell> createState() => _AppShellState();
@@ -60,34 +59,19 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
   }
 
-  /// 根据当前路由路径获取导航索引
-  int _getSelectedIndex(BuildContext context) {
-    final location = GoRouterState.of(context).uri.path;
-
-    if (location.startsWith(RoutePaths.settings)) return 5;
-    if (location.startsWith(RoutePaths.radio)) return 4;
-    if (location.startsWith(RoutePaths.library)) return 3;
-    if (location.startsWith(RoutePaths.queue)) return 2;
-    if (location.startsWith(RoutePaths.search)) return 1;
-    return 0; // home
-  }
+  /// 获取当前导航索引（直接从 navigationShell 获取）
+  int get _selectedIndex => widget.navigationShell.currentIndex;
 
   /// 导航到指定分支
   void _onDestinationSelected(int index) {
-    switch (index) {
-      case 0:
-        context.go(RoutePaths.home);
-      case 1:
-        context.go(RoutePaths.search);
-      case 2:
-        context.go(RoutePaths.queue);
-      case 3:
-        context.go(RoutePaths.library);
-      case 4:
-        context.go(RoutePaths.radio);
-      case 5:
-        context.go(RoutePaths.settings);
-    }
+    // 首页总是返回到初始路由（不显示 explore）
+    final shouldResetToInitial = index == 0 ||
+        index == widget.navigationShell.currentIndex;
+
+    widget.navigationShell.goBranch(
+      index,
+      initialLocation: shouldResetToInitial,
+    );
   }
 
   @override
@@ -101,9 +85,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     });
 
     return ResponsiveScaffold(
-      selectedIndex: _getSelectedIndex(context),
+      selectedIndex: _selectedIndex,
       onDestinationSelected: _onDestinationSelected,
-      child: widget.child,
+      child: widget.navigationShell,
     );
   }
 }
