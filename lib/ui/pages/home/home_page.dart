@@ -98,7 +98,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               const Spacer(),
               TextButton(
                 onPressed: () => context.go(RoutePaths.explore),
-                child: const Text('更多'),
+                child: const Text('查看全部'),
               ),
             ],
           ),
@@ -694,7 +694,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               const Spacer(),
               TextButton(
                 onPressed: () => context.go(RoutePaths.radio),
-                child: const Text('更多'),
+                child: const Text('查看全部'),
               ),
             ],
           ),

@@ -456,8 +456,6 @@ mcp__plugin_serena_serena__read_memory(memory_file_name: "ui_coding_patterns")
 
 5. **刷新模式**：使用 `RefreshIndicator` + `ref.invalidate()` 或 cache service
 
-6. **列表底部留白**：`padding: const EdgeInsets.only(bottom: 100)` 为迷你播放器留空间
-
 #### 相似页面对照
 
 | 新建/修改页面 | 应参考的页面 | 统一点 |

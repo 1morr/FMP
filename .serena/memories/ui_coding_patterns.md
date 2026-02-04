@@ -180,7 +180,6 @@ RefreshIndicator(
     await ref.read(someProvider.notifier).refresh();
   },
   child: ListView.builder(
-    padding: const EdgeInsets.only(bottom: 100), // 为迷你播放器留空间
     itemCount: items.length,
     itemBuilder: (context, index) => _buildItem(items[index]),
   ),
@@ -448,7 +447,7 @@ Widget build(BuildContext context, WidgetRef ref) {
 - [ ] 播放状态判断是否使用统一的比较逻辑
 - [ ] 菜单操作是否与其他页面一致
 - [ ] 错误状态和空状态处理是否符合规范
-- [ ] 列表是否留出底部 padding（迷你播放器）
+- [ ] 列表项样式是否与相似页面统一
 - [ ] 是否使用了相似页面的现有组件和模式
 
 ---
