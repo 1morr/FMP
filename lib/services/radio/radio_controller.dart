@@ -13,6 +13,7 @@ import '../audio/media_kit_audio_service.dart';
 import '../audio/audio_types.dart';
 import '../audio/audio_provider.dart';
 import 'radio_source.dart';
+import 'radio_refresh_service.dart';
 
 /// 電台播放狀態
 class RadioState {
@@ -185,6 +186,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
   // 訂閱
   StreamSubscription? _playerStateSubscription;
   StreamSubscription? _stationsSubscription;
+  StreamSubscription? _refreshServiceSubscription;
 
   // 重連配置
   static const int _maxReconnectAttempts = 3;
@@ -200,6 +202,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
   // 當前流地址（用於重連）
   LiveStreamInfo? _currentStreamInfo;
 
+  /// 正常構造函數
   RadioController(
     this._ref,
     this._repository,
@@ -210,12 +213,26 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     _setupMutualExclusion();
   }
 
+  /// 用於數據庫加載中的構造函數（返回空狀態）
+  RadioController.forLoading()
+      : _ref = _DummyRef(),
+        _repository = _DummyRadioRepository(),
+        _radioSource = RadioSource(),
+        _audioService = _DummyAudioService(),
+        super(const RadioState()) {
+    // 不初始化，等待真正的 controller
+  }
+
   Future<void> _initialize() async {
+    // 設置 RadioRefreshService 的 Repository
+    RadioRefreshService.instance.setRepository(_repository);
+
     // 載入電台列表
     await _loadStations();
 
     // 監聽電台列表變化
     _stationsSubscription = _repository.watchAll().listen((stations) {
+      logInfo('watchAll 觸發: ${stations.length} 個電台');
       state = state.copyWith(stations: stations);
     });
 
@@ -223,6 +240,14 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     _playerStateSubscription = _audioService.playerStateStream.listen(
       _onPlayerStateChanged,
     );
+
+    // 監聽 RadioRefreshService 的狀態變化
+    _refreshServiceSubscription = RadioRefreshService.instance.stateChanges.listen((_) {
+      _syncLiveStatusFromRefreshService();
+    });
+
+    // 初始化時同步一次直播狀態
+    _syncLiveStatusFromRefreshService();
 
     // 設置 SMTC 回調（僅 Windows）
     _setupSmtcCallbacks();
@@ -278,6 +303,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
   /// 載入電台列表
   Future<void> _loadStations() async {
     final stations = await _repository.getAll();
+    logInfo('載入 ${stations.length} 個電台');
     state = state.copyWith(stations: stations);
   }
 
@@ -563,48 +589,21 @@ class RadioController extends StateNotifier<RadioState> with Logging {
   }
 
   /// 刷新所有電台的直播狀態和資訊（封面、標題、主播名）
+  ///
+  /// 注意：定時後台刷新由 RadioRefreshService 處理
+  /// 此方法僅用於手動刷新（如用戶下拉刷新）
   Future<void> refreshAllLiveStatus() async {
     if (state.stations.isEmpty || state.isRefreshingStatus) return;
 
     state = state.copyWith(isRefreshingStatus: true);
 
-    final newStatus = <int, bool>{};
+    // 使用 RadioRefreshService 進行刷新
+    await RadioRefreshService.instance.refreshAll();
 
-    for (final station in state.stations) {
-      try {
-        // 獲取完整直播間資訊
-        final info = await _radioSource.getLiveInfo(station);
-        newStatus[station.id] = info.isLive;
+    // 同步狀態
+    _syncLiveStatusFromRefreshService();
 
-        // 更新電台資訊（封面、標題、主播名）
-        bool needsUpdate = false;
-        if (info.thumbnailUrl != null && info.thumbnailUrl != station.thumbnailUrl) {
-          station.thumbnailUrl = info.thumbnailUrl;
-          needsUpdate = true;
-        }
-        if (info.title.isNotEmpty && info.title != station.title) {
-          station.title = info.title;
-          needsUpdate = true;
-        }
-        if (info.hostName != null && info.hostName != station.hostName) {
-          station.hostName = info.hostName;
-          needsUpdate = true;
-        }
-
-        // 保存到數據庫
-        if (needsUpdate) {
-          await _repository.save(station);
-        }
-      } catch (e) {
-        logWarning('Failed to check live status for ${station.title}: $e');
-        newStatus[station.id] = false;
-      }
-    }
-
-    state = state.copyWith(
-      liveStatus: newStatus,
-      isRefreshingStatus: false,
-    );
+    state = state.copyWith(isRefreshingStatus: false);
   }
 
   // ========== Private Methods ==========
@@ -723,11 +722,25 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     state = state.copyWith(playDuration: duration);
   }
 
+  /// 從 RadioRefreshService 同步直播狀態
+  void _syncLiveStatusFromRefreshService() {
+    final refreshService = RadioRefreshService.instance;
+    final serviceStatus = refreshService.liveStatus;
+
+    logInfo('同步直播狀態: ${serviceStatus.length} 個電台');
+
+    if (serviceStatus.isEmpty) return;
+
+    // 合併服務的狀態到當前狀態
+    state = state.copyWith(liveStatus: serviceStatus);
+  }
+
   @override
   void dispose() {
     _stopTimers();
     _playerStateSubscription?.cancel();
     _stationsSubscription?.cancel();
+    _refreshServiceSubscription?.cancel();
     super.dispose();
   }
 }
@@ -742,8 +755,9 @@ final radioSourceProvider = Provider<RadioSource>((ref) {
 });
 
 /// RadioRepository Provider
-final radioRepositoryProvider = Provider<RadioRepository>((ref) {
-  final isar = ref.watch(databaseProvider).requireValue;
+final radioRepositoryProvider = Provider<RadioRepository?>((ref) {
+  final isar = ref.watch(databaseProvider).valueOrNull;
+  if (isar == null) return null;
   return RadioRepository(isar);
 });
 
@@ -753,6 +767,11 @@ final radioControllerProvider =
   final repository = ref.watch(radioRepositoryProvider);
   final radioSource = ref.watch(radioSourceProvider);
   final audioService = ref.watch(audioServiceProvider);
+
+  // 如果数据库还没准备好，返回一个空的 controller
+  if (repository == null) {
+    return RadioController.forLoading();
+  }
 
   return RadioController(ref, repository, radioSource, audioService);
 });
@@ -771,3 +790,35 @@ final currentRadioStationProvider = Provider<RadioStation?>((ref) {
 final radioStationsProvider = Provider<List<RadioStation>>((ref) {
   return ref.watch(radioControllerProvider).stations;
 });
+
+// ========== Dummy Classes for Loading State ==========
+
+/// Dummy Ref for loading state
+class _DummyRef implements Ref {
+  @override
+  T watch<T>(ProviderListenable<T> provider) => throw UnimplementedError('DummyRef should not be used');
+
+  @override
+  T read<T>(ProviderListenable<T> provider) => throw UnimplementedError('DummyRef should not be used');
+
+  @override
+  void invalidate(ProviderOrFamily provider) => throw UnimplementedError('DummyRef should not be used');
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// Dummy RadioRepository for loading state
+class _DummyRadioRepository implements RadioRepository {
+  @override
+  Future<List<RadioStation>> getAll() async => [];
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// Dummy MediaKitAudioService for loading state
+class _DummyAudioService implements MediaKitAudioService {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
