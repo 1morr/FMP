@@ -12,9 +12,11 @@ import '../../../providers/playlist_provider.dart';
 import '../../../providers/play_history_provider.dart';
 import '../../../providers/popular_provider.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../../data/models/radio_station.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../router.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
+import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/track_thumbnail.dart';
 
 /// 首页
@@ -52,6 +54,9 @@ class _HomePageState extends ConsumerState<HomePage> {
               // 队列预览
               if (playerState.queue.isNotEmpty)
                 _buildQueuePreview(context, playerState, colorScheme),
+
+              // 电台
+              _buildRadioSection(context, colorScheme),
 
               // 最近播放历史
               _buildRecentHistory(context, colorScheme),
@@ -698,6 +703,101 @@ class _HomePageState extends ConsumerState<HomePage> {
       ],
     );
   }
+
+  /// 構建電台區域
+  Widget _buildRadioSection(BuildContext context, ColorScheme colorScheme) {
+    final radioState = ref.watch(radioControllerProvider);
+
+    if (radioState.stations.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // 排序：正在直播的排前面
+    final sortedStations = List<RadioStation>.from(radioState.stations)
+      ..sort((a, b) {
+        final aLive = radioState.isStationLive(a.id) ? 0 : 1;
+        final bLive = radioState.isStationLive(b.id) ? 0 : 1;
+        return aLive.compareTo(bLive);
+      });
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Row(
+            children: [
+              Text(
+                '電台',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () => context.go(RoutePaths.radio),
+                child: const Text('更多'),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 140,
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(
+              dragDevices: {
+                PointerDeviceKind.touch,
+                PointerDeviceKind.mouse,
+                PointerDeviceKind.trackpad,
+              },
+            ),
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: sortedStations.length,
+              separatorBuilder: (context, index) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final station = sortedStations[index];
+                final isLive = radioState.isStationLive(station.id);
+                final isCurrentPlaying =
+                    radioState.currentStation?.id == station.id;
+                final isPlaying = isCurrentPlaying && radioState.isPlaying;
+                final isLoading = radioState.loadingStationId == station.id;
+
+                return SizedBox(
+                  width: 120,
+                  child: _HomeRadioStationCard(
+                    station: station,
+                    isLive: isLive,
+                    isPlaying: isPlaying,
+                    isLoading: isLoading,
+                    onTap: () => _onRadioStationTap(station, isCurrentPlaying, radioState),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 電台卡片點擊處理
+  void _onRadioStationTap(
+    RadioStation station,
+    bool isCurrentPlaying,
+    RadioState radioState,
+  ) {
+    final controller = ref.read(radioControllerProvider.notifier);
+
+    if (isCurrentPlaying) {
+      if (radioState.isPlaying) {
+        controller.pause();
+      } else {
+        controller.resume();
+      }
+    } else {
+      controller.play(station);
+    }
+  }
 }
 
 /// 排行榜歌曲項目（類似搜索結果項目）
@@ -849,5 +949,155 @@ class _RankingTrackTile extends ConsumerWidget {
         showAddToPlaylistDialog(context: context, track: track);
         break;
     }
+  }
+}
+
+/// 首頁電台卡片（簡化版）
+class _HomeRadioStationCard extends StatelessWidget {
+  final RadioStation station;
+  final bool isLive;
+  final bool isPlaying;
+  final bool isLoading;
+  final VoidCallback onTap;
+
+  const _HomeRadioStationCard({
+    required this.station,
+    required this.isLive,
+    required this.isPlaying,
+    required this.isLoading,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Column(
+        children: [
+          // 圆形封面
+          SizedBox(
+            width: 100,
+            height: 100,
+            child: Stack(
+              children: [
+                // 封面图
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: colorScheme.surfaceContainerHighest,
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: ColorFiltered(
+                    colorFilter: isLive
+                        ? const ColorFilter.mode(
+                            Colors.transparent,
+                            BlendMode.multiply,
+                          )
+                        : const ColorFilter.matrix(<double>[
+                            0.2126, 0.7152, 0.0722, 0, 0,
+                            0.2126, 0.7152, 0.0722, 0, 0,
+                            0.2126, 0.7152, 0.0722, 0, 0,
+                            0, 0, 0, 1, 0,
+                          ]),
+                    child: ImageLoadingService.loadImage(
+                      networkUrl: station.thumbnailUrl,
+                      placeholder: _buildPlaceholder(colorScheme),
+                      fit: BoxFit.cover,
+                      width: 100,
+                      height: 100,
+                    ),
+                  ),
+                ),
+
+                // 正在直播红点
+                if (isLive)
+                  Positioned(
+                    top: 3,
+                    right: 3,
+                    child: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: colorScheme.surface,
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.red.withValues(alpha: 0.5),
+                            blurRadius: 3,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                // 播放中指示器
+                if (isPlaying || isLoading)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: colorScheme.primary.withValues(alpha: 0.4),
+                      ),
+                      child: Center(
+                        child: isLoading
+                            ? const SizedBox(
+                                width: 30,
+                                height: 30,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const NowPlayingIndicator(
+                                color: Colors.white,
+                                size: 30,
+                                isPlaying: true,
+                              ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 6),
+
+          // 标题
+          Text(
+            station.title,
+            style: textTheme.bodySmall?.copyWith(
+              fontWeight: isPlaying ? FontWeight.bold : null,
+              color: isLive
+                  ? (isPlaying ? colorScheme.primary : colorScheme.onSurface)
+                  : colorScheme.onSurfaceVariant,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlaceholder(ColorScheme colorScheme) {
+    return Container(
+      color: colorScheme.surfaceContainerHighest,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.radio,
+        size: 40,
+        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+      ),
+    );
   }
 }

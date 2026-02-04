@@ -459,6 +459,7 @@ class _RadioStationCard extends StatelessWidget {
   Widget _buildPlaceholder(ColorScheme colorScheme) {
     return Container(
       color: colorScheme.surfaceContainerHighest,
+      alignment: Alignment.center,
       child: Icon(
         Icons.radio,
         size: 40,
