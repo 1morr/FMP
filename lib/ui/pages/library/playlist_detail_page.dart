@@ -614,7 +614,12 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           onAction: () => context.pushNamed(RouteNames.downloadManager),
         );
       } else {
-        ToastService.show(context, '歌单已在下载队列中或为空');
+        ToastService.showWithAction(
+          context,
+          '歌单已在下载队列中或歌單为空',
+          actionLabel: '查看',
+          onAction: () => context.pushNamed(RouteNames.downloadManager),
+        );
       }
     }
   }
