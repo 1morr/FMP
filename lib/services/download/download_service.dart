@@ -686,38 +686,23 @@ class DownloadService with Logging {
 
       // 获取 VideoDetail（用于保存完整元数据）
       VideoDetail? videoDetail;
-      final videoDir = Directory(p.dirname(savePath));
-      final metadataFile = File(p.join(videoDir.path, 'metadata.json'));
-
-      // 检查是否已有完整的 metadata（多P视频只获取一次）
-      bool hasFullMetadata = false;
-      if (await metadataFile.exists()) {
-        try {
-          final existing = jsonDecode(await metadataFile.readAsString());
-          hasFullMetadata = existing['viewCount'] != null;
-        } catch (_) {}
-      }
-
-      // 如果没有完整 metadata，尝试获取 VideoDetail
-      if (!hasFullMetadata) {
-        try {
-          if (track.sourceType == SourceType.bilibili) {
-            final source = _sourceManager.getSource(SourceType.bilibili);
-            if (source is BilibiliSource) {
-              videoDetail = await source.getVideoDetail(track.sourceId);
-            }
-          } else if (track.sourceType == SourceType.youtube) {
-            final source = _sourceManager.getSource(SourceType.youtube);
-            if (source is YouTubeSource) {
-              videoDetail = await source.getVideoDetail(track.sourceId);
-            }
+      try {
+        if (track.sourceType == SourceType.bilibili) {
+          final source = _sourceManager.getSource(SourceType.bilibili);
+          if (source is BilibiliSource) {
+            videoDetail = await source.getVideoDetail(track.sourceId);
           }
-        } catch (e) {
-          logDebug('Failed to get video detail: $e');
+        } else if (track.sourceType == SourceType.youtube) {
+          final source = _sourceManager.getSource(SourceType.youtube);
+          if (source is YouTubeSource) {
+            videoDetail = await source.getVideoDetail(track.sourceId);
+          }
         }
+      } catch (e) {
+        logDebug('Failed to get video detail: $e');
       }
 
-      // 保存元数据
+      // 保存元数据（总是用最新数据覆盖）
       await _saveMetadata(track, savePath, videoDetail: videoDetail);
 
       // A3: 验证文件存在后才保存下载路径到 Track
