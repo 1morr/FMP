@@ -921,6 +921,16 @@ class _TrackListTile extends ConsumerWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // 分P子项目单独显示下载状态（主项目在 subtitle 显示）
+            if (isPartOfMultiPage && track.isDownloadedForPlaylist(playlistId, playlistName: playlistName))
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Icon(
+                  Icons.download_done,
+                  size: 14,
+                  color: colorScheme.primary,
+                ),
+              ),
             if (track.durationMs != null)
               SizedBox(
                 width: 48, // 与 IconButton 宽度对齐

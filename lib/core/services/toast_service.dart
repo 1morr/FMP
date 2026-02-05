@@ -119,6 +119,7 @@ class ToastService {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
+        persist: false,
         action: SnackBarAction(
           label: actionLabel,
           onPressed: onAction,
