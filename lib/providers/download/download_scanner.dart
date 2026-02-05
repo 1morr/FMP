@@ -233,16 +233,6 @@ class DownloadScanner {
     await for (final entity in folder.list()) {
       if (entity is Directory) {
         final folderName = p.basename(entity.path);
-        final metadataFile = File(p.join(entity.path, 'metadata.json'));
-        Map<String, dynamic>? metadata;
-
-        // 读取 metadata.json
-        if (await metadataFile.exists()) {
-          try {
-            final content = await metadataFile.readAsString();
-            metadata = jsonDecode(content) as Map<String, dynamic>;
-          } catch (_) {}
-        }
 
         // 尝试从文件夹名提取 sourceId（新格式: sourceId_title）
         final sourceIdFromFolder = extractSourceId(folderName);
@@ -252,22 +242,52 @@ class DownloadScanner {
           if (audioEntity is File && audioEntity.path.endsWith('.m4a')) {
             Track? track;
 
+            // 从文件名判断是否是多P视频，并确定 metadata 文件名
+            final fileName = p.basenameWithoutExtension(audioEntity.path);
+
+            // 新格式: P01.m4a, P02.m4a
+            final newPageMatch = RegExp(r'^P(\d+)$').firstMatch(fileName);
+            // 旧格式: P01 - xxx.m4a
+            final oldPageMatch = RegExp(r'^P(\d+)\s*-\s*(.+)$').firstMatch(fileName);
+
+            // 确定要读取的 metadata 文件
+            File? metadataFile;
+            Map<String, dynamic>? metadata;
+
+            if (newPageMatch != null) {
+              // 多P新格式：优先读取 metadata_P{NN}.json，fallback 到 metadata.json
+              final pageNumStr = newPageMatch.group(1)!;
+              final pageMetadataFile = File(p.join(entity.path, 'metadata_P$pageNumStr.json'));
+              final defaultMetadataFile = File(p.join(entity.path, 'metadata.json'));
+
+              if (await pageMetadataFile.exists()) {
+                metadataFile = pageMetadataFile;
+              } else if (await defaultMetadataFile.exists()) {
+                metadataFile = defaultMetadataFile;
+              }
+            } else if (oldPageMatch != null) {
+              // 多P旧格式：读取 metadata.json（旧格式没有分P metadata）
+              metadataFile = File(p.join(entity.path, 'metadata.json'));
+            } else {
+              // 单P视频：读取 metadata.json
+              metadataFile = File(p.join(entity.path, 'metadata.json'));
+            }
+
+            // 读取 metadata
+            if (metadataFile != null && await metadataFile.exists()) {
+              try {
+                final content = await metadataFile.readAsString();
+                metadata = jsonDecode(content) as Map<String, dynamic>;
+              } catch (_) {}
+            }
+
             if (metadata != null) {
-              // 从文件名判断是否是多P视频
-              final fileName = p.basenameWithoutExtension(audioEntity.path);
-
-              // 新格式: P01.m4a, P02.m4a
-              final newPageMatch = RegExp(r'^P(\d+)$').firstMatch(fileName);
-              // 旧格式: P01 - xxx.m4a
-              final oldPageMatch = RegExp(r'^P(\d+)\s*-\s*(.+)$').firstMatch(fileName);
-
               if (newPageMatch != null) {
                 // 新格式多P视频：P01.m4a
                 final pageNum = int.tryParse(newPageMatch.group(1)!);
                 track = trackFromMetadata(metadata, audioEntity.path);
                 if (track != null) {
                   track.pageNum = pageNum;
-                  // 新格式没有文件名中的标题，使用 metadata 中的 title 或保持原样
                 }
               } else if (oldPageMatch != null) {
                 // 旧格式多P视频：P01 - xxx.m4a

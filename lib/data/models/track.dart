@@ -221,8 +221,7 @@ class Track {
   @ignore
   int? viewCount;
 
-  /// 分P总数（仅用于导入时判断是否需要展开，不持久化）
-  @ignore
+  /// 分P总数（用于判断是否是多P视频）
   int? pageCount;
 
   // ========== 分P相关字段 ==========
@@ -261,7 +260,10 @@ class Track {
   }
 
   /// 是否是多P视频中的一个分P
-  bool get isPartOfMultiPage => pageNum != null && pageNum! > 0;
+  ///
+  /// 判断依据是 pageCount > 1，而非 pageNum != null
+  /// 因为单P视频也可能有 pageNum = 1（为了保持一致性）
+  bool get isPartOfMultiPage => (pageCount ?? 0) > 1;
 
   /// 用于分组的key（同一视频的分P有相同的key）
   String get groupKey => '${sourceType.name}:$sourceId';

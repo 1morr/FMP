@@ -31,10 +31,12 @@ class VideoPage {
     ..sourceType = parent.sourceType
     ..title = part // 只显示分P标题
     ..artist = parent.artist
+    ..ownerId = parent.ownerId
     ..durationMs = duration * 1000
     ..thumbnailUrl = parent.thumbnailUrl
     ..cid = cid
     ..pageNum = page
+    ..pageCount = parent.pageCount
     ..parentTitle = parent.title
     ..createdAt = DateTime.now();
 
