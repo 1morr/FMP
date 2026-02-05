@@ -835,7 +835,11 @@ class DownloadService with Logging {
       });
     }
 
-    final metadataFile = File(p.join(videoDir.path, 'metadata.json'));
+    // 多P视频使用分P专属的 metadata 文件名，避免覆盖
+    final metadataFileName = track.isPartOfMultiPage && track.pageNum != null
+        ? 'metadata_P${track.pageNum!.toString().padLeft(2, '0')}.json'
+        : 'metadata.json';
+    final metadataFile = File(p.join(videoDir.path, metadataFileName));
     await metadataFile.writeAsString(jsonEncode(metadata));
 
     // 下载封面（如果设置允许）
