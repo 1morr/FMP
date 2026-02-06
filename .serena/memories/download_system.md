@@ -431,22 +431,31 @@ Fallback 到 metadata.json（兼容旧格式）
 
 ## 歌单重命名与下载文件
 
-### 设计决策（2026-01-18）
-歌单重命名时**不再自动移动**已下载的文件夹。原因：
+### 设计决策（2026-02 更新）
+歌单重命名时：
+1. **不自动移动**已下载的文件夹
+2. **清除该歌单下所有歌曲的下载路径**
+3. 用户需手动移动文件夹后从已下载页面点击同步
+
+原因：
 - 文件移动可能失败（权限、跨盘、目标存在等）
-- 用户可能不希望文件被自动移动
-- 减少潜在的数据丢失风险
+- 保持路径与歌单名的一致性
+- 避免旧路径和新名称混合状态
+- 用户主导文件管理
 
 ### 当前行为
-1. `PlaylistService.updatePlaylist()` 返回 `PlaylistUpdateResult`
-2. 如果旧下载文件夹存在，结果包含 `oldDownloadFolder` 和 `newDownloadFolder`
-3. UI 显示提示框，告知用户手动移动文件夹
+1. `PlaylistService.updatePlaylist()` 检测到有已下载文件时：
+   - 清除该歌单下所有 Track 的 `downloadPath`（保留歌单关联）
+   - 返回 `PlaylistUpdateResult` 包含 `oldDownloadFolder` 和 `newDownloadFolder`
+2. UI 显示提示框，告知用户：
+   - 手动将文件夹从旧路径移动到新路径
+   - 移动后从已下载页面点击同步重新关联
 
 ### 相关代码
 - `PlaylistUpdateResult` - 更新结果类（`playlist_service.dart`）
+- `Track.clearDownloadPathForPlaylist()` - 清除指定歌单的下载路径
 - `CreatePlaylistDialog._showFileMigrationWarning()` - 显示手动移动提示
-
-**注意**：`PlaylistFolderMigrator` 已在 Phase 6 删除（不再需要预计算路径更新）
+- `DownloadPathSyncService.syncLocalFiles()` - 同步本地文件到数据库
 
 ---
 
