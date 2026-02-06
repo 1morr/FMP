@@ -10,6 +10,7 @@ import 'providers/theme_provider.dart';
 import 'providers/windows_desktop_provider.dart';
 import 'ui/router.dart';
 import 'ui/theme/app_theme.dart';
+import 'ui/widgets/network_status_banner.dart';
 
 /// FMP 应用主组件
 class FMPApp extends ConsumerWidget {
@@ -84,8 +85,51 @@ class FMPApp extends ConsumerWidget {
 
           // 路由配置
           routerConfig: appRouter,
+
+          // 全局 Banner 包装器 - 确保在所有页面（包括全屏播放器）显示网络状态
+          builder: (context, child) {
+            return _AppContentWrapper(child: child);
+          },
         );
       },
+    );
+  }
+}
+
+/// App 内容包装器 - 处理网络状态 Banner 和 SafeArea
+class _AppContentWrapper extends ConsumerWidget {
+  final Widget? child;
+
+  const _AppContentWrapper({this.child});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isBannerVisible = ref.watch(networkBannerVisibleProvider);
+    final colorScheme = Theme.of(context).colorScheme;
+
+    // 当 banner 可见时，状态栏区域使用 banner 颜色；否则使用 scaffold 背景色
+    final statusBarColor = isBannerVisible
+        ? colorScheme.surfaceContainerHigh
+        : Theme.of(context).scaffoldBackgroundColor;
+
+    return ColoredBox(
+      color: statusBarColor,
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            const NetworkStatusBanner(),
+            Expanded(
+              // 移除顶部 padding，避免 AppBar 再次添加状态栏空间
+              child: MediaQuery.removePadding(
+                context: context,
+                removeTop: true,
+                child: child ?? const SizedBox.shrink(),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

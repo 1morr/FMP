@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/breakpoints.dart';
 import '../../services/audio/audio_provider.dart';
 import '../../services/radio/radio_controller.dart';
-import '../widgets/network_status_banner.dart';
 import '../widgets/player/mini_player.dart';
 import '../widgets/radio/radio_mini_player.dart';
 import '../widgets/track_detail_panel.dart';
@@ -110,12 +109,7 @@ class _MobileLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          const NetworkStatusBanner(),
-          Expanded(child: child),
-        ],
-      ),
+      body: child,
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -167,14 +161,7 @@ class _TabletLayout extends StatelessWidget {
                 .toList(),
           ),
           const VerticalDivider(width: 1, thickness: 1),
-          Expanded(
-            child: Column(
-              children: [
-                const NetworkStatusBanner(),
-                Expanded(child: child),
-              ],
-            ),
-          ),
+          Expanded(child: child),
         ],
       ),
       bottomNavigationBar: const _MiniPlayerSwitch(),
@@ -238,12 +225,7 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
           // 主内容区
           Expanded(
             flex: 2,
-            child: Column(
-              children: [
-                const NetworkStatusBanner(),
-                Expanded(child: widget.child),
-              ],
-            ),
+            child: widget.child,
           ),
           // 仅当有歌曲时显示右侧面板
           if (hasTrack) ...[
