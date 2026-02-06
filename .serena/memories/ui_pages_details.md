@@ -10,6 +10,7 @@
 | 探索 | `ui/pages/explore/explore_page.dart` | Bilibili/YouTube 音樂完整排行榜 |
 | 搜索 | `ui/pages/search/search_page.dart` | 多源搜索、搜索历史、分P展开 |
 | 播放队列 | `ui/pages/queue/queue_page.dart` | 队列管理、拖拽排序、当前位置定位 |
+| 播放歷史 | `ui/pages/history/play_history_page.dart` | 時間軸列表、統計卡片、篩選排序、多選模式 |
 | 音乐库 | `ui/pages/library/library_page.dart` | 歌单网格、导入、刷新 |
 | 歌单详情 | `ui/pages/library/playlist_detail_page.dart` | 歌曲列表、多P分组、下载 |
 | 已下载 | `ui/pages/library/downloaded_page.dart` | 分类网格（按歌单分文件夹） |
