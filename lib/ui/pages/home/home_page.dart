@@ -30,6 +30,13 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
+    // 监听电台错误并显示 Toast（与 RadioPage 保持一致）
+    ref.listen<RadioState>(radioControllerProvider, (previous, next) {
+      if (next.error != null && next.error != previous?.error) {
+        ToastService.show(context, next.error!);
+      }
+    });
+
     final colorScheme = Theme.of(context).colorScheme;
     final playerState = ref.watch(audioControllerProvider);
 
