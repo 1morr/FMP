@@ -58,7 +58,7 @@ class Settings {
   int? cardColor;
 
   /// 缓存设置
-  int maxCacheSizeMB = 128; // 默认 128MB
+  int maxCacheSizeMB = 32; // 默认 32MB
 
   /// 下载目录
   String? customDownloadDir;

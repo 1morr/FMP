@@ -15,7 +15,7 @@ class DownloadSettingsState {
   const DownloadSettingsState({
     this.maxConcurrentDownloads = 3,
     this.downloadImageOption = DownloadImageOption.coverOnly,
-    this.maxCacheSizeMB = 200,
+    this.maxCacheSizeMB = 32,
     this.isLoading = true,
   });
 
@@ -83,7 +83,7 @@ class DownloadSettingsNotifier extends StateNotifier<DownloadSettingsState> {
   /// 设置图片缓存大小上限（MB）
   Future<void> setMaxCacheSizeMB(int value) async {
     if (_settings == null) return;
-    if (value < 50) return; // 最小 50MB
+    if (value < 16) return; // 最小 16MB
 
     _settings!.maxCacheSizeMB = value;
     await _settingsRepository.save(_settings!);

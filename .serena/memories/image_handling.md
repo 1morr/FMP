@@ -105,7 +105,7 @@ ImageLoadingService.loadImage(
 ```
 
 **设置页面**：
-- 图片缓存大小：100MB / 200MB / 500MB / 1GB / 2GB
+- 图片缓存大小：16MB / 32MB / 48MB / 64MB
 - 清除图片缓存：一键清除所有网络图片缓存
 
 ### 1. TrackThumbnail（歌曲缩略图）

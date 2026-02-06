@@ -27,7 +27,7 @@ class NetworkImageCacheService {
   static const int _maxNrOfCacheObjects = 1000;
 
   /// 当前设置的最大缓存大小（MB）
-  static int _maxCacheSizeMB = 128;
+  static int _maxCacheSizeMB = 32;
 
   /// 图片加载计数器
   static int _loadCounter = 0;
