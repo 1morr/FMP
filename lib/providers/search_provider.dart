@@ -32,7 +32,7 @@ class SearchState extends Equatable {
   final Map<SourceType, SearchResult> onlineResults;
   final bool isLoading;
   final String? error;
-  final Set<SourceType> enabledSources;
+  final SourceType? selectedSource; // null = 全部
   final Map<SourceType, int> currentPages;
   final SearchOrder searchOrder;
 
@@ -42,10 +42,15 @@ class SearchState extends Equatable {
     this.onlineResults = const {},
     this.isLoading = false,
     this.error,
-    this.enabledSources = const {SourceType.bilibili, SourceType.youtube},
+    this.selectedSource, // null = 全部
     this.currentPages = const {},
     this.searchOrder = SearchOrder.relevance,
   });
+
+  /// 获取启用的音源列表
+  Set<SourceType> get enabledSources => selectedSource == null
+      ? const {SourceType.bilibili, SourceType.youtube}
+      : {selectedSource!};
 
   /// 获取所有在线结果（未排序）
   List<Track> get allOnlineTracks {
@@ -123,9 +128,10 @@ class SearchState extends Equatable {
     Map<SourceType, SearchResult>? onlineResults,
     bool? isLoading,
     String? error,
-    Set<SourceType>? enabledSources,
+    SourceType? selectedSource,
     Map<SourceType, int>? currentPages,
     SearchOrder? searchOrder,
+    bool clearSelectedSource = false,
   }) {
     return SearchState(
       query: query ?? this.query,
@@ -133,7 +139,7 @@ class SearchState extends Equatable {
       onlineResults: onlineResults ?? this.onlineResults,
       isLoading: isLoading ?? this.isLoading,
       error: error,
-      enabledSources: enabledSources ?? this.enabledSources,
+      selectedSource: clearSelectedSource ? null : (selectedSource ?? this.selectedSource),
       currentPages: currentPages ?? this.currentPages,
       searchOrder: searchOrder ?? this.searchOrder,
     );
@@ -146,7 +152,7 @@ class SearchState extends Equatable {
         onlineResults,
         isLoading,
         error,
-        enabledSources,
+        selectedSource,
         currentPages,
         searchOrder,
       ];
@@ -331,25 +337,17 @@ class SearchNotifier extends StateNotifier<SearchState> {
     }
   }
 
-  /// 切换音源筛选
-  void toggleSource(SourceType sourceType) {
-    final sources = Set<SourceType>.from(state.enabledSources);
-    if (sources.contains(sourceType)) {
-      sources.remove(sourceType);
-    } else {
-      sources.add(sourceType);
-    }
-    state = state.copyWith(enabledSources: sources);
+  /// 设置音源筛选（null = 全部）
+  void setSource(SourceType? sourceType) {
+    state = state.copyWith(
+      selectedSource: sourceType,
+      clearSelectedSource: sourceType == null,
+    );
 
     // 如果有查询，重新搜索
     if (state.query.isNotEmpty) {
       search(state.query);
     }
-  }
-
-  /// 设置启用的音源
-  void setEnabledSources(Set<SourceType> sources) {
-    state = state.copyWith(enabledSources: sources);
   }
 
   /// 设置排序方式
@@ -367,7 +365,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
   /// 清除搜索
   void clear() {
     state = SearchState(
-      enabledSources: const {SourceType.bilibili},
+      selectedSource: state.selectedSource, // 保留音源筛选
       searchOrder: state.searchOrder, // 保留排序设置
     );
   }
