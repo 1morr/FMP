@@ -1,4 +1,6 @@
 import 'dart:io' show Platform;
+import 'dart:ui' show PointerDeviceKind;
+
 import '../../../core/services/image_loading_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -470,66 +472,81 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final station = widget.state.currentStation;
-    final screenHeight = MediaQuery.of(context).size.height;
 
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: screenHeight * 0.75,
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerLow,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 頂部拖動手柄
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(2),
-              ),
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.0,
+      maxChildSize: 0.95,
+      snap: true,
+      snapSizes: const [0.0, 0.6, 0.95],
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerLow,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(
+              dragDevices: {
+                PointerDeviceKind.touch,
+                PointerDeviceKind.mouse,
+                PointerDeviceKind.trackpad,
+              },
             ),
-
-            // 標題欄
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.info_outline_rounded,
-                    size: 20,
-                    color: colorScheme.primary,
+            child: CustomScrollView(
+              controller: scrollController,
+              slivers: [
+                // 頂部拖動手柄和標題欄
+                SliverToBoxAdapter(
+                  child: Column(
+                    children: [
+                      // 拖動手柄
+                      Container(
+                        margin: const EdgeInsets.only(top: 12),
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      // 標題欄
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline_rounded,
+                              size: 20,
+                              color: colorScheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '直播間信息',
+                              style: textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () => Navigator.of(context).pop(),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '直播間信息',
-                    style: textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            ),
+                ),
 
-            const Divider(height: 1),
-
-            // 內容區域
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: station == null
-                    ? const Text('無法獲取直播間信息')
-                    : Column(
+                // 內容區域
+                SliverPadding(
+                  padding: const EdgeInsets.all(20),
+                  sliver: SliverToBoxAdapter(
+                    child: station == null
+                        ? const Text('無法獲取直播間信息')
+                        : Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // 標題（點擊跳轉到直播間）
@@ -686,11 +703,13 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
                         const SizedBox(height: 20),
                       ],
                     ),
-              ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
