@@ -45,8 +45,6 @@ class _HomePageState extends ConsumerState<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 8),
-
             // 音樂排行榜
             _buildMusicRankings(context, colorScheme),
 
