@@ -24,6 +24,7 @@ import 'windows_smtc_handler.dart';
 import 'audio_types.dart';
 import 'media_kit_audio_service.dart';
 import 'queue_manager.dart';
+import '../network/connectivity_service.dart';
 
 /// 播放状态
 class PlayerState {
@@ -56,6 +57,16 @@ class PlayerState {
   /// 是否正在加載更多 Mix 歌曲
   final bool isLoadingMoreMix;
   final String? error;
+
+  // ========== 网络重试状态 ==========
+  /// 当前重试次数 (0 = 未重试)
+  final int retryAttempt;
+  /// 是否为网络错误
+  final bool isNetworkError;
+  /// 是否正在重试中
+  final bool isRetrying;
+  /// 下次重试时间（用于 UI 倒计时显示）
+  final DateTime? nextRetryAt;
 
   // ========== 音频流元信息 ==========
   /// 当前音频流码率 (bps)
@@ -91,6 +102,10 @@ class PlayerState {
     this.mixTitle,
     this.isLoadingMoreMix = false,
     this.error,
+    this.retryAttempt = 0,
+    this.isNetworkError = false,
+    this.isRetrying = false,
+    this.nextRetryAt,
     this.currentBitrate,
     this.currentContainer,
     this.currentCodec,
@@ -145,6 +160,10 @@ class PlayerState {
     String? mixTitle,
     bool? isLoadingMoreMix,
     String? error,
+    int? retryAttempt,
+    bool? isNetworkError,
+    bool? isRetrying,
+    DateTime? nextRetryAt,
     int? currentBitrate,
     String? currentContainer,
     String? currentCodec,
@@ -174,12 +193,21 @@ class PlayerState {
       mixTitle: mixTitle ?? this.mixTitle,
       isLoadingMoreMix: isLoadingMoreMix ?? this.isLoadingMoreMix,
       error: error,
+      retryAttempt: retryAttempt ?? this.retryAttempt,
+      isNetworkError: isNetworkError ?? this.isNetworkError,
+      isRetrying: isRetrying ?? this.isRetrying,
+      nextRetryAt: nextRetryAt,
       currentBitrate: currentBitrate ?? this.currentBitrate,
       currentContainer: currentContainer ?? this.currentContainer,
       currentCodec: currentCodec ?? this.currentCodec,
       currentStreamType: currentStreamType ?? this.currentStreamType,
     );
   }
+}
+
+/// 内部异常：表示重试已被安排，调用者不应再次安排重试
+class _RetryScheduledException implements Exception {
+  const _RetryScheduledException();
 }
 
 /// 播放模式枚举
@@ -347,6 +375,18 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   // Mix 播放列表状态（僅在 Mix 模式下有效）
   _MixPlaylistState? _mixState;
 
+  // ========== 网络重试相关 ==========
+  /// 重试定时器
+  Timer? _retryTimer;
+  /// 当前重试次数
+  int _retryAttempt = 0;
+  /// 网络恢复后需要重新播放的歌曲
+  Track? _trackToRecoverAfterReconnect;
+  /// 网络恢复后需要恢复到的播放位置
+  Duration? _positionToRecoverAfterReconnect;
+  /// 网络恢复监听订阅
+  StreamSubscription<void>? _networkRecoverySubscription;
+
   AudioController({
     required MediaKitAudioService audioService,
     required QueueManager queueManager,
@@ -502,6 +542,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   @override
   void dispose() {
     _stopPositionCheckTimer();
+    _cancelRetryTimer();
+    _networkRecoverySubscription?.cancel();
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
@@ -525,6 +567,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 切换播放/暂停
   /// 如果当前歌曲有错误状态，尝试重新播放当前歌曲
   Future<void> togglePlayPause() async {
+    // 如果当前有网络错误状态，触发手动重试
+    if (state.isNetworkError && state.currentTrack != null) {
+      logDebug('Manual retry for network error: ${state.currentTrack!.title}');
+      await retryManually();
+      return;
+    }
     // 如果当前有错误状态，尝试重新播放当前歌曲
     if (state.error != null && state.currentTrack != null) {
       logDebug('Retrying playback for track with error: ${state.currentTrack!.title}');
@@ -581,6 +629,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 播放单首歌曲
   Future<void> playSingle(Track track) async {
     await _ensureInitialized();
+    _resetRetryState(); // 重置网络重试状态
     state = state.copyWith(isLoading: true, error: null);
     logInfo('Playing single track: ${track.title}');
     try {
@@ -599,6 +648,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 用于搜索页面和歌单页面点击歌曲时的行为
   Future<void> playTemporary(Track track) async {
     await _ensureInitialized();
+    _resetRetryState(); // 重置网络重试状态
 
     // 【重要】立即保存当前状态（在任何 async 操作之前，因为 stop() 会重置这些值）
     final savedPosition = _audioService.position;
@@ -867,6 +917,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 播放队列中指定索引的歌曲
   Future<void> playAt(int index) async {
     await _ensureInitialized();
+    _resetRetryState(); // 重置网络重试状态
     logDebug('Playing at index: $index');
     try {
       _queueManager.setCurrentIndex(index);
@@ -883,6 +934,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 下一首
   Future<void> next() async {
     await _ensureInitialized();
+    _resetRetryState(); // 重置网络重试状态
 
     // 获取导航请求 ID，防止快速点击导致竞态条件
     final navId = ++_navRequestId;
@@ -912,6 +964,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 上一首
   Future<void> previous() async {
     await _ensureInitialized();
+    _resetRetryState(); // 重置网络重试状态
 
     // 获取导航请求 ID，防止快速点击导致竞态条件
     final navId = ++_navRequestId;
@@ -1632,7 +1685,24 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
           }
         } catch (fallbackError) {
           logError('Fallback also failed for: ${track.title}', fallbackError);
+          // Check if fallback error is also a network error
+          if (_isNetworkError(fallbackError)) {
+            await _audioService.stop();
+            state = state.copyWith(isLoading: false);
+            _resetLoadingState();
+            _scheduleRetry(track, state.position);
+            throw const _RetryScheduledException();
+          }
         }
+      }
+
+      // Check if original error is a network error
+      if (_isNetworkError(e)) {
+        await _audioService.stop();
+        state = state.copyWith(isLoading: false);
+        _resetLoadingState();
+        _scheduleRetry(track, state.position);
+        throw const _RetryScheduledException();
       }
 
       await _audioService.stop();
@@ -1675,6 +1745,234 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         isLoading: false,
       );
       _resetLoadingState();
+    }
+  }
+
+  // ========== 网络重试逻辑 ========== //
+
+  /// 判断是否为网络错误
+  bool _isNetworkError(dynamic error) {
+    final errorStr = error.toString().toLowerCase();
+    return errorStr.contains('socket') ||
+           errorStr.contains('connection') ||
+           errorStr.contains('network') ||
+           errorStr.contains('timeout') ||
+           errorStr.contains('unreachable') ||
+           errorStr.contains('host') ||
+           errorStr.contains('dns') ||
+           errorStr.contains('errno') ||
+           errorStr.contains('failed host lookup');
+  }
+
+  /// 安排重试（漸進式延遲）
+  void _scheduleRetry(Track track, Duration? position) {
+    if (_retryAttempt >= NetworkRetryConfig.maxRetries) {
+      logInfo('Max retry attempts reached for: ${track.title}');
+      _trackToRecoverAfterReconnect = track;
+      _positionToRecoverAfterReconnect = position;
+      state = state.copyWith(
+        isNetworkError: true,
+        isRetrying: false,
+        retryAttempt: _retryAttempt,
+        nextRetryAt: null,
+      );
+      return;
+    }
+
+    final delay = NetworkRetryConfig.getRetryDelay(_retryAttempt);
+    final nextRetryTime = DateTime.now().add(delay);
+    
+    logInfo('Scheduling retry ${_retryAttempt + 1}/${NetworkRetryConfig.maxRetries} for: ${track.title} in ${delay.inSeconds}s');
+
+    state = state.copyWith(
+      isNetworkError: true,
+      isRetrying: true,
+      retryAttempt: _retryAttempt,
+      nextRetryAt: nextRetryTime,
+    );
+
+    _retryTimer?.cancel();
+    _retryTimer = Timer(delay, () {
+      _retryPlayback(track, position);
+    });
+  }
+
+  /// 执行重试
+  Future<void> _retryPlayback(Track track, Duration? position) async {
+    _retryAttempt++;
+    logInfo('Retrying playback ($_retryAttempt/${NetworkRetryConfig.maxRetries}) for: ${track.title}');
+
+    try {
+      // 更新状态为重试中
+      state = state.copyWith(
+        isRetrying: true,
+        retryAttempt: _retryAttempt,
+        nextRetryAt: null,
+        error: null,
+      );
+
+      // 保持当前模式
+      final currentMode = _context.isMix ? PlayMode.mix : PlayMode.queue;
+      await _executePlayRequest(
+        track: track,
+        mode: currentMode,
+        persist: false, // 重试时不需要再次持久化
+        recordHistory: false, // 重试时不重复记录历史
+        prefetchNext: true,
+      );
+
+      // 重试成功，重置状态
+      _resetRetryState();
+      
+      // 如果有保存的位置，尝试恢复
+      if (position != null && position.inSeconds > 0) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        await seekTo(position);
+      }
+      
+      logInfo('Retry playback succeeded for: ${track.title}');
+    } on _RetryScheduledException {
+      // 重试已在 _executePlayRequest 中安排，不需要额外处理
+      logDebug('Retry already scheduled by _executePlayRequest');
+    } catch (e) {
+      logError('Retry playback failed for: ${track.title}', e);
+      if (_isNetworkError(e)) {
+        _scheduleRetry(track, position);
+      } else {
+        // 非网络错误，不再重试
+        _resetRetryState();
+        state = state.copyWith(error: e.toString());
+        _toastService.showError('播放失败: ${track.title}');
+      }
+    }
+  }
+
+  /// 网络恢复时自动恢复播放
+  Future<void> _onNetworkRecovered() async {
+    logInfo('_onNetworkRecovered called, trackToRecover: ${_trackToRecoverAfterReconnect?.title}');
+    if (_trackToRecoverAfterReconnect == null) {
+      logDebug('No track to recover, skipping');
+      return;
+    }
+
+    final track = _trackToRecoverAfterReconnect!;
+    final position = _positionToRecoverAfterReconnect;
+    
+    logInfo('Network recovered, attempting to resume playback for: ${track.title}');
+    
+    _trackToRecoverAfterReconnect = null;
+    _positionToRecoverAfterReconnect = null;
+    _retryAttempt = 0; // 重置重试计数
+
+    // 延迟一下确保网络稳定
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    try {
+      final currentMode = _context.isMix ? PlayMode.mix : PlayMode.queue;
+      await _executePlayRequest(
+        track: track,
+        mode: currentMode,
+        persist: false,
+        recordHistory: false,
+        prefetchNext: true,
+      );
+
+      _resetRetryState();
+      
+      // 恢复播放位置
+      if (position != null && position.inSeconds > 0) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        await seekTo(position);
+      }
+      
+      logInfo('Network recovery playback succeeded for: ${track.title}');
+    } on _RetryScheduledException {
+      // 重试已在 _executePlayRequest 中安排
+      logDebug('Retry scheduled after network recovery attempt');
+    } catch (e) {
+      logError('Network recovery playback failed for: ${track.title}', e);
+      if (_isNetworkError(e)) {
+        _scheduleRetry(track, position);
+      } else {
+        _resetRetryState();
+        state = state.copyWith(error: e.toString());
+        _toastService.showError('播放失败: ${track.title}');
+      }
+    }
+  }
+
+  /// 重置重试状态
+  void _resetRetryState() {
+    _cancelRetryTimer();
+    _retryAttempt = 0;
+    _trackToRecoverAfterReconnect = null;
+    _positionToRecoverAfterReconnect = null;
+    state = state.copyWith(
+      isNetworkError: false,
+      isRetrying: false,
+      retryAttempt: 0,
+      nextRetryAt: null,
+    );
+  }
+
+  /// 取消待处理的重试
+  void _cancelRetryTimer() {
+    _retryTimer?.cancel();
+    _retryTimer = null;
+  }
+
+  /// 设置网络恢复监听（需要在初始化时从外部传入 Ref）
+  void setupNetworkRecoveryListener(Stream<void> networkRecoveredStream) {
+    logDebug('Setting up network recovery listener');
+    _networkRecoverySubscription?.cancel();
+    _networkRecoverySubscription = networkRecoveredStream.listen((_) {
+      logDebug('Network recovery event received from stream');
+      _onNetworkRecovered();
+    });
+    logDebug('Network recovery listener set up successfully');
+  }
+
+  /// 手动触发重试（用户点击重试按钮）
+  Future<void> retryManually() async {
+    final track = _trackToRecoverAfterReconnect ?? state.playingTrack;
+    if (track == null) return;
+
+    _retryAttempt = 0; // 重置重试计数
+    _cancelRetryTimer();
+    
+    final position = _positionToRecoverAfterReconnect ?? state.position;
+    _trackToRecoverAfterReconnect = null;
+    _positionToRecoverAfterReconnect = null;
+
+    try {
+      final currentMode = _context.isMix ? PlayMode.mix : PlayMode.queue;
+      await _executePlayRequest(
+        track: track,
+        mode: currentMode,
+        persist: false,
+        recordHistory: false,
+        prefetchNext: true,
+      );
+
+      _resetRetryState();
+      
+      if (position.inSeconds > 0) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        await seekTo(position);
+      }
+      
+      logInfo('Manual retry succeeded for: ${track.title}');
+    } on _RetryScheduledException {
+      // 重试已在 _executePlayRequest 中安排
+      logDebug('Retry scheduled after manual retry attempt');
+    } catch (e) {
+      if (_isNetworkError(e)) {
+        _scheduleRetry(track, position);
+      } else {
+        _resetRetryState();
+        state = state.copyWith(error: e.toString());
+        _toastService.showError('播放失败: ${track.title}');
+      }
     }
   }
 
@@ -2011,6 +2309,10 @@ final audioControllerProvider =
     windowsSmtcHandler: windowsSmtcHandler,
     playHistoryRepository: playHistoryRepository,
   );
+
+  // 设置网络恢复监听（用于断网重连自动恢复播放）
+  final connectivityNotifier = ref.watch(connectivityProvider.notifier);
+  controller.setupNetworkRecoveryListener(connectivityNotifier.onNetworkRecovered);
 
   // 启动初始化（异步，但不阻塞）
   // _ensureInitialized 会在每个操作前确保初始化完成

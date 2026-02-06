@@ -153,3 +153,27 @@ class AppConstants {
   /// 占位符背景透明度
   static const double placeholderOpacity = 0.1;
 }
+
+/// 网络重试配置
+class NetworkRetryConfig {
+  NetworkRetryConfig._();
+
+  /// 最大重试次数
+  static const int maxRetries = 5;
+
+  /// 重试延迟（漸進式：1s, 2s, 4s, 8s, 16s）
+  static const List<Duration> retryDelays = [
+    Duration(seconds: 1),
+    Duration(seconds: 2),
+    Duration(seconds: 4),
+    Duration(seconds: 8),
+    Duration(seconds: 16),
+  ];
+
+  /// 获取指定重试次数的延迟
+  static Duration getRetryDelay(int attempt) {
+    if (attempt < 0) return retryDelays.first;
+    if (attempt >= retryDelays.length) return retryDelays.last;
+    return retryDelays[attempt];
+  }
+}
