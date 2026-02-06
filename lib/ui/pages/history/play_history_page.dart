@@ -184,7 +184,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
         ),
       ),
       loading: () => const SizedBox(height: 56),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
     );
   }
 

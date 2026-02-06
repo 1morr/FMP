@@ -75,22 +75,9 @@ class BilibiliSource extends BaseSource with Logging {
     // - https://m.bilibili.com/video/BV1xx411c7mD
     // - BV1xx411c7mD (纯 BV 号)
 
-    // 尝试匹配 BV 号
     final bvRegex = RegExp(r'BV[a-zA-Z0-9]{10}');
     final match = bvRegex.firstMatch(url);
-    if (match != null) {
-      return match.group(0);
-    }
-
-    // 尝试匹配 av 号并转换（暂不实现，保留接口）
-    final avRegex = RegExp(r'av(\d+)', caseSensitive: false);
-    final avMatch = avRegex.firstMatch(url);
-    if (avMatch != null) {
-      // TODO: 实现 av 号转 BV 号
-      return null;
-    }
-
-    return null;
+    return match?.group(0);
   }
 
   @override
