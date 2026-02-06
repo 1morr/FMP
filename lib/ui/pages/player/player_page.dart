@@ -1,4 +1,6 @@
 import 'dart:io' show Platform;
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/extensions/track_extensions.dart';
@@ -493,88 +495,111 @@ class _TrackInfoDialog extends ConsumerWidget {
 
     final isYouTube = currentTrack?.sourceType == SourceType.youtube;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 顶部拖动手柄
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(2),
-            ),
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.0,
+      maxChildSize: 0.95,
+      snap: true,
+      snapSizes: const [0.0, 0.6, 0.95],
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerLow,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
-
-          // 标题栏
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.info_outline_rounded,
-                  size: 20,
-                  color: colorScheme.primary,
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(
+              dragDevices: {
+                PointerDeviceKind.touch,
+                PointerDeviceKind.mouse,
+                PointerDeviceKind.trackpad,
+              },
+            ),
+            child: CustomScrollView(
+              controller: scrollController,
+              slivers: [
+              // 顶部拖动手柄和标题栏（固定在顶部）
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    // 拖动手柄
+                    Container(
+                      margin: const EdgeInsets.only(top: 12),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    // 标题栏
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline_rounded,
+                            size: 20,
+                            color: colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '视频信息',
+                            style: textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  '视频信息',
-                  style: textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+              ),
+
+              // 内容区域
+              SliverPadding(
+                padding: const EdgeInsets.all(20),
+                sliver: SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 视频详情内容
+                      if (detailState.detail != null)
+                        _DetailContent(
+                          detail: detailState.detail!,
+                          isYouTube: isYouTube,
+                          track: currentTrack,
+                          cache: cache,
+                          baseDir: baseDir,
+                        )
+                      else if (detailState.isLoading)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(40),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      else
+                        _BasicInfoContent(track: currentTrack),
+                      // 音频技术信息
+                      if (playerState.currentBitrate != null ||
+                          playerState.currentContainer != null)
+                        _AudioInfoSection(playerState: playerState),
+                    ],
                   ),
                 ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
+              ),
               ],
             ),
           ),
-
-          const Divider(height: 1),
-
-          // 内容区域
-          Flexible(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 视频详情内容
-                  if (detailState.detail != null)
-                    _DetailContent(
-                      detail: detailState.detail!,
-                      isYouTube: isYouTube,
-                      track: currentTrack,
-                      cache: cache,
-                      baseDir: baseDir,
-                    )
-                  else if (detailState.isLoading)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(40),
-                        child: CircularProgressIndicator(),
-                      ),
-                    )
-                  else
-                    _BasicInfoContent(track: currentTrack),
-                  // 音频技术信息
-                  if (playerState.currentBitrate != null ||
-                      playerState.currentContainer != null)
-                    _AudioInfoSection(playerState: playerState),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
