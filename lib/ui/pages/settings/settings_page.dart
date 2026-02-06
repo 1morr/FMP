@@ -717,7 +717,7 @@ class _ImageCacheSizeListTile extends ConsumerWidget {
   }
 
   void _showCacheSizeDialog(BuildContext context, WidgetRef ref, int current) {
-    final options = [64, 128, 256, 512];
+    final options = [16, 32, 48, 64];
 
     showDialog(
       context: context,
