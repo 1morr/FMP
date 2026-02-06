@@ -194,6 +194,7 @@ class _TrackListView extends StatelessWidget {
                   data: {
                     'cid': track.cid?.toString() ?? 'null',
                     'pageNum': track.pageNum?.toString() ?? 'null',
+                    'pageCount': track.pageCount?.toString() ?? 'null',
                     'parentTitle': track.parentTitle ?? 'null',
                     'isPartOfMultiPage': track.isPartOfMultiPage.toString(),
                   },
@@ -467,6 +468,16 @@ class _SettingsListView extends StatelessWidget {
                   data: {
                     'autoScrollToCurrentTrack': setting.autoScrollToCurrentTrack.toString(),
                     'rememberPlaybackPosition': setting.rememberPlaybackPosition.toString(),
+                  },
+                ),
+                _DataSection(
+                  title: '音质设置',
+                  data: {
+                    'audioQualityLevelIndex': setting.audioQualityLevelIndex.toString(),
+                    'audioQualityLevel': setting.audioQualityLevel.name,
+                    'audioFormatPriority': setting.audioFormatPriority,
+                    'youtubeStreamPriority': setting.youtubeStreamPriority,
+                    'bilibiliStreamPriority': setting.bilibiliStreamPriority,
                   },
                 ),
                 _DataSection(
