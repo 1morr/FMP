@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import 'pages/home/home_page.dart';
 import 'pages/search/search_page.dart';
+import 'pages/explore/explore_page.dart';
 
 import 'pages/player/player_page.dart';
 import 'pages/queue/queue_page.dart';
@@ -100,6 +101,14 @@ final appRouter = GoRouter(
           name: RouteNames.search,
           pageBuilder: (context, state) => const NoTransitionPage(
             child: SearchPage(),
+          ),
+        ),
+        // 探索
+        GoRoute(
+          path: RoutePaths.explore,
+          name: RouteNames.explore,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: ExplorePage(),
           ),
         ),
         // 队列
