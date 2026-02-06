@@ -102,33 +102,39 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   Widget _buildSourceFilter(BuildContext context, SearchState state) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Container(
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          Text(
-            '音源:',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.outline,
-                ),
+          // 单选筛选（可滚动）
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  ChoiceChip(
+                    label: const Text('全部'),
+                    selected: state.selectedSource == null,
+                    onSelected: (_) => ref.read(searchProvider.notifier).setSource(null),
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('Bilibili'),
+                    selected: state.selectedSource == SourceType.bilibili,
+                    onSelected: (_) => ref.read(searchProvider.notifier).setSource(SourceType.bilibili),
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('YouTube'),
+                    selected: state.selectedSource == SourceType.youtube,
+                    onSelected: (_) => ref.read(searchProvider.notifier).setSource(SourceType.youtube),
+                  ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(width: 8),
-          _buildSourceChip(
-            context,
-            SourceType.bilibili,
-            'Bilibili',
-            state.enabledSources.contains(SourceType.bilibili),
-          ),
-          _buildSourceChip(
-            context,
-            SourceType.youtube,
-            'YouTube',
-            state.enabledSources.contains(SourceType.youtube),
-          ),
-          const Spacer(),
           // 排序按钮
           _buildSortButton(context, state),
         ],
@@ -196,24 +202,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       case SearchOrder.publishDate:
         return '最新';
     }
-  }
-
-  Widget _buildSourceChip(
-    BuildContext context,
-    SourceType sourceType,
-    String label,
-    bool isSelected,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        label: Text(label),
-        selected: isSelected,
-        onSelected: (selected) {
-          ref.read(searchProvider.notifier).toggleSource(sourceType);
-        },
-      ),
-    );
   }
 
   Widget _buildSearchHistory(BuildContext context) {
