@@ -41,36 +41,34 @@ class _HomePageState extends ConsumerState<HomePage> {
     final playerState = ref.watch(audioControllerProvider);
 
     return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 8),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 8),
 
-              // 音樂排行榜
-              _buildMusicRankings(context, colorScheme),
+            // 音樂排行榜
+            _buildMusicRankings(context, colorScheme),
 
-              // 我的歌单
-              _buildRecentPlaylists(context, colorScheme),
+            // 我的歌单
+            _buildRecentPlaylists(context, colorScheme),
 
-              // 正在播放
-              if (playerState.hasCurrentTrack)
-                _buildNowPlaying(context, playerState, colorScheme),
+            // 正在播放
+            if (playerState.hasCurrentTrack)
+              _buildNowPlaying(context, playerState, colorScheme),
 
-              // 队列预览
-              if (playerState.queue.isNotEmpty)
-                _buildQueuePreview(context, playerState, colorScheme),
+            // 队列预览
+            if (playerState.queue.isNotEmpty)
+              _buildQueuePreview(context, playerState, colorScheme),
 
-              // 电台
-              _buildRadioSection(context, colorScheme),
+            // 电台
+            _buildRadioSection(context, colorScheme),
 
-              // 最近播放历史
-              _buildRecentHistory(context, colorScheme),
+            // 最近播放历史
+            _buildRecentHistory(context, colorScheme),
 
-              const SizedBox(height: 100), // 为迷你播放器留出空间
-            ],
-          ),
+            const SizedBox(height: 100), // 为迷你播放器留出空间
+          ],
         ),
       ),
     );

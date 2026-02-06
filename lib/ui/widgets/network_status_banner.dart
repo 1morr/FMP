@@ -4,9 +4,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/audio/audio_provider.dart';
 import '../../services/network/connectivity_service.dart';
 
+/// Banner 是否显示的 Provider
+/// 供其他页面查询以决定是否需要自己提供 SafeArea top padding
+final networkBannerVisibleProvider = Provider<bool>((ref) {
+  final connectivityState = ref.watch(connectivityProvider);
+  final playerState = ref.watch(audioControllerProvider);
+  return !connectivityState.isConnected || playerState.isNetworkError;
+});
+
 /// 网络状态 Banner
-/// 
+///
 /// 显示在应用顶部，用于提示用户当前网络状态（灰色背景，显示"无网络"）
+/// 此组件始终提供 SafeArea top padding，即使 banner 内容不显示
 class NetworkStatusBanner extends ConsumerStatefulWidget {
   const NetworkStatusBanner({super.key});
 
@@ -27,8 +36,8 @@ class _NetworkStatusBannerState extends ConsumerState<NetworkStatusBanner>
       vsync: this,
     );
     _slideAnimation = Tween<double>(
-      begin: -1.0,
-      end: 0.0,
+      begin: 0.0,
+      end: 1.0,
     ).animate(CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeOut,
@@ -47,7 +56,7 @@ class _NetworkStatusBannerState extends ConsumerState<NetworkStatusBanner>
     final connectivityState = ref.watch(connectivityProvider);
 
     // 确定是否显示 Banner
-    final shouldShow = !connectivityState.isConnected || 
+    final shouldShow = !connectivityState.isConnected ||
                        playerState.isNetworkError;
 
     // 控制动画
@@ -57,37 +66,28 @@ class _NetworkStatusBannerState extends ConsumerState<NetworkStatusBanner>
       _animationController.reverse();
     }
 
+    final colorScheme = Theme.of(context).colorScheme;
+    final showRetryButton = playerState.isNetworkError && !playerState.isRetrying;
+
+    // banner 内容根据动画显示/隐藏
+    // SafeArea 由 app.dart 统一提供，此处不再处理
     return AnimatedBuilder(
       animation: _slideAnimation,
       builder: (context, child) {
-        final offset = _slideAnimation.value;
-        if (offset == -1.0 && !shouldShow) {
+        final progress = _slideAnimation.value;
+        if (progress == 0.0 && !shouldShow) {
           return const SizedBox.shrink();
         }
         return ClipRect(
           child: Align(
             alignment: Alignment.topCenter,
-            heightFactor: 1.0 + offset,
+            heightFactor: progress,
             child: child,
           ),
         );
       },
-      child: _buildBannerContent(context, playerState, connectivityState),
-    );
-  }
-
-  Widget _buildBannerContent(
-    BuildContext context,
-    PlayerState playerState,
-    ConnectivityState connectivityState,
-  ) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final showRetryButton = playerState.isNetworkError && !playerState.isRetrying;
-
-    return Material(
-      color: colorScheme.surfaceContainerHigh,
-      child: SafeArea(
-        bottom: false,
+      child: Material(
+        color: colorScheme.surfaceContainerHigh,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           child: Row(
