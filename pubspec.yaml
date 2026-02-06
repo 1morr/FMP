@@ -36,6 +36,7 @@ dependencies:
 
   # 网络
   dio: ^5.8.0+1
+  connectivity_plus: ^6.0.3  # 网络状态监控
 
   # YouTube 数据提取
   youtube_explode_dart: ^2.3.5
