@@ -59,6 +59,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: kToolbarHeight + 16, // 增加頂部間隔
         title: _buildSearchField(context),
         actions: [
           if (_searchController.text.isNotEmpty)
