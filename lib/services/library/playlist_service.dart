@@ -104,8 +104,10 @@ class PlaylistService with Logging {
 
   /// 更新歌单信息
   ///
-  /// 返回 [PlaylistUpdateResult]，如果重命名了歌单且有已下载的文件，
-  /// 结果中会包含旧文件夹路径，提示用户手动移动。
+  /// 返回 [PlaylistUpdateResult]，如果重命名了歌单且有已下载的文件：
+  /// 1. 清除该歌单下所有歌曲的下载路径
+  /// 2. 结果中包含旧/新文件夹路径，提示用户手动移动
+  /// 3. 用户移动文件后需从已下载页面点击同步重新关联
   Future<PlaylistUpdateResult> updatePlaylist({
     required int playlistId,
     String? name,
@@ -136,6 +138,17 @@ class PlaylistService with Logging {
         oldDownloadFolder = oldFolder.path;
         final newFolderName = DownloadPathUtils.sanitizeFileName(name);
         newDownloadFolder = p.join(baseDir, newFolderName);
+
+        // 清除该歌单下所有歌曲的下载路径
+        // 用户需要手动移动文件夹后从已下载页面点击同步
+        final tracks = await _trackRepository.getByIds(playlist.trackIds);
+        for (final track in tracks) {
+          track.clearDownloadPathForPlaylist(playlistId);
+        }
+        if (tracks.isNotEmpty) {
+          await _trackRepository.saveAll(tracks);
+          logDebug('Cleared download paths for ${tracks.length} tracks in renamed playlist');
+        }
       }
     }
 
