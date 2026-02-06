@@ -18,6 +18,7 @@ import 'pages/radio/radio_page.dart';
 import 'pages/radio/radio_player_page.dart';
 import 'pages/library/downloaded_page.dart';
 import 'pages/library/downloaded_category_page.dart';
+import 'pages/history/play_history_page.dart';
 import '../providers/download_provider.dart';
 import 'app_shell.dart';
 
@@ -36,6 +37,7 @@ class RoutePaths {
   static const String settings = '/settings';
   static const String playlistDetail = '/library/:id';
   static const String downloaded = '/library/downloaded';
+  static const String history = '/history';
   static const String downloadManager = '/settings/download-manager';
   static const String audioSettings = '/settings/audio';
   static const String developerOptions = '/settings/developer';
@@ -59,6 +61,7 @@ class RouteNames {
   static const String playlistDetail = 'playlistDetail';
   static const String downloaded = 'downloaded';
   static const String downloadedCategory = 'downloadedCategory';
+  static const String history = 'history';
   static const String downloadManager = 'downloadManager';
   static const String audioSettings = 'audioSettings';
   static const String developerOptions = 'developerOptions';
@@ -106,6 +109,12 @@ final appRouter = GoRouter(
           pageBuilder: (context, state) => const NoTransitionPage(
             child: QueuePage(),
           ),
+        ),
+        // 播放历史
+        GoRoute(
+          path: RoutePaths.history,
+          name: RouteNames.history,
+          builder: (context, state) => const PlayHistoryPage(),
         ),
         // 音乐库
         GoRoute(

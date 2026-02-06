@@ -418,7 +418,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const Spacer(),
-                  // TODO: 查看全部历史页面
+                  TextButton(
+                    onPressed: () => context.push(RoutePaths.history),
+                    child: const Text('查看全部'),
+                  ),
                 ],
               ),
             ),
