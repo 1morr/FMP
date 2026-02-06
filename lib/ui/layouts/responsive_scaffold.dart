@@ -260,7 +260,8 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
                 child: Container(
                   width: 6,
                   color: Colors.transparent,
-                  child: Center(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
                     child: Container(
                       width: 1,
                       color: colorScheme.outlineVariant,
