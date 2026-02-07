@@ -93,4 +93,4 @@ flutter_launcher_icons:
   windows:
     generate: true
     image_path: "assets/icon/app_icon.png"
-    icon_size: 48 # 可以是 48, 64, 128, 256
+    icon_size: 256 # 可以是 48, 64, 128, 256
