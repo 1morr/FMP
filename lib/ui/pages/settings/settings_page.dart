@@ -90,6 +90,13 @@ class SettingsPage extends ConsumerWidget {
           _SettingsSection(
             title: '关于',
             children: [
+              ListTile(
+                leading: const Icon(Icons.menu_book_outlined),
+                title: const Text('使用说明'),
+                subtitle: const Text('快速入门、功能介绍、使用提示'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push(RoutePaths.userGuide),
+              ),
               _VersionListTile(),
               ListTile(
                 leading: const Icon(Icons.code_outlined),
