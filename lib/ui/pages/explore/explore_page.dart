@@ -76,7 +76,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
         error: null,
         onRefresh: () async {},
       ),
-      error: (_, _) => _buildRankingContent(
+      error: (_, __) => _buildRankingContent(
         tracks: [],
         isLoading: false,
         error: '載入失敗',
@@ -107,7 +107,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
         error: null,
         onRefresh: () async {},
       ),
-      error: (_, _) => _buildRankingContent(
+      error: (_, __) => _buildRankingContent(
         tracks: [],
         isLoading: false,
         error: '載入失敗',

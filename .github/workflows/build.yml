@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  FLUTTER_VERSION: '3.24.5'
+  FLUTTER_CHANNEL: 'stable'
   JAVA_VERSION: '17'
   JAVA_DISTRIBUTION: 'temurin'
 
@@ -29,9 +29,9 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: 'stable'
+          channel: ${{ env.FLUTTER_CHANNEL }}
           cache: true
+          cache-key: 'flutter-${{ env.FLUTTER_CHANNEL }}'
 
       - name: Flutter dependencies
         run: flutter pub get
@@ -65,9 +65,9 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: 'stable'
+          channel: ${{ env.FLUTTER_CHANNEL }}
           cache: true
+          cache-key: 'flutter-${{ env.FLUTTER_CHANNEL }}'
 
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
@@ -159,9 +159,9 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: 'stable'
+          channel: ${{ env.FLUTTER_CHANNEL }}
           cache: true
+          cache-key: 'flutter-${{ env.FLUTTER_CHANNEL }}'
 
       - name: Enable Windows desktop
         if: matrix.platform == 'windows'
