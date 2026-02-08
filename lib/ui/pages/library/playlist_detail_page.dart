@@ -220,7 +220,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   Future<void> _deleteSelectedTracks(List<Track> tracks) async {
     final notifier = ref.read(playlistDetailProvider(widget.playlistId).notifier);
     for (final track in tracks) {
-      notifier.removeTrack(track.id);
+      await notifier.removeTrack(track.id);
     }
   }
 
