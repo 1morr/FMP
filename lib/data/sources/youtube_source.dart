@@ -25,15 +25,6 @@ class YouTubeSource extends BaseSource with Logging {
   // https://www.youtube.com/playlist?list=OLPPnm121Qlcoo7kKykmswKG0IepmDUVpag
   static const String _newThisWeekPlaylistId = 'OLPPnm121Qlcoo7kKykmswKG0IepmDUVpag';
 
-  // 熱門搜索關鍵字（後備方案）
-  static const List<String> _trendingMusicQueries = [
-    'Music Video',
-    'Official Music Video',
-    'MV',
-    'Official MV',
-    'VOCALOID',
-  ];
-
   YouTubeSource() {
     _youtube = yt.YoutubeExplode();
     _dio = Dio(BaseOptions(
@@ -1021,23 +1012,11 @@ class YouTubeSource extends BaseSource with Logging {
   /// 使用 InnerTube Browse API 獲取 YouTube Music 頻道
   /// (UC-9-kyTW8ZkZNDHQJ6FgpwQ) 的 "New This Week" 官方策劃播放列表。
   /// 播放列表每週更新，包含本週最熱門的新 MV。
-  ///
-  /// 如果 InnerTube API 失敗，回退到搜索方案。
   Future<List<Track>> getTrendingVideos({String category = 'music'}) async {
     logDebug('Getting YouTube trending videos via New This Week playlist');
-    try {
-      final tracks = await _fetchNewThisWeekPlaylist();
-      if (tracks.isNotEmpty) {
-        logDebug('Got ${tracks.length} tracks from New This Week playlist');
-        return tracks;
-      }
-      // 播放列表為空，回退到搜索方案
-      logWarning('New This Week playlist returned empty, falling back to search');
-      return _getTrendingViaSearch();
-    } catch (e) {
-      logWarning('Failed to fetch New This Week playlist: $e, falling back to search');
-      return _getTrendingViaSearch();
-    }
+    final tracks = await _fetchNewThisWeekPlaylist();
+    logDebug('Got ${tracks.length} tracks from New This Week playlist');
+    return tracks;
   }
 
   /// 使用 InnerTube Browse API 獲取 "New This Week" 播放列表
@@ -1136,90 +1115,6 @@ class YouTubeSource extends BaseSource with Logging {
 
     logDebug('Parsed New This Week playlist: ${tracks.length} tracks');
     return tracks;
-  }
-
-  /// 後備方案：使用搜索 API 獲取熱門影片
-  Future<List<Track>> _getTrendingViaSearch() async {
-    logDebug('Getting YouTube trending videos via search (fallback)');
-    try {
-      final seenIds = <String>{};
-      final allTracks = <Track>[];
-      const resultsPerQuery = 20;
-
-      for (final query in _trendingMusicQueries) {
-        try {
-          var searchList = await _youtube.search.search(
-            query,
-            filter: yt.UploadDateFilter.lastWeek,
-          );
-
-          var tracksFromQuery = 0;
-
-          for (final video in searchList) {
-            if (seenIds.contains(video.id.value)) continue;
-            seenIds.add(video.id.value);
-
-            allTracks.add(Track()
-              ..sourceId = video.id.value
-              ..sourceType = SourceType.youtube
-              ..title = video.title
-              ..artist = video.author
-              ..channelId = video.channelId.value
-              ..durationMs = video.duration?.inMilliseconds ?? 0
-              ..thumbnailUrl = video.thumbnails.highResUrl
-              ..viewCount = video.engagement.viewCount);
-
-            tracksFromQuery++;
-            if (tracksFromQuery >= resultsPerQuery) break;
-          }
-
-          while (tracksFromQuery < resultsPerQuery) {
-            final nextPage = await searchList.nextPage();
-            if (nextPage == null) break;
-            searchList = nextPage;
-
-            for (final video in searchList) {
-              if (seenIds.contains(video.id.value)) continue;
-              seenIds.add(video.id.value);
-
-              allTracks.add(Track()
-                ..sourceId = video.id.value
-                ..sourceType = SourceType.youtube
-                ..title = video.title
-                ..artist = video.author
-                ..channelId = video.channelId.value
-                ..durationMs = video.duration?.inMilliseconds ?? 0
-                ..thumbnailUrl = video.thumbnails.highResUrl
-                ..viewCount = video.engagement.viewCount);
-
-              tracksFromQuery++;
-              if (tracksFromQuery >= resultsPerQuery) break;
-            }
-          }
-        } catch (e) {
-          logError('Failed to search for "$query": $e');
-        }
-      }
-
-      if (allTracks.isEmpty) {
-        throw YouTubeApiException(
-          code: 'no_results',
-          message: 'No trending videos found from any query',
-        );
-      }
-
-      allTracks.sort((a, b) => (b.viewCount ?? 0).compareTo(a.viewCount ?? 0));
-      final result = allTracks.take(100).toList();
-      logDebug('Got ${result.length} trending videos via search fallback');
-      return result;
-    } catch (e) {
-      logError('Failed to get YouTube trending videos via search: $e');
-      if (e is YouTubeApiException) rethrow;
-      throw YouTubeApiException(
-        code: 'error',
-        message: 'Failed to get trending videos: $e',
-      );
-    }
   }
 
   /// 释放资源
