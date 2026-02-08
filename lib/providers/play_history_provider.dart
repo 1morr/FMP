@@ -224,24 +224,30 @@ final playHistoryPageProvider =
 });
 
 /// 分组后的播放历史 Provider
+/// 注意：只監聽影響數據獲取的字段，不監聽選擇狀態，避免選擇時重新獲取數據導致閃爍
 final groupedPlayHistoryProvider =
     StreamProvider.autoDispose<Map<DateTime, List<PlayHistory>>>((ref) async* {
   final repo = ref.watch(playHistoryRepositoryProvider);
-  final pageState = ref.watch(playHistoryPageProvider);
+  
+  // 只監聽影響數據獲取的字段，不監聽 selectedIds 和 isMultiSelectMode
+  final selectedSource = ref.watch(playHistoryPageProvider.select((s) => s.selectedSource));
+  final sortOrder = ref.watch(playHistoryPageProvider.select((s) => s.sortOrder));
+  final searchKeyword = ref.watch(playHistoryPageProvider.select((s) => s.searchKeyword));
+  final selectedDate = ref.watch(playHistoryPageProvider.select((s) => s.selectedDate));
 
   Future<Map<DateTime, List<PlayHistory>>> fetchData() async {
     // 如果选择了特定日期，只获取该日期的记录
-    if (pageState.selectedDate != null) {
-      final date = pageState.selectedDate!;
+    if (selectedDate != null) {
+      final date = selectedDate;
       final start = DateTime(date.year, date.month, date.day);
       final end = DateTime(date.year, date.month, date.day, 23, 59, 59);
       
       final records = await repo.queryHistory(
-        sourceTypes: pageState.selectedSource == null ? null : {pageState.selectedSource!},
+        sourceTypes: selectedSource == null ? null : {selectedSource},
         startDate: start,
         endDate: end,
-        searchKeyword: pageState.searchKeyword,
-        sortOrder: pageState.sortOrder,
+        searchKeyword: searchKeyword,
+        sortOrder: sortOrder,
         limit: 1000,
       );
       
@@ -250,9 +256,9 @@ final groupedPlayHistoryProvider =
 
     // 否则获取分组数据
     return repo.getHistoryGroupedByDate(
-      sourceTypes: pageState.selectedSource == null ? null : {pageState.selectedSource!},
-      searchKeyword: pageState.searchKeyword,
-      sortOrder: pageState.sortOrder,
+      sourceTypes: selectedSource == null ? null : {selectedSource},
+      searchKeyword: searchKeyword,
+      sortOrder: sortOrder,
     );
   }
 
