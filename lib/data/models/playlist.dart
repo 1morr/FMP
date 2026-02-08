@@ -52,6 +52,9 @@ class Playlist {
   /// 更新时间
   DateTime? updatedAt;
 
+  /// 自定義排序順序（數字越小越靠前）
+  int sortOrder = 0;
+
   /// 是否是导入的歌单
   bool get isImported => sourceUrl != null;
 

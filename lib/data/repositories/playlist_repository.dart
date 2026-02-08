@@ -7,9 +7,9 @@ class PlaylistRepository {
 
   PlaylistRepository(this._isar);
 
-  /// 获取所有歌单
+  /// 获取所有歌单（按 sortOrder 排序）
   Future<List<Playlist>> getAll() async {
-    return _isar.playlists.where().findAll();
+    return _isar.playlists.where().sortBySortOrder().findAll();
   }
 
   /// 根据ID获取歌单
@@ -108,5 +108,23 @@ class PlaylistRepository {
     if (existing == null) return false;
     if (excludeId != null && existing.id == excludeId) return false;
     return true;
+  }
+
+  /// 批量更新歌單排序順序
+  Future<void> updateSortOrders(List<Playlist> playlists) async {
+    await _isar.writeTxn(() async {
+      for (int i = 0; i < playlists.length; i++) {
+        playlists[i].sortOrder = i;
+        playlists[i].updatedAt = DateTime.now();
+      }
+      await _isar.playlists.putAll(playlists);
+    });
+  }
+
+  /// 獲取下一個可用的 sortOrder 值
+  Future<int> getNextSortOrder() async {
+    final all = await getAll();
+    if (all.isEmpty) return 0;
+    return all.map((p) => p.sortOrder).reduce((a, b) => a > b ? a : b) + 1;
   }
 }
