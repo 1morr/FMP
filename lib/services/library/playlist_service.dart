@@ -98,6 +98,7 @@ class PlaylistService with Logging {
       ..name = name
       ..description = description
       ..coverUrl = coverUrl
+      ..hasCustomCover = coverUrl != null
       ..sortOrder = nextSortOrder
       ..createdAt = DateTime.now();
 
@@ -159,9 +160,17 @@ class PlaylistService with Logging {
     if (description != null) {
       playlist.description = description;
     }
-    // coverUrl: null 表示不修改，空字符串表示清除，其他值表示設置新封面
+    // coverUrl: null 表示不修改，空字符串表示清除（恢復默認），其他值表示設置新封面
     if (coverUrl != null) {
-      playlist.coverUrl = coverUrl.isEmpty ? null : coverUrl;
+      if (coverUrl.isEmpty) {
+        // 清除自定義封面，恢復使用默認封面（第一首歌曲的縮略圖）
+        playlist.coverUrl = null;
+        playlist.hasCustomCover = false;
+      } else {
+        // 設置自定義封面
+        playlist.coverUrl = coverUrl;
+        playlist.hasCustomCover = true;
+      }
     }
 
     await _playlistRepository.save(playlist);
@@ -269,7 +278,7 @@ class PlaylistService with Logging {
       // 重新获取歌单以获得最新的 trackIds
       final updatedPlaylist = await _playlistRepository.getById(playlistId);
       if (updatedPlaylist != null) {
-        await _updateCoverUrlForNonBilibiliPlaylist(updatedPlaylist);
+        await _updateDefaultCover(updatedPlaylist);
       }
     }
   }
@@ -319,7 +328,7 @@ class PlaylistService with Logging {
       // 重新获取歌单以获得最新的 trackIds
       final updatedPlaylist = await _playlistRepository.getById(playlistId);
       if (updatedPlaylist != null) {
-        await _updateCoverUrlForNonBilibiliPlaylist(updatedPlaylist);
+        await _updateDefaultCover(updatedPlaylist);
       }
     }
   }
@@ -354,7 +363,7 @@ class PlaylistService with Logging {
     if (wasFirstTrack) {
       final updatedPlaylist = await _playlistRepository.getById(playlistId);
       if (updatedPlaylist != null) {
-        await _updateCoverUrlForNonBilibiliPlaylist(updatedPlaylist);
+        await _updateDefaultCover(updatedPlaylist);
       }
     }
   }
@@ -385,7 +394,7 @@ class PlaylistService with Logging {
       // 重新获取歌单
       final updatedPlaylist = await _playlistRepository.getById(playlistId);
       if (updatedPlaylist != null) {
-        await _updateCoverUrlForNonBilibiliPlaylist(updatedPlaylist);
+        await _updateDefaultCover(updatedPlaylist);
       }
     }
   }
@@ -429,13 +438,13 @@ class PlaylistService with Logging {
     return PlaylistCoverData(localPath: localPath, networkUrl: networkUrl);
   }
 
-  /// 更新非 Bilibili 歌单的封面 URL
+  /// 更新歌單的默認封面（使用第一首歌曲的縮略圖）
   ///
-  /// 对于非 Bilibili 歌单（手动创建或 YouTube 导入），封面始终使用第一首歌曲的缩略图。
-  /// 当歌单中的歌曲顺序发生变化时调用此方法。
-  Future<void> _updateCoverUrlForNonBilibiliPlaylist(Playlist playlist) async {
-    // Bilibili 歌单使用 API 返回的封面，不在此处更新
-    if (playlist.importSourceType == SourceType.bilibili) {
+  /// 當歌單中的歌曲順序發生變化時調用此方法。
+  /// 如果用戶已手動設置封面（hasCustomCover = true），則不會更新。
+  Future<void> _updateDefaultCover(Playlist playlist) async {
+    // 用戶手動設置的封面不會被自動更新
+    if (playlist.hasCustomCover) {
       return;
     }
 
@@ -445,7 +454,7 @@ class PlaylistService with Logging {
       newCoverUrl = firstTrack?.thumbnailUrl;
     }
 
-    // 只有当封面确实变化时才更新
+    // 只有當封面確實變化時才更新
     if (playlist.coverUrl != newCoverUrl) {
       playlist.coverUrl = newCoverUrl;
       await _playlistRepository.save(playlist);
@@ -479,6 +488,7 @@ class PlaylistService with Logging {
       ..name = newName
       ..description = original.description
       ..coverUrl = original.coverUrl
+      ..hasCustomCover = original.hasCustomCover
       ..trackIds = List.from(original.trackIds)
       ..sortOrder = nextSortOrder
       ..createdAt = DateTime.now();

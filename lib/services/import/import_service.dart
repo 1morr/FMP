@@ -160,10 +160,10 @@ class ImportService with Logging {
         playlist = existingPlaylist;
       } else {
         // 创建新歌单
+        // 注意：coverUrl 不在此處設置，會在導入完成後使用第一首歌曲的縮略圖
         playlist = Playlist()
           ..name = playlistName
           ..description = result.description
-          ..coverUrl = result.coverUrl
           ..sourceUrl = url
           ..importSourceType = source.sourceType
           ..refreshIntervalHours = refreshIntervalHours ?? 24
@@ -227,6 +227,14 @@ class ImportService with Logging {
         }
       }
 
+      // 更新歌单封面（使用第一首歌曲的縮略圖）
+      if (!playlist.hasCustomCover && playlist.trackIds.isNotEmpty) {
+        final firstTrack = await _trackRepository.getById(playlist.trackIds.first);
+        if (firstTrack?.thumbnailUrl != null) {
+          playlist.coverUrl = firstTrack!.thumbnailUrl;
+        }
+      }
+
       // 更新歌单
       playlist.lastRefreshed = DateTime.now();
       await _playlistRepository.save(playlist);
@@ -276,10 +284,13 @@ class ImportService with Logging {
       if (existingPlaylist != null) {
         // 更新現有歌單（Mix 歌單只更新元數據）
         playlist = existingPlaylist
-          ..coverUrl = mixInfo.coverUrl
           ..mixPlaylistId = mixInfo.playlistId
           ..mixSeedVideoId = mixInfo.seedVideoId
           ..updatedAt = DateTime.now();
+        // 只有在沒有自定義封面時才更新封面
+        if (!existingPlaylist.hasCustomCover) {
+          playlist.coverUrl = mixInfo.coverUrl;
+        }
       } else {
         // 創建新的 Mix 歌單
         playlist = Playlist()
@@ -462,22 +473,16 @@ class ImportService with Logging {
       playlist.lastRefreshed = DateTime.now();
       
       // 更新封面 URL：
-      // - Bilibili 歌单：每次刷新都使用 API 返回的封面
-      // - YouTube 歌单：使用第一首歌曲的封面
-      if (playlist.importSourceType == SourceType.bilibili) {
-        // Bilibili：每次刷新都更新为 API 返回的封面
-        if (result.coverUrl != null) {
-          playlist.coverUrl = result.coverUrl;
-        }
-      } else {
-        // YouTube：使用第一首歌曲的封面
+      // 用戶手動設置的封面不會被自動更新
+      // 否則使用第一首歌曲的縮略圖作為默認封面
+      if (!playlist.hasCustomCover) {
         if (newTrackIds.isNotEmpty) {
           final firstTrack = await _trackRepository.getById(newTrackIds.first);
           if (firstTrack?.thumbnailUrl != null) {
             playlist.coverUrl = firstTrack!.thumbnailUrl;
           }
         } else {
-          // 歌单为空时清空封面
+          // 歌單為空時清空封面
           playlist.coverUrl = null;
         }
       }
