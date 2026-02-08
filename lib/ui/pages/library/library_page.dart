@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
 import '../../../providers/download_provider.dart';
 
@@ -18,12 +19,33 @@ import 'widgets/create_playlist_dialog.dart';
 import 'widgets/import_url_dialog.dart';
 
 /// 音乐库页
-class LibraryPage extends ConsumerWidget {
+class LibraryPage extends ConsumerStatefulWidget {
   const LibraryPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LibraryPage> createState() => _LibraryPageState();
+}
+
+class _LibraryPageState extends ConsumerState<LibraryPage> {
+  /// 是否處於排序模式
+  bool _isReorderMode = false;
+
+  /// 本地排序狀態（用於拖拽時的即時反饋）
+  List<Playlist>? _localPlaylists;
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(playlistListProvider);
+    final colorScheme = Theme.of(context).colorScheme;
+
+    // 同步本地狀態
+    if (!_isReorderMode) {
+      _localPlaylists = null;
+    } else if (_localPlaylists == null && !state.isLoading) {
+      _localPlaylists = List.from(state.playlists);
+    }
+
+    final displayPlaylists = _localPlaylists ?? state.playlists;
 
     return Scaffold(
       appBar: AppBar(
@@ -31,7 +53,6 @@ class LibraryPage extends ConsumerWidget {
           icon: const Icon(Icons.download_done),
           tooltip: '已下载',
           onPressed: () async {
-            // 先刷新數據，等待完成後再導航，避免顯示舊封面
             ref.invalidate(downloadedCategoriesProvider);
             await ref.read(downloadedCategoriesProvider.future);
             if (context.mounted) {
@@ -39,27 +60,48 @@ class LibraryPage extends ConsumerWidget {
             }
           },
         ),
-        title: const Text('音乐库'),
+        title: Text(_isReorderMode ? '拖拽排序' : '音乐库'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.link),
-            tooltip: '从 URL 导入',
-            onPressed: () => _showImportDialog(context, ref),
-          ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: '新建歌单',
-            onPressed: () => _showCreateDialog(context, ref),
-          ),
+          // 排序模式按鈕
+          if (state.playlists.length > 1)
+            IconButton(
+              icon: Icon(
+                _isReorderMode ? Icons.check : Icons.swap_vert,
+                color: _isReorderMode ? colorScheme.primary : null,
+              ),
+              tooltip: _isReorderMode ? '完成排序' : '排序歌单',
+              onPressed: () {
+                setState(() {
+                  _isReorderMode = !_isReorderMode;
+                  if (!_isReorderMode) {
+                    _localPlaylists = null;
+                  }
+                });
+              },
+            ),
+          if (!_isReorderMode) ...[
+            IconButton(
+              icon: const Icon(Icons.link),
+              tooltip: '从 URL 导入',
+              onPressed: () => _showImportDialog(context, ref),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add),
+              tooltip: '新建歌单',
+              onPressed: () => _showCreateDialog(context, ref),
+            ),
+          ],
         ],
       ),
       body: Stack(
         children: [
           state.isLoading
               ? const Center(child: CircularProgressIndicator())
-              : state.playlists.isEmpty
+              : displayPlaylists.isEmpty
                   ? _buildEmptyState(context, ref)
-                  : _buildPlaylistGrid(context, ref, state.playlists),
+                  : _isReorderMode
+                      ? _buildReorderableGrid(context, ref, displayPlaylists)
+                      : _buildPlaylistGrid(context, ref, displayPlaylists),
           // 刷新进度指示器固定在底部
           const Positioned(
             left: 0,
@@ -127,11 +169,10 @@ class LibraryPage extends ConsumerWidget {
     WidgetRef ref,
     List<Playlist> playlists,
   ) {
-    // 使用 maxCrossAxisExtent 实现平滑缩放，卡片大小随窗口连续变化
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 200, // 卡片最大宽度
+        maxCrossAxisExtent: 200,
         mainAxisSpacing: 16,
         crossAxisSpacing: 16,
         childAspectRatio: 0.8,
@@ -141,6 +182,48 @@ class LibraryPage extends ConsumerWidget {
         return _PlaylistCard(playlist: playlists[index]);
       },
     );
+  }
+
+  Widget _buildReorderableGrid(
+    BuildContext context,
+    WidgetRef ref,
+    List<Playlist> playlists,
+  ) {
+    return ReorderableGridView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 200,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+        childAspectRatio: 0.8,
+      ),
+      dragStartDelay: Duration.zero, // 立即開始拖拽，無需長按
+      itemCount: playlists.length,
+      itemBuilder: (context, index) {
+        final playlist = playlists[index];
+        return _ReorderablePlaylistCard(
+          key: ValueKey(playlist.id),
+          playlist: playlist,
+        );
+      },
+      onReorder: (oldIndex, newIndex) {
+        setState(() {
+          final item = _localPlaylists!.removeAt(oldIndex);
+          _localPlaylists!.insert(newIndex, item);
+        });
+        // 異步保存到數據庫
+        _savePlaylistOrder();
+      },
+    );
+  }
+
+  Future<void> _savePlaylistOrder() async {
+    if (_localPlaylists == null) return;
+
+    final service = ref.read(playlistServiceProvider);
+    await service.reorderPlaylists(_localPlaylists!);
+    // 刷新 provider
+    ref.invalidate(playlistListProvider);
   }
 
   void _showCreateDialog(BuildContext context, WidgetRef ref) {
@@ -154,6 +237,88 @@ class LibraryPage extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => const ImportUrlDialog(),
+    );
+  }
+}
+
+/// 可拖拽的歌單卡片（排序模式下使用）
+class _ReorderablePlaylistCard extends ConsumerWidget {
+  final Playlist playlist;
+
+  const _ReorderablePlaylistCard({super.key, required this.playlist});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final coverAsync = ref.watch(playlistCoverProvider(playlist.id));
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 封面
+              Expanded(
+                child: coverAsync.when(
+                  skipLoadingOnReload: true,
+                  data: (coverData) => coverData.hasCover
+                      ? ImageLoadingService.loadImage(
+                          localPath: coverData.localPath,
+                          networkUrl: coverData.networkUrl,
+                          placeholder: const ImagePlaceholder.track(),
+                          fit: BoxFit.cover,
+                        )
+                      : const ImagePlaceholder.track(),
+                  loading: () => const ImagePlaceholder.track(),
+                  error: (error, stack) => const ImagePlaceholder.track(),
+                ),
+              ),
+              // 信息
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      playlist.name,
+                      style: Theme.of(context).textTheme.titleSmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${playlist.trackCount} 首',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.outline,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          // 拖拽指示器
+          Positioned(
+            top: 4,
+            right: 4,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: colorScheme.primary.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Icon(
+                Icons.drag_handle,
+                size: 20,
+                color: colorScheme.onPrimary,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

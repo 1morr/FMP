@@ -91,10 +91,14 @@ class PlaylistService with Logging {
       throw PlaylistNameExistsException(name);
     }
 
+    // 獲取下一個排序順序
+    final nextSortOrder = await _playlistRepository.getNextSortOrder();
+
     final playlist = Playlist()
       ..name = name
       ..description = description
       ..coverUrl = coverUrl
+      ..sortOrder = nextSortOrder
       ..createdAt = DateTime.now();
 
     final id = await _playlistRepository.save(playlist);
@@ -155,8 +159,9 @@ class PlaylistService with Logging {
     if (description != null) {
       playlist.description = description;
     }
+    // coverUrl: null 表示不修改，空字符串表示清除，其他值表示設置新封面
     if (coverUrl != null) {
-      playlist.coverUrl = coverUrl;
+      playlist.coverUrl = coverUrl.isEmpty ? null : coverUrl;
     }
 
     await _playlistRepository.save(playlist);
@@ -467,16 +472,27 @@ class PlaylistService with Logging {
       throw PlaylistNameExistsException(newName);
     }
 
+    // 獲取下一個排序順序
+    final nextSortOrder = await _playlistRepository.getNextSortOrder();
+
     final copy = Playlist()
       ..name = newName
       ..description = original.description
       ..coverUrl = original.coverUrl
       ..trackIds = List.from(original.trackIds)
+      ..sortOrder = nextSortOrder
       ..createdAt = DateTime.now();
 
     final id = await _playlistRepository.save(copy);
     copy.id = id;
     return copy;
+  }
+
+  /// 重新排序歌單列表
+  ///
+  /// [playlists] 是按新順序排列的歌單列表
+  Future<void> reorderPlaylists(List<Playlist> playlists) async {
+    await _playlistRepository.updateSortOrders(playlists);
   }
 }
 

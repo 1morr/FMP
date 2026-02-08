@@ -66,6 +66,7 @@ dependencies:
   equatable: ^2.0.7
   intl: ^0.20.2
   simple_icons: ^14.6.1
+  reorderable_grid_view: ^2.2.8
 
 dev_dependencies:
   flutter_test:
