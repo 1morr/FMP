@@ -84,6 +84,18 @@ class PlaylistRepository {
     }
   }
 
+  /// 批量从歌单移除歌曲
+  Future<void> removeTracks(int playlistId, List<int> trackIds) async {
+    final playlist = await getById(playlistId);
+    if (playlist != null) {
+      final trackIdSet = trackIds.toSet();
+      final newTrackIds = List<int>.from(playlist.trackIds)
+        ..removeWhere((id) => trackIdSet.contains(id));
+      playlist.trackIds = newTrackIds;
+      await save(playlist);
+    }
+  }
+
   /// 更新歌单歌曲顺序
   Future<void> reorderTracks(int playlistId, List<int> newOrder) async {
     final playlist = await getById(playlistId);

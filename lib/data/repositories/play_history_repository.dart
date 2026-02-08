@@ -122,6 +122,13 @@ class PlayHistoryRepository {
     });
   }
 
+  /// 批量删除历史记录
+  Future<int> deleteHistories(List<int> ids) async {
+    return await _isar.writeTxn(() async {
+      return await _isar.playHistorys.deleteAll(ids);
+    });
+  }
+
   /// 清空所有播放历史
   Future<void> clearAllHistory() async {
     await _isar.writeTxn(() async {

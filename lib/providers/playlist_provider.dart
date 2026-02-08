@@ -350,6 +350,23 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
     }
   }
 
+  /// 批量移除歌曲
+  Future<bool> removeTracks(List<int> trackIds) async {
+    if (trackIds.isEmpty) return true;
+    try {
+      await _service.removeTracksFromPlaylist(playlistId, trackIds);
+      if (!mounted) return true;
+      await loadPlaylist();
+      _ref.invalidate(playlistCoverProvider(playlistId));
+      _ref.invalidate(allPlaylistsProvider);
+      return true;
+    } catch (e) {
+      if (!mounted) return false;
+      state = state.copyWith(error: e.toString());
+      return false;
+    }
+  }
+
   /// 重新排序
   Future<bool> reorderTracks(int oldIndex, int newIndex) async {
     try {

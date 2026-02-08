@@ -368,6 +368,53 @@ class PlaylistService with Logging {
     }
   }
 
+  /// 批量从歌单移除歌曲
+  Future<void> removeTracksFromPlaylist(int playlistId, List<int> trackIds) async {
+    if (trackIds.isEmpty) return;
+
+    // 先获取歌单，检查第一首歌是否会被移除
+    final playlist = await _playlistRepository.getById(playlistId);
+    final wasFirstTrackRemoved = playlist != null &&
+        playlist.trackIds.isNotEmpty &&
+        trackIds.contains(playlist.trackIds.first);
+
+    // 批量从歌单移除
+    await _playlistRepository.removeTracks(playlistId, trackIds);
+
+    // 批量获取所有 tracks
+    final tracks = await _trackRepository.getByIds(trackIds);
+    
+    // 分类：需要删除的和需要更新的
+    final toDelete = <int>[];
+    final toUpdate = <Track>[];
+    
+    for (final track in tracks) {
+      track.removeFromPlaylist(playlistId);
+      if (track.playlistInfo.isEmpty) {
+        toDelete.add(track.id);
+        logDebug('Will delete orphan track: ${track.title}');
+      } else {
+        toUpdate.add(track);
+      }
+    }
+
+    // 批量删除和更新
+    if (toDelete.isNotEmpty) {
+      await _trackRepository.deleteAll(toDelete);
+    }
+    if (toUpdate.isNotEmpty) {
+      await _trackRepository.saveAll(toUpdate);
+    }
+
+    // 如果移除的包含第一首歌，更新封面
+    if (wasFirstTrackRemoved) {
+      final updatedPlaylist = await _playlistRepository.getById(playlistId);
+      if (updatedPlaylist != null) {
+        await _updateDefaultCover(updatedPlaylist);
+      }
+    }
+  }
+
   /// 重新排序歌单中的歌曲
   Future<void> reorderPlaylistTracks(
     int playlistId,
