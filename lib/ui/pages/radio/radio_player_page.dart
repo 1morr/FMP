@@ -109,8 +109,8 @@ class RadioPlayerPage extends ConsumerWidget {
                   _buildStationInfo(context, radioState, colorScheme),
                   const SizedBox(height: 16),
 
-                  // LIVE 標記
-                  _buildLiveTag(radioState),
+                  // 已開播時長標記
+                  _buildLiveTag(context, radioState),
                   const SizedBox(height: 16),
 
                   // 狀態行
@@ -199,27 +199,30 @@ class RadioPlayerPage extends ConsumerWidget {
     );
   }
 
-  /// LIVE 標記（固定高度，避免佈局跳動）
-  Widget _buildLiveTag(RadioState state) {
+  /// 已開播時長標記（固定高度，避免佈局跳動）
+  Widget _buildLiveTag(BuildContext context, RadioState state) {
+    final parts = <String>[];
+
+    if (state.liveStartTime != null) {
+      parts.add('${_formatDateTime(state.liveStartTime!)}开播');
+    }
+    if (state.isPlaying) {
+      parts.add(_formatDuration(state.playDuration));
+    }
+
     return SizedBox(
       height: 24,
       child: AnimatedOpacity(
         opacity: state.isPlaying ? 1.0 : 0.0,
         duration: const Duration(milliseconds: 150),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.red,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: const Text(
-            'LIVE',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+        child: Text(
+          parts.isEmpty ? '' : parts.join(' · '),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
       ),
     );
@@ -260,11 +263,10 @@ class RadioPlayerPage extends ConsumerWidget {
     }
 
     final parts = <String>[];
-    parts.add(_formatDuration(state.playDuration));
     if (state.viewerCount != null) {
       parts.add('${_formatCount(state.viewerCount!)} 觀眾');
     }
-    return parts.join(' · ');
+    return parts.isEmpty ? '直播中' : parts.join(' · ');
   }
 
   /// 播放控制按鈕
@@ -394,6 +396,21 @@ class RadioPlayerPage extends ConsumerWidget {
       return '${(count / 10000).toStringAsFixed(1)}萬';
     }
     return count.toString();
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final diff = now.difference(dateTime);
+
+    if (diff.inDays > 0) {
+      return '${diff.inDays} 天前';
+    } else if (diff.inHours > 0) {
+      return '${diff.inHours} 小时前';
+    } else if (diff.inMinutes > 0) {
+      return '${diff.inMinutes} 分钟前';
+    } else {
+      return '刚刚';
+    }
   }
 }
 

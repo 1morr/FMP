@@ -1172,11 +1172,11 @@ class _RadioDetailContent extends ConsumerWidget {
             Icons.visibility_rounded,
             _formatCount(radioState.viewerCount!),
           ),
-        if (radioState.isPlaying)
+        if (radioState.liveStartTime != null)
           _buildStatItem(
             context,
-            Icons.schedule_outlined,
-            _formatDuration(radioState.playDuration),
+            Icons.play_circle_outline,
+            '${_formatDateTime(radioState.liveStartTime!)}開播',
           ),
         if (radioState.areaName != null)
           _buildStatItem(
@@ -1280,22 +1280,26 @@ class _RadioDetailContent extends ConsumerWidget {
     );
   }
 
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    final seconds = duration.inSeconds.remainder(60);
-
-    if (hours > 0) {
-      return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-    }
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-  }
-
   String _formatCount(int count) {
     if (count >= 10000) {
       return '${(count / 10000).toStringAsFixed(1)}万';
     }
     return count.toString();
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final diff = now.difference(dateTime);
+
+    if (diff.inDays > 0) {
+      return '${diff.inDays} 天前';
+    } else if (diff.inHours > 0) {
+      return '${diff.inHours} 小时前';
+    } else if (diff.inMinutes > 0) {
+      return '${diff.inMinutes} 分钟前';
+    } else {
+      return '刚刚';
+    }
   }
 }
 
