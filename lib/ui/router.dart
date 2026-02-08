@@ -74,20 +74,21 @@ class RouteNames {
 }
 
 /// 用于根导航的 navigator key
-final _rootNavigatorKey = GlobalKey<NavigatorState>();
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 /// Shell 内部导航的 navigator key
-final _shellNavigatorKey = GlobalKey<NavigatorState>();
+/// 導出此 key 以便 AppShell 可以關閉 shell 內的 popup 菜單
+final shellNavigatorKey = GlobalKey<NavigatorState>();
 
 /// 应用路由配置
 /// 使用普通 ShellRoute 以优化内存（页面切换时销毁非活动页面）
 final appRouter = GoRouter(
-  navigatorKey: _rootNavigatorKey,
+  navigatorKey: rootNavigatorKey,
   initialLocation: RoutePaths.home,
   routes: [
     // ShellRoute - 页面切换时销毁非活动页面，优化内存
     ShellRoute(
-      navigatorKey: _shellNavigatorKey,
+      navigatorKey: shellNavigatorKey,
       builder: (context, state, child) => AppShell(child: child),
       routes: [
         // 首页
@@ -226,7 +227,7 @@ final appRouter = GoRouter(
     GoRoute(
       path: RoutePaths.player,
       name: RouteNames.player,
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
       pageBuilder: (context, state) => CustomTransitionPage(
         child: const PlayerPage(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -247,7 +248,7 @@ final appRouter = GoRouter(
     GoRoute(
       path: RoutePaths.radioPlayer,
       name: RouteNames.radioPlayer,
-      parentNavigatorKey: _rootNavigatorKey,
+      parentNavigatorKey: rootNavigatorKey,
       pageBuilder: (context, state) => CustomTransitionPage(
         child: const RadioPlayerPage(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {

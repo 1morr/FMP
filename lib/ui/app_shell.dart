@@ -74,6 +74,12 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   /// 导航到指定分支
   void _onDestinationSelected(int index) {
+    // 關閉所有 popup 菜單（PopupMenuButton 等）
+    // Shell 內的頁面切換使用 context.go()，不會觸發 Navigator.pop()
+    // 因此需要手動關閉 popup 類型的路由
+    // 使用 shellNavigatorKey 直接訪問 Shell Navigator 來關閉 popup
+    shellNavigatorKey.currentState?.popUntil((route) => route is! PopupRoute);
+
     switch (index) {
       case 0:
         context.go(RoutePaths.home);
