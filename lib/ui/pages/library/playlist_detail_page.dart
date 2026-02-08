@@ -219,9 +219,8 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   /// 刪除選中的歌曲
   Future<void> _deleteSelectedTracks(List<Track> tracks) async {
     final notifier = ref.read(playlistDetailProvider(widget.playlistId).notifier);
-    for (final track in tracks) {
-      await notifier.removeTrack(track.id);
-    }
+    final trackIds = tracks.map((t) => t.id).toList();
+    await notifier.removeTracks(trackIds);
   }
 
   /// 下載選中的歌曲
@@ -1118,9 +1117,8 @@ class _GroupHeader extends ConsumerWidget {
       case 'remove_all':
         // 移除所有分P
         final notifier = ref.read(playlistDetailProvider(playlistId).notifier);
-        for (final track in group.tracks) {
-          await notifier.removeTrack(track.id);
-        }
+        final trackIds = group.tracks.map((t) => t.id).toList();
+        await notifier.removeTracks(trackIds);
         if (context.mounted) {
           ToastService.show(context, '已从歌单移除 ${group.tracks.length} 个分P');
         }

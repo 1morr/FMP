@@ -203,11 +203,9 @@ class PlayHistoryPageNotifier extends StateNotifier<PlayHistoryPageState> {
   /// 删除选中的记录
   Future<int> deleteSelected() async {
     final ids = state.selectedIds.toList();
-    for (final id in ids) {
-      await _repo.deleteHistory(id);
-    }
+    final deletedCount = await _repo.deleteHistories(ids);
     exitMultiSelectMode();
-    return ids.length;
+    return deletedCount;
   }
 
   /// 删除某首歌的所有记录

@@ -48,6 +48,15 @@ class TrackRepository with Logging {
         .findFirst();
   }
 
+  /// 批量根据 sourceIds 获取歌曲
+  Future<List<Track>> getBySourceIds(List<String> sourceIds) async {
+    if (sourceIds.isEmpty) return [];
+    return _isar.tracks
+        .where()
+        .anyOf(sourceIds, (q, sourceId) => q.sourceIdEqualTo(sourceId))
+        .findAll();
+  }
+
   /// 根据源ID、类型和cid获取歌曲（支持分P唯一性检查）
   Future<Track?> getBySourceIdAndCid(
     String sourceId,
@@ -334,7 +343,6 @@ class TrackRepository with Logging {
         keyToIndex[key] = uniqueTracks.length;
         uniqueTracks.add(track);
       } else {
-        // 如果已存在，检查是否有更完整的数据
         final existingIndex = keyToIndex[key]!;
         if (_hasMoreCompleteData(track, uniqueTracks[existingIndex])) {
           uniqueTracks[existingIndex] = track;
@@ -342,13 +350,63 @@ class TrackRepository with Logging {
       }
     }
 
-    // 批量处理去重后的 Track
-    final results = <Track>[];
-    for (final track in uniqueTracks) {
-      results.add(await getOrCreate(track));
+    // 批量查询已存在的 tracks
+    final sourceIds = uniqueTracks.map((t) => t.sourceId).toSet().toList();
+    final existingTracks = await getBySourceIds(sourceIds);
+    
+    // 建立 uniqueKey -> existing track 的映射
+    final existingMap = <String, Track>{};
+    for (final existing in existingTracks) {
+      existingMap[existing.uniqueKey] = existing;
     }
 
-    // 重建原始顺序的结果列表（处理输入中的重复）
+    // 分类处理
+    final toSave = <Track>[];
+    final results = <Track>[];
+    
+    for (final track in uniqueTracks) {
+      final existing = existingMap[track.uniqueKey];
+      if (existing != null) {
+        // 更新已存在的 track
+        bool needsUpdate = false;
+        if (track.audioUrl != null && track.audioUrl!.isNotEmpty) {
+          if (existing.audioUrl == null ||
+              existing.audioUrl!.isEmpty ||
+              !existing.hasValidAudioUrl) {
+            existing.audioUrl = track.audioUrl;
+            existing.audioUrlExpiry = track.audioUrlExpiry;
+            needsUpdate = true;
+          }
+        }
+        if (existing.thumbnailUrl == null && track.thumbnailUrl != null) {
+          existing.thumbnailUrl = track.thumbnailUrl;
+          needsUpdate = true;
+        }
+        if (existing.durationMs == null && track.durationMs != null) {
+          existing.durationMs = track.durationMs;
+          needsUpdate = true;
+        }
+        if (existing.artist == null && track.artist != null) {
+          existing.artist = track.artist;
+          needsUpdate = true;
+        }
+        if (needsUpdate) {
+          toSave.add(existing);
+        }
+        results.add(existing);
+      } else {
+        // 新 track，需要创建
+        toSave.add(track);
+        results.add(track);
+      }
+    }
+
+    // 批量保存
+    if (toSave.isNotEmpty) {
+      await saveAll(toSave);
+    }
+
+    // 重建原始顺序的结果列表
     final finalResults = <Track>[];
     for (final track in tracks) {
       final key = track.uniqueKey;
@@ -400,13 +458,14 @@ class TrackRepository with Logging {
   /// 返回清理的 Track 数量
   Future<int> cleanupInvalidDownloadPaths() async {
     logDebug('Cleaning up invalid download paths...');
-    int cleaned = 0;
 
-    await _isar.writeTxn(() async {
+    return await _isar.writeTxn(() async {
       final tracks = await _isar.tracks
           .filter()
           .playlistInfoElement((q) => q.downloadPathIsNotEmpty())
           .findAll();
+      
+      final toUpdate = <Track>[];
       
       for (final track in tracks) {
         bool hasChanges = false;
@@ -447,14 +506,18 @@ class TrackRepository with Logging {
                   ..downloadPath = '';
               })
               .toList();
-          await _isar.tracks.put(track);
-          cleaned++;
+          toUpdate.add(track);
         }
       }
+      
+      // 批量更新
+      if (toUpdate.isNotEmpty) {
+        await _isar.tracks.putAll(toUpdate);
+      }
+      
+      logDebug('Cleaned up invalid download paths for ${toUpdate.length} tracks');
+      return toUpdate.length;
     });
-
-    logDebug('Cleaned up invalid download paths for $cleaned tracks');
-    return cleaned;
   }
 
   /// 删除孤立的 Track 记录
