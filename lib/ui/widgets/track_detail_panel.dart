@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/utils/thumbnail_url_utils.dart';
 import '../../core/extensions/track_extensions.dart';
 import '../../core/services/image_loading_service.dart';
 import '../../data/models/settings.dart';
@@ -1065,7 +1067,11 @@ class _RadioDetailContent extends ConsumerWidget {
       padding: const EdgeInsets.all(20),
       children: [
         // 封面（可点击打开直播间）
-        _RadioClickableCover(station: station),
+        _RadioClickableCover(
+          station: station,
+          isPlaying: radioState.isPlaying,
+          isLoading: radioState.isLoading || radioState.isBuffering,
+        ),
 
         const SizedBox(height: 20),
 
@@ -1296,8 +1302,14 @@ class _RadioDetailContent extends ConsumerWidget {
 /// 电台可点击封面
 class _RadioClickableCover extends StatefulWidget {
   final RadioStation station;
+  final bool isPlaying;
+  final bool isLoading;
 
-  const _RadioClickableCover({required this.station});
+  const _RadioClickableCover({
+    required this.station,
+    required this.isPlaying,
+    this.isLoading = false,
+  });
 
   @override
   State<_RadioClickableCover> createState() => _RadioClickableCoverState();
@@ -1305,6 +1317,44 @@ class _RadioClickableCover extends StatefulWidget {
 
 class _RadioClickableCoverState extends State<_RadioClickableCover> {
   bool _isHovered = false;
+  bool _isImageLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _preloadImage();
+  }
+
+  @override
+  void didUpdateWidget(covariant _RadioClickableCover oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.station.thumbnailUrl != widget.station.thumbnailUrl) {
+      setState(() => _isImageLoaded = false);
+      _preloadImage();
+    }
+  }
+
+  void _preloadImage() {
+    final url = widget.station.thumbnailUrl;
+    if (url == null || url.isEmpty) return;
+
+    final optimizedUrl = ThumbnailUrlUtils.getOptimizedUrl(url, displaySize: 480);
+    final imageProvider = CachedNetworkImageProvider(
+      optimizedUrl,
+      headers: {'Referer': 'https://www.bilibili.com'},
+    );
+    final stream = imageProvider.resolve(ImageConfiguration.empty);
+    stream.addListener(ImageStreamListener(
+      (ImageInfo info, bool synchronousCall) {
+        if (mounted) {
+          setState(() => _isImageLoaded = true);
+        }
+      },
+      onError: (Object error, StackTrace? stackTrace) {
+        // 加载失败时保持 placeholder 状态
+      },
+    ));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1328,44 +1378,61 @@ class _RadioClickableCoverState extends State<_RadioClickableCover> {
                   fit: BoxFit.cover,
                   targetDisplaySize: 480,  // 高清背景
                 ),
-                // LIVE 标签
-                Positioned(
-                  left: 10,
-                  top: 10,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Text(
-                      'LIVE',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                // LIVE 标签 - 仅在图片加载完成且正在播放时显示
+                if (_isImageLoaded && widget.isPlaying)
+                  Positioned(
+                    left: 10,
+                    top: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'LIVE',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                // 悬停遮罩
-                AnimatedOpacity(
-                  opacity: _isHovered ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 150),
-                  child: Container(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    child: const Center(
-                      child: Icon(
-                        Icons.open_in_new,
-                        color: Colors.white,
-                        size: 48,
+                // 未播放时的半透明遮罩（加载时带动画）
+                if (!widget.isPlaying)
+                  Positioned.fill(
+                    child: Container(
+                      color: Colors.black.withValues(alpha: 0.4),
+                      child: widget.isLoading
+                          ? const Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 3,
+                                color: Colors.white,
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                // 悬停遮罩（仅播放时显示）
+                if (widget.isPlaying)
+                  AnimatedOpacity(
+                    opacity: _isHovered ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 150),
+                    child: Container(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      child: const Center(
+                        child: Icon(
+                          Icons.open_in_new,
+                          color: Colors.white,
+                          size: 48,
+                        ),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
