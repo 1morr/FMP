@@ -52,6 +52,13 @@ class SettingsPage extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(RoutePaths.audioSettings),
               ),
+              ListTile(
+                leading: const Icon(Icons.history),
+                title: const Text('播放历史'),
+                subtitle: const Text('查看和管理播放记录'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push(RoutePaths.history),
+              ),
               _RememberPlaybackPositionTile(),
             ],
           ),
