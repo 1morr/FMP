@@ -568,6 +568,11 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     await _repository.reorder(newOrder);
   }
 
+  /// 直接更新電台順序（不重新加載，避免閃爍）
+  void updateStationsOrder(List<RadioStation> orderedStations) {
+    state = state.copyWith(stations: orderedStations);
+  }
+
   /// 切換收藏
   Future<void> toggleFavorite(int id) async {
     await _repository.toggleFavorite(id);
