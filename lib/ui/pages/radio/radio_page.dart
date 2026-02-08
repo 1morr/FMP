@@ -26,11 +26,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
   @override
   void initState() {
     super.initState();
-    // 进入页面时刷新
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(radioControllerProvider.notifier).refreshAllLiveStatus();
-    });
-    // 每分钟刷新
+    // 每分钟自动刷新直播状态
     _refreshTimer = Timer.periodic(
       const Duration(minutes: 1),
       (_) => ref.read(radioControllerProvider.notifier).refreshAllLiveStatus(),
