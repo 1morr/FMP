@@ -240,6 +240,7 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final result = await _service.getPlaylistWithTracks(playlistId);
+      if (!mounted) return;
       if (result != null) {
         // Mix 歌單：從 InnerTube API 動態加載 tracks
         if (result.playlist.isMix) {
@@ -263,6 +264,7 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
@@ -271,6 +273,7 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
   Future<void> _loadMixTracks(Playlist playlist) async {
     try {
       if (playlist.mixPlaylistId == null || playlist.mixSeedVideoId == null) {
+        if (!mounted) return;
         state = state.copyWith(
           isLoading: false,
           error: 'Mix 播放列表缺少必要信息',
@@ -284,11 +287,13 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
         currentVideoId: playlist.mixSeedVideoId!,
       );
 
+      if (!mounted) return;
       state = state.copyWith(
         tracks: result.tracks,
         isLoading: false,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         error: '加載 Mix 播放列表失敗: $e',
@@ -300,6 +305,7 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
   Future<void> refreshTracks() async {
     try {
       final result = await _service.getPlaylistWithTracks(playlistId);
+      if (!mounted) return;
       if (result != null) {
         state = state.copyWith(
           tracks: result.tracks,
@@ -314,12 +320,14 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
   Future<bool> addTrack(Track track) async {
     try {
       await _service.addTrackToPlaylist(playlistId, track);
+      if (!mounted) return true;  // 操作已完成，返回成功
       await loadPlaylist();
       // 刷新相关 providers（封面可能已更新，歌单列表也需要更新）
       _ref.invalidate(playlistCoverProvider(playlistId));
       _ref.invalidate(allPlaylistsProvider);
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(error: e.toString());
       return false;
     }
@@ -329,12 +337,14 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
   Future<bool> removeTrack(int trackId) async {
     try {
       await _service.removeTrackFromPlaylist(playlistId, trackId);
+      if (!mounted) return true;  // 操作已完成，返回成功
       await loadPlaylist();
       // 刷新相关 providers（封面可能已更新，歌单列表也需要更新）
       _ref.invalidate(playlistCoverProvider(playlistId));
       _ref.invalidate(allPlaylistsProvider);
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(error: e.toString());
       return false;
     }
@@ -351,10 +361,12 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
       state = state.copyWith(tracks: tracks);
 
       await _service.reorderPlaylistTracks(playlistId, oldIndex, newIndex);
+      if (!mounted) return true;
       // 刷新封面 provider（第一首歌可能已改变）
       _ref.invalidate(playlistCoverProvider(playlistId));
       return true;
     } catch (e) {
+      if (!mounted) return false;
       // 回滚
       await loadPlaylist();
       state = state.copyWith(error: e.toString());
