@@ -71,6 +71,11 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
               ),
               tooltip: _isReorderMode ? '完成排序' : '排序歌单',
               onPressed: () {
+                if (_isReorderMode && _localPlaylists != null) {
+                  // 退出排序模式時直接更新 provider 狀態，避免閃爍
+                  ref.read(playlistListProvider.notifier)
+                      .updatePlaylistsOrder(_localPlaylists!);
+                }
                 setState(() {
                   _isReorderMode = !_isReorderMode;
                   if (!_isReorderMode) {
@@ -222,8 +227,8 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
 
     final service = ref.read(playlistServiceProvider);
     await service.reorderPlaylists(_localPlaylists!);
-    // 刷新 provider
-    ref.invalidate(playlistListProvider);
+    // 不立即刷新 provider，避免閃爍
+    // 退出排序模式時會刷新
   }
 
   void _showCreateDialog(BuildContext context, WidgetRef ref) {
@@ -289,11 +294,38 @@ class _ReorderablePlaylistCard extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      '${playlist.trackCount} 首',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.outline,
+                    Row(
+                      children: [
+                        if (playlist.isMix) ...[
+                          Icon(
+                            Icons.radio,
+                            size: 12,
+                            color: colorScheme.tertiary,
                           ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Mix',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.tertiary,
+                                ),
+                          ),
+                        ] else ...[
+                          if (playlist.isImported) ...[
+                            Icon(
+                              Icons.link,
+                              size: 12,
+                              color: colorScheme.primary,
+                            ),
+                            const SizedBox(width: 4),
+                          ],
+                          Text(
+                            '${playlist.trackCount} 首',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.outline,
+                                ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
