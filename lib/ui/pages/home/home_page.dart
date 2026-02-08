@@ -11,6 +11,7 @@ import '../../../providers/playlist_provider.dart';
 import '../../../providers/play_history_provider.dart';
 import '../../../providers/popular_provider.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../../services/cache/ranking_cache_service.dart';
 import '../../../data/models/radio_station.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../router.dart';
@@ -76,12 +77,14 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget _buildMusicRankings(BuildContext context, ColorScheme colorScheme) {
     final bilibiliAsync = ref.watch(homeBilibiliMusicRankingProvider);
     final youtubeAsync = ref.watch(homeYouTubeMusicRankingProvider);
+    final cacheService = ref.watch(rankingCacheServiceProvider);
 
     // 判斷是否有數據
     final hasBilibiliData = bilibiliAsync.valueOrNull?.isNotEmpty ?? false;
     final hasYoutubeData = youtubeAsync.valueOrNull?.isNotEmpty ?? false;
-    final isLoading = bilibiliAsync.isLoading || youtubeAsync.isLoading;
+    final isLoading = cacheService.isInitialLoading;
 
+    // 如果不在初始加載且沒有任何緩存數據，隱藏整個區域
     if (!isLoading && !hasBilibiliData && !hasYoutubeData) {
       return const SizedBox.shrink();
     }
@@ -107,65 +110,100 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ),
         // 排行榜內容
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final isWideScreen = constraints.maxWidth > 600;
-
-            if (isWideScreen) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: _buildRankingCard(
-                        context,
-                        colorScheme,
-                        title: 'Bilibili',
-                        asyncValue: bilibiliAsync,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _buildRankingCard(
-                        context,
-                        colorScheme,
-                        title: 'YouTube',
-                        asyncValue: youtubeAsync,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            } else {
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  children: [
-                    _buildRankingCard(
-                      context,
-                      colorScheme,
-                      title: 'Bilibili',
-                      asyncValue: bilibiliAsync,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildRankingCard(
-                      context,
-                      colorScheme,
-                      title: 'YouTube',
-                      asyncValue: youtubeAsync,
-                    ),
-                  ],
-                ),
-              );
-            }
-          },
+        _buildRankingContent(
+          context,
+          colorScheme,
+          bilibiliAsync: bilibiliAsync,
+          youtubeAsync: youtubeAsync,
+          isLoading: isLoading,
+          hasBilibiliData: hasBilibiliData,
+          hasYoutubeData: hasYoutubeData,
         ),
       ],
     );
   }
 
-  /// 構建單個排行榜卡片
+  /// 構建排行榜內容區域（根據屏幕寬度和數據狀態調整佈局）
+  Widget _buildRankingContent(
+    BuildContext context,
+    ColorScheme colorScheme, {
+    required AsyncValue<List<Track>> bilibiliAsync,
+    required AsyncValue<List<Track>> youtubeAsync,
+    required bool isLoading,
+    required bool hasBilibiliData,
+    required bool hasYoutubeData,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWideScreen = constraints.maxWidth > 600;
+
+        // 初始加載時顯示 loading
+        if (isLoading) {
+          return const SizedBox(
+            height: 200,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (isWideScreen) {
+          // 寬屏：並排顯示
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (hasBilibiliData)
+                  Expanded(
+                    child: _buildRankingCard(
+                      context,
+                      colorScheme,
+                      title: 'Bilibili',
+                      asyncValue: bilibiliAsync,
+                    ),
+                  ),
+                if (hasBilibiliData && hasYoutubeData) const SizedBox(width: 16),
+                if (hasYoutubeData)
+                  Expanded(
+                    child: _buildRankingCard(
+                      context,
+                      colorScheme,
+                      title: 'YouTube',
+                      asyncValue: youtubeAsync,
+                    ),
+                  ),
+              ],
+            ),
+          );
+        } else {
+          // 窄屏：堆疊顯示
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              children: [
+                if (hasBilibiliData)
+                  _buildRankingCard(
+                    context,
+                    colorScheme,
+                    title: 'Bilibili',
+                    asyncValue: bilibiliAsync,
+                  ),
+                if (hasBilibiliData && hasYoutubeData) const SizedBox(height: 12),
+                if (hasYoutubeData)
+                  _buildRankingCard(
+                    context,
+                    colorScheme,
+                    title: 'YouTube',
+                    asyncValue: youtubeAsync,
+                  ),
+              ],
+            ),
+          );
+        }
+      },
+    );
+  }
+
+  /// 構建單個排行榜卡片（只在有數據時調用）
   Widget _buildRankingCard(
     BuildContext context,
     ColorScheme colorScheme, {
@@ -185,12 +223,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ),
           ),
         ),
-        // 排行列表
+        // 排行列表（直接使用 data，loading/error 由外層處理）
         asyncValue.when(
-          loading: () => const SizedBox(
-            height: 200,
-            child: Center(child: CircularProgressIndicator()),
-          ),
+          loading: () => const SizedBox.shrink(),
           error: (e, s) => SizedBox(
             height: 100,
             child: Center(
@@ -202,15 +237,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
           data: (tracks) {
             if (tracks.isEmpty) {
-              return SizedBox(
-                height: 100,
-                child: Center(
-                  child: Text(
-                    '暫無數據',
-                    style: TextStyle(color: colorScheme.outline),
-                  ),
-                ),
-              );
+              return const SizedBox.shrink();
             }
             final displayTracks = tracks.take(5).toList();
             return Column(
