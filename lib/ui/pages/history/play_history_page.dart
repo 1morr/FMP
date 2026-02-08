@@ -22,6 +22,19 @@ class PlayHistoryPage extends ConsumerStatefulWidget {
 class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
+  
+  /// 已收起的日期分組
+  final Set<DateTime> _collapsedGroups = {};
+
+  void _toggleGroupCollapse(DateTime date) {
+    setState(() {
+      if (_collapsedGroups.contains(date)) {
+        _collapsedGroups.remove(date);
+      } else {
+        _collapsedGroups.add(date);
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -51,10 +64,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
           ),
         ],
       ),
-      // 多选模式下的底部操作栏
-      bottomNavigationBar: pageState.isMultiSelectMode
-          ? _buildMultiSelectBottomBar(context, pageState, notifier)
-          : null,
+
     );
   }
 
@@ -65,23 +75,73 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
   ) {
     // 多选模式的 AppBar
     if (pageState.isMultiSelectMode) {
+      final grouped = ref.read(groupedPlayHistoryProvider).valueOrNull;
+      final allHistories = grouped?.values.expand((e) => e).toList() ?? [];
+      final isAllSelected = pageState.selectedIds.length == allHistories.length && allHistories.isNotEmpty;
+      final hasSelection = pageState.selectedIds.isNotEmpty;
+
       return AppBar(
         leading: IconButton(
           icon: const Icon(Icons.close),
+          tooltip: '退出選擇模式',
           onPressed: () => notifier.exitMultiSelectMode(),
         ),
         title: Text('已選擇 ${pageState.selectedIds.length} 項'),
         actions: [
-          TextButton(
+          // 全選按鈕（圖標）
+          IconButton(
+            icon: Icon(isAllSelected ? Icons.deselect : Icons.select_all),
+            tooltip: isAllSelected ? '取消全選' : '全選',
             onPressed: () {
-              final grouped = ref.read(groupedPlayHistoryProvider).valueOrNull;
-              if (grouped != null) {
-                final allHistories = grouped.values.expand((e) => e).toList();
+              if (isAllSelected) {
+                notifier.deselectAll();
+              } else {
                 notifier.selectAll(allHistories);
               }
             },
-            child: const Text('全選'),
           ),
+          // 更多操作菜單
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            enabled: hasSelection,
+            onSelected: (value) => _handleMultiSelectMenuAction(context, value),
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'add_to_queue',
+                child: ListTile(
+                  leading: Icon(Icons.add_to_queue),
+                  title: Text('添加到隊列'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'play_next',
+                child: ListTile(
+                  leading: Icon(Icons.queue_play_next),
+                  title: Text('下一首播放'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'add_to_playlist',
+                child: ListTile(
+                  leading: Icon(Icons.playlist_add),
+                  title: Text('添加到歌單'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuDivider(),
+              PopupMenuItem(
+                value: 'delete',
+                child: ListTile(
+                  leading: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+                  title: Text('刪除記錄', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 8),
         ],
       );
     }
@@ -319,13 +379,16 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
         final sortedDates = grouped.keys.toList()
           ..sort((a, b) => b.compareTo(a));
 
+        final pageState = ref.watch(playHistoryPageProvider);
+        final notifier = ref.read(playHistoryPageProvider.notifier);
+
         return ListView.builder(
           controller: _scrollController,
           itemCount: sortedDates.length,
           itemBuilder: (context, index) {
             final date = sortedDates[index];
             final histories = grouped[date]!;
-            return _buildDateGroup(context, date, histories);
+            return _buildDateGroup(context, date, histories, pageState, notifier);
           },
         );
       },
@@ -347,54 +410,119 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     BuildContext context,
     DateTime date,
     List<PlayHistory> histories,
+    PlayHistoryPageState pageState,
+    PlayHistoryPageNotifier notifier,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isCollapsed = _collapsedGroups.contains(date);
+    
+    // 計算分組選擇狀態
+    final groupIds = histories.map((h) => h.id).toSet();
+    final selectedInGroup = pageState.selectedIds.intersection(groupIds);
+    final isGroupFullySelected = selectedInGroup.length == histories.length;
+    final isGroupPartiallySelected = selectedInGroup.isNotEmpty && !isGroupFullySelected;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 日期标题
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Row(
-            children: [
-              // 时间轴圆点
-              Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: colorScheme.primary,
-                  shape: BoxShape.circle,
+        // 日期标题（可點擊）
+        InkWell(
+          onTap: () => _toggleGroupCollapse(date),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              children: [
+                // 多選模式下的分組勾選框
+                if (pageState.isMultiSelectMode) ...[
+                  _GroupSelectionCheckbox(
+                    isFullySelected: isGroupFullySelected,
+                    isPartiallySelected: isGroupPartiallySelected,
+                    onTap: () => _toggleGroupSelection(notifier, histories, isGroupFullySelected),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                // 时间轴圆点
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary,
+                    shape: BoxShape.circle,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                _formatDateLabel(date),
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${histories.length} 首',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.outline,
-                    ),
-              ),
-            ],
+                const SizedBox(width: 12),
+                // 日期文字
+                Text(
+                  _formatDateLabel(date),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${histories.length} 首',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.outline,
+                      ),
+                ),
+                const Spacer(),
+                // 展開/收起圖標
+                Icon(
+                  isCollapsed ? Icons.expand_more : Icons.expand_less,
+                  color: colorScheme.outline,
+                  size: 20,
+                ),
+              ],
+            ),
           ),
         ),
-        // 该日期下的歌曲列表
-        ...histories.map((history) => _buildTimelineItem(context, history)),
+        // 该日期下的歌曲列表（可收起）
+        if (!isCollapsed)
+          ...histories.map((history) => _buildTimelineItem(
+                context,
+                history,
+                isMultiSelectMode: pageState.isMultiSelectMode,
+                isSelected: pageState.selectedIds.contains(history.id),
+                onToggleSelection: () => notifier.toggleSelection(history.id),
+                onEnterMultiSelect: () => notifier.enterMultiSelectMode(history.id),
+              )),
       ],
     );
   }
 
-  Widget _buildTimelineItem(BuildContext context, PlayHistory history) {
+  /// 切換分組選擇狀態
+  void _toggleGroupSelection(
+    PlayHistoryPageNotifier notifier,
+    List<PlayHistory> histories,
+    bool isCurrentlyFullySelected,
+  ) {
+    if (isCurrentlyFullySelected) {
+      // 取消選擇該分組的所有項目
+      for (final history in histories) {
+        if (ref.read(playHistoryPageProvider).selectedIds.contains(history.id)) {
+          notifier.toggleSelection(history.id);
+        }
+      }
+    } else {
+      // 選擇該分組的所有項目
+      for (final history in histories) {
+        if (!ref.read(playHistoryPageProvider).selectedIds.contains(history.id)) {
+          notifier.toggleSelection(history.id);
+        }
+      }
+    }
+  }
+
+  Widget _buildTimelineItem(
+    BuildContext context,
+    PlayHistory history, {
+    required bool isMultiSelectMode,
+    required bool isSelected,
+    required VoidCallback onToggleSelection,
+    required VoidCallback onEnterMultiSelect,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
-    final pageState = ref.watch(playHistoryPageProvider);
-    final notifier = ref.read(playHistoryPageProvider.notifier);
     final currentTrack = ref.watch(currentTrackProvider);
     
     // 判断是否正在播放
@@ -404,8 +532,8 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
 
     return InkWell(
       onTap: () {
-        if (pageState.isMultiSelectMode) {
-          notifier.toggleSelection(history.id);
+        if (isMultiSelectMode) {
+          onToggleSelection();
         } else {
           // 临时播放
           final track = history.toTrack();
@@ -413,8 +541,8 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
         }
       },
       onLongPress: () {
-        if (!pageState.isMultiSelectMode) {
-          notifier.enterMultiSelectMode(history.id);
+        if (!isMultiSelectMode) {
+          onEnterMultiSelect();
         }
       },
       child: Row(
@@ -436,12 +564,6 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
               padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
               child: Row(
                 children: [
-                  // 多选模式下的复选框
-                  if (pageState.isMultiSelectMode)
-                    Checkbox(
-                      value: pageState.selectedIds.contains(history.id),
-                      onChanged: (_) => notifier.toggleSelection(history.id),
-                    ),
                   // 封面
                   TrackThumbnail(
                     track: history.toTrack(),
@@ -499,8 +621,13 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
                       ],
                     ),
                   ),
-                  // 操作菜单
-                  if (!pageState.isMultiSelectMode)
+                  // 操作菜单或選擇勾選框
+                  if (isMultiSelectMode)
+                    _SelectionCheckbox(
+                      isSelected: isSelected,
+                      onTap: onToggleSelection,
+                    )
+                  else
                     PopupMenuButton<String>(
                       icon: const Icon(Icons.more_vert),
                       onSelected: (value) =>
@@ -569,55 +696,6 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
   Widget _buildMultiSelectList(BuildContext context) {
     // 多选模式使用相同的列表，但禁用菜单
     return _buildTimelineList(context);
-  }
-
-  Widget _buildMultiSelectBottomBar(
-    BuildContext context,
-    PlayHistoryPageState pageState,
-    PlayHistoryPageNotifier notifier,
-  ) {
-    return SafeArea(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainer,
-          border: Border(
-            top: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant,
-            ),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            // 删除
-            TextButton.icon(
-              onPressed: pageState.selectedIds.isEmpty
-                  ? null
-                  : () => _deleteSelected(context, notifier),
-              icon: const Icon(Icons.delete_outline),
-              label: const Text('刪除'),
-            ),
-            // 添加到队列
-            TextButton.icon(
-              onPressed: pageState.selectedIds.isEmpty
-                  ? null
-                  : () => _addSelectedToQueue(context),
-              icon: const Icon(Icons.add_to_queue),
-              label: const Text('加入隊列'),
-            ),
-            // 添加到歌单
-            TextButton.icon(
-              onPressed: pageState.selectedIds.isEmpty
-                  ? null
-                  : () => _addSelectedToPlaylist(context),
-              icon: const Icon(Icons.playlist_add),
-              label: const Text('加入歌單'),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   // === Helper methods ===
@@ -690,6 +768,48 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     );
     if (date != null) {
       notifier.setSelectedDate(date);
+    }
+  }
+
+  /// 處理多選菜單操作
+  Future<void> _handleMultiSelectMenuAction(BuildContext context, String action) async {
+    switch (action) {
+      case 'add_to_queue':
+        await _addSelectedToQueue(context);
+        break;
+      case 'play_next':
+        await _playNextSelected(context);
+        break;
+      case 'add_to_playlist':
+        await _addSelectedToPlaylist(context);
+        break;
+      case 'delete':
+        await _deleteSelected(context, ref.read(playHistoryPageProvider.notifier));
+        break;
+    }
+  }
+
+  /// 下一首播放選中的歌曲
+  Future<void> _playNextSelected(BuildContext context) async {
+    final pageState = ref.read(playHistoryPageProvider);
+    final grouped = ref.read(groupedPlayHistoryProvider).valueOrNull;
+    if (grouped == null) return;
+
+    final allHistories = grouped.values.expand((e) => e).toList();
+    final selectedHistories =
+        allHistories.where((h) => pageState.selectedIds.contains(h.id)).toList();
+
+    final controller = ref.read(audioControllerProvider.notifier);
+    int addedCount = 0;
+    for (final history in selectedHistories.reversed) {
+      final added = await controller.addNext(history.toTrack());
+      if (added) addedCount++;
+    }
+
+    ref.read(playHistoryPageProvider.notifier).exitMultiSelectMode();
+
+    if (context.mounted) {
+      ToastService.show(context, '已添加 $addedCount 首到下一首播放');
     }
   }
 
@@ -838,5 +958,65 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     } else {
       showAddToPlaylistDialog(context: context, tracks: tracks);
     }
+  }
+}
+
+/// 圓形選擇勾選框
+class _SelectionCheckbox extends StatelessWidget {
+  final bool isSelected;
+  final VoidCallback? onTap;
+
+  const _SelectionCheckbox({
+    required this.isSelected,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return IconButton(
+      icon: Icon(
+        isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+        color: isSelected ? colorScheme.primary : colorScheme.outline,
+      ),
+      onPressed: onTap,
+    );
+  }
+}
+
+/// 分組選擇勾選框（支持三態：未選、部分選、全選）
+class _GroupSelectionCheckbox extends StatelessWidget {
+  final bool isFullySelected;
+  final bool isPartiallySelected;
+  final VoidCallback? onTap;
+
+  const _GroupSelectionCheckbox({
+    required this.isFullySelected,
+    required this.isPartiallySelected,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
+    IconData icon;
+    Color color;
+    
+    if (isFullySelected) {
+      icon = Icons.check_circle;
+      color = colorScheme.primary;
+    } else if (isPartiallySelected) {
+      icon = Icons.remove_circle;
+      color = colorScheme.primary;
+    } else {
+      icon = Icons.radio_button_unchecked;
+      color = colorScheme.outline;
+    }
+    
+    return GestureDetector(
+      onTap: onTap,
+      child: Icon(icon, color: color, size: 24),
+    );
   }
 }
