@@ -1119,9 +1119,11 @@ class _GroupHeader extends ConsumerWidget {
         // 移除所有分P
         final notifier = ref.read(playlistDetailProvider(playlistId).notifier);
         for (final track in group.tracks) {
-          notifier.removeTrack(track.id);
+          await notifier.removeTrack(track.id);
         }
-        ToastService.show(context, '已从歌单移除 ${group.tracks.length} 个分P');
+        if (context.mounted) {
+          ToastService.show(context, '已从歌单移除 ${group.tracks.length} 个分P');
+        }
         break;
     }
   }
@@ -1369,10 +1371,12 @@ class _TrackListTile extends ConsumerWidget {
         showAddToPlaylistDialog(context: context, track: track);
         break;
       case 'remove':
-        ref
+        await ref
             .read(playlistDetailProvider(playlistId).notifier)
             .removeTrack(track.id);
-        ToastService.show(context, '已从歌单移除');
+        if (context.mounted) {
+          ToastService.show(context, '已从歌单移除');
+        }
         break;
     }
   }
