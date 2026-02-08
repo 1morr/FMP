@@ -389,8 +389,9 @@ final addTrackToPlaylistProvider =
     FutureProvider.family<bool, ({int playlistId, Track track})>((ref, params) async {
   final service = ref.watch(playlistServiceProvider);
   await service.addTrackToPlaylist(params.playlistId, params.track);
-  // 刷新相关的 provider
+  // 刷新相关的 provider（封面可能已更新）
   ref.invalidate(allPlaylistsProvider);
   ref.invalidate(playlistDetailProvider(params.playlistId));
+  ref.invalidate(playlistCoverProvider(params.playlistId));
   return true;
 });
