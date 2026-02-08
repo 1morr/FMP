@@ -3,6 +3,7 @@ import 'dart:async';
 import '../../../core/services/image_loading_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/radio_station.dart';
@@ -20,6 +21,7 @@ class RadioPage extends ConsumerStatefulWidget {
 
 class _RadioPageState extends ConsumerState<RadioPage> {
   Timer? _refreshTimer;
+  bool _isSortMode = false;
 
   @override
   void initState() {
@@ -55,29 +57,42 @@ class _RadioPageState extends ConsumerState<RadioPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('电台'),
+        title: Text(_isSortMode ? '排列电台' : '电台'),
         actions: [
-          // 刷新按钮
-          IconButton(
-            onPressed: radioState.isRefreshingStatus
-                ? null
-                : () => ref
-                    .read(radioControllerProvider.notifier)
-                    .refreshAllLiveStatus(),
-            icon: radioState.isRefreshingStatus
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.refresh),
-            tooltip: '刷新状态',
-          ),
-          IconButton(
-            icon: const Icon(Icons.add_link),
-            tooltip: '添加电台',
-            onPressed: () => AddRadioDialog.show(context),
-          ),
+          // 排序模式切换
+          if (radioState.stations.length > 1)
+            IconButton(
+              onPressed: () {
+                setState(() {
+                  _isSortMode = !_isSortMode;
+                });
+              },
+              icon: Icon(_isSortMode ? Icons.check : Icons.swap_vert),
+              tooltip: _isSortMode ? '完成排序' : '排列电台',
+            ),
+          // 刷新按钮（排序模式下隐藏）
+          if (!_isSortMode)
+            IconButton(
+              onPressed: radioState.isRefreshingStatus
+                  ? null
+                  : () => ref
+                      .read(radioControllerProvider.notifier)
+                      .refreshAllLiveStatus(),
+              icon: radioState.isRefreshingStatus
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh),
+              tooltip: '刷新状态',
+            ),
+          if (!_isSortMode)
+            IconButton(
+              icon: const Icon(Icons.add_link),
+              tooltip: '添加电台',
+              onPressed: () => AddRadioDialog.show(context),
+            ),
         ],
       ),
       body: radioState.stations.isEmpty
@@ -128,49 +143,104 @@ class _RadioPageState extends ConsumerState<RadioPage> {
     RadioState radioState,
     ColorScheme colorScheme,
   ) {
-    // 排序：正在直播的排前面，同状态内保持原有顺序
-    final sortedStations = List<RadioStation>.from(radioState.stations)
-      ..sort((a, b) {
-        final aLive = radioState.isStationLive(a.id) ? 0 : 1;
-        final bLive = radioState.isStationLive(b.id) ? 0 : 1;
-        return aLive.compareTo(bLive);
-      });
+    // 排序模式：保持用戶自定義順序，不按直播狀態排序
+    final displayStations = _isSortMode
+        ? radioState.stations
+        : (List<RadioStation>.from(radioState.stations)
+          ..sort((a, b) {
+            final aLive = radioState.isStationLive(a.id) ? 0 : 1;
+            final bLive = radioState.isStationLive(b.id) ? 0 : 1;
+            return aLive.compareTo(bLive);
+          }));
 
     return Column(
       children: [
         // 重连提示（错误已改为 Toast 显示）
-        if (radioState.reconnectMessage != null)
+        if (radioState.reconnectMessage != null && !_isSortMode)
           _buildReconnectBanner(radioState, colorScheme),
 
         // 网格列表
         Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 160,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 0.8,
-            ),
-            itemCount: sortedStations.length,
-            itemBuilder: (context, index) {
-              final station = sortedStations[index];
-              final isLive = radioState.isStationLive(station.id);
-              final isCurrentPlaying =
-                  radioState.currentStation?.id == station.id;
-
-              return _RadioStationCard(
-                station: station,
-                isLive: isLive,
-                isPlaying: isCurrentPlaying && radioState.isPlaying,
-                isLoading: radioState.loadingStationId == station.id,
-                onTap: () => _onStationTap(station, isCurrentPlaying, radioState),
-                onLongPress: () => _showOptionsMenu(context, station),
-              );
-            },
-          ),
+          child: _isSortMode
+              ? _buildReorderableGrid(displayStations, radioState, colorScheme)
+              : _buildNormalGrid(displayStations, radioState, colorScheme),
         ),
       ],
+    );
+  }
+
+  Widget _buildNormalGrid(
+    List<RadioStation> stations,
+    RadioState radioState,
+    ColorScheme colorScheme,
+  ) {
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 160,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 0.8,
+      ),
+      itemCount: stations.length,
+      itemBuilder: (context, index) {
+        final station = stations[index];
+        final isLive = radioState.isStationLive(station.id);
+        final isCurrentPlaying = radioState.currentStation?.id == station.id;
+
+        return _RadioStationCard(
+          station: station,
+          isLive: isLive,
+          isPlaying: isCurrentPlaying && radioState.isPlaying,
+          isLoading: radioState.loadingStationId == station.id,
+          onTap: () => _onStationTap(station, isCurrentPlaying, radioState),
+          onLongPress: () => _showOptionsMenu(context, station),
+        );
+      },
+    );
+  }
+
+  Widget _buildReorderableGrid(
+    List<RadioStation> stations,
+    RadioState radioState,
+    ColorScheme colorScheme,
+  ) {
+    return ReorderableGridView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 160,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 0.8,
+      ),
+      itemCount: stations.length,
+      dragStartDelay: Duration.zero,
+      onReorder: (oldIndex, newIndex) async {
+        // 樂觀更新 UI
+        final updatedStations = List<RadioStation>.from(stations);
+        final station = updatedStations.removeAt(oldIndex);
+        updatedStations.insert(newIndex, station);
+
+        // 直接更新狀態（避免閃爍）
+        ref.read(radioControllerProvider.notifier).updateStationsOrder(updatedStations);
+
+        // 保存到數據庫
+        final newOrder = updatedStations.map((s) => s.id).toList();
+        await ref.read(radioControllerProvider.notifier).reorderStations(newOrder);
+      },
+      itemBuilder: (context, index) {
+        final station = stations[index];
+        final isLive = radioState.isStationLive(station.id);
+        final isCurrentPlaying = radioState.currentStation?.id == station.id;
+
+        return _ReorderableRadioStationCard(
+          key: ValueKey(station.id),
+          station: station,
+          isLive: isLive,
+          isPlaying: isCurrentPlaying && radioState.isPlaying,
+          isLoading: radioState.loadingStationId == station.id,
+        );
+      },
     );
   }
 
@@ -453,6 +523,204 @@ class _RadioStationCard extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildPlaceholder(ColorScheme colorScheme) {
+    return Container(
+      color: colorScheme.surfaceContainerHighest,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.radio,
+        size: 40,
+        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+      ),
+    );
+  }
+}
+
+/// 可拖動排序的電台卡片（保持與原卡片相同的顯示樣式）
+class _ReorderableRadioStationCard extends StatelessWidget {
+  final RadioStation station;
+  final bool isLive;
+  final bool isPlaying;
+  final bool isLoading;
+
+  const _ReorderableRadioStationCard({
+    super.key,
+    required this.station,
+    required this.isLive,
+    required this.isPlaying,
+    required this.isLoading,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Stack(
+      children: [
+        // 主體內容（與原卡片相同）
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final coverSize = constraints.maxWidth - 40;
+
+            return Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                // 圓形封面
+                Padding(
+                  padding: const EdgeInsets.only(left: 20, right: 20, top: 20),
+                  child: SizedBox(
+                    width: coverSize,
+                    height: coverSize,
+                    child: Stack(
+                      children: [
+                        // 封面圖
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: colorScheme.surfaceContainerHighest,
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: ColorFiltered(
+                            colorFilter: isLive
+                                ? const ColorFilter.mode(
+                                    Colors.transparent,
+                                    BlendMode.multiply,
+                                  )
+                                : const ColorFilter.matrix(<double>[
+                                    0.2126, 0.7152, 0.0722, 0, 0,
+                                    0.2126, 0.7152, 0.0722, 0, 0,
+                                    0.2126, 0.7152, 0.0722, 0, 0,
+                                    0, 0, 0, 1, 0,
+                                  ]),
+                            child: ImageLoadingService.loadImage(
+                              networkUrl: station.thumbnailUrl,
+                              placeholder: _buildPlaceholder(colorScheme),
+                              fit: BoxFit.cover,
+                              width: coverSize,
+                              height: coverSize,
+                            ),
+                          ),
+                        ),
+
+                        // 正在直播紅點
+                        if (isLive)
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: Container(
+                              width: 16,
+                              height: 16,
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: colorScheme.surface,
+                                  width: 2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.red.withValues(alpha: 0.5),
+                                    blurRadius: 4,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                        // 播放中指示器
+                        if (isPlaying || isLoading)
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: colorScheme.primary.withValues(alpha: 0.4),
+                              ),
+                              child: Center(
+                                child: isLoading
+                                    ? SizedBox(
+                                        width: coverSize * 0.32,
+                                        height: coverSize * 0.32,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 3,
+                                          color: colorScheme.onPrimary,
+                                        ),
+                                      )
+                                    : NowPlayingIndicator(
+                                        color: colorScheme.onPrimary,
+                                        size: coverSize * 0.32,
+                                        isPlaying: true,
+                                      ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                // 標題
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    station.title,
+                    style: textTheme.titleSmall?.copyWith(
+                      fontWeight: isPlaying ? FontWeight.bold : null,
+                      color: isLive
+                          ? (isPlaying ? colorScheme.primary : colorScheme.onSurface)
+                          : colorScheme.onSurfaceVariant,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+
+                // 主播名稱
+                if (station.hostName != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      station.hostName!,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: isLive
+                            ? colorScheme.onSurfaceVariant
+                            : colorScheme.outline,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+
+        // 拖動把手
+        Positioned(
+          right: 4,
+          top: 4,
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Icon(
+              Icons.drag_indicator,
+              size: 16,
+              color: colorScheme.onPrimary,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
