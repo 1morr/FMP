@@ -34,7 +34,6 @@ class RadioPlayerPage extends ConsumerWidget {
           icon: const Icon(Icons.keyboard_arrow_down),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('電台'),
         actions: [
           // 桌面端音量控制（緊湊版）
           if (isDesktop)

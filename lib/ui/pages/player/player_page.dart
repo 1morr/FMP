@@ -49,7 +49,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           icon: const Icon(Icons.keyboard_arrow_down),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('正在播放'),
         actions: [
           // 桌面端音量控制（紧凑版）
           if (isDesktop)
