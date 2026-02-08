@@ -11,10 +11,12 @@ import '../../../providers/playlist_provider.dart';
 import '../../../providers/download_provider.dart';
 import '../../../providers/download/file_exists_cache.dart';
 import '../../../providers/download_path_provider.dart';
+import '../../../providers/selection_provider.dart';
 import '../../widgets/download_path_setup_dialog.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/now_playing_indicator.dart';
+import '../../widgets/selection_mode_app_bar.dart';
 import '../../widgets/track_group/track_group.dart';
 import '../../widgets/track_thumbnail.dart';
 
@@ -127,6 +129,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(playlistDetailProvider(widget.playlistId));
+    final selectionState = ref.watch(playlistDetailSelectionProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
     if (state.isLoading && state.playlist == null) {
@@ -154,6 +157,8 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
 
     final playlist = state.playlist!;
     final tracks = state.tracks;
+    final isImported = playlist.isImported;
+    final isMix = playlist.isMix;
 
     // 检查并刷新下载状态缓存（当 tracks 变化时）
     _checkAndPreloadCache(tracks);
@@ -161,54 +166,128 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     // 使用缓存的分组结果，避免每次 build 重新计算
     final groupedTracks = _getGroupedTracks(tracks);
 
-    return Scaffold(
-      body: CustomScrollView(
-        controller: _scrollController,
-        slivers: [
-          // 折叠式应用栏
-          _buildSliverAppBar(context, playlist, state),
+    // 多選模式下的可用操作
+    final availableActions = <SelectionAction>{
+      SelectionAction.addToQueue,
+      SelectionAction.playNext,
+      SelectionAction.addToPlaylist,
+      SelectionAction.download,
+      if (!isImported && !isMix) SelectionAction.delete,
+    };
 
-          // 操作按钮
-          SliverToBoxAdapter(
-            child: _buildActionButtons(context, tracks),
-          ),
+    // 處理返回鍵退出多選模式
+    return PopScope(
+      canPop: !selectionState.isSelectionMode,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && selectionState.isSelectionMode) {
+          ref.read(playlistDetailSelectionProvider.notifier).exitSelectionMode();
+        }
+      },
+      child: Scaffold(
+        body: CustomScrollView(
+          controller: _scrollController,
+          slivers: [
+            // 折叠式应用栏（始終顯示封面）
+            _buildSliverAppBar(context, playlist, state, selectionState.isSelectionMode, tracks, availableActions),
 
-          // 歌曲列表
-          if (tracks.isEmpty)
-            SliverFillRemaining(
-              child: _buildEmptyState(context),
-            )
-          else
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final group = groupedTracks[index];
-                  return _buildGroupItem(context, group);
-                },
-                childCount: groupedTracks.length,
-              ),
+            // 操作按钮（始終顯示）
+            SliverToBoxAdapter(
+              child: _buildActionButtons(context, tracks),
             ),
-        ],
+
+            // 歌曲列表
+            if (tracks.isEmpty)
+              SliverFillRemaining(
+                child: _buildEmptyState(context),
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final group = groupedTracks[index];
+                    return _buildGroupItem(context, group);
+                  },
+                  childCount: groupedTracks.length,
+                ),
+              ),
+          ],
+        ),
       ),
     );
+  }
+
+  /// 刪除選中的歌曲
+  Future<void> _deleteSelectedTracks(List<Track> tracks) async {
+    final notifier = ref.read(playlistDetailProvider(widget.playlistId).notifier);
+    for (final track in tracks) {
+      notifier.removeTrack(track.id);
+    }
+  }
+
+  /// 下載選中的歌曲
+  Future<void> _downloadSelectedTracks(BuildContext context, List<Track> tracks) async {
+    // 检查路径配置
+    final pathManager = ref.read(downloadPathManagerProvider);
+    if (!await pathManager.hasConfiguredPath()) {
+      if (!context.mounted) return;
+      final configured = await DownloadPathSetupDialog.show(context);
+      if (configured != true) return;
+    }
+
+    final downloadService = ref.read(downloadServiceProvider);
+    final state = ref.read(playlistDetailProvider(widget.playlistId));
+    final playlist = state.playlist;
+    if (playlist == null) return;
+
+    int addedCount = 0;
+    for (final track in tracks) {
+      final result = await downloadService.addTrackDownload(
+        track,
+        fromPlaylist: playlist,
+        skipSchedule: true,
+      );
+      if (result == DownloadResult.created) addedCount++;
+    }
+
+    if (addedCount > 0) {
+      downloadService.triggerSchedule();
+      if (context.mounted) {
+        ToastService.showWithAction(
+          context,
+          '已添加 $addedCount 首到下載隊列',
+          actionLabel: '查看',
+          onAction: () => context.pushNamed(RouteNames.downloadManager),
+        );
+      }
+    }
   }
 
   /// 构建分组项
   Widget _buildGroupItem(BuildContext context, TrackGroup group) {
     final state = ref.read(playlistDetailProvider(widget.playlistId));
+    final selectionState = ref.watch(playlistDetailSelectionProvider);
+    final selectionNotifier = ref.read(playlistDetailSelectionProvider.notifier);
     final isImported = state.playlist?.isImported ?? false;
     final isMix = state.playlist?.isMix ?? false;
 
     // 如果组只有一个track，显示普通样式
     if (group.tracks.length == 1) {
+      final track = group.tracks.first;
       return _TrackListTile(
-        track: group.tracks.first,
+        track: track,
         playlistId: widget.playlistId,
         playlistName: state.playlist?.name ?? '',
-        onTap: () => _playTrack(group.tracks.first),
+        onTap: selectionState.isSelectionMode
+            ? () => selectionNotifier.toggleSelection(track)
+            : () => _playTrack(track),
+        onLongPress: selectionState.isSelectionMode
+            ? null
+            : () => selectionNotifier.enterSelectionMode(track),
         isPartOfMultiPage: false,
         isImported: isImported,
         isMix: isMix,
+        isSelectionMode: selectionState.isSelectionMode,
+        isSelected: selectionState.isSelected(track),
       );
     }
 
@@ -221,13 +300,21 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         _GroupHeader(
           group: group,
           isExpanded: isExpanded,
-          onToggle: () => _toggleGroup(group.groupKey),
+          onToggle: selectionState.isSelectionMode
+              ? () => selectionNotifier.toggleGroupSelection(group.tracks)
+              : () => _toggleGroup(group.groupKey),
+          onLongPress: selectionState.isSelectionMode
+              ? null
+              : () => selectionNotifier.enterSelectionModeWithTracks(group.tracks),
           onPlayFirst: () => _playTrack(group.tracks.first),
           onAddAllToQueue: () => _addAllToQueue(context, group.tracks),
           playlistId: widget.playlistId,
           playlistName: state.playlist?.name ?? '',
           isImported: isImported,
           isMix: isMix,
+          isSelectionMode: selectionState.isSelectionMode,
+          isGroupFullySelected: selectionNotifier.isGroupFullySelected(group.tracks),
+          isGroupPartiallySelected: selectionNotifier.isGroupPartiallySelected(group.tracks),
         ),
         // 展开的分P列表
         if (isExpanded)
@@ -235,11 +322,18 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                 track: track,
                 playlistId: widget.playlistId,
                 playlistName: state.playlist?.name ?? '',
-                onTap: () => _playTrack(track),
+                onTap: selectionState.isSelectionMode
+                    ? () => selectionNotifier.toggleSelection(track)
+                    : () => _playTrack(track),
+                onLongPress: selectionState.isSelectionMode
+                    ? null
+                    : () => selectionNotifier.enterSelectionMode(track),
                 isPartOfMultiPage: true,
                 isImported: isImported,
                 indent: true,
                 isMix: isMix,
+                isSelectionMode: selectionState.isSelectionMode,
+                isSelected: selectionState.isSelected(track),
               )),
       ],
     );
@@ -263,10 +357,176 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     }
   }
 
+  /// 構建多選模式下的操作按鈕
+  List<Widget> _buildSelectionActions(
+    Color iconColor,
+    bool isAllSelected,
+    bool hasSelection,
+    List<Track> allTracks,
+    Set<SelectionAction> availableActions,
+    SelectionNotifier notifier,
+    List<Track> selectedTracks,
+  ) {
+    return [
+      // 全選按鈕
+      IconButton(
+        icon: Icon(isAllSelected ? Icons.deselect : Icons.select_all, color: iconColor),
+        tooltip: isAllSelected ? '取消全選' : '全選',
+        onPressed: () {
+          if (isAllSelected) {
+            notifier.deselectAll();
+          } else {
+            notifier.selectAll(allTracks);
+          }
+        },
+      ),
+      // 更多操作菜單
+      PopupMenuButton<String>(
+        icon: Icon(Icons.more_vert, color: iconColor),
+        enabled: hasSelection,
+        onSelected: (value) => _handleSelectionMenuAction(value, selectedTracks),
+        itemBuilder: (context) => _buildSelectionMenuItems(availableActions),
+      ),
+      const SizedBox(width: 8),
+    ];
+  }
+
+  /// 構建多選菜單項目
+  List<PopupMenuEntry<String>> _buildSelectionMenuItems(Set<SelectionAction> availableActions) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return [
+      if (availableActions.contains(SelectionAction.addToQueue))
+        const PopupMenuItem(
+          value: 'add_to_queue',
+          child: ListTile(
+            leading: Icon(Icons.add_to_queue),
+            title: Text('添加到隊列'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      if (availableActions.contains(SelectionAction.playNext))
+        const PopupMenuItem(
+          value: 'play_next',
+          child: ListTile(
+            leading: Icon(Icons.queue_play_next),
+            title: Text('下一首播放'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      if (availableActions.contains(SelectionAction.addToPlaylist))
+        const PopupMenuItem(
+          value: 'add_to_playlist',
+          child: ListTile(
+            leading: Icon(Icons.playlist_add),
+            title: Text('添加到歌單'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      if (availableActions.contains(SelectionAction.download))
+        const PopupMenuItem(
+          value: 'download',
+          child: ListTile(
+            leading: Icon(Icons.download),
+            title: Text('下載'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      if (availableActions.contains(SelectionAction.delete))
+        PopupMenuItem(
+          value: 'delete',
+          child: ListTile(
+            leading: Icon(Icons.delete_outline, color: colorScheme.error),
+            title: Text('從歌單移除', style: TextStyle(color: colorScheme.error)),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+    ];
+  }
+
+  /// 處理多選菜單操作
+  Future<void> _handleSelectionMenuAction(String action, List<Track> tracks) async {
+    final notifier = ref.read(playlistDetailSelectionProvider.notifier);
+    final controller = ref.read(audioControllerProvider.notifier);
+
+    switch (action) {
+      case 'add_to_queue':
+        int addedCount = 0;
+        for (final track in tracks) {
+          final added = await controller.addToQueue(track);
+          if (added) addedCount++;
+        }
+        notifier.exitSelectionMode();
+        if (mounted) {
+          ToastService.show(context, '已添加 $addedCount 首到隊列');
+        }
+        break;
+      case 'play_next':
+        int addedCount = 0;
+        for (final track in tracks.reversed) {
+          final added = await controller.addNext(track);
+          if (added) addedCount++;
+        }
+        notifier.exitSelectionMode();
+        if (mounted) {
+          ToastService.show(context, '已添加 $addedCount 首到下一首播放');
+        }
+        break;
+      case 'add_to_playlist':
+        notifier.exitSelectionMode();
+        if (tracks.length == 1) {
+          showAddToPlaylistDialog(context: context, track: tracks.first);
+        } else {
+          showAddToPlaylistDialog(context: context, tracks: tracks);
+        }
+        break;
+      case 'download':
+        await _downloadSelectedTracks(context, tracks);
+        notifier.exitSelectionMode();
+        break;
+      case 'delete':
+        await _confirmAndDeleteTracks(tracks);
+        break;
+    }
+  }
+
+  /// 確認並刪除歌曲
+  Future<void> _confirmAndDeleteTracks(List<Track> tracks) async {
+    final notifier = ref.read(playlistDetailSelectionProvider.notifier);
+    
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('確認移除'),
+        content: Text('確定要從歌單中移除 ${tracks.length} 首歌曲嗎？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('移除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _deleteSelectedTracks(tracks);
+      notifier.exitSelectionMode();
+      if (mounted) {
+        ToastService.show(context, '已移除 ${tracks.length} 首歌曲');
+      }
+    }
+  }
+
   Widget _buildSliverAppBar(
     BuildContext context,
     dynamic playlist,
     PlaylistDetailState state,
+    bool isSelectionMode,
+    List<Track> allTracks,
+    Set<SelectionAction> availableActions,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
     final coverAsync = ref.watch(playlistCoverProvider(widget.playlistId));
@@ -275,26 +535,45 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final isCollapsed = _scrollOffset >= _collapseThreshold;
     final iconColor = isCollapsed ? colorScheme.onSurface : Colors.white;
 
+    // 多選模式相關
+    final selectionState = ref.watch(playlistDetailSelectionProvider);
+    final selectionNotifier = ref.read(playlistDetailSelectionProvider.notifier);
+    final selectedCount = selectionState.selectedCount;
+    final hasSelection = selectionState.hasSelection;
+    final isAllSelected = selectedCount == allTracks.length && allTracks.isNotEmpty;
+
     return SliverAppBar(
       expandedHeight: 280,
       pinned: true,
-      // 返回按钮 - 根据收起状态切换颜色
-      leading: IconButton(
-        icon: Icon(Icons.arrow_back, color: iconColor),
-        onPressed: () => Navigator.of(context).pop(),
-      ),
-      // 下载按钮 - 根据收起状态切换颜色（Mix 歌單不支持下載）
-      actions: [
-        if (state.tracks.isNotEmpty && state.playlist != null && !(state.playlist!.isMix))
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: IconButton(
-              icon: Icon(Icons.download_outlined, color: iconColor),
-              onPressed: () => _downloadPlaylist(context, state.playlist!),
-              tooltip: '下载全部',
+      // 返回/關閉按钮 - 根据收起状态切换颜色
+      leading: isSelectionMode
+          ? IconButton(
+              icon: Icon(Icons.close, color: iconColor),
+              tooltip: '退出選擇模式',
+              onPressed: () => selectionNotifier.exitSelectionMode(),
+            )
+          : IconButton(
+              icon: Icon(Icons.arrow_back, color: iconColor),
+              onPressed: () => Navigator.of(context).pop(),
             ),
-          ),
-      ],
+      // 標題（多選模式下顯示選擇數量）
+      title: isSelectionMode
+          ? Text('已選擇 $selectedCount 項', style: TextStyle(color: iconColor))
+          : null,
+      // 操作按鈕
+      actions: isSelectionMode
+          ? _buildSelectionActions(iconColor, isAllSelected, hasSelection, allTracks, availableActions, selectionNotifier, selectionState.selectedTracks)
+          : [
+              if (state.tracks.isNotEmpty && state.playlist != null && !(state.playlist!.isMix))
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: IconButton(
+                    icon: Icon(Icons.download_outlined, color: iconColor),
+                    onPressed: () => _downloadPlaylist(context, state.playlist!),
+                    tooltip: '下载全部',
+                  ),
+                ),
+            ],
       flexibleSpace: FlexibleSpaceBar(
         background: Stack(
           fit: StackFit.expand,
@@ -630,23 +909,31 @@ class _GroupHeader extends ConsumerWidget {
   final TrackGroup group;
   final bool isExpanded;
   final VoidCallback onToggle;
+  final VoidCallback? onLongPress;
   final VoidCallback onPlayFirst;
   final VoidCallback onAddAllToQueue;
   final int playlistId;
   final String playlistName;
   final bool isImported;
   final bool isMix;
+  final bool isSelectionMode;
+  final bool isGroupFullySelected;
+  final bool isGroupPartiallySelected;
 
   const _GroupHeader({
     required this.group,
     required this.isExpanded,
     required this.onToggle,
+    this.onLongPress,
     required this.onPlayFirst,
     required this.onAddAllToQueue,
     required this.playlistId,
     required this.playlistName,
     required this.isImported,
     this.isMix = false,
+    this.isSelectionMode = false,
+    this.isGroupFullySelected = false,
+    this.isGroupPartiallySelected = false,
   });
 
   @override
@@ -663,6 +950,7 @@ class _GroupHeader extends ConsumerWidget {
 
     return ListTile(
       onTap: onToggle,
+      onLongPress: onLongPress,
       leading: TrackThumbnail(
         track: firstTrack,
         size: 48,
@@ -708,7 +996,13 @@ class _GroupHeader extends ConsumerWidget {
           ],
         ],
       ),
-      trailing: Row(
+      trailing: isSelectionMode
+          ? _SelectionGroupCheckbox(
+              isFullySelected: isGroupFullySelected,
+              isPartiallySelected: isGroupPartiallySelected,
+              onTap: onToggle,
+            )
+          : Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           // 展开/折叠按钮
@@ -839,20 +1133,26 @@ class _TrackListTile extends ConsumerWidget {
   final int playlistId;
   final String playlistName;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
   final bool isPartOfMultiPage;
   final bool indent;
   final bool isImported;
   final bool isMix;
+  final bool isSelectionMode;
+  final bool isSelected;
 
   const _TrackListTile({
     required this.track,
     required this.playlistId,
     required this.playlistName,
     required this.onTap,
+    this.onLongPress,
     required this.isPartOfMultiPage,
     required this.isImported,
     this.indent = false,
     this.isMix = false,
+    this.isSelectionMode = false,
+    this.isSelected = false,
   });
 
   @override
@@ -867,6 +1167,8 @@ class _TrackListTile extends ConsumerWidget {
     return Padding(
       padding: EdgeInsets.only(left: indent ? 56 : 0),
       child: ListTile(
+        onTap: onTap,
+        onLongPress: onLongPress,
         leading: isPartOfMultiPage
             // 分P使用与搜索页面相同的样式
             ? (isPlaying
@@ -923,7 +1225,12 @@ class _TrackListTile extends ConsumerWidget {
                     ),
                 ],
               ),
-        trailing: Row(
+        trailing: isSelectionMode
+            ? _SelectionCheckbox(
+                isSelected: isSelected,
+                onTap: onTap,
+              )
+            : Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             // 分P子项目单独显示下载状态（主项目在 subtitle 显示）
@@ -1001,7 +1308,6 @@ class _TrackListTile extends ConsumerWidget {
               ),
           ],
         ),
-        onTap: onTap,
       ),
     );
   }
@@ -1069,5 +1375,64 @@ class _TrackListTile extends ConsumerWidget {
         ToastService.show(context, '已从歌单移除');
         break;
     }
+  }
+}
+
+/// 圓形選擇勾選框
+class _SelectionCheckbox extends StatelessWidget {
+  final bool isSelected;
+  final VoidCallback? onTap;
+
+  const _SelectionCheckbox({
+    required this.isSelected,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return IconButton(
+      icon: Icon(
+        isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+        color: isSelected ? colorScheme.primary : colorScheme.outline,
+      ),
+      onPressed: onTap,
+    );
+  }
+}
+
+/// 組選擇勾選框（支持部分選擇狀態）
+class _SelectionGroupCheckbox extends StatelessWidget {
+  final bool isFullySelected;
+  final bool isPartiallySelected;
+  final VoidCallback? onTap;
+
+  const _SelectionGroupCheckbox({
+    required this.isFullySelected,
+    required this.isPartiallySelected,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final IconData icon;
+    final Color color;
+
+    if (isFullySelected) {
+      icon = Icons.check_circle;
+      color = colorScheme.primary;
+    } else if (isPartiallySelected) {
+      icon = Icons.remove_circle_outline;
+      color = colorScheme.primary;
+    } else {
+      icon = Icons.radio_button_unchecked;
+      color = colorScheme.outline;
+    }
+
+    return IconButton(
+      icon: Icon(icon, color: color),
+      onPressed: onTap,
+    );
   }
 }
