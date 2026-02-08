@@ -18,6 +18,9 @@ class Playlist {
   /// 自定义封面 URL
   String? coverUrl;
 
+  /// 是否為用戶手動設置的封面（手動設置的封面不會被自動更新）
+  bool hasCustomCover = false;
+
   /// 导入源 URL（B站收藏夹/YouTube播放列表 URL）
   String? sourceUrl;
 
