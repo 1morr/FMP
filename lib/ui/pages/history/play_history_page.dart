@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:simple_icons/simple_icons.dart';
 
 import '../../../core/services/toast_service.dart';
+import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/play_history.dart';
 import '../../../data/models/track.dart';
 import '../../../data/repositories/play_history_repository.dart';
@@ -530,166 +531,179 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
         currentTrack.sourceId == history.sourceId &&
         (history.cid == null || currentTrack.cid == history.cid);
 
-    return InkWell(
-      onTap: () {
-        if (isMultiSelectMode) {
-          onToggleSelection();
-        } else {
-          // 临时播放
-          final track = history.toTrack();
-          ref.read(audioControllerProvider.notifier).playTemporary(track);
-        }
-      },
-      onLongPress: () {
-        if (!isMultiSelectMode) {
-          onEnterMultiSelect();
-        }
-      },
-      child: Row(
-        children: [
-          // 时间轴竖线
+    return Row(
+      children: [
+        // 时间轴竖线
+        SizedBox(
+          width: 40,
+          child: Center(
+            child: Container(
+              width: 2,
+              height: 72,
+              color: colorScheme.outlineVariant,
+            ),
+          ),
+        ),
+        // 内容（使用 ListTile 樣式，與搜索頁一致）
+        Expanded(
+          child: ListTile(
+            onTap: () {
+              if (isMultiSelectMode) {
+                onToggleSelection();
+              } else {
+                final track = history.toTrack();
+                ref.read(audioControllerProvider.notifier).playTemporary(track);
+              }
+            },
+            onLongPress: () {
+              if (!isMultiSelectMode) {
+                onEnterMultiSelect();
+              }
+            },
+            leading: TrackThumbnail(
+              track: history.toTrack(),
+              size: 48,
+              borderRadius: 4,
+              isPlaying: isPlaying,
+            ),
+            title: Text(
+              history.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: isPlaying ? colorScheme.primary : null,
+                fontWeight: isPlaying ? FontWeight.w600 : null,
+              ),
+            ),
+            subtitle: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    history.artist ?? '未知藝術家',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // 播放時間（帶時鐘圖標）
+                Icon(
+                  Icons.access_time,
+                  size: 14,
+                  color: colorScheme.outline,
+                ),
+                const SizedBox(width: 2),
+                Text(
+                  _formatPlayedTime(history.playedAt),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.outline,
+                      ),
+                ),
+                const SizedBox(width: 8),
+                // 音源標識
+                Icon(
+                  history.sourceType == SourceType.bilibili
+                      ? SimpleIcons.bilibili
+                      : SimpleIcons.youtube,
+                  size: 14,
+                  color: colorScheme.outline,
+                ),
+              ],
+            ),
+            trailing: _buildTrailing(context, history, isMultiSelectMode, isSelected, onToggleSelection),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTrailing(
+    BuildContext context,
+    PlayHistory history,
+    bool isMultiSelectMode,
+    bool isSelected,
+    VoidCallback onToggleSelection,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 時長
+        if (history.durationMs != null)
           SizedBox(
-            width: 40,
-            child: Center(
-              child: Container(
-                width: 2,
-                height: 72,
-                color: colorScheme.outlineVariant,
-              ),
+            width: 48,
+            child: Text(
+              DurationFormatter.formatMs(history.durationMs!),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.outline,
+                  ),
+              textAlign: TextAlign.center,
             ),
           ),
-          // 内容
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-              child: Row(
-                children: [
-                  // 封面
-                  TrackThumbnail(
-                    track: history.toTrack(),
-                    size: 48,
-                    borderRadius: 4,
-                    isPlaying: isPlaying,
-                  ),
-                  const SizedBox(width: 12),
-                  // 信息
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          history.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: isPlaying ? colorScheme.primary : null,
-                            fontWeight: isPlaying ? FontWeight.w600 : null,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            // 音源图标（与搜索页一致）
-                            Icon(
-                              history.sourceType == SourceType.bilibili
-                                  ? SimpleIcons.bilibili
-                                  : SimpleIcons.youtube,
-                              size: 14,
-                              color: colorScheme.outline,
-                            ),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(
-                                history.artist ?? '未知藝術家',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.outline,
-                                    ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _formatPlayedTime(history.playedAt),
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.outline,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  // 操作菜单或選擇勾選框
-                  if (isMultiSelectMode)
-                    _SelectionCheckbox(
-                      isSelected: isSelected,
-                      onTap: onToggleSelection,
-                    )
-                  else
-                    PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert),
-                      onSelected: (value) =>
-                          _handleItemMenuAction(context, ref, history, value),
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(
-                          value: 'play',
-                          child: ListTile(
-                            leading: Icon(Icons.play_arrow),
-                            title: Text('播放'),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
-                        const PopupMenuItem(
-                          value: 'play_next',
-                          child: ListTile(
-                            leading: Icon(Icons.queue_play_next),
-                            title: Text('下一首播放'),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
-                        const PopupMenuItem(
-                          value: 'add_to_queue',
-                          child: ListTile(
-                            leading: Icon(Icons.add_to_queue),
-                            title: Text('添加到隊列'),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
-                        const PopupMenuItem(
-                          value: 'add_to_playlist',
-                          child: ListTile(
-                            leading: Icon(Icons.playlist_add),
-                            title: Text('添加到歌單'),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
-                        const PopupMenuDivider(),
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: ListTile(
-                            leading: Icon(Icons.delete_outline),
-                            title: Text('刪除此記錄'),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
-                        const PopupMenuItem(
-                          value: 'delete_all',
-                          child: ListTile(
-                            leading: Icon(Icons.delete_sweep),
-                            title: Text('刪除此歌所有記錄'),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
+        // 選擇勾選框或菜單
+        if (isMultiSelectMode)
+          _SelectionCheckbox(
+            isSelected: isSelected,
+            onTap: onToggleSelection,
+          )
+        else
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) =>
+                _handleItemMenuAction(context, ref, history, value),
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'play',
+                child: ListTile(
+                  leading: Icon(Icons.play_arrow),
+                  title: Text('播放'),
+                  contentPadding: EdgeInsets.zero,
+                ),
               ),
-            ),
+              const PopupMenuItem(
+                value: 'play_next',
+                child: ListTile(
+                  leading: Icon(Icons.queue_play_next),
+                  title: Text('下一首播放'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'add_to_queue',
+                child: ListTile(
+                  leading: Icon(Icons.add_to_queue),
+                  title: Text('添加到隊列'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'add_to_playlist',
+                child: ListTile(
+                  leading: Icon(Icons.playlist_add),
+                  title: Text('添加到歌單'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'delete',
+                child: ListTile(
+                  leading: Icon(Icons.delete_outline),
+                  title: Text('刪除此記錄'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'delete_all',
+                child: ListTile(
+                  leading: Icon(Icons.delete_sweep),
+                  title: Text('刪除此歌所有記錄'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+      ],
     );
   }
 
