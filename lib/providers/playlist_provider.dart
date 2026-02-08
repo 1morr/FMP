@@ -163,6 +163,11 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
     state = state.copyWith(error: null);
   }
 
+  /// 直接更新歌單順序（不重新加載，避免閃爍）
+  void updatePlaylistsOrder(List<Playlist> orderedPlaylists) {
+    state = state.copyWith(playlists: orderedPlaylists);
+  }
+
   /// 刷新指定歌单的相关 Provider
   /// 
   /// 统一封装 invalidate 逻辑，避免重复代码
