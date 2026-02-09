@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
+import '../models/live_room.dart';
 import '../models/settings.dart';
 import '../models/track.dart';
 import '../models/video_detail.dart';
@@ -15,12 +16,17 @@ class BilibiliSource extends BaseSource with Logging {
 
   // API 端点
   static const String _apiBase = 'https://api.bilibili.com';
+  static const String _liveApiBase = 'https://api.live.bilibili.com';
   static const String _viewApi = '$_apiBase/x/web-interface/view';
   static const String _playUrlApi = '$_apiBase/x/player/playurl';
   static const String _searchApi = '$_apiBase/x/web-interface/search/type';
   static const String _favListApi = '$_apiBase/x/v3/fav/resource/list';
   static const String _replyApi = '$_apiBase/x/v2/reply';
   static const String _rankingApi = '$_apiBase/x/web-interface/ranking/v2';
+  // 直播相关 API
+  static const String _liveRoomInfoApi = '$_liveApiBase/room/v1/Room/get_info';
+  static const String _livePlayUrlApi = '$_liveApiBase/room/v1/Room/playUrl';
+  static const String _liveAnchorInfoApi = '$_liveApiBase/live_user/v1/UserInfo/get_anchor_in_room';
 
   BilibiliSource() {
     // 生成 buvid3 Cookie（用于绕过 412 风控）
@@ -743,6 +749,205 @@ class BilibiliSource extends BaseSource with Logging {
       return 'https:$url';
     }
     return url;
+  }
+
+  // ========== 直播间搜索 API ==========
+
+  /// 搜索直播间（综合搜索）
+  /// [filter]: all=全部, offline=未开播, online=已开播
+  Future<LiveSearchResult> searchLiveRooms(
+    String query, {
+    int page = 1,
+    int pageSize = 20,
+    LiveRoomFilter filter = LiveRoomFilter.all,
+  }) async {
+    try {
+      switch (filter) {
+        case LiveRoomFilter.all:
+          // 同时搜索 live_room + bili_user，合并去重
+          final results = await Future.wait([
+            _searchLiveRoomApi(query, page, pageSize),
+            _searchBiliUserWithRoomApi(query, page, pageSize),
+          ]);
+          return results[0].merge(results[1]);
+
+        case LiveRoomFilter.offline:
+          // 只搜索 bili_user，筛选有直播间但未开播的
+          final userResults = await _searchBiliUserWithRoomApi(query, page, pageSize);
+          return userResults.filter(LiveRoomFilter.offline);
+
+        case LiveRoomFilter.online:
+          // 搜索 live_room + bili_user，只保留已开播的
+          final results = await Future.wait([
+            _searchLiveRoomApi(query, page, pageSize),
+            _searchBiliUserWithRoomApi(query, page, pageSize),
+          ]);
+          return results[0].merge(results[1]).filter(LiveRoomFilter.online);
+      }
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  /// 搜索正在直播的直播间 (search_type=live_room)
+  Future<LiveSearchResult> _searchLiveRoomApi(
+    String query,
+    int page,
+    int pageSize,
+  ) async {
+    final response = await _dio.get(
+      _searchApi,
+      queryParameters: {
+        'keyword': query,
+        'search_type': 'live_room',
+        'page': page,
+        'page_size': pageSize,
+      },
+    );
+
+    _checkResponse(response.data);
+
+    final data = response.data['data'];
+    final results = data['result'] as List? ?? [];
+    final numResults = data['numResults'] as int? ?? 0;
+
+    final rooms = results.map((item) => LiveRoom.fromLiveRoomSearch(item)).toList();
+
+    return LiveSearchResult(
+      rooms: rooms,
+      totalCount: numResults,
+      page: page,
+      pageSize: pageSize,
+      hasMore: page * pageSize < numResults,
+    );
+  }
+
+  /// 搜索有直播间的用户 (search_type=bili_user)
+  Future<LiveSearchResult> _searchBiliUserWithRoomApi(
+    String query,
+    int page,
+    int pageSize,
+  ) async {
+    final response = await _dio.get(
+      _searchApi,
+      queryParameters: {
+        'keyword': query,
+        'search_type': 'bili_user',
+        'page': page,
+        'page_size': pageSize,
+      },
+    );
+
+    _checkResponse(response.data);
+
+    final data = response.data['data'];
+    final results = data['result'] as List? ?? [];
+    final numResults = data['numResults'] as int? ?? 0;
+
+    // 只保留有直播间的用户 (room_id > 0)
+    final usersWithRoom = results.where((item) {
+      final roomId = item['room_id'] as int? ?? 0;
+      return roomId > 0;
+    }).toList();
+
+    // 批量获取直播间详情以获取直播状态
+    final rooms = <LiveRoom>[];
+    for (final item in usersWithRoom) {
+      final roomId = item['room_id'] as int;
+      final uname = _cleanHtmlTags(item['uname'] as String? ?? '');
+      final face = _fixImageUrl(item['upic'] as String?);
+
+      try {
+        final roomInfo = await getLiveRoomInfo(roomId);
+        if (roomInfo != null) {
+          rooms.add(roomInfo.copyWith(
+            uname: uname.isNotEmpty ? uname : roomInfo.uname,
+            face: face ?? roomInfo.face,
+          ));
+        } else {
+          // 如果获取详情失败，使用基本信息
+          rooms.add(LiveRoom.fromBiliUserSearch(item));
+        }
+      } catch (e) {
+        logDebug('Failed to get room info for $roomId: $e');
+        rooms.add(LiveRoom.fromBiliUserSearch(item));
+      }
+    }
+
+    return LiveSearchResult(
+      rooms: rooms,
+      totalCount: numResults,
+      page: page,
+      pageSize: pageSize,
+      hasMore: page * pageSize < numResults,
+    );
+  }
+
+  /// 获取直播间详情
+  Future<LiveRoom?> getLiveRoomInfo(int roomId) async {
+    try {
+      // 获取直播间信息
+      final roomResponse = await _dio.get(
+        _liveRoomInfoApi,
+        queryParameters: {'room_id': roomId},
+      );
+
+      if (roomResponse.data['code'] != 0) {
+        return null;
+      }
+
+      final roomData = roomResponse.data['data'];
+
+      // 获取主播信息
+      String? uname;
+      String? face;
+      try {
+        final anchorResponse = await _dio.get(
+          _liveAnchorInfoApi,
+          queryParameters: {'roomid': roomId},
+        );
+        if (anchorResponse.data['code'] == 0) {
+          final anchorData = anchorResponse.data['data']['info'];
+          uname = anchorData['uname'] as String?;
+          face = _fixImageUrl(anchorData['face'] as String?);
+        }
+      } catch (e) {
+        logDebug('Failed to get anchor info for room $roomId: $e');
+      }
+
+      return LiveRoom.fromRoomInfo(roomData, uname: uname, face: face);
+    } on DioException catch (e) {
+      logError('Failed to get live room info for $roomId: ${e.message}');
+      return null;
+    }
+  }
+
+  /// 获取直播流地址 (HLS)
+  Future<String?> getLiveStreamUrl(int roomId) async {
+    try {
+      final response = await _dio.get(
+        _livePlayUrlApi,
+        queryParameters: {
+          'cid': roomId,
+          'platform': 'h5',
+          'quality': 4, // 原画
+        },
+      );
+
+      if (response.data['code'] != 0) {
+        return null;
+      }
+
+      final durl = response.data['data']['durl'] as List?;
+      if (durl == null || durl.isEmpty) {
+        return null;
+      }
+
+      return durl[0]['url'] as String?;
+    } on DioException catch (e) {
+      logError('Failed to get live stream URL for room $roomId: ${e.message}');
+      return null;
+    }
   }
 }
 

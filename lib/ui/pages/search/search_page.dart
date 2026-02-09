@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:simple_icons/simple_icons.dart';
 
+import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
@@ -11,6 +12,7 @@ import '../../../data/sources/bilibili_source.dart';
 import '../../../data/sources/source_provider.dart';
 import '../../../providers/search_provider.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../../services/radio/radio_controller.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/track_group/track_group.dart';
@@ -132,40 +134,93 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   Widget _buildSourceFilter(BuildContext context, SearchState state) {
     return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // 单选筛选（可滚动）
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  ChoiceChip(
-                    label: const Text('全部'),
-                    selected: state.selectedSource == null,
-                    onSelected: (_) => ref.read(searchProvider.notifier).setSource(null),
+          // 第一行：音源筛选 + 排序按钮
+          SizedBox(
+            height: 40,
+            child: Row(
+              children: [
+                // 音源筛选（可滚动）
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        ChoiceChip(
+                          label: const Text('全部音源'),
+                          selected: state.selectedSource == null && !state.isLiveSearchMode,
+                          onSelected: (_) {
+                            ref.read(searchProvider.notifier).setLiveRoomFilter(null);
+                            ref.read(searchProvider.notifier).setSource(null);
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        ChoiceChip(
+                          label: const Text('Bilibili'),
+                          selected: state.selectedSource == SourceType.bilibili && !state.isLiveSearchMode,
+                          onSelected: (_) {
+                            ref.read(searchProvider.notifier).setLiveRoomFilter(null);
+                            ref.read(searchProvider.notifier).setSource(SourceType.bilibili);
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        ChoiceChip(
+                          label: const Text('YouTube'),
+                          selected: state.selectedSource == SourceType.youtube,
+                          onSelected: (_) {
+                            ref.read(searchProvider.notifier).setLiveRoomFilter(null);
+                            ref.read(searchProvider.notifier).setSource(SourceType.youtube);
+                          },
+                        ),
+                        const SizedBox(width: 16),
+                        // 分隔线
+                        Container(
+                          width: 1,
+                          height: 24,
+                          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
+                        ),
+                        const SizedBox(width: 16),
+                        // 直播间筛选
+                        ChoiceChip(
+                          label: const Text('全部直播间'),
+                          selected: state.liveRoomFilter == LiveRoomFilter.all,
+                          onSelected: (_) {
+                            ref.read(searchProvider.notifier).setSource(SourceType.bilibili);
+                            ref.read(searchProvider.notifier).setLiveRoomFilter(LiveRoomFilter.all);
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        ChoiceChip(
+                          label: const Text('未开播'),
+                          selected: state.liveRoomFilter == LiveRoomFilter.offline,
+                          onSelected: (_) {
+                            ref.read(searchProvider.notifier).setSource(SourceType.bilibili);
+                            ref.read(searchProvider.notifier).setLiveRoomFilter(LiveRoomFilter.offline);
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        ChoiceChip(
+                          label: const Text('已开播'),
+                          selected: state.liveRoomFilter == LiveRoomFilter.online,
+                          onSelected: (_) {
+                            ref.read(searchProvider.notifier).setSource(SourceType.bilibili);
+                            ref.read(searchProvider.notifier).setLiveRoomFilter(LiveRoomFilter.online);
+                          },
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  ChoiceChip(
-                    label: const Text('Bilibili'),
-                    selected: state.selectedSource == SourceType.bilibili,
-                    onSelected: (_) => ref.read(searchProvider.notifier).setSource(SourceType.bilibili),
-                  ),
-                  const SizedBox(width: 8),
-                  ChoiceChip(
-                    label: const Text('YouTube'),
-                    selected: state.selectedSource == SourceType.youtube,
-                    onSelected: (_) => ref.read(searchProvider.notifier).setSource(SourceType.youtube),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 8),
+                // 排序按钮（仅在视频搜索模式下显示）
+                if (!state.isLiveSearchMode)
+                  _buildSortButton(context, state),
+              ],
             ),
           ),
-          const SizedBox(width: 8),
-          // 排序按钮
-          _buildSortButton(context, state),
         ],
       ),
     );
@@ -309,6 +364,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   Widget _buildSearchResults(BuildContext context, SearchState state) {
+    // 直播间搜索模式
+    if (state.isLiveSearchMode) {
+      return _buildLiveRoomResults(context, state);
+    }
+
     if (state.isLoading && state.allOnlineTracks.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -503,10 +563,169 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   bool _hasMoreResults(SearchState state) {
+    // 直播间搜索模式
+    if (state.isLiveSearchMode) {
+      return state.hasMoreLiveRooms;
+    }
+    // 视频搜索模式
     for (final entry in state.onlineResults.entries) {
       if (entry.value.hasMore) return true;
     }
     return false;
+  }
+
+  /// 构建直播间搜索结果
+  Widget _buildLiveRoomResults(BuildContext context, SearchState state) {
+    final rooms = state.liveRoomResults?.rooms ?? [];
+
+    if (state.isLoading && rooms.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (state.error != null && rooms.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(height: 16),
+            Text(state.error!),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => _performSearch(state.query),
+              child: const Text('重试'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (rooms.isEmpty && !state.isLoading) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.live_tv_outlined,
+              size: 64,
+              color: Theme.of(context).colorScheme.outline,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '未找到 "${state.query}" 相关直播间',
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification is ScrollEndNotification) {
+          final metrics = notification.metrics;
+          if (metrics.pixels >= metrics.maxScrollExtent - 200) {
+            if (!state.isLoading && state.hasMoreLiveRooms) {
+              ref.read(searchProvider.notifier).loadMoreLiveRooms();
+            }
+          }
+        }
+        return false;
+      },
+      child: CustomScrollView(
+        slivers: [
+          // 直播间结果标题
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                '直播间 (${state.liveRoomResults?.totalCount ?? rooms.length})',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+          ),
+
+          // 直播间列表
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final room = rooms[index];
+                return _LiveRoomTile(
+                  room: room,
+                  onTap: () => _openLiveRoom(room),
+                  onMenuAction: _onLiveRoomMenuAction,
+                );
+              },
+              childCount: rooms.length,
+            ),
+          ),
+
+          // 加载更多指示器
+          if (state.isLoading)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ),
+
+          // 已加载全部
+          if (!state.isLoading && rooms.isNotEmpty && !state.hasMoreLiveRooms)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Center(
+                  child: Text(
+                    '已加载全部',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// 打开直播间
+  Future<void> _openLiveRoom(LiveRoom room) async {
+    if (!room.isLive) {
+      if (mounted) ToastService.show(context, '主播未开播');
+      return;
+    }
+
+    // 转换为 RadioStation 并使用 RadioController 播放
+    final station = room.toRadioStation();
+    await ref.read(radioControllerProvider.notifier).play(station);
+  }
+
+  /// 直播间菜单操作
+  Future<void> _onLiveRoomMenuAction(LiveRoom room, String action) async {
+    switch (action) {
+      case 'play':
+        await _openLiveRoom(room);
+        break;
+      case 'add_to_radio':
+        await _addLiveRoomToRadio(room);
+        break;
+    }
+  }
+
+  /// 添加直播间到电台列表
+  Future<void> _addLiveRoomToRadio(LiveRoom room) async {
+    try {
+      final url = 'https://live.bilibili.com/${room.roomId}';
+      await ref.read(radioControllerProvider.notifier).addStation(url);
+      if (mounted) ToastService.show(context, '已添加到电台');
+    } catch (e) {
+      if (mounted) ToastService.show(context, e.toString());
+    }
   }
 
   void _performSearch(String query) {
@@ -1425,5 +1644,176 @@ class _SelectionGroupCheckbox extends StatelessWidget {
       icon: Icon(icon, color: color),
       onPressed: onTap,
     );
+  }
+}
+
+/// 直播间列表项
+class _LiveRoomTile extends StatelessWidget {
+  final LiveRoom room;
+  final VoidCallback onTap;
+  final void Function(LiveRoom room, String action) onMenuAction;
+
+  const _LiveRoomTile({
+    required this.room,
+    required this.onTap,
+    required this.onMenuAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return ListTile(
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // 封面图
+              ColorFiltered(
+                colorFilter: room.isLive
+                    ? const ColorFilter.mode(Colors.transparent, BlendMode.multiply)
+                    : const ColorFilter.matrix(<double>[
+                        0.2126, 0.7152, 0.0722, 0, 0,
+                        0.2126, 0.7152, 0.0722, 0, 0,
+                        0.2126, 0.7152, 0.0722, 0, 0,
+                        0, 0, 0, 1, 0,
+                      ]),
+                child: ImageLoadingService.loadImage(
+                  networkUrl: room.cover?.isNotEmpty == true
+                      ? room.cover
+                      : room.face,
+                  placeholder: ImagePlaceholder(
+                    icon: Icons.live_tv,
+                    size: 48,
+                    backgroundColor: colorScheme.surfaceContainerHighest,
+                    iconColor: colorScheme.outline,
+                  ),
+                  width: 48,
+                  height: 48,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              // 直播状态标签（仅直播中显示）
+              if (room.isLive)
+                Positioned(
+                  left: 2,
+                  top: 2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    child: const Text(
+                      'LIVE',
+                      style: TextStyle(
+                        fontSize: 8,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+      title: Text(
+        room.title.isNotEmpty ? room.title : '${room.uname}的直播间',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: room.isLive ? null : colorScheme.outline,
+        ),
+      ),
+      subtitle: Row(
+        children: [
+          // 主播名
+          Flexible(
+            child: Text(
+              room.uname,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          // 在线人数
+          if (room.isLive && (room.online ?? 0) > 0) ...[
+            const SizedBox(width: 8),
+            Icon(
+              Icons.visibility,
+              size: 14,
+              color: colorScheme.outline,
+            ),
+            const SizedBox(width: 2),
+            Text(
+              _formatOnlineCount(room.online!),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.outline,
+                  ),
+            ),
+          ],
+          // 分区标签
+          if (room.areaName?.isNotEmpty ?? false) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: room.isLive ? colorScheme.primaryContainer : colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                room.areaName!,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: room.isLive ? colorScheme.onPrimaryContainer : colorScheme.outline,
+                    ),
+              ),
+            ),
+          ],
+        ],
+      ),
+      trailing: PopupMenuButton<String>(
+        icon: const Icon(Icons.more_vert),
+        onSelected: (value) => onMenuAction(room, value),
+        itemBuilder: (context) => [
+          PopupMenuItem(
+            value: 'play',
+            enabled: room.isLive,
+            child: ListTile(
+              leading: Icon(
+                Icons.play_arrow,
+                color: room.isLive ? null : colorScheme.outline,
+              ),
+              title: Text(
+                '播放',
+                style: TextStyle(
+                  color: room.isLive ? null : colorScheme.outline,
+                ),
+              ),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'add_to_radio',
+            child: ListTile(
+              leading: Icon(Icons.radio),
+              title: Text('添加到电台'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        ],
+      ),
+      onTap: onTap,
+    );
+  }
+
+  String _formatOnlineCount(int count) {
+    if (count >= 10000) {
+      return '${(count / 10000).toStringAsFixed(1)}万';
+    }
+    return count.toString();
   }
 }

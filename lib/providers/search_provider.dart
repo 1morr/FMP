@@ -1,11 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:equatable/equatable.dart';
 
+import '../data/models/live_room.dart';
 import '../data/models/track.dart';
 export '../data/models/track.dart' show SourceType;
+export '../data/models/live_room.dart' show LiveRoomFilter, LiveRoom, LiveSearchResult;
 import '../data/models/search_history.dart';
 import '../data/sources/base_source.dart';
-import '../data/sources/source_provider.dart';
+import '../data/sources/bilibili_source.dart';
+import '../data/sources/source_provider.dart' show sourceManagerProvider, bilibiliSourceProvider;
 import '../services/search/search_service.dart';
 import 'database_provider.dart';
 import 'repository_providers.dart';
@@ -32,9 +35,13 @@ class SearchState extends Equatable {
   final Map<SourceType, SearchResult> onlineResults;
   final bool isLoading;
   final String? error;
-  final SourceType? selectedSource; // null = 全部
+  final SourceType? selectedSource; // null = 全部音源
   final Map<SourceType, int> currentPages;
   final SearchOrder searchOrder;
+  // 直播间搜索相关
+  final LiveRoomFilter? liveRoomFilter; // null = 视频搜索模式, 非null = 直播间搜索模式
+  final LiveSearchResult? liveRoomResults;
+  final int liveRoomPage;
 
   const SearchState({
     this.query = '',
@@ -42,10 +49,16 @@ class SearchState extends Equatable {
     this.onlineResults = const {},
     this.isLoading = false,
     this.error,
-    this.selectedSource, // null = 全部
+    this.selectedSource, // null = 全部音源
     this.currentPages = const {},
     this.searchOrder = SearchOrder.relevance,
+    this.liveRoomFilter,
+    this.liveRoomResults,
+    this.liveRoomPage = 1,
   });
+
+  /// 是否为直播间搜索模式
+  bool get isLiveSearchMode => liveRoomFilter != null;
 
   /// 获取启用的音源列表
   Set<SourceType> get enabledSources => selectedSource == null
@@ -115,7 +128,10 @@ class SearchState extends Equatable {
   }
 
   /// 是否有结果
-  bool get hasResults => localResults.isNotEmpty || allOnlineTracks.isNotEmpty;
+  bool get hasResults => localResults.isNotEmpty || allOnlineTracks.isNotEmpty || (liveRoomResults?.rooms.isNotEmpty ?? false);
+
+  /// 是否有更多直播间结果
+  bool get hasMoreLiveRooms => liveRoomResults?.hasMore ?? false;
 
   /// 是否有更多结果
   bool hasMoreFor(SourceType sourceType) {
@@ -132,6 +148,10 @@ class SearchState extends Equatable {
     Map<SourceType, int>? currentPages,
     SearchOrder? searchOrder,
     bool clearSelectedSource = false,
+    LiveRoomFilter? liveRoomFilter,
+    bool clearLiveRoomFilter = false,
+    LiveSearchResult? liveRoomResults,
+    int? liveRoomPage,
   }) {
     return SearchState(
       query: query ?? this.query,
@@ -142,6 +162,9 @@ class SearchState extends Equatable {
       selectedSource: clearSelectedSource ? null : (selectedSource ?? this.selectedSource),
       currentPages: currentPages ?? this.currentPages,
       searchOrder: searchOrder ?? this.searchOrder,
+      liveRoomFilter: clearLiveRoomFilter ? null : (liveRoomFilter ?? this.liveRoomFilter),
+      liveRoomResults: liveRoomResults ?? this.liveRoomResults,
+      liveRoomPage: liveRoomPage ?? this.liveRoomPage,
     );
   }
 
@@ -155,19 +178,29 @@ class SearchState extends Equatable {
         selectedSource,
         currentPages,
         searchOrder,
+        liveRoomFilter,
+        liveRoomResults,
+        liveRoomPage,
       ];
 }
 
 /// 搜索控制器
 class SearchNotifier extends StateNotifier<SearchState> {
   final SearchService _service;
+  final BilibiliSource _bilibiliSource;
 
-  SearchNotifier(this._service) : super(const SearchState());
+  SearchNotifier(this._service, this._bilibiliSource) : super(const SearchState());
 
-  /// 执行搜索
+  /// 执行搜索（根据当前模式自动选择视频或直播间搜索）
   Future<void> search(String query) async {
     if (query.trim().isEmpty) {
       state = const SearchState();
+      return;
+    }
+
+    // 如果是直播间搜索模式，执行直播间搜索
+    if (state.isLiveSearchMode) {
+      await searchLiveRooms(query);
       return;
     }
 
@@ -367,7 +400,107 @@ class SearchNotifier extends StateNotifier<SearchState> {
     state = SearchState(
       selectedSource: state.selectedSource, // 保留音源筛选
       searchOrder: state.searchOrder, // 保留排序设置
+      liveRoomFilter: state.liveRoomFilter, // 保留直播间筛选
     );
+  }
+
+  // ========== 直播间搜索相关方法 ==========
+
+  /// 设置直播间筛选（null = 退出直播间搜索模式）
+  void setLiveRoomFilter(LiveRoomFilter? filter) {
+    state = state.copyWith(
+      liveRoomFilter: filter,
+      clearLiveRoomFilter: filter == null,
+      liveRoomResults: null, // 清空之前的直播间结果
+      liveRoomPage: 1,
+    );
+
+    // 如果有查询，重新搜索
+    if (state.query.isNotEmpty) {
+      search(state.query);
+    }
+  }
+
+  /// 搜索直播间
+  Future<void> searchLiveRooms(String query) async {
+    if (query.trim().isEmpty) {
+      state = state.copyWith(
+        query: '',
+        liveRoomResults: null,
+        liveRoomPage: 1,
+      );
+      return;
+    }
+
+    state = state.copyWith(
+      query: query,
+      isLoading: true,
+      error: null,
+      liveRoomResults: null,
+      liveRoomPage: 1,
+    );
+
+    try {
+      final result = await _bilibiliSource.searchLiveRooms(
+        query,
+        page: 1,
+        filter: state.liveRoomFilter ?? LiveRoomFilter.all,
+      );
+
+      state = state.copyWith(
+        liveRoomResults: result,
+        liveRoomPage: 1,
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+    }
+  }
+
+  /// 加载更多直播间
+  Future<void> loadMoreLiveRooms() async {
+    if (!state.hasMoreLiveRooms || state.isLoading) return;
+
+    final nextPage = state.liveRoomPage + 1;
+
+    state = state.copyWith(isLoading: true);
+
+    try {
+      final result = await _bilibiliSource.searchLiveRooms(
+        state.query,
+        page: nextPage,
+        filter: state.liveRoomFilter ?? LiveRoomFilter.all,
+      );
+
+      // 合并结果
+      final existingRooms = state.liveRoomResults?.rooms ?? [];
+      final mergedResult = LiveSearchResult(
+        rooms: [...existingRooms, ...result.rooms],
+        totalCount: result.totalCount,
+        page: nextPage,
+        pageSize: result.pageSize,
+        hasMore: result.hasMore,
+      );
+
+      state = state.copyWith(
+        liveRoomResults: mergedResult,
+        liveRoomPage: nextPage,
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+    }
+  }
+
+  /// 获取直播流地址
+  Future<String?> getLiveStreamUrl(int roomId) async {
+    return await _bilibiliSource.getLiveStreamUrl(roomId);
   }
 }
 
@@ -375,7 +508,8 @@ class SearchNotifier extends StateNotifier<SearchState> {
 final searchProvider =
     StateNotifierProvider<SearchNotifier, SearchState>((ref) {
   final service = ref.watch(searchServiceProvider);
-  return SearchNotifier(service);
+  final bilibiliSource = ref.watch(bilibiliSourceProvider);
+  return SearchNotifier(service, bilibiliSource);
 });
 
 /// 搜索历史 Provider
