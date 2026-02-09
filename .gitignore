@@ -120,3 +120,5 @@ logs/
 tmpclaude*
 # Git worktrees
 .worktrees/
+.claude/
+plan.md
