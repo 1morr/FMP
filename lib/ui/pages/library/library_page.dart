@@ -86,14 +86,14 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
             ),
           if (!_isReorderMode) ...[
             IconButton(
-              icon: const Icon(Icons.link),
-              tooltip: '从 URL 导入',
-              onPressed: () => _showImportDialog(context, ref),
-            ),
-            IconButton(
               icon: const Icon(Icons.add),
               tooltip: '新建歌单',
               onPressed: () => _showCreateDialog(context, ref),
+            ),
+            IconButton(
+              icon: const Icon(Icons.link),
+              tooltip: '从 URL 导入',
+              onPressed: () => _showImportDialog(context, ref),
             ),
           ],
         ],

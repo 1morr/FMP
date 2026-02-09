@@ -85,8 +85,8 @@ class _RadioPageState extends ConsumerState<RadioPage> {
             ),
           if (!_isSortMode)
             IconButton(
-              icon: const Icon(Icons.add_link),
-              tooltip: '添加电台',
+              icon: const Icon(Icons.link),
+              tooltip: '从 URL 导入',
               onPressed: () => AddRadioDialog.show(context),
             ),
         ],
