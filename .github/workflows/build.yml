@@ -137,6 +137,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for tags
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -162,9 +164,11 @@ jobs:
           if [ -n "$PREV_TAG" ]; then
             echo "Generating changelog from $PREV_TAG to $CURRENT_TAG"
             COMMITS=$(git log --pretty=format:"- %s (%h)" $PREV_TAG..$CURRENT_TAG)
+            CHANGELOG_URL="**Full Changelog**: https://github.com/1morr/FMP/compare/$PREV_TAG...$CURRENT_TAG"
           else
             echo "No previous tag found, listing recent commits"
             COMMITS=$(git log --pretty=format:"- %s (%h)" -20)
+            CHANGELOG_URL=""
           fi
 
           # Write to file for multi-line output
@@ -172,6 +176,7 @@ jobs:
           echo "commits<<EOF" >> $GITHUB_OUTPUT
           cat changelog.txt >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+          echo "changelog_url=$CHANGELOG_URL" >> $GITHUB_OUTPUT
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -183,7 +188,7 @@ jobs:
 
             ${{ steps.changelog.outputs.commits }}
 
-            **Full Changelog**: https://github.com/1morr/FMP/compare/${{ steps.prev_tag.outputs.tag }}...${{ github.ref_name }}
+            ${{ steps.changelog.outputs.changelog_url }}
           files: |
             artifacts/android-apk/fmp-*-android.apk
             artifacts/windows-exe/fmp-*-windows.zip
