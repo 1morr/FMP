@@ -352,8 +352,7 @@ class _VersionListTile extends ConsumerWidget {
       future: PackageInfo.fromPlatform(),
       builder: (context, snapshot) {
         final version = snapshot.data?.version ?? '...';
-        final buildNumber = snapshot.data?.buildNumber ?? '';
-        final versionText = buildNumber.isNotEmpty ? '$version+$buildNumber' : version;
+        final versionText = 'v$version';
 
         return ListTile(
           leading: const Icon(Icons.info_outline),
