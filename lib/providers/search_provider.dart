@@ -151,6 +151,7 @@ class SearchState extends Equatable {
     LiveRoomFilter? liveRoomFilter,
     bool clearLiveRoomFilter = false,
     LiveSearchResult? liveRoomResults,
+    bool clearLiveRoomResults = false,
     int? liveRoomPage,
   }) {
     return SearchState(
@@ -163,7 +164,7 @@ class SearchState extends Equatable {
       currentPages: currentPages ?? this.currentPages,
       searchOrder: searchOrder ?? this.searchOrder,
       liveRoomFilter: clearLiveRoomFilter ? null : (liveRoomFilter ?? this.liveRoomFilter),
-      liveRoomResults: liveRoomResults ?? this.liveRoomResults,
+      liveRoomResults: clearLiveRoomResults ? null : (liveRoomResults ?? this.liveRoomResults),
       liveRoomPage: liveRoomPage ?? this.liveRoomPage,
     );
   }
@@ -371,14 +372,15 @@ class SearchNotifier extends StateNotifier<SearchState> {
   }
 
   /// 设置音源筛选（null = 全部）
-  void setSource(SourceType? sourceType) {
+  /// [autoSearch] 是否自动触发搜索，默认为 true
+  void setSource(SourceType? sourceType, {bool autoSearch = true}) {
     state = state.copyWith(
       selectedSource: sourceType,
       clearSelectedSource: sourceType == null,
     );
 
     // 如果有查询，重新搜索
-    if (state.query.isNotEmpty) {
+    if (autoSearch && state.query.isNotEmpty) {
       search(state.query);
     }
   }
@@ -407,12 +409,48 @@ class SearchNotifier extends StateNotifier<SearchState> {
   // ========== 直播间搜索相关方法 ==========
 
   /// 设置直播间筛选（null = 退出直播间搜索模式）
-  void setLiveRoomFilter(LiveRoomFilter? filter) {
+  /// [autoSearch] 是否自动触发搜索，默认为 true
+  void setLiveRoomFilter(LiveRoomFilter? filter, {bool autoSearch = true}) {
     state = state.copyWith(
       liveRoomFilter: filter,
       clearLiveRoomFilter: filter == null,
       liveRoomResults: null, // 清空之前的直播间结果
       liveRoomPage: 1,
+    );
+
+    // 如果有查询，重新搜索
+    if (autoSearch && state.query.isNotEmpty) {
+      search(state.query);
+    }
+  }
+
+  /// 同时设置音源和直播间筛选，只触发一次搜索
+  /// 用于避免连续调用 setSource 和 setLiveRoomFilter 导致的竞态条件
+  void setFilters({
+    SourceType? sourceType,
+    bool clearSource = false,
+    LiveRoomFilter? liveRoomFilter,
+    bool clearLiveRoomFilter = false,
+  }) {
+    // 判断是否进入/切换直播间筛选模式
+    final isEnteringLiveMode = liveRoomFilter != null;
+    // 判断是否退出直播间筛选模式
+    final isExitingLiveMode = clearLiveRoomFilter;
+    // 需要清空直播间结果的情况
+    final shouldClearLiveResults = isEnteringLiveMode || isExitingLiveMode;
+    
+    state = state.copyWith(
+      selectedSource: sourceType,
+      clearSelectedSource: clearSource,
+      liveRoomFilter: liveRoomFilter,
+      clearLiveRoomFilter: clearLiveRoomFilter,
+      // 进入/切换直播间筛选时清空直播间结果，退出时也清空
+      clearLiveRoomResults: shouldClearLiveResults,
+      liveRoomPage: shouldClearLiveResults ? 1 : state.liveRoomPage,
+      // 退出直播间模式时清空视频结果
+      onlineResults: isExitingLiveMode ? {} : state.onlineResults,
+      // 有查询时显示加载状态
+      isLoading: state.query.isNotEmpty,
     );
 
     // 如果有查询，重新搜索

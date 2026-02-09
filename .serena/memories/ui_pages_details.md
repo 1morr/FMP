@@ -135,21 +135,75 @@ String _formatViewCount(int count) {
    - 目前只有 Bilibili 音源
    - 排序选项：综合、播放量、最新、弹幕数
 
-3. **搜索历史**
+3. **直播间筛选**（仅 Bilibili 音源时显示）
+   - 筛选选项：全部直播间、未开播、已开播
+   - 使用 `LiveRoomFilter` 枚举
+   - 选择后触发 `searchProvider.setLiveRoomFilter()` 并自动搜索
+
+4. **搜索历史**
    - 空搜索框时显示
    - 使用 `searchHistoryManagerProvider`
    - 可清空全部或删除单项
 
-4. **搜索结果列表**
+5. **搜索结果列表**（视频）
    - 分为"歌单中"（本地已有）和"在线结果"
    - 支持无限滚动加载更多
 
-5. **多P视频展开**
+6. **直播间搜索结果**
+   - 当设置了直播间筛选时显示
+   - 使用 `_buildLiveRoomResults()` 构建
+   - 支持无限滚动加载更多（`loadMoreLiveRooms()`）
+
+7. **多P视频展开**
    - `_loadVideoPages()` 获取分P信息
    - 展开后显示各分P，可单独播放/下载/添加
    - 菜单操作时会批量处理所有分P
 
-### 关键逻辑
+### 直播间列表项 `_LiveRoomTile`
+
+```dart
+// 布局结构
+┌─────────────────────────────────────────────────┐
+│ [封面]  主播名                    [直播中] [菜单] │
+│  48x48  直播间标题                  分区  人气   │
+└─────────────────────────────────────────────────┘
+
+// 关键特性
+- 封面使用 ImageLoadingService.loadImage()（统一图片加载）
+- 未开播时封面显示灰度效果（ColorFiltered）
+- 直播中显示红色 "LIVE" 标签
+- 分区名显示为小标签
+- 在线人数格式化（万/亿）
+- 菜单操作：播放直播、添加到队列
+```
+
+### 直播间搜索逻辑
+
+```dart
+// 滚动加载更多
+NotificationListener<ScrollNotification>(
+  onNotification: (notification) {
+    if (notification is ScrollEndNotification) {
+      final metrics = notification.metrics;
+      if (metrics.pixels >= metrics.maxScrollExtent - 200) {
+        if (!state.isLoading && state.hasMoreLiveRooms) {
+          ref.read(searchProvider.notifier).loadMoreLiveRooms();
+        }
+      }
+    }
+    return false;
+  },
+  child: CustomScrollView(...),
+)
+
+// 打开直播间
+void _openLiveRoom(LiveRoom room) {
+  // 获取直播流 URL 并播放
+  // 使用 BilibiliSource.getLiveStreamUrl()
+}
+```
+
+### 视频搜索关键逻辑
 
 ```dart
 // 点击歌曲 -> 临时播放

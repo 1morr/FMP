@@ -153,8 +153,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           label: const Text('全部音源'),
                           selected: state.selectedSource == null && !state.isLiveSearchMode,
                           onSelected: (_) {
-                            ref.read(searchProvider.notifier).setLiveRoomFilter(null);
-                            ref.read(searchProvider.notifier).setSource(null);
+                            ref.read(searchProvider.notifier).setFilters(
+                              clearSource: true,
+                              clearLiveRoomFilter: true,
+                            );
                           },
                         ),
                         const SizedBox(width: 8),
@@ -162,8 +164,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           label: const Text('Bilibili'),
                           selected: state.selectedSource == SourceType.bilibili && !state.isLiveSearchMode,
                           onSelected: (_) {
-                            ref.read(searchProvider.notifier).setLiveRoomFilter(null);
-                            ref.read(searchProvider.notifier).setSource(SourceType.bilibili);
+                            ref.read(searchProvider.notifier).setFilters(
+                              sourceType: SourceType.bilibili,
+                              clearLiveRoomFilter: true,
+                            );
                           },
                         ),
                         const SizedBox(width: 8),
@@ -171,8 +175,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           label: const Text('YouTube'),
                           selected: state.selectedSource == SourceType.youtube,
                           onSelected: (_) {
-                            ref.read(searchProvider.notifier).setLiveRoomFilter(null);
-                            ref.read(searchProvider.notifier).setSource(SourceType.youtube);
+                            ref.read(searchProvider.notifier).setFilters(
+                              sourceType: SourceType.youtube,
+                              clearLiveRoomFilter: true,
+                            );
                           },
                         ),
                         const SizedBox(width: 16),
@@ -188,8 +194,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           label: const Text('全部直播间'),
                           selected: state.liveRoomFilter == LiveRoomFilter.all,
                           onSelected: (_) {
-                            ref.read(searchProvider.notifier).setSource(SourceType.bilibili);
-                            ref.read(searchProvider.notifier).setLiveRoomFilter(LiveRoomFilter.all);
+                            ref.read(searchProvider.notifier).setFilters(
+                              sourceType: SourceType.bilibili,
+                              liveRoomFilter: LiveRoomFilter.all,
+                            );
                           },
                         ),
                         const SizedBox(width: 8),
@@ -197,8 +205,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           label: const Text('未开播'),
                           selected: state.liveRoomFilter == LiveRoomFilter.offline,
                           onSelected: (_) {
-                            ref.read(searchProvider.notifier).setSource(SourceType.bilibili);
-                            ref.read(searchProvider.notifier).setLiveRoomFilter(LiveRoomFilter.offline);
+                            ref.read(searchProvider.notifier).setFilters(
+                              sourceType: SourceType.bilibili,
+                              liveRoomFilter: LiveRoomFilter.offline,
+                            );
                           },
                         ),
                         const SizedBox(width: 8),
@@ -206,8 +216,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           label: const Text('已开播'),
                           selected: state.liveRoomFilter == LiveRoomFilter.online,
                           onSelected: (_) {
-                            ref.read(searchProvider.notifier).setSource(SourceType.bilibili);
-                            ref.read(searchProvider.notifier).setLiveRoomFilter(LiveRoomFilter.online);
+                            ref.read(searchProvider.notifier).setFilters(
+                              sourceType: SourceType.bilibili,
+                              liveRoomFilter: LiveRoomFilter.online,
+                            );
                           },
                         ),
                       ],
@@ -1697,27 +1709,7 @@ class _LiveRoomTile extends StatelessWidget {
                   fit: BoxFit.cover,
                 ),
               ),
-              // 直播状态标签（仅直播中显示）
-              if (room.isLive)
-                Positioned(
-                  left: 2,
-                  top: 2,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                    child: const Text(
-                      'LIVE',
-                      style: TextStyle(
-                        fontSize: 8,
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
+
             ],
           ),
         ),
