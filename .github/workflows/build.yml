@@ -39,6 +39,14 @@ jobs:
           VERSION=${GITHUB_REF_NAME#v}
           sed -i "s/^version: .*/version: $VERSION+${{ github.run_number }}/" pubspec.yaml
 
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/release.keystore
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "storeFile=../release.keystore" >> android/key.properties
+
       - name: Flutter dependencies
         run: flutter pub get
 
