@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/update_provider.dart';
 import '../../services/update/update_service.dart';
@@ -34,7 +35,20 @@ class UpdateDialog extends ConsumerWidget {
         children: [
           Icon(Icons.system_update, color: theme.colorScheme.primary),
           const SizedBox(width: 8),
-          const Text('发现新版本'),
+          const Expanded(child: Text('发现新版本')),
+          // 关闭按钮
+          if (!isDownloading && !isInstalling)
+            IconButton(
+              onPressed: () {
+                ref.read(updateProvider.notifier).reset();
+                Navigator.of(context).pop();
+              },
+              icon: const Icon(Icons.close),
+              tooltip: '关闭',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              iconSize: 20,
+            ),
         ],
       ),
       content: SizedBox(
@@ -83,6 +97,37 @@ class UpdateDialog extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
             ],
+
+            // Full Changelog 链接
+            if (updateInfo.htmlUrl != null)
+              InkWell(
+                onTap: () async {
+                  final uri = Uri.parse(updateInfo.htmlUrl!);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.open_in_new,
+                      size: 16,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '查看完整更新日志',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.primary,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            const SizedBox(height: 12),
 
             // 下载进度
             if (isDownloading) ...[

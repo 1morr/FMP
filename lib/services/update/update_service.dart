@@ -20,6 +20,7 @@ class UpdateInfo {
   final String? windowsZipDownloadUrl;
   final DateTime publishedAt;
   final int? assetSize; // bytes
+  final String? htmlUrl; // GitHub release page URL
 
   const UpdateInfo({
     required this.version,
@@ -28,6 +29,7 @@ class UpdateInfo {
     this.windowsZipDownloadUrl,
     required this.publishedAt,
     this.assetSize,
+    this.htmlUrl,
   });
 
   /// 当前平台的下载 URL
@@ -102,6 +104,7 @@ class UpdateService {
 
       final releaseNotes = data['body'] as String? ?? '';
       final publishedAt = DateTime.parse(data['published_at'] as String);
+      final htmlUrl = data['html_url'] as String?;
 
       AppLogger.info('Update available: $latestVersion', _tag);
 
@@ -112,6 +115,7 @@ class UpdateService {
         windowsZipDownloadUrl: windowsZipUrl,
         publishedAt: publishedAt,
         assetSize: assetSize,
+        htmlUrl: htmlUrl,
       );
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) {

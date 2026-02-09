@@ -146,12 +146,44 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R artifacts
 
+      - name: Get previous tag
+        id: prev_tag
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          echo "tag=$PREV_TAG" >> $GITHUB_OUTPUT
+          echo "Previous tag: $PREV_TAG"
+
+      - name: Generate commit changelog
+        id: changelog
+        run: |
+          CURRENT_TAG=${{ github.ref_name }}
+          PREV_TAG=${{ steps.prev_tag.outputs.tag }}
+
+          if [ -n "$PREV_TAG" ]; then
+            echo "Generating changelog from $PREV_TAG to $CURRENT_TAG"
+            COMMITS=$(git log --pretty=format:"- %s (%h)" $PREV_TAG..$CURRENT_TAG)
+          else
+            echo "No previous tag found, listing recent commits"
+            COMMITS=$(git log --pretty=format:"- %s (%h)" -20)
+          fi
+
+          # Write to file for multi-line output
+          echo "$COMMITS" > changelog.txt
+          echo "commits<<EOF" >> $GITHUB_OUTPUT
+          cat changelog.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           draft: false
           prerelease: false
-          generate_release_notes: true
+          body: |
+            ## What's Changed
+
+            ${{ steps.changelog.outputs.commits }}
+
+            **Full Changelog**: https://github.com/1morr/FMP/compare/${{ steps.prev_tag.outputs.tag }}...${{ github.ref_name }}
           files: |
             artifacts/android-apk/fmp-*-android.apk
             artifacts/windows-exe/fmp-*-windows.zip
