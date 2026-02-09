@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/network_image_cache_service.dart';
@@ -17,8 +18,10 @@ import '../../../providers/playback_settings_provider.dart';
 import '../../../providers/desktop_settings_provider.dart';
 import '../../../providers/hotkey_config_provider.dart';
 import '../../../providers/download_path_provider.dart';
+import '../../../providers/update_provider.dart';
 import '../../router.dart';
 import '../../widgets/change_download_path_dialog.dart';
+import '../../widgets/update_dialog.dart';
 
 /// 设置页
 class SettingsPage extends ConsumerWidget {
@@ -105,15 +108,18 @@ class SettingsPage extends ConsumerWidget {
                 onTap: () => context.push(RoutePaths.userGuide),
               ),
               _VersionListTile(),
+              _CheckUpdateListTile(),
               ListTile(
                 leading: const Icon(Icons.code_outlined),
                 title: const Text('开源许可'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () {
+                onTap: () async {
+                  final info = await PackageInfo.fromPlatform();
+                  if (!context.mounted) return;
                   showLicensePage(
                     context: context,
                     applicationName: 'FMP',
-                    applicationVersion: '1.0.0',
+                    applicationVersion: info.version,
                   );
                 },
               ),
@@ -342,34 +348,100 @@ class _VersionListTile extends ConsumerWidget {
     final devOptions = ref.watch(developerOptionsProvider);
     final notifier = ref.read(developerOptionsProvider.notifier);
 
-    return ListTile(
-      leading: const Icon(Icons.info_outline),
-      title: const Text('版本'),
-      subtitle: const Text('1.0.0 (Phase 4)'),
-      onTap: () {
-        notifier.onVersionTap();
-        
-        if (!devOptions.isEnabled) {
-          final remaining = notifier.remainingTaps;
-          if (remaining <= 4 && remaining > 0) {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('再点击 $remaining 次启用开发者选项'),
-                duration: const Duration(seconds: 1),
-              ),
-            );
-          } else if (remaining == 0) {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('开发者选项已启用'),
-                duration: Duration(seconds: 2),
-              ),
-            );
-          }
-        }
+    return FutureBuilder<PackageInfo>(
+      future: PackageInfo.fromPlatform(),
+      builder: (context, snapshot) {
+        final version = snapshot.data?.version ?? '...';
+        final buildNumber = snapshot.data?.buildNumber ?? '';
+        final versionText = buildNumber.isNotEmpty ? '$version+$buildNumber' : version;
+
+        return ListTile(
+          leading: const Icon(Icons.info_outline),
+          title: const Text('版本'),
+          subtitle: Text(versionText),
+          onTap: () {
+            notifier.onVersionTap();
+
+            if (!devOptions.isEnabled) {
+              final remaining = notifier.remainingTaps;
+              if (remaining <= 4 && remaining > 0) {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('再点击 $remaining 次启用开发者选项'),
+                    duration: const Duration(seconds: 1),
+                  ),
+                );
+              } else if (remaining == 0) {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('开发者选项已启用'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
+            }
+          },
+        );
       },
+    );
+  }
+}
+
+/// 检查更新
+class _CheckUpdateListTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final updateState = ref.watch(updateProvider);
+    final isChecking = updateState.status == UpdateStatus.checking;
+
+    return ListTile(
+      leading: const Icon(Icons.system_update_outlined),
+      title: const Text('检查更新'),
+      subtitle: Text(
+        switch (updateState.status) {
+          UpdateStatus.checking => '正在检查...',
+          UpdateStatus.upToDate => '已是最新版本',
+          UpdateStatus.updateAvailable => '有新版本: ${updateState.updateInfo?.version ?? ""}',
+          UpdateStatus.error => '检查失败，点击重试',
+          _ => '检查 GitHub 上的新版本',
+        },
+      ),
+      trailing: isChecking
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.chevron_right),
+      onTap: isChecking
+          ? null
+          : () async {
+              await ref.read(updateProvider.notifier).checkForUpdate();
+              final state = ref.read(updateProvider);
+              if (!context.mounted) return;
+
+              if (state.status == UpdateStatus.updateAvailable && state.updateInfo != null) {
+                UpdateDialog.show(context, state.updateInfo!);
+              } else if (state.status == UpdateStatus.upToDate) {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('已是最新版本'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              } else if (state.status == UpdateStatus.error) {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.errorMessage ?? '检查更新失败'),
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+              }
+            },
     );
   }
 }
