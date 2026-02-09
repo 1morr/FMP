@@ -374,13 +374,18 @@ class SearchNotifier extends StateNotifier<SearchState> {
   /// 设置音源筛选（null = 全部）
   /// [autoSearch] 是否自动触发搜索，默认为 true
   void setSource(SourceType? sourceType, {bool autoSearch = true}) {
+    final hasQuery = state.query.isNotEmpty;
+    
     state = state.copyWith(
       selectedSource: sourceType,
       clearSelectedSource: sourceType == null,
+      // 有查询时清空旧结果并显示加载状态
+      onlineResults: (autoSearch && hasQuery) ? {} : state.onlineResults,
+      isLoading: autoSearch && hasQuery,
     );
 
     // 如果有查询，重新搜索
-    if (autoSearch && state.query.isNotEmpty) {
+    if (autoSearch && hasQuery) {
       search(state.query);
     }
   }
@@ -389,10 +394,17 @@ class SearchNotifier extends StateNotifier<SearchState> {
   void setSearchOrder(SearchOrder order) {
     if (state.searchOrder == order) return;
     
-    state = state.copyWith(searchOrder: order);
+    final hasQuery = state.query.isNotEmpty;
+    
+    state = state.copyWith(
+      searchOrder: order,
+      // 有查询时清空旧结果并显示加载状态
+      onlineResults: hasQuery ? {} : state.onlineResults,
+      isLoading: hasQuery,
+    );
     
     // 如果有查询，重新搜索
-    if (state.query.isNotEmpty) {
+    if (hasQuery) {
       search(state.query);
     }
   }
@@ -411,15 +423,23 @@ class SearchNotifier extends StateNotifier<SearchState> {
   /// 设置直播间筛选（null = 退出直播间搜索模式）
   /// [autoSearch] 是否自动触发搜索，默认为 true
   void setLiveRoomFilter(LiveRoomFilter? filter, {bool autoSearch = true}) {
+    final hasQuery = state.query.isNotEmpty;
+    final isExitingLiveMode = filter == null;
+    
     state = state.copyWith(
       liveRoomFilter: filter,
-      clearLiveRoomFilter: filter == null,
-      liveRoomResults: null, // 清空之前的直播间结果
+      clearLiveRoomFilter: isExitingLiveMode,
+      // 清空直播间结果
+      clearLiveRoomResults: true,
       liveRoomPage: 1,
+      // 退出直播间模式时清空视频结果
+      onlineResults: (isExitingLiveMode && autoSearch && hasQuery) ? {} : state.onlineResults,
+      // 有查询时显示加载状态
+      isLoading: autoSearch && hasQuery,
     );
 
     // 如果有查询，重新搜索
-    if (autoSearch && state.query.isNotEmpty) {
+    if (autoSearch && hasQuery) {
       search(state.query);
     }
   }
