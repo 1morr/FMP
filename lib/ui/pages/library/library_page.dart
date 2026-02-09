@@ -49,6 +49,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
 
     return Scaffold(
       appBar: AppBar(
+        leadingWidth: 56,
         leading: IconButton(
           icon: const Icon(Icons.download_done),
           tooltip: '已下载',
@@ -96,6 +97,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
               onPressed: () => _showImportDialog(context, ref),
             ),
           ],
+          const SizedBox(width: 8),
         ],
       ),
       body: Stack(
