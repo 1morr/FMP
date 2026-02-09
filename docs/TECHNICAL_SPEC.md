@@ -1,8 +1,9 @@
 # Flutter Music Player (FMP) - 技术规格文档
 
-> 版本: 1.0.0
+> 版本: 1.1.0
 > 创建日期: 2026-01-03
-> 状态: 技术设计阶段
+> 最后更新: 2026-02-09
+> 状态: 实现完成 (Phase 1-5 ✅)
 
 ---
 
@@ -12,41 +13,47 @@
 
 | 层级 | 技术选型 | 版本 | 说明 |
 |------|----------|------|------|
-| UI 框架 | Flutter | 3.x (最新稳定版) | 跨平台 UI |
-| **设计系统** | **Material Design 3** | Material You | 现代化 UI 规范 |
+| UI 框架 | Flutter | 3.x (>=3.5.0) | 跨平台 UI |
+| 设计系统 | Material Design 3 | Material You | 现代化 UI 规范 |
 | 编程语言 | Dart | 3.x | 类型安全，空安全 |
-| 状态管理 | Riverpod | 2.x+ | 响应式，可测试 |
-| 本地存储 | Isar | 3.x | 高性能 NoSQL |
-| 音频播放 | media_kit | 1.1.x | 直接使用，原生 httpHeaders |
+| 状态管理 | Riverpod | 2.6.x | 响应式，可测试 |
+| 本地存储 | Isar | 3.1.x | 高性能 NoSQL |
+| 音频播放 | media_kit | 1.1.x | 直接使用，原生 httpHeaders 支持 |
 | 后台播放 | audio_service | 0.18.x | Android 媒体通知控制 |
 | Windows 媒体 | smtc_windows | 1.1.x | Windows SMTC 媒体键 |
+| 网络请求 | Dio | 5.8.x | HTTP 客户端 |
+| 路由管理 | go_router | 14.8.x | 声明式路由 |
 
 ### 1.2 平台特定依赖
 
 #### Windows 桌面
-| 功能 | 包名 | 说明 |
-|------|------|------|
-| 系统托盘 | tray_manager | 托盘图标与菜单 |
-| 窗口管理 | window_manager | 窗口控制 |
-| 全局快捷键 | hotkey_manager | 全局热键注册 |
+| 功能 | 包名 | 版本 | 说明 |
+|------|------|------|------|
+| 系统托盘 | tray_manager | 0.2.x | 托盘图标与菜单 |
+| 窗口管理 | window_manager | 0.4.x | 窗口控制 |
+| 全局快捷键 | hotkey_manager | 0.2.x | 全局热键注册 |
+| 音频支持 | media_kit_libs_windows_audio | 1.0.x | Windows 音频解码 |
 
 #### Android 移动端
-| 功能 | 包名 | 说明 |
-|------|------|------|
-| 权限管理 | permission_handler | 存储权限等 |
-| 后台服务 | audio_service | 媒体通知栏控制 |
+| 功能 | 包名 | 版本 | 说明 |
+|------|------|------|------|
+| 权限管理 | permission_handler | 11.4.x | 存储权限等 |
+| 后台服务 | audio_service | 0.18.x | 媒体通知栏控制 |
+| 音频支持 | media_kit_libs_android_audio | 1.3.x | Android 音频解码 |
+| APK 安装 | open_filex | 4.5.x | 应用更新安装 |
 
 ### 1.3 公共依赖
 
-| 功能 | 包名 | 说明 |
-|------|------|------|
-| 网络请求 | dio | HTTP 客户端 |
-| 路由管理 | go_router | 声明式路由 |
-| 依赖注入 | riverpod | Provider 系统 |
-| 日志 | logger | 开发调试 |
-| 文件选择 | file_picker | 文件/目录选择 |
-| 图片缓存 | cached_network_image | 封面缓存 |
-| 拖拽排序 | flutter_reorderable_list | 队列排序 |
+| 功能 | 包名 | 版本 | 说明 |
+|------|------|------|------|
+| 动态取色 | dynamic_color | 1.7.x | Material You 动态颜色 |
+| YouTube 解析 | youtube_explode_dart | 2.3.x | YouTube 数据提取 |
+| 图片缓存 | cached_network_image | 3.4.x | 封面缓存 |
+| 文件选择 | file_picker | 8.3.x | 文件/目录选择 |
+| 日志 | logger | 2.5.x | 开发调试 |
+| 流处理 | rxdart | 0.28.x | BehaviorSubject 等 |
+| ZIP 解压 | archive | 4.0.x | Windows 更新解压 |
+| 版本信息 | package_info_plus | 8.0.x | 获取应用版本 |
 
 ---
 
@@ -57,117 +64,117 @@
 ```
 lib/
 ├── main.dart                    # 应用入口
-├── app.dart                     # App 配置
+├── app.dart                     # App 配置（主题、路由）
 │
 ├── core/                        # 核心模块
 │   ├── constants/               # 常量定义
-│   │   ├── app_constants.dart
-│   │   ├── breakpoints.dart     # 响应式断点
-│   │   └── theme_constants.dart
+│   │   ├── app_constants.dart   # 应用常量
+│   │   └── source_type.dart     # 音源类型枚举
 │   ├── extensions/              # Dart 扩展
-│   ├── utils/                   # 工具函数
-│   │   ├── platform_utils.dart
-│   │   └── duration_utils.dart
-│   └── errors/                  # 错误处理
-│       ├── app_exception.dart
-│       └── error_handler.dart
+│   │   └── track_extensions.dart # Track 扩展方法
+│   └── utils/                   # 工具函数
+│       └── duration_formatter.dart
 │
 ├── data/                        # 数据层
 │   ├── models/                  # 数据模型 (Isar Collections)
-│   │   ├── track.dart
-│   │   ├── playlist.dart
-│   │   ├── play_queue.dart
-│   │   ├── search_history.dart
-│   │   └── settings.dart
+│   │   ├── track.dart           # 歌曲模型
+│   │   ├── playlist.dart        # 歌单模型
+│   │   ├── play_queue.dart      # 播放队列模型
+│   │   ├── settings.dart        # 设置模型
+│   │   ├── search_history.dart  # 搜索历史
+│   │   └── download_task.dart   # 下载任务
 │   ├── repositories/            # 数据仓库
 │   │   ├── track_repository.dart
 │   │   ├── playlist_repository.dart
 │   │   ├── queue_repository.dart
 │   │   └── settings_repository.dart
-│   └── sources/                 # 音源解析
-│       ├── base_source.dart
-│       ├── bilibili_source.dart
-│       └── youtube_source.dart
+│   └── database/
+│       └── database_service.dart # Isar 数据库初始化
+│
+├── sources/                     # 音源解析
+│   ├── base_source.dart         # 音源基类
+│   ├── bilibili_source.dart     # Bilibili 音源
+│   ├── youtube_source.dart      # YouTube 音源
+│   └── source_manager.dart      # 音源管理器
 │
 ├── services/                    # 服务层
 │   ├── audio/                   # 音频服务
-│   │   ├── audio_service.dart
-│   │   ├── audio_handler.dart
-│   │   └── playback_state.dart
+│   │   ├── media_kit_audio_service.dart  # media_kit 播放器封装
+│   │   ├── audio_controller.dart         # 播放控制器（核心）
+│   │   ├── android_audio_handler.dart    # Android 后台播放
+│   │   └── windows_smtc_handler.dart     # Windows 媒体键
 │   ├── download/                # 下载服务
-│   │   ├── download_service.dart
-│   │   ├── download_task.dart
-│   │   └── cache_manager.dart
-│   ├── search/                  # 搜索服务
-│   │   └── search_service.dart
-│   ├── import/                  # 导入服务
-│   │   ├── import_service.dart
-│   │   └── playlist_sync_service.dart
+│   │   ├── download_service.dart         # 下载任务管理
+│   │   ├── download_path_utils.dart      # 路径计算
+│   │   ├── download_path_manager.dart    # 路径选择管理
+│   │   └── download_path_sync_service.dart # 本地文件同步
+│   ├── playlist/                # 歌单服务
+│   │   └── playlist_service.dart
+│   ├── ranking/                 # 排行榜服务
+│   │   └── ranking_cache_service.dart    # 排行榜缓存
+│   ├── update/                  # 应用更新
+│   │   └── update_service.dart
 │   └── platform/                # 平台服务
 │       ├── tray_service.dart    # Windows 托盘
-│       ├── hotkey_service.dart  # 全局快捷键
-│       └── notification_service.dart
+│       └── hotkey_service.dart  # 全局快捷键
 │
 ├── providers/                   # Riverpod Providers
-│   ├── audio_provider.dart
-│   ├── queue_provider.dart
+│   ├── audio/
+│   │   ├── audio_controller_provider.dart
+│   │   └── player_state_provider.dart
+│   ├── download/
+│   │   ├── download_providers.dart
+│   │   ├── download_scanner.dart
+│   │   └── file_exists_cache.dart
 │   ├── playlist_provider.dart
 │   ├── search_provider.dart
 │   ├── settings_provider.dart
-│   ├── download_provider.dart
-│   └── theme_provider.dart
+│   ├── theme_provider.dart
+│   └── update_provider.dart
 │
 ├── ui/                          # UI 层
-│   ├── app_shell.dart           # 响应式外壳
 │   ├── router.dart              # 路由配置
+│   ├── responsive_scaffold.dart # 响应式外壳
 │   │
 │   ├── pages/                   # 页面
 │   │   ├── home/
-│   │   │   ├── home_page.dart
-│   │   │   └── widgets/
+│   │   │   └── home_page.dart
+│   │   ├── explore/
+│   │   │   └── explore_page.dart
 │   │   ├── search/
-│   │   │   ├── search_page.dart
-│   │   │   └── widgets/
+│   │   │   └── search_page.dart
 │   │   ├── player/
 │   │   │   ├── player_page.dart
-│   │   │   ├── mini_player.dart
-│   │   │   └── widgets/
+│   │   │   └── radio_player_page.dart   # Mix 模式播放器
 │   │   ├── queue/
-│   │   │   ├── queue_page.dart
-│   │   │   └── widgets/
+│   │   │   └── queue_page.dart
+│   │   ├── history/
+│   │   │   └── play_history_page.dart
 │   │   ├── library/
 │   │   │   ├── library_page.dart
 │   │   │   ├── playlist_detail_page.dart
-│   │   │   └── widgets/
+│   │   │   ├── downloaded_page.dart
+│   │   │   └── downloaded_category_page.dart
 │   │   └── settings/
 │   │       ├── settings_page.dart
-│   │       ├── theme_settings_page.dart
-│   │       ├── cache_settings_page.dart
-│   │       ├── hotkey_settings_page.dart
-│   │       └── widgets/
+│   │       ├── audio_settings_page.dart
+│   │       └── download_manager_page.dart
 │   │
 │   ├── widgets/                 # 共享组件
-│   │   ├── track_tile.dart
-│   │   ├── playlist_card.dart
-│   │   ├── source_badge.dart
-│   │   ├── loading_indicator.dart
-│   │   └── error_view.dart
-│   │
-│   ├── layouts/                 # 响应式布局
-│   │   ├── responsive_scaffold.dart
-│   │   ├── mobile_layout.dart
-│   │   ├── tablet_layout.dart
-│   │   └── desktop_layout.dart
+│   │   ├── mini_player.dart
+│   │   ├── track_detail_panel.dart      # 桌面端详情面板
+│   │   ├── track_thumbnail.dart
+│   │   ├── track_cover.dart
+│   │   ├── now_playing_indicator.dart
+│   │   ├── update_dialog.dart
+│   │   └── change_download_path_dialog.dart
 │   │
 │   └── theme/                   # 主题
-│       ├── app_theme.dart
-│       ├── color_schemes.dart
-│       └── text_styles.dart
+│       └── app_theme.dart
 │
 └── platform/                    # 平台特定代码
     ├── android/
-    ├── windows/
-    └── shared/
+    └── windows/
 ```
 
 ### 2.2 架构图
@@ -175,16 +182,18 @@ lib/
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                           UI Layer                               │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────┐ │
-│  │  Pages   │ │ Widgets  │ │ Layouts  │ │  Theme   │ │ Router │ │
-│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └───┬────┘ │
-└───────┼────────────┼────────────┼────────────┼───────────┼──────┘
-        │            │            │            │           │
-        ▼            ▼            ▼            ▼           ▼
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐            │
+│  │  Pages   │ │ Widgets  │ │Responsive│ │  Theme   │            │
+│  │          │ │          │ │ Scaffold │ │          │            │
+│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘            │
+└───────┼────────────┼────────────┼────────────┼──────────────────┘
+        │            │            │            │
+        ▼            ▼            ▼            ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                       Provider Layer (Riverpod)                  │
+│                    Provider Layer (Riverpod)                     │
 │  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐             │
-│  │AudioProvider │ │QueueProvider │ │ThemeProvider │    ...      │
+│  │AudioController│ │PlayerState  │ │SettingsProvider│   ...     │
+│  │   Provider   │ │  Provider   │ │              │             │
 │  └──────┬───────┘ └──────┬───────┘ └──────┬───────┘             │
 └─────────┼────────────────┼────────────────┼─────────────────────┘
           │                │                │
@@ -192,7 +201,8 @@ lib/
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Service Layer                             │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌───────────┐  │
-│  │AudioService │ │DownloadSvc  │ │ ImportSvc   │ │ PlatformSvc│ │
+│  │MediaKitAudio│ │DownloadSvc  │ │SourceManager│ │UpdateSvc  │  │
+│  │  Service    │ │             │ │             │ │           │  │
 │  └──────┬──────┘ └──────┬──────┘ └──────┬──────┘ └─────┬─────┘  │
 └─────────┼───────────────┼───────────────┼──────────────┼────────┘
           │               │               │              │
@@ -201,6 +211,7 @@ lib/
 │                         Data Layer                               │
 │  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐             │
 │  │ Repositories │ │   Sources    │ │    Models    │             │
+│  │              │ │ (Bilibili/YT)│ │   (Isar)     │             │
 │  └──────┬───────┘ └──────┬───────┘ └──────┬───────┘             │
 └─────────┼────────────────┼────────────────┼─────────────────────┘
           │                │                │
@@ -208,8 +219,8 @@ lib/
 ┌─────────────────────────────────────────────────────────────────┐
 │                      External Layer                              │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐            │
-│  │   Isar   │ │media_kit │ │  Dio/HTTP │ │ Platform │            │
-│  │ Database │ │  Player  │ │  Client   │ │   APIs   │            │
+│  │   Isar   │ │media_kit │ │  Dio +   │ │ Platform │            │
+│  │ Database │ │  Player  │ │yt_explode│ │   APIs   │            │
 │  └──────────┘ └──────────┘ └──────────┘ └──────────┘            │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -221,46 +232,51 @@ lib/
 ### 3.1 Track (歌曲)
 
 ```dart
-import 'package:isar/isar.dart';
-
-part 'track.g.dart';
-
-enum SourceType { bilibili, youtube }
-
 @collection
 class Track {
   Id id = Isar.autoIncrement;
 
   @Index()
-  late String sourceId;      // 源平台的唯一ID (如 BV号, YouTube video ID)
+  late String sourceId;           // 源平台 ID (BV号/YouTube video ID)
 
   @Index()
-  @Enumerated(EnumType.name)
-  late SourceType sourceType;
+  @Enumerated(EnumType.ordinal)
+  late SourceType sourceType;     // bilibili / youtube
 
   late String title;
   String? artist;
-  int? durationMs;           // 时长（毫秒）
-  String? thumbnailUrl;      // 封面图 URL
+  int? durationMs;                // 时长（毫秒）
+  String? thumbnailUrl;           // 封面 URL
 
-  // 音频 URL（可能会过期，需要重新获取）
-  String? audioUrl;
-  DateTime? audioUrlExpiry;
+  // Bilibili 特有字段
+  int? cid;                       // Bilibili cid
+  int? pageNum;                   // 多P视频分P序号
+  String? parentTitle;            // 多P视频父标题
 
-  // 可用性
-  bool isAvailable = true;
-  String? unavailableReason;
+  // 歌单关联（多对多）
+  List<int> playlistIds = [];     // 关联的歌单 ID 列表
 
-  // 缓存/下载状态
-  String? cachedPath;        // 流媒体缓存路径
-  String? downloadedPath;    // 离线下载路径
+  // 下载路径（按歌单存储）
+  List<String> downloadPaths = []; // 下载路径列表
+
+  // 播放位置记忆
+  int? rememberedPositionMs;      // 记忆的播放位置（长视频）
 
   DateTime createdAt = DateTime.now();
-  DateTime? updatedAt;
+  DateTime? lastPlayedAt;
 
-  // 复合索引用于快速查找
-  @Index(composite: [CompositeIndex('sourceType')])
+  // 复合索引
+  @Index(composite: [CompositeIndex('sourceType'), CompositeIndex('cid')])
   String get sourceKey => '$sourceType:$sourceId';
+}
+
+// Track 扩展方法 (track_extensions.dart)
+extension TrackExtensions on Track {
+  bool get isDownloaded => downloadPaths.isNotEmpty;
+  String? get localAudioPath;           // 第一个存在的音频路径
+  List<String> get validDownloadPaths;  // 过滤出存在的路径
+  bool get hasLocalAudio;
+  bool get isPartOfMultiPage => pageNum != null && pageNum! > 0;
 }
 ```
 
@@ -271,26 +287,19 @@ class Track {
 class Playlist {
   Id id = Isar.autoIncrement;
 
-  @Index(unique: true)
   late String name;
-
   String? description;
-  String? coverUrl;          // 自定义封面（网络 URL）
+  String? coverUrl;
 
-  // 导入源信息（如果是从外部导入的）
-  String? sourceUrl;         // B站收藏夹/YouTube播放列表 URL
-  @Enumerated(EnumType.name)
-  SourceType? importSourceType;
+  // 导入源信息
+  String? sourceUrl;              // B站收藏夹/YouTube播放列表 URL
+  @Enumerated(EnumType.ordinal)
+  SourceType? sourceType;         // 导入源类型
 
-  // 刷新配置
-  Duration? refreshInterval; // 刷新间隔
-  DateTime? lastRefreshed;
-  bool notifyOnUpdate = true;
-
-  final tracks = IsarLinks<Track>();  // 关联的歌曲
+  bool isImported = false;        // 是否为导入歌单
 
   DateTime createdAt = DateTime.now();
-  DateTime? updatedAt;
+  DateTime? lastSyncedAt;         // 最后同步时间
 }
 ```
 
@@ -299,30 +308,31 @@ class Playlist {
 ```dart
 @collection
 class PlayQueue {
-  Id id = Isar.autoIncrement;
+  Id id = 0;                      // 单例
 
-  // 队列中的歌曲ID列表（有序）
-  List<int> trackIds = [];
-
-  // 当前播放状态
+  List<int> trackIds = [];        // 队列中的歌曲 ID 列表
   int currentIndex = 0;
-  int lastPositionMs = 0;    // 上次播放位置（毫秒）
+  int lastPositionMs = 0;         // 上次播放位置
 
-  @Enumerated(EnumType.name)
-  PlayMode playMode = PlayMode.sequential;
+  @Enumerated(EnumType.ordinal)
+  LoopMode loopMode = LoopMode.off;
 
-  // 原始顺序（用于取消随机时恢复）
-  List<int>? originalOrder;
+  bool isShuffled = false;
+  List<int>? originalOrder;       // 随机前的原始顺序
+
+  double volume = 1.0;            // 音量 (0.0-1.0)
+  double? volumeBeforeMute;       // 静音前的音量
+
+  // Mix 模式相关
+  bool isMixMode = false;
+  String? mixPlaylistId;          // Mix 播放列表 ID (以 "RD" 开头)
+  String? mixSeedVideoId;         // Mix 种子视频 ID
+  String? mixTitle;
 
   DateTime? lastUpdated;
 }
 
-enum PlayMode {
-  sequential,  // 顺序播放
-  loop,        // 列表循环
-  loopOne,     // 单曲循环
-  shuffle,     // 随机播放
-}
+enum LoopMode { off, one, all }
 ```
 
 ### 3.4 Settings (设置)
@@ -330,38 +340,58 @@ enum PlayMode {
 ```dart
 @collection
 class Settings {
-  Id id = 0;  // 单例，始终使用 ID 0
+  Id id = 0;                      // 单例
 
   // 主题
-  @Enumerated(EnumType.name)
-  ThemeMode themeMode = ThemeMode.system;
+  int themeModeIndex = 0;         // 0=system, 1=light, 2=dark
 
-  // 自定义颜色 (ARGB int)
-  int? primaryColor;
-  int? secondaryColor;
-  int? backgroundColor;
-  int? surfaceColor;
-  int? textColor;
-  int? cardColor;
+  // 下载设置
+  String? downloadPath;
 
-  // 缓存设置
-  String? customCacheDir;
-  int maxCacheSizeMB = 2048;  // 默认 2GB
-  String? customDownloadDir;
+  // 桌面设置
+  bool minimizeToTray = true;
+  bool globalHotkeysEnabled = true;
 
-  // 快捷键配置 (JSON 字符串)
-  String? hotkeyConfig;
+  // 播放设置
+  bool autoScrollToCurrentTrack = true;
 
-  // 搜索设置
-  List<String> enabledSources = ['bilibili', 'youtube'];
-
-  // 导入设置
-  bool autoRefreshImports = true;
-  int defaultRefreshIntervalHours = 24;
+  // 音频质量设置
+  int audioQualityLevelIndex = 0;       // 0=high, 1=medium, 2=low
+  String audioFormatPriority = 'opus,aac';
+  String youtubeStreamPriority = 'audioOnly,muxed,hls';
+  String bilibiliStreamPriority = 'audioOnly,muxed';
 }
 ```
 
-### 3.5 SearchHistory (搜索历史)
+### 3.5 DownloadTask (下载任务)
+
+```dart
+@collection
+class DownloadTask {
+  Id id = Isar.autoIncrement;
+
+  @Index()
+  late int trackId;
+
+  int? playlistId;                // 关联的歌单 ID
+
+  @Index()
+  late String savePath;           // 保存路径（用于去重）
+
+  @Enumerated(EnumType.ordinal)
+  DownloadStatus status = DownloadStatus.pending;
+
+  double progress = 0.0;          // 注意：进度主要在内存中管理
+  String? errorMessage;
+
+  DateTime createdAt = DateTime.now();
+  DateTime? completedAt;
+}
+
+enum DownloadStatus { pending, downloading, paused, completed, failed }
+```
+
+### 3.6 SearchHistory (搜索历史)
 
 ```dart
 @collection
@@ -376,323 +406,190 @@ class SearchHistory {
 }
 ```
 
-### 3.6 DownloadTask (下载任务)
+### 3.7 枚举类型汇总
 
 ```dart
-@collection
-class DownloadTask {
-  Id id = Isar.autoIncrement;
+enum SourceType { bilibili, youtube }
 
-  @Index()
-  late int trackId;
+enum LoopMode { off, one, all }
 
-  @Enumerated(EnumType.name)
-  DownloadStatus status = DownloadStatus.pending;
+enum PlayMode { queue, temporary, detached, mix }
 
-  double progress = 0.0;
-  String? errorMessage;
+enum AudioQualityLevel { high, medium, low }
 
-  DateTime createdAt = DateTime.now();
-  DateTime? completedAt;
-}
+enum AudioFormat { opus, aac }
 
-enum DownloadStatus {
-  pending,
-  downloading,
-  paused,
-  completed,
-  failed,
-}
+enum StreamType { audioOnly, muxed, hls }
+
+enum DownloadStatus { pending, downloading, paused, completed, failed }
 ```
 
 ---
 
 ## 4. 核心服务实现
 
-### 4.1 音频服务 (AudioService)
+### 4.1 音频服务架构
+
+FMP 使用 `media_kit` 直接播放，通过 `AudioController` 统一管理播放状态。
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     AudioController                          │
+│  (lib/services/audio/audio_controller.dart)                 │
+│  - 播放控制核心                                              │
+│  - 队列管理                                                  │
+│  - 临时播放/Mix 模式                                         │
+└─────────────────────────────────────────────────────────────┘
+          │
+          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  MediaKitAudioService                        │
+│  (lib/services/audio/media_kit_audio_service.dart)          │
+│  - media_kit Player 封装                                     │
+│  - 原生 httpHeaders 支持（解决 Bilibili 防盗链）             │
+│  - 状态流管理 (RxDart BehaviorSubject)                       │
+└─────────────────────────────────────────────────────────────┘
+          │
+          ├──────────────────────┬──────────────────────┐
+          ▼                      ▼                      ▼
+┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
+│AndroidAudioHandler│  │WindowsSmtcHandler│  │  media_kit      │
+│(audio_service)   │  │(smtc_windows)    │  │  Player         │
+│- 通知栏控制      │  │- 媒体键控制      │  │                 │
+│- 后台播放        │  │- SMTC 集成       │  │                 │
+└─────────────────┘  └─────────────────┘  └─────────────────┘
+```
+
+### 4.2 AudioController 核心方法
 
 ```dart
-class AudioService {
-  final AudioPlayer _player = AudioPlayer();
-  final QueueRepository _queueRepository;
+class AudioController extends StateNotifier<PlayerState> {
+  // 播放模式
+  PlayMode _playMode = PlayMode.queue;  // queue/temporary/detached/mix
 
-  // 状态流
-  Stream<PlayerState> get playerStateStream => _player.playerStateStream;
-  Stream<Duration> get positionStream => _player.positionStream;
-  Stream<Duration?> get durationStream => _player.durationStream;
+  // 队列播放
+  Future<void> playFromQueue(int index);
+  Future<void> setQueue(List<Track> tracks, {int startIndex = 0});
 
-  // 播放队列
-  ConcatenatingAudioSource? _playlist;
+  // 临时播放（不修改队列）
+  Future<void> playTemporary(Track track);
 
-  Future<void> playTrack(Track track, {int? queueIndex}) async {
-    // 1. 获取音频 URL（如果过期则重新获取）
-    final audioUrl = await _getAudioUrl(track);
-
-    // 2. 创建 AudioSource
-    final source = AudioSource.uri(
-      Uri.parse(audioUrl),
-      tag: MediaItem(
-        id: track.id.toString(),
-        title: track.title,
-        artist: track.artist,
-        artUri: track.thumbnailUrl != null
-          ? Uri.parse(track.thumbnailUrl!)
-          : null,
-      ),
-    );
-
-    // 3. 播放
-    await _player.setAudioSource(source);
-    await _player.play();
-  }
-
-  Future<void> setQueue(List<Track> tracks, {int startIndex = 0}) async {
-    _playlist = ConcatenatingAudioSource(
-      children: tracks.map((t) => AudioSource.uri(
-        Uri.parse(t.audioUrl ?? ''),
-        tag: _trackToMediaItem(t),
-      )).toList(),
-    );
-
-    await _player.setAudioSource(_playlist!, initialIndex: startIndex);
-  }
+  // Mix 模式播放
+  Future<void> playMix(String playlistId, String seedVideoId, String title);
 
   // 播放控制
-  Future<void> play() => _player.play();
-  Future<void> pause() => _player.pause();
-  Future<void> seekTo(Duration position) => _player.seek(position);
-  Future<void> seekToNext() => _player.seekToNext();
-  Future<void> seekToPrevious() => _player.seekToPrevious();
+  Future<void> play();
+  Future<void> pause();
+  Future<void> togglePlayPause();
+  Future<void> seekTo(Duration position);
+  Future<void> seekToProgress(double progress);  // 0.0-1.0
+  Future<void> next();
+  Future<void> previous();
 
-  // 播放模式
-  Future<void> setPlayMode(PlayMode mode) async {
-    switch (mode) {
-      case PlayMode.sequential:
-        await _player.setLoopMode(LoopMode.off);
-        await _player.setShuffleModeEnabled(false);
-        break;
-      case PlayMode.loop:
-        await _player.setLoopMode(LoopMode.all);
-        await _player.setShuffleModeEnabled(false);
-        break;
-      case PlayMode.loopOne:
-        await _player.setLoopMode(LoopMode.one);
-        break;
-      case PlayMode.shuffle:
-        await _player.setLoopMode(LoopMode.all);
-        await _player.setShuffleModeEnabled(true);
-        break;
-    }
-  }
+  // 音量控制
+  Future<void> setVolume(double volume);
+  Future<void> toggleMute();  // 带记忆的静音切换
 
-  // 播放速度
-  Future<void> setSpeed(double speed) => _player.setSpeed(speed);
+  // 循环模式
+  Future<void> setLoopMode(LoopMode mode);
+  Future<void> toggleShuffle();
 
-  // 快进快退
-  Future<void> seekForward(Duration duration) async {
-    final newPosition = _player.position + duration;
-    await _player.seek(newPosition);
-  }
-
-  Future<void> seekBackward(Duration duration) async {
-    final newPosition = _player.position - duration;
-    await _player.seek(newPosition < Duration.zero ? Duration.zero : newPosition);
-  }
+  // 队列操作
+  Future<void> addToQueue(Track track);
+  Future<void> addNext(Track track);
+  Future<void> removeFromQueue(int index);
+  Future<void> moveInQueue(int oldIndex, int newIndex);
+  Future<void> clearQueue();
 }
 ```
 
-### 4.2 音源解析 (Source Parser)
+### 4.3 音源解析 (SourceManager)
 
 ```dart
-abstract class BaseSource {
-  SourceType get sourceType;
+class SourceManager {
+  final BilibiliSource _bilibiliSource;
+  final YouTubeSource _youtubeSource;
 
-  /// 从 URL 解析出 ID
-  String? parseId(String url);
-
-  /// 获取歌曲信息
-  Future<Track> getTrackInfo(String sourceId);
-
-  /// 获取音频流 URL（可能会过期）
-  Future<String> getAudioUrl(String sourceId);
+  /// 从 URL 解析 Track
+  Future<Track?> parseUrl(String url);
 
   /// 搜索
-  Future<List<Track>> search(String query, {int page = 1, int pageSize = 20});
+  Future<List<Track>> search(String query, {
+    SourceType? sourceType,
+    int page = 1,
+    String? sortBy,
+  });
 
-  /// 解析播放列表/收藏夹
-  Future<List<Track>> parsePlaylist(String playlistUrl);
+  /// 获取音频流 URL
+  Future<AudioStreamInfo> getAudioStream(Track track);
+
+  /// 获取视频详情
+  Future<VideoDetail> getVideoDetail(Track track);
+
+  /// 导入播放列表
+  Future<List<Track>> importPlaylist(String url);
+
+  /// 获取排行榜
+  Future<List<Track>> getRanking(SourceType sourceType);
 }
 
-class BilibiliSource extends BaseSource {
-  @override
-  SourceType get sourceType => SourceType.bilibili;
-
-  @override
-  String? parseId(String url) {
-    // 解析 BV 号
-    final regex = RegExp(r'BV[a-zA-Z0-9]+');
-    final match = regex.firstMatch(url);
-    return match?.group(0);
-  }
-
-  @override
-  Future<Track> getTrackInfo(String bvid) async {
-    // 调用 B站 API 获取视频信息
-    final response = await _dio.get(
-      'https://api.bilibili.com/x/web-interface/view',
-      queryParameters: {'bvid': bvid},
-    );
-
-    final data = response.data['data'];
-    return Track()
-      ..sourceId = bvid
-      ..sourceType = SourceType.bilibili
-      ..title = data['title']
-      ..artist = data['owner']['name']
-      ..durationMs = data['duration'] * 1000
-      ..thumbnailUrl = data['pic'];
-  }
-
-  @override
-  Future<String> getAudioUrl(String bvid) async {
-    // 获取音频流 URL
-    // 需要先获取 cid，再获取播放 URL
-    // ...
-  }
-
-  @override
-  Future<List<Track>> parsePlaylist(String favUrl) async {
-    // 解析收藏夹 URL，获取所有视频
-    // ...
-  }
-}
-
-class YouTubeSource extends BaseSource {
-  @override
-  SourceType get sourceType => SourceType.youtube;
-
-  @override
-  String? parseId(String url) {
-    // 解析 YouTube video ID
-    final regex = RegExp(
-      r'(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})'
-    );
-    final match = regex.firstMatch(url);
-    return match?.group(1);
-  }
-
-  // ... 其他实现
+// 音频流信息
+class AudioStreamInfo {
+  final String url;
+  final Map<String, String> headers;  // 包含 Referer 等
+  final int? bitrate;
+  final String? format;               // opus/aac
+  final StreamType streamType;        // audioOnly/muxed/hls
 }
 ```
 
-### 4.3 下载服务 (DownloadService)
+### 4.4 下载服务 (DownloadService)
 
 ```dart
 class DownloadService {
-  final Dio _dio = Dio();
-  final Map<int, CancelToken> _cancelTokens = {};
+  static const int maxConcurrentDownloads = 3;
 
-  final _progressController = StreamController<DownloadProgress>.broadcast();
-  Stream<DownloadProgress> get progressStream => _progressController.stream;
+  // Windows 使用 Isolate 下载避免主线程卡顿
+  final Map<int, ({Isolate isolate, ReceivePort receivePort})> _activeDownloadIsolates;
 
-  Future<void> startDownload(Track track) async {
-    final task = DownloadTask()
-      ..trackId = track.id
-      ..status = DownloadStatus.downloading;
+  /// 添加下载任务
+  Future<AddDownloadResult> addTrackDownload(Track track, int? playlistId);
 
-    await _taskRepository.save(task);
+  /// 批量添加
+  Future<void> addBatchDownloads(List<Track> tracks, int? playlistId);
 
-    final cancelToken = CancelToken();
-    _cancelTokens[track.id] = cancelToken;
+  /// 暂停/恢复/取消
+  Future<void> pauseDownload(int taskId);
+  Future<void> resumeDownload(int taskId);
+  Future<void> cancelDownload(int taskId);
 
-    try {
-      final audioUrl = await _getAudioUrl(track);
-      final savePath = await _getDownloadPath(track);
-
-      await _dio.download(
-        audioUrl,
-        savePath,
-        cancelToken: cancelToken,
-        onReceiveProgress: (received, total) {
-          final progress = total > 0 ? received / total : 0.0;
-          task.progress = progress;
-          _progressController.add(DownloadProgress(track.id, progress));
-        },
-      );
-
-      track.downloadedPath = savePath;
-      await _trackRepository.save(track);
-
-      task.status = DownloadStatus.completed;
-      task.completedAt = DateTime.now();
-      await _taskRepository.save(task);
-
-    } on DioException catch (e) {
-      if (e.type == DioExceptionType.cancel) {
-        task.status = DownloadStatus.paused;
-      } else {
-        task.status = DownloadStatus.failed;
-        task.errorMessage = e.message;
-      }
-      await _taskRepository.save(task);
-    }
-  }
-
-  Future<void> pauseDownload(int trackId) async {
-    _cancelTokens[trackId]?.cancel();
-  }
-
-  Future<void> resumeDownload(Track track) async {
-    // 断点续传实现
-    // ...
-  }
+  /// 下载流程
+  /// 1. 获取音频 URL (source.getAudioStream)
+  /// 2. Isolate 下载到临时文件
+  /// 3. 重命名为正式文件
+  /// 4. 获取 VideoDetail 并保存 metadata
+  /// 5. 下载封面和头像
+  /// 6. 保存下载路径到 Track
 }
+
+enum AddDownloadResult { created, taskExists, alreadyDownloaded }
 ```
 
-### 4.4 缓存管理 (CacheManager)
+### 4.5 排行榜缓存服务
 
 ```dart
-class CacheManager {
-  late Directory _cacheDir;
-  late int _maxSizeBytes;
+class RankingCacheService {
+  // 后台每小时自动刷新
+  static const refreshInterval = Duration(hours: 1);
 
-  Future<void> initialize(Settings settings) async {
-    _cacheDir = settings.customCacheDir != null
-      ? Directory(settings.customCacheDir!)
-      : await getTemporaryDirectory();
+  /// 获取缓存的排行榜
+  Future<List<Track>> getCachedRanking(SourceType sourceType);
 
-    _maxSizeBytes = settings.maxCacheSizeMB * 1024 * 1024;
-  }
+  /// 强制刷新
+  Future<void> refresh(SourceType sourceType);
 
-  /// 自动清理缓存（LRU）
-  Future<void> autoClean() async {
-    final files = await _getCacheFiles();
-
-    // 按访问时间排序
-    files.sort((a, b) =>
-      a.statSync().accessed.compareTo(b.statSync().accessed));
-
-    int totalSize = files.fold(0, (sum, f) => sum + f.lengthSync());
-
-    // 删除最旧的文件直到低于上限
-    while (totalSize > _maxSizeBytes && files.isNotEmpty) {
-      final oldest = files.removeAt(0);
-      totalSize -= oldest.lengthSync();
-      await oldest.delete();
-    }
-  }
-
-  Future<int> getCacheSize() async {
-    final files = await _getCacheFiles();
-    return files.fold(0, (sum, f) => sum + f.lengthSync());
-  }
-
-  Future<void> clearCache() async {
-    final files = await _getCacheFiles();
-    for (final file in files) {
-      await file.delete();
-    }
-  }
+  /// 启动后台刷新定时器
+  void startBackgroundRefresh();
 }
 ```
 
@@ -703,13 +600,15 @@ class CacheManager {
 ### 5.1 断点定义
 
 ```dart
+// lib/core/constants/breakpoints.dart
 class Breakpoints {
-  static const double mobile = 600;
-  static const double tablet = 1200;
+  static const double compact = 600;   // Mobile
+  static const double medium = 840;    // Tablet
+  static const double expanded = 1200; // Desktop
 
   static LayoutType getLayoutType(double width) {
-    if (width < mobile) return LayoutType.mobile;
-    if (width < tablet) return LayoutType.tablet;
+    if (width < compact) return LayoutType.mobile;
+    if (width < medium) return LayoutType.tablet;
     return LayoutType.desktop;
   }
 }
@@ -720,11 +619,8 @@ enum LayoutType { mobile, tablet, desktop }
 ### 5.2 响应式 Scaffold
 
 ```dart
+// lib/ui/responsive_scaffold.dart
 class ResponsiveScaffold extends ConsumerWidget {
-  final Widget child;
-  final int selectedIndex;
-  final Function(int) onDestinationSelected;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return LayoutBuilder(
@@ -732,20 +628,18 @@ class ResponsiveScaffold extends ConsumerWidget {
         final layoutType = Breakpoints.getLayoutType(constraints.maxWidth);
 
         return switch (layoutType) {
-          LayoutType.mobile => MobileLayout(
-            selectedIndex: selectedIndex,
-            onDestinationSelected: onDestinationSelected,
-            child: child,
+          LayoutType.mobile => _MobileLayout(
+            // 底部 NavigationBar
+            // 底部 MiniPlayer
           ),
-          LayoutType.tablet => TabletLayout(
-            selectedIndex: selectedIndex,
-            onDestinationSelected: onDestinationSelected,
-            child: child,
+          LayoutType.tablet => _TabletLayout(
+            // 侧边 NavigationRail
+            // 底部 MiniPlayer
           ),
-          LayoutType.desktop => DesktopLayout(
-            selectedIndex: selectedIndex,
-            onDestinationSelected: onDestinationSelected,
-            child: child,
+          LayoutType.desktop => _DesktopLayout(
+            // 可收起侧边导航
+            // 底部 MiniPlayer
+            // 右侧 TrackDetailPanel（可拖动宽度）
           ),
         };
       },
@@ -756,39 +650,38 @@ class ResponsiveScaffold extends ConsumerWidget {
 
 ### 5.3 桌面三栏布局
 
+```
+┌──────────┬────────────────────────────────┬──────────────────┐
+│          │                                │                  │
+│  导航栏   │         主内容区               │  TrackDetail     │
+│ (可收起)  │                                │    Panel         │
+│          │                                │  (可拖动宽度)    │
+│  首页     │                                │                  │
+│  探索     │                                │  封面            │
+│  搜索     │                                │  UP主信息        │
+│  音乐库   │                                │  统计数据        │
+│  设置     │                                │  下一首预览      │
+│          │                                │  简介            │
+│          │                                │  热门评论        │
+│          │                                │                  │
+├──────────┴────────────────────────────────┴──────────────────┤
+│  MiniPlayer (进度条 + 封面 + 标题 + 控制按钮 + 音量)          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 5.4 MiniPlayer 组件
+
 ```dart
-class DesktopLayout extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        // 左侧导航栏
-        NavigationRail(
-          selectedIndex: selectedIndex,
-          onDestinationSelected: onDestinationSelected,
-          destinations: _destinations,
-        ),
-
-        // 分隔线
-        const VerticalDivider(width: 1),
-
-        // 中间内容区
-        Expanded(
-          flex: 2,
-          child: child,
-        ),
-
-        // 分隔线
-        const VerticalDivider(width: 1),
-
-        // 右侧播放器详情（如果正在播放）
-        Expanded(
-          flex: 1,
-          child: PlayerDetailPanel(),
-        ),
-      ],
-    );
-  }
+// lib/ui/widgets/mini_player.dart
+class MiniPlayer extends ConsumerWidget {
+  // 功能：
+  // - 可交互进度条（点击/拖动跳转）
+  // - 封面缩略图
+  // - 歌曲标题和艺术家
+  // - 随机/循环模式切换
+  // - 上一首/播放暂停/下一首
+  // - 音量滑块（桌面端）
+  // - 点击展开全屏播放器
 }
 ```
 
@@ -796,49 +689,72 @@ class DesktopLayout extends StatelessWidget {
 
 ## 6. 主题系统
 
-### 6.1 主题 Provider
+### 6.1 主题配置
 
 ```dart
-@riverpod
-class ThemeNotifier extends _$ThemeNotifier {
+// lib/ui/theme/app_theme.dart
+class AppTheme {
+  static ThemeData light(ColorScheme? dynamicColorScheme) {
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: dynamicColorScheme ?? _defaultLightColorScheme,
+      // Material Design 3 组件样式
+    );
+  }
+
+  static ThemeData dark(ColorScheme? dynamicColorScheme) {
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: dynamicColorScheme ?? _defaultDarkColorScheme,
+      // Material Design 3 组件样式
+    );
+  }
+}
+```
+
+### 6.2 动态取色 (dynamic_color)
+
+```dart
+// lib/app.dart
+class App extends ConsumerWidget {
   @override
-  AppThemeState build() {
-    _loadSavedTheme();
-    return AppThemeState.defaults();
-  }
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
 
-  void setThemeMode(ThemeMode mode) {
-    state = state.copyWith(mode: mode);
-    _saveTheme();
-  }
-
-  void setCustomColor(ColorType type, Color color) {
-    final newColors = Map<ColorType, Color>.from(state.customColors);
-    newColors[type] = color;
-    state = state.copyWith(customColors: newColors);
-    _saveTheme();
-  }
-
-  ThemeData buildLightTheme() {
-    return ThemeData(
-      brightness: Brightness.light,
-      colorScheme: ColorScheme.light(
-        primary: state.customColors[ColorType.primary] ?? Colors.blue,
-        secondary: state.customColors[ColorType.secondary] ?? Colors.blueAccent,
-        surface: state.customColors[ColorType.surface] ?? Colors.white,
-        // ...
-      ),
+    return DynamicColorBuilder(
+      builder: (lightDynamic, darkDynamic) {
+        return MaterialApp.router(
+          theme: AppTheme.light(lightDynamic),
+          darkTheme: AppTheme.dark(darkDynamic),
+          themeMode: themeMode,
+          routerConfig: router,
+        );
+      },
     );
   }
+}
+```
 
-  ThemeData buildDarkTheme() {
-    return ThemeData(
-      brightness: Brightness.dark,
-      colorScheme: ColorScheme.dark(
-        primary: state.customColors[ColorType.primary] ?? Colors.blue,
-        // ...
-      ),
-    );
+### 6.3 主题模式切换
+
+```dart
+// lib/providers/theme_provider.dart
+@riverpod
+class ThemeModeNotifier extends _$ThemeModeNotifier {
+  @override
+  ThemeMode build() {
+    // 从 Settings 加载
+    final settings = ref.watch(settingsProvider);
+    return switch (settings.themeModeIndex) {
+      0 => ThemeMode.system,
+      1 => ThemeMode.light,
+      2 => ThemeMode.dark,
+      _ => ThemeMode.system,
+    };
+  }
+
+  Future<void> setThemeMode(ThemeMode mode) async {
+    // 保存到 Settings
   }
 }
 ```
@@ -850,45 +766,33 @@ class ThemeNotifier extends _$ThemeNotifier {
 ### 7.1 Windows 系统托盘
 
 ```dart
+// lib/services/platform/tray_service.dart
 class TrayService {
   Future<void> initialize() async {
-    if (!Platform.isWindows && !Platform.isLinux && !Platform.isMacOS) {
-      return;
-    }
-
-    await trayManager.setIcon(
-      Platform.isWindows ? 'assets/icons/tray.ico' : 'assets/icons/tray.png',
-    );
-
+    await trayManager.setIcon('assets/icons/app_icon.ico');
     await _updateContextMenu();
-  }
 
-  Future<void> updateNowPlaying(Track? track) async {
-    if (track != null) {
-      await trayManager.setToolTip('${track.title} - ${track.artist ?? "Unknown"}');
-    } else {
-      await trayManager.setToolTip('FMP - Flutter Music Player');
-    }
-    await _updateContextMenu(track);
+    // 监听托盘事件
+    trayManager.addListener(_onTrayEvent);
   }
 
   Future<void> _updateContextMenu([Track? track]) async {
-    final menu = Menu(
-      items: [
-        if (track != null) ...[
-          MenuItem(key: 'now_playing', label: '♪ ${track.title}'),
-          MenuItem.separator(),
-        ],
-        MenuItem(key: 'play_pause', label: _isPlaying ? 'Pause' : 'Play'),
-        MenuItem(key: 'next', label: 'Next'),
-        MenuItem(key: 'previous', label: 'Previous'),
-        MenuItem.separator(),
-        MenuItem(key: 'show', label: 'Show Window'),
-        MenuItem.separator(),
-        MenuItem(key: 'exit', label: 'Exit'),
-      ],
-    );
+    final menu = Menu(items: [
+      if (track != null)
+        MenuItem(label: '♪ ${track.title}', disabled: true),
+      MenuItem.separator(),
+      MenuItem(key: 'play_pause', label: _isPlaying ? '暂停' : '播放'),
+      MenuItem(key: 'next', label: '下一首'),
+      MenuItem(key: 'previous', label: '上一首'),
+      MenuItem.separator(),
+      MenuItem(key: 'show', label: '显示窗口'),
+      MenuItem(key: 'exit', label: '退出'),
+    ]);
     await trayManager.setContextMenu(menu);
+  }
+
+  void _onTrayEvent(TrayEvent event) {
+    // 处理托盘点击和菜单事件
   }
 }
 ```
@@ -896,44 +800,136 @@ class TrayService {
 ### 7.2 全局快捷键
 
 ```dart
+// lib/services/platform/hotkey_service.dart
 class HotkeyService {
-  final Map<String, HotKey> _registeredHotkeys = {};
+  // 默认快捷键
+  static const defaultHotkeys = {
+    'play_pause': 'Ctrl+Alt+P',
+    'next': 'Ctrl+Alt+Right',
+    'previous': 'Ctrl+Alt+Left',
+  };
 
-  Future<void> initialize(Settings settings) async {
-    if (!Platform.isWindows && !Platform.isLinux && !Platform.isMacOS) {
-      return;
-    }
+  Future<void> initialize(bool enabled) async {
+    if (!enabled) return;
 
-    final config = settings.hotkeyConfig != null
-      ? HotkeyConfig.fromJson(settings.hotkeyConfig!)
-      : HotkeyConfig.defaults();
-
-    await _registerHotkey('play_pause', config.playPause, _onPlayPause);
-    await _registerHotkey('next', config.next, _onNext);
-    await _registerHotkey('previous', config.previous, _onPrevious);
-    await _registerHotkey('volume_up', config.volumeUp, _onVolumeUp);
-    await _registerHotkey('volume_down', config.volumeDown, _onVolumeDown);
-    await _registerHotkey('show_hide', config.showHide, _onShowHide);
+    await _registerHotkey('play_pause', _onPlayPause);
+    await _registerHotkey('next', _onNext);
+    await _registerHotkey('previous', _onPrevious);
   }
 
-  Future<void> _registerHotkey(
-    String id,
-    HotKey hotkey,
-    VoidCallback callback,
-  ) async {
-    await hotKeyManager.register(
-      hotkey,
-      keyDownHandler: (_) => callback(),
+  Future<void> setEnabled(bool enabled) async {
+    if (enabled) {
+      await initialize(true);
+    } else {
+      await hotKeyManager.unregisterAll();
+    }
+  }
+}
+```
+
+### 7.3 Windows SMTC 媒体键
+
+```dart
+// lib/services/audio/windows_smtc_handler.dart
+class WindowsSmtcHandler {
+  late SMTCWindows _smtc;
+
+  Future<void> initialize() async {
+    _smtc = SMTCWindows(
+      config: const SMTCConfig(
+        fastForwardEnabled: false,
+        rewindEnabled: false,
+        prevEnabled: true,
+        nextEnabled: true,
+        pauseEnabled: true,
+        playEnabled: true,
+        stopEnabled: false,
+      ),
     );
-    _registeredHotkeys[id] = hotkey;
+
+    // 监听媒体键事件
+    _smtc.buttonPressStream.listen(_onButtonPress);
   }
 
-  Future<void> updateHotkey(String id, HotKey newHotkey) async {
-    final oldHotkey = _registeredHotkeys[id];
-    if (oldHotkey != null) {
-      await hotKeyManager.unregister(oldHotkey);
-    }
-    await _registerHotkey(id, newHotkey, _getCallback(id));
+  Future<void> updateMetadata(Track track) async {
+    await _smtc.updateMetadata(MusicMetadata(
+      title: track.title,
+      artist: track.artist ?? '',
+      thumbnail: track.thumbnailUrl,
+    ));
+  }
+
+  Future<void> updatePlaybackStatus(bool isPlaying) async {
+    await _smtc.setPlaybackStatus(
+      isPlaying ? PlaybackStatus.playing : PlaybackStatus.paused,
+    );
+  }
+}
+```
+
+### 7.4 Android 后台播放
+
+```dart
+// lib/services/audio/android_audio_handler.dart
+class AndroidAudioHandler extends BaseAudioHandler {
+  final AudioController _audioController;
+
+  @override
+  Future<void> play() => _audioController.play();
+
+  @override
+  Future<void> pause() => _audioController.pause();
+
+  @override
+  Future<void> skipToNext() => _audioController.next();
+
+  @override
+  Future<void> skipToPrevious() => _audioController.previous();
+
+  @override
+  Future<void> seek(Duration position) => _audioController.seekTo(position);
+
+  /// 更新通知栏显示
+  void updateMediaItem(Track track) {
+    mediaItem.add(MediaItem(
+      id: track.id.toString(),
+      title: track.title,
+      artist: track.artist,
+      artUri: track.thumbnailUrl != null ? Uri.parse(track.thumbnailUrl!) : null,
+      duration: track.durationMs != null ? Duration(milliseconds: track.durationMs!) : null,
+    ));
+  }
+}
+```
+
+### 7.5 应用更新服务
+
+```dart
+// lib/services/update/update_service.dart
+class UpdateService {
+  static const githubRepo = 'user/FMP';
+
+  /// 检查更新
+  Future<UpdateInfo?> checkForUpdate() async {
+    final response = await dio.get(
+      'https://api.github.com/repos/$githubRepo/releases/latest',
+    );
+    // 比较版本号
+  }
+
+  /// Android: 下载 APK 并调用系统安装器
+  Future<void> downloadAndInstallApk(String downloadUrl) async {
+    final savePath = '${(await getTemporaryDirectory()).path}/update.apk';
+    await dio.download(downloadUrl, savePath, onReceiveProgress: ...);
+    await OpenFilex.open(savePath);
+  }
+
+  /// Windows: 下载 ZIP 并静默替换
+  Future<void> downloadAndInstallWindows(String downloadUrl) async {
+    // 1. 下载 ZIP 到临时目录
+    // 2. 解压到临时目录
+    // 3. 启动更新脚本替换文件
+    // 4. 重启应用
   }
 }
 ```
@@ -945,28 +941,41 @@ class HotkeyService {
 ### 8.1 播放错误处理
 
 ```dart
-class PlaybackErrorHandler {
-  void handleError(Object error, Track track) {
-    if (error is PlayerException) {
-      // 音频加载失败
-      _showToast('播放失败: ${track.title}');
-      _audioService.seekToNext();
-    } else if (error is SourceUnavailableException) {
-      // 音源失效
-      _markTrackUnavailable(track, error.reason);
-      _showToast('音源失效: ${track.title}');
-      _audioService.seekToNext();
-    } else if (error is NetworkException) {
-      // 网络错误
-      _showToast('网络错误，跳转下一首');
-      _audioService.seekToNext();
-    }
+// AudioController 中的错误处理
+void _handlePlaybackError(Object error, Track track) {
+  if (error is PlatformException) {
+    // 音频加载失败，自动跳到下一首
+    _showToast('播放失败: ${track.title}');
+    next();
+  } else if (error is SocketException || error is DioException) {
+    // 网络错误
+    _showToast('网络错误，请检查网络连接');
   }
+}
+```
 
-  void _markTrackUnavailable(Track track, String reason) {
-    track.isAvailable = false;
-    track.unavailableReason = reason;
-    _trackRepository.save(track);
+### 8.2 下载错误处理
+
+```dart
+// DownloadService 中的错误处理
+void _handleDownloadError(DownloadTask task, Object error) {
+  task.status = DownloadStatus.failed;
+  task.errorMessage = error.toString();
+  // 保存到数据库，用户可以稍后重试
+}
+```
+
+### 8.3 音源失效处理
+
+```dart
+// 音频 URL 获取失败时的处理
+Future<AudioStreamInfo?> _getAudioStreamWithRetry(Track track) async {
+  try {
+    return await sourceManager.getAudioStream(track);
+  } catch (e) {
+    // 记录错误，返回 null
+    // 播放器会自动跳过无法播放的歌曲
+    return null;
   }
 }
 ```
@@ -975,108 +984,173 @@ class PlaybackErrorHandler {
 
 ## 9. 开发路线图
 
-### Phase 1: 核心功能 (MVP)
-- [ ] 项目初始化与架构搭建
-- [ ] 数据模型与 Isar 集成
-- [ ] 音频播放核心功能
-- [ ] 播放队列管理
-- [ ] 基础 UI（首页、播放器、队列）
-- [ ] B站音源解析
-- [ ] Android 后台播放
+### Phase 1: 基础架构 ✅
+- [x] 项目初始化与架构搭建
+- [x] 数据模型与 Isar 集成
+- [x] 基础 UI 框架 (Material Design 3)
+- [x] 路由配置 (go_router)
 
-### Phase 2: 完整功能
-- [ ] YouTube 音源解析
-- [ ] 音乐库与歌单管理
-- [ ] 搜索功能
-- [ ] 外部歌单导入
-- [ ] 缓存与下载管理
-- [ ] Windows 系统托盘
-- [ ] 全局快捷键
+### Phase 2: 核心播放 ✅
+- [x] 音频播放核心 (media_kit)
+- [x] 播放队列管理
+- [x] 基础播放控制
+- [x] 进度条和时间显示
+- [x] 临时播放功能
+- [x] 静音切换（带记忆）
 
-### Phase 3: 优化与扩展
-- [ ] 主题自定义
-- [ ] 响应式布局优化
+### Phase 3: 音乐库 ✅
+- [x] 歌单 CRUD
+- [x] 歌曲管理
+- [x] 搜索功能
+- [x] Bilibili 导入
+- [x] YouTube 导入
+
+### Phase 4: 完整 UI ✅
+- [x] 响应式布局（Mobile/Tablet/Desktop）
+- [x] 主题系统（Material Design 3 + 动态取色）
+- [x] 探索页（排行榜 + 缓存）
+- [x] 歌曲详情面板（桌面端）
+- [x] 迷你播放器
+
+### Phase 5: 平台特性 ✅
+- [x] Android 后台播放 (audio_service)
+- [x] Android 通知栏控制
+- [x] Windows 托盘 (tray_manager)
+- [x] Windows SMTC 媒体键 (smtc_windows)
+- [x] 全局快捷键 (hotkey_manager)
+- [x] YouTube Mix/Radio 播放
+- [x] 应用内更新
+- [x] 音频质量设置
+- [x] 下载系统（Isolate 下载）
+
+### Phase 6: 优化与完善 ⏳
 - [ ] 性能优化
-- [ ] 导入歌单定时刷新
-- [ ] 导出功能
-
-### Phase 4: 未来功能
-- [ ] 歌词显示
-- [ ] 云同步
-- [ ] 更多平台支持
-- [ ] 更多音源支持
+- [ ] 全局快捷键自定义
+- [ ] 错误监控
+- [ ] 无障碍支持
+- [ ] 文档完善
 
 ---
 
 ## 10. 依赖清单
 
 ```yaml
-# pubspec.yaml
+# pubspec.yaml (关键依赖)
 dependencies:
   flutter:
     sdk: flutter
 
   # 状态管理
-  flutter_riverpod: ^2.4.0
-  riverpod_annotation: ^2.3.0
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
 
   # 本地存储
-  isar: ^3.1.0
-  isar_flutter_libs: ^3.1.0
-  path_provider: ^2.1.0
+  isar: ^3.1.0+1
+  isar_flutter_libs: ^3.1.0+1
+  path_provider: ^2.1.5
 
   # 音频播放
   media_kit: ^1.1.11
+  media_kit_libs_android_audio: ^1.3.6
+  media_kit_libs_windows_audio: ^1.0.10
   audio_service: ^0.18.15
-  audio_session: ^0.1.18
+  smtc_windows: ^1.1.0
 
   # 网络
-  dio: ^5.4.0
+  dio: ^5.8.0+1
 
   # 路由
-  go_router: ^13.0.0
+  go_router: ^14.8.1
+
+  # YouTube 解析
+  youtube_explode_dart: ^2.3.5
 
   # UI
-  cached_network_image: ^3.3.0
-  flutter_reorderable_list: ^1.3.0
+  dynamic_color: ^1.7.0
+  cached_network_image: ^3.4.1
+  flutter_reorderable_list: ^1.3.1
 
   # 桌面平台
-  tray_manager: ^0.2.0
-  window_manager: ^0.3.7
-  hotkey_manager: ^0.2.0
+  tray_manager: ^0.2.3
+  window_manager: ^0.4.3
+  hotkey_manager: ^0.2.3
 
   # 工具
-  logger: ^2.0.2
-  file_picker: ^6.1.1
-  permission_handler: ^11.1.0
+  logger: ^2.5.0
+  file_picker: ^8.3.3
+  permission_handler: ^11.4.0
+  rxdart: ^0.28.0
+  archive: ^4.0.2
+  package_info_plus: ^8.0.0
+  open_filex: ^4.5.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  build_runner: ^2.4.0
-  riverpod_generator: ^2.3.0
-  isar_generator: ^3.1.0
-  flutter_lints: ^3.0.0
+  build_runner: ^2.4.13
+  riverpod_generator: ^2.6.2
+  isar_generator: ^3.1.0+1
+  flutter_lints: ^5.0.0
 ```
 
 ---
 
 ## 11. 附录
 
-### 11.1 B站 API 参考
+### 11.1 Bilibili API 参考
 
-- 视频信息: `https://api.bilibili.com/x/web-interface/view?bvid={bvid}`
-- 播放 URL: `https://api.bilibili.com/x/player/playurl?bvid={bvid}&cid={cid}&fnval=16`
-- 收藏夹: `https://api.bilibili.com/x/v3/fav/resource/list?media_id={fid}`
+| 接口 | URL | 说明 |
+|------|-----|------|
+| 视频信息 | `api.bilibili.com/x/web-interface/view?bvid={bvid}` | 获取视频详情 |
+| 播放 URL | `api.bilibili.com/x/player/wbi/playurl?bvid={bvid}&cid={cid}` | 获取音频流 |
+| 收藏夹 | `api.bilibili.com/x/v3/fav/resource/list?media_id={fid}` | 获取收藏夹内容 |
+| 搜索 | `api.bilibili.com/x/web-interface/search/type?search_type=video&keyword={q}` | 搜索视频 |
+| 排行榜 | `api.bilibili.com/x/web-interface/ranking/v2?rid=3` | 音乐区排行榜 |
 
-### 11.2 YouTube 解析参考
+**注意**: Bilibili 音频流需要 `Referer: https://www.bilibili.com` 请求头。
 
-- 使用 yt-dlp 的 Dart 封装或自行实现解析
-- 注意: YouTube 的音频 URL 经常变化，需要实现刷新机制
+### 11.2 YouTube 解析
 
-### 11.3 相关资源
+使用 `youtube_explode_dart` 包进行解析：
 
+```dart
+final yt = YoutubeExplode();
+
+// 获取视频信息
+final video = await yt.videos.get(videoId);
+
+// 获取音频流
+final manifest = await yt.videos.streamsClient.getManifest(videoId);
+final audioStream = manifest.audioOnly.withHighestBitrate();
+
+// 获取 Mix 播放列表
+final mixPlaylist = await yt.playlists.get('RD$videoId');
+```
+
+### 11.3 下载文件结构
+
+```
+{下载路径}/
+├── {歌单名}/
+│   ├── playlist_cover.jpg
+│   ├── {sourceId}_{视频标题}/
+│   │   ├── metadata.json          # 单P视频
+│   │   ├── metadata_P01.json      # 多P视频
+│   │   ├── cover.jpg
+│   │   ├── audio.m4a              # 单P音频
+│   │   ├── P01.m4a                # 多P音频
+│   │   └── ...
+│   └── ...
+└── 未分类/
+    └── ...
+```
+
+### 11.4 相关资源
+
+- [Flutter 官方文档](https://flutter.dev/docs)
 - [media_kit 文档](https://pub.dev/packages/media_kit)
 - [Isar 文档](https://isar.dev)
 - [Riverpod 文档](https://riverpod.dev)
-- [Flutter 响应式布局指南](https://docs.flutter.dev/ui/layout/responsive)
+- [Material Design 3](https://m3.material.io/)
+- [Bilibili API 文档](https://github.com/SocialSisterYi/bilibili-API-collect)
+- [youtube_explode_dart](https://pub.dev/packages/youtube_explode_dart)
