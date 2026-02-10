@@ -838,6 +838,11 @@ class _AlternativeTrackTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final playerState = ref.watch(audioControllerProvider);
+    final isThisTrackPlaying = playerState.playingTrack?.sourceId == track.sourceId &&
+        playerState.playingTrack?.pageNum == track.pageNum;
+    final isLoading = isThisTrackPlaying && (playerState.isLoading || playerState.isBuffering);
+    final isPlaying = isThisTrackPlaying && playerState.isPlaying && !isLoading;
 
     return Padding(
       padding: const EdgeInsets.only(left: 56),
@@ -916,14 +921,33 @@ class _AlternativeTrackTile extends ConsumerWidget {
                   textAlign: TextAlign.center,
                 ),
               ),
-            // 播放按钮
+            // 试听按钮（支持播放/暂停/加载状态）
             IconButton(
-              icon: const Icon(Icons.play_circle_outline, size: 20),
-              onPressed: () {
-                ref.read(audioControllerProvider.notifier).playTemporary(track);
-              },
+              icon: isLoading
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: colorScheme.primary,
+                      ),
+                    )
+                  : Icon(
+                      isPlaying ? Icons.pause_circle_outline : Icons.play_circle_outline,
+                      size: 20,
+                      color: isThisTrackPlaying ? colorScheme.primary : null,
+                    ),
+              onPressed: isLoading
+                  ? null
+                  : () {
+                      if (isThisTrackPlaying) {
+                        ref.read(audioControllerProvider.notifier).togglePlayPause();
+                      } else {
+                        ref.read(audioControllerProvider.notifier).playTemporary(track);
+                      }
+                    },
               visualDensity: VisualDensity.compact,
-              tooltip: '试听',
+              tooltip: isLoading ? '加载中' : (isPlaying ? '暂停' : '试听'),
             ),
           ],
         ),
