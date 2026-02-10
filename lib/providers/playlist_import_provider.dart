@@ -133,9 +133,13 @@ class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
     if (index < 0 || index >= state.matchedTracks.length) return;
 
     final updatedTracks = List<MatchedTrack>.from(state.matchedTracks);
-    updatedTracks[index] = updatedTracks[index].copyWith(
+    final current = updatedTracks[index];
+    updatedTracks[index] = current.copyWith(
       selectedTrack: track,
-      status: MatchStatus.userSelected,
+      // Keep matched status if already matched; only use userSelected for originally unmatched tracks
+      status: current.status == MatchStatus.matched
+          ? MatchStatus.matched
+          : MatchStatus.userSelected,
     );
 
     state = state.copyWith(matchedTracks: updatedTracks);

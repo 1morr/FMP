@@ -93,7 +93,6 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
                     icon: const Icon(Icons.close),
                     onPressed: () {
                       Navigator.pop(context);
-                      ref.read(playlistImportProvider.notifier).reset();
                     },
                   ),
                 ],
@@ -175,7 +174,6 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
                   TextButton(
                     onPressed: () {
                       Navigator.pop(context);
-                      ref.read(playlistImportProvider.notifier).reset();
                     },
                     child: const Text('取消'),
                   ),
@@ -285,9 +283,6 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
       ref.invalidate(allPlaylistsProvider);
       ref.invalidate(playlistDetailProvider(playlist.id));
       ref.invalidate(playlistCoverProvider(playlist.id));
-
-      // 重置导入状态
-      ref.read(playlistImportProvider.notifier).reset();
 
       if (mounted) {
         Navigator.pop(context);

@@ -16,8 +16,7 @@ import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
 import '../../widgets/refresh_progress_indicator.dart';
 import 'widgets/create_playlist_dialog.dart';
-import 'widgets/external_playlist_import_dialog.dart';
-import 'widgets/import_url_dialog.dart';
+import 'widgets/import_playlist_dialog.dart';
 
 /// 音乐库页
 class LibraryPage extends ConsumerStatefulWidget {
@@ -94,13 +93,8 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
             ),
             IconButton(
               icon: const Icon(Icons.link),
-              tooltip: '从 URL 导入',
+              tooltip: '导入歌单',
               onPressed: () => _showImportDialog(context, ref),
-            ),
-            IconButton(
-              icon: const Icon(Icons.playlist_add),
-              tooltip: '导入外部歌单',
-              onPressed: () => _showExternalImportDialog(context, ref),
             ),
           ],
           const SizedBox(width: 8),
@@ -148,7 +142,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              '创建你的第一个歌单，从 B站 导入收藏夹，或导入外部歌单',
+              '创建你的第一个歌单，或从链接导入',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colorScheme.outline,
                   ),
@@ -168,12 +162,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                 OutlinedButton.icon(
                   onPressed: () => _showImportDialog(context, ref),
                   icon: const Icon(Icons.link),
-                  label: const Text('从 URL 导入'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () => _showExternalImportDialog(context, ref),
-                  icon: const Icon(Icons.playlist_add),
-                  label: const Text('导入外部歌单'),
+                  label: const Text('导入歌单'),
                 ),
               ],
             ),
@@ -255,14 +244,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
   void _showImportDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
-      builder: (context) => const ImportUrlDialog(),
-    );
-  }
-
-  void _showExternalImportDialog(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (context) => const ExternalPlaylistImportDialog(),
+      builder: (context) => const ImportPlaylistDialog(),
     );
   }
 }
