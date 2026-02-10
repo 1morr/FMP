@@ -663,8 +663,17 @@ class YouTubeSource extends BaseSource with Logging {
         pageSize: pageSize,
         hasMore: hasMore,
       );
-    } catch (e) {
-      logError('YouTube search failed: $query, error: $e');
+    } catch (e, st) {
+      // 检查是否是限流错误
+      final errorStr = e.toString().toLowerCase();
+      if (errorStr.contains('429') ||
+          errorStr.contains('rate') ||
+          errorStr.contains('quota') ||
+          errorStr.contains('too many')) {
+        logWarning('YouTube rate limited for query: "$query", error: $e');
+      } else {
+        logError('YouTube search failed for query: "$query"', e, st);
+      }
       throw YouTubeApiException(
         code: 'search_error',
         message: 'Search failed: $e',

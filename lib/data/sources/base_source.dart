@@ -85,6 +85,15 @@ class SearchResult {
     required this.pageSize,
     required this.hasMore,
   });
+
+  /// 空结果
+  factory SearchResult.empty() => const SearchResult(
+        tracks: [],
+        totalCount: 0,
+        page: 1,
+        pageSize: 0,
+        hasMore: false,
+      );
 }
 
 /// 播放列表解析结果

@@ -16,6 +16,7 @@ import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
 import '../../widgets/refresh_progress_indicator.dart';
 import 'widgets/create_playlist_dialog.dart';
+import 'widgets/external_playlist_import_dialog.dart';
 import 'widgets/import_url_dialog.dart';
 
 /// 音乐库页
@@ -96,6 +97,11 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
               tooltip: '从 URL 导入',
               onPressed: () => _showImportDialog(context, ref),
             ),
+            IconButton(
+              icon: const Icon(Icons.playlist_add),
+              tooltip: '导入外部歌单',
+              onPressed: () => _showExternalImportDialog(context, ref),
+            ),
           ],
           const SizedBox(width: 8),
         ],
@@ -142,26 +148,32 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              '创建你的第一个歌单或从 B站 导入收藏夹',
+              '创建你的第一个歌单，从 B站 导入收藏夹，或导入外部歌单',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colorScheme.outline,
                   ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 16,
+              runSpacing: 12,
               children: [
                 FilledButton.icon(
                   onPressed: () => _showCreateDialog(context, ref),
                   icon: const Icon(Icons.add),
                   label: const Text('新建歌单'),
                 ),
-                const SizedBox(width: 16),
                 OutlinedButton.icon(
                   onPressed: () => _showImportDialog(context, ref),
                   icon: const Icon(Icons.link),
                   label: const Text('从 URL 导入'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => _showExternalImportDialog(context, ref),
+                  icon: const Icon(Icons.playlist_add),
+                  label: const Text('导入外部歌单'),
                 ),
               ],
             ),
@@ -244,6 +256,13 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     showDialog(
       context: context,
       builder: (context) => const ImportUrlDialog(),
+    );
+  }
+
+  void _showExternalImportDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => const ExternalPlaylistImportDialog(),
     );
   }
 }

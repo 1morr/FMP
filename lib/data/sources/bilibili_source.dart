@@ -29,15 +29,20 @@ class BilibiliSource extends BaseSource with Logging {
   static const String _liveAnchorInfoApi = '$_liveApiBase/live_user/v1/UserInfo/get_anchor_in_room';
 
   BilibiliSource() {
-    // 生成 buvid3 Cookie（用于绕过 412 风控）
+    // 生成必要的 Cookie（用于绕过 412 风控）
     final buvid3 = _generateBuvid3();
-    
+    final buvid4 = _generateBuvid4();
+    final bNut = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
     _dio = Dio(BaseOptions(
       headers: {
         'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://www.bilibili.com',
-        'Cookie': 'buvid3=$buvid3',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Referer': 'https://search.bilibili.com/',
+        'Origin': 'https://search.bilibili.com',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        'Cookie': 'buvid3=$buvid3; buvid4=$buvid4; b_nut=$bNut; _uuid=$buvid3; buvid_fp=$buvid3',
       },
       connectTimeout: AppConstants.networkConnectTimeout,
       receiveTimeout: AppConstants.networkReceiveTimeout,
@@ -53,6 +58,16 @@ class BilibiliSource extends BaseSource with Logging {
       return List.generate(length, (_) => chars[random.nextInt(16)]).join();
     }
     return '${randomHex(8)}-${randomHex(4)}-${randomHex(4)}-${randomHex(4)}-${randomHex(12)}infoc';
+  }
+
+  /// 生成 buvid4 Cookie
+  String _generateBuvid4() {
+    final random = Random();
+    String randomHex(int length) {
+      const chars = '0123456789ABCDEF';
+      return List.generate(length, (_) => chars[random.nextInt(16)]).join();
+    }
+    return '${randomHex(8)}-${randomHex(4)}-${randomHex(4)}-${randomHex(4)}-${randomHex(12)}';
   }
 
   /// 将 SearchOrder 映射到 Bilibili API 的排序参数
@@ -329,6 +344,7 @@ class BilibiliSource extends BaseSource with Logging {
     int pageSize = 20,
     SearchOrder order = SearchOrder.relevance,
   }) async {
+    logDebug('Searching Bilibili for: "$query", page: $page, order: $order');
     try {
       final response = await _dio.get(
         _searchApi,
@@ -346,6 +362,8 @@ class BilibiliSource extends BaseSource with Logging {
       final data = response.data['data'];
       final results = data['result'] as List? ?? [];
       final numResults = data['numResults'] as int? ?? 0;
+
+      logDebug('Bilibili search results: ${results.length} tracks, total: $numResults');
 
       final tracks = results.map((item) {
         return Track()
@@ -367,7 +385,11 @@ class BilibiliSource extends BaseSource with Logging {
         hasMore: page * pageSize < numResults,
       );
     } on DioException catch (e) {
+      logError('Bilibili search failed for "$query"', e);
       throw _handleDioError(e);
+    } catch (e, st) {
+      logError('Bilibili search error for "$query"', e, st);
+      rethrow;
     }
   }
 
@@ -674,12 +696,24 @@ class BilibiliSource extends BaseSource with Logging {
     final code = data['code'];
     if (code != 0) {
       final message = data['message'] ?? 'Unknown error';
+      // 记录API错误，特别关注限流相关错误
+      if (code == -412 || code == -509 || code == -799) {
+        logWarning('Bilibili rate limited: code=$code, message=$message');
+      } else {
+        logWarning('Bilibili API error: code=$code, message=$message');
+      }
       throw BilibiliApiException(code: code, message: message);
     }
   }
 
   /// 处理 Dio 错误
   Exception _handleDioError(DioException e) {
+    final statusCode = e.response?.statusCode;
+    final responseData = e.response?.data;
+
+    // 记录详细错误信息
+    logError('Bilibili Dio error: type=${e.type}, statusCode=$statusCode, response=$responseData');
+
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
@@ -688,7 +722,12 @@ class BilibiliSource extends BaseSource with Logging {
       case DioExceptionType.connectionError:
         return Exception('Network connection error');
       case DioExceptionType.badResponse:
-        return Exception('Server error: ${e.response?.statusCode}');
+        // 检查是否是限流
+        if (statusCode == 412 || statusCode == 429) {
+          logWarning('Bilibili rate limited (HTTP $statusCode)');
+          return Exception('请求过于频繁，请稍后再试');
+        }
+        return Exception('Server error: $statusCode');
       default:
         return Exception('Network error: ${e.message}');
     }
