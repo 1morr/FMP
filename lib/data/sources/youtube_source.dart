@@ -77,6 +77,12 @@ class YouTubeSource extends BaseSource with Logging {
     // 播放列表 URL 格式:
     // - https://www.youtube.com/playlist?list=PLAYLIST_ID
     // - https://www.youtube.com/watch?v=VIDEO_ID&list=PLAYLIST_ID
+    // - https://music.youtube.com/playlist?list=PLAYLIST_ID
+    // 必须先确认是 YouTube 域名，避免误匹配其他平台含 /playlist 的 URL（如 Spotify）
+    final isYouTubeDomain = url.contains('youtube.com') ||
+        url.contains('youtu.be') ||
+        url.contains('music.youtube.com');
+    if (!isYouTubeDomain) return false;
     return url.contains('list=') || url.contains('/playlist');
   }
 

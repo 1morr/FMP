@@ -18,7 +18,7 @@ enum _UrlType {
   /// 内部来源（B站/YouTube），直接导入
   internal,
 
-  /// 外部来源（网易云/QQ音乐），需要搜索匹配
+  /// 外部来源（网易云/QQ音乐/Spotify），需要搜索匹配
   external,
 }
 
@@ -34,7 +34,7 @@ class _DetectedUrl {
 ///
 /// 自动识别 URL 类型：
 /// - 内部来源（B站/YouTube）：直接导入，不显示搜索来源选项
-/// - 外部来源（网易云/QQ音乐）：搜索匹配，显示搜索来源选项
+/// - 外部来源（网易云/QQ音乐/Spotify）：搜索匹配，显示搜索来源选项
 class ImportPlaylistDialog extends ConsumerStatefulWidget {
   const ImportPlaylistDialog({super.key});
 
@@ -82,7 +82,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
       return;
     }
 
-    // 1. 先检查外部来源（网易云/QQ音乐）
+    // 1. 先检查外部来源（网易云/QQ音乐/Spotify）
     //    外部来源使用域名匹配，更精确；内部来源的 isPlaylistUrl 可能过于宽泛
     //    （如 YouTube 的 url.contains('/playlist') 会误匹配 QQ音乐/网易云链接）
     final notifier = ref.read(playlistImportProvider.notifier);
@@ -135,7 +135,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '支持 B站、YouTube、网易云音乐、QQ音乐',
+                '支持 B站、YouTube、网易云音乐、QQ音乐、Spotify',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colorScheme.outline,
                     ),
@@ -406,7 +406,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
     }
   }
 
-  /// 外部来源导入（网易云/QQ音乐）
+  /// 外部来源导入（网易云/QQ音乐/Spotify）
   Future<void> _startExternalImport() async {
     setState(() {
       _isImporting = true;

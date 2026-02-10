@@ -6,6 +6,7 @@ import '../../data/sources/base_source.dart';
 import '../../data/sources/playlist_import/playlist_import_source.dart';
 import '../../data/sources/playlist_import/netease_playlist_source.dart';
 import '../../data/sources/playlist_import/qq_music_playlist_source.dart';
+import '../../data/sources/playlist_import/spotify_playlist_source.dart';
 import '../../data/sources/source_provider.dart';
 
 /// 搜索来源配置
@@ -84,6 +85,7 @@ class PlaylistImportService {
        _importSources = [
          NeteasePlaylistSource(),
          QQMusicPlaylistSource(),
+         SpotifyPlaylistSource(),
        ];
 
   /// 检测链接对应的平台
@@ -224,7 +226,7 @@ class PlaylistImportService {
     final query = track.searchQuery;
     final allResults = <Track>[];
     // 搜索时获取更多结果，排序后再截取
-    final searchPageSize = maxResults * 4;
+    final searchPageSize = maxResults * 8;
 
     switch (searchSource) {
       case SearchSourceConfig.all:
