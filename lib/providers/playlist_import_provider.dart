@@ -63,10 +63,15 @@ class PlaylistImportState {
       .map((t) => t.selectedTrack!)
       .toList();
 
-  /// 获取未匹配的原始歌曲
+  /// 获取未匹配的原始歌曲（包括用户手动选择的）
   List<ImportedTrack> get unmatchedOriginalTracks => matchedTracks
-      .where((t) => t.status == MatchStatus.noResult)
+      .where((t) => t.status == MatchStatus.noResult || t.status == MatchStatus.userSelected)
       .map((t) => t.original)
+      .toList();
+
+  /// 获取未匹配的 MatchedTrack（包括用户手动选择的，用于 UI 显示选中状态）
+  List<MatchedTrack> get unmatchedMatchedTracks => matchedTracks
+      .where((t) => t.status == MatchStatus.noResult || t.status == MatchStatus.userSelected)
       .toList();
 }
 
@@ -177,6 +182,30 @@ class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
       );
       state = state.copyWith(matchedTracks: updatedTracks);
     }
+  }
+
+  /// 为未匹配歌曲搜索（仅返回结果，不更新状态）
+  Future<List<Track>> searchForUnmatched(String query) async {
+    return await _service.searchForTrack(
+      query,
+      searchSource: state.searchSource,
+      maxResults: 5,
+    );
+  }
+
+  /// 用手动搜索结果更新未匹配歌曲（保留在未匹配区域，使用 userSelected 状态）
+  void updateWithManualMatch(int index, Track selectedTrack, List<Track> searchResults) {
+    if (index < 0 || index >= state.matchedTracks.length) return;
+
+    final updatedTracks = List<MatchedTrack>.from(state.matchedTracks);
+    updatedTracks[index] = updatedTracks[index].copyWith(
+      searchResults: searchResults,
+      selectedTrack: selectedTrack,
+      status: MatchStatus.userSelected,
+      isIncluded: true,
+    );
+
+    state = state.copyWith(matchedTracks: updatedTracks);
   }
 
   /// 重置状态
