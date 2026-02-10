@@ -145,6 +145,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
               // URL 输入
               TextFormField(
                 controller: _urlController,
+                autofocus: true,
                 decoration: InputDecoration(
                   labelText: 'URL',
                   hintText: '粘贴歌单链接',

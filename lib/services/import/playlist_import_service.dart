@@ -333,7 +333,7 @@ class PlaylistImportService {
   }
 
   /// 计算相关性得分（0-100+）
-  /// 
+  ///
   /// 评分组成：
   /// - 标题相似度 × 0.35 (35%)
   /// - 艺术家相似度 × 0.25 (25%) - 对标题中的艺术家匹配设置更高阈值
@@ -342,9 +342,10 @@ class PlaylistImportService {
   /// - 精确匹配加分 (+0~25)
   /// - 频道-艺术家匹配加分 (+0~15)
   /// - 官方频道加分 (+0~15)
-  /// - 标题关键词加分 (-10~+10)
+  /// - 标题关键词加分 (-15~+10)
   /// - 时长匹配加分 (-100~+20) - 绝对值+百分比结合
   /// - 版本匹配加分 (-5~+10)
+  /// - 括号内容匹配加分 (+0~15)
   double _calculateRelevanceScore(
     Track track,
     String originalTitle,
@@ -365,7 +366,12 @@ class PlaylistImportService {
     }
 
     // 标题相似度（权重 35%）- 提高权重
-    final titleSimilarity = _calculateSimilarity(originalTitle, trackTitle);
+    // 同时尝试括号内容匹配，取较高分
+    final directTitleSimilarity = _calculateSimilarity(originalTitle, trackTitle);
+    final bracketTitleSimilarity = _calculateBracketContentSimilarity(
+      track.title, originalTitle,
+    );
+    final titleSimilarity = math.max(directTitleSimilarity, bracketTitleSimilarity);
 
     // 艺术家相似度（权重 25%）- 改进：对标题中的艺术家匹配设置更高阈值
     final artistInChannel = _calculateSimilarity(originalArtist, trackArtist);
@@ -387,25 +393,30 @@ class PlaylistImportService {
                    viewScore * 0.15 +
                    combinedScore * 0.15;
 
-    // 精确匹配加分（最多 +25）- 新增
+    // 精确匹配加分（最多 +25）
     score += _calculateExactMatchBonus(trackTitle, originalTitle);
 
     // 频道名与艺术家匹配加分（最多 +15）
     score += _calculateArtistChannelBonus(trackArtist, originalArtist);
 
-    // 官方频道加分（最多 +15）- 增强
+    // 官方频道加分（最多 +15）
     score += _calculateChannelBonus(track.artist ?? '');
 
-    // 标题关键词加分（最多 +10）
+    // 标题关键词加分（-15~+10）
     score += _calculateTitleBonus(track.title);
 
-    // 时长匹配加分/减分 - 改进：绝对值+百分比结合
+    // 时长匹配加分/减分 - 绝对值+百分比结合
     if (originalDuration != null && originalDuration.inSeconds > 0) {
       score += _calculateDurationMatchScore(durationSeconds, originalDuration.inSeconds);
     }
 
-    // 版本匹配加分（-5~+10）- 新增
+    // 版本匹配加分（-5~+10）
     score += _calculateVersionMatchBonus(track.title, originalTitle);
+
+    // 括号内容精确匹配加分（+0~15）
+    if (bracketTitleSimilarity > directTitleSimilarity && bracketTitleSimilarity > 80) {
+      score += 15; // 括号内歌名精确匹配，强烈暗示是目标歌曲
+    }
 
     return score;
   }
@@ -555,6 +566,56 @@ class PlaylistImportService {
     String originalArtist,
   ) {
     // 检查视频标题是否同时包含原曲名和艺术家名的关键词
+    // 对 CJK 语言：直接检查子串包含关系（不依赖空格分词）
+    final hasCJK = RegExp(r'[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]')
+        .hasMatch(originalTitle + originalArtist);
+
+    if (hasCJK) {
+      // CJK 模式：直接检查子串
+      final titleFound = originalTitle.length > 1 && trackTitle.contains(originalTitle);
+      final artistFound = originalArtist.length > 1 && trackTitle.contains(originalArtist);
+
+      if (titleFound && artistFound) {
+        return 100; // 标题和艺术家都完整出现在视频标题中
+      }
+      if (titleFound) {
+        return 50; // 只有标题出现
+      }
+      if (artistFound) {
+        return 30; // 只有艺术家出现
+      }
+
+      // 对于 CJK，尝试部分匹配（至少2个字符的子串）
+      int titleCharMatches = 0;
+      if (originalTitle.length >= 2) {
+        for (var i = 0; i <= originalTitle.length - 2; i++) {
+          if (trackTitle.contains(originalTitle.substring(i, i + 2))) {
+            titleCharMatches++;
+          }
+        }
+      }
+      int artistCharMatches = 0;
+      if (originalArtist.length >= 2) {
+        for (var i = 0; i <= originalArtist.length - 2; i++) {
+          if (trackTitle.contains(originalArtist.substring(i, i + 2))) {
+            artistCharMatches++;
+          }
+        }
+      }
+
+      final titleBigrams = originalTitle.length >= 2 ? originalTitle.length - 1 : 1;
+      final artistBigrams = originalArtist.length >= 2 ? originalArtist.length - 1 : 1;
+
+      if (titleCharMatches > 0 && artistCharMatches > 0) {
+        final titleRatio = titleCharMatches / titleBigrams;
+        final artistRatio = artistCharMatches / artistBigrams;
+        return (titleRatio + artistRatio) / 2 * 100;
+      }
+
+      return 0;
+    }
+
+    // 非 CJK 模式：基于空格分词的关键词匹配
     final titleWords = originalTitle.split(' ').where((w) => w.length > 1).toSet();
     final artistWords = originalArtist.split(' ').where((w) => w.length > 1).toSet();
 
@@ -652,7 +713,7 @@ class PlaylistImportService {
     final lower = title.toLowerCase();
     double bonus = 0;
 
-    // 官方/MV 关键词
+    // 官方/MV 关键词（正面）
     const positiveKeywords = [
       'official',
       'オフィシャル',
@@ -666,6 +727,11 @@ class PlaylistImportService {
       '完整版',
       'original',
       'オリジナル',
+      'hi-res',
+      '无损',
+      'flac',
+      '純享',
+      '纯享',
     ];
 
     for (final keyword in positiveKeywords) {
@@ -685,6 +751,7 @@ class PlaylistImportService {
       'ライブ',
       '现场',
       '演唱会',
+      '演唱會',
       'acoustic',
       'アコースティック',
       'piano',
@@ -694,6 +761,15 @@ class PlaylistImportService {
       'karaoke',
       'カラオケ',
       '伴奏',
+      '歌ってみた',    // 日文"试着唱了"（翻唱）
+      'covered by',
+      'bass',
+      'ベース',
+      'guitar',
+      'ギター',
+      '吉他',
+      '弹唱',
+      '彈唱',
     ];
 
     for (final keyword in negativeKeywords) {
@@ -702,16 +778,103 @@ class PlaylistImportService {
       }
     }
 
-    return bonus.clamp(-10, 10);
+    // 强负面关键词（合集、串烧、循环等 - 几乎不可能是目标歌曲）
+    const strongNegativeKeywords = [
+      '合集',
+      '串烧',
+      '串燒',
+      'medley',
+      'メドレー',
+      '循环',
+      '循環',
+      'loop',
+      '盘点',
+      '盤點',
+      '精选',
+      '精選',
+      '歌曲合集',
+      '音乐合集',
+      '經典',
+      '经典',
+      '废话版',
+      'bgm',
+      '作业用',
+      '作業用',
+      '勉強用',
+    ];
+
+    for (final keyword in strongNegativeKeywords) {
+      if (lower.contains(keyword)) {
+        bonus -= 8;
+      }
+    }
+
+    // 歌词视频（中性偏正面 - 通常是正确的歌曲，只是带歌词）
+    const lyricsKeywords = [
+      '歌词',
+      '歌詞',
+      'lyrics',
+      '動態歌詞',
+      '动态歌词',
+      'lyric video',
+    ];
+
+    for (final keyword in lyricsKeywords) {
+      if (lower.contains(keyword)) {
+        bonus += 1;
+        break; // 歌词类只加一次
+      }
+    }
+
+    return bonus.clamp(-15, 10);
   }
 
-  /// 归一化字符串（小写、去除特殊字符）
+  /// 归一化字符串（小写、去除特殊字符和装饰符号）
   String _normalize(String text) {
     return text
         .toLowerCase()
-        .replaceAll(RegExp(r'[【】\[\]()（）「」『』\-_·・]'), ' ')
+        // 移除各种括号、分隔符、装饰符号
+        .replaceAll(RegExp(r'[【】\[\]()（）「」『』《》〈〉\-_·・｜丨／/\\——\u2014\u2013~～＊✦❖▶►▻➸]'), ' ')
+        .replaceAll(RegExp(r'[#＃]'), ' ')  // 移除 hashtag
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
+  }
+
+  /// 从标题中提取括号内的内容，与原标题进行匹配
+  ///
+  /// 许多视频标题格式为：
+  /// - YOASOBI「夜に駆ける」Official Music Video
+  /// - 【4K修复】周杰伦 - 晴天MV
+  /// - 【杜比音效】周杰伦《晴天》4K
+  /// - (楽譜あり) YOASOBI「夜に駆ける」- Piano Cover
+  ///
+  /// 提取括号内的歌名与原标题比较，可以获得更精确的匹配
+  double _calculateBracketContentSimilarity(String rawTitle, String originalTitle) {
+    // 提取各种括号内的内容
+    final bracketPatterns = [
+      RegExp(r'「([^」]+)」'),   // 日文括号 「」
+      RegExp(r'《([^》]+)》'),   // 中文书名号 《》
+      RegExp(r'『([^』]+)』'),   // 日文双括号 『』
+      RegExp(r'【([^】]+)】'),   // 中文方括号 【】
+      RegExp(r'〈([^〉]+)〉'),   // 中文尖括号 〈〉
+    ];
+
+    double bestSimilarity = 0;
+
+    for (final pattern in bracketPatterns) {
+      final matches = pattern.allMatches(rawTitle);
+      for (final match in matches) {
+        final content = _normalize(match.group(1) ?? '');
+        if (content.isEmpty || content.length < 2) continue;
+
+        final similarity = _calculateSimilarity(originalTitle, content);
+        if (similarity > bestSimilarity) {
+          bestSimilarity = similarity;
+        }
+      }
+    }
+
+    return bestSimilarity;
   }
 
   /// 计算两个字符串的相似度（0-100）
