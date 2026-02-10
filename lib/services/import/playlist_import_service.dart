@@ -18,6 +18,7 @@ enum SearchSourceConfig {
   const SearchSourceConfig(this.displayName);
 }
 
+
 /// 导入进度
 class ImportProgress {
   final int current;
@@ -99,7 +100,7 @@ class PlaylistImportService {
   Future<PlaylistImportResult> importAndMatch(
     String url, {
     SearchSourceConfig searchSource = SearchSourceConfig.all,
-    int maxSearchResults = 10,
+    int maxSearchResults = 5,
   }) async {
     // 1. 获取歌单
     _progressController.add(const ImportProgress(
@@ -223,7 +224,7 @@ class PlaylistImportService {
     final query = track.searchQuery;
     final allResults = <Track>[];
     // 搜索时获取更多结果，排序后再截取
-    final searchPageSize = maxResults * 3;
+    final searchPageSize = maxResults * 4;
 
     switch (searchSource) {
       case SearchSourceConfig.all:
@@ -266,11 +267,15 @@ class PlaylistImportService {
         break;
     }
 
-    // 过滤掉负分结果（如超过10分钟的视频）
+    // 过滤掉负分结果（如超过15分钟的视频）
     final originalTitle = _normalize(track.title);
     final originalArtist = _normalize(track.artists.join(' '));
+    final originalDuration = track.duration;
     final filtered = allResults
-        .where((t) => _calculateRelevanceScore(t, originalTitle, originalArtist) >= 0)
+        .where((t) => _calculateRelevanceScore(
+              t, originalTitle, originalArtist,
+              originalDuration: originalDuration,
+            ) >= 0)
         .take(maxResults)
         .toList();
 
@@ -283,39 +288,94 @@ class PlaylistImportService {
 
     final originalTitle = _normalize(original.title);
     final originalArtist = _normalize(original.artists.join(' '));
+    final originalDuration = original.duration;
+
+    // 计算所有结果的播放量，用于差异加权
+    final maxViewCount = results
+        .map((t) => t.viewCount ?? 0)
+        .reduce((a, b) => a > b ? a : b);
 
     results.sort((a, b) {
-      final scoreA = _calculateRelevanceScore(a, originalTitle, originalArtist);
-      final scoreB = _calculateRelevanceScore(b, originalTitle, originalArtist);
+      var scoreA = _calculateRelevanceScore(
+        a, originalTitle, originalArtist,
+        originalDuration: originalDuration,
+      );
+      var scoreB = _calculateRelevanceScore(
+        b, originalTitle, originalArtist,
+        originalDuration: originalDuration,
+      );
+
+      // 播放量差异加权：如果播放量差距超过 100 倍，给高播放量额外加分
+      final viewA = a.viewCount ?? 0;
+      final viewB = b.viewCount ?? 0;
+
+      if (maxViewCount > 0) {
+        // 播放量占最高播放量的比例加分（最多 +8，降低权重）
+        scoreA += (viewA / maxViewCount) * 8;
+        scoreB += (viewB / maxViewCount) * 8;
+
+        // 如果播放量差距超过 100 倍，额外加分（降低加分幅度）
+        if (viewA > 0 && viewB > 0) {
+          if (viewA > viewB * 100) {
+            scoreA += 10;
+          } else if (viewB > viewA * 100) {
+            scoreB += 10;
+          } else if (viewA > viewB * 10) {
+            scoreA += 4;
+          } else if (viewB > viewA * 10) {
+            scoreB += 4;
+          }
+        }
+      }
+
       return scoreB.compareTo(scoreA); // 降序
     });
   }
 
   /// 计算相关性得分（0-100+）
+  /// 
+  /// 评分组成：
+  /// - 标题相似度 × 0.35 (35%)
+  /// - 艺术家相似度 × 0.25 (25%) - 对标题中的艺术家匹配设置更高阈值
+  /// - 播放量得分 × 0.15 (15%)
+  /// - 组合匹配得分 × 0.15 (15%)
+  /// - 精确匹配加分 (+0~25)
+  /// - 频道-艺术家匹配加分 (+0~15)
+  /// - 官方频道加分 (+0~15)
+  /// - 标题关键词加分 (-10~+10)
+  /// - 时长匹配加分 (-100~+20) - 绝对值+百分比结合
+  /// - 版本匹配加分 (-5~+10)
   double _calculateRelevanceScore(
     Track track,
     String originalTitle,
-    String originalArtist,
-  ) {
+    String originalArtist, {
+    Duration? originalDuration,
+  }) {
     final trackTitle = _normalize(track.title);
     final trackArtist = _normalize(track.artist ?? '');
-
-    // 时长检查：超过 10 分钟的视频大幅减分
     final durationSeconds = (track.durationMs ?? 0) ~/ 1000;
-    if (durationSeconds > 600) {
-      // 超过 10 分钟，返回负分（会被过滤或排到最后）
-      return -100;
+
+    // 时长匹配检查（与原曲时长对比）- 提前过滤
+    if (originalDuration != null && originalDuration.inSeconds > 0) {
+      final durationScore = _calculateDurationMatchScore(durationSeconds, originalDuration.inSeconds);
+      if (durationScore < -50) {
+        // 时长差异过大，直接过滤
+        return -100;
+      }
     }
 
-    // 标题相似度（权重 35%）
+    // 标题相似度（权重 35%）- 提高权重
     final titleSimilarity = _calculateSimilarity(originalTitle, trackTitle);
 
-    // 艺术家相似度 - 同时与频道名和视频标题比较，取较高值（权重 30%）
+    // 艺术家相似度（权重 25%）- 改进：对标题中的艺术家匹配设置更高阈值
     final artistInChannel = _calculateSimilarity(originalArtist, trackArtist);
     final artistInTitle = _calculateSimilarity(originalArtist, trackTitle);
-    final artistSimilarity = math.max(artistInChannel, artistInTitle);
+    // 频道名匹配优先；标题中的艺术家匹配需要更高阈值（>70）才采用，且打折
+    final artistSimilarity = artistInChannel > 50
+        ? artistInChannel
+        : (artistInTitle > 70 ? artistInTitle * 0.8 : artistInChannel);
 
-    // 播放量得分（权重 20%）- 对数归一化，提高权重让高播放量更有优势
+    // 播放量得分（权重 15%）
     final viewScore = _normalizeViewCount(track.viewCount ?? 0);
 
     // 标题中同时包含歌名和艺术家的额外加分（权重 15%）
@@ -323,17 +383,169 @@ class PlaylistImportService {
 
     // 基础分数
     double score = titleSimilarity * 0.35 +
-                   artistSimilarity * 0.30 +
-                   viewScore * 0.20 +
+                   artistSimilarity * 0.25 +
+                   viewScore * 0.15 +
                    combinedScore * 0.15;
 
-    // 官方频道加分（最多 +10）
+    // 精确匹配加分（最多 +25）- 新增
+    score += _calculateExactMatchBonus(trackTitle, originalTitle);
+
+    // 频道名与艺术家匹配加分（最多 +15）
+    score += _calculateArtistChannelBonus(trackArtist, originalArtist);
+
+    // 官方频道加分（最多 +15）- 增强
     score += _calculateChannelBonus(track.artist ?? '');
 
     // 标题关键词加分（最多 +10）
     score += _calculateTitleBonus(track.title);
 
+    // 时长匹配加分/减分 - 改进：绝对值+百分比结合
+    if (originalDuration != null && originalDuration.inSeconds > 0) {
+      score += _calculateDurationMatchScore(durationSeconds, originalDuration.inSeconds);
+    }
+
+    // 版本匹配加分（-5~+10）- 新增
+    score += _calculateVersionMatchBonus(track.title, originalTitle);
+
     return score;
+  }
+
+  /// 计算精确匹配加分（最多 +25）
+  double _calculateExactMatchBonus(String trackTitle, String originalTitle) {
+    // 完全匹配（归一化后）
+    if (trackTitle == originalTitle) return 25;
+
+    // 标题以原标题开头（如 "歌名 - Official MV"）
+    if (trackTitle.startsWith(originalTitle)) {
+      // 根据额外内容长度调整加分
+      final extraLength = trackTitle.length - originalTitle.length;
+      if (extraLength < 20) return 20;
+      if (extraLength < 40) return 15;
+      return 10;
+    }
+
+    // 原标题以搜索结果开头（搜索结果是原标题的缩写）
+    if (originalTitle.startsWith(trackTitle) && trackTitle.length > 3) {
+      final ratio = trackTitle.length / originalTitle.length;
+      return ratio * 15; // 最多 +15
+    }
+
+    return 0;
+  }
+
+  /// 计算版本匹配加分（-5~+10）
+  double _calculateVersionMatchBonus(String trackTitle, String originalTitle) {
+    final trackLower = trackTitle.toLowerCase();
+    final originalLower = originalTitle.toLowerCase();
+
+    // 版本关键词
+    const versionKeywords = [
+      'remaster', 'remastered',
+      'deluxe',
+      'anniversary',
+      'edition',
+      'version',
+      '2024', '2023', '2022', '2021', '2020',
+      'bonus',
+      'extended',
+    ];
+
+    final trackVersions = <String>[];
+    final originalVersions = <String>[];
+
+    for (final keyword in versionKeywords) {
+      if (trackLower.contains(keyword)) trackVersions.add(keyword);
+      if (originalLower.contains(keyword)) originalVersions.add(keyword);
+    }
+
+    // 如果原曲指定了版本
+    if (originalVersions.isNotEmpty) {
+      // 检查是否有相同版本关键词
+      final matchedVersions = trackVersions.where((v) => originalVersions.contains(v)).length;
+      if (matchedVersions > 0) {
+        return 10; // 版本匹配，加分
+      } else if (trackVersions.isNotEmpty) {
+        return -5; // 都有版本但不匹配，减分
+      }
+      // 原曲有版本但搜索结果没有，不加不减
+      return 0;
+    }
+
+    // 原曲没有指定版本，但搜索结果有版本标记
+    if (trackVersions.isNotEmpty) {
+      // 轻微减分，优先选择无版本标记的（更可能是原版）
+      return -2;
+    }
+
+    return 0;
+  }
+
+  /// 计算时长匹配得分（与原曲时长对比）- 改进版
+  /// 
+  /// 使用绝对值和百分比结合的方式：
+  /// - 短歌曲（<3分钟）：允许更大的绝对误差
+  /// - 长歌曲（>5分钟）：主要看百分比
+  double _calculateDurationMatchScore(int trackDuration, int originalDuration) {
+    if (trackDuration <= 0 || originalDuration <= 0) return 0;
+
+    final diff = (trackDuration - originalDuration).abs();
+    final diffPercent = diff / originalDuration * 100;
+
+    // 绝对值优先判断（解决短歌曲百分比过于严格的问题）
+    // 允许至少 10 秒的绝对误差
+    if (diff <= 10) {
+      return 20; // 差异 ≤10秒，非常匹配
+    }
+
+    // 对于短歌曲（<3分钟），放宽绝对值要求
+    if (originalDuration < 180) {
+      if (diff <= 15) return 18;
+      if (diff <= 20) return 15;
+      if (diff <= 30) return 10;
+    }
+
+    // 百分比判断
+    if (diffPercent <= 5) {
+      return 18; // 差异 ≤5%
+    } else if (diffPercent <= 10) {
+      return 15; // 差异 ≤10%
+    } else if (diffPercent <= 15) {
+      return 12; // 差异 ≤15%
+    } else if (diffPercent <= 20) {
+      return 8; // 差异 ≤20%
+    } else if (diffPercent <= 30) {
+      return 4; // 差异 ≤30%
+    } else if (diffPercent <= 50) {
+      return 0; // 差异 ≤50%，不加不减
+    } else if (diffPercent <= 80) {
+      return -10; // 差异 50-80%，轻微减分
+    } else if (diffPercent <= 100) {
+      return -20; // 差异 80-100%，减分
+    } else if (diffPercent <= 200) {
+      return -35; // 差异 100-200%，大幅减分
+    } else {
+      return -100; // 差异 >200%，直接过滤（如合集、串烧）
+    }
+  }
+
+  /// A. 计算频道名与艺术家匹配加分
+  double _calculateArtistChannelBonus(String channelName, String originalArtist) {
+    if (channelName.isEmpty || originalArtist.isEmpty) return 0;
+
+    // 使用 N-gram 相似度检查频道名是否包含艺术家名
+    final similarity = _calculateNGramSimilarity(originalArtist, channelName);
+
+    // 如果频道名包含艺术家名（子串匹配）
+    if (channelName.contains(originalArtist) || originalArtist.contains(channelName)) {
+      return 15; // 最高加分
+    }
+
+    // 基于 N-gram 相似度加分
+    if (similarity > 70) return 12;
+    if (similarity > 50) return 8;
+    if (similarity > 30) return 4;
+
+    return 0;
   }
 
   /// 计算标题中同时包含歌名和艺术家的得分
@@ -366,42 +578,73 @@ class PlaylistImportService {
     return 0;
   }
 
-  /// 计算频道名称加分
+  /// 计算频道名称加分（最多 +15）- 增强版
   double _calculateChannelBonus(String channelName) {
     final lower = channelName.toLowerCase();
     double bonus = 0;
 
-    // 官方频道关键词
-    const officialKeywords = [
-      'official',
-      'オフィシャル',
-      '官方',
-      'channel',
-      'チャンネル',
-      'music',
-      'ミュージック',
-      'records',
-      'レコード',
-      'vevo',
-      'topic',
+    // 高权重官方标识（+8）
+    const highPriorityKeywords = [
+      'vevo',           // YouTube 官方音乐合作伙伴
+      'official',       // 官方
+      'オフィシャル',    // 日文官方
+      '官方',           // 中文官方
     ];
 
-    for (final keyword in officialKeywords) {
+    for (final keyword in highPriorityKeywords) {
       if (lower.contains(keyword)) {
-        bonus += 3;
-        break; // 只加一次
+        bonus += 8;
+        break; // 只加一次最高分
       }
     }
 
-    // 特殊标识加分
-    if (lower.contains('official') || lower.contains('オフィシャル') || lower.contains('官方')) {
-      bonus += 5;
+    // 中权重音乐相关标识（+4）
+    const mediumPriorityKeywords = [
+      'music',          // 音乐
+      'ミュージック',    // 日文音乐
+      'records',        // 唱片公司
+      'レコード',       // 日文唱片
+      'entertainment',  // 娱乐公司
+      'エンタテインメント',
+      'label',          // 厂牌
+      'レーベル',
+    ];
+
+    for (final keyword in mediumPriorityKeywords) {
+      if (lower.contains(keyword)) {
+        bonus += 4;
+        break;
+      }
     }
-    if (lower.contains('vevo')) {
+
+    // YouTube Topic 频道（自动生成的艺术家频道）（+5）
+    if (lower.contains(' - topic') || lower.endsWith(' topic')) {
       bonus += 5;
     }
 
-    return bonus.clamp(0, 10);
+    // 知名唱片公司/厂牌名称（+3）
+    const majorLabels = [
+      'sony', 'universal', 'warner', 'emi', 'bmg',
+      'avex', 'エイベックス',
+      'jvckenwood', 'ビクター',
+      'king records', 'キングレコード',
+      'columbia', 'コロムビア',
+      'pony canyon', 'ポニーキャニオン',
+      'lantis', 'ランティス',
+      'aniplex', 'アニプレックス',
+      'sacra music',
+      'being',
+      'sm entertainment', 'jyp', 'yg entertainment', 'hybe', 'bighit',
+    ];
+
+    for (final label in majorLabels) {
+      if (lower.contains(label)) {
+        bonus += 3;
+        break;
+      }
+    }
+
+    return bonus.clamp(0, 15);
   }
 
   /// 计算标题关键词加分
@@ -472,15 +715,14 @@ class PlaylistImportService {
   }
 
   /// 计算两个字符串的相似度（0-100）
-  /// 使用改进的算法：结合包含关系和编辑距离
+  /// 使用改进的算法：结合包含关系、N-gram 和编辑距离
   double _calculateSimilarity(String a, String b) {
     if (a.isEmpty || b.isEmpty) return 0;
     if (a == b) return 100;
 
-    // 检查完全包含关系 - 如果原标题完全包含在搜索结果中，给予高分
+    // B. 增强子串匹配 - 检查完全包含关系
     if (b.contains(a)) {
       // 原标题是搜索结果的子串，给予高分（90-100）
-      // 搜索结果越短（越精确匹配），分数越高
       final ratio = a.length / b.length;
       return 90 + ratio * 10;
     }
@@ -489,22 +731,60 @@ class PlaylistImportService {
       return 70 + ratio * 20;
     }
 
-    // 检查关键词匹配
+    // D. 使用 N-gram 相似度（对日文/中文更有效）
+    final ngramSimilarity = _calculateNGramSimilarity(a, b);
+    if (ngramSimilarity > 50) {
+      return ngramSimilarity;
+    }
+
+    // 检查关键词匹配（对有空格的语言）
     final wordsA = a.split(' ').where((w) => w.isNotEmpty).toSet();
     final wordsB = b.split(' ').where((w) => w.isNotEmpty).toSet();
-    if (wordsA.isNotEmpty && wordsB.isNotEmpty) {
+    if (wordsA.length > 1 && wordsB.length > 1) {
       final intersection = wordsA.intersection(wordsB).length;
       final union = wordsA.union(wordsB).length;
       final jaccardSimilarity = intersection / union * 100;
-      if (jaccardSimilarity > 0) {
+      if (jaccardSimilarity > ngramSimilarity) {
         return jaccardSimilarity;
       }
     }
 
-    // 使用编辑距离计算相似度
+    // 返回 N-gram 相似度或编辑距离中较高的
     final distance = _levenshteinDistance(a, b);
     final maxLen = math.max(a.length, b.length);
-    return (1 - distance / maxLen) * 100;
+    final editSimilarity = (1 - distance / maxLen) * 100;
+
+    return math.max(ngramSimilarity, editSimilarity);
+  }
+
+  /// D. 计算 N-gram 相似度（字符级，适用于日文/中文）
+  double _calculateNGramSimilarity(String a, String b, {int n = 2}) {
+    if (a.isEmpty || b.isEmpty) return 0;
+    if (a == b) return 100;
+
+    final ngramsA = _generateNGrams(a, n);
+    final ngramsB = _generateNGrams(b, n);
+
+    if (ngramsA.isEmpty || ngramsB.isEmpty) return 0;
+
+    final intersection = ngramsA.intersection(ngramsB).length;
+    final union = ngramsA.union(ngramsB).length;
+
+    if (union == 0) return 0;
+    return (intersection / union) * 100;
+  }
+
+  /// 生成字符级 N-gram
+  Set<String> _generateNGrams(String text, int n) {
+    final ngrams = <String>{};
+    if (text.length < n) {
+      ngrams.add(text);
+      return ngrams;
+    }
+    for (var i = 0; i <= text.length - n; i++) {
+      ngrams.add(text.substring(i, i + n));
+    }
+    return ngrams;
   }
 
   /// Levenshtein 编辑距离
@@ -551,7 +831,7 @@ class PlaylistImportService {
   Future<List<Track>> searchForTrack(
     String query, {
     SearchSourceConfig searchSource = SearchSourceConfig.all,
-    int maxResults = 10,
+    int maxResults = 5,
   }) async {
     final allResults = <Track>[];
 
