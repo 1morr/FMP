@@ -54,8 +54,8 @@ class LiveRoom {
       face: _fixImageUrl(json['uface'] as String?),
       isLive: true, // live_room 搜索结果都是正在直播的
       online: json['online'] as int?,
-      areaName: json['cate_name'] as String?,
-      tags: json['tags'] as String?,
+      areaName: (json['cate_name'] as String?) != null ? _cleanHtmlTags(json['cate_name'] as String) : null,
+      tags: (json['tags'] as String?) != null ? _cleanHtmlTags(json['tags'] as String) : null,
       liveStatus: LiveStatus.live,
     );
   }
@@ -90,8 +90,8 @@ class LiveRoom {
       face: _fixImageUrl(json['uface'] as String?),
       isLive: isLive,
       online: json['online'] as int?,
-      areaName: json['cate_name'] as String?,
-      tags: json['tags'] as String?,
+      areaName: (json['cate_name'] as String?) != null ? _cleanHtmlTags(json['cate_name'] as String) : null,
+      tags: (json['tags'] as String?) != null ? _cleanHtmlTags(json['tags'] as String) : null,
       liveStatus: isLive ? LiveStatus.live : LiveStatus.offline,
     );
   }
