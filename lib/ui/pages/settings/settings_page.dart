@@ -12,6 +12,7 @@ import '../../../core/services/network_image_cache_service.dart';
 import '../../../data/models/hotkey_config.dart';
 import '../../../data/models/settings.dart';
 import '../../../providers/theme_provider.dart';
+import '../../theme/app_theme.dart';
 import '../../../providers/download_settings_provider.dart';
 import '../../../providers/developer_options_provider.dart';
 import '../../../providers/playback_settings_provider.dart';
@@ -41,6 +42,7 @@ class SettingsPage extends ConsumerWidget {
             children: [
               _ThemeModeListTile(),
               _ThemeColorListTile(),
+              _FontFamilyListTile(),
             ],
           ),
           const Divider(),
@@ -309,6 +311,73 @@ class _ThemeColorListTile extends ConsumerWidget {
                 }).toList(),
               ),
             ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 字体选择
+class _FontFamilyListTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fontFamily = ref.watch(fontFamilyProvider);
+    final fonts = AppTheme.availableFonts;
+    final currentDisplay = fonts
+        .where((f) => f.fontFamily == fontFamily)
+        .map((f) => f.displayName)
+        .firstOrNull ?? fontFamily ?? '系统默认';
+
+    return ListTile(
+      leading: const Icon(Icons.font_download_outlined),
+      title: const Text('字体'),
+      subtitle: Text(currentDisplay),
+      onTap: () => _showFontDialog(context, ref, fontFamily),
+    );
+  }
+
+  void _showFontDialog(BuildContext context, WidgetRef ref, String? currentFont) {
+    final fonts = AppTheme.availableFonts;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('选择字体'),
+        content: SizedBox(
+          width: 280,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: fonts.length,
+            itemBuilder: (context, index) {
+              final font = fonts[index];
+              final isSelected = font.fontFamily == currentFont;
+              return ListTile(
+                title: Text(
+                  font.displayName,
+                  style: font.fontFamily != null
+                      ? TextStyle(fontFamily: font.fontFamily)
+                      : null,
+                ),
+                subtitle: font.fontFamily != null
+                    ? Text(font.fontFamily!, style: Theme.of(context).textTheme.bodySmall)
+                    : null,
+                trailing: isSelected
+                    ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
+                    : null,
+                selected: isSelected,
+                onTap: () {
+                  ref.read(themeProvider.notifier).setFontFamily(font.fontFamily);
+                  Navigator.pop(context);
+                },
+              );
+            },
           ),
         ),
         actions: [

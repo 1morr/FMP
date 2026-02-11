@@ -103,6 +103,9 @@ class Settings {
   /// 启用全局快捷键（仅 Windows）
   bool enableGlobalHotkeys = true;
 
+  /// 自定义字体 (null 或空 = 系统默认)
+  String? fontFamily;
+
   // ========== 音频质量设置 ==========
 
   /// 音质等级: 0=high, 1=medium, 2=low
