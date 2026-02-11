@@ -317,15 +317,19 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
   /// 添加歌曲到歌单
   Future<bool> addTrack(Track track) async {
     try {
+      // 乐观更新 UI
+      state = state.copyWith(tracks: [...state.tracks, track]);
+
       await _service.addTrackToPlaylist(playlistId, track);
-      if (!mounted) return true;  // 操作已完成，返回成功
-      await loadPlaylist();
+      if (!mounted) return true;
       // 刷新相关 providers（封面可能已更新，歌单列表也需要更新）
       _ref.invalidate(playlistCoverProvider(playlistId));
       _ref.invalidate(allPlaylistsProvider);
       return true;
     } catch (e) {
       if (!mounted) return false;
+      // 回滚
+      await loadPlaylist();
       state = state.copyWith(error: e.toString());
       return false;
     }
@@ -334,15 +338,20 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
   /// 移除歌曲
   Future<bool> removeTrack(int trackId) async {
     try {
+      // 乐观更新 UI
+      final updatedTracks = state.tracks.where((t) => t.id != trackId).toList();
+      state = state.copyWith(tracks: updatedTracks);
+
       await _service.removeTrackFromPlaylist(playlistId, trackId);
-      if (!mounted) return true;  // 操作已完成，返回成功
-      await loadPlaylist();
+      if (!mounted) return true;
       // 刷新相关 providers（封面可能已更新，歌单列表也需要更新）
       _ref.invalidate(playlistCoverProvider(playlistId));
       _ref.invalidate(allPlaylistsProvider);
       return true;
     } catch (e) {
       if (!mounted) return false;
+      // 回滚
+      await loadPlaylist();
       state = state.copyWith(error: e.toString());
       return false;
     }
@@ -352,14 +361,20 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
   Future<bool> removeTracks(List<int> trackIds) async {
     if (trackIds.isEmpty) return true;
     try {
+      // 乐观更新 UI
+      final idSet = trackIds.toSet();
+      final updatedTracks = state.tracks.where((t) => !idSet.contains(t.id)).toList();
+      state = state.copyWith(tracks: updatedTracks);
+
       await _service.removeTracksFromPlaylist(playlistId, trackIds);
       if (!mounted) return true;
-      await loadPlaylist();
       _ref.invalidate(playlistCoverProvider(playlistId));
       _ref.invalidate(allPlaylistsProvider);
       return true;
     } catch (e) {
       if (!mounted) return false;
+      // 回滚
+      await loadPlaylist();
       state = state.copyWith(error: e.toString());
       return false;
     }
