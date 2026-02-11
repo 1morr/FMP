@@ -6,22 +6,30 @@ import 'repository_providers.dart';
 class PlaybackSettingsState {
   final bool autoScrollToCurrentTrack;
   final bool rememberPlaybackPosition;
+  final int restartRewindSeconds;
+  final int tempPlayRewindSeconds;
   final bool isLoading;
 
   const PlaybackSettingsState({
     this.autoScrollToCurrentTrack = false,
     this.rememberPlaybackPosition = true,
+    this.restartRewindSeconds = 0,
+    this.tempPlayRewindSeconds = 10,
     this.isLoading = true,
   });
 
   PlaybackSettingsState copyWith({
     bool? autoScrollToCurrentTrack,
     bool? rememberPlaybackPosition,
+    int? restartRewindSeconds,
+    int? tempPlayRewindSeconds,
     bool? isLoading,
   }) {
     return PlaybackSettingsState(
       autoScrollToCurrentTrack: autoScrollToCurrentTrack ?? this.autoScrollToCurrentTrack,
       rememberPlaybackPosition: rememberPlaybackPosition ?? this.rememberPlaybackPosition,
+      restartRewindSeconds: restartRewindSeconds ?? this.restartRewindSeconds,
+      tempPlayRewindSeconds: tempPlayRewindSeconds ?? this.tempPlayRewindSeconds,
       isLoading: isLoading ?? this.isLoading,
     );
   }
@@ -42,6 +50,8 @@ class PlaybackSettingsNotifier extends StateNotifier<PlaybackSettingsState> {
     state = PlaybackSettingsState(
       autoScrollToCurrentTrack: _settings!.autoScrollToCurrentTrack,
       rememberPlaybackPosition: _settings!.rememberPlaybackPosition,
+      restartRewindSeconds: _settings!.restartRewindSeconds,
+      tempPlayRewindSeconds: _settings!.tempPlayRewindSeconds,
       isLoading: false,
     );
   }
@@ -62,6 +72,24 @@ class PlaybackSettingsNotifier extends StateNotifier<PlaybackSettingsState> {
     final settingsRepository = _ref.read(settingsRepositoryProvider);
     await settingsRepository.save(_settings!);
     state = state.copyWith(rememberPlaybackPosition: value);
+  }
+
+  Future<void> setRestartRewindSeconds(int value) async {
+    if (_settings == null) return;
+
+    _settings!.restartRewindSeconds = value;
+    final settingsRepository = _ref.read(settingsRepositoryProvider);
+    await settingsRepository.save(_settings!);
+    state = state.copyWith(restartRewindSeconds: value);
+  }
+
+  Future<void> setTempPlayRewindSeconds(int value) async {
+    if (_settings == null) return;
+
+    _settings!.tempPlayRewindSeconds = value;
+    final settingsRepository = _ref.read(settingsRepositoryProvider);
+    await settingsRepository.save(_settings!);
+    state = state.copyWith(tempPlayRewindSeconds: value);
   }
 }
 

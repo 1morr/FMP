@@ -35,9 +35,6 @@ class AppConstants {
   /// 快进/快退时间 (秒)
   static const int seekDurationSeconds = 10;
 
-  /// 临时播放恢复位置偏移（秒）
-  static const int temporaryPlayRestoreOffsetSeconds = 10;
-
   /// 播放速度选项
   static const List<double> playbackSpeeds = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 

@@ -780,11 +780,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
           // 更新正在播放的歌曲（可能有 URL 更新）
           _updatePlayingTrack(trackWithUrl);
 
-          // 恢复播放位置（回退10秒，方便用户回忆上下文）
-          // 受"记住播放位置"设置控制，与应用重启恢复逻辑统一
-          final shouldRestore = await _queueManager.shouldRememberPosition;
-          if (shouldRestore && savedPosition > Duration.zero) {
-            final restorePosition = savedPosition - const Duration(seconds: AppConstants.temporaryPlayRestoreOffsetSeconds);
+          // 恢复播放位置（受"记住播放位置"设置控制）
+          final positionSettings = await _queueManager.getPositionRestoreSettings();
+          if (positionSettings.enabled && savedPosition > Duration.zero) {
+            final rewind = Duration(seconds: positionSettings.tempPlayRewindSeconds);
+            final restorePosition = savedPosition - rewind;
             await _audioService.seekTo(restorePosition.isNegative ? Duration.zero : restorePosition);
           }
 
@@ -2059,8 +2059,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       final positionToSeek = initialPosition ?? _queueManager.savedPosition;
       logDebug('Attempting to restore position: $positionToSeek');
       if (positionToSeek > Duration.zero) {
-        logDebug('Seeking to saved position: $positionToSeek');
-        await _audioService.seekTo(positionToSeek);
+        // 应用回退秒数设置
+        final positionSettings = await _queueManager.getPositionRestoreSettings();
+        final rewind = Duration(seconds: positionSettings.restartRewindSeconds);
+        final adjustedPosition = positionToSeek - rewind;
+        final finalPosition = adjustedPosition.isNegative ? Duration.zero : adjustedPosition;
+        logDebug('Seeking to position: $finalPosition (original: $positionToSeek, rewind: ${rewind.inSeconds}s)');
+        await _audioService.seekTo(finalPosition);
         logDebug('Seek completed');
       } else {
         logDebug('No saved position to restore (position is zero)');

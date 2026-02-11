@@ -81,6 +81,12 @@ class Settings {
   /// 记住播放位置（应用重启后从上次位置继续播放）
   bool rememberPlaybackPosition = true;
 
+  /// 应用重启恢复时回退秒数（0 = 从精确位置恢复）
+  int restartRewindSeconds = 0;
+
+  /// 临时播放恢复时回退秒数
+  int tempPlayRewindSeconds = 10;
+
   // ========== 下载设置 ==========
 
   /// 最大并发下载数 (1-5)
