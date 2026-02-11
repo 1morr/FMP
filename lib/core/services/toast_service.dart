@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+
+import '../constants/app_constants.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Toast 消息类型
@@ -120,6 +122,7 @@ class ToastService {
       SnackBar(
         content: Text(message),
         persist: false,
+        duration: AppConstants.toastDuration,
         action: SnackBarAction(
           label: actionLabel,
           onPressed: onAction,
@@ -145,7 +148,7 @@ class ToastService {
         : Text(message);
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: content),
+      SnackBar(content: content, duration: AppConstants.toastDuration),
     );
   }
 }
