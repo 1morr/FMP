@@ -355,10 +355,6 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
                 value: HistorySortOrder.playCount,
                 child: Text('播放次數'),
               ),
-              const PopupMenuItem(
-                value: HistorySortOrder.duration,
-                child: Text('歌曲時長'),
-              ),
             ],
           ),
         ],
@@ -371,6 +367,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return groupedAsync.when(
+      skipLoadingOnReload: true,
       data: (grouped) {
         if (grouped.isEmpty) {
           return Center(
@@ -799,8 +796,6 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
         return '時間正序';
       case HistorySortOrder.playCount:
         return '播放次數';
-      case HistorySortOrder.duration:
-        return '歌曲時長';
     }
   }
 

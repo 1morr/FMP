@@ -203,23 +203,23 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         ),
                         const SizedBox(width: 8),
                         ChoiceChip(
-                          label: const Text('未开播'),
-                          selected: state.liveRoomFilter == LiveRoomFilter.offline,
-                          onSelected: (_) {
-                            ref.read(searchProvider.notifier).setFilters(
-                              sourceType: SourceType.bilibili,
-                              liveRoomFilter: LiveRoomFilter.offline,
-                            );
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        ChoiceChip(
                           label: const Text('已开播'),
                           selected: state.liveRoomFilter == LiveRoomFilter.online,
                           onSelected: (_) {
                             ref.read(searchProvider.notifier).setFilters(
                               sourceType: SourceType.bilibili,
                               liveRoomFilter: LiveRoomFilter.online,
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        ChoiceChip(
+                          label: const Text('未开播'),
+                          selected: state.liveRoomFilter == LiveRoomFilter.offline,
+                          onSelected: (_) {
+                            ref.read(searchProvider.notifier).setFilters(
+                              sourceType: SourceType.bilibili,
+                              liveRoomFilter: LiveRoomFilter.offline,
                             );
                           },
                         ),

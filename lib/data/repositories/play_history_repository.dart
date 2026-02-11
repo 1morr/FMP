@@ -309,9 +309,6 @@ class PlayHistoryRepository {
         }
         records.sort((a, b) => (countMap[b.trackKey] ?? 0).compareTo(countMap[a.trackKey] ?? 0));
         break;
-      case HistorySortOrder.duration:
-        records.sort((a, b) => (b.durationMs ?? 0).compareTo(a.durationMs ?? 0));
-        break;
     }
     
     // 分页
@@ -382,5 +379,4 @@ enum HistorySortOrder {
   timeDesc,   // 时间倒序（最新优先）
   timeAsc,    // 时间正序（最早优先）
   playCount,  // 播放次数
-  duration,   // 歌曲时长
 }

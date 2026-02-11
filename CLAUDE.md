@@ -190,6 +190,24 @@ void main() async {
 - `searchProvider` - Search state
 - `themeProvider` - Theme configuration
 
+#### Data Loading Pattern Selection (按数据来源选择)
+
+| 数据来源 | 模式 | 示例 |
+|----------|------|------|
+| DB 集合（多处可修改） | Isar `watchAll()` + `StateNotifier` | 歌单列表、电台、播放历史 |
+| DB 联合查询 | `StateNotifier` + 乐观更新 | 歌单详情 |
+| 文件系统扫描 | `FutureProvider` + `invalidate` | 已下载页面 |
+| API + 缓存 | `CacheService` + `StreamProvider` | 首页/探索页排行榜 |
+| 设置项 | `StateNotifier` + 直接更新 state | 设置页面 |
+
+**关键规则：**
+- 使用 `isLoading` 的页面必须加守卫：`isLoading && data.isEmpty`
+- FutureProvider 操作后必须 `invalidate`，否则 UI 不更新
+- 乐观更新失败时必须回滚（`await loadXxx()`）
+- 列表/网格项加 `ValueKey(item.id)`
+
+详见 `ui_coding_patterns` 记忆第 3 节。
+
 ### Data Layer
 
 - **Models:** Isar collections in `lib/data/models/` (Track, Playlist, PlayQueue, Settings)

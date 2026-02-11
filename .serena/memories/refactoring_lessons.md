@@ -635,6 +635,123 @@ final progress = memProgress?.$1 ?? task.progress;  // 优先内存，回退数�
 - Isar 的 watch 机制会在每次写入时触发，不适合高频更新场景
 - 使用内存状态 + 定时持久化模式可以兼顾性能和数据安全
 
+### 18. StateNotifier 列表页闪烁问题与 Isar watch 迁移 (2026-02)
+
+**问题**：歌单列表页在增删歌单时，已有歌单卡片会短暂闪烁。
+
+**根本原因**：
+1. `loadPlaylists()` 设置 `isLoading: true` → UI 用 `CircularProgressIndicator` 替换整个网格
+2. DB 查询完成后更新 state → 网格重新出现
+3. 列表项缺少 `ValueKey`，Flutter 无法高效 diff
+
+**修复方案（三步）**：
+
+1. **加载守卫**（立即止血）：
+```dart
+// 改前：if (state.isLoading)
+// 改后：
+if (state.isLoading && displayPlaylists.isEmpty)
+```
+
+2. **Isar watch 迁移**（根治）：将 StateNotifier 的手动 `loadPlaylists()` 模式改为 Isar `watchAll()` 订阅。CRUD 方法只调用 service，watch 回调自动更新 UI，无需 `isLoading` 中间状态。
+
+3. **ValueKey**：给列表/网格项添加 `ValueKey(item.id)`，帮助 Flutter 识别不变的项。
+
+**选择依据**：
+- DB 集合（可被多处修改）→ 用 Isar watch
+- DB 联合查询/特殊加载逻辑 → 用 StateNotifier + 乐观更新
+- 文件系统扫描 → 用 FutureProvider + invalidate
+- 不要为了统一而强行用一种模式，每种数据来源有最适合的方案
+
+**参考**：完整模式说明见 `ui_coding_patterns` 记忆的第 3 节。
+
+### 19. FutureProvider 操作后必须 invalidate (2026-02)
+
+**问题**：已下载分类详情页删除歌曲/分组后，列表不更新，直到手动刷新。
+
+**原因**：`_deleteDownload()` 和 `_deleteAllDownloads()` 删除了文件并清除了 DB 路径，但没有 `ref.invalidate()` 对应的 `FutureProvider`。
+
+```dart
+// ❌ 错误 - 删除后不刷新
+Future<void> _deleteDownload(WidgetRef ref) async {
+  await file.delete();
+  await trackRepo.clearDownloadPath(track.id);
+  // 缺少 invalidate！
+}
+
+// ✅ 正确 - 删除后刷新列表和分类
+Future<void> _deleteDownload(WidgetRef ref) async {
+  await file.delete();
+  await trackRepo.clearDownloadPath(track.id);
+  ref.invalidate(downloadedCategoryTracksProvider(folderPath));
+  ref.invalidate(downloadedCategoriesProvider);
+}
+```
+
+**经验**：使用 `FutureProvider` 时，任何修改数据源的操作（增删改）都必须 `invalidate` 对应的 provider。FutureProvider 不像 Isar watch 会自动感知变更。
+
+### 20. 乐观更新的正确实现模式 (2026-02)
+
+**问题**：歌单详情页增删歌曲后调用 `loadPlaylist()` 完整重新查询 DB，存在短暂延迟。
+
+**乐观更新模式**：
+```dart
+Future<bool> removeTrack(int trackId) async {
+  try {
+    // 1. 立即更新 UI（同帧响应）
+    state = state.copyWith(
+      tracks: state.tracks.where((t) => t.id != trackId).toList(),
+    );
+    // 2. 异步持久化
+    await _service.removeTrackFromPlaylist(playlistId, trackId);
+    // 3. 刷新相关 providers
+    _ref.invalidate(playlistCoverProvider(playlistId));
+    return true;
+  } catch (e) {
+    // 4. 失败回滚
+    await loadPlaylist();
+    state = state.copyWith(error: e.toString());
+    return false;
+  }
+}
+```
+
+**适用场景**：数据源是 DB 但不适合用 Isar watch（联合查询、特殊加载逻辑）的 CRUD 操作。
+
+---
+
+### 21. StreamProvider 依赖用户筛选/排序状态时 .when() 必须加 skipLoadingOnReload (2026-02)
+
+**问题**：播放历史页面切换排序时，列表内容会闪一下（短暂显示空白/loading 再恢复）。
+
+**根本原因**：`groupedPlayHistoryProvider`（`StreamProvider.autoDispose`）内部 `ref.watch()` 了 `sortOrder`、`selectedSource`、`searchKeyword` 等用户状态。当用户切换排序时：
+1. `sortOrder` 变化 → provider 依赖失效 → stream 重建
+2. `AsyncValue` 状态从 `data` → `AsyncLoading`（但仍保留旧 value）→ 新 `data`
+3. `.when()` 默认在 `AsyncLoading` 时渲染 loading widget → 闪烁
+
+```dart
+// ❌ 错误 - 切换排序时闪烁
+return groupedAsync.when(
+  loading: () => const Center(child: CircularProgressIndicator()),
+  error: (_, __) => ...,
+  data: (grouped) => _buildList(grouped),
+);
+
+// ✅ 正确 - 保留旧数据，无闪烁
+return groupedAsync.when(
+  skipLoadingOnReload: true,
+  loading: () => const Center(child: CircularProgressIndicator()),
+  error: (_, __) => ...,
+  data: (grouped) => _buildList(grouped),
+);
+```
+
+**判断标准**：
+- Provider 通过 `ref.watch()` 依赖了用户交互可改变的状态 → 需要 `skipLoadingOnReload: true`
+- Provider 只依赖固定参数或只监听 DB 变化 → 不需要
+
+**注意**：这不是 Flutter 的限制，是 Riverpod `StreamProvider` 在依赖变化时重建 stream 的正常行为，通过 `skipLoadingOnReload` 即可解决。
+
 ---
 
 ## 常用工具组件

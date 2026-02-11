@@ -167,7 +167,154 @@ void initState() {
 
 ---
 
-## 3. 列表刷新模式
+## 3. 数据加载与状态更新模式
+
+### 3.1 按数据来源选择正确模式
+
+| 数据来源 | 推荐模式 | 示例页面 |
+|----------|---------|---------|
+| DB 集合（多处可修改） | Isar watch（响应式流） | 歌单列表、电台、播放历史、下载任务 |
+| DB 联合查询（playlist+tracks） | StateNotifier + 乐观更新 | 歌单详情 |
+| 文件系统扫描 | FutureProvider + invalidate | 已下载页面 |
+| API 数据 + 缓存 | CacheService + StreamProvider | 首页、探索页排行榜 |
+| 设置项 | StateNotifier + 直接更新 | 设置页面、音频设置 |
+
+### 3.2 Isar watch 模式（推荐用于 DB 集合）
+
+**适用场景**：数据存在 Isar 中，且可能被多个页面/操作修改。
+
+```dart
+class XXXNotifier extends StateNotifier<XXXState> {
+  StreamSubscription<List<Model>>? _watchSubscription;
+
+  XXXNotifier(this._service, this._ref) : super(const XXXState(isLoading: true)) {
+    _setupWatch();
+  }
+
+  void _setupWatch() {
+    final repo = _ref.read(xxxRepositoryProvider);
+    _watchSubscription = repo.watchAll().listen((items) {
+      state = XXXState(items: items); // 直接替换，无需 isLoading
+    });
+  }
+
+  // CRUD 方法只调用 service，watch 自动更新 UI
+  Future<bool> deleteItem(int id) async {
+    try {
+      await _service.delete(id);
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      return false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _watchSubscription?.cancel();
+    super.dispose();
+  }
+}
+```
+
+**Repository 端**：
+```dart
+Stream<List<Model>> watchAll() {
+  return _isar.models.where().sortBySortOrder().watch(fireImmediately: true);
+}
+```
+
+**参考实现**：`PlaylistListNotifier`（歌单列表）、`RadioController`（电台）
+
+### 3.3 StateNotifier + 乐观更新模式
+
+**适用场景**：数据需要联合查询，或有特殊加载逻辑（如 Mix 歌单从 API 加载）。
+
+```dart
+// CRUD 方法：先更新 UI，再持久化，失败回滚
+Future<bool> removeTrack(int trackId) async {
+  try {
+    // 1. 乐观更新 UI（同帧响应）
+    final updatedTracks = state.tracks.where((t) => t.id != trackId).toList();
+    state = state.copyWith(tracks: updatedTracks);
+
+    // 2. 异步持久化
+    await _service.removeTrackFromPlaylist(playlistId, trackId);
+    if (!mounted) return true;
+
+    // 3. 刷新相关 providers
+    _ref.invalidate(playlistCoverProvider(playlistId));
+    _ref.invalidate(allPlaylistsProvider);
+    return true;
+  } catch (e) {
+    if (!mounted) return false;
+    // 4. 失败回滚：从 DB 重新加载
+    await loadPlaylist();
+    state = state.copyWith(error: e.toString());
+    return false;
+  }
+}
+```
+
+**参考实现**：`PlaylistDetailNotifier`（歌单详情）
+
+### 3.4 FutureProvider + invalidate 模式
+
+**适用场景**：文件系统扫描等无法 watch 的数据源。
+
+Riverpod 2.x 的 `FutureProvider` 在 `invalidate()` 时自动保留旧数据（`skipLoadingOnRefresh` 默认 true），不会闪烁。
+
+```dart
+// Provider
+final downloadedCategoriesProvider = FutureProvider<List<DownloadedCategory>>((ref) async {
+  return await scanner.scanCategories();
+});
+
+// UI
+final categoriesAsync = ref.watch(downloadedCategoriesProvider);
+return categoriesAsync.when(
+  loading: () => const Center(child: CircularProgressIndicator()), // 仅首次加载显示
+  error: (error, stack) => _buildError(error),
+  data: (categories) => _buildContent(categories),
+);
+
+// 操作后刷新
+await _deleteFiles();
+ref.invalidate(downloadedCategoriesProvider); // 旧数据保留，无闪烁
+```
+
+**重要：操作后必须 invalidate**。如果忘记 invalidate，UI 不会更新（已下载详情页曾有此 bug）。
+
+### 3.5 防闪烁加载守卫
+
+对于使用 `StateNotifier` + `isLoading` 的页面，UI 中 **必须** 使用加载守卫，避免用 spinner 替换已有内容：
+
+```dart
+// ✅ 正确 - 仅首次加载时显示 spinner
+if (state.isLoading && displayData.isEmpty) {
+  return const Center(child: CircularProgressIndicator());
+}
+
+// ❌ 错误 - 每次刷新都会闪烁
+if (state.isLoading) {
+  return const Center(child: CircularProgressIndicator());
+}
+```
+
+### 3.6 列表项 ValueKey
+
+在 `GridView` / `ListView` 中使用 `ValueKey` 帮助 Flutter 高效 diff：
+
+```dart
+return _PlaylistCard(
+  key: ValueKey(playlists[index].id),
+  playlist: playlists[index],
+);
+```
+
+---
+
+## 4. 列表刷新模式（补充）
 
 ### 3.1 下拉刷新
 
@@ -340,6 +487,35 @@ void _toggleGroup(String groupKey) {
 ## 6. 错误处理模式
 
 ### 6.1 AsyncValue 处理
+
+**当 Provider 依赖用户可切换的筛选/排序状态时**，必须加 `skipLoadingOnReload: true`，否则切换时会闪烁：
+
+```dart
+// ✅ 正确 - Provider 依赖 sortOrder/filter 等用户状态时
+final dataAsync = ref.watch(someStreamProvider);
+
+return dataAsync.when(
+  skipLoadingOnReload: true,  // 切换排序/筛选时保留旧数据，避免闪烁
+  loading: () => const Center(child: CircularProgressIndicator()),  // 仅首次加载
+  error: (error, stack) => _buildError(error),
+  data: (data) => _buildContent(data),
+);
+
+// ❌ 错误 - 每次 sortOrder 变化，stream 重建，UI 从 data→loading→data 闪烁
+return dataAsync.when(
+  loading: () => const Center(child: CircularProgressIndicator()),
+  ...
+);
+```
+
+**原理**：`StreamProvider` 内部 `ref.watch()` 了 sortOrder 等状态 → 状态变化时 stream 重建 → `AsyncValue` 经过 `loading` 过渡态 → 默认 `.when()` 在 loading 时渲染 loading widget → 闪烁。`skipLoadingOnReload: true` 让 `.when()` 在有旧数据时直接使用旧数据，跳过 loading 态。
+
+**何时需要**：Provider 通过 `ref.watch()` 依赖了用户交互可改变的状态（排序、筛选、搜索关键词等）。
+**何时不需要**：Provider 只依赖固定参数（如页面入参 folderPath）或只监听 DB 变化。
+
+---
+
+**不依赖用户状态的标准写法**：
 
 ```dart
 final dataAsync = ref.watch(someAsyncProvider);
