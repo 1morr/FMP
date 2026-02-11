@@ -80,7 +80,7 @@ class AppConstants {
   // ==================== Toast 与通知 ====================
 
   /// Toast 默认显示时长
-  static const Duration toastDuration = Duration(seconds: 3);
+  static const Duration toastDuration = Duration(seconds: 1);
 
   /// 刷新进度 Toast 时长
   static const Duration refreshToastDuration = Duration(seconds: 4);
