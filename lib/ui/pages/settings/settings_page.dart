@@ -321,22 +321,134 @@ class _ThemeColorListTile extends ConsumerWidget {
   }
 }
 
-/// 记住播放位置开关
+/// 记住播放位置
 class _RememberPlaybackPositionTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(playbackSettingsProvider);
+    final isEnabled = settings.isLoading ? true : settings.rememberPlaybackPosition;
 
-    return SwitchListTile(
-      secondary: const Icon(Icons.history_outlined),
+    return ListTile(
+      leading: const Icon(Icons.history_outlined),
       title: const Text('记住播放位置'),
-      subtitle: const Text('应用重启后从上次位置继续播放'),
-      value: settings.isLoading ? true : settings.rememberPlaybackPosition,
-      onChanged: settings.isLoading
-          ? null
-          : (value) {
-              ref.read(playbackSettingsProvider.notifier).setRememberPlaybackPosition(value);
-            },
+      subtitle: Text(isEnabled ? '已启用' : '已禁用'),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isEnabled && !settings.isLoading)
+            IconButton(
+              icon: const Icon(Icons.settings_outlined),
+              tooltip: '配置回退时间',
+              onPressed: () => showDialog(
+                context: context,
+                builder: (context) => const _RewindSettingsDialog(),
+              ),
+            ),
+          Switch(
+            value: isEnabled,
+            onChanged: settings.isLoading
+                ? null
+                : (value) {
+                    ref.read(playbackSettingsProvider.notifier).setRememberPlaybackPosition(value);
+                  },
+          ),
+        ],
+      ),
+      onTap: isEnabled && !settings.isLoading
+          ? () => showDialog(
+                context: context,
+                builder: (context) => const _RewindSettingsDialog(),
+              )
+          : null,
+    );
+  }
+}
+
+/// 回退时间配置弹窗
+class _RewindSettingsDialog extends ConsumerWidget {
+  const _RewindSettingsDialog();
+
+  static const _rewindOptions = [0, 3, 5, 10, 15, 30];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(playbackSettingsProvider);
+    final theme = Theme.of(context);
+
+    return AlertDialog(
+      title: const Row(
+        children: [
+          Icon(Icons.history_outlined),
+          SizedBox(width: 8),
+          Text('回退时间设置'),
+        ],
+      ),
+      content: SizedBox(
+        width: 400,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '恢复播放时自动回退一段时间，方便回忆上下文',
+              style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 20),
+            _buildRewindRow(
+              context: context,
+              label: '重启恢复',
+              subtitle: '应用重启后恢复播放时',
+              value: settings.restartRewindSeconds,
+              onChanged: (v) => ref.read(playbackSettingsProvider.notifier).setRestartRewindSeconds(v),
+            ),
+            const SizedBox(height: 16),
+            _buildRewindRow(
+              context: context,
+              label: '临时播放恢复',
+              subtitle: '临时播放结束回到原队列时',
+              value: settings.tempPlayRewindSeconds,
+              onChanged: (v) => ref.read(playbackSettingsProvider.notifier).setTempPlayRewindSeconds(v),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('关闭'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRewindRow({
+    required BuildContext context,
+    required String label,
+    required String subtitle,
+    required int value,
+    required ValueChanged<int> onChanged,
+  }) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+        const SizedBox(height: 2),
+        Text(subtitle, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: _rewindOptions.map((option) {
+            final isSelected = option == value;
+            return ChoiceChip(
+              label: Text(option == 0 ? '不回退' : '$option 秒'),
+              selected: isSelected,
+              onSelected: (_) => onChanged(option),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 }

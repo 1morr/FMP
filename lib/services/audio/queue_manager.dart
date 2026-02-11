@@ -267,10 +267,14 @@ class QueueManager with Logging {
   /// 获取保存的音量
   double get savedVolume => _currentQueue?.lastVolume ?? 1.0;
 
-  /// 是否启用记住播放位置（读取用户设置）
-  Future<bool> get shouldRememberPosition async {
+  /// 获取播放位置恢复设置
+  Future<({bool enabled, int restartRewindSeconds, int tempPlayRewindSeconds})> getPositionRestoreSettings() async {
     final settings = await _settingsRepository.get();
-    return settings.rememberPlaybackPosition;
+    return (
+      enabled: settings.rememberPlaybackPosition,
+      restartRewindSeconds: settings.restartRewindSeconds,
+      tempPlayRewindSeconds: settings.tempPlayRewindSeconds,
+    );
   }
 
   /// 保存音量
