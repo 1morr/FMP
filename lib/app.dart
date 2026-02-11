@@ -73,14 +73,15 @@ class FMPApp extends ConsumerWidget {
         final themeState = ref.watch(themeProvider);
         final themeMode = themeState.themeMode;
         final primaryColor = themeState.primaryColor;
+        final fontFamily = themeState.fontFamily;
 
         return MaterialApp.router(
           title: 'FMP - Flutter Music Player',
           debugShowCheckedModeBanner: false,
 
           // 主题配置
-          theme: AppTheme.lightTheme(primaryColor: primaryColor),
-          darkTheme: AppTheme.darkTheme(primaryColor: primaryColor),
+          theme: AppTheme.lightTheme(primaryColor: primaryColor, fontFamily: fontFamily),
+          darkTheme: AppTheme.darkTheme(primaryColor: primaryColor, fontFamily: fontFamily),
           themeMode: themeMode,
 
           // 路由配置

@@ -8,23 +8,28 @@ import 'repository_providers.dart';
 class ThemeState {
   final ThemeMode themeMode;
   final Color? primaryColor;
+  final String? fontFamily;
   final bool isLoading;
 
   const ThemeState({
     this.themeMode = ThemeMode.system,
     this.primaryColor,
+    this.fontFamily,
     this.isLoading = true,
   });
 
   ThemeState copyWith({
     ThemeMode? themeMode,
     Color? primaryColor,
+    String? fontFamily,
     bool? isLoading,
     bool clearPrimaryColor = false,
+    bool clearFontFamily = false,
   }) {
     return ThemeState(
       themeMode: themeMode ?? this.themeMode,
       primaryColor: clearPrimaryColor ? null : (primaryColor ?? this.primaryColor),
+      fontFamily: clearFontFamily ? null : (fontFamily ?? this.fontFamily),
       isLoading: isLoading ?? this.isLoading,
     );
   }
@@ -45,6 +50,7 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
     state = ThemeState(
       themeMode: _settings!.themeMode,
       primaryColor: _settings!.primaryColorValue,
+      fontFamily: _settings!.fontFamily,
       isLoading: false,
     );
   }
@@ -67,6 +73,18 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
     state = state.copyWith(
       primaryColor: color,
       clearPrimaryColor: color == null,
+    );
+  }
+
+  /// 设置字体
+  Future<void> setFontFamily(String? fontFamily) async {
+    if (_settings == null) return;
+
+    _settings!.fontFamily = fontFamily;
+    await _settingsRepository.save(_settings!);
+    state = state.copyWith(
+      fontFamily: fontFamily,
+      clearFontFamily: fontFamily == null || fontFamily.isEmpty,
     );
   }
 
@@ -95,6 +113,11 @@ final themeModeProvider = Provider<ThemeMode>((ref) {
 /// 便捷 Provider - 当前主题色
 final primaryColorProvider = Provider<Color?>((ref) {
   return ref.watch(themeProvider).primaryColor;
+});
+
+/// 便捷 Provider - 当前字体
+final fontFamilyProvider = Provider<String?>((ref) {
+  return ref.watch(themeProvider).fontFamily;
 });
 
 /// 预设颜色列表
