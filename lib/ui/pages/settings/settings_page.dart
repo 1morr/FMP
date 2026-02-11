@@ -107,11 +107,12 @@ class SettingsPage extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(RoutePaths.userGuide),
               ),
-              _VersionListTile(),
               _CheckUpdateListTile(),
+              _VersionListTile(),
               ListTile(
                 leading: const Icon(Icons.code_outlined),
                 title: const Text('开源许可'),
+                subtitle: const Text('查看第三方开源组件许可证'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () async {
                   final info = await PackageInfo.fromPlatform();
