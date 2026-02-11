@@ -269,7 +269,7 @@ void main() {
       expect(cache.contains(savePath), isTrue);
     });
 
-    test('同步歌曲后 Track.downloadPaths 应更新', () {
+    test('同步歌曲后 Track.playlistInfo 应更新', () {
       // 同步前
       final track = Track()
         ..id = 1

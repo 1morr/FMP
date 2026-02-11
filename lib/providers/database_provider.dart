@@ -46,34 +46,6 @@ final databaseProvider = FutureProvider<Isar>((ref) async {
     }
   });
 
-  // 一次性迁移：将旧的 playlistIds/downloadPaths 并行列表迁移到 playlistInfo
-  await isar.writeTxn(() async {
-    final tracks = await isar.tracks
-        .filter()
-        .playlistIdsIsNotEmpty()
-        .and()
-        .playlistInfoIsEmpty()
-        .findAll();
-
-    if (tracks.isNotEmpty) {
-      for (final track in tracks) {
-        final infos = <PlaylistDownloadInfo>[];
-        for (int i = 0; i < track.playlistIds.length; i++) {
-          final info = PlaylistDownloadInfo()
-            ..playlistId = track.playlistIds[i]
-            ..downloadPath =
-                (i < track.downloadPaths.length) ? track.downloadPaths[i] : '';
-          infos.add(info);
-        }
-        track.playlistInfo = infos;
-        // 清除旧字段
-        track.playlistIds = [];
-        track.downloadPaths = [];
-      }
-      await isar.tracks.putAll(tracks);
-    }
-  });
-
   return isar;
 });
 

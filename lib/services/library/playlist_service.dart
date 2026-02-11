@@ -176,7 +176,7 @@ class PlaylistService with Logging {
     await _playlistRepository.save(playlist);
 
     // 注：歌单改名不再需要更新预计算路径
-    // 新架构下，下载路径在下载完成时保存到 Track.downloadPaths
+    // 新架构下，下载路径在下载完成时保存到 Track.playlistInfo
 
     return PlaylistUpdateResult(
       playlist: playlist,
