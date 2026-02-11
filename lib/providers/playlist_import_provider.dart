@@ -79,14 +79,24 @@ class PlaylistImportState {
 class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
   final PlaylistImportService _service;
   StreamSubscription<ImportProgress>? _progressSubscription;
+  bool _importCancelled = false;
 
   PlaylistImportNotifier(this._service) : super(const PlaylistImportState()) {
     _progressSubscription = _service.progressStream.listen((progress) {
-      state = state.copyWith(
-        progress: progress,
-        phase: progress.phase,
-      );
+      if (!_importCancelled) {
+        state = state.copyWith(
+          progress: progress,
+          phase: progress.phase,
+        );
+      }
     });
+  }
+
+  /// 取消当前导入
+  void cancelImport() {
+    _importCancelled = true;
+    _service.cancelImport();
+    state = const PlaylistImportState();
   }
 
   /// 设置搜索来源
@@ -101,6 +111,7 @@ class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
 
   /// 导入并匹配歌单
   Future<void> importAndMatch(String url) async {
+    _importCancelled = false;
     state = state.copyWith(
       isLoading: true,
       phase: ImportPhase.fetching,
@@ -113,13 +124,20 @@ class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
         searchSource: state.searchSource,
       );
 
+      if (_importCancelled) return;
+
       state = state.copyWith(
         isLoading: false,
         phase: ImportPhase.completed,
         playlist: result.playlist,
         matchedTracks: result.matchedTracks,
       );
+    } on ImportCancelledException {
+      // 用户取消，不设置错误状态
+      return;
     } catch (e) {
+      if (_importCancelled) return;
+
       state = state.copyWith(
         isLoading: false,
         phase: ImportPhase.error,

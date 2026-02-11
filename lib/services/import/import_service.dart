@@ -84,6 +84,30 @@ class ImportService with Logging {
 
   ImportProgress _currentProgress = const ImportProgress();
 
+  /// 取消标记
+  bool _isCancelled = false;
+
+  /// 取消导入后需要清理的歌单 ID
+  int? _cancelledPlaylistId;
+
+  /// 取消当前导入
+  void cancelImport() {
+    _isCancelled = true;
+  }
+
+  /// 清理取消导入后残留的歌单（在导入完全停止后调用）
+  Future<void> cleanupCancelledImport() async {
+    final playlistId = _cancelledPlaylistId;
+    _cancelledPlaylistId = null;
+    if (playlistId != null) {
+      try {
+        await _playlistRepository.delete(playlistId);
+      } catch (_) {
+        // 清理失败不影响功能
+      }
+    }
+  }
+
   ImportService({
     required SourceManager sourceManager,
     required PlaylistRepository playlistRepository,
@@ -101,6 +125,8 @@ class ImportService with Logging {
     int? refreshIntervalHours,
     bool notifyOnUpdate = true,
   }) async {
+    _isCancelled = false;
+    _cancelledPlaylistId = null;
     _updateProgress(status: ImportStatus.parsing, currentItem: '解析URL...');
 
     try {
@@ -178,8 +204,18 @@ class ImportService with Logging {
       int addedCount = 0;
       int skippedCount = 0;
       final errors = <String>[];
+      final isNewPlaylist = existingPlaylist == null;
 
       for (int i = 0; i < expandedTracks.length; i++) {
+        if (_isCancelled) {
+          // 记录需要清理的歌单 ID，不在此处直接删除
+          // （在 Isar 写入事务进行中删除会导致崩溃）
+          if (isNewPlaylist) {
+            _cancelledPlaylistId = playlist.id;
+          }
+          throw ImportException('导入已取消');
+        }
+
         final track = expandedTracks[i];
 
         _updateProgress(

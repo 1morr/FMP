@@ -72,12 +72,26 @@ class PlaylistImportResult {
 }
 
 /// 歌单导入服务
+/// 导入被用户取消
+class ImportCancelledException implements Exception {
+  @override
+  String toString() => '导入已取消';
+}
+
 class PlaylistImportService {
   final SourceManager _sourceManager;
   final List<PlaylistImportSource> _importSources;
 
   final _progressController = StreamController<ImportProgress>.broadcast();
   Stream<ImportProgress> get progressStream => _progressController.stream;
+
+  /// 取消标记
+  bool _isCancelled = false;
+
+  /// 取消当前导入
+  void cancelImport() {
+    _isCancelled = true;
+  }
 
   PlaylistImportService({
     required SourceManager sourceManager,
@@ -104,6 +118,8 @@ class PlaylistImportService {
     SearchSourceConfig searchSource = SearchSourceConfig.all,
     int maxSearchResults = 5,
   }) async {
+    _isCancelled = false;
+
     // 1. 获取歌单
     _progressController.add(const ImportProgress(
       phase: ImportPhase.fetching,
@@ -111,6 +127,8 @@ class PlaylistImportService {
     ));
 
     final playlist = await _fetchPlaylist(url);
+
+    if (_isCancelled) throw ImportCancelledException();
 
     // 2. 搜索匹配
     final matchedTracks = await _matchTracks(
@@ -167,6 +185,8 @@ class PlaylistImportService {
     final total = tracks.length;
 
     for (var i = 0; i < tracks.length; i++) {
+      if (_isCancelled) throw ImportCancelledException();
+
       final track = tracks[i];
 
       _progressController.add(ImportProgress(

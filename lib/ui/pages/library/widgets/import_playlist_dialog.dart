@@ -58,7 +58,8 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
   /// 外部歌单搜索来源
   SearchSourceConfig _searchSource = SearchSourceConfig.all;
 
-  // 内部导入进度
+  // 内部导入
+  url_import.ImportService? _internalImportService;
   url_import.ImportProgress? _internalProgress;
   StreamSubscription<url_import.ImportProgress>? _internalProgressSub;
 
@@ -283,7 +284,12 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: _isImporting ? null : () => Navigator.pop(context),
+          onPressed: () {
+            if (_isImporting) {
+              _cancelImport();
+            }
+            Navigator.pop(context);
+          },
           child: const Text('取消'),
         ),
         FilledButton(
@@ -344,6 +350,16 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
     }
   }
 
+  /// 取消导入
+  void _cancelImport() {
+    if (_detected?.type == _UrlType.external) {
+      ref.read(playlistImportProvider.notifier).cancelImport();
+    }
+    _internalImportService?.cancelImport();
+    _internalProgressSub?.cancel();
+    _externalProgressSub?.cancel();
+  }
+
   Future<void> _startImport() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -378,6 +394,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
         trackRepository: trackRepo,
         isar: isar,
       );
+      _internalImportService = importService;
 
       _internalProgressSub = importService.progressStream.listen((progress) {
         if (mounted) {
@@ -405,7 +422,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
         );
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && !e.toString().contains('导入已取消')) {
         setState(() {
           _isImporting = false;
           _errorMessage = e.toString();
@@ -413,6 +430,9 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
       }
     } finally {
       _internalProgressSub?.cancel();
+      // 导入完全停止后清理残留的部分歌单（此时无 Isar 写入冲突）
+      await _internalImportService?.cleanupCancelledImport();
+      _internalImportService = null;
     }
   }
 
