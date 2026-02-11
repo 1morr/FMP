@@ -79,14 +79,6 @@ class Track {
   /// 歌单归属与下载信息列表
   List<PlaylistDownloadInfo> playlistInfo = [];
 
-  // ========== 旧字段（仅用于迁移，迁移后始终为空）==========
-
-  /// @deprecated 使用 playlistInfo 代替。仅保留用于迁移。
-  List<int> playlistIds = [];
-
-  /// @deprecated 使用 playlistInfo 代替。仅保留用于迁移。
-  List<String> downloadPaths = [];
-
   // ========== 新的辅助方法 ==========
 
   /// 获取指定歌单的下载路径（优先按名称匹配，兼容旧数据按ID匹配）

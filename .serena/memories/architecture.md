@@ -54,7 +54,9 @@
 | PlayQueue | `data/models/play_queue.dart` | 播放队列 |
 | Settings | `data/models/settings.dart` | 应用设置 |
 | SearchHistory | `data/models/search_history.dart` | 搜索历史 |
+| PlayHistory | `data/models/play_history.dart` | 播放历史 |
 | DownloadTask | `data/models/download_task.dart` | 下载任务 |
+| RadioStation | `data/models/radio_station.dart` | 电台/直播间 |
 
 ### Repositories
 | 仓库 | 文件 | 职责 |
@@ -172,6 +174,6 @@
 - **DownloadScanner**: 文件系统扫描器
 
 ### 关键数据流
-1. **路径预计算**: 导入/添加歌曲时 → `DownloadPathUtils.computeDownloadPath()` → 保存到 `track.downloadPaths`
+1. **下载完成**: `DownloadService` → `track.setDownloadPath(playlistId, path)` → 保存到 `track.playlistInfo`
 2. **下载检测**: 进入页面 → `FileExistsCache.refreshCache()` → 异步检测 → 触发 UI 重建
-3. **本地播放**: `track.firstDownloadPath` → `AudioService.playFile()`
+3. **本地播放**: `track.allDownloadPaths` → `FileExistsCache.getFirstExisting()` → `AudioService.playFile()`

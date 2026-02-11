@@ -2,10 +2,11 @@
 
 ## 已完成的重构 (2026-01-14)
 
-### 1. 预计算路径模式
-- Track 使用 `playlistIds` + `downloadPaths` 并行列表支持多歌单下载
-- 路径在**加入歌单时**预计算，非下载时
+### 1. 按需路径模式
+- Track 使用 `playlistInfo`（`List<PlaylistDownloadInfo>` 嵌入式对象）支持多歌单下载
+- 路径在**下载完成时**保存，非加入歌单时
 - 移除了 `syncDownloadedFiles()`、`findBestMatchForRefresh()` 等复杂同步逻辑
+- 旧的 `playlistIds` + `downloadPaths` 并行列表已于 2026-02 彻底删除
 
 ### 2. 统一路径获取
 - 所有基础目录获取统一使用 `DownloadPathUtils.getDefaultBaseDir()`
@@ -74,27 +75,27 @@ Future<String?> getFirstExistingPath() async => ...;
 
 ### 6. addTrackToPlaylist 必须使用 getOrCreate (2026-01-18)
 
-**问题**：使用 `save()` 直接保存传入的 track 对象会导致 playlistIds/downloadPaths 数据不同步。
+**问题**：使用 `save()` 直接保存传入的 track 对象会导致 playlistInfo 数据不同步。
 
 ```dart
 // 错误 - 缓存的旧 track 数据会覆盖数据库最新数据
 Future<void> addTrackToPlaylist(int playlistId, Track track) async {
-  track.setDownloadPath(playlistId, path);
+  track.addToPlaylist(playlistId);
   await _trackRepository.save(track);  // 可能用旧数据覆盖
 }
 
 // 正确 - 先从数据库获取最新数据
 Future<void> addTrackToPlaylist(int playlistId, Track track) async {
   final existingTrack = await _trackRepository.getOrCreate(track);  // 获取最新数据
-  existingTrack.setDownloadPath(playlistId, path);
+  existingTrack.addToPlaylist(playlistId);
   await _trackRepository.save(existingTrack);
 }
 ```
 
 **场景**：
-1. Track 在歌单 A、B 中 → playlistIds=[A,B]
-2. 删除歌单 B → 数据库更新为 playlistIds=[A]
-3. 用缓存的旧 track 添加到歌单 C → 旧数据 playlistIds=[A,B,C] 覆盖数据库
+1. Track 在歌单 A、B 中 → playlistInfo 包含 A、B
+2. 删除歌单 B → 数据库更新为只包含 A
+3. 用缓存的旧 track 添加到歌单 C → 旧数据覆盖数据库（A、B、C 而非 A、C）
 
 ### 7. refreshPlaylist 必须清理被移除的 tracks (2026-01-18)
 
@@ -527,7 +528,7 @@ Future<void> _restoreSavedState() async {
 - 分阶段重构时，记录清晰的 Phase 注释有助于后续清理
 - 使用搜索工具确保所有使用处都被更新
 
-**问题**：刷新导入的歌单时，如果远程移除了某些歌曲，只更新了 `Playlist.trackIds`，但没有清理对应 Track 的 `playlistIds` 和 `downloadPaths`。
+**问题**：刷新导入的歌单时，如果远程移除了某些歌曲，只更新了 `Playlist.trackIds`，但没有清理对应 Track 的 `playlistInfo`。
 
 ```dart
 // 错误 - 只计算了移除数量，没有清理 tracks
@@ -539,8 +540,8 @@ final removedTrackIds = originalTrackIds.difference(newTrackIdSet);
 if (removedTrackIds.isNotEmpty) {
   final removedTracks = await _trackRepository.getByIds(removedTrackIds.toList());
   for (final track in removedTracks) {
-    track.removeDownloadPath(playlist.id);
-    // 如果 playlistIds 为空，删除 track
+    track.removeFromPlaylist(playlist.id);
+    // 如果 playlistInfo 为空，删除 track
   }
 }
 playlist.trackIds = newTrackIds;

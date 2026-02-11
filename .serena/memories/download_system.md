@@ -52,30 +52,38 @@ bool isDownloadedForPlaylist(int playlistId);
 ### Track 模型关键字段
 
 ```dart
-class Track {
-  List<int> playlistIds = [];      // 关联的歌单 ID
-  List<String> downloadPaths = []; // 实际下载完成后的路径
+@embedded
+class PlaylistDownloadInfo {
+  int playlistId = 0;
+  String playlistName = '';
+  String downloadPath = '';
+  bool get isDownloaded => downloadPath.isNotEmpty;
 }
 
-// TrackExtensions (lib/core/extensions/track_extensions.dart)
-extension TrackExtensions on Track {
-  bool get isDownloaded;           // downloadPaths.isNotEmpty（简化判断）
-  String? get localAudioPath;      // 第一个实际存在的音频路径
-  List<String> get validDownloadPaths;  // 过滤出实际存在的路径
-  bool get hasLocalAudio;          // localAudioPath != null
+class Track {
+  List<PlaylistDownloadInfo> playlistInfo = [];  // 歌单归属与下载路径
+
+  // @ignore 便捷 getters
+  List<int> get allPlaylistIds;
+  List<String> get allDownloadPaths;
+  bool get hasAnyDownload;
+
+  // 方法
+  String? getDownloadPath(int playlistId, {String? playlistName});
+  void setDownloadPath(int playlistId, String path, {String? playlistName});
+  bool isDownloadedForPlaylist(int playlistId, {String? playlistName});
+  void clearAllDownloadPaths();
+  void clearDownloadPathForPlaylist(int playlistId);
+  void addToPlaylist(int playlistId, {String? playlistName});
+  void removeFromPlaylist(int playlistId);
 }
 ```
+
+**注意**：旧的 `playlistIds` 和 `downloadPaths` 并行列表字段已于 2026-02 彻底删除，迁移代码也已移除。
 
 ### 路径设置时机
-- **添加歌曲到歌单**：只添加 playlistId，不设置 downloadPath
-- **下载完成时**：由 DownloadService 调用 `trackRepository.addDownloadPath()` 保存实际路径
-
-### TrackRepository 新方法
-```dart
-Future<void> addDownloadPath(int trackId, int? playlistId, String path);
-Future<void> clearAllDownloadPaths();
-Future<int> cleanupInvalidDownloadPaths();  // 清理无效路径，返回清理数量
-```
+- **添加歌曲到歌单**：调用 `addToPlaylist(playlistId)`，不设置 downloadPath
+- **下载完成时**：由 DownloadService 调用 `track.setDownloadPath(playlistId, path)` 保存实际路径
 
 ---
 
@@ -153,7 +161,7 @@ cache.remove(path);               // 移除缓存
 cache.clearAll();                 // 清空所有缓存
 
 // 注意：Track 相关方法已移除（isDownloadedForPlaylist, hasAnyDownload 等）
-// 下载状态判断改为：track.downloadPaths.any((p) => cache.exists(p))
+// 下载状态判断改为：track.allDownloadPaths.any((p) => cache.exists(p))
 ```
 
 **主要使用场景**:
@@ -514,7 +522,7 @@ class ChangeDownloadPathDialog {
 **功能**：
 - 两次确认防止误操作
 - 显示加载状态（选择文件夹中、更新设置中）
-- 清空所有 Track 的 downloadPaths
+- 清空所有 Track 的 playlistInfo 中的 downloadPath
 - 刷新相关 Provider（fileExistsCacheProvider, downloadedCategoriesProvider, downloadPathProvider）
 - 提示用户点击刷新按钮扫描本地文件
 

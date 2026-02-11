@@ -252,6 +252,7 @@ class _PlaylistListView extends StatelessWidget {
                   title: '封面',
                   data: {
                     'coverUrl': _truncate(playlist.coverUrl, 60),
+                    'hasCustomCover': playlist.hasCustomCover.toString(),
                   },
                 ),
                 _DataSection(
@@ -284,8 +285,9 @@ class _PlaylistListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '时间戳',
+                  title: '排序与时间',
                   data: {
+                    'sortOrder': playlist.sortOrder.toString(),
                     'createdAt': playlist.createdAt.toIso8601String(),
                     'updatedAt': playlist.updatedAt?.toIso8601String() ?? 'null',
                   },
@@ -468,6 +470,8 @@ class _SettingsListView extends StatelessWidget {
                   data: {
                     'autoScrollToCurrentTrack': setting.autoScrollToCurrentTrack.toString(),
                     'rememberPlaybackPosition': setting.rememberPlaybackPosition.toString(),
+                    'restartRewindSeconds': '${setting.restartRewindSeconds}s',
+                    'tempPlayRewindSeconds': '${setting.tempPlayRewindSeconds}s',
                   },
                 ),
                 _DataSection(
