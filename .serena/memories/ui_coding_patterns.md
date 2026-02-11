@@ -48,7 +48,51 @@ class _XXXPageState extends ConsumerState<XXXPage> {
 }
 ```
 
-### 1.2 简单页面（无本地状态）
+### 1.2 AppBar Actions 尾部间距
+
+所有页面的 `AppBar.actions` 列表末尾必须添加 `const SizedBox(width: 8)`，保证最后一个按钮与屏幕边缘的间距一致。
+
+**规则**：
+- 最后一个 action 是 `IconButton` → 必须加 `const SizedBox(width: 8)`
+- 最后一个 action 是 `PopupMenuButton` → 不需要（自带内边距）
+- **禁止**用 `Padding(padding: EdgeInsets.only(right: 8))` 包裹 IconButton 来实现间距
+
+```dart
+// ✅ 正确
+appBar: AppBar(
+  actions: [
+    IconButton(...),
+    const SizedBox(width: 8),
+  ],
+),
+
+// ✅ 正确 - PopupMenuButton 结尾无需额外间距
+appBar: AppBar(
+  actions: [
+    IconButton(...),
+    PopupMenuButton(...),
+  ],
+),
+
+// ❌ 错误 - 缺少尾部间距
+appBar: AppBar(
+  actions: [
+    IconButton(...),
+  ],
+),
+
+// ❌ 错误 - 用 Padding 代替 SizedBox
+appBar: AppBar(
+  actions: [
+    Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: IconButton(...),
+    ),
+  ],
+),
+```
+
+### 1.3 简单页面（无本地状态）
 
 使用 `ConsumerWidget` 而非 `ConsumerStatefulWidget`：
 
@@ -625,6 +669,7 @@ Widget build(BuildContext context, WidgetRef ref) {
 - [ ] 错误状态和空状态处理是否符合规范
 - [ ] 列表项样式是否与相似页面统一
 - [ ] 是否使用了相似页面的现有组件和模式
+- [ ] AppBar actions 尾部间距：IconButton 结尾加 `const SizedBox(width: 8)`，PopupMenuButton 结尾无需额外间距
 
 ---
 

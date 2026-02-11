@@ -46,6 +46,7 @@ class _DatabaseViewerPageState extends ConsumerState<DatabaseViewerPage> {
             tooltip: '刷新',
             onPressed: () => setState(() {}),
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: Column(

@@ -669,6 +669,7 @@ class _YouTubeStreamTestPageState extends State<YouTubeStreamTestPage> {
             tooltip: '清除日志',
             onPressed: () => setState(() => _logs.clear()),
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: Column(

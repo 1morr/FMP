@@ -406,6 +406,38 @@ User-configurable audio quality settings for different sources.
 - Bilibili only supports AAC format, format priority has no effect
 - Bilibili live streams are always muxed (video+audio), no audio-only option
 
+### AppBar Actions Trailing Spacing
+All page-level `AppBar` actions lists must end with `const SizedBox(width: 8)` to maintain consistent spacing between the last action button and the screen edge. This applies when the last action is an `IconButton`. Pages where the last action is a `PopupMenuButton` do not need the extra spacing since `PopupMenuButton` has built-in padding.
+
+```dart
+// ✅ Correct
+appBar: AppBar(
+  actions: [
+    IconButton(...),
+    IconButton(...),
+    const SizedBox(width: 8), // trailing spacing
+  ],
+),
+
+// ❌ Wrong - no trailing spacing
+appBar: AppBar(
+  actions: [
+    IconButton(...),
+    IconButton(...),
+  ],
+),
+
+// ❌ Wrong - using Padding wrapper instead
+appBar: AppBar(
+  actions: [
+    Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: IconButton(...),
+    ),
+  ],
+),
+```
+
 ### ListTile Performance in Lists
 **Avoid putting `Row` inside `ListTile.leading`** - this causes layout jitter during scrolling.
 
@@ -496,6 +528,7 @@ mcp__plugin_serena_serena__read_memory(memory_file_name: "ui_coding_patterns")
 - [ ] 播放状态判断逻辑统一
 - [ ] 菜单操作与其他页面一致
 - [ ] 错误/空状态处理符合规范
+- [ ] AppBar actions 尾部间距：IconButton 结尾加 `SizedBox(width: 8)`
 
 ## File Structure Highlights
 

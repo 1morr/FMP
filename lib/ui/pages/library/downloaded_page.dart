@@ -89,6 +89,7 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
             tooltip: '下载管理',
             onPressed: () => context.pushNamed(RouteNames.downloadManager),
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: categoriesAsync.when(
