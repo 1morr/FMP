@@ -139,4 +139,12 @@ class PlaylistRepository {
     if (all.isEmpty) return 0;
     return all.map((p) => p.sortOrder).reduce((a, b) => a > b ? a : b) + 1;
   }
+
+  /// 監聽歌單列表變化
+  Stream<List<Playlist>> watchAll() {
+    return _isar.playlists
+        .where()
+        .sortBySortOrder()
+        .watch(fireImmediately: true);
+  }
 }

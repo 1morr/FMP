@@ -163,8 +163,7 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
             ),
       );
 
-      // 刷新歌单列表、详情和封面
-      _ref.read(playlistListProvider.notifier).loadPlaylists();
+      // watch 自动更新歌单列表，只需刷新详情和封面
       _ref.invalidate(playlistDetailProvider(playlistId));
       _ref.invalidate(playlistCoverProvider(playlistId));
       _ref.invalidate(allPlaylistsProvider);

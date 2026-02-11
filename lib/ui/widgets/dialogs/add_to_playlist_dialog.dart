@@ -550,7 +550,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
 
       // 刷新歌单列表
       ref.invalidate(allPlaylistsProvider);
-      await ref.read(playlistListProvider.notifier).loadPlaylists();
+      // watch 自动更新歌单列表，无需手动刷新
 
       if (mounted) {
         // 根据操作结果显示不同的提示

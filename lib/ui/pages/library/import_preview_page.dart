@@ -278,8 +278,7 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
       final service = ref.read(playlistServiceProvider);
       await service.addTracksToPlaylist(playlist.id, tracks);
 
-      // 刷新歌单列表和详情
-      ref.read(playlistListProvider.notifier).loadPlaylists();
+      // watch 自动更新歌单列表，只需刷新详情和封面
       ref.invalidate(allPlaylistsProvider);
       ref.invalidate(playlistDetailProvider(playlist.id));
       ref.invalidate(playlistCoverProvider(playlist.id));

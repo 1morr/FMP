@@ -410,7 +410,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
         customName: customName.isEmpty ? null : customName,
       );
 
-      ref.read(playlistListProvider.notifier).loadPlaylists();
+      // watch 自动更新歌单列表
       ref.invalidate(allPlaylistsProvider);
 
       if (mounted) {

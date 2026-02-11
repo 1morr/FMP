@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:equatable/equatable.dart';
 
@@ -57,24 +59,22 @@ class PlaylistListState extends Equatable {
   List<Object?> get props => [playlists, isLoading, error];
 }
 
-/// 歌单列表控制器
+/// 歌单列表控制器（响应式，基于 Isar watch）
 class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
   final PlaylistService _service;
   final Ref _ref;
+  StreamSubscription<List<Playlist>>? _watchSubscription;
 
-  PlaylistListNotifier(this._service, this._ref) : super(const PlaylistListState()) {
-    loadPlaylists();
+  PlaylistListNotifier(this._service, this._ref) : super(const PlaylistListState(isLoading: true)) {
+    _setupWatch();
   }
 
-  /// 加载所有歌单
-  Future<void> loadPlaylists() async {
-    state = state.copyWith(isLoading: true, error: null);
-    try {
-      final playlists = await _service.getAllPlaylists();
-      state = state.copyWith(playlists: playlists, isLoading: false);
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-    }
+  /// 设置 Isar watch 订阅
+  void _setupWatch() {
+    final repo = _ref.read(playlistRepositoryProvider);
+    _watchSubscription = repo.watchAll().listen((playlists) {
+      state = PlaylistListState(playlists: playlists);
+    });
   }
 
   /// 创建歌单
@@ -89,11 +89,7 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
         description: description,
         coverUrl: coverUrl,
       );
-      // 直接追加到列表，避免 loadPlaylists 的 isLoading 闪烁
-      state = state.copyWith(
-        playlists: [...state.playlists, playlist],
-      );
-      // 同步刷新 allPlaylistsProvider，确保添加到歌单弹窗显示最新列表
+      // watch 自动更新列表
       _ref.invalidate(allPlaylistsProvider);
       return playlist;
     } catch (e) {
@@ -119,19 +115,9 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
         description: description,
         coverUrl: coverUrl,
       );
-      // 直接更新列表中的歌单，避免 loadPlaylists 的 isLoading 闪烁
-      final updatedPlaylists = state.playlists.map((p) {
-        if (p.id == playlistId) {
-          return result.playlist;
-        }
-        return p;
-      }).toList();
-      state = state.copyWith(playlists: updatedPlaylists);
-      // 同步刷新 allPlaylistsProvider，确保添加到歌单弹窗显示最新列表
+      // watch 自动更新列表
       _ref.invalidate(allPlaylistsProvider);
-      // 刷新歌单详情页和封面
       invalidatePlaylistProviders(playlistId);
-      // 清除文件存在缓存，强制重新检测
       _ref.read(fileExistsCacheProvider.notifier).clearAll();
       return result;
     } catch (e) {
@@ -142,19 +128,13 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
 
   /// 删除歌单
   Future<bool> deletePlaylist(int playlistId) async {
-    // 乐观更新：立即从列表移除，避免闪烁
-    final previousPlaylists = state.playlists;
-    state = state.copyWith(
-      playlists: previousPlaylists.where((p) => p.id != playlistId).toList(),
-    );
     try {
       await _service.deletePlaylist(playlistId);
-      // 同步刷新 allPlaylistsProvider，确保添加到歌单弹窗不再显示已删除的歌单
+      // watch 自动更新列表
       _ref.invalidate(allPlaylistsProvider);
       return true;
     } catch (e) {
-      // 回滚
-      state = state.copyWith(playlists: previousPlaylists, error: e.toString());
+      state = state.copyWith(error: e.toString());
       return false;
     }
   }
@@ -163,11 +143,7 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
   Future<Playlist?> duplicatePlaylist(int playlistId, String newName) async {
     try {
       final playlist = await _service.duplicatePlaylist(playlistId, newName);
-      // 直接追加到列表，避免 loadPlaylists 的 isLoading 闪烁
-      state = state.copyWith(
-        playlists: [...state.playlists, playlist],
-      );
-      // 同步刷新 allPlaylistsProvider，确保添加到歌单弹窗显示最新列表
+      // watch 自动更新列表
       _ref.invalidate(allPlaylistsProvider);
       return playlist;
     } catch (e) {
@@ -181,17 +157,21 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
     state = state.copyWith(error: null);
   }
 
-  /// 直接更新歌單順序（不重新加載，避免閃爍）
+  /// 直接更新歌單順序（用于拖拽排序的即时反馈，不触发 watch）
   void updatePlaylistsOrder(List<Playlist> orderedPlaylists) {
     state = state.copyWith(playlists: orderedPlaylists);
   }
 
   /// 刷新指定歌单的相关 Provider
-  /// 
-  /// 统一封装 invalidate 逻辑，避免重复代码
   void invalidatePlaylistProviders(int playlistId) {
     _ref.invalidate(playlistDetailProvider(playlistId));
     _ref.invalidate(playlistCoverProvider(playlistId));
+  }
+
+  @override
+  void dispose() {
+    _watchSubscription?.cancel();
+    super.dispose();
   }
 }
 
