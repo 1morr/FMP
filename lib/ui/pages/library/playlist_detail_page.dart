@@ -565,14 +565,12 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           ? _buildSelectionActions(iconColor, isAllSelected, hasSelection, allTracks, availableActions, selectionNotifier, selectionState.selectedTracks)
           : [
               if (state.tracks.isNotEmpty && state.playlist != null && !(state.playlist!.isMix))
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: IconButton(
-                    icon: Icon(Icons.download_outlined, color: iconColor),
-                    onPressed: () => _downloadPlaylist(context, state.playlist!),
-                    tooltip: '下载全部',
-                  ),
+                IconButton(
+                  icon: Icon(Icons.download_outlined, color: iconColor),
+                  onPressed: () => _downloadPlaylist(context, state.playlist!),
+                  tooltip: '下载全部',
                 ),
+              const SizedBox(width: 8),
             ],
       flexibleSpace: FlexibleSpaceBar(
         background: Stack(

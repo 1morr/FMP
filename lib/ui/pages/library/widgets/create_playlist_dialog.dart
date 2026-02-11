@@ -345,6 +345,8 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
                     ),
               ),
             ),
+            const SizedBox(height: 12),
+            const Text('移动文件后，请前往「已下载」页面点击同步按钮以重新关联文件。'),
           ],
         ),
         actions: [

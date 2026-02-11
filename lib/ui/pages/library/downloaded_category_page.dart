@@ -174,14 +174,12 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
         onPressed: () => Navigator.of(context).pop(),
       ),
       actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: IconButton(
-            icon: Icon(Icons.refresh, color: iconColor),
-            onPressed: _refresh,
-            tooltip: '刷新',
-          ),
+        IconButton(
+          icon: Icon(Icons.refresh, color: iconColor),
+          onPressed: _refresh,
+          tooltip: '刷新',
         ),
+        const SizedBox(width: 8),
       ],
       flexibleSpace: FlexibleSpaceBar(
         background: Stack(

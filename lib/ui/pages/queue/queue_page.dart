@@ -144,6 +144,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
               onPressed: () => _showClearQueueDialog(context),
             ),
           ],
+          const SizedBox(width: 8),
         ],
       ),
       body: queue.isEmpty

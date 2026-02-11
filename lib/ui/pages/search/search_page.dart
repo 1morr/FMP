@@ -42,6 +42,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   @override
   void initState() {
     super.initState();
+    // Restore search text from provider state after tab switching
+    final query = ref.read(searchProvider).query;
+    if (query.isNotEmpty) {
+      _searchController.text = query;
+      _showHistory = false;
+    }
     _searchController.addListener(_onSearchTextChanged);
   }
 
@@ -99,6 +105,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         ref.read(searchProvider.notifier).clear();
                       },
                     ),
+                  const SizedBox(width: 8),
                 ],
               ),
         body: Column(
