@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:simple_icons/simple_icons.dart';
 
 import '../../../../core/services/toast_service.dart';
 import '../../../../data/sources/source_provider.dart';
@@ -72,6 +73,18 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
     _internalProgressSub?.cancel();
     _externalProgressSub?.cancel();
     super.dispose();
+  }
+
+  /// 根据来源名称返回对应图标
+  IconData _getSourceIcon(String displayName) {
+    return switch (displayName) {
+      'Bilibili' => SimpleIcons.bilibili,
+      'YouTube' => SimpleIcons.youtube,
+      '网易云音乐' => SimpleIcons.neteasecloudmusic,
+      'QQ音乐' => SimpleIcons.qq,
+      'Spotify' => SimpleIcons.spotify,
+      _ => Icons.link,
+    };
   }
 
   /// 检测 URL 类型
@@ -152,14 +165,11 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
                   prefixIcon: const Icon(Icons.link),
                   suffixIcon: _detected != null
                       ? Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: Chip(
-                            label: Text(
-                              _detected!.displayName,
-                              style: Theme.of(context).textTheme.labelSmall,
-                            ),
-                            visualDensity: VisualDensity.compact,
-                            padding: EdgeInsets.zero,
+                          padding: const EdgeInsets.only(right: 12),
+                          child: Icon(
+                            _getSourceIcon(_detected!.displayName),
+                            size: 18,
+                            color: colorScheme.outline,
                           ),
                         )
                       : null,
