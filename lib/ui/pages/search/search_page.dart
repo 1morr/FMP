@@ -18,6 +18,7 @@ import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/track_group/track_group.dart';
 import '../../widgets/track_thumbnail.dart';
 import '../../../providers/selection_provider.dart';
+import '../../widgets/context_menu_region.dart';
 import '../../widgets/selection_mode_app_bar.dart';
 
 /// 搜索页
@@ -965,7 +966,10 @@ class _SearchResultTile extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 主视频行
-        ListTile(
+        ContextMenuRegion(
+          menuBuilder: (_) => _buildMenuItems(),
+          onSelected: (value) => onMenuAction(track, value),
+          child: ListTile(
           leading: TrackThumbnail(
             track: track,
             size: 48,
@@ -1074,45 +1078,12 @@ class _SearchResultTile extends ConsumerWidget {
                 PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert),
                 onSelected: (value) => onMenuAction(track, value),
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'play',
-                    child: ListTile(
-                      leading: Icon(Icons.play_arrow),
-                      title: Text('播放'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'play_next',
-                    child: ListTile(
-                      leading: Icon(Icons.queue_play_next),
-                      title: Text('下一首播放'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'add_to_queue',
-                    child: ListTile(
-                      leading: Icon(Icons.add_to_queue),
-                      title: Text('添加到队列'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-
-                  const PopupMenuItem(
-                    value: 'add_to_playlist',
-                    child: ListTile(
-                      leading: Icon(Icons.playlist_add),
-                      title: Text('添加到歌单'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                ],
+                itemBuilder: (_) => _buildMenuItems(),
               ),
             ],
           ),
           onTap: onTap,
+        ),
         ),
 
         // 分P列表（展开时显示）
@@ -1126,6 +1097,13 @@ class _SearchResultTile extends ConsumerWidget {
       ],
     );
   }
+
+  List<PopupMenuEntry<String>> _buildMenuItems() => const [
+    PopupMenuItem(value: 'play', child: ListTile(leading: Icon(Icons.play_arrow), title: Text('播放'), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'play_next', child: ListTile(leading: Icon(Icons.queue_play_next), title: Text('下一首播放'), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: Icon(Icons.add_to_queue), title: Text('添加到队列'), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: Icon(Icons.playlist_add), title: Text('添加到歌单'), contentPadding: EdgeInsets.zero)),
+  ];
 
   String _formatViewCount(int count) {
     if (count >= 100000000) {
@@ -1161,85 +1139,69 @@ class _PageTile extends ConsumerWidget {
         currentTrack.sourceId == parentTrack.sourceId &&
         currentTrack.pageNum == page.page;
 
-    return Padding(
-      padding: const EdgeInsets.only(left: 56),
-      child: ListTile(
-        leading: isPlaying
-            ? NowPlayingIndicator(
-                size: 24,
-                color: colorScheme.primary,
-              )
-            : Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(4),
+    return ContextMenuRegion(
+      menuBuilder: (_) => _buildMenuItems(),
+      onSelected: onMenuAction,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 56),
+        child: ListTile(
+          leading: isPlaying
+              ? NowPlayingIndicator(
+                  size: 24,
+                  color: colorScheme.primary,
+                )
+              : Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    'P${page.page}',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: colorScheme.outline,
+                        ),
+                  ),
                 ),
-                alignment: Alignment.center,
-                child: Text(
-                  'P${page.page}',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: colorScheme.outline,
-                      ),
-                ),
-              ),
-        title: Text(
-          page.part,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: isPlaying ? colorScheme.primary : null,
-            fontWeight: isPlaying ? FontWeight.w600 : null,
+          title: Text(
+            page.part,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: isPlaying ? colorScheme.primary : null,
+              fontWeight: isPlaying ? FontWeight.w600 : null,
+            ),
           ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                page.formattedDuration,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.outline,
+                    ),
+              ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, size: 20),
+                onSelected: onMenuAction,
+                itemBuilder: (_) => _buildMenuItems(),
+              ),
+            ],
+          ),
+          onTap: onTap,
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              page.formattedDuration,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.outline,
-                  ),
-            ),
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, size: 20),
-              onSelected: onMenuAction,
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'play',
-                  child: ListTile(
-                    leading: Icon(Icons.play_arrow),
-                    title: Text('播放'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'play_next',
-                  child: ListTile(
-                    leading: Icon(Icons.queue_play_next),
-                    title: Text('下一首播放'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'add_to_queue',
-                  child: ListTile(
-                    leading: Icon(Icons.add_to_queue),
-                    title: Text('添加到队列'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-
-                // 注意：分P没有"添加到歌单"选项
-              ],
-            ),
-          ],
-        ),
-        onTap: onTap,
       ),
     );
   }
+
+  List<PopupMenuEntry<String>> _buildMenuItems() => const [
+    PopupMenuItem(value: 'play', child: ListTile(leading: Icon(Icons.play_arrow), title: Text('播放'), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'play_next', child: ListTile(leading: Icon(Icons.queue_play_next), title: Text('下一首播放'), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: Icon(Icons.add_to_queue), title: Text('添加到队列'), contentPadding: EdgeInsets.zero)),
+    // 注意：分P没有"添加到歌单"选项
+  ];
 }
 
 /// 本地搜索结果分组组件
@@ -1286,7 +1248,10 @@ class _LocalGroupTile extends ConsumerWidget {
     return Column(
       children: [
         // 主视频行
-        ListTile(
+        ContextMenuRegion(
+          menuBuilder: (_) => _buildMenuItems(),
+          onSelected: (value) => _handleMenuAction(context, ref, value),
+          child: ListTile(
           leading: TrackThumbnail(
             track: firstTrack,
             size: 48,
@@ -1358,45 +1323,12 @@ class _LocalGroupTile extends ConsumerWidget {
                 PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert),
                 onSelected: (value) => _handleMenuAction(context, ref, value),
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'play',
-                    child: ListTile(
-                      leading: Icon(Icons.play_arrow),
-                      title: Text('播放'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'play_next',
-                    child: ListTile(
-                      leading: Icon(Icons.queue_play_next),
-                      title: Text('下一首播放'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'add_to_queue',
-                    child: ListTile(
-                      leading: Icon(Icons.add_to_queue),
-                      title: Text('添加到队列'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-
-                  const PopupMenuItem(
-                    value: 'add_to_playlist',
-                    child: ListTile(
-                      leading: Icon(Icons.playlist_add),
-                      title: Text('添加到歌单'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                ],
+                itemBuilder: (_) => _buildMenuItems(),
               ),
             ],
           ),
           onTap: () => onPlayTrack(firstTrack),
+        ),
         ),
 
         // 展开的分P列表
@@ -1414,6 +1346,13 @@ class _LocalGroupTile extends ConsumerWidget {
       ],
     );
   }
+
+  List<PopupMenuEntry<String>> _buildMenuItems() => const [
+    PopupMenuItem(value: 'play', child: ListTile(leading: Icon(Icons.play_arrow), title: Text('播放'), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'play_next', child: ListTile(leading: Icon(Icons.queue_play_next), title: Text('下一首播放'), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: Icon(Icons.add_to_queue), title: Text('添加到队列'), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: Icon(Icons.playlist_add), title: Text('添加到歌单'), contentPadding: EdgeInsets.zero)),
+  ];
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
     final controller = ref.read(audioControllerProvider.notifier);
@@ -1486,7 +1425,10 @@ class _LocalTrackTile extends ConsumerWidget {
         currentTrack.sourceId == track.sourceId &&
         currentTrack.pageNum == track.pageNum;
 
-    return Padding(
+    return ContextMenuRegion(
+      menuBuilder: (_) => _buildMenuItems(),
+      onSelected: (value) => onMenuAction(track, value),
+      child: Padding(
       padding: const EdgeInsets.only(left: 56),
       child: ListTile(
         leading: isPlaying
@@ -1542,40 +1484,21 @@ class _LocalTrackTile extends ConsumerWidget {
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert, size: 20),
                 onSelected: (value) => onMenuAction(track, value),
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'play',
-                  child: ListTile(
-                    leading: Icon(Icons.play_arrow),
-                    title: Text('播放'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'play_next',
-                  child: ListTile(
-                    leading: Icon(Icons.queue_play_next),
-                    title: Text('下一首播放'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'add_to_queue',
-                  child: ListTile(
-                    leading: Icon(Icons.add_to_queue),
-                    title: Text('添加到队列'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-
-              ],
-            ),
-          ],
+                itemBuilder: (_) => _buildMenuItems(),
+              ),
+            ],
+          ),
+          onTap: onTap,
         ),
-        onTap: onTap,
       ),
     );
   }
+
+  List<PopupMenuEntry<String>> _buildMenuItems() => const [
+    PopupMenuItem(value: 'play', child: ListTile(leading: Icon(Icons.play_arrow), title: Text('播放'), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'play_next', child: ListTile(leading: Icon(Icons.queue_play_next), title: Text('下一首播放'), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: Icon(Icons.add_to_queue), title: Text('添加到队列'), contentPadding: EdgeInsets.zero)),
+  ];
 }
 
 /// 音源标识徽章
@@ -1675,7 +1598,10 @@ class _LiveRoomTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return ListTile(
+    return ContextMenuRegion(
+      menuBuilder: (_) => _buildMenuItems(colorScheme),
+      onSelected: (value) => onMenuAction(room, value),
+      child: ListTile(
       leading: ClipRRect(
         borderRadius: BorderRadius.circular(4),
         child: SizedBox(
@@ -1770,37 +1696,28 @@ class _LiveRoomTile extends StatelessWidget {
       trailing: PopupMenuButton<String>(
         icon: const Icon(Icons.more_vert),
         onSelected: (value) => onMenuAction(room, value),
-        itemBuilder: (context) => [
-          PopupMenuItem(
-            value: 'play',
-            enabled: room.isLive,
-            child: ListTile(
-              leading: Icon(
-                Icons.play_arrow,
-                color: room.isLive ? null : colorScheme.outline,
-              ),
-              title: Text(
-                '播放',
-                style: TextStyle(
-                  color: room.isLive ? null : colorScheme.outline,
-                ),
-              ),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-          const PopupMenuItem(
-            value: 'add_to_radio',
-            child: ListTile(
-              leading: Icon(Icons.radio),
-              title: Text('添加到电台'),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        ],
+        itemBuilder: (_) => _buildMenuItems(colorScheme),
       ),
       onTap: onTap,
+      ),
     );
   }
+
+  List<PopupMenuEntry<String>> _buildMenuItems(ColorScheme colorScheme) => [
+    PopupMenuItem(
+      value: 'play',
+      enabled: room.isLive,
+      child: ListTile(
+        leading: Icon(Icons.play_arrow, color: room.isLive ? null : colorScheme.outline),
+        title: Text('播放', style: TextStyle(color: room.isLive ? null : colorScheme.outline)),
+        contentPadding: EdgeInsets.zero,
+      ),
+    ),
+    const PopupMenuItem(
+      value: 'add_to_radio',
+      child: ListTile(leading: Icon(Icons.radio), title: Text('添加到电台'), contentPadding: EdgeInsets.zero),
+    ),
+  ];
 
   String _formatOnlineCount(int count) {
     if (count >= 10000) {

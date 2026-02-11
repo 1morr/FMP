@@ -8,6 +8,7 @@ import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/radio_station.dart';
 import '../../../services/radio/radio_controller.dart';
+import '../../widgets/context_menu_region.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/radio/add_radio_dialog.dart';
 
@@ -185,13 +186,30 @@ class _RadioPageState extends ConsumerState<RadioPage> {
         final isLive = radioState.isStationLive(station.id);
         final isCurrentPlaying = radioState.currentStation?.id == station.id;
 
-        return _RadioStationCard(
-          station: station,
-          isLive: isLive,
-          isPlaying: isCurrentPlaying && radioState.isPlaying,
-          isLoading: radioState.loadingStationId == station.id,
-          onTap: () => _onStationTap(station, isCurrentPlaying, radioState),
-          onLongPress: () => _showOptionsMenu(context, station),
+        return ContextMenuRegion(
+          menuBuilder: (_) => [
+            PopupMenuItem(
+              value: 'delete',
+              child: Row(
+                children: [
+                  Icon(Icons.delete, size: 20, color: Theme.of(context).colorScheme.error),
+                  const SizedBox(width: 12),
+                  Text('删除电台', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                ],
+              ),
+            ),
+          ],
+          onSelected: (value) {
+            if (value == 'delete') _showDeleteConfirm(context, station);
+          },
+          child: _RadioStationCard(
+            station: station,
+            isLive: isLive,
+            isPlaying: isCurrentPlaying && radioState.isPlaying,
+            isLoading: radioState.loadingStationId == station.id,
+            onTap: () => _onStationTap(station, isCurrentPlaying, radioState),
+            onLongPress: () => _showOptionsMenu(context, station),
+          ),
         );
       },
     );

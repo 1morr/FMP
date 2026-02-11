@@ -8,6 +8,7 @@ import '../../../providers/selection_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/cache/ranking_cache_service.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
+import '../../widgets/context_menu_region.dart';
 import '../../widgets/selection_mode_app_bar.dart';
 import '../../widgets/track_thumbnail.dart';
 
@@ -246,7 +247,10 @@ class _ExploreTrackTile extends ConsumerWidget {
         currentTrack.sourceId == track.sourceId &&
         currentTrack.pageNum == track.pageNum;
 
-    return ListTile(
+    return ContextMenuRegion(
+      menuBuilder: (_) => _buildMenuItems(),
+      onSelected: (value) => _handleMenuAction(context, ref, value),
+      child: ListTile(
       onTap: onTap ?? () {
         ref.read(audioControllerProvider.notifier).playTemporary(track);
       },
@@ -316,43 +320,30 @@ class _ExploreTrackTile extends ConsumerWidget {
           : PopupMenuButton<String>(
         icon: const Icon(Icons.more_vert),
         onSelected: (value) => _handleMenuAction(context, ref, value),
-        itemBuilder: (context) => [
-          const PopupMenuItem(
-            value: 'play',
-            child: ListTile(
-              leading: Icon(Icons.play_arrow),
-              title: Text('播放'),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-          const PopupMenuItem(
-            value: 'play_next',
-            child: ListTile(
-              leading: Icon(Icons.queue_play_next),
-              title: Text('下一首播放'),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-          const PopupMenuItem(
-            value: 'add_to_queue',
-            child: ListTile(
-              leading: Icon(Icons.add_to_queue),
-              title: Text('添加到隊列'),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-          const PopupMenuItem(
-            value: 'add_to_playlist',
-            child: ListTile(
-              leading: Icon(Icons.playlist_add),
-              title: Text('添加到歌單'),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        ],
+        itemBuilder: (_) => _buildMenuItems(),
+      ),
       ),
     );
   }
+
+  List<PopupMenuEntry<String>> _buildMenuItems() => const [
+    PopupMenuItem(
+      value: 'play',
+      child: ListTile(leading: Icon(Icons.play_arrow), title: Text('播放'), contentPadding: EdgeInsets.zero),
+    ),
+    PopupMenuItem(
+      value: 'play_next',
+      child: ListTile(leading: Icon(Icons.queue_play_next), title: Text('下一首播放'), contentPadding: EdgeInsets.zero),
+    ),
+    PopupMenuItem(
+      value: 'add_to_queue',
+      child: ListTile(leading: Icon(Icons.add_to_queue), title: Text('添加到隊列'), contentPadding: EdgeInsets.zero),
+    ),
+    PopupMenuItem(
+      value: 'add_to_playlist',
+      child: ListTile(leading: Icon(Icons.playlist_add), title: Text('添加到歌單'), contentPadding: EdgeInsets.zero),
+    ),
+  ];
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
     final controller = ref.read(audioControllerProvider.notifier);

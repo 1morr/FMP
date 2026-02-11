@@ -17,6 +17,7 @@ import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/selection_mode_app_bar.dart';
+import '../../widgets/context_menu_region.dart';
 import '../../widgets/track_group/track_group.dart';
 import '../../widgets/track_thumbnail.dart';
 
@@ -947,7 +948,10 @@ class _GroupHeader extends ConsumerWidget {
             t.sourceId == currentTrack.sourceId &&
             t.pageNum == currentTrack.pageNum);
 
-    return ListTile(
+    return ContextMenuRegion(
+      menuBuilder: (_) => _buildMenuItems(),
+      onSelected: (value) => _handleMenuAction(context, ref, value),
+      child: ListTile(
       onTap: onToggle,
       onLongPress: onLongPress,
       leading: TrackThumbnail(
@@ -1015,55 +1019,22 @@ class _GroupHeader extends ConsumerWidget {
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) => _handleMenuAction(context, ref, value),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'play_first',
-                child: ListTile(
-                  leading: Icon(Icons.play_arrow),
-                  title: Text('播放第一个分P'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'add_all_to_queue',
-                child: ListTile(
-                  leading: Icon(Icons.add_to_queue),
-                  title: Text('添加全部到队列'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'download_all',
-                child: ListTile(
-                  leading: Icon(Icons.download_outlined),
-                  title: Text('下载全部分P'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'add_to_playlist',
-                child: ListTile(
-                  leading: Icon(Icons.playlist_add),
-                  title: Text('添加到其他歌单'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              // 外部导入的歌单不允许手动移除歌曲
-              if (!isImported)
-                const PopupMenuItem(
-                  value: 'remove_all',
-                  child: ListTile(
-                    leading: Icon(Icons.remove_circle_outline),
-                    title: Text('从歌单移除全部'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-            ],
+            itemBuilder: (_) => _buildMenuItems(),
           ),
         ],
       ),
+      ),
     );
   }
+
+  List<PopupMenuEntry<String>> _buildMenuItems() => [
+    const PopupMenuItem(value: 'play_first', child: ListTile(leading: Icon(Icons.play_arrow), title: Text('播放第一个分P'), contentPadding: EdgeInsets.zero)),
+    const PopupMenuItem(value: 'add_all_to_queue', child: ListTile(leading: Icon(Icons.add_to_queue), title: Text('添加全部到队列'), contentPadding: EdgeInsets.zero)),
+    const PopupMenuItem(value: 'download_all', child: ListTile(leading: Icon(Icons.download_outlined), title: Text('下载全部分P'), contentPadding: EdgeInsets.zero)),
+    const PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: Icon(Icons.playlist_add), title: Text('添加到其他歌单'), contentPadding: EdgeInsets.zero)),
+    if (!isImported)
+      const PopupMenuItem(value: 'remove_all', child: ListTile(leading: Icon(Icons.remove_circle_outline), title: Text('从歌单移除全部'), contentPadding: EdgeInsets.zero)),
+  ];
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
     switch (action) {
@@ -1164,7 +1135,10 @@ class _TrackListTile extends ConsumerWidget {
         currentTrack.sourceId == track.sourceId &&
         currentTrack.pageNum == track.pageNum;
 
-    return Padding(
+    return ContextMenuRegion(
+      menuBuilder: isMix ? (_) => [] : (_) => _buildMenuItems(),
+      onSelected: (value) => _handleMenuAction(context, ref, value),
+      child: Padding(
       padding: EdgeInsets.only(left: indent ? 56 : 0),
       child: ListTile(
         onTap: onTap,
@@ -1259,58 +1233,24 @@ class _TrackListTile extends ConsumerWidget {
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert, size: 20),
                 onSelected: (value) => _handleMenuAction(context, ref, value),
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'play_next',
-                    child: ListTile(
-                      leading: Icon(Icons.queue_play_next),
-                      title: Text('下一首播放'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'add_to_queue',
-                    child: ListTile(
-                      leading: Icon(Icons.add_to_queue),
-                      title: Text('添加到队列'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'download',
-                    child: ListTile(
-                      leading: Icon(Icons.download_outlined),
-                      title: Text('下载'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  // 分P不显示"添加到歌单"选项
-                  if (!isPartOfMultiPage)
-                    const PopupMenuItem(
-                      value: 'add_to_playlist',
-                      child: ListTile(
-                        leading: Icon(Icons.playlist_add),
-                        title: Text('添加到歌单'),
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                    ),
-                  // 外部导入的歌单不允许手动移除歌曲
-                  if (!isImported)
-                    const PopupMenuItem(
-                      value: 'remove',
-                      child: ListTile(
-                        leading: Icon(Icons.remove_circle_outline),
-                        title: Text('从歌单移除'),
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                    ),
-                ],
+                itemBuilder: (_) => _buildMenuItems(),
               ),
           ],
         ),
       ),
+      ),
     );
   }
+
+  List<PopupMenuEntry<String>> _buildMenuItems() => [
+    const PopupMenuItem(value: 'play_next', child: ListTile(leading: Icon(Icons.queue_play_next), title: Text('下一首播放'), contentPadding: EdgeInsets.zero)),
+    const PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: Icon(Icons.add_to_queue), title: Text('添加到队列'), contentPadding: EdgeInsets.zero)),
+    const PopupMenuItem(value: 'download', child: ListTile(leading: Icon(Icons.download_outlined), title: Text('下载'), contentPadding: EdgeInsets.zero)),
+    if (!isPartOfMultiPage)
+      const PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: Icon(Icons.playlist_add), title: Text('添加到歌单'), contentPadding: EdgeInsets.zero)),
+    if (!isImported)
+      const PopupMenuItem(value: 'remove', child: ListTile(leading: Icon(Icons.remove_circle_outline), title: Text('从歌单移除'), contentPadding: EdgeInsets.zero)),
+  ];
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
     switch (action) {

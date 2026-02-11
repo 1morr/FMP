@@ -14,6 +14,7 @@ import '../../../providers/playlist_provider.dart';
 import '../../../providers/refresh_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
+import '../../widgets/context_menu_region.dart';
 import '../../widgets/refresh_progress_indicator.dart';
 import 'widgets/create_playlist_dialog.dart';
 import 'widgets/import_playlist_dialog.dart';
@@ -376,9 +377,12 @@ class _PlaylistCard extends ConsumerWidget {
     // 預加載歌單詳情數據，這樣進入詳情頁時數據已經準備好
     ref.read(playlistDetailProvider(playlist.id));
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
+    return ContextMenuRegion(
+      menuBuilder: (context) => _buildContextMenuItems(context, ref),
+      onSelected: (value) => _handleContextMenuAction(context, ref, value),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
         onTap: () {
           // 使用 Future.microtask 延迟导航，避免在 LayoutBuilder 布局期间触发导航
           final id = playlist.id;
@@ -478,10 +482,84 @@ class _PlaylistCard extends ConsumerWidget {
             ),
           ],
         ),
+        ),
       ),
     );
   }
 
+  List<PopupMenuEntry<String>> _buildContextMenuItems(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isRefreshing = ref.read(isPlaylistRefreshingProvider(playlist.id));
+
+    return [
+      if (playlist.isMix) ...[
+        const PopupMenuItem(
+          value: 'play_mix',
+          child: Row(
+            children: [Icon(Icons.play_arrow, size: 20), SizedBox(width: 12), Text('播放Mix')],
+          ),
+        ),
+      ] else ...[
+        const PopupMenuItem(
+          value: 'add_all',
+          child: Row(
+            children: [Icon(Icons.play_arrow, size: 20), SizedBox(width: 12), Text('添加所有')],
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'shuffle_add',
+          child: Row(
+            children: [Icon(Icons.shuffle, size: 20), SizedBox(width: 12), Text('随机添加')],
+          ),
+        ),
+      ],
+      const PopupMenuItem(
+        value: 'edit',
+        child: Row(
+          children: [Icon(Icons.edit, size: 20), SizedBox(width: 12), Text('编辑歌单')],
+        ),
+      ),
+      if (playlist.isImported && !playlist.isMix)
+        PopupMenuItem(
+          value: 'refresh',
+          enabled: !isRefreshing,
+          child: Row(
+            children: [
+              Icon(isRefreshing ? Icons.hourglass_empty : Icons.refresh, size: 20),
+              const SizedBox(width: 12),
+              Text(isRefreshing ? '正在刷新...' : '刷新歌单'),
+            ],
+          ),
+        ),
+      PopupMenuItem(
+        value: 'delete',
+        child: Row(
+          children: [
+            Icon(Icons.delete, size: 20, color: colorScheme.error),
+            const SizedBox(width: 12),
+            Text('删除歌单', style: TextStyle(color: colorScheme.error)),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  void _handleContextMenuAction(BuildContext context, WidgetRef ref, String value) {
+    switch (value) {
+      case 'play_mix':
+        _playMix(context, ref);
+      case 'add_all':
+        _addAllToQueue(context, ref);
+      case 'shuffle_add':
+        _shuffleAddToQueue(context, ref);
+      case 'edit':
+        _showEditDialog(context, ref);
+      case 'refresh':
+        _refreshPlaylist(context, ref);
+      case 'delete':
+        _showDeleteConfirm(context, ref);
+    }
+  }
 
   void _showOptionsMenu(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;

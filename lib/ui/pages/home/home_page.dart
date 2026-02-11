@@ -18,6 +18,7 @@ import '../../router.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/horizontal_scroll_section.dart';
+import '../../widgets/context_menu_region.dart';
 import '../../widgets/track_thumbnail.dart';
 
 /// 首页
@@ -793,107 +794,97 @@ class _RankingTrackTile extends ConsumerWidget {
         currentTrack.sourceId == track.sourceId &&
         currentTrack.pageNum == track.pageNum;
 
-    return ListTile(
-      leading: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 24,
-            child: Text(
-              '$rank',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.outline,
-                  ),
+    return ContextMenuRegion(
+      menuBuilder: (_) => _buildMenuItems(),
+      onSelected: (value) => _handleMenuAction(context, ref, value),
+      child: ListTile(
+        leading: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 24,
+              child: Text(
+                '$rank',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.outline,
+                    ),
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          TrackThumbnail(
-            track: track,
-            size: 48,
-            borderRadius: 4,
-            isPlaying: isPlaying,
-          ),
-        ],
-      ),
-      title: Text(
-        track.title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: isPlaying ? colorScheme.primary : null,
-          fontWeight: isPlaying ? FontWeight.w600 : null,
-        ),
-      ),
-      subtitle: Row(
-        children: [
-          Flexible(
-            child: Text(
-              track.artist ?? '未知藝術家',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (track.viewCount != null) ...[
-            const SizedBox(width: 8),
-            Icon(
-              Icons.play_arrow,
-              size: 14,
-              color: colorScheme.outline,
-            ),
-            const SizedBox(width: 2),
-            Text(
-              _formatViewCount(track.viewCount!),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.outline,
-                  ),
+            const SizedBox(width: 12),
+            TrackThumbnail(
+              track: track,
+              size: 48,
+              borderRadius: 4,
+              isPlaying: isPlaying,
             ),
           ],
-        ],
+        ),
+        title: Text(
+          track.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: isPlaying ? colorScheme.primary : null,
+            fontWeight: isPlaying ? FontWeight.w600 : null,
+          ),
+        ),
+        subtitle: Row(
+          children: [
+            Flexible(
+              child: Text(
+                track.artist ?? '未知藝術家',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (track.viewCount != null) ...[
+              const SizedBox(width: 8),
+              Icon(
+                Icons.play_arrow,
+                size: 14,
+                color: colorScheme.outline,
+              ),
+              const SizedBox(width: 2),
+              Text(
+                _formatViewCount(track.viewCount!),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.outline,
+                    ),
+              ),
+            ],
+          ],
+        ),
+        trailing: PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert),
+          onSelected: (value) => _handleMenuAction(context, ref, value),
+          itemBuilder: (_) => _buildMenuItems(),
+        ),
+        onTap: () {
+          ref.read(audioControllerProvider.notifier).playTemporary(track);
+        },
       ),
-      trailing: PopupMenuButton<String>(
-        icon: const Icon(Icons.more_vert),
-        onSelected: (value) => _handleMenuAction(context, ref, value),
-        itemBuilder: (context) => [
-          const PopupMenuItem(
-            value: 'play',
-            child: ListTile(
-              leading: Icon(Icons.play_arrow),
-              title: Text('播放'),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-          const PopupMenuItem(
-            value: 'play_next',
-            child: ListTile(
-              leading: Icon(Icons.queue_play_next),
-              title: Text('下一首播放'),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-          const PopupMenuItem(
-            value: 'add_to_queue',
-            child: ListTile(
-              leading: Icon(Icons.add_to_queue),
-              title: Text('添加到隊列'),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-          const PopupMenuItem(
-            value: 'add_to_playlist',
-            child: ListTile(
-              leading: Icon(Icons.playlist_add),
-              title: Text('添加到歌單'),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        ],
-      ),
-      onTap: () {
-        ref.read(audioControllerProvider.notifier).playTemporary(track);
-      },
     );
   }
+
+  List<PopupMenuEntry<String>> _buildMenuItems() => const [
+    PopupMenuItem(
+      value: 'play',
+      child: ListTile(leading: Icon(Icons.play_arrow), title: Text('播放'), contentPadding: EdgeInsets.zero),
+    ),
+    PopupMenuItem(
+      value: 'play_next',
+      child: ListTile(leading: Icon(Icons.queue_play_next), title: Text('下一首播放'), contentPadding: EdgeInsets.zero),
+    ),
+    PopupMenuItem(
+      value: 'add_to_queue',
+      child: ListTile(leading: Icon(Icons.add_to_queue), title: Text('添加到隊列'), contentPadding: EdgeInsets.zero),
+    ),
+    PopupMenuItem(
+      value: 'add_to_playlist',
+      child: ListTile(leading: Icon(Icons.playlist_add), title: Text('添加到歌單'), contentPadding: EdgeInsets.zero),
+    ),
+  ];
 
   String _formatViewCount(int count) {
     if (count >= 100000000) {

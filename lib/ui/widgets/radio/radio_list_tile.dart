@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/image_loading_service.dart';
 import '../../../data/models/radio_station.dart';
 import '../../../data/models/track.dart';
-
+import '../context_menu_region.dart';
 
 /// 電台列表項
 class RadioStationTile extends ConsumerWidget {
@@ -28,78 +28,90 @@ class RadioStationTile extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-        child: Row(
-          children: [
-            // 封面
-            _buildThumbnail(colorScheme),
+    return ContextMenuRegion(
+      menuBuilder: (_) => _buildMenuItems(),
+      onSelected: (value) {
+        switch (value) {
+          case 'delete':
+            onDelete?.call();
+            break;
+        }
+      },
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+          child: Row(
+            children: [
+              // 封面
+              _buildThumbnail(colorScheme),
 
-            const SizedBox(width: 12),
+              const SizedBox(width: 12),
 
-            // 資訊
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 標題
-                  Text(
-                    station.title,
-                    style: textTheme.bodyLarge?.copyWith(
-                      fontWeight: isPlaying ? FontWeight.bold : null,
-                      color: isPlaying ? colorScheme.primary : null,
+              // 資訊
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 標題
+                    Text(
+                      station.title,
+                      style: textTheme.bodyLarge?.copyWith(
+                        fontWeight: isPlaying ? FontWeight.bold : null,
+                        color: isPlaying ? colorScheme.primary : null,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  // 副標題
-                  _buildSubtitle(colorScheme, textTheme),
-                ],
-              ),
-            ),
-
-            // 載入指示器或選項按鈕
-            if (isLoading)
-              const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            else
-              PopupMenuButton<String>(
-                icon: Icon(
-                  Icons.more_vert,
-                  color: colorScheme.onSurfaceVariant,
+                    const SizedBox(height: 4),
+                    // 副標題
+                    _buildSubtitle(colorScheme, textTheme),
+                  ],
                 ),
-                onSelected: (value) {
-                  switch (value) {
-                    case 'delete':
-                      onDelete?.call();
-                      break;
-                  }
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete, size: 20),
-                        SizedBox(width: 12),
-                        Text('刪除'),
-                      ],
-                    ),
-                  ),
-                ],
               ),
-          ],
+
+              // 載入指示器或選項按鈕
+              if (isLoading)
+                const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                PopupMenuButton<String>(
+                  icon: Icon(
+                    Icons.more_vert,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'delete':
+                        onDelete?.call();
+                        break;
+                    }
+                  },
+                  itemBuilder: (_) => _buildMenuItems(),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
+
+  List<PopupMenuEntry<String>> _buildMenuItems() => const [
+        PopupMenuItem(
+          value: 'delete',
+          child: Row(
+            children: [
+              Icon(Icons.delete, size: 20),
+              SizedBox(width: 12),
+              Text('刪除'),
+            ],
+          ),
+        ),
+      ];
 
   Widget _buildThumbnail(ColorScheme colorScheme) {
     const size = 56.0;
@@ -111,12 +123,12 @@ class RadioStationTile extends ConsumerWidget {
         ClipRRect(
           borderRadius: borderRadius,
           child: ImageLoadingService.loadImage(
-              networkUrl: station.thumbnailUrl,
-              placeholder: _buildPlaceholder(colorScheme),
-              fit: BoxFit.cover,
-              width: size,
-              height: size,
-            ),
+            networkUrl: station.thumbnailUrl,
+            placeholder: _buildPlaceholder(colorScheme),
+            fit: BoxFit.cover,
+            width: size,
+            height: size,
+          ),
         ),
 
         // 播放中指示器
@@ -162,9 +174,8 @@ class RadioStationTile extends ConsumerWidget {
     }
 
     // 平台類型
-    final platformIcon = station.sourceType == SourceType.bilibili
-        ? 'B站'
-        : 'YouTube';
+    final platformIcon =
+        station.sourceType == SourceType.bilibili ? 'B站' : 'YouTube';
 
     if (parts.isNotEmpty) {
       parts.add(const TextSpan(text: ' · '));

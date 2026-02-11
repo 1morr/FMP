@@ -10,6 +10,7 @@ import '../../../data/repositories/play_history_repository.dart';
 import '../../../providers/play_history_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
+import '../../widgets/context_menu_region.dart';
 import '../../widgets/track_thumbnail.dart';
 
 /// 播放历史页面
@@ -23,7 +24,7 @@ class PlayHistoryPage extends ConsumerStatefulWidget {
 class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
-  
+
   /// 已收起的日期分組
   final Set<DateTime> _collapsedGroups = {};
 
@@ -65,7 +66,6 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
           ),
         ],
       ),
-
     );
   }
 
@@ -78,7 +78,9 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     if (pageState.isMultiSelectMode) {
       final grouped = ref.read(groupedPlayHistoryProvider).valueOrNull;
       final allHistories = grouped?.values.expand((e) => e).toList() ?? [];
-      final isAllSelected = pageState.selectedIds.length == allHistories.length && allHistories.isNotEmpty;
+      final isAllSelected =
+          pageState.selectedIds.length == allHistories.length &&
+              allHistories.isNotEmpty;
       final hasSelection = pageState.selectedIds.isNotEmpty;
 
       return AppBar(
@@ -135,8 +137,11 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
               PopupMenuItem(
                 value: 'delete',
                 child: ListTile(
-                  leading: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
-                  title: Text('刪除記錄', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  leading: Icon(Icons.delete_outline,
+                      color: Theme.of(context).colorScheme.error),
+                  title: Text('刪除記錄',
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.error)),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -236,11 +241,14 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _buildStatItem(context, '今日', stats.todayCount, stats.formattedTodayDuration),
+            _buildStatItem(
+                context, '今日', stats.todayCount, stats.formattedTodayDuration),
             _buildStatDivider(colorScheme),
-            _buildStatItem(context, '本週', stats.weekCount, stats.formattedWeekDuration),
+            _buildStatItem(
+                context, '本週', stats.weekCount, stats.formattedWeekDuration),
             _buildStatDivider(colorScheme),
-            _buildStatItem(context, '全部', stats.totalCount, stats.formattedTotalDuration),
+            _buildStatItem(
+                context, '全部', stats.totalCount, stats.formattedTotalDuration),
           ],
         ),
       ),
@@ -253,20 +261,25 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     return Container(width: 1, height: 32, color: colorScheme.outlineVariant);
   }
 
-  Widget _buildStatItem(BuildContext context, String label, int count, String duration) {
+  Widget _buildStatItem(
+      BuildContext context, String label, int count, String duration) {
     final colorScheme = Theme.of(context).colorScheme;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         RichText(
           text: TextSpan(
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(color: colorScheme.onSurfaceVariant),
             children: [
               TextSpan(text: label),
               const TextSpan(text: ' '),
               TextSpan(
                 text: '$count',
-                style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.onSurface),
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, color: colorScheme.onSurface),
               ),
               const TextSpan(text: ' 首'),
             ],
@@ -275,7 +288,10 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
         const SizedBox(height: 2),
         Text(
           duration,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(color: colorScheme.outline),
         ),
       ],
     );
@@ -389,7 +405,8 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
           itemBuilder: (context, index) {
             final date = sortedDates[index];
             final histories = grouped[date]!;
-            return _buildDateGroup(context, date, histories, pageState, notifier);
+            return _buildDateGroup(
+                context, date, histories, pageState, notifier);
           },
         );
       },
@@ -416,12 +433,13 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
   ) {
     final colorScheme = Theme.of(context).colorScheme;
     final isCollapsed = _collapsedGroups.contains(date);
-    
+
     // 計算分組選擇狀態
     final groupIds = histories.map((h) => h.id).toSet();
     final selectedInGroup = pageState.selectedIds.intersection(groupIds);
     final isGroupFullySelected = selectedInGroup.length == histories.length;
-    final isGroupPartiallySelected = selectedInGroup.isNotEmpty && !isGroupFullySelected;
+    final isGroupPartiallySelected =
+        selectedInGroup.isNotEmpty && !isGroupFullySelected;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -438,7 +456,8 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
                   _GroupSelectionCheckbox(
                     isFullySelected: isGroupFullySelected,
                     isPartiallySelected: isGroupPartiallySelected,
-                    onTap: () => _toggleGroupSelection(notifier, histories, isGroupFullySelected),
+                    onTap: () => _toggleGroupSelection(
+                        notifier, histories, isGroupFullySelected),
                   ),
                   const SizedBox(width: 8),
                 ],
@@ -486,7 +505,8 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
                 isMultiSelectMode: pageState.isMultiSelectMode,
                 isSelected: pageState.selectedIds.contains(history.id),
                 onToggleSelection: () => notifier.toggleSelection(history.id),
-                onEnterMultiSelect: () => notifier.enterMultiSelectMode(history.id),
+                onEnterMultiSelect: () =>
+                    notifier.enterMultiSelectMode(history.id),
               )),
       ],
     );
@@ -501,14 +521,20 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     if (isCurrentlyFullySelected) {
       // 取消選擇該分組的所有項目
       for (final history in histories) {
-        if (ref.read(playHistoryPageProvider).selectedIds.contains(history.id)) {
+        if (ref
+            .read(playHistoryPageProvider)
+            .selectedIds
+            .contains(history.id)) {
           notifier.toggleSelection(history.id);
         }
       }
     } else {
       // 選擇該分組的所有項目
       for (final history in histories) {
-        if (!ref.read(playHistoryPageProvider).selectedIds.contains(history.id)) {
+        if (!ref
+            .read(playHistoryPageProvider)
+            .selectedIds
+            .contains(history.id)) {
           notifier.toggleSelection(history.id);
         }
       }
@@ -525,96 +551,156 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
   }) {
     final colorScheme = Theme.of(context).colorScheme;
     final currentTrack = ref.watch(currentTrackProvider);
-    
+
     // 判断是否正在播放
     final isPlaying = currentTrack != null &&
         currentTrack.sourceId == history.sourceId &&
         (history.cid == null || currentTrack.cid == history.cid);
 
-    return Row(
-      children: [
-        // 时间轴竖线
-        SizedBox(
-          width: 40,
-          child: Center(
-            child: Container(
-              width: 2,
-              height: 72,
-              color: colorScheme.outlineVariant,
-            ),
-          ),
-        ),
-        // 内容（使用 ListTile 樣式，與搜索頁一致）
-        Expanded(
-          child: ListTile(
-            onTap: () {
-              if (isMultiSelectMode) {
-                onToggleSelection();
-              } else {
-                final track = history.toTrack();
-                ref.read(audioControllerProvider.notifier).playTemporary(track);
-              }
-            },
-            onLongPress: () {
-              if (!isMultiSelectMode) {
-                onEnterMultiSelect();
-              }
-            },
-            leading: TrackThumbnail(
-              track: history.toTrack(),
-              size: 48,
-              borderRadius: 4,
-              isPlaying: isPlaying,
-            ),
-            title: Text(
-              history.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: isPlaying ? colorScheme.primary : null,
-                fontWeight: isPlaying ? FontWeight.w600 : null,
+    return ContextMenuRegion(
+      menuBuilder: (_) => _buildHistoryItemMenuItems(),
+      onSelected: (value) =>
+          _handleItemMenuAction(context, ref, history, value),
+      child: Row(
+        children: [
+          // 时间轴竖线
+          SizedBox(
+            width: 40,
+            child: Center(
+              child: Container(
+                width: 2,
+                height: 72,
+                color: colorScheme.outlineVariant,
               ),
             ),
-            subtitle: Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    history.artist ?? '未知藝術家',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // 播放時間（帶時鐘圖標）
-                Icon(
-                  Icons.access_time,
-                  size: 14,
-                  color: colorScheme.outline,
-                ),
-                const SizedBox(width: 2),
-                Text(
-                  _formatPlayedTime(history.playedAt),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.outline,
-                      ),
-                ),
-                const SizedBox(width: 8),
-                // 音源標識
-                Icon(
-                  history.sourceType == SourceType.bilibili
-                      ? SimpleIcons.bilibili
-                      : SimpleIcons.youtube,
-                  size: 14,
-                  color: colorScheme.outline,
-                ),
-              ],
-            ),
-            trailing: _buildTrailing(context, history, isMultiSelectMode, isSelected, onToggleSelection),
           ),
-        ),
-      ],
+          // 内容（使用 ListTile 樣式，與搜索頁一致）
+          Expanded(
+            child: ListTile(
+              onTap: () {
+                if (isMultiSelectMode) {
+                  onToggleSelection();
+                } else {
+                  final track = history.toTrack();
+                  ref
+                      .read(audioControllerProvider.notifier)
+                      .playTemporary(track);
+                }
+              },
+              onLongPress: () {
+                if (!isMultiSelectMode) {
+                  onEnterMultiSelect();
+                }
+              },
+              leading: TrackThumbnail(
+                track: history.toTrack(),
+                size: 48,
+                borderRadius: 4,
+                isPlaying: isPlaying,
+              ),
+              title: Text(
+                history.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: isPlaying ? colorScheme.primary : null,
+                  fontWeight: isPlaying ? FontWeight.w600 : null,
+                ),
+              ),
+              subtitle: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      history.artist ?? '未知藝術家',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // 播放時間（帶時鐘圖標）
+                  Icon(
+                    Icons.access_time,
+                    size: 14,
+                    color: colorScheme.outline,
+                  ),
+                  const SizedBox(width: 2),
+                  Text(
+                    _formatPlayedTime(history.playedAt),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.outline,
+                        ),
+                  ),
+                  const SizedBox(width: 8),
+                  // 音源標識
+                  Icon(
+                    history.sourceType == SourceType.bilibili
+                        ? SimpleIcons.bilibili
+                        : SimpleIcons.youtube,
+                    size: 14,
+                    color: colorScheme.outline,
+                  ),
+                ],
+              ),
+              trailing: _buildTrailing(context, history, isMultiSelectMode,
+                  isSelected, onToggleSelection),
+            ),
+          ),
+        ],
+      ),
     );
   }
+
+  List<PopupMenuEntry<String>> _buildHistoryItemMenuItems() => const [
+        PopupMenuItem(
+          value: 'play',
+          child: ListTile(
+            leading: Icon(Icons.play_arrow),
+            title: Text('播放'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          value: 'play_next',
+          child: ListTile(
+            leading: Icon(Icons.queue_play_next),
+            title: Text('下一首播放'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          value: 'add_to_queue',
+          child: ListTile(
+            leading: Icon(Icons.add_to_queue),
+            title: Text('添加到隊列'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          value: 'add_to_playlist',
+          child: ListTile(
+            leading: Icon(Icons.playlist_add),
+            title: Text('添加到歌單'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'delete',
+          child: ListTile(
+            leading: Icon(Icons.delete_outline),
+            title: Text('刪除此記錄'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          value: 'delete_all',
+          child: ListTile(
+            leading: Icon(Icons.delete_sweep),
+            title: Text('刪除此歌所有記錄'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      ];
 
   Widget _buildTrailing(
     BuildContext context,
@@ -624,7 +710,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     VoidCallback onToggleSelection,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -651,57 +737,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
             icon: const Icon(Icons.more_vert),
             onSelected: (value) =>
                 _handleItemMenuAction(context, ref, history, value),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'play',
-                child: ListTile(
-                  leading: Icon(Icons.play_arrow),
-                  title: Text('播放'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'play_next',
-                child: ListTile(
-                  leading: Icon(Icons.queue_play_next),
-                  title: Text('下一首播放'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'add_to_queue',
-                child: ListTile(
-                  leading: Icon(Icons.add_to_queue),
-                  title: Text('添加到隊列'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'add_to_playlist',
-                child: ListTile(
-                  leading: Icon(Icons.playlist_add),
-                  title: Text('添加到歌單'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: 'delete',
-                child: ListTile(
-                  leading: Icon(Icons.delete_outline),
-                  title: Text('刪除此記錄'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'delete_all',
-                child: ListTile(
-                  leading: Icon(Icons.delete_sweep),
-                  title: Text('刪除此歌所有記錄'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-            ],
+            itemBuilder: (_) => _buildHistoryItemMenuItems(),
           ),
       ],
     );
@@ -786,7 +822,8 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
   }
 
   /// 處理多選菜單操作
-  Future<void> _handleMultiSelectMenuAction(BuildContext context, String action) async {
+  Future<void> _handleMultiSelectMenuAction(
+      BuildContext context, String action) async {
     switch (action) {
       case 'add_to_queue':
         await _addSelectedToQueue(context);
@@ -798,7 +835,8 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
         await _addSelectedToPlaylist(context);
         break;
       case 'delete':
-        await _deleteSelected(context, ref.read(playHistoryPageProvider.notifier));
+        await _deleteSelected(
+            context, ref.read(playHistoryPageProvider.notifier));
         break;
     }
   }
@@ -810,8 +848,9 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     if (grouped == null) return;
 
     final allHistories = grouped.values.expand((e) => e).toList();
-    final selectedHistories =
-        allHistories.where((h) => pageState.selectedIds.contains(h.id)).toList();
+    final selectedHistories = allHistories
+        .where((h) => pageState.selectedIds.contains(h.id))
+        .toList();
 
     final controller = ref.read(audioControllerProvider.notifier);
     int addedCount = 0;
@@ -937,8 +976,9 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     if (grouped == null) return;
 
     final allHistories = grouped.values.expand((e) => e).toList();
-    final selectedHistories =
-        allHistories.where((h) => pageState.selectedIds.contains(h.id)).toList();
+    final selectedHistories = allHistories
+        .where((h) => pageState.selectedIds.contains(h.id))
+        .toList();
 
     final controller = ref.read(audioControllerProvider.notifier);
     int addedCount = 0;
@@ -960,8 +1000,9 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     if (grouped == null) return;
 
     final allHistories = grouped.values.expand((e) => e).toList();
-    final selectedHistories =
-        allHistories.where((h) => pageState.selectedIds.contains(h.id)).toList();
+    final selectedHistories = allHistories
+        .where((h) => pageState.selectedIds.contains(h.id))
+        .toList();
 
     final tracks = selectedHistories.map((h) => h.toTrack()).toList();
 
@@ -1013,10 +1054,10 @@ class _GroupSelectionCheckbox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     IconData icon;
     Color color;
-    
+
     if (isFullySelected) {
       icon = Icons.check_circle;
       color = colorScheme.primary;
@@ -1027,7 +1068,7 @@ class _GroupSelectionCheckbox extends StatelessWidget {
       icon = Icons.radio_button_unchecked;
       color = colorScheme.outline;
     }
-    
+
     return GestureDetector(
       onTap: onTap,
       child: Icon(icon, color: color, size: 24),
