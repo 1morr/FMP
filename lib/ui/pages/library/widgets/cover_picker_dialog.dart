@@ -132,11 +132,11 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
   Widget _buildTrackCoversTab(BuildContext context) {
     final state = ref.watch(playlistDetailProvider(widget.playlistId));
 
-    if (state.isLoading) {
+    if (state.isLoading && state.tracks.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (state.error != null) {
+    if (state.error != null && state.tracks.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),

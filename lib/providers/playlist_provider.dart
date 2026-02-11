@@ -89,7 +89,10 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
         description: description,
         coverUrl: coverUrl,
       );
-      await loadPlaylists();
+      // 直接追加到列表，避免 loadPlaylists 的 isLoading 闪烁
+      state = state.copyWith(
+        playlists: [...state.playlists, playlist],
+      );
       // 同步刷新 allPlaylistsProvider，确保添加到歌单弹窗显示最新列表
       _ref.invalidate(allPlaylistsProvider);
       return playlist;
@@ -116,7 +119,14 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
         description: description,
         coverUrl: coverUrl,
       );
-      await loadPlaylists();
+      // 直接更新列表中的歌单，避免 loadPlaylists 的 isLoading 闪烁
+      final updatedPlaylists = state.playlists.map((p) {
+        if (p.id == playlistId) {
+          return result.playlist;
+        }
+        return p;
+      }).toList();
+      state = state.copyWith(playlists: updatedPlaylists);
       // 同步刷新 allPlaylistsProvider，确保添加到歌单弹窗显示最新列表
       _ref.invalidate(allPlaylistsProvider);
       // 刷新歌单详情页和封面
@@ -132,14 +142,19 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
 
   /// 删除歌单
   Future<bool> deletePlaylist(int playlistId) async {
+    // 乐观更新：立即从列表移除，避免闪烁
+    final previousPlaylists = state.playlists;
+    state = state.copyWith(
+      playlists: previousPlaylists.where((p) => p.id != playlistId).toList(),
+    );
     try {
       await _service.deletePlaylist(playlistId);
-      await loadPlaylists();
       // 同步刷新 allPlaylistsProvider，确保添加到歌单弹窗不再显示已删除的歌单
       _ref.invalidate(allPlaylistsProvider);
       return true;
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      // 回滚
+      state = state.copyWith(playlists: previousPlaylists, error: e.toString());
       return false;
     }
   }
@@ -148,7 +163,10 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
   Future<Playlist?> duplicatePlaylist(int playlistId, String newName) async {
     try {
       final playlist = await _service.duplicatePlaylist(playlistId, newName);
-      await loadPlaylists();
+      // 直接追加到列表，避免 loadPlaylists 的 isLoading 闪烁
+      state = state.copyWith(
+        playlists: [...state.playlists, playlist],
+      );
       // 同步刷新 allPlaylistsProvider，确保添加到歌单弹窗显示最新列表
       _ref.invalidate(allPlaylistsProvider);
       return playlist;

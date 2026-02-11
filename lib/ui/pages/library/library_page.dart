@@ -102,7 +102,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
       ),
       body: Stack(
         children: [
-          state.isLoading
+          state.isLoading && displayPlaylists.isEmpty
               ? const Center(child: CircularProgressIndicator())
               : displayPlaylists.isEmpty
                   ? _buildEmptyState(context, ref)
@@ -187,7 +187,10 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
       ),
       itemCount: playlists.length,
       itemBuilder: (context, index) {
-        return _PlaylistCard(playlist: playlists[index]);
+        return _PlaylistCard(
+          key: ValueKey(playlists[index].id),
+          playlist: playlists[index],
+        );
       },
     );
   }
@@ -362,7 +365,7 @@ class _ReorderablePlaylistCard extends ConsumerWidget {
 class _PlaylistCard extends ConsumerWidget {
   final Playlist playlist;
 
-  const _PlaylistCard({required this.playlist});
+  const _PlaylistCard({super.key, required this.playlist});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
