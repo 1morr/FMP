@@ -172,7 +172,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       SelectionAction.addToQueue,
       SelectionAction.playNext,
       SelectionAction.addToPlaylist,
-      SelectionAction.download,
+      if (!isMix) SelectionAction.download,
       if (!isImported && !isMix) SelectionAction.delete,
     };
 
@@ -1030,7 +1030,8 @@ class _GroupHeader extends ConsumerWidget {
   List<PopupMenuEntry<String>> _buildMenuItems() => [
     const PopupMenuItem(value: 'play_first', child: ListTile(leading: Icon(Icons.play_arrow), title: Text('播放第一个分P'), contentPadding: EdgeInsets.zero)),
     const PopupMenuItem(value: 'add_all_to_queue', child: ListTile(leading: Icon(Icons.add_to_queue), title: Text('添加全部到队列'), contentPadding: EdgeInsets.zero)),
-    const PopupMenuItem(value: 'download_all', child: ListTile(leading: Icon(Icons.download_outlined), title: Text('下载全部分P'), contentPadding: EdgeInsets.zero)),
+    if (!isMix)
+      const PopupMenuItem(value: 'download_all', child: ListTile(leading: Icon(Icons.download_outlined), title: Text('下载全部分P'), contentPadding: EdgeInsets.zero)),
     const PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: Icon(Icons.playlist_add), title: Text('添加到其他歌单'), contentPadding: EdgeInsets.zero)),
     if (!isImported)
       const PopupMenuItem(value: 'remove_all', child: ListTile(leading: Icon(Icons.remove_circle_outline), title: Text('从歌单移除全部'), contentPadding: EdgeInsets.zero)),
@@ -1136,7 +1137,7 @@ class _TrackListTile extends ConsumerWidget {
         currentTrack.pageNum == track.pageNum;
 
     return ContextMenuRegion(
-      menuBuilder: isMix ? (_) => [] : (_) => _buildMenuItems(),
+      menuBuilder: (_) => _buildMenuItems(),
       onSelected: (value) => _handleMenuAction(context, ref, value),
       child: Padding(
       padding: EdgeInsets.only(left: indent ? 56 : 0),
@@ -1228,9 +1229,7 @@ class _TrackListTile extends ConsumerWidget {
                   textAlign: TextAlign.center,
                 ),
               ),
-            // Mix 歌單不顯示菜單（所有操作都不支持）
-            if (!isMix)
-              PopupMenuButton<String>(
+            PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert, size: 20),
                 onSelected: (value) => _handleMenuAction(context, ref, value),
                 itemBuilder: (_) => _buildMenuItems(),
@@ -1245,7 +1244,8 @@ class _TrackListTile extends ConsumerWidget {
   List<PopupMenuEntry<String>> _buildMenuItems() => [
     const PopupMenuItem(value: 'play_next', child: ListTile(leading: Icon(Icons.queue_play_next), title: Text('下一首播放'), contentPadding: EdgeInsets.zero)),
     const PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: Icon(Icons.add_to_queue), title: Text('添加到队列'), contentPadding: EdgeInsets.zero)),
-    const PopupMenuItem(value: 'download', child: ListTile(leading: Icon(Icons.download_outlined), title: Text('下载'), contentPadding: EdgeInsets.zero)),
+    if (!isMix)
+      const PopupMenuItem(value: 'download', child: ListTile(leading: Icon(Icons.download_outlined), title: Text('下载'), contentPadding: EdgeInsets.zero)),
     if (!isPartOfMultiPage)
       const PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: Icon(Icons.playlist_add), title: Text('添加到歌单'), contentPadding: EdgeInsets.zero)),
     if (!isImported)
