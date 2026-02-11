@@ -45,7 +45,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
     // 监听错误并显示 Toast
     ref.listen<RadioState>(radioControllerProvider, (previous, next) {
       if (next.error != null && next.error != previous?.error) {
-        ToastService.show(context, next.error!);
+        ToastService.error(context, next.error!);
       }
     });
 
@@ -364,7 +364,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
           .read(radioControllerProvider.notifier)
           .deleteStation(station.id);
       if (context.mounted) {
-        ToastService.show(context, '电台已删除');
+        ToastService.success(context, '电台已删除');
       }
     }
   }

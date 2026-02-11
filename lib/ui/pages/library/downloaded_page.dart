@@ -404,7 +404,7 @@ class _CategoryCard extends ConsumerWidget {
 
     if (tracksAsync.isEmpty) {
       if (context.mounted) {
-        ToastService.show(context, '分类为空');
+        ToastService.warning(context, '分类为空');
       }
       return;
     }
@@ -413,7 +413,7 @@ class _CategoryCard extends ConsumerWidget {
     final added = await controller.addAllToQueue(tracksAsync);
 
     if (added && context.mounted) {
-      ToastService.show(context, '已添加 ${tracksAsync.length} 首歌曲到队列');
+      ToastService.success(context, '已添加 ${tracksAsync.length} 首歌曲到队列');
     }
   }
 
@@ -422,7 +422,7 @@ class _CategoryCard extends ConsumerWidget {
 
     if (tracksAsync.isEmpty) {
       if (context.mounted) {
-        ToastService.show(context, '分类为空');
+        ToastService.warning(context, '分类为空');
       }
       return;
     }
@@ -432,7 +432,7 @@ class _CategoryCard extends ConsumerWidget {
     final added = await controller.addAllToQueue(shuffled);
 
     if (added && context.mounted) {
-      ToastService.show(context, '已随机添加 ${tracksAsync.length} 首歌曲到队列');
+      ToastService.success(context, '已随机添加 ${tracksAsync.length} 首歌曲到队列');
     }
   }
 
@@ -483,11 +483,11 @@ class _CategoryCard extends ConsumerWidget {
       ref.invalidate(downloadedCategoriesProvider);
 
       if (context.mounted) {
-        ToastService.show(context, '已删除 "${category.displayName}"');
+        ToastService.success(context, '已删除 "${category.displayName}"');
       }
     } catch (e) {
       if (context.mounted) {
-        ToastService.show(context, '删除失败: $e');
+        ToastService.error(context, '删除失败: $e');
       }
     }
   }

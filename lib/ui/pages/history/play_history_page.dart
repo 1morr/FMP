@@ -857,7 +857,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     ref.read(playHistoryPageProvider.notifier).exitMultiSelectMode();
 
     if (context.mounted) {
-      ToastService.show(context, '已添加 $addedCount 首到下一首播放');
+      ToastService.success(context, '已添加 $addedCount 首到下一首播放');
     }
   }
 
@@ -884,7 +884,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
         if (confirmed == true && context.mounted) {
           await ref.read(playHistoryActionsProvider).clearAll();
           if (context.mounted) {
-            ToastService.show(context, '已清空所有歷史');
+            ToastService.success(context, '已清空所有歷史');
           }
         }
         break;
@@ -907,13 +907,13 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
       case 'play_next':
         final added = await controller.addNext(track);
         if (added && context.mounted) {
-          ToastService.show(context, '已添加到下一首');
+          ToastService.success(context, '已添加到下一首');
         }
         break;
       case 'add_to_queue':
         final added = await controller.addToQueue(track);
         if (added && context.mounted) {
-          ToastService.show(context, '已添加到播放隊列');
+          ToastService.success(context, '已添加到播放隊列');
         }
         break;
       case 'add_to_playlist':
@@ -922,7 +922,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
       case 'delete':
         await ref.read(playHistoryActionsProvider).delete(history.id);
         if (context.mounted) {
-          ToastService.show(context, '已刪除記錄');
+          ToastService.success(context, '已刪除記錄');
         }
         break;
       case 'delete_all':
@@ -948,7 +948,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
               .read(playHistoryPageProvider.notifier)
               .deleteAllForTrack(history.trackKey);
           if (context.mounted) {
-            ToastService.show(context, '已刪除 $count 條記錄');
+            ToastService.success(context, '已刪除 $count 條記錄');
           }
         }
         break;
@@ -961,7 +961,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
   ) async {
     final count = await notifier.deleteSelected();
     if (context.mounted) {
-      ToastService.show(context, '已刪除 $count 條記錄');
+      ToastService.success(context, '已刪除 $count 條記錄');
     }
   }
 
@@ -985,7 +985,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     ref.read(playHistoryPageProvider.notifier).exitMultiSelectMode();
 
     if (context.mounted) {
-      ToastService.show(context, '已添加 $addedCount 首到隊列');
+      ToastService.success(context, '已添加 $addedCount 首到隊列');
     }
   }
 

@@ -355,13 +355,13 @@ class _ExploreTrackTile extends ConsumerWidget {
       case 'play_next':
         final added = await controller.addNext(track);
         if (added && context.mounted) {
-          ToastService.show(context, '已添加到下一首');
+          ToastService.success(context, '已添加到下一首');
         }
         break;
       case 'add_to_queue':
         final added = await controller.addToQueue(track);
         if (added && context.mounted) {
-          ToastService.show(context, '已添加到播放隊列');
+          ToastService.success(context, '已添加到播放隊列');
         }
         break;
       case 'add_to_playlist':

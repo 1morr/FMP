@@ -135,7 +135,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
                 tooltip: '随机打乱',
                 onPressed: () {
                   ref.read(audioControllerProvider.notifier).shuffleQueue();
-                  ToastService.show(context, '队列已打乱');
+                  ToastService.success(context, '队列已打乱');
                 },
               ),
             IconButton(

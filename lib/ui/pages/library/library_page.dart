@@ -653,7 +653,7 @@ class _PlaylistCard extends ConsumerWidget {
 
     if (result == null || result.tracks.isEmpty) {
       if (context.mounted) {
-        ToastService.show(context, '歌单为空');
+        ToastService.warning(context, '歌单为空');
       }
       return;
     }
@@ -662,7 +662,7 @@ class _PlaylistCard extends ConsumerWidget {
     final added = await controller.addAllToQueue(result.tracks);
     
     if (added && context.mounted) {
-      ToastService.show(context, '已添加 ${result.tracks.length} 首歌曲到队列');
+      ToastService.success(context, '已添加 ${result.tracks.length} 首歌曲到队列');
     }
   }
 
@@ -672,7 +672,7 @@ class _PlaylistCard extends ConsumerWidget {
 
     if (result == null || result.tracks.isEmpty) {
       if (context.mounted) {
-        ToastService.show(context, '歌单为空');
+        ToastService.warning(context, '歌单为空');
       }
       return;
     }
@@ -682,13 +682,13 @@ class _PlaylistCard extends ConsumerWidget {
     final added = await controller.addAllToQueue(shuffled);
     
     if (added && context.mounted) {
-      ToastService.show(context, '已随机添加 ${result.tracks.length} 首歌曲到队列');
+      ToastService.success(context, '已随机添加 ${result.tracks.length} 首歌曲到队列');
     }
   }
 
   Future<void> _playMix(BuildContext context, WidgetRef ref) async {
     if (playlist.mixPlaylistId == null || playlist.mixSeedVideoId == null) {
-      ToastService.show(context, 'Mix信息不完整');
+      ToastService.error(context, 'Mix信息不完整');
       return;
     }
 
@@ -702,7 +702,7 @@ class _PlaylistCard extends ConsumerWidget {
 
       if (result.tracks.isEmpty) {
         if (context.mounted) {
-          ToastService.show(context, '无法加载Mix内容');
+          ToastService.error(context, '无法加载Mix内容');
         }
         return;
       }
@@ -717,7 +717,7 @@ class _PlaylistCard extends ConsumerWidget {
       );
     } catch (e) {
       if (context.mounted) {
-        ToastService.show(context, '播放Mix失败: $e');
+        ToastService.error(context, '播放Mix失败: $e');
       }
     }
   }
@@ -735,24 +735,19 @@ class _PlaylistCard extends ConsumerWidget {
     );
   }
 
-  void _showDeleteConfirm(BuildContext context, WidgetRef ref) {
-    showDialog(
+  void _showDeleteConfirm(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('删除歌单'),
         content: Text('确定要删除 "${playlist.name}" 吗？此操作无法撤销。'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('取消'),
           ),
           FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ref
-                  .read(playlistListProvider.notifier)
-                  .deletePlaylist(playlist.id);
-            },
+            onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
@@ -761,5 +756,11 @@ class _PlaylistCard extends ConsumerWidget {
         ],
       ),
     );
+    if (confirmed == true) {
+      ref.read(playlistListProvider.notifier).deletePlaylist(playlist.id);
+      if (context.mounted) {
+        ToastService.success(context, '歌单已删除');
+      }
+    }
   }
 }
