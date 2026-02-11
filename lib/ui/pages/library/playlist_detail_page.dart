@@ -868,6 +868,28 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   }
   
   void _downloadPlaylist(BuildContext context, dynamic playlist) async {
+    // 确认下载
+    final trackCount = playlist.trackCount;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('確認下載'),
+        content: Text('確定要下載歌單中的 $trackCount 首歌曲嗎？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('下載'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    if (!context.mounted) return;
+
     // 检查路径配置
     final pathManager = ref.read(downloadPathManagerProvider);
     if (!await pathManager.hasConfiguredPath()) {
