@@ -424,6 +424,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
         track: group.tracks.first,
         onTap: () => _playTrack(group.tracks.first),
         isPartOfMultiPage: false,
+        folderPath: widget.category.folderPath,
       );
     }
 
@@ -436,6 +437,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
         _GroupHeader(
           group: group,
           isExpanded: isExpanded,
+          folderPath: widget.category.folderPath,
           onToggle: () => _toggleGroup(group.groupKey),
           onPlayFirst: () => _playTrack(group.tracks.first),
           onAddAllToQueue: () => _addAllToQueue(context, group.tracks),
@@ -447,6 +449,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
                 onTap: () => _playTrack(track),
                 isPartOfMultiPage: true,
                 indent: true,
+                folderPath: widget.category.folderPath,
               )),
       ],
     );
@@ -480,6 +483,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
 class _GroupHeader extends ConsumerWidget {
   final TrackGroup group;
   final bool isExpanded;
+  final String folderPath;
   final VoidCallback onToggle;
   final VoidCallback onPlayFirst;
   final VoidCallback onAddAllToQueue;
@@ -487,6 +491,7 @@ class _GroupHeader extends ConsumerWidget {
   const _GroupHeader({
     required this.group,
     required this.isExpanded,
+    required this.folderPath,
     required this.onToggle,
     required this.onPlayFirst,
     required this.onAddAllToQueue,
@@ -638,6 +643,9 @@ class _GroupHeader extends ConsumerWidget {
       // 清除数据库中的下载路径
       await trackRepo.clearDownloadPath(track.id);
     }
+    // 刷新列表
+    ref.invalidate(downloadedCategoryTracksProvider(folderPath));
+    ref.invalidate(downloadedCategoriesProvider);
   }
 }
 
@@ -647,11 +655,13 @@ class _DownloadedTrackTile extends ConsumerWidget {
   final VoidCallback onTap;
   final bool isPartOfMultiPage;
   final bool indent;
+  final String folderPath;
 
   const _DownloadedTrackTile({
     required this.track,
     required this.onTap,
     required this.isPartOfMultiPage,
+    required this.folderPath,
     this.indent = false,
   });
 
@@ -818,5 +828,9 @@ class _DownloadedTrackTile extends ConsumerWidget {
 
     // 清除数据库中的下载路径
     await trackRepo.clearDownloadPath(track.id);
+
+    // 刷新列表
+    ref.invalidate(downloadedCategoryTracksProvider(folderPath));
+    ref.invalidate(downloadedCategoriesProvider);
   }
 }
