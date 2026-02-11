@@ -410,8 +410,10 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
         customName: customName.isEmpty ? null : customName,
       );
 
-      // watch 自动更新歌单列表
+      // 刷新相关 providers
       ref.invalidate(allPlaylistsProvider);
+      ref.invalidate(playlistDetailProvider(result.playlist.id));
+      ref.invalidate(playlistCoverProvider(result.playlist.id));
 
       if (mounted) {
         Navigator.pop(context);
