@@ -195,7 +195,7 @@ enum PlayMode {
 **流程：**
 1. `playTemporary(track)` - 设置 `_context` 为 `PlayMode.temporary` 并保存当前索引和位置
 2. 歌曲完成时 `_onTrackCompleted` 检测到 `_context.isTemporary`
-3. `_restoreSavedState()` - 直接使用当前队列，恢复到保存的索引位置，回退10秒，如果之前在播放则继续播放
+3. `_restoreSavedState()` - 直接使用当前队列，恢复到保存的索引位置；位置恢复受 `rememberPlaybackPosition` 设置控制（启用则回退10秒恢复，禁用则从头开始），如果之前在播放则继续播放
 
 **重要：`_restoreSavedState()` 必须使用 `_playRequestId` 机制**
 
@@ -453,25 +453,34 @@ if (_queueManager.isMixMode) {
 - 播放器頁面：shuffle 按鈕禁用
 
 ### 7. 记住播放位置（Remember Playback Position）
-**用途：** 长视频/音频自动记住播放位置，下次播放时从上次位置继续
+**用途：** 统一的播放位置持久化，受 `Settings.rememberPlaybackPosition` 设置控制
 
-**触发条件：**
-- 视频时长 > 10 分钟
-- 且播放进度 > 5%
+**位置保存（始终生效，与设置无关）：**
+- `QueueManager` 每 10 秒（`AppConstants.positionSaveInterval`）将 `currentIndex` 和 `lastPositionMs` 保存到 `PlayQueue` Isar 模型
+- `seekTo()`、`seekForward()`、`seekBackward()` 调用 `savePositionNow()` 立即保存
 
-**相关方法：**
+**位置恢复（受设置控制）：**
+
+`Settings.rememberPlaybackPosition`（默认 `true`）统一控制以下两个场景：
+
+1. **应用重启恢复** - `QueueManager.initialize()`
+   - 启用：从 `PlayQueue.lastPositionMs` 恢复 `_currentPosition`
+   - 禁用：设置 `_currentPosition = Duration.zero`
+
+2. **临时播放恢复** - `AudioController._restoreSavedState()`
+   - 启用：恢复到保存的位置（回退 10 秒）
+   - 禁用：返回队列歌曲但从头开始播放
+
+**QueueManager 接口：**
 ```dart
-// QueueManager
-Future<void> rememberPlaybackPosition(Track track, Duration position);
-Future<Duration?> getRememberedPosition(Track track);
-Future<void> clearRememberedPosition(Track track);
+/// 是否启用记住播放位置（读取用户设置）
+Future<bool> get shouldRememberPosition async {
+  final settings = await _settingsRepository.get();
+  return settings.rememberPlaybackPosition;
+}
 ```
 
-**存储：** 使用 Isar 数据库，`Track.rememberedPositionMs` 字段
-
-**播放时恢复：**
-- `_playTrack()` 内部会调用 `_queueManager.getRememberedPosition()`
-- 如果有记住的位置，自动 seek 到该位置
+**UI：** 设置页 SwitchListTile "记住播放位置"，副标题 "应用重启后从上次位置继续播放"
 
 ## Provider 结构
 
