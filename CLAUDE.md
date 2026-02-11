@@ -224,17 +224,23 @@ When clicking a song in search/playlist pages, it plays temporarily without modi
 - Uses `_executePlayRequest()` with `mode: PlayMode.temporary`
 - On restore: Uses current queue directly, user's queue modifications during temporary play are preserved
 - Index is clamped to valid range if queue was modified
+- **Position restore controlled by `rememberPlaybackPosition` setting** - if disabled, returns to queue track but starts from beginning
 - **Important**: All async methods use unified `_enterLoadingState()` / `_exitLoadingState()` helpers
 
 ### Mute Toggle
 Volume mute must use `controller.toggleMute()`, NOT `setVolume(0)` / `setVolume(1.0)`. The mute logic remembers the previous volume in `_volumeBeforeMute`.
 
 ### Remember Playback Position
-For long videos (>10 min) with progress >5%, the playback position is automatically saved. When replaying, it resumes from the saved position.
+Unified playback position persistence controlled by `Settings.rememberPlaybackPosition` (default `true`).
 
-- Stored in `Track.rememberedPositionMs` via Isar
-- Uses `rememberPlaybackPosition()`, `getRememberedPosition()`, `clearRememberedPosition()` in QueueManager
-- Automatically restored in `_playTrack()`
+**Position saving** (always active regardless of setting):
+- `QueueManager` saves `currentIndex` and `lastPositionMs` to `PlayQueue` model every 10 seconds (`AppConstants.positionSaveInterval`)
+- `seekTo()`, `seekForward()`, `seekBackward()` call `savePositionNow()` immediately
+
+**Position restoring** (controlled by `rememberPlaybackPosition` setting):
+- **App restart**: `QueueManager.initialize()` restores `_currentPosition` from `PlayQueue.lastPositionMs`; if disabled, starts from `Duration.zero`
+- **Temporary play restore**: `_restoreSavedState()` checks `_queueManager.shouldRememberPosition`; if disabled, returns to queue track but starts from beginning instead of saved position
+- **UI**: Settings page toggle "记住播放位置" with subtitle "应用重启后从上次位置继续播放" (`lib/ui/pages/settings/settings_page.dart`)
 
 ### Shuffle Mode
 Managed in `QueueManager` with `_shuffleOrder` list. When queue is cleared and songs added, shuffle order regenerates automatically.

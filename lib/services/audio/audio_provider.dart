@@ -781,7 +781,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
           _updatePlayingTrack(trackWithUrl);
 
           // 恢复播放位置（回退10秒，方便用户回忆上下文）
-          if (savedPosition > Duration.zero) {
+          // 受"记住播放位置"设置控制，与应用重启恢复逻辑统一
+          final shouldRestore = await _queueManager.shouldRememberPosition;
+          if (shouldRestore && savedPosition > Duration.zero) {
             final restorePosition = savedPosition - const Duration(seconds: AppConstants.temporaryPlayRestoreOffsetSeconds);
             await _audioService.seekTo(restorePosition.isNegative ? Duration.zero : restorePosition);
           }
