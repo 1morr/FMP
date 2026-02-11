@@ -380,14 +380,14 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
   void _playAll(List<Track> tracks) {
     final controller = ref.read(audioControllerProvider.notifier);
     controller.addAllToQueue(tracks);
-    ToastService.show(context, '已添加 ${tracks.length} 首歌曲到队列');
+    ToastService.success(context, '已添加 ${tracks.length} 首歌曲到队列');
   }
 
   void _shufflePlay(List<Track> tracks) {
     final controller = ref.read(audioControllerProvider.notifier);
     final shuffled = List<Track>.from(tracks)..shuffle();
     controller.addAllToQueue(shuffled);
-    ToastService.show(context, '已随机添加 ${tracks.length} 首歌曲到队列');
+    ToastService.success(context, '已随机添加 ${tracks.length} 首歌曲到队列');
   }
 
   Widget _buildEmptyState(BuildContext context) {
@@ -467,7 +467,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
     final controller = ref.read(audioControllerProvider.notifier);
     final added = await controller.addAllToQueue(tracks);
     if (added && context.mounted) {
-      ToastService.show(context, '已添加 ${tracks.length} 个分P到队列');
+      ToastService.success(context, '已添加 ${tracks.length} 个分P到队列');
     }
   }
 
@@ -621,7 +621,7 @@ class _GroupHeader extends ConsumerWidget {
         if (confirmed == true && context.mounted) {
           await _deleteAllDownloads(ref);
           if (context.mounted) {
-            ToastService.show(context, '已删除 ${group.tracks.length} 个分P的下载文件');
+            ToastService.success(context, '已删除 ${group.tracks.length} 个分P的下载文件');
           }
         }
         break;
@@ -775,13 +775,13 @@ class _DownloadedTrackTile extends ConsumerWidget {
       case 'play_next':
         final added = await ref.read(audioControllerProvider.notifier).addNext(track);
         if (added && context.mounted) {
-          ToastService.show(context, '已添加到下一首');
+          ToastService.success(context, '已添加到下一首');
         }
         break;
       case 'add_to_queue':
         final added = await ref.read(audioControllerProvider.notifier).addToQueue(track);
         if (added && context.mounted) {
-          ToastService.show(context, '已添加到播放队列');
+          ToastService.success(context, '已添加到播放队列');
         }
         break;
 
@@ -806,7 +806,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
         if (confirmed == true && context.mounted) {
           await _deleteDownload(ref);
           if (context.mounted) {
-            ToastService.show(context, '已删除下载文件');
+            ToastService.success(context, '已删除下载文件');
           }
         }
         break;

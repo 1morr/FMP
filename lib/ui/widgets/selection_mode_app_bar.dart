@@ -196,7 +196,7 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
     notifier.exitSelectionMode();
 
     if (context.mounted) {
-      ToastService.show(context, '已添加 $addedCount 首到隊列');
+      ToastService.success(context, '已添加 $addedCount 首到隊列');
     }
   }
 
@@ -218,7 +218,7 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
     notifier.exitSelectionMode();
 
     if (context.mounted) {
-      ToastService.show(context, '已添加 $addedCount 首到下一首播放');
+      ToastService.success(context, '已添加 $addedCount 首到下一首播放');
     }
   }
 
@@ -283,7 +283,7 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
       notifier.exitSelectionMode();
 
       if (context.mounted) {
-        ToastService.show(context, '已移除 ${tracks.length} 首歌曲');
+        ToastService.success(context, '已移除 ${tracks.length} 首歌曲');
       }
     }
   }

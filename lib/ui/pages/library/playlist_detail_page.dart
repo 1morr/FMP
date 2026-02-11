@@ -353,7 +353,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final controller = ref.read(audioControllerProvider.notifier);
     final added = await controller.addAllToQueue(tracks);
     if (added && context.mounted) {
-      ToastService.show(context, '已添加 ${tracks.length} 个分P到队列');
+      ToastService.success(context, '已添加 ${tracks.length} 个分P到队列');
     }
   }
 
@@ -457,7 +457,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         }
         notifier.exitSelectionMode();
         if (mounted) {
-          ToastService.show(context, '已添加 $addedCount 首到隊列');
+          ToastService.success(context, '已添加 $addedCount 首到隊列');
         }
         break;
       case 'play_next':
@@ -468,7 +468,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         }
         notifier.exitSelectionMode();
         if (mounted) {
-          ToastService.show(context, '已添加 $addedCount 首到下一首播放');
+          ToastService.success(context, '已添加 $addedCount 首到下一首播放');
         }
         break;
       case 'add_to_playlist':
@@ -515,7 +515,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       await _deleteSelectedTracks(tracks);
       notifier.exitSelectionMode();
       if (mounted) {
-        ToastService.show(context, '已移除 ${tracks.length} 首歌曲');
+        ToastService.success(context, '已移除 ${tracks.length} 首歌曲');
       }
     }
   }
@@ -834,7 +834,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final controller = ref.read(audioControllerProvider.notifier);
     final added = await controller.addAllToQueue(tracks);
     if (added && context.mounted) {
-      ToastService.show(context, '已添加 ${tracks.length} 首歌曲到队列');
+      ToastService.success(context, '已添加 ${tracks.length} 首歌曲到队列');
     }
   }
 
@@ -843,7 +843,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final shuffled = List<Track>.from(tracks)..shuffle();
     final added = await controller.addAllToQueue(shuffled);
     if (added && context.mounted) {
-      ToastService.show(context, '已随机添加 ${tracks.length} 首歌曲到队列');
+      ToastService.success(context, '已随机添加 ${tracks.length} 首歌曲到队列');
     }
   }
 
@@ -1090,7 +1090,7 @@ class _GroupHeader extends ConsumerWidget {
         final trackIds = group.tracks.map((t) => t.id).toList();
         await notifier.removeTracks(trackIds);
         if (context.mounted) {
-          ToastService.show(context, '已从歌单移除 ${group.tracks.length} 个分P');
+          ToastService.success(context, '已从歌单移除 ${group.tracks.length} 个分P');
         }
         break;
     }
@@ -1255,13 +1255,13 @@ class _TrackListTile extends ConsumerWidget {
       case 'play_next':
         final addedNext = await ref.read(audioControllerProvider.notifier).addNext(track);
         if (addedNext && context.mounted) {
-          ToastService.show(context, '已添加到下一首');
+          ToastService.success(context, '已添加到下一首');
         }
         break;
       case 'add_to_queue':
         final addedToQueue = await ref.read(audioControllerProvider.notifier).addToQueue(track);
         if (addedToQueue && context.mounted) {
-          ToastService.show(context, '已添加到播放队列');
+          ToastService.success(context, '已添加到播放队列');
         }
         break;
       case 'download':
@@ -1292,7 +1292,7 @@ class _TrackListTile extends ConsumerWidget {
                 onAction: () => context.pushNamed(RouteNames.downloadManager),
               );
             case DownloadResult.alreadyDownloaded:
-              ToastService.show(context, '歌曲已下载');
+              ToastService.success(context, '歌曲已下载');
             case DownloadResult.taskExists:
               ToastService.showWithAction(
                 context,
@@ -1311,7 +1311,7 @@ class _TrackListTile extends ConsumerWidget {
             .read(playlistDetailProvider(playlistId).notifier)
             .removeTrack(track.id);
         if (context.mounted) {
-          ToastService.show(context, '已从歌单移除');
+          ToastService.success(context, '已从歌单移除');
         }
         break;
     }

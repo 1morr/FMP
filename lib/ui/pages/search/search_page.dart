@@ -716,7 +716,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   /// 打开直播间
   Future<void> _openLiveRoom(LiveRoom room) async {
     if (!room.isLive) {
-      if (mounted) ToastService.show(context, '主播未开播');
+      if (mounted) ToastService.warning(context, '主播未开播');
       return;
     }
 
@@ -742,9 +742,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     try {
       final url = 'https://live.bilibili.com/${room.roomId}';
       await ref.read(radioControllerProvider.notifier).addStation(url);
-      if (mounted) ToastService.show(context, '已添加到电台');
+      if (mounted) ToastService.success(context, '已添加到电台');
     } catch (e) {
-      if (mounted) ToastService.show(context, e.toString());
+      if (mounted) ToastService.error(context, e.toString());
     }
   }
 
@@ -854,12 +854,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             if (added) anyAdded = true;
           }
           if (anyAdded && mounted) {
-            ToastService.show(context, '已添加${pages.length}个分P到下一首');
+            ToastService.success(context, '已添加${pages.length}个分P到下一首');
           }
         } else {
           final added = await controller.addNext(track);
           if (added && mounted) {
-            ToastService.show(context, '已添加到下一首');
+            ToastService.success(context, '已添加到下一首');
           }
         }
         break;
@@ -872,12 +872,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             if (added) anyAdded = true;
           }
           if (anyAdded && mounted) {
-            ToastService.show(context, '已添加${pages.length}个分P到播放队列');
+            ToastService.success(context, '已添加${pages.length}个分P到播放队列');
           }
         } else {
           final added = await controller.addToQueue(track);
           if (added && mounted) {
-            ToastService.show(context, '已添加到播放队列');
+            ToastService.success(context, '已添加到播放队列');
           }
         }
         break;
@@ -910,13 +910,13 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       case 'play_next':
         final added = await controller.addNext(pageTrack);
         if (added && mounted) {
-          ToastService.show(context, '已添加到下一首');
+          ToastService.success(context, '已添加到下一首');
         }
         break;
       case 'add_to_queue':
         final added = await controller.addToQueue(pageTrack);
         if (added && mounted) {
-          ToastService.show(context, '已添加到播放队列');
+          ToastService.success(context, '已添加到播放队列');
         }
         break;
 
@@ -1375,8 +1375,7 @@ class _LocalGroupTile extends ConsumerWidget {
           if (added) anyAdded = true;
         }
         if (anyAdded && context.mounted) {
-          ToastService.show(
-            context,
+          ToastService.success(context,
             group.hasMultipleParts
                 ? '已添加${group.partCount}个分P到下一首'
                 : '已添加到下一首',
@@ -1390,8 +1389,7 @@ class _LocalGroupTile extends ConsumerWidget {
           if (added) anyAdded = true;
         }
         if (anyAdded && context.mounted) {
-          ToastService.show(
-            context,
+          ToastService.success(context,
             group.hasMultipleParts
                 ? '已添加${group.partCount}个分P到播放队列'
                 : '已添加到播放队列',

@@ -35,7 +35,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     // 监听电台错误并显示 Toast（与 RadioPage 保持一致）
     ref.listen<RadioState>(radioControllerProvider, (previous, next) {
       if (next.error != null && next.error != previous?.error) {
-        ToastService.show(context, next.error!);
+        ToastService.error(context, next.error!);
       }
     });
 
@@ -905,13 +905,13 @@ class _RankingTrackTile extends ConsumerWidget {
       case 'play_next':
         final added = await controller.addNext(track);
         if (added && context.mounted) {
-          ToastService.show(context, '已添加到下一首');
+          ToastService.success(context, '已添加到下一首');
         }
         break;
       case 'add_to_queue':
         final added = await controller.addToQueue(track);
         if (added && context.mounted) {
-          ToastService.show(context, '已添加到播放隊列');
+          ToastService.success(context, '已添加到播放隊列');
         }
         break;
       case 'add_to_playlist':

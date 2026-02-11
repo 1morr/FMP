@@ -45,7 +45,7 @@ class _AddRadioDialogState extends ConsumerState<AddRadioDialog> {
       await controller.addStation(_urlController.text.trim());
 
       if (mounted) {
-        ToastService.show(context, '電台添加成功');
+        ToastService.success(context, '電台添加成功');
         Navigator.of(context).pop(true);
       }
     } catch (e) {
