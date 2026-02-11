@@ -1,90 +1,209 @@
 # FMP - Flutter Music Player
 
-跨平台音乐播放器，支持从 Bilibili 和 YouTube 获取音源，提供统一的播放体验。
+<p align="center">
+  <img src="assets/icon/app_icon.png" alt="FMP Logo" width="128" height="128">
+</p>
 
-## 特性
+<p align="center">
+  跨平台音乐播放器，支持 Bilibili 和 YouTube 音源，提供统一的播放体验。
+</p>
 
-### 核心功能
-- **多音源支持**：Bilibili、YouTube
-- **完整播放控制**：播放/暂停、进度控制、播放速度、循环模式
-- **智能队列管理**：持久化队列、拖拽排序、断点续播
-- **音乐库系统**：歌单管理、外部导入、搜索功能
-- **临时播放**：搜索/歌单点击歌曲临时播放，完成后恢复原队列
-- **播放位置记忆**：长视频自动记忆播放位置
-- **下载管理**：离线下载、批量下载、智能路径管理
-- **YouTube Mix/Radio**：支持动态无限播放列表
+<p align="center">
+  <img src="https://img.shields.io/badge/Flutter-3.10+-02569B?logo=flutter" alt="Flutter">
+  <img src="https://img.shields.io/badge/Dart-3.10+-0175C2?logo=dart" alt="Dart">
+  <img src="https://img.shields.io/badge/Platform-Android%20%7C%20Windows-green" alt="Platform">
+  <img src="https://img.shields.io/badge/License-MIT-blue" alt="License">
+</p>
+
+---
+
+## 应用截图
+
+
+<p align="center">
+  <img src="screenshots/home_desktop.png" width="800" alt="桌面端首页">
+</p>
+
+
+---
+
+## 功能特性
+
+### 多源音频播放
+- **Bilibili 音源** - 视频、多P合集、直播间音频
+- **YouTube 音源** - 视频、Mix/Radio 动态无限播放列表
+- **音质可选** - 支持高/中/低音质等级，YouTube 支持 Opus/AAC 格式选择
+- **直播流** - Bilibili 直播间实时音频播放
+
+### 播放控制
+- 播放/暂停、上一首/下一首、进度拖拽
+- 播放速度调节
+- 循环模式（单曲循环/列表循环/顺序播放）
+- 随机播放（智能 Shuffle 队列）
+- **临时播放** - 搜索/歌单点击歌曲临时播放，完成后恢复原队列
+- **播放位置记忆** - 长视频（>10 分钟）自动记忆上次位置
+
+### 播放队列
+- 持久化队列，重启后恢复
+- 拖拽排序、左滑删除
+- 自动滚动到当前播放曲目
+- YouTube Mix 模式 - 动态加载更多歌曲
+
+### 音乐库
+- 歌单管理 - 创建、编辑、删除、自定义封面
+- **Bilibili 收藏夹 / YouTube 播放列表导入**
+- **外部歌单导入** - 网易云音乐、QQ音乐、Spotify 歌单智能匹配导入
+- 多P视频分组显示
+- 歌单内搜索与排序
+
+### 搜索
+- Bilibili / YouTube 双源搜索
+- 搜索历史记录
+- 结果排序（综合/播放量/最新/弹幕数）
+- 直播间筛选（全部/未开播/已开播）
+- 多P视频自动展开
+
+### 下载与离线
+- 离线下载到本地存储
+- 批量下载整个歌单
+- 按歌单分文件夹管理已下载内容
+- 下载进度管理界面
+- Android 外部存储权限适配
+
+### 首页与探索
+- 排行榜预览（Bilibili / YouTube 最近热门）
+- 后台缓存，每小时自动刷新
+- 快捷入口 - 搜索、音乐库、队列
+- URL 直接播放
+
+### 播放历史
+- 时间轴列表展示
+- 统计卡片
+- 筛选与排序
+- 多选批量操作
+
+### 应用内更新
+- GitHub Releases 自动检查
+- Android APK / Windows ZIP 下载安装
+- Release Notes 显示
 
 ### 平台特性
-- **Android**：后台播放、通知栏控制、媒体键支持
-- **Windows**：系统托盘、全局快捷键、SMTC 媒体键支持
+
+| 特性 | Android | Windows |
+|------|---------|---------|
+| 后台播放 | ✅ | - |
+| 通知栏控制 | ✅ | - |
+| 系统媒体键 | ✅ | ✅ (SMTC) |
+| 系统托盘 | - | ✅ |
+| 全局快捷键 | - | ✅ |
+| 窗口管理 | - | ✅ |
+
+### 响应式设计
+
+| 布局 | 宽度 | 导航 | 详情面板 |
+|------|------|------|----------|
+| 手机 | < 600dp | 底部导航栏 | 无 |
+| 平板 | 600-840dp | 侧边导航栏 | 无 |
+| 桌面 | > 840dp | 可收起侧边栏 | 歌曲详情（可拖拽宽度） |
+
+---
 
 ## 技术栈
 
-| 层级 | 技术 | 版本 |
+| 层级 | 技术 | 说明 |
 |------|------|------|
-| UI 框架 | Flutter | 3.10+ |
-| 设计系统 | Material Design 3 | - |
-| 编程语言 | Dart | 3.10+ |
-| 状态管理 | Riverpod | 2.6+ |
-| 本地存储 | Isar | 3.1+ |
-| 音频播放 | media_kit | 1.1+ |
-| 网络请求 | Dio | 5.8+ |
-| 路由 | go_router | 14.8+ |
+| UI 框架 | Flutter 3.10+ | Material Design 3 / Material You |
+| 编程语言 | Dart 3.10+ | |
+| 状态管理 | Riverpod 2.6+ | |
+| 本地存储 | Isar 3.1+ | NoSQL 嵌入式数据库 |
+| 音频播放 | media_kit 1.1+ | 原生 httpHeaders，无代理 |
+| 网络请求 | Dio 5.8+ | |
+| 路由 | go_router 14.8+ | 声明式路由 |
 
 ### 平台特定依赖
 
 | 平台 | 依赖包 | 用途 |
 |------|--------|------|
-| Android | `media_kit_libs_android_audio` | 音频播放 |
-| Android | `audio_service` | 后台播放与通知栏控制 |
+| Android | `media_kit_libs_android_audio` | 音频解码 |
+| Android | `audio_service` | 后台播放与通知栏 |
 | Android | `permission_handler` | 权限管理 |
-| Windows | `media_kit_libs_windows_audio` | 音频播放 |
-| Windows | `smtc_windows` | 媒体键和 SMTC 控制 |
+| Windows | `media_kit_libs_windows_audio` | 音频解码 |
+| Windows | `smtc_windows` | 系统媒体传输控件 |
 | Windows | `tray_manager` | 系统托盘 |
 | Windows | `window_manager` | 窗口管理 |
 | Windows | `hotkey_manager` | 全局快捷键 |
+
+---
 
 ## 项目结构
 
 ```
 lib/
-├── core/                   # 核心工具和配置
-│   ├── constants/          # 常量定义
-│   ├── theme/              # 主题配置
-│   └── utils/              # 工具类
-├── data/                   # 数据层
-│   ├── models/             # Isar 数据模型
-│   ├── repositories/       # 数据仓库
-│   └── sources/            # 音源解析器
-├── providers/              # Riverpod Providers
-├── services/               # 业务逻辑层
-│   ├── audio/              # 音频服务
-│   ├── cache/              # 缓存服务
-│   ├── download/           # 下载服务
-│   ├── import/             # 导入服务
-│   ├── library/            # 音乐库服务
-│   └── search/             # 搜索服务
-├── ui/                     # UI 层
-│   ├── layouts/            # 响应式布局
-│   ├── pages/              # 页面
-│   └── widgets/            # 可复用组件
-├── app.dart                # 应用入口
-└── main.dart               # 主程序
+├── core/                          # 核心工具和配置
+│   ├── constants/                 # 常量定义
+│   ├── theme/                     # 主题配置（Material You）
+│   └── utils/                     # 工具类（缩略图优化等）
+├── data/                          # 数据层
+│   ├── models/                    # Isar 数据模型
+│   ├── repositories/              # 数据仓库（CRUD）
+│   └── sources/                   # 音源解析器
+│       ├── bilibili_source.dart   # Bilibili 音源
+│       ├── youtube_source.dart    # YouTube 音源
+│       └── playlist_import/       # 外部歌单导入
+│           ├── netease_playlist_source.dart
+│           ├── qq_music_playlist_source.dart
+│           └── spotify_playlist_source.dart
+├── providers/                     # Riverpod Providers
+├── services/                      # 业务逻辑层
+│   ├── audio/                     # 音频播放核心
+│   │   ├── audio_provider.dart    # AudioController（UI 唯一入口）
+│   │   ├── media_kit_audio_service.dart  # media_kit 封装
+│   │   ├── queue_manager.dart     # 队列管理
+│   │   └── audio_handler.dart     # Android 通知栏控制
+│   ├── cache/                     # 缓存服务（排行榜等）
+│   ├── download/                  # 下载管理
+│   ├── import/                    # 导入服务
+│   ├── library/                   # 音乐库服务
+│   ├── network/                   # 网络服务
+│   ├── platform/                  # 平台特性（Windows 桌面）
+│   ├── radio/                     # 直播/电台控制
+│   ├── search/                    # 搜索服务
+│   └── update/                    # 应用内更新
+├── ui/                            # UI 层
+│   ├── layouts/                   # 响应式布局
+│   ├── pages/                     # 页面
+│   │   ├── home/                  # 首页
+│   │   ├── explore/               # 探索页（排行榜）
+│   │   ├── search/                # 搜索页
+│   │   ├── player/                # 全屏播放器
+│   │   ├── queue/                 # 播放队列
+│   │   ├── history/               # 播放历史
+│   │   ├── library/               # 音乐库、歌单详情、已下载
+│   │   ├── live_room/             # 直播间
+│   │   ├── radio/                 # 电台页面
+│   │   ├── settings/              # 设置
+│   │   └── download/              # 下载相关
+│   └── widgets/                   # 可复用组件
+├── app.dart                       # 应用入口（路由配置）
+└── main.dart                      # 主程序
 ```
+
+---
 
 ## 快速开始
 
 ### 环境要求
+
 - Flutter SDK 3.10+
 - Dart 3.10+
 - Android Studio / VS Code
-- (Windows) Rust 工具链（用于 smtc_windows）
+- (Windows) Visual Studio 2022 + C++ 桌面开发工作负载
 
-### 安装
+### 安装与运行
 
 ```bash
 # 克隆项目
-git clone <repository-url>
+git clone https://github.com/1morr/FMP.git
 cd FMP
 
 # 获取依赖
@@ -97,7 +216,7 @@ flutter pub run build_runner build --delete-conflicting-outputs
 flutter run
 ```
 
-### 构建
+### 构建发布
 
 ```bash
 # Android APK
@@ -110,6 +229,8 @@ flutter build appbundle
 flutter build windows
 ```
 
+---
+
 ## 架构设计
 
 ### 三层音频架构
@@ -119,20 +240,19 @@ UI Layer (player_page, mini_player)
          │
          ▼
 ┌─────────────────────────────────────┐
-│         AudioController             │
-│   (业务逻辑、状态管理、临时播放)      │
+│         AudioController             │  ← UI 唯一入口
+│   (状态管理、业务逻辑、临时播放)       │
 └─────────────────────────────────────┘
          │                    │
          ▼                    ▼
 ┌─────────────────┐  ┌─────────────────┐
 │MediaKitAudioSvc │  │  QueueManager   │
-│(底层播放控制)    │  │(队列、shuffle)  │
+│(底层播放控制)    │  │(队列、Shuffle)  │
 └─────────────────┘  └─────────────────┘
          │
          ▼
 ┌─────────────────┐
-│   media_kit     │
-│ (原生 httpHeaders)
+│    media_kit     │  ← 原生 httpHeaders
 └─────────────────┘
 ```
 
@@ -165,157 +285,78 @@ UI Layer (player_page, mini_player)
 └─────────────────────────────────────────┘
 ```
 
-## 核心功能说明
+---
 
-### 1. 音频播放系统
+## 数据模型
 
-**设计原则**：UI 只能调用 `AudioController`，不能直接调用 `AudioService`。
+| 模型 | 说明 |
+|------|------|
+| Track | 歌曲/音频实体 |
+| Playlist | 歌单 |
+| PlayQueue | 播放队列（含 Mix 模式状态） |
+| Settings | 应用设置（含音质配置） |
+| SearchHistory | 搜索历史 |
+| DownloadTask | 下载任务 |
 
-| 组件 | 文件 | 职责 |
-|------|------|------|
-| AudioController | `services/audio/audio_provider.dart` | 统一的播放控制入口、PlayerState 状态管理、业务逻辑 |
-| MediaKitAudioService | `services/audio/media_kit_audio_service.dart` | 底层 media_kit 封装、原生 httpHeaders 支持 |
-| QueueManager | `services/audio/queue_manager.dart` | 播放队列管理、Shuffle/Loop 模式、持久化 |
+---
 
-### 2. 临时播放功能
+## 音源支持
 
-搜索页/歌单页点击歌曲时，临时播放该歌曲，播放完成后恢复原队列位置。
+### Bilibili
+- 视频音频提取（DASH / durl 格式）
+- 多P视频支持
+- 直播间音频流
+- 需 `Referer: https://www.bilibili.com` 请求头
 
-**实现细节**：
-- 使用 `_PlaybackContext` 统一管理播放模式（queue/temporary/detached/mix）
-- 保存队列索引和位置（不保存队列内容）
-- 恢复时使用当前队列，自动 clamp 索引到有效范围
-- 使用请求 ID 机制防止竞态条件
+### YouTube
+- 视频音频提取（`youtube_explode_dart`）
+- YouTube Mix/Radio 动态播放列表（InnerTube API）
+- 音频格式优先级：audio-only > muxed > HLS
+- 支持 Opus / AAC 格式选择
 
-### 3. Mix 播放模式（YouTube Mix/Radio）
+### 外部歌单导入
+- **网易云音乐** - 标准链接 / 短链接
+- **QQ音乐** - 多种链接格式，自带签名算法
+- **Spotify** - Client Credentials 认证
 
-支持 YouTube Mix/Radio 播放列表（ID 以 "RD" 开头），动态无限加载。
-
-**关键行为**：
-- 禁止 shuffle 和 addToQueue/addNext
-- 自动加载更多歌曲
-- 状态跨 App 重启持久化
-- 使用 InnerTube `/next` API 动态获取歌曲
-
-### 4. 下载系统
-
-**特点**：
-- **路径预计算**：导入时计算并保存下载路径
-- **FileExistsCache**：避免 UI build 期间同步 IO
-- **进度节流**：防止频繁 Isar 写入
-- **智能路径清理**：只清理不存在的路径
-
-### 5. 图片缓存优化
-
-**ThumbnailUrlUtils**：自动转换高分辨率图片为适当尺寸的缩略图
-- Bilibili：添加 `@{size}w.jpg` 后缀
-- YouTube：选择合适质量层级 + webp 格式
-
-**效果**：下载大小从 ~700 KB 减少到 ~20 KB
-
-### 6. 首页排行榜缓存
-
-**RankingCacheService**：
-- 应用启动时立即获取数据
-- 每小时自动后台刷新
-- UI 始终显示缓存数据（无加载等待）
-
-## 常用命令
-
-```bash
-# 运行应用
-flutter run
-
-# 代码生成（修改 Isar 模型后必须运行）
-flutter pub run build_runner build --delete-conflicting-outputs
-
-# 静态分析
-flutter analyze
-
-# 运行测试
-flutter test
-
-# 清理构建产物
-flutter clean
-```
+---
 
 ## UI 页面
 
 | 页面 | 路径 | 功能 |
 |------|------|------|
 | 首页 | `/` | 快捷操作、排行榜预览、当前播放 |
-| 探索 | `/explore` | Bilibili/YouTube 完整排行榜 |
-| 搜索 | `/search` | 多源搜索、搜索历史 |
+| 探索 | `/explore` | Bilibili / YouTube 完整排行榜 |
+| 搜索 | `/search` | 多源搜索、搜索历史、分P展开 |
 | 播放器 | `/player` | 全屏播放器 |
-| 队列 | `/queue` | 播放队列管理 |
+| 队列 | `/queue` | 播放队列管理、拖拽排序 |
 | 播放历史 | `/history` | 时间轴列表、统计卡片 |
 | 音乐库 | `/library` | 歌单管理 |
-| 歌单详情 | `/library/:id` | 歌曲列表、下载 |
+| 歌单详情 | `/library/:id` | 歌曲列表、下载、多P分组 |
 | 已下载 | `/library/downloaded` | 本地文件浏览 |
 | 设置 | `/settings` | 应用设置 |
 | 音频设置 | `/settings/audio` | 音质等级、格式优先级 |
 | 下载管理 | `/settings/download-manager` | 下载任务管理 |
 
-## 响应式断点
-
-| 布局 | 宽度 | 导航 | 详情面板 |
-|------|------|------|----------|
-| Mobile | < 600dp | 底部 NavigationBar | 无 |
-| Tablet | 600-840dp | 侧边 NavigationRail | 无 |
-| Desktop | > 840dp | 可收起侧边导航 | 有（可拖动宽度） |
+---
 
 ## 开发指南
-
-### 代码风格
-
-- 使用 `riverpod_annotation` 进行代码生成
-- Isar 模型修改后必须运行 `build_runner`
-- UI 统一使用 `TrackThumbnail`/`ImageLoadingService` 加载图片
-- 状态判断使用 `currentTrackProvider` 统一逻辑
 
 ### 重要规则
 
 1. **UI 只能调用 AudioController**，不能直接调用 AudioService
-2. **静音必须使用 toggleMute()**，不要用 setVolume(0)
-3. **临时播放使用 playTemporary()**，不是 playTrack()
-4. **Shuffle 模式下显示 upcomingTracks**，不要手动计算下一首
-5. **进度条拖动只在 onChangeEnd 触发 seek**
+2. **静音必须使用 `toggleMute()`**，不要用 `setVolume(0)`
+3. **临时播放使用 `playTemporary()`**，不是 `playTrack()`
+4. **Shuffle 模式下显示 `upcomingTracks`**，不要手动计算下一首
+5. **进度条拖动只在 `onChangeEnd` 触发 seek**
+6. **图片加载统一使用 `TrackThumbnail` / `ImageLoadingService`**
 
-### 相关文档
+### 常用命令
 
-- `CLAUDE.md` - 项目开发指南
-- `docs/PRD.md` - 产品需求文档
-- `docs/TECHNICAL_SPEC.md` - 技术规格文档
-- Serena 记忆文件（audio_system, architecture, ui_coding_patterns 等）
-
-## 数据模型
-
-| 模型 | 文件 | 说明 |
-|------|------|------|
-| Track | `data/models/track.dart` | 歌曲/音频实体 |
-| Playlist | `data/models/playlist.dart` | 歌单 |
-| PlayQueue | `data/models/play_queue.dart` | 播放队列 |
-| Settings | `data/models/settings.dart` | 应用设置 |
-| SearchHistory | `data/models/search_history.dart` | 搜索历史 |
-| DownloadTask | `data/models/download_task.dart` | 下载任务 |
-
-## 音源支持
-
-### Bilibili
-- 音频 URL 解析（DASH/durl）
-- 多P视频支持
-- 直播流支持
-- 需 `Referer` 请求头
-
-### YouTube
-- 使用 `youtube_explode_dart` 解析
-- YouTube Mix/Radio 支持（InnerTube API）
-- 音频优先级：audio-only > muxed > HLS
-
-## 许可证
-
-[待定]
-
-## 贡献
-
-欢迎提交 Issue 和 Pull Request。
+```bash
+flutter run                          # 运行应用
+flutter analyze                      # 静态分析
+flutter test                         # 运行测试
+flutter pub run build_runner build --delete-conflicting-outputs  # 代码生成
+flutter clean                        # 清理构建产物
+```

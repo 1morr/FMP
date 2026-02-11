@@ -485,16 +485,31 @@ lib/
 │   │   ├── audio_handler.dart           # FmpAudioHandler (Android notification via audio_service)
 │   │   └── queue_manager.dart           # Queue, shuffle, loop, persistence
 │   ├── cache/
-│       └── ranking_cache_service.dart  # 首頁排行榜緩存（主動後台刷新）
+│   │   └── ranking_cache_service.dart  # 首頁排行榜緩存（主動後台刷新）
 │   ├── download/
 │   │   ├── download_service.dart       # 下載任務調度
 │   │   ├── download_path_manager.dart  # 下載路徑選擇和管理
 │   │   └── download_path_utils.dart    # 路徑計算工具
+│   ├── import/
+│   │   ├── import_service.dart         # URL 導入服務
+│   │   └── playlist_import_service.dart # 外部歌單導入服務（匹配搜索）
+│   ├── radio/
+│   │   ├── radio_controller.dart       # 直播/電台控制
+│   │   ├── radio_refresh_service.dart  # 直播流刷新
+│   │   └── radio_source.dart           # 直播源解析
+│   ├── update/
+│   │   └── update_service.dart         # 應用內更新（GitHub Releases）
 │   └── storage_permission_service.dart # Android 存儲權限請求（MANAGE_EXTERNAL_STORAGE）
 ├── data/
 │   ├── models/               # Isar collections (*.dart + *.g.dart)
 │   ├── repositories/         # Data access layer
-│   └── sources/              # Audio source parsers (Bilibili, YouTube)
+│   └── sources/              # Audio source parsers
+│       ├── bilibili_source.dart        # Bilibili 音源
+│       ├── youtube_source.dart         # YouTube 音源
+│       └── playlist_import/            # 外部歌單導入源
+│           ├── netease_playlist_source.dart   # 網易雲音樂
+│           ├── qq_music_playlist_source.dart  # QQ音樂
+│           └── spotify_playlist_source.dart   # Spotify
 ├── ui/
 │   ├── pages/                # Full pages
 │   │   ├── home/             # 首頁（快捷操作、最近熱門預覽）
@@ -502,8 +517,12 @@ lib/
 │   │   ├── search/           # 搜索頁
 │   │   ├── player/           # 全屏播放器
 │   │   ├── queue/            # 播放隊列
-│   │   ├── library/          # 音樂庫、歌單詳情、已下載
-│   │   └── settings/         # 設置、下載管理
+│   │   ├── history/          # 播放歷史
+│   │   ├── library/          # 音樂庫、歌單詳情、已下載、導入預覽
+│   │   ├── live_room/        # 直播間
+│   │   ├── radio/            # 電台頁面
+│   │   ├── download/         # 下載相關
+│   │   └── settings/         # 設置、下載管理、音頻設置
 │   ├── widgets/              # Shared widgets
 │   └── layouts/              # Responsive layouts
 └── providers/                # Riverpod providers

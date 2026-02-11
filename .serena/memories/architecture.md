@@ -74,6 +74,15 @@
 
 > **YouTubeSource Mix 功能**：支持 YouTube Mix/Radio 播放列表（RD 開頭的 ID），使用 InnerTube `/next` API 動態獲取歌曲。詳見 `mix_playlist_design` 記憶。
 
+### Playlist Import Sources (外部歌单导入)
+| 导入源 | 文件 | 状态 |
+|--------|------|------|
+| PlaylistImportSource | `data/sources/playlist_import/playlist_import_source.dart` | 抽象接口 |
+| NeteasePlaylistSource | `data/sources/playlist_import/netease_playlist_source.dart` | ✅ 已实现 |
+| QQMusicPlaylistSource | `data/sources/playlist_import/qq_music_playlist_source.dart` | ✅ 已实现 |
+| SpotifyPlaylistSource | `data/sources/playlist_import/spotify_playlist_source.dart` | ✅ 已实现 |
+| QQMusicSign | `data/sources/playlist_import/qq_music_sign.dart` | QQ音乐签名算法 |
+
 ### Services
 | 服务 | 文件 | 职责 |
 |------|------|------|
@@ -89,6 +98,11 @@
 
 | WindowsDesktopService | `services/platform/windows_desktop_service.dart` | Windows 桌面特性（托盘、快捷键、窗口管理） |
 | RankingCacheService | `services/cache/ranking_cache_service.dart` | 首頁排行榜緩存（主動後台刷新，每小時更新） |
+| PlaylistImportService | `services/import/playlist_import_service.dart` | 外部歌单导入（搜索匹配） |
+| RadioController | `services/radio/radio_controller.dart` | 直播/电台控制 |
+| RadioRefreshService | `services/radio/radio_refresh_service.dart` | 直播流刷新 |
+| RadioSource | `services/radio/radio_source.dart` | 直播源解析 |
+| UpdateService | `services/update/update_service.dart` | 应用内更新（GitHub Releases） |
 
 > **详细音频系统文档见：** `audio_system` 记忆文件
 
@@ -120,13 +134,19 @@
 | 搜索 | `/search` | `ui/pages/search/search_page.dart` |
 | 播放器 | `/player` | `ui/pages/player/player_page.dart` |
 | 队列 | `/queue` | `ui/pages/queue/queue_page.dart` |
+| 播放历史 | `/history` | `ui/pages/history/play_history_page.dart` |
 | 音乐库 | `/library` | `ui/pages/library/library_page.dart` |
 | 歌单详情 | `/library/:id` | `ui/pages/library/playlist_detail_page.dart` |
-| 设置 | `/settings` | `ui/pages/settings/settings_page.dart` |
+| 导入预览 | - | `ui/pages/library/import_preview_page.dart` |
 | 已下载 | `/library/downloaded` | `ui/pages/library/downloaded_page.dart` |
 | 已下载分类 | `/library/downloaded/:path` | `ui/pages/library/downloaded_category_page.dart` |
-| 下载管理 | `/settings/download-manager` | `ui/pages/settings/download_manager_page.dart` |
+| 直播间 | - | `ui/pages/live_room/` |
+| 电台 | - | `ui/pages/radio/radio_page.dart` |
+| 电台播放 | - | `ui/pages/radio/radio_player_page.dart` |
+| 设置 | `/settings` | `ui/pages/settings/settings_page.dart` |
 | 音频设置 | `/settings/audio` | `ui/pages/settings/audio_settings_page.dart` |
+| 下载管理 | `/settings/download-manager` | `ui/pages/settings/download_manager_page.dart` |
+| 用户引导 | - | `ui/pages/settings/user_guide_page.dart` |
 
 ### 路由配置
 - 使用 `go_router` 进行声明式路由

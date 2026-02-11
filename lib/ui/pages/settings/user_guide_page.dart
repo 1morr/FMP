@@ -27,8 +27,9 @@ class UserGuidePage extends StatelessWidget {
                 context,
                 stepNumber: 1,
                 title: '导入歌单',
-                description: '点击音乐库右上角的「从 URL 导入」，粘贴 Bilibili 或 YouTube 歌单链接',
-                icon: Icons.link,
+                description:
+                    '音乐库右上角点击导入，支持 Bilibili/YouTube 链接导入，也支持从网易云、QQ音乐、Spotify 导入歌单',
+                icon: Icons.library_add,
               ),
               _buildStepItem(
                 context,
@@ -43,6 +44,36 @@ class UserGuidePage extends StatelessWidget {
                 title: '开始播放',
                 description: '点击任意歌曲即可播放，或使用底部播放器控制',
                 icon: Icons.play_circle,
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // 外部歌单导入卡片
+          _buildSectionCard(
+            context,
+            title: '外部歌单导入',
+            icon: Icons.playlist_add_circle_outlined,
+            iconColor: colorScheme.primary,
+            children: [
+              _buildInfoItem(
+                context,
+                icon: Icons.music_note,
+                title: '支持平台',
+                description: '网易云音乐、QQ音乐、Spotify',
+              ),
+              _buildInfoItem(
+                context,
+                icon: Icons.auto_fix_high,
+                title: '智能匹配',
+                description: '自动在 Bilibili/YouTube 搜索匹配对应歌曲',
+              ),
+              _buildInfoItem(
+                context,
+                icon: Icons.tune,
+                title: '预览调整',
+                description: '导入前可预览匹配结果，手动选择备选项或排除不需要的歌曲',
               ),
             ],
           ),
@@ -74,6 +105,78 @@ class UserGuidePage extends StatelessWidget {
                 title: '播放速度',
                 description: '全屏播放器中可调节播放速度',
               ),
+              _buildInfoItem(
+                context,
+                icon: Icons.bookmark_outline,
+                title: '位置记忆',
+                description: '长视频（>10分钟）自动记忆播放位置，下次播放自动恢复',
+              ),
+              _buildInfoItem(
+                context,
+                icon: Icons.skip_next,
+                title: '临时播放',
+                description: '搜索或歌单中点击歌曲临时播放，完成后自动恢复原队列',
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // 搜索功能卡片
+          _buildSectionCard(
+            context,
+            title: '搜索功能',
+            icon: Icons.search,
+            iconColor: colorScheme.primary,
+            children: [
+              _buildInfoItem(
+                context,
+                icon: Icons.video_library,
+                title: '支持音源',
+                description: 'Bilibili、YouTube 双源搜索',
+              ),
+              _buildInfoItem(
+                context,
+                icon: Icons.sort,
+                title: '排序筛选',
+                description: '支持按综合、播放量、最新、弹幕数排序',
+              ),
+              _buildInfoItem(
+                context,
+                icon: Icons.live_tv,
+                title: '直播间筛选',
+                description: 'Bilibili 搜索支持筛选直播间（全部/未开播/已开播）',
+              ),
+              _buildInfoItem(
+                context,
+                icon: Icons.view_list,
+                title: '多P展开',
+                description: '多P视频自动检测，可展开查看各分P',
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // 直播与电台卡片
+          _buildSectionCard(
+            context,
+            title: '直播与电台',
+            icon: Icons.radio,
+            iconColor: colorScheme.error,
+            children: [
+              _buildInfoItem(
+                context,
+                icon: Icons.live_tv,
+                title: 'Bilibili 直播',
+                description: '搜索直播间，收听直播音频',
+              ),
+              _buildInfoItem(
+                context,
+                icon: Icons.refresh,
+                title: '自动刷新',
+                description: '直播流地址过期时自动刷新，保持持续播放',
+              ),
             ],
           ),
 
@@ -96,49 +199,13 @@ class UserGuidePage extends StatelessWidget {
                 context,
                 icon: Icons.download_done,
                 title: '下载歌曲',
-                description: '歌单详情页点击「下载全部」或单个歌曲菜单',
-              ),
-              _buildInfoItem(
-                context,
-                icon: Icons.sync,
-                title: '同步本地文件',
-                description: '在「已下载」页面点击同步按钮，扫描本地文件更新数据库',
+                description: '歌单详情页点击「下载全部」或单个歌曲菜单下载',
               ),
               _buildInfoItem(
                 context,
                 icon: Icons.library_music_outlined,
                 title: '离线播放',
-                description: '下载后在「已下载」中查看和播放',
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          // 搜索功能卡片
-          _buildSectionCard(
-            context,
-            title: '搜索功能',
-            icon: Icons.search,
-            iconColor: colorScheme.primary,
-            children: [
-              _buildInfoItem(
-                context,
-                icon: Icons.video_library,
-                title: '支持音源',
-                description: 'Bilibili、YouTube',
-              ),
-              _buildInfoItem(
-                context,
-                icon: Icons.playlist_add,
-                title: '临时播放',
-                description: '搜索结果点击歌曲临时播放，完成后恢复原队列',
-              ),
-              _buildInfoItem(
-                context,
-                icon: Icons.add_circle_outline,
-                title: '添加到队列',
-                description: '长按歌曲可选择添加方式',
+                description: '下载后在「已下载」中按歌单分类浏览和播放',
               ),
             ],
           ),
@@ -162,7 +229,115 @@ class UserGuidePage extends StatelessWidget {
                 context,
                 icon: Icons.refresh,
                 title: '自动更新',
-                description: '排行榜每小时自动后台刷新',
+                description: '排行榜每小时自动后台刷新，打开即看无需等待',
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // 播放历史卡片
+          _buildSectionCard(
+            context,
+            title: '播放历史',
+            icon: Icons.history,
+            iconColor: colorScheme.secondary,
+            children: [
+              _buildInfoItem(
+                context,
+                icon: Icons.timeline,
+                title: '时间轴',
+                description: '按时间顺序查看所有播放记录',
+              ),
+              _buildInfoItem(
+                context,
+                icon: Icons.bar_chart,
+                title: '统计信息',
+                description: '查看播放次数等统计数据',
+              ),
+              _buildInfoItem(
+                context,
+                icon: Icons.filter_list,
+                title: '筛选排序',
+                description: '支持筛选和排序，快速找到想听的歌曲',
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // 音频设置卡片
+          _buildSectionCard(
+            context,
+            title: '音频设置',
+            icon: Icons.equalizer,
+            iconColor: colorScheme.primary,
+            children: [
+              _buildInfoItem(
+                context,
+                icon: Icons.high_quality,
+                title: '音质等级',
+                description: '支持高/中/低三档，适用于所有音源',
+              ),
+              _buildInfoItem(
+                context,
+                icon: Icons.audio_file,
+                title: '格式优先级',
+                description: 'YouTube 支持选择 Opus 或 AAC 格式',
+              ),
+              _buildInfoItem(
+                context,
+                icon: Icons.stream,
+                title: '流类型优先级',
+                description: '可选纯音频流（省流量）或混合流（兼容性好）',
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // YouTube Mix 卡片
+          _buildSectionCard(
+            context,
+            title: 'YouTube Mix',
+            icon: Icons.all_inclusive,
+            iconColor: colorScheme.tertiary,
+            children: [
+              _buildInfoItem(
+                context,
+                icon: Icons.playlist_play,
+                title: '动态播放列表',
+                description: '导入 YouTube Mix/Radio 播放列表，自动加载更多歌曲',
+              ),
+              _buildInfoItem(
+                context,
+                icon: Icons.autorenew,
+                title: '无限播放',
+                description: '播放接近队列末尾时自动获取新歌曲，持续不断',
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // 应用更新卡片
+          _buildSectionCard(
+            context,
+            title: '应用更新',
+            icon: Icons.system_update,
+            iconColor: colorScheme.secondary,
+            children: [
+              _buildInfoItem(
+                context,
+                icon: Icons.update,
+                title: '检查更新',
+                description: '设置 → 关于 → 检查更新，自动从 GitHub 获取最新版本',
+              ),
+              _buildInfoItem(
+                context,
+                icon: Icons.install_mobile,
+                title: '自动安装',
+                description: 'Android 下载 APK 后自动安装，Windows 下载后自动替换更新',
               ),
             ],
           ),
@@ -233,20 +408,25 @@ class UserGuidePage extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: colorScheme.primary,
-              shape: BoxShape.circle,
-            ),
+          SizedBox(
+            width: 36,
             child: Center(
-              child: Text(
-                '$stepNumber',
-                style: TextStyle(
-                  color: colorScheme.onPrimary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
+              child: Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: colorScheme.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    '$stepNumber',
+                    style: TextStyle(
+                      color: colorScheme.onPrimary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -292,9 +472,14 @@ class UserGuidePage extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(icon, size: 20, color: colorScheme.onSurfaceVariant),
+          SizedBox(
+            width: 36,
+            child: Center(
+              child: Icon(icon, size: 20, color: colorScheme.onSurfaceVariant),
+            ),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
