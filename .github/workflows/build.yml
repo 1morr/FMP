@@ -118,11 +118,51 @@ jobs:
       - name: Compress to ZIP
         run: Compress-Archive -Path release\* -DestinationPath fmp-${{ github.ref_name }}-windows.zip
 
-      - name: Upload Windows artifact
+      - name: Upload Windows ZIP artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-exe
           path: fmp-*-windows.zip
+          retention-days: 30
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y
+
+      - name: Generate InnoSetup script
+        shell: pwsh
+        run: dart run inno_bundle:build --release --no-app --no-installer
+
+      - name: Patch ISS script (AppUserModelID + language fix)
+        shell: pwsh
+        run: |
+          $issPath = "build\windows\x64\installer\Release\inno-script.iss"
+          $content = Get-Content $issPath -Raw
+
+          # Remove Icelandic language entry (missing in some InnoSetup versions)
+          $content = $content -replace '(?m)^Name: "icelandic".*\r?\n', ''
+
+          # Replace [Icons] entries to add AppUserModelID and IconFilename for SMTC
+          $content = $content -replace '(?m)^Name: "\{autoprograms\}\\FMP".*$', 'Name: "{autoprograms}\FMP"; Filename: "{app}\fmp.exe"; IconFilename: "{app}\app_icon.ico"; AppUserModelID: "com.personal.fmp"'
+          $content = $content -replace '(?m)^Name: "\{autodesktop\}\\FMP".*$', 'Name: "{autodesktop}\FMP"; Filename: "{app}\fmp.exe"; IconFilename: "{app}\app_icon.ico"; AppUserModelID: "com.personal.fmp"; Tasks: desktopicon'
+
+          Set-Content $issPath $content -NoNewline
+
+      - name: Compile installer with ISCC
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "build\windows\x64\installer\Release\inno-script.iss"
+
+      - name: Rename and upload installer
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem "build\windows\x64\installer\Release\FMP-*.exe" | Select-Object -First 1
+          Copy-Item $installer.FullName "fmp-${{ github.ref_name }}-windows-installer.exe"
+
+      - name: Upload Windows installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: fmp-*-windows-installer.exe
           retention-days: 30
 
   release:
@@ -192,6 +232,7 @@ jobs:
           files: |
             artifacts/android-apk/fmp-*-android.apk
             artifacts/windows-exe/fmp-*-windows.zip
+            artifacts/windows-installer/fmp-*-windows-installer.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
