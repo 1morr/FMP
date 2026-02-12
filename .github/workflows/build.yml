@@ -56,6 +56,9 @@ jobs:
       - name: Generate code (Isar models)
         run: flutter pub run build_runner build --delete-conflicting-outputs
 
+      - name: Generate i18n (slang)
+        run: dart run slang
+
       - name: Build APK (Release)
         run: flutter build apk --release
 
@@ -107,6 +110,9 @@ jobs:
       - name: Generate code (Isar models)
         run: flutter pub run build_runner build --delete-conflicting-outputs
 
+      - name: Generate i18n (slang)
+        run: dart run slang
+
       - name: Build Windows (Release)
         run: flutter build windows --release
 
@@ -140,6 +146,9 @@ jobs:
 
           # Remove Icelandic language entry (missing in some InnoSetup versions)
           $content = $content -replace '(?m)^Name: "icelandic".*\r?\n', ''
+
+          # Add DefaultGroupName (inno_bundle doesn't generate it, causing "(Default)" display)
+          $content = $content -replace '(?m)^(DefaultDirName=.*)$', "`$1`nDefaultGroupName=FMP"
 
           # Replace [Icons] entries to add AppUserModelID and IconFilename for SMTC
           $content = $content -replace '(?m)^Name: "\{autoprograms\}\\FMP".*$', 'Name: "{autoprograms}\FMP"; Filename: "{app}\fmp.exe"; IconFilename: "{app}\app_icon.ico"; AppUserModelID: "com.personal.fmp"'
@@ -282,6 +291,9 @@ jobs:
 
       - name: Generate code (Isar models)
         run: flutter pub run build_runner build --delete-conflicting-outputs
+
+      - name: Generate i18n (slang)
+        run: dart run slang
 
       - name: Build ${{ matrix.platform }}
         run: |
