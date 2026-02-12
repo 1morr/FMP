@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fmp/i18n/strings.g.dart';
 import '../../providers/download_path_provider.dart';
 import '../../providers/repository_providers.dart';
 import '../../providers/download/file_exists_cache.dart';
@@ -66,13 +67,13 @@ class _ChangeDownloadPathDialogState
   String _getTitle() {
     switch (_state) {
       case _DialogState.confirmation:
-        return '更改下载路径';
+        return t.changeDownloadPathDialog.changeDownloadPath;
       case _DialogState.selecting:
-        return '选择文件夹';
+        return t.changeDownloadPathDialog.selectFolder;
       case _DialogState.processing:
-        return '正在更新';
+        return t.changeDownloadPathDialog.updating;
       case _DialogState.error:
-        return '操作失败';
+        return t.changeDownloadPathDialog.operationFailed;
     }
   }
 
@@ -83,7 +84,7 @@ class _ChangeDownloadPathDialogState
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('更改下载路径将清空所有已保存的下载路径信息。'),
+            Text(t.changeDownloadPathDialog.changeWarning),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
@@ -101,7 +102,7 @@ class _ChangeDownloadPathDialogState
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      '下载的文件不会被删除，但需要重新扫描才能显示。',
+                      t.changeDownloadPathDialog.filesNotDeleted,
                       style: TextStyle(
                         fontSize: 13,
                         color: colorScheme.onSurfaceVariant,
@@ -114,29 +115,29 @@ class _ChangeDownloadPathDialogState
           ],
         );
       case _DialogState.selecting:
-        return const Column(
+        return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(height: 16),
             CircularProgressIndicator(),
             SizedBox(height: 16),
-            Text('请选择新的下载文件夹...'),
+            Text(t.changeDownloadPathDialog.selectNewFolder),
             SizedBox(height: 8),
           ],
         );
       case _DialogState.processing:
-        return const Column(
+        return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(height: 16),
             CircularProgressIndicator(),
             SizedBox(height: 16),
-            Text('正在更新设置...'),
+            Text(t.changeDownloadPathDialog.updatingSettings),
             SizedBox(height: 8),
           ],
         );
       case _DialogState.error:
-        return Text(_error ?? '未知错误');
+        return Text(_error ?? t.changeDownloadPathDialog.unknownError);
     }
   }
 
@@ -146,14 +147,14 @@ class _ChangeDownloadPathDialogState
         return [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(t.general.cancel),
           ),
           FilledButton(
             onPressed: _onContinue,
             style: FilledButton.styleFrom(
               backgroundColor: colorScheme.error,
             ),
-            child: const Text('继续'),
+            child: Text(t.changeDownloadPathDialog.continueButton),
           ),
         ];
       case _DialogState.selecting:
@@ -161,7 +162,7 @@ class _ChangeDownloadPathDialogState
         return [
           TextButton(
             onPressed: null,
-            child: const Text('取消'),
+            child: Text(t.general.cancel),
           ),
           FilledButton(
             onPressed: null,
@@ -179,7 +180,7 @@ class _ChangeDownloadPathDialogState
         return [
           FilledButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('关闭'),
+            child: Text(t.changeDownloadPathDialog.closeButton),
           ),
         ];
     }
@@ -241,7 +242,7 @@ class _ChangeDownloadPathDialogState
         if (messenger != null) {
           Future.delayed(const Duration(milliseconds: 100), () {
             messenger.showSnackBar(
-              const SnackBar(content: Text('下载路径已更改，请点击刷新按钮扫描本地文件')),
+              SnackBar(content: Text(t.changeDownloadPathDialog.pathChanged)),
             );
           });
         }

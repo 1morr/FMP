@@ -1,0 +1,31 @@
+{
+  "title": "音频质量",
+  "qualityLevel": {
+    "title": "全局音质等级",
+    "subtitle": "适用于所有音源",
+    "high": "高",
+    "highDescription": "最高码率，音质最佳",
+    "medium": "中",
+    "mediumDescription": "中等码率，平衡音质与流量",
+    "low": "低",
+    "lowDescription": "最低码率，省流量"
+  },
+  "formatPriority": {
+    "title": "YouTube 格式优先级",
+    "subtitle": "仅对 YouTube 纯音频流生效",
+    "opusName": "Opus (WebM)",
+    "opusDescription": "音质好、体积小，兼容性稍差",
+    "aacName": "AAC (MP4)",
+    "aacDescription": "兼容性最好"
+  },
+  "streamPriority": {
+    "youtubeTitle": "YouTube 流优先级",
+    "bilibiliTitle": "Bilibili 流优先级",
+    "audioOnly": "纯音频流",
+    "audioOnlyDescription": "省流量，仅下载音频数据",
+    "muxed": "混合流",
+    "muxedDescription": "包含视频数据，兼容性好",
+    "hls": "HLS 流",
+    "hlsDescription": "分段流，适合直播"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "title": "Add to Playlist",
+  "createNew": "Create New Playlist",
+  "multiSelect": "Multiple playlists selectable",
+  "selectedCount": "Selected $count",
+  "loadFailed": "Load failed: $error",
+  "noPlaylists": "No playlists",
+  "createHint": "Click above to create a new playlist",
+  "createTitle": "Create Playlist",
+  "playlistNameHint": "Playlist name",
+  "createFailed": "Create failed: $error",
+  "saving": "Saving...",
+  "save": "Save",
+  "addToCount": "Add to $count playlists",
+  "removeFromCount": "Remove from $count playlists",
+  "addAndRemoveCount": "Add $addCount, remove $removeCount",
+  "addedAndRemoved": "Added $addCount, removed $removeCount",
+  "addedToPlaylists": "Added to $count playlists",
+  "removedFromPlaylists": "Removed from $count playlists",
+  "partiallyCompleted": "Completed $success/$total operations",
+  "operationFailed": "Operation failed: $error"
+}

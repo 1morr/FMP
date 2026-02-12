@@ -1,0 +1,15 @@
+{
+  "title": "播放队列",
+  "titleWithCount": "播放队列 ($count)",
+  "shuffle": "随机打乱",
+  "shuffled": "队列已打乱",
+  "clear": "清空队列",
+  "clearConfirm": "确定要清空播放队列吗？",
+  "clearButton": "清空",
+  "emptyTitle": "播放队列为空",
+  "emptySubtitle": "添加歌曲到队列开始播放",
+  "goSearch": "去搜索",
+  "nowPlaying": "正在播放第 $index 首",
+  "totalCount": "共 $count 首",
+  "removeFromQueue": "从队列移除"
+}

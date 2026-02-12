@@ -1,0 +1,17 @@
+{
+  "exitMode": "Exit selection mode",
+  "selectedItems": "Selected $count items",
+  "deselectAll": "Deselect all",
+  "selectAll": "Select all",
+  "addToQueue": "Add to queue",
+  "playNext": "Play next",
+  "addToPlaylist": "Add to playlist",
+  "download": "Download",
+  "removeFromPlaylist": "Remove from playlist",
+  "confirmRemove": "Confirm Removal",
+  "confirmRemoveContent": "Are you sure you want to remove $count tracks from the playlist?",
+  "remove": "Remove",
+  "addedToQueue": "Added $count tracks to queue",
+  "addedToNext": "Added $count tracks to play next",
+  "removedTracks": "Removed $count tracks"
+}

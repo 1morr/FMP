@@ -1,0 +1,13 @@
+{
+  "waitingForTest": "等待测试...",
+  "streamTest": "流测试",
+  "clearLogs": "清除日志",
+  "videoIdHint": "例如: dQw4w9WgXcQ",
+  "fetchStreams": "获取流",
+  "batchTest": "批量测试",
+  "scanAllClients": "扫描所有客户端 (找可用的 audio-only)",
+  "playbackHeaders": "播放 Headers:",
+  "logs": "日志",
+  "verify": "验证",
+  "play": "播放"
+}

@@ -1,3 +1,6 @@
+import 'package:fmp/i18n/strings.g.dart';
+
+import '../../core/utils/number_format_utils.dart';
 import 'track.dart';
 
 /// 视频分P信息（不存入数据库，用于API响应和临时展示）
@@ -202,15 +205,8 @@ class VideoDetail {
   /// 格式化评论数
   String get formattedCommentCount => _formatCount(commentCount);
 
-  /// 格式化数字（万/亿）
-  static String _formatCount(int count) {
-    if (count >= 100000000) {
-      return '${(count / 100000000).toStringAsFixed(1)}亿';
-    } else if (count >= 10000) {
-      return '${(count / 10000).toStringAsFixed(1)}万';
-    }
-    return count.toString();
-  }
+  /// 格式化数字
+  static String _formatCount(int count) => formatCount(count);
 
   /// 格式化时长
   String get formattedDuration {
@@ -228,17 +224,17 @@ class VideoDetail {
     final now = DateTime.now();
     final diff = now.difference(publishDate);
     if (diff.inDays > 365) {
-      return '${diff.inDays ~/ 365}年前';
+      return t.videoDetail.yearsAgo(n: diff.inDays ~/ 365);
     } else if (diff.inDays > 30) {
-      return '${diff.inDays ~/ 30}个月前';
+      return t.videoDetail.monthsAgo(n: diff.inDays ~/ 30);
     } else if (diff.inDays > 0) {
-      return '${diff.inDays}天前';
+      return t.videoDetail.daysAgo(n: diff.inDays);
     } else if (diff.inHours > 0) {
-      return '${diff.inHours}小时前';
+      return t.videoDetail.hoursAgo(n: diff.inHours);
     } else if (diff.inMinutes > 0) {
-      return '${diff.inMinutes}分钟前';
+      return t.videoDetail.minutesAgo(n: diff.inMinutes);
     }
-    return '刚刚';
+    return t.videoDetail.justNow;
   }
 }
 
@@ -268,16 +264,16 @@ class VideoComment {
     final now = DateTime.now();
     final diff = now.difference(createTime);
     if (diff.inDays > 365) {
-      return '${diff.inDays ~/ 365}年前';
+      return t.videoDetail.yearsAgo(n: diff.inDays ~/ 365);
     } else if (diff.inDays > 30) {
-      return '${diff.inDays ~/ 30}个月前';
+      return t.videoDetail.monthsAgo(n: diff.inDays ~/ 30);
     } else if (diff.inDays > 0) {
-      return '${diff.inDays}天前';
+      return t.videoDetail.daysAgo(n: diff.inDays);
     } else if (diff.inHours > 0) {
-      return '${diff.inHours}小时前';
+      return t.videoDetail.hoursAgo(n: diff.inHours);
     } else if (diff.inMinutes > 0) {
-      return '${diff.inMinutes}分钟前';
+      return t.videoDetail.minutesAgo(n: diff.inMinutes);
     }
-    return '刚刚';
+    return t.videoDetail.justNow;
   }
 }

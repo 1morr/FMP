@@ -1,0 +1,6 @@
+{
+  "refreshingPlaylist": "Refreshing: $name",
+  "refreshingPlaylists": "Refreshing $count playlists",
+  "added": "Added $count tracks",
+  "noAdded": "No additions"
+}

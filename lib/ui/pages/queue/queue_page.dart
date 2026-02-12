@@ -8,6 +8,7 @@ import '../../../data/models/track.dart';
 import '../../../providers/playback_settings_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
+import '../../../i18n/strings.g.dart';
 import '../../widgets/track_thumbnail.dart';
 
 /// 播放队列页
@@ -121,7 +122,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
               child: Text(
                 isMixMode
                     ? 'Mix · ${mixTitle ?? ''}'
-                    : '播放队列 (${queue.length})',
+                    : t.queue.titleWithCount(count: '${queue.length}'),
                 overflow: TextOverflow.ellipsis,
               ),
             );
@@ -132,15 +133,15 @@ class _QueuePageState extends ConsumerState<QueuePage> {
             if (!isMixMode)
               IconButton(
                 icon: const Icon(Icons.shuffle),
-                tooltip: '随机打乱',
+                tooltip: t.queue.shuffle,
                 onPressed: () {
                   ref.read(audioControllerProvider.notifier).shuffleQueue();
-                  ToastService.success(context, '队列已打乱');
+                  ToastService.success(context, t.queue.shuffled);
                 },
               ),
             IconButton(
               icon: const Icon(Icons.delete_outline),
-              tooltip: '清空队列',
+              tooltip: t.queue.clear,
               onPressed: () => _showClearQueueDialog(context),
             ),
           ],
@@ -172,12 +173,12 @@ class _QueuePageState extends ConsumerState<QueuePage> {
           ),
           const SizedBox(height: 16),
           Text(
-            '播放队列为空',
+            t.queue.emptyTitle,
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
           Text(
-            '添加歌曲到队列开始播放',
+            t.queue.emptySubtitle,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: colorScheme.outline,
                 ),
@@ -186,7 +187,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
           FilledButton.icon(
             onPressed: () => context.go(RoutePaths.search),
             icon: const Icon(Icons.search),
-            label: const Text('去搜索'),
+            label: Text(t.queue.goSearch),
           ),
         ],
       ),
@@ -225,14 +226,14 @@ class _QueuePageState extends ConsumerState<QueuePage> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '正在播放第 ${currentIndex + 1} 首',
+                      t.queue.nowPlaying(index: '${currentIndex + 1}'),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: colorScheme.primary,
                           ),
                     ),
                     const Spacer(),
                     Text(
-                      '共 ${queue.length} 首',
+                      t.queue.totalCount(count: '${queue.length}'),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: colorScheme.outline,
                           ),
@@ -342,19 +343,19 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('清空队列'),
-        content: const Text('确定要清空播放队列吗？'),
+        title: Text(t.queue.clear),
+        content: Text(t.queue.clearConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(t.general.cancel),
           ),
           FilledButton(
             onPressed: () {
               ref.read(audioControllerProvider.notifier).clearQueue();
               Navigator.pop(context);
             },
-            child: const Text('清空'),
+            child: Text(t.queue.clearButton),
           ),
         ],
       ),
@@ -413,7 +414,7 @@ class _QueueTrackTile extends StatelessWidget {
           ),
         ),
         subtitle: Text(
-          track.artist ?? '未知艺术家',
+          track.artist ?? t.general.unknownArtist,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -432,7 +433,7 @@ class _QueueTrackTile extends StatelessWidget {
               iconSize: 20,
               color: colorScheme.outline,
               onPressed: onRemove,
-              tooltip: '从队列移除',
+              tooltip: t.queue.removeFromQueue,
             ),
           ],
         ),

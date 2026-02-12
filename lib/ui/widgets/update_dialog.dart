@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../i18n/strings.g.dart';
 import '../../providers/update_provider.dart';
 import '../../services/update/update_service.dart';
 
@@ -35,7 +36,7 @@ class UpdateDialog extends ConsumerWidget {
         children: [
           Icon(Icons.system_update, color: theme.colorScheme.primary),
           const SizedBox(width: 8),
-          const Expanded(child: Text('发现新版本')),
+          Expanded(child: Text(t.updateDialog.title)),
           // 关闭按钮
           if (!isDownloading && !isInstalling)
             IconButton(
@@ -44,7 +45,7 @@ class UpdateDialog extends ConsumerWidget {
                 Navigator.of(context).pop();
               },
               icon: const Icon(Icons.close),
-              tooltip: '关闭',
+              tooltip: t.general.close,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
               iconSize: 20,
@@ -82,7 +83,7 @@ class UpdateDialog extends ConsumerWidget {
             // Release Notes
             if (updateInfo.releaseNotes.isNotEmpty) ...[
               Text(
-                '更新内容',
+                t.updateDialog.releaseNotes,
                 style: theme.textTheme.labelLarge,
               ),
               const SizedBox(height: 4),
@@ -117,7 +118,7 @@ class UpdateDialog extends ConsumerWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '查看完整更新日志',
+                      t.updateDialog.viewChangelog,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.primary,
                         decoration: TextDecoration.underline,
@@ -137,7 +138,7 @@ class UpdateDialog extends ConsumerWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                '下载中... ${(updateState.downloadProgress * 100).toStringAsFixed(0)}%',
+                t.updateDialog.downloading(percent: (updateState.downloadProgress * 100).toStringAsFixed(0)),
                 style: theme.textTheme.bodySmall,
               ),
             ],
@@ -147,7 +148,7 @@ class UpdateDialog extends ConsumerWidget {
               const LinearProgressIndicator(),
               const SizedBox(height: 4),
               Text(
-                Platform.isWindows ? '正在安装更新，应用将重启...' : '正在打开安装程序...',
+                Platform.isWindows ? t.updateDialog.installingRestart : t.updateDialog.installingOpening,
                 style: theme.textTheme.bodySmall,
               ),
             ],
@@ -179,7 +180,7 @@ class UpdateDialog extends ConsumerWidget {
               ref.read(updateProvider.notifier).reset();
               Navigator.of(context).pop();
             },
-            child: const Text('稍后再说'),
+            child: Text(t.updateDialog.later),
           ),
 
         // 下载/重试按钮
@@ -189,7 +190,7 @@ class UpdateDialog extends ConsumerWidget {
                 ? null
                 : () => ref.read(updateProvider.notifier).downloadAndInstall(),
             icon: Icon(hasError ? Icons.refresh : Icons.download),
-            label: Text(hasError ? '重试' : '立即更新'),
+            label: Text(hasError ? t.updateDialog.retry : t.updateDialog.updateNow),
           ),
       ],
     );

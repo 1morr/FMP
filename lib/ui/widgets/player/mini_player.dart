@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fmp/i18n/strings.g.dart';
 import '../../../core/utils/icon_helpers.dart';
 import '../../../data/models/play_queue.dart';
 import '../../../services/audio/audio_provider.dart';
@@ -274,9 +275,9 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
         size: 20,
       ),
       color: state.isShuffleEnabled ? colorScheme.primary : null,
-      tooltip: state.isMixMode 
-          ? 'Mix 模式不支持隨機播放' 
-          : (state.isShuffleEnabled ? '随机播放' : '顺序播放'),
+      tooltip: state.isMixMode
+          ? t.audio.mixPlaylistNoAdd
+          : (state.isShuffleEnabled ? t.player.shuffleOn : t.player.shuffleOff),
       visualDensity: VisualDensity.compact,
       onPressed: state.isMixMode ? null : () => controller.toggleShuffle(),
     );
@@ -289,9 +290,9 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
     ColorScheme colorScheme,
   ) {
     final (icon, tooltip) = switch (state.loopMode) {
-      LoopMode.none => (Icons.repeat, '不循环'),
-      LoopMode.all => (Icons.repeat, '列表循环'),
-      LoopMode.one => (Icons.repeat_one, '单曲循环'),
+      LoopMode.none => (Icons.repeat, t.player.loopOff),
+      LoopMode.all => (Icons.repeat, t.player.loopAll),
+      LoopMode.one => (Icons.repeat_one, t.player.loopOne),
     };
 
     return IconButton(
@@ -383,7 +384,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
               size: 20,
             ),
             visualDensity: VisualDensity.compact,
-            tooltip: '音量',
+            tooltip: t.player.volume,
             onPressed: () {
               if (menuController.isOpen) {
                 menuController.close();
@@ -440,7 +441,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
             size: 20,
           ),
           visualDensity: VisualDensity.compact,
-          tooltip: state.volume > 0 ? '静音' : '取消静音',
+          tooltip: state.volume > 0 ? t.player.mute : t.player.unmute,
           onPressed: () => controller.toggleMute(),
         ),
         // 音量滑块

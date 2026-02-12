@@ -23,6 +23,7 @@ import 'audio_handler.dart';
 import 'windows_smtc_handler.dart';
 import 'audio_types.dart';
 import 'media_kit_audio_service.dart';
+import 'package:fmp/i18n/strings.g.dart';
 import 'queue_manager.dart';
 import '../network/connectivity_service.dart';
 
@@ -686,9 +687,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // Bilibili API 错误：尝试恢复原队列
       logWarning('Bilibili API error for temporary track ${track.title}: ${e.message}');
       if (e.isUnavailable || e.isGeoRestricted) {
-        _toastService.showWarning('无法播放「${track.title}」');
+        _toastService.showWarning(t.audio.cannotPlay(title: track.title));
       } else {
-        _toastService.showError('播放失败: ${e.message}');
+        _toastService.showError(t.audio.playbackFailed(message: e.message));
       }
       if (_context.hasSavedState) {
         await _restoreSavedState();
@@ -697,7 +698,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       }
     } catch (e, stack) {
       logError('Failed to play temporary track: ${track.title}', e, stack);
-      _toastService.showError('播放失败: ${track.title}');
+      _toastService.showError(t.audio.playbackFailedTrack(title: track.title));
       if (_context.hasSavedState) {
         await _restoreSavedState();
       } else {
@@ -1006,7 +1007,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     
     // Mix 模式下禁止添加歌曲
     if (_context.isMix) {
-      _toastService.showInfo('Mix 播放列表不支持添加歌曲');
+      _toastService.showInfo(t.audio.mixPlaylistNoAdd);
       return false;
     }
     
@@ -1030,7 +1031,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     
     // Mix 模式下禁止添加歌曲
     if (_context.isMix) {
-      _toastService.showInfo('Mix 播放列表不支持添加歌曲');
+      _toastService.showInfo(t.audio.mixPlaylistNoAdd);
       return false;
     }
     
@@ -1054,7 +1055,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     
     // Mix 模式下禁止添加歌曲
     if (_context.isMix) {
-      _toastService.showInfo('Mix 播放列表不支持添加歌曲');
+      _toastService.showInfo(t.audio.mixPlaylistNoAdd);
       return false;
     }
     
@@ -1466,11 +1467,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         _updateQueueState();
       } else {
         logWarning('Mix load failed: no new tracks after $attempt attempts');
-        _toastService.showInfo('無法獲取更多歌曲，請稍後重試');
+        _toastService.showInfo(t.audio.mixLoadMoreFailed);
       }
     } catch (e, stack) {
       logError('Failed to load more Mix tracks', e, stack);
-      _toastService.showInfo('加載更多歌曲失敗');
+      _toastService.showInfo(t.audio.mixLoadMoreError);
     } finally {
       _mixState!.isLoadingMore = false;
       state = state.copyWith(isLoadingMoreMix: false);
@@ -1710,7 +1711,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       await _audioService.stop();
       state = state.copyWith(error: e.toString(), isLoading: false);
       _resetLoadingState();
-      _toastService.showError('播放失败: ${track.title}');
+      _toastService.showError(t.audio.playbackFailedTrack(title: track.title));
     } finally {
       _playLock?.completeIf(requestId);
       
@@ -1728,22 +1729,22 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       final nextIdx = _queueManager.getNextIndex();
       if (nextIdx != null && mode == PlayMode.queue) {
         _resetLoadingState();
-        _toastService.showWarning('无法播放「${track.title}」，已跳过');
+        _toastService.showWarning(t.audio.cannotPlaySkipped(title: track.title));
         Future.delayed(const Duration(milliseconds: 300), () {
           next();
         });
       } else {
         _audioService.stop();
         state = state.copyWith(
-          error: '无法播放: ${e.message}',
+          error: t.audio.playbackFailed(message: e.message),
           isLoading: false,
         );
         _resetLoadingState();
-        _toastService.showError('无法播放「${track.title}」');
+        _toastService.showError(t.audio.cannotPlay(title: track.title));
       }
     } else {
       state = state.copyWith(
-        error: '无法播放: ${e.message}',
+        error: t.audio.playbackFailed(message: e.message),
         isLoading: false,
       );
       _resetLoadingState();
@@ -1844,7 +1845,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         // 非网络错误，不再重试
         _resetRetryState();
         state = state.copyWith(error: e.toString());
-        _toastService.showError('播放失败: ${track.title}');
+        _toastService.showError(t.audio.playbackFailedTrack(title: track.title));
       }
     }
   }
@@ -1898,7 +1899,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       } else {
         _resetRetryState();
         state = state.copyWith(error: e.toString());
-        _toastService.showError('播放失败: ${track.title}');
+        _toastService.showError(t.audio.playbackFailedTrack(title: track.title));
       }
     }
   }
@@ -1973,7 +1974,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       } else {
         _resetRetryState();
         state = state.copyWith(error: e.toString());
-        _toastService.showError('播放失败: ${track.title}');
+        _toastService.showError(t.audio.playbackFailedTrack(title: track.title));
       }
     }
   }

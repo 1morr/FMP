@@ -1,4 +1,5 @@
 import 'package:isar/isar.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 import '../models/play_history.dart';
 import '../models/track.dart';
@@ -368,9 +369,9 @@ class PlayHistoryStats {
     final minutes = duration.inMinutes.remainder(60);
     
     if (hours > 0) {
-      return '$hours 小時 $minutes 分鐘';
+      return t.playHistoryPage.hoursMinutes(hours: hours.toString(), minutes: minutes.toString());
     }
-    return '$minutes 分鐘';
+    return t.playHistoryPage.minutesOnly(minutes: minutes.toString());
   }
 }
 

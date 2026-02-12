@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/breakpoints.dart';
+import '../../i18n/strings.g.dart';
 import '../../services/audio/audio_provider.dart';
 import '../../services/radio/radio_controller.dart';
 import '../widgets/player/mini_player.dart';
@@ -22,36 +23,36 @@ class NavDestination {
 }
 
 /// 导航目的地列表
-const List<NavDestination> destinations = [
+List<NavDestination> get destinations => [
   NavDestination(
     icon: Icons.home_outlined,
     selectedIcon: Icons.home,
-    label: '首页',
+    label: t.nav.home,
   ),
   NavDestination(
     icon: Icons.search_outlined,
     selectedIcon: Icons.search,
-    label: '搜索',
+    label: t.nav.search,
   ),
   NavDestination(
     icon: Icons.queue_music_outlined,
     selectedIcon: Icons.queue_music,
-    label: '队列',
+    label: t.nav.queue,
   ),
   NavDestination(
     icon: Icons.library_music_outlined,
     selectedIcon: Icons.library_music,
-    label: '音乐库',
+    label: t.nav.library,
   ),
   NavDestination(
     icon: Icons.radio_outlined,
     selectedIcon: Icons.radio,
-    label: '电台',
+    label: t.nav.radio,
   ),
   NavDestination(
     icon: Icons.settings_outlined,
     selectedIcon: Icons.settings,
-    label: '设置',
+    label: t.nav.settings,
   ),
 ];
 
@@ -286,7 +287,7 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
                 IconButton(
                   icon: const Icon(Icons.menu_open),
                   onPressed: () => setState(() => _isNavExpanded = false),
-                  tooltip: '收起导航栏',
+                  tooltip: t.nav.collapseNav,
                 ),
               ],
             ),
@@ -361,7 +362,7 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
           IconButton(
             icon: const Icon(Icons.menu),
             onPressed: () => setState(() => _isNavExpanded = true),
-            tooltip: '展开导航栏',
+            tooltip: t.nav.expandNav,
           ),
           const SizedBox(height: 8),
           const Divider(indent: 12, endIndent: 12),

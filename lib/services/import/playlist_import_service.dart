@@ -8,15 +8,21 @@ import '../../data/sources/playlist_import/netease_playlist_source.dart';
 import '../../data/sources/playlist_import/qq_music_playlist_source.dart';
 import '../../data/sources/playlist_import/spotify_playlist_source.dart';
 import '../../data/sources/source_provider.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 /// 搜索来源配置
 enum SearchSourceConfig {
-  all('全部'),
-  bilibiliOnly('仅 Bilibili'),
-  youtubeOnly('仅 YouTube');
+  all,
+  bilibiliOnly,
+  youtubeOnly;
 
-  final String displayName;
-  const SearchSourceConfig(this.displayName);
+  String get displayName {
+    switch (this) {
+      case SearchSourceConfig.all: return t.searchPage.all;
+      case SearchSourceConfig.bilibiliOnly: return t.searchPage.bilibiliOnly;
+      case SearchSourceConfig.youtubeOnly: return t.searchPage.youtubeOnly;
+    }
+  }
 }
 
 
@@ -75,7 +81,7 @@ class PlaylistImportResult {
 /// 导入被用户取消
 class ImportCancelledException implements Exception {
   @override
-  String toString() => '导入已取消';
+  String toString() => t.importSource.cancelled;
 }
 
 class PlaylistImportService {
@@ -121,9 +127,9 @@ class PlaylistImportService {
     _isCancelled = false;
 
     // 1. 获取歌单
-    _progressController.add(const ImportProgress(
+    _progressController.add(ImportProgress(
       phase: ImportPhase.fetching,
-      currentItem: '正在获取歌单信息...',
+      currentItem: t.importSource.fetchingPlaylistInfo,
     ));
 
     final playlist = await _fetchPlaylist(url);
@@ -151,9 +157,9 @@ class PlaylistImportService {
 
   /// 仅获取歌单（不匹配）
   Future<ImportedPlaylist> fetchPlaylist(String url) async {
-    _progressController.add(const ImportProgress(
+    _progressController.add(ImportProgress(
       phase: ImportPhase.fetching,
-      currentItem: '正在获取歌单信息...',
+      currentItem: t.importSource.fetchingPlaylistInfo,
     ));
 
     final playlist = await _fetchPlaylist(url);
@@ -173,7 +179,7 @@ class PlaylistImportService {
         return await source.fetchPlaylist(url);
       }
     }
-    throw Exception('不支持的链接格式');
+    throw Exception(t.importSource.unsupportedLinkFormat);
   }
 
   Future<List<MatchedTrack>> _matchTracks(

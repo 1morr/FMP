@@ -1,0 +1,14 @@
+{
+  "changeDownloadPath": "Change download path",
+  "selectFolder": "Select folder",
+  "updating": "Updating",
+  "operationFailed": "Operation failed",
+  "changeWarning": "Changing download path will clear all saved download path information.",
+  "filesNotDeleted": "Downloaded files will not be deleted, but you need to rescan to display them.",
+  "selectNewFolder": "Please select a new download folder...",
+  "updatingSettings": "Updating settings...",
+  "unknownError": "Unknown error",
+  "continueButton": "Continue",
+  "closeButton": "Close",
+  "pathChanged": "Download path changed, please click refresh to scan local files"
+}

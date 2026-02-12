@@ -1,0 +1,50 @@
+{
+  "hint": "Search songs, artists...",
+  "searchMusic": "Search for music you like",
+  "history": "Search History",
+  "clear": "Clear",
+  "retry": "Retry",
+  "allLoaded": "All loaded",
+  "noResults": "No results found for \"$query\"",
+  "noLiveRooms": "No live rooms found for \"$query\"",
+  "source": {
+    "all": "All Sources"
+  },
+  "liveRoom": {
+    "all": "All Live Rooms",
+    "online": "Online",
+    "offline": "Offline",
+    "title": "Live Rooms ($count)",
+    "notLive": "Host is not live",
+    "userRoom": "$user's Live Room"
+  },
+  "sort": {
+    "relevance": "Sort by Relevance",
+    "playCount": "Most Played",
+    "publishDate": "Newest",
+    "relevanceShort": "Relevance",
+    "playCountShort": "Views",
+    "publishDateShort": "Newest"
+  },
+  "section": {
+    "inPlaylist": "In Playlists ($count)",
+    "onlineResults": "Online Results ($count)"
+  },
+  "menu": {
+    "play": "Play",
+    "playNext": "Play Next",
+    "addToQueue": "Add to Queue",
+    "addToPlaylist": "Add to Playlist",
+    "addToRadio": "Add to Radio"
+  },
+  "toast": {
+    "addedToNext": "Added to play next",
+    "addedToQueue": "Added to queue",
+    "addedPartsToNext": "Added $count parts to play next",
+    "addedPartsToQueue": "Added $count parts to queue",
+    "addedToRadio": "Added to radio"
+  },
+  "all": "All",
+  "bilibiliOnly": "Bilibili Only",
+  "youtubeOnly": "YouTube Only"
+}

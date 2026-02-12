@@ -1,0 +1,9 @@
+{
+  "parsing": "Parsing...",
+  "added": "Added $count tracks",
+  "removed": "Removed $count tracks",
+  "unchanged": "$count tracks unchanged",
+  "completed": "$name refresh completed!",
+  "noChanges": "No changes",
+  "failed": "$name refresh failed: $error"
+}

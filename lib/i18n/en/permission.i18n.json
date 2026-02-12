@@ -1,0 +1,10 @@
+{
+  "storageRequired": "Storage Permission Required",
+  "storageExplanation": "To download music to your chosen folder, the app needs permission to access device storage.",
+  "storageInstructions": "After clicking \"Continue\", please allow FMP to access all files in system settings.",
+  "denied": "Permission Denied",
+  "deniedMessage": "Storage permission has been denied. If you want to use a custom download path, please grant permission manually in settings.",
+  "insufficientPermission": "Insufficient Permission",
+  "cannotWriteDirectory": "Cannot write to the selected directory. Please choose another location or grant necessary permissions.",
+  "goToSettings": "Open Settings"
+}

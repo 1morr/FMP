@@ -1,0 +1,9 @@
+{
+  "parsing": "正在解析...",
+  "added": "新增 $count 首",
+  "removed": "移除 $count 首",
+  "unchanged": "$count 首無變化",
+  "completed": "$name 重新整理完成！",
+  "noChanges": "無變化",
+  "failed": "$name 重新整理失敗: $error"
+}

@@ -1,0 +1,18 @@
+{
+  "recentTrending": "近期热门",
+  "viewAll": "查看全部",
+  "myPlaylists": "我的歌单",
+  "createPlaylist": "创建歌单",
+  "recentlyPlayed": "最近播放",
+  "nowPlaying": "正在播放",
+  "upNext": "接下来播放",
+  "viewQueue": "查看队列",
+  "radio": "电台",
+  "play": "播放",
+  "playNext": "下一首播放",
+  "addToQueue": "添加到队列",
+  "addToPlaylist": "添加到歌单",
+  "addedToNext": "已添加到下一首",
+  "addedToQueue": "已添加到播放队列",
+  "loadFailed": "加载失败"
+}

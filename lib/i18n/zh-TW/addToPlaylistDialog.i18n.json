@@ -1,0 +1,22 @@
+{
+  "title": "加入歌單",
+  "createNew": "建立新歌單",
+  "multiSelect": "可多選歌單",
+  "selectedCount": "已選 $count 個",
+  "loadFailed": "載入失敗: $error",
+  "noPlaylists": "暫無歌單",
+  "createHint": "點擊上方建立新歌單",
+  "createTitle": "建立歌單",
+  "playlistNameHint": "歌單名稱",
+  "createFailed": "建立失敗: $error",
+  "saving": "儲存中...",
+  "save": "儲存",
+  "addToCount": "加入 $count 個歌單",
+  "removeFromCount": "從 $count 個歌單移出",
+  "addAndRemoveCount": "加入 $addCount 個，移出 $removeCount 個",
+  "addedAndRemoved": "已加入 $addCount 個，移出 $removeCount 個",
+  "addedToPlaylists": "已加入 $count 個歌單",
+  "removedFromPlaylists": "已從 $count 個歌單移出",
+  "partiallyCompleted": "完成 $success/$total 個操作",
+  "operationFailed": "操作失敗: $error"
+}

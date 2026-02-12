@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:fmp/i18n/strings.g.dart';
 import 'package:smtc_windows/smtc_windows.dart';
 import '../../core/logger.dart';
 import '../../data/models/radio_station.dart';
@@ -103,7 +104,7 @@ class WindowsSmtcHandler with Logging {
         title: track.title,
         album: '',
         albumArtist: '',
-        artist: track.artist ?? '未知艺术家',
+        artist: track.artist ?? t.smtc.unknownArtist,
         thumbnail: (thumbnail != null && thumbnail.isNotEmpty) ? thumbnail : null,
       ));
       logDebug('SMTC updated media item: ${track.title}');
@@ -119,9 +120,9 @@ class WindowsSmtcHandler with Logging {
     try {
       _smtc!.updateMetadata(MusicMetadata(
         title: station.title,
-        album: '直播中',
+        album: t.smtc.live,
         albumArtist: '',
-        artist: station.hostName ?? '未知主播',
+        artist: station.hostName ?? t.smtc.unknownStreamer,
         thumbnail: station.thumbnailUrl,
       ));
       logDebug('SMTC updated radio station: ${station.title}');

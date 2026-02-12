@@ -1,0 +1,18 @@
+{
+  "cancel": "Cancel",
+  "confirm": "OK",
+  "close": "Close",
+  "loading": "Loading...",
+  "loadFailed": "Load failed",
+  "enabled": "Enabled",
+  "disabled": "Disabled",
+  "notSet": "Not set",
+  "defaultLabel": "Default",
+  "custom": "Custom",
+  "systemDefault": "System default",
+  "initializing": "Initializing...",
+  "initFailed": "Initialization failed",
+  "unknownArtist": "Unknown artist",
+  "delete": "Delete",
+  "continueText": "Continue"
+}

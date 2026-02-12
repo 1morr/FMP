@@ -1,0 +1,11 @@
+{
+  "appName": "FMP 音乐播放器",
+  "unknownArtist": "未知艺术家",
+  "notPlaying": "未在播放",
+  "pause": "暂停",
+  "play": "播放",
+  "previous": "上一首",
+  "next": "下一首",
+  "showWindow": "显示窗口",
+  "exit": "退出"
+}

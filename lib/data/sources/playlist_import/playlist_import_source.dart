@@ -1,3 +1,5 @@
+import 'package:fmp/i18n/strings.g.dart';
+
 import '../../models/track.dart';
 
 /// 导入的歌曲信息（来自外部平台）
@@ -83,12 +85,17 @@ class MatchedTrack {
 
 /// 歌单来源平台
 enum PlaylistSource {
-  netease('网易云音乐'),
-  qqMusic('QQ音乐'),
-  spotify('Spotify');
+  netease,
+  qqMusic,
+  spotify;
 
-  final String displayName;
-  const PlaylistSource(this.displayName);
+  String get displayName {
+    switch (this) {
+      case PlaylistSource.netease: return t.importPlatform.neteaseMusic;
+      case PlaylistSource.qqMusic: return t.importPlatform.qqMusic;
+      case PlaylistSource.spotify: return t.importPlatform.spotify;
+    }
+  }
 }
 
 /// 歌单导入源抽象接口

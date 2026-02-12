@@ -1,3 +1,5 @@
+import 'package:fmp/i18n/strings.g.dart';
+
 /// 时长格式化工具类
 class DurationFormatter {
   DurationFormatter._();
@@ -21,9 +23,9 @@ class DurationFormatter {
     final minutes = duration.inMinutes.remainder(60);
 
     if (hours > 0) {
-      return '$hours 小时 $minutes 分钟';
+      return t.time.hoursMinutes(hours: hours, minutes: minutes);
     }
-    return '$minutes 分钟';
+    return t.time.minutesOnly(minutes: minutes);
   }
 
   /// 格式化秒数为 "mm:ss"

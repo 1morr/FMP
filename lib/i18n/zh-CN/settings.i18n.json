@@ -1,0 +1,197 @@
+{
+  "title": "设置",
+  "appearance": "外观",
+  "playback": "播放",
+  "cache": "缓存",
+  "storage": "存储",
+  "desktop": "桌面",
+  "about": "关于",
+  "language": {
+    "title": "语言",
+    "selectTitle": "选择语言",
+    "followSystem": "跟随系统"
+  },
+  "theme": {
+    "title": "主题",
+    "selectTitle": "选择主题",
+    "followSystem": "跟随系统",
+    "light": "浅色",
+    "dark": "深色"
+  },
+  "themeColor": {
+    "title": "主题色",
+    "selectTitle": "选择主题色"
+  },
+  "font": {
+    "title": "字体",
+    "selectTitle": "选择字体",
+    "microsoftYaHei": "微软雅黑",
+    "simsun": "宋体",
+    "simhei": "黑体",
+    "kaiti": "楷体",
+    "fangsong": "仿宋",
+    "sansSerif": "无衬线 (Roboto)",
+    "serif": "衬线 (Noto Serif)",
+    "sansSerifMedium": "无衬线 中等",
+    "sansSerifLight": "无衬线 细体",
+    "sansSerifCondensed": "无衬线 窄体",
+    "monospace": "等宽"
+  },
+  "audioQuality": {
+    "title": "音频质量",
+    "subtitle": "码率、格式、流优先级"
+  },
+  "playHistory": {
+    "title": "播放历史",
+    "subtitle": "查看和管理播放记录"
+  },
+  "rememberPosition": {
+    "title": "记住播放位置",
+    "configRewind": "配置回退时间"
+  },
+  "rewindSettings": {
+    "title": "回退时间设置",
+    "description": "恢复播放时自动回退一段时间，方便回忆上下文",
+    "restartRewind": "重启恢复",
+    "restartRewindSubtitle": "应用重启后恢复播放时",
+    "tempPlayRewind": "临时播放恢复",
+    "tempPlayRewindSubtitle": "临时播放结束回到原队列时",
+    "noRewind": "不回退",
+    "seconds": "$n 秒"
+  },
+  "version": {
+    "title": "版本",
+    "tapToEnableDev": "再点击 $n 次启用开发者选项",
+    "devEnabled": "开发者选项已启用"
+  },
+  "update": {
+    "title": "检查更新",
+    "checking": "正在检查...",
+    "upToDate": "已是最新版本",
+    "available": "有新版本: $version",
+    "error": "检查失败，点击重试",
+    "checkGitHub": "检查 GitHub 上的新版本",
+    "checkFailed": "检查更新失败"
+  },
+  "userGuide": {
+    "title": "使用说明",
+    "subtitle": "快速入门、功能介绍、使用提示"
+  },
+  "openSource": {
+    "title": "开源许可",
+    "subtitle": "查看第三方开源组件许可证"
+  },
+  "developerOptions": {
+    "title": "开发者选项",
+    "subtitle": "调试工具和实验性功能",
+    "debugTools": "调试工具",
+    "liveLog": "实时日志",
+    "liveLogSubtitle": "查看应用运行日志",
+    "dbViewer": "数据库查看器",
+    "dbViewerSubtitle": "查看和浏览 Isar 数据库内容",
+    "ytStreamTest": "YouTube 流测试",
+    "ytStreamTestSubtitle": "测试 Audio-only / Muxed / HLS 流播放",
+    "dataManagement": "数据管理",
+    "experimentalFeatures": "实验性功能",
+    "devInfo": "开发信息",
+    "debugMode": "调试模式",
+    "dbInfo": "数据库信息",
+    "dbInfoError": "错误: $error",
+    "dbInfoDetail": "路径: $path\n大小: $size\n歌曲: $tracks | 歌单: $playlists",
+    "memoryUsage": "内存使用",
+    "memoryUnavailable": "无法获取内存信息",
+    "imageCacheInfo": "图片缓存: $current / $max MB",
+    "processMemory": "进程内存 (RSS): $size",
+    "refresh": "刷新",
+    "resetAllData": "重置所有数据",
+    "resetSubtitle": "删除所有歌单、播放队列和设置（不可恢复）",
+    "confirmReset": "确认重置",
+    "resetWarning": "此操作将删除所有数据，包括：\n• 所有歌单\n• 播放队列\n• 搜索历史\n• 应用设置\n\n此操作不可恢复！",
+    "resetting": "正在重置数据...",
+    "resetDone": "数据已重置，请重启应用",
+    "resetFailed": "重置失败: $error",
+    "autoScrollToPlaying": "切歌时自动定位",
+    "autoScrollSubtitle": "切换歌曲时自动跳转到队列页面并定位当前播放"
+  },
+  "downloadManager": {
+    "title": "下载管理",
+    "subtitle": "管理下载队列和进度",
+    "clearQueue": "清空队列",
+    "clearQueueConfirm": "确定要清空所有下载任务吗？",
+    "pauseAll": "全部暂停",
+    "resumeAll": "全部继续",
+    "clearCompleted": "清除已完成",
+    "noTasks": "没有下载任务",
+    "downloading": "正在下载",
+    "waiting": "等待中",
+    "paused": "已暂停",
+    "failed": "失败",
+    "completed": "已完成",
+    "unknownTrack": "未知歌曲",
+    "pause": "暂停",
+    "resume": "继续",
+    "retry": "重试",
+    "delete": "删除",
+    "loadFailed": "加载失败: $error"
+  },
+  "downloadPath": {
+    "title": "下载路径",
+    "loadFailed": "加载失败: $error",
+    "changePath": "更改下载路径",
+    "pathInfo": "当前路径信息",
+    "pathInfoTitle": "下载路径信息",
+    "pathChangeWarning": "修改路径将清空数据库中的下载路径记录"
+  },
+  "concurrentDownloads": {
+    "title": "同时下载数量",
+    "subtitle": "最多同时下载 $n 个文件",
+    "unit": "$n 个"
+  },
+  "downloadImage": {
+    "title": "下载图片",
+    "off": "关闭",
+    "coverOnly": "仅封面",
+    "coverAndAvatar": "封面和头像",
+    "offDescription": "不下载任何图片",
+    "coverOnlyDescription": "下载视频封面",
+    "coverAndAvatarDescription": "下载视频封面和UP主头像"
+  },
+  "imageCache": {
+    "title": "图片缓存大小",
+    "maxSize": "最大 $size",
+    "clearTitle": "清除图片缓存",
+    "currentCache": "当前缓存: $size",
+    "calculating": "正在计算...",
+    "clearConfirm": "确定要清除所有缓存的图片吗？这不会影响已下载的本地图片。",
+    "currentCacheSize": "当前缓存大小: $size",
+    "cacheCleared": "图片缓存已清除"
+  },
+  "tray": {
+    "title": "最小化到托盘",
+    "subtitle": "关闭窗口时最小化到系统托盘"
+  },
+  "hotkeys": {
+    "title": "全局快捷键",
+    "configTitle": "配置快捷键",
+    "configHotkey": "配置快捷键",
+    "resetDefault": "恢复默认",
+    "hint": "点击快捷键区域后按下新的组合键进行设置",
+    "clear": "清除",
+    "recording": "按下新的快捷键...",
+    "setHotkey": "设置 $action 快捷键",
+    "pressCombo": "请按下快捷键组合\n\n(需要至少一个修饰键)",
+    "actions": {
+      "playPause": "播放/暂停",
+      "next": "下一首",
+      "previous": "上一首",
+      "stop": "停止",
+      "volumeUp": "增大音量",
+      "volumeDown": "减小音量",
+      "mute": "静音",
+      "toggleWindow": "显示/隐藏窗口"
+    }
+  },
+  "simplifiedChinese": "简体中文",
+  "traditionalChinese": "繁體中文",
+  "english": "English"
+}

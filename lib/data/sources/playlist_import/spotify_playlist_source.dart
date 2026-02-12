@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 import 'playlist_import_source.dart';
 
@@ -37,7 +38,7 @@ class SpotifyPlaylistSource implements PlaylistImportSource {
 
     final playlistId = extractPlaylistId(resolvedUrl);
     if (playlistId == null) {
-      throw Exception('无法解析 Spotify 歌单ID: $url');
+      throw Exception(t.importSource.cannotParsePlaylistId(url: url));
     }
 
     // 使用 embed 页面获取数据（包含 __NEXT_DATA__）
@@ -60,7 +61,7 @@ class SpotifyPlaylistSource implements PlaylistImportSource {
     final data = _extractNextData(html);
 
     if (data == null) {
-      throw Exception('无法解析 Spotify 页面数据，页面结构可能已变更');
+      throw Exception(t.importSource.spotifyCannotParsePageData);
     }
 
     return _parsePlaylistData(data, url);
@@ -122,15 +123,15 @@ class SpotifyPlaylistSource implements PlaylistImportSource {
     ]);
 
     if (entity is! Map<String, dynamic>) {
-      throw Exception('Spotify 页面数据结构异常');
+      throw Exception(t.importSource.spotifyPageDataAbnormal);
     }
 
     final name =
-        entity['name'] as String? ?? entity['title'] as String? ?? '未知歌单';
+        entity['name'] as String? ?? entity['title'] as String? ?? t.importSource.unknownPlaylist;
 
     final trackList = entity['trackList'];
     if (trackList is! List) {
-      throw Exception('无法获取曲目列表');
+      throw Exception(t.importSource.spotifyCannotGetTrackList);
     }
 
     final tracks = <ImportedTrack>[];
@@ -145,7 +146,7 @@ class SpotifyPlaylistSource implements PlaylistImportSource {
       final subtitle = item['subtitle'] as String? ?? '';
       final artists = subtitle.isNotEmpty
           ? subtitle.split(', ').where((s) => s.isNotEmpty).toList()
-          : <String>['未知艺术家'];
+          : <String>[t.general.unknownArtist];
 
       // duration 单位为毫秒
       final durationMs = item['duration'] as int?;
@@ -159,7 +160,7 @@ class SpotifyPlaylistSource implements PlaylistImportSource {
     }
 
     if (tracks.isEmpty) {
-      throw Exception('歌单为空或无法访问');
+      throw Exception(t.importSource.playlistEmptyOrInaccessible);
     }
 
     return ImportedPlaylist(

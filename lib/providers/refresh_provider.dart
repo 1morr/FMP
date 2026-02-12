@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:equatable/equatable.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 import '../core/constants/app_constants.dart';
 import '../data/models/playlist.dart';
@@ -132,7 +133,7 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
         playlistId: playlistId,
         playlistName: playlist.name,
         status: ImportStatus.parsing,
-        currentItem: '正在解析...',
+        currentItem: t.refreshProvider.parsing,
       ),
     );
 
@@ -171,11 +172,11 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
       // 使用 ToastService 显示成功提示（不依赖 context）
       final toastService = _ref.read(toastServiceProvider);
       final parts = <String>[];
-      if (result.addedCount > 0) parts.add('新增 ${result.addedCount} 首');
-      if (result.removedCount > 0) parts.add('移除 ${result.removedCount} 首');
-      if (result.skippedCount > 0) parts.add('${result.skippedCount} 首无变化');
-      final message = '${playlist.name} 刷新完成！'
-          '${parts.isEmpty ? '无变化' : parts.join('，')}';
+      if (result.addedCount > 0) parts.add(t.refreshProvider.added(count: result.addedCount));
+      if (result.removedCount > 0) parts.add(t.refreshProvider.removed(count: result.removedCount));
+      if (result.skippedCount > 0) parts.add(t.refreshProvider.unchanged(count: result.skippedCount));
+      final message = t.refreshProvider.completed(name: playlist.name) +
+          (parts.isEmpty ? t.refreshProvider.noChanges : parts.join('，'));
       toastService.showSuccess(message);
 
       // 延迟移除已完成的状态
@@ -195,7 +196,7 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
 
       // 使用 ToastService 显示错误提示
       final toastService = _ref.read(toastServiceProvider);
-      toastService.showError('${playlist.name} 刷新失败: $e');
+      toastService.showError(t.refreshProvider.failed(name: playlist.name, error: e.toString()));
 
       // 延迟移除失败的状态
       Future.delayed(AppConstants.refreshErrorDelay, () {

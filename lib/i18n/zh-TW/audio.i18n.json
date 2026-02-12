@@ -1,0 +1,9 @@
+{
+  "cannotPlay": "無法播放「$title」",
+  "playbackFailed": "播放失敗: $message",
+  "playbackFailedTrack": "播放失敗: $title",
+  "mixPlaylistNoAdd": "Mix 播放清單不支援新增歌曲",
+  "mixLoadMoreFailed": "無法取得更多歌曲，請稍後重試",
+  "mixLoadMoreError": "載入更多歌曲失敗",
+  "cannotPlaySkipped": "無法播放「$title」，已跳過"
+}

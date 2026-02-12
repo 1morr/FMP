@@ -11,6 +11,7 @@ import '../../../data/models/play_queue.dart';
 import '../../../data/models/settings.dart';
 import '../../../data/models/track.dart';
 import '../../../data/models/video_detail.dart';
+import '../../../i18n/strings.g.dart';
 import '../../../providers/download/file_exists_cache.dart';
 import '../../../providers/download/download_providers.dart';
 import '../../../providers/track_detail_provider.dart';
@@ -79,7 +80,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                   children: [
                     const Icon(Icons.info_outline, size: 20),
                     const SizedBox(width: 12),
-                    const Text('信息'),
+                    Text(t.player.info),
                   ],
                 ),
               ),
@@ -183,7 +184,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     return Column(
       children: [
         Text(
-          track?.title ?? '暂无播放',
+          track?.title ?? t.player.noTrackPlaying,
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -193,7 +194,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         ),
         const SizedBox(height: 8),
         Text(
-          track?.artist ?? '选择一首歌曲开始播放',
+          track?.artist ?? t.player.selectTrackToPlay,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
@@ -282,9 +283,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           icon: Icon(state.isShuffleEnabled ? Icons.shuffle : Icons.arrow_forward),
           color: state.isShuffleEnabled ? colorScheme.primary : null,
           onPressed: state.isMixMode ? null : () => controller.toggleShuffle(),
-          tooltip: state.isMixMode 
-              ? 'Mix 模式不支持隨機播放' 
-              : (state.isShuffleEnabled ? '随机播放' : '顺序播放'),
+          tooltip: state.isMixMode
+              ? t.player.mixShuffleDisabled
+              : (state.isShuffleEnabled ? t.player.shuffleOn : t.player.shuffleOff),
         ),
 
         // 上一首
@@ -422,7 +423,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         IconButton(
           icon: Icon(getVolumeIcon(state.volume), size: 20),
           visualDensity: VisualDensity.compact,
-          tooltip: state.volume > 0 ? '静音' : '取消静音',
+          tooltip: state.volume > 0 ? t.player.mute : t.player.unmute,
           onPressed: () => controller.toggleMute(),
         ),
         // 音量滑块
@@ -458,9 +459,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 
   /// 获取循环模式提示
   String _getLoopModeTooltip(LoopMode mode) => switch (mode) {
-    LoopMode.none => '不循环',
-    LoopMode.all => '列表循环',
-    LoopMode.one => '单曲循环',
+    LoopMode.none => t.player.loopOff,
+    LoopMode.all => t.player.loopAll,
+    LoopMode.one => t.player.loopOne,
   };
 
   /// 显示视频信息弹窗
@@ -543,7 +544,7 @@ class _TrackInfoDialog extends ConsumerWidget {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            '视频信息',
+                            t.player.videoInfo,
                             style: textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
@@ -840,7 +841,7 @@ class _CommentPagerState extends State<_CommentPager> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                '热门评论',
+                t.player.topComments,
                 style: textTheme.titleSmall?.copyWith(
                   color: colorScheme.primary,
                   fontWeight: FontWeight.w600,
@@ -1000,7 +1001,7 @@ class _BasicInfoContent extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              '暂无播放信息',
+              t.player.noPlaybackInfo,
               style: textTheme.bodyLarge?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
@@ -1036,7 +1037,7 @@ class _BasicInfoContent extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                track!.artist ?? '未知作者',
+                track!.artist ?? t.player.unknownAuthor,
                 style: textTheme.bodyLarge?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -1086,7 +1087,7 @@ class _BasicInfoContent extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '详细信息加载中...',
+                  t.player.loadingDetails,
                   style: textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -1127,9 +1128,9 @@ class _AudioInfoSection extends StatelessWidget {
       if (type == null) return null;
       switch (type) {
         case StreamType.audioOnly:
-          return '纯音频';
+          return t.player.audioOnly;
         case StreamType.muxed:
-          return '混合流';
+          return t.player.muxedStream;
         case StreamType.hls:
           return 'HLS';
       }
@@ -1162,7 +1163,7 @@ class _AudioInfoSection extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              '音频信息',
+              t.player.audioInfo,
               style: textTheme.titleSmall?.copyWith(
                 color: colorScheme.primary,
                 fontWeight: FontWeight.w600,
@@ -1295,7 +1296,7 @@ class _DescriptionSectionState extends State<_DescriptionSection> {
             ),
             const SizedBox(width: 8),
             Text(
-              '简介',
+              t.trackDetail.description,
               style: textTheme.titleSmall?.copyWith(
                 color: colorScheme.primary,
                 fontWeight: FontWeight.w600,
@@ -1330,7 +1331,7 @@ class _DescriptionSectionState extends State<_DescriptionSection> {
                 child: Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    _isExpanded ? '收起' : '展开',
+                    _isExpanded ? t.trackDetail.collapse : t.trackDetail.expand,
                     style: textTheme.bodyMedium?.copyWith(
                       color: colorScheme.primary,
                       fontWeight: FontWeight.w500,

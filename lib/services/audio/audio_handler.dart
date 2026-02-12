@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:audio_service/audio_service.dart';
+import 'package:fmp/i18n/strings.g.dart';
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
@@ -65,7 +66,7 @@ class FmpAudioHandler extends BaseAudioHandler with SeekHandler, Logging {
     final item = MediaItem(
       id: track.uniqueKey,
       title: track.title,
-      artist: track.artist ?? '未知艺术家',
+      artist: track.artist ?? t.smtc.unknownArtist,
       artUri: track.thumbnailUrl != null ? Uri.parse(track.thumbnailUrl!) : null,
       duration: track.durationMs != null ? Duration(milliseconds: track.durationMs!) : null,
     );

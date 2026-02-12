@@ -1,0 +1,98 @@
+{
+  "quickStart": {
+    "title": "Quick Start",
+    "importPlaylist": "Import Playlist",
+    "importPlaylistDesc": "Tap import at top-right of library. Supports Bilibili/YouTube links and importing from NetEase, QQ Music, Spotify",
+    "addToQueue": "Add to Queue",
+    "addToQueueDesc": "Open a playlist and tap \"Add All\" to add songs to the play queue",
+    "startPlayback": "Start Playing",
+    "startPlaybackDesc": "Tap any song to play, or use the bottom player controls"
+  },
+  "externalImport": {
+    "title": "External Playlist Import",
+    "platforms": "Supported Platforms",
+    "platformsDesc": "NetEase Music, QQ Music, Spotify",
+    "smartMatch": "Smart Matching",
+    "smartMatchDesc": "Automatically search and match songs on Bilibili/YouTube",
+    "preview": "Preview & Adjust",
+    "previewDesc": "Preview match results before importing, manually select alternatives or exclude songs"
+  },
+  "playbackControl": {
+    "title": "Playback Controls",
+    "shuffle": "Shuffle",
+    "shuffleDesc": "Tap shuffle button to randomize play order",
+    "loopMode": "Loop Mode",
+    "loopModeDesc": "List loop, single loop, or no loop",
+    "speed": "Playback Speed",
+    "speedDesc": "Adjust playback speed in fullscreen player",
+    "positionMemory": "Position Memory",
+    "positionMemoryDesc": "Long videos (>10 min) automatically save position, resume on next play",
+    "tempPlay": "Temporary Play",
+    "tempPlayDesc": "Tap a song in search/playlist to play temporarily, auto-restores original queue when done"
+  },
+  "search": {
+    "title": "Search",
+    "sources": "Supported Sources",
+    "sourcesDesc": "Bilibili and YouTube dual-source search",
+    "sortFilter": "Sort & Filter",
+    "sortFilterDesc": "Sort by relevance, views, date, or comments",
+    "liveFilter": "Live Room Filter",
+    "liveFilterDesc": "Bilibili search supports filtering live rooms (all/offline/online)",
+    "multiP": "Multi-Part Expand",
+    "multiPDesc": "Multi-part videos auto-detected, expand to view parts"
+  },
+  "liveRadio": {
+    "title": "Live & Radio",
+    "biliLive": "Bilibili Live",
+    "biliLiveDesc": "Search live rooms, listen to live audio",
+    "autoRefresh": "Auto Refresh",
+    "autoRefreshDesc": "Automatically refreshes when stream URL expires, maintains continuous playback"
+  },
+  "download": {
+    "title": "Download Music",
+    "setPath": "Set Download Path",
+    "setPathDesc": "Configure download directory in Settings → Storage",
+    "downloadSong": "Download Songs",
+    "downloadSongDesc": "Tap \"Download All\" in playlist detail or download individual songs from menu",
+    "offline": "Offline Playback",
+    "offlineDesc": "Browse and play downloaded songs by playlist in \"Downloaded\""
+  },
+  "explore": {
+    "title": "Explore",
+    "ranking": "Trending Charts",
+    "rankingDesc": "View Bilibili and YouTube music trending charts",
+    "autoUpdate": "Auto Update",
+    "autoUpdateDesc": "Charts refresh hourly in background, instant access with no wait"
+  },
+  "history": {
+    "title": "Play History",
+    "timeline": "Timeline",
+    "timelineDesc": "View all play records in chronological order",
+    "stats": "Statistics",
+    "statsDesc": "View play count and other statistics",
+    "filter": "Filter & Sort",
+    "filterDesc": "Filter and sort to quickly find songs"
+  },
+  "audioSettingsGuide": {
+    "title": "Audio Settings",
+    "qualityLevel": "Quality Level",
+    "qualityLevelDesc": "High/Medium/Low, applies to all sources",
+    "formatPriority": "Format Priority",
+    "formatPriorityDesc": "Choose Opus or AAC format for YouTube",
+    "streamPriority": "Stream Type Priority",
+    "streamPriorityDesc": "Audio-only (saves data) or muxed (more compatible)"
+  },
+  "ytMix": {
+    "dynamicPlaylist": "Dynamic Playlist",
+    "dynamicPlaylistDesc": "Import YouTube Mix/Radio playlists, automatically loads more songs",
+    "infinitePlay": "Infinite Playback",
+    "infinitePlayDesc": "Automatically fetches new songs when approaching queue end"
+  },
+  "appUpdate": {
+    "title": "App Updates",
+    "checkUpdate": "Check for Updates",
+    "checkUpdateDesc": "Settings → About → Check for Updates, fetches latest version from GitHub",
+    "autoInstall": "Auto Install",
+    "autoInstallDesc": "Android auto-installs APK after download, Windows auto-replaces on update"
+  }
+}

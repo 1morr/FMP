@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:tray_manager/tray_manager.dart';
+import 'package:fmp/i18n/strings.g.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../data/models/hotkey_config.dart';
@@ -106,7 +107,7 @@ class WindowsDesktopService with TrayListener, WindowListener {
     }
 
     // 设置悬停提示
-    await trayManager.setToolTip('FMP 音乐播放器');
+    await trayManager.setToolTip(t.tray.appName);
 
     // 设置右键菜单
     await _updateTrayMenu();
@@ -118,8 +119,8 @@ class WindowsDesktopService with TrayListener, WindowListener {
   /// 更新托盘菜单
   Future<void> _updateTrayMenu() async {
     final trackInfo = _currentTrack != null
-        ? '${_currentTrack!.title}\n${_currentTrack!.artist ?? "未知艺术家"}'
-        : '未在播放';
+        ? '${_currentTrack!.title}\n${_currentTrack!.artist ?? t.tray.unknownArtist}'
+        : t.tray.notPlaying;
 
     debugPrint('[WindowsDesktopService] Updating tray menu, isPlaying: $_isPlaying');
 
@@ -133,25 +134,25 @@ class WindowsDesktopService with TrayListener, WindowListener {
         MenuItem.separator(),
         MenuItem(
           key: 'play_pause',
-          label: _isPlaying ? '暂停' : '播放',
+          label: _isPlaying ? t.tray.pause : t.tray.play,
         ),
         MenuItem(
           key: 'previous',
-          label: '上一首',
+          label: t.tray.previous,
         ),
         MenuItem(
           key: 'next',
-          label: '下一首',
+          label: t.tray.next,
         ),
         MenuItem.separator(),
         MenuItem(
           key: 'show_window',
-          label: '显示窗口',
+          label: t.tray.showWindow,
         ),
         MenuItem.separator(),
         MenuItem(
           key: 'quit',
-          label: '退出',
+          label: t.tray.exit,
         ),
       ],
     );
@@ -164,9 +165,9 @@ class WindowsDesktopService with TrayListener, WindowListener {
   Future<void> updateTrayTooltip() async {
     if (!Platform.isWindows || !_isInitialized) return;
 
-    String tooltip = 'FMP 音乐播放器';
+    String tooltip = t.tray.appName;
     if (_currentTrack != null) {
-      final artist = _currentTrack!.artist ?? '未知艺术家';
+      final artist = _currentTrack!.artist ?? t.tray.unknownArtist;
       tooltip = '${_currentTrack!.title}\n$artist';
       if (_isPlaying) {
         tooltip = '▶ $tooltip';

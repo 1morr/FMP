@@ -1,0 +1,14 @@
+{
+  "changeDownloadPath": "更改下载路径",
+  "selectFolder": "选择文件夹",
+  "updating": "正在更新",
+  "operationFailed": "操作失败",
+  "changeWarning": "更改下载路径将清空所有已保存的下载路径信息。",
+  "filesNotDeleted": "下载的文件不会被删除，但需要重新扫描才能显示。",
+  "selectNewFolder": "请选择新的下载文件夹...",
+  "updatingSettings": "正在更新设置...",
+  "unknownError": "未知错误",
+  "continueButton": "继续",
+  "closeButton": "关闭",
+  "pathChanged": "下载路径已更改，请点击刷新按钮扫描本地文件"
+}

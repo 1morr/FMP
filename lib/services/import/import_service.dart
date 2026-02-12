@@ -10,6 +10,7 @@ import '../../data/repositories/track_repository.dart';
 import '../../data/sources/bilibili_source.dart';
 import '../../data/sources/source_provider.dart';
 import '../../data/sources/youtube_source.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 /// 导入进度
 class ImportProgress {
@@ -127,13 +128,13 @@ class ImportService with Logging {
   }) async {
     _isCancelled = false;
     _cancelledPlaylistId = null;
-    _updateProgress(status: ImportStatus.parsing, currentItem: '解析URL...');
+    _updateProgress(status: ImportStatus.parsing, currentItem: t.importSource.parsingUrl);
 
     try {
       // 识别音源类型
       final source = _sourceManager.detectSource(url);
       if (source == null) {
-        throw ImportException('无法识别的 URL 格式');
+        throw ImportException(t.importSource.unrecognizedUrlFormat);
       }
 
       // 檢測是否為 YouTube Mix 播放列表（RD 開頭）
@@ -160,7 +161,7 @@ class ImportService with Logging {
               status: ImportStatus.importing,
               current: current,
               total: total,
-              currentItem: '正在获取分P信息 ($current/$total)',
+              currentItem: t.importSource.gettingPageInfo(current: current.toString(), total: total.toString()),
             );
           },
         );
@@ -172,7 +173,7 @@ class ImportService with Logging {
         status: ImportStatus.importing,
         total: expandedTracks.length,
         current: 0,
-        currentItem: '正在导入...',
+        currentItem: t.importSource.importingProgress,
       );
 
       // 创建歌单
@@ -213,7 +214,7 @@ class ImportService with Logging {
           if (isNewPlaylist) {
             _cancelledPlaylistId = playlist.id;
           }
-          throw ImportException('导入已取消');
+          throw ImportException(t.importSource.cancelled);
         }
 
         final track = expandedTracks[i];
@@ -299,7 +300,7 @@ class ImportService with Logging {
     int? refreshIntervalHours,
     bool notifyOnUpdate = true,
   }) async {
-    _updateProgress(status: ImportStatus.parsing, currentItem: '解析 Mix 播放列表...');
+    _updateProgress(status: ImportStatus.parsing, currentItem: t.importSource.parsingMixPlaylist);
 
     try {
       final youtubeSource = YouTubeSource();
@@ -309,7 +310,7 @@ class ImportService with Logging {
       
       _updateProgress(
         status: ImportStatus.importing,
-        currentItem: '正在創建歌單...',
+        currentItem: t.importSource.creatingPlaylist,
       );
 
       // 創建歌單名稱
@@ -331,7 +332,7 @@ class ImportService with Logging {
         // 創建新的 Mix 歌單
         playlist = Playlist()
           ..name = playlistName
-          ..description = 'YouTube Mix 播放列表'
+          ..description = t.importSource.mixPlaylistDescription
           ..coverUrl = mixInfo.coverUrl
           ..sourceUrl = url
           ..importSourceType = SourceType.youtube
@@ -366,11 +367,11 @@ class ImportService with Logging {
   Future<ImportResult> refreshPlaylist(int playlistId) async {
     final playlist = await _playlistRepository.getById(playlistId);
     if (playlist == null) {
-      throw ImportException('歌单不存在');
+      throw ImportException(t.importSource.playlistNotFound);
     }
 
     if (!playlist.isImported || playlist.sourceUrl == null) {
-      throw ImportException('这不是导入的歌单');
+      throw ImportException(t.importSource.notImportedPlaylist);
     }
 
     // Mix 播放列表不需要刷新（tracks 是動態加載的）
@@ -384,12 +385,12 @@ class ImportService with Logging {
       );
     }
 
-    _updateProgress(status: ImportStatus.parsing, currentItem: '正在刷新...');
+    _updateProgress(status: ImportStatus.parsing, currentItem: t.importSource.refreshingImport);
 
     try {
       final source = _sourceManager.detectSource(playlist.sourceUrl!);
       if (source == null) {
-        throw ImportException('无法识别音源');
+        throw ImportException(t.importSource.unrecognizedSource);
       }
 
       final result = await source.parsePlaylist(playlist.sourceUrl!);
@@ -405,7 +406,7 @@ class ImportService with Logging {
               status: ImportStatus.importing,
               current: current,
               total: total,
-              currentItem: '正在获取分P信息 ($current/$total)',
+              currentItem: t.importSource.gettingPageInfo(current: current.toString(), total: total.toString()),
             );
           },
         );

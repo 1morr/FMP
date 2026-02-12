@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
+import '../../../core/utils/number_format_utils.dart';
+import '../../../i18n/strings.g.dart';
 import '../../../providers/popular_provider.dart';
 import '../../../providers/selection_provider.dart';
 import '../../../services/audio/audio_provider.dart';
@@ -75,7 +77,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
                 ),
               )
             : AppBar(
-                title: const Text('探索'),
+                title: Text(t.nav.explore),
                 bottom: TabBar(
                   controller: _tabController,
                   tabs: const [
@@ -117,7 +119,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       error: (_, __) => _buildRankingContent(
         tracks: [],
         isLoading: false,
-        error: '載入失敗',
+        error: t.general.loadFailed,
         onRefresh: () async {
           final service = ref.read(rankingCacheServiceProvider);
           await service.refreshBilibili();
@@ -148,7 +150,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       error: (_, __) => _buildRankingContent(
         tracks: [],
         isLoading: false,
-        error: '載入失敗',
+        error: t.general.loadFailed,
         onRefresh: () async {
           final service = ref.read(rankingCacheServiceProvider);
           await service.refreshYouTube();
@@ -177,13 +179,13 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
             Icon(Icons.error_outline, size: 48, color: colorScheme.error),
             const SizedBox(height: 16),
             Text(
-              '載入失敗',
+              t.general.loadFailed,
               style: TextStyle(color: colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 16),
             FilledButton(
               onPressed: onRefresh,
-              child: const Text('重試'),
+              child: Text(t.error.retry),
             ),
           ],
         ),
@@ -191,7 +193,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     }
 
     if (tracks.isEmpty) {
-      return const Center(child: Text('暫無數據'));
+      return Center(child: Text(t.databaseViewer.noData));
     }
 
     final selectionState = ref.watch(exploreSelectionProvider);
@@ -290,7 +292,7 @@ class _ExploreTrackTile extends ConsumerWidget {
         children: [
           Flexible(
             child: Text(
-              track.artist ?? '未知藝術家',
+              track.artist ?? t.general.unknownArtist,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -326,22 +328,22 @@ class _ExploreTrackTile extends ConsumerWidget {
     );
   }
 
-  List<PopupMenuEntry<String>> _buildMenuItems() => const [
+  List<PopupMenuEntry<String>> _buildMenuItems() => [
     PopupMenuItem(
       value: 'play',
-      child: ListTile(leading: Icon(Icons.play_arrow), title: Text('播放'), contentPadding: EdgeInsets.zero),
+      child: ListTile(leading: Icon(Icons.play_arrow), title: Text(t.searchPage.menu.play), contentPadding: EdgeInsets.zero),
     ),
     PopupMenuItem(
       value: 'play_next',
-      child: ListTile(leading: Icon(Icons.queue_play_next), title: Text('下一首播放'), contentPadding: EdgeInsets.zero),
+      child: ListTile(leading: Icon(Icons.queue_play_next), title: Text(t.searchPage.menu.playNext), contentPadding: EdgeInsets.zero),
     ),
     PopupMenuItem(
       value: 'add_to_queue',
-      child: ListTile(leading: Icon(Icons.add_to_queue), title: Text('添加到隊列'), contentPadding: EdgeInsets.zero),
+      child: ListTile(leading: Icon(Icons.add_to_queue), title: Text(t.searchPage.menu.addToQueue), contentPadding: EdgeInsets.zero),
     ),
     PopupMenuItem(
       value: 'add_to_playlist',
-      child: ListTile(leading: Icon(Icons.playlist_add), title: Text('添加到歌單'), contentPadding: EdgeInsets.zero),
+      child: ListTile(leading: Icon(Icons.playlist_add), title: Text(t.searchPage.menu.addToPlaylist), contentPadding: EdgeInsets.zero),
     ),
   ];
 
@@ -355,13 +357,13 @@ class _ExploreTrackTile extends ConsumerWidget {
       case 'play_next':
         final added = await controller.addNext(track);
         if (added && context.mounted) {
-          ToastService.success(context, '已添加到下一首');
+          ToastService.success(context, t.searchPage.toast.addedToNext);
         }
         break;
       case 'add_to_queue':
         final added = await controller.addToQueue(track);
         if (added && context.mounted) {
-          ToastService.success(context, '已添加到播放隊列');
+          ToastService.success(context, t.searchPage.toast.addedToQueue);
         }
         break;
       case 'add_to_playlist':
@@ -370,14 +372,7 @@ class _ExploreTrackTile extends ConsumerWidget {
     }
   }
 
-  String _formatViewCount(int count) {
-    if (count >= 100000000) {
-      return '${(count / 100000000).toStringAsFixed(1)}億';
-    } else if (count >= 10000) {
-      return '${(count / 10000).toStringAsFixed(1)}萬';
-    }
-    return count.toString();
-  }
+  String _formatViewCount(int count) => formatCount(count);
 }
 
 /// 圓形選擇勾選框

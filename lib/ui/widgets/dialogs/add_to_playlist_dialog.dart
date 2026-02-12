@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
@@ -128,7 +129,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
               child: Row(
                 children: [
                   Text(
-                    '添加到歌单',
+                    t.addToPlaylistDialog.title,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const Spacer(),
@@ -163,7 +164,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                       children: [
                         Text(
                           widget.isMultiple
-                              ? '${widget.tracks.length} 首歌曲'
+                              ? t.library.trackCountSongs(n: widget.tracks.length)
                               : widget.firstTrack.title,
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 fontWeight: FontWeight.w500,
@@ -174,7 +175,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                         Text(
                           widget.isMultiple
                               ? widget.firstTrack.parentTitle ?? widget.firstTrack.title
-                              : widget.firstTrack.artist ?? '未知艺术家',
+                              : widget.firstTrack.artist ?? t.general.unknownArtist,
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: colorScheme.onSurfaceVariant,
                               ),
@@ -204,7 +205,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                     color: colorScheme.onPrimaryContainer,
                   ),
                 ),
-                title: const Text('创建新歌单'),
+                title: Text(t.addToPlaylistDialog.createNew),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -218,7 +219,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
               child: Row(
                 children: [
                   Text(
-                    '可多选歌单',
+                    t.addToPlaylistDialog.multiSelect,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: colorScheme.outline,
                         ),
@@ -226,7 +227,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                   if (_selectedPlaylistIds.isNotEmpty) ...[
                     const Spacer(),
                     Text(
-                      '已选 ${_selectedPlaylistIds.length} 个',
+                      t.addToPlaylistDialog.selectedCount(count: _selectedPlaylistIds.length),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: colorScheme.primary,
                             fontWeight: FontWeight.w500,
@@ -241,7 +242,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
               child: playlists.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, _) => Center(
-                  child: Text('加载失败: $error'),
+                  child: Text(t.addToPlaylistDialog.loadFailed(error: error.toString())),
                 ),
                 data: (lists) {
                   // 过滤掉导入的歌单，只显示手动创建的歌单
@@ -259,14 +260,14 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            '暂无歌单',
+                            t.addToPlaylistDialog.noPlaylists,
                             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                                   color: colorScheme.outline,
                                 ),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            '点击上方创建新歌单',
+                            t.addToPlaylistDialog.createHint,
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                   color: colorScheme.outline,
                                 ),
@@ -352,7 +353,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                           ],
                         ),
                         title: Text(playlist.name),
-                        subtitle: Text('${playlist.trackCount} 首歌曲'),
+                        subtitle: Text(t.library.trackCountSongs(n: playlist.trackCount)),
                         trailing: isSelected
                             ? Icon(
                                 Icons.check_circle,
@@ -417,12 +418,12 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
     final result = await showDialog<String>(
       context: dialogContext,
       builder: (context) => AlertDialog(
-        title: const Text('创建歌单'),
+        title: Text(t.addToPlaylistDialog.createTitle),
         content: TextField(
           controller: _newPlaylistController,
           autofocus: true,
-          decoration: const InputDecoration(
-            hintText: '歌单名称',
+          decoration: InputDecoration(
+            hintText: t.addToPlaylistDialog.playlistNameHint,
           ),
           onSubmitted: (value) {
             if (value.trim().isNotEmpty) {
@@ -433,7 +434,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(t.general.cancel),
           ),
           FilledButton(
             onPressed: () {
@@ -442,7 +443,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                 Navigator.pop(context, name);
               }
             },
-            child: const Text('创建'),
+            child: Text(t.library.createPlaylist.create),
           ),
         ],
       ),
@@ -466,7 +467,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
         }
       } catch (e) {
         if (mounted) {
-          ToastService.error(context, '创建失败: $e');
+          ToastService.error(context, t.addToPlaylistDialog.createFailed(error: e.toString()));
         }
       }
     }
@@ -477,7 +478,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
   /// 获取确认按钮文本
   String _getConfirmButtonText() {
     if (_isAdding) {
-      return '保存中...';
+      return t.addToPlaylistDialog.saving;
     }
 
     // 计算变化
@@ -486,16 +487,16 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
 
     if (toAdd.isEmpty && toRemove.isEmpty) {
       // 没有变化
-      return '保存';
+      return t.addToPlaylistDialog.save;
     } else if (toAdd.isNotEmpty && toRemove.isEmpty) {
       // 只添加
-      return '添加到 ${toAdd.length} 个歌单';
+      return t.addToPlaylistDialog.addToCount(count: toAdd.length);
     } else if (toRemove.isNotEmpty && toAdd.isEmpty) {
       // 只移除
-      return '从 ${toRemove.length} 个歌单移出';
+      return t.addToPlaylistDialog.removeFromCount(count: toRemove.length);
     } else {
       // 同时添加和移除
-      return '添加 ${toAdd.length} 个，移出 ${toRemove.length} 个';
+      return t.addToPlaylistDialog.addAndRemoveCount(addCount: toAdd.length, removeCount: toRemove.length);
     }
   }
 
@@ -559,20 +560,20 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
 
         if (totalSuccess == totalChanged) {
           if (toAdd.isNotEmpty && toRemove.isNotEmpty) {
-            ToastService.success(context, '已添加 $addSuccessCount 个，移出 $removeSuccessCount 个');
+            ToastService.success(context, t.addToPlaylistDialog.addedAndRemoved(addCount: addSuccessCount, removeCount: removeSuccessCount));
           } else if (toAdd.isNotEmpty) {
-            ToastService.success(context, '已添加到 $addSuccessCount 个歌单');
+            ToastService.success(context, t.addToPlaylistDialog.addedToPlaylists(count: addSuccessCount));
           } else {
-            ToastService.success(context, '已从 $removeSuccessCount 个歌单移出');
+            ToastService.success(context, t.addToPlaylistDialog.removedFromPlaylists(count: removeSuccessCount));
           }
         } else {
-          ToastService.warning(context, '完成 $totalSuccess/$totalChanged 个操作');
+          ToastService.warning(context, t.addToPlaylistDialog.partiallyCompleted(success: totalSuccess, total: totalChanged));
         }
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
-        ToastService.error(context, '操作失败: $e');
+        ToastService.error(context, t.addToPlaylistDialog.operationFailed(error: e.toString()));
       }
     } finally {
       if (mounted) {

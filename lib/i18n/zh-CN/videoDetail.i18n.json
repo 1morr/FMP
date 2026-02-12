@@ -1,0 +1,8 @@
+{
+  "yearsAgo": "$n年前",
+  "monthsAgo": "$n个月前",
+  "daysAgo": "$n天前",
+  "hoursAgo": "$n小时前",
+  "minutesAgo": "$n分钟前",
+  "justNow": "刚刚"
+}

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 import 'playlist_import_source.dart';
 import 'qq_music_sign.dart';
@@ -48,12 +49,12 @@ class QQMusicPlaylistSource implements PlaylistImportSource {
 
     final playlistId = extractPlaylistId(resolvedUrl);
     if (playlistId == null) {
-      throw Exception('无法解析歌单ID: $url');
+      throw Exception(t.importSource.cannotParsePlaylistId(url: url));
     }
 
     final playlistIdInt = int.tryParse(playlistId);
     if (playlistIdInt == null) {
-      throw Exception('无效的歌单ID: $playlistId');
+      throw Exception(t.importSource.cannotParsePlaylistId(url: playlistId));
     }
 
     // 获取歌单信息（分页获取，每页最多1000首）
@@ -84,7 +85,7 @@ class QQMusicPlaylistSource implements PlaylistImportSource {
     }
 
     return ImportedPlaylist(
-      name: playlistName ?? '未知歌单',
+      name: playlistName ?? t.importSource.unknownPlaylist,
       sourceUrl: url,
       source: PlaylistSource.qqMusic,
       tracks: allTracks,
@@ -138,17 +139,17 @@ class QQMusicPlaylistSource implements PlaylistImportSource {
 
     final req0 = data['req_0'];
     if (req0 is! Map<String, dynamic>) {
-      throw Exception('响应数据格式错误');
+      throw Exception(t.importSource.responseDataFormatError);
     }
 
     final code = req0['code'];
     if (code != 0) {
-      throw Exception('获取歌单失败: code=$code');
+      throw Exception('${t.importSource.fetchPlaylistFailed}: code=$code');
     }
 
     final reqData = req0['data'];
     if (reqData is! Map<String, dynamic>) {
-      throw Exception('响应数据格式错误');
+      throw Exception(t.importSource.responseDataFormatError);
     }
 
     // 解析歌单信息
@@ -205,7 +206,7 @@ class QQMusicPlaylistSource implements PlaylistImportSource {
         // 解析失败
       }
     }
-    throw Exception('无效的响应格式');
+    throw Exception(t.importSource.invalidResponseFormat);
   }
 
   Map<String, dynamic> _buildRequest(int playlistId, int songBegin, int songNum) {
@@ -233,7 +234,7 @@ class QQMusicPlaylistSource implements PlaylistImportSource {
 
   List<String> _extractArtists(dynamic singers) {
     if (singers is! List) {
-      return ['未知艺术家'];
+      return [t.general.unknownArtist];
     }
 
     final artists = singers
@@ -246,7 +247,7 @@ class QQMusicPlaylistSource implements PlaylistImportSource {
         .whereType<String>()
         .toList();
 
-    return artists.isEmpty ? ['未知艺术家'] : artists;
+    return artists.isEmpty ? [t.general.unknownArtist] : artists;
   }
 
   String? _extractAlbumName(dynamic album) {

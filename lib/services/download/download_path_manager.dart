@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../storage_permission_service.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 /// 下载路径管理器
 ///
@@ -93,12 +94,12 @@ class DownloadPathManager {
           color: colorScheme.error,
           size: 32,
         ),
-        title: const Text('权限不足'),
-        content: const Text('无法写入所选目录，请选择其他位置或授予必要权限。'),
+        title: Text(t.permission.insufficientPermission),
+        content: Text(t.permission.cannotWriteDirectory),
         actions: [
           FilledButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('确定'),
+            child: Text(t.general.confirm),
           ),
         ],
       ),

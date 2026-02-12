@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 /// 存储权限服务
 ///
@@ -87,12 +88,12 @@ class StoragePermissionService {
               color: colorScheme.primary,
               size: 32,
             ),
-            title: const Text('需要存储权限'),
+            title: Text(t.permission.storageRequired),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('为了将音乐下载到您选择的文件夹，应用需要访问设备存储的权限。'),
+                Text(t.permission.storageExplanation),
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -110,7 +111,7 @@ class StoragePermissionService {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          '点击「继续」后，请在系统设置中允许 FMP 访问所有文件。',
+                          t.permission.storageInstructions,
                           style: TextStyle(
                             fontSize: 13,
                             color: colorScheme.onSurfaceVariant,
@@ -125,11 +126,11 @@ class StoragePermissionService {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消'),
+                child: Text(t.general.cancel),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('继续'),
+                child: Text(t.general.continueText),
               ),
             ],
           ),
@@ -149,18 +150,18 @@ class StoragePermissionService {
           color: colorScheme.error,
           size: 32,
         ),
-        title: const Text('权限被拒绝'),
-        content: const Text(
-          '存储权限已被拒绝。如果您想使用自定义下载路径，请在设置中手动授予权限。',
+        title: Text(t.permission.denied),
+        content: Text(
+          t.permission.deniedMessage,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(t.general.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('打开设置'),
+            child: Text(t.permission.goToSettings),
           ),
         ],
       ),

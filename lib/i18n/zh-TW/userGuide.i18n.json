@@ -1,0 +1,98 @@
+{
+  "quickStart": {
+    "title": "快速開始",
+    "importPlaylist": "匯入歌單",
+    "importPlaylistDesc": "音樂庫右上角點擊匯入，支援 Bilibili/YouTube 連結匯入，也支援從網易雲、QQ音樂、Spotify 匯入歌單",
+    "addToQueue": "加入佇列",
+    "addToQueueDesc": "開啟歌單，點擊「加入全部」將歌曲加入播放佇列",
+    "startPlayback": "開始播放",
+    "startPlaybackDesc": "點擊任意歌曲即可播放，或使用底部播放器控制"
+  },
+  "externalImport": {
+    "title": "外部歌單匯入",
+    "platforms": "支援平台",
+    "platformsDesc": "網易雲音樂、QQ音樂、Spotify",
+    "smartMatch": "智慧配對",
+    "smartMatchDesc": "自動在 Bilibili/YouTube 搜尋配對對應歌曲",
+    "preview": "預覽調整",
+    "previewDesc": "匯入前可預覽配對結果，手動選擇備選項或排除不需要的歌曲"
+  },
+  "playbackControl": {
+    "title": "播放控制",
+    "shuffle": "隨機播放",
+    "shuffleDesc": "點擊隨機按鈕打亂播放順序",
+    "loopMode": "循環模式",
+    "loopModeDesc": "支援列表循環、單曲循環、不循環",
+    "speed": "播放速度",
+    "speedDesc": "全螢幕播放器中可調節播放速度",
+    "positionMemory": "位置記憶",
+    "positionMemoryDesc": "長影片（>10分鐘）自動記憶播放位置，下次播放自動恢復",
+    "tempPlay": "臨時播放",
+    "tempPlayDesc": "搜尋或歌單中點擊歌曲臨時播放，完成後自動恢復原佇列"
+  },
+  "search": {
+    "title": "搜尋功能",
+    "sources": "支援音源",
+    "sourcesDesc": "Bilibili、YouTube 雙源搜尋",
+    "sortFilter": "排序篩選",
+    "sortFilterDesc": "支援按綜合、播放量、最新、彈幕數排序",
+    "liveFilter": "直播間篩選",
+    "liveFilterDesc": "Bilibili 搜尋支援篩選直播間（全部/未開播/已開播）",
+    "multiP": "多P展開",
+    "multiPDesc": "多P影片自動偵測，可展開檢視各分P"
+  },
+  "liveRadio": {
+    "title": "直播與電台",
+    "biliLive": "Bilibili 直播",
+    "biliLiveDesc": "搜尋直播間，收聽直播音訊",
+    "autoRefresh": "自動重新整理",
+    "autoRefreshDesc": "直播串流地址過期時自動重新整理，保持持續播放"
+  },
+  "download": {
+    "title": "下載音樂",
+    "setPath": "設定下載路徑",
+    "setPathDesc": "在設定 → 儲存中設定下載目錄",
+    "downloadSong": "下載歌曲",
+    "downloadSongDesc": "歌單詳情頁點擊「下載全部」或單個歌曲選單下載",
+    "offline": "離線播放",
+    "offlineDesc": "下載後在「已下載」中按歌單分類瀏覽和播放"
+  },
+  "explore": {
+    "title": "探索頁面",
+    "ranking": "熱門排行榜",
+    "rankingDesc": "檢視 Bilibili 和 YouTube 音樂熱門排行",
+    "autoUpdate": "自動更新",
+    "autoUpdateDesc": "排行榜每小時自動背景重新整理，開啟即看無需等待"
+  },
+  "history": {
+    "title": "播放歷史",
+    "timeline": "時間軸",
+    "timelineDesc": "按時間順序檢視所有播放紀錄",
+    "stats": "統計資訊",
+    "statsDesc": "檢視播放次數等統計資料",
+    "filter": "篩選排序",
+    "filterDesc": "支援篩選和排序，快速找到想聽的歌曲"
+  },
+  "audioSettingsGuide": {
+    "title": "音訊設定",
+    "qualityLevel": "音質等級",
+    "qualityLevelDesc": "支援高/中/低三檔，適用於所有音源",
+    "formatPriority": "格式優先級",
+    "formatPriorityDesc": "YouTube 支援選擇 Opus 或 AAC 格式",
+    "streamPriority": "串流類型優先級",
+    "streamPriorityDesc": "可選純音訊串流（省流量）或混合串流（相容性好）"
+  },
+  "ytMix": {
+    "dynamicPlaylist": "動態播放列表",
+    "dynamicPlaylistDesc": "匯入 YouTube Mix/Radio 播放列表，自動載入更多歌曲",
+    "infinitePlay": "無限播放",
+    "infinitePlayDesc": "播放接近佇列末尾時自動取得新歌曲，持續不斷"
+  },
+  "appUpdate": {
+    "title": "應用程式更新",
+    "checkUpdate": "檢查更新",
+    "checkUpdateDesc": "設定 → 關於 → 檢查更新，自動從 GitHub 取得最新版本",
+    "autoInstall": "自動安裝",
+    "autoInstallDesc": "Android 下載 APK 後自動安裝，Windows 下載後自動替換更新"
+  }
+}

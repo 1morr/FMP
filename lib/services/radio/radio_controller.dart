@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:fmp/i18n/strings.g.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/logger.dart';
@@ -355,7 +356,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
             state = state.copyWith(
               isLoading: false,
               clearLoadingStationId: true,
-              error: '直播間尚未開播',
+              error: t.radio.notLive,
             );
           }
           return;
@@ -422,7 +423,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       state = state.copyWith(
         isLoading: false,
         clearLoadingStationId: true,
-        error: '播放失敗: $e',
+        error: t.radio.playFailed(error: e.toString()),
       );
     }
   }
@@ -508,13 +509,13 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       // 解析 URL
       final parseResult = _radioSource.parseUrl(url);
       if (parseResult == null) {
-        throw Exception('無法解析此 URL，請確認是有效的直播間連結');
+        throw Exception(t.radio.cannotParseUrl);
       }
 
       // 檢查是否已存在（目前只支持 Bilibili）
       if (await _repository.exists(
           SourceType.bilibili, parseResult.sourceId)) {
-        throw Exception('此電台已存在');
+        throw Exception(t.radio.alreadyExists);
       }
 
       // 創建並獲取資訊
@@ -653,7 +654,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     if (attempts >= _maxReconnectAttempts) {
       state = state.copyWith(
         isPlaying: false,
-        error: '連線失敗，請稍後重試',
+        error: t.radio.connectionFailed,
         clearReconnectMessage: true,
       );
       return;
@@ -662,7 +663,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     final delay = _reconnectDelays[attempts];
     state = state.copyWith(
       reconnectAttempts: attempts + 1,
-      reconnectMessage: '連線中斷，${delay.inSeconds}秒後重試...',
+      reconnectMessage: t.radio.reconnectingCountdown(seconds: delay.inSeconds.toString()),
     );
 
     await Future.delayed(delay);

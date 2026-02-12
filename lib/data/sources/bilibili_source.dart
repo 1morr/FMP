@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:dio/dio.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
@@ -86,7 +87,7 @@ class BilibiliSource extends BaseSource with Logging {
   SourceType get sourceType => SourceType.bilibili;
 
   @override
-  String get sourceName => 'Bilibili';
+
 
   @override
   String? parseId(String url) {
@@ -725,7 +726,7 @@ class BilibiliSource extends BaseSource with Logging {
         // 检查是否是限流
         if (statusCode == 412 || statusCode == 429) {
           logWarning('Bilibili rate limited (HTTP $statusCode)');
-          return Exception('请求过于频繁，请稍后再试');
+          return Exception(t.error.rateLimited);
         }
         return Exception('Server error: $statusCode');
       default:

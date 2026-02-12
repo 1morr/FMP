@@ -450,9 +450,9 @@ class _LanguageListTile extends ConsumerWidget {
           systemLocale.countryCode == 'TW' ||
           systemLocale.countryCode == 'HK' ||
           systemLocale.countryCode == 'MO';
-      systemLanguageName = isTraditional ? '繁體中文' : '简体中文';
+      systemLanguageName = isTraditional ? t.settings.traditionalChinese : t.settings.simplifiedChinese;
     } else if (systemLocale.languageCode == 'en') {
-      systemLanguageName = 'English';
+      systemLanguageName = t.settings.english;
     } else {
       systemLanguageName = systemLocale.languageCode;
     }
@@ -488,15 +488,15 @@ class _LanguageListTile extends ConsumerWidget {
                 value: null,
               ),
               RadioListTile<AppLocale?>(
-                title: const Text('简体中文'),
+                title: Text(t.settings.simplifiedChinese),
                 value: AppLocale.zhCn,
               ),
               RadioListTile<AppLocale?>(
-                title: const Text('繁體中文'),
+                title: Text(t.settings.traditionalChinese),
                 value: AppLocale.zhTw,
               ),
               RadioListTile<AppLocale?>(
-                title: const Text('English'),
+                title: Text(t.settings.english),
                 value: AppLocale.en,
               ),
             ],

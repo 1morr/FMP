@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:fmp/i18n/strings.g.dart';
+
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
 import '../../data/repositories/track_repository.dart';
@@ -27,7 +29,7 @@ class DownloadPathSyncService with Logging {
   }) async {
     final basePath = await _pathManager.getCurrentDownloadPath();
     if (basePath == null) {
-      throw Exception('下载路径未配置');
+      throw Exception(t.download.pathNotConfigured);
     }
 
     final baseDir = Directory(basePath);

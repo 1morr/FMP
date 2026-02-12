@@ -1,0 +1,15 @@
+{
+  "title": "播放佇列",
+  "titleWithCount": "播放佇列 ($count)",
+  "shuffle": "隨機打亂",
+  "shuffled": "佇列已打亂",
+  "clear": "清空佇列",
+  "clearConfirm": "確定要清空播放佇列嗎？",
+  "clearButton": "清空",
+  "emptyTitle": "播放佇列為空",
+  "emptySubtitle": "加入歌曲到佇列開始播放",
+  "goSearch": "去搜尋",
+  "nowPlaying": "正在播放第 $index 首",
+  "totalCount": "共 $count 首",
+  "removeFromQueue": "從佇列移除"
+}

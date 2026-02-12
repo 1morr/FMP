@@ -13,6 +13,7 @@ import '../../../providers/download/file_exists_cache.dart';
 import '../../../providers/playlist_provider.dart' show allPlaylistsProvider, playlistDetailProvider;
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/download/download_path_sync_service.dart';
+import '../../../i18n/strings.g.dart';
 import '../../router.dart';
 
 /// 已下载页面 - 显示分类网格
@@ -55,16 +56,16 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
 
       if (!mounted) return;
 
-      final message = StringBuffer('同步完成');
+      final message = StringBuffer(t.library.downloadedPage.syncComplete);
       if (added > 0) {
-        message.write(': 添加 $added 首');
+        message.write(': ${t.library.downloadedPage.syncAdded(n: added)}');
       }
       if (removed > 0) {
         message.write(added > 0 ? ', ' : ': ');
-        message.write('移除 $removed 首');
+        message.write(t.library.downloadedPage.syncRemoved(n: removed));
       }
       if (added == 0 && removed == 0) {
-        message.write(': 无变化');
+        message.write(': ${t.library.downloadedPage.syncNoChanges}');
       }
       ToastService.show(context, message.toString());
     }
@@ -77,16 +78,16 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('已下载'),
+        title: Text(t.library.downloaded),
         actions: [
           IconButton(
             icon: const Icon(Icons.sync),
-            tooltip: '同步本地文件',
+            tooltip: t.library.downloadedPage.syncLocalFiles,
             onPressed: _syncLocalFiles,
           ),
           IconButton(
             icon: const Icon(Icons.download),
-            tooltip: '下载管理',
+            tooltip: t.library.downloadedPage.downloadManager,
             onPressed: () => context.pushNamed(RouteNames.downloadManager),
           ),
           const SizedBox(width: 8),
@@ -100,12 +101,12 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
             children: [
               Icon(Icons.error_outline, size: 64, color: colorScheme.error),
               const SizedBox(height: 16),
-              Text('加载失败: $error'),
+              Text(t.library.loadFailedWithError(error: error.toString())),
               const SizedBox(height: 16),
               FilledButton.icon(
                 onPressed: _syncLocalFiles,
                 icon: const Icon(Icons.sync),
-                label: const Text('重试'),
+                label: Text(t.library.retry),
               ),
             ],
           ),
@@ -136,12 +137,12 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
             ),
             const SizedBox(height: 24),
             Text(
-              '暂无已下载的歌曲',
+              t.library.downloadedPage.noDownloads,
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
             Text(
-              '在歌曲菜单中选择"下载"来下载歌曲',
+              t.library.downloadedPage.noDownloadsHint,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colorScheme.outline,
                   ),
@@ -187,7 +188,7 @@ class _SyncProgressDialog extends StatefulWidget {
 class _SyncProgressDialogState extends State<_SyncProgressDialog> {
   int _current = 0;
   int _total = 0;
-  String _status = '正在扫描...';
+  String _status = t.library.downloadedPage.scanning;
   bool _isComplete = false;
 
   @override
@@ -204,7 +205,7 @@ class _SyncProgressDialogState extends State<_SyncProgressDialog> {
             setState(() {
               _current = current;
               _total = total;
-              _status = '正在扫描 ($current/$total)...';
+              _status = t.library.downloadedPage.scanningProgress(current: current, total: total);
             });
           }
         },
@@ -216,7 +217,7 @@ class _SyncProgressDialogState extends State<_SyncProgressDialog> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _status = '同步失败: $e';
+          _status = t.library.downloadedPage.syncFailed(error: e.toString());
           _isComplete = true;
         });
       }
@@ -226,7 +227,7 @@ class _SyncProgressDialogState extends State<_SyncProgressDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('同步本地文件'),
+      title: Text(t.library.downloadedPage.syncLocalFiles),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -242,7 +243,7 @@ class _SyncProgressDialogState extends State<_SyncProgressDialog> {
           ? [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('关闭'),
+                child: Text(t.general.close),
               ),
             ]
           : null,
@@ -307,7 +308,7 @@ class _CategoryCard extends ConsumerWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        '${category.trackCount} 首',
+                        t.library.trackCount(n: category.trackCount),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: colorScheme.outline,
                             ),
@@ -370,7 +371,7 @@ class _CategoryCard extends ConsumerWidget {
             children: [
               ListTile(
                 leading: const Icon(Icons.play_arrow),
-                title: const Text('添加所有'),
+                title: Text(t.library.addAll),
                 onTap: () {
                   Navigator.pop(context);
                   _addAllToQueue(context, ref);
@@ -378,7 +379,7 @@ class _CategoryCard extends ConsumerWidget {
               ),
               ListTile(
                 leading: const Icon(Icons.shuffle),
-                title: const Text('随机添加'),
+                title: Text(t.library.shuffleAdd),
                 onTap: () {
                   Navigator.pop(context);
                   _shuffleAddToQueue(context, ref);
@@ -386,7 +387,7 @@ class _CategoryCard extends ConsumerWidget {
               ),
               ListTile(
                 leading: Icon(Icons.delete, color: colorScheme.error),
-                title: Text('删除整个分类', style: TextStyle(color: colorScheme.error)),
+                title: Text(t.library.downloadedPage.deleteCategory, style: TextStyle(color: colorScheme.error)),
                 onTap: () {
                   Navigator.pop(context);
                   _showDeleteConfirm(context, ref);
@@ -404,7 +405,7 @@ class _CategoryCard extends ConsumerWidget {
 
     if (tracksAsync.isEmpty) {
       if (context.mounted) {
-        ToastService.warning(context, '分类为空');
+        ToastService.warning(context, t.library.main.categoryEmpty);
       }
       return;
     }
@@ -413,7 +414,7 @@ class _CategoryCard extends ConsumerWidget {
     final added = await controller.addAllToQueue(tracksAsync);
 
     if (added && context.mounted) {
-      ToastService.success(context, '已添加 ${tracksAsync.length} 首歌曲到队列');
+      ToastService.success(context, t.library.addedToQueue(n: tracksAsync.length));
     }
   }
 
@@ -422,7 +423,7 @@ class _CategoryCard extends ConsumerWidget {
 
     if (tracksAsync.isEmpty) {
       if (context.mounted) {
-        ToastService.warning(context, '分类为空');
+        ToastService.warning(context, t.library.main.categoryEmpty);
       }
       return;
     }
@@ -432,7 +433,7 @@ class _CategoryCard extends ConsumerWidget {
     final added = await controller.addAllToQueue(shuffled);
 
     if (added && context.mounted) {
-      ToastService.success(context, '已随机添加 ${tracksAsync.length} 首歌曲到队列');
+      ToastService.success(context, t.library.shuffledAddedToQueue(n: tracksAsync.length));
     }
   }
 
@@ -440,12 +441,12 @@ class _CategoryCard extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除分类'),
-        content: Text('确定要删除 "${category.displayName}" 的所有下载文件吗？此操作无法撤销。'),
+        title: Text(t.library.downloadedPage.deleteCategoryTitle),
+        content: Text(t.library.downloadedPage.deleteCategoryConfirm(name: category.displayName)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(t.general.cancel),
           ),
           FilledButton(
             onPressed: () async {
@@ -455,7 +456,7 @@ class _CategoryCard extends ConsumerWidget {
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
-            child: const Text('删除'),
+            child: Text(t.general.delete),
           ),
         ],
       ),
@@ -483,11 +484,11 @@ class _CategoryCard extends ConsumerWidget {
       ref.invalidate(downloadedCategoriesProvider);
 
       if (context.mounted) {
-        ToastService.success(context, '已删除 "${category.displayName}"');
+        ToastService.success(context, t.library.downloadedPage.categoryDeleted(name: category.displayName));
       }
     } catch (e) {
       if (context.mounted) {
-        ToastService.error(context, '删除失败: $e');
+        ToastService.error(context, t.library.downloadedPage.deleteFailed(error: e.toString()));
       }
     }
   }

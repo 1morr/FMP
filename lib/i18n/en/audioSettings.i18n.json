@@ -1,0 +1,31 @@
+{
+  "title": "Audio Quality",
+  "qualityLevel": {
+    "title": "Global Quality Level",
+    "subtitle": "Applies to all sources",
+    "high": "High",
+    "highDescription": "Highest bitrate, best quality",
+    "medium": "Medium",
+    "mediumDescription": "Medium bitrate, balanced quality and data",
+    "low": "Low",
+    "lowDescription": "Lowest bitrate, saves data"
+  },
+  "formatPriority": {
+    "title": "YouTube Format Priority",
+    "subtitle": "Only applies to YouTube audio-only streams",
+    "opusName": "Opus (WebM)",
+    "opusDescription": "Good quality, small size, less compatible",
+    "aacName": "AAC (MP4)",
+    "aacDescription": "Most compatible"
+  },
+  "streamPriority": {
+    "youtubeTitle": "YouTube Stream Priority",
+    "bilibiliTitle": "Bilibili Stream Priority",
+    "audioOnly": "Audio only",
+    "audioOnlyDescription": "Saves data, downloads audio only",
+    "muxed": "Muxed",
+    "muxedDescription": "Includes video data, more compatible",
+    "hls": "HLS",
+    "hlsDescription": "Segmented stream, good for live"
+  }
+}

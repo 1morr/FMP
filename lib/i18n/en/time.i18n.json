@@ -1,0 +1,4 @@
+{
+  "hoursMinutes": "$hours hours $minutes minutes",
+  "minutesOnly": "$minutes minutes"
+}

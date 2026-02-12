@@ -1,0 +1,11 @@
+{
+  "title": "New Version Available",
+  "releaseNotes": "Release Notes",
+  "viewChangelog": "View full changelog",
+  "downloading": "Downloading... $percent%",
+  "installingRestart": "Installing update, app will restart...",
+  "installingOpening": "Opening installer...",
+  "later": "Later",
+  "retry": "Retry",
+  "updateNow": "Update Now"
+}

@@ -1,0 +1,4 @@
+{
+  "hoursMinutes": "$hours 小時 $minutes 分鐘",
+  "minutesOnly": "$minutes 分鐘"
+}

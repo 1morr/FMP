@@ -1,0 +1,18 @@
+{
+  "cancel": "取消",
+  "confirm": "確定",
+  "close": "關閉",
+  "loading": "載入中...",
+  "loadFailed": "載入失敗",
+  "enabled": "已啟用",
+  "disabled": "已停用",
+  "notSet": "未設定",
+  "defaultLabel": "預設",
+  "custom": "自訂",
+  "systemDefault": "系統預設",
+  "initializing": "正在初始化...",
+  "initFailed": "初始化失敗",
+  "unknownArtist": "未知藝術家",
+  "delete": "刪除",
+  "continueText": "繼續"
+}

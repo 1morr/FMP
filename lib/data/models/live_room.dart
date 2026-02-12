@@ -1,3 +1,5 @@
+import 'package:fmp/i18n/strings.g.dart';
+
 import 'radio_station.dart';
 import 'track.dart';
 
@@ -150,9 +152,9 @@ class LiveRoom {
 
   /// 获取直播状态文本
   String get liveStatusText => switch (liveStatus) {
-    LiveStatus.live => '直播中',
-    LiveStatus.replay => '轮播中',
-    LiveStatus.offline => '未开播',
+    LiveStatus.live => t.live.statusLive,
+    LiveStatus.replay => t.live.statusReplay,
+    LiveStatus.offline => t.live.statusOffline,
   };
 
   /// 是否可以播放（直播中或轮播中）
@@ -163,7 +165,7 @@ class LiveRoom {
     return Track()
       ..sourceId = 'live_$roomId'
       ..sourceType = SourceType.bilibili
-      ..title = title.isNotEmpty ? title : '$uname的直播间'
+      ..title = title.isNotEmpty ? title : t.live.roomTitle(uname: uname)
       ..artist = uname
       ..ownerId = uid
       ..thumbnailUrl = cover ?? face
@@ -176,7 +178,7 @@ class LiveRoom {
   RadioStation toRadioStation() {
     return RadioStation()
       ..url = 'https://live.bilibili.com/$roomId'
-      ..title = title.isNotEmpty ? title : '$uname的直播间'
+      ..title = title.isNotEmpty ? title : t.live.roomTitle(uname: uname)
       ..thumbnailUrl = cover
       ..hostName = uname
       ..hostAvatarUrl = face

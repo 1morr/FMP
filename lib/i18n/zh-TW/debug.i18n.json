@@ -1,0 +1,13 @@
+{
+  "waitingForTest": "等待測試...",
+  "streamTest": "串流測試",
+  "clearLogs": "清除日誌",
+  "videoIdHint": "例如: dQw4w9WgXcQ",
+  "fetchStreams": "獲取串流",
+  "batchTest": "批量測試",
+  "scanAllClients": "掃描所有客戶端 (尋找可用的 audio-only)",
+  "playbackHeaders": "播放 Headers:",
+  "logs": "日誌",
+  "verify": "驗證",
+  "play": "播放"
+}

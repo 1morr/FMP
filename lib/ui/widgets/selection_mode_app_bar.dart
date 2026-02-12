@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 import '../../core/services/toast_service.dart';
 import '../../data/models/track.dart';
@@ -67,16 +68,16 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
     return AppBar(
       leading: IconButton(
         icon: const Icon(Icons.close),
-        tooltip: '退出選擇模式',
+        tooltip: t.selectionMode.exitMode,
         onPressed: () => notifier.exitSelectionMode(),
       ),
-      title: Text('已選擇 $selectedCount 項'),
+      title: Text(t.selectionMode.selectedItems(count: selectedCount)),
       bottom: bottom,
       actions: [
         // 全選按鈕（圖標）
         IconButton(
           icon: Icon(isAllSelected ? Icons.deselect : Icons.select_all),
-          tooltip: isAllSelected ? '取消全選' : '全選',
+          tooltip: isAllSelected ? t.selectionMode.deselectAll : t.selectionMode.selectAll,
           onPressed: () {
             if (isAllSelected) {
               notifier.deselectAll();
@@ -94,44 +95,44 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
           itemBuilder: (context) => [
             // 添加到隊列
             if (availableActions.contains(SelectionAction.addToQueue))
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'add_to_queue',
                 child: ListTile(
                   leading: Icon(Icons.add_to_queue),
-                  title: Text('添加到隊列'),
+                  title: Text(t.selectionMode.addToQueue),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
 
             // 下一首播放
             if (availableActions.contains(SelectionAction.playNext))
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'play_next',
                 child: ListTile(
                   leading: Icon(Icons.queue_play_next),
-                  title: Text('下一首播放'),
+                  title: Text(t.selectionMode.playNext),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
 
             // 添加到歌單
             if (availableActions.contains(SelectionAction.addToPlaylist))
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'add_to_playlist',
                 child: ListTile(
                   leading: Icon(Icons.playlist_add),
-                  title: Text('添加到歌單'),
+                  title: Text(t.selectionMode.addToPlaylist),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
 
             // 下載
             if (availableActions.contains(SelectionAction.download))
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'download',
                 child: ListTile(
                   leading: Icon(Icons.download),
-                  title: Text('下載'),
+                  title: Text(t.selectionMode.download),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -142,7 +143,7 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
                 value: 'delete',
                 child: ListTile(
                   leading: Icon(Icons.delete_outline, color: colorScheme.error),
-                  title: Text('從歌單移除', style: TextStyle(color: colorScheme.error)),
+                  title: Text(t.selectionMode.removeFromPlaylist, style: TextStyle(color: colorScheme.error)),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -196,7 +197,7 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
     notifier.exitSelectionMode();
 
     if (context.mounted) {
-      ToastService.success(context, '已添加 $addedCount 首到隊列');
+      ToastService.success(context, t.selectionMode.addedToQueue(count: addedCount));
     }
   }
 
@@ -218,7 +219,7 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
     notifier.exitSelectionMode();
 
     if (context.mounted) {
-      ToastService.success(context, '已添加 $addedCount 首到下一首播放');
+      ToastService.success(context, t.selectionMode.addedToNext(count: addedCount));
     }
   }
 
@@ -263,16 +264,16 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('確認移除'),
-        content: Text('確定要從歌單中移除 ${tracks.length} 首歌曲嗎？'),
+        title: Text(t.selectionMode.confirmRemove),
+        content: Text(t.selectionMode.confirmRemoveContent(count: tracks.length)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(t.general.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('移除'),
+            child: Text(t.selectionMode.remove),
           ),
         ],
       ),
@@ -283,7 +284,7 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
       notifier.exitSelectionMode();
 
       if (context.mounted) {
-        ToastService.success(context, '已移除 ${tracks.length} 首歌曲');
+        ToastService.success(context, t.selectionMode.removedTracks(count: tracks.length));
       }
     }
   }

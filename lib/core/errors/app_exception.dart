@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 import '../logger.dart';
 
@@ -84,27 +85,27 @@ class ErrorHandler with Logging {
 
     if (error is SocketException) {
       return NetworkException(
-        '网络连接失败',
+        t.error.networkError,
         originalError: error,
       );
     }
 
     if (error is HttpException) {
       return NetworkException(
-        '网络请求失败: ${error.message}',
+        t.error.networkRequestFailedDetail(message: error.message),
         originalError: error,
       );
     }
 
     if (error is FormatException) {
       return ServerException(
-        '数据格式错误',
+        t.error.dataFormatError,
         originalError: error,
       );
     }
 
     return AppException(
-      error?.toString() ?? '未知错误',
+      error?.toString() ?? t.error.unknownError,
       originalError: error,
     );
   }
@@ -113,28 +114,28 @@ class ErrorHandler with Logging {
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
         return NetworkException(
-          '连接超时，请检查网络',
+          t.error.connectionTimeout,
           code: 'TIMEOUT',
           originalError: error,
         );
 
       case DioExceptionType.sendTimeout:
         return NetworkException(
-          '发送超时，请检查网络',
+          t.error.sendTimeout,
           code: 'SEND_TIMEOUT',
           originalError: error,
         );
 
       case DioExceptionType.receiveTimeout:
         return NetworkException(
-          '接收超时，请检查网络',
+          t.error.receiveTimeout,
           code: 'RECEIVE_TIMEOUT',
           originalError: error,
         );
 
       case DioExceptionType.badCertificate:
         return NetworkException(
-          '证书验证失败',
+          t.error.certificateFailed,
           code: 'CERT_ERROR',
           originalError: error,
         );
@@ -143,27 +144,27 @@ class ErrorHandler with Logging {
         final statusCode = error.response?.statusCode;
         if (statusCode == 404) {
           return NotFoundException(
-            '请求的资源不存在',
+            t.error.resourceNotFound,
             code: '404',
             originalError: error,
           );
         }
         if (statusCode == 403 || statusCode == 401) {
           return PermissionException(
-            '没有权限访问',
+            t.error.noPermission,
             code: statusCode.toString(),
             originalError: error,
           );
         }
         if (statusCode != null && statusCode >= 500) {
           return ServerException(
-            '服务器错误 ($statusCode)',
+            t.error.serverError(code: statusCode),
             statusCode: statusCode,
             originalError: error,
           );
         }
         return NetworkException(
-          '请求失败 ($statusCode)',
+          t.error.requestFailed(code: statusCode ?? 0),
           code: statusCode?.toString(),
           originalError: error,
         );
@@ -173,13 +174,13 @@ class ErrorHandler with Logging {
 
       case DioExceptionType.connectionError:
         return NetworkException(
-          '无法连接到服务器',
+          t.error.cannotConnectServer,
           code: 'CONNECTION_ERROR',
           originalError: error,
         );
 
       case DioExceptionType.unknown:
-        final message = error.message ?? '网络请求失败';
+        final message = error.message ?? t.error.networkRequestFailed;
         return NetworkException(
           message,
           originalError: error,
