@@ -59,6 +59,10 @@
     "noRewind": "不回退",
     "seconds": "$n 秒"
   },
+  "autoScrollToPlaying": {
+    "title": "自動定位目前播放",
+    "subtitle": "進入佇列頁面或切換歌曲時自動跳轉到目前播放位置"
+  },
   "version": {
     "title": "版本",
     "tapToEnableDev": "再點擊 $n 次啟用開發者選項",

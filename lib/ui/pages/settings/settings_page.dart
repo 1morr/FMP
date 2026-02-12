@@ -71,6 +71,7 @@ class SettingsPage extends ConsumerWidget {
                 onTap: () => context.push(RoutePaths.history),
               ),
               _RememberPlaybackPositionTile(),
+              _AutoScrollToPlayingTile(),
             ],
           ),
           const Divider(),
@@ -509,6 +510,26 @@ class _LanguageListTile extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 自动跳转到当前播放
+class _AutoScrollToPlayingTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(playbackSettingsProvider);
+
+    return SwitchListTile(
+      secondary: const Icon(Icons.my_location_outlined),
+      title: Text(t.settings.autoScrollToPlaying.title),
+      subtitle: Text(t.settings.autoScrollToPlaying.subtitle),
+      value: settings.autoScrollToCurrentTrack,
+      onChanged: settings.isLoading
+          ? null
+          : (value) {
+              ref.read(playbackSettingsProvider.notifier).setAutoScrollToCurrentTrack(value);
+            },
     );
   }
 }

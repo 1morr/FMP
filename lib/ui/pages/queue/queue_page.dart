@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
@@ -20,7 +21,10 @@ class QueuePage extends ConsumerStatefulWidget {
 }
 
 class _QueuePageState extends ConsumerState<QueuePage> {
-  ScrollController? _scrollController;
+  /// 用于快速跳转到指定索引
+  final ItemScrollController _itemScrollController = ItemScrollController();
+  final ItemPositionsListener _itemPositionsListener = ItemPositionsListener.create();
+
   static const double _itemHeight = 72.0;
   bool _initialScrollDone = false;
   int? _lastCurrentIndex;
@@ -30,39 +34,125 @@ class _QueuePageState extends ConsumerState<QueuePage> {
   int? _localCurrentIndex;
   int? _lastQueueVersion;
 
+  /// 拖拽状态
+  int? _draggingIndex;
+  int? _dragTargetIndex;
+
+  /// 是否在顶部区域（用于切换跳转按钮方向）
+  bool _isNearTop = true;
+
   @override
   void initState() {
     super.initState();
-    _initScrollController();
+    // 监听滚动位置，判断是否在顶部区域
+    _itemPositionsListener.itemPositions.addListener(_onPositionsChanged);
   }
 
-  void _initScrollController() {
-    final autoScroll = ref.read(autoScrollToCurrentTrackProvider);
-    final currentIndex = ref.read(audioControllerProvider).currentIndex ?? 0;
+  void _onPositionsChanged() {
+    final positions = _itemPositionsListener.itemPositions.value;
+    if (positions.isEmpty) return;
 
-    if (autoScroll && currentIndex > 0) {
-      // 估算初始滚动位置（稍微往上一点，之后会微调到 30% 位置）
-      final initialOffset = (currentIndex * _itemHeight - 200).clamp(0.0, double.infinity);
-      _scrollController = ScrollController(initialScrollOffset: initialOffset);
+    // 找到最小索引（最靠近顶部的可见项）
+    final minIndex = positions.map((p) => p.index).reduce((a, b) => a < b ? a : b);
+    final isNearTop = minIndex <= 2; // 前3项视为顶部区域
+
+    if (_isNearTop != isNearTop) {
+      setState(() {
+        _isNearTop = isNearTop;
+      });
+    }
+  }
+
+  /// 跳转到顶部或底部
+  void _scrollToTopOrBottom(int queueLength) {
+    if (!_itemScrollController.isAttached || queueLength == 0) return;
+
+    if (_isNearTop) {
+      // 在顶部，跳转到底部
+      _itemScrollController.jumpTo(
+        index: queueLength - 1,
+        alignment: 0.7,
+      );
     } else {
-      _scrollController = ScrollController();
+      // 不在顶部，跳转到顶部
+      _itemScrollController.jumpTo(index: 0);
     }
   }
 
   @override
   void dispose() {
-    _scrollController?.dispose();
+    _itemPositionsListener.itemPositions.removeListener(_onPositionsChanged);
     super.dispose();
   }
 
+  /// 快速跳转到当前播放的歌曲
   void _scrollToCurrentTrack(int currentIndex) {
-    if (_scrollController == null || !_scrollController!.hasClients) return;
+    if (!_itemScrollController.isAttached) return;
 
-    final viewportHeight = _scrollController!.position.viewportDimension;
-    final maxExtent = _scrollController!.position.maxScrollExtent;
-    final targetOffset = currentIndex * _itemHeight - (viewportHeight * 0.3);
+    // 使用 jumpTo 实现瞬间跳转，alignment 0.3 表示目标项在视口 30% 位置
+    _itemScrollController.jumpTo(
+      index: currentIndex,
+      alignment: 0.3,
+    );
+  }
 
-    _scrollController!.jumpTo(targetOffset.clamp(0.0, maxExtent));
+  /// 处理拖拽开始
+  void _onDragStart(int index) {
+    setState(() {
+      _draggingIndex = index;
+      _dragTargetIndex = index;
+    });
+  }
+
+  /// 处理拖拽更新（悬停在某个项目上）
+  void _onDragUpdate(int targetIndex) {
+    if (_dragTargetIndex != targetIndex) {
+      setState(() {
+        _dragTargetIndex = targetIndex;
+      });
+    }
+  }
+
+  /// 处理拖拽结束
+  void _onDragEnd() {
+    final oldIndex = _draggingIndex;
+    final newIndex = _dragTargetIndex;
+
+    setState(() {
+      _draggingIndex = null;
+      _dragTargetIndex = null;
+    });
+
+    if (oldIndex == null || newIndex == null || oldIndex == newIndex) return;
+
+    // 先更新本地状态（同步），避免闪烁
+    setState(() {
+      final track = _localQueue!.removeAt(oldIndex);
+      _localQueue!.insert(newIndex, track);
+
+      // 调整本地当前索引
+      final localIdx = _localCurrentIndex;
+      if (localIdx != null) {
+        if (oldIndex == localIdx) {
+          _localCurrentIndex = newIndex;
+        } else if (oldIndex < localIdx && newIndex >= localIdx) {
+          _localCurrentIndex = localIdx - 1;
+        } else if (oldIndex > localIdx && newIndex <= localIdx) {
+          _localCurrentIndex = localIdx + 1;
+        }
+      }
+    });
+
+    // 然后同步到 provider（异步）
+    ref.read(audioControllerProvider.notifier).moveInQueue(oldIndex, newIndex);
+  }
+
+  /// 处理拖拽取消
+  void _onDragCancel() {
+    setState(() {
+      _draggingIndex = null;
+      _dragTargetIndex = null;
+    });
   }
 
   @override
@@ -74,8 +164,6 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     final autoScroll = ref.watch(autoScrollToCurrentTrackProvider);
 
     // 同步本地队列与provider
-    // 当provider队列版本变化时（打乱、恢复顺序、添加/删除歌曲等），需要同步
-    // 拖拽重排时本地先更新、后同步到provider，不受此影响
     final queueVersion = playerState.queueVersion;
     final needsSync = _localQueue == null || _lastQueueVersion != queueVersion;
 
@@ -83,13 +171,12 @@ class _QueuePageState extends ConsumerState<QueuePage> {
       _localQueue = List.from(providerQueue);
       _lastQueueVersion = queueVersion;
     }
-    // 始终同步当前播放索引（不影响队列顺序）
     _localCurrentIndex = providerCurrentIndex;
 
     final queue = _localQueue!;
     final currentIndex = _localCurrentIndex ?? -1;
 
-    // 首次渲染后微调到精确的 30% 位置
+    // 首次渲染后跳转到当前播放位置
     if (autoScroll && !_initialScrollDone && currentIndex >= 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_initialScrollDone) {
@@ -115,6 +202,14 @@ class _QueuePageState extends ConsumerState<QueuePage> {
 
     return Scaffold(
       appBar: AppBar(
+        leadingWidth: 56,
+        leading: queue.isNotEmpty
+            ? IconButton(
+                icon: Icon(_isNearTop ? Icons.vertical_align_bottom : Icons.vertical_align_top),
+                tooltip: _isNearTop ? t.queue.scrollToBottom : t.queue.scrollToTop,
+                onPressed: () => _scrollToTopOrBottom(queue.length),
+              )
+            : null,
         title: LayoutBuilder(
           builder: (context, constraints) {
             return ConstrainedBox(
@@ -202,7 +297,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     required bool isMixMode,
     required bool isLoadingMoreMix,
   }) {
-    // Mix 模式下在底部添加加载指示器/留白区域
+    // Mix 模式下在底部添加加载指示器
     final hasBottomIndicator = isMixMode;
     final itemCount = hasBottomIndicator ? queue.length + 1 : queue.length;
 
@@ -243,60 +338,14 @@ class _QueuePageState extends ConsumerState<QueuePage> {
               ),
             ),
           ),
-        // 队列列表
+        // 队列列表 - 使用 ScrollablePositionedList 实现快速跳转
         Expanded(
-          child: ReorderableListView.builder(
-            scrollController: _scrollController!,
+          child: ScrollablePositionedList.builder(
+            itemScrollController: _itemScrollController,
+            itemPositionsListener: _itemPositionsListener,
             itemCount: itemCount,
-            buildDefaultDragHandles: false,
-            onReorder: (oldIndex, newIndex) {
-              // 忽略底部指示器的重排序
-              if (oldIndex >= queue.length || newIndex > queue.length) return;
-              // ReorderableListView 的 newIndex 在向下移动时需要减 1
-              if (newIndex > oldIndex) newIndex--;
-              if (oldIndex == newIndex) return;
-
-              // 先更新本地状态（同步），避免闪烁
-              setState(() {
-                final track = _localQueue!.removeAt(oldIndex);
-                _localQueue!.insert(newIndex, track);
-
-                // 调整本地当前索引
-                final localIdx = _localCurrentIndex;
-                if (localIdx != null) {
-                  if (oldIndex == localIdx) {
-                    _localCurrentIndex = newIndex;
-                  } else if (oldIndex < localIdx && newIndex >= localIdx) {
-                    _localCurrentIndex = localIdx - 1;
-                  } else if (oldIndex > localIdx && newIndex <= localIdx) {
-                    _localCurrentIndex = localIdx + 1;
-                  }
-                }
-              });
-
-              // 然后同步到 provider（异步）
-              ref.read(audioControllerProvider.notifier).moveInQueue(oldIndex, newIndex);
-            },
-            proxyDecorator: (child, index, animation) {
-              return AnimatedBuilder(
-                animation: animation,
-                builder: (context, child) {
-                  final animValue = Curves.easeInOut.transform(animation.value);
-                  final elevation = 1 + animValue * 8;
-                  final scale = 1 + animValue * 0.02;
-                  return Transform.scale(
-                    scale: scale,
-                    child: Material(
-                      elevation: elevation,
-                      color: colorScheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(8),
-                      child: child,
-                    ),
-                  );
-                },
-                child: child,
-              );
-            },
+            // 添加 addAutomaticKeepAlives 减少重建
+            addAutomaticKeepAlives: true,
             itemBuilder: (context, index) {
               // 底部指示器（Mix 模式下显示加载动画或留白）
               if (index == queue.length) {
@@ -304,14 +353,11 @@ class _QueuePageState extends ConsumerState<QueuePage> {
                   key: const ValueKey('queue_bottom_indicator'),
                   height: 48,
                   child: isLoadingMoreMix
-                      ? Center(
+                      ? const Center(
                           child: SizedBox(
                             width: 20,
                             height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: colorScheme.outline,
-                            ),
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                         )
                       : null,
@@ -320,16 +366,25 @@ class _QueuePageState extends ConsumerState<QueuePage> {
 
               final track = queue[index];
               final isPlaying = index == currentIndex;
+              final isDragging = _draggingIndex == index;
+              final isDragTarget = _dragTargetIndex == index && _draggingIndex != null && _draggingIndex != index;
 
-              return SizedBox(
-                key: ValueKey('queue_${index}_${track.id}'),
-                height: _itemHeight,
-                child: _QueueTrackTile(
+              // 使用 RepaintBoundary 隔离重绘
+              return RepaintBoundary(
+                child: _DraggableQueueItem(
+                  key: ValueKey('queue_${track.id}_$index'),
                   track: track,
                   index: index,
                   isPlaying: isPlaying,
+                  isDragging: isDragging,
+                  isDragTarget: isDragTarget,
+                  itemHeight: _itemHeight,
                   onTap: () => ref.read(audioControllerProvider.notifier).playAt(index),
                   onRemove: () => ref.read(audioControllerProvider.notifier).removeFromQueue(index),
+                  onDragStart: () => _onDragStart(index),
+                  onDragUpdate: _onDragUpdate,
+                  onDragEnd: _onDragEnd,
+                  onDragCancel: _onDragCancel,
                 ),
               );
             },
@@ -363,81 +418,159 @@ class _QueuePageState extends ConsumerState<QueuePage> {
   }
 }
 
-/// 队列歌曲项
-class _QueueTrackTile extends StatelessWidget {
+/// 可拖拽的队列项 - 简化结构，减少嵌套
+class _DraggableQueueItem extends StatelessWidget {
   final Track track;
   final int index;
   final bool isPlaying;
+  final bool isDragging;
+  final bool isDragTarget;
+  final double itemHeight;
   final VoidCallback onTap;
   final VoidCallback onRemove;
+  final VoidCallback onDragStart;
+  final void Function(int) onDragUpdate;
+  final VoidCallback onDragEnd;
+  final VoidCallback onDragCancel;
 
-  const _QueueTrackTile({
+  const _DraggableQueueItem({
+    super.key,
     required this.track,
     required this.index,
     required this.isPlaying,
+    required this.isDragging,
+    required this.isDragTarget,
+    required this.itemHeight,
     required this.onTap,
     required this.onRemove,
+    required this.onDragStart,
+    required this.onDragUpdate,
+    required this.onDragEnd,
+    required this.onDragCancel,
   });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return ListTile(
-        leading: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 拖拽手柄
-            ReorderableDragStartListener(
-              index: index,
-              child: Icon(
-                Icons.drag_handle,
-                color: colorScheme.outline,
+    // 构建列表项内容（复用于正常显示和拖拽反馈）
+    Widget buildTileContent({bool isFeedback = false}) {
+      return SizedBox(
+        height: itemHeight,
+        child: Material(
+          color: isFeedback ? colorScheme.surfaceContainerHigh : Colors.transparent,
+          elevation: isFeedback ? 8 : 0,
+          borderRadius: isFeedback ? BorderRadius.circular(8) : null,
+          child: InkWell(
+            onTap: isFeedback ? null : onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+
+                  // 封面
+                  TrackThumbnail(
+                    track: track,
+                    size: 48,
+                    isPlaying: isPlaying,
+                  ),
+                  const SizedBox(width: 12),
+                  // 标题和艺术家
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          track.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isPlaying ? colorScheme.primary : colorScheme.onSurface,
+                            fontWeight: isPlaying ? FontWeight.w600 : FontWeight.normal,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          track.artist ?? t.general.unknownArtist,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // 时长
+                  if (track.durationMs != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Text(
+                        DurationFormatter.formatMs(track.durationMs!),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colorScheme.outline,
+                        ),
+                      ),
+                    ),
+                  // 删除按钮
+                  if (!isFeedback)
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      color: colorScheme.outline,
+                      onPressed: onRemove,
+                      tooltip: t.queue.removeFromQueue,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                ],
               ),
             ),
-            const SizedBox(width: 8),
-            // 封面
-            TrackThumbnail(
-              track: track,
-              size: 48,
-              isPlaying: isPlaying,
-            ),
-          ],
-        ),
-        title: Text(
-          track.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: isPlaying ? colorScheme.primary : null,
-            fontWeight: isPlaying ? FontWeight.w600 : null,
           ),
         ),
-        subtitle: Text(
-          track.artist ?? t.general.unknownArtist,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: Row(
+      );
+    }
+
+    return DragTarget<int>(
+      onWillAcceptWithDetails: (details) {
+        onDragUpdate(index);
+        return true;
+      },
+      onAcceptWithDetails: (details) {
+        onDragEnd();
+      },
+      builder: (context, candidateData, rejectedData) {
+        return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (track.durationMs != null)
-              Text(
-                DurationFormatter.formatMs(track.durationMs!),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.outline,
-                    ),
+            // 拖拽目标指示器（显示在项目上方）
+            if (isDragTarget)
+              Container(
+                height: 2,
+                color: colorScheme.primary,
+                margin: const EdgeInsets.symmetric(horizontal: 16),
               ),
-            IconButton(
-              icon: const Icon(Icons.close),
-              iconSize: 20,
-              color: colorScheme.outline,
-              onPressed: onRemove,
-              tooltip: t.queue.removeFromQueue,
+            // 实际的列表项
+            LongPressDraggable<int>(
+              data: index,
+              delay: const Duration(milliseconds: 150), // 缩短长按延迟
+              onDragStarted: onDragStart,
+              onDraggableCanceled: (_, __) => onDragCancel(),
+              feedback: SizedBox(
+                width: MediaQuery.of(context).size.width - 32,
+                child: buildTileContent(isFeedback: true),
+              ),
+              childWhenDragging: Opacity(
+                opacity: 0.3,
+                child: buildTileContent(),
+              ),
+              child: buildTileContent(),
             ),
           ],
-        ),
-        onTap: onTap,
-      );
+        );
+      },
+    );
   }
 }
