@@ -84,7 +84,7 @@
 
 ### 应用内更新
 - GitHub Releases 自动检查
-- Android APK / Windows ZIP 下载安装
+- Android APK / Windows ZIP 或 Installer 下载安装
 - Release Notes 显示
 
 ### 平台特性
@@ -93,10 +93,12 @@
 |------|---------|---------|
 | 后台播放 | ✅ | - |
 | 通知栏控制 | ✅ | - |
-| 系统媒体键 | ✅ | ✅ (SMTC) |
+| 系统媒体键 | ✅ | ✅ (SMTC*) |
 | 系统托盘 | - | ✅ |
 | 全局快捷键 | - | ✅ |
 | 窗口管理 | - | ✅ |
+
+> *SMTC 需要通过安装包安装才能正确显示应用图标和名称，推荐使用 Installer 版本。
 
 ### 响应式设计
 
@@ -218,6 +220,8 @@ flutter run
 
 ### 构建发布
 
+详细构建说明（签名配置、Windows 安装包等）请参考 [构建指南](docs/build-guide.md)。
+
 ```bash
 # Android APK
 flutter build apk
@@ -227,6 +231,9 @@ flutter build appbundle
 
 # Windows
 flutter build windows
+
+# Windows 安装包（推荐，完整 SMTC 支持）
+dart run inno_bundle:build --release
 ```
 
 ---
