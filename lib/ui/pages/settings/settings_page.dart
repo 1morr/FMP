@@ -11,6 +11,8 @@ import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/network_image_cache_service.dart';
 import '../../../data/models/hotkey_config.dart';
 import '../../../data/models/settings.dart';
+import '../../../i18n/strings.g.dart';
+import '../../../providers/locale_provider.dart';
 import '../../../providers/theme_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../../providers/download_settings_provider.dart';
@@ -30,37 +32,41 @@ class SettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 监听 locale 变化，确保切换语言时整个页面重建
+    ref.watch(localeProvider);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('设置'),
+        title: Text(t.settings.title),
       ),
       body: ListView(
         children: [
           // 外观设置
           _SettingsSection(
-            title: '外观',
+            title: t.settings.appearance,
             children: [
               _ThemeModeListTile(),
               _ThemeColorListTile(),
               _FontFamilyListTile(),
+              _LanguageListTile(),
             ],
           ),
           const Divider(),
           // 播放设置
           _SettingsSection(
-            title: '播放',
+            title: t.settings.playback,
             children: [
               ListTile(
                 leading: const Icon(Icons.graphic_eq),
-                title: const Text('音频质量'),
-                subtitle: const Text('码率、格式、流优先级'),
+                title: Text(t.settings.audioQuality.title),
+                subtitle: Text(t.settings.audioQuality.subtitle),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(RoutePaths.audioSettings),
               ),
               ListTile(
                 leading: const Icon(Icons.history),
-                title: const Text('播放历史'),
-                subtitle: const Text('查看和管理播放记录'),
+                title: Text(t.settings.playHistory.title),
+                subtitle: Text(t.settings.playHistory.subtitle),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(RoutePaths.history),
               ),
@@ -70,7 +76,7 @@ class SettingsPage extends ConsumerWidget {
           const Divider(),
           // 缓存设置
           _SettingsSection(
-            title: '缓存',
+            title: t.settings.cache,
             children: [
               _ImageCacheSizeListTile(),
               _ClearImageCacheListTile(),
@@ -79,7 +85,7 @@ class SettingsPage extends ConsumerWidget {
           const Divider(),
           // 存储设置
           _SettingsSection(
-            title: '存储',
+            title: t.settings.storage,
             children: [
               _DownloadManagerListTile(),
               _DownloadPathListTile(),
@@ -91,7 +97,7 @@ class SettingsPage extends ConsumerWidget {
           // 桌面设置（仅 Windows）
           if (Platform.isWindows)
             _SettingsSection(
-              title: '桌面',
+              title: t.settings.desktop,
               children: [
                 _MinimizeToTrayTile(),
                 _GlobalHotkeysTile(),
@@ -100,12 +106,12 @@ class SettingsPage extends ConsumerWidget {
           if (Platform.isWindows) const Divider(),
           // 关于
           _SettingsSection(
-            title: '关于',
+            title: t.settings.about,
             children: [
               ListTile(
                 leading: const Icon(Icons.menu_book_outlined),
-                title: const Text('使用说明'),
-                subtitle: const Text('快速入门、功能介绍、使用提示'),
+                title: Text(t.settings.userGuide.title),
+                subtitle: Text(t.settings.userGuide.subtitle),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(RoutePaths.userGuide),
               ),
@@ -113,8 +119,8 @@ class SettingsPage extends ConsumerWidget {
               _VersionListTile(),
               ListTile(
                 leading: const Icon(Icons.code_outlined),
-                title: const Text('开源许可'),
-                subtitle: const Text('查看第三方开源组件许可证'),
+                title: Text(t.settings.openSource.title),
+                subtitle: Text(t.settings.openSource.subtitle),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () async {
                   final info = await PackageInfo.fromPlatform();
@@ -142,9 +148,9 @@ class _ThemeModeListTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
     final themeName = switch (themeMode) {
-      ThemeMode.system => '跟随系统',
-      ThemeMode.light => '浅色',
-      ThemeMode.dark => '深色',
+      ThemeMode.system => t.settings.theme.followSystem,
+      ThemeMode.light => t.settings.theme.light,
+      ThemeMode.dark => t.settings.theme.dark,
     };
 
     return ListTile(
@@ -155,7 +161,7 @@ class _ThemeModeListTile extends ConsumerWidget {
           ThemeMode.dark => Icons.dark_mode,
         },
       ),
-      title: const Text('主题'),
+      title: Text(t.settings.theme.title),
       subtitle: Text(themeName),
       trailing: const Icon(Icons.chevron_right),
       onTap: () => _showThemeModeDialog(context, ref, themeMode),
@@ -166,7 +172,7 @@ class _ThemeModeListTile extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('选择主题'),
+        title: Text(t.settings.theme.selectTitle),
         content: RadioGroup<ThemeMode>(
           groupValue: currentMode,
           onChanged: (value) {
@@ -179,17 +185,17 @@ class _ThemeModeListTile extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               RadioListTile<ThemeMode>(
-                title: const Text('跟随系统'),
+                title: Text(t.settings.theme.followSystem),
                 secondary: const Icon(Icons.brightness_auto),
                 value: ThemeMode.system,
               ),
               RadioListTile<ThemeMode>(
-                title: const Text('浅色'),
+                title: Text(t.settings.theme.light),
                 secondary: const Icon(Icons.light_mode),
                 value: ThemeMode.light,
               ),
               RadioListTile<ThemeMode>(
-                title: const Text('深色'),
+                title: Text(t.settings.theme.dark),
                 secondary: const Icon(Icons.dark_mode),
                 value: ThemeMode.dark,
               ),
@@ -199,7 +205,7 @@ class _ThemeModeListTile extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(t.general.cancel),
           ),
         ],
       ),
@@ -216,8 +222,8 @@ class _ThemeColorListTile extends ConsumerWidget {
 
     return ListTile(
       leading: const Icon(Icons.color_lens_outlined),
-      title: const Text('主题色'),
-      subtitle: Text(primaryColor == null ? '默认' : '自定义'),
+      title: Text(t.settings.themeColor.title),
+      subtitle: Text(primaryColor == null ? t.general.defaultLabel : t.general.custom),
       trailing: Container(
         width: 24,
         height: 24,
@@ -238,13 +244,12 @@ class _ThemeColorListTile extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('选择主题色'),
+        title: Text(t.settings.themeColor.selectTitle),
         content: SizedBox(
           width: 280,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 默认选项
               ListTile(
                 leading: Container(
                   width: 32,
@@ -257,7 +262,7 @@ class _ThemeColorListTile extends ConsumerWidget {
                         : null,
                   ),
                 ),
-                title: const Text('默认'),
+                title: Text(t.general.defaultLabel),
                 selected: currentColor == null,
                 onTap: () {
                   ref.read(themeProvider.notifier).setPrimaryColor(null);
@@ -316,7 +321,7 @@ class _ThemeColorListTile extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(t.general.cancel),
           ),
         ],
       ),
@@ -333,11 +338,11 @@ class _FontFamilyListTile extends ConsumerWidget {
     final currentDisplay = fonts
         .where((f) => f.fontFamily == fontFamily)
         .map((f) => f.displayName)
-        .firstOrNull ?? fontFamily ?? '系统默认';
+        .firstOrNull ?? fontFamily ?? t.general.systemDefault;
 
     return ListTile(
       leading: const Icon(Icons.font_download_outlined),
-      title: const Text('字体'),
+      title: Text(t.settings.font.title),
       subtitle: Text(currentDisplay),
       onTap: () => _showFontDialog(context, ref, fontFamily),
     );
@@ -349,7 +354,7 @@ class _FontFamilyListTile extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('选择字体'),
+        title: Text(t.settings.font.selectTitle),
         content: SizedBox(
           width: 280,
           child: ListView.builder(
@@ -383,7 +388,71 @@ class _FontFamilyListTile extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(t.general.cancel),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 语言选择
+class _LanguageListTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final displayName = ref.watch(localeDisplayNameProvider);
+
+    return ListTile(
+      leading: const Icon(Icons.language_outlined),
+      title: Text(t.settings.language.title),
+      subtitle: Text(displayName),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => _showLanguageDialog(context, ref),
+    );
+  }
+
+  void _showLanguageDialog(BuildContext context, WidgetRef ref) {
+    final currentLocale = ref.read(localeProvider);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t.settings.language.selectTitle),
+        content: RadioGroup<AppLocale?>(
+          groupValue: currentLocale,
+          onChanged: (value) {
+            // value is the selected AppLocale or null (follow system)
+            // RadioListTile passes the value directly
+            ref.read(localeProvider.notifier).setLocale(value);
+            Navigator.pop(context);
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RadioListTile<AppLocale?>(
+                title: Text(t.settings.language.followSystem),
+                secondary: const Icon(Icons.brightness_auto),
+                value: null,
+              ),
+              RadioListTile<AppLocale?>(
+                title: const Text('简体中文'),
+                value: AppLocale.zhCn,
+              ),
+              RadioListTile<AppLocale?>(
+                title: const Text('繁體中文'),
+                value: AppLocale.zhTw,
+              ),
+              RadioListTile<AppLocale?>(
+                title: const Text('English'),
+                value: AppLocale.en,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(t.general.cancel),
           ),
         ],
       ),
@@ -400,15 +469,15 @@ class _RememberPlaybackPositionTile extends ConsumerWidget {
 
     return ListTile(
       leading: const Icon(Icons.history_outlined),
-      title: const Text('记住播放位置'),
-      subtitle: Text(isEnabled ? '已启用' : '已禁用'),
+      title: Text(t.settings.rememberPosition.title),
+      subtitle: Text(isEnabled ? t.general.enabled : t.general.disabled),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (isEnabled && !settings.isLoading)
             IconButton(
               icon: const Icon(Icons.settings_outlined),
-              tooltip: '配置回退时间',
+              tooltip: t.settings.rememberPosition.configRewind,
               onPressed: () => showDialog(
                 context: context,
                 builder: (context) => const _RewindSettingsDialog(),
@@ -446,11 +515,11 @@ class _RewindSettingsDialog extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return AlertDialog(
-      title: const Row(
+      title: Row(
         children: [
-          Icon(Icons.history_outlined),
-          SizedBox(width: 8),
-          Text('回退时间设置'),
+          const Icon(Icons.history_outlined),
+          const SizedBox(width: 8),
+          Text(t.settings.rewindSettings.title),
         ],
       ),
       content: SizedBox(
@@ -459,22 +528,22 @@ class _RewindSettingsDialog extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              '恢复播放时自动回退一段时间，方便回忆上下文',
+              t.settings.rewindSettings.description,
               style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 20),
             _buildRewindRow(
               context: context,
-              label: '重启恢复',
-              subtitle: '应用重启后恢复播放时',
+              label: t.settings.rewindSettings.restartRewind,
+              subtitle: t.settings.rewindSettings.restartRewindSubtitle,
               value: settings.restartRewindSeconds,
               onChanged: (v) => ref.read(playbackSettingsProvider.notifier).setRestartRewindSeconds(v),
             ),
             const SizedBox(height: 16),
             _buildRewindRow(
               context: context,
-              label: '临时播放恢复',
-              subtitle: '临时播放结束回到原队列时',
+              label: t.settings.rewindSettings.tempPlayRewind,
+              subtitle: t.settings.rewindSettings.tempPlayRewindSubtitle,
               value: settings.tempPlayRewindSeconds,
               onChanged: (v) => ref.read(playbackSettingsProvider.notifier).setTempPlayRewindSeconds(v),
             ),
@@ -484,7 +553,7 @@ class _RewindSettingsDialog extends ConsumerWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('关闭'),
+          child: Text(t.general.close),
         ),
       ],
     );
@@ -512,7 +581,7 @@ class _RewindSettingsDialog extends ConsumerWidget {
           children: _rewindOptions.map((option) {
             final isSelected = option == value;
             return ChoiceChip(
-              label: Text(option == 0 ? '不回退' : '$option 秒'),
+              label: Text(option == 0 ? t.settings.rewindSettings.noRewind : t.settings.rewindSettings.seconds(n: option)),
               selected: isSelected,
               onSelected: (_) => onChanged(option),
             );
@@ -538,7 +607,7 @@ class _VersionListTile extends ConsumerWidget {
 
         return ListTile(
           leading: const Icon(Icons.info_outline),
-          title: const Text('版本'),
+          title: Text(t.settings.version.title),
           subtitle: Text(versionText),
           onTap: () {
             notifier.onVersionTap();
@@ -549,15 +618,15 @@ class _VersionListTile extends ConsumerWidget {
                 ScaffoldMessenger.of(context).hideCurrentSnackBar();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('再点击 $remaining 次启用开发者选项'),
+                    content: Text(t.settings.version.tapToEnableDev(n: remaining)),
                     duration: const Duration(seconds: 1),
                   ),
                 );
               } else if (remaining == 0) {
                 ScaffoldMessenger.of(context).hideCurrentSnackBar();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('开发者选项已启用'),
+                  SnackBar(
+                    content: Text(t.settings.version.devEnabled),
                     duration: Duration(seconds: 2),
                   ),
                 );
@@ -579,14 +648,14 @@ class _CheckUpdateListTile extends ConsumerWidget {
 
     return ListTile(
       leading: const Icon(Icons.system_update_outlined),
-      title: const Text('检查更新'),
+      title: Text(t.settings.update.title),
       subtitle: Text(
         switch (updateState.status) {
-          UpdateStatus.checking => '正在检查...',
-          UpdateStatus.upToDate => '已是最新版本',
-          UpdateStatus.updateAvailable => '有新版本: ${updateState.updateInfo?.version ?? ""}',
-          UpdateStatus.error => '检查失败，点击重试',
-          _ => '检查 GitHub 上的新版本',
+          UpdateStatus.checking => t.settings.update.checking,
+          UpdateStatus.upToDate => t.settings.update.upToDate,
+          UpdateStatus.updateAvailable => t.settings.update.available(version: updateState.updateInfo?.version ?? ""),
+          UpdateStatus.error => t.settings.update.error,
+          _ => t.settings.update.checkGitHub,
         },
       ),
       trailing: isChecking
@@ -608,8 +677,8 @@ class _CheckUpdateListTile extends ConsumerWidget {
               } else if (state.status == UpdateStatus.upToDate) {
                 ScaffoldMessenger.of(context).hideCurrentSnackBar();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('已是最新版本'),
+                  SnackBar(
+                    content: Text(t.settings.update.upToDate),
                     duration: Duration(seconds: 2),
                   ),
                 );
@@ -617,7 +686,7 @@ class _CheckUpdateListTile extends ConsumerWidget {
                 ScaffoldMessenger.of(context).hideCurrentSnackBar();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(state.errorMessage ?? '检查更新失败'),
+                    content: Text(state.errorMessage ?? t.settings.update.checkFailed),
                     duration: const Duration(seconds: 3),
                   ),
                 );
@@ -641,12 +710,12 @@ class _DeveloperOptionsSection extends ConsumerWidget {
       children: [
         const Divider(),
         _SettingsSection(
-          title: '开发者选项',
+          title: t.settings.developerOptions.title,
           children: [
             ListTile(
               leading: const Icon(Icons.developer_mode_outlined),
-              title: const Text('开发者选项'),
-              subtitle: const Text('调试工具和实验性功能'),
+              title: Text(t.settings.developerOptions.title),
+              subtitle: Text(t.settings.developerOptions.subtitle),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.pushNamed(RouteNames.developerOptions),
             ),
@@ -693,8 +762,8 @@ class _DownloadManagerListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       leading: const Icon(Icons.download_outlined),
-      title: const Text('下载管理'),
-      subtitle: const Text('管理下载队列和进度'),
+      title: Text(t.settings.downloadManager.title),
+      subtitle: Text(t.settings.downloadManager.subtitle),
       trailing: const Icon(Icons.chevron_right),
       onTap: () => context.pushNamed(RouteNames.downloadManager),
     );
@@ -708,21 +777,21 @@ class _DownloadPathListTile extends ConsumerWidget {
     final downloadPathAsync = ref.watch(downloadPathProvider);
 
     return downloadPathAsync.when(
-      loading: () => const ListTile(
-        leading: Icon(Icons.folder_outlined),
-        title: Text('下载路径'),
-        subtitle: Text('加载中...'),
+      loading: () => ListTile(
+        leading: const Icon(Icons.folder_outlined),
+        title: Text(t.settings.downloadPath.title),
+        subtitle: Text(t.general.loading),
       ),
       error: (e, _) => ListTile(
         leading: const Icon(Icons.folder_outlined),
-        title: const Text('下载路径'),
-        subtitle: Text('加载失败: $e'),
+        title: Text(t.settings.downloadPath.title),
+        subtitle: Text(t.settings.downloadPath.loadFailed(error: e.toString())),
       ),
       data: (downloadPath) => ListTile(
         leading: const Icon(Icons.folder_outlined),
-        title: const Text('下载路径'),
+        title: Text(t.settings.downloadPath.title),
         subtitle: Text(
-          downloadPath ?? '未设置',
+          downloadPath ?? t.general.notSet,
           style: TextStyle(
             color: downloadPath == null
                 ? Theme.of(context).colorScheme.error
@@ -747,7 +816,7 @@ class _DownloadPathListTile extends ConsumerWidget {
               if (!Platform.isAndroid)
                 ListTile(
                   leading: const Icon(Icons.folder_open),
-                  title: const Text('更改下载路径'),
+                  title: Text(t.settings.downloadPath.changePath),
                   onTap: () {
                     Navigator.pop(context);
                     _changeDownloadPath(context, ref);
@@ -755,7 +824,7 @@ class _DownloadPathListTile extends ConsumerWidget {
                 ),
               ListTile(
                 leading: const Icon(Icons.info_outline),
-                title: const Text('当前路径信息'),
+                title: Text(t.settings.downloadPath.pathInfo),
                 onTap: () {
                   Navigator.pop(context);
                   _showPathInfo(context, ref);
@@ -784,7 +853,7 @@ class _DownloadPathListTile extends ConsumerWidget {
           color: colorScheme.primary,
           size: 32,
         ),
-        title: const Text('下载路径信息'),
+        title: Text(t.settings.downloadPath.pathInfoTitle),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -797,7 +866,7 @@ class _DownloadPathListTile extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: SelectableText(
-                downloadPath ?? '未设置',
+                downloadPath ?? t.general.notSet,
                 style: TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 13,
@@ -819,7 +888,7 @@ class _DownloadPathListTile extends ConsumerWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '修改路径将清空数据库中的下载路径记录',
+                      t.settings.downloadPath.pathChangeWarning,
                       style: TextStyle(
                         fontSize: 12,
                         color: colorScheme.onSurfaceVariant,
@@ -834,7 +903,7 @@ class _DownloadPathListTile extends ConsumerWidget {
         actions: [
           FilledButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('确定'),
+            child: Text(t.general.confirm),
           ),
         ],
       ),
@@ -851,8 +920,8 @@ class _ConcurrentDownloadsListTile extends ConsumerWidget {
 
     return ListTile(
       leading: const Icon(Icons.speed_outlined),
-      title: const Text('同时下载数量'),
-      subtitle: Text('最多同时下载 $maxConcurrent 个文件'),
+      title: Text(t.settings.concurrentDownloads.title),
+      subtitle: Text(t.settings.concurrentDownloads.subtitle(n: maxConcurrent)),
       trailing: const Icon(Icons.chevron_right),
       onTap: () => _showConcurrentDialog(context, ref, maxConcurrent),
     );
@@ -862,7 +931,7 @@ class _ConcurrentDownloadsListTile extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('同时下载数量'),
+        title: Text(t.settings.concurrentDownloads.title),
         content: RadioGroup<int>(
           groupValue: current,
           onChanged: (value) {
@@ -876,7 +945,7 @@ class _ConcurrentDownloadsListTile extends ConsumerWidget {
             children: List.generate(5, (index) {
               final value = index + 1;
               return RadioListTile<int>(
-                title: Text('$value 个'),
+                title: Text(t.settings.concurrentDownloads.unit(n: value)),
                 value: value,
               );
             }),
@@ -885,7 +954,7 @@ class _ConcurrentDownloadsListTile extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(t.general.cancel),
           ),
         ],
       ),
@@ -900,14 +969,14 @@ class _DownloadImageOptionListTile extends ConsumerWidget {
     final settings = ref.watch(downloadSettingsProvider);
     final option = settings.downloadImageOption;
     final optionText = switch (option) {
-      DownloadImageOption.none => '关闭',
-      DownloadImageOption.coverOnly => '仅封面',
-      DownloadImageOption.coverAndAvatar => '封面和头像',
+      DownloadImageOption.none => t.settings.downloadImage.off,
+      DownloadImageOption.coverOnly => t.settings.downloadImage.coverOnly,
+      DownloadImageOption.coverAndAvatar => t.settings.downloadImage.coverAndAvatar,
     };
 
     return ListTile(
       leading: const Icon(Icons.image_outlined),
-      title: const Text('下载图片'),
+      title: Text(t.settings.downloadImage.title),
       subtitle: Text(optionText),
       trailing: const Icon(Icons.chevron_right),
       onTap: () => _showImageOptionDialog(context, ref, option),
@@ -918,7 +987,7 @@ class _DownloadImageOptionListTile extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('下载图片'),
+        title: Text(t.settings.downloadImage.title),
         content: RadioGroup<DownloadImageOption>(
           groupValue: current,
           onChanged: (value) {
@@ -931,18 +1000,18 @@ class _DownloadImageOptionListTile extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               RadioListTile<DownloadImageOption>(
-                title: const Text('关闭'),
-                subtitle: const Text('不下载任何图片'),
+                title: Text(t.settings.downloadImage.off),
+                subtitle: Text(t.settings.downloadImage.offDescription),
                 value: DownloadImageOption.none,
               ),
               RadioListTile<DownloadImageOption>(
-                title: const Text('仅封面'),
-                subtitle: const Text('下载视频封面'),
+                title: Text(t.settings.downloadImage.coverOnly),
+                subtitle: Text(t.settings.downloadImage.coverOnlyDescription),
                 value: DownloadImageOption.coverOnly,
               ),
               RadioListTile<DownloadImageOption>(
-                title: const Text('封面和头像'),
-                subtitle: const Text('下载视频封面和UP主头像'),
+                title: Text(t.settings.downloadImage.coverAndAvatar),
+                subtitle: Text(t.settings.downloadImage.coverAndAvatarDescription),
                 value: DownloadImageOption.coverAndAvatar,
               ),
             ],
@@ -951,7 +1020,7 @@ class _DownloadImageOptionListTile extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(t.general.cancel),
           ),
         ],
       ),
@@ -969,8 +1038,8 @@ class _ImageCacheSizeListTile extends ConsumerWidget {
 
     return ListTile(
       leading: const Icon(Icons.storage_outlined),
-      title: const Text('图片缓存大小'),
-      subtitle: Text('最大 $cacheText'),
+      title: Text(t.settings.imageCache.title),
+      subtitle: Text(t.settings.imageCache.maxSize(size: cacheText)),
       trailing: const Icon(Icons.chevron_right),
       onTap: () => _showCacheSizeDialog(context, ref, cacheSizeMB),
     );
@@ -989,7 +1058,7 @@ class _ImageCacheSizeListTile extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('图片缓存大小'),
+        title: Text(t.settings.imageCache.title),
         content: RadioGroup<int>(
           groupValue: current,
           onChanged: (value) {
@@ -1011,7 +1080,7 @@ class _ImageCacheSizeListTile extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(t.general.cancel),
           ),
         ],
       ),
@@ -1052,12 +1121,12 @@ class _ClearImageCacheListTileState extends State<_ClearImageCacheListTile> {
   @override
   Widget build(BuildContext context) {
     final subtitle = _cacheSizeMB != null
-        ? '当前缓存: ${_formatSize(_cacheSizeMB!)}'
-        : '正在计算...';
+        ? t.settings.imageCache.currentCache(size: _formatSize(_cacheSizeMB!))
+        : t.settings.imageCache.calculating;
 
     return ListTile(
       leading: const Icon(Icons.delete_outline),
-      title: const Text('清除图片缓存'),
+      title: Text(t.settings.imageCache.clearTitle),
       subtitle: Text(subtitle),
       onTap: () => _showClearCacheDialog(context),
     );
@@ -1065,18 +1134,18 @@ class _ClearImageCacheListTileState extends State<_ClearImageCacheListTile> {
 
   void _showClearCacheDialog(BuildContext context) {
     final sizeText = _cacheSizeMB != null
-        ? '\n\n当前缓存大小: ${_formatSize(_cacheSizeMB!)}'
+        ? '\n\n${t.settings.imageCache.currentCacheSize(size: _formatSize(_cacheSizeMB!))}'
         : '';
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('清除图片缓存'),
-        content: Text('确定要清除所有缓存的图片吗？这不会影响已下载的本地图片。$sizeText'),
+        title: Text(t.settings.imageCache.clearTitle),
+        content: Text('${t.settings.imageCache.clearConfirm}$sizeText'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(t.general.cancel),
           ),
           FilledButton(
             onPressed: () async {
@@ -1086,11 +1155,11 @@ class _ClearImageCacheListTileState extends State<_ClearImageCacheListTile> {
               await _loadCacheSize();
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('图片缓存已清除')),
+                  SnackBar(content: Text(t.settings.imageCache.cacheCleared)),
                 );
               }
             },
-            child: const Text('确定'),
+            child: Text(t.general.confirm),
           ),
         ],
       ),
@@ -1106,8 +1175,8 @@ class _MinimizeToTrayTile extends ConsumerWidget {
 
     return SwitchListTile(
       secondary: const Icon(Icons.dock_outlined),
-      title: const Text('最小化到托盘'),
-      subtitle: const Text('关闭窗口时最小化到系统托盘'),
+      title: Text(t.settings.tray.title),
+      subtitle: Text(t.settings.tray.subtitle),
       value: enabled,
       onChanged: (_) => ref.read(minimizeToTrayProvider.notifier).toggle(),
     );
@@ -1122,14 +1191,14 @@ class _GlobalHotkeysTile extends ConsumerWidget {
 
     return ListTile(
       leading: const Icon(Icons.keyboard_outlined),
-      title: const Text('全局快捷键'),
-      subtitle: Text(enabled ? '已启用' : '已禁用'),
+      title: Text(t.settings.hotkeys.title),
+      subtitle: Text(enabled ? t.general.enabled : t.general.disabled),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
             icon: const Icon(Icons.settings_outlined),
-            tooltip: '配置快捷键',
+            tooltip: t.settings.hotkeys.configHotkey,
             onPressed: () => _showHotkeyConfigDialog(context, ref),
           ),
           Switch(
@@ -1175,11 +1244,11 @@ class _HotkeyConfigDialogState extends ConsumerState<_HotkeyConfigDialog> {
         children: [
           const Icon(Icons.keyboard_outlined),
           const SizedBox(width: 8),
-          const Text('配置快捷键'),
+          Text(t.settings.hotkeys.configTitle),
           const Spacer(),
           TextButton.icon(
             icon: const Icon(Icons.restore, size: 18),
-            label: const Text('恢复默认'),
+            label: Text(t.settings.hotkeys.resetDefault),
             onPressed: () {
               ref.read(hotkeyConfigProvider.notifier).resetToDefaults();
             },
@@ -1191,8 +1260,8 @@ class _HotkeyConfigDialogState extends ConsumerState<_HotkeyConfigDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              '点击快捷键区域后按下新的组合键进行设置',
+            Text(
+              t.settings.hotkeys.hint,
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
             const SizedBox(height: 16),
@@ -1205,7 +1274,7 @@ class _HotkeyConfigDialogState extends ConsumerState<_HotkeyConfigDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('关闭'),
+          child: Text(t.general.close),
         ),
       ],
     );
@@ -1250,7 +1319,7 @@ class _HotkeyConfigDialogState extends ConsumerState<_HotkeyConfigDialog> {
                 child: isEditing
                     ? _buildRecordingDisplay(context)
                     : Text(
-                        binding?.toDisplayString() ?? '未设置',
+                        binding?.toDisplayString() ?? t.general.notSet,
                         style: TextStyle(
                           fontFamily: 'monospace',
                           color: binding?.isConfigured == true
@@ -1264,7 +1333,7 @@ class _HotkeyConfigDialogState extends ConsumerState<_HotkeyConfigDialog> {
           const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.clear, size: 20),
-            tooltip: '清除',
+            tooltip: t.settings.hotkeys.clear,
             onPressed: binding?.isConfigured == true
                 ? () {
                     ref.read(hotkeyConfigProvider.notifier).clearBinding(action);
@@ -1278,9 +1347,9 @@ class _HotkeyConfigDialogState extends ConsumerState<_HotkeyConfigDialog> {
 
   Widget _buildRecordingDisplay(BuildContext context) {
     if (!_isRecording) {
-      return const Text(
-        '按下新的快捷键...',
-        style: TextStyle(fontStyle: FontStyle.italic),
+      return Text(
+        t.settings.hotkeys.recording,
+        style: const TextStyle(fontStyle: FontStyle.italic),
       );
     }
 
@@ -1295,9 +1364,9 @@ class _HotkeyConfigDialogState extends ConsumerState<_HotkeyConfigDialog> {
     }
 
     if (parts.isEmpty) {
-      return const Text(
-        '按下新的快捷键...',
-        style: TextStyle(fontStyle: FontStyle.italic),
+      return Text(
+        t.settings.hotkeys.recording,
+        style: const TextStyle(fontStyle: FontStyle.italic),
       );
     }
 
@@ -1416,7 +1485,7 @@ class _HotkeyRecordingDialogState extends State<_HotkeyRecordingDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text('设置 ${widget.action.label} 快捷键'),
+      title: Text(t.settings.hotkeys.setHotkey(action: widget.action.label)),
       content: KeyboardListener(
         focusNode: _focusNode,
         autofocus: true,
@@ -1447,7 +1516,7 @@ class _HotkeyRecordingDialogState extends State<_HotkeyRecordingDialog> {
       actions: [
         TextButton(
           onPressed: widget.onCancel,
-          child: const Text('取消'),
+          child: Text(t.general.cancel),
         ),
       ],
     );
@@ -1465,7 +1534,7 @@ class _HotkeyRecordingDialogState extends State<_HotkeyRecordingDialog> {
     }
 
     if (parts.isEmpty) {
-      return '请按下快捷键组合\n\n(需要至少一个修饰键)';
+      return t.settings.hotkeys.pressCombo;
     }
 
     return parts.join(' + ');

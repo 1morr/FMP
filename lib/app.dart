@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'providers/database_provider.dart';
@@ -8,6 +9,8 @@ import 'providers/desktop_settings_provider.dart';
 import 'providers/hotkey_config_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/windows_desktop_provider.dart';
+import 'i18n/strings.g.dart';
+import 'providers/locale_provider.dart';
 import 'ui/router.dart';
 import 'ui/theme/app_theme.dart';
 import 'ui/widgets/network_status_banner.dart';
@@ -26,14 +29,17 @@ class FMPApp extends ConsumerWidget {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme(),
         darkTheme: AppTheme.darkTheme(),
-        home: const Scaffold(
+        locale: TranslationProvider.of(context).flutterLocale,
+        supportedLocales: AppLocaleUtils.supportedLocales,
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        home: Scaffold(
           body: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('正在初始化...'),
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(t.general.initializing),
               ],
             ),
           ),
@@ -43,6 +49,9 @@ class FMPApp extends ConsumerWidget {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme(),
         darkTheme: AppTheme.darkTheme(),
+        locale: TranslationProvider.of(context).flutterLocale,
+        supportedLocales: AppLocaleUtils.supportedLocales,
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
         home: Scaffold(
           body: Center(
             child: Column(
@@ -50,7 +59,7 @@ class FMPApp extends ConsumerWidget {
               children: [
                 const Icon(Icons.error_outline, size: 64, color: Colors.red),
                 const SizedBox(height: 16),
-                const Text('初始化失败'),
+                Text(t.general.initFailed),
                 const SizedBox(height: 8),
                 Text(error.toString()),
               ],
@@ -75,9 +84,17 @@ class FMPApp extends ConsumerWidget {
         final primaryColor = themeState.primaryColor;
         final fontFamily = themeState.fontFamily;
 
+        // 初始化 locale provider（加载用户语言设置）
+        ref.watch(localeProvider);
+
         return MaterialApp.router(
           title: 'FMP - Flutter Music Player',
           debugShowCheckedModeBanner: false,
+
+          // i18n 配置
+          locale: TranslationProvider.of(context).flutterLocale,
+          supportedLocales: AppLocaleUtils.supportedLocales,
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
 
           // 主题配置
           theme: AppTheme.lightTheme(primaryColor: primaryColor, fontFamily: fontFamily),

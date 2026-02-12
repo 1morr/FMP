@@ -1,0 +1,367 @@
+{
+  "general": {
+    "cancel": "Cancel",
+    "confirm": "OK",
+    "close": "Close",
+    "loading": "Loading...",
+    "loadFailed": "Load failed",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "notSet": "Not set",
+    "defaultLabel": "Default",
+    "custom": "Custom",
+    "systemDefault": "System default",
+    "initializing": "Initializing...",
+    "initFailed": "Initialization failed",
+    "unknownArtist": "Unknown artist"
+  },
+  "settings": {
+    "title": "Settings",
+    "appearance": "Appearance",
+    "playback": "Playback",
+    "cache": "Cache",
+    "storage": "Storage",
+    "desktop": "Desktop",
+    "about": "About",
+    "language": {
+      "title": "Language",
+      "selectTitle": "Select Language",
+      "followSystem": "Follow system"
+    },
+    "theme": {
+      "title": "Theme",
+      "selectTitle": "Select Theme",
+      "followSystem": "Follow system",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "themeColor": {
+      "title": "Theme Color",
+      "selectTitle": "Select Theme Color"
+    },
+    "font": {
+      "title": "Font",
+      "selectTitle": "Select Font",
+      "microsoftYaHei": "Microsoft YaHei",
+      "simsun": "SimSun",
+      "simhei": "SimHei",
+      "kaiti": "KaiTi",
+      "fangsong": "FangSong",
+      "sansSerif": "Sans-serif (Roboto)",
+      "serif": "Serif (Noto Serif)",
+      "sansSerifMedium": "Sans-serif Medium",
+      "sansSerifLight": "Sans-serif Light",
+      "sansSerifCondensed": "Sans-serif Condensed",
+      "monospace": "Monospace"
+    },
+    "audioQuality": {
+      "title": "Audio Quality",
+      "subtitle": "Bitrate, format, stream priority"
+    },
+    "playHistory": {
+      "title": "Play History",
+      "subtitle": "View and manage play history"
+    },
+    "rememberPosition": {
+      "title": "Remember playback position",
+      "configRewind": "Configure rewind time"
+    },
+    "rewindSettings": {
+      "title": "Rewind Time Settings",
+      "description": "Automatically rewind when resuming playback to help recall context",
+      "restartRewind": "On restart",
+      "restartRewindSubtitle": "When resuming after app restart",
+      "tempPlayRewind": "After temp play",
+      "tempPlayRewindSubtitle": "When returning to queue after temporary play",
+      "noRewind": "No rewind",
+      "seconds": "$n sec"
+    },
+    "version": {
+      "title": "Version",
+      "tapToEnableDev": "$n more taps to enable developer options",
+      "devEnabled": "Developer options enabled"
+    },
+    "update": {
+      "title": "Check for Updates",
+      "checking": "Checking...",
+      "upToDate": "Already up to date",
+      "available": "New version available: $version",
+      "error": "Check failed, tap to retry",
+      "checkGitHub": "Check for new version on GitHub",
+      "checkFailed": "Failed to check for updates"
+    },
+    "userGuide": {
+      "title": "User Guide",
+      "subtitle": "Quick start, features, tips"
+    },
+    "openSource": {
+      "title": "Open Source Licenses",
+      "subtitle": "View third-party open source licenses"
+    },
+    "developerOptions": {
+      "title": "Developer Options",
+      "subtitle": "Debug tools and experimental features",
+      "debugTools": "Debug Tools",
+      "liveLog": "Live Log",
+      "liveLogSubtitle": "View app runtime logs",
+      "dbViewer": "Database Viewer",
+      "dbViewerSubtitle": "Browse Isar database contents",
+      "ytStreamTest": "YouTube Stream Test",
+      "ytStreamTestSubtitle": "Test Audio-only / Muxed / HLS stream playback",
+      "dataManagement": "Data Management",
+      "experimentalFeatures": "Experimental Features",
+      "devInfo": "Dev Info",
+      "debugMode": "Debug Mode",
+      "dbInfo": "Database Info",
+      "dbInfoError": "Error: $error",
+      "dbInfoDetail": "Path: $path\nSize: $size\nTracks: $tracks | Playlists: $playlists",
+      "memoryUsage": "Memory Usage",
+      "memoryUnavailable": "Unable to get memory info",
+      "imageCacheInfo": "Image cache: $current / $max MB",
+      "processMemory": "Process memory (RSS): $size",
+      "refresh": "Refresh",
+      "resetAllData": "Reset All Data",
+      "resetSubtitle": "Delete all playlists, play queue and settings (irreversible)",
+      "confirmReset": "Confirm Reset",
+      "resetWarning": "This will delete all data, including:\n• All playlists\n• Play queue\n• Search history\n• App settings\n\nThis action is irreversible!",
+      "resetting": "Resetting data...",
+      "resetDone": "Data reset, please restart the app",
+      "resetFailed": "Reset failed: $error",
+      "autoScrollToPlaying": "Auto-scroll on track change",
+      "autoScrollSubtitle": "Automatically scroll to current track in queue when switching songs"
+    },
+    "downloadManager": {
+      "title": "Download Manager",
+      "subtitle": "Manage download queue and progress",
+      "clearQueue": "Clear Queue",
+      "clearQueueConfirm": "Are you sure you want to clear all download tasks?",
+      "pauseAll": "Pause All",
+      "resumeAll": "Resume All",
+      "clearCompleted": "Clear Completed",
+      "noTasks": "No download tasks",
+      "downloading": "Downloading",
+      "waiting": "Waiting",
+      "paused": "Paused",
+      "failed": "Failed",
+      "completed": "Completed",
+      "unknownTrack": "Unknown track",
+      "pause": "Pause",
+      "resume": "Resume",
+      "retry": "Retry",
+      "delete": "Delete",
+      "loadFailed": "Load failed: $error"
+    },
+    "downloadPath": {
+      "title": "Download Path",
+      "loadFailed": "Load failed: $error",
+      "changePath": "Change download path",
+      "pathInfo": "Current path info",
+      "pathInfoTitle": "Download Path Info",
+      "pathChangeWarning": "Changing the path will clear download path records in database"
+    },
+    "concurrentDownloads": {
+      "title": "Concurrent Downloads",
+      "subtitle": "Download up to $n files simultaneously",
+      "unit": "$n"
+    },
+    "downloadImage": {
+      "title": "Download Images",
+      "off": "Off",
+      "coverOnly": "Cover only",
+      "coverAndAvatar": "Cover and avatar",
+      "offDescription": "Do not download any images",
+      "coverOnlyDescription": "Download video covers",
+      "coverAndAvatarDescription": "Download video covers and uploader avatars"
+    },
+    "imageCache": {
+      "title": "Image Cache Size",
+      "maxSize": "Max $size",
+      "clearTitle": "Clear Image Cache",
+      "currentCache": "Current cache: $size",
+      "calculating": "Calculating...",
+      "clearConfirm": "Clear all cached images? This will not affect downloaded local images.",
+      "currentCacheSize": "Current cache size: $size",
+      "cacheCleared": "Image cache cleared"
+    },
+    "tray": {
+      "title": "Minimize to tray",
+      "subtitle": "Minimize to system tray when closing window"
+    },
+    "hotkeys": {
+      "title": "Global Hotkeys",
+      "configTitle": "Configure Hotkeys",
+      "configHotkey": "Configure Hotkeys",
+      "resetDefault": "Reset to default",
+      "hint": "Click on a hotkey area then press a new key combination",
+      "clear": "Clear",
+      "recording": "Press a new hotkey...",
+      "setHotkey": "Set $action hotkey",
+      "pressCombo": "Press a key combination\n\n(At least one modifier key required)",
+      "actions": {
+        "playPause": "Play/Pause",
+        "next": "Next",
+        "previous": "Previous",
+        "stop": "Stop",
+        "volumeUp": "Volume Up",
+        "volumeDown": "Volume Down",
+        "mute": "Mute",
+        "toggleWindow": "Show/Hide Window"
+      }
+    }
+  },
+  "audioSettings": {
+    "title": "Audio Quality",
+    "qualityLevel": {
+      "title": "Global Quality Level",
+      "subtitle": "Applies to all sources",
+      "high": "High",
+      "highDescription": "Highest bitrate, best quality",
+      "medium": "Medium",
+      "mediumDescription": "Medium bitrate, balanced quality and data",
+      "low": "Low",
+      "lowDescription": "Lowest bitrate, saves data"
+    },
+    "formatPriority": {
+      "title": "YouTube Format Priority",
+      "subtitle": "Only applies to YouTube audio-only streams",
+      "opusName": "Opus (WebM)",
+      "opusDescription": "Good quality, small size, less compatible",
+      "aacName": "AAC (MP4)",
+      "aacDescription": "Most compatible"
+    },
+    "streamPriority": {
+      "youtubeTitle": "YouTube Stream Priority",
+      "bilibiliTitle": "Bilibili Stream Priority",
+      "audioOnly": "Audio only",
+      "audioOnlyDescription": "Saves data, downloads audio only",
+      "muxed": "Muxed",
+      "muxedDescription": "Includes video data, more compatible",
+      "hls": "HLS",
+      "hlsDescription": "Segmented stream, good for live"
+    }
+  },
+  "logViewer": {
+    "title": "Live Log",
+    "titleWithCount": "Live Log ($count)",
+    "logsCopied": "Logs copied to clipboard",
+    "autoScrollOn": "Auto-scroll: On",
+    "autoScrollOff": "Auto-scroll: Off",
+    "copyAll": "Copy all",
+    "clear": "Clear",
+    "filterLevel": "Filter level",
+    "allDebug": "All (Debug+)",
+    "onlyError": "Error only",
+    "searchHint": "Search logs...",
+    "noLogs": "No logs",
+    "noMatchingLogs": "No matching logs",
+    "copied": "Copied",
+    "logDetail": "Log Detail",
+    "time": "Time",
+    "level": "Level",
+    "tag": "Tag",
+    "message": "Message",
+    "error": "Error",
+    "stackTrace": "Stack trace",
+    "none": "None",
+    "copiedToClipboard": "Copied to clipboard",
+    "copy": "Copy"
+  },
+  "userGuide": {
+    "quickStart": {
+      "title": "Quick Start",
+      "importPlaylist": "Import Playlist",
+      "importPlaylistDesc": "Tap import at top-right of library. Supports Bilibili/YouTube links and importing from NetEase, QQ Music, Spotify",
+      "addToQueue": "Add to Queue",
+      "addToQueueDesc": "Open a playlist and tap \"Add All\" to add songs to the play queue",
+      "startPlayback": "Start Playing",
+      "startPlaybackDesc": "Tap any song to play, or use the bottom player controls"
+    },
+    "externalImport": {
+      "title": "External Playlist Import",
+      "platforms": "Supported Platforms",
+      "platformsDesc": "NetEase Music, QQ Music, Spotify",
+      "smartMatch": "Smart Matching",
+      "smartMatchDesc": "Automatically search and match songs on Bilibili/YouTube",
+      "preview": "Preview & Adjust",
+      "previewDesc": "Preview match results before importing, manually select alternatives or exclude songs"
+    },
+    "playbackControl": {
+      "title": "Playback Controls",
+      "shuffle": "Shuffle",
+      "shuffleDesc": "Tap shuffle button to randomize play order",
+      "loopMode": "Loop Mode",
+      "loopModeDesc": "List loop, single loop, or no loop",
+      "speed": "Playback Speed",
+      "speedDesc": "Adjust playback speed in fullscreen player",
+      "positionMemory": "Position Memory",
+      "positionMemoryDesc": "Long videos (>10 min) automatically save position, resume on next play",
+      "tempPlay": "Temporary Play",
+      "tempPlayDesc": "Tap a song in search/playlist to play temporarily, auto-restores original queue when done"
+    },
+    "search": {
+      "title": "Search",
+      "sources": "Supported Sources",
+      "sourcesDesc": "Bilibili and YouTube dual-source search",
+      "sortFilter": "Sort & Filter",
+      "sortFilterDesc": "Sort by relevance, views, date, or comments",
+      "liveFilter": "Live Room Filter",
+      "liveFilterDesc": "Bilibili search supports filtering live rooms (all/offline/online)",
+      "multiP": "Multi-Part Expand",
+      "multiPDesc": "Multi-part videos auto-detected, expand to view parts"
+    },
+    "liveRadio": {
+      "title": "Live & Radio",
+      "biliLive": "Bilibili Live",
+      "biliLiveDesc": "Search live rooms, listen to live audio",
+      "autoRefresh": "Auto Refresh",
+      "autoRefreshDesc": "Automatically refreshes when stream URL expires, maintains continuous playback"
+    },
+    "download": {
+      "title": "Download Music",
+      "setPath": "Set Download Path",
+      "setPathDesc": "Configure download directory in Settings → Storage",
+      "downloadSong": "Download Songs",
+      "downloadSongDesc": "Tap \"Download All\" in playlist detail or download individual songs from menu",
+      "offline": "Offline Playback",
+      "offlineDesc": "Browse and play downloaded songs by playlist in \"Downloaded\""
+    },
+    "explore": {
+      "title": "Explore",
+      "ranking": "Trending Charts",
+      "rankingDesc": "View Bilibili and YouTube music trending charts",
+      "autoUpdate": "Auto Update",
+      "autoUpdateDesc": "Charts refresh hourly in background, instant access with no wait"
+    },
+    "history": {
+      "title": "Play History",
+      "timeline": "Timeline",
+      "timelineDesc": "View all play records in chronological order",
+      "stats": "Statistics",
+      "statsDesc": "View play count and other statistics",
+      "filter": "Filter & Sort",
+      "filterDesc": "Filter and sort to quickly find songs"
+    },
+    "audioSettingsGuide": {
+      "title": "Audio Settings",
+      "qualityLevel": "Quality Level",
+      "qualityLevelDesc": "High/Medium/Low, applies to all sources",
+      "formatPriority": "Format Priority",
+      "formatPriorityDesc": "Choose Opus or AAC format for YouTube",
+      "streamPriority": "Stream Type Priority",
+      "streamPriorityDesc": "Audio-only (saves data) or muxed (more compatible)"
+    },
+    "ytMix": {
+      "dynamicPlaylist": "Dynamic Playlist",
+      "dynamicPlaylistDesc": "Import YouTube Mix/Radio playlists, automatically loads more songs",
+      "infinitePlay": "Infinite Playback",
+      "infinitePlayDesc": "Automatically fetches new songs when approaching queue end"
+    },
+    "appUpdate": {
+      "title": "App Updates",
+      "checkUpdate": "Check for Updates",
+      "checkUpdateDesc": "Settings → About → Check for Updates, fetches latest version from GitHub",
+      "autoInstall": "Auto Install",
+      "autoInstallDesc": "Android auto-installs APK after download, Windows auto-replaces on update"
+    }
+  }
+}

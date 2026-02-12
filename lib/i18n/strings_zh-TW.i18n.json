@@ -1,0 +1,367 @@
+{
+  "general": {
+    "cancel": "取消",
+    "confirm": "確定",
+    "close": "關閉",
+    "loading": "載入中...",
+    "loadFailed": "載入失敗",
+    "enabled": "已啟用",
+    "disabled": "已停用",
+    "notSet": "未設定",
+    "defaultLabel": "預設",
+    "custom": "自訂",
+    "systemDefault": "系統預設",
+    "initializing": "正在初始化...",
+    "initFailed": "初始化失敗",
+    "unknownArtist": "未知藝術家"
+  },
+  "settings": {
+    "title": "設定",
+    "appearance": "外觀",
+    "playback": "播放",
+    "cache": "快取",
+    "storage": "儲存",
+    "desktop": "桌面",
+    "about": "關於",
+    "language": {
+      "title": "語言",
+      "selectTitle": "選擇語言",
+      "followSystem": "跟隨系統"
+    },
+    "theme": {
+      "title": "主題",
+      "selectTitle": "選擇主題",
+      "followSystem": "跟隨系統",
+      "light": "淺色",
+      "dark": "深色"
+    },
+    "themeColor": {
+      "title": "主題色",
+      "selectTitle": "選擇主題色"
+    },
+    "font": {
+      "title": "字體",
+      "selectTitle": "選擇字體",
+      "microsoftYaHei": "微軟雅黑",
+      "simsun": "宋體",
+      "simhei": "黑體",
+      "kaiti": "楷體",
+      "fangsong": "仿宋",
+      "sansSerif": "無襯線 (Roboto)",
+      "serif": "襯線 (Noto Serif)",
+      "sansSerifMedium": "無襯線 中等",
+      "sansSerifLight": "無襯線 細體",
+      "sansSerifCondensed": "無襯線 窄體",
+      "monospace": "等寬"
+    },
+    "audioQuality": {
+      "title": "音訊品質",
+      "subtitle": "碼率、格式、串流優先級"
+    },
+    "playHistory": {
+      "title": "播放歷史",
+      "subtitle": "檢視和管理播放紀錄"
+    },
+    "rememberPosition": {
+      "title": "記住播放位置",
+      "configRewind": "設定回退時間"
+    },
+    "rewindSettings": {
+      "title": "回退時間設定",
+      "description": "恢復播放時自動回退一段時間，方便回憶上下文",
+      "restartRewind": "重啟恢復",
+      "restartRewindSubtitle": "應用程式重啟後恢復播放時",
+      "tempPlayRewind": "臨時播放恢復",
+      "tempPlayRewindSubtitle": "臨時播放結束回到原佇列時",
+      "noRewind": "不回退",
+      "seconds": "$n 秒"
+    },
+    "version": {
+      "title": "版本",
+      "tapToEnableDev": "再點擊 $n 次啟用開發者選項",
+      "devEnabled": "開發者選項已啟用"
+    },
+    "update": {
+      "title": "檢查更新",
+      "checking": "正在檢查...",
+      "upToDate": "已是最新版本",
+      "available": "有新版本: $version",
+      "error": "檢查失敗，點擊重試",
+      "checkGitHub": "檢查 GitHub 上的新版本",
+      "checkFailed": "檢查更新失敗"
+    },
+    "userGuide": {
+      "title": "使用說明",
+      "subtitle": "快速入門、功能介紹、使用提示"
+    },
+    "openSource": {
+      "title": "開源授權",
+      "subtitle": "檢視第三方開源元件授權"
+    },
+    "developerOptions": {
+      "title": "開發者選項",
+      "subtitle": "偵錯工具和實驗性功能",
+      "debugTools": "偵錯工具",
+      "liveLog": "即時日誌",
+      "liveLogSubtitle": "檢視應用程式執行日誌",
+      "dbViewer": "資料庫檢視器",
+      "dbViewerSubtitle": "檢視和瀏覽 Isar 資料庫內容",
+      "ytStreamTest": "YouTube 串流測試",
+      "ytStreamTestSubtitle": "測試 Audio-only / Muxed / HLS 串流播放",
+      "dataManagement": "資料管理",
+      "experimentalFeatures": "實驗性功能",
+      "devInfo": "開發資訊",
+      "debugMode": "偵錯模式",
+      "dbInfo": "資料庫資訊",
+      "dbInfoError": "錯誤: $error",
+      "dbInfoDetail": "路徑: $path\n大小: $size\n歌曲: $tracks | 歌單: $playlists",
+      "memoryUsage": "記憶體使用",
+      "memoryUnavailable": "無法取得記憶體資訊",
+      "imageCacheInfo": "圖片快取: $current / $max MB",
+      "processMemory": "程序記憶體 (RSS): $size",
+      "refresh": "重新整理",
+      "resetAllData": "重置所有資料",
+      "resetSubtitle": "刪除所有歌單、播放佇列和設定（不可恢復）",
+      "confirmReset": "確認重置",
+      "resetWarning": "此操作將刪除所有資料，包括：\n• 所有歌單\n• 播放佇列\n• 搜尋紀錄\n• 應用程式設定\n\n此操作不可恢復！",
+      "resetting": "正在重置資料...",
+      "resetDone": "資料已重置，請重新啟動應用程式",
+      "resetFailed": "重置失敗: $error",
+      "autoScrollToPlaying": "切歌時自動定位",
+      "autoScrollSubtitle": "切換歌曲時自動跳轉到佇列頁面並定位目前播放"
+    },
+    "downloadManager": {
+      "title": "下載管理",
+      "subtitle": "管理下載佇列和進度",
+      "clearQueue": "清空佇列",
+      "clearQueueConfirm": "確定要清空所有下載任務嗎？",
+      "pauseAll": "全部暫停",
+      "resumeAll": "全部繼續",
+      "clearCompleted": "清除已完成",
+      "noTasks": "沒有下載任務",
+      "downloading": "正在下載",
+      "waiting": "等待中",
+      "paused": "已暫停",
+      "failed": "失敗",
+      "completed": "已完成",
+      "unknownTrack": "未知歌曲",
+      "pause": "暫停",
+      "resume": "繼續",
+      "retry": "重試",
+      "delete": "刪除",
+      "loadFailed": "載入失敗: $error"
+    },
+    "downloadPath": {
+      "title": "下載路徑",
+      "loadFailed": "載入失敗: $error",
+      "changePath": "更改下載路徑",
+      "pathInfo": "目前路徑資訊",
+      "pathInfoTitle": "下載路徑資訊",
+      "pathChangeWarning": "修改路徑將清空資料庫中的下載路徑紀錄"
+    },
+    "concurrentDownloads": {
+      "title": "同時下載數量",
+      "subtitle": "最多同時下載 $n 個檔案",
+      "unit": "$n 個"
+    },
+    "downloadImage": {
+      "title": "下載圖片",
+      "off": "關閉",
+      "coverOnly": "僅封面",
+      "coverAndAvatar": "封面和頭像",
+      "offDescription": "不下載任何圖片",
+      "coverOnlyDescription": "下載影片封面",
+      "coverAndAvatarDescription": "下載影片封面和UP主頭像"
+    },
+    "imageCache": {
+      "title": "圖片快取大小",
+      "maxSize": "最大 $size",
+      "clearTitle": "清除圖片快取",
+      "currentCache": "目前快取: $size",
+      "calculating": "正在計算...",
+      "clearConfirm": "確定要清除所有快取的圖片嗎？這不會影響已下載的本機圖片。",
+      "currentCacheSize": "目前快取大小: $size",
+      "cacheCleared": "圖片快取已清除"
+    },
+    "tray": {
+      "title": "最小化到系統列",
+      "subtitle": "關閉視窗時最小化到系統列"
+    },
+    "hotkeys": {
+      "title": "全域快捷鍵",
+      "configTitle": "設定快捷鍵",
+      "configHotkey": "設定快捷鍵",
+      "resetDefault": "恢復預設",
+      "hint": "點擊快捷鍵區域後按下新的組合鍵進行設定",
+      "clear": "清除",
+      "recording": "按下新的快捷鍵...",
+      "setHotkey": "設定 $action 快捷鍵",
+      "pressCombo": "請按下快捷鍵組合\n\n(需要至少一個修飾鍵)",
+      "actions": {
+        "playPause": "播放/暫停",
+        "next": "下一首",
+        "previous": "上一首",
+        "stop": "停止",
+        "volumeUp": "增大音量",
+        "volumeDown": "減小音量",
+        "mute": "靜音",
+        "toggleWindow": "顯示/隱藏視窗"
+      }
+    }
+  },
+  "audioSettings": {
+    "title": "音訊品質",
+    "qualityLevel": {
+      "title": "全域音質等級",
+      "subtitle": "適用於所有音源",
+      "high": "高",
+      "highDescription": "最高碼率，音質最佳",
+      "medium": "中",
+      "mediumDescription": "中等碼率，平衡音質與流量",
+      "low": "低",
+      "lowDescription": "最低碼率，省流量"
+    },
+    "formatPriority": {
+      "title": "YouTube 格式優先級",
+      "subtitle": "僅對 YouTube 純音訊串流生效",
+      "opusName": "Opus (WebM)",
+      "opusDescription": "音質好、體積小，相容性稍差",
+      "aacName": "AAC (MP4)",
+      "aacDescription": "相容性最好"
+    },
+    "streamPriority": {
+      "youtubeTitle": "YouTube 串流優先級",
+      "bilibiliTitle": "Bilibili 串流優先級",
+      "audioOnly": "純音訊串流",
+      "audioOnlyDescription": "省流量，僅下載音訊資料",
+      "muxed": "混合串流",
+      "muxedDescription": "包含影片資料，相容性好",
+      "hls": "HLS 串流",
+      "hlsDescription": "分段串流，適合直播"
+    }
+  },
+  "logViewer": {
+    "title": "即時日誌",
+    "titleWithCount": "即時日誌 ($count)",
+    "logsCopied": "日誌已複製到剪貼簿",
+    "autoScrollOn": "自動捲動: 開",
+    "autoScrollOff": "自動捲動: 關",
+    "copyAll": "複製全部",
+    "clear": "清空",
+    "filterLevel": "過濾級別",
+    "allDebug": "全部 (Debug+)",
+    "onlyError": "僅 Error",
+    "searchHint": "搜尋日誌...",
+    "noLogs": "暫無日誌",
+    "noMatchingLogs": "沒有符合的日誌",
+    "copied": "已複製",
+    "logDetail": "日誌詳情",
+    "time": "時間",
+    "level": "級別",
+    "tag": "標籤",
+    "message": "訊息",
+    "error": "錯誤",
+    "stackTrace": "堆疊",
+    "none": "無",
+    "copiedToClipboard": "已複製到剪貼簿",
+    "copy": "複製"
+  },
+  "userGuide": {
+    "quickStart": {
+      "title": "快速開始",
+      "importPlaylist": "匯入歌單",
+      "importPlaylistDesc": "音樂庫右上角點擊匯入，支援 Bilibili/YouTube 連結匯入，也支援從網易雲、QQ音樂、Spotify 匯入歌單",
+      "addToQueue": "加入佇列",
+      "addToQueueDesc": "開啟歌單，點擊「加入全部」將歌曲加入播放佇列",
+      "startPlayback": "開始播放",
+      "startPlaybackDesc": "點擊任意歌曲即可播放，或使用底部播放器控制"
+    },
+    "externalImport": {
+      "title": "外部歌單匯入",
+      "platforms": "支援平台",
+      "platformsDesc": "網易雲音樂、QQ音樂、Spotify",
+      "smartMatch": "智慧配對",
+      "smartMatchDesc": "自動在 Bilibili/YouTube 搜尋配對對應歌曲",
+      "preview": "預覽調整",
+      "previewDesc": "匯入前可預覽配對結果，手動選擇備選項或排除不需要的歌曲"
+    },
+    "playbackControl": {
+      "title": "播放控制",
+      "shuffle": "隨機播放",
+      "shuffleDesc": "點擊隨機按鈕打亂播放順序",
+      "loopMode": "循環模式",
+      "loopModeDesc": "支援列表循環、單曲循環、不循環",
+      "speed": "播放速度",
+      "speedDesc": "全螢幕播放器中可調節播放速度",
+      "positionMemory": "位置記憶",
+      "positionMemoryDesc": "長影片（>10分鐘）自動記憶播放位置，下次播放自動恢復",
+      "tempPlay": "臨時播放",
+      "tempPlayDesc": "搜尋或歌單中點擊歌曲臨時播放，完成後自動恢復原佇列"
+    },
+    "search": {
+      "title": "搜尋功能",
+      "sources": "支援音源",
+      "sourcesDesc": "Bilibili、YouTube 雙源搜尋",
+      "sortFilter": "排序篩選",
+      "sortFilterDesc": "支援按綜合、播放量、最新、彈幕數排序",
+      "liveFilter": "直播間篩選",
+      "liveFilterDesc": "Bilibili 搜尋支援篩選直播間（全部/未開播/已開播）",
+      "multiP": "多P展開",
+      "multiPDesc": "多P影片自動偵測，可展開檢視各分P"
+    },
+    "liveRadio": {
+      "title": "直播與電台",
+      "biliLive": "Bilibili 直播",
+      "biliLiveDesc": "搜尋直播間，收聽直播音訊",
+      "autoRefresh": "自動重新整理",
+      "autoRefreshDesc": "直播串流地址過期時自動重新整理，保持持續播放"
+    },
+    "download": {
+      "title": "下載音樂",
+      "setPath": "設定下載路徑",
+      "setPathDesc": "在設定 → 儲存中設定下載目錄",
+      "downloadSong": "下載歌曲",
+      "downloadSongDesc": "歌單詳情頁點擊「下載全部」或單個歌曲選單下載",
+      "offline": "離線播放",
+      "offlineDesc": "下載後在「已下載」中按歌單分類瀏覽和播放"
+    },
+    "explore": {
+      "title": "探索頁面",
+      "ranking": "熱門排行榜",
+      "rankingDesc": "檢視 Bilibili 和 YouTube 音樂熱門排行",
+      "autoUpdate": "自動更新",
+      "autoUpdateDesc": "排行榜每小時自動背景重新整理，開啟即看無需等待"
+    },
+    "history": {
+      "title": "播放歷史",
+      "timeline": "時間軸",
+      "timelineDesc": "按時間順序檢視所有播放紀錄",
+      "stats": "統計資訊",
+      "statsDesc": "檢視播放次數等統計資料",
+      "filter": "篩選排序",
+      "filterDesc": "支援篩選和排序，快速找到想聽的歌曲"
+    },
+    "audioSettingsGuide": {
+      "title": "音訊設定",
+      "qualityLevel": "音質等級",
+      "qualityLevelDesc": "支援高/中/低三檔，適用於所有音源",
+      "formatPriority": "格式優先級",
+      "formatPriorityDesc": "YouTube 支援選擇 Opus 或 AAC 格式",
+      "streamPriority": "串流類型優先級",
+      "streamPriorityDesc": "可選純音訊串流（省流量）或混合串流（相容性好）"
+    },
+    "ytMix": {
+      "dynamicPlaylist": "動態播放列表",
+      "dynamicPlaylistDesc": "匯入 YouTube Mix/Radio 播放列表，自動載入更多歌曲",
+      "infinitePlay": "無限播放",
+      "infinitePlayDesc": "播放接近佇列末尾時自動取得新歌曲，持續不斷"
+    },
+    "appUpdate": {
+      "title": "應用程式更新",
+      "checkUpdate": "檢查更新",
+      "checkUpdateDesc": "設定 → 關於 → 檢查更新，自動從 GitHub 取得最新版本",
+      "autoInstall": "自動安裝",
+      "autoInstallDesc": "Android 下載 APK 後自動安裝，Windows 下載後自動替換更新"
+    }
+  }
+}

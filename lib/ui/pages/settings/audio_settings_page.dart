@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/settings.dart';
+import '../../../i18n/strings.g.dart';
 import '../../../providers/audio_settings_provider.dart';
 
 /// 音频质量设置页面
@@ -14,14 +15,14 @@ class AudioSettingsPage extends ConsumerWidget {
 
     if (audioSettings.isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('音频质量')),
+        appBar: AppBar(title: Text(t.audioSettings.title)),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('音频质量'),
+        title: Text(t.audioSettings.title),
       ),
       body: ListView(
         children: [
@@ -43,7 +44,7 @@ class AudioSettingsPage extends ConsumerWidget {
           const Divider(),
           // YouTube 流优先级
           _StreamPrioritySection(
-            title: 'YouTube 流优先级',
+            title: t.audioSettings.streamPriority.youtubeTitle,
             streamPriority: audioSettings.youtubeStreamPriority,
             availableTypes: const [StreamType.audioOnly, StreamType.muxed, StreamType.hls],
             onReorder: (newPriority) {
@@ -53,7 +54,7 @@ class AudioSettingsPage extends ConsumerWidget {
           const Divider(),
           // Bilibili 流优先级
           _StreamPrioritySection(
-            title: 'Bilibili 流优先级',
+            title: t.audioSettings.streamPriority.bilibiliTitle,
             streamPriority: audioSettings.bilibiliStreamPriority,
             availableTypes: const [StreamType.audioOnly, StreamType.muxed],
             onReorder: (newPriority) {
@@ -85,7 +86,7 @@ class _QualityLevelSection extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Text(
-            '全局音质等级',
+            t.audioSettings.qualityLevel.title,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: Theme.of(context).colorScheme.primary,
                 ),
@@ -94,7 +95,7 @@ class _QualityLevelSection extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
-            '适用于所有音源',
+            t.audioSettings.qualityLevel.subtitle,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -108,18 +109,18 @@ class _QualityLevelSection extends StatelessWidget {
           child: Column(
             children: [
               RadioListTile<AudioQualityLevel>(
-                title: const Text('高'),
-                subtitle: const Text('最高码率，音质最佳'),
+                title: Text(t.audioSettings.qualityLevel.high),
+                subtitle: Text(t.audioSettings.qualityLevel.highDescription),
                 value: AudioQualityLevel.high,
               ),
               RadioListTile<AudioQualityLevel>(
-                title: const Text('中'),
-                subtitle: const Text('中等码率，平衡音质与流量'),
+                title: Text(t.audioSettings.qualityLevel.medium),
+                subtitle: Text(t.audioSettings.qualityLevel.mediumDescription),
                 value: AudioQualityLevel.medium,
               ),
               RadioListTile<AudioQualityLevel>(
-                title: const Text('低'),
-                subtitle: const Text('最低码率，省流量'),
+                title: Text(t.audioSettings.qualityLevel.low),
+                subtitle: Text(t.audioSettings.qualityLevel.lowDescription),
                 value: AudioQualityLevel.low,
               ),
             ],
@@ -143,18 +144,18 @@ class _FormatPrioritySection extends StatelessWidget {
   String _getFormatName(AudioFormat format) {
     switch (format) {
       case AudioFormat.opus:
-        return 'Opus (WebM)';
+        return t.audioSettings.formatPriority.opusName;
       case AudioFormat.aac:
-        return 'AAC (MP4)';
+        return t.audioSettings.formatPriority.aacName;
     }
   }
 
   String _getFormatDescription(AudioFormat format) {
     switch (format) {
       case AudioFormat.opus:
-        return '音质好、体积小，兼容性稍差';
+        return t.audioSettings.formatPriority.opusDescription;
       case AudioFormat.aac:
-        return '兼容性最好';
+        return t.audioSettings.formatPriority.aacDescription;
     }
   }
 
@@ -166,7 +167,7 @@ class _FormatPrioritySection extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Text(
-            'YouTube 格式优先级',
+            t.audioSettings.formatPriority.title,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: Theme.of(context).colorScheme.primary,
                 ),
@@ -175,7 +176,7 @@ class _FormatPrioritySection extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
-            '仅对 YouTube 纯音频流生效',
+            t.audioSettings.formatPriority.subtitle,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -228,22 +229,22 @@ class _StreamPrioritySection extends StatelessWidget {
   String _getStreamTypeName(StreamType type) {
     switch (type) {
       case StreamType.audioOnly:
-        return '纯音频流';
+        return t.audioSettings.streamPriority.audioOnly;
       case StreamType.muxed:
-        return '混合流';
+        return t.audioSettings.streamPriority.muxed;
       case StreamType.hls:
-        return 'HLS 流';
+        return t.audioSettings.streamPriority.hls;
     }
   }
 
   String _getStreamTypeDescription(StreamType type) {
     switch (type) {
       case StreamType.audioOnly:
-        return '省流量，仅下载音频数据';
+        return t.audioSettings.streamPriority.audioOnlyDescription;
       case StreamType.muxed:
-        return '包含视频数据，兼容性好';
+        return t.audioSettings.streamPriority.muxedDescription;
       case StreamType.hls:
-        return '分段流，适合直播';
+        return t.audioSettings.streamPriority.hlsDescription;
     }
   }
 

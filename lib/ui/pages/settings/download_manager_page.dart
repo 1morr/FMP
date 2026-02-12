@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/download_task.dart';
+import '../../../i18n/strings.g.dart';
 import '../../../providers/download_provider.dart';
 import '../../../providers/download_settings_provider.dart';
 
@@ -16,7 +17,7 @@ class DownloadManagerPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('下载管理'),
+        title: Text(t.settings.downloadManager.title),
         actions: [
           // 批量操作菜单
           PopupMenuButton<String>(
@@ -36,16 +37,16 @@ class DownloadManagerPage extends ConsumerWidget {
                   final confirmed = await showDialog<bool>(
                     context: context,
                     builder: (context) => AlertDialog(
-                      title: const Text('清空队列'),
-                      content: const Text('确定要清空所有下载任务吗？'),
+                      title: Text(t.settings.downloadManager.clearQueue),
+                      content: Text(t.settings.downloadManager.clearQueueConfirm),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(context, false),
-                          child: const Text('取消'),
+                          child: Text(t.general.cancel),
                         ),
                         TextButton(
                           onPressed: () => Navigator.pop(context, true),
-                          child: const Text('确定'),
+                          child: Text(t.general.confirm),
                         ),
                       ],
                     ),
@@ -58,35 +59,35 @@ class DownloadManagerPage extends ConsumerWidget {
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'pause_all',
                 child: ListTile(
-                  leading: Icon(Icons.pause),
-                  title: Text('全部暂停'),
+                  leading: const Icon(Icons.pause),
+                  title: Text(t.settings.downloadManager.pauseAll),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'resume_all',
                 child: ListTile(
-                  leading: Icon(Icons.play_arrow),
-                  title: Text('全部继续'),
+                  leading: const Icon(Icons.play_arrow),
+                  title: Text(t.settings.downloadManager.resumeAll),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'clear_completed',
                 child: ListTile(
-                  leading: Icon(Icons.done_all),
-                  title: Text('清除已完成'),
+                  leading: const Icon(Icons.done_all),
+                  title: Text(t.settings.downloadManager.clearCompleted),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'clear_queue',
                 child: ListTile(
-                  leading: Icon(Icons.clear_all),
-                  title: Text('清空队列'),
+                  leading: const Icon(Icons.clear_all),
+                  title: Text(t.settings.downloadManager.clearQueue),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -96,16 +97,16 @@ class DownloadManagerPage extends ConsumerWidget {
       ),
       body: tasksAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text('加载失败: $error')),
+        error: (error, stack) => Center(child: Text(t.settings.downloadManager.loadFailed(error: '$error'))),
         data: (tasks) {
           if (tasks.isEmpty) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.download_done, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text('没有下载任务', style: TextStyle(color: Colors.grey)),
+                  const Icon(Icons.download_done, size: 64, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  Text(t.settings.downloadManager.noTasks, style: const TextStyle(color: Colors.grey)),
                 ],
               ),
             );
@@ -124,26 +125,26 @@ class DownloadManagerPage extends ConsumerWidget {
           return ListView(
             children: [
               if (downloading.isNotEmpty || pending.isNotEmpty) ...[
-                _SectionHeader(title: '正在下载', count: downloading.length),
+                _SectionHeader(title: t.settings.downloadManager.downloading, count: downloading.length),
                 _FixedHeightDownloadingSection(
                   tasks: downloading,
                   maxSlots: maxConcurrent,
                 ),
               ],
               if (pending.isNotEmpty) ...[
-                _SectionHeader(title: '等待中', count: pending.length),
+                _SectionHeader(title: t.settings.downloadManager.waiting, count: pending.length),
                 ...pending.map((task) => _DownloadTaskTile(task: task)),
               ],
               if (paused.isNotEmpty) ...[
-                _SectionHeader(title: '已暂停', count: paused.length),
+                _SectionHeader(title: t.settings.downloadManager.paused, count: paused.length),
                 ...paused.map((task) => _DownloadTaskTile(task: task)),
               ],
               if (failed.isNotEmpty) ...[
-                _SectionHeader(title: '失败', count: failed.length),
+                _SectionHeader(title: t.settings.downloadManager.failed, count: failed.length),
                 ...failed.map((task) => _DownloadTaskTile(task: task)),
               ],
               if (completed.isNotEmpty) ...[
-                _SectionHeader(title: '已完成', count: completed.length),
+                _SectionHeader(title: t.settings.downloadManager.completed, count: completed.length),
                 ...completed.map((task) => _DownloadTaskTile(task: task)),
               ],
             ],
@@ -238,19 +239,19 @@ class _DownloadTaskTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final downloadService = ref.watch(downloadServiceProvider);
     final trackAsync = ref.watch(trackByIdProvider(task.trackId));
-    
+
     // 从内存中获取实时进度（如果有的话）
     final progressState = ref.watch(downloadProgressStateProvider);
     final memProgress = progressState[task.id];
-    
+
     // 优先使用内存中的进度，否则使用数据库中的进度
     final progress = memProgress?.$1 ?? task.progress;
     final downloadedBytes = memProgress?.$2 ?? task.downloadedBytes;
     final totalBytes = memProgress?.$3 ?? task.totalBytes;
-    
+
     final title = trackAsync.maybeWhen(
-      data: (track) => track?.title ?? '未知歌曲',
-      orElse: () => '加载中...',
+      data: (track) => track?.title ?? t.settings.downloadManager.unknownTrack,
+      orElse: () => t.general.loading,
     );
     final artist = trackAsync.maybeWhen(
       data: (track) => track?.artist ?? '',
@@ -305,26 +306,26 @@ class _DownloadTaskTile extends ConsumerWidget {
             IconButton(
               icon: const Icon(Icons.pause),
               onPressed: () => downloadService.pauseTask(task.id),
-              tooltip: '暂停',
+              tooltip: t.settings.downloadManager.pause,
             ),
           if (task.isPaused)
             IconButton(
               icon: const Icon(Icons.play_arrow),
               onPressed: () => downloadService.resumeTask(task.id),
-              tooltip: '继续',
+              tooltip: t.settings.downloadManager.resume,
             ),
           // 重试按钮（失败时）
           if (task.isFailed)
             IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: () => downloadService.retryTask(task.id),
-              tooltip: '重试',
+              tooltip: t.settings.downloadManager.retry,
             ),
           // 删除按钮
           IconButton(
             icon: const Icon(Icons.close),
             onPressed: () => downloadService.cancelTask(task.id),
-            tooltip: '删除',
+            tooltip: t.settings.downloadManager.delete,
           ),
         ],
       ),
