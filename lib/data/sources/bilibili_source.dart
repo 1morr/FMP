@@ -700,6 +700,7 @@ class BilibiliSource extends BaseSource with Logging {
       // 记录API错误，特别关注限流相关错误
       if (code == -412 || code == -509 || code == -799) {
         logWarning('Bilibili rate limited: code=$code, message=$message');
+        throw BilibiliApiException(code: code, message: t.error.rateLimited);
       } else {
         logWarning('Bilibili API error: code=$code, message=$message');
       }
@@ -708,7 +709,7 @@ class BilibiliSource extends BaseSource with Logging {
   }
 
   /// 处理 Dio 错误
-  Exception _handleDioError(DioException e) {
+  BilibiliApiException _handleDioError(DioException e) {
     final statusCode = e.response?.statusCode;
     final responseData = e.response?.data;
 
@@ -719,18 +720,18 @@ class BilibiliSource extends BaseSource with Logging {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        return Exception('Network timeout');
+        return BilibiliApiException(code: -1, message: t.error.connectionTimeout);
       case DioExceptionType.connectionError:
-        return Exception('Network connection error');
+        return BilibiliApiException(code: -2, message: t.error.networkError);
       case DioExceptionType.badResponse:
         // 检查是否是限流
         if (statusCode == 412 || statusCode == 429) {
           logWarning('Bilibili rate limited (HTTP $statusCode)');
-          return Exception(t.error.rateLimited);
+          return BilibiliApiException(code: -429, message: t.error.rateLimited);
         }
-        return Exception('Server error: $statusCode');
+        return BilibiliApiException(code: -(statusCode ?? 500), message: t.error.serverError(code: statusCode ?? 500));
       default:
-        return Exception('Network error: ${e.message}');
+        return BilibiliApiException(code: -3, message: t.error.networkError);
     }
   }
 
@@ -1003,6 +1004,9 @@ class BilibiliApiException implements Exception {
 
   /// 是否是视频不可用（已删除/下架）
   bool get isUnavailable => code == -404 || code == 62002;
+
+  /// 是否是限流
+  bool get isRateLimited => code == -412 || code == -509 || code == -799 || code == -429;
 
   /// 是否需要登录
   bool get requiresLogin => code == -101;
