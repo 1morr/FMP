@@ -3,19 +3,30 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 
+import '../../i18n/strings.g.dart';
+
 /// 快捷键动作类型
 enum HotkeyAction {
-  playPause('播放/暂停'),
-  next('下一首'),
-  previous('上一首'),
-  stop('停止'),
-  volumeUp('增大音量'),
-  volumeDown('减小音量'),
-  mute('静音'),
-  toggleWindow('显示/隐藏窗口');
+  playPause,
+  next,
+  previous,
+  stop,
+  volumeUp,
+  volumeDown,
+  mute,
+  toggleWindow;
 
-  final String label;
-  const HotkeyAction(this.label);
+  /// 获取本地化标签
+  String get label => switch (this) {
+        HotkeyAction.playPause => t.settings.hotkeys.actions.playPause,
+        HotkeyAction.next => t.settings.hotkeys.actions.next,
+        HotkeyAction.previous => t.settings.hotkeys.actions.previous,
+        HotkeyAction.stop => t.settings.hotkeys.actions.stop,
+        HotkeyAction.volumeUp => t.settings.hotkeys.actions.volumeUp,
+        HotkeyAction.volumeDown => t.settings.hotkeys.actions.volumeDown,
+        HotkeyAction.mute => t.settings.hotkeys.actions.mute,
+        HotkeyAction.toggleWindow => t.settings.hotkeys.actions.toggleWindow,
+      };
 }
 
 /// 单个快捷键绑定配置
@@ -43,7 +54,7 @@ class HotkeyBinding {
 
   /// 转换为显示字符串
   String toDisplayString() {
-    if (!isConfigured) return '未设置';
+    if (!isConfigured) return t.general.notSet;
 
     final parts = <String>[];
     if (modifiers.contains(HotKeyModifier.control)) parts.add('Ctrl');

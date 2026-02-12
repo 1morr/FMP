@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/logger.dart';
+import '../../../i18n/strings.g.dart';
 
 /// 实时日志查看页面
 class LogViewerPage extends StatefulWidget {
@@ -85,7 +86,7 @@ class _LogViewerPageState extends State<LogViewerPage> {
     final text = _filteredLogs.map((e) => e.toString()).join('\n');
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('日志已复制到剪贴板')),
+      SnackBar(content: Text(t.logViewer.logsCopied)),
     );
   }
 
@@ -103,37 +104,37 @@ class _LogViewerPageState extends State<LogViewerPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('实时日志 (${filteredLogs.length})'),
+        title: Text(t.logViewer.titleWithCount(count: filteredLogs.length.toString())),
         actions: [
           // 自动滚动开关
           IconButton(
             icon: Icon(_autoScroll ? Icons.vertical_align_bottom : Icons.vertical_align_center),
-            tooltip: _autoScroll ? '自动滚动: 开' : '自动滚动: 关',
+            tooltip: _autoScroll ? t.logViewer.autoScrollOn : t.logViewer.autoScrollOff,
             onPressed: () => setState(() => _autoScroll = !_autoScroll),
           ),
           // 复制日志
           IconButton(
             icon: const Icon(Icons.copy),
-            tooltip: '复制全部',
+            tooltip: t.logViewer.copyAll,
             onPressed: filteredLogs.isEmpty ? null : _copyAllLogs,
           ),
           // 清空日志
           IconButton(
             icon: const Icon(Icons.delete_outline),
-            tooltip: '清空',
+            tooltip: t.logViewer.clear,
             onPressed: _logs.isEmpty ? null : _clearLogs,
           ),
           // 更多选项
           PopupMenuButton<LogLevel>(
             icon: const Icon(Icons.filter_list),
-            tooltip: '过滤级别',
+            tooltip: t.logViewer.filterLevel,
             initialValue: _filterLevel,
             onSelected: (level) => setState(() => _filterLevel = level),
             itemBuilder: (context) => [
-              const PopupMenuItem(value: LogLevel.debug, child: Text('全部 (Debug+)')),
+              PopupMenuItem(value: LogLevel.debug, child: Text(t.logViewer.allDebug)),
               const PopupMenuItem(value: LogLevel.info, child: Text('Info+')),
               const PopupMenuItem(value: LogLevel.warning, child: Text('Warning+')),
-              const PopupMenuItem(value: LogLevel.error, child: Text('仅 Error')),
+              PopupMenuItem(value: LogLevel.error, child: Text(t.logViewer.onlyError)),
             ],
           ),
         ],
@@ -145,7 +146,7 @@ class _LogViewerPageState extends State<LogViewerPage> {
             padding: const EdgeInsets.all(8.0),
             child: TextField(
               decoration: InputDecoration(
-                hintText: '搜索日志...',
+                hintText: t.logViewer.searchHint,
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -167,7 +168,7 @@ class _LogViewerPageState extends State<LogViewerPage> {
             child: filteredLogs.isEmpty
                 ? Center(
                     child: Text(
-                      _logs.isEmpty ? '暂无日志' : '没有匹配的日志',
+                      _logs.isEmpty ? t.logViewer.noLogs : t.logViewer.noMatchingLogs,
                       style: TextStyle(color: colorScheme.onSurfaceVariant),
                     ),
                   )
@@ -210,9 +211,9 @@ class _LogEntryTile extends StatelessWidget {
       onLongPress: () {
         Clipboard.setData(ClipboardData(text: entry.toString()));
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('已复制'),
-            duration: Duration(seconds: 1),
+          SnackBar(
+            content: Text(t.logViewer.copied),
+            duration: const Duration(seconds: 1),
           ),
         );
       },
@@ -272,26 +273,26 @@ class _LogEntryTile extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('日志详情'),
+        title: Text(t.logViewer.logDetail),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('时间: ${entry.formattedTime}'),
-              Text('级别: ${entry.level.name}'),
-              if (entry.tag != null) Text('标签: ${entry.tag}'),
+              Text('${t.logViewer.time}: ${entry.formattedTime}'),
+              Text('${t.logViewer.level}: ${entry.level.name}'),
+              if (entry.tag != null) Text('${t.logViewer.tag}: ${entry.tag}'),
               const SizedBox(height: 8),
-              const Text('消息:', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('${t.logViewer.message}:', style: const TextStyle(fontWeight: FontWeight.bold)),
               SelectableText(entry.message),
               if (entry.error != null) ...[
                 const SizedBox(height: 8),
-                const Text('错误:', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text('${t.logViewer.error}:', style: const TextStyle(fontWeight: FontWeight.bold)),
                 SelectableText(entry.error.toString()),
               ],
               if (entry.stackTrace != null) ...[
                 const SizedBox(height: 8),
-                const Text('堆栈:', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text('${t.logViewer.stackTrace}:', style: const TextStyle(fontWeight: FontWeight.bold)),
                 SelectableText(
                   entry.stackTrace.toString(),
                   style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
@@ -304,27 +305,27 @@ class _LogEntryTile extends StatelessWidget {
           TextButton(
             onPressed: () {
               final text = StringBuffer()
-                ..writeln('时间: ${entry.formattedTime}')
-                ..writeln('级别: ${entry.level.name}')
-                ..writeln('标签: ${entry.tag ?? "无"}')
-                ..writeln('消息: ${entry.message}');
+                ..writeln('${t.logViewer.time}: ${entry.formattedTime}')
+                ..writeln('${t.logViewer.level}: ${entry.level.name}')
+                ..writeln('${t.logViewer.tag}: ${entry.tag ?? t.logViewer.none}')
+                ..writeln('${t.logViewer.message}: ${entry.message}');
               if (entry.error != null) {
-                text.writeln('错误: ${entry.error}');
+                text.writeln('${t.logViewer.error}: ${entry.error}');
               }
               if (entry.stackTrace != null) {
-                text.writeln('堆栈:\n${entry.stackTrace}');
+                text.writeln('${t.logViewer.stackTrace}:\n${entry.stackTrace}');
               }
               Clipboard.setData(ClipboardData(text: text.toString()));
               Navigator.of(context).pop();
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('已复制到剪贴板')),
+                SnackBar(content: Text(t.logViewer.copiedToClipboard)),
               );
             },
-            child: const Text('复制'),
+            child: Text(t.logViewer.copy),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('关闭'),
+            child: Text(t.general.close),
           ),
         ],
       ),

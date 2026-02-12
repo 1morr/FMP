@@ -1,6 +1,8 @@
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 
+import '../../i18n/strings.g.dart';
+
 /// 字体选项
 class FontOption {
   final String? fontFamily;
@@ -19,26 +21,26 @@ class AppTheme {
   /// 可选字体列表（按平台）
   static List<FontOption> get availableFonts {
     if (Platform.isWindows) {
-      return const [
-        FontOption(null, '系统默认'),
-        FontOption('Microsoft YaHei UI', '微软雅黑'),
-        FontOption('SimSun', '宋体'),
-        FontOption('SimHei', '黑体'),
-        FontOption('KaiTi', '楷体'),
-        FontOption('FangSong', '仿宋'),
-        FontOption('Yu Gothic UI', 'Yu Gothic UI'),
-        FontOption('Meiryo', 'Meiryo'),
+      return [
+        FontOption(null, t.general.systemDefault),
+        FontOption('Microsoft YaHei UI', t.settings.font.microsoftYaHei),
+        FontOption('SimSun', t.settings.font.simsun),
+        FontOption('SimHei', t.settings.font.simhei),
+        FontOption('KaiTi', t.settings.font.kaiti),
+        FontOption('FangSong', t.settings.font.fangsong),
+        const FontOption('Yu Gothic UI', 'Yu Gothic UI'),
+        const FontOption('Meiryo', 'Meiryo'),
       ];
     }
     // Android
-    return const [
-      FontOption(null, '系统默认'),
-      FontOption('sans-serif', '无衬线 (Roboto)'),
-      FontOption('serif', '衬线 (Noto Serif)'),
-      FontOption('sans-serif-medium', '无衬线 中等'),
-      FontOption('sans-serif-light', '无衬线 细体'),
-      FontOption('sans-serif-condensed', '无衬线 窄体'),
-      FontOption('monospace', '等宽'),
+    return [
+      FontOption(null, t.general.systemDefault),
+      FontOption('sans-serif', t.settings.font.sansSerif),
+      FontOption('serif', t.settings.font.serif),
+      FontOption('sans-serif-medium', t.settings.font.sansSerifMedium),
+      FontOption('sans-serif-light', t.settings.font.sansSerifLight),
+      FontOption('sans-serif-condensed', t.settings.font.sansSerifCondensed),
+      FontOption('monospace', t.settings.font.monospace),
     ];
   }
 

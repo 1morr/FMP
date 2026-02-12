@@ -10,6 +10,7 @@ import '../../../data/models/play_queue.dart';
 import '../../../data/models/playlist.dart';
 import '../../../data/models/settings.dart';
 import '../../../data/models/track.dart';
+import '../../../i18n/strings.g.dart';
 import '../../../providers/database_provider.dart';
 import '../../../core/services/network_image_cache_service.dart';
 import '../../../providers/playback_settings_provider.dart';
@@ -24,33 +25,33 @@ class DeveloperOptionsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('开发者选项'),
+        title: Text(t.settings.developerOptions.title),
       ),
       body: ListView(
         children: [
           // 调试工具
           _SettingsSection(
-            title: '调试工具',
+            title: t.settings.developerOptions.debugTools,
             children: [
               const _MemoryInfoTile(),
               ListTile(
                 leading: const Icon(Icons.article_outlined),
-                title: const Text('实时日志'),
-                subtitle: const Text('查看应用运行日志'),
+                title: Text(t.settings.developerOptions.liveLog),
+                subtitle: Text(t.settings.developerOptions.liveLogSubtitle),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.pushNamed(RouteNames.logViewer),
               ),
               ListTile(
                 leading: const Icon(Icons.storage_outlined),
-                title: const Text('数据库查看器'),
-                subtitle: const Text('查看和浏览 Isar 数据库内容'),
+                title: Text(t.settings.developerOptions.dbViewer),
+                subtitle: Text(t.settings.developerOptions.dbViewerSubtitle),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.pushNamed(RouteNames.databaseViewer),
               ),
               ListTile(
                 leading: const Icon(Icons.music_note_outlined),
-                title: const Text('YouTube 流测试'),
-                subtitle: const Text('测试 Audio-only / Muxed / HLS 流播放'),
+                title: Text(t.settings.developerOptions.ytStreamTest),
+                subtitle: Text(t.settings.developerOptions.ytStreamTestSubtitle),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
@@ -63,7 +64,7 @@ class DeveloperOptionsPage extends ConsumerWidget {
           const Divider(),
           // 数据管理
           _SettingsSection(
-            title: '数据管理',
+            title: t.settings.developerOptions.dataManagement,
             children: [
               _DatabaseInfoTile(),
               _ResetDataTile(),
@@ -72,7 +73,7 @@ class DeveloperOptionsPage extends ConsumerWidget {
           const Divider(),
           // 实验性功能
           _SettingsSection(
-            title: '实验性功能',
+            title: t.settings.developerOptions.experimentalFeatures,
             children: [
               _AutoScrollListTile(),
             ],
@@ -80,12 +81,12 @@ class DeveloperOptionsPage extends ConsumerWidget {
           const Divider(),
           // 信息
           _SettingsSection(
-            title: '开发信息',
+            title: t.settings.developerOptions.devInfo,
             children: [
               ListTile(
                 leading: const Icon(Icons.bug_report_outlined),
-                title: const Text('调试模式'),
-                subtitle: const Text('已启用'),
+                title: Text(t.settings.developerOptions.debugMode),
+                subtitle: Text(t.general.enabled),
                 trailing: Icon(
                   Icons.check_circle,
                   color: Theme.of(context).colorScheme.primary,
@@ -106,15 +107,15 @@ class _DatabaseInfoTile extends ConsumerWidget {
     final dbAsync = ref.watch(databaseProvider);
 
     return dbAsync.when(
-      loading: () => const ListTile(
-        leading: Icon(Icons.info_outline),
-        title: Text('数据库信息'),
-        subtitle: Text('加载中...'),
+      loading: () => ListTile(
+        leading: const Icon(Icons.info_outline),
+        title: Text(t.settings.developerOptions.dbInfo),
+        subtitle: Text(t.general.loading),
       ),
       error: (e, _) => ListTile(
         leading: const Icon(Icons.error_outline),
-        title: const Text('数据库信息'),
-        subtitle: Text('错误: $e'),
+        title: Text(t.settings.developerOptions.dbInfo),
+        subtitle: Text(t.settings.developerOptions.dbInfoError(error: '$e')),
       ),
       data: (isar) => FutureBuilder<_DatabaseInfo>(
         future: _getDatabaseInfo(isar),
@@ -122,13 +123,16 @@ class _DatabaseInfoTile extends ConsumerWidget {
           final info = snapshot.data;
           return ListTile(
             leading: const Icon(Icons.info_outline),
-            title: const Text('数据库信息'),
+            title: Text(t.settings.developerOptions.dbInfo),
             subtitle: Text(
               info != null
-                  ? '路径: ${info.path}\n'
-                    '大小: ${_formatSize(info.size)}\n'
-                    '歌曲: ${info.trackCount} | 歌单: ${info.playlistCount}'
-                  : '加载中...',
+                  ? t.settings.developerOptions.dbInfoDetail(
+                      path: info.path,
+                      size: _formatSize(info.size),
+                      tracks: info.trackCount.toString(),
+                      playlists: info.playlistCount.toString(),
+                    )
+                  : t.general.loading,
             ),
             isThreeLine: true,
           );
@@ -232,10 +236,10 @@ class _MemoryInfoTileState extends State<_MemoryInfoTile> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const ListTile(
-        leading: Icon(Icons.memory),
-        title: Text('内存使用'),
-        subtitle: Text('加载中...'),
+      return ListTile(
+        leading: const Icon(Icons.memory),
+        title: Text(t.settings.developerOptions.memoryUsage),
+        subtitle: Text(t.general.loading),
       );
     }
 
@@ -243,8 +247,8 @@ class _MemoryInfoTileState extends State<_MemoryInfoTile> {
     if (info == null) {
       return ListTile(
         leading: const Icon(Icons.memory),
-        title: const Text('内存使用'),
-        subtitle: const Text('无法获取内存信息'),
+        title: Text(t.settings.developerOptions.memoryUsage),
+        subtitle: Text(t.settings.developerOptions.memoryUnavailable),
         trailing: IconButton(
           icon: const Icon(Icons.refresh),
           onPressed: _loadMemoryInfo,
@@ -256,23 +260,28 @@ class _MemoryInfoTileState extends State<_MemoryInfoTile> {
 
     // 图片缓存
     subtitleParts.add(
-      '图片缓存: ${info.imageCacheMB.toStringAsFixed(1)} / ${info.maxImageCacheMB} MB',
+      t.settings.developerOptions.imageCacheInfo(
+        current: info.imageCacheMB.toStringAsFixed(1),
+        max: info.maxImageCacheMB.toString(),
+      ),
     );
 
     // 进程内存（如果可用）
     if (info.rssBytes != null) {
-      subtitleParts.add('进程内存 (RSS): ${_formatBytes(info.rssBytes!)}');
+      subtitleParts.add(
+        t.settings.developerOptions.processMemory(size: _formatBytes(info.rssBytes!)),
+      );
     }
 
     return ListTile(
       leading: const Icon(Icons.memory),
-      title: const Text('内存使用'),
+      title: Text(t.settings.developerOptions.memoryUsage),
       subtitle: Text(subtitleParts.join('\n')),
       isThreeLine: info.rssBytes != null,
       trailing: IconButton(
         icon: const Icon(Icons.refresh),
         onPressed: _loadMemoryInfo,
-        tooltip: '刷新',
+        tooltip: t.settings.developerOptions.refresh,
       ),
     );
   }
@@ -300,10 +309,10 @@ class _ResetDataTile extends ConsumerWidget {
         color: Theme.of(context).colorScheme.error,
       ),
       title: Text(
-        '重置所有数据',
+        t.settings.developerOptions.resetAllData,
         style: TextStyle(color: Theme.of(context).colorScheme.error),
       ),
-      subtitle: const Text('删除所有歌单、播放队列和设置（不可恢复）'),
+      subtitle: Text(t.settings.developerOptions.resetSubtitle),
       onTap: () => _showResetConfirmDialog(context, ref),
     );
   }
@@ -312,19 +321,12 @@ class _ResetDataTile extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('确认重置'),
-        content: const Text(
-          '此操作将删除所有数据，包括：\n'
-          '• 所有歌单\n'
-          '• 播放队列\n'
-          '• 搜索历史\n'
-          '• 应用设置\n\n'
-          '此操作不可恢复！',
-        ),
+        title: Text(t.settings.developerOptions.confirmReset),
+        content: Text(t.settings.developerOptions.resetWarning),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('取消'),
+            child: Text(t.general.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -334,7 +336,7 @@ class _ResetDataTile extends ConsumerWidget {
               Navigator.of(context).pop();
               await _resetAllData(context, ref);
             },
-            child: const Text('确认重置'),
+            child: Text(t.settings.developerOptions.confirmReset),
           ),
         ],
       ),
@@ -347,7 +349,7 @@ class _ResetDataTile extends ConsumerWidget {
     try {
       // 显示进度
       scaffoldMessenger.showSnackBar(
-        const SnackBar(content: Text('正在重置数据...')),
+        SnackBar(content: Text(t.settings.developerOptions.resetting)),
       );
 
       final isar = await ref.read(databaseProvider.future);
@@ -367,15 +369,15 @@ class _ResetDataTile extends ConsumerWidget {
 
       scaffoldMessenger.hideCurrentSnackBar();
       scaffoldMessenger.showSnackBar(
-        const SnackBar(
-          content: Text('数据已重置，请重启应用'),
-          duration: Duration(seconds: 3),
+        SnackBar(
+          content: Text(t.settings.developerOptions.resetDone),
+          duration: const Duration(seconds: 3),
         ),
       );
     } catch (e) {
       scaffoldMessenger.hideCurrentSnackBar();
       scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text('重置失败: $e')),
+        SnackBar(content: Text(t.settings.developerOptions.resetFailed(error: '$e'))),
       );
     }
   }
@@ -389,8 +391,8 @@ class _AutoScrollListTile extends ConsumerWidget {
 
     return SwitchListTile(
       secondary: const Icon(Icons.my_location_outlined),
-      title: const Text('切歌时自动定位'),
-      subtitle: const Text('切换歌曲时自动跳转到队列页面并定位当前播放'),
+      title: Text(t.settings.developerOptions.autoScrollToPlaying),
+      subtitle: Text(t.settings.developerOptions.autoScrollSubtitle),
       value: playbackSettings.autoScrollToCurrentTrack,
       onChanged: playbackSettings.isLoading
           ? null

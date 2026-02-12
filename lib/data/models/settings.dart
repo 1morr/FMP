@@ -106,6 +106,9 @@ class Settings {
   /// 自定义字体 (null 或空 = 系统默认)
   String? fontFamily;
 
+  /// 语言设置 (null = 跟随系统, 'zh_CN', 'zh_TW', 'en')
+  String? locale;
+
   // ========== 音频质量设置 ==========
 
   /// 音质等级: 0=high, 1=medium, 2=low

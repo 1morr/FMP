@@ -8,6 +8,7 @@ import 'package:smtc_windows/smtc_windows.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
+import 'i18n/strings.g.dart';
 import 'services/audio/audio_handler.dart';
 import 'services/audio/windows_smtc_handler.dart';
 import 'services/cache/ranking_cache_service.dart';
@@ -76,9 +77,14 @@ void main() async {
   // 注意：Repository 由 RadioController 設置，定時刷新在設置後自動啟動
   RadioRefreshService.instance = RadioRefreshService();
 
+  // 初始化 i18n（先使用设备语言，后续由 LocaleProvider 加载用户设置覆盖）
+  LocaleSettings.useDeviceLocale();
+
   runApp(
-    const ProviderScope(
-      child: FMPApp(),
+    ProviderScope(
+      child: TranslationProvider(
+        child: const FMPApp(),
+      ),
     ),
   );
 }
