@@ -231,19 +231,26 @@ if (hasMultiplePages) {
    - 点击可跳转到当前位置
 
 2. **拖拽排序列表**
-   - 使用 `ReorderableListView`
+   - 使用 `ScrollablePositionedList` + 自定义 `LongPressDraggable` + `DragTarget`
    - **防闪烁机制**：维护 `_localQueue` 副本
    - 拖拽时先更新本地状态（同步），再同步到 provider（异步）
+   - 使用 `RepaintBoundary` 和 `addAutomaticKeepAlives: true` 优化渲染
 
-3. **自动滚动功能**
+3. **自动滚动功能**（设置页面 > 播放 > 自动定位当前播放）
    - 由 `autoScrollToCurrentTrackProvider` 设置控制
    - 首次进入页面定位到当前播放
    - 切歌时自动滚动到新位置
+   - 使用 `ItemScrollController.jumpTo(index:)` 实现瞬间跳转
 
-4. **队列项功能**
-   - Dismissible 左滑删除
-   - 拖拽手柄排序
+4. **滚动到顶部/底部按钮**
+   - AppBar leading 位置
+   - 根据当前滚动位置显示不同图标（↑/↓）
+   - 使用 `ItemPositionsListener` 监听滚动位置
+
+5. **队列项功能**
+   - 长按拖拽排序（蓝色指示线）
    - 点击播放该项
+   - 删除按钮移除
    - 显示封面、标题、时长
 
 ### 关键状态管理
@@ -256,7 +263,7 @@ if (needsSync) {
 }
 
 // 拖拽时更新
-onReorder: (oldIndex, newIndex) {
+void _onDragEnd() {
   setState(() {
     final track = _localQueue!.removeAt(oldIndex);
     _localQueue!.insert(newIndex, track);
@@ -265,7 +272,13 @@ onReorder: (oldIndex, newIndex) {
   // 异步同步到 provider
   ref.read(audioControllerProvider.notifier).moveInQueue(oldIndex, newIndex);
 }
+
+// 快速跳转到当前播放
+void _scrollToCurrentTrack(int currentIndex) {
+  _itemScrollController.jumpTo(index: currentIndex, alignment: 0.3);
+}
 ```
+
 
 ---
 
