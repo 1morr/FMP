@@ -4,7 +4,6 @@ import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:open_filex/open_filex.dart';
-import 'package:archive/archive.dart';
 
 import '../../core/logger.dart';
 
@@ -17,7 +16,7 @@ class UpdateInfo {
   final String version;
   final String releaseNotes;
   final String? apkDownloadUrl;
-  final String? windowsZipDownloadUrl;
+  final String? windowsInstallerDownloadUrl;
   final DateTime publishedAt;
   final int? assetSize; // bytes
   final String? htmlUrl; // GitHub release page URL
@@ -26,7 +25,7 @@ class UpdateInfo {
     required this.version,
     required this.releaseNotes,
     this.apkDownloadUrl,
-    this.windowsZipDownloadUrl,
+    this.windowsInstallerDownloadUrl,
     required this.publishedAt,
     this.assetSize,
     this.htmlUrl,
@@ -34,12 +33,12 @@ class UpdateInfo {
 
   /// 当前平台的下载 URL
   String? get downloadUrl =>
-      Platform.isAndroid ? apkDownloadUrl : windowsZipDownloadUrl;
+      Platform.isAndroid ? apkDownloadUrl : windowsInstallerDownloadUrl;
 
   /// 当前平台的资源文件名
   String get assetFileName => Platform.isAndroid
       ? 'fmp-$version-android.apk'
-      : 'fmp-$version-windows.zip';
+      : 'fmp-$version-windows-installer.exe';
 }
 
 /// 应用更新服务
@@ -85,7 +84,7 @@ class UpdateService {
       // 解析资源
       final assets = data['assets'] as List<dynamic>;
       String? apkUrl;
-      String? windowsZipUrl;
+      String? windowsInstallerUrl;
       int? assetSize;
 
       for (final asset in assets) {
@@ -96,8 +95,8 @@ class UpdateService {
         if (name.endsWith('.apk')) {
           apkUrl = url;
           if (Platform.isAndroid) assetSize = size;
-        } else if (name.endsWith('-windows.zip')) {
-          windowsZipUrl = url;
+        } else if (name.endsWith('-windows-installer.exe')) {
+          windowsInstallerUrl = url;
           if (Platform.isWindows) assetSize = size;
         }
       }
@@ -112,7 +111,7 @@ class UpdateService {
         version: tagName,
         releaseNotes: releaseNotes,
         apkDownloadUrl: apkUrl,
-        windowsZipDownloadUrl: windowsZipUrl,
+        windowsInstallerDownloadUrl: windowsInstallerUrl,
         publishedAt: publishedAt,
         assetSize: assetSize,
         htmlUrl: htmlUrl,
@@ -174,79 +173,34 @@ class UpdateService {
     }
   }
 
-  /// Windows: 下载 ZIP、解压、创建更新脚本并执行
+  /// Windows: 下载 Installer 并运行
   Future<void> _downloadAndInstallWindows(
     String url,
     String fileName,
     void Function(int, int)? onProgress,
   ) async {
     final tempDir = await getTemporaryDirectory();
-    final zipPath = '${tempDir.path}/$fileName';
-    final extractDir = '${tempDir.path}/fmp_update';
+    final installerPath = '${tempDir.path}/$fileName';
 
-    AppLogger.info('Downloading ZIP to $zipPath', _tag);
+    AppLogger.info('Downloading installer to $installerPath', _tag);
 
-    // 下载 ZIP
+    // 下载 Installer
     await _dio.download(
       url,
-      zipPath,
+      installerPath,
       onReceiveProgress: onProgress,
     );
 
-    AppLogger.info('Download complete, extracting...', _tag);
+    AppLogger.info('Download complete, launching installer...', _tag);
 
-    // 解压
-    final extractDirObj = Directory(extractDir);
-    if (extractDirObj.existsSync()) {
-      extractDirObj.deleteSync(recursive: true);
-    }
-    extractDirObj.createSync(recursive: true);
-
-    final bytes = File(zipPath).readAsBytesSync();
-    final archive = ZipDecoder().decodeBytes(bytes);
-    for (final file in archive) {
-      final filePath = '$extractDir/${file.name}';
-      if (file.isFile) {
-        final outFile = File(filePath);
-        outFile.createSync(recursive: true);
-        outFile.writeAsBytesSync(file.content as List<int>);
-      } else {
-        Directory(filePath).createSync(recursive: true);
-      }
-    }
-
-    // 获取当前应用目录
-    final appDir = File(Platform.resolvedExecutable).parent.path;
-    final exeName = File(Platform.resolvedExecutable).uri.pathSegments.last;
-
-    // 创建更新批处理脚本
-    final batPath = '${tempDir.path}/fmp_updater.bat';
-    final vbsPath = '${tempDir.path}/fmp_updater.vbs';
-    final batScript = '''@echo off
-chcp 65001 >nul
-timeout /t 2 /nobreak > nul
-xcopy /s /y /q "$extractDir\\*" "$appDir\\"
-start "" "$appDir\\$exeName"
-del "$vbsPath"
-del "%~f0"
-''';
-
-    // 用 VBScript 隐藏 CMD 窗口启动 bat
-    final vbsScript =
-        'CreateObject("WScript.Shell").Run """${batPath.replaceAll('/', '\\')}""", 0, False';
-
-    File(batPath).writeAsStringSync(batScript);
-    File(vbsPath).writeAsStringSync(vbsScript);
-
-    AppLogger.info('Starting updater script and exiting...', _tag);
-
-    // 通过 wscript 启动 VBS（无窗口）
+    // 启动安装程序（静默更新模式，完成后自动重启应用）
     await Process.start(
-      'wscript',
-      [vbsPath],
+      installerPath,
+      ['/SILENT', '/CLOSEAPPLICATIONS', '/RESTARTAPPLICATIONS'],
       mode: ProcessStartMode.detached,
     );
 
+    // 退出当前应用，让安装程序接管
     exit(0);
   }
 
