@@ -22,6 +22,10 @@ import '../../widgets/context_menu_region.dart';
 import '../../../core/utils/number_format_utils.dart';
 import '../../../i18n/strings.g.dart';
 import '../../widgets/track_thumbnail.dart';
+import '../../../data/models/playlist.dart';
+import '../../../providers/refresh_provider.dart';
+import '../../../data/sources/source_provider.dart';
+import '../library/widgets/create_playlist_dialog.dart';
 
 /// 首页
 class HomePage extends ConsumerStatefulWidget {
@@ -298,62 +302,9 @@ class _HomePageState extends ConsumerState<HomePage> {
 
                 // 构建歌单卡片列表
                 final playlistCards = recentLists.map((playlist) {
-                  final coverAsync =
-                      ref.watch(playlistCoverProvider(playlist.id));
-
-                  // 預加載歌單詳情數據
-                  ref.read(playlistDetailProvider(playlist.id));
-
                   return SizedBox(
                     width: cardWidth,
-                    child: Card(
-                      margin: EdgeInsets.zero,
-                      clipBehavior: Clip.antiAlias,
-                      child: InkWell(
-                        onTap: () => context.go('/library/${playlist.id}'),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // 封面 - 使用 Expanded 与音乐库一致
-                            Expanded(
-                              child: Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  coverAsync.when(
-                                    skipLoadingOnReload: true,
-                                    data: (coverData) => coverData.hasCover
-                                        ? ImageLoadingService.loadImage(
-                                            localPath: coverData.localPath,
-                                            networkUrl: coverData.networkUrl,
-                                            placeholder:
-                                                const ImagePlaceholder
-                                                    .playlist(),
-                                            fit: BoxFit.cover,
-                                          )
-                                        : const ImagePlaceholder.playlist(),
-                                    loading: () =>
-                                        const ImagePlaceholder.playlist(),
-                                    error: (e, s) =>
-                                        const ImagePlaceholder.playlist(),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            // 名称
-                            Padding(
-                              padding: const EdgeInsets.all(8),
-                              child: Text(
-                                playlist.name,
-                                style:
-                                    Theme.of(context).textTheme.bodySmall,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                    child: _HomePlaylistCard(playlist: playlist),
                   );
                 }).toList();
 
@@ -492,42 +443,203 @@ class _HomePageState extends ConsumerState<HomePage> {
   ) {
     return SizedBox(
       width: cardWidth,
-      child: Card(
-        margin: EdgeInsets.zero,
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () {
-            // 将历史记录转换为 Track 并播放
-            final track = history.toTrack();
-            ref.read(audioControllerProvider.notifier).playTemporary(track);
-          },
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 封面 - 使用 Expanded 与音乐库一致
-              Expanded(
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    history.thumbnailUrl != null
-                        ? ImageLoadingService.loadImage(
-                            networkUrl: history.thumbnailUrl,
-                            placeholder: const ImagePlaceholder.track(),
-                            fit: BoxFit.cover,
-                          )
-                        : const ImagePlaceholder.track(),
-                  ],
+      child: ContextMenuRegion(
+        menuBuilder: (_) => _buildHistoryMenuItems(colorScheme),
+        onSelected: (value) => _handleHistoryMenuAction(context, history, value),
+        child: Card(
+          margin: EdgeInsets.zero,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () {
+              // 将历史记录转换为 Track 并播放
+              final track = history.toTrack();
+              ref.read(audioControllerProvider.notifier).playTemporary(track);
+            },
+            onLongPress: () => _showHistoryOptionsMenu(context, history),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 封面 - 使用 Expanded 与音乐库一致
+                Expanded(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      history.thumbnailUrl != null
+                          ? ImageLoadingService.loadImage(
+                              networkUrl: history.thumbnailUrl,
+                              placeholder: const ImagePlaceholder.track(),
+                              fit: BoxFit.cover,
+                            )
+                          : const ImagePlaceholder.track(),
+                    ],
+                  ),
                 ),
+                // 标题
+                Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Text(
+                    history.title,
+                    style: Theme.of(context).textTheme.bodySmall,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<PopupMenuEntry<String>> _buildHistoryMenuItems(ColorScheme colorScheme) => [
+    PopupMenuItem(
+      value: 'play',
+      child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.playHistoryPage.play), contentPadding: EdgeInsets.zero),
+    ),
+    PopupMenuItem(
+      value: 'play_next',
+      child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.playHistoryPage.playNext), contentPadding: EdgeInsets.zero),
+    ),
+    PopupMenuItem(
+      value: 'add_to_queue',
+      child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.playHistoryPage.addToQueue), contentPadding: EdgeInsets.zero),
+    ),
+    PopupMenuItem(
+      value: 'add_to_playlist',
+      child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.playHistoryPage.addToPlaylist), contentPadding: EdgeInsets.zero),
+    ),
+    const PopupMenuDivider(),
+    PopupMenuItem(
+      value: 'delete',
+      child: ListTile(
+        leading: Icon(Icons.delete_outline, color: colorScheme.error),
+        title: Text(t.playHistoryPage.deleteThisRecord, style: TextStyle(color: colorScheme.error)),
+        contentPadding: EdgeInsets.zero,
+      ),
+    ),
+    PopupMenuItem(
+      value: 'delete_all',
+      child: ListTile(
+        leading: Icon(Icons.delete_sweep, color: colorScheme.error),
+        title: Text(t.playHistoryPage.deleteAllForTrack, style: TextStyle(color: colorScheme.error)),
+        contentPadding: EdgeInsets.zero,
+      ),
+    ),
+  ];
+
+  void _handleHistoryMenuAction(BuildContext context, PlayHistory history, String action) async {
+    final controller = ref.read(audioControllerProvider.notifier);
+    final track = history.toTrack();
+
+    switch (action) {
+      case 'play':
+        controller.playTemporary(track);
+      case 'play_next':
+        final added = await controller.addNext(track);
+        if (added && context.mounted) {
+          ToastService.success(context, t.playHistoryPage.toastAddedToNext);
+        }
+      case 'add_to_queue':
+        final added = await controller.addToQueue(track);
+        if (added && context.mounted) {
+          ToastService.success(context, t.playHistoryPage.toastAddedToQueue);
+        }
+      case 'add_to_playlist':
+        showAddToPlaylistDialog(context: context, track: track);
+      case 'delete':
+        await ref.read(playHistoryActionsProvider).delete(history.id);
+        if (context.mounted) {
+          ToastService.success(context, t.playHistoryPage.toastDeletedRecord);
+        }
+      case 'delete_all':
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(t.playHistoryPage.deleteAllTitle),
+            content: Text(t.playHistoryPage.deleteAllConfirm(title: history.title)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(t.general.cancel),
               ),
-              // 标题
-              Padding(
-                padding: const EdgeInsets.all(8),
-                child: Text(
-                  history.title,
-                  style: Theme.of(context).textTheme.bodySmall,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(t.playHistoryPage.deleteButton),
+              ),
+            ],
+          ),
+        );
+        if (confirmed == true && context.mounted) {
+          final count = await ref
+              .read(playHistoryPageProvider.notifier)
+              .deleteAllForTrack(history.trackKey);
+          if (context.mounted) {
+            ToastService.success(context, t.playHistoryPage.toastDeletedCount(n: count));
+          }
+        }
+    }
+  }
+
+  void _showHistoryOptionsMenu(BuildContext context, PlayHistory history) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.play_arrow),
+                title: Text(t.playHistoryPage.play),
+                onTap: () {
+                  Navigator.pop(context);
+                  _handleHistoryMenuAction(context, history, 'play');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.queue_play_next),
+                title: Text(t.playHistoryPage.playNext),
+                onTap: () {
+                  Navigator.pop(context);
+                  _handleHistoryMenuAction(context, history, 'play_next');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.add_to_queue),
+                title: Text(t.playHistoryPage.addToQueue),
+                onTap: () {
+                  Navigator.pop(context);
+                  _handleHistoryMenuAction(context, history, 'add_to_queue');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.playlist_add),
+                title: Text(t.playHistoryPage.addToPlaylist),
+                onTap: () {
+                  Navigator.pop(context);
+                  _handleHistoryMenuAction(context, history, 'add_to_playlist');
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: Icon(Icons.delete_outline, color: colorScheme.error),
+                title: Text(t.playHistoryPage.deleteThisRecord, style: TextStyle(color: colorScheme.error)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _handleHistoryMenuAction(context, history, 'delete');
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.delete_sweep, color: colorScheme.error),
+                title: Text(t.playHistoryPage.deleteAllForTrack, style: TextStyle(color: colorScheme.error)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _handleHistoryMenuAction(context, history, 'delete_all');
+                },
               ),
             ],
           ),
@@ -747,12 +859,30 @@ class _HomePageState extends ConsumerState<HomePage> {
 
             return SizedBox(
               width: 120,
-              child: _HomeRadioStationCard(
-                station: station,
-                isLive: isLive,
-                isPlaying: isPlaying,
-                isLoading: isLoading,
-                onTap: () => _onRadioStationTap(station, isCurrentPlaying, radioState),
+              child: ContextMenuRegion(
+                menuBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete, size: 20, color: Theme.of(context).colorScheme.error),
+                        const SizedBox(width: 12),
+                        Text(t.radio.deleteStation, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                      ],
+                    ),
+                  ),
+                ],
+                onSelected: (value) {
+                  if (value == 'delete') _showRadioDeleteConfirm(context, station);
+                },
+                child: _HomeRadioStationCard(
+                  station: station,
+                  isLive: isLive,
+                  isPlaying: isPlaying,
+                  isLoading: isLoading,
+                  onTap: () => _onRadioStationTap(station, isCurrentPlaying, radioState),
+                  onLongPress: () => _showRadioOptionsMenu(context, station),
+                ),
               ),
             );
           }).toList(),
@@ -777,6 +907,64 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     } else {
       controller.play(station);
+    }
+  }
+
+  /// 電台長按菜單（移動端）
+  void _showRadioOptionsMenu(BuildContext context, RadioStation station) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(Icons.delete, color: colorScheme.error),
+                title: Text(t.radio.deleteStation, style: TextStyle(color: colorScheme.error)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showRadioDeleteConfirm(context, station);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 電台刪除確認對話框
+  Future<void> _showRadioDeleteConfirm(BuildContext context, RadioStation station) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t.radio.deleteStation),
+        content: Text(t.radio.deleteConfirm(title: station.title)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(t.general.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: Text(t.radio.delete),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(radioControllerProvider.notifier).deleteStation(station.id);
+      if (context.mounted) {
+        ToastService.success(context, t.radio.stationDeleted);
+      }
     }
   }
 }
@@ -922,6 +1110,7 @@ class _HomeRadioStationCard extends StatelessWidget {
   final bool isPlaying;
   final bool isLoading;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   const _HomeRadioStationCard({
     required this.station,
@@ -929,6 +1118,7 @@ class _HomeRadioStationCard extends StatelessWidget {
     required this.isPlaying,
     required this.isLoading,
     required this.onTap,
+    required this.onLongPress,
   });
 
   @override
@@ -938,6 +1128,7 @@ class _HomeRadioStationCard extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(12),
       child: Column(
         children: [
@@ -1062,5 +1253,337 @@ class _HomeRadioStationCard extends StatelessWidget {
         color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
       ),
     );
+  }
+}
+
+/// 首頁歌單卡片（帶右鍵/長按菜單）
+class _HomePlaylistCard extends ConsumerWidget {
+  final Playlist playlist;
+
+  const _HomePlaylistCard({required this.playlist});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final coverAsync = ref.watch(playlistCoverProvider(playlist.id));
+
+    // 預加載歌單詳情數據
+    ref.read(playlistDetailProvider(playlist.id));
+
+    return ContextMenuRegion(
+      menuBuilder: (_) => _buildContextMenuItems(context, ref),
+      onSelected: (value) => _handleContextMenuAction(context, ref, value),
+      child: Card(
+        margin: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => context.go('/library/${playlist.id}'),
+          onLongPress: () => _showOptionsMenu(context, ref),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    coverAsync.when(
+                      skipLoadingOnReload: true,
+                      data: (coverData) => coverData.hasCover
+                          ? ImageLoadingService.loadImage(
+                              localPath: coverData.localPath,
+                              networkUrl: coverData.networkUrl,
+                              placeholder: const ImagePlaceholder.playlist(),
+                              fit: BoxFit.cover,
+                            )
+                          : const ImagePlaceholder.playlist(),
+                      loading: () => const ImagePlaceholder.playlist(),
+                      error: (e, s) => const ImagePlaceholder.playlist(),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Text(
+                  playlist.name,
+                  style: Theme.of(context).textTheme.bodySmall,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<PopupMenuEntry<String>> _buildContextMenuItems(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isRefreshing = ref.read(isPlaylistRefreshingProvider(playlist.id));
+
+    return [
+      if (playlist.isMix) ...[
+        PopupMenuItem(
+          value: 'play_mix',
+          child: Row(
+            children: [const Icon(Icons.play_arrow, size: 20), const SizedBox(width: 12), Text(t.library.main.playMix)],
+          ),
+        ),
+      ] else ...[
+        PopupMenuItem(
+          value: 'add_all',
+          child: Row(
+            children: [const Icon(Icons.play_arrow, size: 20), const SizedBox(width: 12), Text(t.library.addAll)],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'shuffle_add',
+          child: Row(
+            children: [const Icon(Icons.shuffle, size: 20), const SizedBox(width: 12), Text(t.library.shuffleAdd)],
+          ),
+        ),
+      ],
+      PopupMenuItem(
+        value: 'edit',
+        child: Row(
+          children: [const Icon(Icons.edit, size: 20), const SizedBox(width: 12), Text(t.library.main.editPlaylist)],
+        ),
+      ),
+      if (playlist.isImported && !playlist.isMix)
+        PopupMenuItem(
+          value: 'refresh',
+          enabled: !isRefreshing,
+          child: Row(
+            children: [
+              Icon(isRefreshing ? Icons.hourglass_empty : Icons.refresh, size: 20),
+              const SizedBox(width: 12),
+              Text(isRefreshing ? t.library.main.refreshing : t.library.main.refreshPlaylist),
+            ],
+          ),
+        ),
+      PopupMenuItem(
+        value: 'delete',
+        child: Row(
+          children: [
+            Icon(Icons.delete, size: 20, color: colorScheme.error),
+            const SizedBox(width: 12),
+            Text(t.library.main.deletePlaylist, style: TextStyle(color: colorScheme.error)),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  void _handleContextMenuAction(BuildContext context, WidgetRef ref, String value) {
+    switch (value) {
+      case 'play_mix':
+        _playMix(context, ref);
+      case 'add_all':
+        _addAllToQueue(context, ref);
+      case 'shuffle_add':
+        _shuffleAddToQueue(context, ref);
+      case 'edit':
+        _showEditDialog(context, ref);
+      case 'refresh':
+        _refreshPlaylist(context, ref);
+      case 'delete':
+        _showDeleteConfirm(context, ref);
+    }
+  }
+
+  void _showOptionsMenu(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isRefreshing = ref.read(isPlaylistRefreshingProvider(playlist.id));
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (playlist.isMix) ...[
+                ListTile(
+                  leading: const Icon(Icons.play_arrow),
+                  title: Text(t.library.main.playMix),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _playMix(context, ref);
+                  },
+                ),
+              ] else ...[
+                ListTile(
+                  leading: const Icon(Icons.play_arrow),
+                  title: Text(t.library.addAll),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _addAllToQueue(context, ref);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.shuffle),
+                  title: Text(t.library.shuffleAdd),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _shuffleAddToQueue(context, ref);
+                  },
+                ),
+              ],
+              ListTile(
+                leading: const Icon(Icons.edit),
+                title: Text(t.library.main.editPlaylist),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showEditDialog(context, ref);
+                },
+              ),
+              if (playlist.isImported && !playlist.isMix)
+                ListTile(
+                  leading: isRefreshing
+                      ? SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                          ),
+                        )
+                      : const Icon(Icons.refresh),
+                  title: Text(isRefreshing ? t.library.main.refreshing : t.library.main.refreshPlaylist),
+                  enabled: !isRefreshing,
+                  onTap: isRefreshing
+                      ? null
+                      : () {
+                          Navigator.pop(context);
+                          _refreshPlaylist(context, ref);
+                        },
+                ),
+              ListTile(
+                leading: Icon(Icons.delete, color: colorScheme.error),
+                title: Text(t.library.main.deletePlaylist, style: TextStyle(color: colorScheme.error)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showDeleteConfirm(context, ref);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _addAllToQueue(BuildContext context, WidgetRef ref) async {
+    final service = ref.read(playlistServiceProvider);
+    final result = await service.getPlaylistWithTracks(playlist.id);
+
+    if (result == null || result.tracks.isEmpty) {
+      if (context.mounted) {
+        ToastService.warning(context, t.library.main.playlistEmpty);
+      }
+      return;
+    }
+
+    final controller = ref.read(audioControllerProvider.notifier);
+    final added = await controller.addAllToQueue(result.tracks);
+
+    if (added && context.mounted) {
+      ToastService.success(context, t.library.addedToQueue(n: result.tracks.length));
+    }
+  }
+
+  void _shuffleAddToQueue(BuildContext context, WidgetRef ref) async {
+    final service = ref.read(playlistServiceProvider);
+    final result = await service.getPlaylistWithTracks(playlist.id);
+
+    if (result == null || result.tracks.isEmpty) {
+      if (context.mounted) {
+        ToastService.warning(context, t.library.main.playlistEmpty);
+      }
+      return;
+    }
+
+    final controller = ref.read(audioControllerProvider.notifier);
+    final shuffled = List<Track>.from(result.tracks)..shuffle();
+    final added = await controller.addAllToQueue(shuffled);
+
+    if (added && context.mounted) {
+      ToastService.success(context, t.library.shuffledAddedToQueue(n: result.tracks.length));
+    }
+  }
+
+  Future<void> _playMix(BuildContext context, WidgetRef ref) async {
+    if (playlist.mixPlaylistId == null || playlist.mixSeedVideoId == null) {
+      ToastService.error(context, t.library.main.mixInfoIncomplete);
+      return;
+    }
+
+    try {
+      final youtubeSource = ref.read(youtubeSourceProvider);
+      final result = await youtubeSource.fetchMixTracks(
+        playlistId: playlist.mixPlaylistId!,
+        currentVideoId: playlist.mixSeedVideoId!,
+      );
+
+      if (result.tracks.isEmpty) {
+        if (context.mounted) {
+          ToastService.error(context, t.library.main.cannotLoadMix);
+        }
+        return;
+      }
+
+      final controller = ref.read(audioControllerProvider.notifier);
+      await controller.playMixPlaylist(
+        playlistId: playlist.mixPlaylistId!,
+        seedVideoId: playlist.mixSeedVideoId!,
+        title: playlist.name,
+        tracks: result.tracks,
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ToastService.error(context, '${t.library.main.playMixFailed}: $e');
+      }
+    }
+  }
+
+  void _refreshPlaylist(BuildContext context, WidgetRef ref) {
+    ref.read(refreshManagerProvider.notifier).refreshPlaylist(playlist);
+  }
+
+  void _showEditDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => CreatePlaylistDialog(playlist: playlist),
+    );
+  }
+
+  void _showDeleteConfirm(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t.library.main.deletePlaylist),
+        content: Text(t.library.main.deletePlaylistConfirm(name: playlist.name)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(t.general.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: Text(t.general.delete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      ref.read(playlistListProvider.notifier).deletePlaylist(playlist.id);
+      if (context.mounted) {
+        ToastService.success(context, t.library.main.playlistDeleted);
+      }
+    }
   }
 }
