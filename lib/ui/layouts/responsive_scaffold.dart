@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,6 +7,7 @@ import '../../core/constants/breakpoints.dart';
 import '../../i18n/strings.g.dart';
 import '../../services/audio/audio_provider.dart';
 import '../../services/radio/radio_controller.dart';
+import '../widgets/custom_title_bar.dart';
 import '../widgets/player/mini_player.dart';
 import '../widgets/radio/radio_mini_player.dart';
 import '../widgets/track_detail_panel.dart';
@@ -75,7 +78,7 @@ class ResponsiveScaffold extends StatelessWidget {
     final width = MediaQuery.of(context).size.width;
     final layoutType = Breakpoints.getLayoutType(width);
 
-    return switch (layoutType) {
+    Widget layout = switch (layoutType) {
       LayoutType.mobile => _MobileLayout(
           selectedIndex: selectedIndex,
           onDestinationSelected: onDestinationSelected,
@@ -92,6 +95,18 @@ class ResponsiveScaffold extends StatelessWidget {
           child: child,
         ),
     };
+
+    // Windows 平台使用自定义标题栏替代系统默认标题栏
+    if (Platform.isWindows) {
+      layout = Column(
+        children: [
+          const CustomTitleBar(),
+          Expanded(child: layout),
+        ],
+      );
+    }
+
+    return layout;
   }
 }
 
@@ -146,20 +161,26 @@ class _TabletLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       body: Row(
         children: [
-          NavigationRail(
-            selectedIndex: selectedIndex,
-            onDestinationSelected: onDestinationSelected,
-            labelType: NavigationRailLabelType.all,
-            destinations: destinations
-                .map((d) => NavigationRailDestination(
-                      icon: Icon(d.icon),
-                      selectedIcon: Icon(d.selectedIcon),
-                      label: Text(d.label),
-                    ))
-                .toList(),
+          Container(
+            color: colorScheme.surfaceContainerLow,
+            child: NavigationRail(
+              selectedIndex: selectedIndex,
+              onDestinationSelected: onDestinationSelected,
+              labelType: NavigationRailLabelType.all,
+              backgroundColor: Colors.transparent,
+              destinations: destinations
+                  .map((d) => NavigationRailDestination(
+                        icon: Icon(d.icon),
+                        selectedIcon: Icon(d.selectedIcon),
+                        label: Text(d.label),
+                      ))
+                  .toList(),
+            ),
           ),
           const VerticalDivider(width: 1, thickness: 1),
           Expanded(child: child),
