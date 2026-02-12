@@ -154,6 +154,9 @@ jobs:
           $content = $content -replace '(?m)^Name: "\{autoprograms\}\\FMP".*$', 'Name: "{autoprograms}\FMP"; Filename: "{app}\fmp.exe"; IconFilename: "{app}\app_icon.ico"; AppUserModelID: "com.personal.fmp"'
           $content = $content -replace '(?m)^Name: "\{autodesktop\}\\FMP".*$', 'Name: "{autodesktop}\FMP"; Filename: "{app}\fmp.exe"; IconFilename: "{app}\app_icon.ico"; AppUserModelID: "com.personal.fmp"; Tasks: desktopicon'
 
+          # Remove skipifsilent flag so app launches after silent update
+          $content = $content -replace 'Flags: nowait postinstall skipifsilent', 'Flags: nowait postinstall'
+
           Set-Content $issPath $content -NoNewline
 
       - name: Compile installer with ISCC
