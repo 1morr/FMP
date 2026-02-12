@@ -169,6 +169,11 @@ class _ThemeModeListTile extends ConsumerWidget {
   }
 
   void _showThemeModeDialog(BuildContext context, WidgetRef ref, ThemeMode currentMode) {
+    final systemBrightness = MediaQuery.platformBrightnessOf(context);
+    final systemThemeName = systemBrightness == Brightness.dark
+        ? t.settings.theme.dark
+        : t.settings.theme.light;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -185,7 +190,20 @@ class _ThemeModeListTile extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               RadioListTile<ThemeMode>(
-                title: Text(t.settings.theme.followSystem),
+                title: Text.rich(
+                  TextSpan(
+                    text: t.settings.theme.followSystem,
+                    children: [
+                      TextSpan(
+                        text: ' ($systemThemeName)',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 secondary: const Icon(Icons.brightness_auto),
                 value: ThemeMode.system,
               ),
@@ -350,39 +368,49 @@ class _FontFamilyListTile extends ConsumerWidget {
 
   void _showFontDialog(BuildContext context, WidgetRef ref, String? currentFont) {
     final fonts = AppTheme.availableFonts;
+    final systemFontName = Platform.isWindows ? 'Segoe UI' : 'Roboto';
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(t.settings.font.selectTitle),
-        content: SizedBox(
-          width: 280,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: fonts.length,
-            itemBuilder: (context, index) {
-              final font = fonts[index];
-              final isSelected = font.fontFamily == currentFont;
-              return ListTile(
-                title: Text(
-                  font.displayName,
-                  style: font.fontFamily != null
-                      ? TextStyle(fontFamily: font.fontFamily)
+        content: RadioGroup<String?>(
+          groupValue: currentFont,
+          onChanged: (value) {
+            ref.read(themeProvider.notifier).setFontFamily(value);
+            Navigator.pop(context);
+          },
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: fonts.map((font) {
+                return RadioListTile<String?>(
+                  title: font.fontFamily == null
+                      ? Text.rich(
+                          TextSpan(
+                            text: font.displayName,
+                            children: [
+                              TextSpan(
+                                text: ' ($systemFontName)',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : Text(
+                          font.displayName,
+                          style: TextStyle(fontFamily: font.fontFamily),
+                        ),
+                  subtitle: font.fontFamily != null
+                      ? Text(font.fontFamily!, style: Theme.of(context).textTheme.bodySmall)
                       : null,
-                ),
-                subtitle: font.fontFamily != null
-                    ? Text(font.fontFamily!, style: Theme.of(context).textTheme.bodySmall)
-                    : null,
-                trailing: isSelected
-                    ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
-                    : null,
-                selected: isSelected,
-                onTap: () {
-                  ref.read(themeProvider.notifier).setFontFamily(font.fontFamily);
-                  Navigator.pop(context);
-                },
-              );
-            },
+                  value: font.fontFamily,
+                );
+              }).toList(),
+            ),
           ),
         ),
         actions: [
@@ -414,6 +442,21 @@ class _LanguageListTile extends ConsumerWidget {
   void _showLanguageDialog(BuildContext context, WidgetRef ref) {
     final currentLocale = ref.read(localeProvider);
 
+    // Detect system language
+    final systemLocale = WidgetsBinding.instance.platformDispatcher.locale;
+    String systemLanguageName;
+    if (systemLocale.languageCode == 'zh') {
+      final isTraditional = systemLocale.scriptCode == 'Hant' ||
+          systemLocale.countryCode == 'TW' ||
+          systemLocale.countryCode == 'HK' ||
+          systemLocale.countryCode == 'MO';
+      systemLanguageName = isTraditional ? '繁體中文' : '简体中文';
+    } else if (systemLocale.languageCode == 'en') {
+      systemLanguageName = 'English';
+    } else {
+      systemLanguageName = systemLocale.languageCode;
+    }
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -421,8 +464,6 @@ class _LanguageListTile extends ConsumerWidget {
         content: RadioGroup<AppLocale?>(
           groupValue: currentLocale,
           onChanged: (value) {
-            // value is the selected AppLocale or null (follow system)
-            // RadioListTile passes the value directly
             ref.read(localeProvider.notifier).setLocale(value);
             Navigator.pop(context);
           },
@@ -430,8 +471,20 @@ class _LanguageListTile extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               RadioListTile<AppLocale?>(
-                title: Text(t.settings.language.followSystem),
-                secondary: const Icon(Icons.brightness_auto),
+                title: Text.rich(
+                  TextSpan(
+                    text: t.settings.language.followSystem,
+                    children: [
+                      TextSpan(
+                        text: ' ($systemLanguageName)',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 value: null,
               ),
               RadioListTile<AppLocale?>(
