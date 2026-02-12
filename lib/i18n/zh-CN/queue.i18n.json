@@ -11,5 +11,7 @@
   "goSearch": "去搜索",
   "nowPlaying": "正在播放第 $index 首",
   "totalCount": "共 $count 首",
-  "removeFromQueue": "从队列移除"
+  "removeFromQueue": "从队列移除",
+  "scrollToTop": "跳转到顶部",
+  "scrollToBottom": "跳转到底部"
 }

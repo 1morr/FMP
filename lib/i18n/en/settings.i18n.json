@@ -59,6 +59,10 @@
     "noRewind": "No rewind",
     "seconds": "$n sec"
   },
+  "autoScrollToPlaying": {
+    "title": "Auto-scroll to current track",
+    "subtitle": "Automatically scroll to current track when entering queue or switching songs"
+  },
   "version": {
     "title": "Version",
     "tapToEnableDev": "$n more taps to enable developer options",

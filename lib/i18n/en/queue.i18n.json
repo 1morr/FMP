@@ -11,5 +11,7 @@
   "goSearch": "Search",
   "nowPlaying": "Now playing #$index",
   "totalCount": "$count tracks",
-  "removeFromQueue": "Remove from queue"
+  "removeFromQueue": "Remove from queue",
+  "scrollToTop": "Scroll to top",
+  "scrollToBottom": "Scroll to bottom"
 }

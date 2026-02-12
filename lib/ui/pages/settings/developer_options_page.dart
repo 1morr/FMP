@@ -13,7 +13,6 @@ import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/database_provider.dart';
 import '../../../core/services/network_image_cache_service.dart';
-import '../../../providers/playback_settings_provider.dart';
 import '../../router.dart';
 import '../debug/youtube_stream_test_page.dart';
 
@@ -68,14 +67,6 @@ class DeveloperOptionsPage extends ConsumerWidget {
             children: [
               _DatabaseInfoTile(),
               _ResetDataTile(),
-            ],
-          ),
-          const Divider(),
-          // 实验性功能
-          _SettingsSection(
-            title: t.settings.developerOptions.experimentalFeatures,
-            children: [
-              _AutoScrollListTile(),
             ],
           ),
           const Divider(),
@@ -380,26 +371,6 @@ class _ResetDataTile extends ConsumerWidget {
         SnackBar(content: Text(t.settings.developerOptions.resetFailed(error: '$e'))),
       );
     }
-  }
-}
-
-/// 自动跳转到当前播放设置（从主设置页移动过来）
-class _AutoScrollListTile extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final playbackSettings = ref.watch(playbackSettingsProvider);
-
-    return SwitchListTile(
-      secondary: const Icon(Icons.my_location_outlined),
-      title: Text(t.settings.developerOptions.autoScrollToPlaying),
-      subtitle: Text(t.settings.developerOptions.autoScrollSubtitle),
-      value: playbackSettings.autoScrollToCurrentTrack,
-      onChanged: playbackSettings.isLoading
-          ? null
-          : (value) {
-              ref.read(playbackSettingsProvider.notifier).setAutoScrollToCurrentTrack(value);
-            },
-    );
   }
 }
 
