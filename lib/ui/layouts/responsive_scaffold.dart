@@ -147,7 +147,7 @@ class _MobileLayout extends StatelessWidget {
   }
 }
 
-/// 平板布局 - 侧边导航栏
+/// 平板布局 - 侧边导航栏（与桌面模式收起状态一致）
 class _TabletLayout extends StatelessWidget {
   final Widget child;
   final int selectedIndex;
@@ -166,20 +166,23 @@ class _TabletLayout extends StatelessWidget {
     return Scaffold(
       body: Row(
         children: [
-          Container(
-            color: colorScheme.surfaceContainerLow,
-            child: NavigationRail(
-              selectedIndex: selectedIndex,
-              onDestinationSelected: onDestinationSelected,
-              labelType: NavigationRailLabelType.all,
-              backgroundColor: Colors.transparent,
-              destinations: destinations
-                  .map((d) => NavigationRailDestination(
-                        icon: Icon(d.icon),
-                        selectedIcon: Icon(d.selectedIcon),
-                        label: Text(d.label),
-                      ))
-                  .toList(),
+          SizedBox(
+            width: 72, // 与桌面模式收起状态一致
+            child: Container(
+              color: colorScheme.surfaceContainerLow,
+              child: NavigationRail(
+                selectedIndex: selectedIndex,
+                onDestinationSelected: onDestinationSelected,
+                labelType: NavigationRailLabelType.all,
+                backgroundColor: Colors.transparent,
+                destinations: destinations
+                    .map((d) => NavigationRailDestination(
+                          icon: Icon(d.icon),
+                          selectedIcon: Icon(d.selectedIcon),
+                          label: Text(d.label),
+                        ))
+                    .toList(),
+              ),
             ),
           ),
           const VerticalDivider(width: 1, thickness: 1),
