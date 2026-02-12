@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:fmp/i18n/strings.g.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt;
 
 import '../../core/constants/app_constants.dart';
@@ -127,6 +128,14 @@ class YouTubeSource extends BaseSource with Logging {
         message: 'Video is unplayable: $e',
       );
     } catch (e) {
+      if (e is YouTubeApiException) rethrow;
+      if (_isRateLimitError(e)) {
+        logWarning('YouTube rate limited for video: $videoId');
+        throw YouTubeApiException(
+          code: 'rate_limited',
+          message: t.error.rateLimited,
+        );
+      }
       logError('Failed to get YouTube video info: $videoId, error: $e');
       throw YouTubeApiException(
         code: 'error',
@@ -171,6 +180,14 @@ class YouTubeSource extends BaseSource with Logging {
         message: 'Video is unplayable: $e',
       );
     } catch (e) {
+      if (e is YouTubeApiException) rethrow;
+      if (_isRateLimitError(e)) {
+        logWarning('YouTube rate limited for video detail: $videoId');
+        throw YouTubeApiException(
+          code: 'rate_limited',
+          message: t.error.rateLimited,
+        );
+      }
       logError('Failed to get YouTube video detail: $videoId, error: $e');
       throw YouTubeApiException(
         code: 'error',
@@ -231,6 +248,13 @@ class YouTubeSource extends BaseSource with Logging {
           return result;
         }
       } catch (e) {
+        if (_isRateLimitError(e)) {
+          logWarning('YouTube rate limited when getting stream for $videoId');
+          throw YouTubeApiException(
+            code: 'rate_limited',
+            message: t.error.rateLimited,
+          );
+        }
         logDebug('Stream type $streamType failed for $videoId: $e');
       }
     }
@@ -671,15 +695,14 @@ class YouTubeSource extends BaseSource with Logging {
       );
     } catch (e, st) {
       // 检查是否是限流错误
-      final errorStr = e.toString().toLowerCase();
-      if (errorStr.contains('429') ||
-          errorStr.contains('rate') ||
-          errorStr.contains('quota') ||
-          errorStr.contains('too many')) {
+      if (_isRateLimitError(e)) {
         logWarning('YouTube rate limited for query: "$query", error: $e');
-      } else {
-        logError('YouTube search failed for query: "$query"', e, st);
+        throw YouTubeApiException(
+          code: 'rate_limited',
+          message: t.error.rateLimited,
+        );
       }
+      logError('YouTube search failed for query: "$query"', e, st);
       throw YouTubeApiException(
         code: 'search_error',
         message: 'Search failed: $e',
@@ -779,6 +802,13 @@ class YouTubeSource extends BaseSource with Logging {
       );
 
       if (response.statusCode != 200) {
+        if (response.statusCode == 429) {
+          logWarning('YouTube rate limited (HTTP 429) for Mix playlist');
+          throw YouTubeApiException(
+            code: 'rate_limited',
+            message: t.error.rateLimited,
+          );
+        }
         throw YouTubeApiException(
           code: 'api_error',
           message: 'InnerTube API returned status ${response.statusCode}',
@@ -844,11 +874,7 @@ class YouTubeSource extends BaseSource with Logging {
 
       return MixFetchResult(title: title, tracks: tracks);
     } on DioException catch (e) {
-      logError('InnerTube API request failed: ${e.message}');
-      throw YouTubeApiException(
-        code: 'network_error',
-        message: 'Failed to fetch Mix playlist: ${e.message}',
-      );
+      throw _handleDioError(e);
     }
   }
 
@@ -972,6 +998,13 @@ class YouTubeSource extends BaseSource with Logging {
       );
     } catch (e) {
       if (e is YouTubeApiException) rethrow;
+      if (_isRateLimitError(e)) {
+        logWarning('YouTube rate limited for playlist: $playlistUrl');
+        throw YouTubeApiException(
+          code: 'rate_limited',
+          message: t.error.rateLimited,
+        );
+      }
       logError('Failed to parse YouTube playlist: $playlistUrl, error: $e');
       throw YouTubeApiException(
         code: 'error',
@@ -1039,6 +1072,7 @@ class YouTubeSource extends BaseSource with Logging {
     final browseId = 'VL$_newThisWeekPlaylistId';
     logDebug('Fetching New This Week playlist via InnerTube browse: $browseId');
 
+    try {
     final response = await _dio.post(
       '$_innerTubeApiBase/browse?key=$_innerTubeApiKey',
       data: jsonEncode({
@@ -1055,6 +1089,13 @@ class YouTubeSource extends BaseSource with Logging {
     );
 
     if (response.statusCode != 200) {
+      if (response.statusCode == 429) {
+        logWarning('YouTube rate limited (HTTP 429) for trending');
+        throw YouTubeApiException(
+          code: 'rate_limited',
+          message: t.error.rateLimited,
+        );
+      }
       throw YouTubeApiException(
         code: 'api_error',
         message: 'InnerTube browse API returned status ${response.statusCode}',
@@ -1130,6 +1171,58 @@ class YouTubeSource extends BaseSource with Logging {
 
     logDebug('Parsed New This Week playlist: ${tracks.length} tracks');
     return tracks;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  // ==================== 错误处理 ====================
+
+  /// 检查错误是否为限流错误
+  bool _isRateLimitError(dynamic e) {
+    final errorStr = e.toString().toLowerCase();
+    return errorStr.contains('429') ||
+        errorStr.contains('rate') ||
+        errorStr.contains('quota') ||
+        errorStr.contains('too many');
+  }
+
+  /// 处理 Dio 错误（用于 InnerTube API 调用）
+  Exception _handleDioError(DioException e) {
+    final statusCode = e.response?.statusCode;
+    logError('YouTube Dio error: type=${e.type}, statusCode=$statusCode');
+
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return YouTubeApiException(
+          code: 'timeout',
+          message: t.error.connectionTimeout,
+        );
+      case DioExceptionType.connectionError:
+        return YouTubeApiException(
+          code: 'network_error',
+          message: t.error.networkError,
+        );
+      case DioExceptionType.badResponse:
+        if (statusCode == 429) {
+          logWarning('YouTube rate limited (HTTP $statusCode)');
+          return YouTubeApiException(
+            code: 'rate_limited',
+            message: t.error.rateLimited,
+          );
+        }
+        return YouTubeApiException(
+          code: 'api_error',
+          message: 'Server error: $statusCode',
+        );
+      default:
+        return YouTubeApiException(
+          code: 'network_error',
+          message: t.error.networkError,
+        );
+    }
   }
 
   /// 释放资源
@@ -1178,6 +1271,9 @@ class YouTubeApiException implements Exception {
   /// 是否是视频不可用
   bool get isUnavailable =>
       code == 'unavailable' || code == 'not_found' || code == 'unplayable';
+
+  /// 是否是限流
+  bool get isRateLimited => code == 'rate_limited';
 
   /// 是否需要登录（年龄限制等）
   bool get requiresLogin => code == 'age_restricted' || code == 'login_required';
