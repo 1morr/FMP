@@ -188,27 +188,30 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
       },
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovering = true),
         child: LayoutBuilder(
           builder: (context, constraints) {
             return GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTapUp: (details) {
                 final progress = (details.localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0);
                 controller.seekToProgress(progress);
               },
-              // 固定高度为 2，但允许子元素超出边界向上显示
+              // 悬停时扩大点击区域，视觉元素锚定在顶部
               child: SizedBox(
-                height: 2,
+                height: _isHovering || _isDragging ? 18 : 2,
                 child: Stack(
                   clipBehavior: Clip.none,
-                  alignment: Alignment.centerLeft,
+                  alignment: Alignment.topLeft,
                   children: [
                     // 背景轨道
                     Positioned(
                       left: 0,
                       right: 0,
+                      top: 0,
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 150),
-                        height: _isHovering || _isDragging ? 4 : 2,
+                        height: _isHovering || _isDragging ? 6 : 2,
                         decoration: BoxDecoration(
                           color: colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(2),
@@ -219,20 +222,21 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                     Positioned(
                       left: 0,
                       width: constraints.maxWidth * displayProgress,
+                      top: 0,
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 150),
-                        height: _isHovering || _isDragging ? 4 : 2,
+                        height: _isHovering || _isDragging ? 6 : 2,
                         decoration: BoxDecoration(
                           color: colorScheme.primary,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                     ),
-                    // 圆形指示器（悬停或拖动时显示，向上超出边界）
+                    // 圆形指示器（悬停或拖动时显示）
                     if (_isHovering || _isDragging)
                       Positioned(
                         left: constraints.maxWidth * displayProgress - 6,
-                        top: -5, // 向上偏移，使圆心在轨道中心
+                        top: -3, // 使圆心对齐 6px 轨道中心
                         child: AnimatedOpacity(
                           opacity: _isHovering || _isDragging ? 1.0 : 0.0,
                           duration: const Duration(milliseconds: 150),

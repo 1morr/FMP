@@ -755,6 +755,61 @@ return groupedAsync.when(
 
 ---
 
+### 22. 扩大 SizedBox 点击区域时必须配合 HitTestBehavior.opaque (2026-02)
+
+**问题**：迷你播放器进度条悬停时，`SizedBox(height: 2)` 扩展为 `SizedBox(height: 18)` 以增大点击区域。但实际效果是：鼠标接近进度条时光标变为可点击状态（`MouseRegion` 的 cursor），点击却无任何反应——既不改变进度，也不跳转播放器页面。
+
+**根本原因**：Flutter 的 hit testing 机制。`SizedBox(height: 18)` 内部的可视元素（轨道、进度条）只占顶部 6px。在 6-18px 的透明区域：
+
+1. `Stack` 的子元素（`Positioned` 的 `AnimatedContainer`）不在此 y 位置 → `hitTestChildren` 返回 `false`
+2. `SizedBox` 的 `hitTestSelf` 默认返回 `false` → `SizedBox.hitTest` 返回 `false`
+3. 内层 `GestureDetector`（处理 seek）使用默认 `HitTestBehavior.deferToChild` → child 未命中则自身也未命中
+4. 但外层 `GestureDetector`（`HitTestBehavior.opaque`，用于阻止事件冒泡）仍然命中
+5. 外层的 `onTap: () {}` (noop) 赢得手势竞争 → 吞掉了点击事件
+6. 导航的 `GestureDetector.onTap` 在竞争中落败 → 也不触发
+
+**结果**：点击被外层的空 `onTap` 吞掉，内层 seek 逻辑和外层导航逻辑都不执行。
+
+**修复**：给内层处理 seek 的 `GestureDetector` 也加上 `HitTestBehavior.opaque`：
+
+```dart
+// ❌ 错误 - 透明区域 hit test 失败，tap 被外层 noop 吞掉
+GestureDetector(
+  onTapUp: (details) {
+    controller.seekToProgress(progress);
+  },
+  child: SizedBox(
+    height: _isHovering ? 18 : 2,
+    child: Stack(
+      children: [/* 只占顶部 6px 的可视元素 */],
+    ),
+  ),
+)
+
+// ✅ 正确 - opaque 确保整个 18px 区域都能命中
+GestureDetector(
+  behavior: HitTestBehavior.opaque,
+  onTapUp: (details) {
+    controller.seekToProgress(progress);
+  },
+  child: SizedBox(
+    height: _isHovering ? 18 : 2,
+    child: Stack(
+      children: [/* 只占顶部 6px 的可视元素 */],
+    ),
+  ),
+)
+```
+
+**经验**：
+
+1. **扩大 SizedBox 不等于扩大点击区域** — Flutter 的 `hitTest` 默认依赖子元素是否被命中（`deferToChild`）。如果子元素不覆盖整个 SizedBox，透明区域不会响应点击。
+2. **`HitTestBehavior.opaque` 的用途** — 让 widget 在其完整尺寸范围内都报告为"已命中"，即使该位置没有可视子元素。
+3. **多层 GestureDetector 的竞争** — 当外层用 `opaque` + noop 阻止冒泡时，如果内层 `deferToChild` 未命中，外层的 noop 会赢得竞争，导致事件被静默吞掉。
+4. **`MouseRegion` cursor 与 hit test 的关系** — `MouseRegion` 的 cursor 设置也依赖 hit test。加上 `opaque` 后，`MouseRegion` 在整个 18px 区域正确显示点击光标。
+
+---
+
 ## 常用工具组件
 
 | 组件 | 位置 | 用途 |
