@@ -849,7 +849,7 @@ class _RankingTrackTile extends ConsumerWidget {
               ),
               const SizedBox(width: 2),
               Text(
-                _formatViewCount(track.viewCount!),
+                formatCount(track.viewCount!),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colorScheme.outline,
                     ),
@@ -888,7 +888,6 @@ class _RankingTrackTile extends ConsumerWidget {
     ),
   ];
 
-  String _formatViewCount(int count) => formatCount(count);
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
     final controller = ref.read(audioControllerProvider.notifier);
