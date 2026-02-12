@@ -742,7 +742,7 @@ class _ImportMatchTile extends StatelessWidget {
                     Icon(Icons.play_arrow, size: 14, color: colorScheme.outline),
                     const SizedBox(width: 2),
                     Text(
-                      _formatViewCount(track.viewCount!),
+                      formatCount(track.viewCount!),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: colorScheme.outline,
                           ),
@@ -813,7 +813,6 @@ class _ImportMatchTile extends StatelessWidget {
     );
   }
 
-  String _formatViewCount(int count) => formatCount(count);
 }
 
 /// 备选搜索结果项
@@ -888,7 +887,7 @@ class _AlternativeTrackTile extends ConsumerWidget {
               Icon(Icons.play_arrow, size: 12, color: colorScheme.outline),
               const SizedBox(width: 2),
               Text(
-                _formatViewCount(track.viewCount!),
+                formatCount(track.viewCount!),
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: colorScheme.outline,
                     ),
@@ -949,7 +948,6 @@ class _AlternativeTrackTile extends ConsumerWidget {
     );
   }
 
-  String _formatViewCount(int count) => formatCount(count);
 }
 
 /// 音源标识 - 使用灰色图标（与搜索页面一致）

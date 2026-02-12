@@ -306,7 +306,7 @@ class _ExploreTrackTile extends ConsumerWidget {
             ),
             const SizedBox(width: 2),
             Text(
-              _formatViewCount(track.viewCount!),
+              formatCount(track.viewCount!),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: colorScheme.outline,
                   ),
@@ -372,7 +372,6 @@ class _ExploreTrackTile extends ConsumerWidget {
     }
   }
 
-  String _formatViewCount(int count) => formatCount(count);
 }
 
 /// 圓形選擇勾選框

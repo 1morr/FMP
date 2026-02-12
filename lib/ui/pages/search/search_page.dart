@@ -1021,7 +1021,7 @@ class _SearchResultTile extends ConsumerWidget {
                 ),
                 const SizedBox(width: 2),
                 Text(
-                  _formatViewCount(track.viewCount!),
+                  formatCount(track.viewCount!),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: colorScheme.outline,
                       ),
@@ -1114,7 +1114,6 @@ class _SearchResultTile extends ConsumerWidget {
     PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.searchPage.menu.addToPlaylist), contentPadding: EdgeInsets.zero)),
   ];
 
-  String _formatViewCount(int count) => formatCount(count);
 }
 
 /// 分P列表项
