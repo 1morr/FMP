@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:smtc_windows/smtc_windows.dart';
 import '../../core/logger.dart';
+import '../../core/utils/thumbnail_url_utils.dart';
 import '../../data/models/radio_station.dart';
 import '../../data/models/track.dart';
 
@@ -100,12 +101,18 @@ class WindowsSmtcHandler with Logging {
 
     try {
       final thumbnail = track.thumbnailUrl;
+      // SMTC uses Foundation::Uri to fetch thumbnails directly.
+      // YouTube signed URLs (?sqp=...&rs=...) fail, so use clean URLs.
+      final smtcThumbnail = (thumbnail != null && thumbnail.isNotEmpty)
+          ? ThumbnailUrlUtils.getLargeThumbnail(thumbnail)
+          : null;
+      logInfo('SMTC thumbnail URL: $smtcThumbnail (original: $thumbnail)');
       _smtc!.updateMetadata(MusicMetadata(
         title: track.title,
         album: '',
         albumArtist: '',
         artist: track.artist ?? t.smtc.unknownArtist,
-        thumbnail: (thumbnail != null && thumbnail.isNotEmpty) ? thumbnail : null,
+        thumbnail: (smtcThumbnail != null && smtcThumbnail.isNotEmpty) ? smtcThumbnail : null,
       ));
       logDebug('SMTC updated media item: ${track.title}');
     } catch (e) {
