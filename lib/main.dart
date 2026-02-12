@@ -106,7 +106,7 @@ Future<void> _initializeWindowManager() async {
     center: true,
     backgroundColor: Colors.transparent,
     skipTaskbar: false,
-    titleBarStyle: TitleBarStyle.normal,
+    titleBarStyle: TitleBarStyle.hidden,
   );
 
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
