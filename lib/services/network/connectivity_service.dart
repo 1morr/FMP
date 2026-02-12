@@ -1,6 +1,6 @@
 import 'dart:async';
+import 'dart:io';
 
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/logger.dart';
@@ -9,15 +9,11 @@ import '../../core/logger.dart';
 class ConnectivityState {
   const ConnectivityState({
     required this.isConnected,
-    required this.connectionTypes,
     required this.isInitialized,
   });
 
-  /// 是否已连接网络
+  /// 是否已连接网络（通过 DNS 解析验证真实可达性）
   final bool isConnected;
-
-  /// 当前连接类型列表
-  final List<ConnectivityResult> connectionTypes;
 
   /// 是否已初始化
   final bool isInitialized;
@@ -25,31 +21,45 @@ class ConnectivityState {
   /// 初始状态
   static const initial = ConnectivityState(
     isConnected: true, // 默认假设有网络
-    connectionTypes: [],
     isInitialized: false,
   );
 
   ConnectivityState copyWith({
     bool? isConnected,
-    List<ConnectivityResult>? connectionTypes,
     bool? isInitialized,
   }) {
     return ConnectivityState(
       isConnected: isConnected ?? this.isConnected,
-      connectionTypes: connectionTypes ?? this.connectionTypes,
       isInitialized: isInitialized ?? this.isInitialized,
     );
   }
 }
 
-/// 网络连接服务
-class ConnectivityNotifier extends StateNotifier<ConnectivityState> with Logging {
+/// 网络连接服务（基于 DNS 解析检测真实网络可达性）
+///
+/// 通过尝试 DNS 解析来判断是否有真实的互联网连接，
+/// 而不是仅检查网络接口状态。这样即使 WiFi 已连接但无互联网，
+/// 也能正确检测到断网。
+class ConnectivityNotifier extends StateNotifier<ConnectivityState>
+    with Logging {
   ConnectivityNotifier() : super(ConnectivityState.initial) {
     _initialize();
   }
 
-  final _connectivity = Connectivity();
-  StreamSubscription<List<ConnectivityResult>>? _subscription;
+  Timer? _pollingTimer;
+
+  /// DNS 检测目标（使用多个可靠的公共 DNS 主机）
+  static const _dnsTargets = [
+    'dns.google', // Google Public DNS
+    'one.one.one.one', // Cloudflare DNS
+    'dns.alidns.com', // 阿里 DNS（中国大陆友好）
+  ];
+
+  /// 轮询间隔
+  static const _pollingInterval = Duration(seconds: 15);
+
+  /// DNS 查询超时
+  static const _dnsTimeout = Duration(seconds: 5);
 
   /// 网络恢复事件控制器
   final _networkRecoveredController = StreamController<void>.broadcast();
@@ -58,52 +68,58 @@ class ConnectivityNotifier extends StateNotifier<ConnectivityState> with Logging
   Stream<void> get onNetworkRecovered => _networkRecoveredController.stream;
 
   Future<void> _initialize() async {
-    logDebug('Initializing ConnectivityNotifier...');
-    // 获取当前连接状态
-    final results = await _connectivity.checkConnectivity();
-    final isConnected = _isConnectedFromResults(results);
-    logDebug('Initial connectivity: $results, isConnected: $isConnected');
+    logDebug('Initializing ConnectivityNotifier (DNS-based)...');
+
+    final isConnected = await _checkConnectivity();
+    logDebug('Initial connectivity check: isConnected=$isConnected');
+
     state = state.copyWith(
       isConnected: isConnected,
-      connectionTypes: results,
       isInitialized: true,
     );
 
-    // 监听连接变化
-    _subscription = _connectivity.onConnectivityChanged.listen(_onConnectivityChanged);
-    logDebug('Connectivity listener registered');
+    // 启动定时轮询
+    _pollingTimer = Timer.periodic(_pollingInterval, (_) => _poll());
+    logDebug('DNS polling started (interval: ${_pollingInterval.inSeconds}s)');
   }
 
-  void _onConnectivityChanged(List<ConnectivityResult> results) {
+  Future<void> _poll() async {
     final wasConnected = state.isConnected;
-    final isConnected = _isConnectedFromResults(results);
-    
-    logInfo('Connectivity changed: $results, wasConnected: $wasConnected, isConnected: $isConnected');
+    final isConnected = await _checkConnectivity();
 
-    state = state.copyWith(
-      isConnected: isConnected,
-      connectionTypes: results,
-    );
+    if (wasConnected != isConnected) {
+      logInfo(
+          'Connectivity changed: wasConnected=$wasConnected, isConnected=$isConnected');
+      state = state.copyWith(isConnected: isConnected);
 
-    // 网络恢复时发送事件
-    if (!wasConnected && isConnected) {
-      logInfo('Network recovered! Broadcasting recovery event...');
-      _networkRecoveredController.add(null);
+      if (!wasConnected && isConnected) {
+        logInfo('Network recovered! Broadcasting recovery event...');
+        _networkRecoveredController.add(null);
+      }
     }
   }
 
-  bool _isConnectedFromResults(List<ConnectivityResult> results) {
-    // 没有任何连接类型或只有 none 类型表示断网
-    if (results.isEmpty) return false;
-    if (results.length == 1 && results.first == ConnectivityResult.none) {
-      return false;
+  /// 通过 DNS 解析检测网络可达性
+  ///
+  /// 尝试解析多个目标中的任意一个成功即视为有网络
+  Future<bool> _checkConnectivity() async {
+    for (final target in _dnsTargets) {
+      try {
+        final result = await InternetAddress.lookup(target)
+            .timeout(_dnsTimeout);
+        if (result.isNotEmpty && result.first.rawAddress.isNotEmpty) {
+          return true;
+        }
+      } catch (_) {
+        // 当前目标失败，尝试下一个
+      }
     }
-    return true;
+    return false;
   }
 
   @override
   void dispose() {
-    _subscription?.cancel();
+    _pollingTimer?.cancel();
     _networkRecoveredController.close();
     super.dispose();
   }

@@ -123,3 +123,4 @@ tmpclaude*
 .claude/
 plan.md
 docs/build-and-release.md
+.playwright-mcp/
