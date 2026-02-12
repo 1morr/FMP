@@ -7,6 +7,7 @@ import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/radio_station.dart';
+import '../../../i18n/strings.g.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../widgets/context_menu_region.dart';
 import '../../widgets/now_playing_indicator.dart';
@@ -54,7 +55,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isSortMode ? '排列电台' : '电台'),
+        title: Text(_isSortMode ? t.radio.sortTitle : t.radio.title),
         actions: [
           // 排序模式切换
           if (radioState.stations.length > 1)
@@ -65,7 +66,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
                 });
               },
               icon: Icon(_isSortMode ? Icons.check : Icons.swap_vert),
-              tooltip: _isSortMode ? '完成排序' : '排列电台',
+              tooltip: _isSortMode ? t.radio.finishSort : t.radio.sortTitle,
             ),
           // 刷新按钮（排序模式下隐藏）
           if (!_isSortMode)
@@ -82,12 +83,12 @@ class _RadioPageState extends ConsumerState<RadioPage> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.refresh),
-              tooltip: '刷新状态',
+              tooltip: t.radio.refreshStatus,
             ),
           if (!_isSortMode)
             IconButton(
               icon: const Icon(Icons.link),
-              tooltip: '从 URL 导入',
+              tooltip: t.radio.importFromUrl,
               onPressed: () => AddRadioDialog.show(context),
             ),
           const SizedBox(width: 8),
@@ -113,12 +114,12 @@ class _RadioPageState extends ConsumerState<RadioPage> {
             ),
             const SizedBox(height: 24),
             Text(
-              '还没有电台',
+              t.radio.emptyTitle,
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
             Text(
-              '添加 Bilibili 直播间来收听',
+              t.radio.emptySubtitle,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colorScheme.outline,
                   ),
@@ -128,7 +129,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
             FilledButton.icon(
               onPressed: () => AddRadioDialog.show(context),
               icon: const Icon(Icons.add_link),
-              label: const Text('添加电台'),
+              label: Text(t.radio.addStation),
             ),
           ],
         ),
@@ -194,7 +195,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
                 children: [
                   Icon(Icons.delete, size: 20, color: Theme.of(context).colorScheme.error),
                   const SizedBox(width: 12),
-                  Text('删除电台', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  Text(t.radio.deleteStation, style: TextStyle(color: Theme.of(context).colorScheme.error)),
                 ],
               ),
             ),
@@ -323,7 +324,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
             children: [
               ListTile(
                 leading: Icon(Icons.delete, color: colorScheme.error),
-                title: Text('删除电台', style: TextStyle(color: colorScheme.error)),
+                title: Text(t.radio.deleteStation, style: TextStyle(color: colorScheme.error)),
                 onTap: () {
                   Navigator.pop(context);
                   _showDeleteConfirm(context, station);
@@ -341,19 +342,19 @@ class _RadioPageState extends ConsumerState<RadioPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除电台'),
-        content: Text('确定要删除「${station.title}」吗？'),
+        title: Text(t.radio.deleteStation),
+        content: Text(t.radio.deleteConfirm(title: station.title)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
+            child: Text(t.general.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
-            child: const Text('删除'),
+            child: Text(t.radio.delete),
           ),
         ],
       ),
@@ -364,7 +365,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
           .read(radioControllerProvider.notifier)
           .deleteStation(station.id);
       if (context.mounted) {
-        ToastService.success(context, '电台已删除');
+        ToastService.success(context, t.radio.stationDeleted);
       }
     }
   }

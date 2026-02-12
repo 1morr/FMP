@@ -10,6 +10,8 @@ import '../services/library/playlist_service.dart';
 
 // 导出 PlaylistUpdateResult 供 UI 使用
 export '../services/library/playlist_service.dart' show PlaylistUpdateResult;
+import 'package:fmp/i18n/strings.g.dart';
+
 import 'database_provider.dart';
 import 'download/file_exists_cache.dart';
 import 'repository_providers.dart';
@@ -258,7 +260,7 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
       } else {
         state = state.copyWith(
           isLoading: false,
-          error: '歌单不存在',
+          error: t.importSource.playlistNotFound,
         );
       }
     } catch (e) {
@@ -274,7 +276,7 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
         if (!mounted) return;
         state = state.copyWith(
           isLoading: false,
-          error: 'Mix 播放列表缺少必要信息',
+          error: t.importSource.mixMissingInfo,
         );
         return;
       }
@@ -294,7 +296,7 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
       if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
-        error: '加載 Mix 播放列表失敗: $e',
+        error: '${t.importSource.mixLoadFailed}: $e',
       );
     }
   }

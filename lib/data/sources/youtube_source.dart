@@ -42,7 +42,7 @@ class YouTubeSource extends BaseSource with Logging {
   SourceType get sourceType => SourceType.youtube;
 
   @override
-  String get sourceName => 'YouTube';
+
 
   @override
   String? parseId(String url) {

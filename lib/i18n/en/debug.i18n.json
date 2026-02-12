@@ -1,0 +1,13 @@
+{
+  "waitingForTest": "Waiting for test...",
+  "streamTest": "Stream Test",
+  "clearLogs": "Clear logs",
+  "videoIdHint": "e.g.: dQw4w9WgXcQ",
+  "fetchStreams": "Fetch Streams",
+  "batchTest": "Batch Test",
+  "scanAllClients": "Scan all clients (find available audio-only)",
+  "playbackHeaders": "Playback Headers:",
+  "logs": "Logs",
+  "verify": "Verify",
+  "play": "Play"
+}

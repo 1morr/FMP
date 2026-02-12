@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
@@ -210,7 +211,7 @@ class RadioSource with Logging {
     }
 
     return LiveRoomInfo(
-      title: data['title'] ?? '未知直播間',
+      title: data['title'] ?? t.radio.unknownRoom,
       thumbnailUrl: data['user_cover'] ?? data['keyframe'],
       hostName: hostName,
       hostAvatarUrl: hostAvatarUrl,
@@ -306,12 +307,12 @@ class RadioSource with Logging {
   Future<RadioStation> createStationFromUrl(String url) async {
     // 檢查是否為 YouTube URL
     if (isYouTubeUrl(url)) {
-      throw Exception('目前不支持 YouTube 直播，請使用 Bilibili 直播連結');
+      throw Exception(t.radio.youtubeNotSupported);
     }
 
     final parseResult = parseUrl(url);
     if (parseResult == null) {
-      throw Exception('無法解析此 URL，請確認是有效的 Bilibili 直播間連結\n例如：https://live.bilibili.com/12345');
+      throw Exception(t.radio.bilibiliLinkRequired);
     }
 
     // 創建基本 station（只支持 Bilibili）
@@ -319,7 +320,7 @@ class RadioSource with Logging {
       ..url = parseResult.normalizedUrl
       ..sourceType = SourceType.bilibili
       ..sourceId = parseResult.sourceId
-      ..title = '載入中...'
+      ..title = t.radio.loading
       ..createdAt = DateTime.now();
 
     // 獲取直播間資訊
@@ -337,7 +338,7 @@ class RadioSource with Logging {
       }
     } catch (e, stack) {
       logWarning('Failed to get station info: $e\n$stack');
-      station.title = 'Bilibili 直播間 ${parseResult.sourceId}';
+      station.title = t.radio.bilibiliRoom(id: parseResult.sourceId);
     }
 
     return station;

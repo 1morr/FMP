@@ -1,0 +1,15 @@
+{
+  "title": "Play Queue",
+  "titleWithCount": "Play Queue ($count)",
+  "shuffle": "Shuffle",
+  "shuffled": "Queue shuffled",
+  "clear": "Clear queue",
+  "clearConfirm": "Are you sure you want to clear the play queue?",
+  "clearButton": "Clear",
+  "emptyTitle": "Queue is empty",
+  "emptySubtitle": "Add songs to the queue to start playing",
+  "goSearch": "Search",
+  "nowPlaying": "Now playing #$index",
+  "totalCount": "$count tracks",
+  "removeFromQueue": "Remove from queue"
+}

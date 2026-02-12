@@ -1,0 +1,18 @@
+{
+  "cancel": "取消",
+  "confirm": "确定",
+  "close": "关闭",
+  "loading": "加载中...",
+  "loadFailed": "加载失败",
+  "enabled": "已启用",
+  "disabled": "已禁用",
+  "notSet": "未设置",
+  "defaultLabel": "默认",
+  "custom": "自定义",
+  "systemDefault": "系统默认",
+  "initializing": "正在初始化...",
+  "initFailed": "初始化失败",
+  "unknownArtist": "未知艺术家",
+  "delete": "删除",
+  "continueText": "继续"
+}

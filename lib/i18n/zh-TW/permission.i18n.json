@@ -1,0 +1,10 @@
+{
+  "storageRequired": "需要儲存權限",
+  "storageExplanation": "為了將音樂下載到您選擇的資料夾，應用程式需要存取裝置儲存空間的權限。",
+  "storageInstructions": "點擊「繼續」後，請在系統設定中允許 FMP 存取所有檔案。",
+  "denied": "權限被拒絕",
+  "deniedMessage": "儲存權限已被拒絕。如果您想使用自訂下載路徑，請在設定中手動授予權限。",
+  "insufficientPermission": "權限不足",
+  "cannotWriteDirectory": "無法寫入所選目錄，請選擇其他位置或授予必要權限。",
+  "goToSettings": "開啟設定"
+}

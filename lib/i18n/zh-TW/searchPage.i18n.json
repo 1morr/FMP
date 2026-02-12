@@ -1,0 +1,50 @@
+{
+  "hint": "搜尋歌曲、藝術家...",
+  "searchMusic": "搜尋你喜歡的音樂",
+  "history": "搜尋紀錄",
+  "clear": "清空",
+  "retry": "重試",
+  "allLoaded": "已載入全部",
+  "noResults": "未找到「$query」相關結果",
+  "noLiveRooms": "未找到「$query」相關直播間",
+  "source": {
+    "all": "全部音源"
+  },
+  "liveRoom": {
+    "all": "全部直播間",
+    "online": "已開播",
+    "offline": "未開播",
+    "title": "直播間 ($count)",
+    "notLive": "主播未開播",
+    "userRoom": "$user的直播間"
+  },
+  "sort": {
+    "relevance": "綜合排序",
+    "playCount": "最多播放",
+    "publishDate": "最新發布",
+    "relevanceShort": "綜合",
+    "playCountShort": "播放量",
+    "publishDateShort": "最新"
+  },
+  "section": {
+    "inPlaylist": "歌單中 ($count)",
+    "onlineResults": "線上結果 ($count)"
+  },
+  "menu": {
+    "play": "播放",
+    "playNext": "下一首播放",
+    "addToQueue": "加入佇列",
+    "addToPlaylist": "加入歌單",
+    "addToRadio": "加入電台"
+  },
+  "toast": {
+    "addedToNext": "已加入下一首",
+    "addedToQueue": "已加入播放佇列",
+    "addedPartsToNext": "已加入$count個分P到下一首",
+    "addedPartsToQueue": "已加入$count個分P到播放佇列",
+    "addedToRadio": "已加入電台"
+  },
+  "all": "全部",
+  "bilibiliOnly": "僅 Bilibili",
+  "youtubeOnly": "僅 YouTube"
+}

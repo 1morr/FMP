@@ -1,0 +1,14 @@
+{
+  "changeDownloadPath": "更改下載路徑",
+  "selectFolder": "選擇資料夾",
+  "updating": "正在更新",
+  "operationFailed": "操作失敗",
+  "changeWarning": "更改下載路徑將清空所有已儲存的下載路徑資訊。",
+  "filesNotDeleted": "下載的檔案不會被刪除，但需要重新掃描才能顯示。",
+  "selectNewFolder": "請選擇新的下載資料夾...",
+  "updatingSettings": "正在更新設定...",
+  "unknownError": "未知錯誤",
+  "continueButton": "繼續",
+  "closeButton": "關閉",
+  "pathChanged": "下載路徑已更改，請點擊重新整理按鈕掃描本地檔案"
+}

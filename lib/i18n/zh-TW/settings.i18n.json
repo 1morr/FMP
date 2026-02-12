@@ -1,0 +1,197 @@
+{
+  "title": "設定",
+  "appearance": "外觀",
+  "playback": "播放",
+  "cache": "快取",
+  "storage": "儲存",
+  "desktop": "桌面",
+  "about": "關於",
+  "language": {
+    "title": "語言",
+    "selectTitle": "選擇語言",
+    "followSystem": "跟隨系統"
+  },
+  "theme": {
+    "title": "主題",
+    "selectTitle": "選擇主題",
+    "followSystem": "跟隨系統",
+    "light": "淺色",
+    "dark": "深色"
+  },
+  "themeColor": {
+    "title": "主題色",
+    "selectTitle": "選擇主題色"
+  },
+  "font": {
+    "title": "字體",
+    "selectTitle": "選擇字體",
+    "microsoftYaHei": "微軟雅黑",
+    "simsun": "宋體",
+    "simhei": "黑體",
+    "kaiti": "楷體",
+    "fangsong": "仿宋",
+    "sansSerif": "無襯線 (Roboto)",
+    "serif": "襯線 (Noto Serif)",
+    "sansSerifMedium": "無襯線 中等",
+    "sansSerifLight": "無襯線 細體",
+    "sansSerifCondensed": "無襯線 窄體",
+    "monospace": "等寬"
+  },
+  "audioQuality": {
+    "title": "音訊品質",
+    "subtitle": "碼率、格式、串流優先級"
+  },
+  "playHistory": {
+    "title": "播放歷史",
+    "subtitle": "檢視和管理播放紀錄"
+  },
+  "rememberPosition": {
+    "title": "記住播放位置",
+    "configRewind": "設定回退時間"
+  },
+  "rewindSettings": {
+    "title": "回退時間設定",
+    "description": "恢復播放時自動回退一段時間，方便回憶上下文",
+    "restartRewind": "重啟恢復",
+    "restartRewindSubtitle": "應用程式重啟後恢復播放時",
+    "tempPlayRewind": "臨時播放恢復",
+    "tempPlayRewindSubtitle": "臨時播放結束回到原佇列時",
+    "noRewind": "不回退",
+    "seconds": "$n 秒"
+  },
+  "version": {
+    "title": "版本",
+    "tapToEnableDev": "再點擊 $n 次啟用開發者選項",
+    "devEnabled": "開發者選項已啟用"
+  },
+  "update": {
+    "title": "檢查更新",
+    "checking": "正在檢查...",
+    "upToDate": "已是最新版本",
+    "available": "有新版本: $version",
+    "error": "檢查失敗，點擊重試",
+    "checkGitHub": "檢查 GitHub 上的新版本",
+    "checkFailed": "檢查更新失敗"
+  },
+  "userGuide": {
+    "title": "使用說明",
+    "subtitle": "快速入門、功能介紹、使用提示"
+  },
+  "openSource": {
+    "title": "開源授權",
+    "subtitle": "檢視第三方開源元件授權"
+  },
+  "developerOptions": {
+    "title": "開發者選項",
+    "subtitle": "偵錯工具和實驗性功能",
+    "debugTools": "偵錯工具",
+    "liveLog": "即時日誌",
+    "liveLogSubtitle": "檢視應用程式執行日誌",
+    "dbViewer": "資料庫檢視器",
+    "dbViewerSubtitle": "檢視和瀏覽 Isar 資料庫內容",
+    "ytStreamTest": "YouTube 串流測試",
+    "ytStreamTestSubtitle": "測試 Audio-only / Muxed / HLS 串流播放",
+    "dataManagement": "資料管理",
+    "experimentalFeatures": "實驗性功能",
+    "devInfo": "開發資訊",
+    "debugMode": "偵錯模式",
+    "dbInfo": "資料庫資訊",
+    "dbInfoError": "錯誤: $error",
+    "dbInfoDetail": "路徑: $path\n大小: $size\n歌曲: $tracks | 歌單: $playlists",
+    "memoryUsage": "記憶體使用",
+    "memoryUnavailable": "無法取得記憶體資訊",
+    "imageCacheInfo": "圖片快取: $current / $max MB",
+    "processMemory": "程序記憶體 (RSS): $size",
+    "refresh": "重新整理",
+    "resetAllData": "重置所有資料",
+    "resetSubtitle": "刪除所有歌單、播放佇列和設定（不可恢復）",
+    "confirmReset": "確認重置",
+    "resetWarning": "此操作將刪除所有資料，包括：\n• 所有歌單\n• 播放佇列\n• 搜尋紀錄\n• 應用程式設定\n\n此操作不可恢復！",
+    "resetting": "正在重置資料...",
+    "resetDone": "資料已重置，請重新啟動應用程式",
+    "resetFailed": "重置失敗: $error",
+    "autoScrollToPlaying": "切歌時自動定位",
+    "autoScrollSubtitle": "切換歌曲時自動跳轉到佇列頁面並定位目前播放"
+  },
+  "downloadManager": {
+    "title": "下載管理",
+    "subtitle": "管理下載佇列和進度",
+    "clearQueue": "清空佇列",
+    "clearQueueConfirm": "確定要清空所有下載任務嗎？",
+    "pauseAll": "全部暫停",
+    "resumeAll": "全部繼續",
+    "clearCompleted": "清除已完成",
+    "noTasks": "沒有下載任務",
+    "downloading": "正在下載",
+    "waiting": "等待中",
+    "paused": "已暫停",
+    "failed": "失敗",
+    "completed": "已完成",
+    "unknownTrack": "未知歌曲",
+    "pause": "暫停",
+    "resume": "繼續",
+    "retry": "重試",
+    "delete": "刪除",
+    "loadFailed": "載入失敗: $error"
+  },
+  "downloadPath": {
+    "title": "下載路徑",
+    "loadFailed": "載入失敗: $error",
+    "changePath": "更改下載路徑",
+    "pathInfo": "目前路徑資訊",
+    "pathInfoTitle": "下載路徑資訊",
+    "pathChangeWarning": "修改路徑將清空資料庫中的下載路徑紀錄"
+  },
+  "concurrentDownloads": {
+    "title": "同時下載數量",
+    "subtitle": "最多同時下載 $n 個檔案",
+    "unit": "$n 個"
+  },
+  "downloadImage": {
+    "title": "下載圖片",
+    "off": "關閉",
+    "coverOnly": "僅封面",
+    "coverAndAvatar": "封面和頭像",
+    "offDescription": "不下載任何圖片",
+    "coverOnlyDescription": "下載影片封面",
+    "coverAndAvatarDescription": "下載影片封面和UP主頭像"
+  },
+  "imageCache": {
+    "title": "圖片快取大小",
+    "maxSize": "最大 $size",
+    "clearTitle": "清除圖片快取",
+    "currentCache": "目前快取: $size",
+    "calculating": "正在計算...",
+    "clearConfirm": "確定要清除所有快取的圖片嗎？這不會影響已下載的本機圖片。",
+    "currentCacheSize": "目前快取大小: $size",
+    "cacheCleared": "圖片快取已清除"
+  },
+  "tray": {
+    "title": "最小化到系統列",
+    "subtitle": "關閉視窗時最小化到系統列"
+  },
+  "hotkeys": {
+    "title": "全域快捷鍵",
+    "configTitle": "設定快捷鍵",
+    "configHotkey": "設定快捷鍵",
+    "resetDefault": "恢復預設",
+    "hint": "點擊快捷鍵區域後按下新的組合鍵進行設定",
+    "clear": "清除",
+    "recording": "按下新的快捷鍵...",
+    "setHotkey": "設定 $action 快捷鍵",
+    "pressCombo": "請按下快捷鍵組合\n\n(需要至少一個修飾鍵)",
+    "actions": {
+      "playPause": "播放/暫停",
+      "next": "下一首",
+      "previous": "上一首",
+      "stop": "停止",
+      "volumeUp": "增大音量",
+      "volumeDown": "減小音量",
+      "mute": "靜音",
+      "toggleWindow": "顯示/隱藏視窗"
+    }
+  },
+  "simplifiedChinese": "簡體中文",
+  "traditionalChinese": "繁體中文",
+  "english": "English"
+}

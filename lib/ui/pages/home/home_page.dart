@@ -19,6 +19,8 @@ import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/horizontal_scroll_section.dart';
 import '../../widgets/context_menu_region.dart';
+import '../../../core/utils/number_format_utils.dart';
+import '../../../i18n/strings.g.dart';
 import '../../widgets/track_thumbnail.dart';
 
 /// 首页
@@ -99,13 +101,13 @@ class _HomePageState extends ConsumerState<HomePage> {
           child: Row(
             children: [
               Text(
-                '近期熱門',
+                t.home.recentTrending,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const Spacer(),
               TextButton(
                 onPressed: () => context.go(RoutePaths.explore),
-                child: const Text('查看全部'),
+                child: Text(t.home.viewAll),
               ),
             ],
           ),
@@ -231,7 +233,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             height: 100,
             child: Center(
               child: Text(
-                '載入失敗',
+                t.home.loadFailed,
                 style: TextStyle(color: colorScheme.outline),
               ),
             ),
@@ -271,14 +273,14 @@ class _HomePageState extends ConsumerState<HomePage> {
               child: Row(
                 children: [
                   Text(
-                    '我的歌单',
+                    t.home.myPlaylists,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const Spacer(),
                   if (lists.isNotEmpty)
                     TextButton(
                       onPressed: () => context.go(RoutePaths.library),
-                      child: const Text('查看全部'),
+                      child: Text(t.home.viewAll),
                     ),
                 ],
               ),
@@ -407,7 +409,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     Padding(
                       padding: const EdgeInsets.all(8),
                       child: Text(
-                        '创建歌单',
+                        t.home.createPlaylist,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: colorScheme.outline,
                             ),
@@ -445,13 +447,13 @@ class _HomePageState extends ConsumerState<HomePage> {
               child: Row(
                 children: [
                   Text(
-                    '最近播放',
+                    t.home.recentlyPlayed,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const Spacer(),
                   TextButton(
                     onPressed: () => context.push(RoutePaths.history),
-                    child: const Text('查看全部'),
+                    child: Text(t.home.viewAll),
                   ),
                 ],
               ),
@@ -551,7 +553,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Text(
-            '正在播放',
+            t.home.nowPlaying,
             style: Theme.of(context).textTheme.titleMedium,
           ),
         ),
@@ -597,7 +599,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           Text(
-                            track.artist ?? '未知艺术家',
+                            track.artist ?? t.general.unknownArtist,
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                   color: colorScheme.onSurfaceVariant,
                                 ),
@@ -651,13 +653,13 @@ class _HomePageState extends ConsumerState<HomePage> {
           child: Row(
             children: [
               Text(
-                '接下来播放',
+                t.home.upNext,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const Spacer(),
               TextButton(
                 onPressed: () => context.go(RoutePaths.queue),
-                child: const Text('查看队列'),
+                child: Text(t.home.viewQueue),
               ),
             ],
           ),
@@ -678,7 +680,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 overflow: TextOverflow.ellipsis,
               ),
               subtitle: Text(
-                track.artist ?? '未知艺术家',
+                track.artist ?? t.general.unknownArtist,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -722,13 +724,13 @@ class _HomePageState extends ConsumerState<HomePage> {
           child: Row(
             children: [
               Text(
-                '電台',
+                t.home.radio,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const Spacer(),
               TextButton(
                 onPressed: () => context.go(RoutePaths.radio),
-                child: const Text('查看全部'),
+                child: Text(t.home.viewAll),
               ),
             ],
           ),
@@ -833,7 +835,7 @@ class _RankingTrackTile extends ConsumerWidget {
           children: [
             Flexible(
               child: Text(
-                track.artist ?? '未知藝術家',
+                track.artist ?? t.general.unknownArtist,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -867,33 +869,26 @@ class _RankingTrackTile extends ConsumerWidget {
     );
   }
 
-  List<PopupMenuEntry<String>> _buildMenuItems() => const [
+  List<PopupMenuEntry<String>> _buildMenuItems() => [
     PopupMenuItem(
       value: 'play',
-      child: ListTile(leading: Icon(Icons.play_arrow), title: Text('播放'), contentPadding: EdgeInsets.zero),
+      child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.home.play), contentPadding: EdgeInsets.zero),
     ),
     PopupMenuItem(
       value: 'play_next',
-      child: ListTile(leading: Icon(Icons.queue_play_next), title: Text('下一首播放'), contentPadding: EdgeInsets.zero),
+      child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.home.playNext), contentPadding: EdgeInsets.zero),
     ),
     PopupMenuItem(
       value: 'add_to_queue',
-      child: ListTile(leading: Icon(Icons.add_to_queue), title: Text('添加到隊列'), contentPadding: EdgeInsets.zero),
+      child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.home.addToQueue), contentPadding: EdgeInsets.zero),
     ),
     PopupMenuItem(
       value: 'add_to_playlist',
-      child: ListTile(leading: Icon(Icons.playlist_add), title: Text('添加到歌單'), contentPadding: EdgeInsets.zero),
+      child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.home.addToPlaylist), contentPadding: EdgeInsets.zero),
     ),
   ];
 
-  String _formatViewCount(int count) {
-    if (count >= 100000000) {
-      return '${(count / 100000000).toStringAsFixed(1)}億';
-    } else if (count >= 10000) {
-      return '${(count / 10000).toStringAsFixed(1)}萬';
-    }
-    return count.toString();
-  }
+  String _formatViewCount(int count) => formatCount(count);
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
     final controller = ref.read(audioControllerProvider.notifier);
@@ -905,13 +900,13 @@ class _RankingTrackTile extends ConsumerWidget {
       case 'play_next':
         final added = await controller.addNext(track);
         if (added && context.mounted) {
-          ToastService.success(context, '已添加到下一首');
+          ToastService.success(context, t.home.addedToNext);
         }
         break;
       case 'add_to_queue':
         final added = await controller.addToQueue(track);
         if (added && context.mounted) {
-          ToastService.success(context, '已添加到播放隊列');
+          ToastService.success(context, t.home.addedToQueue);
         }
         break;
       case 'add_to_playlist':

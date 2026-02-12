@@ -5,6 +5,8 @@ import 'package:dio/dio.dart';
 import 'dart:io';
 import 'dart:async';
 
+import '../../../i18n/strings.g.dart';
+
 /// YouTube 音频流测试页面
 /// 用于测试不同类型的 YouTube 流在 Windows 和 Android 上的播放情况
 class YouTubeStreamTestPage extends StatefulWidget {
@@ -50,7 +52,7 @@ class _YouTubeStreamTestPageState extends State<YouTubeStreamTestPage> {
   final _scrollController = ScrollController();
 
   bool _isLoading = false;
-  String _status = '等待测试...';
+  String _status = t.debug.waitingForTest;
   List<StreamInfo> _availableStreams = [];
   StreamInfo? _currentStream;
   String _selectedHeaderType = 'none';
@@ -662,11 +664,11 @@ class _YouTubeStreamTestPageState extends State<YouTubeStreamTestPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('流测试 (${Platform.operatingSystem})'),
+        title: Text('${t.debug.streamTest} (${Platform.operatingSystem})'),
         actions: [
           IconButton(
             icon: const Icon(Icons.delete_outline),
-            tooltip: '清除日志',
+            tooltip: t.debug.clearLogs,
             onPressed: () => setState(() => _logs.clear()),
           ),
           const SizedBox(width: 8),
@@ -691,10 +693,10 @@ class _YouTubeStreamTestPageState extends State<YouTubeStreamTestPage> {
                         children: [
                           TextField(
                             controller: _videoIdController,
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               labelText: 'YouTube Video ID',
-                              hintText: '例如: dQw4w9WgXcQ',
-                              border: OutlineInputBorder(),
+                              hintText: t.debug.videoIdHint,
+                              border: const OutlineInputBorder(),
                               isDense: true,
                             ),
                           ),
@@ -707,7 +709,7 @@ class _YouTubeStreamTestPageState extends State<YouTubeStreamTestPage> {
                                   icon: _isLoading
                                       ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                                       : const Icon(Icons.search, size: 18),
-                                  label: const Text('获取流'),
+                                  label: Text(t.debug.fetchStreams),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -715,7 +717,7 @@ class _YouTubeStreamTestPageState extends State<YouTubeStreamTestPage> {
                                 child: ElevatedButton.icon(
                                   onPressed: _isLoading || _availableStreams.isEmpty ? null : _runAutoTest,
                                   icon: const Icon(Icons.science, size: 18),
-                                  label: const Text('批量测试'),
+                                  label: Text(t.debug.batchTest),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Theme.of(context).colorScheme.tertiary,
                                     foregroundColor: Theme.of(context).colorScheme.onTertiary,
@@ -751,7 +753,7 @@ class _YouTubeStreamTestPageState extends State<YouTubeStreamTestPage> {
                             child: ElevatedButton.icon(
                               onPressed: _isLoading ? null : _scanAllClients,
                               icon: const Icon(Icons.radar, size: 18),
-                              label: const Text('扫描所有客户端 (找可用的 audio-only)'),
+                              label: Text(t.debug.scanAllClients),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.deepPurple,
                                 foregroundColor: Colors.white,
@@ -773,7 +775,7 @@ class _YouTubeStreamTestPageState extends State<YouTubeStreamTestPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Headers 选择
-                          Text('播放 Headers:', style: Theme.of(context).textTheme.labelMedium),
+                          Text(t.debug.playbackHeaders, style: Theme.of(context).textTheme.labelMedium),
                           const SizedBox(height: 4),
                           Wrap(
                             spacing: 8,
@@ -857,7 +859,7 @@ class _YouTubeStreamTestPageState extends State<YouTubeStreamTestPage> {
                     children: [
                       const Icon(Icons.terminal, color: Colors.white70, size: 14),
                       const SizedBox(width: 6),
-                      Text('日志 (${_logs.length})',
+                      Text('${t.debug.logs} (${_logs.length})',
                           style: const TextStyle(color: Colors.white70, fontSize: 11)),
                     ],
                   ),
@@ -911,7 +913,7 @@ class _YouTubeStreamTestPageState extends State<YouTubeStreamTestPage> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : () => _verifyStream(stream),
                     style: ElevatedButton.styleFrom(padding: EdgeInsets.zero),
-                    child: const Text('验证', style: TextStyle(fontSize: 10)),
+                    child: Text(t.debug.verify, style: TextStyle(fontSize: 10)),
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -920,7 +922,7 @@ class _YouTubeStreamTestPageState extends State<YouTubeStreamTestPage> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : () => _playStream(stream),
                     style: ElevatedButton.styleFrom(padding: EdgeInsets.zero),
-                    child: const Text('播放', style: TextStyle(fontSize: 10)),
+                    child: Text(t.debug.play, style: TextStyle(fontSize: 10)),
                   ),
                 ),
               ],

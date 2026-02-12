@@ -1,0 +1,50 @@
+{
+  "hint": "搜索歌曲、艺术家...",
+  "searchMusic": "搜索你喜欢的音乐",
+  "history": "搜索历史",
+  "clear": "清空",
+  "retry": "重试",
+  "allLoaded": "已加载全部",
+  "noResults": "未找到 \"$query\" 相关结果",
+  "noLiveRooms": "未找到 \"$query\" 相关直播间",
+  "source": {
+    "all": "全部音源"
+  },
+  "liveRoom": {
+    "all": "全部直播间",
+    "online": "已开播",
+    "offline": "未开播",
+    "title": "直播间 ($count)",
+    "notLive": "主播未开播",
+    "userRoom": "$user的直播间"
+  },
+  "sort": {
+    "relevance": "综合排序",
+    "playCount": "最多播放",
+    "publishDate": "最新发布",
+    "relevanceShort": "综合",
+    "playCountShort": "播放量",
+    "publishDateShort": "最新"
+  },
+  "section": {
+    "inPlaylist": "歌单中 ($count)",
+    "onlineResults": "在线结果 ($count)"
+  },
+  "menu": {
+    "play": "播放",
+    "playNext": "下一首播放",
+    "addToQueue": "添加到队列",
+    "addToPlaylist": "添加到歌单",
+    "addToRadio": "添加到电台"
+  },
+  "toast": {
+    "addedToNext": "已添加到下一首",
+    "addedToQueue": "已添加到播放队列",
+    "addedPartsToNext": "已添加$count个分P到下一首",
+    "addedPartsToQueue": "已添加$count个分P到播放队列",
+    "addedToRadio": "已添加到电台"
+  },
+  "all": "全部",
+  "bilibiliOnly": "仅 Bilibili",
+  "youtubeOnly": "仅 YouTube"
+}

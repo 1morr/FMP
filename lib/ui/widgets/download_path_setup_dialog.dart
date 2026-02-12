@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fmp/i18n/strings.g.dart';
 import '../../providers/download_path_provider.dart';
 
 /// 下载路径配置引导对话框
@@ -33,23 +34,23 @@ class _DownloadPathSetupDialogState
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('设置下载路径'),
+      title: Text(t.downloadPathSetup.title),
       content: _isSelecting
           ? const SizedBox(
               height: 50,
               child: Center(child: CircularProgressIndicator()),
             )
-          : const Text('首次下载需要选择音乐保存位置。请选择一个您有写入权限的文件夹。'),
+          : Text(t.downloadPathSetup.description),
       actions: _isSelecting
           ? null
           : [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消'),
+                child: Text(t.general.cancel),
               ),
               FilledButton(
                 onPressed: _selectPath,
-                child: const Text('选择文件夹'),
+                child: Text(t.downloadPathSetup.selectFolder),
               ),
             ],
     );

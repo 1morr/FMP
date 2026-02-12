@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/services/toast_service.dart';
+import '../../../i18n/strings.g.dart';
 import '../../../services/radio/radio_controller.dart';
 
 /// 添加電台對話框
@@ -45,7 +46,7 @@ class _AddRadioDialogState extends ConsumerState<AddRadioDialog> {
       await controller.addStation(_urlController.text.trim());
 
       if (mounted) {
-        ToastService.success(context, '电台添加成功');
+        ToastService.success(context, t.radio.addSuccess);
         Navigator.of(context).pop(true);
       }
     } catch (e) {
@@ -66,7 +67,7 @@ class _AddRadioDialogState extends ConsumerState<AddRadioDialog> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return AlertDialog(
-      title: const Text('从 URL 导入'),
+      title: Text(t.radio.importFromUrl),
       content: SizedBox(
         width: 400,
         child: Form(
@@ -76,7 +77,7 @@ class _AddRadioDialogState extends ConsumerState<AddRadioDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '添加 Bilibili 直播间作为电台',
+                t.radio.addDescription,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colorScheme.outline,
                     ),
@@ -85,14 +86,14 @@ class _AddRadioDialogState extends ConsumerState<AddRadioDialog> {
               TextFormField(
                 controller: _urlController,
                 autofocus: true,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'URL',
-                  hintText: '粘贴直播间链接',
-                  prefixIcon: Icon(Icons.link),
+                  hintText: t.radio.urlHint,
+                  prefixIcon: const Icon(Icons.link),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return '请输入直播间 URL';
+                    return t.radio.urlRequired;
                   }
                   return null;
                 },
@@ -127,7 +128,7 @@ class _AddRadioDialogState extends ConsumerState<AddRadioDialog> {
       actions: [
         TextButton(
           onPressed: _isLoading ? null : () => Navigator.of(context).pop(false),
-          child: const Text('取消'),
+          child: Text(t.general.cancel),
         ),
         FilledButton(
           onPressed: _isLoading ? null : _handleAdd,
@@ -137,7 +138,7 @@ class _AddRadioDialogState extends ConsumerState<AddRadioDialog> {
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('添加'),
+              : Text(t.radio.add),
         ),
       ],
     );

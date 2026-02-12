@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 import 'playlist_import_source.dart';
 
@@ -44,16 +45,16 @@ class NeteasePlaylistSource implements PlaylistImportSource {
 
     final playlistId = extractPlaylistId(resolvedUrl);
     if (playlistId == null) {
-      throw Exception('无法解析歌单ID: $url');
+      throw Exception(t.importSource.cannotParsePlaylistId(url: url));
     }
 
     // 1. 获取歌单基本信息
     final playlistInfo = await _fetchPlaylistInfo(playlistId);
-    final name = playlistInfo['name'] as String? ?? '未知歌单';
+    final name = playlistInfo['name'] as String? ?? t.importSource.unknownPlaylist;
     final trackIds = _extractTrackIds(playlistInfo);
 
     if (trackIds.isEmpty) {
-      throw Exception('歌单为空或无法访问');
+      throw Exception(t.importSource.playlistEmptyOrInaccessible);
     }
 
     // 2. 批量获取歌曲详情（每次最多400首）
@@ -123,7 +124,7 @@ class NeteasePlaylistSource implements PlaylistImportSource {
         // 解析失败
       }
     }
-    throw Exception('无效的响应格式');
+    throw Exception(t.importSource.invalidResponseFormat);
   }
 
   Future<Map<String, dynamic>> _fetchPlaylistInfo(String playlistId) async {
@@ -144,12 +145,12 @@ class NeteasePlaylistSource implements PlaylistImportSource {
 
     final code = data['code'];
     if (code != 200) {
-      throw Exception('获取歌单失败: ${data['message'] ?? '未知错误'}');
+      throw Exception('${t.importSource.fetchPlaylistFailed}: ${data['message'] ?? t.error.unknownError}');
     }
 
     final playlist = data['playlist'];
     if (playlist is! Map<String, dynamic>) {
-      throw Exception('歌单数据格式错误');
+      throw Exception(t.importSource.playlistDataFormatError);
     }
 
     return playlist;
@@ -216,7 +217,7 @@ class NeteasePlaylistSource implements PlaylistImportSource {
 
   List<String> _extractArtists(dynamic ar) {
     if (ar is! List) {
-      return ['未知艺术家'];
+      return [t.general.unknownArtist];
     }
 
     final artists = ar
@@ -229,7 +230,7 @@ class NeteasePlaylistSource implements PlaylistImportSource {
         .whereType<String>()
         .toList();
 
-    return artists.isEmpty ? ['未知艺术家'] : artists;
+    return artists.isEmpty ? [t.general.unknownArtist] : artists;
   }
 
   String? _extractAlbumName(dynamic al) {

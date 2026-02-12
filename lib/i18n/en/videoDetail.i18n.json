@@ -1,0 +1,8 @@
+{
+  "yearsAgo": "$n years ago",
+  "monthsAgo": "$n months ago",
+  "daysAgo": "$n days ago",
+  "hoursAgo": "$n hours ago",
+  "minutesAgo": "$n minutes ago",
+  "justNow": "Just now"
+}

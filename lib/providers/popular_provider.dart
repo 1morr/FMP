@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 import '../data/models/track.dart';
 import '../data/sources/bilibili_source.dart';
@@ -21,6 +22,21 @@ enum BilibiliCategory {
   final int rid;
   final String label;
   const BilibiliCategory(this.rid, this.label);
+
+  String get displayName {
+    switch (this) {
+      case BilibiliCategory.all: return t.popularCategory.all;
+      case BilibiliCategory.music: return t.popularCategory.music;
+      case BilibiliCategory.dance: return t.popularCategory.dance;
+      case BilibiliCategory.game: return t.popularCategory.game;
+      case BilibiliCategory.anime: return t.popularCategory.anime;
+      case BilibiliCategory.entertainment: return t.popularCategory.entertainment;
+      case BilibiliCategory.tech: return t.popularCategory.tech;
+      case BilibiliCategory.life: return t.popularCategory.life;
+      case BilibiliCategory.movie: return t.popularCategory.movie;
+      case BilibiliCategory.kichiku: return t.popularCategory.kichiku;
+    }
+  }
 }
 
 // ==================== Bilibili 排行榜 ====================
@@ -125,6 +141,8 @@ enum YouTubeCategory {
   final String id;
   final String label;
   const YouTubeCategory(this.id, this.label);
+
+  String get displayName => t.popularCategory.ytMusic;
 }
 
 /// YouTube 熱門視頻狀態

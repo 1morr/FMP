@@ -1,0 +1,6 @@
+{
+  "refreshingPlaylist": "正在重新整理: $name",
+  "refreshingPlaylists": "正在重新整理 $count 個歌單",
+  "added": "新增 $count 首",
+  "noAdded": "無新增"
+}

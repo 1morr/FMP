@@ -11,6 +11,7 @@ import '../../../services/audio/audio_provider.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/track_group/track_group.dart';
 import '../../widgets/track_thumbnail.dart';
+import '../../../i18n/strings.g.dart';
 
 /// 已下载分类详情页面
 class DownloadedCategoryPage extends ConsumerStatefulWidget {
@@ -114,7 +115,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
                   children: [
                     Icon(Icons.error_outline, size: 64, color: colorScheme.error),
                     const SizedBox(height: 16),
-                    Text('加载失败: $error'),
+                    Text(t.library.loadFailedWithError(error: error.toString())),
                   ],
                 ),
               ),
@@ -177,7 +178,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
         IconButton(
           icon: Icon(Icons.refresh, color: iconColor),
           onPressed: _refresh,
-          tooltip: '刷新',
+          tooltip: t.library.refresh,
         ),
         const SizedBox(width: 8),
       ],
@@ -246,7 +247,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '${tracks.length} 首歌曲 · ${DurationFormatter.formatLong(totalDuration)}',
+                          t.library.downloadedCategory.trackCountDuration(count: tracks.length, duration: DurationFormatter.formatLong(totalDuration)),
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: Colors.white60,
                               ),
@@ -271,7 +272,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                '已下载',
+                                t.library.downloaded,
                                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                       color: colorScheme.onPrimaryContainer,
                                       fontWeight: FontWeight.w500,
@@ -353,7 +354,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
             child: FilledButton.icon(
               onPressed: tracks.isEmpty ? null : () => _playAll(tracks),
               icon: const Icon(Icons.play_arrow),
-              label: const Text('添加所有'),
+              label: Text(t.library.addAll),
             ),
           ),
           const SizedBox(width: 12),
@@ -361,7 +362,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
             child: OutlinedButton.icon(
               onPressed: tracks.isEmpty ? null : () => _shufflePlay(tracks),
               icon: const Icon(Icons.shuffle),
-              label: const Text('随机添加'),
+              label: Text(t.library.shuffleAdd),
             ),
           ),
         ],
@@ -380,14 +381,14 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
   void _playAll(List<Track> tracks) {
     final controller = ref.read(audioControllerProvider.notifier);
     controller.addAllToQueue(tracks);
-    ToastService.success(context, '已添加 ${tracks.length} 首歌曲到队列');
+    ToastService.success(context, t.library.addedToQueue(n: tracks.length));
   }
 
   void _shufflePlay(List<Track> tracks) {
     final controller = ref.read(audioControllerProvider.notifier);
     final shuffled = List<Track>.from(tracks)..shuffle();
     controller.addAllToQueue(shuffled);
-    ToastService.success(context, '已随机添加 ${tracks.length} 首歌曲到队列');
+    ToastService.success(context, t.library.shuffledAddedToQueue(n: tracks.length));
   }
 
   Widget _buildEmptyState(BuildContext context) {
@@ -404,7 +405,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
           ),
           const SizedBox(height: 16),
           Text(
-            '此分类下暂无歌曲',
+            t.library.downloadedCategory.noCategoryTracks,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: colorScheme.outline,
                 ),
@@ -467,7 +468,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
     final controller = ref.read(audioControllerProvider.notifier);
     final added = await controller.addAllToQueue(tracks);
     if (added && context.mounted) {
-      ToastService.success(context, '已添加 ${tracks.length} 个分P到队列');
+      ToastService.success(context, t.library.downloadedCategory.addedPartsToQueue(n: tracks.length));
     }
   }
 
@@ -526,7 +527,7 @@ class _GroupHeader extends ConsumerWidget {
       subtitle: Row(
         children: [
           Text(
-            firstTrack.artist ?? '未知UP主',
+            firstTrack.artist ?? t.library.unknownUploader,
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(width: 8),
@@ -560,27 +561,27 @@ class _GroupHeader extends ConsumerWidget {
             icon: const Icon(Icons.more_vert),
             onSelected: (value) => _handleMenuAction(context, ref, value),
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'play_first',
                 child: ListTile(
-                  leading: Icon(Icons.play_arrow),
-                  title: Text('播放第一个分P'),
+                  leading: const Icon(Icons.play_arrow),
+                  title: Text(t.library.downloadedCategory.playFirstPart),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'add_all_to_queue',
                 child: ListTile(
-                  leading: Icon(Icons.add_to_queue),
-                  title: Text('添加全部到队列'),
+                  leading: const Icon(Icons.add_to_queue),
+                  title: Text(t.library.downloadedCategory.addAllToQueue),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'delete_all',
                 child: ListTile(
-                  leading: Icon(Icons.delete_outline),
-                  title: Text('删除全部下载'),
+                  leading: const Icon(Icons.delete_outline),
+                  title: Text(t.library.downloadedCategory.deleteAllDownloads),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -604,16 +605,16 @@ class _GroupHeader extends ConsumerWidget {
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('删除下载'),
-            content: Text('确定要删除 ${group.tracks.length} 个分P的下载文件吗？'),
+            title: Text(t.library.deleteDownload),
+            content: Text(t.library.downloadedCategory.confirmDeleteParts(n: group.tracks.length)),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消'),
+                child: Text(t.general.cancel),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('删除'),
+                child: Text(t.general.delete),
               ),
             ],
           ),
@@ -621,7 +622,7 @@ class _GroupHeader extends ConsumerWidget {
         if (confirmed == true && context.mounted) {
           await _deleteAllDownloads(ref);
           if (context.mounted) {
-            ToastService.success(context, '已删除 ${group.tracks.length} 个分P的下载文件');
+            ToastService.success(context, t.library.downloadedCategory.deletedParts(n: group.tracks.length));
           }
         }
         break;
@@ -714,7 +715,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
         subtitle: isPartOfMultiPage
             ? null // 分P不显示副标题，与搜索页面一致
             : Text(
-                track.artist ?? '未知艺术家',
+                track.artist ?? t.general.unknownArtist,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -736,28 +737,28 @@ class _DownloadedTrackTile extends ConsumerWidget {
               icon: const Icon(Icons.more_vert, size: 20),
               onSelected: (value) => _handleMenuAction(context, ref, value),
               itemBuilder: (context) => [
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'play_next',
                   child: ListTile(
-                    leading: Icon(Icons.queue_play_next),
-                    title: Text('下一首播放'),
+                    leading: const Icon(Icons.queue_play_next),
+                    title: Text(t.library.playNext),
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'add_to_queue',
                   child: ListTile(
-                    leading: Icon(Icons.add_to_queue),
-                    title: Text('添加到队列'),
+                    leading: const Icon(Icons.add_to_queue),
+                    title: Text(t.library.addToQueue),
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
 
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'delete',
                   child: ListTile(
-                    leading: Icon(Icons.delete_outline),
-                    title: Text('删除下载'),
+                    leading: const Icon(Icons.delete_outline),
+                    title: Text(t.library.deleteDownload),
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
@@ -775,13 +776,13 @@ class _DownloadedTrackTile extends ConsumerWidget {
       case 'play_next':
         final added = await ref.read(audioControllerProvider.notifier).addNext(track);
         if (added && context.mounted) {
-          ToastService.success(context, '已添加到下一首');
+          ToastService.success(context, t.library.addedToNext);
         }
         break;
       case 'add_to_queue':
         final added = await ref.read(audioControllerProvider.notifier).addToQueue(track);
         if (added && context.mounted) {
-          ToastService.success(context, '已添加到播放队列');
+          ToastService.success(context, t.library.addedToPlayQueue);
         }
         break;
 
@@ -789,16 +790,16 @@ class _DownloadedTrackTile extends ConsumerWidget {
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('删除下载'),
-            content: const Text('确定要删除这首歌曲的下载文件吗？'),
+            title: Text(t.library.deleteDownload),
+            content: Text(t.library.downloadedCategory.confirmDeleteTrack),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消'),
+                child: Text(t.general.cancel),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('删除'),
+                child: Text(t.general.delete),
               ),
             ],
           ),
@@ -806,7 +807,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
         if (confirmed == true && context.mounted) {
           await _deleteDownload(ref);
           if (context.mounted) {
-            ToastService.success(context, '已删除下载文件');
+            ToastService.success(context, t.library.downloadDeleted);
           }
         }
         break;

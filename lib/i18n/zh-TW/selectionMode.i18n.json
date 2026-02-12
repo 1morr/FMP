@@ -1,0 +1,17 @@
+{
+  "exitMode": "退出選擇模式",
+  "selectedItems": "已選擇 $count 項",
+  "deselectAll": "取消全選",
+  "selectAll": "全選",
+  "addToQueue": "加入佇列",
+  "playNext": "下一首播放",
+  "addToPlaylist": "加入歌單",
+  "download": "下載",
+  "removeFromPlaylist": "從歌單移除",
+  "confirmRemove": "確認移除",
+  "confirmRemoveContent": "確定要從歌單中移除 $count 首歌曲嗎？",
+  "remove": "移除",
+  "addedToQueue": "已加入 $count 首到佇列",
+  "addedToNext": "已加入 $count 首到下一首播放",
+  "removedTracks": "已移除 $count 首歌曲"
+}

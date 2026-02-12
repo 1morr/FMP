@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:simple_icons/simple_icons.dart';
 
 import '../../../../core/services/toast_service.dart';
+import '../../../../data/models/track.dart';
 import '../../../../data/sources/source_provider.dart';
 import '../../../../providers/database_provider.dart';
 import '../../../../providers/playlist_import_provider.dart';
@@ -12,9 +13,11 @@ import '../../../../providers/playlist_provider.dart';
 import '../../../../providers/repository_providers.dart';
 import '../../../../services/import/import_service.dart' as url_import;
 import '../../../../services/import/playlist_import_service.dart';
+import '../../../../data/sources/playlist_import/playlist_import_source.dart';
+import '../../../../i18n/strings.g.dart';
 import '../import_preview_page.dart';
 
-/// URL 类型
+/// URL 导入类型
 enum _UrlType {
   /// 内部来源（B站/YouTube），直接导入
   internal,
@@ -23,12 +26,15 @@ enum _UrlType {
   external,
 }
 
+/// 来源平台（统一标识，用于图标匹配等）
+enum _SourcePlatform { bilibili, youtube, netease, qqMusic, spotify }
+
 /// 检测到的 URL 信息
 class _DetectedUrl {
   final _UrlType type;
-  final String displayName;
+  final _SourcePlatform platform;
 
-  const _DetectedUrl({required this.type, required this.displayName});
+  const _DetectedUrl({required this.type, required this.platform});
 }
 
 /// 统一的歌单导入对话框
@@ -76,16 +82,20 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
     super.dispose();
   }
 
-  /// 根据来源名称返回对应图标
-  IconData _getSourceIcon(String displayName) {
-    return switch (displayName) {
-      'Bilibili' => SimpleIcons.bilibili,
-      'YouTube' => SimpleIcons.youtube,
-      '网易云音乐' => SimpleIcons.neteasecloudmusic,
-      'QQ音乐' => SimpleIcons.qq,
-      'Spotify' => SimpleIcons.spotify,
-      _ => Icons.link,
-    };
+  /// 根据来源平台返回对应图标
+  IconData _getSourceIcon(_SourcePlatform platform) {
+    switch (platform) {
+      case _SourcePlatform.bilibili:
+        return SimpleIcons.bilibili;
+      case _SourcePlatform.youtube:
+        return SimpleIcons.youtube;
+      case _SourcePlatform.netease:
+        return SimpleIcons.neteasecloudmusic;
+      case _SourcePlatform.qqMusic:
+        return SimpleIcons.qq;
+      case _SourcePlatform.spotify:
+        return SimpleIcons.spotify;
+    }
   }
 
   /// 检测 URL 类型
@@ -102,10 +112,14 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
     final notifier = ref.read(playlistImportProvider.notifier);
     final externalSource = notifier.detectSource(trimmed);
     if (externalSource != null) {
-      final newDetected = _DetectedUrl(
-          type: _UrlType.external, displayName: externalSource.displayName);
+      final platform = switch (externalSource) {
+        PlaylistSource.netease => _SourcePlatform.netease,
+        PlaylistSource.qqMusic => _SourcePlatform.qqMusic,
+        PlaylistSource.spotify => _SourcePlatform.spotify,
+      };
+      final newDetected = _DetectedUrl(type: _UrlType.external, platform: platform);
       if (_detected?.type != newDetected.type ||
-          _detected?.displayName != newDetected.displayName) {
+          _detected?.platform != newDetected.platform) {
         setState(() => _detected = newDetected);
       }
       return;
@@ -115,10 +129,13 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
     final sourceManager = ref.read(sourceManagerProvider);
     final internalSource = sourceManager.getSourceForUrl(trimmed);
     if (internalSource != null) {
-      final newDetected =
-          _DetectedUrl(type: _UrlType.internal, displayName: internalSource.sourceName);
+      final platform = switch (internalSource.sourceType) {
+        SourceType.bilibili => _SourcePlatform.bilibili,
+        SourceType.youtube => _SourcePlatform.youtube,
+      };
+      final newDetected = _DetectedUrl(type: _UrlType.internal, platform: platform);
       if (_detected?.type != newDetected.type ||
-          _detected?.displayName != newDetected.displayName) {
+          _detected?.platform != newDetected.platform) {
         setState(() => _detected = newDetected);
       }
       return;
@@ -139,7 +156,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
     final progressCount = _getProgressCount();
 
     return AlertDialog(
-      title: const Text('导入歌单'),
+      title: Text(t.library.importPlaylist.title),
       content: SizedBox(
         width: 400,
         child: Form(
@@ -149,7 +166,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '支持 B站、YouTube、网易云音乐、QQ音乐、Spotify',
+                t.library.importPlaylist.supportedPlatforms,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colorScheme.outline,
                     ),
@@ -162,13 +179,13 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
                 autofocus: true,
                 decoration: InputDecoration(
                   labelText: 'URL',
-                  hintText: '粘贴歌单链接',
+                  hintText: t.library.importPlaylist.urlHint,
                   prefixIcon: const Icon(Icons.link),
                   suffixIcon: _detected != null
                       ? Padding(
                           padding: const EdgeInsets.only(right: 12),
                           child: Icon(
-                            _getSourceIcon(_detected!.displayName),
+                            _getSourceIcon(_detected!.platform),
                             size: 18,
                             color: colorScheme.outline,
                           ),
@@ -179,7 +196,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
                 onChanged: _onUrlChanged,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return '请输入 URL';
+                    return t.library.importPlaylist.urlRequired;
                   }
                   final trimmed = value.trim();
                   // 检查是否能被任一来源识别（外部优先）
@@ -188,7 +205,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
                   final sourceManager = ref.read(sourceManagerProvider);
                   if (notifier.detectSource(trimmed) == null &&
                       sourceManager.getSourceForUrl(trimmed) == null) {
-                    return '不支持的链接格式';
+                    return t.library.importPlaylist.unsupportedFormat;
                   }
                   return null;
                 },
@@ -198,10 +215,10 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
               // 歌单名称
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: '歌单名称（可选）',
-                  hintText: '留空则使用原名称',
-                  prefixIcon: Icon(Icons.edit),
+                decoration: InputDecoration(
+                  labelText: t.library.importPlaylist.nameLabel,
+                  hintText: t.library.importPlaylist.nameHint,
+                  prefixIcon: const Icon(Icons.edit),
                 ),
                 enabled: !_isImporting,
               ),
@@ -210,7 +227,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
               if (isExternal && !_isImporting) ...[
                 const SizedBox(height: 16),
                 Text(
-                  '搜索来源',
+                  t.library.importPlaylist.searchSource,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: colorScheme.outline,
                       ),
@@ -290,7 +307,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
             }
             Navigator.pop(context);
           },
-          child: const Text('取消'),
+          child: Text(t.general.cancel),
         ),
         FilledButton(
           onPressed: _isImporting ? null : _startImport,
@@ -300,7 +317,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('导入'),
+              : Text(t.library.importPlaylist.import),
         ),
       ],
     );
@@ -308,7 +325,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
 
   String _getProgressText() {
     if (_detected?.type == _UrlType.internal) {
-      return _internalProgress?.currentItem ?? '正在处理...';
+      return _internalProgress?.currentItem ?? t.library.importPlaylist.processing;
     } else {
       return _externalProgress?.currentItem ??
           _getPhaseText(_externalProgress?.phase ?? ImportPhase.idle);
@@ -338,15 +355,15 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
   String _getPhaseText(ImportPhase phase) {
     switch (phase) {
       case ImportPhase.idle:
-        return '准备中...';
+        return t.library.importPlaylist.preparing;
       case ImportPhase.fetching:
-        return '正在获取歌单信息...';
+        return t.library.importPlaylist.fetchingInfo;
       case ImportPhase.matching:
-        return '正在搜索匹配...';
+        return t.library.importPlaylist.matching;
       case ImportPhase.completed:
-        return '完成';
+        return t.library.importPlaylist.completed;
       case ImportPhase.error:
-        return '出错';
+        return t.library.importPlaylist.error;
     }
   }
 
@@ -419,8 +436,8 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
         Navigator.pop(context);
         ToastService.success(
           context,
-          '导入成功！添加了 ${result.addedCount} 首歌曲'
-          '${result.skippedCount > 0 ? '，跳过 ${result.skippedCount} 首' : ''}',
+          '${t.library.importPlaylist.importSuccess(n: result.addedCount)}'
+          '${result.skippedCount > 0 ? ', ${t.library.importPlaylist.skipped(n: result.skippedCount)}' : ''}',
         );
       }
     } catch (e) {
@@ -465,7 +482,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
       final state = ref.read(playlistImportProvider);
 
       if (state.phase == ImportPhase.error) {
-        throw Exception(state.errorMessage ?? '导入失败');
+        throw Exception(state.errorMessage ?? t.library.importPlaylist.importFailed);
       }
 
       if (mounted) {

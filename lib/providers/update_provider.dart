@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 import '../services/update/update_service.dart';
 
@@ -65,7 +66,7 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
     } catch (e) {
       state = state.copyWith(
         status: UpdateStatus.error,
-        errorMessage: '检查更新失败: $e',
+        errorMessage: '${t.updateProvider.checkFailed}: $e',
       );
     }
   }
@@ -96,7 +97,7 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
     } catch (e) {
       state = state.copyWith(
         status: UpdateStatus.error,
-        errorMessage: '下载更新失败: $e',
+        errorMessage: '${t.updateProvider.downloadFailed}: $e',
       );
     }
   }

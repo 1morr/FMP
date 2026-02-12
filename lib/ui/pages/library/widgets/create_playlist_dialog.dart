@@ -6,6 +6,7 @@ import '../../../../core/services/toast_service.dart';
 import '../../../../data/models/playlist.dart';
 import '../../../../providers/playlist_provider.dart';
 import '../../../../services/library/playlist_service.dart';
+import '../../../../i18n/strings.g.dart';
 import 'cover_picker_dialog.dart';
 
 /// 创建/编辑歌单对话框
@@ -52,7 +53,7 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(isEditing ? '编辑歌单' : '新建歌单'),
+      title: Text(isEditing ? t.library.createPlaylist.editTitle : t.library.createPlaylist.createTitle),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -68,14 +69,14 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
 
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: '歌单名称',
-                  hintText: '请输入歌单名称',
+                decoration: InputDecoration(
+                  labelText: t.library.createPlaylist.nameLabel,
+                  hintText: t.library.createPlaylist.nameHint,
                 ),
                 autofocus: !isEditing,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return '请输入歌单名称';
+                    return t.library.createPlaylist.nameRequired;
                   }
                   return null;
                 },
@@ -83,9 +84,9 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(
-                  labelText: '描述（可选）',
-                  hintText: '添加歌单描述',
+                decoration: InputDecoration(
+                  labelText: t.library.createPlaylist.descLabel,
+                  hintText: t.library.createPlaylist.descHint,
                 ),
                 maxLines: 3,
               ),
@@ -96,7 +97,7 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
       actions: [
         TextButton(
           onPressed: _isLoading ? null : () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(t.general.cancel),
         ),
         FilledButton(
           onPressed: _isLoading ? null : _submit,
@@ -106,7 +107,7 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : Text(isEditing ? '保存' : '创建'),
+              : Text(isEditing ? t.library.createPlaylist.save : t.library.createPlaylist.create),
         ),
       ],
     );
@@ -124,7 +125,7 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '封面',
+          t.library.createPlaylist.cover,
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
@@ -168,7 +169,7 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              '點擊更換封面',
+                              t.library.createPlaylist.clickToChangeCover,
                               style: TextStyle(
                                 color: colorScheme.primary,
                                 fontWeight: FontWeight.w500,
@@ -178,7 +179,7 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          _customCoverUrl != null ? '使用自定義封面' : '使用默認封面',
+                          _customCoverUrl != null ? t.library.createPlaylist.usingCustomCover : t.library.createPlaylist.usingDefaultCover,
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: colorScheme.outline,
                               ),
@@ -281,7 +282,7 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
         if (mounted) {
           if (result != null) {
             Navigator.pop(context);
-            ToastService.success(context, '歌单已更新');
+            ToastService.success(context, t.library.createPlaylist.playlistUpdated);
 
             // 如果有需要手动移动的下载文件，显示提示
             if (result.needsManualFileMigration) {
@@ -292,7 +293,7 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
             }
           } else {
             final error = ref.read(playlistListProvider).error;
-            ToastService.error(context, error ?? '操作失败');
+            ToastService.error(context, error ?? t.library.createPlaylist.operationFailed);
           }
         }
       } else {
@@ -304,10 +305,10 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
         if (mounted) {
           if (playlist != null) {
             Navigator.pop(context);
-            ToastService.success(context, '歌单已创建');
+            ToastService.success(context, t.library.createPlaylist.playlistCreated);
           } else {
             final error = ref.read(playlistListProvider).error;
-            ToastService.error(context, error ?? '操作失败');
+            ToastService.error(context, error ?? t.library.createPlaylist.operationFailed);
           }
         }
       }
@@ -323,14 +324,14 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('已下载文件提示'),
+        title: Text(t.library.createPlaylist.downloadFileNotice),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('歌单已重命名，但已下载的文件未自动移动。'),
+            Text(t.library.createPlaylist.playlistRenamedNotice),
             const SizedBox(height: 12),
-            const Text('如需继续使用这些文件，请手动将文件夹重命名：'),
+            Text(t.library.createPlaylist.manualMoveHint),
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.all(8),
@@ -339,20 +340,20 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
                 borderRadius: BorderRadius.circular(4),
               ),
               child: SelectableText(
-                '旧: $oldFolder\n新: $newFolder',
+                t.library.createPlaylist.oldNewPath(oldPath: oldFolder, newPath: newFolder),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       fontFamily: 'monospace',
                     ),
               ),
             ),
             const SizedBox(height: 12),
-            const Text('移动文件后，请前往「已下载」页面点击同步按钮以重新关联文件。'),
+            Text(t.library.createPlaylist.syncAfterMove),
           ],
         ),
         actions: [
           FilledButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('我知道了'),
+            child: Text(t.library.createPlaylist.gotIt),
           ),
         ],
       ),

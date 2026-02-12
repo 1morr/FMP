@@ -9,6 +9,8 @@ import '../../../data/sources/playlist_import/playlist_import_source.dart';
 import '../../../providers/playlist_import_provider.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../../core/utils/number_format_utils.dart';
+import '../../../i18n/strings.g.dart';
 import '../../widgets/track_thumbnail.dart';
 
 /// 显示导入预览弹窗
@@ -46,7 +48,7 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
     final state = ref.watch(playlistImportProvider);
     final colorScheme = Theme.of(context).colorScheme;
     final playlistName =
-        widget.customName ?? state.playlist?.name ?? '导入的歌单';
+        widget.customName ?? state.playlist?.name ?? t.library.importPreview.defaultPlaylistName;
 
     return Dialog(
       clipBehavior: Clip.antiAlias,
@@ -73,7 +75,7 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '导入预览',
+                          t.library.importPreview.title,
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 2),
@@ -120,7 +122,7 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                       child: Text(
-                        '已匹配 (${state.matchedCount})',
+                        t.library.importPreview.matched(n: state.matchedCount),
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                               color: colorScheme.primary,
                             ),
@@ -175,7 +177,7 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
                     onPressed: () {
                       Navigator.pop(context);
                     },
-                    child: const Text('取消'),
+                    child: Text(t.general.cancel),
                   ),
                   const SizedBox(width: 12),
                   FilledButton(
@@ -188,7 +190,7 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : Text('创建歌单 (${state.selectedTracks.length})'),
+                        : Text(t.library.importPreview.createPlaylist(n: state.selectedTracks.length)),
                   ),
                 ],
               ),
@@ -224,7 +226,7 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
             const SizedBox(width: 12),
           ],
           Text(
-            '共 ${state.matchedTracks.length} 首',
+            t.library.importPreview.totalTracks(n: state.matchedTracks.length),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: colorScheme.outline,
                 ),
@@ -233,7 +235,7 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
           Text('•', style: TextStyle(color: colorScheme.outline)),
           const SizedBox(width: 8),
           Text(
-            '已匹配 ${state.matchedCount}',
+            t.library.importPreview.matchedCount(n: state.matchedCount),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: colorScheme.primary,
                 ),
@@ -243,7 +245,7 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
             Text('•', style: TextStyle(color: colorScheme.outline)),
             const SizedBox(width: 8),
             Text(
-              '未匹配 ${state.unmatchedCount}',
+              t.library.importPreview.unmatchedCount(n: state.unmatchedCount),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: colorScheme.error,
                   ),
@@ -262,7 +264,7 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
       final tracks = state.selectedTracks;
 
       if (tracks.isEmpty) {
-        ToastService.warning(context, '没有可导入的歌曲');
+        ToastService.warning(context, t.library.importPreview.noTracksToImport);
         return;
       }
 
@@ -271,7 +273,7 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
       final playlist = await notifier.createPlaylist(name: name);
 
       if (playlist == null) {
-        throw Exception('创建歌单失败');
+        throw Exception(t.library.importPreview.createFailed);
       }
 
       // 添加歌曲
@@ -287,12 +289,12 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
         Navigator.pop(context);
         ToastService.success(
           context,
-          '创建成功！添加了 ${tracks.length} 首歌曲',
+          t.library.importPreview.createSuccess(n: tracks.length),
         );
       }
     } catch (e) {
       if (mounted) {
-        ToastService.error(context, '创建失败: $e');
+        ToastService.error(context, t.library.importPreview.createError(error: e.toString()));
       }
     } finally {
       if (mounted) {
@@ -389,7 +391,7 @@ class _UnmatchedSectionState extends ConsumerState<_UnmatchedSection> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: Text(
-            '未匹配 (${widget.tracks.length})',
+            t.library.importPreview.unmatched(n: widget.tracks.length),
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: colorScheme.error,
                 ),
@@ -518,7 +520,7 @@ class _UnmatchedTrackTile extends ConsumerWidget {
                   Flexible(
                     child: Text(
                       hasSelection 
-                          ? (selectedTrack.artist ?? '未知艺术家')
+                          ? (selectedTrack.artist ?? t.general.unknownArtist)
                           : original.artists.join(' / '),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -597,7 +599,7 @@ class _UnmatchedTrackTile extends ConsumerWidget {
                     child: TextField(
                       controller: searchController,
                       decoration: InputDecoration(
-                        hintText: '输入搜索关键词...',
+                        hintText: t.library.importPreview.searchHint,
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12,
@@ -627,7 +629,7 @@ class _UnmatchedTrackTile extends ConsumerWidget {
                             height: 14,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('搜索'),
+                        : Text(t.library.importPreview.search),
                   ),
                 ),
               ],
@@ -646,7 +648,7 @@ class _UnmatchedTrackTile extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(72, 0, 16, 8),
               child: Text(
-                '输入关键词后点击搜索',
+                t.library.importPreview.searchHelp,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: colorScheme.outline,
                     ),
@@ -726,7 +728,7 @@ class _ImportMatchTile extends StatelessWidget {
                   // 艺术家
                   Flexible(
                     child: Text(
-                      track.artist ?? '未知艺术家',
+                      track.artist ?? t.general.unknownArtist,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -811,15 +813,7 @@ class _ImportMatchTile extends StatelessWidget {
     );
   }
 
-  String _formatViewCount(int count) {
-    if (count >= 100000000) {
-      return '${(count / 100000000).toStringAsFixed(1)}亿';
-    } else if (count >= 10000) {
-      return '${(count / 10000).toStringAsFixed(1)}万';
-    } else {
-      return count.toString();
-    }
-  }
+  String _formatViewCount(int count) => formatCount(count);
 }
 
 /// 备选搜索结果项
@@ -880,7 +874,7 @@ class _AlternativeTrackTile extends ConsumerWidget {
             // 艺术家
             Flexible(
               child: Text(
-                track.artist ?? '未知艺术家',
+                track.artist ?? t.general.unknownArtist,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -946,7 +940,7 @@ class _AlternativeTrackTile extends ConsumerWidget {
                       }
                     },
               visualDensity: VisualDensity.compact,
-              tooltip: isLoading ? '加载中' : (isPlaying ? '暂停' : '试听'),
+              tooltip: isLoading ? t.library.importPreview.loadingTooltip : (isPlaying ? t.library.importPreview.pauseTooltip : t.library.importPreview.previewTooltip),
             ),
           ],
         ),
@@ -955,15 +949,7 @@ class _AlternativeTrackTile extends ConsumerWidget {
     );
   }
 
-  String _formatViewCount(int count) {
-    if (count >= 100000000) {
-      return '${(count / 100000000).toStringAsFixed(1)}亿';
-    } else if (count >= 10000) {
-      return '${(count / 10000).toStringAsFixed(1)}万';
-    } else {
-      return count.toString();
-    }
-  }
+  String _formatViewCount(int count) => formatCount(count);
 }
 
 /// 音源标识 - 使用灰色图标（与搜索页面一致）

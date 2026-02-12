@@ -1,11 +1,20 @@
 import 'package:isar/isar.dart';
 
+import '../../i18n/strings.g.dart';
+
 part 'track.g.dart';
 
 /// 音源类型枚举
 enum SourceType {
   bilibili,
-  youtube,
+  youtube;
+
+  String get displayName {
+    switch (this) {
+      case SourceType.bilibili: return t.importPlatform.bilibili;
+      case SourceType.youtube: return t.importPlatform.youtube;
+    }
+  }
 }
 
 /// 歌单归属与下载路径信息（嵌入式对象）

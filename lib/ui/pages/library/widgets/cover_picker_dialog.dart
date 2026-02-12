@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/services/image_loading_service.dart';
 import '../../../../data/models/track.dart';
+import '../../../../i18n/strings.g.dart';
 import '../../../../providers/playlist_provider.dart';
 
 /// 封面選擇結果
@@ -75,7 +76,7 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
                 children: [
                   Expanded(
                     child: Text(
-                      '選擇封面',
+                      t.library.coverPicker.title,
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ),
@@ -90,9 +91,9 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
             // Tab 切換
             TabBar(
               controller: _tabController,
-              tabs: const [
-                Tab(text: '歌曲封面'),
-                Tab(text: '網絡 URL'),
+              tabs: [
+                Tab(text: t.library.coverPicker.trackCovers),
+                Tab(text: t.library.coverPicker.networkUrl),
               ],
             ),
 
@@ -118,7 +119,7 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
                         context, const CoverPickerResult.useDefault());
                   },
                   icon: const Icon(Icons.restore),
-                  label: const Text('使用默認封面'),
+                  label: Text(t.library.coverPicker.useDefault),
                 ),
               ),
             ),
@@ -140,16 +141,16 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
-          child: Text('加載失敗: ${state.error}'),
+          child: Text(t.library.loadFailedWithError(error: state.error.toString())),
         ),
       );
     }
 
     if (state.tracks.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Text('歌單中沒有歌曲'),
+          padding: const EdgeInsets.all(32),
+          child: Text(t.library.coverPicker.noTracks),
         ),
       );
     }
@@ -166,10 +167,10 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
     }
 
     if (tracksWithCovers.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Text('沒有可用的歌曲封面'),
+          padding: const EdgeInsets.all(32),
+          child: Text(t.library.coverPicker.noCoverAvailable),
         ),
       );
     }
@@ -213,7 +214,7 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
           TextField(
             controller: _urlController,
             decoration: InputDecoration(
-              labelText: '圖片 URL',
+              labelText: t.library.coverPicker.imageUrl,
               hintText: 'https://example.com/image.jpg',
               prefixIcon: const Icon(Icons.link),
               suffixIcon: _urlController.text.isNotEmpty
@@ -248,7 +249,7 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '輸入 URL 預覽圖片',
+                          t.library.coverPicker.urlPreviewHint,
                           style: TextStyle(color: colorScheme.outline),
                         ),
                       ],
@@ -278,7 +279,7 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
                       Navigator.pop(context, CoverPickerResult.custom(url));
                     }
                   },
-            child: const Text('使用此封面'),
+            child: Text(t.library.coverPicker.useThisCover),
           ),
         ],
       ),

@@ -1,0 +1,18 @@
+{
+  "selectTrack": "選擇一首歌曲播放",
+  "loadFailed": "載入失敗",
+  "nextTrack": "下一首",
+  "audioOnly": "純音訊",
+  "muxedStream": "混合串流",
+  "audioInfo": "音訊資訊",
+  "description": "簡介",
+  "collapse": "收起",
+  "expand": "展開",
+  "topComments": "熱門評論",
+  "streamerAnnouncement": "主播公告",
+  "isLive": "直播中",
+  "isStopped": "已停止",
+  "syncLive": "同步直播",
+  "tags": "標籤",
+  "justNow": "剛剛"
+}

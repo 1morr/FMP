@@ -122,7 +122,7 @@ abstract class BaseSource {
   SourceType get sourceType;
 
   /// 音源名称（用于显示）
-  String get sourceName;
+
 
   /// 从 URL 解析出源ID
   /// 返回 null 表示不是此音源的有效 URL

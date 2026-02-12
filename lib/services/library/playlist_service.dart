@@ -11,6 +11,7 @@ import '../../data/repositories/playlist_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../download/download_path_utils.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 
 /// 歌单更新结果
@@ -580,7 +581,7 @@ class PlaylistNameExistsException implements Exception {
   const PlaylistNameExistsException(this.name);
 
   @override
-  String toString() => '歌单名称 "$name" 已存在';
+  String toString() => t.importSource.playlistNameExists(name: name);
 }
 
 /// 歌单未找到异常
@@ -589,5 +590,5 @@ class PlaylistNotFoundException implements Exception {
   const PlaylistNotFoundException(this.playlistId);
 
   @override
-  String toString() => '歌单 (id: $playlistId) 不存在';
+  String toString() => t.importSource.playlistIdNotFound(id: playlistId.toString());
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 import '../../providers/refresh_provider.dart';
 
@@ -67,7 +68,7 @@ class PlaylistRefreshProgress extends ConsumerWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  '正在刷新: ${refreshState.playlistName}',
+                  t.refreshProgressIndicator.refreshingPlaylist(name: refreshState.playlistName),
                   style: Theme.of(context).textTheme.bodyMedium,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -131,7 +132,7 @@ class PlaylistRefreshProgress extends ConsumerWidget {
               ),
               const SizedBox(width: 12),
               Text(
-                '正在刷新 ${refreshList.length} 个歌单',
+                t.refreshProgressIndicator.refreshingPlaylists(count: refreshList.length),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w500,
                     ),
@@ -213,9 +214,9 @@ class RefreshResultSnackBar {
   }) {
     return SnackBar(
       content: Text(
-        '$playlistName 刷新完成！'
-        '${addedCount > 0 ? '新增 $addedCount 首' : '无新增'}'
-        '${skippedCount > 0 ? '，跳过 $skippedCount 首' : ''}',
+        '${t.refreshProvider.completed(name: playlistName)}'
+        '${addedCount > 0 ? t.refreshProgressIndicator.added(count: addedCount) : t.refreshProgressIndicator.noAdded}'
+        '${skippedCount > 0 ? '，${t.library.importPlaylist.skipped(n: skippedCount)}' : ''}',
       ),
       duration: const Duration(seconds: 3),
     );
@@ -226,7 +227,7 @@ class RefreshResultSnackBar {
     required String errorMessage,
   }) {
     return SnackBar(
-      content: Text('$playlistName 刷新失败: $errorMessage'),
+      content: Text(t.refreshProvider.failed(name: playlistName, error: errorMessage)),
       duration: const Duration(seconds: 4),
       backgroundColor: Colors.red[700],
     );

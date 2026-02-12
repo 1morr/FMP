@@ -2,9 +2,11 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/utils/icon_helpers.dart';
+import '../../../core/utils/number_format_utils.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../router.dart';
@@ -152,18 +154,18 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
 
     // 觀眾數
     if (radioState.viewerCount != null) {
-      parts.add('${_formatCount(radioState.viewerCount!)}觀眾');
+      parts.add(t.radio.viewersCount(count: _formatCount(radioState.viewerCount!)));
     }
 
     // 重連/緩衝狀態
     if (radioState.isReconnecting) {
-      parts.add('重連中...');
+      parts.add(t.radio.reconnecting);
     } else if (radioState.isBuffering) {
-      parts.add('緩衝中...');
+      parts.add(t.radio.buffering);
     }
 
     return Text(
-      parts.isEmpty ? '直播中' : parts.join(' · '),
+      parts.isEmpty ? t.radio.isLive : parts.join(' · '),
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
           ),
@@ -228,7 +230,7 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
           size: 22,
           color: isDisabled ? colorScheme.onSurfaceVariant.withValues(alpha: 0.38) : null,
         ),
-        tooltip: '同步直播',
+        tooltip: t.radio.syncLive,
         onPressed: isDisabled ? null : () => controller.sync(),
       ),
     );
@@ -254,7 +256,7 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
               size: 20,
             ),
             visualDensity: VisualDensity.compact,
-            tooltip: '音量',
+            tooltip: t.radio.volume,
             onPressed: () {
               if (menuController.isOpen) {
                 menuController.close();
@@ -313,7 +315,7 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
             size: 20,
           ),
           visualDensity: VisualDensity.compact,
-          tooltip: state.volume > 0 ? '靜音' : '取消靜音',
+          tooltip: state.volume > 0 ? t.radio.mute : t.radio.unmute,
           onPressed: () => controller.toggleMute(),
         ),
         // 音量滑塊
@@ -352,10 +354,5 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  String _formatCount(int count) {
-    if (count >= 10000) {
-      return '${(count / 10000).toStringAsFixed(1)}萬';
-    }
-    return count.toString();
-  }
+  String _formatCount(int count) => formatCount(count);
 }

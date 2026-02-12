@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/number_format_utils.dart';
+import '../../../i18n/strings.g.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:simple_icons/simple_icons.dart';
 
@@ -130,8 +132,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     return TextField(
       controller: _searchController,
       focusNode: _focusNode,
-      decoration: const InputDecoration(
-        hintText: '搜索歌曲、艺术家...',
+      decoration: InputDecoration(
+        hintText: t.searchPage.hint,
         border: InputBorder.none,
         prefixIcon: Icon(Icons.search),
       ),
@@ -158,7 +160,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                     child: Row(
                       children: [
                         ChoiceChip(
-                          label: const Text('全部音源'),
+                          label: Text(t.searchPage.source.all),
                           selected: state.selectedSource == null && !state.isLiveSearchMode,
                           onSelected: (_) {
                             ref.read(searchProvider.notifier).setFilters(
@@ -199,7 +201,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         const SizedBox(width: 16),
                         // 直播间筛选
                         ChoiceChip(
-                          label: const Text('全部直播间'),
+                          label: Text(t.searchPage.liveRoom.all),
                           selected: state.liveRoomFilter == LiveRoomFilter.all,
                           onSelected: (_) {
                             ref.read(searchProvider.notifier).setFilters(
@@ -210,7 +212,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         ),
                         const SizedBox(width: 8),
                         ChoiceChip(
-                          label: const Text('已开播'),
+                          label: Text(t.searchPage.liveRoom.online),
                           selected: state.liveRoomFilter == LiveRoomFilter.online,
                           onSelected: (_) {
                             ref.read(searchProvider.notifier).setFilters(
@@ -221,7 +223,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         ),
                         const SizedBox(width: 8),
                         ChoiceChip(
-                          label: const Text('未开播'),
+                          label: Text(t.searchPage.liveRoom.offline),
                           selected: state.liveRoomFilter == LiveRoomFilter.offline,
                           onSelected: (_) {
                             ref.read(searchProvider.notifier).setFilters(
@@ -253,17 +255,17 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         ref.read(searchProvider.notifier).setSearchOrder(order);
       },
       itemBuilder: (context) => [
-        const PopupMenuItem(
+        PopupMenuItem(
           value: SearchOrder.relevance,
-          child: Text('综合排序'),
+          child: Text(t.searchPage.sort.relevance),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: SearchOrder.playCount,
-          child: Text('最多播放'),
+          child: Text(t.searchPage.sort.playCount),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: SearchOrder.publishDate,
-          child: Text('最新发布'),
+          child: Text(t.searchPage.sort.publishDate),
         ),
       ],
       child: Container(
@@ -300,11 +302,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   String _getOrderName(SearchOrder order) {
     switch (order) {
       case SearchOrder.relevance:
-        return '综合';
+        return t.searchPage.sort.relevanceShort;
       case SearchOrder.playCount:
-        return '播放量';
+        return t.searchPage.sort.playCountShort;
       case SearchOrder.publishDate:
-        return '最新';
+        return t.searchPage.sort.publishDateShort;
     }
   }
 
@@ -324,7 +326,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             ),
             const SizedBox(height: 16),
             Text(
-              '搜索你喜欢的音乐',
+              t.searchPage.searchMusic,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: colorScheme.outline,
                   ),
@@ -342,7 +344,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           child: Row(
             children: [
               Text(
-                '搜索历史',
+                t.searchPage.history,
                 style: Theme.of(context).textTheme.titleSmall,
               ),
               const Spacer(),
@@ -350,7 +352,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 onPressed: () {
                   ref.read(searchHistoryManagerProvider.notifier).clearAll();
                 },
-                child: const Text('清空'),
+                child: Text(t.searchPage.clear),
               ),
             ],
           ),
@@ -408,7 +410,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             const SizedBox(height: 16),
             FilledButton(
               onPressed: () => _performSearch(state.query),
-              child: const Text('重试'),
+              child: Text(t.searchPage.retry),
             ),
           ],
         ),
@@ -436,7 +438,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  '歌单中 (${state.localResults.length})',
+                  t.searchPage.section.inPlaylist(count: state.localResults.length),
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
@@ -492,7 +494,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  '在线结果 (${state.mixedOnlineTracks.length})',
+                  t.searchPage.section.onlineResults(count: state.mixedOnlineTracks.length),
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
@@ -547,7 +549,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 padding: const EdgeInsets.all(16),
                 child: Center(
                   child: Text(
-                    '已加载全部',
+                    t.searchPage.allLoaded,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.outline,
                         ),
@@ -570,7 +572,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      '未找到 "${state.query}" 相关结果',
+                      t.searchPage.noResults(query: state.query),
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
                   ],
@@ -617,7 +619,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             const SizedBox(height: 16),
             FilledButton(
               onPressed: () => _performSearch(state.query),
-              child: const Text('重试'),
+              child: Text(t.searchPage.retry),
             ),
           ],
         ),
@@ -636,7 +638,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             ),
             const SizedBox(height: 16),
             Text(
-              '未找到 "${state.query}" 相关直播间',
+              t.searchPage.noLiveRooms(query: state.query),
               style: Theme.of(context).textTheme.bodyLarge,
             ),
           ],
@@ -663,7 +665,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                '直播间 (${state.liveRoomResults?.totalCount ?? rooms.length})',
+                t.searchPage.liveRoom.title(count: state.liveRoomResults?.totalCount ?? rooms.length),
                 style: Theme.of(context).textTheme.titleSmall,
               ),
             ),
@@ -700,7 +702,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 padding: const EdgeInsets.all(16),
                 child: Center(
                   child: Text(
-                    '已加载全部',
+                    t.searchPage.allLoaded,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.outline,
                         ),
@@ -716,7 +718,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   /// 打开直播间
   Future<void> _openLiveRoom(LiveRoom room) async {
     if (!room.isLive) {
-      if (mounted) ToastService.warning(context, '主播未开播');
+      if (mounted) ToastService.warning(context, t.searchPage.liveRoom.notLive);
       return;
     }
 
@@ -742,7 +744,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     try {
       final url = 'https://live.bilibili.com/${room.roomId}';
       await ref.read(radioControllerProvider.notifier).addStation(url);
-      if (mounted) ToastService.success(context, '已添加到电台');
+      if (mounted) ToastService.success(context, t.searchPage.toast.addedToRadio);
     } catch (e) {
       if (mounted) ToastService.error(context, e.toString());
     }
@@ -854,12 +856,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             if (added) anyAdded = true;
           }
           if (anyAdded && mounted) {
-            ToastService.success(context, '已添加${pages.length}个分P到下一首');
+            ToastService.success(context, t.searchPage.toast.addedPartsToNext(count: pages.length));
           }
         } else {
           final added = await controller.addNext(track);
           if (added && mounted) {
-            ToastService.success(context, '已添加到下一首');
+            ToastService.success(context, t.searchPage.toast.addedToNext);
           }
         }
         break;
@@ -872,12 +874,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             if (added) anyAdded = true;
           }
           if (anyAdded && mounted) {
-            ToastService.success(context, '已添加${pages.length}个分P到播放队列');
+            ToastService.success(context, t.searchPage.toast.addedPartsToQueue(count: pages.length));
           }
         } else {
           final added = await controller.addToQueue(track);
           if (added && mounted) {
-            ToastService.success(context, '已添加到播放队列');
+            ToastService.success(context, t.searchPage.toast.addedToQueue);
           }
         }
         break;
@@ -910,13 +912,13 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       case 'play_next':
         final added = await controller.addNext(pageTrack);
         if (added && mounted) {
-          ToastService.success(context, '已添加到下一首');
+          ToastService.success(context, t.searchPage.toast.addedToNext);
         }
         break;
       case 'add_to_queue':
         final added = await controller.addToQueue(pageTrack);
         if (added && mounted) {
-          ToastService.success(context, '已添加到播放队列');
+          ToastService.success(context, t.searchPage.toast.addedToQueue);
         }
         break;
 
@@ -1005,7 +1007,7 @@ class _SearchResultTile extends ConsumerWidget {
               ],
               Flexible(
                 child: Text(
-                  track.artist ?? '未知艺术家',
+                  track.artist ?? t.general.unknownArtist,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1105,22 +1107,14 @@ class _SearchResultTile extends ConsumerWidget {
     );
   }
 
-  List<PopupMenuEntry<String>> _buildMenuItems() => const [
-    PopupMenuItem(value: 'play', child: ListTile(leading: Icon(Icons.play_arrow), title: Text('播放'), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'play_next', child: ListTile(leading: Icon(Icons.queue_play_next), title: Text('下一首播放'), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: Icon(Icons.add_to_queue), title: Text('添加到队列'), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: Icon(Icons.playlist_add), title: Text('添加到歌单'), contentPadding: EdgeInsets.zero)),
+  List<PopupMenuEntry<String>> _buildMenuItems() => [
+    PopupMenuItem(value: 'play', child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.searchPage.menu.play), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.searchPage.menu.playNext), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.searchPage.menu.addToQueue), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.searchPage.menu.addToPlaylist), contentPadding: EdgeInsets.zero)),
   ];
 
-  String _formatViewCount(int count) {
-    if (count >= 100000000) {
-      return '${(count / 100000000).toStringAsFixed(1)}亿';
-    } else if (count >= 10000) {
-      return '${(count / 10000).toStringAsFixed(1)}万';
-    } else {
-      return count.toString();
-    }
-  }
+  String _formatViewCount(int count) => formatCount(count);
 }
 
 /// 分P列表项
@@ -1203,10 +1197,10 @@ class _PageTile extends ConsumerWidget {
     );
   }
 
-  List<PopupMenuEntry<String>> _buildMenuItems() => const [
-    PopupMenuItem(value: 'play', child: ListTile(leading: Icon(Icons.play_arrow), title: Text('播放'), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'play_next', child: ListTile(leading: Icon(Icons.queue_play_next), title: Text('下一首播放'), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: Icon(Icons.add_to_queue), title: Text('添加到队列'), contentPadding: EdgeInsets.zero)),
+  List<PopupMenuEntry<String>> _buildMenuItems() => [
+    PopupMenuItem(value: 'play', child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.searchPage.menu.play), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.searchPage.menu.playNext), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.searchPage.menu.addToQueue), contentPadding: EdgeInsets.zero)),
     // 注意：分P没有"添加到歌单"选项
   ];
 }
@@ -1285,7 +1279,7 @@ class _LocalGroupTile extends ConsumerWidget {
               const SizedBox(width: 4),
               Flexible(
                 child: Text(
-                  firstTrack.artist ?? '未知艺术家',
+                  firstTrack.artist ?? t.general.unknownArtist,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1354,11 +1348,11 @@ class _LocalGroupTile extends ConsumerWidget {
     );
   }
 
-  List<PopupMenuEntry<String>> _buildMenuItems() => const [
-    PopupMenuItem(value: 'play', child: ListTile(leading: Icon(Icons.play_arrow), title: Text('播放'), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'play_next', child: ListTile(leading: Icon(Icons.queue_play_next), title: Text('下一首播放'), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: Icon(Icons.add_to_queue), title: Text('添加到队列'), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: Icon(Icons.playlist_add), title: Text('添加到歌单'), contentPadding: EdgeInsets.zero)),
+  List<PopupMenuEntry<String>> _buildMenuItems() => [
+    PopupMenuItem(value: 'play', child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.searchPage.menu.play), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.searchPage.menu.playNext), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.searchPage.menu.addToQueue), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.searchPage.menu.addToPlaylist), contentPadding: EdgeInsets.zero)),
   ];
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
@@ -1377,8 +1371,8 @@ class _LocalGroupTile extends ConsumerWidget {
         if (anyAdded && context.mounted) {
           ToastService.success(context,
             group.hasMultipleParts
-                ? '已添加${group.partCount}个分P到下一首'
-                : '已添加到下一首',
+                ? t.searchPage.toast.addedPartsToNext(count: group.partCount)
+                : t.searchPage.toast.addedToNext,
           );
         }
         break;
@@ -1391,8 +1385,8 @@ class _LocalGroupTile extends ConsumerWidget {
         if (anyAdded && context.mounted) {
           ToastService.success(context,
             group.hasMultipleParts
-                ? '已添加${group.partCount}个分P到播放队列'
-                : '已添加到播放队列',
+                ? t.searchPage.toast.addedPartsToQueue(count: group.partCount)
+                : t.searchPage.toast.addedToQueue,
           );
         }
         break;
@@ -1499,10 +1493,10 @@ class _LocalTrackTile extends ConsumerWidget {
     );
   }
 
-  List<PopupMenuEntry<String>> _buildMenuItems() => const [
-    PopupMenuItem(value: 'play', child: ListTile(leading: Icon(Icons.play_arrow), title: Text('播放'), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'play_next', child: ListTile(leading: Icon(Icons.queue_play_next), title: Text('下一首播放'), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: Icon(Icons.add_to_queue), title: Text('添加到队列'), contentPadding: EdgeInsets.zero)),
+  List<PopupMenuEntry<String>> _buildMenuItems() => [
+    PopupMenuItem(value: 'play', child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.searchPage.menu.play), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.searchPage.menu.playNext), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.searchPage.menu.addToQueue), contentPadding: EdgeInsets.zero)),
   ];
 }
 
@@ -1646,7 +1640,7 @@ class _LiveRoomTile extends StatelessWidget {
         ),
       ),
       title: Text(
-        room.title.isNotEmpty ? room.title : '${room.uname}的直播间',
+        room.title.isNotEmpty ? room.title : t.searchPage.liveRoom.userRoom(user: room.uname),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
@@ -1714,20 +1708,15 @@ class _LiveRoomTile extends StatelessWidget {
       enabled: room.isLive,
       child: ListTile(
         leading: Icon(Icons.play_arrow, color: room.isLive ? null : colorScheme.outline),
-        title: Text('播放', style: TextStyle(color: room.isLive ? null : colorScheme.outline)),
+        title: Text(t.searchPage.menu.play, style: TextStyle(color: room.isLive ? null : colorScheme.outline)),
         contentPadding: EdgeInsets.zero,
       ),
     ),
-    const PopupMenuItem(
+    PopupMenuItem(
       value: 'add_to_radio',
-      child: ListTile(leading: Icon(Icons.radio), title: Text('添加到电台'), contentPadding: EdgeInsets.zero),
+      child: ListTile(leading: const Icon(Icons.radio), title: Text(t.searchPage.menu.addToRadio), contentPadding: EdgeInsets.zero),
     ),
   ];
 
-  String _formatOnlineCount(int count) {
-    if (count >= 10000) {
-      return '${(count / 10000).toStringAsFixed(1)}万';
-    }
-    return count.toString();
-  }
+  String _formatOnlineCount(int count) => formatCount(count);
 }

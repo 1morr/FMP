@@ -33,10 +33,10 @@ void main() async {
   if (Platform.isAndroid || Platform.isIOS) {
     audioHandler = await AudioService.init(
       builder: () => FmpAudioHandler(),
-      config: const AudioServiceConfig(
+      config: AudioServiceConfig(
         androidNotificationChannelId: 'com.personal.fmp.channel.audio',
-        androidNotificationChannelName: 'FMP 音频播放',
-        androidNotificationChannelDescription: 'FMP 音乐播放器后台播放通知',
+        androidNotificationChannelName: t.notification.channelName,
+        androidNotificationChannelDescription: t.notification.channelDescription,
         androidNotificationOngoing: true,
         androidShowNotificationBadge: true,
         androidStopForegroundOnPause: true,

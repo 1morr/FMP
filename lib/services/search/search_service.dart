@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fmp/i18n/strings.g.dart';
 import 'package:isar/isar.dart';
 import '../../data/models/track.dart';
 import '../../data/models/search_history.dart';
@@ -129,7 +130,7 @@ class SearchService {
   }) async {
     final source = _sourceManager.getSource(sourceType);
     if (source == null) {
-      throw SearchException('音源 ${sourceType.name} 不可用');
+      throw SearchException(t.error.sourceUnavailable(source: sourceType.name));
     }
 
     return source.search(query, page: page, pageSize: pageSize, order: order);

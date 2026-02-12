@@ -1,0 +1,10 @@
+{
+  "storageRequired": "需要存储权限",
+  "storageExplanation": "为了将音乐下载到您选择的文件夹，应用需要访问设备存储的权限。",
+  "storageInstructions": "点击「继续」后，请在系统设置中允许 FMP 访问所有文件。",
+  "denied": "权限被拒绝",
+  "deniedMessage": "存储权限已被拒绝。如果您想使用自定义下载路径，请在设置中手动授予权限。",
+  "insufficientPermission": "权限不足",
+  "cannotWriteDirectory": "无法写入所选目录，请选择其他位置或授予必要权限。",
+  "goToSettings": "打开设置"
+}

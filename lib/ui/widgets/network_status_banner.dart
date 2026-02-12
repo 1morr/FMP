@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 import '../../services/audio/audio_provider.dart';
 import '../../services/network/connectivity_service.dart';
@@ -100,7 +101,7 @@ class _NetworkStatusBannerState extends ConsumerState<NetworkStatusBanner>
               ),
               const SizedBox(width: 8),
               Text(
-                '无网络',
+                t.networkStatus.noNetwork,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -117,7 +118,7 @@ class _NetworkStatusBannerState extends ConsumerState<NetworkStatusBanner>
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  child: const Text('重试'),
+                  child: Text(t.networkStatus.retry),
                 ),
               ],
             ],

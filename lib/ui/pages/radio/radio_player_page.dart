@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/icon_helpers.dart';
+import '../../../core/utils/number_format_utils.dart';
+import '../../../i18n/strings.g.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/platform/url_launcher_service.dart';
 import '../../../services/radio/radio_controller.dart';
@@ -68,7 +70,7 @@ class RadioPlayerPage extends ConsumerWidget {
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        '同步直播',
+                        t.radio.syncLive,
                         style: isDisabled
                             ? TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.38))
                             : null,
@@ -76,13 +78,13 @@ class RadioPlayerPage extends ConsumerWidget {
                     ],
                   ),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'info',
                   child: Row(
                     children: [
-                      Icon(Icons.info_outline, size: 20),
-                      SizedBox(width: 12),
-                      Text('信息'),
+                      const Icon(Icons.info_outline, size: 20),
+                      const SizedBox(width: 12),
+                      Text(t.radio.info),
                     ],
                   ),
                 ),
@@ -92,7 +94,7 @@ class RadioPlayerPage extends ConsumerWidget {
         ],
       ),
       body: station == null
-          ? const Center(child: Text('沒有正在播放的電台'))
+          ? Center(child: Text(t.radio.noPlaying))
           : Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -175,7 +177,7 @@ class RadioPlayerPage extends ConsumerWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            station?.title ?? '未知電台',
+            station?.title ?? t.radio.unknownStation,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -185,7 +187,7 @@ class RadioPlayerPage extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            station?.hostName ?? '直播中',
+            station?.hostName ?? t.radio.live,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -203,7 +205,7 @@ class RadioPlayerPage extends ConsumerWidget {
     final parts = <String>[];
 
     if (state.liveStartTime != null) {
-      parts.add('${_formatDateTime(state.liveStartTime!)}开播');
+      parts.add(t.radio.startedBroadcast(time: _formatDateTime(state.liveStartTime!)));
     }
     if (state.isPlaying) {
       parts.add(_formatDuration(state.playDuration));
@@ -252,20 +254,20 @@ class RadioPlayerPage extends ConsumerWidget {
   /// 獲取狀態文字
   String _getStatusText(RadioState state) {
     if (state.isReconnecting) {
-      return '重連中...';
+      return t.radio.reconnecting;
     }
     if (state.isBuffering) {
-      return '緩衝中...';
+      return t.radio.buffering;
     }
     if (!state.isPlaying) {
-      return '已暫停';
+      return t.radio.paused;
     }
 
     final parts = <String>[];
     if (state.viewerCount != null) {
-      parts.add('${_formatCount(state.viewerCount!)} 觀眾');
+      parts.add(t.radio.viewersCount(count: _formatCount(state.viewerCount!)));
     }
-    return parts.isEmpty ? '直播中' : parts.join(' · ');
+    return parts.isEmpty ? t.radio.live : parts.join(' · ');
   }
 
   /// 播放控制按鈕
@@ -338,7 +340,7 @@ class RadioPlayerPage extends ConsumerWidget {
         IconButton(
           icon: Icon(getVolumeIcon(state.volume), size: 20),
           visualDensity: VisualDensity.compact,
-          tooltip: state.volume > 0 ? '靜音' : '取消靜音',
+          tooltip: state.volume > 0 ? t.radio.mute : t.radio.unmute,
           onPressed: () => controller.toggleMute(),
         ),
         SizedBox(
@@ -390,25 +392,20 @@ class RadioPlayerPage extends ConsumerWidget {
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  String _formatCount(int count) {
-    if (count >= 10000) {
-      return '${(count / 10000).toStringAsFixed(1)}萬';
-    }
-    return count.toString();
-  }
+  String _formatCount(int count) => formatCount(count);
 
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
     final diff = now.difference(dateTime);
 
     if (diff.inDays > 0) {
-      return '${diff.inDays} 天前';
+      return t.radio.daysAgo(n: diff.inDays);
     } else if (diff.inHours > 0) {
-      return '${diff.inHours} 小时前';
+      return t.radio.hoursAgo(n: diff.inHours);
     } else if (diff.inMinutes > 0) {
-      return '${diff.inMinutes} 分钟前';
+      return t.radio.minutesAgo(n: diff.inMinutes);
     } else {
-      return '刚刚';
+      return t.radio.justNow;
     }
   }
 }
@@ -538,7 +535,7 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              '直播間信息',
+                              t.radio.liveRoomInfo,
                               style: textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
@@ -561,7 +558,7 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
                   padding: const EdgeInsets.all(20),
                   sliver: SliverToBoxAdapter(
                     child: station == null
-                        ? const Text('無法獲取直播間信息')
+                        ? Text(t.radio.unableToGetInfo)
                         : Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -633,19 +630,19 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
                               _buildStatItem(
                                 context,
                                 Icons.visibility_rounded,
-                                '${_formatCount(widget.state.viewerCount!)} 觀眾',
+                                t.radio.viewersCount(count: _formatCount(widget.state.viewerCount!)),
                               ),
                             if (widget.state.isPlaying)
                               _buildStatItem(
                                 context,
                                 Icons.schedule_outlined,
-                                '已播放 ${_formatDuration(widget.state.playDuration)}',
+                                t.radio.played(duration: _formatDuration(widget.state.playDuration)),
                               ),
                             if (widget.state.liveStartTime != null)
                               _buildStatItem(
                                 context,
                                 Icons.play_circle_outline,
-                                '開播於 ${_formatDateTime(widget.state.liveStartTime!)}',
+                                t.radio.startedAt(time: _formatDateTime(widget.state.liveStartTime!)),
                               ),
                             if (widget.state.areaName != null)
                               _buildStatItem(
@@ -658,7 +655,7 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
                               widget.state.isPlaying
                                   ? Icons.radio_button_checked
                                   : Icons.radio_button_off,
-                              widget.state.isPlaying ? '直播中' : '已停止',
+                              widget.state.isPlaying ? t.radio.live : t.radio.stopped,
                             ),
                           ],
                         ),
@@ -672,7 +669,7 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
                           _buildExpandableSection(
                             context,
                             icon: Icons.campaign_outlined,
-                            title: '主播公告',
+                            title: t.radio.announcement,
                             content: widget.state.announcement!,
                             textKey: _announcementKey,
                             isExpanded: _isAnnouncementExpanded,
@@ -694,7 +691,7 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
                           _buildExpandableSection(
                             context,
                             icon: Icons.info_outline_rounded,
-                            title: '簡介',
+                            title: t.radio.description,
                             content: widget.state.description!,
                             textKey: _descriptionKey,
                             isExpanded: _isDescriptionExpanded,
@@ -779,7 +776,7 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
                 child: Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    isExpanded ? '收起' : '展開',
+                    isExpanded ? t.radio.collapse : t.radio.expand,
                     style: textTheme.bodyMedium?.copyWith(
                       color: colorScheme.primary,
                       fontWeight: FontWeight.w500,
@@ -806,7 +803,7 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
             Icon(Icons.tag, size: 18, color: colorScheme.primary),
             const SizedBox(width: 8),
             Text(
-              '標籤',
+              t.radio.tags,
               style: textTheme.titleSmall?.copyWith(
                 color: colorScheme.primary,
                 fontWeight: FontWeight.w600,
@@ -870,25 +867,20 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  String _formatCount(int count) {
-    if (count >= 10000) {
-      return '${(count / 10000).toStringAsFixed(1)}萬';
-    }
-    return count.toString();
-  }
+  String _formatCount(int count) => formatCount(count);
 
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
     final diff = now.difference(dateTime);
 
     if (diff.inDays > 0) {
-      return '${diff.inDays} 天前';
+      return t.radio.daysAgo(n: diff.inDays);
     } else if (diff.inHours > 0) {
-      return '${diff.inHours} 小時前';
+      return t.radio.hoursAgo(n: diff.inHours);
     } else if (diff.inMinutes > 0) {
-      return '${diff.inMinutes} 分鐘前';
+      return t.radio.minutesAgo(n: diff.inMinutes);
     } else {
-      return '剛剛';
+      return t.radio.justNow;
     }
   }
 }

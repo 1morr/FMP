@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
 
+import '../../../i18n/strings.g.dart';
 import '../../../providers/database_provider.dart';
 import '../../../data/models/track.dart';
 import '../../../data/models/playlist.dart';
@@ -39,11 +40,11 @@ class _DatabaseViewerPageState extends ConsumerState<DatabaseViewerPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('数据库查看器'),
+        title: Text(t.databaseViewer.title),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
+            tooltip: t.databaseViewer.refresh,
             onPressed: () => setState(() {}),
           ),
           const SizedBox(width: 8),
@@ -104,7 +105,7 @@ class _DatabaseViewerPageState extends ConsumerState<DatabaseViewerPage> {
 
     return dbAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('数据库加载失败: $e')),
+      error: (e, _) => Center(child: Text(t.databaseViewer.loadFailed(error: e.toString()))),
       data: (isar) => _buildCollectionData(isar),
     );
   }
@@ -119,7 +120,7 @@ class _DatabaseViewerPageState extends ConsumerState<DatabaseViewerPage> {
       'SearchHistory' => _SearchHistoryListView(isar: isar),
       'DownloadTask' => _DownloadTaskListView(isar: isar),
       'RadioStation' => _RadioStationListView(isar: isar),
-      _ => const Center(child: Text('未知集合')),
+      _ => Center(child: Text(t.databaseViewer.unknownCollection)),
     };
   }
 }
@@ -142,7 +143,7 @@ class _TrackListView extends StatelessWidget {
         return _buildList(
           context,
           itemCount: tracks.length,
-          headerText: '共 ${tracks.length} 条记录',
+          headerText: t.databaseViewer.recordCount(count: tracks.length),
           itemBuilder: (index) {
             final track = tracks[index];
             return _DataCard(
@@ -150,7 +151,7 @@ class _TrackListView extends StatelessWidget {
               subtitle: 'ID: ${track.id}',
               sections: [
                 _DataSection(
-                  title: '基本信息',
+                  title: t.databaseViewer.basicInfo,
                   data: {
                     'id': track.id.toString(),
                     'sourceId': track.sourceId,
@@ -163,7 +164,7 @@ class _TrackListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '媒体信息',
+                  title: t.databaseViewer.mediaInfo,
                   data: {
                     'thumbnailUrl': _truncate(track.thumbnailUrl, 60),
                     'audioUrl': _truncate(track.audioUrl, 60),
@@ -172,14 +173,14 @@ class _TrackListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '可用性',
+                  title: t.databaseViewer.availability,
                   data: {
                     'isAvailable': track.isAvailable.toString(),
                     'unavailableReason': track.unavailableReason ?? 'null',
                   },
                 ),
                 _DataSection(
-                  title: '缓存与下载',
+                  title: t.databaseViewer.cacheAndDownload,
                   data: {
                     'playlistInfo': track.playlistInfo.isEmpty
                         ? '[]'
@@ -191,7 +192,7 @@ class _TrackListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '分P信息',
+                  title: t.databaseViewer.partInfo,
                   data: {
                     'cid': track.cid?.toString() ?? 'null',
                     'pageNum': track.pageNum?.toString() ?? 'null',
@@ -201,7 +202,7 @@ class _TrackListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '时间戳',
+                  title: t.databaseViewer.timestamps,
                   data: {
                     'createdAt': track.createdAt.toIso8601String(),
                     'updatedAt': track.updatedAt?.toIso8601String() ?? 'null',
@@ -234,7 +235,7 @@ class _PlaylistListView extends StatelessWidget {
         return _buildList(
           context,
           itemCount: playlists.length,
-          headerText: '共 ${playlists.length} 条记录',
+          headerText: t.databaseViewer.recordCount(count: playlists.length),
           itemBuilder: (index) {
             final playlist = playlists[index];
             return _DataCard(
@@ -242,7 +243,7 @@ class _PlaylistListView extends StatelessWidget {
               subtitle: 'ID: ${playlist.id}',
               sections: [
                 _DataSection(
-                  title: '基本信息',
+                  title: t.databaseViewer.basicInfo,
                   data: {
                     'id': playlist.id.toString(),
                     'name': playlist.name,
@@ -250,14 +251,14 @@ class _PlaylistListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '封面',
+                  title: t.databaseViewer.cover,
                   data: {
                     'coverUrl': _truncate(playlist.coverUrl, 60),
                     'hasCustomCover': playlist.hasCustomCover.toString(),
                   },
                 ),
                 _DataSection(
-                  title: '导入设置',
+                  title: t.databaseViewer.importSettings,
                   data: {
                     'isImported': playlist.isImported.toString(),
                     'sourceUrl': _truncate(playlist.sourceUrl, 60),
@@ -277,7 +278,7 @@ class _PlaylistListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '歌曲列表',
+                  title: t.databaseViewer.trackList,
                   data: {
                     'trackCount': playlist.trackIds.length.toString(),
                     'trackIds': playlist.trackIds.isEmpty
@@ -286,7 +287,7 @@ class _PlaylistListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '排序与时间',
+                  title: t.databaseViewer.sortAndTime,
                   data: {
                     'sortOrder': playlist.sortOrder.toString(),
                     'createdAt': playlist.createdAt.toIso8601String(),
@@ -320,15 +321,15 @@ class _PlayQueueListView extends StatelessWidget {
         return _buildList(
           context,
           itemCount: queues.length,
-          headerText: '共 ${queues.length} 条记录',
+          headerText: t.databaseViewer.recordCount(count: queues.length),
           itemBuilder: (index) {
             final queue = queues[index];
             return _DataCard(
-              title: '播放队列 #${queue.id}',
-              subtitle: '${queue.length} 首歌曲',
+              title: '${t.databaseViewer.playQueue} #${queue.id}',
+              subtitle: '${queue.length} tracks',
               sections: [
                 _DataSection(
-                  title: '基本信息',
+                  title: t.databaseViewer.basicInfo,
                   data: {
                     'id': queue.id.toString(),
                     'length': queue.length.toString(),
@@ -336,7 +337,7 @@ class _PlayQueueListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '播放状态',
+                  title: t.databaseViewer.playbackState,
                   data: {
                     'currentIndex': queue.currentIndex.toString(),
                     'currentTrackId': queue.currentTrackId?.toString() ?? 'null',
@@ -347,7 +348,7 @@ class _PlayQueueListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '播放模式',
+                  title: t.databaseViewer.playbackMode,
                   data: {
                     'isShuffleEnabled': queue.isShuffleEnabled.toString(),
                     'loopMode': queue.loopMode.name,
@@ -366,7 +367,7 @@ class _PlayQueueListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '队列内容',
+                  title: t.databaseViewer.queueContent,
                   data: {
                     'trackIds': queue.trackIds.isEmpty
                         ? '[]'
@@ -374,7 +375,7 @@ class _PlayQueueListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '时间戳',
+                  title: t.databaseViewer.timestamps,
                   data: {
                     'lastUpdated': queue.lastUpdated?.toIso8601String() ?? 'null',
                   },
@@ -406,15 +407,15 @@ class _SettingsListView extends StatelessWidget {
         return _buildList(
           context,
           itemCount: settings.length,
-          headerText: '共 ${settings.length} 条记录',
+          headerText: t.databaseViewer.recordCount(count: settings.length),
           itemBuilder: (index) {
             final setting = settings[index];
             return _DataCard(
-              title: '设置 #${setting.id}',
-              subtitle: '主题: ${setting.themeMode.name}',
+              title: t.databaseViewer.setting(id: setting.id.toString()),
+              subtitle: t.databaseViewer.theme(name: setting.themeMode.name),
               sections: [
                 _DataSection(
-                  title: '主题设置',
+                  title: t.databaseViewer.themeSettings,
                   data: {
                     'id': setting.id.toString(),
                     'themeModeIndex': setting.themeModeIndex.toString(),
@@ -422,7 +423,7 @@ class _SettingsListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '颜色设置',
+                  title: t.databaseViewer.colorSettings,
                   data: {
                     'primaryColor': setting.primaryColor != null
                         ? '#${setting.primaryColor!.toRadixString(16).padLeft(8, '0').toUpperCase()}'
@@ -445,21 +446,21 @@ class _SettingsListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '存储设置',
+                  title: t.databaseViewer.storageSettings,
                   data: {
                     'maxCacheSizeMB': setting.maxCacheSizeMB.toString(),
                     'customDownloadDir': setting.customDownloadDir ?? 'null',
                   },
                 ),
                 _DataSection(
-                  title: '导入设置',
+                  title: t.databaseViewer.importSettings,
                   data: {
                     'autoRefreshImports': setting.autoRefreshImports.toString(),
                     'defaultRefreshIntervalHours': setting.defaultRefreshIntervalHours.toString(),
                   },
                 ),
                 _DataSection(
-                  title: '下载设置',
+                  title: t.databaseViewer.downloadSettings,
                   data: {
                     'maxConcurrentDownloads': setting.maxConcurrentDownloads.toString(),
                     'downloadImageOptionIndex': setting.downloadImageOptionIndex.toString(),
@@ -467,7 +468,7 @@ class _SettingsListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '播放设置',
+                  title: t.databaseViewer.playbackSettings,
                   data: {
                     'autoScrollToCurrentTrack': setting.autoScrollToCurrentTrack.toString(),
                     'rememberPlaybackPosition': setting.rememberPlaybackPosition.toString(),
@@ -476,7 +477,7 @@ class _SettingsListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '音质设置',
+                  title: t.databaseViewer.audioQualitySettings,
                   data: {
                     'audioQualityLevelIndex': setting.audioQualityLevelIndex.toString(),
                     'audioQualityLevel': setting.audioQualityLevel.name,
@@ -486,7 +487,7 @@ class _SettingsListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '桌面平台设置',
+                  title: t.databaseViewer.desktopSettings,
                   data: {
                     'minimizeToTrayOnClose': setting.minimizeToTrayOnClose.toString(),
                     'enableGlobalHotkeys': setting.enableGlobalHotkeys.toString(),
@@ -494,7 +495,7 @@ class _SettingsListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '其他设置',
+                  title: t.databaseViewer.otherSettings,
                   data: {
                     'enabledSources': setting.enabledSources.join(', '),
                   },
@@ -526,7 +527,7 @@ class _PlayHistoryListView extends StatelessWidget {
         return _buildList(
           context,
           itemCount: histories.length,
-          headerText: '共 ${histories.length} 条记录',
+          headerText: t.databaseViewer.recordCount(count: histories.length),
           itemBuilder: (index) {
             final history = histories[index];
             return _DataCard(
@@ -534,7 +535,7 @@ class _PlayHistoryListView extends StatelessWidget {
               subtitle: 'ID: ${history.id} | ${_formatDateTime(history.playedAt)}',
               sections: [
                 _DataSection(
-                  title: '基本信息',
+                  title: t.databaseViewer.basicInfo,
                   data: {
                     'id': history.id.toString(),
                     'sourceId': history.sourceId,
@@ -544,7 +545,7 @@ class _PlayHistoryListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '媒体信息',
+                  title: t.databaseViewer.mediaInfo,
                   data: {
                     'title': history.title,
                     'artist': history.artist ?? 'null',
@@ -554,7 +555,7 @@ class _PlayHistoryListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '播放时间',
+                  title: t.databaseViewer.playbackTime,
                   data: {
                     'playedAt': history.playedAt.toIso8601String(),
                   },
@@ -591,7 +592,7 @@ class _SearchHistoryListView extends StatelessWidget {
         return _buildList(
           context,
           itemCount: histories.length,
-          headerText: '共 ${histories.length} 条记录',
+          headerText: t.databaseViewer.recordCount(count: histories.length),
           itemBuilder: (index) {
             final history = histories[index];
             return _DataCard(
@@ -599,7 +600,7 @@ class _SearchHistoryListView extends StatelessWidget {
               subtitle: 'ID: ${history.id}',
               sections: [
                 _DataSection(
-                  title: '搜索记录',
+                  title: t.databaseViewer.searchHistory,
                   data: {
                     'id': history.id.toString(),
                     'query': history.query,
@@ -633,15 +634,15 @@ class _DownloadTaskListView extends StatelessWidget {
         return _buildList(
           context,
           itemCount: tasks.length,
-          headerText: '共 ${tasks.length} 条记录',
+          headerText: t.databaseViewer.recordCount(count: tasks.length),
           itemBuilder: (index) {
             final task = tasks[index];
             return _DataCard(
-              title: '下载任务 #${task.id}',
+              title: '${t.databaseViewer.downloadTask} #${task.id}',
               subtitle: 'TrackID: ${task.trackId} | ${task.status.name}',
               sections: [
                 _DataSection(
-                  title: '基本信息',
+                  title: t.databaseViewer.basicInfo,
                   data: {
                     'id': task.id.toString(),
                     'trackId': task.trackId.toString(),
@@ -651,7 +652,7 @@ class _DownloadTaskListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '下载状态',
+                  title: t.databaseViewer.downloadStatus,
                   data: {
                     'status': task.status.name,
                     'progress': '${(task.progress * 100).toStringAsFixed(1)}%',
@@ -660,7 +661,7 @@ class _DownloadTaskListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '文件信息',
+                  title: t.databaseViewer.fileInfo,
                   data: {
                     'savePath': _truncate(task.savePath, 80),
                     'tempFilePath': _truncate(task.tempFilePath, 80),
@@ -668,13 +669,13 @@ class _DownloadTaskListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '错误信息',
+                  title: t.databaseViewer.errorInfo,
                   data: {
                     'errorMessage': task.errorMessage ?? 'null',
                   },
                 ),
                 _DataSection(
-                  title: '时间戳',
+                  title: t.databaseViewer.timestamps,
                   data: {
                     'createdAt': task.createdAt.toIso8601String(),
                     'completedAt': task.completedAt?.toIso8601String() ?? 'null',
@@ -707,7 +708,7 @@ class _RadioStationListView extends StatelessWidget {
         return _buildList(
           context,
           itemCount: stations.length,
-          headerText: '共 ${stations.length} 条记录',
+          headerText: t.databaseViewer.recordCount(count: stations.length),
           itemBuilder: (index) {
             final station = stations[index];
             return _DataCard(
@@ -715,7 +716,7 @@ class _RadioStationListView extends StatelessWidget {
               subtitle: 'ID: ${station.id} | ${station.sourceType.name}',
               sections: [
                 _DataSection(
-                  title: '基本信息',
+                  title: t.databaseViewer.basicInfo,
                   data: {
                     'id': station.id.toString(),
                     'url': _truncate(station.url, 60),
@@ -725,7 +726,7 @@ class _RadioStationListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '主播信息',
+                  title: t.databaseViewer.streamerInfo,
                   data: {
                     'hostName': station.hostName ?? 'null',
                     'hostUid': station.hostUid?.toString() ?? 'null',
@@ -733,13 +734,13 @@ class _RadioStationListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '媒体信息',
+                  title: t.databaseViewer.mediaInfo,
                   data: {
                     'thumbnailUrl': _truncate(station.thumbnailUrl, 60),
                   },
                 ),
                 _DataSection(
-                  title: '排序与收藏',
+                  title: t.databaseViewer.sortAndFavorite,
                   data: {
                     'sortOrder': station.sortOrder.toString(),
                     'isFavorite': station.isFavorite.toString(),
@@ -747,7 +748,7 @@ class _RadioStationListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: '时间戳',
+                  title: t.databaseViewer.timestamps,
                   data: {
                     'createdAt': station.createdAt.toIso8601String(),
                     'lastPlayedAt': station.lastPlayedAt?.toIso8601String() ?? 'null',
@@ -796,7 +797,7 @@ Widget _buildList(
           ),
           const SizedBox(height: 16),
           Text(
-            '暂无数据',
+            t.databaseViewer.noData,
             style: TextStyle(color: Theme.of(context).colorScheme.outline),
           ),
         ],

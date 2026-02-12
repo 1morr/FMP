@@ -1,0 +1,18 @@
+{
+  "recentTrending": "Trending",
+  "viewAll": "View All",
+  "myPlaylists": "My Playlists",
+  "createPlaylist": "Create Playlist",
+  "recentlyPlayed": "Recently Played",
+  "nowPlaying": "Now Playing",
+  "upNext": "Up Next",
+  "viewQueue": "View Queue",
+  "radio": "Radio",
+  "play": "Play",
+  "playNext": "Play Next",
+  "addToQueue": "Add to Queue",
+  "addToPlaylist": "Add to Playlist",
+  "addedToNext": "Added to play next",
+  "addedToQueue": "Added to queue",
+  "loadFailed": "Load failed"
+}

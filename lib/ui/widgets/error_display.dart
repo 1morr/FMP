@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 /// 错误类型枚举
 enum ErrorType {
@@ -122,17 +123,17 @@ class ErrorDisplay extends StatelessWidget {
     if (title != null) return title!;
     switch (type) {
       case ErrorType.network:
-        return '网络连接失败';
+        return t.error.networkError;
       case ErrorType.server:
-        return '服务器错误';
+        return t.error.serverErrorTitle;
       case ErrorType.notFound:
-        return '未找到内容';
+        return t.error.notFound;
       case ErrorType.permission:
-        return '权限不足';
+        return t.error.insufficientPermission;
       case ErrorType.empty:
-        return '暂无内容';
+        return t.error.emptyContent;
       case ErrorType.general:
-        return '发生错误';
+        return t.error.genericError;
     }
   }
 
@@ -140,17 +141,17 @@ class ErrorDisplay extends StatelessWidget {
   String _getDefaultMessage() {
     switch (type) {
       case ErrorType.network:
-        return '请检查网络连接后重试';
+        return t.error.networkErrorSubtitle;
       case ErrorType.server:
-        return '服务暂时不可用，请稍后再试';
+        return t.error.serverErrorSubtitle;
       case ErrorType.notFound:
-        return '您请求的内容不存在';
+        return t.error.notFoundSubtitle;
       case ErrorType.permission:
-        return '您没有权限访问此内容';
+        return t.error.permissionSubtitle;
       case ErrorType.empty:
-        return '这里还没有任何内容';
+        return t.error.emptySubtitle;
       case ErrorType.general:
-        return '请稍后重试';
+        return t.error.genericSubtitle;
     }
   }
 
@@ -210,7 +211,7 @@ class ErrorDisplay extends StatelessWidget {
               icon: const Icon(Icons.refresh_rounded),
               iconSize: 20,
               visualDensity: VisualDensity.compact,
-              tooltip: '重试',
+              tooltip: t.error.retry,
             ),
           ],
         ],
@@ -267,7 +268,7 @@ class ErrorDisplay extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh_rounded),
-                label: const Text('重试'),
+                label: Text(t.error.retry),
               ),
             ],
           ],

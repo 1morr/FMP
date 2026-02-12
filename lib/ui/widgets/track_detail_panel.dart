@@ -2,8 +2,10 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fmp/i18n/strings.g.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/utils/number_format_utils.dart';
 import '../../core/utils/thumbnail_url_utils.dart';
 import '../../core/extensions/track_extensions.dart';
 import '../../core/services/image_loading_service.dart';
@@ -54,7 +56,7 @@ class TrackDetailPanel extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                '选择一首歌曲播放',
+                t.trackDetail.selectTrack,
                 style: textTheme.titleMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -91,7 +93,7 @@ class TrackDetailPanel extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                '加载失败',
+                t.trackDetail.loadFailed,
                 style: textTheme.titleMedium?.copyWith(
                   color: colorScheme.error,
                 ),
@@ -101,7 +103,7 @@ class TrackDetailPanel extends ConsumerWidget {
                 onPressed: () {
                   ref.read(trackDetailProvider.notifier).refresh();
                 },
-                child: const Text('重试'),
+                child: Text(t.error.retry),
               ),
             ],
           ),
@@ -153,7 +155,7 @@ class TrackDetailPanel extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            track.artist ?? '未知作者',
+            track.artist ?? t.player.unknownAuthor,
             style: textTheme.bodyLarge?.copyWith(
               color: colorScheme.onSurfaceVariant,
             ),
@@ -366,9 +368,9 @@ class _DetailContent extends ConsumerWidget {
       if (type == null) return null;
       switch (type) {
         case StreamType.audioOnly:
-          return '纯音频';
+          return t.trackDetail.audioOnly;
         case StreamType.muxed:
-          return '混合流';
+          return t.trackDetail.muxedStream;
         case StreamType.hls:
           return 'HLS';
       }
@@ -397,7 +399,7 @@ class _DetailContent extends ConsumerWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              '音频信息',
+              t.trackDetail.audioInfo,
               style: textTheme.titleSmall?.copyWith(
                 color: colorScheme.primary,
                 fontWeight: FontWeight.w600,
@@ -474,7 +476,7 @@ class _DetailContent extends ConsumerWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              '下一首',
+              t.trackDetail.nextTrack,
               style: textTheme.titleSmall?.copyWith(
                 color: colorScheme.primary,
                 fontWeight: FontWeight.w600,
@@ -507,7 +509,7 @@ class _DetailContent extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    track.artist ?? '未知作者',
+                    track.artist ?? t.player.unknownAuthor,
                     style: textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
@@ -738,7 +740,7 @@ class _DescriptionSectionState extends State<_DescriptionSection> {
             ),
             const SizedBox(width: 8),
             Text(
-              '简介',
+              t.trackDetail.description,
               style: textTheme.titleSmall?.copyWith(
                 color: colorScheme.primary,
                 fontWeight: FontWeight.w600,
@@ -773,7 +775,7 @@ class _DescriptionSectionState extends State<_DescriptionSection> {
                 child: Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    _isExpanded ? '收起' : '展开',
+                    _isExpanded ? t.trackDetail.collapse : t.trackDetail.expand,
                     style: textTheme.bodyMedium?.copyWith(
                       color: colorScheme.primary,
                       fontWeight: FontWeight.w500,
@@ -915,7 +917,7 @@ class _CommentPagerState extends State<_CommentPager> {
             ),
             const SizedBox(width: 8),
             Text(
-              '热门评论',
+              t.trackDetail.topComments,
               style: textTheme.titleSmall?.copyWith(
                 color: colorScheme.primary,
                 fontWeight: FontWeight.w600,
@@ -1130,7 +1132,7 @@ class _RadioDetailContent extends ConsumerWidget {
           const SizedBox(height: 16),
           _RadioExpandableSection(
             icon: Icons.campaign_outlined,
-            title: '主播公告',
+            title: t.trackDetail.streamerAnnouncement,
             content: radioState.announcement!,
           ),
         ],
@@ -1142,7 +1144,7 @@ class _RadioDetailContent extends ConsumerWidget {
           const SizedBox(height: 16),
           _RadioExpandableSection(
             icon: Icons.info_outline_rounded,
-            title: '简介',
+            title: t.trackDetail.description,
             content: radioState.description!,
           ),
         ],
@@ -1176,7 +1178,7 @@ class _RadioDetailContent extends ConsumerWidget {
           _buildStatItem(
             context,
             Icons.play_circle_outline,
-            '${_formatDateTime(radioState.liveStartTime!)}開播',
+            t.radio.startedBroadcast(time: _formatDateTime(radioState.liveStartTime!)),
           ),
         if (radioState.areaName != null)
           _buildStatItem(
@@ -1187,7 +1189,7 @@ class _RadioDetailContent extends ConsumerWidget {
         _buildStatItem(
           context,
           radioState.isPlaying ? Icons.radio_button_checked : Icons.radio_button_off,
-          radioState.isPlaying ? '直播中' : '已停止',
+          radioState.isPlaying ? t.trackDetail.isLive : t.trackDetail.isStopped,
         ),
       ],
     );
@@ -1209,7 +1211,7 @@ class _RadioDetailContent extends ConsumerWidget {
             ? colorScheme.onSurfaceVariant.withValues(alpha: 0.38)
             : colorScheme.primary,
       ),
-      tooltip: '同步直播',
+      tooltip: t.trackDetail.syncLive,
       visualDensity: VisualDensity.compact,
     );
   }
@@ -1250,7 +1252,7 @@ class _RadioDetailContent extends ConsumerWidget {
             Icon(Icons.tag, size: 18, color: colorScheme.primary),
             const SizedBox(width: 8),
             Text(
-              '标签',
+              t.trackDetail.tags,
               style: textTheme.titleSmall?.copyWith(
                 color: colorScheme.primary,
                 fontWeight: FontWeight.w600,
@@ -1280,25 +1282,20 @@ class _RadioDetailContent extends ConsumerWidget {
     );
   }
 
-  String _formatCount(int count) {
-    if (count >= 10000) {
-      return '${(count / 10000).toStringAsFixed(1)}万';
-    }
-    return count.toString();
-  }
+  String _formatCount(int count) => formatCount(count);
 
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
     final diff = now.difference(dateTime);
 
     if (diff.inDays > 0) {
-      return '${diff.inDays} 天前';
+      return t.radio.daysAgo(n: diff.inDays);
     } else if (diff.inHours > 0) {
-      return '${diff.inHours} 小时前';
+      return t.radio.hoursAgo(n: diff.inHours);
     } else if (diff.inMinutes > 0) {
-      return '${diff.inMinutes} 分钟前';
+      return t.radio.minutesAgo(n: diff.inMinutes);
     } else {
-      return '刚刚';
+      return t.trackDetail.justNow;
     }
   }
 }
@@ -1632,7 +1629,7 @@ class _RadioExpandableSectionState extends State<_RadioExpandableSection> {
                 child: Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    _isExpanded ? '收起' : '展开',
+                    _isExpanded ? t.trackDetail.collapse : t.trackDetail.expand,
                     style: textTheme.bodyMedium?.copyWith(
                       color: colorScheme.primary,
                       fontWeight: FontWeight.w500,

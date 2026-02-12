@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
+import '../../../i18n/strings.g.dart';
 import '../../../providers/download_provider.dart';
 
 import '../../../core/services/image_loading_service.dart';
@@ -53,7 +54,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
         leadingWidth: 56,
         leading: IconButton(
           icon: const Icon(Icons.download_done),
-          tooltip: '已下载',
+          tooltip: t.library.downloaded,
           onPressed: () async {
             ref.invalidate(downloadedCategoriesProvider);
             await ref.read(downloadedCategoriesProvider.future);
@@ -62,7 +63,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
             }
           },
         ),
-        title: Text(_isReorderMode ? '拖拽排序' : '音乐库'),
+        title: Text(_isReorderMode ? t.library.main.sortMode : t.library.title),
         actions: [
           // 排序模式按鈕
           if (state.playlists.length > 1)
@@ -71,7 +72,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                 _isReorderMode ? Icons.check : Icons.swap_vert,
                 color: _isReorderMode ? colorScheme.primary : null,
               ),
-              tooltip: _isReorderMode ? '完成排序' : '排序歌单',
+              tooltip: _isReorderMode ? t.library.main.finishSort : t.library.main.sortPlaylists,
               onPressed: () {
                 if (_isReorderMode && _localPlaylists != null) {
                   // 退出排序模式時直接更新 provider 狀態，避免閃爍
@@ -89,12 +90,12 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
           if (!_isReorderMode) ...[
             IconButton(
               icon: const Icon(Icons.add),
-              tooltip: '新建歌单',
+              tooltip: t.library.main.newPlaylist,
               onPressed: () => _showCreateDialog(context, ref),
             ),
             IconButton(
               icon: const Icon(Icons.link),
-              tooltip: '导入歌单',
+              tooltip: t.library.main.importPlaylist,
               onPressed: () => _showImportDialog(context, ref),
             ),
           ],
@@ -138,12 +139,12 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
             ),
             const SizedBox(height: 24),
             Text(
-              '暂无歌单',
+              t.library.main.noPlaylists,
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
             Text(
-              '创建你的第一个歌单，或从链接导入',
+              t.library.main.noPlaylistsHint,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colorScheme.outline,
                   ),
@@ -158,12 +159,12 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                 FilledButton.icon(
                   onPressed: () => _showCreateDialog(context, ref),
                   icon: const Icon(Icons.add),
-                  label: const Text('新建歌单'),
+                  label: Text(t.library.main.newPlaylist),
                 ),
                 OutlinedButton.icon(
                   onPressed: () => _showImportDialog(context, ref),
                   icon: const Icon(Icons.link),
-                  label: const Text('导入歌单'),
+                  label: Text(t.library.main.importPlaylist),
                 ),
               ],
             ),
@@ -326,7 +327,7 @@ class _ReorderablePlaylistCard extends ConsumerWidget {
                             const SizedBox(width: 4),
                           ],
                           Text(
-                            '${playlist.trackCount} 首',
+                            t.library.trackCount(n: playlist.trackCount),
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                   color: colorScheme.outline,
                                 ),
@@ -469,7 +470,7 @@ class _PlaylistCard extends ConsumerWidget {
                           const SizedBox(width: 4),
                         ],
                         Text(
-                          '${playlist.trackCount} 首',
+                          t.library.trackCount(n: playlist.trackCount),
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: colorScheme.outline,
                               ),
@@ -493,30 +494,30 @@ class _PlaylistCard extends ConsumerWidget {
 
     return [
       if (playlist.isMix) ...[
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'play_mix',
           child: Row(
-            children: [Icon(Icons.play_arrow, size: 20), SizedBox(width: 12), Text('播放Mix')],
+            children: [const Icon(Icons.play_arrow, size: 20), const SizedBox(width: 12), Text(t.library.main.playMix)],
           ),
         ),
       ] else ...[
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'add_all',
           child: Row(
-            children: [Icon(Icons.play_arrow, size: 20), SizedBox(width: 12), Text('添加所有')],
+            children: [const Icon(Icons.play_arrow, size: 20), const SizedBox(width: 12), Text(t.library.addAll)],
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'shuffle_add',
           child: Row(
-            children: [Icon(Icons.shuffle, size: 20), SizedBox(width: 12), Text('随机添加')],
+            children: [const Icon(Icons.shuffle, size: 20), const SizedBox(width: 12), Text(t.library.shuffleAdd)],
           ),
         ),
       ],
-      const PopupMenuItem(
+      PopupMenuItem(
         value: 'edit',
         child: Row(
-          children: [Icon(Icons.edit, size: 20), SizedBox(width: 12), Text('编辑歌单')],
+          children: [const Icon(Icons.edit, size: 20), const SizedBox(width: 12), Text(t.library.main.editPlaylist)],
         ),
       ),
       if (playlist.isImported && !playlist.isMix)
@@ -527,7 +528,7 @@ class _PlaylistCard extends ConsumerWidget {
             children: [
               Icon(isRefreshing ? Icons.hourglass_empty : Icons.refresh, size: 20),
               const SizedBox(width: 12),
-              Text(isRefreshing ? '正在刷新...' : '刷新歌单'),
+              Text(isRefreshing ? t.library.main.refreshing : t.library.main.refreshPlaylist),
             ],
           ),
         ),
@@ -537,7 +538,7 @@ class _PlaylistCard extends ConsumerWidget {
           children: [
             Icon(Icons.delete, size: 20, color: colorScheme.error),
             const SizedBox(width: 12),
-            Text('删除歌单', style: TextStyle(color: colorScheme.error)),
+            Text(t.library.main.deletePlaylist, style: TextStyle(color: colorScheme.error)),
           ],
         ),
       ),
@@ -577,7 +578,7 @@ class _PlaylistCard extends ConsumerWidget {
               if (playlist.isMix) ...[
                 ListTile(
                   leading: const Icon(Icons.play_arrow),
-                  title: const Text('播放Mix'),
+                  title: Text(t.library.main.playMix),
                   onTap: () {
                     Navigator.pop(context);
                     _playMix(context, ref);
@@ -586,7 +587,7 @@ class _PlaylistCard extends ConsumerWidget {
               ] else ...[
                 ListTile(
                   leading: const Icon(Icons.play_arrow),
-                  title: const Text('添加所有'),
+                  title: Text(t.library.addAll),
                   onTap: () {
                     Navigator.pop(context);
                     _addAllToQueue(context, ref);
@@ -594,7 +595,7 @@ class _PlaylistCard extends ConsumerWidget {
                 ),
                 ListTile(
                   leading: const Icon(Icons.shuffle),
-                  title: const Text('随机添加'),
+                  title: Text(t.library.shuffleAdd),
                   onTap: () {
                     Navigator.pop(context);
                     _shuffleAddToQueue(context, ref);
@@ -603,7 +604,7 @@ class _PlaylistCard extends ConsumerWidget {
               ],
               ListTile(
                 leading: const Icon(Icons.edit),
-                title: const Text('编辑歌单'),
+                title: Text(t.library.main.editPlaylist),
                 onTap: () {
                   Navigator.pop(context);
                   _showEditDialog(context, ref);
@@ -623,7 +624,7 @@ class _PlaylistCard extends ConsumerWidget {
                           ),
                         )
                       : const Icon(Icons.refresh),
-                  title: Text(isRefreshing ? '正在刷新...' : '刷新歌单'),
+                  title: Text(isRefreshing ? t.library.main.refreshing : t.library.main.refreshPlaylist),
                   enabled: !isRefreshing,
                   onTap: isRefreshing
                       ? null
@@ -634,7 +635,7 @@ class _PlaylistCard extends ConsumerWidget {
                 ),
               ListTile(
                 leading: Icon(Icons.delete, color: colorScheme.error),
-                title: Text('删除歌单', style: TextStyle(color: colorScheme.error)),
+                title: Text(t.library.main.deletePlaylist, style: TextStyle(color: colorScheme.error)),
                 onTap: () {
                   Navigator.pop(context);
                   _showDeleteConfirm(context, ref);
@@ -653,7 +654,7 @@ class _PlaylistCard extends ConsumerWidget {
 
     if (result == null || result.tracks.isEmpty) {
       if (context.mounted) {
-        ToastService.warning(context, '歌单为空');
+        ToastService.warning(context, t.library.main.playlistEmpty);
       }
       return;
     }
@@ -662,7 +663,7 @@ class _PlaylistCard extends ConsumerWidget {
     final added = await controller.addAllToQueue(result.tracks);
     
     if (added && context.mounted) {
-      ToastService.success(context, '已添加 ${result.tracks.length} 首歌曲到队列');
+      ToastService.success(context, t.library.addedToQueue(n: result.tracks.length));
     }
   }
 
@@ -672,7 +673,7 @@ class _PlaylistCard extends ConsumerWidget {
 
     if (result == null || result.tracks.isEmpty) {
       if (context.mounted) {
-        ToastService.warning(context, '歌单为空');
+        ToastService.warning(context, t.library.main.playlistEmpty);
       }
       return;
     }
@@ -682,13 +683,13 @@ class _PlaylistCard extends ConsumerWidget {
     final added = await controller.addAllToQueue(shuffled);
     
     if (added && context.mounted) {
-      ToastService.success(context, '已随机添加 ${result.tracks.length} 首歌曲到队列');
+      ToastService.success(context, t.library.shuffledAddedToQueue(n: result.tracks.length));
     }
   }
 
   Future<void> _playMix(BuildContext context, WidgetRef ref) async {
     if (playlist.mixPlaylistId == null || playlist.mixSeedVideoId == null) {
-      ToastService.error(context, 'Mix信息不完整');
+      ToastService.error(context, t.library.main.mixInfoIncomplete);
       return;
     }
 
@@ -702,7 +703,7 @@ class _PlaylistCard extends ConsumerWidget {
 
       if (result.tracks.isEmpty) {
         if (context.mounted) {
-          ToastService.error(context, '无法加载Mix内容');
+          ToastService.error(context, t.library.main.cannotLoadMix);
         }
         return;
       }
@@ -717,7 +718,7 @@ class _PlaylistCard extends ConsumerWidget {
       );
     } catch (e) {
       if (context.mounted) {
-        ToastService.error(context, '播放Mix失败: $e');
+        ToastService.error(context, '${t.library.main.playMixFailed}: $e');
       }
     }
   }
@@ -739,19 +740,19 @@ class _PlaylistCard extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除歌单'),
-        content: Text('确定要删除 "${playlist.name}" 吗？此操作无法撤销。'),
+        title: Text(t.library.main.deletePlaylist),
+        content: Text(t.library.main.deletePlaylistConfirm(name: playlist.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(t.general.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
-            child: const Text('删除'),
+            child: Text(t.general.delete),
           ),
         ],
       ),
@@ -759,7 +760,7 @@ class _PlaylistCard extends ConsumerWidget {
     if (confirmed == true) {
       ref.read(playlistListProvider.notifier).deletePlaylist(playlist.id);
       if (context.mounted) {
-        ToastService.success(context, '歌单已删除');
+        ToastService.success(context, t.library.main.playlistDeleted);
       }
     }
   }

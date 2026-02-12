@@ -1,0 +1,31 @@
+{
+  "title": "音訊品質",
+  "qualityLevel": {
+    "title": "全域音質等級",
+    "subtitle": "適用於所有音源",
+    "high": "高",
+    "highDescription": "最高碼率，音質最佳",
+    "medium": "中",
+    "mediumDescription": "中等碼率，平衡音質與流量",
+    "low": "低",
+    "lowDescription": "最低碼率，省流量"
+  },
+  "formatPriority": {
+    "title": "YouTube 格式優先級",
+    "subtitle": "僅對 YouTube 純音訊串流生效",
+    "opusName": "Opus (WebM)",
+    "opusDescription": "音質好、體積小，相容性稍差",
+    "aacName": "AAC (MP4)",
+    "aacDescription": "相容性最好"
+  },
+  "streamPriority": {
+    "youtubeTitle": "YouTube 串流優先級",
+    "bilibiliTitle": "Bilibili 串流優先級",
+    "audioOnly": "純音訊串流",
+    "audioOnlyDescription": "省流量，僅下載音訊資料",
+    "muxed": "混合串流",
+    "muxedDescription": "包含影片資料，相容性好",
+    "hls": "HLS 串流",
+    "hlsDescription": "分段串流，適合直播"
+  }
+}

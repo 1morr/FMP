@@ -1,0 +1,18 @@
+{
+  "selectTrack": "Select a track to play",
+  "loadFailed": "Load failed",
+  "nextTrack": "Next",
+  "audioOnly": "Audio only",
+  "muxedStream": "Muxed stream",
+  "audioInfo": "Audio Info",
+  "description": "Description",
+  "collapse": "Collapse",
+  "expand": "Expand",
+  "topComments": "Top Comments",
+  "streamerAnnouncement": "Streamer Announcement",
+  "isLive": "Live",
+  "isStopped": "Stopped",
+  "syncLive": "Sync live",
+  "tags": "Tags",
+  "justNow": "Just now"
+}

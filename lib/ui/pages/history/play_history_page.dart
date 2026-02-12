@@ -7,6 +7,7 @@ import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/play_history.dart';
 import '../../../data/models/track.dart';
 import '../../../data/repositories/play_history_repository.dart';
+import '../../../i18n/strings.g.dart';
 import '../../../providers/play_history_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
@@ -86,15 +87,15 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
       return AppBar(
         leading: IconButton(
           icon: const Icon(Icons.close),
-          tooltip: '退出選擇模式',
+          tooltip: t.playHistoryPage.exitSelectMode,
           onPressed: () => notifier.exitMultiSelectMode(),
         ),
-        title: Text('已選擇 ${pageState.selectedIds.length} 項'),
+        title: Text(t.playHistoryPage.selectedCount(n: pageState.selectedIds.length)),
         actions: [
           // 全選按鈕（圖標）
           IconButton(
             icon: Icon(isAllSelected ? Icons.deselect : Icons.select_all),
-            tooltip: isAllSelected ? '取消全選' : '全選',
+            tooltip: isAllSelected ? t.playHistoryPage.deselectAll : t.playHistoryPage.selectAll,
             onPressed: () {
               if (isAllSelected) {
                 notifier.deselectAll();
@@ -109,27 +110,27 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
             enabled: hasSelection,
             onSelected: (value) => _handleMultiSelectMenuAction(context, value),
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'add_to_queue',
                 child: ListTile(
-                  leading: Icon(Icons.add_to_queue),
-                  title: Text('添加到隊列'),
+                  leading: const Icon(Icons.add_to_queue),
+                  title: Text(t.playHistoryPage.addToQueue),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'play_next',
                 child: ListTile(
-                  leading: Icon(Icons.queue_play_next),
-                  title: Text('下一首播放'),
+                  leading: const Icon(Icons.queue_play_next),
+                  title: Text(t.playHistoryPage.playNext),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'add_to_playlist',
                 child: ListTile(
-                  leading: Icon(Icons.playlist_add),
-                  title: Text('添加到歌單'),
+                  leading: const Icon(Icons.playlist_add),
+                  title: Text(t.playHistoryPage.addToPlaylist),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -139,7 +140,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
                 child: ListTile(
                   leading: Icon(Icons.delete_outline,
                       color: Theme.of(context).colorScheme.error),
-                  title: Text('刪除記錄',
+                  title: Text(t.playHistoryPage.deleteRecord,
                       style: TextStyle(
                           color: Theme.of(context).colorScheme.error)),
                   contentPadding: EdgeInsets.zero,
@@ -166,7 +167,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
           controller: _searchController,
           autofocus: true,
           decoration: InputDecoration(
-            hintText: '搜索標題或藝術家...',
+            hintText: t.playHistoryPage.searchHint,
             border: InputBorder.none,
             suffixIcon: _searchController.text.isNotEmpty
                 ? IconButton(
@@ -187,7 +188,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     return AppBar(
       title: pageState.selectedDate != null
           ? Text(_formatDateTitle(pageState.selectedDate!))
-          : const Text('播放歷史'),
+          : Text(t.playHistoryPage.title),
       leading: pageState.selectedDate != null
           ? IconButton(
               icon: const Icon(Icons.arrow_back),
@@ -198,13 +199,13 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
         // 日历按钮
         IconButton(
           icon: const Icon(Icons.calendar_today),
-          tooltip: '選擇日期',
+          tooltip: t.playHistoryPage.selectDate,
           onPressed: () => _showDatePicker(context, notifier),
         ),
         // 搜索按钮
         IconButton(
           icon: const Icon(Icons.search),
-          tooltip: '搜索',
+          tooltip: t.playHistoryPage.search,
           onPressed: () => notifier.setSearching(true),
         ),
         // 更多菜单
@@ -212,11 +213,11 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
           icon: const Icon(Icons.more_vert),
           onSelected: (value) => _handleAppBarMenuAction(context, value),
           itemBuilder: (context) => [
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'clear_all',
               child: ListTile(
-                leading: Icon(Icons.delete_sweep),
-                title: Text('清空所有歷史'),
+                leading: const Icon(Icons.delete_sweep),
+                title: Text(t.playHistoryPage.clearAllHistory),
                 contentPadding: EdgeInsets.zero,
               ),
             ),
@@ -242,13 +243,13 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             _buildStatItem(
-                context, '今日', stats.todayCount, stats.formattedTodayDuration),
+                context, t.playHistoryPage.statsToday, stats.todayCount, stats.formattedTodayDuration),
             _buildStatDivider(colorScheme),
             _buildStatItem(
-                context, '本週', stats.weekCount, stats.formattedWeekDuration),
+                context, t.playHistoryPage.statsThisWeek, stats.weekCount, stats.formattedWeekDuration),
             _buildStatDivider(colorScheme),
             _buildStatItem(
-                context, '全部', stats.totalCount, stats.formattedTotalDuration),
+                context, t.playHistoryPage.statsAll, stats.totalCount, stats.formattedTotalDuration),
           ],
         ),
       ),
@@ -281,7 +282,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
                 style: TextStyle(
                     fontWeight: FontWeight.bold, color: colorScheme.onSurface),
               ),
-              const TextSpan(text: ' 首'),
+              TextSpan(text: ' ${t.playHistoryPage.trackCount(n: count).replaceFirst('$count ', '')}'),
             ],
           ),
         ),
@@ -313,7 +314,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
               child: Row(
                 children: [
                   ChoiceChip(
-                    label: const Text('全部'),
+                    label: Text(t.playHistoryPage.filterAll),
                     selected: pageState.selectedSource == null,
                     onSelected: (_) => notifier.setSource(null),
                   ),
@@ -343,17 +344,17 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
               label: Text(_getSortOrderLabel(pageState.sortOrder)),
             ),
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: HistorySortOrder.timeDesc,
-                child: Text('時間倒序'),
+                child: Text(t.playHistoryPage.sortTimeDesc),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: HistorySortOrder.timeAsc,
-                child: Text('時間正序'),
+                child: Text(t.playHistoryPage.sortTimeAsc),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: HistorySortOrder.playCount,
-                child: Text('播放次數'),
+                child: Text(t.playHistoryPage.sortPlayCount),
               ),
             ],
           ),
@@ -381,7 +382,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  '暫無播放記錄',
+                  t.playHistoryPage.noRecords,
                   style: TextStyle(color: colorScheme.outline),
                 ),
               ],
@@ -414,7 +415,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
           children: [
             Icon(Icons.error_outline, size: 48, color: colorScheme.error),
             const SizedBox(height: 16),
-            Text('載入失敗: $e'),
+            Text(t.playHistoryPage.loadFailed(error: e.toString())),
           ],
         ),
       ),
@@ -478,7 +479,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '${histories.length} 首',
+                  t.playHistoryPage.trackCount(n: histories.length),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: colorScheme.outline,
                       ),
@@ -608,7 +609,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
                 children: [
                   Flexible(
                     child: Text(
-                      history.artist ?? '未知藝術家',
+                      history.artist ?? t.general.unknownArtist,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -647,53 +648,53 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     );
   }
 
-  List<PopupMenuEntry<String>> _buildHistoryItemMenuItems() => const [
+  List<PopupMenuEntry<String>> _buildHistoryItemMenuItems() => [
         PopupMenuItem(
           value: 'play',
           child: ListTile(
-            leading: Icon(Icons.play_arrow),
-            title: Text('播放'),
+            leading: const Icon(Icons.play_arrow),
+            title: Text(t.playHistoryPage.play),
             contentPadding: EdgeInsets.zero,
           ),
         ),
         PopupMenuItem(
           value: 'play_next',
           child: ListTile(
-            leading: Icon(Icons.queue_play_next),
-            title: Text('下一首播放'),
+            leading: const Icon(Icons.queue_play_next),
+            title: Text(t.playHistoryPage.playNext),
             contentPadding: EdgeInsets.zero,
           ),
         ),
         PopupMenuItem(
           value: 'add_to_queue',
           child: ListTile(
-            leading: Icon(Icons.add_to_queue),
-            title: Text('添加到隊列'),
+            leading: const Icon(Icons.add_to_queue),
+            title: Text(t.playHistoryPage.addToQueue),
             contentPadding: EdgeInsets.zero,
           ),
         ),
         PopupMenuItem(
           value: 'add_to_playlist',
           child: ListTile(
-            leading: Icon(Icons.playlist_add),
-            title: Text('添加到歌單'),
+            leading: const Icon(Icons.playlist_add),
+            title: Text(t.playHistoryPage.addToPlaylist),
             contentPadding: EdgeInsets.zero,
           ),
         ),
-        PopupMenuDivider(),
+        const PopupMenuDivider(),
         PopupMenuItem(
           value: 'delete',
           child: ListTile(
-            leading: Icon(Icons.delete_outline),
-            title: Text('刪除此記錄'),
+            leading: const Icon(Icons.delete_outline),
+            title: Text(t.playHistoryPage.deleteThisRecord),
             contentPadding: EdgeInsets.zero,
           ),
         ),
         PopupMenuItem(
           value: 'delete_all',
           child: ListTile(
-            leading: Icon(Icons.delete_sweep),
-            title: Text('刪除此歌所有記錄'),
+            leading: const Icon(Icons.delete_sweep),
+            title: Text(t.playHistoryPage.deleteAllForTrack),
             contentPadding: EdgeInsets.zero,
           ),
         ),
@@ -753,22 +754,22 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     final yesterday = today.subtract(const Duration(days: 1));
 
     if (date == today) {
-      return '今天';
+      return t.playHistoryPage.dateToday;
     } else if (date == yesterday) {
-      return '昨天';
+      return t.playHistoryPage.dateYesterday;
     } else if (date.year == now.year) {
-      return '${date.month}月${date.day}日';
+      return t.playHistoryPage.dateFormat(month: '${date.month}', day: '${date.day}');
     } else {
-      return '${date.year}年${date.month}月${date.day}日';
+      return t.playHistoryPage.dateFormatWithYear(year: '${date.year}', month: '${date.month}', day: '${date.day}');
     }
   }
 
   String _formatDateTitle(DateTime date) {
     final now = DateTime.now();
     if (date.year == now.year) {
-      return '${date.month}月${date.day}日';
+      return t.playHistoryPage.dateFormat(month: '${date.month}', day: '${date.day}');
     }
-    return '${date.year}年${date.month}月${date.day}日';
+    return t.playHistoryPage.dateFormatWithYear(year: '${date.year}', month: '${date.month}', day: '${date.day}');
   }
 
   String _formatPlayedTime(DateTime time) {
@@ -782,20 +783,20 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     if (playedDate == today) {
       return timeStr;
     } else if (time.year == now.year) {
-      return '${time.month}月${time.day}日 $timeStr';
+      return t.playHistoryPage.dateTimeFormat(month: '${time.month}', day: '${time.day}', time: timeStr);
     } else {
-      return '${time.year}年${time.month}月${time.day}日';
+      return t.playHistoryPage.dateFormatWithYear(year: '${time.year}', month: '${time.month}', day: '${time.day}');
     }
   }
 
   String _getSortOrderLabel(HistorySortOrder order) {
     switch (order) {
       case HistorySortOrder.timeDesc:
-        return '時間倒序';
+        return t.playHistoryPage.sortTimeDesc;
       case HistorySortOrder.timeAsc:
-        return '時間正序';
+        return t.playHistoryPage.sortTimeAsc;
       case HistorySortOrder.playCount:
-        return '播放次數';
+        return t.playHistoryPage.sortPlayCount;
     }
   }
 
@@ -809,7 +810,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
       initialDate: now,
       firstDate: DateTime(2020),
       lastDate: now,
-      helpText: '選擇日期查看歷史',
+      helpText: t.playHistoryPage.selectDateHelp,
     );
     if (date != null) {
       notifier.setSelectedDate(date);
@@ -857,7 +858,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     ref.read(playHistoryPageProvider.notifier).exitMultiSelectMode();
 
     if (context.mounted) {
-      ToastService.success(context, '已添加 $addedCount 首到下一首播放');
+      ToastService.success(context, t.playHistoryPage.toastAddedNextCount(n: addedCount));
     }
   }
 
@@ -867,16 +868,16 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('清空所有歷史'),
-            content: const Text('確定要清空所有播放歷史記錄嗎？此操作無法撤銷。'),
+            title: Text(t.playHistoryPage.clearAllHistory),
+            content: Text(t.playHistoryPage.clearAllConfirm),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消'),
+                child: Text(t.general.cancel),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('清空'),
+                child: Text(t.playHistoryPage.clearButton),
               ),
             ],
           ),
@@ -884,7 +885,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
         if (confirmed == true && context.mounted) {
           await ref.read(playHistoryActionsProvider).clearAll();
           if (context.mounted) {
-            ToastService.success(context, '已清空所有歷史');
+            ToastService.success(context, t.playHistoryPage.toastCleared);
           }
         }
         break;
@@ -907,13 +908,13 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
       case 'play_next':
         final added = await controller.addNext(track);
         if (added && context.mounted) {
-          ToastService.success(context, '已添加到下一首');
+          ToastService.success(context, t.playHistoryPage.toastAddedToNext);
         }
         break;
       case 'add_to_queue':
         final added = await controller.addToQueue(track);
         if (added && context.mounted) {
-          ToastService.success(context, '已添加到播放隊列');
+          ToastService.success(context, t.playHistoryPage.toastAddedToQueue);
         }
         break;
       case 'add_to_playlist':
@@ -922,23 +923,23 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
       case 'delete':
         await ref.read(playHistoryActionsProvider).delete(history.id);
         if (context.mounted) {
-          ToastService.success(context, '已刪除記錄');
+          ToastService.success(context, t.playHistoryPage.toastDeletedRecord);
         }
         break;
       case 'delete_all':
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('刪除所有記錄'),
-            content: Text('確定要刪除「${history.title}」的所有播放記錄嗎？'),
+            title: Text(t.playHistoryPage.deleteAllTitle),
+            content: Text(t.playHistoryPage.deleteAllConfirm(title: history.title)),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消'),
+                child: Text(t.general.cancel),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('刪除'),
+                child: Text(t.playHistoryPage.deleteButton),
               ),
             ],
           ),
@@ -948,7 +949,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
               .read(playHistoryPageProvider.notifier)
               .deleteAllForTrack(history.trackKey);
           if (context.mounted) {
-            ToastService.success(context, '已刪除 $count 條記錄');
+            ToastService.success(context, t.playHistoryPage.toastDeletedCount(n: count));
           }
         }
         break;
@@ -961,7 +962,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
   ) async {
     final count = await notifier.deleteSelected();
     if (context.mounted) {
-      ToastService.success(context, '已刪除 $count 條記錄');
+      ToastService.success(context, t.playHistoryPage.toastDeletedCount(n: count));
     }
   }
 
@@ -985,7 +986,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     ref.read(playHistoryPageProvider.notifier).exitMultiSelectMode();
 
     if (context.mounted) {
-      ToastService.success(context, '已添加 $addedCount 首到隊列');
+      ToastService.success(context, t.playHistoryPage.toastAddedQueueCount(n: addedCount));
     }
   }
 
