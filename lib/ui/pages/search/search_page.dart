@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../../../core/utils/number_format_utils.dart';
 import '../../../i18n/strings.g.dart';
@@ -155,9 +156,17 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               children: [
                 // 音源筛选（可滚动）
                 Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
+                  child: ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(context).copyWith(
+                      dragDevices: {
+                        PointerDeviceKind.touch,
+                        PointerDeviceKind.mouse,
+                        PointerDeviceKind.trackpad,
+                      },
+                    ),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
                       children: [
                         ChoiceChip(
                           label: Text(t.searchPage.source.all),
@@ -234,6 +243,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         ),
                       ],
                     ),
+                  ),
                   ),
                 ),
                 const SizedBox(width: 8),
