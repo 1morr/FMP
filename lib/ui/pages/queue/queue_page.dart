@@ -118,7 +118,9 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     // 判断是小范围移动还是大范围跳转
     final prevIdx = previousIndex ?? currentIndex;
     final distance = (currentIndex - prevIdx).abs();
-    final isSmallMove = distance <= 3; // 3首以内视为小范围移动
+    // 如果目标在可见范围内，或距离小于等于3，视为小范围移动
+    final isInVisibleRange = currentIndex >= minVisible && currentIndex <= maxVisible;
+    final isSmallMove = isInVisibleRange || distance <= 3;
 
     const smallMoveDuration = Duration(milliseconds: 50);
 
