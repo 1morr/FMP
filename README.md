@@ -20,20 +20,17 @@
 
 ## 下载安装
 
-### Android
+<!-- DOWNLOAD_START -->
+| 平台 | 下载 | 说明 |
+|------|------|------|
+| **Android** | [APK 下载](https://github.com/1morr/FMP/releases/download/v1.2.5/fmp-v1.2.5-android.apk) | 直接安装 |
+| **Windows** | [安装包下载（推荐）](https://github.com/1morr/FMP/releases/download/v1.2.5/fmp-v1.2.5-windows-installer.exe) | 完整支持SMTC 显示 |
+| Windows | [免安装版](https://github.com/1morr/FMP/releases/download/v1.2.5/fmp-v1.2.5-windows.zip) | 解压即用 |
+<!-- DOWNLOAD_END -->
 
-从 [Releases 页面](https://github.com/1morr/FMP/releases/latest) 下载 `fmp-vX.X.X-android.apk`，直接安装即可。
-
-### Windows
-
-提供两种安装方式：
-
-| 版本 | 文件名 | 说明 |
-|------|--------|------|
-| **安装包（推荐）** | `fmp-vX.X.X-windows-installer.exe` | 完整支持系统媒体控制，显示正确的应用图标和名称 |
-| 免安装版 | `fmp-vX.X.X-windows.zip` | 解压即用，但系统媒体控制显示为通用图标 |
-
-> 推荐使用安装包版本，以获得最佳的 Windows 系统集成体验。
+> 💡 Windows 推荐使用安装包版本，以获得最佳的系统集成体验（媒体键、托盘图标等）。
+>
+> 📋 查看所有版本：[Releases 页面](https://github.com/1morr/FMP/releases)
 
 ---
 
