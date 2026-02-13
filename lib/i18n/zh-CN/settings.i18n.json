@@ -195,6 +195,48 @@
       "toggleWindow": "显示/隐藏窗口"
     }
   },
+  "backup": {
+    "title": "数据备份",
+    "export": {
+      "title": "导出数据",
+      "subtitle": "将所有数据导出为 JSON 文件",
+      "success": "数据已导出到: $path",
+      "failed": "导出失败: $error",
+      "cancelled": "导出已取消"
+    },
+    "import": {
+      "title": "导入数据",
+      "subtitle": "从 JSON 文件导入数据",
+      "preview": "导入预览",
+      "previewSubtitle": "以下数据将被导入（已存在的数据将被跳过）",
+      "playlists": "歌单",
+      "tracks": "歌曲",
+      "playHistory": "播放历史",
+      "searchHistory": "搜索历史",
+      "radioStations": "电台收藏",
+      "settings": "设置",
+      "importSettings": "导入设置",
+      "importSettingsSubtitle": "覆盖当前设置",
+      "confirm": "确认导入",
+      "success": "导入完成",
+      "failed": "导入失败: $error",
+      "cancelled": "导入已取消",
+      "invalidFile": "无效的备份文件",
+      "versionMismatch": "备份文件版本不兼容",
+      "result": {
+        "playlistsImported": "歌单: 导入 $imported 个，跳过 $skipped 个",
+        "tracksImported": "歌曲: 导入 $imported 个，跳过 $skipped 个",
+        "playHistoryImported": "播放历史: 导入 $imported 条，跳过 $skipped 条",
+        "searchHistoryImported": "搜索历史: 导入 $imported 条，跳过 $skipped 条",
+        "radioStationsImported": "电台: 导入 $imported 个，跳过 $skipped 个",
+        "settingsImported": "设置: 已导入",
+        "settingsSkipped": "设置: 已跳过",
+        "errors": "错误"
+      }
+    },
+    "exportedAt": "导出时间",
+    "appVersion": "应用版本"
+  },
   "simplifiedChinese": "简体中文",
   "traditionalChinese": "繁體中文",
   "english": "English"

@@ -22,6 +22,10 @@ import '../../../providers/desktop_settings_provider.dart';
 import '../../../providers/hotkey_config_provider.dart';
 import '../../../providers/download_path_provider.dart';
 import '../../../providers/update_provider.dart';
+import '../../../providers/backup_provider.dart';
+import '../../../providers/playlist_provider.dart';
+import '../../../services/backup/backup_service.dart';
+import '../../../services/backup/backup_data.dart';
 import '../../router.dart';
 import '../../widgets/change_download_path_dialog.dart';
 import '../../widgets/update_dialog.dart';
@@ -92,6 +96,15 @@ class SettingsPage extends ConsumerWidget {
               _DownloadPathListTile(),
               _ConcurrentDownloadsListTile(),
               _DownloadImageOptionListTile(),
+            ],
+          ),
+          const Divider(),
+          // 数据备份
+          _SettingsSection(
+            title: t.settings.backup.title,
+            children: [
+              _ExportDataListTile(),
+              _ImportDataListTile(),
             ],
           ),
           const Divider(),
@@ -1703,5 +1716,421 @@ class _HotkeyRecordingDialogState extends State<_HotkeyRecordingDialog> {
     }
 
     return label;
+  }
+}
+
+/// 导出数据
+class _ExportDataListTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ListTile(
+      leading: const Icon(Icons.upload_outlined),
+      title: Text(t.settings.backup.export.title),
+      subtitle: Text(t.settings.backup.export.subtitle),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => _exportData(context, ref),
+    );
+  }
+
+  Future<void> _exportData(BuildContext context, WidgetRef ref) async {
+    try {
+      final backupService = ref.read(backupServiceProvider);
+      final path = await backupService.exportData();
+      
+      if (path != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(t.settings.backup.export.success(path: path)),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(t.settings.backup.export.failed(error: e.toString())),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+}
+
+/// 导入数据
+class _ImportDataListTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ListTile(
+      leading: const Icon(Icons.download_outlined),
+      title: Text(t.settings.backup.import.title),
+      subtitle: Text(t.settings.backup.import.subtitle),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => _importData(context, ref),
+    );
+  }
+
+  Future<void> _importData(BuildContext context, WidgetRef ref) async {
+    try {
+      final backupService = ref.read(backupServiceProvider);
+      final backupData = await backupService.pickAndParseBackupFile();
+      
+      if (backupData == null) return;
+      
+      if (!context.mounted) return;
+      
+      // 显示导入预览对话框
+      final result = await showDialog<ImportResult>(
+        context: context,
+        builder: (context) => _ImportPreviewDialog(
+          backupData: backupData,
+          backupService: backupService,
+        ),
+      );
+      
+      if (result != null && context.mounted) {
+        // 显示导入结果
+        showDialog(
+          context: context,
+          builder: (context) => _ImportResultDialog(result: result),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(t.settings.backup.import.failed(error: e.toString())),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+}
+
+/// 导入预览对话框
+class _ImportPreviewDialog extends ConsumerStatefulWidget {
+  final BackupData backupData;
+  final BackupService backupService;
+
+  const _ImportPreviewDialog({
+    required this.backupData,
+    required this.backupService,
+  });
+
+  @override
+  ConsumerState<_ImportPreviewDialog> createState() => _ImportPreviewDialogState();
+}
+
+class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
+  bool _importSettings = true;
+  bool _isImporting = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = widget.backupData;
+    final colorScheme = Theme.of(context).colorScheme;
+    
+    return AlertDialog(
+      title: Text(t.settings.backup.import.preview),
+      content: SizedBox(
+        width: 400,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                t.settings.backup.import.previewSubtitle,
+                style: TextStyle(color: colorScheme.outline, fontSize: 12),
+              ),
+              const SizedBox(height: 16),
+              
+              // 备份信息
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildInfoRow(
+                      t.settings.backup.exportedAt,
+                      _formatDateTime(data.exportedAt),
+                    ),
+                    _buildInfoRow(
+                      t.settings.backup.appVersion,
+                      data.appVersion,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // 数据统计
+              _buildDataRow(
+                Icons.queue_music,
+                t.settings.backup.import.playlists,
+                data.playlists.length,
+              ),
+              _buildDataRow(
+                Icons.music_note,
+                t.settings.backup.import.tracks,
+                data.tracks.length,
+              ),
+              _buildDataRow(
+                Icons.history,
+                t.settings.backup.import.playHistory,
+                data.playHistory.length,
+              ),
+              _buildDataRow(
+                Icons.search,
+                t.settings.backup.import.searchHistory,
+                data.searchHistory.length,
+              ),
+              _buildDataRow(
+                Icons.radio,
+                t.settings.backup.import.radioStations,
+                data.radioStations.length,
+              ),
+              
+              const SizedBox(height: 8),
+              
+              // 设置导入选项
+              if (data.settings != null)
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(t.settings.backup.import.importSettings),
+                  subtitle: Text(t.settings.backup.import.importSettingsSubtitle),
+                  value: _importSettings,
+                  onChanged: _isImporting
+                      ? null
+                      : (value) => setState(() => _importSettings = value ?? true),
+                ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isImporting ? null : () => Navigator.pop(context),
+          child: Text(t.general.cancel),
+        ),
+        FilledButton(
+          onPressed: _isImporting ? null : _doImport,
+          child: _isImporting
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(t.settings.backup.import.confirm),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 12)),
+          Text(value, style: const TextStyle(fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDataRow(IconData icon, String label, int count) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 20),
+          const SizedBox(width: 12),
+          Expanded(child: Text(label)),
+          Text(
+            count.toString(),
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDateTime(DateTime dt) {
+    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _doImport() async {
+    setState(() => _isImporting = true);
+    
+    try {
+      final result = await widget.backupService.importData(
+        widget.backupData,
+        importSettings: _importSettings,
+      );
+      
+      // 刷新歌单列表（首页我的歌单区域）
+      ref.invalidate(allPlaylistsProvider);
+      
+      // 如果导入了设置，刷新相关 Provider 使其立即生效
+      if (_importSettings && result.settingsImported) {
+        // 外观设置
+        ref.invalidate(themeProvider);
+        ref.invalidate(localeProvider);
+        // 播放设置
+        ref.invalidate(playbackSettingsProvider);
+        // 下载设置
+        ref.invalidate(downloadSettingsProvider);
+        ref.invalidate(downloadPathProvider);
+        // 桌面设置（快捷键）
+        ref.invalidate(hotkeyConfigProvider);
+      }
+      
+      if (mounted) {
+        Navigator.pop(context, result);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isImporting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(t.settings.backup.import.failed(error: e.toString())),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+}
+
+/// 导入结果对话框
+class _ImportResultDialog extends StatelessWidget {
+  final ImportResult result;
+
+  const _ImportResultDialog({required this.result});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(
+            result.errors.isEmpty ? Icons.check_circle : Icons.warning,
+            color: result.errors.isEmpty ? Colors.green : Colors.orange,
+          ),
+          const SizedBox(width: 8),
+          Text(t.settings.backup.import.success),
+        ],
+      ),
+      content: SizedBox(
+        width: 400,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildResultRow(
+                t.settings.backup.import.result.playlistsImported(
+                  imported: result.playlistsImported,
+                  skipped: result.playlistsSkipped,
+                ),
+              ),
+              _buildResultRow(
+                t.settings.backup.import.result.tracksImported(
+                  imported: result.tracksImported,
+                  skipped: result.tracksSkipped,
+                ),
+              ),
+              _buildResultRow(
+                t.settings.backup.import.result.playHistoryImported(
+                  imported: result.playHistoryImported,
+                  skipped: result.playHistorySkipped,
+                ),
+              ),
+              _buildResultRow(
+                t.settings.backup.import.result.searchHistoryImported(
+                  imported: result.searchHistoryImported,
+                  skipped: result.searchHistorySkipped,
+                ),
+              ),
+              _buildResultRow(
+                t.settings.backup.import.result.radioStationsImported(
+                  imported: result.radioStationsImported,
+                  skipped: result.radioStationsSkipped,
+                ),
+              ),
+              _buildResultRow(
+                result.settingsImported
+                    ? t.settings.backup.import.result.settingsImported
+                    : t.settings.backup.import.result.settingsSkipped,
+              ),
+              
+              if (result.errors.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text(
+                  t.settings.backup.import.result.errors,
+                  style: TextStyle(
+                    color: colorScheme.error,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.errorContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: result.errors
+                        .take(5)
+                        .map((e) => Text(
+                              e,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: colorScheme.onErrorContainer,
+                              ),
+                            ))
+                        .toList(),
+                  ),
+                ),
+                if (result.errors.length > 5)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '... ${result.errors.length - 5} more errors',
+                      style: TextStyle(fontSize: 12, color: colorScheme.outline),
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(t.general.confirm),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResultRow(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Text(text, style: const TextStyle(fontSize: 13)),
+    );
   }
 }
