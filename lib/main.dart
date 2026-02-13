@@ -115,15 +115,18 @@ Future<void> _initializeWindowManager() async {
     titleBarStyle: TitleBarStyle.hidden,
   );
 
-  await windowManager.waitUntilReadyToShow(windowOptions, () async {
-    if (launchMinimized) {
-      // 最小化启动：隐藏窗口（配合托盘使用）
-      await windowManager.hide();
-    } else {
+  if (launchMinimized) {
+    // 最小化启动：只初始化窗口配置，不显示窗口
+    // 窗口保持隐藏状态，用户通过托盘图标打开
+    await windowManager.waitUntilReadyToShow(windowOptions, () async {
+      // 不调用 show()，窗口默认隐藏
+    });
+  } else {
+    await windowManager.waitUntilReadyToShow(windowOptions, () async {
       await windowManager.show();
       await windowManager.focus();
-    }
-  });
+    });
+  }
 
   // Windows: 设置关闭窗口时最小化到托盘而不是退出
   if (Platform.isWindows) {
