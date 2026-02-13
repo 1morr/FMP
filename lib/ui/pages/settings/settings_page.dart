@@ -1824,6 +1824,10 @@ class _ImportPreviewDialog extends ConsumerStatefulWidget {
 }
 
 class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
+  bool _importPlaylists = true;
+  bool _importPlayHistory = true;
+  bool _importSearchHistory = true;
+  bool _importRadioStations = true;
   bool _importSettings = true;
   bool _isImporting = false;
 
@@ -1870,45 +1874,46 @@ class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
               ),
               const SizedBox(height: 16),
               
-              // 数据统计
-              _buildDataRow(
-                Icons.queue_music,
-                t.settings.backup.import.playlists,
-                data.playlists.length,
-              ),
-              _buildDataRow(
-                Icons.music_note,
-                t.settings.backup.import.tracks,
-                data.tracks.length,
-              ),
-              _buildDataRow(
-                Icons.history,
-                t.settings.backup.import.playHistory,
-                data.playHistory.length,
-              ),
-              _buildDataRow(
-                Icons.search,
-                t.settings.backup.import.searchHistory,
-                data.searchHistory.length,
-              ),
-              _buildDataRow(
-                Icons.radio,
-                t.settings.backup.import.radioStations,
-                data.radioStations.length,
-              ),
-              
-              const SizedBox(height: 8),
-              
-              // 设置导入选项
+              // 选择要导入的数据
+              if (data.playlists.isNotEmpty)
+                _buildCheckableRow(
+                  Icons.queue_music,
+                  t.settings.backup.import.playlists,
+                  data.playlists.length,
+                  _importPlaylists,
+                  (value) => setState(() => _importPlaylists = value ?? true),
+                ),
+              if (data.playHistory.isNotEmpty)
+                _buildCheckableRow(
+                  Icons.history,
+                  t.settings.backup.import.playHistory,
+                  data.playHistory.length,
+                  _importPlayHistory,
+                  (value) => setState(() => _importPlayHistory = value ?? true),
+                ),
+              if (data.searchHistory.isNotEmpty)
+                _buildCheckableRow(
+                  Icons.search,
+                  t.settings.backup.import.searchHistory,
+                  data.searchHistory.length,
+                  _importSearchHistory,
+                  (value) => setState(() => _importSearchHistory = value ?? true),
+                ),
+              if (data.radioStations.isNotEmpty)
+                _buildCheckableRow(
+                  Icons.radio,
+                  t.settings.backup.import.radioStations,
+                  data.radioStations.length,
+                  _importRadioStations,
+                  (value) => setState(() => _importRadioStations = value ?? true),
+                ),
               if (data.settings != null)
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(t.settings.backup.import.importSettings),
-                  subtitle: Text(t.settings.backup.import.importSettingsSubtitle),
-                  value: _importSettings,
-                  onChanged: _isImporting
-                      ? null
-                      : (value) => setState(() => _importSettings = value ?? true),
+                _buildCheckableRow(
+                  Icons.settings,
+                  t.settings.backup.import.importSettings,
+                  null,
+                  _importSettings,
+                  (value) => setState(() => _importSettings = value ?? true),
                 ),
             ],
           ),
@@ -1946,20 +1951,29 @@ class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
     );
   }
 
-  Widget _buildDataRow(IconData icon, String label, int count) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
+  Widget _buildCheckableRow(
+    IconData icon,
+    String label,
+    int? count,
+    bool value,
+    ValueChanged<bool?> onChanged,
+  ) {
+    return CheckboxListTile(
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+      secondary: Icon(icon, size: 20),
+      title: Row(
         children: [
-          Icon(icon, size: 20),
-          const SizedBox(width: 12),
           Expanded(child: Text(label)),
-          Text(
-            count.toString(),
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
+          if (count != null)
+            Text(
+              count.toString(),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
         ],
       ),
+      value: value,
+      onChanged: _isImporting ? null : onChanged,
     );
   }
 
@@ -1970,30 +1984,31 @@ class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
 
   Future<void> _doImport() async {
     setState(() => _isImporting = true);
-    
+
     try {
       final result = await widget.backupService.importData(
         widget.backupData,
+        importPlaylists: _importPlaylists,
+        importPlayHistory: _importPlayHistory,
+        importSearchHistory: _importSearchHistory,
+        importRadioStations: _importRadioStations,
         importSettings: _importSettings,
       );
-      
-      // 刷新歌单列表（首页我的歌单区域）
-      ref.invalidate(allPlaylistsProvider);
-      
-      // 如果导入了设置，刷新相关 Provider 使其立即生效
+
+      // 按勾选分类刷新对应的 Provider
+      if (_importPlaylists) {
+        ref.invalidate(allPlaylistsProvider);
+      }
+
       if (_importSettings && result.settingsImported) {
-        // 外观设置
         ref.invalidate(themeProvider);
         ref.invalidate(localeProvider);
-        // 播放设置
         ref.invalidate(playbackSettingsProvider);
-        // 下载设置
         ref.invalidate(downloadSettingsProvider);
         ref.invalidate(downloadPathProvider);
-        // 桌面设置（快捷键）
         ref.invalidate(hotkeyConfigProvider);
       }
-      
+
       if (mounted) {
         Navigator.pop(context, result);
       }
