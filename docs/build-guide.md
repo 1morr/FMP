@@ -183,3 +183,10 @@ flutter pub run build_runner build --delete-conflicting-outputs
 | `windows/runner/main.cpp` | Windows 入口，`SetCurrentProcessExplicitAppUserModelID` |
 | `windows/runner/resources/app_icon.ico` | 应用和安装包图标 |
 | `android/app/build.gradle.kts` | Android 签名和构建配置 |
+
+---
+
+## 更多资源
+
+- [返回 README](../README.md)
+- [开发文档](development.md) - 项目架构、技术栈、开发规范
