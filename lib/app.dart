@@ -74,6 +74,8 @@ class FMPApp extends ConsumerWidget {
           // 初始化桌面设置（托盘/快捷键开关），会根据保存的设置自动应用
           ref.watch(minimizeToTrayProvider);
           ref.watch(globalHotkeysEnabledProvider);
+          // 初始化开机自启动设置
+          ref.watch(launchAtStartupProvider);
           // 加载自定义快捷键配置
           ref.watch(hotkeyConfigProvider);
         }
