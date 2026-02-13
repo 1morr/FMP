@@ -969,6 +969,17 @@ class YouTubeSource extends BaseSource with Logging {
       // 普通播放列表使用 youtube_explode_dart
       final playlist = await _youtube.playlists.get(playlistId);
 
+      // 檢測私人或無法訪問的播放列表
+      // youtube_explode_dart 對於私人播放列表可能返回空標題或拋出異常
+      final playlistTitle = playlist.title.trim();
+      if (playlistTitle.isEmpty) {
+        logWarning('YouTube playlist appears to be private or inaccessible: $playlistId');
+        throw YouTubeApiException(
+          code: 'private_or_inaccessible',
+          message: t.importSource.playlistEmptyOrInaccessible,
+        );
+      }
+
       // 获取所有视频
       final allTracks = <Track>[];
       await for (final video in _youtube.playlists.getVideos(playlistId)) {
@@ -984,6 +995,15 @@ class YouTubeSource extends BaseSource with Logging {
 
       logDebug(
           'Parsed YouTube playlist: ${playlist.title}, ${allTracks.length} tracks');
+
+      // 檢測空播放列表（可能是私人播放列表，元數據可見但內容不可訪問）
+      if (allTracks.isEmpty) {
+        logWarning('YouTube playlist is empty or private: $playlistId');
+        throw YouTubeApiException(
+          code: 'private_or_inaccessible',
+          message: t.importSource.playlistEmptyOrInaccessible,
+        );
+      }
 
       // 使用第一个视频的缩略图作为歌单封面
       final coverUrl = allTracks.isNotEmpty ? allTracks.first.thumbnailUrl : null;
@@ -1280,4 +1300,7 @@ class YouTubeApiException implements Exception {
 
   /// 是否是地区限制
   bool get isGeoRestricted => code == 'geo_restricted';
+
+  /// 是否是私人或無法訪問的播放列表
+  bool get isPrivateOrInaccessible => code == 'private_or_inaccessible';
 }
