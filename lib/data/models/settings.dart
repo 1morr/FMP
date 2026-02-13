@@ -124,6 +124,12 @@ class Settings {
   /// Bilibili 流优先级 (逗号分隔: "audioOnly,muxed")
   String bilibiliStreamPriority = 'audioOnly,muxed';
 
+  /// 首选音频输出设备 ID (null = 自动/跟随系统)
+  String? preferredAudioDeviceId;
+
+  /// 首选音频输出设备名称 (用于 UI 显示，设备 ID 可能变化)
+  String? preferredAudioDeviceName;
+
   /// 获取 ThemeMode
   @ignore
   ThemeMode get themeMode {

@@ -20,5 +20,7 @@
   "volume": "音量",
   "nextTrack": "下一首",
   "selectTrack": "選擇一首歌曲播放",
-  "mixShuffleDisabled": "Mix 模式不支援隨機播放"
+  "mixShuffleDisabled": "Mix 模式不支援隨機播放",
+  "audioDevice": "音訊輸出裝置",
+  "audioDeviceAuto": "自動（跟隨系統）"
 }
