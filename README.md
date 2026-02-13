@@ -1,7 +1,7 @@
 # FMP - Flutter Music Player
 
 <p align="center">
-  <img src="assets/icon/app_icon.png" alt="FMP Logo" width="128" height="128">
+  <img src="assets/icon/app_icon_bg.png" alt="FMP Logo" width="128" height="128">
 </p>
 
 <p align="center">
