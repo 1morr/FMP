@@ -174,6 +174,15 @@
     "title": "Minimize to tray",
     "subtitle": "Minimize to system tray when closing window"
   },
+  "launchAtStartup": {
+    "title": "Launch at startup",
+    "subtitle": "Automatically run app when system starts",
+    "launchMode": "Launch mode",
+    "normalMode": "Normal",
+    "normalModeDesc": "Show main window on launch",
+    "minimizedMode": "Minimized",
+    "minimizedModeDesc": "Minimize to system tray on launch"
+  },
   "hotkeys": {
     "title": "Global Hotkeys",
     "configTitle": "Configure Hotkeys",

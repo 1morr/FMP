@@ -20,8 +20,14 @@ late FmpAudioHandler audioHandler;
 /// 全局 Windows SMTC Handler 实例，供 AudioController 使用
 late WindowsSmtcHandler windowsSmtcHandler;
 
-void main() async {
+/// 是否以最小化模式启动（开机自启动时使用）
+bool launchMinimized = false;
+
+void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 检查是否以最小化模式启动（开机自启动 --minimized 参数）
+  launchMinimized = args.contains('--minimized');
 
   // 限制 Flutter 图片内存缓存大小，减少内存占用
   // 默认值：maximumSize = 1000, maximumSizeBytes = 100 MB
@@ -110,8 +116,13 @@ Future<void> _initializeWindowManager() async {
   );
 
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
-    await windowManager.show();
-    await windowManager.focus();
+    if (launchMinimized) {
+      // 最小化启动：隐藏窗口（配合托盘使用）
+      await windowManager.hide();
+    } else {
+      await windowManager.show();
+      await windowManager.focus();
+    }
   });
 
   // Windows: 设置关闭窗口时最小化到托盘而不是退出

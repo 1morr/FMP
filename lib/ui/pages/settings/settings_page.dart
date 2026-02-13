@@ -114,6 +114,7 @@ class SettingsPage extends ConsumerWidget {
               title: t.settings.desktop,
               children: [
                 _MinimizeToTrayTile(),
+                _LaunchAtStartupTile(),
                 _GlobalHotkeysTile(),
               ],
             ),
@@ -1249,6 +1250,78 @@ class _ClearImageCacheListTileState extends State<_ClearImageCacheListTile> {
             child: Text(t.general.confirm),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 开机自启动设置
+class _LaunchAtStartupTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final startupState = ref.watch(launchAtStartupProvider);
+
+    return ListTile(
+      leading: const Icon(Icons.power_settings_new_outlined),
+      title: Text(t.settings.launchAtStartup.title),
+      subtitle: Text(
+        startupState.enabled
+            ? (startupState.minimized
+                ? t.settings.launchAtStartup.minimizedMode
+                : t.settings.launchAtStartup.normalMode)
+            : t.settings.launchAtStartup.subtitle,
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (startupState.enabled)
+            IconButton(
+              icon: const Icon(Icons.settings_outlined),
+              tooltip: t.settings.launchAtStartup.launchMode,
+              onPressed: () => _showLaunchModeDialog(context, ref),
+            ),
+          Switch(
+            value: startupState.enabled,
+            onChanged: (_) =>
+                ref.read(launchAtStartupProvider.notifier).toggleEnabled(),
+          ),
+        ],
+      ),
+      onTap: startupState.enabled
+          ? () => _showLaunchModeDialog(context, ref)
+          : null,
+    );
+  }
+
+  void _showLaunchModeDialog(BuildContext context, WidgetRef ref) {
+    final startupState = ref.read(launchAtStartupProvider);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t.settings.launchAtStartup.launchMode),
+        content: RadioGroup<bool>(
+          groupValue: startupState.minimized,
+          onChanged: (value) {
+            if (value == null) return;
+            ref.read(launchAtStartupProvider.notifier).setMinimized(value);
+            Navigator.of(context).pop();
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RadioListTile<bool>(
+                title: Text(t.settings.launchAtStartup.normalMode),
+                subtitle: Text(t.settings.launchAtStartup.normalModeDesc),
+                value: false,
+              ),
+              RadioListTile<bool>(
+                title: Text(t.settings.launchAtStartup.minimizedMode),
+                subtitle: Text(t.settings.launchAtStartup.minimizedModeDesc),
+                value: true,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

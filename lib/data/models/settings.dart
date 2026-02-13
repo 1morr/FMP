@@ -103,6 +103,12 @@ class Settings {
   /// 启用全局快捷键（仅 Windows）
   bool enableGlobalHotkeys = true;
 
+  /// 开机自启动（仅 Windows）
+  bool launchAtStartup = false;
+
+  /// 自启动时最小化到托盘（仅 Windows）
+  bool launchMinimized = false;
+
   /// 自定义字体 (null 或空 = 系统默认)
   String? fontFamily;
 
