@@ -216,7 +216,7 @@ jobs:
 
           if [ -n "$PREV_TAG" ]; then
             echo "Generating changelog from $PREV_TAG to $CURRENT_TAG"
-            COMMITS=$(git log --pretty=format:"- %s (%h)" --invert-grep --author="github-actions\[bot\]" $PREV_TAG..$CURRENT_TAG)
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --invert-grep --grep="^docs: update download links" $PREV_TAG..$CURRENT_TAG)
             CHANGELOG_URL="**Full Changelog**: https://github.com/1morr/FMP/compare/$PREV_TAG...$CURRENT_TAG"
           else
             echo "No previous tag found, listing recent commits"
