@@ -386,10 +386,44 @@ class WindowsDesktopService with TrayListener, WindowListener {
 
   @override
   void onWindowClose() async {
+    // 检查是否有安装程序正在运行，如果是则真正退出而不是最小化到托盘
+    // 这样 Inno Setup 的 /CLOSEAPPLICATIONS 才能正常工作
+    if (await _isInstallerRunning()) {
+      debugPrint('[WindowsDesktopService] Installer detected, exiting app');
+      await dispose();
+      exit(0);
+    }
+
     // 关闭窗口时最小化到托盘而不是退出
     final isPreventClose = await windowManager.isPreventClose();
     if (isPreventClose) {
       await minimizeToTray();
+    }
+  }
+
+  /// 检查是否有 FMP 安装程序正在运行
+  Future<bool> _isInstallerRunning() async {
+    try {
+      final result = await Process.run(
+        'tasklist',
+        ['/FO', 'CSV', '/NH'],
+        stdoutEncoding: const SystemEncoding(),
+      );
+      final output = result.stdout as String;
+      // 匹配 FMP-*-Installer.exe 或 FMP-Setup*.exe 等安装程序进程名
+      final lines = output.split('\n');
+      for (final line in lines) {
+        final lower = line.toLowerCase();
+        if (lower.contains('fmp') &&
+            (lower.contains('installer') || lower.contains('setup'))) {
+          debugPrint('[WindowsDesktopService] Found installer process: $line');
+          return true;
+        }
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[WindowsDesktopService] Failed to check installer: $e');
+      return false;
     }
   }
 
