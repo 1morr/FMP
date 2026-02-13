@@ -9,11 +9,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/1morr/FMP/releases/latest">
-    <img src="https://img.shields.io/github/v/release/1morr/FMP?label=最新版本&color=blue" alt="Latest Release">
-  </a>
-  <img src="https://img.shields.io/badge/平台-Android%20%7C%20Windows-green" alt="Platform">
-  <img src="https://img.shields.io/badge/License-GPL--3.0-blue" alt="License">
+  
+[![Latest Release](https://img.shields.io/github/v/release/1morr/FMP?label=最新版本&color=blue)](https://github.com/1morr/FMP/releases/latest)
+![Platform](https://img.shields.io/badge/平台-Android%20%7C%20Windows-green)
+![License](https://img.shields.io/badge/License-GPL--3.0-blue)
+
 </p>
 
 ---
@@ -28,7 +28,7 @@
 | Windows | [免安装版](https://github.com/1morr/FMP/releases/download/v1.2.5/fmp-v1.2.5-windows.zip) | 解压即用 |
 <!-- DOWNLOAD_END -->
 
-> 💡 Windows 推荐使用安装包版本，以获得最佳的系统集成体验（媒体键、托盘图标等）。
+> 💡 Windows 推荐使用安装包版本，以获得最佳的系统集成体验（SMTC、托盘图标等）。
 >
 > 📋 查看所有版本：[Releases 页面](https://github.com/1morr/FMP/releases)
 
