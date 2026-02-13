@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'providers/database_provider.dart';
+import 'providers/playback_settings_provider.dart';
 import 'providers/desktop_settings_provider.dart';
 import 'providers/hotkey_config_provider.dart';
 import 'providers/theme_provider.dart';
@@ -88,6 +89,9 @@ class FMPApp extends ConsumerWidget {
 
         // 初始化 locale provider（加载用户语言设置）
         ref.watch(localeProvider);
+
+        // 提前初始化播放设置（避免进入设置页时 Switch 出现开启动画）
+        ref.watch(playbackSettingsProvider);
 
         return MaterialApp.router(
           title: 'FMP - Flutter Music Player',
