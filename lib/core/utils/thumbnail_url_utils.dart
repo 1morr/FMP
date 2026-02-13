@@ -149,13 +149,15 @@ class ThumbnailUrlUtils {
   }
 
   /// 选择 YouTube 缩略图质量档位
+  ///
+  /// 只使用 16:9 比例的档位（mqdefault, maxresdefault），
+  /// 避免使用 4:3 档位（default, hqdefault, sddefault）带来的黑边问题。
   static String _selectYouTubeQuality(int targetSize) {
-    // 档位对应的短边尺寸
-    // default: 90, mq: 180, hq: 360, sd: 480, maxres: 720
-    if (targetSize <= 90) return 'default';
+    // mqdefault: 320x180 (16:9)
+    // maxresdefault: 1280x720 (16:9)
+    // 避免使用 default(120x90), hqdefault(480x360), sddefault(640x480)
+    // 因为这些是 4:3 比例，YouTube 会在上下添加黑边
     if (targetSize <= 180) return 'mqdefault';
-    if (targetSize <= 360) return 'hqdefault';
-    if (targetSize <= 480) return 'sddefault';
     return 'maxresdefault';
   }
 
