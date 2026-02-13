@@ -193,6 +193,8 @@ class BackupService {
         downloadImageOptionIndex: settings.downloadImageOptionIndex,
         minimizeToTrayOnClose: settings.minimizeToTrayOnClose,
         enableGlobalHotkeys: settings.enableGlobalHotkeys,
+        launchAtStartup: settings.launchAtStartup,
+        launchMinimized: settings.launchMinimized,
         fontFamily: settings.fontFamily,
         locale: settings.locale,
         audioQualityLevelIndex: settings.audioQualityLevelIndex,
@@ -527,6 +529,12 @@ class BackupService {
           ..enableGlobalHotkeys = Platform.isWindows 
               ? settingsBackup.enableGlobalHotkeys 
               : (currentSettings?.enableGlobalHotkeys ?? true)
+          ..launchAtStartup = Platform.isWindows 
+              ? settingsBackup.launchAtStartup 
+              : (currentSettings?.launchAtStartup ?? false)
+          ..launchMinimized = Platform.isWindows 
+              ? settingsBackup.launchMinimized 
+              : (currentSettings?.launchMinimized ?? false)
           ..hotkeyConfig = Platform.isWindows 
               ? settingsBackup.hotkeyConfig 
               : currentSettings?.hotkeyConfig

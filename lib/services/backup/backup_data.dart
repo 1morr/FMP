@@ -410,6 +410,8 @@ class SettingsBackup {
   final int downloadImageOptionIndex;
   final bool minimizeToTrayOnClose;
   final bool enableGlobalHotkeys;
+  final bool launchAtStartup;
+  final bool launchMinimized;
   final String? fontFamily;
   final String? locale;
   final int audioQualityLevelIndex;
@@ -438,6 +440,8 @@ class SettingsBackup {
     this.downloadImageOptionIndex = 1,
     this.minimizeToTrayOnClose = true,
     this.enableGlobalHotkeys = true,
+    this.launchAtStartup = false,
+    this.launchMinimized = false,
     this.fontFamily,
     this.locale,
     this.audioQualityLevelIndex = 0,
@@ -474,6 +478,8 @@ class SettingsBackup {
       downloadImageOptionIndex: json['downloadImageOptionIndex'] as int? ?? 1,
       minimizeToTrayOnClose: json['minimizeToTrayOnClose'] as bool? ?? true,
       enableGlobalHotkeys: json['enableGlobalHotkeys'] as bool? ?? true,
+      launchAtStartup: json['launchAtStartup'] as bool? ?? false,
+      launchMinimized: json['launchMinimized'] as bool? ?? false,
       fontFamily: json['fontFamily'] as String?,
       locale: json['locale'] as String?,
       audioQualityLevelIndex: json['audioQualityLevelIndex'] as int? ?? 0,
@@ -508,6 +514,8 @@ class SettingsBackup {
       'downloadImageOptionIndex': downloadImageOptionIndex,
       'minimizeToTrayOnClose': minimizeToTrayOnClose,
       'enableGlobalHotkeys': enableGlobalHotkeys,
+      'launchAtStartup': launchAtStartup,
+      'launchMinimized': launchMinimized,
       if (fontFamily != null) 'fontFamily': fontFamily,
       if (locale != null) 'locale': locale,
       'audioQualityLevelIndex': audioQualityLevelIndex,
