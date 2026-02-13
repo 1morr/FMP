@@ -195,6 +195,48 @@
       "toggleWindow": "Show/Hide Window"
     }
   },
+  "backup": {
+    "title": "Data Backup",
+    "export": {
+      "title": "Export Data",
+      "subtitle": "Export all data to a JSON file",
+      "success": "Data exported to: $path",
+      "failed": "Export failed: $error",
+      "cancelled": "Export cancelled"
+    },
+    "import": {
+      "title": "Import Data",
+      "subtitle": "Import data from a JSON file",
+      "preview": "Import Preview",
+      "previewSubtitle": "The following data will be imported (existing data will be skipped)",
+      "playlists": "Playlists",
+      "tracks": "Tracks",
+      "playHistory": "Play History",
+      "searchHistory": "Search History",
+      "radioStations": "Radio Stations",
+      "settings": "Settings",
+      "importSettings": "Import Settings",
+      "importSettingsSubtitle": "Overwrite current settings",
+      "confirm": "Confirm Import",
+      "success": "Import completed",
+      "failed": "Import failed: $error",
+      "cancelled": "Import cancelled",
+      "invalidFile": "Invalid backup file",
+      "versionMismatch": "Backup file version incompatible",
+      "result": {
+        "playlistsImported": "Playlists: imported $imported, skipped $skipped",
+        "tracksImported": "Tracks: imported $imported, skipped $skipped",
+        "playHistoryImported": "Play History: imported $imported, skipped $skipped",
+        "searchHistoryImported": "Search History: imported $imported, skipped $skipped",
+        "radioStationsImported": "Radio Stations: imported $imported, skipped $skipped",
+        "settingsImported": "Settings: imported",
+        "settingsSkipped": "Settings: skipped",
+        "errors": "Errors"
+      }
+    },
+    "exportedAt": "Exported at",
+    "appVersion": "App version"
+  },
   "simplifiedChinese": "Simplified Chinese",
   "traditionalChinese": "Traditional Chinese",
   "english": "English"
