@@ -59,6 +59,9 @@ class _HomePageState extends ConsumerState<HomePage> {
             // 我的歌单
             _buildRecentPlaylists(context, colorScheme),
 
+            // 电台
+            _buildRadioSection(context, colorScheme),
+
             // 正在播放
             if (playerState.hasCurrentTrack)
               _buildNowPlaying(context, playerState, colorScheme),
@@ -66,9 +69,6 @@ class _HomePageState extends ConsumerState<HomePage> {
             // 队列预览
             if (playerState.queue.isNotEmpty)
               _buildQueuePreview(context, playerState, colorScheme),
-
-            // 电台
-            _buildRadioSection(context, colorScheme),
 
             // 最近播放历史
             _buildRecentHistory(context, colorScheme),
@@ -1303,11 +1303,51 @@ class _HomePlaylistCard extends ConsumerWidget {
               ),
               Padding(
                 padding: const EdgeInsets.all(8),
-                child: Text(
-                  playlist.name,
-                  style: Theme.of(context).textTheme.bodySmall,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      playlist.name,
+                      style: Theme.of(context).textTheme.titleSmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        if (playlist.isMix) ...[
+                          Icon(
+                            Icons.radio,
+                            size: 12,
+                            color: Theme.of(context).colorScheme.tertiary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Mix',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.tertiary,
+                                ),
+                          ),
+                        ] else ...[
+                          if (playlist.isImported) ...[
+                            Icon(
+                              Icons.link,
+                              size: 12,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 4),
+                          ],
+                          Text(
+                            t.library.trackCount(n: playlist.trackCount),
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.outline,
+                                ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ],
