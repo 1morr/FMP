@@ -177,7 +177,7 @@ class TrackCover extends ConsumerWidget {
     final placeholder = _buildPlaceholder(colorScheme);
 
     // 使用 FileExistsCache 获取本地封面路径（避免同步 IO）
-    // 高清模式使用 480px 分辨率（YouTube sddefault / Bilibili 640w）
+    // 高清模式使用 480px 分辨率（YouTube maxresdefault / Bilibili 640w）
     return ImageLoadingService.loadImage(
       localPath: track?.getLocalCoverPath(cache),
       networkUrl: networkUrl ?? track?.thumbnailUrl,

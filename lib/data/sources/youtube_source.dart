@@ -983,6 +983,9 @@ class YouTubeSource extends BaseSource with Logging {
       // 获取所有视频
       final allTracks = <Track>[];
       await for (final video in _youtube.playlists.getVideos(playlistId)) {
+        // 使用 mqdefault (320x180, 16:9) 避免 highResUrl 可能返回的
+        // hqdefault (480x360, 4:3) 带黑边问题
+        final thumbnailUrl = 'https://i.ytimg.com/vi/${video.id.value}/mqdefault.jpg';
         allTracks.add(Track()
           ..sourceId = video.id.value
           ..sourceType = SourceType.youtube
@@ -990,7 +993,7 @@ class YouTubeSource extends BaseSource with Logging {
           ..artist = video.author
           ..channelId = video.channelId.value
           ..durationMs = video.duration?.inMilliseconds ?? 0
-          ..thumbnailUrl = video.thumbnails.highResUrl);
+          ..thumbnailUrl = thumbnailUrl);
       }
 
       logDebug(
