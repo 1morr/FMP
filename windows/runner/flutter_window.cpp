@@ -1,6 +1,7 @@
 #include "flutter_window.h"
 
 #include <optional>
+#include <shellapi.h>
 
 #include "flutter/generated_plugin_registrant.h"
 
@@ -27,9 +28,25 @@ bool FlutterWindow::OnCreate() {
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
-  flutter_controller_->engine()->SetNextFrameCallback([&]() {
-    this->Show();
-  });
+  // Check if launched with --minimized flag (auto-start minimized to tray)
+  bool start_minimized = false;
+  int argc;
+  wchar_t** argv = ::CommandLineToArgvW(::GetCommandLineW(), &argc);
+  if (argv != nullptr) {
+    for (int i = 1; i < argc; i++) {
+      if (wcscmp(argv[i], L"--minimized") == 0) {
+        start_minimized = true;
+        break;
+      }
+    }
+    ::LocalFree(argv);
+  }
+
+  if (!start_minimized) {
+    flutter_controller_->engine()->SetNextFrameCallback([&]() {
+      this->Show();
+    });
+  }
 
   // Flutter can complete the first frame before the "show window" callback is
   // registered. The following call ensures a frame is pending to ensure the
