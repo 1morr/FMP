@@ -274,10 +274,11 @@ class BackupService {
     bool settingsImportedFlag = false;
     final errors = <String>[];
 
-    // 1. 导入歌曲（先导入歌曲，因为歌单需要引用歌曲）
+    // 1. 导入歌曲（歌单依赖歌曲，仅在导入歌单时才导入）
     final trackKeyToId = <String, int>{};
 
-    // 先获取现有歌曲的映射（歌单导入需要）
+    if (importPlaylists) {
+    // 先获取现有歌曲的映射
     final existingTracks = await _isar.tracks.where().findAll();
     for (final track in existingTracks) {
       trackKeyToId[track.uniqueKey] = track.id;
@@ -315,6 +316,7 @@ class BackupService {
         errors.add('导入歌曲失败: ${trackBackup.title} - $e');
       }
     }
+    } // end importPlaylists (tracks)
 
     // 2. 导入歌单
     if (importPlaylists) {
