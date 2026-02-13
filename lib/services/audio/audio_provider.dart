@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:media_kit/media_kit.dart' show AudioDevice;
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/settings.dart';
@@ -79,6 +80,12 @@ class PlayerState {
   /// 当前流类型 (audioOnly, muxed, hls)
   final StreamType? currentStreamType;
 
+  // ========== 音频输出设备 ==========
+  /// 可用音频输出设备列表
+  final List<AudioDevice> audioDevices;
+  /// 当前音频输出设备
+  final AudioDevice? currentAudioDevice;
+
   const PlayerState({
     this.isPlaying = false,
     this.isBuffering = false,
@@ -111,6 +118,8 @@ class PlayerState {
     this.currentContainer,
     this.currentCodec,
     this.currentStreamType,
+    this.audioDevices = const [],
+    this.currentAudioDevice,
   });
 
   /// 向后兼容：返回正在播放的歌曲
@@ -169,6 +178,8 @@ class PlayerState {
     String? currentContainer,
     String? currentCodec,
     StreamType? currentStreamType,
+    List<AudioDevice>? audioDevices,
+    AudioDevice? currentAudioDevice,
   }) {
     return PlayerState(
       isPlaying: isPlaying ?? this.isPlaying,
@@ -202,6 +213,8 @@ class PlayerState {
       currentContainer: currentContainer ?? this.currentContainer,
       currentCodec: currentCodec ?? this.currentCodec,
       currentStreamType: currentStreamType ?? this.currentStreamType,
+      audioDevices: audioDevices ?? this.audioDevices,
+      currentAudioDevice: currentAudioDevice ?? this.currentAudioDevice,
     );
   }
 }
@@ -447,6 +460,16 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // 监听速度
       _subscriptions.add(
         _audioService.speedStream.listen(_onSpeedChanged),
+      );
+
+      // 监听音频设备列表变化
+      _subscriptions.add(
+        _audioService.audioDevicesStream.listen(_onAudioDevicesChanged),
+      );
+
+      // 监听当前音频设备变化
+      _subscriptions.add(
+        _audioService.audioDeviceStream.listen(_onAudioDeviceChanged),
       );
 
       // 监听歌曲完成事件
@@ -1221,6 +1244,18 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   Future<void> adjustVolume(double delta) async {
     final newVolume = (state.volume + delta).clamp(0.0, 1.0);
     await setVolume(newVolume);
+  }
+
+  // ========== 音频输出设备 ========== //
+
+  /// 设置音频输出设备
+  Future<void> setAudioDevice(AudioDevice device) async {
+    await _audioService.setAudioDevice(device);
+  }
+
+  /// 设置为自动选择音频设备（跟随系统默认）
+  Future<void> setAudioDeviceAuto() async {
+    await _audioService.setAudioDeviceAuto();
   }
 
   // ========== 基于位置检测的备选切歌机制（解决后台播放 completed 事件丢失问题）========== //
@@ -2159,6 +2194,16 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   void _onSpeedChanged(double speed) {
     state = state.copyWith(speed: speed);
+  }
+
+  void _onAudioDevicesChanged(List<AudioDevice> devices) {
+    logDebug('Audio devices updated: ${devices.length} devices');
+    state = state.copyWith(audioDevices: devices);
+  }
+
+  void _onAudioDeviceChanged(AudioDevice? device) {
+    logDebug('Current audio device: ${device?.name ?? "auto"}');
+    state = state.copyWith(currentAudioDevice: device);
   }
 
   void _onTrackCompleted(void _) {

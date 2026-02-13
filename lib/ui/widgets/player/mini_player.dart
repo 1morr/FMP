@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:media_kit/media_kit.dart' show AudioDevice;
 import 'package:fmp/i18n/strings.g.dart';
 import '../../../core/utils/icon_helpers.dart';
 import '../../../data/models/play_queue.dart';
@@ -123,9 +124,11 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                     _buildPlayPauseButton(playerState, controller, colorScheme),
                     _buildNextButton(playerState, controller),
 
-                    // 桌面端音量控制
+                    // 桌面端音频设备选择和音量控制
                     if (isDesktop) ...[
                       const SizedBox(width: 8),
+                      if (playerState.audioDevices.length > 1)
+                        _buildAudioDeviceSelector(context, playerState, controller, colorScheme),
                       _buildVolumeControl(context, playerState, controller, colorScheme),
                     ],
                   ],
@@ -366,6 +369,99 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
           ? () => controller.next()
           : null,
     );
+  }
+
+  /// 音频输出设备选择器（仅桌面端）
+  Widget _buildAudioDeviceSelector(
+    BuildContext context,
+    PlayerState state,
+    AudioController controller,
+    ColorScheme colorScheme,
+  ) {
+    final currentDevice = state.currentAudioDevice;
+    final devices = state.audioDevices;
+
+    // 计算菜单宽度以便居中对齐
+    const menuWidth = 220.0;
+    
+    return MenuAnchor(
+      consumeOutsideTap: true,
+      // 向左偏移使菜单居中于图标，向上偏移使菜单显示在图标上方
+      alignmentOffset: const Offset(-menuWidth / 2 + 20, 16),
+      builder: (context, menuController, child) {
+        return IconButton(
+          icon: const Icon(Icons.speaker, size: 20),
+          visualDensity: VisualDensity.compact,
+          tooltip: t.player.audioDevice,
+          onPressed: () {
+            if (menuController.isOpen) {
+              menuController.close();
+            } else {
+              menuController.open();
+            }
+          },
+        );
+      },
+      style: MenuStyle(
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+        minimumSize: const WidgetStatePropertyAll(Size(menuWidth, 0)),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+      menuChildren: [
+        // 自动选项（跟随系统默认）
+        MenuItemButton(
+          onPressed: () => controller.setAudioDeviceAuto(),
+          leadingIcon: currentDevice == null || currentDevice.name == 'auto'
+              ? Icon(Icons.check, size: 18, color: colorScheme.primary)
+              : const SizedBox(width: 18),
+          child: Padding(
+            padding: const EdgeInsets.only(right: 20),
+            child: Text(t.player.audioDeviceAuto),
+          ),
+        ),
+        const Divider(height: 1),
+        // 设备列表
+        ...devices.where((d) => d.name != 'auto' && d.name != 'openal').map((device) {
+          final isSelected = currentDevice?.name == device.name;
+          return MenuItemButton(
+            onPressed: () => controller.setAudioDevice(device),
+            leadingIcon: isSelected
+                ? Icon(Icons.check, size: 18, color: colorScheme.primary)
+                : const SizedBox(width: 18),
+            child: Padding(
+              padding: const EdgeInsets.only(right: 18),
+              child: Text(
+                _formatDeviceName(device),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  /// 格式化设备名称
+  String _formatDeviceName(AudioDevice device) {
+    // 优先使用 description（人类可读名称），如果为空则使用 name
+    final displayName = device.description.isNotEmpty ? device.description : device.name;
+    
+    // Windows 设备名称格式通常是 "喇叭 (设备名称)"，提取括号内的实际设备名
+    // 但要排除像 "(R)" 这样的商标符号
+    final match = RegExp(r'喇叭\s*\((.+)\)$').firstMatch(displayName);
+    if (match != null) {
+      return match.group(1) ?? displayName;
+    }
+    
+    // 英文格式 "Speakers (Device Name)"
+    final matchEn = RegExp(r'Speakers?\s*\((.+)\)$', caseSensitive: false).firstMatch(displayName);
+    if (matchEn != null) {
+      return matchEn.group(1) ?? displayName;
+    }
+    
+    return displayName;
   }
 
   /// 音量控制（仅桌面端）

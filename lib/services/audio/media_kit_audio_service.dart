@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:audio_session/audio_session.dart';
+import 'package:audio_session/audio_session.dart' hide AudioDevice;
 import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:rxdart/rxdart.dart';
 
@@ -59,6 +59,10 @@ class MediaKitAudioService with Logging {
   final _playingController = BehaviorSubject<bool>.seeded(false);
   final _volumeController = BehaviorSubject<double>.seeded(1.0);
 
+  // 音频设备相关
+  final _audioDevicesController = BehaviorSubject<List<AudioDevice>>.seeded([]);
+  final _audioDeviceController = BehaviorSubject<AudioDevice?>.seeded(null);
+
   // ========== 状态流 ==========
   Stream<MediaKitPlayerState> get playerStateStream => _playerStateController.stream;
   Stream<Duration> get positionStream => _positionController.stream;
@@ -71,6 +75,12 @@ class MediaKitAudioService with Logging {
   /// 歌曲播放完成事件流
   Stream<void> get completedStream => _completedController.stream;
 
+  /// 可用音频设备列表流
+  Stream<List<AudioDevice>> get audioDevicesStream => _audioDevicesController.stream;
+
+  /// 当前音频设备流
+  Stream<AudioDevice?> get audioDeviceStream => _audioDeviceController.stream;
+
   // ========== 当前状态 ==========
   bool get isPlaying => _isPlaying;
   Duration get position => _position;
@@ -79,6 +89,12 @@ class MediaKitAudioService with Logging {
   double get speed => _speed;
   double get volume => _volume;
   FmpAudioProcessingState get processingState => _processingStateController.value;
+
+  /// 可用音频设备列表
+  List<AudioDevice> get audioDevices => _audioDevicesController.value;
+
+  /// 当前音频设备
+  AudioDevice? get audioDevice => _audioDeviceController.value;
 
   /// 初始化音频服务
   Future<void> initialize() async {
@@ -235,6 +251,31 @@ class MediaKitAudioService with Logging {
         logError('media_kit error: $error');
       }),
     );
+
+    // 监听可用音频设备列表变化
+    _subscriptions.add(
+      _player.stream.audioDevices.listen((devices) {
+        logDebug('Audio devices changed: ${devices.length} devices');
+        _audioDevicesController.add(devices);
+      }),
+    );
+
+    // 监听当前音频设备变化
+    _subscriptions.add(
+      _player.stream.audioDevice.listen((device) {
+        logDebug('Audio device changed: ${device.name}');
+        _audioDeviceController.add(device);
+      }),
+    );
+
+    // 初始化时获取当前设备列表（stream 只在变化时触发）
+    final initialDevices = _player.state.audioDevices;
+    logDebug('Initial audio devices: ${initialDevices.length} devices');
+    _audioDevicesController.add(initialDevices);
+
+    final initialDevice = _player.state.audioDevice;
+    logDebug('Initial audio device: ${initialDevice.name}');
+    _audioDeviceController.add(initialDevice);
   }
 
   /// 更新合成的播放器状态
@@ -282,6 +323,8 @@ class MediaKitAudioService with Logging {
     await _speedController.close();
     await _playingController.close();
     await _volumeController.close();
+    await _audioDevicesController.close();
+    await _audioDeviceController.close();
 
     await _player.dispose();
   }
@@ -385,6 +428,20 @@ class MediaKitAudioService with Logging {
   Future<void> setVolume(double volume) async {
     // 转换为 media_kit 的 0-100 范围
     await _player.setVolume((volume.clamp(0.0, 1.0) * 100).toDouble());
+  }
+
+  // ========== 音频设备控制 ==========
+
+  /// 设置音频输出设备
+  Future<void> setAudioDevice(AudioDevice device) async {
+    logInfo('Setting audio device: ${device.name} (${device.description})');
+    await _player.setAudioDevice(device);
+  }
+
+  /// 设置为自动选择音频设备（跟随系统默认）
+  Future<void> setAudioDeviceAuto() async {
+    logInfo('Setting audio device to auto');
+    await _player.setAudioDevice(AudioDevice.auto());
   }
 
   // ========== 音频源设置 ==========
