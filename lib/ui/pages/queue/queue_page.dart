@@ -85,15 +85,84 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     super.dispose();
   }
 
-  /// 快速跳转到当前播放的歌曲
-  void _scrollToCurrentTrack(int currentIndex) {
+  /// 智能滚动到当前播放的歌曲
+  /// - 如果已在可视范围内，不滚动
+  /// - 如果是小范围移动（如顺序下一首），只滚动到刚好可见
+  /// - 如果是大范围跳转（如随机播放），跳转到视口中央偏上位置
+  void _scrollToCurrentTrack(int currentIndex, {int? previousIndex}) {
     if (!_itemScrollController.isAttached) return;
 
-    // 使用 jumpTo 实现瞬间跳转，alignment 0.3 表示目标项在视口 30% 位置
-    _itemScrollController.jumpTo(
-      index: currentIndex,
-      alignment: 0.3,
-    );
+    final positions = _itemPositionsListener.itemPositions.value;
+    if (positions.isEmpty) {
+      // 没有可见项信息，直接跳转
+      _itemScrollController.jumpTo(index: currentIndex, alignment: 0.3);
+      return;
+    }
+
+    // 检查当前项是否大部分可见（允许 20% 被遮挡）
+    final currentPosition = positions.where((p) => p.index == currentIndex).firstOrNull;
+    if (currentPosition != null) {
+      final visibleRatio = (currentPosition.itemTrailingEdge.clamp(0, 1) - 
+                           currentPosition.itemLeadingEdge.clamp(0, 1));
+      if (visibleRatio >= 0.8) {
+        // 80% 以上可见，不需要滚动
+        return;
+      }
+    }
+
+    // 获取当前可见范围
+    final visibleIndices = positions.map((p) => p.index).toList();
+    final minVisible = visibleIndices.reduce((a, b) => a < b ? a : b);
+    final maxVisible = visibleIndices.reduce((a, b) => a > b ? a : b);
+
+    // 判断是小范围移动还是大范围跳转
+    final prevIdx = previousIndex ?? currentIndex;
+    final distance = (currentIndex - prevIdx).abs();
+    final isSmallMove = distance <= 3; // 3首以内视为小范围移动
+
+    const smallMoveDuration = Duration(milliseconds: 50);
+
+    if (isSmallMove) {
+      // 小范围移动：平滑滚动到刚好可见
+      if (currentIndex > maxVisible) {
+        // 目标在下方，滚动到底部可见（留出迷你播放器空间）
+        _itemScrollController.scrollTo(
+          index: currentIndex,
+          alignment: 0.88,
+          duration: smallMoveDuration,
+        );
+      } else if (currentIndex < minVisible) {
+        // 目标在上方，滚动到顶部可见
+        _itemScrollController.scrollTo(
+          index: currentIndex,
+          alignment: 0.0,
+          duration: smallMoveDuration,
+        );
+      }
+      // 如果在可见范围内但大部分被遮挡，做小幅调整
+      else if (currentPosition != null) {
+        final visibleRatio = (currentPosition.itemTrailingEdge.clamp(0, 1) - 
+                             currentPosition.itemLeadingEdge.clamp(0, 1));
+        if (visibleRatio < 0.8) {
+          if (currentPosition.itemLeadingEdge < 0) {
+            _itemScrollController.scrollTo(
+              index: currentIndex,
+              alignment: 0.0,
+              duration: smallMoveDuration,
+            );
+          } else if (currentPosition.itemTrailingEdge > 1) {
+            _itemScrollController.scrollTo(
+              index: currentIndex,
+              alignment: 0.88,
+              duration: smallMoveDuration,
+            );
+          }
+        }
+      }
+    } else {
+      // 大范围跳转：瞬间跳转到视口中央偏上位置
+      _itemScrollController.jumpTo(index: currentIndex, alignment: 0.3);
+    }
   }
 
   /// 处理拖拽开始
@@ -188,9 +257,10 @@ class _QueuePageState extends ConsumerState<QueuePage> {
 
     // 切歌时自动滚动
     if (autoScroll && _lastCurrentIndex != null && _lastCurrentIndex != currentIndex && currentIndex >= 0) {
+      final prevIndex = _lastCurrentIndex!;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          _scrollToCurrentTrack(currentIndex);
+          _scrollToCurrentTrack(currentIndex, previousIndex: prevIndex);
         }
       });
     }
