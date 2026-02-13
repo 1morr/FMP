@@ -23,9 +23,9 @@
 <!-- DOWNLOAD_START -->
 | 平台 | 下载 | 说明 |
 |------|------|------|
-| **Android** | [APK 下载](https://github.com/1morr/FMP/releases/download/v1.2.6/fmp-v1.2.6-android.apk) | 直接安装 |
-| **Windows** | [安装包下载（推荐）](https://github.com/1morr/FMP/releases/download/v1.2.6/fmp-v1.2.6-windows-installer.exe) | 完整支持SMTC 显示 |
-| Windows | [免安装版](https://github.com/1morr/FMP/releases/download/v1.2.6/fmp-v1.2.6-windows.zip) | 解压即用 |
+| **Android** | [APK 下载](https://github.com/1morr/FMP/releases/download/v1.2.8/fmp-v1.2.8-android.apk) | 直接安装 |
+| **Windows** | [安装包下载（推荐）](https://github.com/1morr/FMP/releases/download/v1.2.8/fmp-v1.2.8-windows-installer.exe) | 完整支持SMTC 显示 |
+| Windows | [免安装版](https://github.com/1morr/FMP/releases/download/v1.2.8/fmp-v1.2.8-windows.zip) | 解压即用 |
 <!-- DOWNLOAD_END -->
 
 > 💡 Windows 推荐使用安装包版本，以获得最佳的系统集成体验（SMTC、托盘图标等）。
