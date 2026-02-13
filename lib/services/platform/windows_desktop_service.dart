@@ -386,18 +386,19 @@ class WindowsDesktopService with TrayListener, WindowListener {
 
   @override
   void onWindowClose() async {
-    // 检查是否有安装程序正在运行，如果是则真正退出而不是最小化到托盘
-    // 这样 Inno Setup 的 /CLOSEAPPLICATIONS 才能正常工作
-    if (await _isInstallerRunning()) {
-      debugPrint('[WindowsDesktopService] Installer detected, exiting app');
-      await dispose();
-      exit(0);
-    }
-
     // 关闭窗口时最小化到托盘而不是退出
     final isPreventClose = await windowManager.isPreventClose();
     if (isPreventClose) {
+      // 先隐藏窗口，避免 tasklist 检查造成的延迟
       await minimizeToTray();
+
+      // 再异步检查安装程序，如果检测到则真正退出
+      // 这样 Inno Setup 的 /CLOSEAPPLICATIONS 才能正常工作
+      if (await _isInstallerRunning()) {
+        debugPrint('[WindowsDesktopService] Installer detected, exiting app');
+        await dispose();
+        exit(0);
+      }
     }
   }
 
