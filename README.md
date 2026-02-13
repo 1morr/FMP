@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-<a href="https://github.com/1morr/FMP/releases/latest"><img src="https://img.shields.io/github/v/release/1morr/FMP?label=最新版本&color=blue" alt="Latest Release"></a>
+<a href="https://github.com/1morr/FMP/releases/latest"><img src="https://img.shields.io/github/v/release/1morr/FMP?label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&amp;color=blue" alt="Latest Release"></a>
 <img src="https://img.shields.io/badge/平台-Android%20%7C%20Windows-green" alt="Platform">
 <img src="https://img.shields.io/badge/License-GPL--3.0-blue" alt="License">
 </p>
