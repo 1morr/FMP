@@ -255,6 +255,10 @@ class BackupService {
   /// [importSettings] 是否导入设置
   Future<ImportResult> importData(
     BackupData backupData, {
+    bool importPlaylists = true,
+    bool importPlayHistory = true,
+    bool importSearchHistory = true,
+    bool importRadioStations = true,
     bool importSettings = true,
   }) async {
     int playlistsImported = 0;
@@ -273,7 +277,7 @@ class BackupService {
     // 1. 导入歌曲（先导入歌曲，因为歌单需要引用歌曲）
     final trackKeyToId = <String, int>{};
 
-    // 先获取现有歌曲的映射
+    // 先获取现有歌曲的映射（歌单导入需要）
     final existingTracks = await _isar.tracks.where().findAll();
     for (final track in existingTracks) {
       trackKeyToId[track.uniqueKey] = track.id;
@@ -313,6 +317,7 @@ class BackupService {
     }
 
     // 2. 导入歌单
+    if (importPlaylists) {
     final existingPlaylistNames = <String>{};
     final existingPlaylists = await _isar.playlists.where().findAll();
     for (final playlist in existingPlaylists) {
@@ -371,8 +376,10 @@ class BackupService {
         errors.add('导入歌单失败: ${playlistBackup.name} - $e');
       }
     }
+    } // end importPlaylists
 
     // 3. 导入播放历史
+    if (importPlayHistory) {
     final existingHistoryKeys = <String>{};
     final existingHistory = await _isar.playHistorys.where().findAll();
     for (final history in existingHistory) {
@@ -405,8 +412,10 @@ class BackupService {
         errors.add('导入播放历史失败: ${historyBackup.title} - $e');
       }
     }
+    } // end importPlayHistory
 
     // 4. 导入搜索历史
+    if (importSearchHistory) {
     final existingSearchQueries = <String>{};
     final existingSearchHistory = await _isar.searchHistorys.where().findAll();
     for (final search in existingSearchHistory) {
@@ -433,8 +442,10 @@ class BackupService {
         errors.add('导入搜索历史失败: ${searchBackup.query} - $e');
       }
     }
+    } // end importSearchHistory
 
     // 5. 导入电台收藏
+    if (importRadioStations) {
     final existingRadioUrls = <String>{};
     final existingRadios = await _isar.radioStations.where().findAll();
     for (final radio in existingRadios) {
@@ -471,6 +482,7 @@ class BackupService {
         errors.add('导入电台失败: ${radioBackup.title} - $e');
       }
     }
+    } // end importRadioStations
 
     // 6. 导入设置（覆盖）
     if (importSettings && backupData.settings != null) {
