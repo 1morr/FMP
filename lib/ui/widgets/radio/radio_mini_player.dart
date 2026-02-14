@@ -108,7 +108,7 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
 
   Widget _buildThumbnail(dynamic station, ColorScheme colorScheme) {
     return ClipRRect(
-      borderRadius: AppRadius.borderRadiusLg,
+      borderRadius: AppRadius.borderRadiusMd,
       child: SizedBox(
         width: 48,
         height: 48,
@@ -270,7 +270,7 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
         style: MenuStyle(
           padding: WidgetStatePropertyAll(EdgeInsets.zero),
           shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusXl),
+            RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
           ),
         ),
         alignmentOffset: const Offset(0, -170),

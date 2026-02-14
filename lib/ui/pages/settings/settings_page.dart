@@ -952,7 +952,7 @@ class _DownloadPathListTile extends ConsumerWidget {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: colorScheme.surfaceContainerHighest,
-                borderRadius: AppRadius.borderRadiusLg,
+                borderRadius: AppRadius.borderRadiusMd,
               ),
               child: SelectableText(
                 downloadPath ?? t.general.notSet,
@@ -1461,7 +1461,7 @@ class _HotkeyConfigDialogState extends ConsumerState<_HotkeyConfigDialog> {
           Expanded(
             child: InkWell(
               onTap: () => _startRecording(action),
-              borderRadius: AppRadius.borderRadiusLg,
+              borderRadius: AppRadius.borderRadiusMd,
               child: Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1469,7 +1469,7 @@ class _HotkeyConfigDialogState extends ConsumerState<_HotkeyConfigDialog> {
                   color: isEditing
                       ? Theme.of(context).colorScheme.primaryContainer
                       : Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: AppRadius.borderRadiusLg,
+                  borderRadius: AppRadius.borderRadiusMd,
                   border: isEditing
                       ? Border.all(
                           color: Theme.of(context).colorScheme.primary,
@@ -1656,7 +1656,7 @@ class _HotkeyRecordingDialogState extends State<_HotkeyRecordingDialog> {
           height: 100,
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: AppRadius.borderRadiusXl,
+            borderRadius: AppRadius.borderRadiusLg,
             border: Border.all(
               color: Theme.of(context).colorScheme.primary,
               width: 2,
@@ -1930,7 +1930,7 @@ class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: colorScheme.surfaceContainerHighest,
-                  borderRadius: AppRadius.borderRadiusLg,
+                  borderRadius: AppRadius.borderRadiusMd,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2178,7 +2178,7 @@ class _ImportResultDialog extends StatelessWidget {
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: colorScheme.errorContainer,
-                    borderRadius: AppRadius.borderRadiusLg,
+                    borderRadius: AppRadius.borderRadiusMd,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

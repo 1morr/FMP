@@ -280,7 +280,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: colorScheme.errorContainer,
-                    borderRadius: AppRadius.borderRadiusLg,
+                    borderRadius: AppRadius.borderRadiusMd,
                   ),
                   child: Row(
                     children: [

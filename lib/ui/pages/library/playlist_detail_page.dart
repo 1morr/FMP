@@ -627,7 +627,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                     width: 120,
                     height: 120,
                     decoration: BoxDecoration(
-                      borderRadius: AppRadius.borderRadiusLg,
+                      borderRadius: AppRadius.borderRadiusMd,
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.3),
@@ -722,7 +722,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                               color: playlist.isMix
                                   ? colorScheme.tertiaryContainer
                                   : colorScheme.primaryContainer,
-                              borderRadius: AppRadius.borderRadiusXl,
+                              borderRadius: AppRadius.borderRadiusLg,
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,

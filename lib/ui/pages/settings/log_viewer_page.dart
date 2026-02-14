@@ -150,7 +150,7 @@ class _LogViewerPageState extends State<LogViewerPage> {
                 hintText: t.logViewer.searchHint,
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
-                  borderRadius: AppRadius.borderRadiusLg,
+                  borderRadius: AppRadius.borderRadiusMd,
                 ),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 isDense: true,

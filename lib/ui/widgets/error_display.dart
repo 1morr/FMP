@@ -182,7 +182,7 @@ class ErrorDisplay extends StatelessWidget {
         color: type == ErrorType.empty
             ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
             : colorScheme.errorContainer.withValues(alpha: 0.3),
-        borderRadius: AppRadius.borderRadiusXl,
+        borderRadius: AppRadius.borderRadiusLg,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -334,7 +334,7 @@ class ImageErrorPlaceholder extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: borderRadius ?? AppRadius.borderRadiusLg,
+        borderRadius: borderRadius ?? AppRadius.borderRadiusMd,
       ),
       child: Center(
         child: Icon(

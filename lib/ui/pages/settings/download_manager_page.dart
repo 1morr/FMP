@@ -163,7 +163,7 @@ class _FixedHeightDownloadingSection extends ConsumerWidget {
   final int maxSlots;
 
   // 每个 ListTile 的估算高度（包括进度条和边距）
-  static const double _tileHeight = AppSizes.downloadTileHeight;
+  static const double _tileHeight = 88.0;
 
   const _FixedHeightDownloadingSection({
     required this.tasks,
@@ -215,7 +215,7 @@ class _SectionHeader extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.primaryContainer,
-              borderRadius: AppRadius.borderRadiusXl,
+              borderRadius: AppRadius.borderRadiusLg,
             ),
             child: Text(
               '$count',

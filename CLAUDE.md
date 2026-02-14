@@ -464,7 +464,7 @@ All UI magic numbers are centralized in `lib/core/constants/ui_constants.dart`.
 
 | 常量類 | 用途 | 示例 |
 |--------|------|------|
-| `AppRadius` | 圓角值 + 預構建 BorderRadius | `AppRadius.borderRadiusXl` → 12dp |
+| `AppRadius` | 圓角值 + 預構建 BorderRadius | `AppRadius.borderRadiusLg` → 12dp |
 | `AnimationDurations` | 動畫時長 | `AnimationDurations.normal` → 300ms |
 | `AppSizes` | UI 尺寸 (按鈕、列表項高度、縮略圖、卡片比例等) | `AppSizes.thumbnailMedium` → 48.0 |
 | `ToastDurations` | Toast 顯示時長 | `ToastDurations.short` → 1500ms |

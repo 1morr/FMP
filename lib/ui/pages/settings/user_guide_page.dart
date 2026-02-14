@@ -371,7 +371,7 @@ class UserGuidePage extends StatelessWidget {
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: iconColor.withValues(alpha: 0.15),
-                    borderRadius: AppRadius.borderRadiusLg,
+                    borderRadius: AppRadius.borderRadiusMd,
                   ),
                   child: Icon(
                     icon,

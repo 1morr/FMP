@@ -92,7 +92,7 @@ class _NowPlayingIndicatorState extends State<NowPlayingIndicator>
                 margin: EdgeInsets.only(right: index < 2 ? gap : 0),
                 decoration: BoxDecoration(
                   color: color,
-                  borderRadius: BorderRadius.circular(2), // 小圆角，更像长方形
+                  borderRadius: AppRadius.borderRadiusXs, // 小圆角，更像长方形
                 ),
               );
             }),

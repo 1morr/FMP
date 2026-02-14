@@ -86,7 +86,7 @@ class AppTheme {
       cardTheme: CardThemeData(
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.borderRadiusXl,
+          borderRadius: AppRadius.borderRadiusLg,
         ),
         color: colorScheme.surfaceContainerHighest,
       ),
@@ -94,7 +94,7 @@ class AppTheme {
       // 列表瓦片主题
       listTileTheme: ListTileThemeData(
         shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.borderRadiusLg,
+          borderRadius: AppRadius.borderRadiusMd,
         ),
       ),
 
@@ -125,15 +125,15 @@ class AppTheme {
         filled: true,
         fillColor: colorScheme.surfaceContainerHighest,
         border: OutlineInputBorder(
-          borderRadius: AppRadius.borderRadiusXl,
+          borderRadius: AppRadius.borderRadiusLg,
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: AppRadius.borderRadiusXl,
+          borderRadius: AppRadius.borderRadiusLg,
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: AppRadius.borderRadiusXl,
+          borderRadius: AppRadius.borderRadiusLg,
           borderSide: BorderSide(color: colorScheme.primary, width: 2),
         ),
       ),
@@ -181,7 +181,7 @@ class AppTheme {
       cardTheme: CardThemeData(
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.borderRadiusXl,
+          borderRadius: AppRadius.borderRadiusLg,
         ),
         color: colorScheme.surfaceContainerHighest,
       ),
@@ -189,7 +189,7 @@ class AppTheme {
       // 列表瓦片主题
       listTileTheme: ListTileThemeData(
         shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.borderRadiusLg,
+          borderRadius: AppRadius.borderRadiusMd,
         ),
       ),
 
@@ -220,15 +220,15 @@ class AppTheme {
         filled: true,
         fillColor: colorScheme.surfaceContainerHighest,
         border: OutlineInputBorder(
-          borderRadius: AppRadius.borderRadiusXl,
+          borderRadius: AppRadius.borderRadiusLg,
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: AppRadius.borderRadiusXl,
+          borderRadius: AppRadius.borderRadiusLg,
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: AppRadius.borderRadiusXl,
+          borderRadius: AppRadius.borderRadiusLg,
           borderSide: BorderSide(color: colorScheme.primary, width: 2),
         ),
       ),

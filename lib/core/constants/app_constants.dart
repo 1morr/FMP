@@ -54,6 +54,12 @@ class AppConstants {
   /// 播放锁超时
   static const Duration playLockTimeout = Duration(seconds: 5);
 
+  /// 音频服务状态轮询延迟 (media_kit 内部等待)
+  static const Duration audioServicePollingDelay = Duration(milliseconds: 50);
+
+  /// 播放器 seek 前等待延迟 (确保播放器就绪)
+  static const Duration seekStabilizationDelay = Duration(milliseconds: 500);
+
   // ==================== 网络超时 ====================
 
   /// 网络连接超时

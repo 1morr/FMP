@@ -216,7 +216,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
                     width: 120,
                     height: 120,
                     decoration: BoxDecoration(
-                      borderRadius: AppRadius.borderRadiusLg,
+                      borderRadius: AppRadius.borderRadiusMd,
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.3),
@@ -261,7 +261,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
                           ),
                           decoration: BoxDecoration(
                             color: colorScheme.primaryContainer,
-                            borderRadius: AppRadius.borderRadiusXl,
+                            borderRadius: AppRadius.borderRadiusLg,
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,

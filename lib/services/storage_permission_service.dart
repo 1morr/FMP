@@ -101,7 +101,7 @@ class StoragePermissionService {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: colorScheme.surfaceContainerHighest,
-                    borderRadius: AppRadius.borderRadiusLg,
+                    borderRadius: AppRadius.borderRadiusMd,
                   ),
                   child: Row(
                     children: [

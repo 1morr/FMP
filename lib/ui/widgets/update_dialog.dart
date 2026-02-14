@@ -160,7 +160,7 @@ class UpdateDialog extends ConsumerWidget {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.errorContainer,
-                  borderRadius: AppRadius.borderRadiusLg,
+                  borderRadius: AppRadius.borderRadiusMd,
                 ),
                 child: Text(
                   updateState.errorMessage!,

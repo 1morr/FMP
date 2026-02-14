@@ -267,7 +267,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: colorScheme.secondaryContainer,
-        borderRadius: AppRadius.borderRadiusLg,
+        borderRadius: AppRadius.borderRadiusMd,
       ),
       child: Row(
         children: [
@@ -398,7 +398,7 @@ class _RadioStationCard extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       onLongPress: onLongPress,
-      borderRadius: AppRadius.borderRadiusXl,
+      borderRadius: AppRadius.borderRadiusLg,
       child: LayoutBuilder(
         builder: (context, constraints) {
           // 封面大小 = 卡片宽度 - 水平padding
