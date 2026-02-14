@@ -315,7 +315,7 @@ class _ThemeColorListTile extends ConsumerWidget {
                       ref.read(themeProvider.notifier).setPrimaryColor(color);
                       Navigator.pop(context);
                     },
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: AppRadius.borderRadiusPill,
                     child: Container(
                       width: 40,
                       height: 40,

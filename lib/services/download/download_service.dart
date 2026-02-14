@@ -1007,7 +1007,7 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
   
   try {
     final client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 30);
+    client.connectionTimeout = AppConstants.downloadConnectTimeout;
     
     final request = await client.getUrl(Uri.parse(params.url));
     

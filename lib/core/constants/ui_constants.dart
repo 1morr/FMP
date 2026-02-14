@@ -66,12 +66,6 @@ class AppSizes {
   /// 可折叠 AppBar 折叠阈值
   static const double collapseThreshold = 280 - kToolbarHeight;
 
-  /// 侧边面板最小宽度
-  static const double sidePanelMinWidth = 280.0;
-
-  /// 侧边面板最大宽度
-  static const double sidePanelMaxWidth = 500.0;
-
   /// 小缩略图尺寸
   static const double thumbnailSmall = 40.0;
 

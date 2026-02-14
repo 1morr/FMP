@@ -214,8 +214,8 @@ class _DesktopLayout extends ConsumerStatefulWidget {
 class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
   bool _isNavExpanded = false; // 默认收起
   double _detailPanelWidth = 380; // 默认宽度
-  static const double _minPanelWidth = AppSizes.sidePanelMinWidth;
-  static const double _maxPanelWidth = AppSizes.sidePanelMaxWidth;
+  static const double _minPanelWidth = 280.0;
+  static const double _maxPanelWidth = 500.0;
 
   @override
   Widget build(BuildContext context) {

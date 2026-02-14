@@ -6,6 +6,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:archive/archive.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 
 const _tag = 'UpdateService';
@@ -65,8 +66,8 @@ class UpdateService {
   final Dio _dio;
 
   UpdateService() : _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 15),
-    receiveTimeout: const Duration(seconds: 30),
+    connectTimeout: AppConstants.updateConnectTimeout,
+    receiveTimeout: AppConstants.networkReceiveTimeout,
   ));
 
   /// 检查是否有新版本

@@ -68,6 +68,9 @@ class AppConstants {
   /// 网络接收超时
   static const Duration networkReceiveTimeout = Duration(seconds: 30);
 
+  /// 更新服务连接超时 (GitHub Releases 可能较慢)
+  static const Duration updateConnectTimeout = Duration(seconds: 15);
+
   /// 下载连接超时
   static const Duration downloadConnectTimeout = Duration(seconds: 30);
 
@@ -111,7 +114,7 @@ class AppConstants {
   static const int commentsPreviewCount = 3;
 }
 
-/// 网络重试配置
+/// 网络重试配置（播放失败后的渐进式重试）
 class NetworkRetryConfig {
   NetworkRetryConfig._();
 
@@ -133,4 +136,19 @@ class NetworkRetryConfig {
     if (attempt >= retryDelays.length) return retryDelays.last;
     return retryDelays[attempt];
   }
+}
+
+/// 电台重连配置（直播流断开后的渐进式重连）
+class RadioReconnectConfig {
+  RadioReconnectConfig._();
+
+  /// 最大重连次数
+  static const int maxAttempts = 3;
+
+  /// 渐进式重连延迟（1s, 3s, 10s）
+  static const List<Duration> delays = [
+    Duration(seconds: 1),
+    Duration(seconds: 3),
+    Duration(seconds: 10),
+  ];
 }
