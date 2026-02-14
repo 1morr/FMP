@@ -8,6 +8,7 @@ import 'package:smtc_windows/smtc_windows.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
+import 'core/constants/app_constants.dart';
 import 'i18n/strings.g.dart';
 import 'services/audio/audio_handler.dart';
 import 'services/audio/windows_smtc_handler.dart';
@@ -106,8 +107,8 @@ Future<void> _initializeWindowManager() async {
   await windowManager.ensureInitialized();
 
   const windowOptions = WindowOptions(
-    minimumSize: Size(400, 500), // 最小窗口大小
-    size: Size(1280, 800), // 默认窗口大小
+    minimumSize: Size(AppConstants.minimumWindowWidth, AppConstants.minimumWindowHeight),
+    size: Size(AppConstants.defaultWindowWidth, AppConstants.defaultWindowHeight),
     center: true,
     backgroundColor: Colors.transparent,
     skipTaskbar: false,

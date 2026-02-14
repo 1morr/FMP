@@ -181,7 +181,7 @@ class DownloadService with Logging {
     // 1. 在 IO 线程中直接跨线程通信
     // 2. 过多消息导致 Windows PostMessage 队列溢出
     _progressUpdateTimer = Timer.periodic(
-      AppConstants.downloadProgressThrottleInterval,
+      const Duration(milliseconds: 1000),
       (_) => _flushPendingProgressUpdates(),
     );
   }
@@ -203,7 +203,7 @@ class DownloadService with Logging {
     
     // 周期检查：作为备份机制
     _schedulerTimer?.cancel();
-    _schedulerTimer = Timer.periodic(AppConstants.downloadSchedulerInterval, (_) {
+    _schedulerTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       _scheduleDownloads();
     });
   }
