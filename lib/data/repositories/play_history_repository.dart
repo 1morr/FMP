@@ -1,6 +1,7 @@
 import 'package:isar/isar.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../models/play_history.dart';
 import '../models/track.dart';
 
@@ -9,9 +10,6 @@ class PlayHistoryRepository {
   final Isar _isar;
 
   PlayHistoryRepository(this._isar);
-
-  /// 最大历史记录数量
-  static const int maxHistoryCount = 1000;
 
   /// 记录播放历史
   /// 每次播放都会新增一条记录（用于统计播放次数）
@@ -22,8 +20,8 @@ class PlayHistoryRepository {
 
       // 清理超出限制的旧记录
       final count = await _isar.playHistorys.count();
-      if (count > maxHistoryCount) {
-        final toDelete = count - maxHistoryCount;
+      if (count > AppConstants.maxPlayHistoryCount) {
+        final toDelete = count - AppConstants.maxPlayHistoryCount;
         final oldRecords = await _isar.playHistorys
             .where()
             .sortByPlayedAt()

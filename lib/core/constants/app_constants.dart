@@ -27,6 +27,9 @@ class AppConstants {
   /// 队列最大容量
   static const int maxQueueSize = 10000;
 
+  /// 最大播放历史记录数
+  static const int maxPlayHistoryCount = 1000;
+
   // ==================== 播放控制 ====================
 
   /// 快进/快退时间 (秒)
@@ -104,6 +107,20 @@ class AppConstants {
   /// 队列保存重试延迟
   static const Duration queueSaveRetryDelay = Duration(seconds: 1);
 
+  // ==================== 后台服务 ====================
+
+  /// 自动刷新检查间隔
+  static const Duration autoRefreshCheckInterval = Duration(minutes: 30);
+
+  /// 电台刷新间隔
+  static const Duration radioRefreshInterval = Duration(minutes: 5);
+
+  /// 网络状态轮询间隔
+  static const Duration connectivityPollingInterval = Duration(seconds: 15);
+
+  /// DNS 查询超时
+  static const Duration dnsTimeout = Duration(seconds: 5);
+
   // ==================== UI 尺寸 ====================
 
   /// 小缩略图尺寸
@@ -114,6 +131,7 @@ class AppConstants {
 
   /// 大缩略图尺寸
   static const double thumbnailSizeLarge = 56.0;
+
 }
 
 /// 网络重试配置

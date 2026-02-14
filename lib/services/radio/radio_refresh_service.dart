@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../data/models/radio_station.dart';
 import '../../data/repositories/radio_repository.dart';
 import 'radio_source.dart';
@@ -15,8 +16,6 @@ import 'radio_source.dart';
 /// - 用戶進入任何頁面時直接顯示緩存，無需等待
 /// - 緩存直播狀態和電台資訊（封面、標題、主播名）
 class RadioRefreshService {
-  static const _refreshInterval = Duration(minutes: 5);
-
   /// 全局單例實例
   static late final RadioRefreshService instance;
 
@@ -59,7 +58,7 @@ class RadioRefreshService {
   /// 啟動定時刷新
   void _startRefreshTimer() {
     _refreshTimer?.cancel();
-    _refreshTimer = Timer.periodic(_refreshInterval, (_) {
+    _refreshTimer = Timer.periodic(AppConstants.radioRefreshInterval, (_) {
       refreshAll();
     });
   }

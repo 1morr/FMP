@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 
 /// 网络连接状态
@@ -55,12 +56,6 @@ class ConnectivityNotifier extends StateNotifier<ConnectivityState>
     'dns.alidns.com', // 阿里 DNS（中国大陆友好）
   ];
 
-  /// 轮询间隔
-  static const _pollingInterval = Duration(seconds: 15);
-
-  /// DNS 查询超时
-  static const _dnsTimeout = Duration(seconds: 5);
-
   /// 网络恢复事件控制器
   final _networkRecoveredController = StreamController<void>.broadcast();
 
@@ -79,8 +74,8 @@ class ConnectivityNotifier extends StateNotifier<ConnectivityState>
     );
 
     // 启动定时轮询
-    _pollingTimer = Timer.periodic(_pollingInterval, (_) => _poll());
-    logDebug('DNS polling started (interval: ${_pollingInterval.inSeconds}s)');
+    _pollingTimer = Timer.periodic(AppConstants.connectivityPollingInterval, (_) => _poll());
+    logDebug('DNS polling started (interval: ${AppConstants.connectivityPollingInterval.inSeconds}s)');
   }
 
   Future<void> _poll() async {
@@ -106,7 +101,7 @@ class ConnectivityNotifier extends StateNotifier<ConnectivityState>
     for (final target in _dnsTargets) {
       try {
         final result = await InternetAddress.lookup(target)
-            .timeout(_dnsTimeout);
+            .timeout(AppConstants.dnsTimeout);
         if (result.isNotEmpty && result.first.rawAddress.isNotEmpty) {
           return true;
         }

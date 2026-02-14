@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/repositories/playlist_repository.dart';
 import '../../providers/refresh_provider.dart';
@@ -34,7 +35,7 @@ class AutoRefreshService with Logging {
 
     // 每 30 分钟检查一次
     _checkTimer = Timer.periodic(
-      const Duration(minutes: 30),
+      AppConstants.autoRefreshCheckInterval,
       (_) => _checkAndRefresh(),
     );
   }
