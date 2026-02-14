@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/constants/app_constants.dart';
 import 'providers/database_provider.dart';
 import 'providers/playback_settings_provider.dart';
 import 'providers/desktop_settings_provider.dart';
@@ -94,7 +95,7 @@ class FMPApp extends ConsumerWidget {
         ref.watch(playbackSettingsProvider);
 
         return MaterialApp.router(
-          title: 'FMP - Flutter Music Player',
+          title: '${AppConstants.appName} - ${AppConstants.appFullName}',
           debugShowCheckedModeBanner: false,
 
           // i18n 配置
