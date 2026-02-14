@@ -9,7 +9,6 @@ import '../../../data/models/play_queue.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
 import '../track_thumbnail.dart';
-import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/ui_constants.dart';
 
 /// 迷你播放器
@@ -86,7 +85,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                     // 封面
                     TrackThumbnail(
                       track: track,
-                      size: AppConstants.thumbnailSizeMedium,
+                      size: AppSizes.thumbnailMedium,
                       borderRadius: 8,
                       showPlayingIndicator: false,
                     ),

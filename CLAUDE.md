@@ -464,10 +464,9 @@ All UI magic numbers are centralized in `lib/core/constants/ui_constants.dart`.
 
 | 常量類 | 用途 | 示例 |
 |--------|------|------|
-| `AppSpacing` | 間距 (4dp 倍數) | `AppSpacing.lg` → 16.0 |
 | `AppRadius` | 圓角值 + 預構建 BorderRadius | `AppRadius.borderRadiusXl` → 12dp |
 | `AnimationDurations` | 動畫時長 | `AnimationDurations.normal` → 300ms |
-| `AppSizes` | UI 尺寸 (按鈕、列表項高度等) | `AppSizes.playerMainButton` → 80.0 |
+| `AppSizes` | UI 尺寸 (按鈕、列表項高度、縮略圖、卡片比例等) | `AppSizes.thumbnailMedium` → 48.0 |
 | `ToastDurations` | Toast 顯示時長 | `ToastDurations.short` → 1500ms |
 | `DebounceDurations` | 防抖時長 | `DebounceDurations.standard` → 300ms |
 

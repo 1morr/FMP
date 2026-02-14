@@ -491,7 +491,7 @@ class _DetailContent extends ConsumerWidget {
             // 缩略图
             TrackThumbnail(
               track: track,
-              size: AppConstants.thumbnailSizeLarge,
+              size: AppSizes.thumbnailLarge,
               borderRadius: 8,
               showPlayingIndicator: false,
             ),
