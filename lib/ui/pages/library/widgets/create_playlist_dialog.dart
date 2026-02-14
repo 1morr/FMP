@@ -66,7 +66,13 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text(isEditing ? t.library.createPlaylist.editTitle : t.library.createPlaylist.createTitle),
-      content: Form(
+      contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minWidth: 400,
+          maxWidth: 500,
+        ),
+        child: Form(
         key: _formKey,
         child: SingleChildScrollView(
           child: Column(
@@ -112,6 +118,7 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
               ],
             ],
           ),
+        ),
         ),
       ),
       actions: [
@@ -188,11 +195,13 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
                               color: colorScheme.primary,
                             ),
                             const SizedBox(width: 4),
-                            Text(
-                              t.library.createPlaylist.clickToChangeCover,
-                              style: TextStyle(
-                                color: colorScheme.primary,
-                                fontWeight: FontWeight.w500,
+                            Expanded(
+                              child: Text(
+                                t.library.createPlaylist.clickToChangeCover,
+                                style: TextStyle(
+                                  color: colorScheme.primary,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
                           ],
@@ -223,14 +232,6 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          t.library.createPlaylist.autoRefresh,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: colorScheme.onSurface,
-              ),
-        ),
-        const SizedBox(height: 12),
-
         // 啟用自動刷新開關
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
