@@ -142,7 +142,7 @@ class BilibiliSource extends BaseSource with Logging {
       // 获取音频 URL
       final audioUrl = await getAudioUrl(bvid);
       track.audioUrl = audioUrl;
-      track.audioUrlExpiry = DateTime.now().add(const Duration(hours: 2));
+      track.audioUrlExpiry = DateTime.now().add(Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours));
       track.createdAt = DateTime.now();
 
       return track;
@@ -333,7 +333,7 @@ class BilibiliSource extends BaseSource with Logging {
       audioUrl = await getAudioUrl(track.sourceId);
     }
     track.audioUrl = audioUrl;
-    track.audioUrlExpiry = DateTime.now().add(const Duration(hours: 2));
+    track.audioUrlExpiry = DateTime.now().add(Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours));
     track.updatedAt = DateTime.now();
     return track;
   }
@@ -473,7 +473,7 @@ class BilibiliSource extends BaseSource with Logging {
         }
 
         // 添加小延迟避免请求过快
-        await Future.delayed(const Duration(milliseconds: 200));
+        await Future.delayed(AppConstants.networkRetryDelay);
       }
 
       return PlaylistParseResult(

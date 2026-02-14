@@ -1036,7 +1036,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     
     logInfo('Adding to queue: ${track.title}');
     try {
-      await _queueManager.add(track);
+      final added = await _queueManager.add(track);
+      if (!added) {
+        _toastService.showError(t.audio.queueFull(count: AppConstants.maxQueueSize));
+        return false;
+      }
       _updateQueueState();
       return true;
     } catch (e, stack) {

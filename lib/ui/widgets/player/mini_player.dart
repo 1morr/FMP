@@ -9,6 +9,7 @@ import '../../../data/models/play_queue.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
 import '../track_thumbnail.dart';
+import '../../../core/constants/app_constants.dart';
 
 /// 迷你播放器
 /// 显示在页面底部，展示当前播放的歌曲信息和控制按钮
@@ -84,8 +85,8 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                     // 封面
                     TrackThumbnail(
                       track: track,
-                      size: 48,
-                      borderRadius: 8,
+                      size: AppConstants.thumbnailSizeMedium,
+                      borderRadius: AppConstants.borderRadiusMedium,
                       showPlayingIndicator: false,
                     ),
                     const SizedBox(width: 8),

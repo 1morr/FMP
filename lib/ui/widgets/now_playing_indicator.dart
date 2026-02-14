@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
+import '../../core/constants/app_constants.dart';
+
 /// 正在播放指示器 - 显示动态音频波形动画（从左到右依次波动）
 class NowPlayingIndicator extends StatefulWidget {
   final Color? color;
@@ -26,7 +28,7 @@ class _NowPlayingIndicatorState extends State<NowPlayingIndicator>
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 1600),
+      duration: AppConstants.playingIndicatorDuration,
       vsync: this,
     );
 

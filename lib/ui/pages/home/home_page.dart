@@ -26,6 +26,7 @@ import '../../../data/models/playlist.dart';
 import '../../../providers/refresh_provider.dart';
 import '../../../data/sources/source_provider.dart';
 import '../library/widgets/create_playlist_dialog.dart';
+import '../../../core/constants/app_constants.dart';
 
 /// 首页
 class HomePage extends ConsumerStatefulWidget {
@@ -693,8 +694,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                     // 封面
                     TrackThumbnail(
                       track: track,
-                      size: 56,
-                      borderRadius: 8,
+                      size: AppConstants.thumbnailSizeLarge,
+                      borderRadius: AppConstants.borderRadiusMedium,
                     ),
                     const SizedBox(width: 12),
                     // 信息
@@ -783,8 +784,8 @@ class _HomePageState extends ConsumerState<HomePage> {
               contentPadding: const EdgeInsets.only(left: 18),
               leading: TrackThumbnail(
                 track: track,
-                size: 40,
-                borderRadius: 4,
+                size: AppConstants.thumbnailSizeSmall,
+                borderRadius: AppConstants.borderRadiusSmall,
               ),
               title: Text(
                 track.title,
@@ -1004,8 +1005,8 @@ class _RankingTrackTile extends ConsumerWidget {
             const SizedBox(width: 12),
             TrackThumbnail(
               track: track,
-              size: 48,
-              borderRadius: 4,
+              size: AppConstants.thumbnailSizeMedium,
+              borderRadius: AppConstants.borderRadiusSmall,
               isPlaying: isPlaying,
             ),
           ],

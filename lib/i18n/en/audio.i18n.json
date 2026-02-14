@@ -1,6 +1,7 @@
 {
   "cannotPlay": "Cannot play \"$title\"",
   "playbackFailed": "Playback failed: $message",
+  "queueFull": "Queue is full (maximum ${count} songs)",
   "playbackFailedTrack": "Playback failed: $title",
   "mixPlaylistNoAdd": "Mix playlists do not support adding songs",
   "mixLoadMoreFailed": "Unable to load more songs, please try again later",

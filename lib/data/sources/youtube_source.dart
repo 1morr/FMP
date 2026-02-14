@@ -116,7 +116,7 @@ class YouTubeSource extends BaseSource with Logging {
       final audioUrl = await getAudioUrl(videoId);
       track.audioUrl = audioUrl;
       // YouTube URL 过期较快，使用 1 小时有效期
-      track.audioUrlExpiry = DateTime.now().add(const Duration(hours: 1));
+      track.audioUrlExpiry = DateTime.now().add(Duration(hours: AppConstants.youtubeAudioUrlExpiryHours));
       track.createdAt = DateTime.now();
 
       logDebug('Got track info for $videoId: ${video.title}');
@@ -595,7 +595,7 @@ class YouTubeSource extends BaseSource with Logging {
 
     final audioUrl = await getAudioUrl(track.sourceId);
     track.audioUrl = audioUrl;
-    track.audioUrlExpiry = DateTime.now().add(const Duration(hours: 1));
+    track.audioUrlExpiry = DateTime.now().add(Duration(hours: AppConstants.youtubeAudioUrlExpiryHours));
     track.updatedAt = DateTime.now();
     return track;
   }

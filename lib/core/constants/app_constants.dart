@@ -18,14 +18,17 @@ class AppConstants {
   /// 默认缓存大小上限 (MB)
   static const int defaultMaxCacheSizeMB = 2048;
 
-  /// 音频 URL 默认过期时间 (小时)
-  static const int audioUrlExpiryHours = 2;
+  /// 音频 URL 默认过期时间 (小时) - Bilibili 使用
+  static const int bilibiliAudioUrlExpiryHours = 2;
+
+  /// 音频 URL 默认过期时间 (小时) - YouTube 使用 (过期较快)
+  static const int youtubeAudioUrlExpiryHours = 1;
 
   /// 默认刷新间隔 (小时)
   static const int defaultRefreshIntervalHours = 24;
 
   /// 搜索历史最大条数
-  static const int maxSearchHistoryCount = 50;
+  static const int maxSearchHistoryCount = 100;
 
   /// 队列最大容量
   static const int maxQueueSize = 10000;
