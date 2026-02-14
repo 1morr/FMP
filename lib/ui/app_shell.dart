@@ -55,7 +55,9 @@ class _AppShellState extends ConsumerState<AppShell> {
         ),
         backgroundColor: backgroundColor,
         behavior: SnackBarBehavior.floating,
-        duration: AppConstants.toastDuration,
+        duration: message.type == ToastType.error || message.type == ToastType.warning
+            ? AppConstants.toastErrorDuration
+            : AppConstants.toastDuration,
       ),
     );
   }

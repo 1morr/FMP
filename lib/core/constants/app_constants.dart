@@ -79,8 +79,11 @@ class AppConstants {
 
   // ==================== Toast 与通知 ====================
 
-  /// Toast 默认显示时长
-  static const Duration toastDuration = Duration(seconds: 1);
+  /// Toast 默认显示时长（成功、信息）
+  static const Duration toastDuration = Duration(milliseconds: 1500);
+
+  /// Toast 错误/警告显示时长
+  static const Duration toastErrorDuration = Duration(milliseconds: 3000);
 
   /// 刷新进度 Toast 时长
   static const Duration refreshToastDuration = Duration(seconds: 4);
