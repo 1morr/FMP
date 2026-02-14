@@ -474,10 +474,16 @@ static Future<void> ensureAvatarDirExists(String baseDir, SourceType sourceType)
 
 | 档位 | Bilibili | YouTube 缩略图 | YouTube 头像 |
 |------|---------|---------------|-------------|
-| 小 (≤120px) | 200w | default (90p) | 48 |
-| 中 (≤200px) | 200w | mqdefault (180p) | 88 |
-| 大 (≤400px) | 400w | hqdefault (360p) | 176 |
-| 超大 (≤640px) | 640w | sddefault (480p) | 240 |
+| 小 (≤120px) | 200w | mqdefault (180p, 16:9) | 48 |
+| 中 (≤200px) | 200w | mqdefault (180p, 16:9) | 88 |
+| 大 (>200px) | 400w/640w/1280w | maxresdefault (720p, 16:9) | 176/240 |
+
+**⚠️ YouTube maxresdefault 注意事项**：
+- `maxresdefault.jpg` 并非所有 YouTube 视频都有（只有上传了自定义缩略图或高清视频才会生成）
+- 不存在时返回 404，`CachedNetworkImage` 会 fallback 到 placeholder
+- `mqdefault.jpg` 几乎所有视频都有，是最可靠的选择
+- 对于小尺寸显示（≤100px 的网格/列表），应传 `targetDisplaySize: 80` 或合适的 `width`/`height` 确保选择 `mqdefault`
+- **已知 bug 修复（2026-02）**：`cover_picker_dialog.dart` 的 `_CoverGridItem` 之前未传尺寸参数，导致 YouTube 封面默认使用 `maxresdefault` → 404 → 显示 placeholder。已修复为传 `width: 100, height: 100, targetDisplaySize: 80`
 
 **使用方式**：
 ```dart
@@ -492,7 +498,10 @@ ThumbnailUrlUtils.getLargeThumbnail(url);   // 480px
 
 **ImageLoadingService 集成**：
 `ImageLoadingService._loadNetworkOrPlaceholder()` 已自动使用 `ThumbnailUrlUtils`，
-根据 `width`/`height` 参数自动优化 URL。
+根据 `targetDisplaySize` > `width` > `height` 参数自动优化 URL。
+
+**⚠️ 重要**：调用 `ImageLoadingService.loadImage()` 时必须传 `width`/`height` 或 `targetDisplaySize`，
+否则 `displaySize` 为 null → 默认使用 `mediumSize`(200) × 2 = 400px → YouTube 选择 `maxresdefault`（可能 404）。
 
 ### memCacheWidth/memCacheHeight 后备
 

@@ -176,6 +176,10 @@ ImageLoadingService.loadImage(
 )
 ```
 
+**⚠️ 必须传尺寸参数**：调用 `loadImage()` 时务必传 `width`/`height` 或 `targetDisplaySize`。
+不传时 YouTube 缩略图会默认选择 `maxresdefault.jpg`（很多视频不存在，返回 404 显示 placeholder）。
+小尺寸场景（≤100px）建议传 `targetDisplaySize: 80` 确保使用可靠的 `mqdefault.jpg`。
+
 ### 2.5 FileExistsCache 使用模式
 
 在需要检查本地文件存在性的 Widget 中：
