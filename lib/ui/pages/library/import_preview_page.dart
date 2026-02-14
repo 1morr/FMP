@@ -487,7 +487,7 @@ class _UnmatchedTrackTile extends ConsumerWidget {
                 TrackThumbnail(
                   track: selectedTrack,
                   size: AppConstants.thumbnailSizeSmall,
-                  borderRadius: AppConstants.borderRadiusSmall,
+                  borderRadius: 4,
                 )
               else
                 Container(
@@ -709,7 +709,7 @@ class _ImportMatchTile extends StatelessWidget {
               TrackThumbnail(
                 track: track,
                 size: AppConstants.thumbnailSizeSmall,
-                borderRadius: AppConstants.borderRadiusSmall,
+                borderRadius: 4,
               ),
             ],
           ),
@@ -857,7 +857,7 @@ class _AlternativeTrackTile extends ConsumerWidget {
             TrackThumbnail(
               track: track,
               size: 32,
-              borderRadius: AppConstants.borderRadiusSmall,
+              borderRadius: 4,
             ),
           ],
         ),

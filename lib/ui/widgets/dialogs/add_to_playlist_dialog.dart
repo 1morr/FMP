@@ -155,7 +155,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                   TrackThumbnail(
                     track: widget.firstTrack,
                     size: AppConstants.thumbnailSizeMedium,
-                    borderRadius: AppConstants.borderRadiusSmall,
+                    borderRadius: 4,
                   ),
                   const SizedBox(width: 12),
                   // 信息

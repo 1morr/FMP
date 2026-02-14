@@ -594,7 +594,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
               leading: TrackThumbnail(
                 track: history.toTrack(),
                 size: AppConstants.thumbnailSizeMedium,
-                borderRadius: AppConstants.borderRadiusSmall,
+                borderRadius: 4,
                 isPlaying: isPlaying,
               ),
               title: Text(

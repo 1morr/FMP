@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:isar/isar.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
@@ -193,7 +194,7 @@ class ImportService with Logging {
           ..description = result.description
           ..sourceUrl = url
           ..importSourceType = source.sourceType
-          ..refreshIntervalHours = refreshIntervalHours ?? 24
+          ..refreshIntervalHours = refreshIntervalHours ?? AppConstants.defaultPlaylistRefreshIntervalHours
           ..notifyOnUpdate = notifyOnUpdate
           ..createdAt = DateTime.now();
         // 先保存以获取 ID（用于计算下载路径）
