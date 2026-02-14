@@ -147,7 +147,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: colorScheme.surfaceContainerHighest,
-                borderRadius: AppRadius.borderRadiusXl,
+                borderRadius: AppRadius.borderRadiusLg,
               ),
               child: Row(
                 children: [
@@ -199,7 +199,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                   height: 48,
                   decoration: BoxDecoration(
                     color: colorScheme.primaryContainer,
-                    borderRadius: AppRadius.borderRadiusLg,
+                    borderRadius: AppRadius.borderRadiusMd,
                   ),
                   child: Icon(
                     Icons.add,
@@ -208,7 +208,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                 ),
                 title: Text(t.addToPlaylistDialog.createNew),
                 shape: RoundedRectangleBorder(
-                  borderRadius: AppRadius.borderRadiusXl,
+                  borderRadius: AppRadius.borderRadiusLg,
                 ),
                 onTap: () => _showCreatePlaylistDialog(context),
               ),
@@ -295,7 +295,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                               width: 48,
                               height: 48,
                               decoration: BoxDecoration(
-                                borderRadius: AppRadius.borderRadiusLg,
+                                borderRadius: AppRadius.borderRadiusMd,
                                 color: colorScheme.surfaceContainerHighest,
                                 border: isSelected
                                     ? Border.all(
@@ -367,7 +367,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                         selected: isSelected,
                         selectedTileColor: colorScheme.primaryContainer.withValues(alpha: 0.3),
                         shape: RoundedRectangleBorder(
-                          borderRadius: AppRadius.borderRadiusXl,
+                          borderRadius: AppRadius.borderRadiusLg,
                         ),
                         onTap: () => _togglePlaylistSelection(playlist.id),
                       );

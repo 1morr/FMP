@@ -1868,7 +1868,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       
       // 如果有保存的位置，尝试恢复
       if (position != null && position.inSeconds > 0) {
-        await Future.delayed(const Duration(milliseconds: 500));
+        await Future.delayed(AppConstants.seekStabilizationDelay);
         await seekTo(position);
       }
       
@@ -1907,7 +1907,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     _retryAttempt = 0; // 重置重试计数
 
     // 延迟一下确保网络稳定
-    await Future.delayed(const Duration(milliseconds: 500));
+    await Future.delayed(AppConstants.seekStabilizationDelay);
 
     try {
       final currentMode = _context.isMix ? PlayMode.mix : PlayMode.queue;
@@ -1923,7 +1923,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       
       // 恢复播放位置
       if (position != null && position.inSeconds > 0) {
-        await Future.delayed(const Duration(milliseconds: 500));
+        await Future.delayed(AppConstants.seekStabilizationDelay);
         await seekTo(position);
       }
       
@@ -1999,7 +1999,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       _resetRetryState();
       
       if (position.inSeconds > 0) {
-        await Future.delayed(const Duration(milliseconds: 500));
+        await Future.delayed(AppConstants.seekStabilizationDelay);
         await seekTo(position);
       }
       

@@ -543,7 +543,7 @@ class _UnmatchedTrackTile extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: colorScheme.primaryContainer.withValues(alpha: 0.5),
-                    borderRadius: AppRadius.borderRadiusXl,
+                    borderRadius: AppRadius.borderRadiusLg,
                   ),
                   child: Text(
                     '${original.title} - ${original.artists.join(" / ")}',
@@ -607,7 +607,7 @@ class _UnmatchedTrackTile extends ConsumerWidget {
                           vertical: 8,
                         ),
                         border: OutlineInputBorder(
-                          borderRadius: AppRadius.borderRadiusMd,
+                          borderRadius: AppRadius.borderRadiusSm,
                         ),
                       ),
                       style: Theme.of(context).textTheme.bodySmall,
@@ -759,7 +759,7 @@ class _ImportMatchTile extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: colorScheme.primaryContainer.withValues(alpha: 0.5),
-                  borderRadius: AppRadius.borderRadiusXl,
+                  borderRadius: AppRadius.borderRadiusLg,
                 ),
                 child: Text(
                   '${original.title} - ${original.artists.join(" / ")}',

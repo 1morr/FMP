@@ -283,7 +283,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5)),
-          borderRadius: AppRadius.borderRadiusXxxl,
+          borderRadius: AppRadius.borderRadiusXl,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

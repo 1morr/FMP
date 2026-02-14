@@ -134,7 +134,7 @@ class RadioPlayerPage extends ConsumerWidget {
       child: Container(
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerHighest,
-          borderRadius: AppRadius.borderRadiusXxxl,
+          borderRadius: AppRadius.borderRadiusXl,
           boxShadow: [
             BoxShadow(
               color: colorScheme.shadow.withValues(alpha: 0.2),
@@ -521,7 +521,7 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
                         height: 4,
                         decoration: BoxDecoration(
                           color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(2),
+                          borderRadius: AppRadius.borderRadiusXs,
                         ),
                       ),
                       // 標題欄
@@ -820,7 +820,7 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest,
-              borderRadius: AppRadius.borderRadiusXxxl,
+              borderRadius: AppRadius.borderRadiusXl,
             ),
             child: Text(
               tag.trim(),

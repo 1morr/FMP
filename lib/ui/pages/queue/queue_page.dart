@@ -26,7 +26,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
   final ItemScrollController _itemScrollController = ItemScrollController();
   final ItemPositionsListener _itemPositionsListener = ItemPositionsListener.create();
 
-  static const double _itemHeight = AppSizes.queueItemHeight;
+  static const double _itemHeight = 72.0;
   bool _initialScrollDone = false;
   int? _lastCurrentIndex;
 
@@ -533,7 +533,7 @@ class _DraggableQueueItem extends StatelessWidget {
         child: Material(
           color: isFeedback ? colorScheme.surfaceContainerHigh : Colors.transparent,
           elevation: isFeedback ? 8 : 0,
-          borderRadius: isFeedback ? AppRadius.borderRadiusLg : null,
+          borderRadius: isFeedback ? AppRadius.borderRadiusMd : null,
           child: InkWell(
             onTap: isFeedback ? null : onTap,
             child: Padding(

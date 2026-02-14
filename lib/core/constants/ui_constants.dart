@@ -9,23 +9,17 @@ class AppRadius {
   /// 2dp - 进度条等极小元素
   static const double xs = 2.0;
 
-  /// 4dp - 缩略图、标签、小卡片
+  /// 4dp - 缩略图、标签、小卡片、小徽章
   static const double sm = 4.0;
 
-  /// 6dp - 小徽章
-  static const double md = 6.0;
-
   /// 8dp - 输入框、对话框内元素
-  static const double lg = 8.0;
+  static const double md = 8.0;
 
-  /// 12dp - 卡片、对话框
-  static const double xl = 12.0;
-
-  /// 14dp - 标签徽章
-  static const double xxl = 14.0;
+  /// 12dp - 卡片、对话框、标签徽章
+  static const double lg = 12.0;
 
   /// 16dp - 大卡片、封面图
-  static const double xxxl = 16.0;
+  static const double xl = 16.0;
 
   /// 28dp - 导航栏指示器等特殊元素
   static const double pill = 28.0;
@@ -36,8 +30,6 @@ class AppRadius {
   static final BorderRadius borderRadiusMd = BorderRadius.circular(md);
   static final BorderRadius borderRadiusLg = BorderRadius.circular(lg);
   static final BorderRadius borderRadiusXl = BorderRadius.circular(xl);
-  static final BorderRadius borderRadiusXxl = BorderRadius.circular(xxl);
-  static final BorderRadius borderRadiusXxxl = BorderRadius.circular(xxxl);
   static final BorderRadius borderRadiusPill = BorderRadius.circular(pill);
 }
 
@@ -70,12 +62,6 @@ class AppSizes {
 
   /// 播放器主按钮尺寸 (播放/暂停)
   static const double playerMainButton = 80.0;
-
-  /// 队列列表项高度
-  static const double queueItemHeight = 72.0;
-
-  /// 下载管理列表项高度
-  static const double downloadTileHeight = 88.0;
 
   /// 可折叠 AppBar 折叠阈值
   static const double collapseThreshold = 280 - kToolbarHeight;

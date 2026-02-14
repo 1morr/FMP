@@ -536,7 +536,7 @@ class MediaKitAudioService with Logging {
           resultDuration = _duration;
           break;
         }
-        await Future.delayed(const Duration(milliseconds: 50));
+        await Future.delayed(AppConstants.audioServicePollingDelay);
       }
 
       logDebug('URL loaded successfully, duration: $resultDuration (may update later)');
@@ -574,7 +574,7 @@ class MediaKitAudioService with Logging {
           resultDuration = _duration;
           break;
         }
-        await Future.delayed(const Duration(milliseconds: 50));
+        await Future.delayed(AppConstants.audioServicePollingDelay);
       }
 
       logDebug('URL set, duration: $resultDuration');
@@ -619,7 +619,7 @@ class MediaKitAudioService with Logging {
           resultDuration = _duration;
           break;
         }
-        await Future.delayed(const Duration(milliseconds: 50));
+        await Future.delayed(AppConstants.audioServicePollingDelay);
       }
 
       // 确保播放并等待状态确认
@@ -654,7 +654,7 @@ class MediaKitAudioService with Logging {
           resultDuration = _duration;
           break;
         }
-        await Future.delayed(const Duration(milliseconds: 50));
+        await Future.delayed(AppConstants.audioServicePollingDelay);
       }
 
       logDebug('File set, duration: $resultDuration');
@@ -677,7 +677,7 @@ class MediaKitAudioService with Logging {
     const maxAttempts = 10;
 
     while (attempts < maxAttempts) {
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(AppConstants.audioServicePollingDelay);
       if (_synthesizeProcessingState() == FmpAudioProcessingState.idle) {
         logDebug('Player is now idle');
         return;

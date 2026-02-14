@@ -161,11 +161,11 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
         const SizedBox(height: 8),
         InkWell(
           onTap: () => _showCoverPicker(context),
-          borderRadius: AppRadius.borderRadiusLg,
+          borderRadius: AppRadius.borderRadiusMd,
           child: Container(
             height: 120,
             decoration: BoxDecoration(
-              borderRadius: AppRadius.borderRadiusLg,
+              borderRadius: AppRadius.borderRadiusMd,
               border: Border.all(color: colorScheme.outline.withValues(alpha: 0.5)),
             ),
             child: Row(

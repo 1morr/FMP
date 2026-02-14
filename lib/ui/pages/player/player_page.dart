@@ -151,7 +151,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       child: Container(
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerHighest,
-          borderRadius: AppRadius.borderRadiusXxxl,
+          borderRadius: AppRadius.borderRadiusXl,
           boxShadow: [
             BoxShadow(
               color: colorScheme.shadow.withValues(alpha: 0.2),
@@ -450,7 +450,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         padding: const WidgetStatePropertyAll(EdgeInsets.zero),
         minimumSize: const WidgetStatePropertyAll(Size(menuWidth, 0)),
         shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusXl),
+          RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
         ),
       ),
       menuChildren: [
@@ -628,7 +628,7 @@ class _TrackInfoDialog extends ConsumerWidget {
                       height: 4,
                       decoration: BoxDecoration(
                         color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(2),
+                        borderRadius: AppRadius.borderRadiusXs,
                       ),
                     ),
                     // 标题栏
@@ -999,7 +999,7 @@ class _CommentPagerState extends State<_CommentPager> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: colorScheme.surfaceContainerHigh,
-                borderRadius: AppRadius.borderRadiusXxl,
+                borderRadius: AppRadius.borderRadiusLg,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1056,10 +1056,10 @@ class _CommentPagerState extends State<_CommentPager> {
       color: isEnabled
           ? colorScheme.primaryContainer.withValues(alpha: 0.5)
           : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-      borderRadius: AppRadius.borderRadiusXl,
+      borderRadius: AppRadius.borderRadiusLg,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: AppRadius.borderRadiusXl,
+        borderRadius: AppRadius.borderRadiusLg,
         child: SizedBox(
           width: 24,
           height: 24,
@@ -1174,7 +1174,7 @@ class _BasicInfoContent extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerHighest,
-            borderRadius: AppRadius.borderRadiusXl,
+            borderRadius: AppRadius.borderRadiusLg,
           ),
           child: Row(
             children: [
@@ -1299,7 +1299,7 @@ class _AudioInfoSection extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
-        borderRadius: AppRadius.borderRadiusXxxl,
+        borderRadius: AppRadius.borderRadiusXl,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

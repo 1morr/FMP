@@ -133,7 +133,7 @@ class TrackDetailPanel extends ConsumerWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           ClipRRect(
-            borderRadius: AppRadius.borderRadiusXxxl,
+            borderRadius: AppRadius.borderRadiusXl,
             child: AspectRatio(
               aspectRatio: 1,
               child: TrackCover(
@@ -436,7 +436,7 @@ class _DetailContent extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
-        borderRadius: AppRadius.borderRadiusXxl,
+        borderRadius: AppRadius.borderRadiusLg,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -557,7 +557,7 @@ class _ClickableCoverState extends State<_ClickableCover> {
             ? () => UrlLauncherService.instance.openVideo(widget.track!)
             : null,
         child: ClipRRect(
-          borderRadius: AppRadius.borderRadiusXxxl,
+          borderRadius: AppRadius.borderRadiusXl,
           child: AspectRatio(
             aspectRatio: 16 / 9,
             child: Stack(
@@ -581,7 +581,7 @@ class _ClickableCoverState extends State<_ClickableCover> {
                     ),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.75),
-                      borderRadius: AppRadius.borderRadiusMd,
+                      borderRadius: AppRadius.borderRadiusSm,
                     ),
                     child: Text(
                       widget.detail.formattedDuration,
@@ -652,7 +652,7 @@ class _ClickableAvatar extends StatelessWidget {
             : null,
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: AppRadius.borderRadiusXxxl,
+            borderRadius: AppRadius.borderRadiusXl,
             border: Border.all(
               color: Theme.of(context).colorScheme.outlineVariant,
               width: 1,
@@ -976,7 +976,7 @@ class _CommentPagerState extends State<_CommentPager> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: colorScheme.surfaceContainerHigh,
-                borderRadius: AppRadius.borderRadiusXxl,
+                borderRadius: AppRadius.borderRadiusLg,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1033,10 +1033,10 @@ class _CommentPagerState extends State<_CommentPager> {
       color: isEnabled
           ? colorScheme.primaryContainer.withValues(alpha: 0.5)
           : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-      borderRadius: AppRadius.borderRadiusXl,
+      borderRadius: AppRadius.borderRadiusLg,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: AppRadius.borderRadiusXl,
+        borderRadius: AppRadius.borderRadiusLg,
         child: SizedBox(
           width: 24,
           height: 24,
@@ -1269,7 +1269,7 @@ class _RadioDetailContent extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest,
-              borderRadius: AppRadius.borderRadiusXxxl,
+              borderRadius: AppRadius.borderRadiusXl,
             ),
             child: Text(
               tag.trim(),
@@ -1367,7 +1367,7 @@ class _RadioClickableCoverState extends State<_RadioClickableCover> {
       child: GestureDetector(
         onTap: () => UrlLauncherService.instance.openBilibiliLive(widget.station.sourceId),
         child: ClipRRect(
-          borderRadius: AppRadius.borderRadiusXxxl,
+          borderRadius: AppRadius.borderRadiusXl,
           child: AspectRatio(
             aspectRatio: 16 / 9,
             child: Stack(
@@ -1392,7 +1392,7 @@ class _RadioClickableCoverState extends State<_RadioClickableCover> {
                       ),
                       decoration: BoxDecoration(
                         color: Colors.red,
-                        borderRadius: AppRadius.borderRadiusMd,
+                        borderRadius: AppRadius.borderRadiusSm,
                       ),
                       child: const Text(
                         'LIVE',
@@ -1480,7 +1480,7 @@ class _RadioClickableAvatar extends StatelessWidget {
             : null,
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: AppRadius.borderRadiusXxxl,
+            borderRadius: AppRadius.borderRadiusXl,
             border: Border.all(
               color: colorScheme.outlineVariant,
               width: 1,

@@ -687,7 +687,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ref.read(audioControllerProvider.notifier).togglePlayPause();
                 }
               },
-              borderRadius: AppRadius.borderRadiusXl,
+              borderRadius: AppRadius.borderRadiusLg,
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Row(
@@ -1131,7 +1131,7 @@ class _HomeRadioStationCard extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       onLongPress: onLongPress,
-      borderRadius: AppRadius.borderRadiusXl,
+      borderRadius: AppRadius.borderRadiusLg,
       child: Column(
         children: [
           // 圆形封面

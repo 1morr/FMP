@@ -218,7 +218,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                         height: _isHovering || _isDragging ? 6 : 2,
                         decoration: BoxDecoration(
                           color: colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(2),
+                          borderRadius: AppRadius.borderRadiusXs,
                         ),
                       ),
                     ),
@@ -232,7 +232,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                         height: _isHovering || _isDragging ? 6 : 2,
                         decoration: BoxDecoration(
                           color: colorScheme.primary,
-                          borderRadius: BorderRadius.circular(2),
+                          borderRadius: AppRadius.borderRadiusXs,
                         ),
                       ),
                     ),
@@ -407,7 +407,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
         padding: const WidgetStatePropertyAll(EdgeInsets.zero),
         minimumSize: const WidgetStatePropertyAll(Size(menuWidth, 0)),
         shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusXl),
+          RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
         ),
       ),
       menuChildren: [
@@ -498,7 +498,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
         style: MenuStyle(
           padding: WidgetStatePropertyAll(EdgeInsets.zero),
           shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusXl),
+            RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
           ),
         ),
         alignmentOffset: const Offset(0, -170),
