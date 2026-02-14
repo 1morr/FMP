@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/radio_station.dart';
 import '../../data/models/track.dart'; // for SourceType
@@ -190,12 +191,8 @@ class RadioController extends StateNotifier<RadioState> with Logging {
   StreamSubscription? _refreshServiceSubscription;
 
   // 重連配置
-  static const int _maxReconnectAttempts = 3;
-  static const List<Duration> _reconnectDelays = [
-    Duration(seconds: 1),
-    Duration(seconds: 3),
-    Duration(seconds: 10),
-  ];
+  static const int _maxReconnectAttempts = RadioReconnectConfig.maxAttempts;
+  static const List<Duration> _reconnectDelays = RadioReconnectConfig.delays;
 
   // 播放開始時間（用於計算已播放時長）
   DateTime? _playStartTime;

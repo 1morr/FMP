@@ -71,10 +71,11 @@
 | 常量類 | 文件 | 說明 |
 |--------|------|------|
 | AppConstants | `core/constants/app_constants.dart` | 應用級常量（超時、重試、緩存策略等） |
-| AppSpacing | `core/constants/ui_constants.dart` | 間距常量（4dp 倍數系統） |
+| NetworkRetryConfig | `core/constants/app_constants.dart` | 播放失敗漸進式重試配置（5次，1-16s） |
+| RadioReconnectConfig | `core/constants/app_constants.dart` | 電台直播流斷開漸進式重連配置（3次，1-10s） |
 | AppRadius | `core/constants/ui_constants.dart` | 圓角常量 + 預構建 BorderRadius |
 | AnimationDurations | `core/constants/ui_constants.dart` | 動畫時長常量 |
-| AppSizes | `core/constants/ui_constants.dart` | UI 尺寸常量（按鈕、列表項高度等） |
+| AppSizes | `core/constants/ui_constants.dart` | UI 尺寸常量（縮略圖、按鈕、卡片比例等） |
 | ToastDurations | `core/constants/ui_constants.dart` | Toast 顯示時長 |
 | DebounceDurations | `core/constants/ui_constants.dart` | 防抖時長 |
 
