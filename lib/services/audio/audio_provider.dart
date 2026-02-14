@@ -1622,7 +1622,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       logDebug('Waiting for previous play operation to complete...');
       _playLock!.completeIf(_playLock!.requestId);
       await _playLock!.completer.future.timeout(
-        const Duration(seconds: 5),
+        AppConstants.playLockTimeout,
         onTimeout: () {
           logWarning('Previous play operation timed out, proceeding anyway');
         },

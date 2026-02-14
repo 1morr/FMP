@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/ui_constants.dart';
 import '../../../../core/services/image_loading_service.dart';
 import '../../../../core/services/toast_service.dart';
 import '../../../../data/models/playlist.dart';
@@ -160,11 +161,11 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
         const SizedBox(height: 8),
         InkWell(
           onTap: () => _showCoverPicker(context),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppRadius.borderRadiusLg,
           child: Container(
             height: 120,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: AppRadius.borderRadiusLg,
               border: Border.all(color: colorScheme.outline.withValues(alpha: 0.5)),
             ),
             child: Row(
@@ -461,7 +462,7 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: AppRadius.borderRadiusSm,
               ),
               child: SelectableText(
                 t.library.createPlaylist.oldNewPath(oldPath: oldFolder, newPath: newFolder),

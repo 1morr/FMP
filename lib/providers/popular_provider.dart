@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
+import '../core/constants/app_constants.dart';
 import '../data/models/track.dart';
 import '../data/sources/bilibili_source.dart';
 import '../data/sources/youtube_source.dart';
@@ -123,12 +124,12 @@ final homeBilibiliMusicRankingProvider = StreamProvider<List<Track>>((ref) async
 
   // 發送當前緩存的前 10 首（如果有）
   if (service.bilibiliTracks.isNotEmpty) {
-    yield service.bilibiliTracks.take(10).toList();
+    yield service.bilibiliTracks.take(AppConstants.rankingPreviewCount).toList();
   }
 
   // 監聽後續更新
   await for (final _ in service.stateChanges) {
-    yield service.bilibiliTracks.take(10).toList();
+    yield service.bilibiliTracks.take(AppConstants.rankingPreviewCount).toList();
   }
 });
 
@@ -227,12 +228,12 @@ final homeYouTubeMusicRankingProvider = StreamProvider<List<Track>>((ref) async*
 
   // 發送當前緩存的前 10 首（如果有）
   if (service.youtubeTracks.isNotEmpty) {
-    yield service.youtubeTracks.take(10).toList();
+    yield service.youtubeTracks.take(AppConstants.rankingPreviewCount).toList();
   }
 
   // 監聯後續更新
   await for (final _ in service.stateChanges) {
-    yield service.youtubeTracks.take(10).toList();
+    yield service.youtubeTracks.take(AppConstants.rankingPreviewCount).toList();
   }
 });
 

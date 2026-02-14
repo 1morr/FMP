@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/services/image_loading_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
+import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/radio_station.dart';
 import '../../../i18n/strings.g.dart';
@@ -179,7 +181,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
         maxCrossAxisExtent: 160,
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,
-        childAspectRatio: 0.8,
+        childAspectRatio: AppConstants.cardAspectRatio,
       ),
       itemCount: stations.length,
       itemBuilder: (context, index) {
@@ -227,7 +229,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
         maxCrossAxisExtent: 160,
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,
-        childAspectRatio: 0.8,
+        childAspectRatio: AppConstants.cardAspectRatio,
       ),
       itemCount: stations.length,
       dragStartDelay: Duration.zero,
@@ -266,7 +268,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: colorScheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.borderRadiusLg,
       ),
       child: Row(
         children: [
@@ -397,7 +399,7 @@ class _RadioStationCard extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       onLongPress: onLongPress,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: AppRadius.borderRadiusXl,
       child: LayoutBuilder(
         builder: (context, constraints) {
           // 封面大小 = 卡片宽度 - 水平padding
@@ -727,7 +729,7 @@ class _ReorderableRadioStationCard extends StatelessWidget {
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: colorScheme.primary.withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: AppRadius.borderRadiusSm,
             ),
             child: Icon(
               Icons.drag_indicator,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/play_history.dart';
@@ -247,7 +248,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             if (tracks.isEmpty) {
               return const SizedBox.shrink();
             }
-            final displayTracks = tracks.take(5).toList();
+            final displayTracks = tracks.take(AppConstants.homeTrackPreviewCount).toList();
             return Column(
               children: [
                 for (int i = 0; i < displayTracks.length; i++)
@@ -268,7 +269,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       error: (e, s) => const SizedBox.shrink(),
       data: (lists) {
         // 最多显示 20 个歌单
-        final recentLists = lists.take(20).toList();
+        final recentLists = lists.take(AppConstants.homeListPreviewCount).toList();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -387,7 +388,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       error: (e, s) => const SizedBox.shrink(),
       data: (historyList) {
         // 最多显示 20 个
-        final displayList = historyList.take(20).toList();
+        final displayList = historyList.take(AppConstants.homeListPreviewCount).toList();
 
         if (displayList.isEmpty) return const SizedBox.shrink();
 
@@ -686,7 +687,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ref.read(audioControllerProvider.notifier).togglePlayPause();
                 }
               },
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: AppRadius.borderRadiusXl,
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Row(
@@ -755,7 +756,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     ColorScheme colorScheme,
   ) {
     // 使用 upcomingTracks 获取接下来要播放的歌曲（已考虑 shuffle 模式）
-    final upNext = playerState.upcomingTracks.take(3).toList();
+    final upNext = playerState.upcomingTracks.take(AppConstants.upcomingTracksPreviewCount).toList();
     if (upNext.isEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -827,7 +828,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         return aLive.compareTo(bLive);
       });
     // 最多显示 20 个
-    final displayStations = sortedStations.take(20).toList();
+    final displayStations = sortedStations.take(AppConstants.homeListPreviewCount).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1130,7 +1131,7 @@ class _HomeRadioStationCard extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       onLongPress: onLongPress,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: AppRadius.borderRadiusXl,
       child: Column(
         children: [
           // 圆形封面

@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
-import '../constants/app_constants.dart';
+import '../constants/ui_constants.dart';
 import '../utils/thumbnail_url_utils.dart';
 import 'network_image_cache_service.dart';
 
@@ -59,7 +59,7 @@ class ImageLoadingService {
     double? targetDisplaySize,
     Map<String, String>? headers,
     bool showLoadingIndicator = false,
-    Duration fadeInDuration = AppConstants.defaultFadeInDuration,
+    Duration fadeInDuration = AnimationDurations.fast,
   }) {
     // 1. 尝试加载本地图片（假设调用方已验证文件存在）
     if (localPath != null) {
@@ -113,7 +113,7 @@ class ImageLoadingService {
     double? targetDisplaySize,
     Map<String, String>? headers,
     bool showLoadingIndicator = false,
-    Duration fadeInDuration = AppConstants.defaultFadeInDuration,
+    Duration fadeInDuration = AnimationDurations.fast,
   }) {
     if (networkUrl != null && networkUrl.isNotEmpty) {
       // 根据显示尺寸优化 URL（优先使用 targetDisplaySize）
@@ -370,7 +370,7 @@ class _CachedNetworkImage extends StatelessWidget {
       httpHeaders: headers,
       cacheManager: NetworkImageCacheService.defaultCacheManager,
       fadeInDuration: fadeInDuration,
-      fadeOutDuration: const Duration(milliseconds: 100),
+      fadeOutDuration: AnimationDurations.fastest,
       // 限制内存缓存中的图片尺寸，减少内存占用
       memCacheWidth: memCacheWidth,
       memCacheHeight: memCacheHeight,

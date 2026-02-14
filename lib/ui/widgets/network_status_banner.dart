@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../services/audio/audio_provider.dart';
+import '../../core/constants/ui_constants.dart';
 import '../../services/network/connectivity_service.dart';
 
 /// Banner 是否显示的 Provider
@@ -34,7 +34,7 @@ class _NetworkStatusBannerState extends ConsumerState<NetworkStatusBanner>
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: AppConstants.defaultAnimationDuration,
+      duration: AnimationDurations.normal,
       vsync: this,
     );
     _slideAnimation = Tween<double>(

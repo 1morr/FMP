@@ -51,6 +51,9 @@ class AppConstants {
   /// 位置保存定时器间隔
   static const Duration positionSaveInterval = Duration(seconds: 10);
 
+  /// 播放锁超时
+  static const Duration playLockTimeout = Duration(seconds: 5);
+
   // ==================== 网络超时 ====================
 
   /// 网络连接超时
@@ -61,33 +64,6 @@ class AppConstants {
 
   /// 下载连接超时
   static const Duration downloadConnectTimeout = Duration(seconds: 30);
-
-  // ==================== UI 动画 ====================
-
-  /// 默认淡入动画时长 (150ms)
-  static const Duration defaultFadeInDuration = Duration(milliseconds: 150);
-
-  /// 默认过渡动画时长 (300ms)
-  static const Duration defaultAnimationDuration = Duration(milliseconds: 300);
-
-  /// 导航动画时长
-  static const Duration navigationAnimationDuration = Duration(milliseconds: 200);
-
-  /// 进度指示器动画时长
-  static const Duration progressIndicatorDuration = Duration(milliseconds: 200);
-
-  // ==================== Toast 与通知 ====================
-
-  /// Toast 默认显示时长（成功、信息）
-  static const Duration toastDuration = Duration(milliseconds: 1500);
-
-  /// Toast 错误/警告显示时长
-  static const Duration toastErrorDuration = Duration(milliseconds: 3000);
-
-  // ==================== 播放指示器 ====================
-
-  /// 播放动画时长
-  static const Duration playingIndicatorDuration = Duration(milliseconds: 1600);
 
   // ==================== 重试与延迟 ====================
 
@@ -121,6 +97,26 @@ class AppConstants {
 
   /// 大缩略图尺寸
   static const double thumbnailSizeLarge = 56.0;
+
+  /// 卡片宽高比
+  static const double cardAspectRatio = 0.8;
+
+  // ==================== 显示数量限制 ====================
+
+  /// 首页歌曲预览数量
+  static const int homeTrackPreviewCount = 5;
+
+  /// 首页列表预览数量
+  static const int homeListPreviewCount = 20;
+
+  /// 即将播放预览数量
+  static const int upcomingTracksPreviewCount = 3;
+
+  /// 排行榜预览数量
+  static const int rankingPreviewCount = 10;
+
+  /// 评论预览数量
+  static const int commentsPreviewCount = 3;
 }
 
 /// 网络重试配置

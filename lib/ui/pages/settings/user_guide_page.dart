@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../i18n/strings.g.dart';
+import '../../../core/constants/ui_constants.dart';
 
 /// 使用说明页面
 class UserGuidePage extends StatelessWidget {
@@ -370,7 +371,7 @@ class UserGuidePage extends StatelessWidget {
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: iconColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: AppRadius.borderRadiusLg,
                   ),
                   child: Icon(
                     icon,

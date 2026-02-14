@@ -19,6 +19,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../providers/track_detail_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/platform/url_launcher_service.dart';
+import '../../../core/constants/ui_constants.dart';
 import '../../widgets/track_thumbnail.dart';
 
 /// 播放器页面（全屏）
@@ -66,13 +67,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             onSelected: (value) async {
               if (value == 'info') {
                 // 延迟显示弹窗，等主菜单关闭后再显示
-                Future.delayed(const Duration(milliseconds: 100), () {
+                Future.delayed(AnimationDurations.fastest, () {
                   if (!context.mounted) return;
                   _showTrackInfoDialog(context, colorScheme);
                 });
               } else if (value == 'speed') {
                 // 延迟显示子菜单，等主菜单关闭后再显示
-                Future.delayed(const Duration(milliseconds: 100), () {
+                Future.delayed(AnimationDurations.fastest, () {
                   if (!context.mounted) return;
                   _showSpeedMenu(context, controller, playerState.speed, colorScheme);
                 });
@@ -150,7 +151,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       child: Container(
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: AppRadius.borderRadiusXxxl,
           boxShadow: [
             BoxShadow(
               color: colorScheme.shadow.withValues(alpha: 0.2),
@@ -328,7 +329,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     AudioController controller,
     ColorScheme colorScheme,
   ) {
-    const double buttonSize = 80;
+    const double buttonSize = AppSizes.playerMainButton;
 
     if (state.isBuffering || state.isLoading) {
       return SizedBox(
@@ -449,7 +450,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         padding: const WidgetStatePropertyAll(EdgeInsets.zero),
         minimumSize: const WidgetStatePropertyAll(Size(menuWidth, 0)),
         shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusXl),
         ),
       ),
       menuChildren: [
@@ -880,7 +881,7 @@ class _CommentPagerState extends State<_CommentPager> {
   bool _isForward = true;
   final GlobalKey _containerKey = GlobalKey();
 
-  List<VideoComment> get _commentsToShow => widget.comments.take(3).toList();
+  List<VideoComment> get _commentsToShow => widget.comments.take(AppConstants.commentsPreviewCount).toList();
 
   bool get _hasPrevious => _currentIndex > 0;
   bool get _hasNext => _currentIndex < _commentsToShow.length - 1;
@@ -975,7 +976,7 @@ class _CommentPagerState extends State<_CommentPager> {
         // 评论内容（带动画）
         ClipRect(
           child: AnimatedSwitcher(
-            duration: AppConstants.defaultAnimationDuration,
+            duration: AnimationDurations.normal,
             transitionBuilder: (child, animation) {
               final offsetAnimation = Tween<Offset>(
                 begin: Offset(_isForward ? 1.0 : -1.0, 0.0),
@@ -998,7 +999,7 @@ class _CommentPagerState extends State<_CommentPager> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: colorScheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: AppRadius.borderRadiusXxl,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1055,10 +1056,10 @@ class _CommentPagerState extends State<_CommentPager> {
       color: isEnabled
           ? colorScheme.primaryContainer.withValues(alpha: 0.5)
           : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: AppRadius.borderRadiusXl,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.borderRadiusXl,
         child: SizedBox(
           width: 24,
           height: 24,
@@ -1173,7 +1174,7 @@ class _BasicInfoContent extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: AppRadius.borderRadiusXl,
           ),
           child: Row(
             children: [
@@ -1298,7 +1299,7 @@ class _AudioInfoSection extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadius.borderRadiusXxxl,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fmp/i18n/strings.g.dart';
+import '../../core/constants/ui_constants.dart';
 
 /// 错误类型枚举
 enum ErrorType {
@@ -181,7 +182,7 @@ class ErrorDisplay extends StatelessWidget {
         color: type == ErrorType.empty
             ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
             : colorScheme.errorContainer.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.borderRadiusXl,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -333,7 +334,7 @@ class ImageErrorPlaceholder extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: borderRadius ?? BorderRadius.circular(8),
+        borderRadius: borderRadius ?? AppRadius.borderRadiusLg,
       ),
       child: Center(
         child: Icon(

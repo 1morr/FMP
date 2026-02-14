@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../i18n/strings.g.dart';
+import '../../core/constants/ui_constants.dart';
 import '../../providers/update_provider.dart';
 import '../../services/update/update_service.dart';
 
@@ -134,7 +135,7 @@ class UpdateDialog extends ConsumerWidget {
             if (isDownloading) ...[
               LinearProgressIndicator(
                 value: updateState.downloadProgress,
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: AppRadius.borderRadiusSm,
               ),
               const SizedBox(height: 4),
               Text(
@@ -159,7 +160,7 @@ class UpdateDialog extends ConsumerWidget {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.errorContainer,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: AppRadius.borderRadiusLg,
                 ),
                 child: Text(
                   updateState.errorMessage!,

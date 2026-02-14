@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/logger.dart';
 import '../../../i18n/strings.g.dart';
+import '../../../core/constants/ui_constants.dart';
 
 /// 实时日志查看页面
 class LogViewerPage extends StatefulWidget {
@@ -52,7 +53,7 @@ class _LogViewerPageState extends State<LogViewerPage> {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 100),
+          duration: AnimationDurations.fastest,
           curve: Curves.easeOut,
         );
       }
@@ -149,7 +150,7 @@ class _LogViewerPageState extends State<LogViewerPage> {
                 hintText: t.logViewer.searchHint,
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: AppRadius.borderRadiusLg,
                 ),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 isDense: true,
@@ -240,7 +241,7 @@ class _LogEntryTile extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: AppRadius.borderRadiusSm,
                 ),
                 child: Text(
                   entry.tag!,

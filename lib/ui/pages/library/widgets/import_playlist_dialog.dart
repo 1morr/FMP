@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:simple_icons/simple_icons.dart';
 
+import '../../../../core/constants/ui_constants.dart';
 import '../../../../core/services/toast_service.dart';
 import '../../../../data/models/track.dart';
 import '../../../../data/sources/source_provider.dart';
@@ -279,7 +280,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: colorScheme.errorContainer,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: AppRadius.borderRadiusLg,
                   ),
                   child: Row(
                     children: [

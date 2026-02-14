@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
@@ -36,7 +37,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
   double _scrollOffset = 0;
 
   // AppBar 收起阈值（expandedHeight - kToolbarHeight）
-  static const double _collapseThreshold = 280 - kToolbarHeight;
+  static const double _collapseThreshold = AppSizes.collapseThreshold;
 
   @override
   void initState() {
@@ -215,7 +216,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
                     width: 120,
                     height: 120,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: AppRadius.borderRadiusLg,
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.3),
@@ -260,7 +261,7 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
                           ),
                           decoration: BoxDecoration(
                             color: colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: AppRadius.borderRadiusXl,
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -535,7 +536,7 @@ class _GroupHeader extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
               color: colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: AppRadius.borderRadiusSm,
             ),
             child: Text(
               '${group.tracks.length}P',
@@ -688,7 +689,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
                     height: 32,
                     decoration: BoxDecoration(
                       color: colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: AppRadius.borderRadiusSm,
                     ),
                     alignment: Alignment.center,
                     child: Text(

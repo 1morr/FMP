@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import '../../../core/constants/ui_constants.dart';
 import '../../../core/utils/number_format_utils.dart';
 import '../../../i18n/strings.g.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -283,7 +284,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5)),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: AppRadius.borderRadiusXxxl,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1047,7 +1048,7 @@ class _SearchResultTile extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: AppRadius.borderRadiusSm,
                   ),
                   child: Text(
                     '${pages!.length}P',
@@ -1166,7 +1167,7 @@ class _PageTile extends ConsumerWidget {
                   height: 32,
                   decoration: BoxDecoration(
                     color: colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: AppRadius.borderRadiusSm,
                   ),
                   alignment: Alignment.center,
                   child: Text(
@@ -1300,7 +1301,7 @@ class _LocalGroupTile extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: AppRadius.borderRadiusSm,
                   ),
                   child: Text(
                     '${group.partCount}P',
@@ -1450,7 +1451,7 @@ class _LocalTrackTile extends ConsumerWidget {
                 height: 32,
                 decoration: BoxDecoration(
                   color: colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: AppRadius.borderRadiusSm,
                 ),
                 alignment: Alignment.center,
                 child: Text(
@@ -1612,7 +1613,7 @@ class _LiveRoomTile extends StatelessWidget {
       onSelected: (value) => onMenuAction(room, value),
       child: ListTile(
       leading: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: AppRadius.borderRadiusSm,
         child: SizedBox(
           width: 48,
           height: 48,
@@ -1690,7 +1691,7 @@ class _LiveRoomTile extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
               decoration: BoxDecoration(
                 color: room.isLive ? colorScheme.primaryContainer : colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: AppRadius.borderRadiusSm,
               ),
               child: Text(
                 room.areaName!,

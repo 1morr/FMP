@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
+import '../../core/constants/ui_constants.dart';
 import '../../providers/download_path_provider.dart';
 import '../../providers/repository_providers.dart';
 import '../../providers/download/file_exists_cache.dart';
@@ -90,7 +91,7 @@ class _ChangeDownloadPathDialogState
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: AppRadius.borderRadiusLg,
               ),
               child: Row(
                 children: [
@@ -240,7 +241,7 @@ class _ChangeDownloadPathDialogState
         Navigator.pop(context, true);
         // 延迟显示 toast，确保对话框已关闭
         if (messenger != null) {
-          Future.delayed(const Duration(milliseconds: 100), () {
+          Future.delayed(AnimationDurations.fastest, () {
             messenger.showSnackBar(
               SnackBar(content: Text(t.changeDownloadPathDialog.pathChanged)),
             );

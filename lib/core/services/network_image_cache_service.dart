@@ -6,6 +6,8 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
+import '../constants/ui_constants.dart';
+
 /// 缓存文件信息（用于 Isolate 通信）
 class _CacheFileInfo {
   final String path;
@@ -136,7 +138,7 @@ class NetworkImageCacheService {
       _performTrimmingCheck();
     } else {
       // 使用防抖，避免短时间内多次触发
-      _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _debounceTimer = Timer(DebounceDurations.long, () {
         _performTrimmingCheck();
       });
     }

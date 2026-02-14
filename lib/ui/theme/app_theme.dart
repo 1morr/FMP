@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 
+import '../../core/constants/ui_constants.dart';
 import '../../i18n/strings.g.dart';
 
 /// 字体选项
@@ -85,7 +86,7 @@ class AppTheme {
       cardTheme: CardThemeData(
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AppRadius.borderRadiusXl,
         ),
         color: colorScheme.surfaceContainerHighest,
       ),
@@ -93,7 +94,7 @@ class AppTheme {
       // 列表瓦片主题
       listTileTheme: ListTileThemeData(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppRadius.borderRadiusLg,
         ),
       ),
 
@@ -124,15 +125,15 @@ class AppTheme {
         filled: true,
         fillColor: colorScheme.surfaceContainerHighest,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AppRadius.borderRadiusXl,
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AppRadius.borderRadiusXl,
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AppRadius.borderRadiusXl,
           borderSide: BorderSide(color: colorScheme.primary, width: 2),
         ),
       ),
@@ -180,7 +181,7 @@ class AppTheme {
       cardTheme: CardThemeData(
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AppRadius.borderRadiusXl,
         ),
         color: colorScheme.surfaceContainerHighest,
       ),
@@ -188,7 +189,7 @@ class AppTheme {
       // 列表瓦片主题
       listTileTheme: ListTileThemeData(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppRadius.borderRadiusLg,
         ),
       ),
 
@@ -219,15 +220,15 @@ class AppTheme {
         filled: true,
         fillColor: colorScheme.surfaceContainerHighest,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AppRadius.borderRadiusXl,
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AppRadius.borderRadiusXl,
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AppRadius.borderRadiusXl,
           borderSide: BorderSide(color: colorScheme.primary, width: 2),
         ),
       ),

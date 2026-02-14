@@ -10,6 +10,7 @@ import '../../../core/utils/number_format_utils.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/platform/url_launcher_service.dart';
+import '../../../core/constants/ui_constants.dart';
 import '../../../services/radio/radio_controller.dart';
 
 /// 電台播放器頁面（全屏）
@@ -49,7 +50,7 @@ class RadioPlayerPage extends ConsumerWidget {
               if (value == 'sync') {
                 radioController.sync();
               } else if (value == 'info') {
-                Future.delayed(const Duration(milliseconds: 100), () {
+                Future.delayed(AnimationDurations.fastest, () {
                   if (!context.mounted) return;
                   _showLiveInfoDialog(context, radioState, colorScheme);
                 });
@@ -133,7 +134,7 @@ class RadioPlayerPage extends ConsumerWidget {
       child: Container(
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: AppRadius.borderRadiusXxxl,
           boxShadow: [
             BoxShadow(
               color: colorScheme.shadow.withValues(alpha: 0.2),
@@ -215,7 +216,7 @@ class RadioPlayerPage extends ConsumerWidget {
       height: 24,
       child: AnimatedOpacity(
         opacity: state.isPlaying ? 1.0 : 0.0,
-        duration: const Duration(milliseconds: 150),
+        duration: AnimationDurations.fast,
         child: Text(
           parts.isEmpty ? '' : parts.join(' · '),
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -276,7 +277,7 @@ class RadioPlayerPage extends ConsumerWidget {
     RadioController controller,
     ColorScheme colorScheme,
   ) {
-    const double buttonSize = 80;
+    const double buttonSize = AppSizes.playerMainButton;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -819,7 +820,7 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: AppRadius.borderRadiusXxxl,
             ),
             child: Text(
               tag.trim(),

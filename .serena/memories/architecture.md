@@ -67,6 +67,19 @@
 | SettingsRepository | `data/repositories/settings_repository.dart` | Settings 管理 |
 | DownloadRepository | `data/repositories/download_repository.dart` | 下载任务管理 |
 
+### Core Constants
+| 常量類 | 文件 | 說明 |
+|--------|------|------|
+| AppConstants | `core/constants/app_constants.dart` | 應用級常量（超時、重試、緩存策略等） |
+| AppSpacing | `core/constants/ui_constants.dart` | 間距常量（4dp 倍數系統） |
+| AppRadius | `core/constants/ui_constants.dart` | 圓角常量 + 預構建 BorderRadius |
+| AnimationDurations | `core/constants/ui_constants.dart` | 動畫時長常量 |
+| AppSizes | `core/constants/ui_constants.dart` | UI 尺寸常量（按鈕、列表項高度等） |
+| ToastDurations | `core/constants/ui_constants.dart` | Toast 顯示時長 |
+| DebounceDurations | `core/constants/ui_constants.dart` | 防抖時長 |
+
+> **注意**: `BilibiliApiConstants` 已移至 `bilibili_source.dart` 作為私有類 `_BilibiliApiParams`。
+
 ### Sources (音源解析)
 | 音源 | 文件 | 状态 |
 |------|------|------|

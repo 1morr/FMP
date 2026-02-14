@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../core/constants/app_constants.dart';
+import '../core/constants/ui_constants.dart';
 import '../core/services/toast_service.dart';
 import 'layouts/responsive_scaffold.dart';
 import 'router.dart';
@@ -56,8 +56,8 @@ class _AppShellState extends ConsumerState<AppShell> {
         backgroundColor: backgroundColor,
         behavior: SnackBarBehavior.floating,
         duration: message.type == ToastType.error || message.type == ToastType.warning
-            ? AppConstants.toastErrorDuration
-            : AppConstants.toastDuration,
+            ? ToastDurations.long
+            : ToastDurations.short,
       ),
     );
   }

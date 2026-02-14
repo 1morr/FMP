@@ -13,6 +13,7 @@ import '../../../data/models/search_history.dart';
 import '../../../data/models/download_task.dart';
 import '../../../data/models/play_history.dart';
 import '../../../data/models/radio_station.dart';
+import '../../../core/constants/ui_constants.dart';
 
 /// 数据库查看页面
 class DatabaseViewerPage extends ConsumerStatefulWidget {
@@ -883,7 +884,7 @@ class _DataCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: AppRadius.borderRadiusSm,
                       ),
                       child: Text(
                         section.title,
