@@ -325,6 +325,9 @@ class _CoverGridItem extends StatelessWidget {
                   networkUrl: imageUrl,
                   placeholder: const ImagePlaceholder.track(),
                   fit: BoxFit.cover,
+                  width: 100,
+                  height: 100,
+                  targetDisplaySize: 80,
                 ),
                 if (isSelected)
                   Container(

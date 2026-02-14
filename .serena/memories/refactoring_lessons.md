@@ -810,6 +810,39 @@ GestureDetector(
 
 ---
 
+### 23. ImageLoadingService.loadImage() 不传尺寸导致 YouTube 封面 404 (2026-02)
+
+**问题**：编辑歌单弹窗的封面选择网格中，部分 YouTube 封面显示 placeholder，而歌单详情页、迷你播放器等正常显示。
+
+**根本原因**：`cover_picker_dialog.dart` 的 `_CoverGridItem` 调用 `ImageLoadingService.loadImage()` 时没传 `width`/`height`/`targetDisplaySize`。
+
+URL 优化路径差异：
+- 有尺寸（如 `width: 48`）→ `targetSize` = 96 → `mqdefault.jpg`（所有视频都有）
+- 无尺寸 → `displaySize` = null → `targetSize` 默认 400 → `maxresdefault.jpg`（很多视频不存在 → 404）
+
+```dart
+// ❌ 错误 - 无尺寸参数，YouTube 默认选 maxresdefault（可能 404）
+ImageLoadingService.loadImage(
+  networkUrl: imageUrl,
+  placeholder: const ImagePlaceholder.track(),
+  fit: BoxFit.cover,
+)
+
+// ✅ 正确 - 传尺寸确保选择 mqdefault
+ImageLoadingService.loadImage(
+  networkUrl: imageUrl,
+  placeholder: const ImagePlaceholder.track(),
+  fit: BoxFit.cover,
+  width: 100,
+  height: 100,
+  targetDisplaySize: 80,  // 80 * 2 = 160 ≤ 180 → mqdefault
+)
+```
+
+**经验**：调用 `ImageLoadingService.loadImage()` 时务必传尺寸参数。`ThumbnailUrlUtils` 的 YouTube 质量选择只有两档（mqdefault ≤180, maxresdefault >180），而 `maxresdefault` 并非所有视频都有。
+
+---
+
 ## 常用工具组件
 
 | 组件 | 位置 | 用途 |
