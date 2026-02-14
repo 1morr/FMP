@@ -119,6 +119,7 @@ class PlaylistService with Logging {
     String? name,
     String? description,
     String? coverUrl,
+    int? refreshIntervalHours,
   }) async {
     final playlist = await _playlistRepository.getById(playlistId);
     if (playlist == null) {
@@ -172,6 +173,11 @@ class PlaylistService with Logging {
         playlist.coverUrl = coverUrl;
         playlist.hasCustomCover = true;
       }
+    }
+
+    // 更新自動刷新設置
+    if (refreshIntervalHours != null) {
+      playlist.refreshIntervalHours = refreshIntervalHours > 0 ? refreshIntervalHours : null;
     }
 
     await _playlistRepository.save(playlist);

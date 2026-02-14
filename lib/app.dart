@@ -11,6 +11,7 @@ import 'providers/desktop_settings_provider.dart';
 import 'providers/hotkey_config_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/windows_desktop_provider.dart';
+import 'services/refresh/auto_refresh_service.dart';
 import 'i18n/strings.g.dart';
 import 'providers/locale_provider.dart';
 import 'ui/router.dart';
@@ -93,6 +94,9 @@ class FMPApp extends ConsumerWidget {
 
         // 提前初始化播放设置（避免进入设置页时 Switch 出现开启动画）
         ref.watch(playbackSettingsProvider);
+
+        // 初始化自动刷新服务（后台运行，不阻塞 UI）
+        ref.watch(autoRefreshServiceProvider);
 
         return MaterialApp.router(
           title: '${AppConstants.appName} - ${AppConstants.appFullName}',

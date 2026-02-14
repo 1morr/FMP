@@ -32,6 +32,10 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
   /// 是否清除了自定義封面（用於區分「未修改」和「清除」）
   bool _coverCleared = false;
 
+  /// 自動刷新設置
+  bool _autoRefreshEnabled = false;
+  int? _refreshIntervalHours;
+
   bool get isEditing => widget.playlist != null;
 
   @override
@@ -41,6 +45,14 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
     _descriptionController =
         TextEditingController(text: widget.playlist?.description ?? '');
     _customCoverUrl = widget.playlist?.coverUrl;
+
+    // 初始化自動刷新設置
+    if (widget.playlist != null) {
+      _autoRefreshEnabled = widget.playlist!.refreshIntervalHours != null;
+      _refreshIntervalHours = widget.playlist!.refreshIntervalHours ?? 24;
+    } else {
+      _refreshIntervalHours = 24; // 默認 24 小時
+    }
   }
 
   @override
@@ -90,6 +102,14 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
                 ),
                 maxLines: 3,
               ),
+
+              // 自動刷新設置（僅對導入的歌單顯示）
+              if (isEditing && widget.playlist!.isImported && !widget.playlist!.isMix) ...[
+                const SizedBox(height: 24),
+                const Divider(),
+                const SizedBox(height: 16),
+                _buildAutoRefreshSection(context),
+              ],
             ],
           ),
         ),
@@ -196,6 +216,102 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
     );
   }
 
+  /// 構建自動刷新設置區域
+  Widget _buildAutoRefreshSection(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          t.library.createPlaylist.autoRefresh,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: colorScheme.onSurface,
+              ),
+        ),
+        const SizedBox(height: 12),
+
+        // 啟用自動刷新開關
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(t.library.createPlaylist.enableAutoRefresh),
+          subtitle: Text(
+            t.library.createPlaylist.autoRefreshHint,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.outline,
+                ),
+          ),
+          value: _autoRefreshEnabled,
+          onChanged: (value) {
+            setState(() {
+              _autoRefreshEnabled = value;
+            });
+          },
+        ),
+
+        // 刷新間隔選擇（僅在啟用時顯示）
+        if (_autoRefreshEnabled) ...[
+          const SizedBox(height: 8),
+          DropdownButtonFormField<int>(
+            decoration: InputDecoration(
+              labelText: t.library.createPlaylist.refreshInterval,
+              border: const OutlineInputBorder(),
+            ),
+            initialValue: _refreshIntervalHours,
+            items: [
+              DropdownMenuItem(value: 1, child: Text(t.library.createPlaylist.interval1h)),
+              DropdownMenuItem(value: 6, child: Text(t.library.createPlaylist.interval6h)),
+              DropdownMenuItem(value: 12, child: Text(t.library.createPlaylist.interval12h)),
+              DropdownMenuItem(value: 24, child: Text(t.library.createPlaylist.interval24h)),
+              DropdownMenuItem(value: 48, child: Text(t.library.createPlaylist.interval48h)),
+              DropdownMenuItem(value: 72, child: Text(t.library.createPlaylist.interval72h)),
+              DropdownMenuItem(value: 168, child: Text(t.library.createPlaylist.interval1week)),
+            ],
+            onChanged: (value) {
+              setState(() {
+                _refreshIntervalHours = value;
+              });
+            },
+          ),
+
+          // 顯示上次刷新時間
+          if (widget.playlist!.lastRefreshed != null) ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                t.library.createPlaylist.lastRefreshed(
+                  time: _formatDateTime(widget.playlist!.lastRefreshed!),
+                ),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.outline,
+                    ),
+              ),
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+
+  /// 格式化日期時間
+  String _formatDateTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final diff = now.difference(dateTime);
+
+    if (diff.inMinutes < 1) {
+      return t.library.createPlaylist.justNow;
+    } else if (diff.inHours < 1) {
+      return t.library.createPlaylist.minutesAgo(n: diff.inMinutes);
+    } else if (diff.inDays < 1) {
+      return t.library.createPlaylist.hoursAgo(n: diff.inHours);
+    } else if (diff.inDays < 7) {
+      return t.library.createPlaylist.daysAgo(n: diff.inDays);
+    } else {
+      return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+    }
+  }
+
   /// 構建封面預覽
   Widget _buildCoverPreview(
     String? customUrl,
@@ -272,11 +388,18 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
         }
         // 否則 coverUrl 保持 null，表示不更新
 
+        // 確定自動刷新設置
+        int? refreshIntervalHours;
+        if (widget.playlist!.isImported && !widget.playlist!.isMix) {
+          refreshIntervalHours = _autoRefreshEnabled ? _refreshIntervalHours : -1; // -1 表示禁用
+        }
+
         final result = await notifier.updatePlaylist(
           playlistId: widget.playlist!.id,
           name: name,
           description: description.isEmpty ? null : description,
           coverUrl: coverUrl,
+          refreshIntervalHours: refreshIntervalHours,
         );
 
         if (mounted) {
