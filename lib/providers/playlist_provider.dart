@@ -109,6 +109,7 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
     String? name,
     String? description,
     String? coverUrl,
+    int? refreshIntervalHours,
   }) async {
     try {
       final result = await _service.updatePlaylist(
@@ -116,6 +117,7 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
         name: name,
         description: description,
         coverUrl: coverUrl,
+        refreshIntervalHours: refreshIntervalHours,
       );
       // watch 自动更新列表
       _ref.invalidate(allPlaylistsProvider);

@@ -156,6 +156,13 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
     try {
       final result = await importService.refreshPlaylist(playlistId);
 
+      // 更新 lastRefreshed 时间戳
+      final updatedPlaylist = await playlistRepo.getById(playlistId);
+      if (updatedPlaylist != null) {
+        updatedPlaylist.lastRefreshed = DateTime.now();
+        await playlistRepo.save(updatedPlaylist);
+      }
+
       // 刷新成功
       _updatePlaylistState(
         playlistId,
