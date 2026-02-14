@@ -1,6 +1,7 @@
 {
   "cannotPlay": "无法播放「$title」",
   "playbackFailed": "播放失败: $message",
+  "queueFull": "播放列表已满（最多${count}首）",
   "playbackFailedTrack": "播放失败: $title",
   "mixPlaylistNoAdd": "Mix 播放列表不支持添加歌曲",
   "mixLoadMoreFailed": "无法获取更多歌曲，请稍后重试",

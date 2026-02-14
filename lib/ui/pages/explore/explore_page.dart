@@ -13,6 +13,7 @@ import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/context_menu_region.dart';
 import '../../widgets/selection_mode_app_bar.dart';
 import '../../widgets/track_thumbnail.dart';
+import '../../../core/constants/app_constants.dart';
 
 /// 探索页面 - 显示音乐排行榜
 class ExplorePage extends ConsumerStatefulWidget {
@@ -273,8 +274,8 @@ class _ExploreTrackTile extends ConsumerWidget {
           const SizedBox(width: 12),
           TrackThumbnail(
             track: track,
-            size: 48,
-            borderRadius: 4,
+            size: AppConstants.thumbnailSizeMedium,
+            borderRadius: AppConstants.borderRadiusSmall,
             isPlaying: isPlaying,
           ),
         ],

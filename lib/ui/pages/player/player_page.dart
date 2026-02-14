@@ -15,6 +15,7 @@ import '../../../data/models/video_detail.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/download/file_exists_cache.dart';
 import '../../../providers/download/download_providers.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../providers/track_detail_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/platform/url_launcher_service.dart';
@@ -65,13 +66,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             onSelected: (value) async {
               if (value == 'info') {
                 // 延迟显示弹窗，等主菜单关闭后再显示
-                Future.delayed(const Duration(milliseconds: 100), () {
+                Future.delayed(AppConstants.operationFeedbackDelay, () {
                   if (!context.mounted) return;
                   _showTrackInfoDialog(context, colorScheme);
                 });
               } else if (value == 'speed') {
                 // 延迟显示子菜单，等主菜单关闭后再显示
-                Future.delayed(const Duration(milliseconds: 100), () {
+                Future.delayed(AppConstants.operationFeedbackDelay, () {
                   if (!context.mounted) return;
                   _showSpeedMenu(context, controller, playerState.speed, colorScheme);
                 });
@@ -393,7 +394,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     showMenu<double>(
       context: context,
       position: position,
-      items: [0.5, 0.75, 1.0, 1.25, 1.5, 2.0].map((speed) => PopupMenuItem(
+      items: AppConstants.playbackSpeeds.map((speed) => PopupMenuItem(
         value: speed,
         child: Row(
           children: [

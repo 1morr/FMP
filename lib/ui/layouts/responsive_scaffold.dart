@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/constants/breakpoints.dart';
 import '../../i18n/strings.g.dart';
 import '../../services/audio/audio_provider.dart';
@@ -229,7 +230,7 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
           // 可收起的侧边导航栏
           ClipRect(
             child: AnimatedAlign(
-              duration: const Duration(milliseconds: 200),
+              duration: AppConstants.navigationAnimationDuration,
               alignment: Alignment.centerLeft,
               widthFactor: _isNavExpanded ? 1.0 : 72 / 256,
               child: SizedBox(

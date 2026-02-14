@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:isar/isar.dart';
+
+import '../../core/constants/app_constants.dart';
 import '../../data/models/track.dart';
 import '../../data/models/search_history.dart';
 import '../../data/sources/base_source.dart';
@@ -224,8 +226,8 @@ class SearchService {
           .sortByTimestampDesc()
           .findAll();
 
-      if (allHistory.length > 100) {
-        final toDelete = allHistory.sublist(100);
+      if (allHistory.length > AppConstants.maxSearchHistoryCount) {
+        final toDelete = allHistory.sublist(AppConstants.maxSearchHistoryCount);
         for (final history in toDelete) {
           await _isar.searchHistorys.delete(history.id);
         }

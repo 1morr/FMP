@@ -463,8 +463,15 @@ class QueueManager with Logging {
   }
 
   /// 添加歌曲到队列末尾
-  Future<void> add(Track track) async {
+  /// 返回 true 表示添加成功，false 表示队列已满
+  Future<bool> add(Track track) async {
     logDebug('add: ${track.title}');
+
+    // 检查队列是否超过最大容量
+    if (_tracks.length >= AppConstants.maxQueueSize) {
+      logWarning('Queue size exceeds maximum ${AppConstants.maxQueueSize}, skipping add');
+      return false;
+    }
 
     // 使用 getOrCreate 避免重复创建 Track
     final savedTrack = await _trackRepository.getOrCreate(track);
@@ -482,6 +489,7 @@ class QueueManager with Logging {
 
     await _persistQueue();
     _notifyStateChanged();
+    return true;
   }
 
   /// 添加多首歌曲

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../providers/refresh_provider.dart';
 
 /// 歌单刷新进度指示器组件
@@ -26,7 +27,7 @@ class PlaylistRefreshProgress extends ConsumerWidget {
       child: SafeArea(
         top: false,
         child: AnimatedSize(
-          duration: const Duration(milliseconds: 200),
+          duration: AppConstants.progressIndicatorDuration,
           curve: Curves.easeInOut,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -228,7 +229,7 @@ class RefreshResultSnackBar {
   }) {
     return SnackBar(
       content: Text(t.refreshProvider.failed(name: playlistName, error: errorMessage)),
-      duration: const Duration(seconds: 4),
+      duration: AppConstants.refreshToastDuration,
       backgroundColor: Colors.red[700],
     );
   }

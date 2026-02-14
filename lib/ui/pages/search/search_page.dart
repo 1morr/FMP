@@ -23,6 +23,7 @@ import '../../widgets/track_thumbnail.dart';
 import '../../../providers/selection_provider.dart';
 import '../../widgets/context_menu_region.dart';
 import '../../widgets/selection_mode_app_bar.dart';
+import '../../../core/constants/app_constants.dart';
 
 /// 搜索页
 class SearchPage extends ConsumerStatefulWidget {
@@ -991,8 +992,8 @@ class _SearchResultTile extends ConsumerWidget {
           child: ListTile(
           leading: TrackThumbnail(
             track: track,
-            size: 48,
-            borderRadius: 4,
+            size: AppConstants.thumbnailSizeMedium,
+            borderRadius: AppConstants.borderRadiusSmall,
             isPlaying: shouldHighlight,
           ),
           onLongPress: onLongPress,

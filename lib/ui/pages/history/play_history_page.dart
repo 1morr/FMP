@@ -13,6 +13,7 @@ import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/context_menu_region.dart';
 import '../../widgets/track_thumbnail.dart';
+import '../../../core/constants/app_constants.dart';
 
 /// 播放历史页面
 class PlayHistoryPage extends ConsumerStatefulWidget {
@@ -592,8 +593,8 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
               },
               leading: TrackThumbnail(
                 track: history.toTrack(),
-                size: 48,
-                borderRadius: 4,
+                size: AppConstants.thumbnailSizeMedium,
+                borderRadius: AppConstants.borderRadiusSmall,
                 isPlaying: isPlaying,
               ),
               title: Text(

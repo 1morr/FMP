@@ -5,6 +5,7 @@ import 'package:fmp/i18n/strings.g.dart';
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../providers/repository_providers.dart';
 import '../track_thumbnail.dart';
@@ -153,8 +154,8 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                   // 封面
                   TrackThumbnail(
                     track: widget.firstTrack,
-                    size: 48,
-                    borderRadius: 4,
+                    size: AppConstants.thumbnailSizeMedium,
+                    borderRadius: AppConstants.borderRadiusSmall,
                   ),
                   const SizedBox(width: 12),
                   // 信息
