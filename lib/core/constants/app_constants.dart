@@ -49,11 +49,11 @@ class AppConstants {
   /// 最大并发下载数
   static const int maxConcurrentDownloads = 3;
 
-  /// 下载调度器间隔
-  static const Duration downloadSchedulerInterval = Duration(milliseconds: 500);
+  /// 下载调度器周期检查间隔（作为事件驱动的备份机制）
+  static const Duration downloadSchedulerInterval = Duration(seconds: 5);
 
-  /// 下载进度更新节流间隔
-  static const Duration downloadProgressThrottleInterval = Duration(milliseconds: 500);
+  /// 下载进度更新节流间隔（避免 Windows PostMessage 队列溢出）
+  static const Duration downloadProgressThrottleInterval = Duration(milliseconds: 1000);
 
   // ==================== 网络超时 ====================
 
@@ -112,12 +112,6 @@ class AppConstants {
 
   /// 队列保存重试延迟
   static const Duration queueSaveRetryDelay = Duration(seconds: 1);
-
-  /// 播放锁等待延迟
-  static const Duration playLockWaitDelay = Duration(milliseconds: 100);
-
-  /// 播放位置恢复延迟
-  static const Duration playPositionRestoreDelay = Duration(milliseconds: 300);
 
   /// 页面导航延迟
   static const Duration pageNavigationDelay = Duration(milliseconds: 100);
