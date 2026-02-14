@@ -993,7 +993,7 @@ class _SearchResultTile extends ConsumerWidget {
           leading: TrackThumbnail(
             track: track,
             size: AppConstants.thumbnailSizeMedium,
-            borderRadius: AppConstants.borderRadiusSmall,
+            borderRadius: 4,
             isPlaying: shouldHighlight,
           ),
           onLongPress: onLongPress,

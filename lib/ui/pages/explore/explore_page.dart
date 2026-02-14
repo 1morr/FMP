@@ -275,7 +275,7 @@ class _ExploreTrackTile extends ConsumerWidget {
           TrackThumbnail(
             track: track,
             size: AppConstants.thumbnailSizeMedium,
-            borderRadius: AppConstants.borderRadiusSmall,
+            borderRadius: 4,
             isPlaying: isPlaying,
           ),
         ],

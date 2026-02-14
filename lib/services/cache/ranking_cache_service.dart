@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../data/models/track.dart';
 import '../../data/sources/bilibili_source.dart';
 import '../../data/sources/youtube_source.dart';
@@ -17,7 +18,6 @@ import '../network/connectivity_service.dart';
 /// - 用戶進入首頁時直接顯示緩存，無需等待
 /// - 緩存完整數據，首頁預覽只顯示前 10 首，探索頁使用完整緩存
 class RankingCacheService {
-  static const _refreshInterval = Duration(hours: 1);
   static const _initialLoadTimeout = Duration(seconds: 5); // 初始加載超時時間
 
   /// 全局單例實例，在 main.dart 中初始化
@@ -78,7 +78,7 @@ class RankingCacheService {
     );
 
     // 啟動定時器，每小時刷新
-    _refreshTimer = Timer.periodic(_refreshInterval, (_) {
+    _refreshTimer = Timer.periodic(AppConstants.rankingCacheRefreshInterval, (_) {
       _refreshAll();
     });
   }

@@ -10,13 +10,7 @@ class AppConstants {
   /// 应用全称
   static const String appFullName = 'Flutter Music Player';
 
-  /// 版本号
-  static const String version = '1.0.0';
-
   // ==================== 缓存与存储 ====================
-
-  /// 默认缓存大小上限 (MB)
-  static const int defaultMaxCacheSizeMB = 2048;
 
   /// 音频 URL 默认过期时间 (小时) - Bilibili 使用
   static const int bilibiliAudioUrlExpiryHours = 2;
@@ -24,8 +18,11 @@ class AppConstants {
   /// 音频 URL 默认过期时间 (小时) - YouTube 使用 (过期较快)
   static const int youtubeAudioUrlExpiryHours = 1;
 
-  /// 默认刷新间隔 (小时)
-  static const int defaultRefreshIntervalHours = 24;
+  /// 导入歌单默认刷新间隔 (小时)
+  static const int defaultPlaylistRefreshIntervalHours = 24;
+
+  /// 排行榜缓存刷新间隔
+  static const Duration rankingCacheRefreshInterval = Duration(hours: 1);
 
   /// 搜索历史最大条数
   static const int maxSearchHistoryCount = 100;
@@ -45,9 +42,6 @@ class AppConstants {
   static const Duration positionSaveInterval = Duration(seconds: 10);
 
   // ==================== 下载相关 ====================
-
-  /// 最大并发下载数
-  static const int maxConcurrentDownloads = 3;
 
   /// 下载调度器周期检查间隔（作为事件驱动的备份机制）
   static const Duration downloadSchedulerInterval = Duration(seconds: 5);
@@ -113,22 +107,7 @@ class AppConstants {
   /// 队列保存重试延迟
   static const Duration queueSaveRetryDelay = Duration(seconds: 1);
 
-  /// 页面导航延迟
-  static const Duration pageNavigationDelay = Duration(milliseconds: 100);
-
   // ==================== UI 尺寸 ====================
-
-  /// 小圆角
-  static const double borderRadiusSmall = 4.0;
-
-  /// 中圆角
-  static const double borderRadiusMedium = 8.0;
-
-  /// 大圆角
-  static const double borderRadiusLarge = 12.0;
-
-  /// 超大圆角
-  static const double borderRadiusXL = 16.0;
 
   /// 小缩略图尺寸
   static const double thumbnailSizeSmall = 40.0;
@@ -138,17 +117,6 @@ class AppConstants {
 
   /// 大缩略图尺寸
   static const double thumbnailSizeLarge = 56.0;
-
-  // ==================== 透明度 ====================
-
-  /// 禁用状态透明度
-  static const double disabledOpacity = 0.5;
-
-  /// 次要内容透明度
-  static const double secondaryOpacity = 0.7;
-
-  /// 占位符背景透明度
-  static const double placeholderOpacity = 0.1;
 }
 
 /// 网络重试配置

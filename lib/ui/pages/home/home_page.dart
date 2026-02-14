@@ -695,7 +695,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     TrackThumbnail(
                       track: track,
                       size: AppConstants.thumbnailSizeLarge,
-                      borderRadius: AppConstants.borderRadiusMedium,
+                      borderRadius: 8,
                     ),
                     const SizedBox(width: 12),
                     // 信息
@@ -785,7 +785,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               leading: TrackThumbnail(
                 track: track,
                 size: AppConstants.thumbnailSizeSmall,
-                borderRadius: AppConstants.borderRadiusSmall,
+                borderRadius: 4,
               ),
               title: Text(
                 track.title,
@@ -1006,7 +1006,7 @@ class _RankingTrackTile extends ConsumerWidget {
             TrackThumbnail(
               track: track,
               size: AppConstants.thumbnailSizeMedium,
-              borderRadius: AppConstants.borderRadiusSmall,
+              borderRadius: 4,
               isPlaying: isPlaying,
             ),
           ],

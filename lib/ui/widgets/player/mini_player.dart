@@ -86,7 +86,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                     TrackThumbnail(
                       track: track,
                       size: AppConstants.thumbnailSizeMedium,
-                      borderRadius: AppConstants.borderRadiusMedium,
+                      borderRadius: 8,
                       showPlayingIndicator: false,
                     ),
                     const SizedBox(width: 8),
