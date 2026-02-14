@@ -459,6 +459,20 @@ ListTile(
 )
 ```
 
+### UI Constants System (2026-02)
+All UI magic numbers are centralized in `lib/core/constants/ui_constants.dart`.
+
+| 常量類 | 用途 | 示例 |
+|--------|------|------|
+| `AppSpacing` | 間距 (4dp 倍數) | `AppSpacing.lg` → 16.0 |
+| `AppRadius` | 圓角值 + 預構建 BorderRadius | `AppRadius.borderRadiusXl` → 12dp |
+| `AnimationDurations` | 動畫時長 | `AnimationDurations.normal` → 300ms |
+| `AppSizes` | UI 尺寸 (按鈕、列表項高度等) | `AppSizes.playerMainButton` → 80.0 |
+| `ToastDurations` | Toast 顯示時長 | `ToastDurations.short` → 1500ms |
+| `DebounceDurations` | 防抖時長 | `DebounceDurations.standard` → 300ms |
+
+**注意**: `AppRadius.borderRadiusXl` 等是 `static final`（非 `const`），不能用在 `const` 上下文中。
+
 ### Image Thumbnail Optimization (2026-02)
 Network images are automatically optimized to reduce memory and bandwidth usage.
 
@@ -567,6 +581,12 @@ lib/
 │           ├── netease_playlist_source.dart   # 網易雲音樂
 │           ├── qq_music_playlist_source.dart  # QQ音樂
 │           └── spotify_playlist_source.dart   # Spotify
+├── core/
+│   ├── constants/
+│   │   ├── app_constants.dart         # 應用級常量（超時、重試、緩存策略等）
+│   │   └── ui_constants.dart          # UI 常量（間距、圓角、動畫時長、尺寸等）
+│   ├── utils/                         # 工具類
+│   └── services/                      # 核心服務（Toast、圖片加載等）
 ├── ui/
 │   ├── pages/                # Full pages
 │   │   ├── home/             # 首頁（快捷操作、最近熱門預覽）

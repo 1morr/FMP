@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 
-import '../constants/app_constants.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../constants/ui_constants.dart';
 
 /// Toast 消息类型
 enum ToastType {
@@ -43,6 +44,8 @@ class ToastMessage {
 /// toastService.showMessage('消息内容');
 /// ```
 class ToastService {
+  static const Duration _defaultDuration = ToastDurations.short;
+
   final _messageController = StreamController<ToastMessage>.broadcast();
 
   /// 消息流（供 UI 层监听）
@@ -122,7 +125,7 @@ class ToastService {
       SnackBar(
         content: Text(message),
         persist: false,
-        duration: AppConstants.toastDuration,
+        duration: _defaultDuration,
         action: SnackBarAction(
           label: actionLabel,
           onPressed: onAction,
@@ -148,7 +151,7 @@ class ToastService {
         : Text(message);
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: content, duration: AppConstants.toastDuration),
+      SnackBar(content: content, duration: _defaultDuration),
     );
   }
 }

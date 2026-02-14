@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/ui_constants.dart';
 import '../../../../core/services/image_loading_service.dart';
 import '../../../../data/models/track.dart';
 import '../../../../i18n/strings.g.dart';
@@ -257,7 +258,7 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
                   )
                 : Center(
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: AppRadius.borderRadiusLg,
                       child: ImageLoadingService.loadImage(
                         networkUrl: _urlController.text,
                         placeholder: const ImagePlaceholder.track(),
@@ -307,10 +308,10 @@ class _CoverGridItem extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.borderRadiusLg,
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: AppRadius.borderRadiusLg,
             border: isSelected
                 ? Border.all(color: colorScheme.primary, width: 3)
                 : null,

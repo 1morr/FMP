@@ -10,6 +10,7 @@ import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
 import '../track_thumbnail.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/ui_constants.dart';
 
 /// 迷你播放器
 /// 显示在页面底部，展示当前播放的歌曲信息和控制按钮
@@ -214,7 +215,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                       right: 0,
                       top: 0,
                       child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
+                        duration: AnimationDurations.fast,
                         height: _isHovering || _isDragging ? 6 : 2,
                         decoration: BoxDecoration(
                           color: colorScheme.surfaceContainerHighest,
@@ -228,7 +229,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                       width: constraints.maxWidth * displayProgress,
                       top: 0,
                       child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
+                        duration: AnimationDurations.fast,
                         height: _isHovering || _isDragging ? 6 : 2,
                         decoration: BoxDecoration(
                           color: colorScheme.primary,
@@ -243,7 +244,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                         top: -3, // 使圆心对齐 6px 轨道中心
                         child: AnimatedOpacity(
                           opacity: _isHovering || _isDragging ? 1.0 : 0.0,
-                          duration: const Duration(milliseconds: 150),
+                          duration: AnimationDurations.fast,
                           child: Container(
                             width: 12,
                             height: 12,
@@ -407,7 +408,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
         padding: const WidgetStatePropertyAll(EdgeInsets.zero),
         minimumSize: const WidgetStatePropertyAll(Size(menuWidth, 0)),
         shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusXl),
         ),
       ),
       menuChildren: [
@@ -498,7 +499,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
         style: MenuStyle(
           padding: WidgetStatePropertyAll(EdgeInsets.zero),
           shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusXl),
           ),
         ),
         alignmentOffset: const Offset(0, -170),

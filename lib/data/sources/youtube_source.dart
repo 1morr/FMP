@@ -218,8 +218,8 @@ class YouTubeSource extends BaseSource with Logging {
         return [];
       }
 
-      // 取前 3 条评论
-      return comments.take(3).map((c) => VideoComment(
+      // 取前几条评论
+      return comments.take(AppConstants.commentsPreviewCount).map((c) => VideoComment(
         id: 0,
         content: c.text,
         memberName: c.author,

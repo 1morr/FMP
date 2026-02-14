@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
+import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/ui_constants.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/download_provider.dart';
 
@@ -185,7 +187,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
         maxCrossAxisExtent: 200,
         mainAxisSpacing: 16,
         crossAxisSpacing: 16,
-        childAspectRatio: 0.8,
+        childAspectRatio: AppConstants.cardAspectRatio,
       ),
       itemCount: playlists.length,
       itemBuilder: (context, index) {
@@ -208,7 +210,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
         maxCrossAxisExtent: 200,
         mainAxisSpacing: 16,
         crossAxisSpacing: 16,
-        childAspectRatio: 0.8,
+        childAspectRatio: AppConstants.cardAspectRatio,
       ),
       dragStartDelay: Duration.zero, // 立即開始拖拽，無需長按
       itemCount: playlists.length,
@@ -348,7 +350,7 @@ class _ReorderablePlaylistCard extends ConsumerWidget {
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 color: colorScheme.primary.withValues(alpha: 0.7),
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: AppRadius.borderRadiusSm,
               ),
               child: Icon(
                 Icons.drag_handle,

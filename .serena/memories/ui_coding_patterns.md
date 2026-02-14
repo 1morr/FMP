@@ -670,10 +670,77 @@ Widget build(BuildContext context, WidgetRef ref) {
 - [ ] 列表项样式是否与相似页面统一
 - [ ] 是否使用了相似页面的现有组件和模式
 - [ ] AppBar actions 尾部间距：IconButton 结尾加 `const SizedBox(width: 8)`，PopupMenuButton 结尾无需额外间距
+- [ ] 圓角、動畫時長、防抖、Toast 時長是否使用 `ui_constants.dart` 中的常量（禁止硬編碼）
 
 ---
 
-## 10. 相似页面对照表
+## 10. UI 常量使用規範
+
+所有 UI 魔法數字已集中到 `lib/core/constants/ui_constants.dart`，新代碼**禁止**使用硬編碼值。
+
+### 10.1 圓角
+
+```dart
+// ✅ 正確
+borderRadius: AppRadius.borderRadiusXl,  // 12dp
+shape: RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),  // 8dp
+
+// ❌ 錯誤
+borderRadius: BorderRadius.circular(12),
+```
+
+**注意**: `AppRadius.borderRadiusXl` 等是 `static final`（非 `const`），不能用在 `const` 上下文中。
+
+### 10.2 動畫時長
+
+```dart
+// ✅ 正確
+AnimatedOpacity(duration: AnimationDurations.medium, ...)  // 200ms
+AnimatedContainer(duration: AnimationDurations.normal, ...)  // 300ms
+
+// ❌ 錯誤
+AnimatedOpacity(duration: const Duration(milliseconds: 200), ...)
+```
+
+### 10.3 防抖與 Toast
+
+```dart
+// ✅ 正確
+Timer(DebounceDurations.standard, () => ...);  // 300ms
+ToastDurations.short  // 1500ms
+
+// ❌ 錯誤
+Timer(const Duration(milliseconds: 300), () => ...);
+```
+
+### 10.4 UI 尺寸
+
+```dart
+// ✅ 正確
+AppSizes.playerMainButton    // 80.0 - 播放器主按鈕
+AppSizes.queueItemHeight     // 72.0 - 隊列列表項
+AppSizes.downloadTileHeight  // 88.0 - 下載管理列表項
+AppSizes.collapseThreshold   // 280 - kToolbarHeight
+AppSizes.sidePanelMinWidth   // 280.0
+AppSizes.sidePanelMaxWidth   // 500.0
+```
+
+### 10.5 常量對照表
+
+| 硬編碼值 | 替換為 |
+|----------|--------|
+| `BorderRadius.circular(4)` | `AppRadius.borderRadiusSm` |
+| `BorderRadius.circular(8)` | `AppRadius.borderRadiusLg` |
+| `BorderRadius.circular(12)` | `AppRadius.borderRadiusXl` |
+| `BorderRadius.circular(16)` | `AppRadius.borderRadiusXxxl` |
+| `Duration(milliseconds: 200)` | `AnimationDurations.medium` |
+| `Duration(milliseconds: 300)` | `AnimationDurations.normal` |
+| `Duration(milliseconds: 1500)` | `ToastDurations.short` |
+| `Duration(milliseconds: 3000)` | `ToastDurations.long` |
+
+---
+
+## 11. 相似页面对照表
 
 | 页面 | 相似页面 | 应统一的模式 |
 |------|---------|-------------|

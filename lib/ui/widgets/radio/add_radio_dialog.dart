@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../services/radio/radio_controller.dart';
@@ -105,7 +106,7 @@ class _AddRadioDialogState extends ConsumerState<AddRadioDialog> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: colorScheme.errorContainer,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: AppRadius.borderRadiusLg,
                   ),
                   child: Row(
                     children: [

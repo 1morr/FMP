@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
+import '../core/constants/ui_constants.dart';
+
 /// 存储权限服务
 ///
 /// 处理 Android 11+ 的 MANAGE_EXTERNAL_STORAGE 权限
@@ -99,7 +101,7 @@ class StoragePermissionService {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: AppRadius.borderRadiusLg,
                   ),
                   child: Row(
                     children: [

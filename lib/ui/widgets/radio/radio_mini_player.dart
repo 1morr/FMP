@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
+import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/utils/icon_helpers.dart';
 import '../../../core/utils/number_format_utils.dart';
@@ -107,7 +108,7 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
 
   Widget _buildThumbnail(dynamic station, ColorScheme colorScheme) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: AppRadius.borderRadiusLg,
       child: SizedBox(
         width: 48,
         height: 48,
@@ -269,7 +270,7 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
         style: MenuStyle(
           padding: WidgetStatePropertyAll(EdgeInsets.zero),
           shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusXl),
           ),
         ),
         alignmentOffset: const Offset(0, -170),

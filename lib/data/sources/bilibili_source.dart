@@ -11,6 +11,24 @@ import '../models/track.dart';
 import '../models/video_detail.dart';
 import 'base_source.dart';
 
+/// Bilibili API 参数常量
+class _BilibiliApiParams {
+  /// DASH 格式参数值
+  static const int dashFormatValue = 16;
+
+  /// durl 格式参数值（混合流）
+  static const int durlFormatValue = 0;
+
+  /// 默认音质参数
+  static const int qualityDefault = 0;
+
+  /// 高音质参数
+  static const int qualityHigh = 120;
+
+  /// 4K 标志
+  static const int fourKFlag = 1;
+}
+
 /// Bilibili 音源实现
 class BilibiliSource extends BaseSource with Logging {
   late final Dio _dio;
@@ -233,9 +251,9 @@ class BilibiliSource extends BaseSource with Logging {
       queryParameters: {
         'bvid': bvid,
         'cid': cid,
-        'fnval': 16, // DASH 格式
-        'qn': 0,
-        'fourk': 1,
+        'fnval': _BilibiliApiParams.dashFormatValue, // DASH 格式
+        'qn': _BilibiliApiParams.qualityDefault,
+        'fourk': _BilibiliApiParams.fourKFlag,
       },
     );
 
@@ -281,8 +299,8 @@ class BilibiliSource extends BaseSource with Logging {
       queryParameters: {
         'bvid': bvid,
         'cid': cid,
-        'fnval': 0, // durl 格式（混合流）
-        'qn': 120, // 请求高画质
+        'fnval': _BilibiliApiParams.durlFormatValue, // durl 格式（混合流）
+        'qn': _BilibiliApiParams.qualityHigh, // 请求高画质
       },
     );
 

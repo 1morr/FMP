@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../core/constants/breakpoints.dart';
+import '../../core/constants/ui_constants.dart';
 import '../../i18n/strings.g.dart';
 import '../../services/audio/audio_provider.dart';
 import '../../services/radio/radio_controller.dart';
@@ -214,8 +214,8 @@ class _DesktopLayout extends ConsumerStatefulWidget {
 class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
   bool _isNavExpanded = false; // 默认收起
   double _detailPanelWidth = 380; // 默认宽度
-  static const double _minPanelWidth = 280;
-  static const double _maxPanelWidth = 500;
+  static const double _minPanelWidth = AppSizes.sidePanelMinWidth;
+  static const double _maxPanelWidth = AppSizes.sidePanelMaxWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -230,7 +230,7 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
           // 可收起的侧边导航栏
           ClipRect(
             child: AnimatedAlign(
-              duration: AppConstants.navigationAnimationDuration,
+              duration: AnimationDurations.medium,
               alignment: Alignment.centerLeft,
               widthFactor: _isNavExpanded ? 1.0 : 72 / 256,
               child: SizedBox(
@@ -331,9 +331,9 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
                     color: isSelected
                         ? colorScheme.secondaryContainer
                         : Colors.transparent,
-                    borderRadius: BorderRadius.circular(28),
+                    borderRadius: AppRadius.borderRadiusPill,
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(28),
+                      borderRadius: AppRadius.borderRadiusPill,
                       onTap: () => widget.onDestinationSelected(index),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(

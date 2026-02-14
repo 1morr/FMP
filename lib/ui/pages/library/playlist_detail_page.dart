@@ -7,6 +7,7 @@ import '../../router.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
+import '../../../core/constants/ui_constants.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../providers/download_provider.dart';
@@ -48,7 +49,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   double _scrollOffset = 0;
 
   // AppBar 收起阈值（expandedHeight - kToolbarHeight）
-  static const double _collapseThreshold = 280 - kToolbarHeight;
+  static const double _collapseThreshold = AppSizes.collapseThreshold;
 
   @override
   void initState() {
@@ -626,7 +627,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                     width: 120,
                     height: 120,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: AppRadius.borderRadiusLg,
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.3),
@@ -721,7 +722,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                               color: playlist.isMix
                                   ? colorScheme.tertiaryContainer
                                   : colorScheme.primaryContainer,
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: AppRadius.borderRadiusXl,
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -1000,7 +1001,7 @@ class _GroupHeader extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
               color: colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: AppRadius.borderRadiusSm,
             ),
             child: Text(
               '${group.tracks.length}P',
@@ -1177,7 +1178,7 @@ class _TrackListTile extends ConsumerWidget {
                     height: 32,
                     decoration: BoxDecoration(
                       color: colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: AppRadius.borderRadiusSm,
                     ),
                     alignment: Alignment.center,
                     child: Text(

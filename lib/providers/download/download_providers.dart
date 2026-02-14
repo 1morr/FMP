@@ -4,6 +4,7 @@ import 'dart:isolate';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/constants/ui_constants.dart';
 import '../../data/models/download_task.dart';
 import '../../data/models/track.dart';
 import '../../data/repositories/download_repository.dart';
@@ -95,7 +96,7 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
     
     // D1-D3: 使用 debouncing，300ms 后批量刷新
     debounceTimer?.cancel();
-    debounceTimer = Timer(const Duration(milliseconds: 300), () {
+    debounceTimer = Timer(DebounceDurations.standard, () {
       Future.microtask(flushInvalidations);
     });
   });

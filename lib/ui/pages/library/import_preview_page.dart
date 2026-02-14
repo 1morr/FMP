@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:simple_icons/simple_icons.dart';
 
+import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
@@ -215,7 +216,7 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: AppRadius.borderRadiusSm,
               ),
               child: Text(
                 playlist.source.displayName,
@@ -495,7 +496,7 @@ class _UnmatchedTrackTile extends ConsumerWidget {
                   height: 40,
                   decoration: BoxDecoration(
                     color: colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: AppRadius.borderRadiusSm,
                   ),
                   child: Icon(
                     Icons.music_note,
@@ -543,7 +544,7 @@ class _UnmatchedTrackTile extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: colorScheme.primaryContainer.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: AppRadius.borderRadiusXl,
                   ),
                   child: Text(
                     '${original.title} - ${original.artists.join(" / ")}',
@@ -607,7 +608,7 @@ class _UnmatchedTrackTile extends ConsumerWidget {
                           vertical: 8,
                         ),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: AppRadius.borderRadiusMd,
                         ),
                       ),
                       style: Theme.of(context).textTheme.bodySmall,
@@ -759,7 +760,7 @@ class _ImportMatchTile extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: colorScheme.primaryContainer.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: AppRadius.borderRadiusXl,
                 ),
                 child: Text(
                   '${original.title} - ${original.artists.join(" / ")}',

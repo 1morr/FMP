@@ -5,6 +5,7 @@ import '../../../data/models/download_task.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/download_provider.dart';
 import '../../../providers/download_settings_provider.dart';
+import '../../../core/constants/ui_constants.dart';
 
 /// 下载管理页面
 class DownloadManagerPage extends ConsumerWidget {
@@ -162,7 +163,7 @@ class _FixedHeightDownloadingSection extends ConsumerWidget {
   final int maxSlots;
 
   // 每个 ListTile 的估算高度（包括进度条和边距）
-  static const double _tileHeight = 88.0;
+  static const double _tileHeight = AppSizes.downloadTileHeight;
 
   const _FixedHeightDownloadingSection({
     required this.tasks,
@@ -214,7 +215,7 @@ class _SectionHeader extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: AppRadius.borderRadiusXl,
             ),
             child: Text(
               '$count',

@@ -6,6 +6,7 @@ import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/ui_constants.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../providers/repository_providers.dart';
 import '../track_thumbnail.dart';
@@ -121,7 +122,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
               height: 4,
               decoration: BoxDecoration(
                 color: colorScheme.outline.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: AppRadius.borderRadiusXs,
               ),
             ),
             // 标题
@@ -147,7 +148,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: AppRadius.borderRadiusXl,
               ),
               child: Row(
                 children: [
@@ -199,7 +200,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                   height: 48,
                   decoration: BoxDecoration(
                     color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: AppRadius.borderRadiusLg,
                   ),
                   child: Icon(
                     Icons.add,
@@ -208,7 +209,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                 ),
                 title: Text(t.addToPlaylistDialog.createNew),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: AppRadius.borderRadiusXl,
                 ),
                 onTap: () => _showCreatePlaylistDialog(context),
               ),
@@ -295,7 +296,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                               width: 48,
                               height: 48,
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: AppRadius.borderRadiusLg,
                                 color: colorScheme.surfaceContainerHighest,
                                 border: isSelected
                                     ? Border.all(
@@ -367,7 +368,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                         selected: isSelected,
                         selectedTileColor: colorScheme.primaryContainer.withValues(alpha: 0.3),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: AppRadius.borderRadiusXl,
                         ),
                         onTap: () => _togglePlaylistSelection(playlist.id),
                       );

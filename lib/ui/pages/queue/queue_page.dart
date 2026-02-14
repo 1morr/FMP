@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
+import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
@@ -25,7 +26,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
   final ItemScrollController _itemScrollController = ItemScrollController();
   final ItemPositionsListener _itemPositionsListener = ItemPositionsListener.create();
 
-  static const double _itemHeight = 72.0;
+  static const double _itemHeight = AppSizes.queueItemHeight;
   bool _initialScrollDone = false;
   int? _lastCurrentIndex;
 
@@ -532,7 +533,7 @@ class _DraggableQueueItem extends StatelessWidget {
         child: Material(
           color: isFeedback ? colorScheme.surfaceContainerHigh : Colors.transparent,
           elevation: isFeedback ? 8 : 0,
-          borderRadius: isFeedback ? BorderRadius.circular(8) : null,
+          borderRadius: isFeedback ? AppRadius.borderRadiusLg : null,
           child: InkWell(
             onTap: isFeedback ? null : onTap,
             child: Padding(
@@ -627,7 +628,7 @@ class _DraggableQueueItem extends StatelessWidget {
             // 实际的列表项
             LongPressDraggable<int>(
               data: index,
-              delay: const Duration(milliseconds: 150), // 缩短长按延迟
+              delay: AnimationDurations.fast, // 缩短长按延迟
               onDragStarted: onDragStart,
               onDraggableCanceled: (_, __) => onDragCancel(),
               feedback: SizedBox(

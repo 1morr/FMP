@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../core/constants/app_constants.dart';
+import '../../core/constants/ui_constants.dart';
 import '../../providers/refresh_provider.dart';
 
 /// 歌单刷新进度指示器组件
@@ -27,7 +27,7 @@ class PlaylistRefreshProgress extends ConsumerWidget {
       child: SafeArea(
         top: false,
         child: AnimatedSize(
-          duration: AppConstants.progressIndicatorDuration,
+          duration: AnimationDurations.medium,
           curve: Curves.easeInOut,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -86,7 +86,7 @@ class PlaylistRefreshProgress extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: AppRadius.borderRadiusSm,
             child: LinearProgressIndicator(
               value: refreshState.progress > 0 ? refreshState.progress : null,
               backgroundColor: colorScheme.surfaceContainerLow,
@@ -178,7 +178,7 @@ class PlaylistRefreshProgress extends ConsumerWidget {
                 ),
                 const SizedBox(height: 4),
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: AppRadius.borderRadiusXs,
                   child: LinearProgressIndicator(
                     value: refreshState.progress > 0
                         ? refreshState.progress

@@ -29,6 +29,7 @@ import '../../../services/backup/backup_data.dart';
 import '../../router.dart';
 import '../../widgets/change_download_path_dialog.dart';
 import '../../widgets/update_dialog.dart';
+import '../../../core/constants/ui_constants.dart';
 
 /// 设置页
 class SettingsPage extends ConsumerWidget {
@@ -951,7 +952,7 @@ class _DownloadPathListTile extends ConsumerWidget {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: AppRadius.borderRadiusLg,
               ),
               child: SelectableText(
                 downloadPath ?? t.general.notSet,
@@ -1460,7 +1461,7 @@ class _HotkeyConfigDialogState extends ConsumerState<_HotkeyConfigDialog> {
           Expanded(
             child: InkWell(
               onTap: () => _startRecording(action),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: AppRadius.borderRadiusLg,
               child: Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1468,7 +1469,7 @@ class _HotkeyConfigDialogState extends ConsumerState<_HotkeyConfigDialog> {
                   color: isEditing
                       ? Theme.of(context).colorScheme.primaryContainer
                       : Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: AppRadius.borderRadiusLg,
                   border: isEditing
                       ? Border.all(
                           color: Theme.of(context).colorScheme.primary,
@@ -1655,7 +1656,7 @@ class _HotkeyRecordingDialogState extends State<_HotkeyRecordingDialog> {
           height: 100,
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: AppRadius.borderRadiusXl,
             border: Border.all(
               color: Theme.of(context).colorScheme.primary,
               width: 2,
@@ -1929,7 +1930,7 @@ class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: AppRadius.borderRadiusLg,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2177,7 +2178,7 @@ class _ImportResultDialog extends StatelessWidget {
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: colorScheme.errorContainer,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: AppRadius.borderRadiusLg,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
