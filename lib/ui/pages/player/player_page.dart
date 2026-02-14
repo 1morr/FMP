@@ -66,13 +66,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             onSelected: (value) async {
               if (value == 'info') {
                 // 延迟显示弹窗，等主菜单关闭后再显示
-                Future.delayed(AppConstants.operationFeedbackDelay, () {
+                Future.delayed(const Duration(milliseconds: 100), () {
                   if (!context.mounted) return;
                   _showTrackInfoDialog(context, colorScheme);
                 });
               } else if (value == 'speed') {
                 // 延迟显示子菜单，等主菜单关闭后再显示
-                Future.delayed(AppConstants.operationFeedbackDelay, () {
+                Future.delayed(const Duration(milliseconds: 100), () {
                   if (!context.mounted) return;
                   _showSpeedMenu(context, controller, playerState.speed, colorScheme);
                 });
@@ -975,7 +975,7 @@ class _CommentPagerState extends State<_CommentPager> {
         // 评论内容（带动画）
         ClipRect(
           child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
+            duration: AppConstants.defaultAnimationDuration,
             transitionBuilder: (child, animation) {
               final offsetAnimation = Tween<Offset>(
                 begin: Offset(_isForward ? 1.0 : -1.0, 0.0),

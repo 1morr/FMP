@@ -857,7 +857,7 @@ class _CommentPagerState extends State<_CommentPager> {
   }
 
   void _startAutoScroll() {
-    _autoScrollTimer = Timer.periodic(AppConstants.commentScrollInterval, (timer) {
+    _autoScrollTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       if (!mounted) return;
       // 只有当评论区在可视范围内时才自动翻页
       if (_isVisible()) {
@@ -952,7 +952,7 @@ class _CommentPagerState extends State<_CommentPager> {
         // 评论内容（带动画）
         ClipRect(
           child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
+            duration: AppConstants.defaultAnimationDuration,
             transitionBuilder: (child, animation) {
               final offsetAnimation = Tween<Offset>(
                 begin: Offset(_isForward ? 1.0 : -1.0, 0.0),

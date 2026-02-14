@@ -10,6 +10,16 @@ class AppConstants {
   /// 应用全称
   static const String appFullName = 'Flutter Music Player';
 
+  // ==================== 窗口 ====================
+
+  /// 默认窗口大小 (Windows)
+  static const double defaultWindowWidth = 1280;
+  static const double defaultWindowHeight = 800;
+
+  /// 最小窗口大小 (Windows)
+  static const double minimumWindowWidth = 400;
+  static const double minimumWindowHeight = 500;
+
   // ==================== 缓存与存储 ====================
 
   /// 音频 URL 默认过期时间 (小时) - Bilibili 使用
@@ -41,14 +51,6 @@ class AppConstants {
   /// 位置保存定时器间隔
   static const Duration positionSaveInterval = Duration(seconds: 10);
 
-  // ==================== 下载相关 ====================
-
-  /// 下载调度器周期检查间隔（作为事件驱动的备份机制）
-  static const Duration downloadSchedulerInterval = Duration(seconds: 5);
-
-  /// 下载进度更新节流间隔（避免 Windows PostMessage 队列溢出）
-  static const Duration downloadProgressThrottleInterval = Duration(milliseconds: 1000);
-
   // ==================== 网络超时 ====================
 
   /// 网络连接超时
@@ -62,17 +64,17 @@ class AppConstants {
 
   // ==================== UI 动画 ====================
 
-  /// 默认淡入动画时长
+  /// 默认淡入动画时长 (150ms)
   static const Duration defaultFadeInDuration = Duration(milliseconds: 150);
+
+  /// 默认过渡动画时长 (300ms)
+  static const Duration defaultAnimationDuration = Duration(milliseconds: 300);
 
   /// 导航动画时长
   static const Duration navigationAnimationDuration = Duration(milliseconds: 200);
 
   /// 进度指示器动画时长
   static const Duration progressIndicatorDuration = Duration(milliseconds: 200);
-
-  /// 评论自动滚动间隔
-  static const Duration commentScrollInterval = Duration(seconds: 10);
 
   // ==================== Toast 与通知 ====================
 
@@ -81,12 +83,6 @@ class AppConstants {
 
   /// Toast 错误/警告显示时长
   static const Duration toastErrorDuration = Duration(milliseconds: 3000);
-
-  /// 刷新进度 Toast 时长
-  static const Duration refreshToastDuration = Duration(seconds: 4);
-
-  /// 操作反馈延迟
-  static const Duration operationFeedbackDelay = Duration(milliseconds: 100);
 
   // ==================== 播放指示器 ====================
 
@@ -97,12 +93,6 @@ class AppConstants {
 
   /// 网络请求重试延迟
   static const Duration networkRetryDelay = Duration(milliseconds: 200);
-
-  /// 刷新完成提示延迟
-  static const Duration refreshCompleteDelay = Duration(seconds: 3);
-
-  /// 刷新错误提示延迟
-  static const Duration refreshErrorDelay = Duration(seconds: 5);
 
   /// 队列保存重试延迟
   static const Duration queueSaveRetryDelay = Duration(seconds: 1);
@@ -131,7 +121,6 @@ class AppConstants {
 
   /// 大缩略图尺寸
   static const double thumbnailSizeLarge = 56.0;
-
 }
 
 /// 网络重试配置

@@ -229,7 +229,7 @@ class RefreshResultSnackBar {
   }) {
     return SnackBar(
       content: Text(t.refreshProvider.failed(name: playlistName, error: errorMessage)),
-      duration: AppConstants.refreshToastDuration,
+      duration: const Duration(seconds: 4),
       backgroundColor: Colors.red[700],
     );
   }
