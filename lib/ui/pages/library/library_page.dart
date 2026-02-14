@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
-import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/ui_constants.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/download_provider.dart';
@@ -187,7 +186,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
         maxCrossAxisExtent: 200,
         mainAxisSpacing: 16,
         crossAxisSpacing: 16,
-        childAspectRatio: AppConstants.cardAspectRatio,
+        childAspectRatio: AppSizes.cardAspectRatio,
       ),
       itemCount: playlists.length,
       itemBuilder: (context, index) {
@@ -210,7 +209,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
         maxCrossAxisExtent: 200,
         mainAxisSpacing: 16,
         crossAxisSpacing: 16,
-        childAspectRatio: AppConstants.cardAspectRatio,
+        childAspectRatio: AppSizes.cardAspectRatio,
       ),
       dragStartDelay: Duration.zero, // 立即開始拖拽，無需長按
       itemCount: playlists.length,

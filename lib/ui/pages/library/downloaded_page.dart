@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
@@ -166,7 +166,7 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
         maxCrossAxisExtent: 200,
         mainAxisSpacing: 16,
         crossAxisSpacing: 16,
-        childAspectRatio: AppConstants.cardAspectRatio,
+        childAspectRatio: AppSizes.cardAspectRatio,
       ),
       itemCount: categories.length,
       itemBuilder: (context, index) {

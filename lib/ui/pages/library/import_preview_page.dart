@@ -13,7 +13,6 @@ import '../../../services/audio/audio_provider.dart';
 import '../../../core/utils/number_format_utils.dart';
 import '../../../i18n/strings.g.dart';
 import '../../widgets/track_thumbnail.dart';
-import '../../../core/constants/app_constants.dart';
 
 /// 显示导入预览弹窗
 Future<void> showImportPreviewDialog(
@@ -487,7 +486,7 @@ class _UnmatchedTrackTile extends ConsumerWidget {
               if (hasSelection)
                 TrackThumbnail(
                   track: selectedTrack,
-                  size: AppConstants.thumbnailSizeSmall,
+                  size: AppSizes.thumbnailSmall,
                   borderRadius: 4,
                 )
               else
@@ -709,7 +708,7 @@ class _ImportMatchTile extends StatelessWidget {
               const SizedBox(width: 8),
               TrackThumbnail(
                 track: track,
-                size: AppConstants.thumbnailSizeSmall,
+                size: AppSizes.thumbnailSmall,
                 borderRadius: 4,
               ),
             ],

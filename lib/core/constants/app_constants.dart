@@ -87,20 +87,6 @@ class AppConstants {
   /// DNS 查询超时
   static const Duration dnsTimeout = Duration(seconds: 5);
 
-  // ==================== UI 尺寸 ====================
-
-  /// 小缩略图尺寸
-  static const double thumbnailSizeSmall = 40.0;
-
-  /// 中缩略图尺寸
-  static const double thumbnailSizeMedium = 48.0;
-
-  /// 大缩略图尺寸
-  static const double thumbnailSizeLarge = 56.0;
-
-  /// 卡片宽高比
-  static const double cardAspectRatio = 0.8;
-
   // ==================== 显示数量限制 ====================
 
   /// 首页歌曲预览数量

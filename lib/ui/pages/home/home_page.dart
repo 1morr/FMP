@@ -695,7 +695,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     // 封面
                     TrackThumbnail(
                       track: track,
-                      size: AppConstants.thumbnailSizeLarge,
+                      size: AppSizes.thumbnailLarge,
                       borderRadius: 8,
                     ),
                     const SizedBox(width: 12),
@@ -785,7 +785,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               contentPadding: const EdgeInsets.only(left: 18),
               leading: TrackThumbnail(
                 track: track,
-                size: AppConstants.thumbnailSizeSmall,
+                size: AppSizes.thumbnailSmall,
                 borderRadius: 4,
               ),
               title: Text(
@@ -1006,7 +1006,7 @@ class _RankingTrackTile extends ConsumerWidget {
             const SizedBox(width: 12),
             TrackThumbnail(
               track: track,
-              size: AppConstants.thumbnailSizeMedium,
+              size: AppSizes.thumbnailMedium,
               borderRadius: 4,
               isPlaying: isPlaying,
             ),

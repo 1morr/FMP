@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import '../../../core/constants/app_constants.dart';
 import '../../../core/services/image_loading_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -181,7 +180,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
         maxCrossAxisExtent: 160,
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,
-        childAspectRatio: AppConstants.cardAspectRatio,
+        childAspectRatio: AppSizes.cardAspectRatio,
       ),
       itemCount: stations.length,
       itemBuilder: (context, index) {
@@ -229,7 +228,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
         maxCrossAxisExtent: 160,
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,
-        childAspectRatio: AppConstants.cardAspectRatio,
+        childAspectRatio: AppSizes.cardAspectRatio,
       ),
       itemCount: stations.length,
       dragStartDelay: Duration.zero,

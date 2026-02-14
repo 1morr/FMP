@@ -1,20 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// 统一间距常量
-///
-/// 基于 4dp 倍数系统，用于 EdgeInsets、SizedBox 等间距定义。
-class AppSpacing {
-  AppSpacing._();
-
-  static const double xs = 4.0;
-  static const double sm = 8.0;
-  static const double md = 12.0;
-  static const double lg = 16.0;
-  static const double xl = 20.0;
-  static const double xxl = 24.0;
-  static const double xxxl = 32.0;
-}
-
 /// 统一圆角常量
 ///
 /// 用于 BorderRadius.circular() 的标准圆角值。
@@ -100,6 +85,18 @@ class AppSizes {
 
   /// 侧边面板最大宽度
   static const double sidePanelMaxWidth = 500.0;
+
+  /// 小缩略图尺寸
+  static const double thumbnailSmall = 40.0;
+
+  /// 中缩略图尺寸
+  static const double thumbnailMedium = 48.0;
+
+  /// 大缩略图尺寸
+  static const double thumbnailLarge = 56.0;
+
+  /// 卡片宽高比
+  static const double cardAspectRatio = 0.8;
 }
 
 /// Toast 时长常量
