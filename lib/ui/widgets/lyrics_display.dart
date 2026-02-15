@@ -219,6 +219,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
                     isCurrent: isCurrent,
                     compact: widget.compact,
                     colorScheme: colorScheme,
+                    onTap: () => _seekToLyricsLine(line, offsetMs),
                   );
                 },
               ),
@@ -298,6 +299,16 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
     );
   }
 
+  /// 点击歌词行跳转到对应时间点
+  ///
+  /// offset 公式：adjustedMs = position + offsetMs
+  /// 所以 position = timestamp - offsetMs
+  void _seekToLyricsLine(LyricsLine line, int offsetMs) {
+    final targetMs = line.timestamp.inMilliseconds - offsetMs;
+    final targetPosition = Duration(milliseconds: targetMs.clamp(0, double.maxFinite.toInt()));
+    ref.read(audioControllerProvider.notifier).seekTo(targetPosition);
+  }
+
   /// 平滑滚动到指定行
   void _scrollToLine(int index, int totalLines, {bool immediate = false}) {
     if (!_scrollController.hasClients) return;
@@ -334,6 +345,7 @@ class _LyricsLineWidget extends StatelessWidget {
   final bool isCurrent;
   final bool compact;
   final ColorScheme colorScheme;
+  final VoidCallback? onTap;
 
   const _LyricsLineWidget({
     super.key,
@@ -341,6 +353,7 @@ class _LyricsLineWidget extends StatelessWidget {
     required this.isCurrent,
     required this.compact,
     required this.colorScheme,
+    this.onTap,
   });
 
   @override
@@ -359,14 +372,18 @@ class _LyricsLineWidget extends StatelessWidget {
             height: 1.3,
           );
 
-    return AnimatedDefaultTextStyle(
-      duration: AnimationDurations.medium,
-      style: textStyle,
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedDefaultTextStyle(
+        duration: AnimationDurations.medium,
+        style: textStyle,
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
       ),
     );
   }
