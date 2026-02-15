@@ -323,11 +323,32 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
       );
     }
 
+    // 过滤掉纯音乐（instrumental）结果，因为没有歌词
+    final filtered = searchState.results
+        .where((r) => !r.instrumental)
+        .toList(growable: false);
+
+    if (filtered.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.lyrics_outlined, size: 48, color: colorScheme.outline),
+            const SizedBox(height: 8),
+            Text(
+              t.lyrics.noLyricsFound,
+              style: TextStyle(color: colorScheme.outline),
+            ),
+          ],
+        ),
+      );
+    }
+
     return ListView.builder(
       controller: scrollController,
-      itemCount: searchState.results.length,
+      itemCount: filtered.length,
       itemBuilder: (context, index) {
-        final result = searchState.results[index];
+        final result = filtered[index];
         return _LyricsResultTile(
           result: result,
           trackDurationMs: widget.track.durationMs,
@@ -438,12 +459,6 @@ class _LyricsResultTile extends StatelessWidget {
   }
 
   Widget _buildTypeChip(BuildContext context, ColorScheme colorScheme) {
-    if (result.instrumental) {
-      return _Chip(
-        label: t.lyrics.instrumental,
-        color: colorScheme.tertiary,
-      );
-    }
     if (result.hasSyncedLyrics) {
       return _Chip(
         label: t.lyrics.synced,
@@ -477,8 +492,8 @@ class _LyricsResultTile extends StatelessWidget {
     if (trackDurationMs == null || result.duration == 0) return null;
     final trackSeconds = trackDurationMs! ~/ 1000;
     final diff = (trackSeconds - result.duration).abs();
-    if (diff <= 2) return Colors.green;
-    if (diff <= 5) return Colors.orange;
+    if (diff <= 3) return Colors.green;
+    if (diff <= 10) return Colors.orange;
     return Colors.red;
   }
 }
