@@ -51,6 +51,9 @@ final lyricsAutoMatchServiceProvider = Provider<LyricsAutoMatchService>((ref) {
   );
 });
 
+/// 歌词自动匹配是否正在进行中（用于 UI 显示加载动画）
+final lyricsAutoMatchingProvider = StateProvider<bool>((ref) => false);
+
 // ---------------------------------------------------------------------------
 // 当前播放歌曲的歌词匹配
 // ---------------------------------------------------------------------------

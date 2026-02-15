@@ -60,6 +60,8 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
     final parsedLyrics = ref.watch(parsedLyricsProvider);
     final match = ref.watch(currentLyricsMatchProvider).valueOrNull;
 
+    final isAutoMatching = ref.watch(lyricsAutoMatchingProvider);
+
     // 歌词内容加载中
     if (lyricsContent.isLoading) {
       return _buildCentered(
@@ -67,8 +69,23 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
       );
     }
 
-    // 无匹配
+    // 无匹配：自动匹配进行中显示加载动画，否则显示无歌词
     if (match == null) {
+      if (isAutoMatching) {
+        return _buildCentered(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 12),
+              Text(
+                t.lyrics.autoMatching,
+                style: TextStyle(color: colorScheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        );
+      }
       return _buildNoLyrics(context, colorScheme);
     }
 

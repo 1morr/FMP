@@ -27,5 +27,6 @@
   "sourceNetease": "Netease",
   "translated": "Translated",
   "romaji": "Romaji",
-  "sourceQQMusic": "QQ Music"
+  "sourceQQMusic": "QQ Music",
+  "autoMatching": "Matching lyrics..."
 }

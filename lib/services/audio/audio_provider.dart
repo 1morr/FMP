@@ -390,6 +390,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 播放開始前的回調（用於互斥機制，如停止電台播放）
   Future<void> Function()? onPlaybackStarting;
 
+  /// 歌词自动匹配状态回调（用于 UI 显示加载动画）
+  void Function(bool isMatching)? onLyricsAutoMatchStateChanged;
+
   // Mix 播放列表状态（僅在 Mix 模式下有效）
   _MixPlaylistState? _mixState;
 
@@ -1425,6 +1428,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         return;
       }
       
+      // 通知 UI 开始自动匹配
+      onLyricsAutoMatchStateChanged?.call(true);
+      
       // 后台执行自动匹配
       final matched = await autoMatchService.tryAutoMatch(track);
       if (matched) {
@@ -1432,6 +1438,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       }
     } catch (e) {
       logWarning('Auto-match lyrics failed for ${track.title}: $e');
+    } finally {
+      onLyricsAutoMatchStateChanged?.call(false);
     }
   }
 
@@ -2410,6 +2418,11 @@ final audioControllerProvider =
   // 设置网络恢复监听（用于断网重连自动恢复播放）
   final connectivityNotifier = ref.watch(connectivityProvider.notifier);
   controller.setupNetworkRecoveryListener(connectivityNotifier.onNetworkRecovered);
+
+  // 设置歌词自动匹配状态回调
+  controller.onLyricsAutoMatchStateChanged = (isMatching) {
+    ref.read(lyricsAutoMatchingProvider.notifier).state = isMatching;
+  };
 
   // 启动初始化（异步，但不阻塞）
   // _ensureInitialized 会在每个操作前确保初始化完成
