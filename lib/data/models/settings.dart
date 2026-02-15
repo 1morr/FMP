@@ -41,6 +41,16 @@ enum StreamType {
   hls,
 }
 
+/// 歌词显示模式
+enum LyricsDisplayMode {
+  /// 只显示原文
+  original,
+  /// 优先显示翻译（翻译 → 罗马音 → 原文）
+  preferTranslated,
+  /// 优先显示罗马音（罗马音 → 翻译 → 原文）
+  preferRomaji,
+}
+
 /// 应用设置实体（单例模式，始终使用 ID 0）
 @collection
 class Settings {
@@ -143,6 +153,9 @@ class Settings {
 
   /// 最大歌词缓存文件数
   int maxLyricsCacheFiles = 50;
+
+  /// 歌词显示模式: 0=original, 1=preferTranslated, 2=preferRomaji
+  int lyricsDisplayModeIndex = 0;
 
   /// 获取 ThemeMode
   @ignore
@@ -326,6 +339,34 @@ class Settings {
           return 'hls';
       }
     }).join(',');
+  }
+
+  /// 获取歌词显示模式
+  @ignore
+  LyricsDisplayMode get lyricsDisplayMode {
+    switch (lyricsDisplayModeIndex) {
+      case 1:
+        return LyricsDisplayMode.preferTranslated;
+      case 2:
+        return LyricsDisplayMode.preferRomaji;
+      default:
+        return LyricsDisplayMode.original;
+    }
+  }
+
+  /// 设置歌词显示模式
+  set lyricsDisplayMode(LyricsDisplayMode mode) {
+    switch (mode) {
+      case LyricsDisplayMode.original:
+        lyricsDisplayModeIndex = 0;
+        break;
+      case LyricsDisplayMode.preferTranslated:
+        lyricsDisplayModeIndex = 1;
+        break;
+      case LyricsDisplayMode.preferRomaji:
+        lyricsDisplayModeIndex = 2;
+        break;
+    }
   }
 
   @override

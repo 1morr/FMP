@@ -16,6 +16,7 @@ import '../../data/models/video_detail.dart';
 import '../../providers/download/download_providers.dart';
 import '../../providers/download/file_exists_cache.dart';
 import '../../providers/track_detail_provider.dart';
+import '../../providers/lyrics_provider.dart';
 import '../../services/audio/audio_provider.dart';
 import '../../services/platform/url_launcher_service.dart';
 import '../../services/radio/radio_controller.dart';
@@ -46,6 +47,48 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
       track: currentTrack,
     );
   }
+
+  /// 显示歌词显示模式选择菜单
+  void _showLyricsDisplayModeMenu(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final currentMode = ref.read(lyricsDisplayModeProvider);
+    final renderBox = context.findRenderObject() as RenderBox;
+    final offset = renderBox.localToGlobal(Offset.zero);
+
+    final modes = [
+      (LyricsDisplayMode.original, t.lyrics.displayOriginal),
+      (LyricsDisplayMode.preferTranslated, t.lyrics.displayPreferTranslated),
+      (LyricsDisplayMode.preferRomaji, t.lyrics.displayPreferRomaji),
+    ];
+
+    showMenu<LyricsDisplayMode>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        offset.dx,
+        offset.dy + 48,
+        offset.dx + renderBox.size.width,
+        0,
+      ),
+      items: modes.map((entry) => PopupMenuItem(
+        value: entry.$1,
+        child: Row(
+          children: [
+            if (currentMode == entry.$1)
+              Icon(Icons.check, size: 18, color: colorScheme.primary)
+            else
+              const SizedBox(width: 18),
+            const SizedBox(width: 8),
+            Text(entry.$2),
+          ],
+        ),
+      )).toList(),
+    ).then((value) {
+      if (value != null) {
+        ref.read(lyricsDisplayModeProvider.notifier).setMode(value);
+      }
+    });
+  }
+
   /// 是否显示歌词（切换信息/歌词）
   bool _showLyrics = false;
 
@@ -228,6 +271,8 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                       _openLyricsSearch(context);
                     } else if (value == 'offset') {
                       setState(() => _showOffsetControls = !_showOffsetControls);
+                    } else if (value == 'display_mode') {
+                      _showLyricsDisplayModeMenu(context);
                     }
                   },
                   itemBuilder: (context) => [
@@ -251,6 +296,22 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                           ),
                           const SizedBox(width: 12),
                           Text(t.lyrics.adjustOffset),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'display_mode',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.translate, size: 20),
+                          const SizedBox(width: 12),
+                          Text(t.lyrics.displayMode),
+                          const Spacer(),
+                          Icon(
+                            Icons.chevron_right,
+                            size: 18,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                         ],
                       ),
                     ),

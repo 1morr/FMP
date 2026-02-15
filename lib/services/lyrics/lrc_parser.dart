@@ -8,10 +8,17 @@ class LyricsLine {
   final Duration timestamp;
   final String text;
 
-  const LyricsLine({required this.timestamp, required this.text});
+  /// 附加文本（翻译/罗马音），显示在原文下方
+  final String? subText;
+
+  const LyricsLine({required this.timestamp, required this.text, this.subText});
+
+  /// 创建带 subText 的副本
+  LyricsLine withSubText(String? subText) =>
+      LyricsLine(timestamp: timestamp, text: text, subText: subText);
 
   @override
-  String toString() => 'LyricsLine(${timestamp.inMilliseconds}ms, "$text")';
+  String toString() => 'LyricsLine(${timestamp.inMilliseconds}ms, "$text"${subText != null ? ', sub: "$subText"' : ''})';
 }
 
 /// LRC 格式解析结果
@@ -29,6 +36,9 @@ class ParsedLyrics {
 
   /// 是否非空
   bool get isNotEmpty => lines.isNotEmpty;
+
+  /// 是否有任何行包含附加文本
+  bool get hasSubText => lines.any((l) => l.subText != null && l.subText!.isNotEmpty);
 }
 
 /// LRC 格式解析器
@@ -116,6 +126,32 @@ class LrcParser {
     }
 
     return lines;
+  }
+
+  /// 将附加歌词（翻译/罗马音）合并到原文歌词中
+  ///
+  /// 通过时间戳匹配，将 [subLyricsText] 中的对应行作为 subText 附加到原文行上。
+  /// 如果 [subLyricsText] 为空或无法解析，返回原始 [lyrics] 不变。
+  static ParsedLyrics mergeSubLyrics(ParsedLyrics lyrics, String? subLyricsText) {
+    if (subLyricsText == null || subLyricsText.isEmpty) return lyrics;
+    if (!lyrics.isSynced) return lyrics;
+
+    final subLines = _parseSynced(subLyricsText);
+    if (subLines.isEmpty) return lyrics;
+
+    // 构建时间戳 → subText 映射（毫秒精度）
+    final subMap = <int, String>{};
+    for (final sub in subLines) {
+      subMap[sub.timestamp.inMilliseconds] = sub.text;
+    }
+
+    // 合并：为每行原文查找对应时间戳的 subText
+    final merged = lyrics.lines.map((line) {
+      final sub = subMap[line.timestamp.inMilliseconds];
+      return sub != null ? line.withSubText(sub) : line;
+    }).toList();
+
+    return ParsedLyrics(lines: merged, isSynced: true);
   }
 
   /// 根据当前播放位置找到当前歌词行索引

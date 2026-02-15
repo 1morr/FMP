@@ -28,5 +28,9 @@
   "translated": "翻譯",
   "romaji": "羅馬音",
   "sourceQQMusic": "QQ音樂",
-  "autoMatching": "正在匹配歌詞..."
+  "autoMatching": "正在匹配歌詞...",
+  "displayMode": "歌詞顯示",
+  "displayOriginal": "只顯示原文",
+  "displayPreferTranslated": "優先顯示翻譯",
+  "displayPreferRomaji": "優先顯示羅馬音"
 }
