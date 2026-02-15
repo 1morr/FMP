@@ -21,13 +21,22 @@ import '../../services/platform/url_launcher_service.dart';
 import '../../services/radio/radio_controller.dart';
 import '../../data/models/radio_station.dart';
 import 'track_thumbnail.dart';
+import 'lyrics_display.dart';
 
 /// 右侧歌曲详情面板（桌面模式）
-class TrackDetailPanel extends ConsumerWidget {
+class TrackDetailPanel extends ConsumerStatefulWidget {
   const TrackDetailPanel({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TrackDetailPanel> createState() => _TrackDetailPanelState();
+}
+
+class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
+  /// 是否显示歌词（切换信息/歌词）
+  bool _showLyrics = false;
+
+  @override
+  Widget build(BuildContext context) {
     final currentTrack = ref.watch(currentTrackProvider);
     final detailState = ref.watch(trackDetailProvider);
     final colorScheme = Theme.of(context).colorScheme;
@@ -114,12 +123,48 @@ class TrackDetailPanel extends ConsumerWidget {
 
     final detail = detailState.detail;
 
-    // 有详情数据时显示
+    // 有详情数据时显示（支持信息/歌词切换）
     return Container(
       color: colorScheme.surfaceContainerLow,
-      child: detail != null
-          ? _DetailContent(detail: detail)
-          : _buildBasicInfo(context, currentTrack),
+      child: Column(
+        children: [
+          // 信息/歌词切换按钮
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+            child: SegmentedButton<bool>(
+              segments: [
+                ButtonSegment(
+                  value: false,
+                  label: Text(t.player.info),
+                  icon: const Icon(Icons.info_outline, size: 16),
+                ),
+                ButtonSegment(
+                  value: true,
+                  label: Text(t.lyrics.lyrics),
+                  icon: const Icon(Icons.lyrics_outlined, size: 16),
+                ),
+              ],
+              selected: {_showLyrics},
+              onSelectionChanged: (v) => setState(() => _showLyrics = v.first),
+              style: SegmentedButton.styleFrom(
+                visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+                textStyle: textTheme.labelMedium,
+              ),
+            ),
+          ),
+          // 内容区域
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: AnimationDurations.normal,
+              child: _showLyrics
+                  ? const LyricsDisplay(key: ValueKey('lyrics'), compact: true)
+                  : detail != null
+                      ? _DetailContent(key: const ValueKey('detail'), detail: detail)
+                      : _buildBasicInfo(context, currentTrack),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -172,7 +217,7 @@ class TrackDetailPanel extends ConsumerWidget {
 class _DetailContent extends ConsumerWidget {
   final VideoDetail detail;
 
-  const _DetailContent({required this.detail});
+  const _DetailContent({super.key, required this.detail});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

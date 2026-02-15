@@ -16,5 +16,8 @@
   "adjustOffset": "调整偏移",
   "noMatch": "暂无匹配",
   "autoSearching": "自动搜索中...",
-  "tapToSelect": "点击选择"
+  "tapToSelect": "点击选择",
+  "lyrics": "歌词",
+  "noLyricsAvailable": "暂无歌词",
+  "instrumentalTrack": "纯音乐，无歌词"
 }

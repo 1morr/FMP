@@ -16,5 +16,8 @@
   "adjustOffset": "調整偏移",
   "noMatch": "尚無匹配",
   "autoSearching": "自動搜尋中...",
-  "tapToSelect": "點擊選擇"
+  "tapToSelect": "點擊選擇",
+  "lyrics": "歌詞",
+  "noLyricsAvailable": "暫無歌詞",
+  "instrumentalTrack": "純音樂，無歌詞"
 }
