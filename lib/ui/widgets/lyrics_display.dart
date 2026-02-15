@@ -46,8 +46,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   /// 是否是首次构建（用于判断是否需要初始滚动）
   bool _isFirstBuild = true;
 
-  /// 缓存：最宽行文本及其参考宽度（歌词变化时重算）
-  String? _cachedWidestText;
+  /// 缓存：代表行的参考宽度（歌词变化时重算）
   double? _cachedRefWidth;
   int _cachedLineCount = -1;
   String _cachedFirstLine = '';
@@ -58,26 +57,23 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   static const double _subFontRatio = 0.65;
   static const double _refFontSize = 20.0;
 
-  /// 单行显示的最小字号阈值：低于此值时允许换行（用两行宽度重算）
-  static const double _wrapThreshold = 18.0;
-
   /// bold 相对 normal 的宽度安全系数（避免 bold 当前行溢出）
   static const double _boldSafetyFactor = 0.95;
 
-  /// 找出用于字号计算的代表行宽度（结果缓存，歌词不变时不重算）
+  /// 计算用于字号基准的代表行宽度（结果缓存，歌词不变时不重算）
   ///
-  /// 使用 P95 百分位宽度而非绝对最宽行，避免少数异常长行（如版权声明）
-  /// 拉低整首歌的字号。超出该宽度的行会自动换行显示。
-  void _ensureWidestText(List<LyricsLine> lines, BuildContext context) {
+  /// 使用中位数行宽：约一半的行刚好单行显示，较长的行自动换行。
+  /// 不受少数异常长行（版权声明等）影响，也不受整体歌词偏长影响。
+  void _ensureRefWidth(List<LyricsLine> lines, BuildContext context) {
     final firstLine = lines.isNotEmpty ? lines.first.text : '';
-    if (_cachedWidestText != null &&
+    if (_cachedRefWidth != null &&
         _cachedLineCount == lines.length &&
         _cachedFirstLine == firstLine) {
       return;
     }
 
     final textDirection = Directionality.of(context);
-    final widths = <({String text, double width})>[];
+    final widths = <double>[];
 
     for (final line in lines) {
       if (line.text.isEmpty) continue;
@@ -90,25 +86,21 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
         maxLines: 1,
         textDirection: textDirection,
       )..layout();
-      widths.add((text: line.text, width: painter.width));
+      widths.add(painter.width);
       painter.dispose();
     }
 
     if (widths.isEmpty) {
-      _cachedWidestText = '';
       _cachedRefWidth = 0;
       _cachedLineCount = lines.length;
       _cachedFirstLine = firstLine;
       return;
     }
 
-    // 按宽度排序，取 P95 百分位
-    widths.sort((a, b) => a.width.compareTo(b.width));
-    final p95Index = ((widths.length - 1) * 0.95).round();
-    final representative = widths[p95Index];
-
-    _cachedWidestText = representative.text;
-    _cachedRefWidth = representative.width;
+    widths.sort();
+    // 中位数
+    final medianIndex = widths.length ~/ 2;
+    _cachedRefWidth = widths[medianIndex];
     _cachedLineCount = lines.length;
     _cachedFirstLine = firstLine;
   }
@@ -116,14 +108,13 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   /// 根据可用宽度计算最优字号
   ///
   /// 字体渲染宽度与字号近似线性关系，直接用比例计算，O(1)。
-  /// 使用 P95 行宽计算字号，超出的行自动换行。
-  /// 当 P95 行的单行字号仍低于阈值时，用两行宽度重算更大字号。
+  /// 基于中位数行宽：多数行单行显示，较长行自动换行。
   ({double main, double sub}) _getFontSizes(
     ParsedLyrics lyrics,
     double availableWidth,
     BuildContext context,
   ) {
-    _ensureWidestText(lyrics.lines, context);
+    _ensureRefWidth(lyrics.lines, context);
 
     if (_cachedRefWidth == null || _cachedRefWidth! <= 0) {
       final sub =
@@ -131,28 +122,12 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
       return (main: _maxFontSize, sub: sub);
     }
 
-    // 乘以安全系数，确保 bold 当前行不溢出
     final safeWidth = availableWidth * _boldSafetyFactor;
-
-    // 单行字号
-    final singleLineSize =
+    final mainSize =
         (_refFontSize * (safeWidth / _cachedRefWidth!)).clamp(
       _minFontSize,
       _maxFontSize,
     );
-
-    double mainSize;
-
-    if (singleLineSize < _wrapThreshold) {
-      // P95 行的字号仍太小 → 用两行宽度重算
-      mainSize =
-          (_refFontSize * (safeWidth * 2 / _cachedRefWidth!)).clamp(
-        _minFontSize,
-        _maxFontSize,
-      );
-    } else {
-      mainSize = singleLineSize;
-    }
 
     final subSize =
         (mainSize * _subFontRatio).clamp(_minFontSize, _maxFontSize);
