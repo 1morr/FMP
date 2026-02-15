@@ -217,6 +217,9 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
   double _detailPanelWidth = 380; // 默认宽度
   static const double _minPanelWidth = 280.0;
   static const double _maxPanelWidth = 500.0;
+  bool _isHoveredOnCollapsedBar = false;
+  bool _isDraggingPanelWidth = false;
+
 
   @override
   Widget build(BuildContext context) {
@@ -254,44 +257,10 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
             flex: 2,
             child: widget.child,
           ),
-          // 仅当有歌曲时显示右侧面板或收起条
-          if (hasTrack) ...[
-            if (_isDetailPanelExpanded) ...[
-              // 可拖动的分割线
-              MouseRegion(
-                cursor: SystemMouseCursors.resizeColumn,
-                child: GestureDetector(
-                  onHorizontalDragUpdate: (details) {
-                    setState(() {
-                      _detailPanelWidth -= details.delta.dx;
-                      _detailPanelWidth = _detailPanelWidth.clamp(_minPanelWidth, _maxPanelWidth);
-                    });
-                  },
-                  child: Container(
-                    width: 6,
-                    color: Colors.transparent,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Container(
-                        width: 1,
-                        color: colorScheme.outlineVariant,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              // 右侧歌曲详情面板
-              SizedBox(
-                width: _detailPanelWidth,
-                child: TrackDetailPanel(
-                  onCollapse: () => setState(() => _isDetailPanelExpanded = false),
-                ),
-              ),
-            ] else ...[
-              // 收起后的侧边栏
-              _buildCollapsedDetailPanel(colorScheme),
-            ],
-          ],
+          // 仅当有歌曲时显示右侧面板
+          // 仅当有歌曲时显示右侧面板
+          if (hasTrack)
+            _buildDetailPanelContainer(colorScheme),
         ],
       ),
       bottomNavigationBar: const _MiniPlayerSwitch(),
@@ -385,21 +354,113 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
     );
   }
 
-  /// 构建收起后的详情面板侧边栏
-  Widget _buildCollapsedDetailPanel(ColorScheme colorScheme) {
+  /// 统一的详情面板容器 — 分割线 + TrackDetailPanel 始终在 widget tree 中
+  Widget _buildDetailPanelContainer(ColorScheme colorScheme) {
+    // 展开时总宽度 = 分割线(6) + 面板宽度
+    // 收起时总宽度 = 48 / 120（hover）
+    final totalWidth = _isDetailPanelExpanded
+        ? _detailPanelWidth + 6
+        : (_isHoveredOnCollapsedBar ? 54.0 : 36.0);
+
     return MouseRegion(
-      cursor: SystemMouseCursors.click,
+      cursor: _isDetailPanelExpanded
+          ? SystemMouseCursors.basic
+          : SystemMouseCursors.click,
+      onEnter: _isDetailPanelExpanded
+          ? null
+          : (_) => setState(() => _isHoveredOnCollapsedBar = true),
+      onExit: _isDetailPanelExpanded
+          ? null
+          : (_) => setState(() => _isHoveredOnCollapsedBar = false),
       child: GestureDetector(
-        onTap: () => setState(() => _isDetailPanelExpanded = true),
-        child: Container(
-          width: 48,
-          color: colorScheme.surfaceContainerLow,
-          child: Center(
-            child: Icon(
-              Icons.first_page,
-              color: colorScheme.onSurfaceVariant,
-              size: 20,
-            ),
+        onTap: _isDetailPanelExpanded
+            ? null
+            : () => setState(() {
+                _isDetailPanelExpanded = true;
+                _isHoveredOnCollapsedBar = false;
+              }),
+        child: AnimatedContainer(
+          // 拖拽调整宽度时不需要动画，避免延迟
+          duration: _isDraggingPanelWidth ? Duration.zero : AnimationDurations.fastest,
+          curve: Curves.easeInOut,
+          width: totalWidth,
+          clipBehavior: Clip.hardEdge,
+          decoration: const BoxDecoration(),
+          child: Stack(
+            children: [
+              // 底层：分割线 + 真实的 TrackDetailPanel
+              // 使用 OverflowBox 让内容忽略父级宽度约束，
+              // 始终按完整宽度布局，外层 clip 裁剪溢出部分。
+              Align(
+                alignment: Alignment.topLeft,
+                child: OverflowBox(
+                  maxWidth: _detailPanelWidth + 6,
+                  minWidth: _detailPanelWidth + 6,
+                  alignment: Alignment.topLeft,
+                  child: Row(
+                    children: [
+                      // 可拖动的分割线
+                      MouseRegion(
+                        cursor: SystemMouseCursors.resizeColumn,
+                        child: GestureDetector(
+                          onHorizontalDragStart: (_) {
+                            _isDraggingPanelWidth = true;
+                          },
+                          onHorizontalDragUpdate: (details) {
+                            setState(() {
+                              _detailPanelWidth -= details.delta.dx;
+                              _detailPanelWidth = _detailPanelWidth.clamp(
+                                _minPanelWidth, _maxPanelWidth,
+                              );
+                            });
+                          },
+                          onHorizontalDragEnd: (_) {
+                            _isDraggingPanelWidth = false;
+                          },
+                          child: Container(
+                            width: 6,
+                            color: Colors.transparent,
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Container(
+                                width: 1,
+                                color: colorScheme.outlineVariant,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // 详情面板
+                      Expanded(
+                        child: TrackDetailPanel(
+                          onCollapse: () => setState(() {
+                            _isDetailPanelExpanded = false;
+                          }),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // 顶层：半透明遮罩（仅收起时显示）
+              if (!_isDetailPanelExpanded)
+                Positioned.fill(
+                  child: AnimatedOpacity(
+                    duration: AnimationDurations.fast,
+                    opacity: _isHoveredOnCollapsedBar ? 0.3 : 1.0,
+                    child: Container(
+                      color: colorScheme.surfaceContainerLow,
+                      child: Center(
+                        child: Icon(
+                          Icons.first_page,
+                          color: colorScheme.onSurfaceVariant,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
