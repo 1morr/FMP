@@ -47,3 +47,12 @@ final playHistoryRepositoryProvider = Provider<PlayHistoryRepository>((ref) {
   }
   return PlayHistoryRepository(db);
 });
+
+/// Lyrics Repository Provider
+final lyricsRepositoryProvider = Provider<LyricsRepository>((ref) {
+  final db = ref.watch(databaseProvider).valueOrNull;
+  if (db == null) {
+    throw StateError('Database not initialized');
+  }
+  return LyricsRepository(db);
+});

@@ -14,6 +14,7 @@ import '../../widgets/context_menu_region.dart';
 import '../../widgets/selection_mode_app_bar.dart';
 import '../../widgets/track_thumbnail.dart';
 import '../../../core/constants/ui_constants.dart';
+import '../lyrics/lyrics_search_sheet.dart';
 
 /// 探索页面 - 显示音乐排行榜
 class ExplorePage extends ConsumerStatefulWidget {
@@ -346,6 +347,10 @@ class _ExploreTrackTile extends ConsumerWidget {
       value: 'add_to_playlist',
       child: ListTile(leading: Icon(Icons.playlist_add), title: Text(t.searchPage.menu.addToPlaylist), contentPadding: EdgeInsets.zero),
     ),
+    PopupMenuItem(
+      value: 'matchLyrics',
+      child: ListTile(leading: Icon(Icons.lyrics_outlined), title: Text(t.lyrics.matchLyrics), contentPadding: EdgeInsets.zero),
+    ),
   ];
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
@@ -369,6 +374,9 @@ class _ExploreTrackTile extends ConsumerWidget {
         break;
       case 'add_to_playlist':
         showAddToPlaylistDialog(context: context, track: track);
+        break;
+      case 'matchLyrics':
+        showLyricsSearchSheet(context: context, track: track);
         break;
     }
   }

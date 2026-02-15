@@ -1,0 +1,20 @@
+{
+  "matchLyrics": "匹配歌詞",
+  "searchLyrics": "搜尋歌詞",
+  "lyricsMatched": "歌詞已匹配",
+  "lyricsRemoved": "已移除歌詞匹配",
+  "noLyricsFound": "未找到歌詞",
+  "lyricsOffset": "歌詞偏移",
+  "offsetMs": "${offset}毫秒",
+  "synced": "同步",
+  "plain": "純文字",
+  "instrumental": "純音樂",
+  "durationSeconds": "${seconds}秒",
+  "searchHint": "歌曲名、歌手...",
+  "currentMatch": "目前匹配",
+  "removeMatch": "移除匹配",
+  "adjustOffset": "調整偏移",
+  "noMatch": "尚無匹配",
+  "autoSearching": "自動搜尋中...",
+  "tapToSelect": "點擊選擇"
+}
