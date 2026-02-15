@@ -101,13 +101,16 @@ class MediaKitAudioService with Logging {
     logInfo('Initializing MediaKitAudioService...');
 
     // 创建 media_kit 播放器
-    // 优化内存：将 demuxer 缓存从默认的 32 MB 降低到 8 MB
-    // 对于纯音频播放，8 MB 缓冲足够（约 4-5 分钟的 256kbps 音频）
+    // 优化内存：将 demuxer 缓存从默认的 32 MB 降低到 4 MB
+    // 对于纯音频播放，4 MB 缓冲足够（约 2 分钟的 256kbps 音频）
     _player = Player(
       configuration: const PlayerConfiguration(
-        bufferSize: 8 * 1024 * 1024, // 8 MB（默认 32 MB）
+        bufferSize: 4 * 1024 * 1024, // 4 MB（默认 32 MB）
       ),
     );
+
+    // 优化 libmpv 内存占用（纯音频播放场景）
+    await _configureForAudioOnly();
 
     // 配置音频会话
     _session = await AudioSession.instance;
@@ -169,6 +172,43 @@ class MediaKitAudioService with Logging {
     _setupMediaKitListeners();
 
     logInfo('MediaKitAudioService initialized');
+  }
+
+  /// 配置 libmpv 为纯音频模式，大幅降低内存占用
+  ///
+  /// 关键优化：
+  /// - `vid=no`: 完全禁用视频轨道解码。播放 muxed 流时，libmpv 默认会解码视频帧
+  ///   即使 vo=null（不渲染），解码后的视频帧仍占用大量内存（1080p 约 8MB/帧）。
+  ///   设置 vid=no 后 libmpv 直接跳过视频轨道，可节省 200-400MB 内存。
+  /// - `demuxer-max-bytes`: 限制前向 demuxer 缓冲区（默认 150MB）
+  /// - `demuxer-max-back-bytes`: 限制后向 demuxer 缓冲区（默认 50MB）
+  /// - `cache=no`: 禁用额外的流缓存层（网络流已有 HTTP 层缓冲）
+  Future<void> _configureForAudioOnly() async {
+    try {
+      final nativePlayer = _player.platform;
+      if (nativePlayer == null) return;
+
+      // 完全禁用视频轨道解码 — 最大的内存优化
+      await (nativePlayer as dynamic).setProperty('vid', 'no');
+
+      // 限制 demuxer 缓冲区大小（纯音频不需要大缓冲）
+      // 2MB 前向 ≈ 约 1 分钟 256kbps 音频
+      await (nativePlayer as dynamic).setProperty(
+        'demuxer-max-bytes', '2097152',  // 2 MB
+      );
+      // 512KB 后向缓冲（用于 seek 回退）
+      await (nativePlayer as dynamic).setProperty(
+        'demuxer-max-back-bytes', '524288',  // 512 KB
+      );
+
+      // 禁用额外的流缓存层
+      await (nativePlayer as dynamic).setProperty('cache', 'no');
+
+      logInfo('libmpv configured for audio-only mode (vid=no, reduced buffers)');
+    } catch (e) {
+      // 非致命错误，降级到默认配置
+      logWarning('Failed to configure libmpv for audio-only: $e');
+    }
   }
 
   /// 设置 media_kit 播放器的流监听
