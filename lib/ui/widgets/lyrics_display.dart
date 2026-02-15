@@ -64,7 +64,10 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   /// bold 相对 normal 的宽度安全系数（避免 bold 当前行溢出）
   static const double _boldSafetyFactor = 0.95;
 
-  /// 找出渲染最宽的歌词行（结果缓存，歌词不变时不重算）
+  /// 找出用于字号计算的代表行宽度（结果缓存，歌词不变时不重算）
+  ///
+  /// 使用 P95 百分位宽度而非绝对最宽行，避免少数异常长行（如版权声明）
+  /// 拉低整首歌的字号。超出该宽度的行会自动换行显示。
   void _ensureWidestText(List<LyricsLine> lines, BuildContext context) {
     final firstLine = lines.isNotEmpty ? lines.first.text : '';
     if (_cachedWidestText != null &&
@@ -74,8 +77,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
     }
 
     final textDirection = Directionality.of(context);
-    String widestText = '';
-    double maxWidth = 0;
+    final widths = <({String text, double width})>[];
 
     for (final line in lines) {
       if (line.text.isEmpty) continue;
@@ -88,15 +90,25 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
         maxLines: 1,
         textDirection: textDirection,
       )..layout();
-      if (painter.width > maxWidth) {
-        maxWidth = painter.width;
-        widestText = line.text;
-      }
+      widths.add((text: line.text, width: painter.width));
       painter.dispose();
     }
 
-    _cachedWidestText = widestText;
-    _cachedRefWidth = maxWidth;
+    if (widths.isEmpty) {
+      _cachedWidestText = '';
+      _cachedRefWidth = 0;
+      _cachedLineCount = lines.length;
+      _cachedFirstLine = firstLine;
+      return;
+    }
+
+    // 按宽度排序，取 P95 百分位
+    widths.sort((a, b) => a.width.compareTo(b.width));
+    final p95Index = ((widths.length - 1) * 0.95).round();
+    final representative = widths[p95Index];
+
+    _cachedWidestText = representative.text;
+    _cachedRefWidth = representative.width;
     _cachedLineCount = lines.length;
     _cachedFirstLine = firstLine;
   }
@@ -104,8 +116,9 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   /// 根据可用宽度计算最优字号
   ///
   /// 字体渲染宽度与字号近似线性关系，直接用比例计算，O(1)。
-  /// 当单行字号低于阈值时，允许换行（用两行宽度重算更大字号）。
-  ({double main, double sub, bool allowWrap}) _getFontSizes(
+  /// 使用 P95 行宽计算字号，超出的行自动换行。
+  /// 当 P95 行的单行字号仍低于阈值时，用两行宽度重算更大字号。
+  ({double main, double sub}) _getFontSizes(
     ParsedLyrics lyrics,
     double availableWidth,
     BuildContext context,
@@ -115,7 +128,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
     if (_cachedRefWidth == null || _cachedRefWidth! <= 0) {
       final sub =
           (_maxFontSize * _subFontRatio).clamp(_minFontSize, _maxFontSize);
-      return (main: _maxFontSize, sub: sub, allowWrap: false);
+      return (main: _maxFontSize, sub: sub);
     }
 
     // 乘以安全系数，确保 bold 当前行不溢出
@@ -129,24 +142,21 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
     );
 
     double mainSize;
-    bool allowWrap;
 
     if (singleLineSize < _wrapThreshold) {
-      // 字号太小 → 允许换行，用两行宽度重算
+      // P95 行的字号仍太小 → 用两行宽度重算
       mainSize =
           (_refFontSize * (safeWidth * 2 / _cachedRefWidth!)).clamp(
         _minFontSize,
         _maxFontSize,
       );
-      allowWrap = true;
     } else {
       mainSize = singleLineSize;
-      allowWrap = false;
     }
 
     final subSize =
         (mainSize * _subFontRatio).clamp(_minFontSize, _maxFontSize);
-    return (main: mainSize, sub: subSize, allowWrap: allowWrap);
+    return (main: mainSize, sub: subSize);
   }
 
   @override
@@ -325,7 +335,6 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
                           isCurrent: isCurrent,
                           mainFontSize: fontSizes.main,
                           subFontSize: fontSizes.sub,
-                          allowWrap: fontSizes.allowWrap,
                           colorScheme: colorScheme,
                           onTap: () => _seekToLyricsLine(line, offsetMs),
                         ),
@@ -450,7 +459,6 @@ class _LyricsLineWidget extends StatelessWidget {
   final bool isCurrent;
   final double mainFontSize;
   final double subFontSize;
-  final bool allowWrap;
   final ColorScheme colorScheme;
   final VoidCallback? onTap;
 
@@ -461,7 +469,6 @@ class _LyricsLineWidget extends StatelessWidget {
     required this.isCurrent,
     required this.mainFontSize,
     required this.subFontSize,
-    this.allowWrap = false,
     required this.colorScheme,
     this.onTap,
   });
@@ -469,7 +476,6 @@ class _LyricsLineWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 当前行和非当前行使用相同字号，仅通过颜色和粗细区分
-    // 这样避免当前行因 bold 更宽而溢出换行
     final mainStyle = isCurrent
         ? TextStyle(
             color: colorScheme.primary,
@@ -485,7 +491,6 @@ class _LyricsLineWidget extends StatelessWidget {
           );
 
     final hasSubText = subText != null && subText!.isNotEmpty;
-    final maxLines = allowWrap ? 2 : 1;
 
     return GestureDetector(
       onTap: onTap,
@@ -500,8 +505,6 @@ class _LyricsLineWidget extends StatelessWidget {
             child: Text(
               text,
               textAlign: TextAlign.center,
-              maxLines: maxLines,
-              overflow: TextOverflow.ellipsis,
             ),
           ),
           if (hasSubText)
@@ -520,8 +523,6 @@ class _LyricsLineWidget extends StatelessWidget {
                 child: Text(
                   subText!,
                   textAlign: TextAlign.center,
-                  maxLines: maxLines,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ),
