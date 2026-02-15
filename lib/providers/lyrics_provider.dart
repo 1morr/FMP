@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models/lyrics_match.dart';
+import '../data/models/settings.dart';
 import '../data/repositories/lyrics_repository.dart';
+import '../data/repositories/settings_repository.dart';
 import '../services/audio/audio_provider.dart';
 import '../services/lyrics/lrc_parser.dart';
 import '../services/lyrics/lrclib_source.dart';
@@ -119,11 +121,76 @@ final currentLyricsContentProvider =
   return result;
 });
 
+/// 歌词显示模式 Provider（持久化到 Settings）
+final lyricsDisplayModeProvider =
+    StateNotifierProvider<LyricsDisplayModeNotifier, LyricsDisplayMode>((ref) {
+  final settingsRepo = ref.watch(settingsRepositoryProvider);
+  return LyricsDisplayModeNotifier(settingsRepo);
+});
+
+/// 歌词显示模式管理器
+class LyricsDisplayModeNotifier extends StateNotifier<LyricsDisplayMode> {
+  final SettingsRepository _settingsRepository;
+  Settings? _settings;
+
+  LyricsDisplayModeNotifier(this._settingsRepository)
+      : super(LyricsDisplayMode.original) {
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    _settings = await _settingsRepository.get();
+    if (!mounted) return;
+    state = _settings!.lyricsDisplayMode;
+  }
+
+  Future<void> setMode(LyricsDisplayMode mode) async {
+    if (_settings == null) return;
+    _settings!.lyricsDisplayMode = mode;
+    await _settingsRepository.save(_settings!);
+    state = mode;
+  }
+}
+
+/// 根据显示模式选择附加歌词文本（翻译/罗马音）
+///
+/// 返回 null 表示不显示附加文本（原文模式或无可用附加歌词）。
+/// 优先级：
+/// - preferTranslated: translatedLyrics → romajiLyrics → null
+/// - preferRomaji: romajiLyrics → translatedLyrics → null
+/// - original: null
+String? _selectSubLyricsText(LyricsResult content, LyricsDisplayMode mode) {
+  switch (mode) {
+    case LyricsDisplayMode.preferTranslated:
+      if (content.hasTranslatedLyrics) return content.translatedLyrics;
+      if (content.hasRomajiLyrics) return content.romajiLyrics;
+      return null;
+    case LyricsDisplayMode.preferRomaji:
+      if (content.hasRomajiLyrics) return content.romajiLyrics;
+      if (content.hasTranslatedLyrics) return content.translatedLyrics;
+      return null;
+    case LyricsDisplayMode.original:
+      return null;
+  }
+}
+
 /// 解析后的歌词（缓存解析结果，避免每次 position 变化都重新解析）
+///
+/// 始终解析原文歌词，根据 lyricsDisplayMode 合并附加文本（翻译/罗马音）到每行的 subText。
 final parsedLyricsProvider = Provider.autoDispose<ParsedLyrics?>((ref) {
   final content = ref.watch(currentLyricsContentProvider).valueOrNull;
   if (content == null) return null;
-  return LrcParser.parse(content.syncedLyrics, content.plainLyrics);
+
+  // 始终解析原文
+  final parsed = LrcParser.parse(content.syncedLyrics, content.plainLyrics);
+  if (parsed == null) return null;
+
+  // 根据显示模式合并附加歌词
+  final mode = ref.watch(lyricsDisplayModeProvider);
+  final subText = _selectSubLyricsText(content, mode);
+  if (subText == null) return parsed;
+
+  return LrcParser.mergeSubLyrics(parsed, subText);
 });
 
 // ---------------------------------------------------------------------------

@@ -28,5 +28,9 @@
   "translated": "翻译",
   "romaji": "罗马音",
   "sourceQQMusic": "QQ音乐",
-  "autoMatching": "正在匹配歌词..."
+  "autoMatching": "正在匹配歌词...",
+  "displayMode": "歌词显示",
+  "displayOriginal": "只显示原文",
+  "displayPreferTranslated": "优先显示翻译",
+  "displayPreferRomaji": "优先显示罗马音"
 }

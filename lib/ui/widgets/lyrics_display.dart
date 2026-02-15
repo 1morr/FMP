@@ -42,7 +42,8 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   bool _userScrolling = false;
 
   /// 固定行高（用于计算滚动位置）
-  double get _lineHeight => widget.compact ? 48.0 : 48.0;
+  /// 有附加文本时行高增大以容纳两行
+  double _lineHeight(bool hasSubText) => hasSubText ? 72.0 : 48.0;
 
   /// 是否是首次构建（用于判断是否需要初始滚动）
   bool _isFirstBuild = true;
@@ -150,6 +151,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
     final playerState = ref.watch(audioControllerProvider);
     final position = playerState.position;
     final currentTrack = playerState.currentTrack;
+    final lineH = _lineHeight(lyrics.hasSubText);
 
     // 计算当前行
     final newIndex = LrcParser.findCurrentLineIndex(
@@ -163,14 +165,14 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
       _isFirstBuild = false;
       _currentLineIndex = newIndex;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToLine(newIndex, lyrics.lines.length, immediate: true);
+        _scrollToLine(newIndex, lyrics.lines.length, lineHeight: lineH, immediate: true);
       });
     }
     // 只在行变化时触发滚动
     else if (newIndex != _currentLineIndex) {
       _currentLineIndex = newIndex;
       if (!_userScrolling && newIndex >= 0) {
-        _scrollToLine(newIndex, lyrics.lines.length);
+        _scrollToLine(newIndex, lyrics.lines.length, lineHeight: lineH);
       }
     }
 
@@ -208,7 +210,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
                   horizontal: widget.compact ? 12 : 24,
                 ),
                 itemCount: lyrics.lines.length,
-                itemExtent: _lineHeight,
+                itemExtent: lineH,
                 itemBuilder: (context, index) {
                   final line = lyrics.lines[index];
                   final isCurrent = index == _currentLineIndex;
@@ -216,6 +218,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
                   return _LyricsLineWidget(
                     key: ValueKey(index),
                     text: line.text,
+                    subText: line.subText,
                     isCurrent: isCurrent,
                     compact: widget.compact,
                     colorScheme: colorScheme,
@@ -310,12 +313,12 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   }
 
   /// 平滑滚动到指定行
-  void _scrollToLine(int index, int totalLines, {bool immediate = false}) {
+  void _scrollToLine(int index, int totalLines, {required double lineHeight, bool immediate = false}) {
     if (!_scrollController.hasClients) return;
 
     // 目标位置：将当前行滚动到视口中间偏上
     final viewportHeight = _scrollController.position.viewportDimension;
-    final targetOffset = (index * _lineHeight) - (viewportHeight / 2) + (_lineHeight / 2);
+    final targetOffset = (index * lineHeight) - (viewportHeight / 2) + (lineHeight / 2);
     final clampedOffset = targetOffset.clamp(
       0.0,
       _scrollController.position.maxScrollExtent,
@@ -339,9 +342,10 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   }
 }
 
-/// 单行歌词组件
+/// 单行歌词组件（支持原文 + 附加文本）
 class _LyricsLineWidget extends StatelessWidget {
   final String text;
+  final String? subText;
   final bool isCurrent;
   final bool compact;
   final ColorScheme colorScheme;
@@ -350,6 +354,7 @@ class _LyricsLineWidget extends StatelessWidget {
   const _LyricsLineWidget({
     super.key,
     required this.text,
+    this.subText,
     required this.isCurrent,
     required this.compact,
     required this.colorScheme,
@@ -358,7 +363,7 @@ class _LyricsLineWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textStyle = isCurrent
+    final mainStyle = isCurrent
         ? TextStyle(
             color: colorScheme.primary,
             fontSize: compact ? 20 : 20,
@@ -372,18 +377,44 @@ class _LyricsLineWidget extends StatelessWidget {
             height: 1.3,
           );
 
+    final hasSubText = subText != null && subText!.isNotEmpty;
+
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: AnimatedDefaultTextStyle(
-        duration: AnimationDurations.medium,
-        style: textStyle,
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedDefaultTextStyle(
+            duration: AnimationDurations.medium,
+            style: mainStyle,
+            child: Text(
+              text,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (hasSubText)
+            AnimatedDefaultTextStyle(
+              duration: AnimationDurations.medium,
+              style: TextStyle(
+                color: isCurrent
+                    ? colorScheme.primary.withValues(alpha: 0.7)
+                    : colorScheme.onSurface.withValues(alpha: 0.25),
+                fontSize: compact ? 13 : 13,
+                fontWeight: isCurrent ? FontWeight.w500 : FontWeight.normal,
+                height: 1.3,
+              ),
+              child: Text(
+                subText!,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+        ],
       ),
     );
   }

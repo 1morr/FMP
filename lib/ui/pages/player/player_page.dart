@@ -21,6 +21,7 @@ import '../../../services/audio/audio_provider.dart';
 import '../../../services/platform/url_launcher_service.dart';
 import '../../../core/constants/ui_constants.dart';
 import '../../widgets/track_thumbnail.dart';
+import '../../../providers/lyrics_provider.dart';
 import '../../widgets/lyrics_display.dart';
 import '../lyrics/lyrics_search_sheet.dart';
 
@@ -106,6 +107,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               } else if (value == 'lyrics_offset') {
                 // 切换 offset 控件显示
                 setState(() => _showOffsetControls = !_showOffsetControls);
+              } else if (value == 'lyrics_display_mode') {
+                // 打开歌词显示模式子菜单
+                Future.delayed(AnimationDurations.fastest, () {
+                  if (!context.mounted) return;
+                  _showLyricsDisplayModeMenu(context, colorScheme);
+                });
               }
             },
             itemBuilder: (context) => [
@@ -158,6 +165,22 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                       ),
                       const SizedBox(width: 12),
                       Text(t.lyrics.adjustOffset),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'lyrics_display_mode',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.translate, size: 20),
+                      const SizedBox(width: 12),
+                      Text(t.lyrics.displayMode),
+                      const Spacer(),
+                      Icon(
+                        Icons.chevron_right,
+                        size: 18,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ],
                   ),
                 ),
@@ -479,6 +502,46 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     ).then((value) {
       if (value != null) {
         controller.setSpeed(value);
+      }
+    });
+  }
+
+  /// 显示歌词显示模式选择菜单
+  void _showLyricsDisplayModeMenu(BuildContext context, ColorScheme colorScheme) {
+    final currentMode = ref.read(lyricsDisplayModeProvider);
+    final screenSize = MediaQuery.of(context).size;
+    final position = RelativeRect.fromLTRB(
+      screenSize.width - 200,
+      kToolbarHeight + MediaQuery.of(context).padding.top,
+      8,
+      0,
+    );
+
+    final modes = [
+      (LyricsDisplayMode.original, t.lyrics.displayOriginal),
+      (LyricsDisplayMode.preferTranslated, t.lyrics.displayPreferTranslated),
+      (LyricsDisplayMode.preferRomaji, t.lyrics.displayPreferRomaji),
+    ];
+
+    showMenu<LyricsDisplayMode>(
+      context: context,
+      position: position,
+      items: modes.map((entry) => PopupMenuItem(
+        value: entry.$1,
+        child: Row(
+          children: [
+            if (currentMode == entry.$1)
+              Icon(Icons.check, size: 18, color: colorScheme.primary)
+            else
+              const SizedBox(width: 18),
+            const SizedBox(width: 8),
+            Text(entry.$2),
+          ],
+        ),
+      )).toList(),
+    ).then((value) {
+      if (value != null) {
+        ref.read(lyricsDisplayModeProvider.notifier).setMode(value);
       }
     });
   }

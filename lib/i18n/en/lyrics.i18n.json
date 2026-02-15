@@ -28,5 +28,9 @@
   "translated": "Translated",
   "romaji": "Romaji",
   "sourceQQMusic": "QQ Music",
-  "autoMatching": "Matching lyrics..."
+  "autoMatching": "Matching lyrics...",
+  "displayMode": "Lyrics Display",
+  "displayOriginal": "Original",
+  "displayPreferTranslated": "Prefer Translation",
+  "displayPreferRomaji": "Prefer Romaji"
 }
