@@ -22,6 +22,7 @@ import '../../services/radio/radio_controller.dart';
 import '../../data/models/radio_station.dart';
 import 'track_thumbnail.dart';
 import 'lyrics_display.dart';
+import '../pages/lyrics/lyrics_search_sheet.dart';
 
 /// 右侧歌曲详情面板（桌面模式）
 class TrackDetailPanel extends ConsumerStatefulWidget {
@@ -34,8 +35,22 @@ class TrackDetailPanel extends ConsumerStatefulWidget {
 }
 
 class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
+
+  /// 打开歌词搜索 BottomSheet
+  void _openLyricsSearch(BuildContext context) {
+    final currentTrack = ref.read(currentTrackProvider);
+    if (currentTrack == null) return;
+
+    showLyricsSearchSheet(
+      context: context,
+      track: currentTrack,
+    );
+  }
   /// 是否显示歌词（切换信息/歌词）
   bool _showLyrics = false;
+
+  /// 是否显示 offset 调整控件
+  bool _showOffsetControls = false;
 
   @override
   Widget build(BuildContext context) {
@@ -144,7 +159,11 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
             child: AnimatedSwitcher(
               duration: AnimationDurations.normal,
               child: _showLyrics
-                  ? const LyricsDisplay(key: ValueKey('lyrics'), compact: true)
+                  ? LyricsDisplay(
+                      key: const ValueKey('lyrics'),
+                      compact: true,
+                      showOffsetControls: _showOffsetControls,
+                    )
                   : detail != null
                       ? _DetailContent(key: const ValueKey('detail'), detail: detail)
                       : _buildBasicInfo(context, currentTrack),
@@ -193,13 +212,59 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
               ),
             ),
           ),
+          // 歌词菜单按钮（仅在显示歌词时显示）
+          if (_showLyrics && !isRadio)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, size: 20),
+              tooltip: t.general.more,
+              offset: const Offset(0, 40),
+              iconSize: 20,
+              onSelected: (value) {
+                if (value == 'search') {
+                  _openLyricsSearch(context);
+                } else if (value == 'offset') {
+                  setState(() => _showOffsetControls = !_showOffsetControls);
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'search',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.search, size: 20),
+                      const SizedBox(width: 12),
+                      Text(t.lyrics.searchLyrics),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'offset',
+                  child: Row(
+                    children: [
+                      Icon(
+                        _showOffsetControls ? Icons.check_box : Icons.check_box_outline_blank,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(t.lyrics.adjustOffset),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           // 信息/歌词切换按钮（显示当前状态）
           IconButton(
             icon: Icon(
               _showLyrics ? Icons.lyrics_outlined : Icons.info_outline,
               size: 20,
             ),
-            onPressed: () => setState(() => _showLyrics = !_showLyrics),
+            onPressed: () {
+              setState(() {
+                _showLyrics = !_showLyrics;
+                // 切换到信息时隐藏 offset 控件
+                if (!_showLyrics) _showOffsetControls = false;
+              });
+            },
             tooltip: _showLyrics ? t.lyrics.lyrics : t.player.info,
             visualDensity: VisualDensity.compact,
             style: IconButton.styleFrom(

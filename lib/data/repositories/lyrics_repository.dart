@@ -16,6 +16,15 @@ class LyricsRepository {
         .findFirst();
   }
 
+  /// 监听 trackUniqueKey 的匹配记录变化
+  Stream<LyricsMatch?> watchByTrackKey(String trackUniqueKey) {
+    return _isar.lyricsMatchs
+        .where()
+        .trackUniqueKeyEqualTo(trackUniqueKey)
+        .watch(fireImmediately: true)
+        .map((matches) => matches.isEmpty ? null : matches.first);
+  }
+
   /// 保存匹配记录（replace: true 自动覆盖同 trackUniqueKey 的旧记录）
   Future<void> save(LyricsMatch match) async {
     await _isar.writeTxn(() async {

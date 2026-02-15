@@ -27,5 +27,10 @@
     "muxedDescription": "Includes video data, more compatible",
     "hls": "HLS",
     "hlsDescription": "Segmented stream, good for live"
+  },
+  "lyrics": {
+    "title": "Lyrics",
+    "autoMatch": "Auto-match lyrics",
+    "autoMatchSubtitle": "Automatically search and match lyrics when playing (only if no match exists)"
   }
 }

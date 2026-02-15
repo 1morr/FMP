@@ -170,6 +170,15 @@
     "currentCacheSize": "Current cache size: $size",
     "cacheCleared": "Image cache cleared"
   },
+  "lyricsCache": {
+    "title": "Lyrics Cache",
+    "currentCache": "$count files, $size",
+    "calculating": "Calculating...",
+    "clearTitle": "Clear Lyrics Cache",
+    "clearSubtitle": "Clear all cached lyrics files",
+    "clearConfirm": "Clear all cached lyrics? They will be re-downloaded when needed.",
+    "cacheCleared": "Lyrics cache cleared"
+  },
   "tray": {
     "title": "Minimize to tray",
     "subtitle": "Minimize to system tray when closing window"

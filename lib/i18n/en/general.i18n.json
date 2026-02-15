@@ -14,5 +14,6 @@
   "initFailed": "Initialization failed",
   "unknownArtist": "Unknown artist",
   "delete": "Delete",
-  "continueText": "Continue"
+  "continueText": "Continue",
+  "more": "More"
 }

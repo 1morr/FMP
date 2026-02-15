@@ -61,6 +61,26 @@ class AudioSettingsPage extends ConsumerWidget {
               ref.read(audioSettingsProvider.notifier).setBilibiliStreamPriority(newPriority);
             },
           ),
+          const Divider(),
+          // 歌词设置
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text(
+              t.audioSettings.lyrics.title,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+            ),
+          ),
+          SwitchListTile(
+            secondary: const Icon(Icons.lyrics_outlined),
+            title: Text(t.audioSettings.lyrics.autoMatch),
+            subtitle: Text(t.audioSettings.lyrics.autoMatchSubtitle),
+            value: audioSettings.autoMatchLyrics,
+            onChanged: (value) {
+              ref.read(audioSettingsProvider.notifier).setAutoMatchLyrics(value);
+            },
+          ),
           const SizedBox(height: 16),
         ],
       ),

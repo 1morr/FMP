@@ -19,5 +19,7 @@
   "tapToSelect": "Tap to select",
   "lyrics": "Lyrics",
   "noLyricsAvailable": "No lyrics available",
-  "instrumentalTrack": "Instrumental, no lyrics"
+  "instrumentalTrack": "Instrumental, no lyrics",
+  "offset": "Offset",
+  "resetOffset": "Reset offset"
 }

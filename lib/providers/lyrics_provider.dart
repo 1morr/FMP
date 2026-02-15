@@ -5,6 +5,8 @@ import '../data/repositories/lyrics_repository.dart';
 import '../services/audio/audio_provider.dart';
 import '../services/lyrics/lrc_parser.dart';
 import '../services/lyrics/lrclib_source.dart';
+import '../services/lyrics/lyrics_auto_match_service.dart';
+import '../services/lyrics/lyrics_cache_service.dart';
 import '../services/lyrics/title_parser.dart';
 import 'repository_providers.dart';
 
@@ -18,26 +20,69 @@ final lrclibSourceProvider = Provider<LrclibSource>((ref) => LrclibSource());
 /// TitleParser 单例
 final titleParserProvider = Provider<TitleParser>((ref) => RegexTitleParser());
 
+/// LyricsCacheService 单例
+final lyricsCacheServiceProvider = Provider<LyricsCacheService>((ref) {
+  final service = LyricsCacheService();
+  service.initialize();
+  return service;
+});
+
+/// LyricsAutoMatchService 单例
+final lyricsAutoMatchServiceProvider = Provider<LyricsAutoMatchService>((ref) {
+  return LyricsAutoMatchService(
+    lrclib: ref.watch(lrclibSourceProvider),
+    repo: ref.watch(lyricsRepositoryProvider),
+    cache: ref.watch(lyricsCacheServiceProvider),
+    parser: ref.watch(titleParserProvider),
+  );
+});
+
 // ---------------------------------------------------------------------------
 // 当前播放歌曲的歌词匹配
 // ---------------------------------------------------------------------------
 
-/// 当前播放歌曲的歌词匹配信息
+/// 当前播放歌曲的歌词匹配信息（实时监听数据库变化）
 final currentLyricsMatchProvider =
-    FutureProvider.autoDispose<LyricsMatch?>((ref) {
+    StreamProvider.autoDispose<LyricsMatch?>((ref) {
   final currentTrack = ref.watch(currentTrackProvider);
-  if (currentTrack == null) return null;
+  if (currentTrack == null) return Stream.value(null);
   final repo = ref.watch(lyricsRepositoryProvider);
-  return repo.getByTrackKey(currentTrack.uniqueKey);
+  return repo.watchByTrackKey(currentTrack.uniqueKey);
 });
 
-/// 当前播放歌曲的歌词内容（在线获取）
-final currentLyricsContentProvider =
-    FutureProvider.autoDispose<LrclibResult?>((ref) {
+/// 当前歌词的 externalId（用于触发内容加载，避免 offset 变化时重新加载）
+final _currentLyricsExternalIdProvider =
+    Provider.autoDispose<int?>((ref) {
   final match = ref.watch(currentLyricsMatchProvider).valueOrNull;
-  if (match == null) return null;
+  return match?.externalId;
+});
+
+/// 当前播放歌曲的歌词内容（优先从缓存获取，否则在线获取）
+/// 注意：只在 externalId 变化时重新加载，offset 变化不会触发重新加载
+final currentLyricsContentProvider =
+    FutureProvider.autoDispose<LrclibResult?>((ref) async {
+  final currentTrack = ref.watch(currentTrackProvider);
+  if (currentTrack == null) return null;
+
+  // 只监听 externalId，不监听整个 match 对象
+  final externalId = ref.watch(_currentLyricsExternalIdProvider);
+  if (externalId == null) return null;
+
+  final cache = ref.watch(lyricsCacheServiceProvider);
   final lrclib = ref.watch(lrclibSourceProvider);
-  return lrclib.getById(match.externalId);
+
+  // 1. 尝试从缓存获取
+  final cached = await cache.get(currentTrack.uniqueKey);
+  if (cached != null) return cached;
+
+  // 2. 从 API 获取
+  final result = await lrclib.getById(externalId);
+  if (result != null) {
+    // 3. 保存到缓存
+    await cache.put(currentTrack.uniqueKey, result);
+  }
+
+  return result;
 });
 
 /// 解析后的歌词（缓存解析结果，避免每次 position 变化都重新解析）
@@ -80,8 +125,9 @@ class LyricsSearchState {
 class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
   final LrclibSource _lrclib;
   final LyricsRepository _repo;
+  final LyricsCacheService _cache;
 
-  LyricsSearchNotifier(this._lrclib, this._repo)
+  LyricsSearchNotifier(this._lrclib, this._repo, this._cache)
       : super(const LyricsSearchState());
 
   /// 搜索歌词
@@ -113,6 +159,9 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
       ..offsetMs = 0
       ..matchedAt = DateTime.now();
     await _repo.save(match);
+    
+    // 立即缓存歌词内容
+    await _cache.put(trackUniqueKey, result);
   }
 
   /// 删除匹配
@@ -137,7 +186,8 @@ final lyricsSearchProvider =
         (ref) {
   final lrclib = ref.watch(lrclibSourceProvider);
   final repo = ref.watch(lyricsRepositoryProvider);
-  return LyricsSearchNotifier(lrclib, repo);
+  final cache = ref.watch(lyricsCacheServiceProvider);
+  return LyricsSearchNotifier(lrclib, repo, cache);
 });
 
 /// 查询指定 track 的歌词匹配（用于菜单显示"已匹配"状态）
