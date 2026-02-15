@@ -472,6 +472,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                               networkUrl: history.thumbnailUrl,
                               placeholder: const ImagePlaceholder.track(),
                               fit: BoxFit.cover,
+                              width: cardWidth,
+                              targetDisplaySize: 80,
                             )
                           : const ImagePlaceholder.track(),
                     ],
@@ -1173,6 +1175,7 @@ class _HomeRadioStationCard extends StatelessWidget {
                       fit: BoxFit.cover,
                       width: 100,
                       height: 100,
+                      targetDisplaySize: 80,
                     ),
                   ),
                 ),

@@ -325,6 +325,8 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
         networkUrl: customUrl,
         placeholder: const ImagePlaceholder.track(),
         fit: BoxFit.cover,
+        width: 120,
+        height: 120,
       );
     }
 
@@ -337,6 +339,8 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
               networkUrl: coverData.networkUrl,
               placeholder: const ImagePlaceholder.track(),
               fit: BoxFit.cover,
+              width: 120,
+              height: 120,
             )
           : const ImagePlaceholder.track(),
       loading: () => const ImagePlaceholder.track(),

@@ -655,6 +655,8 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                                 ),
                               ),
                               fit: BoxFit.cover,
+                              width: 120,
+                              height: 120,
                             )
                           : Container(
                               color: colorScheme.primaryContainer,

@@ -283,6 +283,8 @@ class _ReorderablePlaylistCard extends ConsumerWidget {
                           networkUrl: coverData.networkUrl,
                           placeholder: const ImagePlaceholder.track(),
                           fit: BoxFit.cover,
+                          width: 200,
+                          targetDisplaySize: 100,
                         )
                       : const ImagePlaceholder.track(),
                   loading: () => const ImagePlaceholder.track(),
@@ -411,6 +413,8 @@ class _PlaylistCard extends ConsumerWidget {
                             networkUrl: coverData.networkUrl,
                             placeholder: const ImagePlaceholder.track(),
                             fit: BoxFit.cover,
+                            width: 200,
+                            targetDisplaySize: 100,
                           )
                         : const ImagePlaceholder.track(),
                     loading: () => const ImagePlaceholder.track(),
