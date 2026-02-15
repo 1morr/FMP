@@ -13,6 +13,7 @@ import '../../../data/models/search_history.dart';
 import '../../../data/models/download_task.dart';
 import '../../../data/models/play_history.dart';
 import '../../../data/models/radio_station.dart';
+import '../../../data/models/lyrics_match.dart';
 import '../../../core/constants/ui_constants.dart';
 
 /// 数据库查看页面
@@ -35,6 +36,7 @@ class _DatabaseViewerPageState extends ConsumerState<DatabaseViewerPage> {
     'SearchHistory',
     'DownloadTask',
     'RadioStation',
+    'LyricsMatch',
   ];
 
   @override
@@ -121,6 +123,7 @@ class _DatabaseViewerPageState extends ConsumerState<DatabaseViewerPage> {
       'SearchHistory' => _SearchHistoryListView(isar: isar),
       'DownloadTask' => _DownloadTaskListView(isar: isar),
       'RadioStation' => _RadioStationListView(isar: isar),
+      'LyricsMatch' => _LyricsMatchListView(isar: isar),
       _ => Center(child: Text(t.databaseViewer.unknownCollection)),
     };
   }
@@ -200,6 +203,13 @@ class _TrackListView extends StatelessWidget {
                     'pageCount': track.pageCount?.toString() ?? 'null',
                     'parentTitle': track.parentTitle ?? 'null',
                     'isPartOfMultiPage': track.isPartOfMultiPage.toString(),
+                  },
+                ),
+                _DataSection(
+                  title: t.databaseViewer.importOrigin,
+                  data: {
+                    'originalSongId': track.originalSongId ?? 'null',
+                    'originalSource': track.originalSource ?? 'null',
                   },
                 ),
                 _DataSection(
@@ -492,7 +502,30 @@ class _SettingsListView extends StatelessWidget {
                   data: {
                     'minimizeToTrayOnClose': setting.minimizeToTrayOnClose.toString(),
                     'enableGlobalHotkeys': setting.enableGlobalHotkeys.toString(),
+                    'launchAtStartup': setting.launchAtStartup.toString(),
+                    'launchMinimized': setting.launchMinimized.toString(),
                     'hotkeyConfig': setting.hotkeyConfig ?? 'null',
+                  },
+                ),
+                _DataSection(
+                  title: t.databaseViewer.audioDeviceSettings,
+                  data: {
+                    'preferredAudioDeviceId': setting.preferredAudioDeviceId ?? 'null',
+                    'preferredAudioDeviceName': setting.preferredAudioDeviceName ?? 'null',
+                  },
+                ),
+                _DataSection(
+                  title: t.databaseViewer.lyricsSettings,
+                  data: {
+                    'autoMatchLyrics': setting.autoMatchLyrics.toString(),
+                    'maxLyricsCacheFiles': setting.maxLyricsCacheFiles.toString(),
+                  },
+                ),
+                _DataSection(
+                  title: t.databaseViewer.uiSettings,
+                  data: {
+                    'fontFamily': setting.fontFamily ?? 'null',
+                    'locale': setting.locale ?? 'null',
                   },
                 ),
                 _DataSection(
@@ -753,6 +786,61 @@ class _RadioStationListView extends StatelessWidget {
                   data: {
                     'createdAt': station.createdAt.toIso8601String(),
                     'lastPlayedAt': station.lastPlayedAt?.toIso8601String() ?? 'null',
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+/// LyricsMatch 列表视图
+class _LyricsMatchListView extends StatelessWidget {
+  final Isar isar;
+
+  const _LyricsMatchListView({required this.isar});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<LyricsMatch>>(
+      future: isar.lyricsMatchs.where().findAll(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final matches = snapshot.data ?? [];
+        return _buildList(
+          context,
+          itemCount: matches.length,
+          headerText: t.databaseViewer.recordCount(count: matches.length),
+          itemBuilder: (index) {
+            final match = matches[index];
+            return _DataCard(
+              title: '${t.databaseViewer.lyricsMatch} #${match.id}',
+              subtitle: match.trackUniqueKey,
+              sections: [
+                _DataSection(
+                  title: t.databaseViewer.basicInfo,
+                  data: {
+                    'id': match.id.toString(),
+                    'trackUniqueKey': match.trackUniqueKey,
+                  },
+                ),
+                _DataSection(
+                  title: t.databaseViewer.lyricsInfo,
+                  data: {
+                    'lyricsSource': match.lyricsSource,
+                    'externalId': match.externalId,
+                    'offsetMs': '${match.offsetMs}ms',
+                  },
+                ),
+                _DataSection(
+                  title: t.databaseViewer.timestamps,
+                  data: {
+                    'matchedAt': match.matchedAt.toIso8601String(),
                   },
                 ),
               ],

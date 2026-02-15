@@ -36,5 +36,12 @@
   "sortAndFavorite": "Sort & Favorite",
   "noData": "No data",
   "setting": "Setting #$id",
-  "theme": "Theme: $name"
+  "theme": "Theme: $name",
+  "lyricsMatch": "Lyrics Match",
+  "lyricsInfo": "Lyrics Info",
+  "importOrigin": "Import Origin",
+  "lyricsSettings": "Lyrics Settings",
+  "uiSettings": "UI Settings",
+  "audioDeviceSettings": "Audio Output Device",
+  "startupSettings": "Startup Settings"
 }
