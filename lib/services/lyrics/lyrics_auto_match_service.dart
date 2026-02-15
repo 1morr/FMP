@@ -49,6 +49,24 @@ class LyricsAutoMatchService with Logging {
         return false;
       }
 
+      // 1.5. 如果有原平台 ID，直接获取歌词（跳过搜索）
+      if (track.originalSongId != null && track.originalSource != null) {
+        final result = await _tryDirectFetch(track.originalSongId!, track.originalSource!);
+        if (result != null) {
+          await _cache.put(track.uniqueKey, result);
+          final match = LyricsMatch()
+            ..trackUniqueKey = track.uniqueKey
+            ..lyricsSource = track.originalSource!
+            ..externalId = track.originalSongId!
+            ..offsetMs = 0
+            ..matchedAt = DateTime.now();
+          await _repo.save(match);
+          logInfo('Auto-matched lyrics via direct ID: ${track.title} → ${track.originalSource}:${track.originalSongId}');
+          return true;
+        }
+        // 直接获取失败，fallback 到搜索流程
+      }
+
       // 2. 解析标题和艺术家
       final parsed = _parser.parse(track.title);
       final trackName = parsed.trackName;
@@ -148,6 +166,31 @@ class LyricsAutoMatchService with Logging {
     } catch (e) {
       logError('Auto-match failed for ${track.uniqueKey}: $e');
       return false;
+    }
+  }
+
+  /// 通过原平台 ID 直接获取歌词（不需要搜索）
+  ///
+  /// 仅支持网易云和 QQ 音乐（Spotify 无歌词 API）
+  Future<LyricsResult?> _tryDirectFetch(String songId, String source) async {
+    try {
+      LyricsResult? result;
+      if (source == 'netease') {
+        result = await _netease.getLyricsResult(songId);
+      } else if (source == 'qqmusic') {
+        result = await _qqmusic.getLyricsResult(songId);
+      } else {
+        return null; // Spotify 等不支持直接获取
+      }
+
+      // 只返回有同步歌词的结果
+      if (result != null && result.hasSyncedLyrics) {
+        return result;
+      }
+      return null;
+    } catch (e) {
+      logWarning('Direct lyrics fetch failed for $source:$songId: $e');
+      return null;
     }
   }
 

@@ -236,6 +236,15 @@ class Track {
   /// 父视频标题（用于分组显示时的标题）
   String? parentTitle;
 
+  /// 原平台歌曲 ID（导入时保存，用于歌词直接获取和来源追溯）
+  /// 网易云: song ID (如 "1234567")
+  /// QQ音乐: songmid (如 "0039MnYb0qxYhV")
+  /// Spotify: track ID (如 "4iV5W9uYEdYUVa79Axb7Rh")
+  String? originalSongId;
+
+  /// 原平台来源 ("netease" / "qqmusic" / "spotify")
+  String? originalSource;
+
   /// 创建时间
   DateTime createdAt = DateTime.now();
 

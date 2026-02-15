@@ -9,11 +9,19 @@ class ImportedTrack {
   final String? album;
   final Duration? duration;
 
+  /// 原平台歌曲 ID（网易云: song ID, QQ音乐: songmid, Spotify: track ID）
+  final String? sourceId;
+
+  /// 来源平台
+  final PlaylistSource? source;
+
   const ImportedTrack({
     required this.title,
     required this.artists,
     this.album,
     this.duration,
+    this.sourceId,
+    this.source,
   });
 
   /// 生成搜索查询字符串

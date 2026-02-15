@@ -410,6 +410,26 @@ User-configurable audio quality settings for different sources.
 - Bilibili only supports AAC format, format priority has no effect
 - Bilibili live streams are always muxed (video+audio), no audio-only option
 
+### Playlist Import - Original Platform Song ID (2026-02)
+导入外部歌单时保存原平台歌曲 ID，用于歌词直接获取和来源追溯。
+
+**ImportedTrack** 新增字段：
+- `sourceId` — 原平台歌曲 ID（网易云 int→String, QQ音乐 songmid, Spotify track ID）
+- `source` — 来源平台（`PlaylistSource` 枚举）
+
+**Track 模型** 新增字段（Isar，nullable，兼容旧数据）：
+- `originalSongId` — 原平台歌曲 ID
+- `originalSource` — 来源标识（`"netease"` / `"qqmusic"` / `"spotify"`）
+
+**歌词自动匹配优先级**（`LyricsAutoMatchService.tryAutoMatch()`）：
+1. 检查已有匹配
+2. **原平台 ID 直接获取**（网易云/QQ音乐，跳过搜索）
+3. 网易云搜索
+4. QQ音乐搜索
+5. lrclib fallback
+
+**数据流**：导入源提取 ID → `ImportedTrack.sourceId` → `selectedTracks` getter 复制到 `Track.originalSongId` → 保存到 Isar → 歌词自动匹配时使用
+
 ### AppBar Actions Trailing Spacing
 All page-level `AppBar` actions lists must end with `const SizedBox(width: 8)` to maintain consistent spacing between the last action button and the screen edge. This applies when the last action is an `IconButton`. Pages where the last action is a `PopupMenuButton` do not need the extra spacing since `PopupMenuButton` has built-in padding.
 
@@ -564,7 +584,7 @@ lib/
 │   │   ├── lrclib_source.dart          # lrclib.net API 客戶端
 │   │   ├── netease_source.dart         # 網易雲音樂歌詞源（搜索+歌詞獲取）
 │   │   ├── lyrics_result.dart          # 統一歌詞結果類型（LyricsResult）
-│   │   ├── lyrics_auto_match_service.dart # 自動匹配（網易雲優先 → lrclib fallback）
+│   │   ├── lyrics_auto_match_service.dart # 自動匹配（原平台ID直取優先 → 網易雲 → QQ音樂 → lrclib fallback）
 │   │   ├── qqmusic_source.dart          # QQ音樂歌詞源（搜索+歌詞獲取）
 │   │   ├── lyrics_cache_service.dart   # 歌詞緩存（LRU，支持多源）
 │   │   ├── lrc_parser.dart             # LRC 格式解析
