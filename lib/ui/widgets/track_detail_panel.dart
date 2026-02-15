@@ -36,6 +36,7 @@ class TrackDetailPanel extends ConsumerStatefulWidget {
 }
 
 class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
+  final _lyricsMenuKey = GlobalKey();
 
   /// 打开歌词搜索 BottomSheet
   void _openLyricsSearch(BuildContext context) {
@@ -52,8 +53,12 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
   void _showLyricsDisplayModeMenu(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final currentMode = ref.read(lyricsDisplayModeProvider);
-    final renderBox = context.findRenderObject() as RenderBox;
-    final offset = renderBox.localToGlobal(Offset.zero);
+    final renderBox = _lyricsMenuKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final buttonOffset = renderBox.localToGlobal(Offset.zero);
+    final screenWidth = MediaQuery.of(context).size.width;
+    // 菜单右边缘对齐按钮右边缘
+    final buttonRight = buttonOffset.dx + renderBox.size.width;
 
     final modes = [
       (LyricsDisplayMode.original, t.lyrics.displayOriginal),
@@ -64,9 +69,9 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     showMenu<LyricsDisplayMode>(
       context: context,
       position: RelativeRect.fromLTRB(
-        offset.dx,
-        offset.dy + 48,
-        offset.dx + renderBox.size.width,
+        buttonRight - 200, // 菜单宽度约 200，左边缘 = 按钮右边缘 - 菜单宽度
+        buttonOffset.dy + renderBox.size.height,
+        screenWidth - buttonRight,
         0,
       ),
       items: modes.map((entry) => PopupMenuItem(
@@ -262,6 +267,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
               child: IgnorePointer(
                 ignoring: !_showLyrics,
                 child: PopupMenuButton<String>(
+                  key: _lyricsMenuKey,
                   icon: const Icon(Icons.more_vert, size: 20),
                   tooltip: t.general.more,
                   offset: const Offset(0, 40),
@@ -272,7 +278,11 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                     } else if (value == 'offset') {
                       setState(() => _showOffsetControls = !_showOffsetControls);
                     } else if (value == 'display_mode') {
-                      _showLyricsDisplayModeMenu(context);
+                      // 延迟显示子菜单，等主菜单关闭后再显示
+                      Future.delayed(AnimationDurations.fastest, () {
+                        if (!context.mounted) return;
+                        _showLyricsDisplayModeMenu(context);
+                      });
                     }
                   },
                   itemBuilder: (context) => [
