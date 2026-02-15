@@ -44,6 +44,9 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   /// 固定行高（用于计算滚动位置）
   double get _lineHeight => widget.compact ? 48.0 : 48.0;
 
+  /// 是否是首次构建（用于判断是否需要初始滚动）
+  bool _isFirstBuild = true;
+
   @override
   void dispose() {
     _scrollController.dispose();
@@ -138,8 +141,16 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
       offsetMs,
     );
 
+    // 首次构建时立即滚动到当前行
+    if (_isFirstBuild && newIndex >= 0) {
+      _isFirstBuild = false;
+      _currentLineIndex = newIndex;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToLine(newIndex, lyrics.lines.length, immediate: true);
+      });
+    }
     // 只在行变化时触发滚动
-    if (newIndex != _currentLineIndex) {
+    else if (newIndex != _currentLineIndex) {
       _currentLineIndex = newIndex;
       if (!_userScrolling && newIndex >= 0) {
         _scrollToLine(newIndex, lyrics.lines.length);
@@ -211,6 +222,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
       onTap: widget.onTap,
       behavior: HitTestBehavior.opaque,
       child: ListView.builder(
+        controller: _scrollController,
         padding: EdgeInsets.symmetric(
           vertical: widget.compact ? 16 : 40,
           horizontal: widget.compact ? 12 : 24,
@@ -270,7 +282,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   }
 
   /// 平滑滚动到指定行
-  void _scrollToLine(int index, int totalLines) {
+  void _scrollToLine(int index, int totalLines, {bool immediate = false}) {
     if (!_scrollController.hasClients) return;
 
     // 目标位置：将当前行滚动到视口中间偏上
@@ -283,11 +295,18 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
-      _scrollController.animateTo(
-        clampedOffset,
-        duration: AnimationDurations.normal,
-        curve: Curves.easeOutCubic,
-      );
+      
+      if (immediate) {
+        // 立即跳转（首次构建时使用）
+        _scrollController.jumpTo(clampedOffset);
+      } else {
+        // 平滑滚动
+        _scrollController.animateTo(
+          clampedOffset,
+          duration: AnimationDurations.normal,
+          curve: Curves.easeOutCubic,
+        );
+      }
     });
   }
 }
