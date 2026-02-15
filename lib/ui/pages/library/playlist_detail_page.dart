@@ -17,6 +17,7 @@ import '../../../providers/selection_provider.dart';
 import '../../widgets/download_path_setup_dialog.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
+import '../lyrics/lyrics_search_sheet.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/selection_mode_app_bar.dart';
 import '../../widgets/context_menu_region.dart';
@@ -1272,6 +1273,7 @@ class _TrackListTile extends ConsumerWidget {
       PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.library.addToPlaylist), contentPadding: EdgeInsets.zero)),
     if (!isImported)
       PopupMenuItem(value: 'remove', child: ListTile(leading: const Icon(Icons.remove_circle_outline), title: Text(t.library.detail.removeFromPlaylist), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'matchLyrics', child: ListTile(leading: const Icon(Icons.lyrics_outlined), title: Text(t.lyrics.matchLyrics), contentPadding: EdgeInsets.zero)),
   ];
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
@@ -1337,6 +1339,9 @@ class _TrackListTile extends ConsumerWidget {
         if (context.mounted) {
           ToastService.success(context, t.library.detail.trackRemoved);
         }
+        break;
+      case 'matchLyrics':
+        showLyricsSearchSheet(context: context, track: track);
         break;
     }
   }

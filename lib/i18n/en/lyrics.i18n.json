@@ -1,0 +1,20 @@
+{
+  "matchLyrics": "Match Lyrics",
+  "searchLyrics": "Search Lyrics",
+  "lyricsMatched": "Lyrics matched",
+  "lyricsRemoved": "Lyrics match removed",
+  "noLyricsFound": "No lyrics found",
+  "lyricsOffset": "Lyrics Offset",
+  "offsetMs": "${offset}ms",
+  "synced": "Synced",
+  "plain": "Plain",
+  "instrumental": "Instrumental",
+  "durationSeconds": "${seconds}s",
+  "searchHint": "Song name, artist...",
+  "currentMatch": "Current Match",
+  "removeMatch": "Remove Match",
+  "adjustOffset": "Adjust Offset",
+  "noMatch": "No match yet",
+  "autoSearching": "Auto searching...",
+  "tapToSelect": "Tap to select"
+}

@@ -11,6 +11,7 @@ import '../../../i18n/strings.g.dart';
 import '../../../providers/play_history_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
+import '../lyrics/lyrics_search_sheet.dart';
 import '../../widgets/context_menu_region.dart';
 import '../../widgets/track_thumbnail.dart';
 import '../../../core/constants/ui_constants.dart';
@@ -682,6 +683,14 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
             contentPadding: EdgeInsets.zero,
           ),
         ),
+        PopupMenuItem(
+          value: 'matchLyrics',
+          child: ListTile(
+            leading: const Icon(Icons.lyrics_outlined),
+            title: Text(t.lyrics.matchLyrics),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
         const PopupMenuDivider(),
         PopupMenuItem(
           value: 'delete',
@@ -920,6 +929,9 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
         break;
       case 'add_to_playlist':
         showAddToPlaylistDialog(context: context, track: track);
+        break;
+      case 'matchLyrics':
+        showLyricsSearchSheet(context: context, track: track);
         break;
       case 'delete':
         await ref.read(playHistoryActionsProvider).delete(history.id);

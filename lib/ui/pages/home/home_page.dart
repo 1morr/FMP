@@ -17,6 +17,7 @@ import '../../../data/models/radio_station.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../router.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
+import '../lyrics/lyrics_search_sheet.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/horizontal_scroll_section.dart';
 import '../../widgets/context_menu_region.dart';
@@ -1076,6 +1077,10 @@ class _RankingTrackTile extends ConsumerWidget {
       value: 'add_to_playlist',
       child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.home.addToPlaylist), contentPadding: EdgeInsets.zero),
     ),
+    PopupMenuItem(
+      value: 'matchLyrics',
+      child: ListTile(leading: const Icon(Icons.lyrics_outlined), title: Text(t.lyrics.matchLyrics), contentPadding: EdgeInsets.zero),
+    ),
   ];
 
 
@@ -1100,6 +1105,9 @@ class _RankingTrackTile extends ConsumerWidget {
         break;
       case 'add_to_playlist':
         showAddToPlaylistDialog(context: context, track: track);
+        break;
+      case 'matchLyrics':
+        showLyricsSearchSheet(context: context, track: track);
         break;
     }
   }

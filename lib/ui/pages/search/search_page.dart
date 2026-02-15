@@ -18,6 +18,7 @@ import '../../../providers/search_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
+import '../lyrics/lyrics_search_sheet.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/track_group/track_group.dart';
 import '../../widgets/track_thumbnail.dart';
@@ -908,6 +909,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           }
         }
         break;
+      case 'matchLyrics':
+        if (mounted) {
+          showLyricsSearchSheet(context: context, track: track);
+        }
+        break;
     }
   }
 
@@ -1123,6 +1129,7 @@ class _SearchResultTile extends ConsumerWidget {
     PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.searchPage.menu.playNext), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.searchPage.menu.addToQueue), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.searchPage.menu.addToPlaylist), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'matchLyrics', child: ListTile(leading: const Icon(Icons.lyrics_outlined), title: Text(t.lyrics.matchLyrics), contentPadding: EdgeInsets.zero)),
   ];
 
 }

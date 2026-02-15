@@ -385,6 +385,8 @@ User-configurable audio quality settings for different sources.
 
 **Provider** (`lib/providers/audio_settings_provider.dart`):
 - `audioSettingsProvider` - StateNotifierProvider for audio quality settings
+- `lyricsSearchProvider` - StateNotifierProvider for lyrics search
+- `currentLyricsMatchProvider` / `currentLyricsContentProvider` - Current track lyrics
 - Settings persisted via Isar Settings model
 
 **UI** (`lib/ui/pages/settings/audio_settings_page.dart`):
@@ -572,7 +574,9 @@ lib/
 │   └── storage_permission_service.dart # Android 存儲權限請求（MANAGE_EXTERNAL_STORAGE）
 ├── data/
 │   ├── models/               # Isar collections (*.dart + *.g.dart)
+│   │   └── lyrics_match.dart          # 歌词匹配记录（Track↔lrclib）
 │   ├── repositories/         # Data access layer
+│   │   └── lyrics_repository.dart     # 歌词匹配 CRUD
 │   └── sources/              # Audio source parsers
 │       ├── bilibili_source.dart        # Bilibili 音源
 │       ├── youtube_source.dart         # YouTube 音源
@@ -596,7 +600,8 @@ lib/
 │   │   ├── history/          # 播放歷史
 │   │   ├── library/          # 音樂庫、歌單詳情、已下載、導入預覽
 │   │   ├── live_room/        # 直播間
-│   │   ├── radio/            # 電台頁面
+│   │   │   ├── lyrics/            # 歌詞匹配搜索
+│   ├── radio/            # 電台頁面
 │   │   ├── download/         # 下載相關
 │   │   └── settings/         # 設置、下載管理、音頻設置
 │   ├── widgets/              # Shared widgets

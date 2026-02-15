@@ -57,6 +57,7 @@
 | PlayHistory | `data/models/play_history.dart` | 播放历史 |
 | DownloadTask | `data/models/download_task.dart` | 下载任务 |
 | RadioStation | `data/models/radio_station.dart` | 电台/直播间 |
+| LyricsMatch | `data/models/lyrics_match.dart` | 歌词匹配记录（Track↔lrclib） |
 
 ### Repositories
 | 仓库 | 文件 | 职责 |
@@ -66,6 +67,7 @@
 | QueueRepository | `data/repositories/queue_repository.dart` | Queue 持久化 |
 | SettingsRepository | `data/repositories/settings_repository.dart` | Settings 管理 |
 | DownloadRepository | `data/repositories/download_repository.dart` | 下载任务管理 |
+| LyricsRepository | `data/repositories/lyrics_repository.dart` | 歌词匹配 CRUD |
 
 ### Core Constants
 | 常量類 | 文件 | 說明 |
@@ -139,6 +141,10 @@
 | homeBilibiliMusicRankingProvider | `providers/popular_provider.dart` | StreamProvider<List<Track>>（緩存版） |
 | homeYouTubeMusicRankingProvider | `providers/popular_provider.dart` | StreamProvider<List<Track>>（緩存版） |
 | audioSettingsProvider | `providers/audio_settings_provider.dart` | StateNotifierProvider<AudioSettingsNotifier, AudioSettingsState> |
+| lyricsSearchProvider | `providers/lyrics_provider.dart` | StateNotifierProvider（歌词搜索） |
+| currentLyricsMatchProvider | `providers/lyrics_provider.dart` | FutureProvider（当前歌曲歌词匹配） |
+| currentLyricsContentProvider | `providers/lyrics_provider.dart` | FutureProvider（当前歌词内容） |
+| lyricsMatchForTrackProvider | `providers/lyrics_provider.dart` | FutureProvider.family（指定 track 歌词匹配） |
 
 ## UI 结构
 
