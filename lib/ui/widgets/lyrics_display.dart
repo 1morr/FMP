@@ -58,9 +58,14 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   static const double _subFontRatio = 0.65;
   static const double _refFontSize = 20.0;
 
+  /// 单行显示的最小字号阈值：低于此值时允许换行（用两行宽度重算）
+  static const double _wrapThreshold = 18.0;
+
+  /// bold 相对 normal 的宽度安全系数（避免 bold 当前行溢出）
+  static const double _boldSafetyFactor = 0.95;
+
   /// 找出渲染最宽的歌词行（结果缓存，歌词不变时不重算）
   void _ensureWidestText(List<LyricsLine> lines, BuildContext context) {
-    // 用行数 + 首行文本做快速身份判断
     final firstLine = lines.isNotEmpty ? lines.first.text : '';
     if (_cachedWidestText != null &&
         _cachedLineCount == lines.length &&
@@ -99,25 +104,49 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   /// 根据可用宽度计算最优字号
   ///
   /// 字体渲染宽度与字号近似线性关系，直接用比例计算，O(1)。
-  ({double main, double sub}) _getFontSizes(
+  /// 当单行字号低于阈值时，允许换行（用两行宽度重算更大字号）。
+  ({double main, double sub, bool allowWrap}) _getFontSizes(
     ParsedLyrics lyrics,
     double availableWidth,
     BuildContext context,
   ) {
     _ensureWidestText(lyrics.lines, context);
 
-    double mainSize;
     if (_cachedRefWidth == null || _cachedRefWidth! <= 0) {
-      mainSize = _maxFontSize;
+      final sub =
+          (_maxFontSize * _subFontRatio).clamp(_minFontSize, _maxFontSize);
+      return (main: _maxFontSize, sub: sub, allowWrap: false);
+    }
+
+    // 乘以安全系数，确保 bold 当前行不溢出
+    final safeWidth = availableWidth * _boldSafetyFactor;
+
+    // 单行字号
+    final singleLineSize =
+        (_refFontSize * (safeWidth / _cachedRefWidth!)).clamp(
+      _minFontSize,
+      _maxFontSize,
+    );
+
+    double mainSize;
+    bool allowWrap;
+
+    if (singleLineSize < _wrapThreshold) {
+      // 字号太小 → 允许换行，用两行宽度重算
+      mainSize =
+          (_refFontSize * (safeWidth * 2 / _cachedRefWidth!)).clamp(
+        _minFontSize,
+        _maxFontSize,
+      );
+      allowWrap = true;
     } else {
-      // 目标字号 = 参考字号 × (可用宽度 / 参考宽度)
-      mainSize = _refFontSize * (availableWidth / _cachedRefWidth!);
-      mainSize = mainSize.clamp(_minFontSize, _maxFontSize);
+      mainSize = singleLineSize;
+      allowWrap = false;
     }
 
     final subSize =
         (mainSize * _subFontRatio).clamp(_minFontSize, _maxFontSize);
-    return (main: mainSize, sub: subSize);
+    return (main: mainSize, sub: subSize, allowWrap: allowWrap);
   }
 
   @override
@@ -296,6 +325,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
                           isCurrent: isCurrent,
                           mainFontSize: fontSizes.main,
                           subFontSize: fontSizes.sub,
+                          allowWrap: fontSizes.allowWrap,
                           colorScheme: colorScheme,
                           onTap: () => _seekToLyricsLine(line, offsetMs),
                         ),
@@ -420,6 +450,7 @@ class _LyricsLineWidget extends StatelessWidget {
   final bool isCurrent;
   final double mainFontSize;
   final double subFontSize;
+  final bool allowWrap;
   final ColorScheme colorScheme;
   final VoidCallback? onTap;
 
@@ -430,12 +461,15 @@ class _LyricsLineWidget extends StatelessWidget {
     required this.isCurrent,
     required this.mainFontSize,
     required this.subFontSize,
+    this.allowWrap = false,
     required this.colorScheme,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    // 当前行和非当前行使用相同字号，仅通过颜色和粗细区分
+    // 这样避免当前行因 bold 更宽而溢出换行
     final mainStyle = isCurrent
         ? TextStyle(
             color: colorScheme.primary,
@@ -445,12 +479,13 @@ class _LyricsLineWidget extends StatelessWidget {
           )
         : TextStyle(
             color: colorScheme.onSurface.withValues(alpha: 0.4),
-            fontSize: mainFontSize * 0.85,
+            fontSize: mainFontSize,
             fontWeight: FontWeight.normal,
             height: 1.4,
           );
 
     final hasSubText = subText != null && subText!.isNotEmpty;
+    final maxLines = allowWrap ? 2 : 1;
 
     return GestureDetector(
       onTap: onTap,
@@ -465,6 +500,8 @@ class _LyricsLineWidget extends StatelessWidget {
             child: Text(
               text,
               textAlign: TextAlign.center,
+              maxLines: maxLines,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           if (hasSubText)
@@ -483,6 +520,8 @@ class _LyricsLineWidget extends StatelessWidget {
                 child: Text(
                   subText!,
                   textAlign: TextAlign.center,
+                  maxLines: maxLines,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ),
