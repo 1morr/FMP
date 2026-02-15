@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
@@ -79,6 +80,10 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
                 ),
               )
             : AppBar(
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => context.go('/'),
+                ),
                 title: Text(t.nav.explore),
                 bottom: TabBar(
                   controller: _tabController,
