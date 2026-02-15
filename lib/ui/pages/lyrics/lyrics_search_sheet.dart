@@ -62,6 +62,11 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
     notifier.search(query: query);
   }
 
+  void _setFilter(LyricsSourceFilter filter) {
+    setState(() => _selectedFilter = filter);
+    if (_hasAutoSearched) _doSearch();
+  }
+
   Future<void> _selectResult(LyricsResult result) async {
     final notifier = ref.read(lyricsSearchProvider.notifier);
     await notifier.saveMatch(
@@ -187,35 +192,46 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
                   ),
 
                   // 歌词源筛选
-                  Padding(
+                  Container(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                    child: SegmentedButton<LyricsSourceFilter>(
-                      segments: [
-                        ButtonSegment(
-                          value: LyricsSourceFilter.all,
-                          label: Text(t.lyrics.sourceAll),
+                    height: 40,
+                    child: ScrollConfiguration(
+                      behavior: ScrollConfiguration.of(context).copyWith(
+                        dragDevices: {
+                          PointerDeviceKind.touch,
+                          PointerDeviceKind.mouse,
+                          PointerDeviceKind.trackpad,
+                        },
+                      ),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            ChoiceChip(
+                              label: Text(t.lyrics.sourceAll),
+                              selected: _selectedFilter == LyricsSourceFilter.all,
+                              onSelected: (_) => _setFilter(LyricsSourceFilter.all),
+                            ),
+                            const SizedBox(width: 8),
+                            ChoiceChip(
+                              label: Text(t.lyrics.sourceNetease),
+                              selected: _selectedFilter == LyricsSourceFilter.netease,
+                              onSelected: (_) => _setFilter(LyricsSourceFilter.netease),
+                            ),
+                            const SizedBox(width: 8),
+                            ChoiceChip(
+                              label: Text(t.lyrics.sourceQQMusic),
+                              selected: _selectedFilter == LyricsSourceFilter.qqmusic,
+                              onSelected: (_) => _setFilter(LyricsSourceFilter.qqmusic),
+                            ),
+                            const SizedBox(width: 8),
+                            ChoiceChip(
+                              label: Text(t.lyrics.sourceLrclib),
+                              selected: _selectedFilter == LyricsSourceFilter.lrclib,
+                              onSelected: (_) => _setFilter(LyricsSourceFilter.lrclib),
+                            ),
+                          ],
                         ),
-                        ButtonSegment(
-                          value: LyricsSourceFilter.netease,
-                          label: Text(t.lyrics.sourceNetease),
-                        ),
-                        ButtonSegment(
-                          value: LyricsSourceFilter.qqmusic,
-                          label: Text(t.lyrics.sourceQQMusic),
-                        ),
-                        ButtonSegment(
-                          value: LyricsSourceFilter.lrclib,
-                          label: Text(t.lyrics.sourceLrclib),
-                        ),
-                      ],
-                      selected: {_selectedFilter},
-                      onSelectionChanged: (selected) {
-                        setState(() => _selectedFilter = selected.first);
-                        if (_hasAutoSearched) _doSearch();
-                      },
-                      style: ButtonStyle(
-                        visualDensity: VisualDensity.compact,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                     ),
                   ),
