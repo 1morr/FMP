@@ -108,7 +108,46 @@
 
 19. **i18n** - 新增：sourceAll, sourceLrclib, sourceNetease, translated, romaji
 
-### Not Yet Implemented (Phase 4+)
+### Phase 4 Complete (2026-02) - QQ Music Lyrics Source
+
+20. **QQMusicSource** (`lib/services/lyrics/qqmusic_source.dart`)
+    - `QQMusicSong` - songmid, songname, singers, albumName, interval(秒)
+    - `QQMusicLyrics` - songmid, lyric(LRC), trans(翻译LRC)
+    - `QQMusicException` - statusCode, message
+    - `QQMusicSource` - 主类，with Logging
+    - `searchSongs()` - 搜索歌曲
+    - `getLyrics()` - 获取歌词（nobase64 优先，base64 fallback）
+    - `searchLyrics()` - 搜索并返回 `List<LyricsResult>` (source: `'qqmusic'`)
+    - `getLyricsResult(String songmid)` - 通过 songmid 获取歌词
+    - HTML 实体解码（`&#58;` `&#32;` 等）
+
+21. **LyricsMatch 新增字段** (`lib/data/models/lyrics_match.dart`)
+    - `externalStringId` (String?) - QQ 音乐 songmid 等字符串 ID
+    - QQ 音乐匹配时 `externalId = 0`，`externalStringId = songmid`
+
+22. **LyricsResult 新增字段** (`lib/services/lyrics/lyrics_result.dart`)
+    - `externalStringId` (String?) - 字符串形式的外部 ID
+
+23. **多源搜索扩展** (`lib/providers/lyrics_provider.dart`)
+    - `qqmusicSourceProvider` - QQMusicSource 单例
+    - `LyricsSourceFilter` 枚举新增 `qqmusic`
+    - `LyricsSearchNotifier` 支持 QQ 音乐搜索
+    - `filter == all` 时并行搜索三个源：网易云 → QQ音乐 → lrclib
+    - `saveMatch()` 处理 `externalStringId`
+    - `currentLyricsContentProvider` 添加 `'qqmusic'` 分支
+    - `_currentLyricsStringIdProvider` 监听 QQ 音乐的 externalStringId
+
+24. **自动匹配优先级** (`lib/services/lyrics/lyrics_auto_match_service.dart`)
+    - 构造函数新增 `QQMusicSource` 参数
+    - `tryAutoMatch()` 流程：网易云 → QQ音乐 → lrclib
+    - `_tryQQMusicMatch()` 内部方法处理 QQ 音乐匹配逻辑
+
+25. **搜索弹窗 UI** (`lib/ui/pages/lyrics/lyrics_search_sheet.dart`)
+    - `SegmentedButton` 四选项：全部 / 网易云 / QQ音乐 / lrclib
+    - QQ 音乐来源标签使用 `colorScheme.tertiary` 颜色
+
+26. **i18n** - 新增：sourceQQMusic (en: "QQ Music", zh-CN: "QQ音乐", zh-TW: "QQ音樂")
+
+### Not Yet Implemented (Phase 5+)
 - AI title parser
-- QQ Music lyrics source
 - Lyrics offset per-source persistence

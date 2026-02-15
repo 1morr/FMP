@@ -18,6 +18,9 @@ class LyricsResult {
   /// 罗马音歌词（LRC 格式，网易云专用）
   final String? romajiLyrics;
 
+  /// 字符串形式的外部 ID（QQ 音乐 songmid）
+  final String? externalStringId;
+
   const LyricsResult({
     required this.id,
     required this.trackName,
@@ -30,6 +33,7 @@ class LyricsResult {
     this.source = 'lrclib',
     this.translatedLyrics,
     this.romajiLyrics,
+    this.externalStringId,
   });
 
   factory LyricsResult.fromJson(Map<String, dynamic> json) {
@@ -45,6 +49,7 @@ class LyricsResult {
       source: json['source'] as String? ?? 'lrclib',
       translatedLyrics: json['translatedLyrics'] as String?,
       romajiLyrics: json['romajiLyrics'] as String?,
+      externalStringId: json['externalStringId'] as String?,
     );
   }
 

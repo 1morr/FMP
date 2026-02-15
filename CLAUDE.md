@@ -189,7 +189,7 @@ void main() async {
 - `playlistProvider` / `playlistDetailProvider` - Playlist management
 - `searchProvider` - Search state
 - `themeProvider` - Theme configuration
-- `lyricsSearchProvider` - Multi-source lyrics search (lrclib + netease, with filter)
+- `lyricsSearchProvider` - Multi-source lyrics search (lrclib + netease + qqmusic, with filter)
 - `neteaseSourceProvider` - NeteaseSource singleton
 
 #### Data Loading Pattern Selection (按数据来源选择)
@@ -565,6 +565,7 @@ lib/
 │   │   ├── netease_source.dart         # 網易雲音樂歌詞源（搜索+歌詞獲取）
 │   │   ├── lyrics_result.dart          # 統一歌詞結果類型（LyricsResult）
 │   │   ├── lyrics_auto_match_service.dart # 自動匹配（網易雲優先 → lrclib fallback）
+│   │   ├── qqmusic_source.dart          # QQ音樂歌詞源（搜索+歌詞獲取）
 │   │   ├── lyrics_cache_service.dart   # 歌詞緩存（LRU，支持多源）
 │   │   ├── lrc_parser.dart             # LRC 格式解析
 │   │   └── title_parser.dart           # 標題解析（提取歌名/歌手）
