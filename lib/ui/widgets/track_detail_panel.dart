@@ -25,7 +25,9 @@ import 'lyrics_display.dart';
 
 /// 右侧歌曲详情面板（桌面模式）
 class TrackDetailPanel extends ConsumerStatefulWidget {
-  const TrackDetailPanel({super.key});
+  final VoidCallback? onCollapse;
+  
+  const TrackDetailPanel({super.key, this.onCollapse});
 
   @override
   ConsumerState<TrackDetailPanel> createState() => _TrackDetailPanelState();
@@ -47,7 +49,14 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     if (radioState.hasCurrentStation) {
       return Container(
         color: colorScheme.surfaceContainerLow,
-        child: _RadioDetailContent(radioState: radioState),
+        child: Column(
+          children: [
+            _buildHeader(context, isRadio: true),
+            Expanded(
+              child: _RadioDetailContent(radioState: radioState),
+            ),
+          ],
+        ),
       );
     }
 
@@ -128,30 +137,8 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
       color: colorScheme.surfaceContainerLow,
       child: Column(
         children: [
-          // 信息/歌词切换按钮
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-            child: SegmentedButton<bool>(
-              segments: [
-                ButtonSegment(
-                  value: false,
-                  label: Text(t.player.info),
-                  icon: const Icon(Icons.info_outline, size: 16),
-                ),
-                ButtonSegment(
-                  value: true,
-                  label: Text(t.lyrics.lyrics),
-                  icon: const Icon(Icons.lyrics_outlined, size: 16),
-                ),
-              ],
-              selected: {_showLyrics},
-              onSelectionChanged: (v) => setState(() => _showLyrics = v.first),
-              style: SegmentedButton.styleFrom(
-                visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
-                textStyle: textTheme.labelMedium,
-              ),
-            ),
-          ),
+          // 新的头部布局
+          _buildHeader(context),
           // 内容区域
           Expanded(
             child: AnimatedSwitcher(
@@ -161,6 +148,62 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                   : detail != null
                       ? _DetailContent(key: const ValueKey('detail'), detail: detail)
                       : _buildBasicInfo(context, currentTrack),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 构建头部（收起按钮 + Now Playing + 切换按钮）
+  Widget _buildHeader(BuildContext context, {bool isRadio = false}) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          // 收起按钮
+          IconButton(
+            icon: const Icon(Icons.last_page, size: 20),
+            onPressed: widget.onCollapse,
+            tooltip: t.trackDetail.collapsePanel,
+            visualDensity: VisualDensity.compact,
+            style: IconButton.styleFrom(
+              foregroundColor: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(width: 4),
+          // Now Playing 文字（靠左对齐）
+          Expanded(
+            child: Text(
+              t.trackDetail.nowPlaying,
+              style: textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+          // 信息/歌词切换按钮（显示当前状态）
+          IconButton(
+            icon: Icon(
+              _showLyrics ? Icons.lyrics_outlined : Icons.info_outline,
+              size: 20,
+            ),
+            onPressed: () => setState(() => _showLyrics = !_showLyrics),
+            tooltip: _showLyrics ? t.lyrics.lyrics : t.player.info,
+            visualDensity: VisualDensity.compact,
+            style: IconButton.styleFrom(
+              foregroundColor: colorScheme.onSurfaceVariant,
             ),
           ),
         ],

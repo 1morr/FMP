@@ -8,6 +8,8 @@
   "description": "Description",
   "collapse": "Collapse",
   "expand": "Expand",
+  "collapsePanel": "Collapse panel",
+  "nowPlaying": "Now Playing",
   "topComments": "Top Comments",
   "streamerAnnouncement": "Streamer Announcement",
   "isLive": "Live",
