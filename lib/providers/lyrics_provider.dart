@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/lyrics_match.dart';
 import '../data/repositories/lyrics_repository.dart';
 import '../services/audio/audio_provider.dart';
+import '../services/lyrics/lrc_parser.dart';
 import '../services/lyrics/lrclib_source.dart';
 import '../services/lyrics/title_parser.dart';
 import 'repository_providers.dart';
@@ -37,6 +38,13 @@ final currentLyricsContentProvider =
   if (match == null) return null;
   final lrclib = ref.watch(lrclibSourceProvider);
   return lrclib.getById(match.externalId);
+});
+
+/// 解析后的歌词（缓存解析结果，避免每次 position 变化都重新解析）
+final parsedLyricsProvider = Provider.autoDispose<ParsedLyrics?>((ref) {
+  final content = ref.watch(currentLyricsContentProvider).valueOrNull;
+  if (content == null) return null;
+  return LrcParser.parse(content.syncedLyrics, content.plainLyrics);
 });
 
 // ---------------------------------------------------------------------------

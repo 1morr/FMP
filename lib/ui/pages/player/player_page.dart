@@ -21,6 +21,7 @@ import '../../../services/audio/audio_provider.dart';
 import '../../../services/platform/url_launcher_service.dart';
 import '../../../core/constants/ui_constants.dart';
 import '../../widgets/track_thumbnail.dart';
+import '../../widgets/lyrics_display.dart';
 
 /// 播放器页面（全屏）
 class PlayerPage extends ConsumerStatefulWidget {
@@ -40,6 +41,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 
   /// 拖动时的临时进度值
   double _dragProgress = 0.0;
+
+  /// 是否显示歌词（切换封面/歌词）
+  bool _showLyrics = false;
 
   @override
   Widget build(BuildContext context) {
@@ -115,10 +119,21 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            // 封面图
+            // 封面图 / 歌词切换
             Expanded(
               flex: 3,
-              child: _buildCoverArt(context, playerState, colorScheme),
+              child: AnimatedSwitcher(
+                duration: AnimationDurations.normal,
+                child: _showLyrics
+                    ? LyricsDisplay(
+                        key: const ValueKey('lyrics'),
+                        onTap: () => setState(() => _showLyrics = false),
+                      )
+                    : GestureDetector(
+                        onTap: () => setState(() => _showLyrics = true),
+                        child: _buildCoverArt(context, playerState, colorScheme),
+                      ),
+              ),
             ),
             const SizedBox(height: 32),
 
@@ -147,6 +162,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     final track = state.currentTrack;
 
     return AspectRatio(
+      key: const ValueKey('cover'),
       aspectRatio: 1,
       child: Container(
         decoration: BoxDecoration(
