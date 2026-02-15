@@ -190,6 +190,8 @@ class SearchNotifier extends StateNotifier<SearchState> {
   final SearchService _service;
   final BilibiliSource _bilibiliSource;
 
+  int _searchRequestId = 0;
+
   SearchNotifier(this._service, this._bilibiliSource) : super(const SearchState());
 
   /// 执行搜索（根据当前模式自动选择视频或直播间搜索）
@@ -204,6 +206,9 @@ class SearchNotifier extends StateNotifier<SearchState> {
       await searchLiveRooms(query);
       return;
     }
+
+    // 取消之前的搜索
+    final requestId = ++_searchRequestId;
 
     state = state.copyWith(
       query: query,
@@ -223,6 +228,10 @@ class SearchNotifier extends StateNotifier<SearchState> {
       );
 
       final results = await Future.wait([localFuture, onlineFuture]);
+      
+      // 检查是否被新的搜索取代
+      if (!mounted || requestId != _searchRequestId) return;
+      
       final localTracks = results[0] as List<Track>;
       final onlineResult = results[1] as MultiSourceSearchResult;
 
@@ -240,6 +249,9 @@ class SearchNotifier extends StateNotifier<SearchState> {
         error: onlineResult.error,
       );
     } catch (e) {
+      // 检查是否被新的搜索取代
+      if (!mounted || requestId != _searchRequestId) return;
+      
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),
@@ -490,6 +502,9 @@ class SearchNotifier extends StateNotifier<SearchState> {
       return;
     }
 
+    // 取消之前的搜索
+    final requestId = ++_searchRequestId;
+
     state = state.copyWith(
       query: query,
       isLoading: true,
@@ -505,12 +520,18 @@ class SearchNotifier extends StateNotifier<SearchState> {
         filter: state.liveRoomFilter ?? LiveRoomFilter.all,
       );
 
+      // 检查是否被新的搜索取代
+      if (!mounted || requestId != _searchRequestId) return;
+
       state = state.copyWith(
         liveRoomResults: result,
         liveRoomPage: 1,
         isLoading: false,
       );
     } catch (e) {
+      // 检查是否被新的搜索取代
+      if (!mounted || requestId != _searchRequestId) return;
+      
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),

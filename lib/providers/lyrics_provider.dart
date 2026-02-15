@@ -164,6 +164,8 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
   final LyricsRepository _repo;
   final LyricsCacheService _cache;
 
+  int _searchRequestId = 0;
+
   LyricsSearchNotifier(
       this._lrclib, this._netease, this._qqmusic, this._repo, this._cache)
       : super(const LyricsSearchState());
@@ -175,6 +177,9 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
 
   /// 搜索歌词
   Future<void> search({String? query, String? trackName, String? artistName}) async {
+    // 取消之前的搜索
+    final requestId = ++_searchRequestId;
+    
     state = state.copyWith(isLoading: true, error: null);
     try {
       final filter = state.filter;
@@ -222,10 +227,12 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
           results = [...futures[0], ...futures[1], ...futures[2]];
       }
 
-      if (!mounted) return;
+      // 检查是否被新的搜索取代
+      if (!mounted || requestId != _searchRequestId) return;
       state = state.copyWith(isLoading: false, results: results);
     } catch (e) {
-      if (!mounted) return;
+      // 检查是否被新的搜索取代
+      if (!mounted || requestId != _searchRequestId) return;
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
