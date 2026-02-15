@@ -116,21 +116,39 @@ class WindowsDesktopService with TrayListener, WindowListener {
     trayManager.addListener(this);
   }
 
+  /// 截断文本，超过最大长度时添加省略号
+  static String _truncate(String text, int maxLength) {
+    if (text.length <= maxLength) return text;
+    return '${text.substring(0, maxLength)}…';
+  }
+
   /// 更新托盘菜单
   Future<void> _updateTrayMenu() async {
-    final trackInfo = _currentTrack != null
-        ? '${_currentTrack!.title}\n${_currentTrack!.artist ?? t.tray.unknownArtist}'
-        : t.tray.notPlaying;
+    const maxTitleLength = 40;
+    const maxArtistLength = 30;
 
     debugPrint('[WindowsDesktopService] Updating tray menu, isPlaying: $_isPlaying');
 
     final menu = Menu(
       items: [
-        MenuItem(
-          key: 'track_info',
-          label: trackInfo,
-          disabled: true,
-        ),
+        if (_currentTrack != null) ...[
+          MenuItem(
+            key: 'track_title',
+            label: _truncate(_currentTrack!.title, maxTitleLength),
+            disabled: true,
+          ),
+          MenuItem(
+            key: 'track_artist',
+            label: _truncate(
+                _currentTrack!.artist ?? t.tray.unknownArtist, maxArtistLength),
+            disabled: true,
+          ),
+        ] else
+          MenuItem(
+            key: 'track_info',
+            label: t.tray.notPlaying,
+            disabled: true,
+          ),
         MenuItem.separator(),
         MenuItem(
           key: 'play_pause',
@@ -167,8 +185,10 @@ class WindowsDesktopService with TrayListener, WindowListener {
 
     String tooltip = t.tray.appName;
     if (_currentTrack != null) {
-      final artist = _currentTrack!.artist ?? t.tray.unknownArtist;
-      tooltip = '${_currentTrack!.title}\n$artist';
+      final title = _truncate(_currentTrack!.title, 50);
+      final artist = _truncate(
+          _currentTrack!.artist ?? t.tray.unknownArtist, 30);
+      tooltip = '$title\n$artist';
       if (_isPlaying) {
         tooltip = '▶ $tooltip';
       } else {
