@@ -315,6 +315,8 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                                           color: colorScheme.outline,
                                         ),
                                         fit: BoxFit.cover,
+                                        width: 48,
+                                        height: 48,
                                       )
                                     : Icon(
                                         Icons.album,
