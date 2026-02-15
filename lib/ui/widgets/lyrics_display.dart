@@ -46,6 +46,105 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   /// 是否是首次构建（用于判断是否需要初始滚动）
   bool _isFirstBuild = true;
 
+  /// 缓存的字号计算结果（避免每帧重复计算）
+  double? _cachedMainFontSize;
+  double? _cachedSubFontSize;
+  int? _cachedLyricsHash;
+  double? _cachedWidth;
+
+  /// 字号范围
+  static const double _minFontSize = 14.0;
+  static const double _maxFontSize = 36.0;
+  static const double _subFontRatio = 0.65;
+
+  /// 根据可用宽度和歌词内容计算最优字号
+  ///
+  /// 找到最大的字号使得最宽的歌词行刚好能在一行内显示。
+  double _computeOptimalFontSize(
+    List<LyricsLine> lines,
+    double availableWidth,
+    BuildContext context,
+  ) {
+    if (lines.isEmpty) return _maxFontSize;
+
+    final textDirection = Directionality.of(context);
+    const refSize = 20.0;
+
+    // 用参考字号测量所有行，找出渲染最宽的那行
+    String widestText = lines.first.text;
+    double maxWidth = 0;
+    for (final line in lines) {
+      if (line.text.isEmpty) continue;
+      final painter = TextPainter(
+        text: TextSpan(
+          text: line.text,
+          style: TextStyle(fontSize: refSize, fontWeight: FontWeight.bold),
+        ),
+        maxLines: 1,
+        textDirection: textDirection,
+      )..layout();
+      if (painter.width > maxWidth) {
+        maxWidth = painter.width;
+        widestText = line.text;
+      }
+      painter.dispose();
+    }
+    if (maxWidth == 0) return _maxFontSize;
+
+    // 二分搜索最优字号（只测量最宽行）
+    double lo = _minFontSize;
+    double hi = _maxFontSize;
+
+    while (hi - lo > 0.5) {
+      final mid = (lo + hi) / 2;
+      final painter = TextPainter(
+        text: TextSpan(
+          text: widestText,
+          style: TextStyle(fontSize: mid, fontWeight: FontWeight.bold),
+        ),
+        maxLines: 1,
+        textDirection: textDirection,
+      )..layout();
+
+      if (painter.width <= availableWidth) {
+        lo = mid;
+      } else {
+        hi = mid;
+      }
+      painter.dispose();
+    }
+
+    return lo;
+  }
+
+  /// 获取（或计算）缓存的字号
+  ({double main, double sub}) _getFontSizes(
+    ParsedLyrics lyrics,
+    double availableWidth,
+    BuildContext context,
+  ) {
+    final hash = lyrics.hashCode;
+    if (_cachedMainFontSize != null &&
+        _cachedLyricsHash == hash &&
+        _cachedWidth == availableWidth) {
+      return (main: _cachedMainFontSize!, sub: _cachedSubFontSize!);
+    }
+
+    final mainSize = _computeOptimalFontSize(
+      lyrics.lines,
+      availableWidth,
+      context,
+    );
+    final subSize = (mainSize * _subFontRatio).clamp(_minFontSize, _maxFontSize);
+
+    _cachedMainFontSize = mainSize;
+    _cachedSubFontSize = subSize;
+    _cachedLyricsHash = hash;
+    _cachedWidth = availableWidth;
+
+    return (main: mainSize, sub: subSize);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -167,6 +266,8 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
       }
     }
 
+    final hPad = widget.compact ? 12.0 : 24.0;
+
     return GestureDetector(
       onTap: widget.onTap,
       behavior: HitTestBehavior.opaque,
@@ -181,45 +282,53 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
             ),
           // Lyrics list
           Expanded(
-            child: NotificationListener<ScrollNotification>(
-              onNotification: (notification) {
-                if (notification is ScrollStartNotification &&
-                    notification.dragDetails != null) {
-                  _userScrolling = true;
-                } else if (notification is ScrollEndNotification) {
-                  // 用户停止滚动后 3 秒恢复自动滚动
-                  Future.delayed(const Duration(seconds: 3), () {
-                    if (mounted) setState(() => _userScrolling = false);
-                  });
-                }
-                return false;
-              },
-              child: ScrollablePositionedList.builder(
-                itemScrollController: _itemScrollController,
-                itemPositionsListener: _itemPositionsListener,
-                padding: EdgeInsets.symmetric(
-                  vertical: widget.compact ? 16 : 80,
-                  horizontal: widget.compact ? 12 : 24,
-                ),
-                itemCount: lyrics.lines.length,
-                itemBuilder: (context, index) {
-                  final line = lyrics.lines[index];
-                  final isCurrent = index == _currentLineIndex;
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final availableWidth = constraints.maxWidth - hPad * 2;
+                final fontSizes = _getFontSizes(lyrics, availableWidth, context);
 
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: _LyricsLineWidget(
-                      key: ValueKey(index),
-                      text: line.text,
-                      subText: line.subText,
-                      isCurrent: isCurrent,
-                      compact: widget.compact,
-                      colorScheme: colorScheme,
-                      onTap: () => _seekToLyricsLine(line, offsetMs),
+                return NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    if (notification is ScrollStartNotification &&
+                        notification.dragDetails != null) {
+                      _userScrolling = true;
+                    } else if (notification is ScrollEndNotification) {
+                      // 用户停止滚动后 3 秒恢复自动滚动
+                      Future.delayed(const Duration(seconds: 3), () {
+                        if (mounted) setState(() => _userScrolling = false);
+                      });
+                    }
+                    return false;
+                  },
+                  child: ScrollablePositionedList.builder(
+                    itemScrollController: _itemScrollController,
+                    itemPositionsListener: _itemPositionsListener,
+                    padding: EdgeInsets.symmetric(
+                      vertical: widget.compact ? 16 : 80,
+                      horizontal: hPad,
                     ),
-                  );
-                },
-              ),
+                    itemCount: lyrics.lines.length,
+                    itemBuilder: (context, index) {
+                      final line = lyrics.lines[index];
+                      final isCurrent = index == _currentLineIndex;
+
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: _LyricsLineWidget(
+                          key: ValueKey(index),
+                          text: line.text,
+                          subText: line.subText,
+                          isCurrent: isCurrent,
+                          mainFontSize: fontSizes.main,
+                          subFontSize: fontSizes.sub,
+                          colorScheme: colorScheme,
+                          onTap: () => _seekToLyricsLine(line, offsetMs),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -334,7 +443,8 @@ class _LyricsLineWidget extends StatelessWidget {
   final String text;
   final String? subText;
   final bool isCurrent;
-  final bool compact;
+  final double mainFontSize;
+  final double subFontSize;
   final ColorScheme colorScheme;
   final VoidCallback? onTap;
 
@@ -343,7 +453,8 @@ class _LyricsLineWidget extends StatelessWidget {
     required this.text,
     this.subText,
     required this.isCurrent,
-    required this.compact,
+    required this.mainFontSize,
+    required this.subFontSize,
     required this.colorScheme,
     this.onTap,
   });
@@ -353,13 +464,13 @@ class _LyricsLineWidget extends StatelessWidget {
     final mainStyle = isCurrent
         ? TextStyle(
             color: colorScheme.primary,
-            fontSize: compact ? 22 : 22,
+            fontSize: mainFontSize,
             fontWeight: FontWeight.bold,
             height: 1.4,
           )
         : TextStyle(
             color: colorScheme.onSurface.withValues(alpha: 0.4),
-            fontSize: compact ? 18 : 18,
+            fontSize: mainFontSize * 0.85,
             fontWeight: FontWeight.normal,
             height: 1.4,
           );
@@ -390,7 +501,7 @@ class _LyricsLineWidget extends StatelessWidget {
                   color: isCurrent
                       ? colorScheme.primary.withValues(alpha: 0.7)
                       : colorScheme.onSurface.withValues(alpha: 0.25),
-                  fontSize: compact ? 14 : 14,
+                  fontSize: subFontSize,
                   fontWeight: isCurrent ? FontWeight.w500 : FontWeight.normal,
                   height: 1.4,
                 ),
