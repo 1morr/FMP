@@ -121,21 +121,21 @@
     - `getLyricsResult(String songmid)` - 通过 songmid 获取歌词
     - HTML 实体解码（`&#58;` `&#32;` 等）
 
-21. **LyricsMatch 新增字段** (`lib/data/models/lyrics_match.dart`)
-    - `externalStringId` (String?) - QQ 音乐 songmid 等字符串 ID
-    - QQ 音乐匹配时 `externalId = 0`，`externalStringId = songmid`
+21. **externalId 统一为 String** (`lib/data/models/lyrics_match.dart`, `lib/services/lyrics/lyrics_result.dart`)
+    - `LyricsMatch.externalId` 从 `int` 改为 `String`
+    - `LyricsResult.id` 从 `int` 改为 `String`
+    - lrclib/netease 使用数字字符串（如 `"12345"`），QQ 音乐使用 songmid（如 `"0039MnYb0qxYhV"`）
+    - 删除了 `externalStringId` 字段，模型更简洁
+    - `LrclibSource.getById()` 和 `NeteaseSource.getLyricsResult()` 参数改为 String
+    - `LyricsResult.fromJson()` 兼容旧缓存（id 可能是 int 或 String）
+    - **注意：Isar schema 变更，旧的 LyricsMatch 数据不兼容**
 
-22. **LyricsResult 新增字段** (`lib/services/lyrics/lyrics_result.dart`)
-    - `externalStringId` (String?) - 字符串形式的外部 ID
-
-23. **多源搜索扩展** (`lib/providers/lyrics_provider.dart`)
+22. **多源搜索扩展** (`lib/providers/lyrics_provider.dart`)
     - `qqmusicSourceProvider` - QQMusicSource 单例
     - `LyricsSourceFilter` 枚举新增 `qqmusic`
     - `LyricsSearchNotifier` 支持 QQ 音乐搜索
     - `filter == all` 时并行搜索三个源：网易云 → QQ音乐 → lrclib
-    - `saveMatch()` 处理 `externalStringId`
-    - `currentLyricsContentProvider` 添加 `'qqmusic'` 分支
-    - `_currentLyricsStringIdProvider` 监听 QQ 音乐的 externalStringId
+    - `currentLyricsContentProvider` 根据 `lyricsSource` 分发到对应源
 
 24. **自动匹配优先级** (`lib/services/lyrics/lyrics_auto_match_service.dart`)
     - 构造函数新增 `QQMusicSource` 参数

@@ -1,6 +1,7 @@
-/// 统一歌词搜索结果（适用于 lrclib / netease 等多个歌词源）
+/// 统一歌词搜索结果（适用于 lrclib / netease / qqmusic 等多个歌词源）
 class LyricsResult {
-  final int id;
+  /// 外部 ID（lrclib/netease 为数字字符串，QQ 音乐为 songmid）
+  final String id;
   final String trackName;
   final String artistName;
   final String albumName;
@@ -9,17 +10,14 @@ class LyricsResult {
   final String? plainLyrics;
   final String? syncedLyrics;
 
-  /// 歌词来源标识（"lrclib" / "netease"）
+  /// 歌词来源标识（"lrclib" / "netease" / "qqmusic"）
   final String source;
 
-  /// 翻译歌词（LRC 格式，网易云专用）
+  /// 翻译歌词（LRC 格式，网易云/QQ音乐）
   final String? translatedLyrics;
 
   /// 罗马音歌词（LRC 格式，网易云专用）
   final String? romajiLyrics;
-
-  /// 字符串形式的外部 ID（QQ 音乐 songmid）
-  final String? externalStringId;
 
   const LyricsResult({
     required this.id,
@@ -33,12 +31,15 @@ class LyricsResult {
     this.source = 'lrclib',
     this.translatedLyrics,
     this.romajiLyrics,
-    this.externalStringId,
   });
 
   factory LyricsResult.fromJson(Map<String, dynamic> json) {
+    // 兼容旧缓存：id 可能是 int 或 String
+    final rawId = json['id'];
+    final id = rawId is int ? rawId.toString() : (rawId as String? ?? '0');
+
     return LyricsResult(
-      id: json['id'] as int,
+      id: id,
       trackName: json['trackName'] as String? ?? '',
       artistName: json['artistName'] as String? ?? '',
       albumName: json['albumName'] as String? ?? '',
@@ -49,7 +50,6 @@ class LyricsResult {
       source: json['source'] as String? ?? 'lrclib',
       translatedLyrics: json['translatedLyrics'] as String?,
       romajiLyrics: json['romajiLyrics'] as String?,
-      externalStringId: json['externalStringId'] as String?,
     );
   }
 
@@ -74,5 +74,6 @@ class LyricsResult {
       'LyricsResult(id: $id, "$trackName" by "$artistName", '
       'source: $source, album: "$albumName", ${duration}s, '
       'synced: $hasSyncedLyrics, plain: $hasPlainLyrics, '
-      'translated: $hasTranslatedLyrics, romaji: $hasRomajiLyrics)';
+      'translated: $hasTranslatedLyrics, romaji: $hasRomajiLyrics, '
+      'id: $id)';
 }

@@ -288,7 +288,7 @@ class QQMusicSource with Logging {
       if (!lyrics.hasLyric) return null;
 
       return LyricsResult(
-        id: 0,
+        id: songmid,
         trackName: '',
         artistName: '',
         albumName: '',
@@ -298,7 +298,6 @@ class QQMusicSource with Logging {
         syncedLyrics: lyrics.lyric,
         source: 'qqmusic',
         translatedLyrics: lyrics.trans,
-        externalStringId: songmid,
       );
     } catch (e) {
       logError('Failed to get lyrics result for songmid $songmid: $e');
@@ -309,7 +308,7 @@ class QQMusicSource with Logging {
   /// 将 QQMusicSong + QQMusicLyrics 转换为统一的 LyricsResult
   LyricsResult _toLyricsResult(QQMusicSong song, QQMusicLyrics lyrics) {
     return LyricsResult(
-      id: 0,
+      id: song.songmid,
       trackName: song.songname,
       artistName: song.singersJoined,
       albumName: song.albumName,
@@ -319,7 +318,6 @@ class QQMusicSource with Logging {
       syncedLyrics: lyrics.lyric,
       source: 'qqmusic',
       translatedLyrics: lyrics.trans,
-      externalStringId: song.songmid,
     );
   }
 
