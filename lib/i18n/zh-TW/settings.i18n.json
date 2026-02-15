@@ -63,6 +63,10 @@
     "title": "自動定位目前播放",
     "subtitle": "進入佇列頁面或切換歌曲時自動跳轉到目前播放位置"
   },
+  "autoMatchLyrics": {
+    "title": "自動匹配歌詞",
+    "subtitle": "播放時自動搜尋並匹配歌詞（僅當沒有已匹配的歌詞時）"
+  },
   "version": {
     "title": "版本",
     "tapToEnableDev": "再點擊 $n 次啟用開發者選項",
