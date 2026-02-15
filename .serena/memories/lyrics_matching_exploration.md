@@ -139,8 +139,10 @@
 
 24. **自动匹配优先级** (`lib/services/lyrics/lyrics_auto_match_service.dart`)
     - 构造函数新增 `QQMusicSource` 参数
-    - `tryAutoMatch()` 流程：网易云 → QQ音乐 → lrclib
+    - `tryAutoMatch()` 流程：原平台ID直取 → 网易云搜索 → QQ音乐搜索 → lrclib
+    - `_tryDirectFetch(String songId, String source)` - 通过原平台ID直接获取歌词（网易云/QQ音乐），跳过搜索步骤
     - `_tryQQMusicMatch()` 内部方法处理 QQ 音乐匹配逻辑
+    - 直接获取依赖 `Track.originalSongId` 和 `Track.originalSource`（导入歌单时保存）
 
 25. **搜索弹窗 UI** (`lib/ui/pages/lyrics/lyrics_search_sheet.dart`)
     - `SegmentedButton` 四选项：全部 / 网易云 / QQ音乐 / lrclib
@@ -148,6 +150,36 @@
 
 26. **i18n** - 新增：sourceQQMusic (en: "QQ Music", zh-CN: "QQ音乐", zh-TW: "QQ音樂")
 
-### Not Yet Implemented (Phase 5+)
+### Phase 5 Complete (2026-02) - Original Platform ID Direct Fetch
+
+27. **ImportedTrack 原平台ID** (`lib/data/sources/playlist_import/playlist_import_source.dart`)
+    - `sourceId` - 原平台歌曲 ID（网易云: song ID, QQ音乐: songmid, Spotify: track ID）
+    - `source` - 来源平台（`PlaylistSource` 枚举）
+
+28. **导入源提取ID**
+    - `NeteasePlaylistSource._fetchTrackDetails()` - 从 `song['id']` 提取
+    - `QQMusicPlaylistSource._fetchPlaylistPage()` - 从 `song['mid']` 提取
+    - `SpotifyPlaylistSource._parsePlaylistData()` - 从 `item['uid']` 或 `item['id']` 提取
+
+29. **Track 模型新增字段** (`lib/data/models/track.dart`)
+    - `originalSongId` (String?) - 原平台歌曲 ID
+    - `originalSource` (String?) - 来源标识（"netease" / "qqmusic" / "spotify"）
+    - Isar nullable 字段，兼容旧数据
+
+30. **selectedTracks getter 复制ID**
+    - `PlaylistImportState.selectedTracks` (`lib/providers/playlist_import_provider.dart`)
+    - `PlaylistImportResult.selectedTracks` (`lib/services/import/playlist_import_service.dart`)
+    - 从 `ImportedTrack.sourceId/source` 复制到 `Track.originalSongId/originalSource`
+    - `PlaylistSource` → String 映射：netease→"netease", qqMusic→"qqmusic", spotify→"spotify"
+
+31. **歌词直接获取** (`lib/services/lyrics/lyrics_auto_match_service.dart`)
+    - `_tryDirectFetch(String songId, String source)` - 新增方法
+    - 网易云: `_netease.getLyricsResult(songId)`
+    - QQ音乐: `_qqmusic.getLyricsResult(songId)`
+    - Spotify: 不支持（返回 null，fallback 到搜索）
+    - 只返回有同步歌词的结果
+    - 在 `tryAutoMatch()` 中位于已有匹配检查之后、搜索之前
+
+### Not Yet Implemented (Phase 6+)
 - AI title parser
 - Lyrics offset per-source persistence

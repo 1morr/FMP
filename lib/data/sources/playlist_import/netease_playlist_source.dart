@@ -205,12 +205,15 @@ class NeteasePlaylistSource implements PlaylistImportSource {
       final artists = _extractArtists(song['ar']);
       final album = _extractAlbumName(song['al']);
       final duration = song['dt'] as int?;
+      final songId = song['id'];
 
       return ImportedTrack(
         title: name,
         artists: artists,
         album: album,
         duration: duration != null ? Duration(milliseconds: duration) : null,
+        sourceId: songId?.toString(),
+        source: PlaylistSource.netease,
       );
     }).whereType<ImportedTrack>().toList();
   }

@@ -174,12 +174,15 @@ class QQMusicPlaylistSource implements PlaylistImportSource {
         final artists = _extractArtists(singers);
         final album = _extractAlbumName(song['album']);
         final interval = song['interval'] as int?;
+        final songmid = song['mid'] as String?;
 
         tracks.add(ImportedTrack(
           title: title,
           artists: artists,
           album: album,
           duration: interval != null ? Duration(seconds: interval) : null,
+          sourceId: songmid,
+          source: PlaylistSource.qqMusic,
         ));
       }
     }

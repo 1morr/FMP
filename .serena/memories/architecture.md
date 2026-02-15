@@ -49,7 +49,7 @@
 ### Data Models (Isar Collections)
 | 模型 | 文件 | 说明 |
 |------|------|------|
-| Track | `data/models/track.dart` | 歌曲/音频实体 |
+| Track | `data/models/track.dart` | 歌曲/音频实体（含 originalSongId/originalSource 原平台ID） |
 | Playlist | `data/models/playlist.dart` | 歌单 |
 | PlayQueue | `data/models/play_queue.dart` | 播放队列 |
 | Settings | `data/models/settings.dart` | 应用设置 |
@@ -95,7 +95,7 @@
 ### Playlist Import Sources (外部歌单导入)
 | 导入源 | 文件 | 状态 |
 |--------|------|------|
-| PlaylistImportSource | `data/sources/playlist_import/playlist_import_source.dart` | 抽象接口 |
+| PlaylistImportSource | `data/sources/playlist_import/playlist_import_source.dart` | 抽象接口（ImportedTrack 含 sourceId/source 原平台ID） |
 | NeteasePlaylistSource | `data/sources/playlist_import/netease_playlist_source.dart` | ✅ 已实现 |
 | QQMusicPlaylistSource | `data/sources/playlist_import/qq_music_playlist_source.dart` | ✅ 已实现 |
 | SpotifyPlaylistSource | `data/sources/playlist_import/spotify_playlist_source.dart` | ✅ 已实现 |

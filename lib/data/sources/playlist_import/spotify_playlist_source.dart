@@ -151,11 +151,16 @@ class SpotifyPlaylistSource implements PlaylistImportSource {
       // duration 单位为毫秒
       final durationMs = item['duration'] as int?;
 
+      // 提取 Spotify track ID（uid 或 id 字段）
+      final trackId = (item['uid'] as String?) ?? (item['id'] as String?);
+
       tracks.add(ImportedTrack(
         title: title,
         artists: artists,
         duration:
             durationMs != null ? Duration(milliseconds: durationMs) : null,
+        sourceId: trackId,
+        source: PlaylistSource.spotify,
       ));
     }
 

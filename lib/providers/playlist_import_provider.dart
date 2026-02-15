@@ -60,7 +60,14 @@ class PlaylistImportState {
   /// 获取已选中的歌曲（用于创建歌单）
   List<Track> get selectedTracks => matchedTracks
       .where((t) => t.isIncluded && t.selectedTrack != null)
-      .map((t) => t.selectedTrack!)
+      .map((t) {
+        final track = t.selectedTrack!;
+        if (t.original.sourceId != null) {
+          track.originalSongId = t.original.sourceId;
+          track.originalSource = _mapSourceToString(t.original.source);
+        }
+        return track;
+      })
       .toList();
 
   /// 获取未匹配的原始歌曲（包括用户手动选择的）
@@ -73,6 +80,20 @@ class PlaylistImportState {
   List<MatchedTrack> get unmatchedMatchedTracks => matchedTracks
       .where((t) => t.status == MatchStatus.noResult || t.status == MatchStatus.userSelected)
       .toList();
+
+  /// PlaylistSource → 歌词系统兼容的字符串
+  static String? _mapSourceToString(PlaylistSource? source) {
+    switch (source) {
+      case PlaylistSource.netease:
+        return 'netease';
+      case PlaylistSource.qqMusic:
+        return 'qqmusic';
+      case PlaylistSource.spotify:
+        return 'spotify';
+      case null:
+        return null;
+    }
+  }
 }
 
 /// 歌单导入状态管理
