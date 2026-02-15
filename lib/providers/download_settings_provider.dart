@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/services/network_image_cache_service.dart';
 import '../data/models/settings.dart';
 import '../data/repositories/settings_repository.dart';
+import '../services/lyrics/lyrics_cache_service.dart';
+import 'lyrics_provider.dart';
 import 'repository_providers.dart';
 
 /// 下载设置状态
@@ -10,12 +12,14 @@ class DownloadSettingsState {
   final int maxConcurrentDownloads;
   final DownloadImageOption downloadImageOption;
   final int maxCacheSizeMB;
+  final int maxLyricsCacheFiles;
   final bool isLoading;
 
   const DownloadSettingsState({
     this.maxConcurrentDownloads = 3,
     this.downloadImageOption = DownloadImageOption.coverOnly,
     this.maxCacheSizeMB = 32,
+    this.maxLyricsCacheFiles = LyricsCacheService.defaultMaxCacheFiles,
     this.isLoading = true,
   });
 
@@ -23,12 +27,14 @@ class DownloadSettingsState {
     int? maxConcurrentDownloads,
     DownloadImageOption? downloadImageOption,
     int? maxCacheSizeMB,
+    int? maxLyricsCacheFiles,
     bool? isLoading,
   }) {
     return DownloadSettingsState(
       maxConcurrentDownloads: maxConcurrentDownloads ?? this.maxConcurrentDownloads,
       downloadImageOption: downloadImageOption ?? this.downloadImageOption,
       maxCacheSizeMB: maxCacheSizeMB ?? this.maxCacheSizeMB,
+      maxLyricsCacheFiles: maxLyricsCacheFiles ?? this.maxLyricsCacheFiles,
       isLoading: isLoading ?? this.isLoading,
     );
   }
@@ -37,9 +43,10 @@ class DownloadSettingsState {
 /// 下载设置管理器
 class DownloadSettingsNotifier extends StateNotifier<DownloadSettingsState> {
   final SettingsRepository _settingsRepository;
+  final LyricsCacheService _lyricsCacheService;
   Settings? _settings;
 
-  DownloadSettingsNotifier(this._settingsRepository) : super(const DownloadSettingsState()) {
+  DownloadSettingsNotifier(this._settingsRepository, this._lyricsCacheService) : super(const DownloadSettingsState()) {
     _loadSettings();
   }
 
@@ -50,11 +57,15 @@ class DownloadSettingsNotifier extends StateNotifier<DownloadSettingsState> {
       maxConcurrentDownloads: _settings!.maxConcurrentDownloads,
       downloadImageOption: _settings!.downloadImageOption,
       maxCacheSizeMB: _settings!.maxCacheSizeMB,
+      maxLyricsCacheFiles: _settings!.maxLyricsCacheFiles,
       isLoading: false,
     );
 
     // 同步缓存大小限制到 NetworkImageCacheService
     NetworkImageCacheService.setMaxCacheSizeMB(_settings!.maxCacheSizeMB);
+
+    // 同步歌词缓存文件数限制
+    _lyricsCacheService.setMaxCacheFiles(_settings!.maxLyricsCacheFiles);
 
     // 启动时检查并清理超出限制的缓存，并初始化缓存大小估算值
     await NetworkImageCacheService.trimCacheIfNeeded(_settings!.maxCacheSizeMB);
@@ -95,12 +106,26 @@ class DownloadSettingsNotifier extends StateNotifier<DownloadSettingsState> {
     // 检查并清理超出限制的缓存
     await NetworkImageCacheService.trimCacheIfNeeded(value);
   }
+
+  /// 设置最大歌词缓存文件数
+  Future<void> setMaxLyricsCacheFiles(int value) async {
+    if (_settings == null) return;
+    if (value < 10) return; // 最小 10
+
+    _settings!.maxLyricsCacheFiles = value;
+    await _settingsRepository.save(_settings!);
+    state = state.copyWith(maxLyricsCacheFiles: value);
+
+    // 同步到 LyricsCacheService
+    await _lyricsCacheService.setMaxCacheFiles(value);
+  }
 }
 
 /// 下载设置 Provider
 final downloadSettingsProvider = StateNotifierProvider<DownloadSettingsNotifier, DownloadSettingsState>((ref) {
   final settingsRepository = ref.watch(settingsRepositoryProvider);
-  return DownloadSettingsNotifier(settingsRepository);
+  final lyricsCacheService = ref.watch(lyricsCacheServiceProvider);
+  return DownloadSettingsNotifier(settingsRepository, lyricsCacheService);
 });
 
 /// 便捷 Provider - 最大并发下载数

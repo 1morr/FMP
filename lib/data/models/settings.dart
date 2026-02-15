@@ -141,6 +141,9 @@ class Settings {
   /// 自动匹配歌词（播放时自动搜索并匹配）
   bool autoMatchLyrics = true;
 
+  /// 最大歌词缓存文件数
+  int maxLyricsCacheFiles = 50;
+
   /// 获取 ThemeMode
   @ignore
   ThemeMode get themeMode {

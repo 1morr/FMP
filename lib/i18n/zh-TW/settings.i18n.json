@@ -178,8 +178,9 @@
     "title": "歌詞快取",
     "currentCache": "$count 個檔案，$size",
     "calculating": "計算中...",
+    "maxFiles": "最多 $count 個",
+    "maxFilesTitle": "最大快取數量",
     "clearTitle": "清除歌詞快取",
-    "clearSubtitle": "清除所有快取的歌詞檔案",
     "clearConfirm": "清除所有快取的歌詞？需要時會重新下載。",
     "cacheCleared": "歌詞快取已清除"
   },
