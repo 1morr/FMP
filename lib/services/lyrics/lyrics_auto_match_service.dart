@@ -86,6 +86,11 @@ class LyricsAutoMatchService with Logging {
       }
 
       logDebug('Selected best match: "${result.trackName}" by "${result.artistName}" (score: ${_calculateScore(result, trackName, artistName, trackDurationSec).toStringAsFixed(2)})');
+
+      // 6. 先缓存歌词内容（在保存匹配之前）
+      await _cache.put(track.uniqueKey, result);
+
+      // 7. 保存匹配记录
       final match = LyricsMatch()
         ..trackUniqueKey = track.uniqueKey
         ..lyricsSource = 'lrclib'
@@ -94,9 +99,6 @@ class LyricsAutoMatchService with Logging {
         ..matchedAt = DateTime.now();
 
       await _repo.save(match);
-
-      // 6. 立即缓存歌词内容
-      await _cache.put(track.uniqueKey, result);
 
       logInfo('Auto-matched lyrics: ${track.title} → lrclib:${result.id}');
       return true;
