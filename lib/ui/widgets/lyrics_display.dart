@@ -38,7 +38,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   bool _userScrolling = false;
 
   /// 固定行高（用于计算滚动位置）
-  double get _lineHeight => widget.compact ? 36.0 : 48.0;
+  double get _lineHeight => widget.compact ? 40.0 : 48.0;
 
   @override
   void dispose() {
@@ -205,7 +205,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
               line.text,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: colorScheme.onSurface.withValues(alpha: 0.8),
-                    fontSize: widget.compact ? 13 : 15,
+                    fontSize: widget.compact ? 15 : 15,
                     height: 1.5,
                   ),
               textAlign: TextAlign.center,
@@ -293,13 +293,13 @@ class _LyricsLineWidget extends StatelessWidget {
     final textStyle = isCurrent
         ? TextStyle(
             color: colorScheme.primary,
-            fontSize: compact ? 15 : 20,
+            fontSize: compact ? 17 : 20,
             fontWeight: FontWeight.bold,
             height: 1.3,
           )
         : TextStyle(
             color: colorScheme.onSurface.withValues(alpha: 0.4),
-            fontSize: compact ? 13 : 16,
+            fontSize: compact ? 15 : 16,
             fontWeight: FontWeight.normal,
             height: 1.3,
           );
