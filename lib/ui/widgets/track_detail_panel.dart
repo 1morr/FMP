@@ -212,45 +212,51 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
               ),
             ),
           ),
-          // 歌词菜单按钮（仅在显示歌词时显示）
-          if (_showLyrics && !isRadio)
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, size: 20),
-              tooltip: t.general.more,
-              offset: const Offset(0, 40),
-              iconSize: 20,
-              onSelected: (value) {
-                if (value == 'search') {
-                  _openLyricsSearch(context);
-                } else if (value == 'offset') {
-                  setState(() => _showOffsetControls = !_showOffsetControls);
-                }
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'search',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.search, size: 20),
-                      const SizedBox(width: 12),
-                      Text(t.lyrics.searchLyrics),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'offset',
-                  child: Row(
-                    children: [
-                      Icon(
-                        _showOffsetControls ? Icons.check_box : Icons.check_box_outline_blank,
-                        size: 20,
+          // 歌词菜单按钮（始终占位，但仅在显示歌词时可用）
+          if (!isRadio)
+            Opacity(
+              opacity: _showLyrics ? 1.0 : 0.0,
+              child: IgnorePointer(
+                ignoring: !_showLyrics,
+                child: PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, size: 20),
+                  tooltip: t.general.more,
+                  offset: const Offset(0, 40),
+                  iconSize: 20,
+                  onSelected: (value) {
+                    if (value == 'search') {
+                      _openLyricsSearch(context);
+                    } else if (value == 'offset') {
+                      setState(() => _showOffsetControls = !_showOffsetControls);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'search',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.search, size: 20),
+                          const SizedBox(width: 12),
+                          Text(t.lyrics.searchLyrics),
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      Text(t.lyrics.adjustOffset),
-                    ],
-                  ),
+                    ),
+                    PopupMenuItem(
+                      value: 'offset',
+                      child: Row(
+                        children: [
+                          Icon(
+                            _showOffsetControls ? Icons.check_box : Icons.check_box_outline_blank,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(t.lyrics.adjustOffset),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           // 信息/歌词切换按钮（显示当前状态）
           IconButton(
