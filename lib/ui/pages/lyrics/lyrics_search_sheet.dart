@@ -114,6 +114,7 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
       expand: false,
       builder: (context, scrollController) {
         return Container(
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerLow,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
