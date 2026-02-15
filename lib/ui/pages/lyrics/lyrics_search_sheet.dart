@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,6 +9,7 @@ import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/lyrics_provider.dart';
 import '../../../services/lyrics/lyrics_result.dart';
+import '../../widgets/track_thumbnail.dart';
 
 /// 显示歌词搜索匹配 BottomSheet
 void showLyricsSearchSheet({
@@ -17,6 +20,7 @@ void showLyricsSearchSheet({
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
+    backgroundColor: Colors.transparent,
     builder: (_) => LyricsSearchSheet(track: track),
   );
 }
@@ -91,182 +95,220 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     final searchState = ref.watch(lyricsSearchProvider);
     final existingMatch =
         ref.watch(lyricsMatchForTrackProvider(widget.track.uniqueKey));
 
     return DraggableScrollableSheet(
       initialChildSize: 0.75,
-      minChildSize: 0.5,
+      minChildSize: 0.0,
       maxChildSize: 0.95,
+      snap: true,
+      snapSizes: const [0.0, 0.75, 0.95],
       expand: false,
       builder: (context, scrollController) {
-        return Column(
-          children: [
-            // 拖拽手柄
-            Padding(
-              padding: const EdgeInsets.only(top: 12, bottom: 8),
-              child: Container(
-                width: 32,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                  borderRadius: AppRadius.borderRadiusSm,
-                ),
-              ),
-            ),
+        return Container(
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerLow,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // 顶部固定区域（手柄 + 标题 + 搜索框 + 筛选）
+              Column(
+                children: [
+                  // 拖动手柄
+                  Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                      borderRadius: AppRadius.borderRadiusXs,
+                    ),
+                  ),
+                  // 标题栏
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.lyrics_outlined,
+                          size: 20,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          t.lyrics.searchLyrics,
+                          style: textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
 
-            // 标题
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                t.lyrics.searchLyrics,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ),
-            const SizedBox(height: 8),
+                  // Track 信息
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                    child: _buildTrackInfo(
+                      colorScheme,
+                      hasMatch: existingMatch.valueOrNull != null,
+                    ),
+                  ),
 
-            // Track 信息
-            _buildTrackInfo(colorScheme),
-            const SizedBox(height: 8),
+                  // 搜索框
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: t.lyrics.searchHint,
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.send),
+                          onPressed: _doSearch,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: AppRadius.borderRadiusXl,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                      ),
+                      textInputAction: TextInputAction.search,
+                      onSubmitted: (_) => _doSearch(),
+                    ),
+                  ),
 
-            // 已有匹配提示
-            if (existingMatch.valueOrNull != null)
-              _buildExistingMatch(colorScheme),
-
-            // 搜索框
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: t.lyrics.searchHint,
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.send),
-                    onPressed: _doSearch,
+                  // 歌词源筛选
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                    child: SegmentedButton<LyricsSourceFilter>(
+                      segments: [
+                        ButtonSegment(
+                          value: LyricsSourceFilter.all,
+                          label: Text(t.lyrics.sourceAll),
+                        ),
+                        ButtonSegment(
+                          value: LyricsSourceFilter.netease,
+                          label: Text(t.lyrics.sourceNetease),
+                        ),
+                        ButtonSegment(
+                          value: LyricsSourceFilter.qqmusic,
+                          label: Text(t.lyrics.sourceQQMusic),
+                        ),
+                        ButtonSegment(
+                          value: LyricsSourceFilter.lrclib,
+                          label: Text(t.lyrics.sourceLrclib),
+                        ),
+                      ],
+                      selected: {_selectedFilter},
+                      onSelectionChanged: (selected) {
+                        setState(() => _selectedFilter = selected.first);
+                        if (_hasAutoSearched) _doSearch();
+                      },
+                      style: ButtonStyle(
+                        visualDensity: VisualDensity.compact,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
                   ),
-                  border: OutlineInputBorder(
-                    borderRadius: AppRadius.borderRadiusXl,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                ),
-                textInputAction: TextInputAction.search,
-                onSubmitted: (_) => _doSearch(),
-              ),
-            ),
-
-            // 歌词源筛选
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: SegmentedButton<LyricsSourceFilter>(
-                segments: [
-                  ButtonSegment(
-                    value: LyricsSourceFilter.all,
-                    label: Text(t.lyrics.sourceAll),
-                  ),
-                  ButtonSegment(
-                    value: LyricsSourceFilter.netease,
-                    label: Text(t.lyrics.sourceNetease),
-                  ),
-                  ButtonSegment(
-                    value: LyricsSourceFilter.qqmusic,
-                    label: Text(t.lyrics.sourceQQMusic),
-                  ),
-                  ButtonSegment(
-                    value: LyricsSourceFilter.lrclib,
-                    label: Text(t.lyrics.sourceLrclib),
-                  ),
+                  const Divider(height: 1),
                 ],
-                selected: {_selectedFilter},
-                onSelectionChanged: (selected) {
-                  setState(() => _selectedFilter = selected.first);
-                  if (_hasAutoSearched) _doSearch();
-                },
-                style: ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+
+              // 结果列表（可滚动区域）
+              Expanded(
+                child: ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(context).copyWith(
+                    dragDevices: {
+                      PointerDeviceKind.touch,
+                      PointerDeviceKind.mouse,
+                      PointerDeviceKind.trackpad,
+                    },
+                  ),
+                  child: _buildResults(searchState, scrollController, colorScheme),
                 ),
               ),
-            ),
-
-            // 结果列表
-            Expanded(
-              child: _buildResults(searchState, scrollController, colorScheme),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
   }
 
-  Widget _buildTrackInfo(ColorScheme colorScheme) {
+  Widget _buildTrackInfo(ColorScheme colorScheme, {required bool hasMatch}) {
     final track = widget.track;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Icon(Icons.music_note, size: 20, color: colorScheme.outline),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+    final textTheme = Theme.of(context).textTheme;
+    return Row(
+      children: [
+        // 封面缩略图
+        TrackThumbnail(
+          track: track,
+          size: 48,
+          showPlayingIndicator: false,
+          borderRadius: 8,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                track.title,
+                style: textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  height: 1.3,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (track.artist != null) ...[
+                const SizedBox(height: 2),
                 Text(
-                  track.title,
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  track.artist!,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (track.artist != null)
-                  Text(
-                    track.artist!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.outline,
-                        ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
               ],
-            ),
+            ],
           ),
-          if (track.durationMs != null)
-            Text(
-              track.formattedDuration,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.outline,
-                  ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildExistingMatch(ColorScheme colorScheme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Row(
-        children: [
-          Icon(Icons.check_circle, size: 16, color: colorScheme.primary),
-          const SizedBox(width: 8),
+        ),
+        if (track.durationMs != null)
           Text(
-            t.lyrics.currentMatch,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.primary,
-                ),
+            track.formattedDuration,
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
           ),
-          const Spacer(),
-          TextButton.icon(
-            onPressed: _removeMatch,
-            icon: const Icon(Icons.close, size: 16),
-            label: Text(t.lyrics.removeMatch),
-            style: TextButton.styleFrom(
-              foregroundColor: colorScheme.error,
-              visualDensity: VisualDensity.compact,
+        // 移除匹配按钮
+        if (hasMatch) ...[
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 28,
+            height: 28,
+            child: IconButton.filledTonal(
+              onPressed: _removeMatch,
+              icon: const Icon(Icons.close, size: 14),
+              padding: EdgeInsets.zero,
+              tooltip: t.lyrics.removeMatch,
+              style: IconButton.styleFrom(
+                backgroundColor: colorScheme.errorContainer,
+                foregroundColor: colorScheme.onErrorContainer,
+              ),
             ),
           ),
         ],
-      ),
+      ],
     );
   }
 
