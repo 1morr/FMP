@@ -178,8 +178,9 @@
     "title": "Lyrics Cache",
     "currentCache": "$count files, $size",
     "calculating": "Calculating...",
+    "maxFiles": "Max $count",
+    "maxFilesTitle": "Max Cache Count",
     "clearTitle": "Clear Lyrics Cache",
-    "clearSubtitle": "Clear all cached lyrics files",
     "clearConfirm": "Clear all cached lyrics? They will be re-downloaded when needed.",
     "cacheCleared": "Lyrics cache cleared"
   },

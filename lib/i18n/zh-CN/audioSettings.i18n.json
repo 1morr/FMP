@@ -27,10 +27,5 @@
     "muxedDescription": "包含视频数据，兼容性好",
     "hls": "HLS 流",
     "hlsDescription": "分段流，适合直播"
-  },
-  "lyrics": {
-    "title": "歌词",
-    "autoMatch": "自动匹配歌词",
-    "autoMatchSubtitle": "播放时自动搜索并匹配歌词（仅当没有已匹配的歌词时）"
   }
 }

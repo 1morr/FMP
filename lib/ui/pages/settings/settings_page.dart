@@ -78,9 +78,9 @@ class SettingsPage extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(RoutePaths.history),
               ),
+              _AutoMatchLyricsTile(),
               _AutoScrollToPlayingTile(),
               _RememberPlaybackPositionTile(),
-              _AutoMatchLyricsTile(),
             ],
           ),
           const Divider(),
@@ -90,7 +90,7 @@ class SettingsPage extends ConsumerWidget {
             children: [
               _ImageCacheSizeListTile(),
               _ClearImageCacheListTile(),
-              _LyricsCacheListTile(),
+              _LyricsCacheSizeListTile(),
               _ClearLyricsCacheListTile(),
             ],
           ),
@@ -2250,46 +2250,96 @@ class _ImportResultDialog extends StatelessWidget {
   }
 }
 
-/// 歌词缓存统计
-class _LyricsCacheListTile extends ConsumerWidget {
+/// 歌词缓存大小设置
+class _LyricsCacheSizeListTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cache = ref.watch(lyricsCacheServiceProvider);
+    final maxFiles = ref.watch(downloadSettingsProvider).maxLyricsCacheFiles;
 
-    return FutureBuilder<CacheStats>(
-      future: cache.getStats(),
-      builder: (context, snapshot) {
-        final stats = snapshot.data;
-        final subtitle = stats != null
-            ? t.settings.lyricsCache.currentCache(
-                count: stats.fileCount,
-                size: stats.formattedSize,
-              )
-            : t.settings.lyricsCache.calculating;
+    return ListTile(
+      leading: const Icon(Icons.lyrics_outlined),
+      title: Text(t.settings.lyricsCache.title),
+      subtitle: Text(t.settings.lyricsCache.maxFiles(count: maxFiles)),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => _showMaxFilesDialog(context, ref, maxFiles),
+    );
+  }
 
-        return ListTile(
-          leading: const Icon(Icons.lyrics_outlined),
-          title: Text(t.settings.lyricsCache.title),
-          subtitle: Text(subtitle),
-        );
-      },
+  void _showMaxFilesDialog(BuildContext context, WidgetRef ref, int current) {
+    final options = [10, 30, 50, 100, 200];
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t.settings.lyricsCache.maxFilesTitle),
+        content: RadioGroup<int>(
+          groupValue: current,
+          onChanged: (value) {
+            if (value != null) {
+              ref.read(downloadSettingsProvider.notifier).setMaxLyricsCacheFiles(value);
+            }
+            Navigator.pop(context);
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: options.map((count) {
+              return RadioListTile<int>(
+                title: Text(t.settings.lyricsCache.maxFiles(count: count)),
+                value: count,
+              );
+            }).toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(t.general.cancel),
+          ),
+        ],
+      ),
     );
   }
 }
 
 /// 清除歌词缓存
-class _ClearLyricsCacheListTile extends ConsumerWidget {
+class _ClearLyricsCacheListTile extends ConsumerStatefulWidget {
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ClearLyricsCacheListTile> createState() => _ClearLyricsCacheListTileState();
+}
+
+class _ClearLyricsCacheListTileState extends ConsumerState<_ClearLyricsCacheListTile> {
+  CacheStats? _stats;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    final cache = ref.read(lyricsCacheServiceProvider);
+    final stats = await cache.getStats();
+    if (mounted) setState(() => _stats = stats);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitle = _stats != null
+        ? t.settings.lyricsCache.currentCache(
+            count: _stats!.fileCount,
+            size: _stats!.formattedSize,
+          )
+        : t.settings.lyricsCache.calculating;
+
     return ListTile(
       leading: const Icon(Icons.delete_outline),
       title: Text(t.settings.lyricsCache.clearTitle),
-      subtitle: Text(t.settings.lyricsCache.clearSubtitle),
-      onTap: () => _showClearCacheDialog(context, ref),
+      subtitle: Text(subtitle),
+      onTap: () => _showClearCacheDialog(context),
     );
   }
 
-  void _showClearCacheDialog(BuildContext context, WidgetRef ref) {
+  void _showClearCacheDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -2305,8 +2355,9 @@ class _ClearLyricsCacheListTile extends ConsumerWidget {
               Navigator.pop(context);
               final cache = ref.read(lyricsCacheServiceProvider);
               await cache.clear();
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
+              await _loadStats();
+              if (mounted) {
+                ScaffoldMessenger.of(this.context).showSnackBar(
                   SnackBar(content: Text(t.settings.lyricsCache.cacheCleared)),
                 );
               }

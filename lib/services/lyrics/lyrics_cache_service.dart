@@ -14,8 +14,20 @@ import 'lrclib_source.dart';
 /// - 总大小限制 5MB
 /// - 缓存目录：{cacheDir}/lyrics/
 class LyricsCacheService with Logging {
-  static const int maxCacheFiles = 50;
+  static const int defaultMaxCacheFiles = 50;
   static const int maxCacheSizeBytes = 5 * 1024 * 1024; // 5MB
+
+  int _maxCacheFiles = defaultMaxCacheFiles;
+  int get maxCacheFiles => _maxCacheFiles;
+
+  /// 更新最大缓存文件数
+  Future<void> setMaxCacheFiles(int value) async {
+    _maxCacheFiles = value;
+    // 如果当前缓存超出新限制，执行清理
+    if (_cacheDir != null) {
+      await _evictIfNeeded();
+    }
+  }
 
   Directory? _cacheDir;
   final Map<String, DateTime> _accessTimes = {};
