@@ -176,6 +176,10 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
                     label: Text(t.lyrics.sourceNetease),
                   ),
                   ButtonSegment(
+                    value: LyricsSourceFilter.qqmusic,
+                    label: Text(t.lyrics.sourceQQMusic),
+                  ),
+                  ButtonSegment(
                     value: LyricsSourceFilter.lrclib,
                     label: Text(t.lyrics.sourceLrclib),
                   ),
@@ -415,11 +419,23 @@ class _LyricsResultTile extends StatelessWidget {
   }
 
   Widget _buildSourceChip(ColorScheme colorScheme) {
-    final isNetease = result.source == 'netease';
-    return _Chip(
-      label: isNetease ? t.lyrics.sourceNetease : t.lyrics.sourceLrclib,
-      color: isNetease ? colorScheme.error : colorScheme.outline,
-    );
+    switch (result.source) {
+      case 'netease':
+        return _Chip(
+          label: t.lyrics.sourceNetease,
+          color: colorScheme.error,
+        );
+      case 'qqmusic':
+        return _Chip(
+          label: t.lyrics.sourceQQMusic,
+          color: colorScheme.tertiary,
+        );
+      default:
+        return _Chip(
+          label: t.lyrics.sourceLrclib,
+          color: colorScheme.outline,
+        );
+    }
   }
 
   Widget _buildTypeChip(BuildContext context, ColorScheme colorScheme) {

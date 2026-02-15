@@ -6,6 +6,7 @@ import 'lrclib_source.dart';
 import 'lyrics_cache_service.dart';
 import 'lyrics_result.dart';
 import 'netease_source.dart';
+import 'qqmusic_source.dart';
 import 'title_parser.dart';
 
 /// 歌词自动匹配服务
@@ -17,6 +18,7 @@ import 'title_parser.dart';
 class LyricsAutoMatchService with Logging {
   final LrclibSource _lrclib;
   final NeteaseSource _netease;
+  final QQMusicSource _qqmusic;
   final LyricsRepository _repo;
   final LyricsCacheService _cache;
   final TitleParser _parser;
@@ -24,11 +26,13 @@ class LyricsAutoMatchService with Logging {
   LyricsAutoMatchService({
     required LrclibSource lrclib,
     required NeteaseSource netease,
+    required QQMusicSource qqmusic,
     required LyricsRepository repo,
     required LyricsCacheService cache,
     required TitleParser parser,
   })  : _lrclib = lrclib,
         _netease = netease,
+        _qqmusic = qqmusic,
         _repo = repo,
         _cache = cache,
         _parser = parser;
@@ -71,6 +75,24 @@ class LyricsAutoMatchService with Logging {
           ..matchedAt = DateTime.now();
         await _repo.save(match);
         logInfo('Auto-matched lyrics: ${track.title} → netease:${neteaseMatch.id}');
+        return true;
+      }
+
+      // 3.5. 尝试 QQ 音乐搜索
+      final qqmusicMatch = await _tryQQMusicMatch(
+        trackName, artistName, (track.durationMs ?? 0) ~/ 1000,
+      );
+      if (qqmusicMatch != null) {
+        await _cache.put(track.uniqueKey, qqmusicMatch);
+        final match = LyricsMatch()
+          ..trackUniqueKey = track.uniqueKey
+          ..lyricsSource = 'qqmusic'
+          ..externalId = 0
+          ..externalStringId = qqmusicMatch.externalStringId
+          ..offsetMs = 0
+          ..matchedAt = DateTime.now();
+        await _repo.save(match);
+        logInfo('Auto-matched lyrics: ${track.title} → qqmusic:${qqmusicMatch.externalStringId}');
         return true;
       }
 
@@ -166,6 +188,46 @@ class LyricsAutoMatchService with Logging {
       return null;
     } catch (e) {
       logWarning('Netease auto-match failed: $e');
+      return null;
+    }
+  }
+
+  /// 尝试从 QQ 音乐匹配歌词
+  ///
+  /// 返回匹配的 LyricsResult，或 null 表示未找到合适匹配
+  Future<LyricsResult?> _tryQQMusicMatch(
+    String trackName,
+    String artistName,
+    int trackDurationSec,
+  ) async {
+    try {
+      final results = await _qqmusic.searchLyrics(
+        query: [trackName, artistName].where((s) => s.isNotEmpty).join(' '),
+        limit: 5,
+      );
+
+      if (results.isEmpty) return null;
+
+      // 过滤符合时长条件的结果（±10秒）
+      final matching = results.where((r) {
+        if (r.duration == 0) return true;
+        return (r.duration - trackDurationSec).abs() <= 10;
+      }).toList();
+
+      if (matching.isEmpty) return null;
+
+      // 选择最佳匹配（优先有同步歌词的）
+      final best = matching.length == 1
+          ? matching.first
+          : _selectBestMatch(matching, trackName, artistName, trackDurationSec);
+
+      if (best != null && best.hasSyncedLyrics) {
+        return best;
+      }
+
+      return null;
+    } catch (e) {
+      logWarning('QQMusic auto-match failed: $e');
       return null;
     }
   }

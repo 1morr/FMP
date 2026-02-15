@@ -9,6 +9,7 @@ import '../services/lyrics/lyrics_auto_match_service.dart';
 import '../services/lyrics/lyrics_cache_service.dart';
 import '../services/lyrics/lyrics_result.dart';
 import '../services/lyrics/netease_source.dart';
+import '../services/lyrics/qqmusic_source.dart';
 import '../services/lyrics/title_parser.dart';
 import 'repository_providers.dart';
 
@@ -22,8 +23,11 @@ final lrclibSourceProvider = Provider<LrclibSource>((ref) => LrclibSource());
 /// NeteaseSource 单例
 final neteaseSourceProvider = Provider<NeteaseSource>((ref) => NeteaseSource());
 
+/// QQMusicSource 单例
+final qqmusicSourceProvider = Provider<QQMusicSource>((ref) => QQMusicSource());
+
 /// 歌词源筛选
-enum LyricsSourceFilter { all, netease, lrclib }
+enum LyricsSourceFilter { all, netease, qqmusic, lrclib }
 
 /// TitleParser 单例
 final titleParserProvider = Provider<TitleParser>((ref) => RegexTitleParser());
@@ -40,6 +44,7 @@ final lyricsAutoMatchServiceProvider = Provider<LyricsAutoMatchService>((ref) {
   return LyricsAutoMatchService(
     lrclib: ref.watch(lrclibSourceProvider),
     netease: ref.watch(neteaseSourceProvider),
+    qqmusic: ref.watch(qqmusicSourceProvider),
     repo: ref.watch(lyricsRepositoryProvider),
     cache: ref.watch(lyricsCacheServiceProvider),
     parser: ref.watch(titleParserProvider),
@@ -73,16 +78,24 @@ final _currentLyricsSourceProvider =
   return match?.lyricsSource;
 });
 
+/// 当前歌词的 externalStringId（QQ 音乐使用，用于触发内容加载）
+final _currentLyricsStringIdProvider =
+    Provider.autoDispose<String?>((ref) {
+  final match = ref.watch(currentLyricsMatchProvider).valueOrNull;
+  return match?.externalStringId;
+});
+
 /// 当前播放歌曲的歌词内容（优先从缓存获取，否则在线获取）
-/// 注意：只在 externalId 变化时重新加载，offset 变化不会触发重新加载
+/// 注意：只在 externalId/externalStringId 变化时重新加载，offset 变化不会触发重新加载
 final currentLyricsContentProvider =
     FutureProvider.autoDispose<LyricsResult?>((ref) async {
   final currentTrack = ref.watch(currentTrackProvider);
   if (currentTrack == null) return null;
 
-  // 只监听 externalId，不监听整个 match 对象
+  // 监听 externalId 和 externalStringId
   final externalId = ref.watch(_currentLyricsExternalIdProvider);
-  if (externalId == null) return null;
+  final externalStringId = ref.watch(_currentLyricsStringIdProvider);
+  if (externalId == null && externalStringId == null) return null;
 
   final lyricsSource = ref.watch(_currentLyricsSourceProvider);
   final cache = ref.watch(lyricsCacheServiceProvider);
@@ -93,12 +106,15 @@ final currentLyricsContentProvider =
 
   // 2. 根据歌词源从对应 API 获取
   LyricsResult? result;
-  if (lyricsSource == 'netease') {
+  if (lyricsSource == 'qqmusic' && externalStringId != null) {
+    final qqmusic = ref.watch(qqmusicSourceProvider);
+    result = await qqmusic.getLyricsResult(externalStringId);
+  } else if (lyricsSource == 'netease') {
     final netease = ref.watch(neteaseSourceProvider);
-    result = await netease.getLyricsResult(externalId);
+    result = await netease.getLyricsResult(externalId!);
   } else {
     final lrclib = ref.watch(lrclibSourceProvider);
-    result = await lrclib.getById(externalId);
+    result = await lrclib.getById(externalId!);
   }
 
   if (result != null) {
@@ -153,10 +169,12 @@ class LyricsSearchState {
 class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
   final LrclibSource _lrclib;
   final NeteaseSource _netease;
+  final QQMusicSource _qqmusic;
   final LyricsRepository _repo;
   final LyricsCacheService _cache;
 
-  LyricsSearchNotifier(this._lrclib, this._netease, this._repo, this._cache)
+  LyricsSearchNotifier(
+      this._lrclib, this._netease, this._qqmusic, this._repo, this._cache)
       : super(const LyricsSearchState());
 
   /// 设置筛选源
@@ -184,10 +202,21 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
             trackName: trackName,
             artistName: artistName,
           );
+        case LyricsSourceFilter.qqmusic:
+          results = await _qqmusic.searchLyrics(
+            query: query,
+            trackName: trackName,
+            artistName: artistName,
+          );
         case LyricsSourceFilter.all:
-          // 并行搜索两个源
+          // 并行搜索三个源
           final futures = await Future.wait([
             _netease.searchLyrics(
+              query: query,
+              trackName: trackName,
+              artistName: artistName,
+            ).catchError((_) => <LyricsResult>[]),
+            _qqmusic.searchLyrics(
               query: query,
               trackName: trackName,
               artistName: artistName,
@@ -198,8 +227,8 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
               artistName: artistName,
             ).catchError((_) => <LyricsResult>[]),
           ]);
-          // 网易云结果在前
-          results = [...futures[0], ...futures[1]];
+          // 网易云 → QQ音乐 → lrclib
+          results = [...futures[0], ...futures[1], ...futures[2]];
       }
 
       if (!mounted) return;
@@ -219,6 +248,7 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
       ..trackUniqueKey = trackUniqueKey
       ..lyricsSource = result.source
       ..externalId = result.id
+      ..externalStringId = result.externalStringId
       ..offsetMs = 0
       ..matchedAt = DateTime.now();
     await _repo.save(match);
@@ -249,9 +279,10 @@ final lyricsSearchProvider =
         (ref) {
   final lrclib = ref.watch(lrclibSourceProvider);
   final netease = ref.watch(neteaseSourceProvider);
+  final qqmusic = ref.watch(qqmusicSourceProvider);
   final repo = ref.watch(lyricsRepositoryProvider);
   final cache = ref.watch(lyricsCacheServiceProvider);
-  return LyricsSearchNotifier(lrclib, netease, repo, cache);
+  return LyricsSearchNotifier(lrclib, netease, qqmusic, repo, cache);
 });
 
 /// 查询指定 track 的歌词匹配（用于菜单显示"已匹配"状态）
