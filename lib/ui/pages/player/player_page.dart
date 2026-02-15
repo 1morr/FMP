@@ -22,6 +22,7 @@ import '../../../services/platform/url_launcher_service.dart';
 import '../../../core/constants/ui_constants.dart';
 import '../../widgets/track_thumbnail.dart';
 import '../../widgets/lyrics_display.dart';
+import '../lyrics/lyrics_search_sheet.dart';
 
 /// 播放器页面（全屏）
 class PlayerPage extends ConsumerStatefulWidget {
@@ -32,6 +33,18 @@ class PlayerPage extends ConsumerStatefulWidget {
 }
 
 class _PlayerPageState extends ConsumerState<PlayerPage> {
+
+  /// 打开歌词搜索 BottomSheet
+  void _openLyricsSearch(BuildContext context) {
+    final playerState = ref.read(audioControllerProvider);
+    final currentTrack = playerState.currentTrack;
+    if (currentTrack == null) return;
+
+    showLyricsSearchSheet(
+      context: context,
+      track: currentTrack,
+    );
+  }
   /// 是否为桌面平台
   bool get isDesktop =>
       Platform.isWindows || Platform.isMacOS || Platform.isLinux;
@@ -44,6 +57,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 
   /// 是否显示歌词（切换封面/歌词）
   bool _showLyrics = false;
+
+  /// 是否显示 offset 调整控件
+  bool _showOffsetControls = false;
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +80,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           // 桌面端音量控制（紧凑版）
           if (isDesktop)
             _buildCompactVolumeControl(context, playerState, controller, colorScheme),
-          // 更多选项（包含信息、倍速）
+          // 更多选项（包含信息、倍速、歌词）
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             offset: const Offset(0, 48), // 向下偏移，与子菜单位置一致
@@ -81,6 +97,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                   if (!context.mounted) return;
                   _showSpeedMenu(context, controller, playerState.speed, colorScheme);
                 });
+              } else if (value == 'lyrics_search') {
+                // 打开歌词搜索
+                Future.delayed(AnimationDurations.fastest, () {
+                  if (!context.mounted) return;
+                  _openLyricsSearch(context);
+                });
+              } else if (value == 'lyrics_offset') {
+                // 切换 offset 控件显示
+                setState(() => _showOffsetControls = !_showOffsetControls);
               }
             },
             itemBuilder: (context) => [
@@ -110,7 +135,33 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                   ],
                 ),
               ),
-
+              // 歌词选项（仅在显示歌词时显示）
+              if (_showLyrics) ...[
+                const PopupMenuDivider(),
+                PopupMenuItem(
+                  value: 'lyrics_search',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.search, size: 20),
+                      const SizedBox(width: 12),
+                      Text(t.lyrics.searchLyrics),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'lyrics_offset',
+                  child: Row(
+                    children: [
+                      Icon(
+                        _showOffsetControls ? Icons.check_box : Icons.check_box_outline_blank,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(t.lyrics.adjustOffset),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ],
@@ -128,6 +179,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                     ? LyricsDisplay(
                         key: const ValueKey('lyrics'),
                         onTap: () => setState(() => _showLyrics = false),
+                        showOffsetControls: _showOffsetControls,
                       )
                     : GestureDetector(
                         onTap: () => setState(() => _showLyrics = true),

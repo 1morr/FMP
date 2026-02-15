@@ -170,6 +170,15 @@
     "currentCacheSize": "当前缓存大小: $size",
     "cacheCleared": "图片缓存已清除"
   },
+  "lyricsCache": {
+    "title": "歌词缓存",
+    "currentCache": "$count 个文件，$size",
+    "calculating": "计算中...",
+    "clearTitle": "清除歌词缓存",
+    "clearSubtitle": "清除所有缓存的歌词文件",
+    "clearConfirm": "清除所有缓存的歌词？需要时会重新下载。",
+    "cacheCleared": "歌词缓存已清除"
+  },
   "tray": {
     "title": "最小化到托盘",
     "subtitle": "关闭窗口时最小化到系统托盘"

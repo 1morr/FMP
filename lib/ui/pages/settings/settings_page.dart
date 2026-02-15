@@ -9,6 +9,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/network_image_cache_service.dart';
+import '../../../services/lyrics/lyrics_cache_service.dart';
+import '../../../providers/lyrics_provider.dart';
 import '../../../data/models/hotkey_config.dart';
 import '../../../data/models/settings.dart';
 import '../../../i18n/strings.g.dart';
@@ -86,6 +88,8 @@ class SettingsPage extends ConsumerWidget {
             children: [
               _ImageCacheSizeListTile(),
               _ClearImageCacheListTile(),
+              _LyricsCacheListTile(),
+              _ClearLyricsCacheListTile(),
             ],
           ),
           const Divider(),
@@ -2220,6 +2224,75 @@ class _ImportResultDialog extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Text(text, style: const TextStyle(fontSize: 13)),
+    );
+  }
+}
+
+/// 歌词缓存统计
+class _LyricsCacheListTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cache = ref.watch(lyricsCacheServiceProvider);
+
+    return FutureBuilder<CacheStats>(
+      future: cache.getStats(),
+      builder: (context, snapshot) {
+        final stats = snapshot.data;
+        final subtitle = stats != null
+            ? t.settings.lyricsCache.currentCache(
+                count: stats.fileCount,
+                size: stats.formattedSize,
+              )
+            : t.settings.lyricsCache.calculating;
+
+        return ListTile(
+          leading: const Icon(Icons.lyrics_outlined),
+          title: Text(t.settings.lyricsCache.title),
+          subtitle: Text(subtitle),
+        );
+      },
+    );
+  }
+}
+
+/// 清除歌词缓存
+class _ClearLyricsCacheListTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ListTile(
+      leading: const Icon(Icons.delete_outline),
+      title: Text(t.settings.lyricsCache.clearTitle),
+      subtitle: Text(t.settings.lyricsCache.clearSubtitle),
+      onTap: () => _showClearCacheDialog(context, ref),
+    );
+  }
+
+  void _showClearCacheDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t.settings.lyricsCache.clearTitle),
+        content: Text(t.settings.lyricsCache.clearConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(t.general.cancel),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              final cache = ref.read(lyricsCacheServiceProvider);
+              await cache.clear();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(t.settings.lyricsCache.cacheCleared)),
+                );
+              }
+            },
+            child: Text(t.general.confirm),
+          ),
+        ],
+      ),
     );
   }
 }

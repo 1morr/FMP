@@ -170,6 +170,15 @@
     "currentCacheSize": "目前快取大小: $size",
     "cacheCleared": "圖片快取已清除"
   },
+  "lyricsCache": {
+    "title": "歌詞快取",
+    "currentCache": "$count 個檔案，$size",
+    "calculating": "計算中...",
+    "clearTitle": "清除歌詞快取",
+    "clearSubtitle": "清除所有快取的歌詞檔案",
+    "clearConfirm": "清除所有快取的歌詞？需要時會重新下載。",
+    "cacheCleared": "歌詞快取已清除"
+  },
   "tray": {
     "title": "最小化到系統列",
     "subtitle": "關閉視窗時最小化到系統列"

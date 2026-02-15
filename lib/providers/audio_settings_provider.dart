@@ -10,6 +10,7 @@ class AudioSettingsState {
   final List<AudioFormat> formatPriority;
   final List<StreamType> youtubeStreamPriority;
   final List<StreamType> bilibiliStreamPriority;
+  final bool autoMatchLyrics;
   final bool isLoading;
 
   const AudioSettingsState({
@@ -27,6 +28,7 @@ class AudioSettingsState {
       StreamType.audioOnly,
       StreamType.muxed,
     ],
+    this.autoMatchLyrics = true,
     this.isLoading = true,
   });
 
@@ -35,6 +37,7 @@ class AudioSettingsState {
     List<AudioFormat>? formatPriority,
     List<StreamType>? youtubeStreamPriority,
     List<StreamType>? bilibiliStreamPriority,
+    bool? autoMatchLyrics,
     bool? isLoading,
   }) {
     return AudioSettingsState(
@@ -42,6 +45,7 @@ class AudioSettingsState {
       formatPriority: formatPriority ?? this.formatPriority,
       youtubeStreamPriority: youtubeStreamPriority ?? this.youtubeStreamPriority,
       bilibiliStreamPriority: bilibiliStreamPriority ?? this.bilibiliStreamPriority,
+      autoMatchLyrics: autoMatchLyrics ?? this.autoMatchLyrics,
       isLoading: isLoading ?? this.isLoading,
     );
   }
@@ -64,6 +68,7 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
       formatPriority: _settings!.audioFormatPriorityList,
       youtubeStreamPriority: _settings!.youtubeStreamPriorityList,
       bilibiliStreamPriority: _settings!.bilibiliStreamPriorityList,
+      autoMatchLyrics: _settings!.autoMatchLyrics,
       isLoading: false,
     );
   }
@@ -102,6 +107,15 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
     _settings!.bilibiliStreamPriorityList = priority;
     await _settingsRepository.save(_settings!);
     state = state.copyWith(bilibiliStreamPriority: priority);
+  }
+
+  /// 设置自动匹配歌词
+  Future<void> setAutoMatchLyrics(bool enabled) async {
+    if (_settings == null) return;
+
+    _settings!.autoMatchLyrics = enabled;
+    await _settingsRepository.save(_settings!);
+    state = state.copyWith(autoMatchLyrics: enabled);
   }
 }
 

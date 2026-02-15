@@ -19,5 +19,7 @@
   "tapToSelect": "点击选择",
   "lyrics": "歌词",
   "noLyricsAvailable": "暂无歌词",
-  "instrumentalTrack": "纯音乐，无歌词"
+  "instrumentalTrack": "纯音乐，无歌词",
+  "offset": "偏移",
+  "resetOffset": "重置偏移"
 }

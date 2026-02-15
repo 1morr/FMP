@@ -18,10 +18,14 @@ class LyricsDisplay extends ConsumerStatefulWidget {
   /// 点击回调（播放器页面用于切回封面）
   final VoidCallback? onTap;
 
+  /// 是否显示 offset 调整控件
+  final bool showOffsetControls;
+
   const LyricsDisplay({
     super.key,
     this.compact = false,
     this.onTap,
+    this.showOffsetControls = false,
   });
 
   @override
@@ -125,6 +129,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   ) {
     final playerState = ref.watch(audioControllerProvider);
     final position = playerState.position;
+    final currentTrack = playerState.currentTrack;
 
     // 计算当前行
     final newIndex = LrcParser.findCurrentLineIndex(
@@ -144,40 +149,54 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
     return GestureDetector(
       onTap: widget.onTap,
       behavior: HitTestBehavior.opaque,
-      child: NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          if (notification is ScrollStartNotification &&
-              notification.dragDetails != null) {
-            _userScrolling = true;
-          } else if (notification is ScrollEndNotification) {
-            // 用户停止滚动后 3 秒恢复自动滚动
-            Future.delayed(const Duration(seconds: 3), () {
-              if (mounted) setState(() => _userScrolling = false);
-            });
-          }
-          return false;
-        },
-        child: ListView.builder(
-          controller: _scrollController,
-          padding: EdgeInsets.symmetric(
-            vertical: widget.compact ? 16 : 80,
-            horizontal: widget.compact ? 12 : 24,
-          ),
-          itemCount: lyrics.lines.length,
-          itemExtent: _lineHeight,
-          itemBuilder: (context, index) {
-            final line = lyrics.lines[index];
-            final isCurrent = index == _currentLineIndex;
-
-            return _LyricsLineWidget(
-              key: ValueKey(index),
-              text: line.text,
-              isCurrent: isCurrent,
+      child: Column(
+        children: [
+          // Offset adjustment controls (only show when enabled)
+          if (widget.showOffsetControls && currentTrack != null)
+            _OffsetAdjustmentBar(
+              trackUniqueKey: currentTrack.uniqueKey,
+              currentOffsetMs: offsetMs,
               compact: widget.compact,
-              colorScheme: colorScheme,
-            );
-          },
-        ),
+            ),
+          // Lyrics list
+          Expanded(
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification is ScrollStartNotification &&
+                    notification.dragDetails != null) {
+                  _userScrolling = true;
+                } else if (notification is ScrollEndNotification) {
+                  // 用户停止滚动后 3 秒恢复自动滚动
+                  Future.delayed(const Duration(seconds: 3), () {
+                    if (mounted) setState(() => _userScrolling = false);
+                  });
+                }
+                return false;
+              },
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: EdgeInsets.symmetric(
+                  vertical: widget.compact ? 16 : 80,
+                  horizontal: widget.compact ? 12 : 24,
+                ),
+                itemCount: lyrics.lines.length,
+                itemExtent: _lineHeight,
+                itemBuilder: (context, index) {
+                  final line = lyrics.lines[index];
+                  final isCurrent = index == _currentLineIndex;
+
+                  return _LyricsLineWidget(
+                    key: ValueKey(index),
+                    text: line.text,
+                    isCurrent: isCurrent,
+                    compact: widget.compact,
+                    colorScheme: colorScheme,
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -314,5 +333,192 @@ class _LyricsLineWidget extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
       ),
     );
+  }
+}
+
+/// 歌词偏移调整控制栏
+class _OffsetAdjustmentBar extends ConsumerWidget {
+  final String trackUniqueKey;
+  final int currentOffsetMs;
+  final bool compact;
+
+  const _OffsetAdjustmentBar({
+    required this.trackUniqueKey,
+    required this.currentOffsetMs,
+    required this.compact,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 8 : 16,
+        vertical: compact ? 6 : 8,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        border: Border(
+          bottom: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Label
+          Text(
+            t.lyrics.offset,
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontSize: compact ? 12 : 13,
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Current offset display
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer.withValues(alpha: 0.5),
+              borderRadius: AppRadius.borderRadiusXs,
+            ),
+            child: Text(
+              _formatOffset(currentOffsetMs),
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w600,
+                fontSize: compact ? 12 : 13,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Adjustment buttons
+          _buildOffsetButton(
+            context,
+            ref,
+            icon: Icons.fast_rewind,
+            deltaMs: -1000,
+            label: '-1s',
+            compact: compact,
+          ),
+          _buildOffsetButton(
+            context,
+            ref,
+            icon: Icons.remove,
+            deltaMs: -500,
+            label: '-0.5s',
+            compact: compact,
+          ),
+          _buildOffsetButton(
+            context,
+            ref,
+            icon: Icons.remove_circle_outline,
+            deltaMs: -100,
+            label: '-0.1s',
+            compact: compact,
+          ),
+          const SizedBox(width: 4),
+          // Reset button
+          _buildResetButton(context, ref, compact),
+          const SizedBox(width: 4),
+          _buildOffsetButton(
+            context,
+            ref,
+            icon: Icons.add_circle_outline,
+            deltaMs: 100,
+            label: '+0.1s',
+            compact: compact,
+          ),
+          _buildOffsetButton(
+            context,
+            ref,
+            icon: Icons.add,
+            deltaMs: 500,
+            label: '+0.5s',
+            compact: compact,
+          ),
+          _buildOffsetButton(
+            context,
+            ref,
+            icon: Icons.fast_forward,
+            deltaMs: 1000,
+            label: '+1s',
+            compact: compact,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOffsetButton(
+    BuildContext context,
+    WidgetRef ref, {
+    required IconData icon,
+    required int deltaMs,
+    required String label,
+    required bool compact,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Tooltip(
+      message: label,
+      child: InkWell(
+        onTap: () => _adjustOffset(ref, deltaMs),
+        borderRadius: AppRadius.borderRadiusXs,
+        child: Container(
+          padding: EdgeInsets.all(compact ? 4 : 6),
+          child: Icon(
+            icon,
+            size: compact ? 16 : 18,
+            color: colorScheme.primary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResetButton(BuildContext context, WidgetRef ref, bool compact) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Tooltip(
+      message: t.lyrics.resetOffset,
+      child: InkWell(
+        onTap: currentOffsetMs != 0 ? () => _resetOffset(ref) : null,
+        borderRadius: AppRadius.borderRadiusXs,
+        child: Container(
+          padding: EdgeInsets.all(compact ? 4 : 6),
+          child: Icon(
+            Icons.refresh,
+            size: compact ? 16 : 18,
+            color: currentOffsetMs != 0
+                ? colorScheme.primary
+                : colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatOffset(int offsetMs) {
+    if (offsetMs == 0) return '0.0s';
+    final seconds = offsetMs / 1000;
+    return '${seconds >= 0 ? '+' : ''}${seconds.toStringAsFixed(1)}s';
+  }
+
+  Future<void> _adjustOffset(WidgetRef ref, int deltaMs) async {
+    final newOffsetMs = currentOffsetMs + deltaMs;
+    await ref
+        .read(lyricsSearchProvider.notifier)
+        .updateOffset(trackUniqueKey, newOffsetMs);
+  }
+
+  Future<void> _resetOffset(WidgetRef ref) async {
+    await ref
+        .read(lyricsSearchProvider.notifier)
+        .updateOffset(trackUniqueKey, 0);
   }
 }

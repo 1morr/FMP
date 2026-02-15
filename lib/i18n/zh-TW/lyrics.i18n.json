@@ -19,5 +19,7 @@
   "tapToSelect": "點擊選擇",
   "lyrics": "歌詞",
   "noLyricsAvailable": "暫無歌詞",
-  "instrumentalTrack": "純音樂，無歌詞"
+  "instrumentalTrack": "純音樂，無歌詞",
+  "offset": "偏移",
+  "resetOffset": "重置偏移"
 }

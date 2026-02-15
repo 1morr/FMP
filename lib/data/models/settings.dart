@@ -136,6 +136,11 @@ class Settings {
   /// 首选音频输出设备名称 (用于 UI 显示，设备 ID 可能变化)
   String? preferredAudioDeviceName;
 
+  // ========== 歌词设置 ==========
+
+  /// 自动匹配歌词（播放时自动搜索并匹配）
+  bool autoMatchLyrics = true;
+
   /// 获取 ThemeMode
   @ignore
   ThemeMode get themeMode {

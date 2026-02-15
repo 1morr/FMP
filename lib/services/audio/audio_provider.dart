@@ -18,6 +18,8 @@ import '../../data/repositories/play_history_repository.dart';
 import '../../data/sources/source_provider.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/repository_providers.dart';
+import '../../providers/lyrics_provider.dart';
+import '../lyrics/lyrics_auto_match_service.dart';
 import '../../core/services/toast_service.dart';
 import '../../main.dart' show audioHandler, windowsSmtcHandler;
 import 'audio_handler.dart';
@@ -357,6 +359,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   final FmpAudioHandler _audioHandler;
   final WindowsSmtcHandler _windowsSmtcHandler;
   final PlayHistoryRepository? _playHistoryRepository;
+  final LyricsAutoMatchService? _lyricsAutoMatchService;
+  final SettingsRepository? _settingsRepository;
 
   final List<StreamSubscription> _subscriptions = [];
   bool _isInitialized = false;
@@ -408,12 +412,16 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     required FmpAudioHandler audioHandler,
     required WindowsSmtcHandler windowsSmtcHandler,
     PlayHistoryRepository? playHistoryRepository,
+    LyricsAutoMatchService? lyricsAutoMatchService,
+    SettingsRepository? settingsRepository,
   })  : _audioService = audioService,
         _queueManager = queueManager,
         _toastService = toastService,
         _audioHandler = audioHandler,
         _windowsSmtcHandler = windowsSmtcHandler,
         _playHistoryRepository = playHistoryRepository,
+        _lyricsAutoMatchService = lyricsAutoMatchService,
+        _settingsRepository = settingsRepository,
         super(const PlayerState());
 
   /// 是否已初始化
@@ -1402,6 +1410,31 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     });
   }
 
+  /// 尝试自动匹配歌词（异步，不阻塞播放）
+  Future<void> _tryAutoMatchLyrics(Track track) async {
+    final autoMatchService = _lyricsAutoMatchService;
+    final settingsRepo = _settingsRepository;
+    
+    if (autoMatchService == null || settingsRepo == null) return;
+    
+    try {
+      // 检查设置是否启用自动匹配
+      final settings = await settingsRepo.get();
+      if (!settings.autoMatchLyrics) {
+        logDebug('Auto-match lyrics disabled in settings');
+        return;
+      }
+      
+      // 后台执行自动匹配
+      final matched = await autoMatchService.tryAutoMatch(track);
+      if (matched) {
+        logInfo('Auto-matched lyrics for: ${track.title}');
+      }
+    } catch (e) {
+      logWarning('Auto-match lyrics failed for ${track.title}: $e');
+    }
+  }
+
   /// 清除正在播放的歌曲
   void _clearPlayingTrack() {
     _playingTrack = null;
@@ -1686,6 +1719,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       
       // 更新隊列狀態
       _updateQueueState();
+      
+      // 自动匹配歌词（后台执行，不阻塞播放）
+      if (recordHistory) {
+        unawaited(_tryAutoMatchLyrics(track));
+      }
       
       // Mix 模式：當開始播放最後一首時，立即加載更多歌曲
       if (mode == PlayMode.mix && _queueManager.currentIndex == _queueManager.tracks.length - 1) {
@@ -2365,6 +2403,8 @@ final audioControllerProvider =
     audioHandler: audioHandler,
     windowsSmtcHandler: windowsSmtcHandler,
     playHistoryRepository: playHistoryRepository,
+    lyricsAutoMatchService: ref.watch(lyricsAutoMatchServiceProvider),
+    settingsRepository: ref.watch(settingsRepositoryProvider),
   );
 
   // 设置网络恢复监听（用于断网重连自动恢复播放）
