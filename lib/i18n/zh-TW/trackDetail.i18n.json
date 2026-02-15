@@ -8,6 +8,8 @@
   "description": "簡介",
   "collapse": "收起",
   "expand": "展開",
+  "collapsePanel": "收起面板",
+  "nowPlaying": "正在播放",
   "topComments": "熱門評論",
   "streamerAnnouncement": "主播公告",
   "isLive": "直播中",

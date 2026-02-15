@@ -213,6 +213,7 @@ class _DesktopLayout extends ConsumerStatefulWidget {
 
 class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
   bool _isNavExpanded = false; // 默认收起
+  bool _isDetailPanelExpanded = true; // 详情面板默认展开
   double _detailPanelWidth = 380; // 默认宽度
   static const double _minPanelWidth = 280.0;
   static const double _maxPanelWidth = 500.0;
@@ -253,36 +254,43 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
             flex: 2,
             child: widget.child,
           ),
-          // 仅当有歌曲时显示右侧面板
+          // 仅当有歌曲时显示右侧面板或收起条
           if (hasTrack) ...[
-            // 可拖动的分割线
-            MouseRegion(
-              cursor: SystemMouseCursors.resizeColumn,
-              child: GestureDetector(
-                onHorizontalDragUpdate: (details) {
-                  setState(() {
-                    _detailPanelWidth -= details.delta.dx;
-                    _detailPanelWidth = _detailPanelWidth.clamp(_minPanelWidth, _maxPanelWidth);
-                  });
-                },
-                child: Container(
-                  width: 6,
-                  color: Colors.transparent,
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Container(
-                      width: 1,
-                      color: colorScheme.outlineVariant,
+            if (_isDetailPanelExpanded) ...[
+              // 可拖动的分割线
+              MouseRegion(
+                cursor: SystemMouseCursors.resizeColumn,
+                child: GestureDetector(
+                  onHorizontalDragUpdate: (details) {
+                    setState(() {
+                      _detailPanelWidth -= details.delta.dx;
+                      _detailPanelWidth = _detailPanelWidth.clamp(_minPanelWidth, _maxPanelWidth);
+                    });
+                  },
+                  child: Container(
+                    width: 6,
+                    color: Colors.transparent,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        width: 1,
+                        color: colorScheme.outlineVariant,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            // 右侧歌曲详情面板
-            SizedBox(
-              width: _detailPanelWidth,
-              child: const TrackDetailPanel(),
-            ),
+              // 右侧歌曲详情面板
+              SizedBox(
+                width: _detailPanelWidth,
+                child: TrackDetailPanel(
+                  onCollapse: () => setState(() => _isDetailPanelExpanded = false),
+                ),
+              ),
+            ] else ...[
+              // 收起后的侧边栏
+              _buildCollapsedDetailPanel(colorScheme),
+            ],
           ],
         ],
       ),
@@ -376,6 +384,29 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
       ),
     );
   }
+
+  /// 构建收起后的详情面板侧边栏
+  Widget _buildCollapsedDetailPanel(ColorScheme colorScheme) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => setState(() => _isDetailPanelExpanded = true),
+        child: Container(
+          width: 48,
+          color: colorScheme.surfaceContainerLow,
+          child: Center(
+            child: Icon(
+              Icons.first_page,
+              color: colorScheme.onSurfaceVariant,
+              size: 20,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+
 
   Widget _buildCollapsedNav() {
     final colorScheme = Theme.of(context).colorScheme;
