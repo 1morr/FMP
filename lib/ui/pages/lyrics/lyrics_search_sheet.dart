@@ -6,7 +6,7 @@ import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/lyrics_provider.dart';
-import '../../../services/lyrics/lrclib_source.dart';
+import '../../../services/lyrics/lyrics_result.dart';
 
 /// 显示歌词搜索匹配 BottomSheet
 void showLyricsSearchSheet({
@@ -34,6 +34,7 @@ class LyricsSearchSheet extends ConsumerStatefulWidget {
 class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
   final _searchController = TextEditingController();
   bool _hasAutoSearched = false;
+  LyricsSourceFilter _selectedFilter = LyricsSourceFilter.all;
 
   @override
   void initState() {
@@ -60,10 +61,12 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
     final query = _searchController.text.trim();
     if (query.isEmpty) return;
     _hasAutoSearched = true;
-    ref.read(lyricsSearchProvider.notifier).search(query: query);
+    final notifier = ref.read(lyricsSearchProvider.notifier);
+    notifier.setFilter(_selectedFilter);
+    notifier.search(query: query);
   }
 
-  Future<void> _selectResult(LrclibResult result) async {
+  Future<void> _selectResult(LyricsResult result) async {
     final notifier = ref.read(lyricsSearchProvider.notifier);
     await notifier.saveMatch(
       trackUniqueKey: widget.track.uniqueKey,
@@ -156,6 +159,36 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
                 ),
                 textInputAction: TextInputAction.search,
                 onSubmitted: (_) => _doSearch(),
+              ),
+            ),
+
+            // 歌词源筛选
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: SegmentedButton<LyricsSourceFilter>(
+                segments: [
+                  ButtonSegment(
+                    value: LyricsSourceFilter.all,
+                    label: Text(t.lyrics.sourceAll),
+                  ),
+                  ButtonSegment(
+                    value: LyricsSourceFilter.netease,
+                    label: Text(t.lyrics.sourceNetease),
+                  ),
+                  ButtonSegment(
+                    value: LyricsSourceFilter.lrclib,
+                    label: Text(t.lyrics.sourceLrclib),
+                  ),
+                ],
+                selected: {_selectedFilter},
+                onSelectionChanged: (selected) {
+                  setState(() => _selectedFilter = selected.first);
+                  if (_hasAutoSearched) _doSearch();
+                },
+                style: ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
               ),
             ),
 
@@ -304,7 +337,7 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
 
 /// 歌词搜索结果项
 class _LyricsResultTile extends StatelessWidget {
-  final LrclibResult result;
+  final LyricsResult result;
   final int? trackDurationMs;
   final VoidCallback onTap;
 
@@ -348,8 +381,20 @@ class _LyricsResultTile extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // 来源标签
+          _buildSourceChip(colorScheme),
+          const SizedBox(width: 4),
           // 同步/纯文本标签
           _buildTypeChip(context, colorScheme),
+          // 翻译/罗马音标签
+          if (result.hasTranslatedLyrics) ...[
+            const SizedBox(width: 4),
+            _Chip(label: t.lyrics.translated, color: colorScheme.secondary),
+          ],
+          if (result.hasRomajiLyrics) ...[
+            const SizedBox(width: 4),
+            _Chip(label: t.lyrics.romaji, color: colorScheme.tertiary),
+          ],
           const SizedBox(width: 8),
           // 时长
           Column(
@@ -366,6 +411,14 @@ class _LyricsResultTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSourceChip(ColorScheme colorScheme) {
+    final isNetease = result.source == 'netease';
+    return _Chip(
+      label: isNetease ? t.lyrics.sourceNetease : t.lyrics.sourceLrclib,
+      color: isNetease ? colorScheme.error : colorScheme.outline,
     );
   }
 

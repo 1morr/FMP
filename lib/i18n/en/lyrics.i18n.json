@@ -21,5 +21,10 @@
   "noLyricsAvailable": "No lyrics available",
   "instrumentalTrack": "Instrumental, no lyrics",
   "offset": "Offset",
-  "resetOffset": "Reset offset"
+  "resetOffset": "Reset offset",
+  "sourceAll": "All",
+  "sourceLrclib": "lrclib",
+  "sourceNetease": "Netease",
+  "translated": "Translated",
+  "romaji": "Romaji"
 }

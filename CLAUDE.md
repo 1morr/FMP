@@ -189,6 +189,8 @@ void main() async {
 - `playlistProvider` / `playlistDetailProvider` - Playlist management
 - `searchProvider` - Search state
 - `themeProvider` - Theme configuration
+- `lyricsSearchProvider` - Multi-source lyrics search (lrclib + netease, with filter)
+- `neteaseSourceProvider` - NeteaseSource singleton
 
 #### Data Loading Pattern Selection (按数据来源选择)
 
@@ -558,6 +560,14 @@ lib/
 │   │   └── queue_manager.dart           # Queue, shuffle, loop, persistence
 │   ├── cache/
 │   │   └── ranking_cache_service.dart  # 首頁排行榜緩存（主動後台刷新）
+│   ├── lyrics/
+│   │   ├── lrclib_source.dart          # lrclib.net API 客戶端
+│   │   ├── netease_source.dart         # 網易雲音樂歌詞源（搜索+歌詞獲取）
+│   │   ├── lyrics_result.dart          # 統一歌詞結果類型（LyricsResult）
+│   │   ├── lyrics_auto_match_service.dart # 自動匹配（網易雲優先 → lrclib fallback）
+│   │   ├── lyrics_cache_service.dart   # 歌詞緩存（LRU，支持多源）
+│   │   ├── lrc_parser.dart             # LRC 格式解析
+│   │   └── title_parser.dart           # 標題解析（提取歌名/歌手）
 │   ├── download/
 │   │   ├── download_service.dart       # 下載任務調度
 │   │   ├── download_path_manager.dart  # 下載路徑選擇和管理
@@ -574,7 +584,7 @@ lib/
 │   └── storage_permission_service.dart # Android 存儲權限請求（MANAGE_EXTERNAL_STORAGE）
 ├── data/
 │   ├── models/               # Isar collections (*.dart + *.g.dart)
-│   │   └── lyrics_match.dart          # 歌词匹配记录（Track↔lrclib）
+│   │   └── lyrics_match.dart          # 歌词匹配记录（Track↔lrclib/netease）
 │   ├── repositories/         # Data access layer
 │   │   └── lyrics_repository.dart     # 歌词匹配 CRUD
 │   └── sources/              # Audio source parsers
@@ -600,7 +610,7 @@ lib/
 │   │   ├── history/          # 播放歷史
 │   │   ├── library/          # 音樂庫、歌單詳情、已下載、導入預覽
 │   │   ├── live_room/        # 直播間
-│   │   │   ├── lyrics/            # 歌詞匹配搜索
+│   │   │   ├── lyrics/            # 歌詞匹配搜索（多源篩選：全部/網易雲/lrclib）
 │   ├── radio/            # 電台頁面
 │   │   ├── download/         # 下載相關
 │   │   └── settings/         # 設置、下載管理、音頻設置

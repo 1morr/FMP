@@ -4,6 +4,8 @@ import '../../data/models/track.dart';
 import '../../data/repositories/lyrics_repository.dart';
 import 'lrclib_source.dart';
 import 'lyrics_cache_service.dart';
+import 'lyrics_result.dart';
+import 'netease_source.dart';
 import 'title_parser.dart';
 
 /// 歌词自动匹配服务
@@ -14,16 +16,19 @@ import 'title_parser.dart';
 /// - 只有一个结果符合时长条件时才自动匹配
 class LyricsAutoMatchService with Logging {
   final LrclibSource _lrclib;
+  final NeteaseSource _netease;
   final LyricsRepository _repo;
   final LyricsCacheService _cache;
   final TitleParser _parser;
 
   LyricsAutoMatchService({
     required LrclibSource lrclib,
+    required NeteaseSource netease,
     required LyricsRepository repo,
     required LyricsCacheService cache,
     required TitleParser parser,
   })  : _lrclib = lrclib,
+        _netease = netease,
         _repo = repo,
         _cache = cache,
         _parser = parser;
@@ -52,7 +57,24 @@ class LyricsAutoMatchService with Logging {
 
       logDebug('Auto-matching: "$trackName" by "$artistName"');
 
-      // 3. 搜索歌词
+      // 3. 先尝试网易云搜索
+      final neteaseMatch = await _tryNeteaseMatch(
+        trackName, artistName, (track.durationMs ?? 0) ~/ 1000,
+      );
+      if (neteaseMatch != null) {
+        await _cache.put(track.uniqueKey, neteaseMatch);
+        final match = LyricsMatch()
+          ..trackUniqueKey = track.uniqueKey
+          ..lyricsSource = 'netease'
+          ..externalId = neteaseMatch.id
+          ..offsetMs = 0
+          ..matchedAt = DateTime.now();
+        await _repo.save(match);
+        logInfo('Auto-matched lyrics: ${track.title} → netease:${neteaseMatch.id}');
+        return true;
+      }
+
+      // 4. Fallback 到 lrclib
       final results = await _lrclib.search(
         trackName: trackName,
         artistName: artistName.isNotEmpty ? artistName : null,
@@ -63,7 +85,7 @@ class LyricsAutoMatchService with Logging {
         return false;
       }
 
-      // 4. 过滤符合时长条件的结果（±10秒）
+      // 5. 过滤符合时长条件的结果（±10秒）
       final trackDurationSec = (track.durationMs ?? 0) ~/ 1000;
       final matchingResults = results.where((result) {
         final diff = (result.duration - trackDurationSec).abs();
@@ -75,7 +97,7 @@ class LyricsAutoMatchService with Logging {
         return false;
       }
 
-      // 5. 如果有多个结果，选择最相似的
+      // 6. 如果有多个结果，选择最相似的
       final result = matchingResults.length == 1
           ? matchingResults.first
           : _selectBestMatch(matchingResults, trackName, artistName, trackDurationSec);
@@ -87,10 +109,10 @@ class LyricsAutoMatchService with Logging {
 
       logDebug('Selected best match: "${result.trackName}" by "${result.artistName}" (score: ${_calculateScore(result, trackName, artistName, trackDurationSec).toStringAsFixed(2)})');
 
-      // 6. 先缓存歌词内容（在保存匹配之前）
+      // 7. 先缓存歌词内容（在保存匹配之前）
       await _cache.put(track.uniqueKey, result);
 
-      // 7. 保存匹配记录
+      // 8. 保存匹配记录
       final match = LyricsMatch()
         ..trackUniqueKey = track.uniqueKey
         ..lyricsSource = 'lrclib'
@@ -108,6 +130,46 @@ class LyricsAutoMatchService with Logging {
     }
   }
 
+  /// 尝试从网易云匹配歌词
+  ///
+  /// 返回匹配的 LyricsResult，或 null 表示未找到合适匹配
+  Future<LyricsResult?> _tryNeteaseMatch(
+    String trackName,
+    String artistName,
+    int trackDurationSec,
+  ) async {
+    try {
+      final results = await _netease.searchLyrics(
+        query: [trackName, artistName].where((s) => s.isNotEmpty).join(' '),
+        limit: 5,
+      );
+
+      if (results.isEmpty) return null;
+
+      // 过滤符合时长条件的结果（±10秒）
+      final matching = results.where((r) {
+        if (r.duration == 0) return true; // 网易云有时不返回时长
+        return (r.duration - trackDurationSec).abs() <= 10;
+      }).toList();
+
+      if (matching.isEmpty) return null;
+
+      // 选择最佳匹配（优先有同步歌词的）
+      final best = matching.length == 1
+          ? matching.first
+          : _selectBestMatch(matching, trackName, artistName, trackDurationSec);
+
+      if (best != null && best.hasSyncedLyrics) {
+        return best;
+      }
+
+      return null;
+    } catch (e) {
+      logWarning('Netease auto-match failed: $e');
+      return null;
+    }
+  }
+
   /// 从多个候选结果中选择最佳匹配
   ///
   /// 评分标准：
@@ -115,8 +177,8 @@ class LyricsAutoMatchService with Logging {
   /// - 艺术家相似度（权重 30%）
   /// - 时长差距（权重 20%）
   /// - 是否有同步歌词（权重 10%）
-  LrclibResult? _selectBestMatch(
-    List<LrclibResult> candidates,
+  LyricsResult? _selectBestMatch(
+    List<LyricsResult> candidates,
     String trackName,
     String artistName,
     int trackDurationSec,
@@ -143,7 +205,7 @@ class LyricsAutoMatchService with Logging {
 
   /// 计算匹配得分（0.0 - 1.0）
   double _calculateScore(
-    LrclibResult result,
+    LyricsResult result,
     String trackName,
     String artistName,
     int trackDurationSec,

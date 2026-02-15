@@ -21,5 +21,10 @@
   "noLyricsAvailable": "暫無歌詞",
   "instrumentalTrack": "純音樂，無歌詞",
   "offset": "偏移",
-  "resetOffset": "重置偏移"
+  "resetOffset": "重置偏移",
+  "sourceAll": "全部",
+  "sourceLrclib": "lrclib",
+  "sourceNetease": "網易雲",
+  "translated": "翻譯",
+  "romaji": "羅馬音"
 }
