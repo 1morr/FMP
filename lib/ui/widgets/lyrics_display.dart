@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 import '../../core/constants/ui_constants.dart';
 import '../../i18n/strings.g.dart';
@@ -33,7 +34,8 @@ class LyricsDisplay extends ConsumerStatefulWidget {
 }
 
 class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
-  final _scrollController = ScrollController();
+  final _itemScrollController = ItemScrollController();
+  final _itemPositionsListener = ItemPositionsListener.create();
 
   /// 当前高亮行索引（用于检测变化，避免重复滚动）
   int _currentLineIndex = -1;
@@ -41,18 +43,8 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   /// 用户是否正在手动滚动
   bool _userScrolling = false;
 
-  /// 固定行高（用于计算滚动位置）
-  /// 有附加文本时行高增大以容纳两行
-  double _lineHeight(bool hasSubText) => hasSubText ? 72.0 : 48.0;
-
   /// 是否是首次构建（用于判断是否需要初始滚动）
   bool _isFirstBuild = true;
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -151,7 +143,6 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
     final playerState = ref.watch(audioControllerProvider);
     final position = playerState.position;
     final currentTrack = playerState.currentTrack;
-    final lineH = _lineHeight(lyrics.hasSubText);
 
     // 计算当前行
     final newIndex = LrcParser.findCurrentLineIndex(
@@ -165,14 +156,14 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
       _isFirstBuild = false;
       _currentLineIndex = newIndex;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToLine(newIndex, lyrics.lines.length, lineHeight: lineH, immediate: true);
+        _scrollToLine(newIndex, immediate: true);
       });
     }
     // 只在行变化时触发滚动
     else if (newIndex != _currentLineIndex) {
       _currentLineIndex = newIndex;
       if (!_userScrolling && newIndex >= 0) {
-        _scrollToLine(newIndex, lyrics.lines.length, lineHeight: lineH);
+        _scrollToLine(newIndex);
       }
     }
 
@@ -203,26 +194,29 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
                 }
                 return false;
               },
-              child: ListView.builder(
-                controller: _scrollController,
+              child: ScrollablePositionedList.builder(
+                itemScrollController: _itemScrollController,
+                itemPositionsListener: _itemPositionsListener,
                 padding: EdgeInsets.symmetric(
                   vertical: widget.compact ? 16 : 80,
                   horizontal: widget.compact ? 12 : 24,
                 ),
                 itemCount: lyrics.lines.length,
-                itemExtent: lineH,
                 itemBuilder: (context, index) {
                   final line = lyrics.lines[index];
                   final isCurrent = index == _currentLineIndex;
 
-                  return _LyricsLineWidget(
-                    key: ValueKey(index),
-                    text: line.text,
-                    subText: line.subText,
-                    isCurrent: isCurrent,
-                    compact: widget.compact,
-                    colorScheme: colorScheme,
-                    onTap: () => _seekToLyricsLine(line, offsetMs),
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: _LyricsLineWidget(
+                      key: ValueKey(index),
+                      text: line.text,
+                      subText: line.subText,
+                      isCurrent: isCurrent,
+                      compact: widget.compact,
+                      colorScheme: colorScheme,
+                      onTap: () => _seekToLyricsLine(line, offsetMs),
+                    ),
                   );
                 },
               ),
@@ -243,7 +237,6 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
       onTap: widget.onTap,
       behavior: HitTestBehavior.opaque,
       child: ListView.builder(
-        controller: _scrollController,
         padding: EdgeInsets.symmetric(
           vertical: widget.compact ? 16 : 40,
           horizontal: widget.compact ? 12 : 24,
@@ -312,28 +305,22 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
     ref.read(audioControllerProvider.notifier).seekTo(targetPosition);
   }
 
-  /// 平滑滚动到指定行
-  void _scrollToLine(int index, int totalLines, {required double lineHeight, bool immediate = false}) {
-    if (!_scrollController.hasClients) return;
-
-    // 目标位置：将当前行滚动到视口中间偏上
-    final viewportHeight = _scrollController.position.viewportDimension;
-    final targetOffset = (index * lineHeight) - (viewportHeight / 2) + (lineHeight / 2);
-    final clampedOffset = targetOffset.clamp(
-      0.0,
-      _scrollController.position.maxScrollExtent,
-    );
+  /// 平滑滚动到指定行（居中对齐）
+  void _scrollToLine(int index, {bool immediate = false}) {
+    if (!_itemScrollController.isAttached) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) return;
-      
+      if (!_itemScrollController.isAttached) return;
+
       if (immediate) {
-        // 立即跳转（首次构建时使用）
-        _scrollController.jumpTo(clampedOffset);
+        _itemScrollController.jumpTo(
+          index: index,
+          alignment: 0.35,
+        );
       } else {
-        // 平滑滚动
-        _scrollController.animateTo(
-          clampedOffset,
+        _itemScrollController.scrollTo(
+          index: index,
+          alignment: 0.35,
           duration: AnimationDurations.normal,
           curve: Curves.easeOutCubic,
         );
@@ -366,15 +353,15 @@ class _LyricsLineWidget extends StatelessWidget {
     final mainStyle = isCurrent
         ? TextStyle(
             color: colorScheme.primary,
-            fontSize: compact ? 20 : 20,
+            fontSize: compact ? 22 : 22,
             fontWeight: FontWeight.bold,
-            height: 1.3,
+            height: 1.4,
           )
         : TextStyle(
             color: colorScheme.onSurface.withValues(alpha: 0.4),
-            fontSize: compact ? 17 : 16,
+            fontSize: compact ? 18 : 18,
             fontWeight: FontWeight.normal,
-            height: 1.3,
+            height: 1.4,
           );
 
     final hasSubText = subText != null && subText!.isNotEmpty;
@@ -392,26 +379,25 @@ class _LyricsLineWidget extends StatelessWidget {
             child: Text(
               text,
               textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ),
           if (hasSubText)
-            AnimatedDefaultTextStyle(
-              duration: AnimationDurations.medium,
-              style: TextStyle(
-                color: isCurrent
-                    ? colorScheme.primary.withValues(alpha: 0.7)
-                    : colorScheme.onSurface.withValues(alpha: 0.25),
-                fontSize: compact ? 13 : 13,
-                fontWeight: isCurrent ? FontWeight.w500 : FontWeight.normal,
-                height: 1.3,
-              ),
-              child: Text(
-                subText!,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: AnimatedDefaultTextStyle(
+                duration: AnimationDurations.medium,
+                style: TextStyle(
+                  color: isCurrent
+                      ? colorScheme.primary.withValues(alpha: 0.7)
+                      : colorScheme.onSurface.withValues(alpha: 0.25),
+                  fontSize: compact ? 14 : 14,
+                  fontWeight: isCurrent ? FontWeight.w500 : FontWeight.normal,
+                  height: 1.4,
+                ),
+                child: Text(
+                  subText!,
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
         ],
