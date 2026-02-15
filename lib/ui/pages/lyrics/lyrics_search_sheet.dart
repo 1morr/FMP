@@ -135,7 +135,7 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
                   ),
                   // 标题栏
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 16, 8),
                     child: Row(
                       children: [
                         Icon(
@@ -309,16 +309,16 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
         if (hasMatch) ...[
           const SizedBox(width: 8),
           SizedBox(
-            width: 28,
-            height: 28,
+            width: 32,
+            height: 32,
             child: IconButton.filledTonal(
               onPressed: _removeMatch,
-              icon: const Icon(Icons.close, size: 14),
+              icon: const Icon(Icons.link_off, size: 18),
               padding: EdgeInsets.zero,
               tooltip: t.lyrics.removeMatch,
               style: IconButton.styleFrom(
-                backgroundColor: colorScheme.errorContainer,
-                foregroundColor: colorScheme.onErrorContainer,
+                backgroundColor: colorScheme.primaryContainer,
+                foregroundColor: colorScheme.onPrimaryContainer,
               ),
             ),
           ),
