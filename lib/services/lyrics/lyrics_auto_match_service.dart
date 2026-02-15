@@ -75,13 +75,17 @@ class LyricsAutoMatchService with Logging {
         return false;
       }
 
-      if (matchingResults.length > 1) {
-        logDebug('Multiple results match duration: ${matchingResults.length}, skipping auto-match');
+      // 5. 如果有多个结果，选择最相似的
+      final result = matchingResults.length == 1
+          ? matchingResults.first
+          : _selectBestMatch(matchingResults, trackName, artistName, trackDurationSec);
+
+      if (result == null) {
+        logDebug('No confident match found among ${matchingResults.length} candidates');
         return false;
       }
 
-      // 5. 只有一个结果符合条件，自动匹配
-      final result = matchingResults.first;
+      logDebug('Selected best match: "${result.trackName}" by "${result.artistName}" (score: ${_calculateScore(result, trackName, artistName, trackDurationSec).toStringAsFixed(2)})');
       final match = LyricsMatch()
         ..trackUniqueKey = track.uniqueKey
         ..lyricsSource = 'lrclib'
@@ -100,5 +104,135 @@ class LyricsAutoMatchService with Logging {
       logError('Auto-match failed for ${track.uniqueKey}: $e');
       return false;
     }
+  }
+
+  /// 从多个候选结果中选择最佳匹配
+  ///
+  /// 评分标准：
+  /// - 标题相似度（权重 40%）
+  /// - 艺术家相似度（权重 30%）
+  /// - 时长差距（权重 20%）
+  /// - 是否有同步歌词（权重 10%）
+  LrclibResult? _selectBestMatch(
+    List<LrclibResult> candidates,
+    String trackName,
+    String artistName,
+    int trackDurationSec,
+  ) {
+    if (candidates.isEmpty) return null;
+
+    // 计算每个候选的得分
+    final scored = candidates.map((result) {
+      final score = _calculateScore(result, trackName, artistName, trackDurationSec);
+      return (result: result, score: score);
+    }).toList();
+
+    // 按得分降序排序
+    scored.sort((a, b) => b.score.compareTo(a.score));
+
+    // 只有当最高分 >= 0.6 时才认为是可信的匹配
+    final best = scored.first;
+    if (best.score >= 0.6) {
+      return best.result;
+    }
+
+    return null;
+  }
+
+  /// 计算匹配得分（0.0 - 1.0）
+  double _calculateScore(
+    LrclibResult result,
+    String trackName,
+    String artistName,
+    int trackDurationSec,
+  ) {
+    // 1. 标题相似度（权重 40%）
+    final titleSimilarity = _stringSimilarity(
+      trackName.toLowerCase(),
+      result.trackName.toLowerCase(),
+    );
+
+    // 2. 艺术家相似度（权重 30%）
+    final artistSimilarity = artistName.isEmpty
+        ? 0.5 // 如果没有艺术家信息，给中等分
+        : _stringSimilarity(
+            artistName.toLowerCase(),
+            result.artistName.toLowerCase(),
+          );
+
+    // 3. 时长匹配度（权重 20%）
+    final durationDiff = (result.duration - trackDurationSec).abs();
+    final durationScore = durationDiff <= 2
+        ? 1.0
+        : durationDiff <= 5
+            ? 0.8
+            : durationDiff <= 10
+                ? 0.5
+                : 0.0;
+
+    // 4. 是否有同步歌词（权重 10%）
+    final syncedScore = result.syncedLyrics != null && result.syncedLyrics!.isNotEmpty
+        ? 1.0
+        : 0.0;
+
+    // 加权总分
+    final totalScore = titleSimilarity * 0.4 +
+        artistSimilarity * 0.3 +
+        durationScore * 0.2 +
+        syncedScore * 0.1;
+
+    return totalScore;
+  }
+
+  /// 计算两个字符串的相似度（Levenshtein 距离）
+  ///
+  /// 返回值范围 0.0 - 1.0，1.0 表示完全相同
+  double _stringSimilarity(String s1, String s2) {
+    if (s1 == s2) return 1.0;
+    if (s1.isEmpty || s2.isEmpty) return 0.0;
+
+    final len1 = s1.length;
+    final len2 = s2.length;
+    final maxLen = len1 > len2 ? len1 : len2;
+
+    // 使用 Levenshtein 距离算法
+    final distance = _levenshteinDistance(s1, s2);
+
+    // 转换为相似度（0.0 - 1.0）
+    return 1.0 - (distance / maxLen);
+  }
+
+  /// Levenshtein 距离算法（编辑距离）
+  int _levenshteinDistance(String s1, String s2) {
+    final len1 = s1.length;
+    final len2 = s2.length;
+
+    // 创建距离矩阵
+    final matrix = List.generate(
+      len1 + 1,
+      (i) => List.filled(len2 + 1, 0),
+    );
+
+    // 初始化第一行和第一列
+    for (var i = 0; i <= len1; i++) {
+      matrix[i][0] = i;
+    }
+    for (var j = 0; j <= len2; j++) {
+      matrix[0][j] = j;
+    }
+
+    // 填充矩阵
+    for (var i = 1; i <= len1; i++) {
+      for (var j = 1; j <= len2; j++) {
+        final cost = s1[i - 1] == s2[j - 1] ? 0 : 1;
+        matrix[i][j] = [
+          matrix[i - 1][j] + 1, // 删除
+          matrix[i][j - 1] + 1, // 插入
+          matrix[i - 1][j - 1] + cost, // 替换
+        ].reduce((a, b) => a < b ? a : b);
+      }
+    }
+
+    return matrix[len1][len2];
   }
 }
