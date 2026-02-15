@@ -46,39 +46,39 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   /// 是否是首次构建（用于判断是否需要初始滚动）
   bool _isFirstBuild = true;
 
-  /// 缓存的字号计算结果（避免每帧重复计算）
-  double? _cachedMainFontSize;
-  double? _cachedSubFontSize;
-  int? _cachedLyricsHash;
-  double? _cachedWidth;
+  /// 缓存：最宽行文本及其参考宽度（歌词变化时重算）
+  String? _cachedWidestText;
+  double? _cachedRefWidth;
+  int _cachedLineCount = -1;
+  String _cachedFirstLine = '';
 
   /// 字号范围
   static const double _minFontSize = 14.0;
   static const double _maxFontSize = 36.0;
   static const double _subFontRatio = 0.65;
+  static const double _refFontSize = 20.0;
 
-  /// 根据可用宽度和歌词内容计算最优字号
-  ///
-  /// 找到最大的字号使得最宽的歌词行刚好能在一行内显示。
-  double _computeOptimalFontSize(
-    List<LyricsLine> lines,
-    double availableWidth,
-    BuildContext context,
-  ) {
-    if (lines.isEmpty) return _maxFontSize;
+  /// 找出渲染最宽的歌词行（结果缓存，歌词不变时不重算）
+  void _ensureWidestText(List<LyricsLine> lines, BuildContext context) {
+    // 用行数 + 首行文本做快速身份判断
+    final firstLine = lines.isNotEmpty ? lines.first.text : '';
+    if (_cachedWidestText != null &&
+        _cachedLineCount == lines.length &&
+        _cachedFirstLine == firstLine) {
+      return;
+    }
 
     final textDirection = Directionality.of(context);
-    const refSize = 20.0;
-
-    // 用参考字号测量所有行，找出渲染最宽的那行
-    String widestText = lines.first.text;
+    String widestText = '';
     double maxWidth = 0;
+
     for (final line in lines) {
       if (line.text.isEmpty) continue;
       final painter = TextPainter(
         text: TextSpan(
           text: line.text,
-          style: TextStyle(fontSize: refSize, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+              fontSize: _refFontSize, fontWeight: FontWeight.bold),
         ),
         maxLines: 1,
         textDirection: textDirection,
@@ -89,59 +89,34 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
       }
       painter.dispose();
     }
-    if (maxWidth == 0) return _maxFontSize;
 
-    // 二分搜索最优字号（只测量最宽行）
-    double lo = _minFontSize;
-    double hi = _maxFontSize;
-
-    while (hi - lo > 0.5) {
-      final mid = (lo + hi) / 2;
-      final painter = TextPainter(
-        text: TextSpan(
-          text: widestText,
-          style: TextStyle(fontSize: mid, fontWeight: FontWeight.bold),
-        ),
-        maxLines: 1,
-        textDirection: textDirection,
-      )..layout();
-
-      if (painter.width <= availableWidth) {
-        lo = mid;
-      } else {
-        hi = mid;
-      }
-      painter.dispose();
-    }
-
-    return lo;
+    _cachedWidestText = widestText;
+    _cachedRefWidth = maxWidth;
+    _cachedLineCount = lines.length;
+    _cachedFirstLine = firstLine;
   }
 
-  /// 获取（或计算）缓存的字号
+  /// 根据可用宽度计算最优字号
+  ///
+  /// 字体渲染宽度与字号近似线性关系，直接用比例计算，O(1)。
   ({double main, double sub}) _getFontSizes(
     ParsedLyrics lyrics,
     double availableWidth,
     BuildContext context,
   ) {
-    final hash = lyrics.hashCode;
-    if (_cachedMainFontSize != null &&
-        _cachedLyricsHash == hash &&
-        _cachedWidth == availableWidth) {
-      return (main: _cachedMainFontSize!, sub: _cachedSubFontSize!);
+    _ensureWidestText(lyrics.lines, context);
+
+    double mainSize;
+    if (_cachedRefWidth == null || _cachedRefWidth! <= 0) {
+      mainSize = _maxFontSize;
+    } else {
+      // 目标字号 = 参考字号 × (可用宽度 / 参考宽度)
+      mainSize = _refFontSize * (availableWidth / _cachedRefWidth!);
+      mainSize = mainSize.clamp(_minFontSize, _maxFontSize);
     }
 
-    final mainSize = _computeOptimalFontSize(
-      lyrics.lines,
-      availableWidth,
-      context,
-    );
-    final subSize = (mainSize * _subFontRatio).clamp(_minFontSize, _maxFontSize);
-
-    _cachedMainFontSize = mainSize;
-    _cachedSubFontSize = subSize;
-    _cachedLyricsHash = hash;
-    _cachedWidth = availableWidth;
-
+    final subSize =
+        (mainSize * _subFontRatio).clamp(_minFontSize, _maxFontSize);
     return (main: mainSize, sub: subSize);
   }
 
