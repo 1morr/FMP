@@ -36,5 +36,12 @@
   "sortAndFavorite": "排序與收藏",
   "noData": "暫無數據",
   "setting": "設定 #$id",
-  "theme": "主題: $name"
+  "theme": "主題: $name",
+  "lyricsMatch": "歌詞匹配",
+  "lyricsInfo": "歌詞資訊",
+  "importOrigin": "匯入來源",
+  "lyricsSettings": "歌詞設定",
+  "uiSettings": "介面設定",
+  "audioDeviceSettings": "音訊輸出裝置",
+  "startupSettings": "啟動設定"
 }

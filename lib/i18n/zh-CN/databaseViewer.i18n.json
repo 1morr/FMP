@@ -36,5 +36,12 @@
   "sortAndFavorite": "排序与收藏",
   "noData": "暂无数据",
   "setting": "设置 #$id",
-  "theme": "主题: $name"
+  "theme": "主题: $name",
+  "lyricsMatch": "歌词匹配",
+  "lyricsInfo": "歌词信息",
+  "importOrigin": "导入来源",
+  "lyricsSettings": "歌词设置",
+  "uiSettings": "界面设置",
+  "audioDeviceSettings": "音频输出设备",
+  "startupSettings": "启动设置"
 }
