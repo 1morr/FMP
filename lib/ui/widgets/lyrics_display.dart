@@ -16,8 +16,8 @@ class LyricsDisplay extends ConsumerStatefulWidget {
   /// 紧凑模式（TrackDetailPanel 使用较小字号）
   final bool compact;
 
-  /// 点击回调（播放器页面用于切回封面）
-  final VoidCallback? onTap;
+  /// 长按回调（播放器页面用于切回封面）
+  final VoidCallback? onLongPress;
 
   /// 是否显示 offset 调整控件
   final bool showOffsetControls;
@@ -25,7 +25,7 @@ class LyricsDisplay extends ConsumerStatefulWidget {
   const LyricsDisplay({
     super.key,
     this.compact = false,
-    this.onTap,
+    this.onLongPress,
     this.showOffsetControls = false,
   });
 
@@ -273,7 +273,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
     final hPad = widget.compact ? 12.0 : 24.0;
 
     return GestureDetector(
-      onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
       behavior: HitTestBehavior.opaque,
       child: Column(
         children: [
@@ -348,7 +348,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
     ParsedLyrics lyrics,
   ) {
     return GestureDetector(
-      onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
       behavior: HitTestBehavior.opaque,
       child: ListView.builder(
         padding: EdgeInsets.symmetric(
@@ -378,7 +378,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   /// 无歌词状态
   Widget _buildNoLyrics(BuildContext context, ColorScheme colorScheme) {
     return GestureDetector(
-      onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
       behavior: HitTestBehavior.opaque,
       child: Center(
         child: Column(
@@ -403,7 +403,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   /// 居中布局包装
   Widget _buildCentered({required Widget child}) {
     return GestureDetector(
-      onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
       behavior: HitTestBehavior.opaque,
       child: Center(child: child),
     );

@@ -201,11 +201,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                 child: _showLyrics
                     ? LyricsDisplay(
                         key: const ValueKey('lyrics'),
-                        onTap: () => setState(() => _showLyrics = false),
+                        onLongPress: () => setState(() => _showLyrics = false),
                         showOffsetControls: _showOffsetControls,
                       )
                     : GestureDetector(
-                        onTap: () => setState(() => _showLyrics = true),
+                        onLongPress: () => setState(() => _showLyrics = true),
                         child: _buildCoverArt(context, playerState, colorScheme),
                       ),
               ),
