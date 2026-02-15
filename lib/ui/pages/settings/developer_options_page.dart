@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar/isar.dart';
@@ -12,7 +13,10 @@ import '../../../data/models/settings.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/database_provider.dart';
+import '../../../providers/lyrics_provider.dart';
 import '../../../core/services/network_image_cache_service.dart';
+import '../../../services/audio/audio_provider.dart';
+import '../../../services/cache/ranking_cache_service.dart';
 import '../../router.dart';
 import '../debug/youtube_stream_test_page.dart';
 
@@ -170,15 +174,15 @@ class _DatabaseInfo {
   });
 }
 
-/// 内存信息显示
-class _MemoryInfoTile extends StatefulWidget {
+/// 内存信息显示（增强版）
+class _MemoryInfoTile extends ConsumerStatefulWidget {
   const _MemoryInfoTile();
 
   @override
-  State<_MemoryInfoTile> createState() => _MemoryInfoTileState();
+  ConsumerState<_MemoryInfoTile> createState() => _MemoryInfoTileState();
 }
 
-class _MemoryInfoTileState extends State<_MemoryInfoTile> {
+class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
   _MemoryInfo? _memoryInfo;
   bool _isLoading = true;
 
@@ -192,21 +196,56 @@ class _MemoryInfoTileState extends State<_MemoryInfoTile> {
     setState(() => _isLoading = true);
 
     try {
-      // 获取图片缓存大小
-      final imageCacheMB = await NetworkImageCacheService.getCacheSizeMB();
-      final maxImageCacheMB = NetworkImageCacheService.maxCacheSizeMB;
+      // Flutter 图片内存缓存
+      final imageCache = PaintingBinding.instance.imageCache;
+      final imageCacheCount = imageCache.currentSize;
+      final imageCacheMaxCount = imageCache.maximumSize;
+      final imageCacheSizeBytes = imageCache.currentSizeBytes;
+      final imageCacheMaxSizeBytes = imageCache.maximumSizeBytes;
 
-      // 获取进程内存信息（仅限支持的平台）
+      // 网络图片磁盘缓存
+      final diskCacheMB = await NetworkImageCacheService.getCacheSizeMB();
+      final diskCacheMaxMB = NetworkImageCacheService.maxCacheSizeMB;
+
+      // 进程 RSS
       int? rssBytes;
       if (Platform.isAndroid || Platform.isWindows || Platform.isLinux) {
         rssBytes = ProcessInfo.currentRss;
       }
 
+      // Dart VM 内存 - 暂无直接 API，通过 RSS 减去已知缓存估算
+
+      // 数据缓存统计
+      final queueTrackCount = ref.read(queueProvider).length;
+      final rankingCache = RankingCacheService.instance;
+      final bilibiliCacheCount = rankingCache.bilibiliTracks.length;
+      final youtubeCacheCount = rankingCache.youtubeTracks.length;
+
+      // 歌词缓存
+      int lyricsCacheCount = 0;
+      try {
+        final lyricsCache = ref.read(lyricsCacheServiceProvider);
+        final stats = await lyricsCache.getStats();
+        lyricsCacheCount = stats.fileCount;
+      } catch (_) {}
+
       setState(() {
         _memoryInfo = _MemoryInfo(
-          imageCacheMB: imageCacheMB,
-          maxImageCacheMB: maxImageCacheMB,
+          // Flutter 图片内存缓存
+          imageCacheCount: imageCacheCount,
+          imageCacheMaxCount: imageCacheMaxCount,
+          imageCacheSizeBytes: imageCacheSizeBytes,
+          imageCacheMaxSizeBytes: imageCacheMaxSizeBytes,
+          // 磁盘缓存
+          diskCacheMB: diskCacheMB,
+          diskCacheMaxMB: diskCacheMaxMB,
+          // 进程
           rssBytes: rssBytes,
+          // 数据缓存
+          queueTrackCount: queueTrackCount,
+          bilibiliCacheCount: bilibiliCacheCount,
+          youtubeCacheCount: youtubeCacheCount,
+          lyricsCacheCount: lyricsCacheCount,
         );
         _isLoading = false;
       });
@@ -224,8 +263,22 @@ class _MemoryInfoTileState extends State<_MemoryInfoTile> {
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 
+  void _clearImageMemoryCache() {
+    PaintingBinding.instance.imageCache.clear();
+    PaintingBinding.instance.imageCache.clearLiveImages();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(t.settings.developerOptions.clearImageMemoryCacheDone),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+    _loadMemoryInfo();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     if (_isLoading) {
       return ListTile(
         leading: const Icon(Icons.memory),
@@ -247,46 +300,207 @@ class _MemoryInfoTileState extends State<_MemoryInfoTile> {
       );
     }
 
-    final subtitleParts = <String>[];
-
-    // 图片缓存
-    subtitleParts.add(
-      t.settings.developerOptions.imageCacheInfo(
-        current: info.imageCacheMB.toStringAsFixed(1),
-        max: info.maxImageCacheMB.toString(),
-      ),
+    // 摘要行：RSS 总量
+    final summaryParts = <String>[];
+    if (info.rssBytes != null) {
+      summaryParts.add('RSS: ${_formatBytes(info.rssBytes!)}');
+    }
+    summaryParts.add(
+      'Flutter 图片: ${_formatBytes(info.imageCacheSizeBytes)}',
     );
 
-    // 进程内存（如果可用）
-    if (info.rssBytes != null) {
-      subtitleParts.add(
-        t.settings.developerOptions.processMemory(size: _formatBytes(info.rssBytes!)),
-      );
-    }
-
-    return ListTile(
+    return ExpansionTile(
       leading: const Icon(Icons.memory),
       title: Text(t.settings.developerOptions.memoryUsage),
-      subtitle: Text(subtitleParts.join('\n')),
-      isThreeLine: info.rssBytes != null,
-      trailing: IconButton(
-        icon: const Icon(Icons.refresh),
-        onPressed: _loadMemoryInfo,
-        tooltip: t.settings.developerOptions.refresh,
+      subtitle: Text(summaryParts.join(' · ')),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.refresh, size: 20),
+            onPressed: _loadMemoryInfo,
+            tooltip: t.settings.developerOptions.refresh,
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+      childrenPadding: const EdgeInsets.only(
+        left: 16, right: 16, bottom: 12,
+      ),
+      children: [
+        // 进程总内存
+        if (info.rssBytes != null)
+          _buildInfoRow(
+            Icons.pie_chart_outline,
+            t.settings.developerOptions.processMemory(
+              size: _formatBytes(info.rssBytes!),
+            ),
+            colorScheme,
+          ),
+
+        // Flutter 图片内存缓存（通常是最大头）
+        _buildInfoRow(
+          Icons.image_outlined,
+          t.settings.developerOptions.flutterImageCacheDetail(
+            count: info.imageCacheCount.toString(),
+            maxCount: info.imageCacheMaxCount.toString(),
+            size: (info.imageCacheSizeBytes / (1024 * 1024)).toStringAsFixed(1),
+            maxSize: (info.imageCacheMaxSizeBytes / (1024 * 1024)).toStringAsFixed(0),
+          ),
+          colorScheme,
+          label: t.settings.developerOptions.flutterImageCache,
+          // 超过 70% 显示警告色
+          isWarning: info.imageCacheSizeBytes > info.imageCacheMaxSizeBytes * 0.7,
+        ),
+
+        // Native 内存估算
+        if (info.rssBytes != null)
+          _buildInfoRow(
+            Icons.developer_board_outlined,
+            t.settings.developerOptions.nativeMemoryDetail(
+              size: _formatBytes(
+                (info.rssBytes! - info.imageCacheSizeBytes).clamp(0, info.rssBytes!),
+              ),
+            ),
+            colorScheme,
+            label: t.settings.developerOptions.nativeMemory,
+          ),
+
+        // 磁盘图片缓存
+        _buildInfoRow(
+          Icons.sd_storage_outlined,
+          t.settings.developerOptions.imageCacheInfo(
+            current: info.diskCacheMB.toStringAsFixed(1),
+            max: info.diskCacheMaxMB.toString(),
+          ),
+          colorScheme,
+        ),
+
+        const Divider(height: 16),
+
+        // 数据缓存
+        _buildInfoRow(
+          Icons.queue_music,
+          t.settings.developerOptions.queueTracks(
+            count: info.queueTrackCount.toString(),
+          ),
+          colorScheme,
+          label: t.settings.developerOptions.dataCaches,
+        ),
+        _buildInfoRow(
+          Icons.trending_up,
+          t.settings.developerOptions.rankingCache(
+            bilibili: info.bilibiliCacheCount.toString(),
+            youtube: info.youtubeCacheCount.toString(),
+          ),
+          colorScheme,
+        ),
+        _buildInfoRow(
+          Icons.lyrics_outlined,
+          t.settings.developerOptions.lyricsCacheCount(
+            count: info.lyricsCacheCount.toString(),
+          ),
+          colorScheme,
+        ),
+
+        const SizedBox(height: 8),
+
+        // 清除图片内存缓存按钮
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _clearImageMemoryCache,
+            icon: const Icon(Icons.cleaning_services_outlined, size: 18),
+            label: Text(t.settings.developerOptions.clearImageMemoryCache),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoRow(
+    IconData icon,
+    String text,
+    ColorScheme colorScheme, {
+    String? label,
+    bool isWarning = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (label != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2, top: 4),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          Row(
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: isWarning
+                    ? colorScheme.error
+                    : colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  text,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontFamily: 'monospace',
+                    color: isWarning
+                        ? colorScheme.error
+                        : colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 }
 
 class _MemoryInfo {
-  final double imageCacheMB;
-  final int maxImageCacheMB;
+  // Flutter 图片内存缓存
+  final int imageCacheCount;
+  final int imageCacheMaxCount;
+  final int imageCacheSizeBytes;
+  final int imageCacheMaxSizeBytes;
+  // 磁盘缓存
+  final double diskCacheMB;
+  final int diskCacheMaxMB;
+  // 进程
   final int? rssBytes;
+  // 数据缓存
+  final int queueTrackCount;
+  final int bilibiliCacheCount;
+  final int youtubeCacheCount;
+  final int lyricsCacheCount;
 
   _MemoryInfo({
-    required this.imageCacheMB,
-    required this.maxImageCacheMB,
+    required this.imageCacheCount,
+    required this.imageCacheMaxCount,
+    required this.imageCacheSizeBytes,
+    required this.imageCacheMaxSizeBytes,
+    required this.diskCacheMB,
+    required this.diskCacheMaxMB,
     this.rssBytes,
+    required this.queueTrackCount,
+    required this.bilibiliCacheCount,
+    required this.youtubeCacheCount,
+    required this.lyricsCacheCount,
   });
 }
 
