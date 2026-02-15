@@ -32,5 +32,6 @@
   "displayMode": "歌词显示",
   "displayOriginal": "只显示原文",
   "displayPreferTranslated": "优先显示翻译",
-  "displayPreferRomaji": "优先显示罗马音"
+  "displayPreferRomaji": "优先显示罗马音",
+  "searchPrompt": "输入关键词搜索歌词"
 }

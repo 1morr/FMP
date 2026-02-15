@@ -32,5 +32,6 @@
   "displayMode": "歌詞顯示",
   "displayOriginal": "只顯示原文",
   "displayPreferTranslated": "優先顯示翻譯",
-  "displayPreferRomaji": "優先顯示羅馬音"
+  "displayPreferRomaji": "優先顯示羅馬音",
+  "searchPrompt": "輸入關鍵詞搜尋歌詞"
 }

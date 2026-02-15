@@ -235,7 +235,6 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
                       ),
                     ),
                   ),
-                  const Divider(height: 1),
                 ],
               ),
 
@@ -359,7 +358,7 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
             Icon(Icons.search, size: 48, color: colorScheme.outline),
             const SizedBox(height: 8),
             Text(
-              t.lyrics.searchHint,
+              t.lyrics.searchPrompt,
               style: TextStyle(color: colorScheme.outline),
             ),
           ],

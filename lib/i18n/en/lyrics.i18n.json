@@ -32,5 +32,6 @@
   "displayMode": "Lyrics Display",
   "displayOriginal": "Original",
   "displayPreferTranslated": "Prefer Translation",
-  "displayPreferRomaji": "Prefer Romaji"
+  "displayPreferRomaji": "Prefer Romaji",
+  "searchPrompt": "Enter keywords to search lyrics"
 }
