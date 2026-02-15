@@ -27,5 +27,6 @@
   "sourceNetease": "网易云",
   "translated": "翻译",
   "romaji": "罗马音",
-  "sourceQQMusic": "QQ音乐"
+  "sourceQQMusic": "QQ音乐",
+  "autoMatching": "正在匹配歌词..."
 }
