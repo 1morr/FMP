@@ -57,7 +57,7 @@
 | PlayHistory | `data/models/play_history.dart` | 播放历史 |
 | DownloadTask | `data/models/download_task.dart` | 下载任务 |
 | RadioStation | `data/models/radio_station.dart` | 电台/直播间 |
-| LyricsMatch | `data/models/lyrics_match.dart` | 歌词匹配记录（Track↔lrclib） |
+| LyricsMatch | `data/models/lyrics_match.dart` | 歌词匹配记录（Track↔lrclib/netease） |
 
 ### Repositories
 | 仓库 | 文件 | 职责 |
@@ -141,10 +141,11 @@
 | homeBilibiliMusicRankingProvider | `providers/popular_provider.dart` | StreamProvider<List<Track>>（緩存版） |
 | homeYouTubeMusicRankingProvider | `providers/popular_provider.dart` | StreamProvider<List<Track>>（緩存版） |
 | audioSettingsProvider | `providers/audio_settings_provider.dart` | StateNotifierProvider<AudioSettingsNotifier, AudioSettingsState> |
-| lyricsSearchProvider | `providers/lyrics_provider.dart` | StateNotifierProvider（歌词搜索） |
-| currentLyricsMatchProvider | `providers/lyrics_provider.dart` | FutureProvider（当前歌曲歌词匹配） |
-| currentLyricsContentProvider | `providers/lyrics_provider.dart` | FutureProvider（当前歌词内容） |
+| lyricsSearchProvider | `providers/lyrics_provider.dart` | StateNotifierProvider（多源歌词搜索，支持 lrclib/netease 筛选） |
+| currentLyricsMatchProvider | `providers/lyrics_provider.dart` | StreamProvider（当前歌曲歌词匹配） |
+| currentLyricsContentProvider | `providers/lyrics_provider.dart` | FutureProvider（当前歌词内容，根据 lyricsSource 从对应 API 获取） |
 | lyricsMatchForTrackProvider | `providers/lyrics_provider.dart` | FutureProvider.family（指定 track 歌词匹配） |
+| neteaseSourceProvider | `providers/lyrics_provider.dart` | Provider（NeteaseSource 单例） |
 
 ## UI 结构
 

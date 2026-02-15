@@ -7,6 +7,8 @@ import '../services/lyrics/lrc_parser.dart';
 import '../services/lyrics/lrclib_source.dart';
 import '../services/lyrics/lyrics_auto_match_service.dart';
 import '../services/lyrics/lyrics_cache_service.dart';
+import '../services/lyrics/lyrics_result.dart';
+import '../services/lyrics/netease_source.dart';
 import '../services/lyrics/title_parser.dart';
 import 'repository_providers.dart';
 
@@ -16,6 +18,12 @@ import 'repository_providers.dart';
 
 /// LrclibSource 单例
 final lrclibSourceProvider = Provider<LrclibSource>((ref) => LrclibSource());
+
+/// NeteaseSource 单例
+final neteaseSourceProvider = Provider<NeteaseSource>((ref) => NeteaseSource());
+
+/// 歌词源筛选
+enum LyricsSourceFilter { all, netease, lrclib }
 
 /// TitleParser 单例
 final titleParserProvider = Provider<TitleParser>((ref) => RegexTitleParser());
@@ -31,6 +39,7 @@ final lyricsCacheServiceProvider = Provider<LyricsCacheService>((ref) {
 final lyricsAutoMatchServiceProvider = Provider<LyricsAutoMatchService>((ref) {
   return LyricsAutoMatchService(
     lrclib: ref.watch(lrclibSourceProvider),
+    netease: ref.watch(neteaseSourceProvider),
     repo: ref.watch(lyricsRepositoryProvider),
     cache: ref.watch(lyricsCacheServiceProvider),
     parser: ref.watch(titleParserProvider),
@@ -57,10 +66,17 @@ final _currentLyricsExternalIdProvider =
   return match?.externalId;
 });
 
+/// 当前歌词源标识（用于决定从哪个源获取歌词内容）
+final _currentLyricsSourceProvider =
+    Provider.autoDispose<String?>((ref) {
+  final match = ref.watch(currentLyricsMatchProvider).valueOrNull;
+  return match?.lyricsSource;
+});
+
 /// 当前播放歌曲的歌词内容（优先从缓存获取，否则在线获取）
 /// 注意：只在 externalId 变化时重新加载，offset 变化不会触发重新加载
 final currentLyricsContentProvider =
-    FutureProvider.autoDispose<LrclibResult?>((ref) async {
+    FutureProvider.autoDispose<LyricsResult?>((ref) async {
   final currentTrack = ref.watch(currentTrackProvider);
   if (currentTrack == null) return null;
 
@@ -68,15 +84,23 @@ final currentLyricsContentProvider =
   final externalId = ref.watch(_currentLyricsExternalIdProvider);
   if (externalId == null) return null;
 
+  final lyricsSource = ref.watch(_currentLyricsSourceProvider);
   final cache = ref.watch(lyricsCacheServiceProvider);
-  final lrclib = ref.watch(lrclibSourceProvider);
 
   // 1. 尝试从缓存获取
   final cached = await cache.get(currentTrack.uniqueKey);
   if (cached != null) return cached;
 
-  // 2. 从 API 获取
-  final result = await lrclib.getById(externalId);
+  // 2. 根据歌词源从对应 API 获取
+  LyricsResult? result;
+  if (lyricsSource == 'netease') {
+    final netease = ref.watch(neteaseSourceProvider);
+    result = await netease.getLyricsResult(externalId);
+  } else {
+    final lrclib = ref.watch(lrclibSourceProvider);
+    result = await lrclib.getById(externalId);
+  }
+
   if (result != null) {
     // 3. 保存到缓存
     await cache.put(currentTrack.uniqueKey, result);
@@ -99,24 +123,28 @@ final parsedLyricsProvider = Provider.autoDispose<ParsedLyrics?>((ref) {
 /// 歌词搜索状态
 class LyricsSearchState {
   final bool isLoading;
-  final List<LrclibResult> results;
+  final List<LyricsResult> results;
   final String? error;
+  final LyricsSourceFilter filter;
 
   const LyricsSearchState({
     this.isLoading = false,
     this.results = const [],
     this.error,
+    this.filter = LyricsSourceFilter.all,
   });
 
   LyricsSearchState copyWith({
     bool? isLoading,
-    List<LrclibResult>? results,
+    List<LyricsResult>? results,
     String? error,
+    LyricsSourceFilter? filter,
   }) {
     return LyricsSearchState(
       isLoading: isLoading ?? this.isLoading,
       results: results ?? this.results,
       error: error,
+      filter: filter ?? this.filter,
     );
   }
 }
@@ -124,21 +152,56 @@ class LyricsSearchState {
 /// 歌词搜索 Notifier
 class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
   final LrclibSource _lrclib;
+  final NeteaseSource _netease;
   final LyricsRepository _repo;
   final LyricsCacheService _cache;
 
-  LyricsSearchNotifier(this._lrclib, this._repo, this._cache)
+  LyricsSearchNotifier(this._lrclib, this._netease, this._repo, this._cache)
       : super(const LyricsSearchState());
+
+  /// 设置筛选源
+  void setFilter(LyricsSourceFilter filter) {
+    state = state.copyWith(filter: filter);
+  }
 
   /// 搜索歌词
   Future<void> search({String? query, String? trackName, String? artistName}) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final results = await _lrclib.search(
-        q: query,
-        trackName: trackName,
-        artistName: artistName,
-      );
+      final filter = state.filter;
+      List<LyricsResult> results;
+
+      switch (filter) {
+        case LyricsSourceFilter.lrclib:
+          results = await _lrclib.search(
+            q: query,
+            trackName: trackName,
+            artistName: artistName,
+          );
+        case LyricsSourceFilter.netease:
+          results = await _netease.searchLyrics(
+            query: query,
+            trackName: trackName,
+            artistName: artistName,
+          );
+        case LyricsSourceFilter.all:
+          // 并行搜索两个源
+          final futures = await Future.wait([
+            _netease.searchLyrics(
+              query: query,
+              trackName: trackName,
+              artistName: artistName,
+            ).catchError((_) => <LyricsResult>[]),
+            _lrclib.search(
+              q: query,
+              trackName: trackName,
+              artistName: artistName,
+            ).catchError((_) => <LyricsResult>[]),
+          ]);
+          // 网易云结果在前
+          results = [...futures[0], ...futures[1]];
+      }
+
       if (!mounted) return;
       state = state.copyWith(isLoading: false, results: results);
     } catch (e) {
@@ -150,11 +213,11 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
   /// 保存匹配
   Future<void> saveMatch({
     required String trackUniqueKey,
-    required LrclibResult result,
+    required LyricsResult result,
   }) async {
     final match = LyricsMatch()
       ..trackUniqueKey = trackUniqueKey
-      ..lyricsSource = 'lrclib'
+      ..lyricsSource = result.source
       ..externalId = result.id
       ..offsetMs = 0
       ..matchedAt = DateTime.now();
@@ -185,9 +248,10 @@ final lyricsSearchProvider =
     StateNotifierProvider.autoDispose<LyricsSearchNotifier, LyricsSearchState>(
         (ref) {
   final lrclib = ref.watch(lrclibSourceProvider);
+  final netease = ref.watch(neteaseSourceProvider);
   final repo = ref.watch(lyricsRepositoryProvider);
   final cache = ref.watch(lyricsCacheServiceProvider);
-  return LyricsSearchNotifier(lrclib, repo, cache);
+  return LyricsSearchNotifier(lrclib, netease, repo, cache);
 });
 
 /// 查询指定 track 的歌词匹配（用于菜单显示"已匹配"状态）

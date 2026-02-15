@@ -5,7 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 
 import '../../core/logger.dart';
-import 'lrclib_source.dart';
+import 'lyrics_result.dart';
 
 /// 歌词缓存服务
 ///
@@ -47,7 +47,7 @@ class LyricsCacheService with Logging {
   }
 
   /// 获取缓存的歌词（如果存在）
-  Future<LrclibResult?> get(String trackUniqueKey) async {
+  Future<LyricsResult?> get(String trackUniqueKey) async {
     if (_cacheDir == null) await initialize();
 
     final file = _getCacheFile(trackUniqueKey);
@@ -62,7 +62,7 @@ class LyricsCacheService with Logging {
       await _saveAccessTimes();
 
       logDebug('Cache hit: $trackUniqueKey');
-      return LrclibResult.fromJson(json);
+      return LyricsResult.fromJson(json);
     } catch (e) {
       logError('Failed to read cache for $trackUniqueKey: $e');
       await file.delete();
@@ -71,7 +71,7 @@ class LyricsCacheService with Logging {
   }
 
   /// 保存歌词到缓存
-  Future<void> put(String trackUniqueKey, LrclibResult result) async {
+  Future<void> put(String trackUniqueKey, LyricsResult result) async {
     if (_cacheDir == null) await initialize();
 
     try {
@@ -88,6 +88,9 @@ class LyricsCacheService with Logging {
         'instrumental': result.instrumental,
         'plainLyrics': result.plainLyrics,
         'syncedLyrics': result.syncedLyrics,
+        'source': result.source,
+        'translatedLyrics': result.translatedLyrics,
+        'romajiLyrics': result.romajiLyrics,
       };
 
       await file.writeAsString(jsonEncode(json));

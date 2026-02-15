@@ -21,5 +21,10 @@
   "noLyricsAvailable": "暂无歌词",
   "instrumentalTrack": "纯音乐，无歌词",
   "offset": "偏移",
-  "resetOffset": "重置偏移"
+  "resetOffset": "重置偏移",
+  "sourceAll": "全部",
+  "sourceLrclib": "lrclib",
+  "sourceNetease": "网易云",
+  "translated": "翻译",
+  "romaji": "罗马音"
 }
