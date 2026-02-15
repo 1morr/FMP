@@ -10,7 +10,7 @@
   "plain": "Plain",
   "instrumental": "Instrumental",
   "durationSeconds": "${seconds}s",
-  "searchHint": "Song name, artist...",
+  "searchHint": "Song name - Artist",
   "currentMatch": "Current Match",
   "removeMatch": "Remove Match",
   "adjustOffset": "Adjust Offset",

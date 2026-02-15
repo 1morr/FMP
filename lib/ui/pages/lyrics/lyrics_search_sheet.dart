@@ -39,16 +39,8 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
   @override
   void initState() {
     super.initState();
-    // 用 TitleParser 解析标题，预填搜索框
-    final parser = ref.read(titleParserProvider);
-    final parsed = parser.parse(
-      widget.track.title,
-      uploader: widget.track.artist,
-    );
-    _searchController.text = parsed.trackName;
-
-    // 自动搜索
-    Future.microtask(() => _doSearch());
+    // 预填完整标题到搜索框
+    _searchController.text = widget.track.title;
   }
 
   @override
@@ -299,11 +291,18 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
       );
     }
 
-    if (!_hasAutoSearched) {
+    if (searchState.results.isEmpty && !_hasAutoSearched) {
       return Center(
-        child: Text(
-          t.lyrics.autoSearching,
-          style: TextStyle(color: colorScheme.outline),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search, size: 48, color: colorScheme.outline),
+            const SizedBox(height: 8),
+            Text(
+              t.lyrics.searchHint,
+              style: TextStyle(color: colorScheme.outline),
+            ),
+          ],
         ),
       );
     }

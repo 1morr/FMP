@@ -10,7 +10,7 @@
   "plain": "純文字",
   "instrumental": "純音樂",
   "durationSeconds": "${seconds}秒",
-  "searchHint": "歌曲名、歌手...",
+  "searchHint": "歌曲名 - 歌手",
   "currentMatch": "目前匹配",
   "removeMatch": "移除匹配",
   "adjustOffset": "調整偏移",
