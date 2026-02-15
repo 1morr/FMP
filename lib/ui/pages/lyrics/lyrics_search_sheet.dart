@@ -64,8 +64,9 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
       trackUniqueKey: widget.track.uniqueKey,
       result: result,
     );
-    // invalidate 相关 providers
+    // invalidate 相关 providers，确保歌词内容也重新加载
     ref.invalidate(currentLyricsMatchProvider);
+    ref.invalidate(currentLyricsContentProvider);
     ref.invalidate(lyricsMatchForTrackProvider(widget.track.uniqueKey));
 
     if (mounted) {
@@ -78,6 +79,7 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
     final notifier = ref.read(lyricsSearchProvider.notifier);
     await notifier.removeMatch(widget.track.uniqueKey);
     ref.invalidate(currentLyricsMatchProvider);
+    ref.invalidate(currentLyricsContentProvider);
     ref.invalidate(lyricsMatchForTrackProvider(widget.track.uniqueKey));
 
     if (mounted) {
