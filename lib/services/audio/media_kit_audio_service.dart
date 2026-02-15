@@ -189,22 +189,29 @@ class MediaKitAudioService with Logging {
       if (nativePlayer == null) return;
 
       // 完全禁用视频轨道解码 — 最大的内存优化
+      // 播放 muxed 流时，libmpv 默认仍会解码视频帧（即使 vo=null）
       await (nativePlayer as dynamic).setProperty('vid', 'no');
 
+      // 禁用字幕轨道
+      await (nativePlayer as dynamic).setProperty('sid', 'no');
+
       // 限制 demuxer 缓冲区大小（纯音频不需要大缓冲）
-      // 2MB 前向 ≈ 约 1 分钟 256kbps 音频
+      // 1MB 前向 ≈ 约 30 秒 256kbps 音频，足够防止卡顿
       await (nativePlayer as dynamic).setProperty(
-        'demuxer-max-bytes', '2097152',  // 2 MB
+        'demuxer-max-bytes', '1048576',  // 1 MB
       );
-      // 512KB 后向缓冲（用于 seek 回退）
+      // 256KB 后向缓冲（用于 seek 回退）
       await (nativePlayer as dynamic).setProperty(
-        'demuxer-max-back-bytes', '524288',  // 512 KB
+        'demuxer-max-back-bytes', '262144',  // 256 KB
       );
 
-      // 禁用额外的流缓存层
+      // 禁用额外的流缓存层（网络流已有 HTTP 层缓冲）
       await (nativePlayer as dynamic).setProperty('cache', 'no');
 
-      logInfo('libmpv configured for audio-only mode (vid=no, reduced buffers)');
+      // 禁用 ICY 元数据解析（网络电台标题等，减少不必要的处理）
+      await (nativePlayer as dynamic).setProperty('demuxer-lavf-o', 'icy=0');
+
+      logInfo('libmpv configured for audio-only mode (vid=no, sid=no, reduced buffers)');
     } catch (e) {
       // 非致命错误，降级到默认配置
       logWarning('Failed to configure libmpv for audio-only: $e');

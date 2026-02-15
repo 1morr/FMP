@@ -30,6 +30,14 @@ final databaseProvider = FutureProvider<Isar>((ref) async {
     ],
     directory: dir.path,
     name: 'fmp_database',
+    // 降低 LMDB mmap 大小：默认 1024 MB，音乐播放器不需要这么大
+    // LMDB 会 mmap 整个 maxSizeMiB 到虚拟地址空间，已访问页面计入 RSS
+    maxSizeMiB: 128,
+    // 启动时自动压缩数据库，回收碎片空间
+    compactOnLaunch: const CompactCondition(
+      minFileSize: 8 * 1024 * 1024,  // 文件 > 8MB 时才考虑压缩
+      minRatio: 2.0,                  // 可回收空间 >= 50% 时触发
+    ),
   );
 
   // 确保有默认设置
