@@ -733,6 +733,7 @@ class _TrackInfoDialog extends ConsumerWidget {
       snapSizes: const [0.0, 0.6, 0.95],
       builder: (context, scrollController) {
         return Container(
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerLow,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
