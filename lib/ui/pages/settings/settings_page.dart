@@ -14,6 +14,7 @@ import '../../../providers/lyrics_provider.dart';
 import '../../../data/models/hotkey_config.dart';
 import '../../../data/models/settings.dart';
 import '../../../i18n/strings.g.dart';
+import '../../../providers/audio_settings_provider.dart';
 import '../../../providers/locale_provider.dart';
 import '../../../providers/theme_provider.dart';
 import '../../theme/app_theme.dart';
@@ -79,6 +80,7 @@ class SettingsPage extends ConsumerWidget {
               ),
               _AutoScrollToPlayingTile(),
               _RememberPlaybackPositionTile(),
+              _AutoMatchLyricsTile(),
             ],
           ),
           const Divider(),
@@ -592,6 +594,26 @@ class _RememberPlaybackPositionTile extends ConsumerWidget {
                 builder: (context) => const _RewindSettingsDialog(),
               )
           : null,
+    );
+  }
+}
+
+/// 自动匹配歌词
+class _AutoMatchLyricsTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final audioSettings = ref.watch(audioSettingsProvider);
+
+    return SwitchListTile(
+      secondary: const Icon(Icons.lyrics_outlined),
+      title: Text(t.settings.autoMatchLyrics.title),
+      subtitle: Text(t.settings.autoMatchLyrics.subtitle),
+      value: audioSettings.autoMatchLyrics,
+      onChanged: audioSettings.isLoading
+          ? null
+          : (value) {
+              ref.read(audioSettingsProvider.notifier).setAutoMatchLyrics(value);
+            },
     );
   }
 }
