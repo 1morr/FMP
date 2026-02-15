@@ -66,7 +66,7 @@ final currentLyricsMatchProvider =
 
 /// 当前歌词的 externalId（用于触发内容加载，避免 offset 变化时重新加载）
 final _currentLyricsExternalIdProvider =
-    Provider.autoDispose<int?>((ref) {
+    Provider.autoDispose<String?>((ref) {
   final match = ref.watch(currentLyricsMatchProvider).valueOrNull;
   return match?.externalId;
 });
@@ -78,24 +78,15 @@ final _currentLyricsSourceProvider =
   return match?.lyricsSource;
 });
 
-/// 当前歌词的 externalStringId（QQ 音乐使用，用于触发内容加载）
-final _currentLyricsStringIdProvider =
-    Provider.autoDispose<String?>((ref) {
-  final match = ref.watch(currentLyricsMatchProvider).valueOrNull;
-  return match?.externalStringId;
-});
-
 /// 当前播放歌曲的歌词内容（优先从缓存获取，否则在线获取）
-/// 注意：只在 externalId/externalStringId 变化时重新加载，offset 变化不会触发重新加载
+/// 注意：只在 externalId 变化时重新加载，offset 变化不会触发重新加载
 final currentLyricsContentProvider =
     FutureProvider.autoDispose<LyricsResult?>((ref) async {
   final currentTrack = ref.watch(currentTrackProvider);
   if (currentTrack == null) return null;
 
-  // 监听 externalId 和 externalStringId
   final externalId = ref.watch(_currentLyricsExternalIdProvider);
-  final externalStringId = ref.watch(_currentLyricsStringIdProvider);
-  if (externalId == null && externalStringId == null) return null;
+  if (externalId == null) return null;
 
   final lyricsSource = ref.watch(_currentLyricsSourceProvider);
   final cache = ref.watch(lyricsCacheServiceProvider);
@@ -106,15 +97,15 @@ final currentLyricsContentProvider =
 
   // 2. 根据歌词源从对应 API 获取
   LyricsResult? result;
-  if (lyricsSource == 'qqmusic' && externalStringId != null) {
+  if (lyricsSource == 'qqmusic') {
     final qqmusic = ref.watch(qqmusicSourceProvider);
-    result = await qqmusic.getLyricsResult(externalStringId);
+    result = await qqmusic.getLyricsResult(externalId);
   } else if (lyricsSource == 'netease') {
     final netease = ref.watch(neteaseSourceProvider);
-    result = await netease.getLyricsResult(externalId!);
+    result = await netease.getLyricsResult(externalId);
   } else {
     final lrclib = ref.watch(lrclibSourceProvider);
-    result = await lrclib.getById(externalId!);
+    result = await lrclib.getById(externalId);
   }
 
   if (result != null) {
@@ -248,7 +239,6 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
       ..trackUniqueKey = trackUniqueKey
       ..lyricsSource = result.source
       ..externalId = result.id
-      ..externalStringId = result.externalStringId
       ..offsetMs = 0
       ..matchedAt = DateTime.now();
     await _repo.save(match);

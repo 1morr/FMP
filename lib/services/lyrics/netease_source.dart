@@ -289,10 +289,11 @@ class NeteaseSource with Logging {
   }
 
   /// 通过网易云歌曲 ID 获取歌词，返回统一的 LyricsResult
-  Future<LyricsResult?> getLyricsResult(int songId) async {
+  Future<LyricsResult?> getLyricsResult(String songId) async {
     try {
+      final numericId = int.parse(songId);
       // 先获取歌曲信息（用于填充 trackName 等字段）
-      final lyrics = await getLyrics(songId);
+      final lyrics = await getLyrics(numericId);
       if (!lyrics.hasLrc) return null;
 
       return LyricsResult(
@@ -308,6 +309,9 @@ class NeteaseSource with Logging {
         translatedLyrics: lyrics.tlyric,
         romajiLyrics: lyrics.romalrc,
       );
+    } on FormatException {
+      logError('Invalid songId (not a number): $songId');
+      return null;
     } catch (e) {
       logError('Failed to get lyrics result for song $songId: $e');
       return null;
@@ -317,7 +321,7 @@ class NeteaseSource with Logging {
   /// 将 NeteaseSong + NeteaseLyrics 转换为统一的 LyricsResult
   LyricsResult _toLyricsResult(NeteaseSong song, NeteaseLyrics lyrics) {
     return LyricsResult(
-      id: song.id,
+      id: song.id.toString(),
       trackName: song.name,
       artistName: song.artistsJoined,
       albumName: song.albumName,

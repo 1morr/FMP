@@ -91,7 +91,6 @@ class LyricsCacheService with Logging {
         'source': result.source,
         'translatedLyrics': result.translatedLyrics,
         'romajiLyrics': result.romajiLyrics,
-        'externalStringId': result.externalStringId,
       };
 
       await file.writeAsString(jsonEncode(json));

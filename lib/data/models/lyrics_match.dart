@@ -17,11 +17,8 @@ class LyricsMatch {
   /// 歌词源标识（"lrclib", 未来: "netease", "qqmusic"）
   late String lyricsSource;
 
-  /// 歌词源中的外部 ID（lrclib / netease 使用）
-  late int externalId;
-
-  /// 字符串形式的外部 ID（QQ 音乐 songmid 等）
-  String? externalStringId;
+  /// 歌词源中的外部 ID（lrclib/netease 为数字字符串，QQ 音乐为 songmid）
+  late String externalId;
 
   /// 用户自定义偏移（毫秒）
   int offsetMs = 0;

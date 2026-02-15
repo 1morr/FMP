@@ -82,7 +82,7 @@ class LrclibSource with Logging {
   }
 
   /// 按 ID 获取歌词
-  Future<LyricsResult?> getById(int id) async {
+  Future<LyricsResult?> getById(String id) async {
     logDebug('Getting lyrics by id: $id');
 
     try {

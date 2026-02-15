@@ -87,12 +87,11 @@ class LyricsAutoMatchService with Logging {
         final match = LyricsMatch()
           ..trackUniqueKey = track.uniqueKey
           ..lyricsSource = 'qqmusic'
-          ..externalId = 0
-          ..externalStringId = qqmusicMatch.externalStringId
+          ..externalId = qqmusicMatch.id
           ..offsetMs = 0
           ..matchedAt = DateTime.now();
         await _repo.save(match);
-        logInfo('Auto-matched lyrics: ${track.title} → qqmusic:${qqmusicMatch.externalStringId}');
+        logInfo('Auto-matched lyrics: ${track.title} → qqmusic:${qqmusicMatch.id}');
         return true;
       }
 
