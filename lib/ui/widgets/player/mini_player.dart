@@ -31,85 +31,99 @@ class MiniPlayer extends ConsumerWidget {
 }
 
 /// 迷你播放器内容（拆分后的主体）
-class _MiniPlayerContent extends ConsumerWidget {
+class _MiniPlayerContent extends ConsumerStatefulWidget {
   const _MiniPlayerContent();
+
+  @override
+  ConsumerState<_MiniPlayerContent> createState() => _MiniPlayerContentState();
+}
+
+class _MiniPlayerContentState extends ConsumerState<_MiniPlayerContent> {
+  /// 鼠标是否悬停在迷你播放器上
+  bool _isHovering = false;
 
   /// 是否为桌面平台
   bool get isDesktop =>
       Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        // 主内容容器
-        Container(
-          height: 64,
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHigh,
-            border: Border(
-              top: BorderSide(
-                color: colorScheme.outlineVariant.withValues(alpha: 0.3),
-                width: 0.5,
-              ),
-            ),
-          ),
-          child: Column(
-            children: [
-              // 进度条占位（固定 2px 高度）
-              const SizedBox(height: 2),
-
-              // 内容
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Row(
-                    children: [
-                      // 封面和歌曲信息
-                      const Expanded(child: _MiniPlayerTrackInfo()),
-
-                      // 控制按钮
-                      const _MiniPlayerControls(),
-
-                      // 桌面端音频设备选择和音量控制
-                      if (isDesktop) ...[
-                        const SizedBox(width: 8),
-                        _MiniPlayerVolumeControl(colorScheme: colorScheme),
-                      ],
-                    ],
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: GestureDetector(
+        onTap: () => context.push(RoutePaths.player),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // 主内容容器
+            Container(
+              height: 64,
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHigh,
+                border: Border(
+                  top: BorderSide(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                    width: 0.5,
                   ),
                 ),
               ),
-            ],
-          ),
+              child: Column(
+                children: [
+                  // 进度条占位（固定 2px 高度）
+                  const SizedBox(height: 2),
+
+                  // 内容
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Row(
+                        children: [
+                          // 封面和歌曲信息
+                          const Expanded(child: _MiniPlayerTrackInfo()),
+
+                          // 控制按钮
+                          const _MiniPlayerControls(),
+
+                          // 桌面端音频设备选择和音量控制
+                          if (isDesktop) ...[
+                            const SizedBox(width: 8),
+                            _MiniPlayerVolumeControl(colorScheme: colorScheme),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // 可交互的进度条（定位在顶部）
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: _MiniPlayerProgressBar(isParentHovering: _isHovering),
+            ),
+          ],
         ),
-        // 可交互的进度条（定位在顶部）
-        const Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: _MiniPlayerProgressBar(),
-        ),
-      ],
+      ),
     );
   }
 }
 
 /// 迷你播放器 - 进度条组件
 class _MiniPlayerProgressBar extends ConsumerStatefulWidget {
-  const _MiniPlayerProgressBar();
+  const _MiniPlayerProgressBar({required this.isParentHovering});
+
+  final bool isParentHovering;
 
   @override
   ConsumerState<_MiniPlayerProgressBar> createState() => _MiniPlayerProgressBarState();
 }
 
 class _MiniPlayerProgressBarState extends ConsumerState<_MiniPlayerProgressBar> {
-  /// 鼠标是否悬停在播放器上
-  bool _isHovering = false;
-
   /// 是否正在拖动进度条
   bool _isDragging = false;
 
@@ -125,6 +139,9 @@ class _MiniPlayerProgressBarState extends ConsumerState<_MiniPlayerProgressBar> 
 
     // 显示的进度：拖动时显示拖动进度，否则显示实际播放进度
     final displayProgress = _isDragging ? _dragProgress : progress.clamp(0.0, 1.0);
+    
+    // 是否应该展开：父组件悬停或正在拖动
+    final isExpanded = widget.isParentHovering || _isDragging;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -150,14 +167,10 @@ class _MiniPlayerProgressBarState extends ConsumerState<_MiniPlayerProgressBar> 
       },
       onHorizontalDragEnd: (details) {
         controller.seekToProgress(_dragProgress);
-        setState(() {
-          _isDragging = false;
-          _isHovering = false;
-        });
+        setState(() => _isDragging = false);
       },
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovering = true),
         child: LayoutBuilder(
           builder: (context, constraints) {
             return GestureDetector(
@@ -168,7 +181,7 @@ class _MiniPlayerProgressBarState extends ConsumerState<_MiniPlayerProgressBar> 
               },
               // 悬停时扩大点击区域，视觉元素锚定在顶部
               child: SizedBox(
-                height: _isHovering || _isDragging ? 18 : 2,
+                height: isExpanded ? 18 : 2,
                 child: Stack(
                   clipBehavior: Clip.none,
                   alignment: Alignment.topLeft,
@@ -180,7 +193,7 @@ class _MiniPlayerProgressBarState extends ConsumerState<_MiniPlayerProgressBar> 
                       top: 0,
                       child: AnimatedContainer(
                         duration: AnimationDurations.fast,
-                        height: _isHovering || _isDragging ? 6 : 2,
+                        height: isExpanded ? 6 : 2,
                         decoration: BoxDecoration(
                           color: colorScheme.surfaceContainerHighest,
                           borderRadius: AppRadius.borderRadiusXs,
@@ -194,7 +207,7 @@ class _MiniPlayerProgressBarState extends ConsumerState<_MiniPlayerProgressBar> 
                       top: 0,
                       child: AnimatedContainer(
                         duration: AnimationDurations.fast,
-                        height: _isHovering || _isDragging ? 6 : 2,
+                        height: isExpanded ? 6 : 2,
                         decoration: BoxDecoration(
                           color: colorScheme.primary,
                           borderRadius: AppRadius.borderRadiusXs,
@@ -202,12 +215,12 @@ class _MiniPlayerProgressBarState extends ConsumerState<_MiniPlayerProgressBar> 
                       ),
                     ),
                     // 圆形指示器（悬停或拖动时显示）
-                    if (_isHovering || _isDragging)
+                    if (isExpanded)
                       Positioned(
                         left: constraints.maxWidth * displayProgress - 6,
                         top: -3, // 使圆心对齐 6px 轨道中心
                         child: AnimatedOpacity(
-                          opacity: _isHovering || _isDragging ? 1.0 : 0.0,
+                          opacity: isExpanded ? 1.0 : 0.0,
                           duration: AnimationDurations.fast,
                           child: Container(
                             width: 12,
