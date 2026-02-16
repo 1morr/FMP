@@ -10,8 +10,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// - 只缓存存在的文件路径（`Set<String>`）
 /// - 移除 Track 相关方法，使用 TrackExtensions 代替
 /// - 保留核心缓存功能
+/// - 添加大小限制防止内存泄漏（最多 5000 条）
 class FileExistsCache extends StateNotifier<Set<String>> {
   FileExistsCache() : super({});
+
+  /// 最大缓存条目数
+  static const int _maxCacheSize = 5000;
 
   /// 检查路径是否存在（带缓存）
   ///
@@ -42,6 +46,7 @@ class FileExistsCache extends StateNotifier<Set<String>> {
   /// 批量预加载路径
   ///
   /// 检查哪些路径实际存在，并加入缓存
+  /// 自动应用大小限制
   Future<void> preloadPaths(List<String> paths) async {
     final existing = <String>{};
     for (final path in paths) {
@@ -52,7 +57,18 @@ class FileExistsCache extends StateNotifier<Set<String>> {
       } catch (_) {}
     }
     if (existing.isNotEmpty) {
-      state = {...state, ...existing};
+      final newState = {...state, ...existing};
+      
+      // 如果超过最大大小，移除最早添加的条目
+      if (newState.length > _maxCacheSize) {
+        final toRemove = newState.length - _maxCacheSize;
+        final list = newState.toList();
+        for (var i = 0; i < toRemove; i++) {
+          newState.remove(list[i]);
+        }
+      }
+      
+      state = newState;
     }
   }
 
@@ -60,7 +76,19 @@ class FileExistsCache extends StateNotifier<Set<String>> {
   ///
   /// 下载完成后调用，避免重新检测
   void markAsExisting(String path) {
-    state = {...state, path};
+    final newState = Set<String>.from(state);
+    newState.add(path);
+    
+    // 如果超过最大大小，移除最早添加的条目
+    if (newState.length > _maxCacheSize) {
+      final toRemove = newState.length - _maxCacheSize;
+      final iterator = newState.iterator;
+      for (var i = 0; i < toRemove && iterator.moveNext(); i++) {
+        newState.remove(iterator.current);
+      }
+    }
+    
+    state = newState;
   }
 
   /// 移除路径缓存
@@ -82,13 +110,26 @@ class FileExistsCache extends StateNotifier<Set<String>> {
     Future.microtask(() async {
       try {
         if (await File(path).exists()) {
-          state = {...state, path};
+          final newState = Set<String>.from(state);
+          newState.add(path);
+          
+          // 如果超过最大大小，移除最早添加的条目
+          if (newState.length > _maxCacheSize) {
+            final toRemove = newState.length - _maxCacheSize;
+            final iterator = newState.iterator;
+            for (var i = 0; i < toRemove && iterator.moveNext(); i++) {
+              newState.remove(iterator.current);
+            }
+          }
+          
+          state = newState;
         }
       } catch (_) {}
     });
   }
 
   /// 安排异步刷新多个路径
+  /// 自动应用大小限制
   void _scheduleRefreshPaths(List<String> paths) {
     Future.microtask(() async {
       final existing = <String>{};
@@ -102,7 +143,18 @@ class FileExistsCache extends StateNotifier<Set<String>> {
         }
       }
       if (existing.isNotEmpty) {
-        state = {...state, ...existing};
+        final newState = {...state, ...existing};
+        
+        // 如果超过最大大小，移除最早添加的条目
+        if (newState.length > _maxCacheSize) {
+          final toRemove = newState.length - _maxCacheSize;
+          final list = newState.toList();
+          for (var i = 0; i < toRemove; i++) {
+            newState.remove(list[i]);
+          }
+        }
+        
+        state = newState;
       }
     });
   }
