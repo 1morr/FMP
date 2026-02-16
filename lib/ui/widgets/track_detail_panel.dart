@@ -260,12 +260,11 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
               ),
             ),
           ),
-          // 歌词菜单按钮（始终占位，但仅在显示歌词时可用）
-          if (!isRadio)
+          // 歌词菜单按钮（始终占位，但仅在显示歌词时可用；电台模式下隐藏但占位）
             Opacity(
-              opacity: _showLyrics ? 1.0 : 0.0,
+              opacity: (!isRadio && _showLyrics) ? 1.0 : 0.0,
               child: IgnorePointer(
-                ignoring: !_showLyrics,
+                ignoring: isRadio || !_showLyrics,
                 child: PopupMenuButton<String>(
                   key: _lyricsMenuKey,
                   icon: const Icon(Icons.more_vert, size: 20),
@@ -329,8 +328,12 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                 ),
               ),
             ),
-          // 信息/歌词切换按钮（显示当前状态）
-          IconButton(
+          // 信息/歌词切换按钮（显示当前状态，电台模式下隐藏但占位）
+          Opacity(
+            opacity: isRadio ? 0.0 : 1.0,
+            child: IgnorePointer(
+              ignoring: isRadio,
+              child: IconButton(
             icon: Icon(
               _showLyrics ? Icons.lyrics_outlined : Icons.info_outline,
               size: 20,
@@ -346,6 +349,8 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
             visualDensity: VisualDensity.compact,
             style: IconButton.styleFrom(
               foregroundColor: colorScheme.onSurfaceVariant,
+            ),
+          ),
             ),
           ),
         ],
