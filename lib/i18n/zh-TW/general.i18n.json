@@ -15,5 +15,13 @@
   "unknownArtist": "未知藝術家",
   "delete": "刪除",
   "continueText": "繼續",
-  "more": "更多"
+  "more": "更多",
+  "play": "播放",
+  "playNext": "下一首播放",
+  "addToQueue": "加入佇列",
+  "addToPlaylist": "加入播放清單",
+  "matchLyrics": "歌詞配對",
+  "addedToNext": "已加入下一首",
+  "addedToQueue": "已加入播放佇列",
+  "addedToPlaylist": "已加入播放清單"
 }

@@ -873,7 +873,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         } else {
           final added = await controller.addNext(track);
           if (added && mounted) {
-            ToastService.success(context, t.searchPage.toast.addedToNext);
+            ToastService.success(context, t.general.addedToNext);
           }
         }
         break;
@@ -891,7 +891,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         } else {
           final added = await controller.addToQueue(track);
           if (added && mounted) {
-            ToastService.success(context, t.searchPage.toast.addedToQueue);
+            ToastService.success(context, t.general.addedToQueue);
           }
         }
         break;
@@ -929,13 +929,13 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       case 'play_next':
         final added = await controller.addNext(pageTrack);
         if (added && mounted) {
-          ToastService.success(context, t.searchPage.toast.addedToNext);
+          ToastService.success(context, t.general.addedToNext);
         }
         break;
       case 'add_to_queue':
         final added = await controller.addToQueue(pageTrack);
         if (added && mounted) {
-          ToastService.success(context, t.searchPage.toast.addedToQueue);
+          ToastService.success(context, t.general.addedToQueue);
         }
         break;
 
@@ -1125,10 +1125,10 @@ class _SearchResultTile extends ConsumerWidget {
   }
 
   List<PopupMenuEntry<String>> _buildMenuItems() => [
-    PopupMenuItem(value: 'play', child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.searchPage.menu.play), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.searchPage.menu.playNext), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.searchPage.menu.addToQueue), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.searchPage.menu.addToPlaylist), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'play', child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.general.play), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.general.playNext), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.general.addToQueue), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.general.addToPlaylist), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'matchLyrics', child: ListTile(leading: const Icon(Icons.lyrics_outlined), title: Text(t.lyrics.matchLyrics), contentPadding: EdgeInsets.zero)),
   ];
 
@@ -1215,9 +1215,9 @@ class _PageTile extends ConsumerWidget {
   }
 
   List<PopupMenuEntry<String>> _buildMenuItems() => [
-    PopupMenuItem(value: 'play', child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.searchPage.menu.play), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.searchPage.menu.playNext), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.searchPage.menu.addToQueue), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'play', child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.general.play), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.general.playNext), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.general.addToQueue), contentPadding: EdgeInsets.zero)),
     // 注意：分P没有"添加到歌单"选项
   ];
 }
@@ -1366,10 +1366,10 @@ class _LocalGroupTile extends ConsumerWidget {
   }
 
   List<PopupMenuEntry<String>> _buildMenuItems() => [
-    PopupMenuItem(value: 'play', child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.searchPage.menu.play), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.searchPage.menu.playNext), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.searchPage.menu.addToQueue), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.searchPage.menu.addToPlaylist), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'play', child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.general.play), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.general.playNext), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.general.addToQueue), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.general.addToPlaylist), contentPadding: EdgeInsets.zero)),
   ];
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
@@ -1389,7 +1389,7 @@ class _LocalGroupTile extends ConsumerWidget {
           ToastService.success(context,
             group.hasMultipleParts
                 ? t.searchPage.toast.addedPartsToNext(count: group.partCount)
-                : t.searchPage.toast.addedToNext,
+                : t.general.addedToNext,
           );
         }
         break;
@@ -1403,7 +1403,7 @@ class _LocalGroupTile extends ConsumerWidget {
           ToastService.success(context,
             group.hasMultipleParts
                 ? t.searchPage.toast.addedPartsToQueue(count: group.partCount)
-                : t.searchPage.toast.addedToQueue,
+                : t.general.addedToQueue,
           );
         }
         break;
@@ -1511,10 +1511,10 @@ class _LocalTrackTile extends ConsumerWidget {
   }
 
   List<PopupMenuEntry<String>> _buildMenuItems() => [
-    PopupMenuItem(value: 'play', child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.searchPage.menu.play), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.searchPage.menu.playNext), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.searchPage.menu.addToQueue), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.searchPage.menu.addToPlaylist), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'play', child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.general.play), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.general.playNext), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.general.addToQueue), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.general.addToPlaylist), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'matchLyrics', child: ListTile(leading: const Icon(Icons.lyrics_outlined), title: Text(t.lyrics.matchLyrics), contentPadding: EdgeInsets.zero)),
   ];
 }
@@ -1727,7 +1727,7 @@ class _LiveRoomTile extends StatelessWidget {
       enabled: room.isLive,
       child: ListTile(
         leading: Icon(Icons.play_arrow, color: room.isLive ? null : colorScheme.outline),
-        title: Text(t.searchPage.menu.play, style: TextStyle(color: room.isLive ? null : colorScheme.outline)),
+        title: Text(t.general.play, style: TextStyle(color: room.isLive ? null : colorScheme.outline)),
         contentPadding: EdgeInsets.zero,
       ),
     ),

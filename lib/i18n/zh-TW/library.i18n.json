@@ -7,11 +7,7 @@
   "shuffleAdd": "隨機添加",
   "addedToQueue": "已添加 $n 首歌曲到佇列",
   "shuffledAddedToQueue": "已隨機添加 $n 首歌曲到佇列",
-  "addedToNext": "已添加到下一首",
-  "addedToPlayQueue": "已添加到播放佇列",
-  "playNext": "下一首播放",
-  "addToQueue": "添加到佇列",
-  "addToPlaylist": "添加到歌單",
+
   "unknownUploader": "未知UP主",
   "refresh": "重新整理",
   "loadFailedWithError": "載入失敗: $error",

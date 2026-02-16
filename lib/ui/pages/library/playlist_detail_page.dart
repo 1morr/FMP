@@ -404,7 +404,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           value: 'add_to_queue',
           child: ListTile(
             leading: const Icon(Icons.add_to_queue),
-            title: Text(t.library.addToQueue),
+            title: Text(t.general.addToQueue),
             contentPadding: EdgeInsets.zero,
           ),
         ),
@@ -413,7 +413,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           value: 'play_next',
           child: ListTile(
             leading: const Icon(Icons.queue_play_next),
-            title: Text(t.library.playNext),
+            title: Text(t.general.playNext),
             contentPadding: EdgeInsets.zero,
           ),
         ),
@@ -422,7 +422,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           value: 'add_to_playlist',
           child: ListTile(
             leading: const Icon(Icons.playlist_add),
-            title: Text(t.library.addToPlaylist),
+            title: Text(t.general.addToPlaylist),
             contentPadding: EdgeInsets.zero,
           ),
         ),
@@ -1245,12 +1245,12 @@ class _TrackListTile extends ConsumerWidget {
   }
 
   List<PopupMenuEntry<String>> _buildMenuItems() => [
-    PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.library.playNext), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.library.addToQueue), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.general.playNext), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.general.addToQueue), contentPadding: EdgeInsets.zero)),
     if (!isMix)
       PopupMenuItem(value: 'download', child: ListTile(leading: const Icon(Icons.download_outlined), title: Text(t.library.detail.download), contentPadding: EdgeInsets.zero)),
     if (!isPartOfMultiPage)
-      PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.library.addToPlaylist), contentPadding: EdgeInsets.zero)),
+      PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.general.addToPlaylist), contentPadding: EdgeInsets.zero)),
     if (!isImported)
       PopupMenuItem(value: 'remove', child: ListTile(leading: const Icon(Icons.remove_circle_outline), title: Text(t.library.detail.removeFromPlaylist), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'matchLyrics', child: ListTile(leading: const Icon(Icons.lyrics_outlined), title: Text(t.lyrics.matchLyrics), contentPadding: EdgeInsets.zero)),
@@ -1261,13 +1261,13 @@ class _TrackListTile extends ConsumerWidget {
       case 'play_next':
         final addedNext = await ref.read(audioControllerProvider.notifier).addNext(track);
         if (addedNext && context.mounted) {
-          ToastService.success(context, t.library.addedToNext);
+          ToastService.success(context, t.general.addedToNext);
         }
         break;
       case 'add_to_queue':
         final addedToQueue = await ref.read(audioControllerProvider.notifier).addToQueue(track);
         if (addedToQueue && context.mounted) {
-          ToastService.success(context, t.library.addedToPlayQueue);
+          ToastService.success(context, t.general.addedToQueue);
         }
         break;
       case 'download':

@@ -8,11 +8,6 @@
   "upNext": "接下來播放",
   "viewQueue": "查看佇列",
   "radio": "電台",
-  "play": "播放",
-  "playNext": "下一首播放",
-  "addToQueue": "加入佇列",
-  "addToPlaylist": "加入歌單",
-  "addedToNext": "已加入下一首",
-  "addedToQueue": "已加入播放佇列",
+
   "loadFailed": "載入失敗"
 }

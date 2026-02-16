@@ -874,19 +874,19 @@ class _RankingTrackTile extends ConsumerWidget {
   List<PopupMenuEntry<String>> _buildMenuItems() => [
     PopupMenuItem(
       value: 'play',
-      child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.home.play), contentPadding: EdgeInsets.zero),
+      child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.general.play), contentPadding: EdgeInsets.zero),
     ),
     PopupMenuItem(
       value: 'play_next',
-      child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.home.playNext), contentPadding: EdgeInsets.zero),
+      child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.general.playNext), contentPadding: EdgeInsets.zero),
     ),
     PopupMenuItem(
       value: 'add_to_queue',
-      child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.home.addToQueue), contentPadding: EdgeInsets.zero),
+      child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.general.addToQueue), contentPadding: EdgeInsets.zero),
     ),
     PopupMenuItem(
       value: 'add_to_playlist',
-      child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.home.addToPlaylist), contentPadding: EdgeInsets.zero),
+      child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.general.addToPlaylist), contentPadding: EdgeInsets.zero),
     ),
     PopupMenuItem(
       value: 'matchLyrics',
@@ -905,13 +905,13 @@ class _RankingTrackTile extends ConsumerWidget {
       case 'play_next':
         final added = await controller.addNext(track);
         if (added && context.mounted) {
-          ToastService.success(context, t.home.addedToNext);
+          ToastService.success(context, t.general.addedToNext);
         }
         break;
       case 'add_to_queue':
         final added = await controller.addToQueue(track);
         if (added && context.mounted) {
-          ToastService.success(context, t.home.addedToQueue);
+          ToastService.success(context, t.general.addedToQueue);
         }
         break;
       case 'add_to_playlist':
