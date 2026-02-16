@@ -11,6 +11,8 @@ class AudioSettingsState {
   final List<StreamType> youtubeStreamPriority;
   final List<StreamType> bilibiliStreamPriority;
   final bool autoMatchLyrics;
+  final List<String> lyricsSourceOrder;
+  final Set<String> disabledLyricsSources;
   final bool isLoading;
 
   const AudioSettingsState({
@@ -29,8 +31,14 @@ class AudioSettingsState {
       StreamType.muxed,
     ],
     this.autoMatchLyrics = true,
+    this.lyricsSourceOrder = const ['netease', 'qqmusic', 'lrclib'],
+    this.disabledLyricsSources = const {},
     this.isLoading = true,
   });
+
+  /// 获取启用的歌词源（按优先级排序，排除禁用的）
+  List<String> get enabledLyricsSourceOrder =>
+      lyricsSourceOrder.where((s) => !disabledLyricsSources.contains(s)).toList();
 
   AudioSettingsState copyWith({
     AudioQualityLevel? qualityLevel,
@@ -38,6 +46,8 @@ class AudioSettingsState {
     List<StreamType>? youtubeStreamPriority,
     List<StreamType>? bilibiliStreamPriority,
     bool? autoMatchLyrics,
+    List<String>? lyricsSourceOrder,
+    Set<String>? disabledLyricsSources,
     bool? isLoading,
   }) {
     return AudioSettingsState(
@@ -46,6 +56,8 @@ class AudioSettingsState {
       youtubeStreamPriority: youtubeStreamPriority ?? this.youtubeStreamPriority,
       bilibiliStreamPriority: bilibiliStreamPriority ?? this.bilibiliStreamPriority,
       autoMatchLyrics: autoMatchLyrics ?? this.autoMatchLyrics,
+      lyricsSourceOrder: lyricsSourceOrder ?? this.lyricsSourceOrder,
+      disabledLyricsSources: disabledLyricsSources ?? this.disabledLyricsSources,
       isLoading: isLoading ?? this.isLoading,
     );
   }
@@ -69,6 +81,8 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
       youtubeStreamPriority: _settings!.youtubeStreamPriorityList,
       bilibiliStreamPriority: _settings!.bilibiliStreamPriorityList,
       autoMatchLyrics: _settings!.autoMatchLyrics,
+      lyricsSourceOrder: _settings!.lyricsSourcePriorityList,
+      disabledLyricsSources: _settings!.disabledLyricsSourcesSet,
       isLoading: false,
     );
   }
@@ -117,6 +131,31 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
     await _settingsRepository.save(_settings!);
     state = state.copyWith(autoMatchLyrics: enabled);
   }
+
+  /// 设置歌词匹配源优先级顺序
+  Future<void> setLyricsSourceOrder(List<String> order) async {
+    if (_settings == null) return;
+
+    _settings!.lyricsSourcePriorityList = order;
+    await _settingsRepository.save(_settings!);
+    state = state.copyWith(lyricsSourceOrder: order);
+  }
+
+  /// 切换歌词源的启用/禁用状态
+  Future<void> toggleLyricsSource(String source, bool enabled) async {
+    if (_settings == null) return;
+
+    final disabled = Set<String>.from(state.disabledLyricsSources);
+    if (enabled) {
+      disabled.remove(source);
+    } else {
+      disabled.add(source);
+    }
+
+    _settings!.disabledLyricsSourcesSet = disabled;
+    await _settingsRepository.save(_settings!);
+    state = state.copyWith(disabledLyricsSources: disabled);
+  }
 }
 
 /// 音频设置 Provider
@@ -143,4 +182,19 @@ final youtubeStreamPriorityProvider = Provider<List<StreamType>>((ref) {
 /// 便捷 Provider - Bilibili 流优先级
 final bilibiliStreamPriorityProvider = Provider<List<StreamType>>((ref) {
   return ref.watch(audioSettingsProvider).bilibiliStreamPriority;
+});
+
+/// 便捷 Provider - 歌词源优先级顺序
+final lyricsSourceOrderProvider = Provider<List<String>>((ref) {
+  return ref.watch(audioSettingsProvider).lyricsSourceOrder;
+});
+
+/// 便捷 Provider - 禁用的歌词源
+final disabledLyricsSourcesProvider = Provider<Set<String>>((ref) {
+  return ref.watch(audioSettingsProvider).disabledLyricsSources;
+});
+
+/// 便捷 Provider - 启用的歌词源（按优先级排序）
+final enabledLyricsSourceOrderProvider = Provider<List<String>>((ref) {
+  return ref.watch(audioSettingsProvider).enabledLyricsSourceOrder;
 });

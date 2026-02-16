@@ -67,6 +67,17 @@
     "title": "Auto-match lyrics",
     "subtitle": "Automatically search and match lyrics when playing (only if no match exists)"
   },
+  "lyricsSourceSettings": {
+    "title": "Lyrics Sources",
+    "subtitle": "Adjust lyrics source priority and enable/disable sources",
+    "hint": "Drag to adjust search priority. Sources at the top are tried first. Direct ID fetch from original platform always takes priority and is not affected by this setting.",
+    "sourceNetease": "Netease Cloud Music",
+    "sourceQQMusic": "QQ Music",
+    "sourceLrclib": "lrclib",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "sourceDisabledToast": "This lyrics source is disabled"
+  },
   "version": {
     "title": "Version",
     "tapToEnableDev": "$n more taps to enable developer options",

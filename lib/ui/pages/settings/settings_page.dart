@@ -78,9 +78,9 @@ class SettingsPage extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(RoutePaths.history),
               ),
-              _AutoMatchLyricsTile(),
               _AutoScrollToPlayingTile(),
               _RememberPlaybackPositionTile(),
+              _AutoMatchLyricsTile(),
             ],
           ),
           const Divider(),
@@ -120,8 +120,8 @@ class SettingsPage extends ConsumerWidget {
             _SettingsSection(
               title: t.settings.desktop,
               children: [
-                _MinimizeToTrayTile(),
                 _LaunchAtStartupTile(),
+                _MinimizeToTrayTile(),
                 _GlobalHotkeysTile(),
               ],
             ),
@@ -598,22 +598,43 @@ class _RememberPlaybackPositionTile extends ConsumerWidget {
   }
 }
 
-/// 自动匹配歌词
+/// 自动匹配歌词（含歌词源设置入口）
 class _AutoMatchLyricsTile extends ConsumerWidget {
+  void _openSourceSettings(BuildContext context) {
+    context.push(RoutePaths.lyricsSourceSettings);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final audioSettings = ref.watch(audioSettingsProvider);
+    final isEnabled = audioSettings.isLoading ? true : audioSettings.autoMatchLyrics;
 
-    return SwitchListTile(
-      secondary: const Icon(Icons.lyrics_outlined),
+    return ListTile(
+      leading: const Icon(Icons.lyrics_outlined),
       title: Text(t.settings.autoMatchLyrics.title),
       subtitle: Text(t.settings.autoMatchLyrics.subtitle),
-      value: audioSettings.autoMatchLyrics,
-      onChanged: audioSettings.isLoading
-          ? null
-          : (value) {
-              ref.read(audioSettingsProvider.notifier).setAutoMatchLyrics(value);
-            },
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isEnabled && !audioSettings.isLoading)
+            IconButton(
+              icon: const Icon(Icons.settings_outlined),
+              tooltip: t.settings.lyricsSourceSettings.title,
+              onPressed: () => _openSourceSettings(context),
+            ),
+          Switch(
+            value: isEnabled,
+            onChanged: audioSettings.isLoading
+                ? null
+                : (value) {
+                    ref.read(audioSettingsProvider.notifier).setAutoMatchLyrics(value);
+                  },
+          ),
+        ],
+      ),
+      onTap: isEnabled && !audioSettings.isLoading
+          ? () => _openSourceSettings(context)
+          : null,
     );
   }
 }

@@ -157,6 +157,14 @@ class Settings {
   /// 歌词显示模式: 0=original, 1=preferTranslated, 2=preferRomaji
   int lyricsDisplayModeIndex = 0;
 
+  /// 歌词匹配源优先级 (逗号分隔: "netease,qqmusic,lrclib")
+  /// 按顺序尝试匹配，排在前面的源优先
+  String lyricsSourcePriority = 'netease,qqmusic,lrclib';
+
+  /// 禁用的歌词源 (逗号分隔: "lrclib" 或 "netease,lrclib")
+  /// 自动匹配和搜索时跳过这些源
+  String disabledLyricsSources = '';
+
   /// 获取 ThemeMode
   @ignore
   ThemeMode get themeMode {
@@ -367,6 +375,40 @@ class Settings {
         lyricsDisplayModeIndex = 2;
         break;
     }
+  }
+
+  /// 获取歌词匹配源优先级列表
+  @ignore
+  List<String> get lyricsSourcePriorityList {
+    if (lyricsSourcePriority.isEmpty) {
+      return ['netease', 'qqmusic', 'lrclib'];
+    }
+    return lyricsSourcePriority
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
+
+  /// 设置歌词匹配源优先级列表
+  set lyricsSourcePriorityList(List<String> list) {
+    lyricsSourcePriority = list.join(',');
+  }
+
+  /// 获取禁用的歌词源集合
+  @ignore
+  Set<String> get disabledLyricsSourcesSet {
+    if (disabledLyricsSources.isEmpty) return {};
+    return disabledLyricsSources
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toSet();
+  }
+
+  /// 设置禁用的歌词源集合
+  set disabledLyricsSourcesSet(Set<String> set) {
+    disabledLyricsSources = set.join(',');
   }
 
   @override

@@ -186,6 +186,7 @@ class _FormatPrioritySection extends StatelessWidget {
         ReorderableListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
+          buildDefaultDragHandles: false,
           itemCount: formatPriority.length,
           onReorder: (oldIndex, newIndex) {
             final newList = List<AudioFormat>.from(formatPriority);
@@ -274,6 +275,7 @@ class _StreamPrioritySection extends StatelessWidget {
         ReorderableListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
+          buildDefaultDragHandles: false,
           itemCount: displayList.length,
           onReorder: (oldIndex, newIndex) {
             final newList = List<StreamType>.from(displayList);

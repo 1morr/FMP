@@ -13,6 +13,7 @@ import '../services/lyrics/lyrics_result.dart';
 import '../services/lyrics/netease_source.dart';
 import '../services/lyrics/qqmusic_source.dart';
 import '../services/lyrics/title_parser.dart';
+import 'audio_settings_provider.dart';
 import 'repository_providers.dart';
 
 // ---------------------------------------------------------------------------
@@ -233,12 +234,22 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
   final QQMusicSource _qqmusic;
   final LyricsRepository _repo;
   final LyricsCacheService _cache;
+  final List<String> _sourceOrder;
+  final Set<String> _disabledSources;
 
   int _searchRequestId = 0;
 
   LyricsSearchNotifier(
-      this._lrclib, this._netease, this._qqmusic, this._repo, this._cache)
-      : super(const LyricsSearchState());
+    this._lrclib,
+    this._netease,
+    this._qqmusic,
+    this._repo,
+    this._cache, {
+    List<String> sourceOrder = const ['netease', 'qqmusic', 'lrclib'],
+    Set<String> disabledSources = const {},
+  })  : _sourceOrder = sourceOrder,
+        _disabledSources = disabledSources,
+        super(const LyricsSearchState());
 
   /// 设置筛选源
   void setFilter(LyricsSourceFilter filter) {
@@ -275,26 +286,52 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
             artistName: artistName,
           );
         case LyricsSourceFilter.all:
-          // 并行搜索三个源
-          final futures = await Future.wait([
-            _netease.searchLyrics(
-              query: query,
-              trackName: trackName,
-              artistName: artistName,
-            ).catchError((_) => <LyricsResult>[]),
-            _qqmusic.searchLyrics(
-              query: query,
-              trackName: trackName,
-              artistName: artistName,
-            ).catchError((_) => <LyricsResult>[]),
-            _lrclib.search(
-              q: query,
-              trackName: trackName,
-              artistName: artistName,
-            ).catchError((_) => <LyricsResult>[]),
-          ]);
-          // 网易云 → QQ音乐 → lrclib
-          results = [...futures[0], ...futures[1], ...futures[2]];
+          // 按用户配置的优先级并行搜索启用的源
+          final enabledSources = _sourceOrder
+              .where((s) => !_disabledSources.contains(s))
+              .toList();
+          final sourceResults = <String, List<LyricsResult>>{};
+          final searchFutures = <Future<void>>[];
+
+          for (final source in enabledSources) {
+            switch (source) {
+              case 'netease':
+                searchFutures.add(
+                  _netease.searchLyrics(
+                    query: query,
+                    trackName: trackName,
+                    artistName: artistName,
+                  ).then((r) => sourceResults['netease'] = r)
+                   .catchError((_) => sourceResults['netease'] = <LyricsResult>[]),
+                );
+              case 'qqmusic':
+                searchFutures.add(
+                  _qqmusic.searchLyrics(
+                    query: query,
+                    trackName: trackName,
+                    artistName: artistName,
+                  ).then((r) => sourceResults['qqmusic'] = r)
+                   .catchError((_) => sourceResults['qqmusic'] = <LyricsResult>[]),
+                );
+              case 'lrclib':
+                searchFutures.add(
+                  _lrclib.search(
+                    q: query,
+                    trackName: trackName,
+                    artistName: artistName,
+                  ).then((r) => sourceResults['lrclib'] = r)
+                   .catchError((_) => sourceResults['lrclib'] = <LyricsResult>[]),
+                );
+            }
+          }
+
+          await Future.wait(searchFutures);
+
+          // 按用户优先级顺序拼接结果
+          results = [];
+          for (final source in enabledSources) {
+            results.addAll(sourceResults[source] ?? []);
+          }
       }
 
       // 检查是否被新的搜索取代
@@ -349,7 +386,16 @@ final lyricsSearchProvider =
   final qqmusic = ref.watch(qqmusicSourceProvider);
   final repo = ref.watch(lyricsRepositoryProvider);
   final cache = ref.watch(lyricsCacheServiceProvider);
-  return LyricsSearchNotifier(lrclib, netease, qqmusic, repo, cache);
+  final audioSettings = ref.watch(audioSettingsProvider);
+  return LyricsSearchNotifier(
+    lrclib,
+    netease,
+    qqmusic,
+    repo,
+    cache,
+    sourceOrder: audioSettings.lyricsSourceOrder,
+    disabledSources: audioSettings.disabledLyricsSources,
+  );
 });
 
 /// 查询指定 track 的歌词匹配（用于菜单显示"已匹配"状态）
