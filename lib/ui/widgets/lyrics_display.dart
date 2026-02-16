@@ -53,7 +53,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
 
   /// 字号范围
   static const double _minFontSize = 14.0;
-  static const double _maxFontSize = 36.0;
+  static const double _maxFontSize = 30.0;
   static const double _subFontRatio = 0.65;
   static const double _refFontSize = 20.0;
 
