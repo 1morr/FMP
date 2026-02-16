@@ -214,6 +214,7 @@ class DownloadScanner {
         ..thumbnailUrl = json['thumbnailUrl'] as String?
         ..cid = json['cid'] as int?
         ..pageNum = json['pageNum'] as int?
+        ..pageCount = json['pageCount'] as int?
         ..parentTitle = json['parentTitle'] as String?
         ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = audioPath]
         ..createdAt = DateTime.tryParse(json['downloadedAt'] as String? ?? '') ?? DateTime.now();

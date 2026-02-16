@@ -805,6 +805,7 @@ class DownloadService with Logging {
       'durationMs': track.durationMs,
       'cid': track.cid,
       'pageNum': track.pageNum,
+      'pageCount': track.pageCount,
       'parentTitle': track.parentTitle,
       'thumbnailUrl': track.thumbnailUrl,
       'downloadedAt': DateTime.now().toIso8601String(),

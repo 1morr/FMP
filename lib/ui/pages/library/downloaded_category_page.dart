@@ -930,21 +930,62 @@ class _DownloadedTrackTile extends ConsumerWidget {
   Future<void> _deleteDownload(WidgetRef ref) async {
     final trackRepo = ref.read(trackRepositoryProvider);
 
-    // 删除所有下载路径对应的文件及其所在文件夹
+    // 删除所有下载路径对应的文件
     for (final path in track.allDownloadPaths) {
       final file = File(path);
       if (await file.exists()) {
+        final parentDir = file.parent;
+        
         // 删除音频文件
         await file.delete();
         
-        // 删除整个文件夹（包括 metadata.json, cover.jpg, avatar 等）
-        final parentDir = file.parent;
+        // 删除对应的 metadata 文件
+        // 根据音频文件名判断是否是多P视频
+        final audioFileName = file.path.split('/').last.split('\\').last;
+        debugPrint('Audio file: $audioFileName, pageNum=${track.pageNum}');
+        
+        // 如果音频文件名是 P{NN}.m4a 格式，说明是多P视频
+        if (audioFileName.startsWith('P') && audioFileName.contains('.')) {
+          // 多P视频：删除 metadata_P{NN}.json
+          final pageNumStr = audioFileName.substring(1, audioFileName.indexOf('.'));
+          final metadataFileName = 'metadata_P$pageNumStr.json';
+          final metadataFile = File('${parentDir.path}/$metadataFileName');
+          debugPrint('Trying to delete metadata file: ${metadataFile.path}');
+          if (await metadataFile.exists()) {
+            await metadataFile.delete();
+            debugPrint('Deleted metadata file: $metadataFileName');
+          } else {
+            debugPrint('Metadata file not found: ${metadataFile.path}');
+          }
+        } else {
+          // 单P视频：删除 metadata.json
+          final metadataFile = File('${parentDir.path}/metadata.json');
+          debugPrint('Trying to delete metadata file: ${metadataFile.path}');
+          if (await metadataFile.exists()) {
+            await metadataFile.delete();
+            debugPrint('Deleted metadata.json');
+          } else {
+            debugPrint('Metadata file not found: ${metadataFile.path}');
+          }
+        }
+        
+        // 检查文件夹是否还有其他音频文件（其他分P）
         if (await parentDir.exists()) {
-          try {
-            await parentDir.delete(recursive: true);
-          } catch (e) {
-            // 如果文件夹删除失败（可能有其他分P文件），只删除音频文件
-            debugPrint('Failed to delete folder ${parentDir.path}: $e');
+          final remainingFiles = await parentDir.list().where((entity) {
+            if (entity is! File) return false;
+            final name = entity.path.split('/').last.split('\\').last;
+            // 检查是否是音频文件（.m4a, .mp3, .aac 等）
+            return name.endsWith('.m4a') || name.endsWith('.mp3') || 
+                   name.endsWith('.aac') || name.endsWith('.opus');
+          }).toList();
+          
+          // 如果没有其他音频文件了，删除整个文件夹
+          if (remainingFiles.isEmpty) {
+            try {
+              await parentDir.delete(recursive: true);
+            } catch (e) {
+              debugPrint('Failed to delete folder ${parentDir.path}: $e');
+            }
           }
         }
       }

@@ -17,9 +17,16 @@
 ### 3. 删除功能完善
 **单个 Track 删除** (`_DownloadedTrackTile._deleteDownload()`):
 - 删除音频文件
-- 尝试删除整个父文件夹（包括 metadata、cover、avatar）
-- 如果文件夹删除失败（可能有其他分P文件），只删除音频文件
+- 删除对应的 metadata 文件：
+  - 多P视频：删除 `metadata_P{NN}.json`
+  - 单P视频：删除 `metadata.json`
+- 检查文件夹是否还有其他音频文件（其他分P）
+- 只有当没有其他音频文件时，才删除整个文件夹（包括 cover、avatar 等）
 - 添加错误处理和 debug 日志
+
+**正确处理多P视频场景**：
+- 删除单个分P：只删除该分P的音频和 metadata，保留文件夹和其他分P
+- 删除最后一个分P：删除整个文件夹
 
 **批量删除** (`_GroupHeader._deleteAllDownloads()`):
 - 收集所有需要删除的文件夹路径（去重）
