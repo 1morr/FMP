@@ -1949,6 +1949,7 @@ class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
   bool _importPlayHistory = true;
   bool _importSearchHistory = true;
   bool _importRadioStations = true;
+  bool _importLyricsMatches = true;
   bool _importSettings = true;
   bool _isImporting = false;
 
@@ -2027,6 +2028,14 @@ class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
                   data.radioStations.length,
                   _importRadioStations,
                   (value) => setState(() => _importRadioStations = value ?? true),
+                ),
+              if (data.lyricsMatches.isNotEmpty)
+                _buildCheckableRow(
+                  Icons.lyrics,
+                  t.settings.backup.import.lyricsMatches,
+                  data.lyricsMatches.length,
+                  _importLyricsMatches,
+                  (value) => setState(() => _importLyricsMatches = value ?? true),
                 ),
               if (data.settings != null)
                 _buildCheckableRow(
@@ -2113,6 +2122,7 @@ class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
         importPlayHistory: _importPlayHistory,
         importSearchHistory: _importSearchHistory,
         importRadioStations: _importRadioStations,
+        importLyricsMatches: _importLyricsMatches,
         importSettings: _importSettings,
       );
 
@@ -2127,7 +2137,14 @@ class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
         ref.invalidate(playbackSettingsProvider);
         ref.invalidate(downloadSettingsProvider);
         ref.invalidate(downloadPathProvider);
-        ref.invalidate(hotkeyConfigProvider);
+        ref.invalidate(audioSettingsProvider);
+        ref.invalidate(lyricsDisplayModeProvider);
+        if (Platform.isWindows) {
+          ref.invalidate(hotkeyConfigProvider);
+          ref.invalidate(minimizeToTrayProvider);
+          ref.invalidate(globalHotkeysEnabledProvider);
+          ref.invalidate(launchAtStartupProvider);
+        }
       }
 
       if (mounted) {
@@ -2203,6 +2220,12 @@ class _ImportResultDialog extends StatelessWidget {
                 t.settings.backup.import.result.radioStationsImported(
                   imported: result.radioStationsImported,
                   skipped: result.radioStationsSkipped,
+                ),
+              ),
+              _buildResultRow(
+                t.settings.backup.import.result.lyricsMatchesImported(
+                  imported: result.lyricsMatchesImported,
+                  skipped: result.lyricsMatchesSkipped,
                 ),
               ),
               _buildResultRow(
