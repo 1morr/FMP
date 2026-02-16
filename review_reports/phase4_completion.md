@@ -91,11 +91,45 @@ flutter analyze lib/ui/pages/search/search_page.dart lib/ui/pages/library/downlo
 2. 添加所有分P到队列 (add_all_to_queue)
 3. 删除所有下载 (delete_all)
 
+## 额外修复：删除功能完善
+
+### 问题
+用户发现 DownloadedCategoryPage 的删除功能只删除了音频文件，没有删除整个文件夹（包括 `metadata.json`、`cover.jpg`、avatar 图片等）。
+
+### 修复内容
+
+**`_DownloadedTrackTile._deleteDownload()`**:
+- 删除音频文件后，尝试删除整个父文件夹（`recursive: true`）
+- 如果文件夹删除失败（可能有其他分P文件），只删除音频文件
+- 添加了 try-catch 和 debug 日志
+
+**`_GroupHeader._deleteAllDownloads()`**:
+- 收集所有需要删除的文件夹路径（去重）
+- 删除所有音频文件后，批量删除文件夹
+- 避免重复删除同一个文件夹（多P视频共享文件夹）
+
+### 文件结构清理
+删除后会清理：
+```
+{sourceId}_{视频标题}/
+├── metadata.json / metadata_P{NN}.json  ← 删除
+├── cover.jpg                            ← 删除
+└── audio.m4a / P{NN}.m4a                ← 删除
+```
+
+**注意：头像不会被删除**
+- 头像存储在 `{baseDir}/avatars/{platform}/{creatorId}.jpg`
+- 多个视频可能共享同一个创作者的头像
+- Track 模型中没有存储 `creatorId`，无法判断是否还有其他视频使用该头像
+- 头像文件很小（通常几十 KB），保留不会占用太多空间
+- 如需清理，用户可以手动删除 `avatars` 文件夹
+
 ## 总结
 
 Phase 4 的修复工作已经完成，经过合理性评估后：
 - ✅ 完成了 2 个必要的修复（搜索页 + DownloadedCategoryPage）
 - ✅ DownloadedCategoryPage 额外添加了右键菜单支持（与其他页面保持一致）
+- ✅ 修复了删除功能，现在会删除整个文件夹而不仅仅是音频文件
 - ❌ 跳过了 3 个不合理或不必要的修复
 
 所有修改都通过了静态分析检查，代码质量良好。
