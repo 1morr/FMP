@@ -260,6 +260,7 @@
       "playHistory": "播放历史",
       "searchHistory": "搜索历史",
       "radioStations": "电台收藏",
+      "lyricsMatches": "歌词匹配",
       "settings": "设置",
       "importSettings": "导入设置",
       "importSettingsSubtitle": "覆盖当前设置",
@@ -275,6 +276,7 @@
         "playHistoryImported": "播放历史: 导入 $imported 条，跳过 $skipped 条",
         "searchHistoryImported": "搜索历史: 导入 $imported 条，跳过 $skipped 条",
         "radioStationsImported": "电台: 导入 $imported 个，跳过 $skipped 个",
+        "lyricsMatchesImported": "歌词匹配: 导入 $imported 条，跳过 $skipped 条",
         "settingsImported": "设置: 已导入",
         "settingsSkipped": "设置: 已跳过",
         "errors": "错误"

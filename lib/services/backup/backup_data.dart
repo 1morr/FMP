@@ -30,6 +30,9 @@ class BackupData {
   /// 应用设置
   final SettingsBackup? settings;
 
+  /// 歌词匹配记录
+  final List<LyricsMatchBackup> lyricsMatches;
+
   BackupData({
     required this.version,
     required this.exportedAt,
@@ -40,6 +43,7 @@ class BackupData {
     required this.searchHistory,
     required this.radioStations,
     this.settings,
+    this.lyricsMatches = const [],
   });
 
   factory BackupData.fromJson(Map<String, dynamic> json) {
@@ -72,6 +76,11 @@ class BackupData {
       settings: json['settings'] != null
           ? SettingsBackup.fromJson(json['settings'] as Map<String, dynamic>)
           : null,
+      lyricsMatches: (json['lyricsMatches'] as List<dynamic>?)
+              ?.map((e) =>
+                  LyricsMatchBackup.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 
@@ -86,6 +95,8 @@ class BackupData {
       'searchHistory': searchHistory.map((e) => e.toJson()).toList(),
       'radioStations': radioStations.map((e) => e.toJson()).toList(),
       if (settings != null) 'settings': settings!.toJson(),
+      if (lyricsMatches.isNotEmpty)
+        'lyricsMatches': lyricsMatches.map((e) => e.toJson()).toList(),
     };
   }
 }
@@ -182,6 +193,8 @@ class TrackBackup {
   final int? cid;
   final int? pageNum;
   final String? parentTitle;
+  final String? originalSongId;
+  final String? originalSource;
   final DateTime createdAt;
 
   TrackBackup({
@@ -198,6 +211,8 @@ class TrackBackup {
     this.cid,
     this.pageNum,
     this.parentTitle,
+    this.originalSongId,
+    this.originalSource,
     required this.createdAt,
   });
 
@@ -221,6 +236,8 @@ class TrackBackup {
       cid: json['cid'] as int?,
       pageNum: json['pageNum'] as int?,
       parentTitle: json['parentTitle'] as String?,
+      originalSongId: json['originalSongId'] as String?,
+      originalSource: json['originalSource'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }
@@ -240,6 +257,8 @@ class TrackBackup {
       if (cid != null) 'cid': cid,
       if (pageNum != null) 'pageNum': pageNum,
       if (parentTitle != null) 'parentTitle': parentTitle,
+      if (originalSongId != null) 'originalSongId': originalSongId,
+      if (originalSource != null) 'originalSource': originalSource,
       'createdAt': createdAt.toIso8601String(),
     };
   }
@@ -419,6 +438,11 @@ class SettingsBackup {
   final String youtubeStreamPriority;
   final String bilibiliStreamPriority;
   final String? hotkeyConfig;
+  final bool autoMatchLyrics;
+  final int maxLyricsCacheFiles;
+  final int lyricsDisplayModeIndex;
+  final String lyricsSourcePriority;
+  final String disabledLyricsSources;
 
   SettingsBackup({
     this.themeModeIndex = 0,
@@ -449,6 +473,11 @@ class SettingsBackup {
     this.youtubeStreamPriority = 'audioOnly,muxed,hls',
     this.bilibiliStreamPriority = 'audioOnly,muxed',
     this.hotkeyConfig,
+    this.autoMatchLyrics = true,
+    this.maxLyricsCacheFiles = 50,
+    this.lyricsDisplayModeIndex = 0,
+    this.lyricsSourcePriority = 'netease,qqmusic,lrclib',
+    this.disabledLyricsSources = '',
   });
 
   factory SettingsBackup.fromJson(Map<String, dynamic> json) {
@@ -490,6 +519,13 @@ class SettingsBackup {
       bilibiliStreamPriority:
           json['bilibiliStreamPriority'] as String? ?? 'audioOnly,muxed',
       hotkeyConfig: json['hotkeyConfig'] as String?,
+      autoMatchLyrics: json['autoMatchLyrics'] as bool? ?? true,
+      maxLyricsCacheFiles: json['maxLyricsCacheFiles'] as int? ?? 50,
+      lyricsDisplayModeIndex: json['lyricsDisplayModeIndex'] as int? ?? 0,
+      lyricsSourcePriority:
+          json['lyricsSourcePriority'] as String? ?? 'netease,qqmusic,lrclib',
+      disabledLyricsSources:
+          json['disabledLyricsSources'] as String? ?? '',
     );
   }
 
@@ -523,6 +559,48 @@ class SettingsBackup {
       'youtubeStreamPriority': youtubeStreamPriority,
       'bilibiliStreamPriority': bilibiliStreamPriority,
       if (hotkeyConfig != null) 'hotkeyConfig': hotkeyConfig,
+      'autoMatchLyrics': autoMatchLyrics,
+      'maxLyricsCacheFiles': maxLyricsCacheFiles,
+      'lyricsDisplayModeIndex': lyricsDisplayModeIndex,
+      'lyricsSourcePriority': lyricsSourcePriority,
+      'disabledLyricsSources': disabledLyricsSources,
+    };
+  }
+}
+
+/// 歌词匹配备份数据
+class LyricsMatchBackup {
+  final String trackUniqueKey;
+  final String lyricsSource;
+  final String externalId;
+  final int offsetMs;
+  final DateTime matchedAt;
+
+  LyricsMatchBackup({
+    required this.trackUniqueKey,
+    required this.lyricsSource,
+    required this.externalId,
+    this.offsetMs = 0,
+    required this.matchedAt,
+  });
+
+  factory LyricsMatchBackup.fromJson(Map<String, dynamic> json) {
+    return LyricsMatchBackup(
+      trackUniqueKey: json['trackUniqueKey'] as String,
+      lyricsSource: json['lyricsSource'] as String,
+      externalId: json['externalId'] as String,
+      offsetMs: json['offsetMs'] as int? ?? 0,
+      matchedAt: DateTime.parse(json['matchedAt'] as String),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'trackUniqueKey': trackUniqueKey,
+      'lyricsSource': lyricsSource,
+      'externalId': externalId,
+      if (offsetMs != 0) 'offsetMs': offsetMs,
+      'matchedAt': matchedAt.toIso8601String(),
     };
   }
 }
@@ -539,6 +617,8 @@ class ImportResult {
   final int searchHistorySkipped;
   final int radioStationsImported;
   final int radioStationsSkipped;
+  final int lyricsMatchesImported;
+  final int lyricsMatchesSkipped;
   final bool settingsImported;
   final List<String> errors;
 
@@ -553,6 +633,8 @@ class ImportResult {
     this.searchHistorySkipped = 0,
     this.radioStationsImported = 0,
     this.radioStationsSkipped = 0,
+    this.lyricsMatchesImported = 0,
+    this.lyricsMatchesSkipped = 0,
     this.settingsImported = false,
     this.errors = const [],
   });
@@ -564,12 +646,14 @@ class ImportResult {
       tracksImported +
       playHistoryImported +
       searchHistoryImported +
-      radioStationsImported;
+      radioStationsImported +
+      lyricsMatchesImported;
 
   int get totalSkipped =>
       playlistsSkipped +
       tracksSkipped +
       playHistorySkipped +
       searchHistorySkipped +
-      radioStationsSkipped;
+      radioStationsSkipped +
+      lyricsMatchesSkipped;
 }

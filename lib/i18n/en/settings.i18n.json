@@ -260,6 +260,7 @@
       "playHistory": "Play History",
       "searchHistory": "Search History",
       "radioStations": "Radio Stations",
+      "lyricsMatches": "Lyrics Matches",
       "settings": "Settings",
       "importSettings": "Import Settings",
       "importSettingsSubtitle": "Overwrite current settings",
@@ -275,6 +276,7 @@
         "playHistoryImported": "Play History: imported $imported, skipped $skipped",
         "searchHistoryImported": "Search History: imported $imported, skipped $skipped",
         "radioStationsImported": "Radio Stations: imported $imported, skipped $skipped",
+        "lyricsMatchesImported": "Lyrics Matches: imported $imported, skipped $skipped",
         "settingsImported": "Settings: imported",
         "settingsSkipped": "Settings: skipped",
         "errors": "Errors"

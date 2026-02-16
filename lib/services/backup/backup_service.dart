@@ -7,6 +7,7 @@ import 'package:isar/isar.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
 
+import '../../data/models/lyrics_match.dart';
 import '../../data/models/play_history.dart';
 import '../../data/models/playlist.dart';
 import '../../data/models/radio_station.dart';
@@ -129,6 +130,8 @@ class BackupService {
           cid: t.cid,
           pageNum: t.pageNum,
           parentTitle: t.parentTitle,
+          originalSongId: t.originalSongId,
+          originalSource: t.originalSource,
           createdAt: t.createdAt,
         )).toList();
 
@@ -202,8 +205,23 @@ class BackupService {
         youtubeStreamPriority: settings.youtubeStreamPriority,
         bilibiliStreamPriority: settings.bilibiliStreamPriority,
         hotkeyConfig: settings.hotkeyConfig,
+        autoMatchLyrics: settings.autoMatchLyrics,
+        maxLyricsCacheFiles: settings.maxLyricsCacheFiles,
+        lyricsDisplayModeIndex: settings.lyricsDisplayModeIndex,
+        lyricsSourcePriority: settings.lyricsSourcePriority,
+        disabledLyricsSources: settings.disabledLyricsSources,
       );
     }
+
+    // 获取歌词匹配记录
+    final lyricsMatches = await _isar.lyricsMatchs.where().findAll();
+    final lyricsMatchBackups = lyricsMatches.map((m) => LyricsMatchBackup(
+          trackUniqueKey: m.trackUniqueKey,
+          lyricsSource: m.lyricsSource,
+          externalId: m.externalId,
+          offsetMs: m.offsetMs,
+          matchedAt: m.matchedAt,
+        )).toList();
 
     return BackupData(
       version: kBackupVersion,
@@ -215,6 +233,7 @@ class BackupService {
       searchHistory: searchHistoryBackups,
       radioStations: radioStationBackups,
       settings: settingsBackup,
+      lyricsMatches: lyricsMatchBackups,
     );
   }
 
@@ -261,6 +280,7 @@ class BackupService {
     bool importPlayHistory = true,
     bool importSearchHistory = true,
     bool importRadioStations = true,
+    bool importLyricsMatches = true,
     bool importSettings = true,
   }) async {
     int playlistsImported = 0;
@@ -273,6 +293,8 @@ class BackupService {
     int searchHistorySkipped = 0;
     int radioStationsImported = 0;
     int radioStationsSkipped = 0;
+    int lyricsMatchesImported = 0;
+    int lyricsMatchesSkipped = 0;
     bool settingsImportedFlag = false;
     final errors = <String>[];
 
@@ -303,10 +325,13 @@ class BackupService {
           ..channelId = trackBackup.channelId
           ..durationMs = trackBackup.durationMs
           ..thumbnailUrl = trackBackup.thumbnailUrl
+          ..viewCount = trackBackup.viewCount
           ..pageCount = trackBackup.pageCount
           ..cid = trackBackup.cid
           ..pageNum = trackBackup.pageNum
           ..parentTitle = trackBackup.parentTitle
+          ..originalSongId = trackBackup.originalSongId
+          ..originalSource = trackBackup.originalSource
           ..createdAt = trackBackup.createdAt;
 
         await _isar.writeTxn(() async {
@@ -488,7 +513,40 @@ class BackupService {
     }
     } // end importRadioStations
 
-    // 6. 导入设置（覆盖）
+    // 6. 导入歌词匹配记录
+    if (importLyricsMatches) {
+    final existingMatchKeys = <String>{};
+    final existingMatches = await _isar.lyricsMatchs.where().findAll();
+    for (final match in existingMatches) {
+      existingMatchKeys.add(match.trackUniqueKey);
+    }
+
+    for (final matchBackup in backupData.lyricsMatches) {
+      if (existingMatchKeys.contains(matchBackup.trackUniqueKey)) {
+        lyricsMatchesSkipped++;
+        continue;
+      }
+
+      try {
+        final match = LyricsMatch()
+          ..trackUniqueKey = matchBackup.trackUniqueKey
+          ..lyricsSource = matchBackup.lyricsSource
+          ..externalId = matchBackup.externalId
+          ..offsetMs = matchBackup.offsetMs
+          ..matchedAt = matchBackup.matchedAt;
+
+        await _isar.writeTxn(() async {
+          await _isar.lyricsMatchs.put(match);
+        });
+        lyricsMatchesImported++;
+        existingMatchKeys.add(matchBackup.trackUniqueKey);
+      } catch (e) {
+        errors.add('导入歌词匹配失败: ${matchBackup.trackUniqueKey} - $e');
+      }
+    }
+    } // end importLyricsMatches
+
+    // 7. 导入设置（覆盖）
     if (importSettings && backupData.settings != null) {
       try {
         final settingsBackup = backupData.settings!;
@@ -538,6 +596,12 @@ class BackupService {
           ..hotkeyConfig = Platform.isWindows 
               ? settingsBackup.hotkeyConfig 
               : currentSettings?.hotkeyConfig
+          // 歌词设置 - 从备份导入
+          ..autoMatchLyrics = settingsBackup.autoMatchLyrics
+          ..maxLyricsCacheFiles = settingsBackup.maxLyricsCacheFiles
+          ..lyricsDisplayModeIndex = settingsBackup.lyricsDisplayModeIndex
+          ..lyricsSourcePriority = settingsBackup.lyricsSourcePriority
+          ..disabledLyricsSources = settingsBackup.disabledLyricsSources
           // 设备相关设置 - 保留当前值
           ..customDownloadDir = currentSettings?.customDownloadDir
           ..preferredAudioDeviceId = currentSettings?.preferredAudioDeviceId
@@ -563,6 +627,8 @@ class BackupService {
       searchHistorySkipped: searchHistorySkipped,
       radioStationsImported: radioStationsImported,
       radioStationsSkipped: radioStationsSkipped,
+      lyricsMatchesImported: lyricsMatchesImported,
+      lyricsMatchesSkipped: lyricsMatchesSkipped,
       settingsImported: settingsImportedFlag,
       errors: errors,
     );
