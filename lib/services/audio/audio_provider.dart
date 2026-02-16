@@ -9,7 +9,7 @@ import '../../data/models/settings.dart';
 import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
 import '../../data/sources/base_source.dart';
-import '../../data/sources/bilibili_source.dart';
+import '../../data/sources/source_exception.dart';
 import '../../data/sources/youtube_source.dart';
 import '../../data/repositories/queue_repository.dart';
 import '../../data/repositories/settings_repository.dart';
@@ -747,9 +747,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         recordHistory: true,
         prefetchNext: false,
       );
-    } on BilibiliApiException catch (e) {
-      // Bilibili API 错误：尝试恢复原队列
-      logWarning('Bilibili API error for temporary track ${track.title}: ${e.message}');
+    } on SourceApiException catch (e) {
+      // 音源 API 错误：尝试恢复原队列
+      logWarning('${e.sourceType.name} API error for temporary track ${track.title}: ${e.message}');
       if (e.isUnavailable || e.isGeoRestricted) {
         _toastService.showWarning(t.audio.cannotPlay(title: track.title));
       } else {
@@ -1779,9 +1779,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       }
       
       logDebug('_executePlayRequest completed successfully for: ${track.title}');
-    } on BilibiliApiException catch (e) {
-      logWarning('Bilibili API error for ${track.title}: ${e.message}');
-      _handleBilibiliError(track, e, mode);
+    } on SourceApiException catch (e) {
+      logWarning('${e.sourceType.name} API error for ${track.title}: ${e.message}');
+      _handleSourceError(track, e, mode);
     } catch (e, stack) {
       logError('Failed to play track: ${track.title}', e, stack);
 
@@ -1845,10 +1845,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     }
   }
 
-  /// 處理 Bilibili API 錯誤的統一邏輯
-  void _handleBilibiliError(Track track, BilibiliApiException e, PlayMode mode) {
+  /// 處理音源 API 錯誤的統一邏輯
+  void _handleSourceError(Track track, SourceApiException e, PlayMode mode) {
     if (e.isUnavailable || e.isGeoRestricted) {
-      logInfo('Track unavailable: ${track.title}');
+      logInfo('Track unavailable (${e.sourceType.name}): ${track.title}');
       final nextIdx = _queueManager.getNextIndex();
       if (nextIdx != null && mode == PlayMode.queue) {
         _resetLoadingState();
@@ -1865,6 +1865,14 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         _resetLoadingState();
         _toastService.showError(t.audio.cannotPlay(title: track.title));
       }
+    } else if (e.isRateLimited) {
+      logWarning('Rate limited (${e.sourceType.name}): ${track.title}');
+      state = state.copyWith(
+        error: e.message,
+        isLoading: false,
+      );
+      _resetLoadingState();
+      _toastService.showWarning(e.message);
     } else {
       state = state.copyWith(
         error: t.audio.playbackFailed(message: e.message),

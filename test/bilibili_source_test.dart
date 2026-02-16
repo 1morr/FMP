@@ -28,8 +28,8 @@ void main() {
           debugPrint('Successfully fetched audio URL: ${audioUrl.substring(0, 80)}...');
         } on BilibiliApiException catch (e) {
           // 如果视频不可用，跳过测试（可能是地区限制或API限制）
-          if (e.isUnavailable || e.code == -404) {
-            debugPrint('Video unavailable (code: ${e.code}), skipping test: ${e.message}');
+          if (e.isUnavailable || e.numericCode == -404) {
+            debugPrint('Video unavailable (code: ${e.numericCode}), skipping test: ${e.message}');
             return;
           }
           rethrow;
@@ -80,8 +80,8 @@ void main() {
           );
           debugPrint('Successfully refreshed audio URL');
         } on BilibiliApiException catch (e) {
-          if (e.isUnavailable || e.code == -404) {
-            debugPrint('Video unavailable (code: ${e.code}), skipping test: ${e.message}');
+          if (e.isUnavailable || e.numericCode == -404) {
+            debugPrint('Video unavailable (code: ${e.numericCode}), skipping test: ${e.message}');
             return;
           }
           rethrow;

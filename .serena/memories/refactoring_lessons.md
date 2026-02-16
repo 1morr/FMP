@@ -843,6 +843,40 @@ ImageLoadingService.loadImage(
 
 ---
 
+### 24. 统一 Source 异常基类避免 catch 遗漏 (2026-02)
+
+**问题**：`AudioController._executePlayRequest()` 只 catch `BilibiliApiException`，`YouTubeApiException` 落入通用 `catch(e)` 被当作未知错误处理。YouTube 限流没有专门的 toast 提示，YouTube 不可用的视频不会自动跳到下一首。
+
+**解决方案**：引入 `SourceApiException` 抽象基类（`lib/data/sources/source_exception.dart`）：
+
+```dart
+abstract class SourceApiException implements Exception {
+  const SourceApiException();
+  String get code;
+  String get message;
+  SourceType get sourceType;
+  bool get isUnavailable;
+  bool get isRateLimited;
+  bool get isGeoRestricted;
+  bool get requiresLogin;
+  bool get isNetworkError;
+  bool get isTimeout;
+
+  static ({String code, String message}) classifyDioError(DioException e) { ... }
+}
+```
+
+**关键变更**：
+- `BilibiliApiException` 字段 `code` → `numericCode`（int），`code` 变为 getter 返回语义化字符串
+- `YouTubeApiException` 新增 `isNetworkError`/`isTimeout` getter
+- `AudioController` 用 `on SourceApiException catch` 统一处理两种来源
+- `_handleBilibiliError` → `_handleSourceError`，新增 `isRateLimited` 分支
+- 各 Source 的 `_handleDioError` 调用 `SourceApiException.classifyDioError()` 减少重复
+
+**经验**：当多个 Source 有相同的异常语义（不可用、限流、地区限制等），应该用基类统一 catch，而不是为每个 Source 写单独的 catch 块。否则新增 Source 时容易遗漏。
+
+---
+
 ## 常用工具组件
 
 | 组件 | 位置 | 用途 |

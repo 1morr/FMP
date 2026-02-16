@@ -87,8 +87,9 @@
 | 音源 | 文件 | 状态 |
 |------|------|------|
 | BaseSource | `data/sources/base_source.dart` | 抽象基类 |
-| BilibiliSource | `data/sources/bilibili_source.dart` | ✅ 已实现 |
-| YouTubeSource | `data/sources/youtube_source.dart` | ✅ 已实现 (youtube_explode_dart + InnerTube) |
+| SourceApiException | `data/sources/source_exception.dart` | 统一异常基类（classifyDioError + 语义 getter） |
+| BilibiliSource | `data/sources/bilibili_source.dart` | ✅ 已实现（BilibiliApiException extends SourceApiException） |
+| YouTubeSource | `data/sources/youtube_source.dart` | ✅ 已实现（YouTubeApiException extends SourceApiException） |
 
 > **YouTubeSource Mix 功能**：支持 YouTube Mix/Radio 播放列表（RD 開頭的 ID），使用 InnerTube `/next` API 動態獲取歌曲。詳見 `mix_playlist_design` 記憶。
 

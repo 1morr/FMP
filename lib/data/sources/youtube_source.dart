@@ -10,6 +10,7 @@ import '../models/settings.dart';
 import '../models/track.dart';
 import '../models/video_detail.dart';
 import 'base_source.dart';
+import 'source_exception.dart';
 
 /// YouTube 音源实现
 class YouTubeSource extends BaseSource with Logging {
@@ -1219,41 +1220,12 @@ class YouTubeSource extends BaseSource with Logging {
   }
 
   /// 处理 Dio 错误（用于 InnerTube API 调用）
-  Exception _handleDioError(DioException e) {
+    YouTubeApiException _handleDioError(DioException e) {
     final statusCode = e.response?.statusCode;
     logError('YouTube Dio error: type=${e.type}, statusCode=$statusCode');
 
-    switch (e.type) {
-      case DioExceptionType.connectionTimeout:
-      case DioExceptionType.sendTimeout:
-      case DioExceptionType.receiveTimeout:
-        return YouTubeApiException(
-          code: 'timeout',
-          message: t.error.connectionTimeout,
-        );
-      case DioExceptionType.connectionError:
-        return YouTubeApiException(
-          code: 'network_error',
-          message: t.error.networkError,
-        );
-      case DioExceptionType.badResponse:
-        if (statusCode == 429) {
-          logWarning('YouTube rate limited (HTTP $statusCode)');
-          return YouTubeApiException(
-            code: 'rate_limited',
-            message: t.error.rateLimited,
-          );
-        }
-        return YouTubeApiException(
-          code: 'api_error',
-          message: 'Server error: $statusCode',
-        );
-      default:
-        return YouTubeApiException(
-          code: 'network_error',
-          message: t.error.networkError,
-        );
-    }
+    final classified = SourceApiException.classifyDioError(e);
+    return YouTubeApiException(code: classified.code, message: classified.message);
   }
 
   /// 释放资源
@@ -1290,28 +1262,46 @@ class MixFetchResult {
 }
 
 /// YouTube API 错误
-class YouTubeApiException implements Exception {
+class YouTubeApiException extends SourceApiException {
+  @override
   final String code;
+  @override
   final String message;
 
   const YouTubeApiException({required this.code, required this.message});
 
   @override
+  SourceType get sourceType => SourceType.youtube;
+
+  @override
   String toString() => 'YouTubeApiException($code): $message';
 
   /// 是否是视频不可用
+  @override
   bool get isUnavailable =>
       code == 'unavailable' || code == 'not_found' || code == 'unplayable';
 
   /// 是否是限流
+  @override
   bool get isRateLimited => code == 'rate_limited';
 
   /// 是否需要登录（年龄限制等）
+  @override
   bool get requiresLogin => code == 'age_restricted' || code == 'login_required';
 
   /// 是否是地区限制
+  @override
   bool get isGeoRestricted => code == 'geo_restricted';
+
+  /// 网络连接错误
+  @override
+  bool get isNetworkError => code == 'network_error';
+
+  /// 超时
+  @override
+  bool get isTimeout => code == 'timeout';
 
   /// 是否是私人或無法訪問的播放列表
   bool get isPrivateOrInaccessible => code == 'private_or_inaccessible';
 }
+

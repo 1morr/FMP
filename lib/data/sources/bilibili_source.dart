@@ -10,6 +10,7 @@ import '../models/settings.dart';
 import '../models/track.dart';
 import '../models/video_detail.dart';
 import 'base_source.dart';
+import 'source_exception.dart';
 
 /// Bilibili API 参数常量
 class _BilibiliApiParams {
@@ -169,7 +170,7 @@ class BilibiliSource extends BaseSource with Logging {
     } catch (e) {
       if (e is BilibiliApiException) rethrow;
       logError('Unexpected error in getTrackInfo: $e');
-      throw BilibiliApiException(code: -999, message: e.toString());
+      throw BilibiliApiException(numericCode: -999, message: e.toString());
     }
   }
 
@@ -511,7 +512,7 @@ class BilibiliSource extends BaseSource with Logging {
     } catch (e) {
       if (e is BilibiliApiException) rethrow;
       logError('Unexpected error in parsePlaylist: $e');
-      throw BilibiliApiException(code: -999, message: e.toString());
+      throw BilibiliApiException(numericCode: -999, message: e.toString());
     }
   }
 
@@ -550,7 +551,7 @@ class BilibiliSource extends BaseSource with Logging {
     } catch (e) {
       if (e is BilibiliApiException) rethrow;
       logError('Unexpected error in getVideoPages: $e');
-      throw BilibiliApiException(code: -999, message: e.toString());
+      throw BilibiliApiException(numericCode: -999, message: e.toString());
     }
   }
 
@@ -632,7 +633,7 @@ class BilibiliSource extends BaseSource with Logging {
     } catch (e) {
       if (e is BilibiliApiException) rethrow;
       logError('Unexpected error in getVideoDetail: $e');
-      throw BilibiliApiException(code: -999, message: e.toString());
+      throw BilibiliApiException(numericCode: -999, message: e.toString());
     }
   }
 
@@ -724,7 +725,7 @@ class BilibiliSource extends BaseSource with Logging {
     } catch (e) {
       if (e is BilibiliApiException) rethrow;
       logError('Unexpected error in getRankingVideos: $e');
-      throw BilibiliApiException(code: -999, message: e.toString());
+      throw BilibiliApiException(numericCode: -999, message: e.toString());
     }
   }
 
@@ -738,39 +739,44 @@ class BilibiliSource extends BaseSource with Logging {
       // 记录API错误，特别关注限流相关错误
       if (code == -412 || code == -509 || code == -799) {
         logWarning('Bilibili rate limited: code=$code, message=$message');
-        throw BilibiliApiException(code: code, message: t.error.rateLimited);
+        throw BilibiliApiException(numericCode: code, message: t.error.rateLimited);
       } else {
         logWarning('Bilibili API error: code=$code, message=$message');
       }
-      throw BilibiliApiException(code: code, message: message);
+      throw BilibiliApiException(numericCode: code, message: message);
     }
   }
 
   /// 处理 Dio 错误
-  BilibiliApiException _handleDioError(DioException e) {
+    BilibiliApiException _handleDioError(DioException e) {
     final statusCode = e.response?.statusCode;
     final responseData = e.response?.data;
 
     // 记录详细错误信息
     logError('Bilibili Dio error: type=${e.type}, statusCode=$statusCode, response=$responseData');
 
-    switch (e.type) {
-      case DioExceptionType.connectionTimeout:
-      case DioExceptionType.sendTimeout:
-      case DioExceptionType.receiveTimeout:
-        return BilibiliApiException(code: -1, message: t.error.connectionTimeout);
-      case DioExceptionType.connectionError:
-        return BilibiliApiException(code: -2, message: t.error.networkError);
-      case DioExceptionType.badResponse:
-        // 检查是否是限流
-        if (statusCode == 412 || statusCode == 429) {
-          logWarning('Bilibili rate limited (HTTP $statusCode)');
-          return BilibiliApiException(code: -429, message: t.error.rateLimited);
-        }
-        return BilibiliApiException(code: -(statusCode ?? 500), message: t.error.serverError(code: statusCode ?? 500));
-      default:
-        return BilibiliApiException(code: -3, message: t.error.networkError);
+    // 使用基类的通用分类
+    final classified = SourceApiException.classifyDioError(e);
+
+    // Bilibili 特殊处理：badResponse 时保留原始 HTTP 状态码作为 numericCode
+    if (e.type == DioExceptionType.badResponse) {
+      if (statusCode == 412 || statusCode == 429) {
+        logWarning('Bilibili rate limited (HTTP $statusCode)');
+        return BilibiliApiException(numericCode: -429, message: classified.message);
+      }
+      return BilibiliApiException(
+        numericCode: -(statusCode ?? 500),
+        message: t.error.serverError(code: statusCode ?? 500),
+      );
     }
+
+    // 其他情况使用通用分类的 code 映射回 numericCode
+    final numericCode = switch (classified.code) {
+      'timeout' => -1,
+      'network_error' => -2,
+      _ => -3,
+    };
+    return BilibiliApiException(numericCode: numericCode, message: classified.message);
   }
 
   /// 解析收藏夹 ID
@@ -868,7 +874,7 @@ class BilibiliSource extends BaseSource with Logging {
     } catch (e) {
       if (e is BilibiliApiException) rethrow;
       logError('Unexpected error in searchLiveRooms: $e');
-      throw BilibiliApiException(code: -999, message: e.toString());
+      throw BilibiliApiException(numericCode: -999, message: e.toString());
     }
   }
 
@@ -1035,24 +1041,62 @@ class BilibiliSource extends BaseSource with Logging {
 }
 
 /// Bilibili API 错误
-class BilibiliApiException implements Exception {
-  final int code;
+class BilibiliApiException extends SourceApiException {
+  final int numericCode;
+  @override
   final String message;
 
-  const BilibiliApiException({required this.code, required this.message});
+  const BilibiliApiException({required this.numericCode, required this.message});
 
   @override
-  String toString() => 'BilibiliApiException($code): $message';
+  String get code => _mapCode(numericCode);
+
+  @override
+  SourceType get sourceType => SourceType.bilibili;
+
+  @override
+  String toString() => 'BilibiliApiException($numericCode): $message';
 
   /// 是否是视频不可用（已删除/下架）
-  bool get isUnavailable => code == -404 || code == 62002;
+  @override
+  bool get isUnavailable => numericCode == -404 || numericCode == 62002;
 
   /// 是否是限流
-  bool get isRateLimited => code == -412 || code == -509 || code == -799 || code == -429;
+  @override
+  bool get isRateLimited =>
+      numericCode == -412 ||
+      numericCode == -509 ||
+      numericCode == -799 ||
+      numericCode == -429;
 
   /// 是否需要登录
-  bool get requiresLogin => code == -101;
+  @override
+  bool get requiresLogin => numericCode == -101;
 
   /// 是否是地区限制
-  bool get isGeoRestricted => code == -10403;
+  @override
+  bool get isGeoRestricted => numericCode == -10403;
+
+  /// 网络连接错误
+  @override
+  bool get isNetworkError => numericCode == -2 || numericCode == -3;
+
+  /// 超时
+  @override
+  bool get isTimeout => numericCode == -1;
+
+  /// 将数字错误码映射为语义化字符串
+  static String _mapCode(int code) {
+    if (code == -404 || code == 62002) return 'unavailable';
+    if (code == -412 || code == -509 || code == -799 || code == -429) {
+      return 'rate_limited';
+    }
+    if (code == -10403) return 'geo_restricted';
+    if (code == -101) return 'login_required';
+    if (code == -1) return 'timeout';
+    if (code == -2 || code == -3) return 'network_error';
+    if (code == -999) return 'error';
+    return 'api_error';
+  }
 }
+
