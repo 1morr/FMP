@@ -87,9 +87,10 @@
   } catch (e) {
     if (e is BilibiliApiException) rethrow;
     logError('Unexpected error in methodName: $e');
-    throw BilibiliApiException(code: -999, message: e.toString());
+    throw BilibiliApiException(numericCode: -999, message: e.toString());
   }
   ```
+  > **注意**：BilibiliApiException 构造函数参数已从 `code` 改为 `numericCode`（2026-02 统一异常基类重构）
 - **验证**: 确认 `flutter analyze` 无新增 warning
 - **依赖**: 无
 

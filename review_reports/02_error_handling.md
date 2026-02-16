@@ -88,7 +88,7 @@ Future<void> pause() async {
 } catch (e) {
   if (e is BilibiliApiException) rethrow;
   logError('Unexpected error in getTrackInfo: $e');
-  throw BilibiliApiException(code: -999, message: e.toString());
+  throw BilibiliApiException(numericCode: -999, message: e.toString());
 }
 ```
 - **同样模式的方法**: `getVideoDetail()`（第 570 行）、`getRankingVideos()`（第 677 行）、`getVideoPages()`（第 524 行）、`parsePlaylist()`（第 416 行）、`searchLiveRooms()`（第 817 行）

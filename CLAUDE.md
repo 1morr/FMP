@@ -216,7 +216,7 @@ void main() async {
 
 - **Models:** Isar collections in `lib/data/models/` (Track, Playlist, PlayQueue, Settings)
 - **Repositories:** CRUD operations in `lib/data/repositories/`
-- **Sources:** Audio source parsers in `lib/data/sources/` (BilibiliSource, YouTubeSource implemented)
+- **Sources:** Audio source parsers in `lib/data/sources/` (BilibiliSource, YouTubeSource implemented, SourceApiException unified base class)
 
 #### Database Migration (Isar)
 
@@ -472,6 +472,19 @@ User-configurable audio quality settings for different sources.
 
 **数据流**：导入源提取 ID → `ImportedTrack.sourceId` → `selectedTracks` getter 复制到 `Track.originalSongId` → 保存到 Isar → 歌词自动匹配时使用
 
+### Unified Source Exception Handling (2026-02)
+`BilibiliApiException` and `YouTubeApiException` both extend `SourceApiException` (in `lib/data/sources/source_exception.dart`).
+
+**Key points:**
+- `AudioController` catches `on SourceApiException` instead of source-specific exceptions
+- `_handleSourceError()` uses base class getters (`isUnavailable`, `isRateLimited`, `isGeoRestricted`) for unified error handling
+- `BilibiliApiException` uses `numericCode` (int) field, with `code` getter mapping to semantic strings
+- `YouTubeApiException` uses `code` (String) field directly
+- `SourceApiException.classifyDioError()` provides shared Dio error classification
+- YouTube rate limiting now gets proper handling (previously fell into generic catch)
+
+**Constructor change:** `BilibiliApiException(code:` → `BilibiliApiException(numericCode:`
+
 ### AppBar Actions Trailing Spacing
 All page-level `AppBar` actions lists must end with `const SizedBox(width: 8)` to maintain consistent spacing between the last action button and the screen edge. This applies when the last action is an `IconButton`. Pages where the last action is a `PopupMenuButton` do not need the extra spacing since `PopupMenuButton` has built-in padding.
 
@@ -651,6 +664,7 @@ lib/
 │   ├── repositories/         # Data access layer
 │   │   └── lyrics_repository.dart     # 歌词匹配 CRUD
 │   └── sources/              # Audio source parsers
+│       ├── source_exception.dart       # 统一异常基类 SourceApiException + classifyDioError
 │       ├── bilibili_source.dart        # Bilibili 音源
 │       ├── youtube_source.dart         # YouTube 音源
 │       └── playlist_import/            # 外部歌單導入源
