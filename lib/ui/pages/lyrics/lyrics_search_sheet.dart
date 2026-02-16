@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:simple_icons/simple_icons.dart';
 
 import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/toast_service.dart';
@@ -78,6 +79,19 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
       'qqmusic': LyricsSourceFilter.qqmusic,
       'lrclib': LyricsSourceFilter.lrclib,
     };
+    IconData getIcon(String source) {
+      switch (source) {
+        case 'netease':
+          return SimpleIcons.neteasecloudmusic;
+        case 'qqmusic':
+          return SimpleIcons.qq;
+        case 'lrclib':
+          return Icons.library_music_outlined;
+        default:
+          return Icons.source_outlined;
+      }
+    }
+
     String getLabel(String source) {
       switch (source) {
         case 'netease':
@@ -117,12 +131,13 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
                 final filter = sourceFilterMap[source];
                 if (filter == null) return const SizedBox.shrink();
                 final isDisabled = disabledSources.contains(source);
-                final label = getLabel(source);
 
                 return Padding(
                   padding: const EdgeInsets.only(left: 8),
                   child: ChoiceChip(
-                    label: Text(label),
+                    showCheckmark: false,
+                    avatar: Icon(getIcon(source), size: 16),
+                    label: Text(getLabel(source)),
                     selected: _selectedFilter == filter,
                     onSelected: isDisabled
                         ? null
@@ -483,21 +498,24 @@ class _LyricsResultTile extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      subtitle: Text(
-        '${result.artistName}'
-        '${result.albumName.isNotEmpty ? ' · ${result.albumName}' : ''}',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(color: colorScheme.outline),
+      subtitle: Row(
+        children: [
+          Flexible(
+            child: Text(
+              '${result.artistName}'
+              '${result.albumName.isNotEmpty ? ' · ${result.albumName}' : ''}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: colorScheme.outline),
+            ),
+          ),
+          const SizedBox(width: 4),
+          _buildSourceIcon(),
+        ],
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 来源标签
-          _buildSourceChip(colorScheme),
-          const SizedBox(width: 4),
-          // 同步/纯文本标签
-          _buildTypeChip(context, colorScheme),
           // 翻译/罗马音标签
           if (result.hasTranslatedLyrics) ...[
             const SizedBox(width: 4),
@@ -526,40 +544,13 @@ class _LyricsResultTile extends StatelessWidget {
     );
   }
 
-  Widget _buildSourceChip(ColorScheme colorScheme) {
-    switch (result.source) {
-      case 'netease':
-        return _Chip(
-          label: t.lyrics.sourceNetease,
-          color: colorScheme.error,
-        );
-      case 'qqmusic':
-        return _Chip(
-          label: t.lyrics.sourceQQMusic,
-          color: colorScheme.tertiary,
-        );
-      default:
-        return _Chip(
-          label: t.lyrics.sourceLrclib,
-          color: colorScheme.outline,
-        );
-    }
-  }
-
-  Widget _buildTypeChip(BuildContext context, ColorScheme colorScheme) {
-    if (result.hasSyncedLyrics) {
-      return _Chip(
-        label: t.lyrics.synced,
-        color: colorScheme.primary,
-      );
-    }
-    if (result.hasPlainLyrics) {
-      return _Chip(
-        label: t.lyrics.plain,
-        color: colorScheme.outline,
-      );
-    }
-    return const SizedBox.shrink();
+  Widget _buildSourceIcon() {
+    final icon = switch (result.source) {
+      'netease' => SimpleIcons.neteasecloudmusic,
+      'qqmusic' => SimpleIcons.qq,
+      _ => Icons.library_music_outlined,
+    };
+    return Icon(icon, size: 14, color: Colors.grey);
   }
 
   /// 格式化秒数为 mm:ss 或 h:mm:ss
