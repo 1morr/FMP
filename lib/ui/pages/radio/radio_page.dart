@@ -11,6 +11,7 @@ import '../../../data/models/radio_station.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../widgets/context_menu_region.dart';
+import '../../widgets/error_display.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/radio/add_radio_dialog.dart';
 
@@ -102,38 +103,14 @@ class _RadioPageState extends ConsumerState<RadioPage> {
   }
 
   Widget _buildEmptyState(BuildContext context, ColorScheme colorScheme) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.radio,
-              size: 80,
-              color: colorScheme.outline,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              t.radio.emptyTitle,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              t.radio.emptySubtitle,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.outline,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            FilledButton.icon(
-              onPressed: () => AddRadioDialog.show(context),
-              icon: const Icon(Icons.add_link),
-              label: Text(t.radio.addStation),
-            ),
-          ],
-        ),
+    return ErrorDisplay.empty(
+      icon: Icons.radio,
+      title: t.radio.emptyTitle,
+      message: t.radio.emptySubtitle,
+      action: FilledButton.icon(
+        onPressed: () => AddRadioDialog.show(context),
+        icon: const Icon(Icons.add_link),
+        label: Text(t.radio.addStation),
       ),
     );
   }

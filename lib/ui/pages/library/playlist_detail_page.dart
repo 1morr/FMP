@@ -17,6 +17,7 @@ import '../../../providers/selection_provider.dart';
 import '../../widgets/download_path_setup_dialog.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
+import '../../widgets/error_display.dart';
 import '../lyrics/lyrics_search_sheet.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/selection_mode_app_bar.dart';
@@ -805,33 +806,10 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   }
 
   Widget _buildEmptyState(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.music_note,
-            size: 64,
-            color: colorScheme.outline,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            t.library.detail.noTracks,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: colorScheme.outline,
-                ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            t.library.detail.noTracksHint,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.outline,
-                ),
-          ),
-        ],
-      ),
+    return ErrorDisplay.empty(
+      icon: Icons.music_note,
+      title: t.library.detail.noTracks,
+      message: t.library.detail.noTracksHint,
     );
   }
 

@@ -6,6 +6,7 @@ import '../../../i18n/strings.g.dart';
 import '../../../providers/download_provider.dart';
 import '../../../providers/download_settings_provider.dart';
 import '../../../core/constants/ui_constants.dart';
+import '../../widgets/error_display.dart';
 
 /// 下载管理页面
 class DownloadManagerPage extends ConsumerWidget {
@@ -101,15 +102,10 @@ class DownloadManagerPage extends ConsumerWidget {
         error: (error, stack) => Center(child: Text(t.settings.downloadManager.loadFailed(error: '$error'))),
         data: (tasks) {
           if (tasks.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.download_done, size: 64, color: Colors.grey),
-                  const SizedBox(height: 16),
-                  Text(t.settings.downloadManager.noTasks, style: const TextStyle(color: Colors.grey)),
-                ],
-              ),
+            return ErrorDisplay.empty(
+              icon: Icons.download_done,
+              title: t.settings.downloadManager.noTasks,
+              message: '',
             );
           }
 

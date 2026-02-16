@@ -12,6 +12,7 @@ import '../../../services/audio/audio_provider.dart';
 import '../../../services/cache/ranking_cache_service.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/context_menu_region.dart';
+import '../../widgets/error_display.dart';
 import '../../widgets/selection_mode_app_bar.dart';
 import '../../widgets/track_tile.dart';
 import '../lyrics/lyrics_search_sheet.dart';
@@ -171,30 +172,15 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     required String? error,
     required Future<void> Function() onRefresh,
   }) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     if (isLoading && tracks.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
     if (error != null && tracks.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 48, color: colorScheme.error),
-            const SizedBox(height: 16),
-            Text(
-              t.general.loadFailed,
-              style: TextStyle(color: colorScheme.onSurfaceVariant),
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: onRefresh,
-              child: Text(t.error.retry),
-            ),
-          ],
-        ),
+      return ErrorDisplay(
+        type: ErrorType.general,
+        message: t.general.loadFailed,
+        onRetry: onRefresh,
       );
     }
 

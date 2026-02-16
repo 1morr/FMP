@@ -17,6 +17,7 @@ import '../../../providers/refresh_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
 import '../../widgets/context_menu_region.dart';
+import '../../widgets/error_display.dart';
 import '../../widgets/refresh_progress_indicator.dart';
 import 'widgets/create_playlist_dialog.dart';
 import 'widgets/import_playlist_dialog.dart';
@@ -125,52 +126,26 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
   }
 
   Widget _buildEmptyState(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.library_music,
-              size: 80,
-              color: colorScheme.outline,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              t.library.main.noPlaylists,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              t.library.main.noPlaylistsHint,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.outline,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 16,
-              runSpacing: 12,
-              children: [
-                FilledButton.icon(
-                  onPressed: () => _showCreateDialog(context, ref),
-                  icon: const Icon(Icons.add),
-                  label: Text(t.library.main.newPlaylist),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () => _showImportDialog(context, ref),
-                  icon: const Icon(Icons.link),
-                  label: Text(t.library.main.importPlaylist),
-                ),
-              ],
-            ),
-          ],
-        ),
+    return ErrorDisplay.empty(
+      icon: Icons.library_music,
+      title: t.library.main.noPlaylists,
+      message: t.library.main.noPlaylistsHint,
+      action: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: 16,
+        runSpacing: 12,
+        children: [
+          FilledButton.icon(
+            onPressed: () => _showCreateDialog(context, ref),
+            icon: const Icon(Icons.add),
+            label: Text(t.library.main.newPlaylist),
+          ),
+          OutlinedButton.icon(
+            onPressed: () => _showImportDialog(context, ref),
+            icon: const Icon(Icons.link),
+            label: Text(t.library.main.importPlaylist),
+          ),
+        ],
       ),
     );
   }
