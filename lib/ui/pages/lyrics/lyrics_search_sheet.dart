@@ -39,6 +39,7 @@ class LyricsSearchSheet extends ConsumerStatefulWidget {
 
 class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
   final _searchController = TextEditingController();
+  final _sheetController = DraggableScrollableController();
   bool _hasAutoSearched = false;
   LyricsSourceFilter _selectedFilter = LyricsSourceFilter.all;
 
@@ -52,6 +53,7 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
   @override
   void dispose() {
     _searchController.dispose();
+    _sheetController.dispose();
     super.dispose();
   }
 
@@ -190,7 +192,19 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
     final existingMatch =
         ref.watch(lyricsMatchForTrackProvider(widget.track.uniqueKey));
 
+    // 搜索结果返回后自动展开
+    ref.listen<LyricsSearchState>(lyricsSearchProvider, (prev, next) {
+      if (prev != null && prev.isLoading && !next.isLoading && next.results.isNotEmpty) {
+        _sheetController.animateTo(
+          0.95,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+
     return DraggableScrollableSheet(
+      controller: _sheetController,
       initialChildSize: 0.75,
       minChildSize: 0.0,
       maxChildSize: 0.95,
@@ -204,98 +218,99 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
             color: colorScheme.surfaceContainerLow,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
-          child: Column(
-            children: [
-              // 顶部固定区域（手柄 + 标题 + 搜索框 + 筛选）
-              Column(
-                children: [
-                  // 拖动手柄
-                  Container(
-                    margin: const EdgeInsets.only(top: 12),
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                      borderRadius: AppRadius.borderRadiusXs,
-                    ),
-                  ),
-                  // 标题栏
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 16, 8),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.lyrics_outlined,
-                          size: 20,
-                          color: colorScheme.primary,
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(
+              dragDevices: {
+                PointerDeviceKind.touch,
+                PointerDeviceKind.mouse,
+                PointerDeviceKind.trackpad,
+              },
+            ),
+            child: CustomScrollView(
+              controller: scrollController,
+              slivers: [
+                // 顶部固定区域（手柄 + 标题 + 搜索框 + 筛选）
+                SliverToBoxAdapter(
+                  child: Column(
+                    children: [
+                      // 拖动手柄
+                      Container(
+                        margin: const EdgeInsets.only(top: 12),
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                          borderRadius: AppRadius.borderRadiusXs,
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          t.lyrics.searchLyrics,
-                          style: textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () => Navigator.of(context).pop(),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1),
-
-                  // Track 信息
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                    child: _buildTrackInfo(
-                      colorScheme,
-                      hasMatch: existingMatch.valueOrNull != null,
-                    ),
-                  ),
-
-                  // 搜索框
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: t.lyrics.searchHint,
-                        prefixIcon: const Icon(Icons.search),
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.send),
-                          onPressed: _doSearch,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: AppRadius.borderRadiusXl,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                       ),
-                      textInputAction: TextInputAction.search,
-                      onSubmitted: (_) => _doSearch(),
-                    ),
-                  ),
+                      // 标题栏
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 16, 8),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.lyrics_outlined,
+                              size: 20,
+                              color: colorScheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              t.lyrics.searchLyrics,
+                              style: textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () => Navigator.of(context).pop(),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1),
 
-                  // 歌词源筛选
-                  _buildFilterChips(context),
-                ],
-              ),
+                      // Track 信息
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                        child: _buildTrackInfo(
+                          colorScheme,
+                          hasMatch: existingMatch.valueOrNull != null,
+                        ),
+                      ),
 
-              // 结果列表（可滚动区域）
-              Expanded(
-                child: ScrollConfiguration(
-                  behavior: ScrollConfiguration.of(context).copyWith(
-                    dragDevices: {
-                      PointerDeviceKind.touch,
-                      PointerDeviceKind.mouse,
-                      PointerDeviceKind.trackpad,
-                    },
+                      // 搜索框
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: t.lyrics.searchHint,
+                            prefixIcon: const Icon(Icons.search),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.send),
+                              onPressed: _doSearch,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: AppRadius.borderRadiusXl,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          textInputAction: TextInputAction.search,
+                          onSubmitted: (_) => _doSearch(),
+                        ),
+                      ),
+
+                      // 歌词源筛选
+                      _buildFilterChips(context),
+                    ],
                   ),
-                  child: _buildResults(searchState, scrollController, colorScheme),
                 ),
-              ),
-            ],
+
+                // 结果列表
+                _buildResultsSliver(searchState, colorScheme),
+              ],
+            ),
           ),
         );
       },
@@ -371,57 +386,49 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
     );
   }
 
-  Widget _buildResults(
+  Widget _buildResultsSliver(
     LyricsSearchState searchState,
-    ScrollController scrollController,
     ColorScheme colorScheme,
   ) {
     if (searchState.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
 
     if (searchState.error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 48, color: colorScheme.error),
-            const SizedBox(height: 8),
-            Text(searchState.error!,
-                style: TextStyle(color: colorScheme.error)),
-          ],
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 48, color: colorScheme.error),
+              const SizedBox(height: 8),
+              Text(searchState.error!,
+                  style: TextStyle(color: colorScheme.error)),
+            ],
+          ),
         ),
       );
     }
 
     if (searchState.results.isEmpty && !_hasAutoSearched) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.search, size: 48, color: colorScheme.outline),
-            const SizedBox(height: 8),
-            Text(
-              t.lyrics.searchPrompt,
-              style: TextStyle(color: colorScheme.outline),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (searchState.results.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.lyrics_outlined, size: 48, color: colorScheme.outline),
-            const SizedBox(height: 8),
-            Text(
-              t.lyrics.noLyricsFound,
-              style: TextStyle(color: colorScheme.outline),
-            ),
-          ],
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.search, size: 48, color: colorScheme.outline),
+              const SizedBox(height: 8),
+              Text(
+                t.lyrics.searchPrompt,
+                style: TextStyle(color: colorScheme.outline),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -432,32 +439,36 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
         .toList(growable: false);
 
     if (filtered.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.lyrics_outlined, size: 48, color: colorScheme.outline),
-            const SizedBox(height: 8),
-            Text(
-              t.lyrics.noLyricsFound,
-              style: TextStyle(color: colorScheme.outline),
-            ),
-          ],
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.lyrics_outlined, size: 48, color: colorScheme.outline),
+              const SizedBox(height: 8),
+              Text(
+                t.lyrics.noLyricsFound,
+                style: TextStyle(color: colorScheme.outline),
+              ),
+            ],
+          ),
         ),
       );
     }
 
-    return ListView.builder(
-      controller: scrollController,
-      itemCount: filtered.length,
-      itemBuilder: (context, index) {
-        final result = filtered[index];
-        return _LyricsResultTile(
-          result: result,
-          trackDurationMs: widget.track.durationMs,
-          onTap: () => _selectResult(result),
-        );
-      },
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          final result = filtered[index];
+          return _LyricsResultTile(
+            result: result,
+            trackDurationMs: widget.track.durationMs,
+            onTap: () => _selectResult(result),
+          );
+        },
+        childCount: filtered.length,
+      ),
     );
   }
 }
