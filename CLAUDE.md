@@ -18,6 +18,7 @@ Key memories:
 - `project_overview` - Project status and features
 - `code_style` - Code style conventions
 - `ui_coding_patterns` - **UI 页面开发必读** - 统一编码模式、组件使用规范
+- `database_migration` - **数据库迁移必读** - Isar 模型修改时的迁移步骤和注意事项
 
 ### 2. Use Serena for Code Modifications
 Always use Serena MCP tools for code changes:
@@ -82,6 +83,7 @@ mcp__plugin_serena_serena__delete_memory(memory_file_name: "...")
 - [ ] 是否添加/删除了服务类？→ 更新 CLAUDE.md "File Structure" + `architecture`
 - [ ] 是否修改了核心架构？→ 更新 CLAUDE.md 相关章节 + 相关记忆
 - [ ] 是否有新的设计决策？→ 更新 CLAUDE.md "Key Design Decisions" + `refactoring_lessons`
+- [ ] **是否修改了数据库模型（Isar）？→ 阅读 `database_migration` 记忆并添加迁移逻辑**
 
 ## Project Overview
 
@@ -215,6 +217,46 @@ void main() async {
 - **Models:** Isar collections in `lib/data/models/` (Track, Playlist, PlayQueue, Settings)
 - **Repositories:** CRUD operations in `lib/data/repositories/`
 - **Sources:** Audio source parsers in `lib/data/sources/` (BilibiliSource, YouTubeSource implemented)
+
+#### Database Migration (Isar)
+
+**⚠️ CRITICAL: When modifying Isar models, you MUST add migration logic.**
+
+Isar automatically handles schema changes, but uses type default values for new fields:
+- `int` → `0`
+- `bool` → `false`
+- `String?` → `null`
+- `List` → `[]`
+
+**Migration function:** `_migrateDatabase()` in `lib/providers/database_provider.dart`
+
+This function runs on every app startup and:
+1. Initializes new installations (creates default Settings, PlayQueue)
+2. Fixes abnormal values from old version upgrades
+3. Sets reasonable defaults for new fields
+
+**When adding a new field:**
+1. Modify the model in `lib/data/models/`
+2. Add migration logic in `_migrateDatabase()` to fix the default value
+3. Run `flutter pub run build_runner build --delete-conflicting-outputs`
+4. Test upgrade path: old version → new version
+
+**Example:**
+```dart
+// Step 1: Add field to model
+int newFeatureTimeout = 30;
+
+// Step 2: Add migration logic
+if (settings.newFeatureTimeout < 1) {
+  settings.newFeatureTimeout = 30;
+  needsUpdate = true;
+}
+```
+
+**For detailed migration guide, read:**
+```
+mcp__plugin_serena_serena__read_memory(memory_file_name: "database_migration")
+```
 
 ## Key Design Decisions
 
