@@ -114,15 +114,15 @@ flutter analyze lib/ui/pages/search/search_page.dart lib/ui/pages/library/downlo
 {sourceId}_{视频标题}/
 ├── metadata.json / metadata_P{NN}.json  ← 删除
 ├── cover.jpg                            ← 删除
+├── avatar.jpg                           ← 删除
 └── audio.m4a / P{NN}.m4a                ← 删除
 ```
 
-**注意：头像不会被删除**
-- 头像存储在 `{baseDir}/avatars/{platform}/{creatorId}.jpg`
-- 多个视频可能共享同一个创作者的头像
-- Track 模型中没有存储 `creatorId`，无法判断是否还有其他视频使用该头像
-- 头像文件很小（通常几十 KB），保留不会占用太多空间
-- 如需清理，用户可以手动删除 `avatars` 文件夹
+**头像存储位置变更（2026-02）**：
+- 旧方案：头像存储在集中式文件夹 `{baseDir}/avatars/{platform}/{creatorId}.jpg`
+- 新方案：头像存储在视频文件夹内 `{videoDir}/avatar.jpg`
+- 优点：删除视频时可以一起删除头像，无需复杂的引用计数逻辑
+- 缺点：同一创作者的多个视频会重复存储头像（但头像文件很小，通常几十 KB）
 
 ## 总结
 

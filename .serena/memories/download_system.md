@@ -403,12 +403,31 @@ final downloadPathSyncServiceProvider = Provider<DownloadPathSyncService>(...);
 │   │   ├── metadata_P01.json          ← 多P视频分P元数据（2026-02 新增）
 │   │   ├── metadata_P02.json          ← 多P视频分P元数据
 │   │   ├── cover.jpg                  ← 视频封面
+│   │   ├── avatar.jpg                 ← 创作者头像（2026-02 新增）
 │   │   ├── audio.m4a                  ← 单P视频音频
 │   │   ├── P01.m4a                    ← 多P视频分P音频
 │   │   └── P02.m4a
 │   └── ...
 └── 未分类/                            ← 不属于任何歌单的下载
 ```
+
+### 头像存储位置变更（2026-02）
+
+**旧方案**（已废弃）：
+- 头像存储在集中式文件夹 `{baseDir}/avatars/{platform}/{creatorId}.jpg`
+- 多个视频共享同一创作者的头像
+- 删除视频时需要复杂的引用计数逻辑
+
+**新方案**：
+- 头像存储在视频文件夹内 `{videoDir}/avatar.jpg`
+- 每个视频独立存储头像
+- 删除视频时可以一起删除头像，逻辑简单
+- 缺点：同一创作者的多个视频会重复存储头像（但头像文件很小，通常几十 KB）
+
+**相关修改**：
+- `DownloadService._saveMetadata()` - 头像保存到 `videoDir.path/avatar.jpg`
+- `TrackExtensions.getLocalAvatarPath()` - 从视频文件夹内查找头像
+- `DownloadPathUtils.getAvatarPath()` 和 `ensureAvatarDirExists()` - 已废弃，保留以兼容旧代码
 
 ### 多P视频 metadata 文件命名（2026-02 新增）
 
