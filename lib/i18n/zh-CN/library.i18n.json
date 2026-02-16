@@ -75,6 +75,9 @@
     "addedToDownloadQueueSingle": "已添加到下载队列",
     "songAlreadyDownloaded": "歌曲已下载",
     "downloadTaskExists": "下载任务已存在",
+    "allPartsAlreadyDownloaded": "所有分P已下载",
+    "allPartsInDownloadQueue": "所有分P已在下载队列中",
+    "allPartsDownloadedOrQueued": "所有分P已下载或已在队列中",
     "view": "查看"
   },
   "downloadedPage": {

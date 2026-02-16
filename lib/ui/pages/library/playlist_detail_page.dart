@@ -244,24 +244,55 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     if (playlist == null) return;
 
     int addedCount = 0;
+    int alreadyDownloadedCount = 0;
+    int taskExistsCount = 0;
+    
     for (final track in tracks) {
       final result = await downloadService.addTrackDownload(
         track,
         fromPlaylist: playlist,
         skipSchedule: true,
       );
-      if (result == DownloadResult.created) addedCount++;
+      switch (result) {
+        case DownloadResult.created:
+          addedCount++;
+          break;
+        case DownloadResult.alreadyDownloaded:
+          alreadyDownloadedCount++;
+          break;
+        case DownloadResult.taskExists:
+          taskExistsCount++;
+          break;
+      }
     }
 
     if (addedCount > 0) {
       downloadService.triggerSchedule();
-      if (context.mounted) {
+    }
+    
+    // 显示结果提示
+    if (context.mounted) {
+      if (addedCount > 0) {
         ToastService.showWithAction(
           context,
           t.library.detail.addedToDownloadQueue(n: addedCount),
           actionLabel: t.library.detail.view,
           onAction: () => context.pushNamed(RouteNames.downloadManager),
         );
+      } else if (alreadyDownloadedCount == tracks.length) {
+        // 所有歌曲都已下载
+        ToastService.success(context, t.library.detail.alreadyDownloaded);
+      } else if (taskExistsCount == tracks.length) {
+        // 所有歌曲都已在下载队列中
+        ToastService.showWithAction(
+          context,
+          t.library.detail.downloadTaskExists,
+          actionLabel: t.library.detail.view,
+          onAction: () => context.pushNamed(RouteNames.downloadManager),
+        );
+      } else if (alreadyDownloadedCount + taskExistsCount == tracks.length) {
+        // 混合情况：部分已下载，部分在队列中
+        ToastService.success(context, t.library.detail.alreadyDownloaded);
       }
     }
   }
@@ -1064,24 +1095,56 @@ class _GroupHeader extends ConsumerWidget {
         if (playlist == null) return;
 
         int addedCount = 0;
+        int alreadyDownloadedCount = 0;
+        int taskExistsCount = 0;
+        
         for (final track in group.tracks) {
           final result = await downloadService.addTrackDownload(
             track,
             fromPlaylist: playlist,
             skipSchedule: true,  // 批量添加时跳过调度
           );
-          if (result == DownloadResult.created) addedCount++;
+          switch (result) {
+            case DownloadResult.created:
+              addedCount++;
+              break;
+            case DownloadResult.alreadyDownloaded:
+              alreadyDownloadedCount++;
+              break;
+            case DownloadResult.taskExists:
+              taskExistsCount++;
+              break;
+          }
         }
+        
         // 所有任务添加完成后统一触发调度
         if (addedCount > 0) {
           downloadService.triggerSchedule();
-          if (context.mounted) {
+        }
+        
+        // 显示结果提示
+        if (context.mounted) {
+          if (addedCount > 0) {
             ToastService.showWithAction(
               context,
               t.library.detail.addedPartsToDownloadQueue(n: addedCount),
               actionLabel: t.library.detail.view,
               onAction: () => context.pushNamed(RouteNames.downloadManager),
             );
+          } else if (alreadyDownloadedCount == group.tracks.length) {
+            // 所有分P都已下载
+            ToastService.success(context, t.library.detail.allPartsAlreadyDownloaded);
+          } else if (taskExistsCount == group.tracks.length) {
+            // 所有分P都已在下载队列中
+            ToastService.showWithAction(
+              context,
+              t.library.detail.allPartsInDownloadQueue,
+              actionLabel: t.library.detail.view,
+              onAction: () => context.pushNamed(RouteNames.downloadManager),
+            );
+          } else if (alreadyDownloadedCount + taskExistsCount == group.tracks.length) {
+            // 混合情况：部分已下载，部分在队列中
+            ToastService.success(context, t.library.detail.allPartsDownloadedOrQueued);
           }
         }
         break;
