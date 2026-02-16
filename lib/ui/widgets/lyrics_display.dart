@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -43,6 +45,12 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   /// 用户是否正在手动滚动
   bool _userScrolling = false;
 
+  /// 恢复自动滚动的定时器
+  Timer? _scrollResumeTimer;
+
+  /// 是否正在执行程序化滚动（区分用户滚动）
+  bool _programmaticScrolling = false;
+
   /// 是否是首次构建（用于判断是否需要初始滚动）
   bool _isFirstBuild = true;
 
@@ -59,6 +67,12 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
 
   /// bold 相对 normal 的宽度安全系数（避免 bold 当前行溢出）
   static const double _boldSafetyFactor = 0.95;
+
+  @override
+  void dispose() {
+    _scrollResumeTimer?.cancel();
+    super.dispose();
+  }
 
   /// 计算用于字号基准的代表行宽度（结果缓存，歌词不变时不重算）
   ///
@@ -271,12 +285,18 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
 
                 return NotificationListener<ScrollNotification>(
                   onNotification: (notification) {
-                    if (notification is ScrollStartNotification &&
-                        notification.dragDetails != null) {
-                      _userScrolling = true;
+                    // 忽略程序化滚动（auto-scroll）
+                    if (_programmaticScrolling) return false;
+
+                    if (notification is ScrollStartNotification) {
+                      _scrollResumeTimer?.cancel();
+                      if (!_userScrolling) {
+                        setState(() => _userScrolling = true);
+                      }
                     } else if (notification is ScrollEndNotification) {
                       // 用户停止滚动后 3 秒恢复自动滚动
-                      Future.delayed(const Duration(seconds: 3), () {
+                      _scrollResumeTimer?.cancel();
+                      _scrollResumeTimer = Timer(const Duration(seconds: 3), () {
                         if (mounted) setState(() => _userScrolling = false);
                       });
                     }
@@ -412,21 +432,28 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   void _scrollToLine(int index, {bool immediate = false}) {
     if (!_itemScrollController.isAttached) return;
 
+    _programmaticScrolling = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_itemScrollController.isAttached) return;
+      if (!_itemScrollController.isAttached) {
+        _programmaticScrolling = false;
+        return;
+      }
 
       if (immediate) {
         _itemScrollController.jumpTo(
           index: index,
           alignment: 0.35,
         );
+        _programmaticScrolling = false;
       } else {
         _itemScrollController.scrollTo(
           index: index,
           alignment: 0.35,
           duration: AnimationDurations.normal,
           curve: Curves.easeOutCubic,
-        );
+        ).then((_) {
+          _programmaticScrolling = false;
+        });
       }
     });
   }
