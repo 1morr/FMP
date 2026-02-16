@@ -524,10 +524,11 @@ class TrackRepository with Logging {
   ///
   /// 孤立 Track 的定义：
   /// - 不在当前播放队列中（通过 excludeTrackIds 排除）
-  /// - 不属于任何歌单（playlistInfo 中没有 playlistId > 0 的条目）
+  /// - playlistInfo 中所有条目的 playlistId 都 <= 0
   ///
-  /// 注意：不检查 downloadPath。playlistId=0 的下载路径只是 scanner 扫描发现的，
-  /// 下次打开已下载页面时 scanner 会重新创建。删除数据库记录不影响本地文件。
+  /// 注意：即使 Track 有 playlistId=0 的下载路径，只要它属于任何歌单（playlistId > 0），
+  /// 就不会被删除。这确保了歌单中的歌曲不会因为路径被清除而丢失。
+  /// playlistId=0 的下载路径是 scanner 扫描发现的，下次打开已下载页面时会重新创建。
   ///
   /// 返回删除的 Track 数量
   Future<int> deleteOrphanTracks({List<int> excludeTrackIds = const []}) async {

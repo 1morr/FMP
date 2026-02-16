@@ -100,7 +100,7 @@ class DownloadPathSyncService with Logging {
       // 合并策略：
       // - 歌单归属（playlistId）以 DB 为权威来源，同步不改变
       // - 下载路径以本地文件为权威来源
-      // - 文件夹名不匹配时，继承 DB 中已有的 playlistId
+      // - 文件夹名不匹配时，标记为未分类（playlistId=0），让用户手动分类
       final newPlaylistInfo = <PlaylistDownloadInfo>[];
       final usedPathIndices = <int>{};
 
@@ -123,17 +123,13 @@ class DownloadPathSyncService with Logging {
       }
 
       // 2. 添加本地有但 DB 中没有的路径（新发现的文件夹）
-      // 继承 Track 在 DB 中已有的 playlistId（歌单归属不变）
-      final existingPlaylistId = track.playlistInfo.isNotEmpty
-          ? track.playlistInfo.first.playlistId
-          : 0;
+      // 新发现的文件夹统一标记为未分类（playlistId=0），让用户手动分类
+      // 这避免了多歌单场景下继承错误 playlistId 的问题
       for (var i = 0; i < pathInfos.length; i++) {
         if (!usedPathIndices.contains(i)) {
           final pathInfo = pathInfos[i];
           newPlaylistInfo.add(PlaylistDownloadInfo()
-            ..playlistId = pathInfo.playlistId != 0
-                ? pathInfo.playlistId
-                : existingPlaylistId
+            ..playlistId = 0  // 新发现的文件夹统一标记为未分类
             ..playlistName = pathInfo.playlistName
             ..downloadPath = pathInfo.downloadPath);
         }
