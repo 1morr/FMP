@@ -651,17 +651,36 @@ class _GroupHeader extends ConsumerWidget {
 
   Future<void> _deleteAllDownloads(WidgetRef ref) async {
     final trackRepo = ref.read(trackRepositoryProvider);
+    
+    // 收集所有需要删除的文件夹（去重）
+    final foldersToDelete = <String>{};
+    
     for (final track in group.tracks) {
       // 删除所有下载路径对应的文件
       for (final path in track.allDownloadPaths) {
         final file = File(path);
         if (await file.exists()) {
           await file.delete();
+          // 记录父文件夹路径
+          foldersToDelete.add(file.parent.path);
         }
       }
       // 清除数据库中的下载路径
       await trackRepo.clearDownloadPath(track.id);
     }
+    
+    // 删除所有文件夹（包括 metadata.json, cover.jpg, avatar 等）
+    for (final folderPath in foldersToDelete) {
+      final dir = Directory(folderPath);
+      if (await dir.exists()) {
+        try {
+          await dir.delete(recursive: true);
+        } catch (e) {
+          debugPrint('Failed to delete folder $folderPath: $e');
+        }
+      }
+    }
+    
     // 刷新列表
     ref.invalidate(downloadedCategoryTracksProvider(folderPath));
     ref.invalidate(downloadedCategoriesProvider);
@@ -911,11 +930,23 @@ class _DownloadedTrackTile extends ConsumerWidget {
   Future<void> _deleteDownload(WidgetRef ref) async {
     final trackRepo = ref.read(trackRepositoryProvider);
 
-    // 删除所有下载路径对应的文件
+    // 删除所有下载路径对应的文件及其所在文件夹
     for (final path in track.allDownloadPaths) {
       final file = File(path);
       if (await file.exists()) {
+        // 删除音频文件
         await file.delete();
+        
+        // 删除整个文件夹（包括 metadata.json, cover.jpg, avatar 等）
+        final parentDir = file.parent;
+        if (await parentDir.exists()) {
+          try {
+            await parentDir.delete(recursive: true);
+          } catch (e) {
+            // 如果文件夹删除失败（可能有其他分P文件），只删除音频文件
+            debugPrint('Failed to delete folder ${parentDir.path}: $e');
+          }
+        }
       }
     }
 
