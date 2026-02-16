@@ -39,7 +39,6 @@ class LyricsSearchSheet extends ConsumerStatefulWidget {
 
 class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
   final _searchController = TextEditingController();
-  final _sheetController = DraggableScrollableController();
   bool _hasAutoSearched = false;
   LyricsSourceFilter _selectedFilter = LyricsSourceFilter.all;
 
@@ -53,7 +52,6 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
   @override
   void dispose() {
     _searchController.dispose();
-    _sheetController.dispose();
     super.dispose();
   }
 
@@ -192,24 +190,10 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
     final existingMatch =
         ref.watch(lyricsMatchForTrackProvider(widget.track.uniqueKey));
 
-    // 搜索结果返回后自动展开
-    ref.listen<LyricsSearchState>(lyricsSearchProvider, (prev, next) {
-      if (prev != null && prev.isLoading && !next.isLoading && next.results.isNotEmpty) {
-        _sheetController.animateTo(
-          0.95,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
-
     return DraggableScrollableSheet(
-      controller: _sheetController,
-      initialChildSize: 0.75,
+      initialChildSize: 0.95,
       minChildSize: 0.0,
       maxChildSize: 0.95,
-      snap: true,
-      snapSizes: const [0.0, 0.75, 0.95],
       expand: false,
       builder: (context, scrollController) {
         return Container(
