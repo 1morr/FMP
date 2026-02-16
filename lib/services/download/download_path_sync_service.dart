@@ -127,15 +127,23 @@ class DownloadPathSyncService with Logging {
           // 记录同步前是否已有下载路径
           final hadExistingPaths = existingTrack.hasAnyDownload;
 
-          // C3: REPLACE all playlistInfo - 本地文件是权威来源
-          // C2: 使用文件夹名称作为 playlistName，方便歌单页面匹配
-          final folderName = folder.path.split(RegExp(r'[/\\]')).last;
-          existingTrack.playlistInfo = [
-            PlaylistDownloadInfo()
-              ..playlistId = 0
-              ..playlistName = folderName
-              ..downloadPath = localPath,
-          ];
+          // 保留原有的歌单关联，只更新下载路径
+          // 如果 Track 已经属于某个歌单，保留该关联
+          if (existingTrack.playlistInfo.isNotEmpty) {
+            // 更新所有歌单关联的下载路径
+            for (final info in existingTrack.playlistInfo) {
+              info.downloadPath = localPath;
+            }
+          } else {
+            // 如果没有歌单关联，添加为未分类（playlistId = 0）
+            final folderName = folder.path.split(RegExp(r'[/\\]')).last;
+            existingTrack.playlistInfo = [
+              PlaylistDownloadInfo()
+                ..playlistId = 0
+                ..playlistName = folderName
+                ..downloadPath = localPath,
+            ];
+          }
 
           matched.add(_MatchedTrack(
             track: existingTrack,
