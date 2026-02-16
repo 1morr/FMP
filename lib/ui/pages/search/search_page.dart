@@ -1514,6 +1514,8 @@ class _LocalTrackTile extends ConsumerWidget {
     PopupMenuItem(value: 'play', child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.searchPage.menu.play), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.searchPage.menu.playNext), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.searchPage.menu.addToQueue), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.searchPage.menu.addToPlaylist), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'matchLyrics', child: ListTile(leading: const Icon(Icons.lyrics_outlined), title: Text(t.lyrics.matchLyrics), contentPadding: EdgeInsets.zero)),
   ];
 }
 
