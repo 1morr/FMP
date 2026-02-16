@@ -536,6 +536,7 @@ class _DraggableQueueItem extends StatelessWidget {
           borderRadius: isFeedback ? AppRadius.borderRadiusMd : null,
           child: InkWell(
             onTap: isFeedback ? null : onTap,
+            borderRadius: AppRadius.borderRadiusMd,  // 添加圆角，匹配 ListTile
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
@@ -547,7 +548,7 @@ class _DraggableQueueItem extends StatelessWidget {
                     size: 48,
                     isPlaying: isPlaying,
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 16),  // 改为 16dp，匹配 ListTile
                   // 标题和艺术家
                   Expanded(
                     child: Column(
@@ -558,10 +559,9 @@ class _DraggableQueueItem extends StatelessWidget {
                           track.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: isPlaying ? colorScheme.primary : colorScheme.onSurface,
-                            fontWeight: isPlaying ? FontWeight.w600 : FontWeight.normal,
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(  // 使用 bodyLarge，匹配 ListTile
+                            color: isPlaying ? colorScheme.primary : null,
+                            fontWeight: isPlaying ? FontWeight.w600 : null,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -569,8 +569,7 @@ class _DraggableQueueItem extends StatelessWidget {
                           track.artist ?? t.general.unknownArtist,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(  // 使用 bodyMedium，匹配 ListTile
                             color: colorScheme.onSurfaceVariant,
                           ),
                         ),
@@ -583,8 +582,7 @@ class _DraggableQueueItem extends StatelessWidget {
                       padding: const EdgeInsets.only(left: 8),
                       child: Text(
                         DurationFormatter.formatMs(track.durationMs!),
-                        style: TextStyle(
-                          fontSize: 12,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(  // 使用 bodySmall
                           color: colorScheme.outline,
                         ),
                       ),
