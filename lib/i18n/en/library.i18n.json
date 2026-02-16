@@ -7,11 +7,7 @@
   "shuffleAdd": "Shuffle Add",
   "addedToQueue": "Added $n songs to queue",
   "shuffledAddedToQueue": "Shuffled and added $n songs to queue",
-  "addedToNext": "Added to play next",
-  "addedToPlayQueue": "Added to play queue",
-  "playNext": "Play Next",
-  "addToQueue": "Add to Queue",
-  "addToPlaylist": "Add to Playlist",
+
   "unknownUploader": "Unknown uploader",
   "refresh": "Refresh",
   "loadFailedWithError": "Load failed: $error",

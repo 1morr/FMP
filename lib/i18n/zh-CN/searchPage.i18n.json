@@ -31,15 +31,9 @@
     "onlineResults": "在线结果 ($count)"
   },
   "menu": {
-    "play": "播放",
-    "playNext": "下一首播放",
-    "addToQueue": "添加到队列",
-    "addToPlaylist": "添加到歌单",
     "addToRadio": "添加到电台"
   },
   "toast": {
-    "addedToNext": "已添加到下一首",
-    "addedToQueue": "已添加到播放队列",
     "addedPartsToNext": "已添加$count个分P到下一首",
     "addedPartsToQueue": "已添加$count个分P到播放队列",
     "addedToRadio": "已添加到电台"

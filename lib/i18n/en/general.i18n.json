@@ -15,5 +15,13 @@
   "unknownArtist": "Unknown artist",
   "delete": "Delete",
   "continueText": "Continue",
-  "more": "More"
+  "more": "More",
+  "play": "Play",
+  "playNext": "Play Next",
+  "addToQueue": "Add to Queue",
+  "addToPlaylist": "Add to Playlist",
+  "matchLyrics": "Match Lyrics",
+  "addedToNext": "Added to play next",
+  "addedToQueue": "Added to queue",
+  "addedToPlaylist": "Added to playlist"
 }

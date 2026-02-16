@@ -31,15 +31,9 @@
     "onlineResults": "Online Results ($count)"
   },
   "menu": {
-    "play": "Play",
-    "playNext": "Play Next",
-    "addToQueue": "Add to Queue",
-    "addToPlaylist": "Add to Playlist",
     "addToRadio": "Add to Radio"
   },
   "toast": {
-    "addedToNext": "Added to play next",
-    "addedToQueue": "Added to queue",
     "addedPartsToNext": "Added $count parts to play next",
     "addedPartsToQueue": "Added $count parts to queue",
     "addedToRadio": "Added to radio"

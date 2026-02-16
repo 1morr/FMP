@@ -783,7 +783,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
                   value: 'play_next',
                   child: ListTile(
                     leading: const Icon(Icons.queue_play_next),
-                    title: Text(t.library.playNext),
+                    title: Text(t.general.playNext),
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
@@ -791,7 +791,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
                   value: 'add_to_queue',
                   child: ListTile(
                     leading: const Icon(Icons.add_to_queue),
-                    title: Text(t.library.addToQueue),
+                    title: Text(t.general.addToQueue),
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
@@ -799,7 +799,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
                   value: 'add_to_playlist',
                   child: ListTile(
                     leading: const Icon(Icons.playlist_add),
-                    title: Text(t.library.addToPlaylist),
+                    title: Text(t.general.addToPlaylist),
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
@@ -835,7 +835,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
       value: 'play_next',
       child: ListTile(
         leading: const Icon(Icons.queue_play_next),
-        title: Text(t.library.playNext),
+        title: Text(t.general.playNext),
         contentPadding: EdgeInsets.zero,
       ),
     ),
@@ -843,7 +843,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
       value: 'add_to_queue',
       child: ListTile(
         leading: const Icon(Icons.add_to_queue),
-        title: Text(t.library.addToQueue),
+        title: Text(t.general.addToQueue),
         contentPadding: EdgeInsets.zero,
       ),
     ),
@@ -851,7 +851,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
       value: 'add_to_playlist',
       child: ListTile(
         leading: const Icon(Icons.playlist_add),
-        title: Text(t.library.addToPlaylist),
+        title: Text(t.general.addToPlaylist),
         contentPadding: EdgeInsets.zero,
       ),
     ),
@@ -879,13 +879,13 @@ class _DownloadedTrackTile extends ConsumerWidget {
       case 'play_next':
         final added = await ref.read(audioControllerProvider.notifier).addNext(track);
         if (added && context.mounted) {
-          ToastService.success(context, t.library.addedToNext);
+          ToastService.success(context, t.general.addedToNext);
         }
         break;
       case 'add_to_queue':
         final added = await ref.read(audioControllerProvider.notifier).addToQueue(track);
         if (added && context.mounted) {
-          ToastService.success(context, t.library.addedToPlayQueue);
+          ToastService.success(context, t.general.addedToQueue);
         }
         break;
       case 'add_to_playlist':
