@@ -186,12 +186,17 @@ class _TrackListView extends StatelessWidget {
                 _DataSection(
                   title: t.databaseViewer.cacheAndDownload,
                   data: {
-                    'playlistInfo': track.playlistInfo.isEmpty
+                    'playlistInfo (${track.playlistInfo.length})': track.playlistInfo.isEmpty
                         ? '[]'
-                        : track.playlistInfo.map((i) => 'playlist=${i.playlistId}(${i.playlistName}): ${_truncate(i.downloadPath, 50)}').join('\n'),
+                        : track.playlistInfo.asMap().entries.map((e) => 
+                            '[${e.key}] playlistId=${e.value.playlistId}, name="${e.value.playlistName}"\n    path: ${e.value.downloadPath}'
+                          ).join('\n\n'),
                     'allPlaylistIds': track.allPlaylistIds.isEmpty
                         ? '[]'
                         : track.allPlaylistIds.join(', '),
+                    'allDownloadPaths (${track.allDownloadPaths.length})': track.allDownloadPaths.isEmpty
+                        ? '[]'
+                        : track.allDownloadPaths.asMap().entries.map((e) => '[${e.key}] ${e.value}').join('\n'),
                     'hasAnyDownload': track.hasAnyDownload.toString(),
                   },
                 ),
