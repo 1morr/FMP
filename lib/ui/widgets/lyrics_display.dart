@@ -260,17 +260,10 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
     return GestureDetector(
       onLongPress: widget.onLongPress,
       behavior: HitTestBehavior.opaque,
-      child: Column(
+      child: Stack(
         children: [
-          // Offset adjustment controls (only show when enabled)
-          if (widget.showOffsetControls && currentTrack != null)
-            _OffsetAdjustmentBar(
-              trackUniqueKey: currentTrack.uniqueKey,
-              currentOffsetMs: offsetMs,
-              compact: widget.compact,
-            ),
           // Lyrics list
-          Expanded(
+          Positioned.fill(
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final availableWidth = constraints.maxWidth - hPad * 2;
@@ -320,6 +313,18 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
               },
             ),
           ),
+          // Offset adjustment controls (floating above lyrics)
+          if (widget.showOffsetControls && currentTrack != null)
+            Positioned(
+              top: 8,
+              left: 8,
+              right: 8,
+              child: _OffsetAdjustmentBar(
+                trackUniqueKey: currentTrack.uniqueKey,
+                currentOffsetMs: offsetMs,
+                compact: widget.compact,
+              ),
+            ),
         ],
       ),
     );
@@ -531,42 +536,39 @@ class _OffsetAdjustmentBar extends ConsumerWidget {
       ),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        border: Border(
-          bottom: BorderSide(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.3),
-            width: 1,
-          ),
-        ),
+        borderRadius: AppRadius.borderRadiusLg,
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Label
-          Text(
-            t.lyrics.offset,
-            style: textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontSize: compact ? 12 : 13,
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Current offset display
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: colorScheme.primaryContainer.withValues(alpha: 0.5),
-              borderRadius: AppRadius.borderRadiusXs,
-            ),
-            child: Text(
-              _formatOffset(currentOffsetMs),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Label
+            Text(
+              t.lyrics.offset,
               style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.primary,
-                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurfaceVariant,
                 fontSize: compact ? 12 : 13,
               ),
             ),
-          ),
-          const SizedBox(width: 12),
+            const SizedBox(width: 8),
+            // Current offset display
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer.withValues(alpha: 0.5),
+                borderRadius: AppRadius.borderRadiusXs,
+              ),
+              child: Text(
+                _formatOffset(currentOffsetMs),
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: compact ? 12 : 13,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
           // Adjustment buttons
           _buildOffsetButton(
             context,
@@ -621,6 +623,7 @@ class _OffsetAdjustmentBar extends ConsumerWidget {
             compact: compact,
           ),
         ],
+        ),
       ),
     );
   }
