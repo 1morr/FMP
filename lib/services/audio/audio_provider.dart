@@ -591,6 +591,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 播放
   Future<void> play() async {
+    // 如果当前歌曲的 URL 已过期（如暂停过夜），重新获取 URL 并从当前位置恢复
+    if (await _resumeWithFreshUrlIfNeeded()) return;
     await _audioService.play();
   }
 
@@ -614,6 +616,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       await _playTrack(state.currentTrack!);
       return;
     }
+    // 如果当前是暂停状态且 URL 已过期（如暂停过夜），重新获取 URL 并从当前位置恢复
+    if (!state.isPlaying && await _resumeWithFreshUrlIfNeeded()) return;
     await _audioService.togglePlayPause();
   }
 
@@ -2105,6 +2109,33 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       }
     }
     _updateQueueState();
+  }
+
+  /// 检查当前歌曲的 URL 是否已过期，如果过期则重新获取 URL 并从当前位置恢复播放。
+  /// 返回 true 表示已处理（调用方应 return），false 表示无需处理。
+  ///
+  /// 典型场景：用户暂停后长时间不操作（如过夜），音频 URL 已过期，
+  /// 直接调用 player.play() 会导致 "Error decoding audio"。
+  Future<bool> _resumeWithFreshUrlIfNeeded() async {
+    final track = state.currentTrack;
+    if (track == null) return false;
+
+    // 只在 URL 确实过期时触发（有 URL 但已过期）
+    if (track.audioUrl == null || track.hasValidAudioUrl) return false;
+
+    // 排除已下载的本地文件（本地文件不会过期）
+    if (track.allDownloadPaths.any((p) => File(p).existsSync())) return false;
+
+    logDebug('Audio URL expired for: ${track.title}, re-fetching and resuming from ${state.position}');
+    final position = state.position;
+    await _playTrack(track);
+
+    // 播放成功后恢复到之前的位置
+    if (position.inSeconds > 0) {
+      await Future.delayed(AppConstants.seekStabilizationDelay);
+      await seekTo(position);
+    }
+    return true;
   }
 
   /// 播放指定歌曲（委託給統一入口）
