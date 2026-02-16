@@ -535,7 +535,7 @@ class _OffsetAdjustmentBar extends ConsumerWidget {
         vertical: compact ? 6 : 8,
       ),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        color: colorScheme.surfaceContainerHighest,
         borderRadius: AppRadius.borderRadiusLg,
       ),
       child: FittedBox(
