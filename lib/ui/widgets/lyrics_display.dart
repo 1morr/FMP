@@ -54,6 +54,9 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   /// 是否是首次构建（用于判断是否需要初始滚动）
   bool _isFirstBuild = true;
 
+  /// 上次歌词匹配的 ID（检测歌词切换）
+  int? _lastMatchId;
+
   /// 缓存：代表行的参考宽度（歌词变化时重算）
   double? _cachedRefWidth;
   int _cachedLineCount = -1;
@@ -154,6 +157,16 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
     final lyricsContent = ref.watch(currentLyricsContentProvider);
     final parsedLyrics = ref.watch(parsedLyricsProvider);
     final match = ref.watch(currentLyricsMatchProvider).valueOrNull;
+
+    // 歌词匹配变化时（手动匹配/自动匹配），重置滚动状态
+    final matchId = match?.id;
+    if (matchId != _lastMatchId) {
+      _lastMatchId = matchId;
+      _currentLineIndex = -1;
+      _isFirstBuild = true;
+      _userScrolling = false;
+      _scrollResumeTimer?.cancel();
+    }
 
     final isAutoMatching = ref.watch(lyricsAutoMatchingProvider);
 
