@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:simple_icons/simple_icons.dart';
 
+import '../../../core/constants/ui_constants.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/audio_settings_provider.dart';
 
@@ -125,7 +126,7 @@ class _LyricsSourceSettingsPageState
                     .value;
                 return Material(
                   elevation: elevation,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: AppRadius.borderRadiusLg,
                   child: child,
                 );
               },

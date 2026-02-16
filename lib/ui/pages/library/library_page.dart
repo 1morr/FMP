@@ -8,16 +8,14 @@ import '../../../i18n/strings.g.dart';
 import '../../../providers/download_provider.dart';
 
 import '../../../core/services/image_loading_service.dart';
-import '../../../data/sources/source_provider.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/playlist.dart';
-import '../../../data/models/track.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../providers/refresh_provider.dart';
-import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
 import '../../widgets/context_menu_region.dart';
 import '../../widgets/error_display.dart';
+import '../../widgets/playlist_card_actions.dart';
 import '../../widgets/refresh_progress_indicator.dart';
 import 'widgets/create_playlist_dialog.dart';
 import 'widgets/import_playlist_dialog.dart';
@@ -476,50 +474,54 @@ class _PlaylistCard extends ConsumerWidget {
       if (playlist.isMix) ...[
         PopupMenuItem(
           value: 'play_mix',
-          child: Row(
-            children: [const Icon(Icons.play_arrow, size: 20), const SizedBox(width: 12), Text(t.library.main.playMix)],
+          child: ListTile(
+            leading: const Icon(Icons.play_arrow),
+            title: Text(t.library.main.playMix),
+            contentPadding: EdgeInsets.zero,
           ),
         ),
       ] else ...[
         PopupMenuItem(
           value: 'add_all',
-          child: Row(
-            children: [const Icon(Icons.play_arrow, size: 20), const SizedBox(width: 12), Text(t.library.addAll)],
+          child: ListTile(
+            leading: const Icon(Icons.play_arrow),
+            title: Text(t.library.addAll),
+            contentPadding: EdgeInsets.zero,
           ),
         ),
         PopupMenuItem(
           value: 'shuffle_add',
-          child: Row(
-            children: [const Icon(Icons.shuffle, size: 20), const SizedBox(width: 12), Text(t.library.shuffleAdd)],
+          child: ListTile(
+            leading: const Icon(Icons.shuffle),
+            title: Text(t.library.shuffleAdd),
+            contentPadding: EdgeInsets.zero,
           ),
         ),
       ],
       PopupMenuItem(
         value: 'edit',
-        child: Row(
-          children: [const Icon(Icons.edit, size: 20), const SizedBox(width: 12), Text(t.library.main.editPlaylist)],
+        child: ListTile(
+          leading: const Icon(Icons.edit),
+          title: Text(t.library.main.editPlaylist),
+          contentPadding: EdgeInsets.zero,
         ),
       ),
       if (playlist.isImported && !playlist.isMix)
         PopupMenuItem(
           value: 'refresh',
           enabled: !isRefreshing,
-          child: Row(
-            children: [
-              Icon(isRefreshing ? Icons.hourglass_empty : Icons.refresh, size: 20),
-              const SizedBox(width: 12),
-              Text(isRefreshing ? t.library.main.refreshing : t.library.main.refreshPlaylist),
-            ],
+          child: ListTile(
+            leading: Icon(isRefreshing ? Icons.hourglass_empty : Icons.refresh),
+            title: Text(isRefreshing ? t.library.main.refreshing : t.library.main.refreshPlaylist),
+            contentPadding: EdgeInsets.zero,
           ),
         ),
       PopupMenuItem(
         value: 'delete',
-        child: Row(
-          children: [
-            Icon(Icons.delete, size: 20, color: colorScheme.error),
-            const SizedBox(width: 12),
-            Text(t.library.main.deletePlaylist, style: TextStyle(color: colorScheme.error)),
-          ],
+        child: ListTile(
+          leading: Icon(Icons.delete, color: colorScheme.error),
+          title: Text(t.library.main.deletePlaylist, style: TextStyle(color: colorScheme.error)),
+          contentPadding: EdgeInsets.zero,
         ),
       ),
     ];
@@ -629,78 +631,15 @@ class _PlaylistCard extends ConsumerWidget {
   }
 
   void _addAllToQueue(BuildContext context, WidgetRef ref) async {
-    final service = ref.read(playlistServiceProvider);
-    final result = await service.getPlaylistWithTracks(playlist.id);
-
-    if (result == null || result.tracks.isEmpty) {
-      if (context.mounted) {
-        ToastService.warning(context, t.library.main.playlistEmpty);
-      }
-      return;
-    }
-
-    final controller = ref.read(audioControllerProvider.notifier);
-    final added = await controller.addAllToQueue(result.tracks);
-    
-    if (added && context.mounted) {
-      ToastService.success(context, t.library.addedToQueue(n: result.tracks.length));
-    }
+    await PlaylistCardActions.addAllToQueue(context, ref, playlist);
   }
 
   void _shuffleAddToQueue(BuildContext context, WidgetRef ref) async {
-    final service = ref.read(playlistServiceProvider);
-    final result = await service.getPlaylistWithTracks(playlist.id);
-
-    if (result == null || result.tracks.isEmpty) {
-      if (context.mounted) {
-        ToastService.warning(context, t.library.main.playlistEmpty);
-      }
-      return;
-    }
-
-    final controller = ref.read(audioControllerProvider.notifier);
-    final shuffled = List<Track>.from(result.tracks)..shuffle();
-    final added = await controller.addAllToQueue(shuffled);
-    
-    if (added && context.mounted) {
-      ToastService.success(context, t.library.shuffledAddedToQueue(n: result.tracks.length));
-    }
+    await PlaylistCardActions.shuffleAddToQueue(context, ref, playlist);
   }
 
   Future<void> _playMix(BuildContext context, WidgetRef ref) async {
-    if (playlist.mixPlaylistId == null || playlist.mixSeedVideoId == null) {
-      ToastService.error(context, t.library.main.mixInfoIncomplete);
-      return;
-    }
-
-    try {
-      // 获取 Mix 的初始 tracks
-      final youtubeSource = ref.read(youtubeSourceProvider);
-      final result = await youtubeSource.fetchMixTracks(
-        playlistId: playlist.mixPlaylistId!,
-        currentVideoId: playlist.mixSeedVideoId!,
-      );
-
-      if (result.tracks.isEmpty) {
-        if (context.mounted) {
-          ToastService.error(context, t.library.main.cannotLoadMix);
-        }
-        return;
-      }
-
-      // 播放 Mix
-      final controller = ref.read(audioControllerProvider.notifier);
-      await controller.playMixPlaylist(
-        playlistId: playlist.mixPlaylistId!,
-        seedVideoId: playlist.mixSeedVideoId!,
-        title: playlist.name,
-        tracks: result.tracks,
-      );
-    } catch (e) {
-      if (context.mounted) {
-        ToastService.error(context, '${t.library.main.playMixFailed}: $e');
-      }
-    }
+    await PlaylistCardActions.playMix(context, ref, playlist);
   }
 
   void _refreshPlaylist(BuildContext context, WidgetRef ref) {

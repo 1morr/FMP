@@ -3,6 +3,8 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/constants/ui_constants.dart';
+
 /// A horizontal scroll section with:
 /// - Gradient indicators on edges when more content exists
 /// - Arrow navigation buttons on desktop (on hover)
@@ -123,7 +125,7 @@ class _HorizontalScrollSectionState extends State<HorizontalScrollSection> {
 
     _scrollController.animateTo(
       newOffset,
-      duration: const Duration(milliseconds: 400),
+      duration: AnimationDurations.normal,
       curve: Curves.easeOutCubic, // Fast start, slow end
     );
   }
