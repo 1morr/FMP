@@ -591,34 +591,48 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 播放
   Future<void> play() async {
-    // 如果当前歌曲的 URL 已过期（如暂停过夜），重新获取 URL 并从当前位置恢复
-    if (await _resumeWithFreshUrlIfNeeded()) return;
-    await _audioService.play();
+    try {
+      // 如果当前歌曲的 URL 已过期（如暂停过夜），重新获取 URL 并从当前位置恢复
+      if (await _resumeWithFreshUrlIfNeeded()) return;
+      await _audioService.play();
+    } catch (e, stack) {
+      logError('Failed to play', e, stack);
+      state = state.copyWith(error: e.toString());
+    }
   }
 
   /// 暂停
   Future<void> pause() async {
-    await _audioService.pause();
+    try {
+      await _audioService.pause();
+    } catch (e, stack) {
+      logError('Failed to pause', e, stack);
+    }
   }
 
   /// 切换播放/暂停
   /// 如果当前歌曲有错误状态，尝试重新播放当前歌曲
   Future<void> togglePlayPause() async {
-    // 如果当前有网络错误状态，触发手动重试
-    if (state.isNetworkError && state.currentTrack != null) {
-      logDebug('Manual retry for network error: ${state.currentTrack!.title}');
-      await retryManually();
-      return;
+    try {
+      // 如果当前有网络错误状态，触发手动重试
+      if (state.isNetworkError && state.currentTrack != null) {
+        logDebug('Manual retry for network error: ${state.currentTrack!.title}');
+        await retryManually();
+        return;
+      }
+      // 如果当前有错误状态，尝试重新播放当前歌曲
+      if (state.error != null && state.currentTrack != null) {
+        logDebug('Retrying playback for track with error: ${state.currentTrack!.title}');
+        await _playTrack(state.currentTrack!);
+        return;
+      }
+      // 如果当前是暂停状态且 URL 已过期（如暂停过夜），重新获取 URL 并从当前位置恢复
+      if (!state.isPlaying && await _resumeWithFreshUrlIfNeeded()) return;
+      await _audioService.togglePlayPause();
+    } catch (e, stack) {
+      logError('Failed to togglePlayPause', e, stack);
+      state = state.copyWith(error: e.toString());
     }
-    // 如果当前有错误状态，尝试重新播放当前歌曲
-    if (state.error != null && state.currentTrack != null) {
-      logDebug('Retrying playback for track with error: ${state.currentTrack!.title}');
-      await _playTrack(state.currentTrack!);
-      return;
-    }
-    // 如果当前是暂停状态且 URL 已过期（如暂停过夜），重新获取 URL 并从当前位置恢复
-    if (!state.isPlaying && await _resumeWithFreshUrlIfNeeded()) return;
-    await _audioService.togglePlayPause();
   }
 
   /// 停止
@@ -631,9 +645,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 跳转到指定位置
   Future<void> seekTo(Duration position) async {
-    await _audioService.seekTo(position);
-    // 立即保存位置，避免 seek 后马上关闭应用导致进度丢失
-    await _queueManager.savePositionNow();
+    try {
+      await _audioService.seekTo(position);
+      // 立即保存位置，避免 seek 后马上关闭应用导致进度丢失
+      await _queueManager.savePositionNow();
+    } catch (e, stack) {
+      logError('Failed to seekTo $position', e, stack);
+    }
   }
 
   /// 跳转到百分比位置
@@ -649,18 +667,26 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 快进
   Future<void> seekForward([Duration? duration]) async {
-    final seekDuration = duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
-    await _audioService.seekForward(seekDuration);
-    // 立即保存位置
-    await _queueManager.savePositionNow();
+    try {
+      final seekDuration = duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
+      await _audioService.seekForward(seekDuration);
+      // 立即保存位置
+      await _queueManager.savePositionNow();
+    } catch (e, stack) {
+      logError('Failed to seekForward', e, stack);
+    }
   }
 
   /// 快退
   Future<void> seekBackward([Duration? duration]) async {
-    final seekDuration = duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
-    await _audioService.seekBackward(seekDuration);
-    // 立即保存位置
-    await _queueManager.savePositionNow();
+    try {
+      final seekDuration = duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
+      await _audioService.seekBackward(seekDuration);
+      // 立即保存位置
+      await _queueManager.savePositionNow();
+    } catch (e, stack) {
+      logError('Failed to seekBackward', e, stack);
+    }
   }
 
   // ========== 队列控制 ==========
@@ -1492,9 +1518,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     final collectedTracks = <Track>[];
     final collectedVideoIds = <String>{};
     int attempt = 0;
+    YouTubeSource? youtubeSource;
 
     try {
-      final youtubeSource = YouTubeSource();
+      youtubeSource = YouTubeSource();
 
       while (collectedTracks.length < minNewTracksRequired && attempt < maxAttempts) {
         attempt++;
@@ -1563,6 +1590,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       logError('Failed to load more Mix tracks', e, stack);
       _toastService.showInfo(t.audio.mixLoadMoreError);
     } finally {
+      youtubeSource?.dispose();
       _mixState!.isLoadingMore = false;
       state = state.copyWith(isLoadingMoreMix: false);
     }

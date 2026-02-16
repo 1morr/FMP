@@ -875,6 +875,10 @@ class YouTubeSource extends BaseSource with Logging {
       return MixFetchResult(title: title, tracks: tracks);
     } on DioException catch (e) {
       throw _handleDioError(e);
+    } catch (e) {
+      if (e is YouTubeApiException) rethrow;
+      logError('Unexpected error in fetchMixTracks: $e');
+      throw YouTubeApiException(code: 'error', message: e.toString());
     }
   }
 
@@ -1196,6 +1200,10 @@ class YouTubeSource extends BaseSource with Logging {
     return tracks;
     } on DioException catch (e) {
       throw _handleDioError(e);
+    } catch (e) {
+      if (e is YouTubeApiException) rethrow;
+      logError('Unexpected error in _fetchNewThisWeekPlaylist: $e');
+      throw YouTubeApiException(code: 'error', message: e.toString());
     }
   }
 

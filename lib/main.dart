@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
@@ -9,6 +11,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
 import 'core/constants/app_constants.dart';
+import 'core/logger.dart';
 import 'i18n/strings.g.dart';
 import 'services/audio/audio_handler.dart';
 import 'services/audio/windows_smtc_handler.dart';
@@ -25,9 +28,24 @@ late WindowsSmtcHandler windowsSmtcHandler;
 bool launchMinimized = false;
 
 void main(List<String> args) async {
-  WidgetsFlutterBinding.ensureInitialized();
+  // 捕获 Flutter 框架层错误（渲染、布局等）
+  FlutterError.onError = (FlutterErrorDetails details) {
+    AppLogger.error(
+      'FlutterError: ${details.exception}',
+      details.exception,
+      details.stack,
+      'FlutterError',
+    );
+    // Debug 模式保留默认行为（红屏），Release 模式静默记录
+    if (kDebugMode) {
+      FlutterError.dumpErrorToConsole(details);
+    }
+  };
 
-  launchMinimized = args.contains('--minimized');
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+
+    launchMinimized = args.contains('--minimized');
 
   // 限制 Flutter 图片内存缓存大小，减少内存占用
   // 默认值：maximumSize = 1000, maximumSizeBytes = 100 MB
@@ -94,6 +112,9 @@ void main(List<String> args) async {
       ),
     ),
   );
+  }, (error, stackTrace) {
+    AppLogger.error('Uncaught async error', error, stackTrace, 'Zone');
+  });
 }
 
 /// 初始化 Windows SMTC（系统媒体传输控制）
