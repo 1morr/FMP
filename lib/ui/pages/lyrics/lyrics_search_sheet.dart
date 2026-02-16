@@ -109,7 +109,6 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-      height: 40,
       child: ScrollConfiguration(
         behavior: ScrollConfiguration.of(context).copyWith(
           dragDevices: {
@@ -140,6 +139,7 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
                     showCheckmark: false,
                     avatar: Icon(getIcon(source), size: 16),
                     label: Text(getLabel(source)),
+                    labelPadding: const EdgeInsets.only(left: 4, right: 4),
                     selected: _selectedFilter == filter,
                     onSelected: isDisabled
                         ? null
