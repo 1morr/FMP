@@ -14,6 +14,9 @@ import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/track_group/track_group.dart';
 import '../../widgets/track_thumbnail.dart';
 import '../../../i18n/strings.g.dart';
+import '../../widgets/dialogs/add_to_playlist_dialog.dart';
+import '../lyrics/lyrics_search_sheet.dart';
+import '../../widgets/context_menu_region.dart';
 
 /// 已下载分类详情页面
 class DownloadedCategoryPage extends ConsumerStatefulWidget {
@@ -494,7 +497,10 @@ class _GroupHeader extends ConsumerWidget {
             t.sourceId == currentTrack.sourceId &&
             t.pageNum == currentTrack.pageNum);
 
-    return ListTile(
+    return ContextMenuRegion(
+      menuBuilder: (_) => _buildMenuItems(),
+      onSelected: (value) => _handleMenuAction(context, ref, value),
+      child: ListTile(
       onTap: onToggle,
       leading: TrackThumbnail(
         track: firstTrack,
@@ -575,8 +581,36 @@ class _GroupHeader extends ConsumerWidget {
           ),
         ],
       ),
+      ),
     );
   }
+
+  List<PopupMenuEntry<String>> _buildMenuItems() => [
+    PopupMenuItem(
+      value: 'play_first',
+      child: ListTile(
+        leading: const Icon(Icons.play_arrow),
+        title: Text(t.library.downloadedCategory.playFirstPart),
+        contentPadding: EdgeInsets.zero,
+      ),
+    ),
+    PopupMenuItem(
+      value: 'add_all_to_queue',
+      child: ListTile(
+        leading: const Icon(Icons.add_to_queue),
+        title: Text(t.library.downloadedCategory.addAllToQueue),
+        contentPadding: EdgeInsets.zero,
+      ),
+    ),
+    PopupMenuItem(
+      value: 'delete_all',
+      child: ListTile(
+        leading: const Icon(Icons.delete_outline),
+        title: Text(t.library.downloadedCategory.deleteAllDownloads),
+        contentPadding: EdgeInsets.zero,
+      ),
+    ),
+  ];
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
     switch (action) {
@@ -659,7 +693,10 @@ class _DownloadedTrackTile extends ConsumerWidget {
         currentTrack.sourceId == track.sourceId &&
         currentTrack.pageNum == track.pageNum;
 
-    return Padding(
+    return ContextMenuRegion(
+      menuBuilder: (_) => _buildMenuItems(),
+      onSelected: (value) => _handleMenuAction(context, ref, value),
+      child: Padding(
       padding: EdgeInsets.only(left: indent ? 56 : 0),
       child: ListTile(
         leading: isPartOfMultiPage
@@ -739,7 +776,23 @@ class _DownloadedTrackTile extends ConsumerWidget {
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
-
+                PopupMenuItem(
+                  value: 'add_to_playlist',
+                  child: ListTile(
+                    leading: const Icon(Icons.playlist_add),
+                    title: Text(t.library.addToPlaylist),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'matchLyrics',
+                  child: ListTile(
+                    leading: const Icon(Icons.lyrics_outlined),
+                    title: Text(t.lyrics.matchLyrics),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                const PopupMenuDivider(),
                 PopupMenuItem(
                   value: 'delete',
                   child: ListTile(
@@ -754,8 +807,53 @@ class _DownloadedTrackTile extends ConsumerWidget {
         ),
         onTap: onTap,
       ),
+      ),
     );
   }
+
+  List<PopupMenuEntry<String>> _buildMenuItems() => [
+    PopupMenuItem(
+      value: 'play_next',
+      child: ListTile(
+        leading: const Icon(Icons.queue_play_next),
+        title: Text(t.library.playNext),
+        contentPadding: EdgeInsets.zero,
+      ),
+    ),
+    PopupMenuItem(
+      value: 'add_to_queue',
+      child: ListTile(
+        leading: const Icon(Icons.add_to_queue),
+        title: Text(t.library.addToQueue),
+        contentPadding: EdgeInsets.zero,
+      ),
+    ),
+    PopupMenuItem(
+      value: 'add_to_playlist',
+      child: ListTile(
+        leading: const Icon(Icons.playlist_add),
+        title: Text(t.library.addToPlaylist),
+        contentPadding: EdgeInsets.zero,
+      ),
+    ),
+    PopupMenuItem(
+      value: 'matchLyrics',
+      child: ListTile(
+        leading: const Icon(Icons.lyrics_outlined),
+        title: Text(t.lyrics.matchLyrics),
+        contentPadding: EdgeInsets.zero,
+      ),
+    ),
+    const PopupMenuDivider(),
+    PopupMenuItem(
+      value: 'delete',
+      child: ListTile(
+        leading: const Icon(Icons.delete_outline),
+        title: Text(t.library.deleteDownload),
+        contentPadding: EdgeInsets.zero,
+      ),
+    ),
+  ];
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
     switch (action) {
@@ -769,6 +867,16 @@ class _DownloadedTrackTile extends ConsumerWidget {
         final added = await ref.read(audioControllerProvider.notifier).addToQueue(track);
         if (added && context.mounted) {
           ToastService.success(context, t.library.addedToPlayQueue);
+        }
+        break;
+      case 'add_to_playlist':
+        if (context.mounted) {
+          showAddToPlaylistDialog(context: context, track: track);
+        }
+        break;
+      case 'matchLyrics':
+        if (context.mounted) {
+          showLyricsSearchSheet(context: context, track: track);
         }
         break;
 
