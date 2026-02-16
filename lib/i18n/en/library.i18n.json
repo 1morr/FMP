@@ -75,6 +75,9 @@
     "addedToDownloadQueueSingle": "Added to download queue",
     "songAlreadyDownloaded": "Song already downloaded",
     "downloadTaskExists": "Download task already exists",
+    "allPartsAlreadyDownloaded": "All parts already downloaded",
+    "allPartsInDownloadQueue": "All parts already in download queue",
+    "allPartsDownloadedOrQueued": "All parts already downloaded or queued",
     "view": "View"
   },
   "downloadedPage": {
