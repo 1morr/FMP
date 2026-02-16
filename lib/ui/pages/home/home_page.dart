@@ -24,6 +24,7 @@ import '../../widgets/context_menu_region.dart';
 import '../../../core/utils/number_format_utils.dart';
 import '../../../i18n/strings.g.dart';
 import '../../widgets/track_thumbnail.dart';
+import '../../widgets/track_tile.dart';
 import '../../../data/models/playlist.dart';
 import '../../../providers/refresh_provider.dart';
 import '../../../data/sources/source_provider.dart';
@@ -827,90 +828,46 @@ class _RankingTrackTile extends ConsumerWidget {
     return ContextMenuRegion(
       menuBuilder: (_) => _buildMenuItems(),
       onSelected: (value) => _handleMenuAction(context, ref, value),
-      child: InkWell(
+      child: TrackTile(
+        track: track,
+        rank: rank,
+        isPlaying: isPlaying,
         onTap: () {
           ref.read(audioControllerProvider.notifier).playTemporary(track);
         },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
-          child: Row(
-            children: [
-              // 排名
-              SizedBox(
-                width: 28,
-                child: Text(
-                  '$rank',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.outline,
-                      ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              // 缩略图
-              TrackThumbnail(
-                track: track,
-                size: AppSizes.thumbnailMedium,
-                borderRadius: 4,
-                isPlaying: isPlaying,
-              ),
-              const SizedBox(width: 12),
-              // 歌曲信息
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      track.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: isPlaying ? colorScheme.primary : null,
-                            fontWeight: isPlaying ? FontWeight.w600 : null,
-                          ),
+        subtitle: Row(
+          children: [
+            Flexible(
+              child: Text(
+                track.artist ?? t.general.unknownArtist,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
                     ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            track.artist ?? t.general.unknownArtist,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                          ),
-                        ),
-                        if (track.viewCount != null) ...[
-                          const SizedBox(width: 8),
-                          Icon(
-                            Icons.play_arrow,
-                            size: 14,
-                            color: colorScheme.outline,
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            formatCount(track.viewCount!),
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.outline,
-                                ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
               ),
-              // 菜单按钮
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert),
-                onSelected: (value) => _handleMenuAction(context, ref, value),
-                itemBuilder: (_) => _buildMenuItems(),
+            ),
+            if (track.viewCount != null) ...[
+              const SizedBox(width: 8),
+              Icon(
+                Icons.play_arrow,
+                size: 14,
+                color: colorScheme.outline,
+              ),
+              const SizedBox(width: 2),
+              Text(
+                formatCount(track.viewCount!),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.outline,
+                    ),
               ),
             ],
-          ),
+          ],
+        ),
+        trailing: PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert),
+          onSelected: (value) => _handleMenuAction(context, ref, value),
+          itemBuilder: (_) => _buildMenuItems(),
         ),
       ),
     );
