@@ -49,7 +49,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     });
 
     final colorScheme = Theme.of(context).colorScheme;
-    final playerState = ref.watch(audioControllerProvider);
 
     return Scaffold(
       body: SingleChildScrollView(
@@ -65,13 +64,11 @@ class _HomePageState extends ConsumerState<HomePage> {
             // 电台
             _buildRadioSection(context, colorScheme),
 
-            // 正在播放
-            if (playerState.hasCurrentTrack)
-              _buildNowPlaying(context, playerState, colorScheme),
+            // 正在播放（独立 ConsumerWidget）
+            const _NowPlayingSection(),
 
-            // 队列预览
-            if (playerState.queue.isNotEmpty)
-              _buildQueuePreview(context, playerState, colorScheme),
+            // 队列预览（独立 ConsumerWidget）
+            const _QueuePreviewSection(),
 
             // 最近播放历史
             _buildRecentHistory(context, colorScheme),
@@ -653,168 +650,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  Widget _buildNowPlaying(
-    BuildContext context,
-    PlayerState playerState,
-    ColorScheme colorScheme,
-  ) {
-    final track = playerState.currentTrack!;
-    // 檢查電台是否正在播放
-    final isRadioPlaying = ref.watch(isRadioPlayingProvider);
-    // 音樂實際播放狀態：電台播放時，音樂處於暫停狀態
-    final isMusicPlaying = playerState.isPlaying && !isRadioPlaying;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text(
-            t.home.nowPlaying,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Card(
-            color: colorScheme.primaryContainer.withValues(alpha: 0.3),
-            child: InkWell(
-              onTap: () {
-                if (isRadioPlaying) {
-                          // 電台播放中，點擊播放音樂（會自動停止電台）
-                          final index = playerState.currentIndex;
-                          if (index != null && index >= 0) {
-                            ref.read(audioControllerProvider.notifier).playAt(index);
-                          }
-                } else {
-                  ref.read(audioControllerProvider.notifier).togglePlayPause();
-                }
-              },
-              borderRadius: AppRadius.borderRadiusLg,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    // 封面
-                    TrackThumbnail(
-                      track: track,
-                      size: AppSizes.thumbnailLarge,
-                      borderRadius: 8,
-                    ),
-                    const SizedBox(width: 12),
-                    // 信息
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            track.title,
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            track.artist ?? t.general.unknownArtist,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    // 控制按钮
-                    IconButton(
-                      icon: Icon(
-                        isMusicPlaying ? Icons.pause : Icons.play_arrow,
-                      ),
-                      onPressed: () {
-                        if (isRadioPlaying) {
-                          // 電台播放中，點擊播放音樂（會自動停止電台）
-                          final index = playerState.currentIndex;
-                          if (index != null && index >= 0) {
-                            ref.read(audioControllerProvider.notifier).playAt(index);
-                          }
-                        } else {
-                          ref.read(audioControllerProvider.notifier).togglePlayPause();
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-    Widget _buildQueuePreview(
-    BuildContext context,
-    PlayerState playerState,
-    ColorScheme colorScheme,
-  ) {
-    // 使用 upcomingTracks 获取接下来要播放的歌曲（已考虑 shuffle 模式）
-    final upNext = playerState.upcomingTracks.take(AppConstants.upcomingTracksPreviewCount).toList();
-    if (upNext.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Row(
-            children: [
-              Text(
-                t.home.upNext,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const Spacer(),
-              TextButton(
-                onPressed: () => context.go(RoutePaths.queue),
-                child: Text(t.home.viewQueue),
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            children: upNext.map((track) => ListTile(
-              contentPadding: const EdgeInsets.only(left: 18),
-              leading: TrackThumbnail(
-                track: track,
-                size: AppSizes.thumbnailSmall,
-                borderRadius: 4,
-              ),
-              title: Text(
-                track.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              subtitle: Text(
-                track.artist ?? t.general.unknownArtist,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              dense: true,
-              onTap: () {
-                final trackIndex = playerState.queue.indexOf(track);
-                if (trackIndex >= 0) {
-                  ref.read(audioControllerProvider.notifier).playAt(trackIndex);
-                }
-              },
-            )).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-
   /// 構建電台區域
   Widget _buildRadioSection(BuildContext context, ColorScheme colorScheme) {
     final radioState = ref.watch(radioControllerProvider);
@@ -992,72 +827,91 @@ class _RankingTrackTile extends ConsumerWidget {
     return ContextMenuRegion(
       menuBuilder: (_) => _buildMenuItems(),
       onSelected: (value) => _handleMenuAction(context, ref, value),
-      child: ListTile(
-        leading: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 24,
-              child: Text(
-                '$rank',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.outline,
-                    ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            TrackThumbnail(
-              track: track,
-              size: AppSizes.thumbnailMedium,
-              borderRadius: 4,
-              isPlaying: isPlaying,
-            ),
-          ],
-        ),
-        title: Text(
-          track.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: isPlaying ? colorScheme.primary : null,
-            fontWeight: isPlaying ? FontWeight.w600 : null,
-          ),
-        ),
-        subtitle: Row(
-          children: [
-            Flexible(
-              child: Text(
-                track.artist ?? t.general.unknownArtist,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (track.viewCount != null) ...[
-              const SizedBox(width: 8),
-              Icon(
-                Icons.play_arrow,
-                size: 14,
-                color: colorScheme.outline,
-              ),
-              const SizedBox(width: 2),
-              Text(
-                formatCount(track.viewCount!),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.outline,
-                    ),
-              ),
-            ],
-          ],
-        ),
-        trailing: PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert),
-          onSelected: (value) => _handleMenuAction(context, ref, value),
-          itemBuilder: (_) => _buildMenuItems(),
-        ),
+      child: InkWell(
         onTap: () {
           ref.read(audioControllerProvider.notifier).playTemporary(track);
         },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+          child: Row(
+            children: [
+              // 排名
+              SizedBox(
+                width: 28,
+                child: Text(
+                  '$rank',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.outline,
+                      ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // 缩略图
+              TrackThumbnail(
+                track: track,
+                size: AppSizes.thumbnailMedium,
+                borderRadius: 4,
+                isPlaying: isPlaying,
+              ),
+              const SizedBox(width: 12),
+              // 歌曲信息
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      track.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: isPlaying ? colorScheme.primary : null,
+                            fontWeight: isPlaying ? FontWeight.w600 : null,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            track.artist ?? t.general.unknownArtist,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ),
+                        if (track.viewCount != null) ...[
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.play_arrow,
+                            size: 14,
+                            color: colorScheme.outline,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            formatCount(track.viewCount!),
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.outline,
+                                ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // 菜单按钮
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert),
+                onSelected: (value) => _handleMenuAction(context, ref, value),
+                itemBuilder: (_) => _buildMenuItems(),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1640,3 +1494,181 @@ class _HomePlaylistCard extends ConsumerWidget {
     }
   }
 }
+
+/// 正在播放区域（独立 ConsumerWidget）
+class _NowPlayingSection extends ConsumerWidget {
+  const _NowPlayingSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    // 只监听当前曲目和播放状态
+    final track = ref.watch(currentTrackProvider);
+    final isPlaying = ref.watch(audioControllerProvider.select((s) => s.isPlaying));
+    final isRadioPlaying = ref.watch(isRadioPlayingProvider);
+
+    // 没有当前曲目时不显示
+    if (track == null) return const SizedBox.shrink();
+
+    // 音樂實際播放狀態：電台播放時，音樂處於暫停狀態
+    final isMusicPlaying = isPlaying && !isRadioPlaying;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Text(
+            t.home.nowPlaying,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Card(
+            color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+            child: InkWell(
+              onTap: () {
+                if (isRadioPlaying) {
+                  // 電台播放中，點擊播放音樂（會自動停止電台）
+                  final playerState = ref.read(audioControllerProvider);
+                  final index = playerState.currentIndex;
+                  if (index != null && index >= 0) {
+                    ref.read(audioControllerProvider.notifier).playAt(index);
+                  }
+                } else {
+                  ref.read(audioControllerProvider.notifier).togglePlayPause();
+                }
+              },
+              borderRadius: AppRadius.borderRadiusLg,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    // 封面
+                    TrackThumbnail(
+                      track: track,
+                      size: AppSizes.thumbnailLarge,
+                      borderRadius: 8,
+                    ),
+                    const SizedBox(width: 12),
+                    // 信息
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            track.title,
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            track.artist ?? t.general.unknownArtist,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    // 控制按钮
+                    IconButton(
+                      icon: Icon(
+                        isMusicPlaying ? Icons.pause : Icons.play_arrow,
+                      ),
+                      onPressed: () {
+                        if (isRadioPlaying) {
+                          // 電台播放中，點擊播放音樂（會自動停止電台）
+                          final playerState = ref.read(audioControllerProvider);
+                          final index = playerState.currentIndex;
+                          if (index != null && index >= 0) {
+                            ref.read(audioControllerProvider.notifier).playAt(index);
+                          }
+                        } else {
+                          ref.read(audioControllerProvider.notifier).togglePlayPause();
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 队列预览区域（独立 ConsumerWidget）
+class _QueuePreviewSection extends ConsumerWidget {
+  const _QueuePreviewSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 只监听即将播放的曲目
+    final upcomingTracks = ref.watch(audioControllerProvider.select((s) => s.upcomingTracks));
+    final upNext = upcomingTracks.take(AppConstants.upcomingTracksPreviewCount).toList();
+
+    if (upNext.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Row(
+            children: [
+              Text(
+                t.home.upNext,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () => context.go(RoutePaths.queue),
+                child: Text(t.home.viewQueue),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            children: upNext.map((track) => ListTile(
+              contentPadding: const EdgeInsets.only(left: 18),
+              leading: TrackThumbnail(
+                track: track,
+                size: AppSizes.thumbnailSmall,
+                borderRadius: 4,
+              ),
+              title: Text(
+                track.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(
+                track.artist ?? t.general.unknownArtist,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              dense: true,
+              onTap: () {
+                final playerState = ref.read(audioControllerProvider);
+                final trackIndex = playerState.queue.indexOf(track);
+                if (trackIndex >= 0) {
+                  ref.read(audioControllerProvider.notifier).playAt(trackIndex);
+                }
+              },
+            )).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
