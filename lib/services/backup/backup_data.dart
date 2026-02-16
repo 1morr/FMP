@@ -419,8 +419,6 @@ class SettingsBackup {
   final int? cardColor;
   final int maxCacheSizeMB;
   final List<String> enabledSources;
-  final bool autoRefreshImports;
-  final int defaultRefreshIntervalHours;
   final bool autoScrollToCurrentTrack;
   final bool rememberPlaybackPosition;
   final int restartRewindSeconds;
@@ -454,8 +452,6 @@ class SettingsBackup {
     this.cardColor,
     this.maxCacheSizeMB = 32,
     this.enabledSources = const ['bilibili', 'youtube'],
-    this.autoRefreshImports = true,
-    this.defaultRefreshIntervalHours = 24,
     this.autoScrollToCurrentTrack = false,
     this.rememberPlaybackPosition = true,
     this.restartRewindSeconds = 0,
@@ -494,9 +490,6 @@ class SettingsBackup {
               ?.map((e) => e as String)
               .toList() ??
           ['bilibili', 'youtube'],
-      autoRefreshImports: json['autoRefreshImports'] as bool? ?? true,
-      defaultRefreshIntervalHours:
-          json['defaultRefreshIntervalHours'] as int? ?? 24,
       autoScrollToCurrentTrack:
           json['autoScrollToCurrentTrack'] as bool? ?? false,
       rememberPlaybackPosition:
@@ -540,8 +533,6 @@ class SettingsBackup {
       if (cardColor != null) 'cardColor': cardColor,
       'maxCacheSizeMB': maxCacheSizeMB,
       'enabledSources': enabledSources,
-      'autoRefreshImports': autoRefreshImports,
-      'defaultRefreshIntervalHours': defaultRefreshIntervalHours,
       'autoScrollToCurrentTrack': autoScrollToCurrentTrack,
       'rememberPlaybackPosition': rememberPlaybackPosition,
       'restartRewindSeconds': restartRewindSeconds,

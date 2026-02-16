@@ -79,12 +79,6 @@ class Settings {
   /// 启用的音源列表
   List<String> enabledSources = ['bilibili', 'youtube'];
 
-  /// 是否自动刷新导入的歌单
-  bool autoRefreshImports = true;
-
-  /// 默认刷新间隔（小时）
-  int defaultRefreshIntervalHours = 24;
-
   /// 切歌时自动跳转到队列页面并定位当前歌曲
   bool autoScrollToCurrentTrack = false;
 
@@ -108,10 +102,10 @@ class Settings {
   // ========== 桌面平台设置 ==========
 
   /// 关闭窗口时最小化到托盘（仅 Windows）
-  bool minimizeToTrayOnClose = true;
+  bool minimizeToTrayOnClose = false;
 
   /// 启用全局快捷键（仅 Windows）
-  bool enableGlobalHotkeys = true;
+  bool enableGlobalHotkeys = false;
 
   /// 开机自启动（仅 Windows）
   bool launchAtStartup = false;
@@ -149,7 +143,7 @@ class Settings {
   // ========== 歌词设置 ==========
 
   /// 自动匹配歌词（播放时自动搜索并匹配）
-  bool autoMatchLyrics = true;
+  bool autoMatchLyrics = false;
 
   /// 最大歌词缓存文件数
   int maxLyricsCacheFiles = 50;

@@ -464,13 +464,6 @@ class _SettingsListView extends StatelessWidget {
                   },
                 ),
                 _DataSection(
-                  title: t.databaseViewer.importSettings,
-                  data: {
-                    'autoRefreshImports': setting.autoRefreshImports.toString(),
-                    'defaultRefreshIntervalHours': setting.defaultRefreshIntervalHours.toString(),
-                  },
-                ),
-                _DataSection(
                   title: t.databaseViewer.downloadSettings,
                   data: {
                     'maxConcurrentDownloads': setting.maxConcurrentDownloads.toString(),

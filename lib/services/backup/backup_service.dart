@@ -186,8 +186,6 @@ class BackupService {
         cardColor: settings.cardColor,
         maxCacheSizeMB: settings.maxCacheSizeMB,
         enabledSources: settings.enabledSources,
-        autoRefreshImports: settings.autoRefreshImports,
-        defaultRefreshIntervalHours: settings.defaultRefreshIntervalHours,
         autoScrollToCurrentTrack: settings.autoScrollToCurrentTrack,
         rememberPlaybackPosition: settings.rememberPlaybackPosition,
         restartRewindSeconds: settings.restartRewindSeconds,
@@ -566,8 +564,6 @@ class BackupService {
           ..cardColor = settingsBackup.cardColor
           ..maxCacheSizeMB = settingsBackup.maxCacheSizeMB
           ..enabledSources = settingsBackup.enabledSources
-          ..autoRefreshImports = settingsBackup.autoRefreshImports
-          ..defaultRefreshIntervalHours = settingsBackup.defaultRefreshIntervalHours
           ..autoScrollToCurrentTrack = settingsBackup.autoScrollToCurrentTrack
           ..rememberPlaybackPosition = settingsBackup.rememberPlaybackPosition
           ..restartRewindSeconds = settingsBackup.restartRewindSeconds
