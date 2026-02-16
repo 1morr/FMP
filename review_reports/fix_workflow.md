@@ -403,37 +403,45 @@
 
 ---
 
-## Phase 7: 代码风格统一（预估 0.5-1h）
+## Phase 7: 代码风格统一（预估 0.5-1h） ✅ COMPLETED
 
 > 目标：统一小细节，提升代码一致性
 
-### Task 7.1: 统一 const Icon 使用
+### Task 7.1: 统一 const Icon 使用 ✅
 - **优先级**: P2
-- **涉及文件**: `explore_page.dart`、`search_page.dart` 中菜单 Icon 缺少 `const`
+- **涉及文件**: `explore_page.dart` 中菜单 Icon 缺少 `const`
 - **修改内容**: 为所有可以 const 的 Icon 添加 `const` 关键字
-- **验证**: `flutter analyze` 无新增 warning
-- **依赖**: 无
+- **完成情况**: ✅ 已完成 - 为 explore_page.dart 的 5 个菜单 Icon 添加了 const
+- **验证**: ✅ `flutter analyze` 无新增 warning
 
-### Task 7.2: 确认 PlayHistoryPage cid vs pageNum 等价性
+### Task 7.2: 确认 PlayHistoryPage cid vs pageNum 等价性 ✅
 - **优先级**: P2
 - **文件**: `lib/ui/pages/history/play_history_page.dart` L556
-- **修改内容**:
-  1. 确认 `PlayHistory.cid` 与 `Track.pageNum` 的对应关系
-  2. 如果等价，统一使用 `pageNum` 比较
-  3. 如果不等价，添加注释说明原因
-- **依赖**: 无
+- **修改内容**: 添加注释说明 cid 与 pageNum 的区别
+- **完成情况**: ✅ 已完成 - 添加了详细注释说明：
+  - `cid`: Bilibili 分P的唯一标识符（稳定的唯一ID）
+  - `pageNum`: 分P的显示序号（1, 2, 3...）
+  - 当前代码正确使用 cid 进行比较
+- **结论**: cid 和 pageNum **不等价**，当前实现正确
 
-### Task 7.3: Provider .when() error 回调添加 debug 日志
+### Task 7.3: Provider .when() error 回调添加 debug 日志 ✅
 - **优先级**: P2
-- **涉及文件**: `explore_page.dart` 等多处 `.when()` 调用
+- **涉及文件**: `explore_page.dart`、`play_history_page.dart`、`create_playlist_dialog.dart`
 - **修改内容**: 将 `error: (_, __)` 改为 `error: (error, stack) { debugPrint(...); return ...; }`
-- **依赖**: 无
+- **完成情况**: ✅ 已完成 - 修改了以下位置：
+  - `explore_page.dart`: Bilibili 排行榜错误处理
+  - `explore_page.dart`: YouTube 排行榜错误处理
+  - `play_history_page.dart`: 播放历史统计错误处理
+  - `create_playlist_dialog.dart`: 歌单封面加载错误处理
 
-### Task 7.4: RadioRefreshService Provider 添加注释
+### Task 7.4: RadioRefreshService Provider 添加注释 ✅
 - **优先级**: P2
 - **文件**: `lib/services/radio/radio_refresh_service.dart`
 - **修改内容**: 在 Provider 定义处添加注释说明为什么不调用 dispose（全局单例设计）
-- **依赖**: 无
+- **完成情况**: ✅ 已完成 - 添加了详细注释说明：
+  1. RadioRefreshService.instance 是全局单例，生命週期與應用相同
+  2. 單例的 dispose() 由應用退出時統一處理
+  3. Provider 僅作為訪問入口，不擁有資源所有權
 
 ---
 

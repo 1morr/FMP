@@ -123,15 +123,18 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
         error: null,
         onRefresh: () async {},
       ),
-      error: (_, __) => _buildRankingContent(
-        tracks: [],
-        isLoading: false,
-        error: t.general.loadFailed,
-        onRefresh: () async {
-          final service = ref.read(rankingCacheServiceProvider);
-          await service.refreshBilibili();
-        },
-      ),
+      error: (error, stack) {
+        debugPrint('Failed to load Bilibili ranking: $error');
+        return _buildRankingContent(
+          tracks: [],
+          isLoading: false,
+          error: t.general.loadFailed,
+          onRefresh: () async {
+            final service = ref.read(rankingCacheServiceProvider);
+            await service.refreshBilibili();
+          },
+        );
+      },
     );
   }
 
@@ -154,15 +157,18 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
         error: null,
         onRefresh: () async {},
       ),
-      error: (_, __) => _buildRankingContent(
-        tracks: [],
-        isLoading: false,
-        error: t.general.loadFailed,
-        onRefresh: () async {
-          final service = ref.read(rankingCacheServiceProvider);
-          await service.refreshYouTube();
-        },
-      ),
+      error: (error, stack) {
+        debugPrint('Failed to load YouTube ranking: $error');
+        return _buildRankingContent(
+          tracks: [],
+          isLoading: false,
+          error: t.general.loadFailed,
+          onRefresh: () async {
+            final service = ref.read(rankingCacheServiceProvider);
+            await service.refreshYouTube();
+          },
+        );
+      },
     );
   }
 
@@ -298,23 +304,23 @@ class _ExploreTrackTile extends ConsumerWidget {
   List<PopupMenuEntry<String>> _buildMenuItems() => [
     PopupMenuItem(
       value: 'play',
-      child: ListTile(leading: Icon(Icons.play_arrow), title: Text(t.searchPage.menu.play), contentPadding: EdgeInsets.zero),
+      child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.searchPage.menu.play), contentPadding: EdgeInsets.zero),
     ),
     PopupMenuItem(
       value: 'play_next',
-      child: ListTile(leading: Icon(Icons.queue_play_next), title: Text(t.searchPage.menu.playNext), contentPadding: EdgeInsets.zero),
+      child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.searchPage.menu.playNext), contentPadding: EdgeInsets.zero),
     ),
     PopupMenuItem(
       value: 'add_to_queue',
-      child: ListTile(leading: Icon(Icons.add_to_queue), title: Text(t.searchPage.menu.addToQueue), contentPadding: EdgeInsets.zero),
+      child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.searchPage.menu.addToQueue), contentPadding: EdgeInsets.zero),
     ),
     PopupMenuItem(
       value: 'add_to_playlist',
-      child: ListTile(leading: Icon(Icons.playlist_add), title: Text(t.searchPage.menu.addToPlaylist), contentPadding: EdgeInsets.zero),
+      child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.searchPage.menu.addToPlaylist), contentPadding: EdgeInsets.zero),
     ),
     PopupMenuItem(
       value: 'matchLyrics',
-      child: ListTile(leading: Icon(Icons.lyrics_outlined), title: Text(t.lyrics.matchLyrics), contentPadding: EdgeInsets.zero),
+      child: ListTile(leading: const Icon(Icons.lyrics_outlined), title: Text(t.lyrics.matchLyrics), contentPadding: EdgeInsets.zero),
     ),
   ];
 
