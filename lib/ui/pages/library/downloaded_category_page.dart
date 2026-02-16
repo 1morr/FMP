@@ -9,6 +9,7 @@ import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/download_provider.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../widgets/error_display.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/track_group/track_group.dart';
 import '../../widgets/track_thumbnail.dart';
@@ -393,26 +394,10 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
   }
 
   Widget _buildEmptyState(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.download_done,
-            size: 64,
-            color: colorScheme.outline,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            t.library.downloadedCategory.noCategoryTracks,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: colorScheme.outline,
-                ),
-          ),
-        ],
-      ),
+    return ErrorDisplay.empty(
+      icon: Icons.download_done,
+      title: t.library.downloadedCategory.noCategoryTracks,
+      message: '',
     );
   }
 

@@ -37,6 +37,9 @@ class ErrorDisplay extends StatelessWidget {
   /// 自定义标题
   final String? title;
 
+  /// 自定义操作按钮（用于空状态等场景）
+  final Widget? action;
+
   /// 是否紧凑模式
   final bool compact;
 
@@ -47,6 +50,7 @@ class ErrorDisplay extends StatelessWidget {
     this.onRetry,
     this.icon,
     this.title,
+    this.action,
     this.compact = false,
   });
 
@@ -58,7 +62,8 @@ class ErrorDisplay extends StatelessWidget {
     this.compact = false,
   })  : type = ErrorType.network,
         icon = null,
-        title = null;
+        title = null,
+        action = null;
 
   /// 服务器错误
   const ErrorDisplay.server({
@@ -68,7 +73,8 @@ class ErrorDisplay extends StatelessWidget {
     this.compact = false,
   })  : type = ErrorType.server,
         icon = null,
-        title = null;
+        title = null,
+        action = null;
 
   /// 未找到
   const ErrorDisplay.notFound({
@@ -78,7 +84,8 @@ class ErrorDisplay extends StatelessWidget {
     this.compact = false,
   })  : type = ErrorType.notFound,
         icon = null,
-        title = null;
+        title = null,
+        action = null;
 
   /// 权限错误
   const ErrorDisplay.permission({
@@ -88,7 +95,8 @@ class ErrorDisplay extends StatelessWidget {
     this.compact = false,
   })  : type = ErrorType.permission,
         icon = null,
-        title = null;
+        title = null,
+        action = null;
 
   /// 空状态
   const ErrorDisplay.empty({
@@ -97,6 +105,7 @@ class ErrorDisplay extends StatelessWidget {
     this.onRetry,
     this.icon,
     this.title,
+    this.action,
     this.compact = false,
   }) : type = ErrorType.empty;
 
@@ -232,40 +241,32 @@ class ErrorDisplay extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: type == ErrorType.empty
-                    ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
-                    : colorScheme.errorContainer.withValues(alpha: 0.3),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                _getIcon(),
-                size: 48,
-                color: type == ErrorType.empty
-                    ? colorScheme.onSurfaceVariant
-                    : colorScheme.error,
-              ),
+            Icon(
+              _getIcon(),
+              size: 80,
+              color: type == ErrorType.empty
+                  ? colorScheme.outline
+                  : colorScheme.error,
             ),
             const SizedBox(height: 24),
             Text(
               _getTitle(),
-              style: textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: textTheme.headlineSmall,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
               displayMessage,
               style: textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
+                color: colorScheme.outline,
               ),
               textAlign: TextAlign.center,
             ),
-            if (onRetry != null) ...[
-              const SizedBox(height: 24),
+            if (action != null) ...[
+              const SizedBox(height: 32),
+              action!,
+            ] else if (onRetry != null) ...[
+              const SizedBox(height: 32),
               FilledButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh_rounded),

@@ -16,6 +16,7 @@ import '../../../services/audio/audio_provider.dart';
 import '../../../services/download/download_path_sync_service.dart';
 import '../../../i18n/strings.g.dart';
 import '../../router.dart';
+import '../../widgets/error_display.dart';
 
 /// 已下载页面 - 显示分类网格
 class DownloadedPage extends ConsumerStatefulWidget {
@@ -123,35 +124,10 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
   }
 
   Widget _buildEmptyState(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.download_done,
-              size: 80,
-              color: colorScheme.outline,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              t.library.downloadedPage.noDownloads,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              t.library.downloadedPage.noDownloadsHint,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.outline,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
+    return ErrorDisplay.empty(
+      icon: Icons.download_done,
+      title: t.library.downloadedPage.noDownloads,
+      message: t.library.downloadedPage.noDownloadsHint,
     );
   }
 

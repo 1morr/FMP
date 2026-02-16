@@ -11,6 +11,7 @@ import '../../../providers/playback_settings_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
 import '../../../i18n/strings.g.dart';
+import '../../widgets/error_display.dart';
 import '../../widgets/track_thumbnail.dart';
 
 /// 播放队列页
@@ -330,34 +331,14 @@ class _QueuePageState extends ConsumerState<QueuePage> {
   }
 
   Widget _buildEmptyState(BuildContext context, ColorScheme colorScheme) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.queue_music,
-            size: 64,
-            color: colorScheme.outline,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            t.queue.emptyTitle,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            t.queue.emptySubtitle,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.outline,
-                ),
-          ),
-          const SizedBox(height: 24),
-          FilledButton.icon(
-            onPressed: () => context.go(RoutePaths.search),
-            icon: const Icon(Icons.search),
-            label: Text(t.queue.goSearch),
-          ),
-        ],
+    return ErrorDisplay.empty(
+      icon: Icons.queue_music,
+      title: t.queue.emptyTitle,
+      message: t.queue.emptySubtitle,
+      action: FilledButton.icon(
+        onPressed: () => context.go(RoutePaths.search),
+        icon: const Icon(Icons.search),
+        label: Text(t.queue.goSearch),
       ),
     );
   }
