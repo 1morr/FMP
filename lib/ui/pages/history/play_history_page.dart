@@ -256,7 +256,10 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
         ),
       ),
       loading: () => const SizedBox(height: 56),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (error, stack) {
+        debugPrint('Failed to load play history stats: $error');
+        return const SizedBox.shrink();
+      },
     );
   }
 
@@ -553,6 +556,10 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     final currentTrack = ref.watch(currentTrackProvider);
 
     // 判断是否正在播放
+    // 注意：使用 cid 而非 pageNum 进行比较
+    // - cid: Bilibili 分P的唯一标识符（如 12345678）
+    // - pageNum: 分P的显示序号（1, 2, 3...）
+    // cid 是稳定的唯一标识，pageNum 只是显示用的序号
     final isPlaying = currentTrack != null &&
         currentTrack.sourceId == history.sourceId &&
         (history.cid == null || currentTrack.cid == history.cid);

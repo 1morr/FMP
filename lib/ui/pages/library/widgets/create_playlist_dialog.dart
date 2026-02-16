@@ -344,7 +344,10 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
             )
           : const ImagePlaceholder.track(),
       loading: () => const ImagePlaceholder.track(),
-      error: (_, __) => const ImagePlaceholder.track(),
+      error: (error, stack) {
+        debugPrint('Failed to load playlist cover: $error');
+        return const ImagePlaceholder.track();
+      },
     );
   }
 
