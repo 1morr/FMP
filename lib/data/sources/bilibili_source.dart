@@ -166,6 +166,10 @@ class BilibiliSource extends BaseSource with Logging {
       return track;
     } on DioException catch (e) {
       throw _handleDioError(e);
+    } catch (e) {
+      if (e is BilibiliApiException) rethrow;
+      logError('Unexpected error in getTrackInfo: $e');
+      throw BilibiliApiException(code: -999, message: e.toString());
     }
   }
 
@@ -504,6 +508,10 @@ class BilibiliSource extends BaseSource with Logging {
       );
     } on DioException catch (e) {
       throw _handleDioError(e);
+    } catch (e) {
+      if (e is BilibiliApiException) rethrow;
+      logError('Unexpected error in parsePlaylist: $e');
+      throw BilibiliApiException(code: -999, message: e.toString());
     }
   }
 
@@ -539,6 +547,10 @@ class BilibiliSource extends BaseSource with Logging {
       )).toList();
     } on DioException catch (e) {
       throw _handleDioError(e);
+    } catch (e) {
+      if (e is BilibiliApiException) rethrow;
+      logError('Unexpected error in getVideoPages: $e');
+      throw BilibiliApiException(code: -999, message: e.toString());
     }
   }
 
@@ -617,6 +629,10 @@ class BilibiliSource extends BaseSource with Logging {
       );
     } on DioException catch (e) {
       throw _handleDioError(e);
+    } catch (e) {
+      if (e is BilibiliApiException) rethrow;
+      logError('Unexpected error in getVideoDetail: $e');
+      throw BilibiliApiException(code: -999, message: e.toString());
     }
   }
 
@@ -705,6 +721,10 @@ class BilibiliSource extends BaseSource with Logging {
       }).toList();
     } on DioException catch (e) {
       throw _handleDioError(e);
+    } catch (e) {
+      if (e is BilibiliApiException) rethrow;
+      logError('Unexpected error in getRankingVideos: $e');
+      throw BilibiliApiException(code: -999, message: e.toString());
     }
   }
 
@@ -845,6 +865,10 @@ class BilibiliSource extends BaseSource with Logging {
       }
     } on DioException catch (e) {
       throw _handleDioError(e);
+    } catch (e) {
+      if (e is BilibiliApiException) rethrow;
+      logError('Unexpected error in searchLiveRooms: $e');
+      throw BilibiliApiException(code: -999, message: e.toString());
     }
   }
 
