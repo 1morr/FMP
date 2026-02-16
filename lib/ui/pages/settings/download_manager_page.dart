@@ -256,7 +256,7 @@ class _DownloadTaskTile extends ConsumerWidget {
     );
 
     return ListTile(
-      leading: _buildStatusIcon(),
+      leading: _buildStatusIcon(context),
       title: Text(
         title,
         maxLines: 1,
@@ -329,7 +329,9 @@ class _DownloadTaskTile extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatusIcon() {
+  Widget _buildStatusIcon(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
     switch (task.status) {
       case DownloadStatus.downloading:
         return const SizedBox(
@@ -338,13 +340,13 @@ class _DownloadTaskTile extends ConsumerWidget {
           child: CircularProgressIndicator(strokeWidth: 2),
         );
       case DownloadStatus.pending:
-        return const Icon(Icons.hourglass_empty, color: Colors.orange);
+        return Icon(Icons.hourglass_empty, color: colorScheme.tertiary);
       case DownloadStatus.paused:
-        return const Icon(Icons.pause_circle, color: Colors.grey);
+        return Icon(Icons.pause_circle, color: colorScheme.outline);
       case DownloadStatus.completed:
-        return const Icon(Icons.check_circle, color: Colors.green);
+        return Icon(Icons.check_circle, color: colorScheme.primary);
       case DownloadStatus.failed:
-        return const Icon(Icons.error, color: Colors.red);
+        return Icon(Icons.error, color: colorScheme.error);
     }
   }
 

@@ -295,7 +295,7 @@ class _ThemeColorListTile extends ConsumerWidget {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF6750A4),
+                    color: Theme.of(context).colorScheme.primary,
                     shape: BoxShape.circle,
                     border: currentColor == null
                         ? Border.all(color: Theme.of(context).colorScheme.primary, width: 2)
@@ -1470,7 +1470,7 @@ class _HotkeyConfigDialogState extends ConsumerState<_HotkeyConfigDialog> {
           children: [
             Text(
               t.settings.hotkeys.hint,
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
             ),
             const SizedBox(height: 16),
             ...HotkeyAction.values.map(
@@ -1532,7 +1532,7 @@ class _HotkeyConfigDialogState extends ConsumerState<_HotkeyConfigDialog> {
                           fontFamily: 'monospace',
                           color: binding?.isConfigured == true
                               ? Theme.of(context).colorScheme.onSurface
-                              : Colors.grey,
+                              : Theme.of(context).colorScheme.outline,
                         ),
                       ),
               ),
