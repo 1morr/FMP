@@ -109,58 +109,63 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
 
             // 歌曲列表
             Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                children: [
+              child: CustomScrollView(
+                slivers: [
                   // 未匹配区域
                   if (state.unmatchedMatchedTracks.isNotEmpty)
-                    _UnmatchedSection(
-                      tracks: state.unmatchedMatchedTracks,
+                    SliverToBoxAdapter(
+                      child: _UnmatchedSection(
+                        tracks: state.unmatchedMatchedTracks,
+                      ),
                     ),
 
                   // 已匹配列表
                   if (state.matchedCount > 0) ...[
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                      child: Text(
-                        t.library.importPreview.matched(n: state.matchedCount),
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: colorScheme.primary,
-                            ),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                        child: Text(
+                          t.library.importPreview.matched(n: state.matchedCount),
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                color: colorScheme.primary,
+                              ),
+                        ),
                       ),
                     ),
-                    ...state.matchedTracks.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final matched = entry.value;
+                    SliverList.builder(
+                      itemCount: state.matchedTracks.length,
+                      itemBuilder: (context, index) {
+                        final matched = state.matchedTracks[index];
 
-                      if (matched.status == MatchStatus.noResult) {
-                        return const SizedBox.shrink();
-                      }
+                        if (matched.status == MatchStatus.noResult) {
+                          return const SizedBox.shrink();
+                        }
 
-                      return _ImportMatchTile(
-                        matchedTrack: matched,
-                        isExpanded: _expandedIndices.contains(index),
-                        onToggleExpand: () {
-                          setState(() {
-                            if (_expandedIndices.contains(index)) {
-                              _expandedIndices.remove(index);
-                            } else {
-                              _expandedIndices.add(index);
-                            }
-                          });
-                        },
-                        onSelectAlternative: (track) {
-                          ref
-                              .read(playlistImportProvider.notifier)
-                              .selectAlternative(index, track);
-                        },
-                        onToggleInclude: (isIncluded) {
-                          ref
-                              .read(playlistImportProvider.notifier)
-                              .toggleInclude(index, isIncluded);
-                        },
-                      );
-                    }),
+                        return _ImportMatchTile(
+                          matchedTrack: matched,
+                          isExpanded: _expandedIndices.contains(index),
+                          onToggleExpand: () {
+                            setState(() {
+                              if (_expandedIndices.contains(index)) {
+                                _expandedIndices.remove(index);
+                              } else {
+                                _expandedIndices.add(index);
+                              }
+                            });
+                          },
+                          onSelectAlternative: (track) {
+                            ref
+                                .read(playlistImportProvider.notifier)
+                                .selectAlternative(index, track);
+                          },
+                          onToggleInclude: (isIncluded) {
+                            ref
+                                .read(playlistImportProvider.notifier)
+                                .toggleInclude(index, isIncluded);
+                          },
+                        );
+                      },
+                    ),
                   ],
                 ],
               ),

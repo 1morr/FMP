@@ -168,6 +168,9 @@ final rankingCacheServiceProvider = Provider<RankingCacheService>((ref) {
   // 當 provider 被銷毀時取消訂閱
   ref.onDispose(() {
     // 不銷毀全局單例，只取消網絡監聽
+    service._networkRecoveredSubscription?.cancel();
+    service._networkRecoveredSubscription = null;
+    service._networkMonitoringSetup = false;
   });
 
   return service;
