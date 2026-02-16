@@ -67,6 +67,17 @@
     "title": "自動匹配歌詞",
     "subtitle": "播放時自動搜尋並匹配歌詞（僅當沒有已匹配的歌詞時）"
   },
+  "lyricsSourceSettings": {
+    "title": "歌詞匹配源",
+    "subtitle": "調整歌詞源的優先順序和啟用狀態",
+    "hint": "拖動調整搜尋優先順序，排在前面的源優先匹配。原平台ID直取始終優先執行，不受此設定影響。",
+    "sourceNetease": "網易雲音樂",
+    "sourceQQMusic": "QQ音樂",
+    "sourceLrclib": "lrclib",
+    "enabled": "已啟用",
+    "disabled": "已停用",
+    "sourceDisabledToast": "該歌詞源已停用"
+  },
   "version": {
     "title": "版本",
     "tapToEnableDev": "再點擊 $n 次啟用開發者選項",

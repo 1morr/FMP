@@ -1435,8 +1435,14 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // 通知 UI 开始自动匹配
       onLyricsAutoMatchStateChanged?.call(true);
       
-      // 后台执行自动匹配
-      final matched = await autoMatchService.tryAutoMatch(track);
+      // 后台执行自动匹配（按用户配置的源优先级）
+      final enabledSources = settings.lyricsSourcePriorityList
+          .where((s) => !settings.disabledLyricsSourcesSet.contains(s))
+          .toList();
+      final matched = await autoMatchService.tryAutoMatch(
+        track,
+        enabledSources: enabledSources.isNotEmpty ? enabledSources : null,
+      );
       if (matched) {
         logInfo('Auto-matched lyrics for: ${track.title}');
       }

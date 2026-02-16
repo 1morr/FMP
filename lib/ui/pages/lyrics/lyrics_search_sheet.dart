@@ -7,6 +7,7 @@ import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
+import '../../../providers/audio_settings_provider.dart';
 import '../../../providers/lyrics_provider.dart';
 import '../../../services/lyrics/lyrics_result.dart';
 import '../../widgets/track_thumbnail.dart';
@@ -65,6 +66,75 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
   void _setFilter(LyricsSourceFilter filter) {
     setState(() => _selectedFilter = filter);
     if (_hasAutoSearched) _doSearch();
+  }
+
+  Widget _buildFilterChips(BuildContext context) {
+    final disabledSources = ref.watch(disabledLyricsSourcesProvider);
+    final sourceOrder = ref.watch(lyricsSourceOrderProvider);
+
+    // 源 filter 映射
+    const sourceFilterMap = {
+      'netease': LyricsSourceFilter.netease,
+      'qqmusic': LyricsSourceFilter.qqmusic,
+      'lrclib': LyricsSourceFilter.lrclib,
+    };
+    String getLabel(String source) {
+      switch (source) {
+        case 'netease':
+          return t.lyrics.sourceNetease;
+        case 'qqmusic':
+          return t.lyrics.sourceQQMusic;
+        case 'lrclib':
+          return t.lyrics.sourceLrclib;
+        default:
+          return source;
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+      height: 40,
+      child: ScrollConfiguration(
+        behavior: ScrollConfiguration.of(context).copyWith(
+          dragDevices: {
+            PointerDeviceKind.touch,
+            PointerDeviceKind.mouse,
+            PointerDeviceKind.trackpad,
+          },
+        ),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              // "全部" chip 始终可用
+              ChoiceChip(
+                label: Text(t.lyrics.sourceAll),
+                selected: _selectedFilter == LyricsSourceFilter.all,
+                onSelected: (_) => _setFilter(LyricsSourceFilter.all),
+              ),
+              // 按用户配置的优先级顺序显示各源 chip
+              ...sourceOrder.map((source) {
+                final filter = sourceFilterMap[source];
+                if (filter == null) return const SizedBox.shrink();
+                final isDisabled = disabledSources.contains(source);
+                final label = getLabel(source);
+
+                return Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: ChoiceChip(
+                    label: Text(label),
+                    selected: _selectedFilter == filter,
+                    onSelected: isDisabled
+                        ? null
+                        : (_) => _setFilter(filter),
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _selectResult(LyricsResult result) async {
@@ -193,49 +263,7 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
                   ),
 
                   // 歌词源筛选
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                    height: 40,
-                    child: ScrollConfiguration(
-                      behavior: ScrollConfiguration.of(context).copyWith(
-                        dragDevices: {
-                          PointerDeviceKind.touch,
-                          PointerDeviceKind.mouse,
-                          PointerDeviceKind.trackpad,
-                        },
-                      ),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            ChoiceChip(
-                              label: Text(t.lyrics.sourceAll),
-                              selected: _selectedFilter == LyricsSourceFilter.all,
-                              onSelected: (_) => _setFilter(LyricsSourceFilter.all),
-                            ),
-                            const SizedBox(width: 8),
-                            ChoiceChip(
-                              label: Text(t.lyrics.sourceNetease),
-                              selected: _selectedFilter == LyricsSourceFilter.netease,
-                              onSelected: (_) => _setFilter(LyricsSourceFilter.netease),
-                            ),
-                            const SizedBox(width: 8),
-                            ChoiceChip(
-                              label: Text(t.lyrics.sourceQQMusic),
-                              selected: _selectedFilter == LyricsSourceFilter.qqmusic,
-                              onSelected: (_) => _setFilter(LyricsSourceFilter.qqmusic),
-                            ),
-                            const SizedBox(width: 8),
-                            ChoiceChip(
-                              label: Text(t.lyrics.sourceLrclib),
-                              selected: _selectedFilter == LyricsSourceFilter.lrclib,
-                              onSelected: (_) => _setFilter(LyricsSourceFilter.lrclib),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                  _buildFilterChips(context),
                 ],
               ),
 

@@ -39,8 +39,10 @@ class LyricsAutoMatchService with Logging {
 
   /// 尝试自动匹配歌词
   ///
+  /// [enabledSources] 按优先级排序的启用歌词源列表（如 ['netease', 'qqmusic', 'lrclib']）。
+  /// 如果为 null，使用默认顺序。
   /// 返回 true 表示成功匹配，false 表示未匹配（已有匹配、无结果、多个结果等）
-  Future<bool> tryAutoMatch(Track track) async {
+  Future<bool> tryAutoMatch(Track track, {List<String>? enabledSources}) async {
     try {
       // 1. 检查是否已有匹配
       final existingMatch = await _repo.getByTrackKey(track.uniqueKey);
@@ -79,90 +81,65 @@ class LyricsAutoMatchService with Logging {
 
       logDebug('Auto-matching: "$trackName" by "$artistName"');
 
-      // 3. 先尝试网易云搜索
-      final neteaseMatch = await _tryNeteaseMatch(
-        trackName, artistName, (track.durationMs ?? 0) ~/ 1000,
-      );
-      if (neteaseMatch != null) {
-        await _cache.put(track.uniqueKey, neteaseMatch);
-        final match = LyricsMatch()
-          ..trackUniqueKey = track.uniqueKey
-          ..lyricsSource = 'netease'
-          ..externalId = neteaseMatch.id
-          ..offsetMs = 0
-          ..matchedAt = DateTime.now();
-        await _repo.save(match);
-        logInfo('Auto-matched lyrics: ${track.title} → netease:${neteaseMatch.id}');
-        return true;
-      }
-
-      // 3.5. 尝试 QQ 音乐搜索
-      final qqmusicMatch = await _tryQQMusicMatch(
-        trackName, artistName, (track.durationMs ?? 0) ~/ 1000,
-      );
-      if (qqmusicMatch != null) {
-        await _cache.put(track.uniqueKey, qqmusicMatch);
-        final match = LyricsMatch()
-          ..trackUniqueKey = track.uniqueKey
-          ..lyricsSource = 'qqmusic'
-          ..externalId = qqmusicMatch.id
-          ..offsetMs = 0
-          ..matchedAt = DateTime.now();
-        await _repo.save(match);
-        logInfo('Auto-matched lyrics: ${track.title} → qqmusic:${qqmusicMatch.id}');
-        return true;
-      }
-
-      // 4. Fallback 到 lrclib
-      final results = await _lrclib.search(
-        trackName: trackName,
-        artistName: artistName.isNotEmpty ? artistName : null,
-      );
-
-      if (results.isEmpty) {
-        logDebug('No lyrics found for: $trackName');
-        return false;
-      }
-
-      // 5. 过滤符合时长条件的结果（±10秒）
+      // 3. 按用户配置的优先级顺序尝试各歌词源
+      final sources = enabledSources ?? ['netease', 'qqmusic', 'lrclib'];
       final trackDurationSec = (track.durationMs ?? 0) ~/ 1000;
-      final matchingResults = results.where((result) {
-        final diff = (result.duration - trackDurationSec).abs();
-        return diff <= 10;
-      }).toList();
 
-      if (matchingResults.isEmpty) {
-        logDebug('No results match duration (${trackDurationSec}s): ${results.length} total');
-        return false;
+      for (final source in sources) {
+        switch (source) {
+          case 'netease':
+            final neteaseMatch = await _tryNeteaseMatch(
+              trackName, artistName, trackDurationSec,
+            );
+            if (neteaseMatch != null) {
+              await _cache.put(track.uniqueKey, neteaseMatch);
+              final match = LyricsMatch()
+                ..trackUniqueKey = track.uniqueKey
+                ..lyricsSource = 'netease'
+                ..externalId = neteaseMatch.id
+                ..offsetMs = 0
+                ..matchedAt = DateTime.now();
+              await _repo.save(match);
+              logInfo('Auto-matched lyrics: ${track.title} → netease:${neteaseMatch.id}');
+              return true;
+            }
+          case 'qqmusic':
+            final qqmusicMatch = await _tryQQMusicMatch(
+              trackName, artistName, trackDurationSec,
+            );
+            if (qqmusicMatch != null) {
+              await _cache.put(track.uniqueKey, qqmusicMatch);
+              final match = LyricsMatch()
+                ..trackUniqueKey = track.uniqueKey
+                ..lyricsSource = 'qqmusic'
+                ..externalId = qqmusicMatch.id
+                ..offsetMs = 0
+                ..matchedAt = DateTime.now();
+              await _repo.save(match);
+              logInfo('Auto-matched lyrics: ${track.title} → qqmusic:${qqmusicMatch.id}');
+              return true;
+            }
+          case 'lrclib':
+            final result = await _tryLrclibMatch(
+              trackName, artistName, trackDurationSec,
+            );
+            if (result != null) {
+              await _cache.put(track.uniqueKey, result);
+              final match = LyricsMatch()
+                ..trackUniqueKey = track.uniqueKey
+                ..lyricsSource = 'lrclib'
+                ..externalId = result.id
+                ..offsetMs = 0
+                ..matchedAt = DateTime.now();
+              await _repo.save(match);
+              logInfo('Auto-matched lyrics: ${track.title} → lrclib:${result.id}');
+              return true;
+            }
+        }
       }
 
-      // 6. 如果有多个结果，选择最相似的
-      final result = matchingResults.length == 1
-          ? matchingResults.first
-          : _selectBestMatch(matchingResults, trackName, artistName, trackDurationSec);
-
-      if (result == null) {
-        logDebug('No confident match found among ${matchingResults.length} candidates');
-        return false;
-      }
-
-      logDebug('Selected best match: "${result.trackName}" by "${result.artistName}" (score: ${_calculateScore(result, trackName, artistName, trackDurationSec).toStringAsFixed(2)})');
-
-      // 7. 先缓存歌词内容（在保存匹配之前）
-      await _cache.put(track.uniqueKey, result);
-
-      // 8. 保存匹配记录
-      final match = LyricsMatch()
-        ..trackUniqueKey = track.uniqueKey
-        ..lyricsSource = 'lrclib'
-        ..externalId = result.id
-        ..offsetMs = 0
-        ..matchedAt = DateTime.now();
-
-      await _repo.save(match);
-
-      logInfo('Auto-matched lyrics: ${track.title} → lrclib:${result.id}');
-      return true;
+      logDebug('No lyrics matched for: $trackName');
+      return false;
     } catch (e) {
       logError('Auto-match failed for ${track.uniqueKey}: $e');
       return false;
@@ -270,6 +247,45 @@ class LyricsAutoMatchService with Logging {
       return null;
     } catch (e) {
       logWarning('QQMusic auto-match failed: $e');
+      return null;
+    }
+  }
+
+  /// 尝试从 lrclib 匹配歌词
+  ///
+  /// 返回匹配的 LyricsResult，或 null 表示未找到合适匹配
+  Future<LyricsResult?> _tryLrclibMatch(
+    String trackName,
+    String artistName,
+    int trackDurationSec,
+  ) async {
+    try {
+      final results = await _lrclib.search(
+        trackName: trackName,
+        artistName: artistName.isNotEmpty ? artistName : null,
+      );
+
+      if (results.isEmpty) return null;
+
+      // 过滤符合时长条件的结果（±10秒）
+      final matchingResults = results.where((result) {
+        final diff = (result.duration - trackDurationSec).abs();
+        return diff <= 10;
+      }).toList();
+
+      if (matchingResults.isEmpty) return null;
+
+      // 如果有多个结果，选择最相似的
+      final result = matchingResults.length == 1
+          ? matchingResults.first
+          : _selectBestMatch(matchingResults, trackName, artistName, trackDurationSec);
+
+      if (result == null) return null;
+
+      logDebug('Selected best lrclib match: "${result.trackName}" by "${result.artistName}" (score: ${_calculateScore(result, trackName, artistName, trackDurationSec).toStringAsFixed(2)})');
+      return result;
+    } catch (e) {
+      logWarning('lrclib auto-match failed: $e');
       return null;
     }
   }

@@ -67,6 +67,17 @@
     "title": "自动匹配歌词",
     "subtitle": "播放时自动搜索并匹配歌词（仅当没有已匹配的歌词时）"
   },
+  "lyricsSourceSettings": {
+    "title": "歌词匹配源",
+    "subtitle": "调整歌词源的优先级和启用状态",
+    "hint": "拖动调整搜索优先级，排在前面的源优先匹配。原平台ID直取始终优先执行，不受此设置影响。",
+    "sourceNetease": "网易云音乐",
+    "sourceQQMusic": "QQ音乐",
+    "sourceLrclib": "lrclib",
+    "enabled": "已启用",
+    "disabled": "已禁用",
+    "sourceDisabledToast": "该歌词源已禁用"
+  },
   "version": {
     "title": "版本",
     "tapToEnableDev": "再点击 $n 次启用开发者选项",
