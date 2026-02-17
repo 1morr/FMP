@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../providers/windows_desktop_provider.dart';
+
 /// Windows 自定义标题栏 - 替代系统默认标题栏，融入应用主题风格
-class CustomTitleBar extends StatefulWidget {
+class CustomTitleBar extends ConsumerStatefulWidget {
   const CustomTitleBar({super.key});
 
   @override
-  State<CustomTitleBar> createState() => _CustomTitleBarState();
+  ConsumerState<CustomTitleBar> createState() => _CustomTitleBarState();
 }
 
-class _CustomTitleBarState extends State<CustomTitleBar> with WindowListener {
+class _CustomTitleBarState extends ConsumerState<CustomTitleBar> with WindowListener {
   bool _isMaximized = false;
 
   @override
@@ -84,10 +87,17 @@ class _CustomTitleBarState extends State<CustomTitleBar> with WindowListener {
               }
             },
           ),
-          // 关闭（最小化到托盘）
+          // 关闭（直接调用 handleCloseButton，不依赖 window_manager 事件链）
           _TitleBarButton(
             icon: Icons.close,
-            onPressed: windowManager.close,
+            onPressed: () {
+              final service = ref.read(windowsDesktopServiceProvider);
+              if (service != null) {
+                service.handleCloseButton();
+              } else {
+                windowManager.close();
+              }
+            },
             isClose: true,
           ),
         ],

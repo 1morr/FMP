@@ -9,6 +9,7 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../data/models/hotkey_config.dart';
 import '../../data/models/track.dart';
+import '../lyrics/lyrics_window_service.dart';
 
 /// Windows 桌面特性服务
 ///
@@ -59,6 +60,9 @@ class WindowsDesktopService with TrayListener, WindowListener {
   /// 销毁资源
   Future<void> dispose() async {
     if (!Platform.isWindows) return;
+
+    // 销毁歌词子窗口（真正销毁，app 退出时）
+    await LyricsWindowService.instance.destroy();
 
     trayManager.removeListener(this);
     windowManager.removeListener(this);
@@ -378,6 +382,30 @@ class WindowsDesktopService with TrayListener, WindowListener {
     await windowManager.focus();
     _isMinimizedToTray = false;
     onShowWindow?.call();
+  }
+
+  /// 处理标题栏关闭按钮点击
+  ///
+  /// 直接执行关闭逻辑，不依赖 window_manager 的 WM_CLOSE → onWindowClose 事件链。
+  /// 这样即使 window_manager 的全局 channel 被子窗口销毁置空，关闭按钮仍然正常工作。
+  Future<void> handleCloseButton() async {
+    if (!Platform.isWindows || !_isInitialized) return;
+
+    final isPreventClose = await windowManager.isPreventClose();
+    if (isPreventClose) {
+      await minimizeToTray();
+
+      // 异步检查安装程序
+      if (await _isInstallerRunning()) {
+        debugPrint('[WindowsDesktopService] Installer detected, exiting app');
+        await dispose();
+        exit(0);
+      }
+    } else {
+      // preventClose 未启用，直接退出
+      await dispose();
+      exit(0);
+    }
   }
 
   /// 最小化到托盘

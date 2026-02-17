@@ -15,7 +15,7 @@ class LyricsWindowService {
   LyricsWindowService._();
   static final instance = LyricsWindowService._();
 
-  /// 子窗口控制器（null 表示窗口未打开）
+  /// 子窗口控制器（null 表示窗口未创建）
   WindowController? _controller;
 
   /// 窗口变化监听
@@ -24,8 +24,11 @@ class LyricsWindowService {
   /// 子窗口 channel 是否已就绪
   bool _channelReady = false;
 
-  /// 窗口是否已打开
-  bool get isOpen => _controller != null;
+  /// 窗口是否已隐藏（关闭时隐藏而非销毁，避免 window_manager channel 被置空）
+  bool _isHidden = false;
+
+  /// 窗口是否已打开（存在且未隐藏）
+  bool get isOpen => _controller != null && !_isHidden;
 
   /// 通信 channel（bidirectional：主窗口和子窗口互相调用）
   static const _channel = WindowMethodChannel(
@@ -48,17 +51,33 @@ class LyricsWindowService {
   /// 回调：子窗口被用户关闭时通知（用于刷新 UI 图标状态）
   VoidCallback? onWindowClosed;
 
-  /// 打开歌词窗口（如果已打开则聚焦）
+  /// 打开歌词窗口（如果已隐藏则恢复显示，如果已打开则聚焦）
   Future<void> open() async {
     if (!Platform.isWindows) return;
 
-    if (_controller != null) {
+    // 窗口存在且未隐藏 → 聚焦
+    if (_controller != null && !_isHidden) {
       try {
         await _controller!.show();
         return;
       } catch (_) {
         _controller = null;
         _channelReady = false;
+        _isHidden = false;
+      }
+    }
+
+    // 窗口存在但已隐藏 → 恢复显示
+    if (_controller != null && _isHidden) {
+      try {
+        await _controller!.show();
+        _isHidden = false;
+        return;
+      } catch (_) {
+        // 窗口已被系统销毁，重新创建
+        _controller = null;
+        _channelReady = false;
+        _isHidden = false;
       }
     }
 
@@ -72,6 +91,7 @@ class LyricsWindowService {
       ),
     );
     _channelReady = false;
+    _isHidden = false;
 
     // 监听窗口列表变化，检测子窗口关闭
     _windowChangeSub?.cancel();
@@ -100,8 +120,23 @@ class LyricsWindowService {
     debugPrint('LyricsWindowService: channel ready timeout');
   }
 
-  /// 关闭歌词窗口
+  /// 关闭歌词窗口（隐藏而非销毁，保持 engine 存活）
   Future<void> close() async {
+    if (_controller == null || _isHidden) return;
+    try {
+      await _controller!.hide();
+      _isHidden = true;
+    } catch (_) {
+      // 窗口可能已被系统销毁
+      _controller = null;
+      _channelReady = false;
+      _isHidden = false;
+    }
+    onWindowClosed?.call();
+  }
+
+  /// 真正销毁歌词窗口（仅 app 退出时调用）
+  Future<void> destroy() async {
     if (_controller == null) return;
     try {
       if (_channelReady) {
@@ -110,9 +145,9 @@ class LyricsWindowService {
     } catch (_) {}
     _controller = null;
     _channelReady = false;
+    _isHidden = false;
     _windowChangeSub?.cancel();
     _windowChangeSub = null;
-    // 注销主窗口 handler
     await _unregisterMainWindowHandler();
   }
 
@@ -125,7 +160,7 @@ class LyricsWindowService {
     required String? trackArtist,
     required String? trackUniqueKey,
   }) async {
-    if (_controller == null || !_channelReady) return;
+    if (_controller == null || !_channelReady || _isHidden) return;
 
     try {
       final lyricsData = lyrics?.lines.map((line) => {
@@ -154,7 +189,7 @@ class LyricsWindowService {
 
   /// 仅同步当前行索引（高频调用，轻量数据）
   Future<void> syncPosition(int currentLineIndex) async {
-    if (_controller == null || !_channelReady) return;
+    if (_controller == null || !_channelReady || _isHidden) return;
 
     try {
       await _channel.invokeMethod(
@@ -167,7 +202,7 @@ class LyricsWindowService {
     }
   }
 
-  /// 检查窗口是否已被用户关闭
+  /// 检查窗口是否已被用户强制关闭（Alt+F4 等）
   Future<void> _checkWindowClosed() async {
     if (_controller == null) return;
     try {
@@ -178,6 +213,7 @@ class LyricsWindowService {
       if (!stillExists) {
         _controller = null;
         _channelReady = false;
+        _isHidden = false;
         _windowChangeSub?.cancel();
         _windowChangeSub = null;
         await _unregisterMainWindowHandler();
@@ -186,6 +222,7 @@ class LyricsWindowService {
     } catch (_) {
       _controller = null;
       _channelReady = false;
+      _isHidden = false;
       _windowChangeSub?.cancel();
       _windowChangeSub = null;
       await _unregisterMainWindowHandler();
@@ -193,7 +230,7 @@ class LyricsWindowService {
     }
   }
 
-  /// 注册主窗口 handler（处理子窗口发来的 seek/offset 命令）
+  /// 注册主窗口 handler（处理子窗口发来的 seek/offset/requestHide 命令）
   Future<void> _registerMainWindowHandler() async {
     try {
       await _channel.setMethodCallHandler((call) async {
@@ -215,6 +252,10 @@ class LyricsWindowService {
             final trackUniqueKey = data['trackUniqueKey'] as String;
             onResetOffset?.call(trackUniqueKey);
             return 'ok';
+          case 'requestHide':
+            // 子窗口请求隐藏自己（用户点击关闭按钮）
+            await close();
+            return 'ok';
           default:
             return null;
         }
@@ -233,3 +274,4 @@ class LyricsWindowService {
     }
   }
 }
+
