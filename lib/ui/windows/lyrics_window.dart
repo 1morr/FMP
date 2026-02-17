@@ -114,6 +114,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   String? _trackUniqueKey;
   bool _alwaysOnTop = true;
   bool _showOffsetControls = false;
+  bool _isPlaying = false;
 
   /// 用户是否正在手动滚动
   bool _userScrolling = false;
@@ -183,6 +184,9 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
         case 'updateTheme':
           _handleUpdateTheme(call.arguments as String);
           return 'ok';
+        case 'updatePlaybackState':
+          _handleUpdatePlaybackState(call.arguments as String);
+          return 'ok';
         case 'close':
           // 真正销毁窗口（仅 app 退出时由 destroy() 调用）
           await windowManager.close();
@@ -207,6 +211,33 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
       fontFamily: fontFamily,
       stringsMap: stringsMap,
     );
+  }
+
+  void _handleUpdatePlaybackState(String jsonStr) {
+    final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+    final isPlaying = data['isPlaying'] as bool? ?? false;
+    if (_isPlaying != isPlaying) {
+      setState(() => _isPlaying = isPlaying);
+    }
+  }
+
+  /// 发送播放控制命令到主窗口
+  void _sendPlayPause() {
+    try {
+      _channel.invokeMethod('playPause', '');
+    } catch (_) {}
+  }
+
+  void _sendNext() {
+    try {
+      _channel.invokeMethod('next', '');
+    } catch (_) {}
+  }
+
+  void _sendPrevious() {
+    try {
+      _channel.invokeMethod('previous', '');
+    } catch (_) {}
   }
 
   void _handleUpdateLyrics(String jsonStr) {
@@ -459,6 +490,33 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
                 ],
               ),
             ),
+            // 播放控制按钮
+            IconButton(
+              icon: Icon(Icons.skip_previous_rounded, size: 18, color: colorScheme.onSurfaceVariant),
+              onPressed: _sendPrevious,
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            ),
+            IconButton(
+              icon: Icon(
+                _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                size: 20,
+                color: colorScheme.onSurface,
+              ),
+              onPressed: _sendPlayPause,
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            ),
+            IconButton(
+              icon: Icon(Icons.skip_next_rounded, size: 18, color: colorScheme.onSurfaceVariant),
+              onPressed: _sendNext,
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            ),
+            const SizedBox(width: 4),
             // 置顶切换
             IconButton(
               icon: Icon(
