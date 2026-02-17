@@ -49,21 +49,19 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     });
 
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Scaffold(
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 音樂排行榜
-            _buildMusicRankings(context, colorScheme),
+            // 音樂排行榜（独立 ConsumerWidget）
+            const _MusicRankingsSection(),
 
-            // 我的歌单
-            _buildRecentPlaylists(context, colorScheme),
+            // 我的歌单（独立 ConsumerWidget）
+            const _RecentPlaylistsSection(),
 
-            // 电台
-            _buildRadioSection(context, colorScheme),
+            // 电台（独立 ConsumerWidget）
+            const _RadioSection(),
 
             // 正在播放（独立 ConsumerWidget）
             const _NowPlayingSection(),
@@ -71,8 +69,8 @@ class _HomePageState extends ConsumerState<HomePage> {
             // 队列预览（独立 ConsumerWidget）
             const _QueuePreviewSection(),
 
-            // 最近播放历史
-            _buildRecentHistory(context, colorScheme),
+            // 最近播放历史（独立 ConsumerWidget）
+            const _RecentHistorySection(),
 
             const SizedBox(height: 100), // 为迷你播放器留出空间
           ],
@@ -80,27 +78,31 @@ class _HomePageState extends ConsumerState<HomePage> {
       ),
     );
   }
+}
 
-  /// 構建音樂排行榜區域（響應式佈局）
-  Widget _buildMusicRankings(BuildContext context, ColorScheme colorScheme) {
+/// 音樂排行榜區域（独立 ConsumerWidget，避免其他 section 变化触发 rebuild）
+class _MusicRankingsSection extends ConsumerWidget {
+  const _MusicRankingsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final bilibiliAsync = ref.watch(homeBilibiliMusicRankingProvider);
     final youtubeAsync = ref.watch(homeYouTubeMusicRankingProvider);
     final cacheService = ref.watch(rankingCacheServiceProvider);
 
-    // 判斷是否有數據
     final hasBilibiliData = bilibiliAsync.valueOrNull?.isNotEmpty ?? false;
     final hasYoutubeData = youtubeAsync.valueOrNull?.isNotEmpty ?? false;
     final isLoading = cacheService.isInitialLoading;
 
-    // 如果不在初始加載且沒有任何緩存數據，隱藏整個區域
     if (!isLoading && !hasBilibiliData && !hasYoutubeData) {
       return const SizedBox.shrink();
     }
 
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 區域標題
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Row(
@@ -117,7 +119,6 @@ class _HomePageState extends ConsumerState<HomePage> {
             ],
           ),
         ),
-        // 排行榜內容
         _buildRankingContent(
           context,
           colorScheme,
@@ -131,7 +132,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  /// 構建排行榜內容區域（根據屏幕寬度和數據狀態調整佈局）
   Widget _buildRankingContent(
     BuildContext context,
     ColorScheme colorScheme, {
@@ -145,7 +145,6 @@ class _HomePageState extends ConsumerState<HomePage> {
       builder: (context, constraints) {
         final isWideScreen = constraints.maxWidth > 600;
 
-        // 初始加載時顯示 loading
         if (isLoading) {
           return const SizedBox(
             height: 200,
@@ -154,7 +153,6 @@ class _HomePageState extends ConsumerState<HomePage> {
         }
 
         if (isWideScreen) {
-          // 寬屏：並排顯示
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -162,47 +160,26 @@ class _HomePageState extends ConsumerState<HomePage> {
               children: [
                 if (hasBilibiliData)
                   Expanded(
-                    child: _buildRankingCard(
-                      context,
-                      colorScheme,
-                      title: 'Bilibili',
-                      asyncValue: bilibiliAsync,
-                    ),
+                    child: _buildRankingCard(context, colorScheme, title: 'Bilibili', asyncValue: bilibiliAsync),
                   ),
                 if (hasBilibiliData && hasYoutubeData) const SizedBox(width: 16),
                 if (hasYoutubeData)
                   Expanded(
-                    child: _buildRankingCard(
-                      context,
-                      colorScheme,
-                      title: 'YouTube',
-                      asyncValue: youtubeAsync,
-                    ),
+                    child: _buildRankingCard(context, colorScheme, title: 'YouTube', asyncValue: youtubeAsync),
                   ),
               ],
             ),
           );
         } else {
-          // 窄屏：堆疊顯示
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
               children: [
                 if (hasBilibiliData)
-                  _buildRankingCard(
-                    context,
-                    colorScheme,
-                    title: 'Bilibili',
-                    asyncValue: bilibiliAsync,
-                  ),
+                  _buildRankingCard(context, colorScheme, title: 'Bilibili', asyncValue: bilibiliAsync),
                 if (hasBilibiliData && hasYoutubeData) const SizedBox(height: 12),
                 if (hasYoutubeData)
-                  _buildRankingCard(
-                    context,
-                    colorScheme,
-                    title: 'YouTube',
-                    asyncValue: youtubeAsync,
-                  ),
+                  _buildRankingCard(context, colorScheme, title: 'YouTube', asyncValue: youtubeAsync),
               ],
             ),
           );
@@ -211,7 +188,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  /// 構建單個排行榜卡片（只在有數據時調用）
   Widget _buildRankingCard(
     BuildContext context,
     ColorScheme colorScheme, {
@@ -221,7 +197,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 簡單的標題
         Padding(
           padding: const EdgeInsets.only(left: 18, bottom: 4),
           child: Text(
@@ -231,7 +206,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ),
           ),
         ),
-        // 排行列表（直接使用 data，loading/error 由外層處理）
         asyncValue.when(
           loading: () => const SizedBox.shrink(),
           error: (e, s) => SizedBox(
@@ -244,9 +218,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             ),
           ),
           data: (tracks) {
-            if (tracks.isEmpty) {
-              return const SizedBox.shrink();
-            }
+            if (tracks.isEmpty) return const SizedBox.shrink();
             final displayTracks = tracks.take(AppConstants.homeTrackPreviewCount).toList();
             return Column(
               children: [
@@ -259,15 +231,21 @@ class _HomePageState extends ConsumerState<HomePage> {
       ],
     );
   }
+}
 
-  Widget _buildRecentPlaylists(BuildContext context, ColorScheme colorScheme) {
+/// 我的歌单区域（独立 ConsumerWidget）
+class _RecentPlaylistsSection extends ConsumerWidget {
+  const _RecentPlaylistsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final playlists = ref.watch(allPlaylistsProvider);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return playlists.when(
       loading: () => const SizedBox.shrink(),
       error: (e, s) => const SizedBox.shrink(),
       data: (lists) {
-        // 最多显示 20 个歌单
         final recentLists = lists.take(AppConstants.homeListPreviewCount).toList();
 
         return Column(
@@ -290,42 +268,35 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ],
               ),
             ),
-            // 歌单为空时显示占位卡片
             if (lists.isEmpty)
               _buildEmptyPlaylistPlaceholder(context, colorScheme)
             else
               LayoutBuilder(
-              builder: (context, constraints) {
-                // 根据窗口宽度计算卡片大小，平滑缩放
-                final cardWidth =
-                    (constraints.maxWidth / 4).clamp(100.0, 140.0);
-                final cardHeight = cardWidth / 0.8; // 保持 0.8 的宽高比
+                builder: (context, constraints) {
+                  final cardWidth = (constraints.maxWidth / 4).clamp(100.0, 140.0);
+                  final cardHeight = cardWidth / 0.8;
 
-                // 构建歌单卡片列表
-                final playlistCards = recentLists.map((playlist) {
-                  return SizedBox(
-                    width: cardWidth,
-                    child: _HomePlaylistCard(playlist: playlist),
+                  final playlistCards = recentLists.map((playlist) {
+                    return SizedBox(
+                      width: cardWidth,
+                      child: _HomePlaylistCard(playlist: playlist),
+                    );
+                  }).toList();
+
+                  return HorizontalScrollSection(
+                    height: cardHeight,
+                    itemWidth: cardWidth,
+                    children: playlistCards,
                   );
-                }).toList();
-
-                return HorizontalScrollSection(
-                  height: cardHeight,
-                  itemWidth: cardWidth,
-                  children: playlistCards,
-                );
-              },
-            ),
+                },
+              ),
           ],
         );
       },
     );
   }
 
-  Widget _buildEmptyPlaylistPlaceholder(
-    BuildContext context,
-    ColorScheme colorScheme,
-  ) {
+  Widget _buildEmptyPlaylistPlaceholder(BuildContext context, ColorScheme colorScheme) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final cardWidth = (constraints.maxWidth / 4).clamp(100.0, 140.0);
@@ -344,27 +315,19 @@ class _HomePageState extends ConsumerState<HomePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 封面区域 - 与普通歌单卡片结构一致
                     Expanded(
                       child: Container(
                         color: colorScheme.surfaceContainerHighest,
                         child: Center(
-                          child: Icon(
-                            Icons.add,
-                            size: 32,
-                            color: colorScheme.outline,
-                          ),
+                          child: Icon(Icons.add, size: 32, color: colorScheme.outline),
                         ),
                       ),
                     ),
-                    // 标题区域 - 与普通歌单卡片结构一致
                     Padding(
                       padding: const EdgeInsets.all(8),
                       child: Text(
                         t.home.createPlaylist,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colorScheme.outline,
-                            ),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -378,17 +341,170 @@ class _HomePageState extends ConsumerState<HomePage> {
       },
     );
   }
+}
 
-  Widget _buildRecentHistory(BuildContext context, ColorScheme colorScheme) {
+/// 电台区域（独立 ConsumerWidget）
+class _RadioSection extends ConsumerWidget {
+  const _RadioSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final radioState = ref.watch(radioControllerProvider);
+
+    if (radioState.stations.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final sortedStations = List<RadioStation>.from(radioState.stations)
+      ..sort((a, b) {
+        final aLive = radioState.isStationLive(a.id) ? 0 : 1;
+        final bLive = radioState.isStationLive(b.id) ? 0 : 1;
+        return aLive.compareTo(bLive);
+      });
+    final displayStations = sortedStations.take(AppConstants.homeListPreviewCount).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Row(
+            children: [
+              Text(
+                t.home.radio,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () => context.go(RoutePaths.radio),
+                child: Text(t.home.viewAll),
+              ),
+            ],
+          ),
+        ),
+        HorizontalScrollSection(
+          height: 140,
+          itemWidth: 120,
+          children: displayStations.map((station) {
+            final isLive = radioState.isStationLive(station.id);
+            final isCurrentPlaying = radioState.currentStation?.id == station.id;
+            final isPlaying = isCurrentPlaying && radioState.isPlaying;
+            final isLoading = radioState.loadingStationId == station.id;
+
+            return SizedBox(
+              width: 120,
+              child: ContextMenuRegion(
+                menuBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: ListTile(
+                      leading: Icon(Icons.delete, color: Theme.of(context).colorScheme.error),
+                      title: Text(t.radio.deleteStation, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ],
+                onSelected: (value) {
+                  if (value == 'delete') _showRadioDeleteConfirm(context, ref, station);
+                },
+                child: _HomeRadioStationCard(
+                  station: station,
+                  isLive: isLive,
+                  isPlaying: isPlaying,
+                  isLoading: isLoading,
+                  onTap: () => _onRadioStationTap(ref, station, isCurrentPlaying, radioState),
+                  onLongPress: () => _showRadioOptionsMenu(context, ref, station),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  void _onRadioStationTap(WidgetRef ref, RadioStation station, bool isCurrentPlaying, RadioState radioState) {
+    final controller = ref.read(radioControllerProvider.notifier);
+    if (isCurrentPlaying) {
+      if (radioState.isPlaying) {
+        controller.pause();
+      } else {
+        controller.resume();
+      }
+    } else {
+      controller.play(station);
+    }
+  }
+
+  void _showRadioOptionsMenu(BuildContext context, WidgetRef ref, RadioStation station) {
+    final colorScheme = Theme.of(context).colorScheme;
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(Icons.delete, color: colorScheme.error),
+                title: Text(t.radio.deleteStation, style: TextStyle(color: colorScheme.error)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showRadioDeleteConfirm(context, ref, station);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showRadioDeleteConfirm(BuildContext context, WidgetRef ref, RadioStation station) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t.radio.deleteStation),
+        content: Text(t.radio.deleteConfirm(title: station.title)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(t.general.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: Text(t.radio.delete),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(radioControllerProvider.notifier).deleteStation(station.id);
+      if (context.mounted) {
+        ToastService.success(context, t.radio.stationDeleted);
+      }
+    }
+  }
+}
+
+/// 最近播放历史区域（独立 ConsumerWidget）
+class _RecentHistorySection extends ConsumerWidget {
+  const _RecentHistorySection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final historyAsync = ref.watch(recentPlayHistoryProvider);
 
     return historyAsync.when(
       loading: () => const SizedBox.shrink(),
       error: (e, s) => const SizedBox.shrink(),
       data: (historyList) {
-        // 最多显示 20 个
         final displayList = historyList.take(AppConstants.homeListPreviewCount).toList();
-
         if (displayList.isEmpty) return const SizedBox.shrink();
 
         return Column(
@@ -412,15 +528,11 @@ class _HomePageState extends ConsumerState<HomePage> {
             ),
             LayoutBuilder(
               builder: (context, constraints) {
-                // 根据窗口宽度计算卡片大小，平滑缩放
-                final cardWidth =
-                    (constraints.maxWidth / 4).clamp(100.0, 140.0);
-                final cardHeight = cardWidth / 0.8; // 保持 0.8 的宽高比
+                final cardWidth = (constraints.maxWidth / 4).clamp(100.0, 140.0);
+                final cardHeight = cardWidth / 0.8;
 
-                // 构建历史卡片列表
                 final historyCards = displayList
-                    .map((history) =>
-                        _buildHistoryItem(context, history, colorScheme, cardWidth))
+                    .map((history) => _buildHistoryItem(context, ref, history, cardWidth))
                     .toList();
 
                 return HorizontalScrollSection(
@@ -436,31 +548,25 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  Widget _buildHistoryItem(
-    BuildContext context,
-    PlayHistory history,
-    ColorScheme colorScheme,
-    double cardWidth,
-  ) {
+  Widget _buildHistoryItem(BuildContext context, WidgetRef ref, PlayHistory history, double cardWidth) {
+    final colorScheme = Theme.of(context).colorScheme;
     return SizedBox(
       width: cardWidth,
       child: ContextMenuRegion(
         menuBuilder: (_) => _buildHistoryMenuItems(colorScheme),
-        onSelected: (value) => _handleHistoryMenuAction(context, history, value),
+        onSelected: (value) => _handleHistoryMenuAction(context, ref, history, value),
         child: Card(
           margin: EdgeInsets.zero,
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: () {
-              // 将历史记录转换为 Track 并播放
               final track = history.toTrack();
               ref.read(audioControllerProvider.notifier).playTemporary(track);
             },
-            onLongPress: () => _showHistoryOptionsMenu(context, history),
+            onLongPress: () => _showHistoryOptionsMenu(context, ref, history),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 封面 - 使用 Expanded 与音乐库一致
                 Expanded(
                   child: Stack(
                     fit: StackFit.expand,
@@ -477,7 +583,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                     ],
                   ),
                 ),
-                // 标题
                 Padding(
                   padding: const EdgeInsets.all(8),
                   child: Text(
@@ -496,42 +601,22 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   List<PopupMenuEntry<String>> _buildHistoryMenuItems(ColorScheme colorScheme) => [
-    PopupMenuItem(
-      value: 'play',
-      child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.playHistoryPage.play), contentPadding: EdgeInsets.zero),
-    ),
-    PopupMenuItem(
-      value: 'play_next',
-      child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.playHistoryPage.playNext), contentPadding: EdgeInsets.zero),
-    ),
-    PopupMenuItem(
-      value: 'add_to_queue',
-      child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.playHistoryPage.addToQueue), contentPadding: EdgeInsets.zero),
-    ),
-    PopupMenuItem(
-      value: 'add_to_playlist',
-      child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.playHistoryPage.addToPlaylist), contentPadding: EdgeInsets.zero),
-    ),
+    PopupMenuItem(value: 'play', child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.playHistoryPage.play), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.playHistoryPage.playNext), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.playHistoryPage.addToQueue), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.playHistoryPage.addToPlaylist), contentPadding: EdgeInsets.zero)),
     const PopupMenuDivider(),
     PopupMenuItem(
       value: 'delete',
-      child: ListTile(
-        leading: Icon(Icons.delete_outline, color: colorScheme.error),
-        title: Text(t.playHistoryPage.deleteThisRecord, style: TextStyle(color: colorScheme.error)),
-        contentPadding: EdgeInsets.zero,
-      ),
+      child: ListTile(leading: Icon(Icons.delete_outline, color: colorScheme.error), title: Text(t.playHistoryPage.deleteThisRecord, style: TextStyle(color: colorScheme.error)), contentPadding: EdgeInsets.zero),
     ),
     PopupMenuItem(
       value: 'delete_all',
-      child: ListTile(
-        leading: Icon(Icons.delete_sweep, color: colorScheme.error),
-        title: Text(t.playHistoryPage.deleteAllForTrack, style: TextStyle(color: colorScheme.error)),
-        contentPadding: EdgeInsets.zero,
-      ),
+      child: ListTile(leading: Icon(Icons.delete_sweep, color: colorScheme.error), title: Text(t.playHistoryPage.deleteAllForTrack, style: TextStyle(color: colorScheme.error)), contentPadding: EdgeInsets.zero),
     ),
   ];
 
-  void _handleHistoryMenuAction(BuildContext context, PlayHistory history, String action) async {
+  void _handleHistoryMenuAction(BuildContext context, WidgetRef ref, PlayHistory history, String action) async {
     final controller = ref.read(audioControllerProvider.notifier);
     final track = history.toTrack();
 
@@ -562,21 +647,13 @@ class _HomePageState extends ConsumerState<HomePage> {
             title: Text(t.playHistoryPage.deleteAllTitle),
             content: Text(t.playHistoryPage.deleteAllConfirm(title: history.title)),
             actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: Text(t.general.cancel),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: Text(t.playHistoryPage.deleteButton),
-              ),
+              TextButton(onPressed: () => Navigator.pop(context, false), child: Text(t.general.cancel)),
+              TextButton(onPressed: () => Navigator.pop(context, true), child: Text(t.playHistoryPage.deleteButton)),
             ],
           ),
         );
         if (confirmed == true && context.mounted) {
-          final count = await ref
-              .read(playHistoryPageProvider.notifier)
-              .deleteAllForTrack(history.trackKey);
+          final count = await ref.read(playHistoryPageProvider.notifier).deleteAllForTrack(history.trackKey);
           if (context.mounted) {
             ToastService.success(context, t.playHistoryPage.toastDeletedCount(n: count));
           }
@@ -584,9 +661,8 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
   }
 
-  void _showHistoryOptionsMenu(BuildContext context, PlayHistory history) {
+  void _showHistoryOptionsMenu(BuildContext context, WidgetRef ref, PlayHistory history) {
     final colorScheme = Theme.of(context).colorScheme;
-
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -595,216 +671,18 @@ class _HomePageState extends ConsumerState<HomePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ListTile(
-                leading: const Icon(Icons.play_arrow),
-                title: Text(t.playHistoryPage.play),
-                onTap: () {
-                  Navigator.pop(context);
-                  _handleHistoryMenuAction(context, history, 'play');
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.queue_play_next),
-                title: Text(t.playHistoryPage.playNext),
-                onTap: () {
-                  Navigator.pop(context);
-                  _handleHistoryMenuAction(context, history, 'play_next');
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.add_to_queue),
-                title: Text(t.playHistoryPage.addToQueue),
-                onTap: () {
-                  Navigator.pop(context);
-                  _handleHistoryMenuAction(context, history, 'add_to_queue');
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.playlist_add),
-                title: Text(t.playHistoryPage.addToPlaylist),
-                onTap: () {
-                  Navigator.pop(context);
-                  _handleHistoryMenuAction(context, history, 'add_to_playlist');
-                },
-              ),
+              ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.playHistoryPage.play), onTap: () { Navigator.pop(context); _handleHistoryMenuAction(context, ref, history, 'play'); }),
+              ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.playHistoryPage.playNext), onTap: () { Navigator.pop(context); _handleHistoryMenuAction(context, ref, history, 'play_next'); }),
+              ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.playHistoryPage.addToQueue), onTap: () { Navigator.pop(context); _handleHistoryMenuAction(context, ref, history, 'add_to_queue'); }),
+              ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.playHistoryPage.addToPlaylist), onTap: () { Navigator.pop(context); _handleHistoryMenuAction(context, ref, history, 'add_to_playlist'); }),
               const Divider(),
-              ListTile(
-                leading: Icon(Icons.delete_outline, color: colorScheme.error),
-                title: Text(t.playHistoryPage.deleteThisRecord, style: TextStyle(color: colorScheme.error)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _handleHistoryMenuAction(context, history, 'delete');
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.delete_sweep, color: colorScheme.error),
-                title: Text(t.playHistoryPage.deleteAllForTrack, style: TextStyle(color: colorScheme.error)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _handleHistoryMenuAction(context, history, 'delete_all');
-                },
-              ),
+              ListTile(leading: Icon(Icons.delete_outline, color: colorScheme.error), title: Text(t.playHistoryPage.deleteThisRecord, style: TextStyle(color: colorScheme.error)), onTap: () { Navigator.pop(context); _handleHistoryMenuAction(context, ref, history, 'delete'); }),
+              ListTile(leading: Icon(Icons.delete_sweep, color: colorScheme.error), title: Text(t.playHistoryPage.deleteAllForTrack, style: TextStyle(color: colorScheme.error)), onTap: () { Navigator.pop(context); _handleHistoryMenuAction(context, ref, history, 'delete_all'); }),
             ],
           ),
         ),
       ),
     );
-  }
-
-  /// 構建電台區域
-  Widget _buildRadioSection(BuildContext context, ColorScheme colorScheme) {
-    final radioState = ref.watch(radioControllerProvider);
-
-    if (radioState.stations.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    // 排序：正在直播的排前面
-    final sortedStations = List<RadioStation>.from(radioState.stations)
-      ..sort((a, b) {
-        final aLive = radioState.isStationLive(a.id) ? 0 : 1;
-        final bLive = radioState.isStationLive(b.id) ? 0 : 1;
-        return aLive.compareTo(bLive);
-      });
-    // 最多显示 20 个
-    final displayStations = sortedStations.take(AppConstants.homeListPreviewCount).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Row(
-            children: [
-              Text(
-                t.home.radio,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const Spacer(),
-              TextButton(
-                onPressed: () => context.go(RoutePaths.radio),
-                child: Text(t.home.viewAll),
-              ),
-            ],
-          ),
-        ),
-        HorizontalScrollSection(
-          height: 140,
-          itemWidth: 120,
-          children: displayStations.map((station) {
-            final isLive = radioState.isStationLive(station.id);
-            final isCurrentPlaying =
-                radioState.currentStation?.id == station.id;
-            final isPlaying = isCurrentPlaying && radioState.isPlaying;
-            final isLoading = radioState.loadingStationId == station.id;
-
-            return SizedBox(
-              width: 120,
-              child: ContextMenuRegion(
-                menuBuilder: (_) => [
-                  PopupMenuItem(
-                    value: 'delete',
-                    child: ListTile(
-                      leading: Icon(Icons.delete, color: Theme.of(context).colorScheme.error),
-                      title: Text(t.radio.deleteStation, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                ],
-                onSelected: (value) {
-                  if (value == 'delete') _showRadioDeleteConfirm(context, station);
-                },
-                child: _HomeRadioStationCard(
-                  station: station,
-                  isLive: isLive,
-                  isPlaying: isPlaying,
-                  isLoading: isLoading,
-                  onTap: () => _onRadioStationTap(station, isCurrentPlaying, radioState),
-                  onLongPress: () => _showRadioOptionsMenu(context, station),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  /// 電台卡片點擊處理
-  void _onRadioStationTap(
-    RadioStation station,
-    bool isCurrentPlaying,
-    RadioState radioState,
-  ) {
-    final controller = ref.read(radioControllerProvider.notifier);
-
-    if (isCurrentPlaying) {
-      if (radioState.isPlaying) {
-        controller.pause();
-      } else {
-        controller.resume();
-      }
-    } else {
-      controller.play(station);
-    }
-  }
-
-  /// 電台長按菜單（移動端）
-  void _showRadioOptionsMenu(BuildContext context, RadioStation station) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: Icon(Icons.delete, color: colorScheme.error),
-                title: Text(t.radio.deleteStation, style: TextStyle(color: colorScheme.error)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showRadioDeleteConfirm(context, station);
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// 電台刪除確認對話框
-  Future<void> _showRadioDeleteConfirm(BuildContext context, RadioStation station) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t.radio.deleteStation),
-        content: Text(t.radio.deleteConfirm(title: station.title)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(t.general.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: Text(t.radio.delete),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      await ref.read(radioControllerProvider.notifier).deleteStation(station.id);
-      if (context.mounted) {
-        ToastService.success(context, t.radio.stationDeleted);
-      }
-    }
   }
 }
 

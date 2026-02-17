@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -17,6 +18,18 @@ import '../../../services/download/download_path_sync_service.dart';
 import '../../../i18n/strings.g.dart';
 import '../../router.dart';
 import '../../widgets/error_display.dart';
+
+/// 在 Isolate 中删除文件夹（避免阻塞 UI 线程）
+Future<void> _deleteFolderInIsolate(String folderPath) async {
+  try {
+    final folder = Directory(folderPath);
+    if (await folder.exists()) {
+      await folder.delete(recursive: true);
+    }
+  } on FileSystemException catch (_) {
+    // 文件夹删除失败不影响流程
+  }
+}
 
 /// 已下载页面 - 显示分类网格
 class DownloadedPage extends ConsumerStatefulWidget {
@@ -446,16 +459,13 @@ class _CategoryCard extends ConsumerWidget {
       final tracks = await ref.read(downloadedCategoryTracksProvider(category.folderPath).future);
       final trackRepo = ref.read(trackRepositoryProvider);
 
-      // 清除每首歌的下载路径
+      // 清除每首歌的下载路径（必须在主线程）
       for (final track in tracks) {
         await trackRepo.clearDownloadPath(track.id);
       }
 
-      // 删除整个文件夹
-      final folder = Directory(category.folderPath);
-      if (await folder.exists()) {
-        await folder.delete(recursive: true);
-      }
+      // 在 Isolate 中删除整个文件夹（避免阻塞 UI）
+      await compute(_deleteFolderInIsolate, category.folderPath);
 
       // 刷新分类列表
       ref.invalidate(downloadedCategoriesProvider);
