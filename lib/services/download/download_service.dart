@@ -734,42 +734,9 @@ class DownloadService with Logging {
         savePath: savePath,
       ));
       
-    } on DioException catch (e) {
-      if (e.type == DioExceptionType.cancel) {
-        logDebug('Download cancelled for task: ${task.id}');
-        // 保存已下载的字节数用于续传
-        await _saveResumeProgress(task);
-      } else {
-        logError('Download failed for task: ${task.id}: ${e.message}');
-        // 保存已下载的字节数用于续传
-        await _saveResumeProgress(task);
-        await _downloadRepository.updateTaskStatus(
-          task.id,
-          DownloadStatus.failed,
-          errorMessage: e.message ?? 'Network error',
-        );
-        _failureController.add(DownloadFailureEvent(
-          taskId: task.id,
-          trackId: task.trackId,
-          trackTitle: trackTitle,
-          errorMessage: e.message ?? 'Network error',
-        ));
-      }
     } catch (e, stack) {
       logError('Download failed for task: ${task.id}: $e', e, stack);
-      // 保存已下载的字节数用于续传
-      await _saveResumeProgress(task);
-      await _downloadRepository.updateTaskStatus(
-        task.id,
-        DownloadStatus.failed,
-        errorMessage: e.toString(),
-      );
-      _failureController.add(DownloadFailureEvent(
-        taskId: task.id,
-        trackId: task.trackId,
-        trackTitle: trackTitle,
-        errorMessage: e.toString(),
-      ));
+      await _handleDownloadFailure(task, trackTitle, e.toString());
     } finally {
       // 只在未被外部取消（pauseTask/cancelTask）时清理和递减
       // pauseTask/cancelTask 已经移除了 isolate 并递减了 _activeDownloads
@@ -798,6 +765,22 @@ class DownloadService with Logging {
     } catch (e) {
       logDebug('Failed to save resume progress: $e');
     }
+  }
+
+  /// 处理下载失败：保存续传进度、更新状态、发送失败事件
+  Future<void> _handleDownloadFailure(DownloadTask task, String trackTitle, String errorMessage) async {
+    await _saveResumeProgress(task);
+    await _downloadRepository.updateTaskStatus(
+      task.id,
+      DownloadStatus.failed,
+      errorMessage: errorMessage,
+    );
+    _failureController.add(DownloadFailureEvent(
+      taskId: task.id,
+      trackId: task.trackId,
+      trackTitle: trackTitle,
+      errorMessage: errorMessage,
+    ));
   }
 
   /// 获取下载保存路径
