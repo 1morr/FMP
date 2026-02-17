@@ -27,6 +27,9 @@ class _LyricsWindowStrings {
   String close = '关闭';
   String offset = '偏移';
   String reset = '重置';
+  String displayOriginal = '只显示原文';
+  String displayPreferTranslated = '优先显示翻译';
+  String displayPreferRomaji = '优先显示罗马音';
 
   void updateFrom(Map<String, dynamic> map) {
     waitingLyrics = map['waitingLyrics'] as String? ?? waitingLyrics;
@@ -36,6 +39,9 @@ class _LyricsWindowStrings {
     close = map['close'] as String? ?? close;
     offset = map['offset'] as String? ?? offset;
     reset = map['reset'] as String? ?? reset;
+    displayOriginal = map['displayOriginal'] as String? ?? displayOriginal;
+    displayPreferTranslated = map['displayPreferTranslated'] as String? ?? displayPreferTranslated;
+    displayPreferRomaji = map['displayPreferRomaji'] as String? ?? displayPreferRomaji;
   }
 }
 
@@ -115,6 +121,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   bool _alwaysOnTop = true;
   bool _showOffsetControls = false;
   bool _isPlaying = false;
+  int _displayModeIndex = 0; // 0=original, 1=preferTranslated, 2=preferRomaji
 
   /// 用户是否正在手动滚动
   bool _userScrolling = false;
@@ -187,6 +194,9 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
         case 'updatePlaybackState':
           _handleUpdatePlaybackState(call.arguments as String);
           return 'ok';
+        case 'updateLyricsDisplayMode':
+          _handleUpdateLyricsDisplayMode(call.arguments as String);
+          return 'ok';
         case 'close':
           // 真正销毁窗口（仅 app 退出时由 destroy() 调用）
           await windowManager.close();
@@ -237,6 +247,26 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   void _sendPrevious() {
     try {
       _channel.invokeMethod('previous', '');
+    } catch (_) {}
+  }
+
+  void _handleUpdateLyricsDisplayMode(String jsonStr) {
+    final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+    final modeIndex = data['modeIndex'] as int? ?? 0;
+    if (_displayModeIndex != modeIndex) {
+      setState(() => _displayModeIndex = modeIndex);
+    }
+  }
+
+  /// 循环切换歌词显示模式：original → preferTranslated → preferRomaji → original
+  void _cycleLyricsDisplayMode() {
+    final nextIndex = (_displayModeIndex + 1) % 3;
+    setState(() => _displayModeIndex = nextIndex);
+    try {
+      _channel.invokeMethod(
+        'changeLyricsDisplayMode',
+        jsonEncode({'modeIndex': nextIndex}),
+      );
     } catch (_) {}
   }
 
@@ -430,6 +460,30 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     setState(() => _offsetMs = 0);
   }
 
+  /// 当前歌词显示模式图标
+  IconData get _displayModeIcon {
+    switch (_displayModeIndex) {
+      case 1:
+        return Icons.translate; // 优先翻译
+      case 2:
+        return Icons.abc; // 优先罗马音
+      default:
+        return Icons.title; // 原文
+    }
+  }
+
+  /// 当前歌词显示模式 tooltip
+  String get _displayModeTooltip {
+    switch (_displayModeIndex) {
+      case 1:
+        return _strings.displayPreferTranslated;
+      case 2:
+        return _strings.displayPreferRomaji;
+      default:
+        return _strings.displayOriginal;
+    }
+  }
+
   /// 获取翻译字符串
   _LyricsWindowStrings get _strings {
     final appState = context.findAncestorStateOfType<_LyricsWindowAppState>();
@@ -528,6 +582,19 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
               constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
             ),
             const SizedBox(width: 4),
+            // 歌词显示模式切换
+            IconButton(
+              icon: Icon(
+                _displayModeIcon,
+                size: 16,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              onPressed: _cycleLyricsDisplayMode,
+              tooltip: _displayModeTooltip,
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            ),
             // 置顶切换
             IconButton(
               icon: Icon(
