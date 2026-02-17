@@ -704,14 +704,13 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
 
                   if (notification is ScrollStartNotification) {
                     _scrollResumeTimer?.cancel();
-                    if (!_userScrolling) {
-                      setState(() => _userScrolling = true);
-                    }
+                    // 直接赋值，不调 setState（此回调可能在布局阶段触发）
+                    _userScrolling = true;
                   } else if (notification is ScrollEndNotification) {
                     // 用户停止滚动后 3 秒恢复自动滚动
                     _scrollResumeTimer?.cancel();
                     _scrollResumeTimer = Timer(const Duration(seconds: 3), () {
-                      if (mounted) setState(() => _userScrolling = false);
+                      if (mounted) _userScrolling = false;
                     });
                   }
                   return false;
