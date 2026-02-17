@@ -124,6 +124,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
           _handleUpdatePosition(call.arguments as String);
           return 'ok';
         case 'close':
+          // 真正销毁窗口（仅 app 退出时由 destroy() 调用）
           await windowManager.close();
           return 'ok';
         default:
@@ -248,6 +249,16 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     ).then((_) {
       _programmaticScrolling = false;
     });
+  }
+
+  /// 请求主窗口隐藏此子窗口（而非销毁，避免 window_manager channel 被置空）
+  void _requestHide() {
+    try {
+      _channel.invokeMethod('requestHide', '');
+    } catch (_) {
+      // fallback: 如果 channel 不可用，直接关闭
+      windowManager.close();
+    }
   }
 
   /// 点击歌词行 → 发送 seekTo 命令到主窗口
@@ -396,10 +407,10 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
-            // 关闭按钮
+            // 关闭按钮（发送 requestHide 到主窗口，隐藏而非销毁）
             IconButton(
               icon: const Icon(Icons.close, size: 16, color: Colors.white54),
-              onPressed: () => windowManager.close(),
+              onPressed: _requestHide,
               tooltip: '关闭',
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
