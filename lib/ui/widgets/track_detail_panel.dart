@@ -173,6 +173,12 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     LyricsWindowService.instance.syncPlaybackState(isPlaying: isPlaying);
   }
 
+  /// 同步歌词显示模式到歌词弹出窗口
+  void _syncLyricsDisplayModeToWindow(LyricsDisplayMode mode) {
+    if (!LyricsWindowService.instance.isOpen) return;
+    LyricsWindowService.instance.syncLyricsDisplayMode(modeIndex: mode.index);
+  }
+
   /// 同步主题/语言/字体到歌词弹出窗口
   void _syncThemeToWindow() {
     if (!LyricsWindowService.instance.isOpen) return;
@@ -223,6 +229,12 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     service.onPrevious = () {
       ref.read(audioControllerProvider.notifier).previous();
     };
+
+    // changeLyricsDisplayMode: 子窗口切换歌词显示模式
+    service.onChangeLyricsDisplayMode = (modeIndex) {
+      final mode = LyricsDisplayMode.values[modeIndex.clamp(0, 2)];
+      ref.read(lyricsDisplayModeProvider.notifier).setMode(mode);
+    };
   }
 
   /// 清理歌词窗口回调
@@ -234,6 +246,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     service.onPlayPause = null;
     service.onNext = null;
     service.onPrevious = null;
+    service.onChangeLyricsDisplayMode = null;
     service.onWindowClosed = null;
   }
 
@@ -271,6 +284,11 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     });
     ref.listen(localeProvider, (_, __) {
       _syncThemeToWindow();
+    });
+
+    // 歌词窗口同步：歌词显示模式变化时同步
+    ref.listen(lyricsDisplayModeProvider, (_, mode) {
+      _syncLyricsDisplayModeToWindow(mode);
     });
 
     // 歌词窗口同步：offset 变化时全量同步（主窗口调整 offset 时触发）
@@ -526,6 +544,9 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                     _syncThemeToWindow();
                     _syncPlaybackStateToWindow(
                       ref.read(audioControllerProvider).isPlaying,
+                    );
+                    _syncLyricsDisplayModeToWindow(
+                      ref.read(lyricsDisplayModeProvider),
                     );
                     _fullSyncLyricsToWindow();
                     setState(() {});

@@ -58,6 +58,10 @@ class LyricsWindowService {
   /// 回调：子窗口请求上一首
   VoidCallback? onPrevious;
 
+  /// 回调：子窗口请求切换歌词显示模式
+  /// 参数：(modeIndex) → 0=original, 1=preferTranslated, 2=preferRomaji
+  void Function(int modeIndex)? onChangeLyricsDisplayMode;
+
   /// 回调：子窗口被用户关闭时通知（用于刷新 UI 图标状态）
   VoidCallback? onWindowClosed;
 
@@ -229,6 +233,9 @@ class LyricsWindowService {
       'close': t.lyrics.windowClose,
       'offset': t.lyrics.offset,
       'reset': t.lyrics.windowReset,
+      'displayOriginal': t.lyrics.displayOriginal,
+      'displayPreferTranslated': t.lyrics.displayPreferTranslated,
+      'displayPreferRomaji': t.lyrics.displayPreferRomaji,
     };
 
     try {
@@ -258,6 +265,21 @@ class LyricsWindowService {
       );
     } catch (e) {
       debugPrint('LyricsWindowService: playback state sync error: $e');
+      _channelReady = false;
+    }
+  }
+
+  /// 同步歌词显示模式到子窗口
+  Future<void> syncLyricsDisplayMode({required int modeIndex}) async {
+    if (_controller == null || !_channelReady || _isHidden) return;
+
+    try {
+      await _channel.invokeMethod(
+        'updateLyricsDisplayMode',
+        jsonEncode({'modeIndex': modeIndex}),
+      );
+    } catch (e) {
+      debugPrint('LyricsWindowService: lyrics display mode sync error: $e');
       _channelReady = false;
     }
   }
@@ -320,6 +342,11 @@ class LyricsWindowService {
             return 'ok';
           case 'previous':
             onPrevious?.call();
+            return 'ok';
+          case 'changeLyricsDisplayMode':
+            final data = jsonDecode(call.arguments as String) as Map<String, dynamic>;
+            final modeIndex = data['modeIndex'] as int;
+            onChangeLyricsDisplayMode?.call(modeIndex);
             return 'ok';
           case 'requestHide':
             // 子窗口请求隐藏自己（用户点击关闭按钮）
