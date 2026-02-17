@@ -190,10 +190,17 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
     final existingMatch =
         ref.watch(lyricsMatchForTrackProvider(widget.track.uniqueKey));
 
+    // 限制最大高度，避免 Windows 全屏时弹窗过高
+    final screenHeight = MediaQuery.of(context).size.height;
+    const maxSheetHeight = 800.0;
+    final sheetRatio = (maxSheetHeight / screenHeight).clamp(0.4, 0.95);
+
     return DraggableScrollableSheet(
-      initialChildSize: 0.95,
+      initialChildSize: sheetRatio,
       minChildSize: 0.0,
-      maxChildSize: 0.95,
+      maxChildSize: sheetRatio,
+      snap: true,
+      snapSizes: const [],
       expand: false,
       builder: (context, scrollController) {
         return Container(
