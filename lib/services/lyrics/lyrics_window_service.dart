@@ -45,6 +45,9 @@ class LyricsWindowService {
   /// 参数：(trackUniqueKey)
   void Function(String trackUniqueKey)? onResetOffset;
 
+  /// 回调：子窗口被用户关闭时通知（用于刷新 UI 图标状态）
+  VoidCallback? onWindowClosed;
+
   /// 打开歌词窗口（如果已打开则聚焦）
   Future<void> open() async {
     if (!Platform.isWindows) return;
@@ -178,6 +181,7 @@ class LyricsWindowService {
         _windowChangeSub?.cancel();
         _windowChangeSub = null;
         await _unregisterMainWindowHandler();
+        onWindowClosed?.call();
       }
     } catch (_) {
       _controller = null;
@@ -185,6 +189,7 @@ class LyricsWindowService {
       _windowChangeSub?.cancel();
       _windowChangeSub = null;
       await _unregisterMainWindowHandler();
+      onWindowClosed?.call();
     }
   }
 

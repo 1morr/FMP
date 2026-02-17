@@ -201,6 +201,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     service.onSeekTo = null;
     service.onAdjustOffset = null;
     service.onResetOffset = null;
+    service.onWindowClosed = null;
   }
 
   @override
@@ -465,12 +466,24 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                   size: 20,
                 ),
                 onPressed: () async {
-                  _registerWindowCallbacks();
-                  await LyricsWindowService.instance.open();
-                  _fullSyncLyricsToWindow();
-                  setState(() {}); // 刷新按钮图标
+                  final service = LyricsWindowService.instance;
+                  if (service.isOpen) {
+                    await service.close();
+                    _clearWindowCallbacks();
+                    setState(() {});
+                  } else {
+                    _registerWindowCallbacks();
+                    service.onWindowClosed = () {
+                      if (mounted) setState(() {});
+                    };
+                    await service.open();
+                    _fullSyncLyricsToWindow();
+                    setState(() {});
+                  }
                 },
-                tooltip: '弹出歌词窗口',
+                tooltip: LyricsWindowService.instance.isOpen
+                    ? '关闭歌词窗口'
+                    : '弹出歌词窗口',
                 visualDensity: VisualDensity.compact,
                 style: IconButton.styleFrom(
                   foregroundColor: colorScheme.onSurfaceVariant,
