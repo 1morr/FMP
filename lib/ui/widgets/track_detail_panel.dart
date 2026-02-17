@@ -105,6 +105,12 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
   /// 上次同步到歌词窗口的行索引
   int _lastSyncedLineIndex = -1;
 
+  @override
+  void dispose() {
+    _clearWindowCallbacks();
+    super.dispose();
+  }
+
   /// 同步歌词数据到弹出窗口
   void _syncLyricsToWindow() {
     if (!LyricsWindowService.instance.isOpen) return;
@@ -155,7 +161,46 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
       offsetMs: match?.offsetMs ?? 0,
       trackTitle: currentTrack?.title,
       trackArtist: currentTrack?.artist,
+      trackUniqueKey: currentTrack?.uniqueKey,
     );
+  }
+
+  /// 注册歌词窗口回调（seek/offset 操作）
+  void _registerWindowCallbacks() {
+    final service = LyricsWindowService.instance;
+
+    // seekTo: 子窗口点击歌词行 → 跳转到对应时间点
+    service.onSeekTo = (timestampMs, offsetMs) {
+      final targetMs = timestampMs - offsetMs;
+      final targetPosition = Duration(
+        milliseconds: targetMs.clamp(0, double.maxFinite.toInt()),
+      );
+      ref.read(audioControllerProvider.notifier).seekTo(targetPosition);
+    };
+
+    // adjustOffset: 子窗口调整 offset
+    service.onAdjustOffset = (trackUniqueKey, newOffsetMs) {
+      ref.read(lyricsSearchProvider.notifier).updateOffset(
+        trackUniqueKey,
+        newOffsetMs,
+      );
+    };
+
+    // resetOffset: 子窗口重置 offset
+    service.onResetOffset = (trackUniqueKey) {
+      ref.read(lyricsSearchProvider.notifier).updateOffset(
+        trackUniqueKey,
+        0,
+      );
+    };
+  }
+
+  /// 清理歌词窗口回调
+  void _clearWindowCallbacks() {
+    final service = LyricsWindowService.instance;
+    service.onSeekTo = null;
+    service.onAdjustOffset = null;
+    service.onResetOffset = null;
   }
 
   @override
@@ -415,6 +460,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                   size: 20,
                 ),
                 onPressed: () async {
+                  _registerWindowCallbacks();
                   await LyricsWindowService.instance.open();
                   _fullSyncLyricsToWindow();
                   setState(() {}); // 刷新按钮图标
