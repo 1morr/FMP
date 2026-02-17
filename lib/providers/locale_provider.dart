@@ -28,9 +28,8 @@ class LocaleNotifier extends StateNotifier<AppLocale?> {
 
   /// 设置语言 (null = 跟随系统)
   Future<void> setLocale(AppLocale? locale) async {
-    final settings = await _settingsRepository.get();
-    settings.locale = locale != null ? _localeToString(locale) : null;
-    await _settingsRepository.save(settings);
+    final localeStr = locale != null ? _localeToString(locale) : null;
+    await _settingsRepository.update((s) => s.locale = localeStr);
     // 先更新 slang 的全局 t，再更新 Riverpod state
     // 确保 Riverpod 触发 rebuild 时 t.xxx 已指向新 locale
     if (locale != null) {

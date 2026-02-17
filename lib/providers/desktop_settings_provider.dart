@@ -32,9 +32,7 @@ class _MinimizeToTrayNotifier extends StateNotifier<bool> {
 
   Future<void> toggle() async {
     state = !state;
-    final settings = await _repo.get();
-    settings.minimizeToTrayOnClose = state;
-    await _repo.save(settings);
+    await _repo.update((s) => s.minimizeToTrayOnClose = state);
     // 应用设置到 window_manager
     await windowManager.setPreventClose(state);
   }
@@ -64,9 +62,7 @@ class _GlobalHotkeysNotifier extends StateNotifier<bool> {
 
   Future<void> toggle() async {
     state = !state;
-    final settings = await _repo.get();
-    settings.enableGlobalHotkeys = state;
-    await _repo.save(settings);
+    await _repo.update((s) => s.enableGlobalHotkeys = state);
     // 立即应用设置
     await _desktopService?.setHotkeysEnabled(state);
   }
@@ -124,17 +120,13 @@ class LaunchAtStartupNotifier extends StateNotifier<LaunchAtStartupState> {
   Future<void> toggleEnabled() async {
     final newEnabled = !state.enabled;
     state = state.copyWith(enabled: newEnabled);
-    final settings = await _repo.get();
-    settings.launchAtStartup = newEnabled;
-    await _repo.save(settings);
+    await _repo.update((s) => s.launchAtStartup = newEnabled);
     await _applyToSystem();
   }
 
   Future<void> setMinimized(bool minimized) async {
     state = state.copyWith(minimized: minimized);
-    final settings = await _repo.get();
-    settings.launchMinimized = minimized;
-    await _repo.save(settings);
+    await _repo.update((s) => s.launchMinimized = minimized);
     // 重新应用（需要更新启动参数）
     await _applyToSystem();
   }

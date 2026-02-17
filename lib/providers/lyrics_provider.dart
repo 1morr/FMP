@@ -147,8 +147,8 @@ class LyricsDisplayModeNotifier extends StateNotifier<LyricsDisplayMode> {
 
   Future<void> setMode(LyricsDisplayMode mode) async {
     if (_settings == null) return;
+    await _settingsRepository.update((s) => s.lyricsDisplayMode = mode);
     _settings!.lyricsDisplayMode = mode;
-    await _settingsRepository.save(_settings!);
     state = mode;
   }
 }
