@@ -59,6 +59,12 @@ class DownloadService with Logging {
   
   /// 下载完成事件流（用于通知 UI 更新缓存）
   Stream<DownloadCompletionEvent> get completionStream => _completionController.stream;
+
+  /// 下载失败事件流控制器
+  final _failureController = StreamController<DownloadFailureEvent>.broadcast();
+
+  /// 下载失败事件流（用于通知 UI 显示错误提示）
+  Stream<DownloadFailureEvent> get failureStream => _failureController.stream;
   
   /// 当前活跃的下载数量
   int _activeDownloads = 0;
@@ -130,6 +136,7 @@ class DownloadService with Logging {
     _scheduleController.close();
     _progressController.close();
     _completionController.close();
+    _failureController.close();
     
     // 取消所有进行中的 Isolate 下载
     for (final entry in _activeDownloadIsolates.values) {
@@ -561,7 +568,8 @@ class DownloadService with Logging {
     
     logDebug('Starting download for track: ${task.trackId}');
     _activeDownloads++;
-    
+    String trackTitle = 'Track ${task.trackId}';
+
     try {
       // 状态已在 _scheduleDownloads 中更新为 downloading
       
@@ -570,6 +578,7 @@ class DownloadService with Logging {
       if (track == null) {
         throw Exception('Track not found: ${task.trackId}');
       }
+      trackTitle = track.title;
       
       // 获取音频 URL（使用用户设置的音频配置，与播放时逻辑一致）
       final source = _sourceManager.getSource(track.sourceType);
@@ -665,9 +674,8 @@ class DownloadService with Logging {
           break;
         }
       }
-      
-      // 清理 Isolate 引用
-      _activeDownloadIsolates.remove(task.id);
+
+      // 清理 Isolate 引用（不从 map 移除，由 finally 统一处理）
       isolate.kill();
       
       // 如果被取消，不抛异常，让 finally 处理
@@ -740,6 +748,12 @@ class DownloadService with Logging {
           DownloadStatus.failed,
           errorMessage: e.message ?? 'Network error',
         );
+        _failureController.add(DownloadFailureEvent(
+          taskId: task.id,
+          trackId: task.trackId,
+          trackTitle: trackTitle,
+          errorMessage: e.message ?? 'Network error',
+        ));
       }
     } catch (e, stack) {
       logError('Download failed for task: ${task.id}: $e', e, stack);
@@ -750,11 +764,20 @@ class DownloadService with Logging {
         DownloadStatus.failed,
         errorMessage: e.toString(),
       );
+      _failureController.add(DownloadFailureEvent(
+        taskId: task.id,
+        trackId: task.trackId,
+        trackTitle: trackTitle,
+        errorMessage: e.toString(),
+      ));
     } finally {
-      // 清理 Isolate 引用（如果还存在的话）
-      _activeDownloadIsolates.remove(task.id);
+      // 只在未被外部取消（pauseTask/cancelTask）时清理和递减
+      // pauseTask/cancelTask 已经移除了 isolate 并递减了 _activeDownloads
+      final wasStillActive = _activeDownloadIsolates.remove(task.id) != null;
       _activeCancelTokens.remove(task.id);
-      _activeDownloads--;
+      if (wasStillActive) {
+        _activeDownloads--;
+      }
       // 下载完成后触发调度，继续下一个任务（事件驱动）
       _triggerSchedule();
     }
@@ -841,7 +864,12 @@ class DownloadService with Logging {
         ? 'metadata_P${track.pageNum!.toString().padLeft(2, '0')}.json'
         : 'metadata.json';
     final metadataFile = File(p.join(videoDir.path, metadataFileName));
-    await metadataFile.writeAsString(jsonEncode(metadata));
+    try {
+      await metadataFile.writeAsString(jsonEncode(metadata));
+    } on FileSystemException catch (e) {
+      logWarning('Failed to save metadata for ${track.title}: $e');
+      // 元数据保存失败不应阻止下载完成
+    }
 
     // 下载封面（如果设置允许）
     if (settings.downloadImageOption != DownloadImageOption.none && track.thumbnailUrl != null) {
@@ -921,6 +949,21 @@ class DownloadCompletionEvent {
     required this.trackId,
     this.playlistId,
     required this.savePath,
+  });
+}
+
+/// 下载失败事件
+class DownloadFailureEvent {
+  final int taskId;
+  final int trackId;
+  final String trackTitle;
+  final String errorMessage;
+
+  DownloadFailureEvent({
+    required this.taskId,
+    required this.trackId,
+    required this.trackTitle,
+    required this.errorMessage,
   });
 }
 

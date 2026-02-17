@@ -18,6 +18,8 @@ import '../repository_providers.dart';
 import 'download_scanner.dart';
 import 'file_exists_cache.dart';
 import '../playlist_provider.dart' show playlistDetailProvider;
+import '../../core/services/toast_service.dart';
+import '../../i18n/strings.g.dart';
 
 // Re-export for convenience
 export 'download_scanner.dart';
@@ -112,11 +114,20 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
     );
   });
 
+  // 监听下载失败事件，显示 Toast 提示
+  StreamSubscription<DownloadFailureEvent>? failureSubscription;
+  failureSubscription = service.failureStream.listen((event) {
+    ref.read(toastServiceProvider).showError(
+      t.library.downloadFailed(title: event.trackTitle),
+    );
+  });
+
   // 在 provider 被销毁时清理
   ref.onDispose(() {
     debounceTimer?.cancel();
     completionSubscription?.cancel();
     progressSubscription?.cancel();
+    failureSubscription?.cancel();
     service.dispose();
   });
 

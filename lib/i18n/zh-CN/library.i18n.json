@@ -14,6 +14,7 @@
   "retry": "重试",
   "deleteDownload": "删除下载",
   "downloadDeleted": "已删除下载文件",
+  "downloadFailed": "下载失败: $title",
   "main": {
     "sortMode": "拖拽排序",
     "finishSort": "完成排序",
