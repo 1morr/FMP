@@ -39,5 +39,7 @@
   "windowPin": "置顶",
   "windowOffsetAdjust": "偏移调整",
   "windowClose": "关闭",
-  "windowReset": "重置"
+  "windowReset": "重置",
+  "windowTransparentMode": "透明模式",
+  "windowNormalMode": "普通模式"
 }

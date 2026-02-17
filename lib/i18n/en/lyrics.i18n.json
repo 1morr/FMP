@@ -39,5 +39,7 @@
   "windowPin": "Pin on top",
   "windowOffsetAdjust": "Offset adjust",
   "windowClose": "Close",
-  "windowReset": "Reset"
+  "windowReset": "Reset",
+  "windowTransparentMode": "Transparent Mode",
+  "windowNormalMode": "Normal Mode"
 }
