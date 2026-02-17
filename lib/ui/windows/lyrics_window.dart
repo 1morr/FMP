@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../theme/app_theme.dart';
+
 /// 歌词弹出窗口入口点
 ///
 /// 由 desktop_multi_window 在独立 Flutter engine 中启动。
@@ -16,16 +18,71 @@ void lyricsWindowMain(List<String> args) {
   runApp(const LyricsWindowApp());
 }
 
-class LyricsWindowApp extends StatelessWidget {
+/// 歌词窗口翻译字符串（从主窗口同步）
+class _LyricsWindowStrings {
+  String waitingLyrics = '等待歌词...';
+  String unpin = '取消置顶';
+  String pin = '置顶';
+  String offsetAdjust = '偏移调整';
+  String close = '关闭';
+  String offset = '偏移';
+  String reset = '重置';
+
+  void updateFrom(Map<String, dynamic> map) {
+    waitingLyrics = map['waitingLyrics'] as String? ?? waitingLyrics;
+    unpin = map['unpin'] as String? ?? unpin;
+    pin = map['pin'] as String? ?? pin;
+    offsetAdjust = map['offsetAdjust'] as String? ?? offsetAdjust;
+    close = map['close'] as String? ?? close;
+    offset = map['offset'] as String? ?? offset;
+    reset = map['reset'] as String? ?? reset;
+  }
+}
+
+class LyricsWindowApp extends StatefulWidget {
   const LyricsWindowApp({super.key});
+
+  @override
+  State<LyricsWindowApp> createState() => _LyricsWindowAppState();
+}
+
+class _LyricsWindowAppState extends State<LyricsWindowApp> {
+  ThemeMode _themeMode = ThemeMode.dark;
+  Color? _primaryColor;
+  String? _fontFamily;
+  final _strings = _LyricsWindowStrings();
+
+  _LyricsWindowStrings get strings => _strings;
+
+  void updateTheme({
+    required ThemeMode themeMode,
+    Color? primaryColor,
+    String? fontFamily,
+    Map<String, dynamic>? stringsMap,
+  }) {
+    setState(() {
+      _themeMode = themeMode;
+      _primaryColor = primaryColor;
+      _fontFamily = fontFamily;
+      if (stringsMap != null) {
+        _strings.updateFrom(stringsMap);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark(useMaterial3: true).copyWith(
-        scaffoldBackgroundColor: const Color(0xFF1A1A2E),
+      theme: AppTheme.lightTheme(
+        primaryColor: _primaryColor,
+        fontFamily: _fontFamily,
       ),
+      darkTheme: AppTheme.darkTheme(
+        primaryColor: _primaryColor,
+        fontFamily: _fontFamily,
+      ),
+      themeMode: _themeMode,
       home: const LyricsWindowPage(),
     );
   }
@@ -123,6 +180,9 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
         case 'updatePosition':
           _handleUpdatePosition(call.arguments as String);
           return 'ok';
+        case 'updateTheme':
+          _handleUpdateTheme(call.arguments as String);
+          return 'ok';
         case 'close':
           // 真正销毁窗口（仅 app 退出时由 destroy() 调用）
           await windowManager.close();
@@ -131,6 +191,22 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
           return null;
       }
     });
+  }
+
+  void _handleUpdateTheme(String jsonStr) {
+    final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+    final themeModeIndex = data['themeMode'] as int? ?? 2; // default dark
+    final primaryColorValue = data['primaryColor'] as int?;
+    final fontFamily = data['fontFamily'] as String?;
+    final stringsMap = data['strings'] as Map<String, dynamic>?;
+
+    final appState = context.findAncestorStateOfType<_LyricsWindowAppState>();
+    appState?.updateTheme(
+      themeMode: ThemeMode.values[themeModeIndex.clamp(0, 2)],
+      primaryColor: primaryColorValue != null ? Color(primaryColorValue) : null,
+      fontFamily: fontFamily,
+      stringsMap: stringsMap,
+    );
   }
 
   void _handleUpdateLyrics(String jsonStr) {
@@ -312,6 +388,12 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     setState(() => _offsetMs = 0);
   }
 
+  /// 获取翻译字符串
+  _LyricsWindowStrings get _strings {
+    final appState = context.findAncestorStateOfType<_LyricsWindowAppState>();
+    return appState?.strings ?? _LyricsWindowStrings();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -331,6 +413,8 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   }
 
   Widget _buildTitleBar() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return GestureDetector(
       // 允许拖动窗口
       onPanStart: (_) => windowManager.startDragging(),
@@ -339,13 +423,13 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: colorScheme.outlineVariant.withValues(alpha: 0.3),
             ),
           ),
         ),
         child: Row(
           children: [
-            const Icon(Icons.lyrics_outlined, size: 18, color: Colors.white70),
+            Icon(Icons.lyrics_outlined, size: 18, color: colorScheme.onSurfaceVariant),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
@@ -354,10 +438,10 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
                 children: [
                   Text(
                     _trackTitle ?? 'Lyrics',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                      color: colorScheme.onSurface,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -367,7 +451,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
                       _trackArtist!,
                       style: TextStyle(
                         fontSize: 11,
-                        color: Colors.white.withValues(alpha: 0.6),
+                        color: colorScheme.onSurfaceVariant,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -380,13 +464,15 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
               icon: Icon(
                 _alwaysOnTop ? Icons.push_pin : Icons.push_pin_outlined,
                 size: 16,
-                color: _alwaysOnTop ? Colors.white : Colors.white54,
+                color: _alwaysOnTop
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant,
               ),
               onPressed: () async {
                 setState(() => _alwaysOnTop = !_alwaysOnTop);
                 await windowManager.setAlwaysOnTop(_alwaysOnTop);
               },
-              tooltip: _alwaysOnTop ? '取消置顶' : '置顶',
+              tooltip: _alwaysOnTop ? _strings.unpin : _strings.pin,
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -397,21 +483,23 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
                 icon: Icon(
                   Icons.timer_outlined,
                   size: 16,
-                  color: _showOffsetControls ? Colors.white : Colors.white54,
+                  color: _showOffsetControls
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
                 ),
                 onPressed: () {
                   setState(() => _showOffsetControls = !_showOffsetControls);
                 },
-                tooltip: '偏移调整',
+                tooltip: _strings.offsetAdjust,
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
             // 关闭按钮（发送 requestHide 到主窗口，隐藏而非销毁）
             IconButton(
-              icon: const Icon(Icons.close, size: 16, color: Colors.white54),
+              icon: Icon(Icons.close, size: 16, color: colorScheme.onSurfaceVariant),
               onPressed: _requestHide,
-              tooltip: '关闭',
+              tooltip: _strings.close,
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -423,6 +511,8 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   }
 
   Widget _buildEmpty() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -430,14 +520,14 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
           Icon(
             Icons.lyrics_outlined,
             size: 48,
-            color: Colors.white.withValues(alpha: 0.3),
+            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
           ),
           const SizedBox(height: 12),
           Text(
-            '等待歌词...',
+            _strings.waitingLyrics,
             style: TextStyle(
               fontSize: 14,
-              color: Colors.white.withValues(alpha: 0.5),
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -524,6 +614,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   Widget _buildLyricsLine(
       int index, bool isCurrent, ({double main, double sub}) fontSizes) {
     final line = _lines[index];
+    final colorScheme = Theme.of(context).colorScheme;
 
     return GestureDetector(
       onTap: _isSynced && line.timestamp != null ? () => _seekToLine(index) : null,
@@ -540,8 +631,8 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
                 fontSize: fontSizes.main,
                 fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
                 color: isCurrent
-                    ? Colors.white
-                    : Colors.white.withValues(alpha: 0.4),
+                    ? colorScheme.onSurface
+                    : colorScheme.onSurface.withValues(alpha: 0.4),
                 height: 1.4,
               ),
               child: Text(
@@ -559,8 +650,8 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
                     fontSize: fontSizes.sub,
                     fontWeight: isCurrent ? FontWeight.w500 : FontWeight.normal,
                     color: isCurrent
-                        ? Colors.white.withValues(alpha: 0.7)
-                        : Colors.white.withValues(alpha: 0.3),
+                        ? colorScheme.onSurface.withValues(alpha: 0.7)
+                        : colorScheme.onSurface.withValues(alpha: 0.3),
                     height: 1.3,
                   ),
                   child: Text(
@@ -575,15 +666,17 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     );
   }
 
-  /// Offset 调整栏（简化版，适配弹出窗口暗色主题）
+  /// Offset 调整栏
   Widget _buildOffsetBar() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
+        color: Theme.of(context).scaffoldBackgroundColor,
         border: Border(
           bottom: BorderSide(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: colorScheme.outlineVariant.withValues(alpha: 0.3),
           ),
         ),
       ),
@@ -594,10 +687,10 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
           children: [
             // Label
             Text(
-              '偏移',
+              _strings.offset,
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.white.withValues(alpha: 0.6),
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(width: 8),
@@ -605,15 +698,15 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
+                color: colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
                 _formatOffset(_offsetMs),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: colorScheme.onSurface,
                 ),
               ),
             ),
@@ -625,7 +718,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
             const SizedBox(width: 4),
             // Reset button
             Tooltip(
-              message: '重置',
+              message: _strings.reset,
               child: InkWell(
                 onTap: _offsetMs != 0 ? _resetOffset : null,
                 borderRadius: BorderRadius.circular(4),
@@ -635,8 +728,8 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
                     Icons.refresh,
                     size: 16,
                     color: _offsetMs != 0
-                        ? Colors.white
-                        : Colors.white.withValues(alpha: 0.2),
+                        ? colorScheme.onSurface
+                        : colorScheme.onSurface.withValues(alpha: 0.2),
                   ),
                 ),
               ),
@@ -652,6 +745,8 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   }
 
   Widget _buildOffsetButton(IconData icon, int deltaMs, String label) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Tooltip(
       message: label,
       child: InkWell(
@@ -662,7 +757,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
           child: Icon(
             icon,
             size: 16,
-            color: Colors.white,
+            color: colorScheme.onSurface,
           ),
         ),
       ),

@@ -33,5 +33,11 @@
   "displayOriginal": "Original",
   "displayPreferTranslated": "Prefer Translation",
   "displayPreferRomaji": "Prefer Romaji",
-  "searchPrompt": "Enter keywords to search lyrics"
+  "searchPrompt": "Enter keywords to search lyrics",
+  "windowWaitingLyrics": "Waiting for lyrics...",
+  "windowUnpin": "Unpin",
+  "windowPin": "Pin on top",
+  "windowOffsetAdjust": "Offset adjust",
+  "windowClose": "Close",
+  "windowReset": "Reset"
 }

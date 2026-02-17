@@ -33,5 +33,11 @@
   "displayOriginal": "只顯示原文",
   "displayPreferTranslated": "優先顯示翻譯",
   "displayPreferRomaji": "優先顯示羅馬音",
-  "searchPrompt": "輸入關鍵詞搜尋歌詞"
+  "searchPrompt": "輸入關鍵詞搜尋歌詞",
+  "windowWaitingLyrics": "等待歌詞...",
+  "windowUnpin": "取消置頂",
+  "windowPin": "置頂",
+  "windowOffsetAdjust": "偏移調整",
+  "windowClose": "關閉",
+  "windowReset": "重置"
 }

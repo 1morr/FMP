@@ -3,8 +3,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
+import '../../i18n/strings.g.dart';
 import '../lyrics/lrc_parser.dart';
 
 /// 桌面歌词弹出窗口管理服务
@@ -198,6 +199,41 @@ class LyricsWindowService {
       );
     } catch (e) {
       debugPrint('LyricsWindowService: position sync error: $e');
+      _channelReady = false;
+    }
+  }
+
+  /// 同步主题/语言/字体配置到子窗口
+  Future<void> syncTheme({
+    required ThemeMode themeMode,
+    required Color? primaryColor,
+    required String? fontFamily,
+  }) async {
+    if (_controller == null || !_channelReady || _isHidden) return;
+
+    // 收集歌词窗口需要的翻译字符串
+    final strings = {
+      'waitingLyrics': t.lyrics.windowWaitingLyrics,
+      'unpin': t.lyrics.windowUnpin,
+      'pin': t.lyrics.windowPin,
+      'offsetAdjust': t.lyrics.windowOffsetAdjust,
+      'close': t.lyrics.windowClose,
+      'offset': t.lyrics.offset,
+      'reset': t.lyrics.windowReset,
+    };
+
+    try {
+      await _channel.invokeMethod(
+        'updateTheme',
+        jsonEncode({
+          'themeMode': themeMode.index,
+          'primaryColor': primaryColor?.toARGB32(),
+          'fontFamily': fontFamily,
+          'strings': strings,
+        }),
+      );
+    } catch (e) {
+      debugPrint('LyricsWindowService: theme sync error: $e');
       _channelReady = false;
     }
   }

@@ -24,6 +24,8 @@ import '../../data/models/radio_station.dart';
 import 'track_thumbnail.dart';
 import 'lyrics_display.dart';
 import '../pages/lyrics/lyrics_search_sheet.dart';
+import '../../providers/locale_provider.dart';
+import '../../providers/theme_provider.dart';
 import '../../services/lyrics/lyrics_window_service.dart';
 import '../../services/lyrics/lrc_parser.dart';
 
@@ -165,6 +167,17 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     );
   }
 
+  /// 同步主题/语言/字体到歌词弹出窗口
+  void _syncThemeToWindow() {
+    if (!LyricsWindowService.instance.isOpen) return;
+    final themeState = ref.read(themeProvider);
+    LyricsWindowService.instance.syncTheme(
+      themeMode: themeState.themeMode,
+      primaryColor: themeState.primaryColor,
+      fontFamily: themeState.fontFamily,
+    );
+  }
+
   /// 注册歌词窗口回调（seek/offset 操作）
   void _registerWindowCallbacks() {
     final service = LyricsWindowService.instance;
@@ -225,6 +238,14 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     ref.listen(currentTrackProvider, (_, __) {
       _lastSyncedLineIndex = -1;
       _fullSyncLyricsToWindow();
+    });
+
+    // 歌词窗口同步：主题/字体/语言变化时同步
+    ref.listen(themeProvider, (_, __) {
+      _syncThemeToWindow();
+    });
+    ref.listen(localeProvider, (_, __) {
+      _syncThemeToWindow();
     });
 
     // 歌词窗口同步：offset 变化时全量同步（主窗口调整 offset 时触发）
@@ -477,6 +498,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                       if (mounted) setState(() {});
                     };
                     await service.open();
+                    _syncThemeToWindow();
                     _fullSyncLyricsToWindow();
                     setState(() {});
                   }
