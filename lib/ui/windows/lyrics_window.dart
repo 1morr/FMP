@@ -67,6 +67,18 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   /// 是否正在执行程序化滚动（区分用户滚动）
   bool _programmaticScrolling = false;
 
+  /// 缓存：代表行的参考宽度（歌词变化时重算）
+  double? _cachedRefWidth;
+  int _cachedLineCount = -1;
+  String _cachedFirstLine = '';
+
+  /// 字号范围（与 LyricsDisplay 一致）
+  static const double _minFontSize = 14.0;
+  static const double _maxFontSize = 30.0;
+  static const double _subFontRatio = 0.65;
+  static const double _refFontSize = 20.0;
+  static const double _boldSafetyFactor = 0.95;
+
   final _scrollController = ItemScrollController();
   final _positionsListener = ItemPositionsListener.create();
 
@@ -143,10 +155,70 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
       _trackUniqueKey = data['trackUniqueKey'] as String?;
     });
 
-    // 全量更新时重置用户滚动状态
+    // 全量更新时重置用户滚动状态和字号缓存
     _userScrolling = false;
     _scrollResumeTimer?.cancel();
+    _cachedRefWidth = null; // 歌词变化，重算字号
     _scrollToCurrentLine();
+  }
+
+  /// 计算代表行的参考宽度（中位数，缓存）
+  void _ensureRefWidth(BuildContext context) {
+    final firstLine = _lines.isNotEmpty ? _lines.first.text : '';
+    if (_cachedRefWidth != null &&
+        _cachedLineCount == _lines.length &&
+        _cachedFirstLine == firstLine) {
+      return;
+    }
+
+    final textDirection = Directionality.of(context);
+    final widths = <double>[];
+
+    for (final line in _lines) {
+      if (line.text.isEmpty) continue;
+      final painter = TextPainter(
+        text: TextSpan(
+          text: line.text,
+          style: const TextStyle(
+              fontSize: _refFontSize, fontWeight: FontWeight.bold),
+        ),
+        maxLines: 1,
+        textDirection: textDirection,
+      )..layout();
+      widths.add(painter.width);
+      painter.dispose();
+    }
+
+    if (widths.isEmpty) {
+      _cachedRefWidth = 0;
+      _cachedLineCount = _lines.length;
+      _cachedFirstLine = firstLine;
+      return;
+    }
+
+    widths.sort();
+    _cachedRefWidth = widths[widths.length ~/ 2];
+    _cachedLineCount = _lines.length;
+    _cachedFirstLine = firstLine;
+  }
+
+  /// 根据可用宽度计算最优字号（与 LyricsDisplay 逻辑一致）
+  ({double main, double sub}) _getFontSizes(
+      double availableWidth, BuildContext context) {
+    _ensureRefWidth(context);
+
+    if (_cachedRefWidth == null || _cachedRefWidth! <= 0) {
+      final sub =
+          (_maxFontSize * _subFontRatio).clamp(_minFontSize, _maxFontSize);
+      return (main: _maxFontSize, sub: sub);
+    }
+
+    final safeWidth = availableWidth * _boldSafetyFactor;
+    final mainSize = (_refFontSize * (safeWidth / _cachedRefWidth!))
+        .clamp(_minFontSize, _maxFontSize);
+    final subSize =
+        (mainSize * _subFontRatio).clamp(_minFontSize, _maxFontSize);
+    return (main: mainSize, sub: subSize);
   }
 
   void _handleUpdatePosition(String jsonStr) {
@@ -365,10 +437,17 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   Widget _buildLyricsList() {
     // 非同步歌词：简单列表
     if (!_isSynced) {
-      return ListView.builder(
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-        itemCount: _lines.length,
-        itemBuilder: (context, index) => _buildLyricsLine(index, false),
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final availableWidth = constraints.maxWidth - 32; // 16 * 2 padding
+          final fontSizes = _getFontSizes(availableWidth, context);
+          return ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+            itemCount: _lines.length,
+            itemBuilder: (context, index) =>
+                _buildLyricsLine(index, false, fontSizes),
+          );
+        },
       );
     }
 
@@ -376,40 +455,47 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     return Stack(
       children: [
         Positioned.fill(
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              // 忽略程序化滚动
-              if (_programmaticScrolling) return false;
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final availableWidth = constraints.maxWidth - 32;
+              final fontSizes = _getFontSizes(availableWidth, context);
 
-              if (notification is ScrollStartNotification) {
-                _scrollResumeTimer?.cancel();
-                if (!_userScrolling) {
-                  setState(() => _userScrolling = true);
-                }
-              } else if (notification is ScrollEndNotification) {
-                // 用户停止滚动后 3 秒恢复自动滚动
-                _scrollResumeTimer?.cancel();
-                _scrollResumeTimer = Timer(const Duration(seconds: 3), () {
-                  if (mounted) setState(() => _userScrolling = false);
-                });
-              }
-              return false;
+              return NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  // 忽略程序化滚动
+                  if (_programmaticScrolling) return false;
+
+                  if (notification is ScrollStartNotification) {
+                    _scrollResumeTimer?.cancel();
+                    if (!_userScrolling) {
+                      setState(() => _userScrolling = true);
+                    }
+                  } else if (notification is ScrollEndNotification) {
+                    // 用户停止滚动后 3 秒恢复自动滚动
+                    _scrollResumeTimer?.cancel();
+                    _scrollResumeTimer = Timer(const Duration(seconds: 3), () {
+                      if (mounted) setState(() => _userScrolling = false);
+                    });
+                  }
+                  return false;
+                },
+                child: ScrollablePositionedList.builder(
+                  itemScrollController: _scrollController,
+                  itemPositionsListener: _positionsListener,
+                  padding: EdgeInsets.only(
+                    top: _showOffsetControls ? 56 : 20,
+                    bottom: 20,
+                    left: 16,
+                    right: 16,
+                  ),
+                  itemCount: _lines.length,
+                  itemBuilder: (context, index) {
+                    final isCurrent = index == _currentLineIndex;
+                    return _buildLyricsLine(index, isCurrent, fontSizes);
+                  },
+                ),
+              );
             },
-            child: ScrollablePositionedList.builder(
-              itemScrollController: _scrollController,
-              itemPositionsListener: _positionsListener,
-              padding: EdgeInsets.only(
-                top: _showOffsetControls ? 56 : 20,
-                bottom: 20,
-                left: 16,
-                right: 16,
-              ),
-              itemCount: _lines.length,
-              itemBuilder: (context, index) {
-                final isCurrent = index == _currentLineIndex;
-                return _buildLyricsLine(index, isCurrent);
-              },
-            ),
           ),
         ),
         // Offset 调整栏
@@ -424,12 +510,9 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     );
   }
 
-  Widget _buildLyricsLine(int index, bool isCurrent) {
+  Widget _buildLyricsLine(
+      int index, bool isCurrent, ({double main, double sub}) fontSizes) {
     final line = _lines[index];
-
-    // 字号对齐 LyricsDisplay：当前行和非当前行使用相同字号，仅通过颜色和粗细区分
-    const mainFontSize = 18.0;
-    const subFontSize = 12.0;
 
     return GestureDetector(
       onTap: _isSynced && line.timestamp != null ? () => _seekToLine(index) : null,
@@ -443,7 +526,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
             AnimatedDefaultTextStyle(
               duration: const Duration(milliseconds: 200),
               style: TextStyle(
-                fontSize: mainFontSize,
+                fontSize: fontSizes.main,
                 fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
                 color: isCurrent
                     ? Colors.white
@@ -462,7 +545,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
                 child: AnimatedDefaultTextStyle(
                   duration: const Duration(milliseconds: 200),
                   style: TextStyle(
-                    fontSize: subFontSize,
+                    fontSize: fontSizes.sub,
                     fontWeight: isCurrent ? FontWeight.w500 : FontWeight.normal,
                     color: isCurrent
                         ? Colors.white.withValues(alpha: 0.7)
