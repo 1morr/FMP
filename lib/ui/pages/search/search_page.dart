@@ -37,7 +37,7 @@ class SearchPage extends ConsumerStatefulWidget {
 class _SearchPageState extends ConsumerState<SearchPage> {
   final _searchController = TextEditingController();
   final _focusNode = FocusNode();
-  bool _showHistory = true;
+
 
   // 分P展开状态管理
   final Set<String> _expandedVideos = {};
@@ -51,22 +51,21 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     final query = ref.read(searchProvider).query;
     if (query.isNotEmpty) {
       _searchController.text = query;
-      _showHistory = false;
     }
-    _searchController.addListener(_onSearchTextChanged);
+    _searchController.addListener(_onTextChanged);
+  }
+
+  void _onTextChanged() {
+    // 触发 rebuild 以更新 close 按钮的显示状态
+    setState(() {});
   }
 
   @override
   void dispose() {
+    _searchController.removeListener(_onTextChanged);
     _searchController.dispose();
     _focusNode.dispose();
     super.dispose();
-  }
-
-  void _onSearchTextChanged() {
-    setState(() {
-      _showHistory = _searchController.text.isEmpty;
-    });
   }
 
   @override
@@ -100,6 +99,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               )
             : AppBar(
                 toolbarHeight: kToolbarHeight + 16, // 增加頂部間隔
+                centerTitle: false,
                 title: _buildSearchField(context),
                 actions: [
                   if (_searchController.text.isNotEmpty)
@@ -121,7 +121,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
             // 内容区域
             Expanded(
-              child: _showHistory && searchState.query.isEmpty
+              child: searchState.query.isEmpty
                   ? _buildSearchHistory(context)
                   : _buildSearchResults(context, searchState),
             ),
@@ -769,7 +769,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     _expandedVideos.clear();
     _loadedPages.clear();
     _loadingPages.clear();
-    ref.read(searchProvider.notifier).search(query);
+    ref.read(searchProvider.notifier).search(query).then((_) {
+      if (mounted) {
+        ref.read(searchHistoryManagerProvider.notifier).loadHistory();
+      }
+    });
   }
 
   /// 加载视频分P信息
