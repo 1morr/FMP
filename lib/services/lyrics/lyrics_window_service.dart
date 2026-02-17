@@ -236,6 +236,8 @@ class LyricsWindowService {
       'displayOriginal': t.lyrics.displayOriginal,
       'displayPreferTranslated': t.lyrics.displayPreferTranslated,
       'displayPreferRomaji': t.lyrics.displayPreferRomaji,
+      'transparentMode': t.lyrics.windowTransparentMode,
+      'normalMode': t.lyrics.windowNormalMode,
     };
 
     try {
