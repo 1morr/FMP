@@ -226,6 +226,11 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
       _fullSyncLyricsToWindow();
     });
 
+    // 歌词窗口同步：offset 变化时全量同步（主窗口调整 offset 时触发）
+    ref.listen(currentLyricsMatchProvider.select((v) => v.valueOrNull?.offsetMs), (_, __) {
+      _fullSyncLyricsToWindow();
+    });
+
     // 检查电台是否正在播放（优先于歌曲信息）
     final radioState = ref.watch(radioControllerProvider);
     if (radioState.hasCurrentStation) {
