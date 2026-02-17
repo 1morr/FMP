@@ -115,7 +115,8 @@
 | DownloadService | `services/download/download_service.dart` | 下载管理 |
 | DownloadPathUtils | `services/download/download_path_utils.dart` | 路径计算工具 |
 
-| WindowsDesktopService | `services/platform/windows_desktop_service.dart` | Windows 桌面特性（托盘、快捷键、窗口管理） |
+| WindowsDesktopService | `services/platform/windows_desktop_service.dart` | Windows 桌面特性（托盘、快捷键、窗口管理、handleCloseButton） |
+| LyricsWindowService | `services/lyrics/lyrics_window_service.dart` | 桌面歌词弹出窗口（hide-instead-of-destroy，requestHide 命令） |
 | RankingCacheService | `services/cache/ranking_cache_service.dart` | 首頁排行榜緩存（主動後台刷新，每小時更新） |
 | PlaylistImportService | `services/import/playlist_import_service.dart` | 外部歌单导入（搜索匹配） |
 | RadioController | `services/radio/radio_controller.dart` | 直播/电台控制 |
@@ -124,6 +125,11 @@
 | UpdateService | `services/update/update_service.dart` | 应用内更新（GitHub Releases） |
 
 > **详细音频系统文档见：** `audio_system` 记忆文件
+
+### Sub-Window Plugin Registration (Windows)
+`windows/runner/flutter_window.cpp` 中子窗口使用 `RegisterPluginsForSubWindow()` 而非 `RegisterPlugins()`。
+排除 `tray_manager` 和 `hotkey_manager`（全局静态 channel 会覆盖主窗口）。
+详见 `refactoring_lessons` 记忆 #25。
 
 ### Providers
 | Provider | 文件 | 类型 |
