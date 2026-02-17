@@ -4,6 +4,7 @@ import 'dart:io';
 import '../models/track.dart';
 import '../models/playlist.dart';
 import '../models/play_queue.dart';
+import '../models/lyrics_match.dart';
 import '../../core/logger.dart';
 
 /// Track 数据仓库
@@ -536,6 +537,7 @@ class TrackRepository with Logging {
 
     final excludeSet = excludeTrackIds.toSet();
     final toDelete = <int>[];
+    final orphanUniqueKeys = <String>[];
 
     // 获取所有 tracks
     final allTracks = await _isar.tracks.where().findAll();
@@ -556,6 +558,7 @@ class TrackRepository with Logging {
 
       // 这是一个孤立的 track，标记为删除
       toDelete.add(track.id);
+      orphanUniqueKeys.add(track.uniqueKey);
     }
 
     if (toDelete.isEmpty) {
@@ -563,12 +566,20 @@ class TrackRepository with Logging {
       return 0;
     }
 
-    // 批量删除
+    // 批量删除 tracks 和对应的歌词匹配记录
     await _isar.writeTxn(() async {
       await _isar.tracks.deleteAll(toDelete);
+
+      // 清理孤儿 track 对应的 LyricsMatch 记录
+      for (final key in orphanUniqueKeys) {
+        await _isar.lyricsMatchs
+            .where()
+            .trackUniqueKeyEqualTo(key)
+            .deleteAll();
+      }
     });
 
-    logInfo('Deleted ${toDelete.length} orphan tracks');
+    logInfo('Deleted ${toDelete.length} orphan tracks and their lyrics matches');
     return toDelete.length;
   }
 }
