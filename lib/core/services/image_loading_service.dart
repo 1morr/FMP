@@ -334,7 +334,10 @@ class _FadeInImageState extends State<_FadeInImage>
 /// - 磁盘缓存（持久化存储）
 /// - 淡入动画效果
 /// - 限制内存缓存尺寸（减少内存占用）
-class _CachedNetworkImage extends StatelessWidget {
+///
+/// 使用 StatefulWidget 确保 onImageLoaded() 只在首次加载时通知一次，
+/// 避免 widget rebuild 时重复触发缓存大小估算和清理检查。
+class _CachedNetworkImage extends StatefulWidget {
   final String url;
   final BoxFit fit;
   final double? width;
@@ -356,38 +359,58 @@ class _CachedNetworkImage extends StatelessWidget {
   });
 
   @override
+  State<_CachedNetworkImage> createState() => _CachedNetworkImageState();
+}
+
+class _CachedNetworkImageState extends State<_CachedNetworkImage> {
+  /// 是否已通知过 onImageLoaded，避免 rebuild 时重复触发
+  bool _notified = false;
+
+  @override
+  void didUpdateWidget(covariant _CachedNetworkImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // URL 变化时重置，允许新图片再次通知
+    if (oldWidget.url != widget.url) {
+      _notified = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     // 计算内存缓存尺寸（考虑设备像素比）
     final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
-    final memCacheWidth = width != null ? (width! * devicePixelRatio).toInt() : null;
-    final memCacheHeight = height != null ? (height! * devicePixelRatio).toInt() : null;
+    final memCacheWidth = widget.width != null ? (widget.width! * devicePixelRatio).toInt() : null;
+    final memCacheHeight = widget.height != null ? (widget.height! * devicePixelRatio).toInt() : null;
 
     return CachedNetworkImage(
-      imageUrl: url,
-      fit: fit,
-      width: width,
-      height: height,
-      httpHeaders: headers,
+      imageUrl: widget.url,
+      fit: widget.fit,
+      width: widget.width,
+      height: widget.height,
+      httpHeaders: widget.headers,
       cacheManager: NetworkImageCacheService.defaultCacheManager,
-      fadeInDuration: fadeInDuration,
+      fadeInDuration: widget.fadeInDuration,
       fadeOutDuration: AnimationDurations.fastest,
       // 限制内存缓存中的图片尺寸，减少内存占用
       memCacheWidth: memCacheWidth,
       memCacheHeight: memCacheHeight,
-      placeholder: (context, url) => showLoadingIndicator
+      placeholder: (context, url) => widget.showLoadingIndicator
           ? const Center(
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : placeholder,
-      errorWidget: (context, url, error) => placeholder,
+          : widget.placeholder,
+      errorWidget: (context, url, error) => widget.placeholder,
       imageBuilder: (context, imageProvider) {
-        // 图片加载成功，通知缓存服务
-        NetworkImageCacheService.onImageLoaded();
+        // 仅首次加载时通知缓存服务，避免 rebuild 时重复累加估算值
+        if (!_notified) {
+          _notified = true;
+          NetworkImageCacheService.onImageLoaded();
+        }
         return Image(
           image: imageProvider,
-          fit: fit,
-          width: width,
-          height: height,
+          fit: widget.fit,
+          width: widget.width,
+          height: widget.height,
         );
       },
     );

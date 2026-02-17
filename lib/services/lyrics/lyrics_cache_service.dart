@@ -38,8 +38,13 @@ class LyricsCacheService with Logging {
   bool _accessTimesDirty = false;
   static const Duration _saveDebounceDuration = Duration(seconds: 2);
 
-  /// 初始化缓存目录
-  Future<void> initialize() async {
+  /// 确保 initialize 只执行一次，后续调用 await 同一个 Future
+  Future<void>? _initFuture;
+
+  /// 初始化缓存目录（幂等，多次调用安全）
+  Future<void> initialize() => _initFuture ??= _doInitialize();
+
+  Future<void> _doInitialize() async {
     final appCacheDir = await getApplicationCacheDirectory();
     _cacheDir = Directory(path.join(appCacheDir.path, 'lyrics'));
 
