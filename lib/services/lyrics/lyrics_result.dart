@@ -53,6 +53,20 @@ class LyricsResult {
     );
   }
 
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'trackName': trackName,
+    'artistName': artistName,
+    'albumName': albumName,
+    'duration': duration,
+    'instrumental': instrumental,
+    'plainLyrics': plainLyrics,
+    'syncedLyrics': syncedLyrics,
+    'source': source,
+    'translatedLyrics': translatedLyrics,
+    'romajiLyrics': romajiLyrics,
+  };
+
   /// 是否有同步歌词（LRC 格式）
   bool get hasSyncedLyrics =>
       syncedLyrics != null && syncedLyrics!.isNotEmpty;

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -32,6 +33,11 @@ class LyricsCacheService with Logging {
   Directory? _cacheDir;
   final Map<String, DateTime> _accessTimes = {};
 
+  /// 防抖：延迟写入 _metadata.json，避免快速切歌时频繁 I/O
+  Timer? _saveDebounceTimer;
+  bool _accessTimesDirty = false;
+  static const Duration _saveDebounceDuration = Duration(seconds: 2);
+
   /// 初始化缓存目录
   Future<void> initialize() async {
     final appCacheDir = await getApplicationCacheDirectory();
@@ -57,9 +63,9 @@ class LyricsCacheService with Logging {
       final content = await file.readAsString();
       final json = jsonDecode(content) as Map<String, dynamic>;
 
-      // 更新访问时间
+      // 更新访问时间（防抖写入）
       _accessTimes[trackUniqueKey] = DateTime.now();
-      await _saveAccessTimes();
+      _scheduleSaveAccessTimes();
 
       logDebug('Cache hit: $trackUniqueKey');
       return LyricsResult.fromJson(json);
@@ -82,29 +88,32 @@ class LyricsCacheService with Logging {
       if (!isUpdate) {
         await _evictIfNeeded(reserveOne: true);
       }
-      final json = {
-        'id': result.id,
-        'trackName': result.trackName,
-        'artistName': result.artistName,
-        'albumName': result.albumName,
-        'duration': result.duration,
-        'instrumental': result.instrumental,
-        'plainLyrics': result.plainLyrics,
-        'syncedLyrics': result.syncedLyrics,
-        'source': result.source,
-        'translatedLyrics': result.translatedLyrics,
-        'romajiLyrics': result.romajiLyrics,
-      };
+      await file.writeAsString(jsonEncode(result.toJson()));
 
-      await file.writeAsString(jsonEncode(json));
-
-      // 更新访问时间
+      // 更新访问时间（防抖写入）
       _accessTimes[trackUniqueKey] = DateTime.now();
-      await _saveAccessTimes();
+      _scheduleSaveAccessTimes();
 
       logDebug('Cached lyrics: $trackUniqueKey (${await file.length()} bytes)');
     } catch (e) {
       logError('Failed to cache lyrics for $trackUniqueKey: $e');
+    }
+  }
+
+  /// 删除指定 key 的缓存
+  Future<void> remove(String trackUniqueKey) async {
+    if (_cacheDir == null) await initialize();
+
+    try {
+      final file = _getCacheFile(trackUniqueKey);
+      if (await file.exists()) {
+        await file.delete();
+      }
+      _accessTimes.remove(trackUniqueKey);
+      _scheduleSaveAccessTimes();
+      logDebug('Removed cache: $trackUniqueKey');
+    } catch (e) {
+      logError('Failed to remove cache for $trackUniqueKey: $e');
     }
   }
 
@@ -113,12 +122,15 @@ class LyricsCacheService with Logging {
     if (_cacheDir == null) await initialize();
 
     try {
+      _saveDebounceTimer?.cancel();
+      _accessTimesDirty = false;
+
       if (await _cacheDir!.exists()) {
         await _cacheDir!.delete(recursive: true);
         await _cacheDir!.create(recursive: true);
       }
       _accessTimes.clear();
-      await _saveAccessTimes();
+      await _saveAccessTimesNow();
       logInfo('Cleared all lyrics cache');
     } catch (e) {
       logError('Failed to clear cache: $e');
@@ -181,7 +193,7 @@ class LyricsCacheService with Logging {
           ? files.length >= maxCacheFiles
           : files.length > maxCacheFiles;
       if (overFileLimit) {
-        await _evictOldest(1);
+        if (!await _evictOldest(1)) break; // 无法再清理，退出防止死循环
         continue;
       }
 
@@ -192,7 +204,7 @@ class LyricsCacheService with Logging {
       }
 
       if (totalSize >= maxCacheSizeBytes) {
-        await _evictOldest(1);
+        if (!await _evictOldest(1)) break; // 无法再清理，退出防止死循环
         continue;
       }
 
@@ -201,12 +213,14 @@ class LyricsCacheService with Logging {
   }
 
   /// 删除最旧的 N 个缓存文件（LRU）
-  Future<void> _evictOldest(int count) async {
+  ///
+  /// 返回 true 表示成功删除了至少一个文件，false 表示无法删除（accessTimes 为空）
+  Future<bool> _evictOldest(int count) async {
     // 按访问时间排序（最旧的在前）
     final sortedKeys = _accessTimes.entries.toList()
       ..sort((a, b) => a.value.compareTo(b.value));
 
-    if (sortedKeys.isEmpty) return;
+    if (sortedKeys.isEmpty) return false;
 
     final evictCount = count.clamp(1, sortedKeys.length);
     for (int i = 0; i < evictCount; i++) {
@@ -220,7 +234,8 @@ class LyricsCacheService with Logging {
       _accessTimes.remove(key);
     }
 
-    await _saveAccessTimes();
+    await _saveAccessTimesNow();
+    return true;
   }
 
   /// 获取缓存文件路径
@@ -244,14 +259,43 @@ class LyricsCacheService with Logging {
         _accessTimes[key] = DateTime.parse(value as String);
       });
 
+      // 清理磁盘上已不存在的幽灵条目
+      final keysToRemove = <String>[];
+      for (final key in _accessTimes.keys) {
+        if (!await _getCacheFile(key).exists()) {
+          keysToRemove.add(key);
+        }
+      }
+      if (keysToRemove.isNotEmpty) {
+        for (final key in keysToRemove) {
+          _accessTimes.remove(key);
+        }
+        await _saveAccessTimesNow();
+        logDebug('Cleaned ${keysToRemove.length} ghost entries from access times');
+      }
+
       logDebug('Loaded ${_accessTimes.length} cache access times');
     } catch (e) {
       logError('Failed to load access times: $e');
     }
   }
 
-  /// 保存访问时间元数据
-  Future<void> _saveAccessTimes() async {
+  /// 调度防抖保存访问时间（快速切歌时合并多次写入）
+  void _scheduleSaveAccessTimes() {
+    _accessTimesDirty = true;
+    _saveDebounceTimer?.cancel();
+    _saveDebounceTimer = Timer(_saveDebounceDuration, () async {
+      if (_accessTimesDirty) {
+        await _saveAccessTimesNow();
+      }
+    });
+  }
+
+  /// 立即保存访问时间元数据（用于 evict、clear 等需要即时持久化的场景）
+  Future<void> _saveAccessTimesNow() async {
+    _saveDebounceTimer?.cancel();
+    _accessTimesDirty = false;
+
     final metaFile = File(path.join(_cacheDir!.path, '_metadata.json'));
 
     try {
