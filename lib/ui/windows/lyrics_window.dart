@@ -267,7 +267,10 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     _userScrolling = false;
     _scrollResumeTimer?.cancel();
     _cachedRefWidth = null; // 歌词变化，重算字号
-    _scrollToCurrentLine();
+    // 等待帧渲染完成后再滚动（首次打开时列表尚未 attach）
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scrollToCurrentLine(jump: true);
+    });
   }
 
   /// 计算代表行的参考宽度（中位数，缓存）
@@ -343,19 +346,27 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     }
   }
 
-  void _scrollToCurrentLine() {
+  void _scrollToCurrentLine({bool jump = false}) {
     if (!_isSynced || _currentLineIndex < 0 || _lines.isEmpty) return;
     if (!_scrollController.isAttached) return;
 
-    _programmaticScrolling = true;
-    _scrollController.scrollTo(
-      index: _currentLineIndex,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
-      alignment: 0.35,
-    ).then((_) {
-      _programmaticScrolling = false;
-    });
+    if (jump) {
+      // 立即跳转，无动画（首次打开/歌词全量更新时使用）
+      _scrollController.jumpTo(
+        index: _currentLineIndex,
+        alignment: 0.35,
+      );
+    } else {
+      _programmaticScrolling = true;
+      _scrollController.scrollTo(
+        index: _currentLineIndex,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+        alignment: 0.35,
+      ).then((_) {
+        _programmaticScrolling = false;
+      });
+    }
   }
 
   /// 请求主窗口隐藏此子窗口（而非销毁，避免 window_manager channel 被置空）
