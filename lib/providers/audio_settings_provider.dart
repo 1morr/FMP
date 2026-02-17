@@ -91,8 +91,8 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
   Future<void> setQualityLevel(AudioQualityLevel level) async {
     if (_settings == null) return;
 
+    await _settingsRepository.update((s) => s.audioQualityLevel = level);
     _settings!.audioQualityLevel = level;
-    await _settingsRepository.save(_settings!);
     state = state.copyWith(qualityLevel: level);
   }
 
@@ -100,8 +100,8 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
   Future<void> setFormatPriority(List<AudioFormat> priority) async {
     if (_settings == null) return;
 
+    await _settingsRepository.update((s) => s.audioFormatPriorityList = priority);
     _settings!.audioFormatPriorityList = priority;
-    await _settingsRepository.save(_settings!);
     state = state.copyWith(formatPriority: priority);
   }
 
@@ -109,8 +109,8 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
   Future<void> setYoutubeStreamPriority(List<StreamType> priority) async {
     if (_settings == null) return;
 
+    await _settingsRepository.update((s) => s.youtubeStreamPriorityList = priority);
     _settings!.youtubeStreamPriorityList = priority;
-    await _settingsRepository.save(_settings!);
     state = state.copyWith(youtubeStreamPriority: priority);
   }
 
@@ -118,8 +118,8 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
   Future<void> setBilibiliStreamPriority(List<StreamType> priority) async {
     if (_settings == null) return;
 
+    await _settingsRepository.update((s) => s.bilibiliStreamPriorityList = priority);
     _settings!.bilibiliStreamPriorityList = priority;
-    await _settingsRepository.save(_settings!);
     state = state.copyWith(bilibiliStreamPriority: priority);
   }
 
@@ -127,8 +127,8 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
   Future<void> setAutoMatchLyrics(bool enabled) async {
     if (_settings == null) return;
 
+    await _settingsRepository.update((s) => s.autoMatchLyrics = enabled);
     _settings!.autoMatchLyrics = enabled;
-    await _settingsRepository.save(_settings!);
     state = state.copyWith(autoMatchLyrics: enabled);
   }
 
@@ -136,8 +136,8 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
   Future<void> setLyricsSourceOrder(List<String> order) async {
     if (_settings == null) return;
 
+    await _settingsRepository.update((s) => s.lyricsSourcePriorityList = order);
     _settings!.lyricsSourcePriorityList = order;
-    await _settingsRepository.save(_settings!);
     state = state.copyWith(lyricsSourceOrder: order);
   }
 
@@ -152,8 +152,8 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
       disabled.add(source);
     }
 
+    await _settingsRepository.update((s) => s.disabledLyricsSourcesSet = disabled);
     _settings!.disabledLyricsSourcesSet = disabled;
-    await _settingsRepository.save(_settings!);
     state = state.copyWith(disabledLyricsSources: disabled);
   }
 }

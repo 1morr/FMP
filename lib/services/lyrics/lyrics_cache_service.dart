@@ -25,7 +25,7 @@ class LyricsCacheService with Logging {
     _maxCacheFiles = value;
     // 如果当前缓存超出新限制，执行清理
     if (_cacheDir != null) {
-      await _evictIfNeeded();
+      await _evictIfNeeded(reserveOne: false);
     }
   }
 
@@ -75,10 +75,13 @@ class LyricsCacheService with Logging {
     if (_cacheDir == null) await initialize();
 
     try {
-      // 检查是否需要清理缓存
-      await _evictIfNeeded();
-
       final file = _getCacheFile(trackUniqueKey);
+      final isUpdate = await file.exists();
+
+      // 只有写入新文件时才需要检查缓存限制（覆盖更新不增加文件数）
+      if (!isUpdate) {
+        await _evictIfNeeded(reserveOne: true);
+      }
       final json = {
         'id': result.id,
         'trackName': result.trackName,
@@ -129,7 +132,9 @@ class LyricsCacheService with Logging {
     try {
       final files = await _cacheDir!
           .list()
-          .where((entity) => entity is File && entity.path.endsWith('.json'))
+          .where((entity) => entity is File &&
+              entity.path.endsWith('.json') &&
+              !entity.path.endsWith('_metadata.json'))
           .cast<File>()
           .toList();
 
@@ -156,49 +161,63 @@ class LyricsCacheService with Logging {
   }
 
   /// 检查是否需要清理缓存，并执行 LRU 清理
-  Future<void> _evictIfNeeded() async {
-    final files = await _cacheDir!
-        .list()
-        .where((entity) => entity is File && entity.path.endsWith('.json'))
-        .cast<File>()
-        .toList();
+  ///
+  /// [reserveOne] 为 true 时（put 调用），需要为即将写入的新文件预留 1 个位置，
+  /// 使用 >= 判断；为 false 时（setMaxCacheFiles 调用），只需清理到不超过限制，
+  /// 使用 > 判断。
+  Future<void> _evictIfNeeded({required bool reserveOne}) async {
+    // 循环清理直到文件数和大小都低于限制
+    while (true) {
+      final files = await _cacheDir!
+          .list()
+          .where((entity) => entity is File &&
+              entity.path.endsWith('.json') &&
+              !entity.path.endsWith('_metadata.json'))
+          .cast<File>()
+          .toList();
 
-    // 检查文件数量
-    if (files.length >= maxCacheFiles) {
-      await _evictOldest(files);
-      return;
-    }
+      // 检查文件数量
+      final overFileLimit = reserveOne
+          ? files.length >= maxCacheFiles
+          : files.length > maxCacheFiles;
+      if (overFileLimit) {
+        await _evictOldest(1);
+        continue;
+      }
 
-    // 检查总大小
-    int totalSize = 0;
-    for (final file in files) {
-      totalSize += await file.length();
-    }
+      // 检查总大小
+      int totalSize = 0;
+      for (final file in files) {
+        totalSize += await file.length();
+      }
 
-    if (totalSize >= maxCacheSizeBytes) {
-      await _evictOldest(files);
+      if (totalSize >= maxCacheSizeBytes) {
+        await _evictOldest(1);
+        continue;
+      }
+
+      break; // 都在限制内，退出
     }
   }
 
-  /// 删除最旧的缓存文件（LRU）
-  Future<void> _evictOldest(List<File> files) async {
+  /// 删除最旧的 N 个缓存文件（LRU）
+  Future<void> _evictOldest(int count) async {
     // 按访问时间排序（最旧的在前）
     final sortedKeys = _accessTimes.entries.toList()
       ..sort((a, b) => a.value.compareTo(b.value));
 
     if (sortedKeys.isEmpty) return;
 
-    // 删除最旧的 10% 文件
-    final evictCount = (maxCacheFiles * 0.1).ceil();
-    for (int i = 0; i < evictCount && i < sortedKeys.length; i++) {
+    final evictCount = count.clamp(1, sortedKeys.length);
+    for (int i = 0; i < evictCount; i++) {
       final key = sortedKeys[i].key;
       final file = _getCacheFile(key);
 
       if (await file.exists()) {
         await file.delete();
-        _accessTimes.remove(key);
         logDebug('Evicted cache: $key');
       }
+      _accessTimes.remove(key);
     }
 
     await _saveAccessTimes();

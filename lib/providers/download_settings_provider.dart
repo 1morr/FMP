@@ -77,8 +77,8 @@ class DownloadSettingsNotifier extends StateNotifier<DownloadSettingsState> {
     if (_settings == null) return;
     if (value < 1 || value > 5) return;
 
+    await _settingsRepository.update((s) => s.maxConcurrentDownloads = value);
     _settings!.maxConcurrentDownloads = value;
-    await _settingsRepository.save(_settings!);
     state = state.copyWith(maxConcurrentDownloads: value);
   }
 
@@ -86,8 +86,8 @@ class DownloadSettingsNotifier extends StateNotifier<DownloadSettingsState> {
   Future<void> setDownloadImageOption(DownloadImageOption option) async {
     if (_settings == null) return;
 
+    await _settingsRepository.update((s) => s.downloadImageOption = option);
     _settings!.downloadImageOption = option;
-    await _settingsRepository.save(_settings!);
     state = state.copyWith(downloadImageOption: option);
   }
 
@@ -96,8 +96,8 @@ class DownloadSettingsNotifier extends StateNotifier<DownloadSettingsState> {
     if (_settings == null) return;
     if (value < 16) return; // 最小 16MB
 
+    await _settingsRepository.update((s) => s.maxCacheSizeMB = value);
     _settings!.maxCacheSizeMB = value;
-    await _settingsRepository.save(_settings!);
     state = state.copyWith(maxCacheSizeMB: value);
 
     // 同步缓存大小限制到 NetworkImageCacheService
@@ -112,8 +112,8 @@ class DownloadSettingsNotifier extends StateNotifier<DownloadSettingsState> {
     if (_settings == null) return;
     if (value < 10) return; // 最小 10
 
+    await _settingsRepository.update((s) => s.maxLyricsCacheFiles = value);
     _settings!.maxLyricsCacheFiles = value;
-    await _settingsRepository.save(_settings!);
     state = state.copyWith(maxLyricsCacheFiles: value);
 
     // 同步到 LyricsCacheService

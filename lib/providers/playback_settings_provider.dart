@@ -59,36 +59,36 @@ class PlaybackSettingsNotifier extends StateNotifier<PlaybackSettingsState> {
   Future<void> setAutoScrollToCurrentTrack(bool value) async {
     if (_settings == null) return;
 
-    _settings!.autoScrollToCurrentTrack = value;
     final settingsRepository = _ref.read(settingsRepositoryProvider);
-    await settingsRepository.save(_settings!);
+    await settingsRepository.update((s) => s.autoScrollToCurrentTrack = value);
+    _settings!.autoScrollToCurrentTrack = value;
     state = state.copyWith(autoScrollToCurrentTrack: value);
   }
 
   Future<void> setRememberPlaybackPosition(bool value) async {
     if (_settings == null) return;
 
-    _settings!.rememberPlaybackPosition = value;
     final settingsRepository = _ref.read(settingsRepositoryProvider);
-    await settingsRepository.save(_settings!);
+    await settingsRepository.update((s) => s.rememberPlaybackPosition = value);
+    _settings!.rememberPlaybackPosition = value;
     state = state.copyWith(rememberPlaybackPosition: value);
   }
 
   Future<void> setRestartRewindSeconds(int value) async {
     if (_settings == null) return;
 
-    _settings!.restartRewindSeconds = value;
     final settingsRepository = _ref.read(settingsRepositoryProvider);
-    await settingsRepository.save(_settings!);
+    await settingsRepository.update((s) => s.restartRewindSeconds = value);
+    _settings!.restartRewindSeconds = value;
     state = state.copyWith(restartRewindSeconds: value);
   }
 
   Future<void> setTempPlayRewindSeconds(int value) async {
     if (_settings == null) return;
 
-    _settings!.tempPlayRewindSeconds = value;
     final settingsRepository = _ref.read(settingsRepositoryProvider);
-    await settingsRepository.save(_settings!);
+    await settingsRepository.update((s) => s.tempPlayRewindSeconds = value);
+    _settings!.tempPlayRewindSeconds = value;
     state = state.copyWith(tempPlayRewindSeconds: value);
   }
 }

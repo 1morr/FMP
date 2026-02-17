@@ -59,8 +59,8 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
   Future<void> setThemeMode(ThemeMode mode) async {
     if (_settings == null) return;
 
+    await _settingsRepository.update((s) => s.themeMode = mode);
     _settings!.themeMode = mode;
-    await _settingsRepository.save(_settings!);
     state = state.copyWith(themeMode: mode);
   }
 
@@ -68,8 +68,8 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
   Future<void> setPrimaryColor(Color? color) async {
     if (_settings == null) return;
 
+    await _settingsRepository.update((s) => s.primaryColorValue = color);
     _settings!.primaryColorValue = color;
-    await _settingsRepository.save(_settings!);
     state = state.copyWith(
       primaryColor: color,
       clearPrimaryColor: color == null,
@@ -80,8 +80,8 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
   Future<void> setFontFamily(String? fontFamily) async {
     if (_settings == null) return;
 
+    await _settingsRepository.update((s) => s.fontFamily = fontFamily);
     _settings!.fontFamily = fontFamily;
-    await _settingsRepository.save(_settings!);
     state = state.copyWith(
       fontFamily: fontFamily,
       clearFontFamily: fontFamily == null || fontFamily.isEmpty,

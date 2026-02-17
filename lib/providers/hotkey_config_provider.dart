@@ -63,9 +63,8 @@ class HotkeyConfigNotifier extends StateNotifier<HotkeyConfig> {
 
   /// 保存配置到数据库
   Future<void> _save() async {
-    final settings = await _repo.get();
-    settings.hotkeyConfig = state.toJsonString();
-    await _repo.save(settings);
+    final jsonStr = state.toJsonString();
+    await _repo.update((s) => s.hotkeyConfig = jsonStr);
   }
 
   /// 应用配置到桌面服务
