@@ -582,6 +582,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
+    _subscriptions.clear();
+    _mixState = null;
     _queueManager.dispose();
     _audioService.dispose();
     super.dispose();
@@ -2367,6 +2369,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         } else {
           logDebug('No next track available');
         }
+      } catch (e, stack) {
+        logError('Track completion handler failed', e, stack);
       } finally {
         _isHandlingCompletion = false;
       }

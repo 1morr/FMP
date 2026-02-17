@@ -317,7 +317,7 @@ class _CoverGridItem extends StatelessWidget {
                 : null,
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(isSelected ? 5 : 8),
+            borderRadius: BorderRadius.circular(isSelected ? AppRadius.sm : AppRadius.md),
             child: Stack(
               fit: StackFit.expand,
               children: [

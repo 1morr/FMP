@@ -231,6 +231,7 @@ class QueueManager with Logging {
   /// 释放资源
   void dispose() {
     _savePositionTimer?.cancel();
+    _fetchingUrlTrackIds.clear();
     _stateController.close();
   }
 
