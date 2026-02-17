@@ -167,6 +167,12 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     );
   }
 
+  /// 同步播放状态到歌词弹出窗口
+  void _syncPlaybackStateToWindow(bool isPlaying) {
+    if (!LyricsWindowService.instance.isOpen) return;
+    LyricsWindowService.instance.syncPlaybackState(isPlaying: isPlaying);
+  }
+
   /// 同步主题/语言/字体到歌词弹出窗口
   void _syncThemeToWindow() {
     if (!LyricsWindowService.instance.isOpen) return;
@@ -206,6 +212,17 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
         0,
       );
     };
+
+    // 播放控制回调
+    service.onPlayPause = () {
+      ref.read(audioControllerProvider.notifier).togglePlayPause();
+    };
+    service.onNext = () {
+      ref.read(audioControllerProvider.notifier).next();
+    };
+    service.onPrevious = () {
+      ref.read(audioControllerProvider.notifier).previous();
+    };
   }
 
   /// 清理歌词窗口回调
@@ -214,6 +231,9 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     service.onSeekTo = null;
     service.onAdjustOffset = null;
     service.onResetOffset = null;
+    service.onPlayPause = null;
+    service.onNext = null;
+    service.onPrevious = null;
     service.onWindowClosed = null;
   }
 
@@ -238,6 +258,11 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     ref.listen(currentTrackProvider, (_, __) {
       _lastSyncedLineIndex = -1;
       _fullSyncLyricsToWindow();
+    });
+
+    // 歌词窗口同步：播放状态变化时同步（控制按钮图标）
+    ref.listen(audioControllerProvider.select((s) => s.isPlaying), (_, isPlaying) {
+      _syncPlaybackStateToWindow(isPlaying);
     });
 
     // 歌词窗口同步：主题/字体/语言变化时同步
@@ -499,6 +524,9 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                     };
                     await service.open();
                     _syncThemeToWindow();
+                    _syncPlaybackStateToWindow(
+                      ref.read(audioControllerProvider).isPlaying,
+                    );
                     _fullSyncLyricsToWindow();
                     setState(() {});
                   }

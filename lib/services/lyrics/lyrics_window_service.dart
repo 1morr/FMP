@@ -49,6 +49,15 @@ class LyricsWindowService {
   /// 参数：(trackUniqueKey)
   void Function(String trackUniqueKey)? onResetOffset;
 
+  /// 回调：子窗口请求播放/暂停
+  VoidCallback? onPlayPause;
+
+  /// 回调：子窗口请求下一首
+  VoidCallback? onNext;
+
+  /// 回调：子窗口请求上一首
+  VoidCallback? onPrevious;
+
   /// 回调：子窗口被用户关闭时通知（用于刷新 UI 图标状态）
   VoidCallback? onWindowClosed;
 
@@ -238,6 +247,21 @@ class LyricsWindowService {
     }
   }
 
+  /// 同步播放状态到子窗口（isPlaying 变化时调用）
+  Future<void> syncPlaybackState({required bool isPlaying}) async {
+    if (_controller == null || !_channelReady || _isHidden) return;
+
+    try {
+      await _channel.invokeMethod(
+        'updatePlaybackState',
+        jsonEncode({'isPlaying': isPlaying}),
+      );
+    } catch (e) {
+      debugPrint('LyricsWindowService: playback state sync error: $e');
+      _channelReady = false;
+    }
+  }
+
   /// 检查窗口是否已被用户强制关闭（Alt+F4 等）
   Future<void> _checkWindowClosed() async {
     if (_controller == null) return;
@@ -287,6 +311,15 @@ class LyricsWindowService {
             final data = jsonDecode(call.arguments as String) as Map<String, dynamic>;
             final trackUniqueKey = data['trackUniqueKey'] as String;
             onResetOffset?.call(trackUniqueKey);
+            return 'ok';
+          case 'playPause':
+            onPlayPause?.call();
+            return 'ok';
+          case 'next':
+            onNext?.call();
+            return 'ok';
+          case 'previous':
+            onPrevious?.call();
             return 'ok';
           case 'requestHide':
             // 子窗口请求隐藏自己（用户点击关闭按钮）
