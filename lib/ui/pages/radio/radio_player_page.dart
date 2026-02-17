@@ -487,16 +487,12 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
     final textTheme = Theme.of(context).textTheme;
     final station = widget.state.currentStation;
 
-    final screenHeight = MediaQuery.of(context).size.height;
-    final maxChildSize = (800.0 / screenHeight).clamp(0.0, 0.95);
-    final initialSize = maxChildSize < 0.6 ? maxChildSize : 0.6;
-
     return DraggableScrollableSheet(
-      initialChildSize: initialSize,
+      initialChildSize: 0.6,
       minChildSize: 0.0,
-      maxChildSize: maxChildSize,
+      maxChildSize: 0.95,
       snap: true,
-      snapSizes: [0.0, initialSize, if (maxChildSize > initialSize) maxChildSize],
+      snapSizes: const [0.0, 0.6, 0.95],
       builder: (context, scrollController) {
         return Container(
           clipBehavior: Clip.antiAlias,

@@ -190,13 +190,10 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
     final existingMatch =
         ref.watch(lyricsMatchForTrackProvider(widget.track.uniqueKey));
 
-    final screenHeight = MediaQuery.of(context).size.height;
-    final maxChildSize = (800.0 / screenHeight).clamp(0.0, 0.95);
-
     return DraggableScrollableSheet(
-      initialChildSize: maxChildSize,
+      initialChildSize: 0.95,
       minChildSize: 0.0,
-      maxChildSize: maxChildSize,
+      maxChildSize: 0.95,
       expand: false,
       builder: (context, scrollController) {
         return Container(
