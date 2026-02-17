@@ -117,7 +117,7 @@ class TrackTile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       onLongPress: onLongPress,
-      borderRadius: AppRadius.borderRadiusMd,  // 4dp - 匹配 ListTile 的圆角
+      borderRadius: AppRadius.borderRadiusMd,  // 8dp - 匹配 ListTile 的圆角
       child: Padding(
         // 匹配 ListTile 的内边距
         padding: EdgeInsets.symmetric(
