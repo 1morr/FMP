@@ -32,7 +32,7 @@ class AudioSettingsState {
     ],
     this.autoMatchLyrics = true,
     this.lyricsSourceOrder = const ['netease', 'qqmusic', 'lrclib'],
-    this.disabledLyricsSources = const {},
+    this.disabledLyricsSources = const {'lrclib'},
     this.isLoading = true,
   });
 

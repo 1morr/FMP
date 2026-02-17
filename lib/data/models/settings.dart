@@ -157,7 +157,7 @@ class Settings {
 
   /// 禁用的歌词源 (逗号分隔: "lrclib" 或 "netease,lrclib")
   /// 自动匹配和搜索时跳过这些源
-  String disabledLyricsSources = '';
+  String disabledLyricsSources = 'lrclib';
 
   /// 获取 ThemeMode
   @ignore
