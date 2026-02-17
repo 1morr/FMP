@@ -485,6 +485,25 @@ User-configurable audio quality settings for different sources.
 
 **Constructor change:** `BilibiliApiException(code:` → `BilibiliApiException(numericCode:`
 
+### Sub-Window Plugin Registration (2026-02)
+`desktop_multi_window` creates sub-windows with independent Flutter engines. By default, `RegisterPlugins()` registers ALL plugins for each engine. However, `tray_manager`, `hotkey_manager`, and `window_manager` use **global static C++ channel variables** — registering them for sub-windows overwrites the main window's channel, breaking:
+- Tray icon click events (events sent to sub-window's Dart code instead of main window's)
+- Global hotkey callbacks
+- `window_manager` C++-to-Dart events (`onWindowClose`, `onWindowMaximize`, etc.)
+
+**Fix** (`windows/runner/flutter_window.cpp`):
+- Sub-windows use `RegisterPluginsForSubWindow()` which excludes `tray_manager` and `hotkey_manager`
+- `window_manager` is still registered for sub-windows (needed for `setSize`/`setAlwaysOnTop`/etc.), but its C++-to-Dart events are broken for the main window
+- Main window's title bar close button bypasses the broken event chain via `WindowsDesktopService.handleCloseButton()`
+
+**Lyrics window hide-instead-of-destroy** (`LyricsWindowService`):
+- `close()` hides the sub-window (`_controller!.hide()`) instead of destroying it
+- `open()` restores a hidden window via `_controller!.show()`
+- `destroy()` truly destroys the window (only called on app exit via `WindowsDesktopService.dispose()`)
+- Sub-window close button sends `requestHide` command to main window via `WindowMethodChannel`
+
+**IMPORTANT**: When adding new Flutter plugins, check if they use global static channel variables. If so, exclude them from `RegisterPluginsForSubWindow()` in `flutter_window.cpp`.
+
 ### AppBar Actions Trailing Spacing
 All page-level `AppBar` actions lists must end with `const SizedBox(width: 8)` to maintain consistent spacing between the last action button and the screen edge. This applies when the last action is an `IconButton`. Pages where the last action is a `PopupMenuButton` do not need the extra spacing since `PopupMenuButton` has built-in padding.
 
@@ -643,7 +662,8 @@ lib/
 │   │   ├── qqmusic_source.dart          # QQ音樂歌詞源（搜索+歌詞獲取）
 │   │   ├── lyrics_cache_service.dart   # 歌詞緩存（LRU，支持多源）
 │   │   ├── lrc_parser.dart             # LRC 格式解析
-│   │   └── title_parser.dart           # 標題解析（提取歌名/歌手）
+│   │   ├── title_parser.dart           # 標題解析（提取歌名/歌手）
+│   │   └── lyrics_window_service.dart # 桌面歌詞彈出窗口管理（hide-instead-of-destroy）
 │   ├── download/
 │   │   ├── download_service.dart       # 下載任務調度
 │   │   ├── download_path_manager.dart  # 下載路徑選擇和管理
@@ -692,6 +712,8 @@ lib/
 │   │   ├── download/         # 下載相關
 │   │   └── settings/         # 設置、下載管理、音頻設置
 │   ├── widgets/              # Shared widgets
+│   ├── windows/              # Sub-window entry points
+│   │   └── lyrics_window.dart # 歌詞彈出窗口（獨立 Flutter engine）
 │   └── layouts/              # Responsive layouts
 └── providers/                # Riverpod providers
 ```

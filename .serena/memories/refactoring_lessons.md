@@ -877,6 +877,42 @@ abstract class SourceApiException implements Exception {
 
 ---
 
+### 25. desktop_multi_window 子窗口不能注册所有插件 (2026-02)
+
+**问题**：打开歌词弹出窗口后，系统托盘图标点击无反应，主窗口标题栏关闭按钮也无法最小化到托盘。
+
+**根本原因**：`desktop_multi_window` 创建子窗口时，`flutter_window.cpp` 中的回调调用 `RegisterPlugins()` 为子窗口注册所有插件。`tray_manager`、`hotkey_manager`、`window_manager` 都使用**全局静态 C++ channel 变量**（`std::unique_ptr<MethodChannel> channel`）。子窗口注册时覆盖了主窗口的 channel，导致：
+
+1. **tray_manager**：托盘点击事件（`channel->InvokeMethod("onTrayIconMouseDown")`）发送到子窗口的 Dart 代码，主窗口收不到
+2. **hotkey_manager**：全局快捷键回调同理
+3. **window_manager**：`_EmitEvent("close")` 发送到子窗口，主窗口的 `onWindowClose` 不触发，`minimizeToTray()` 不执行
+
+**修复方案（三层防御）**：
+
+1. **C++ 层**（`windows/runner/flutter_window.cpp`）：子窗口使用 `RegisterPluginsForSubWindow()` 排除 `tray_manager` 和 `hotkey_manager`。`window_manager` 保留（子窗口需要 `setSize`/`setAlwaysOnTop` 等）。
+
+2. **Dart 层 — 标题栏**（`custom_title_bar.dart`）：关闭按钮直接调用 `WindowsDesktopService.handleCloseButton()`，不依赖 `windowManager.close()` -> `WM_CLOSE` -> `onWindowClose` 事件链。
+
+3. **Dart 层 — 歌词窗口**（`lyrics_window_service.dart`）：关闭时隐藏而非销毁（`_controller!.hide()`），保持子窗口 engine 存活。子窗口关闭按钮发送 `requestHide` 命令到主窗口。`destroy()` 仅在 app 退出时调用。
+
+```cpp
+// flutter_window.cpp - 子窗口排除有全局 channel 的插件
+static void RegisterPluginsForSubWindow(flutter::PluginRegistry* registry) {
+  DesktopMultiWindowPluginRegisterWithRegistrar(...);
+  WindowManagerPluginRegisterWithRegistrar(...);
+  // ... 其他安全的插件 ...
+  // 排除: TrayManagerPlugin, HotkeyManagerWindowsPlugin
+}
+```
+
+**经验**：
+- Flutter 桌面插件如果使用全局静态 `channel` 变量，在多窗口场景下会互相覆盖
+- 添加新插件时必须检查其 C++ 源码是否有全局 channel，如有则排除出子窗口注册
+- `flutter_window.cpp` 不是自动生成的文件（不像 `generated_plugin_registrant.cc`），手动修改不会被覆盖
+- C++ 文件中不能使用非 ASCII 字符（如中文注释），MSVC 在 codepage 936 下会报编码错误
+
+---
+
 ## 常用工具组件
 
 | 组件 | 位置 | 用途 |
