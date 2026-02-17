@@ -357,7 +357,8 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
       ..matchedAt = DateTime.now();
     await _repo.save(match);
     
-    // 立即缓存歌词内容
+    // 先删除旧缓存再写入新内容，确保重新匹配后不会返回旧歌词
+    await _cache.remove(trackUniqueKey);
     await _cache.put(trackUniqueKey, result);
   }
 

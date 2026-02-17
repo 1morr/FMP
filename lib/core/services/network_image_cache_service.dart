@@ -47,8 +47,10 @@ class NetworkImageCacheService {
   /// 默认缓存有效期（天）
   static const int _stalePeriodDays = 7;
 
-  /// 默认最大缓存文件数
-  static const int _maxNrOfCacheObjects = 1000;
+  /// 根据缓存大小动态计算最大缓存文件数
+  /// 假设优化后平均每个图片文件约 30KB
+  static int get _maxNrOfCacheObjects =>
+      (_maxCacheSizeMB * 1024 ~/ 30).clamp(500, 10000);
 
   /// 当前设置的最大缓存大小（MB）
   static int _maxCacheSizeMB = 32;
@@ -75,7 +77,10 @@ class NetworkImageCacheService {
   ///
   /// 应该在应用启动时或用户修改设置时调用
   static void setMaxCacheSizeMB(int value) {
+    if (_maxCacheSizeMB == value) return;
     _maxCacheSizeMB = value;
+    // 重置 CacheManager 以使用新的 maxNrOfCacheObjects
+    _cacheManager = null;
   }
 
   /// 获取当前设置的最大缓存大小（MB）
