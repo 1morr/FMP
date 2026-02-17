@@ -10,7 +10,7 @@ import '../lyrics/lrc_parser.dart';
 /// 桌面歌词弹出窗口管理服务
 ///
 /// 负责创建、管理歌词子窗口，以及主窗口与子窗口之间的数据同步。
-/// 子窗口运行独立 Flutter engine，通过 WindowMethodChannel 通信。
+/// 子窗口运行独立 Flutter engine，通过 WindowMethodChannel 双向通信。
 class LyricsWindowService {
   LyricsWindowService._();
   static final instance = LyricsWindowService._();
@@ -27,11 +27,23 @@ class LyricsWindowService {
   /// 窗口是否已打开
   bool get isOpen => _controller != null;
 
-  /// 通信 channel（unidirectional：子窗口注册 handler，主窗口 invoke）
+  /// 通信 channel（bidirectional：主窗口和子窗口互相调用）
   static const _channel = WindowMethodChannel(
     'lyrics_sync',
-    mode: ChannelMode.unidirectional,
+    mode: ChannelMode.bidirectional,
   );
+
+  /// 回调：子窗口请求 seek 到指定时间点
+  /// 参数：(timestampMs, offsetMs) → 目标位置 = timestampMs - offsetMs
+  void Function(int timestampMs, int offsetMs)? onSeekTo;
+
+  /// 回调：子窗口请求调整 offset
+  /// 参数：(trackUniqueKey, newOffsetMs)
+  void Function(String trackUniqueKey, int newOffsetMs)? onAdjustOffset;
+
+  /// 回调：子窗口请求重置 offset
+  /// 参数：(trackUniqueKey)
+  void Function(String trackUniqueKey)? onResetOffset;
 
   /// 打开歌词窗口（如果已打开则聚焦）
   Future<void> open() async {
@@ -46,6 +58,9 @@ class LyricsWindowService {
         _channelReady = false;
       }
     }
+
+    // 注册主窗口 handler（处理子窗口发来的命令）
+    await _registerMainWindowHandler();
 
     _controller = await WindowController.create(
       WindowConfiguration(
@@ -94,6 +109,8 @@ class LyricsWindowService {
     _channelReady = false;
     _windowChangeSub?.cancel();
     _windowChangeSub = null;
+    // 注销主窗口 handler
+    await _unregisterMainWindowHandler();
   }
 
   /// 同步歌词数据到子窗口（全量，歌词内容变化时调用）
@@ -103,6 +120,7 @@ class LyricsWindowService {
     required int offsetMs,
     required String? trackTitle,
     required String? trackArtist,
+    required String? trackUniqueKey,
   }) async {
     if (_controller == null || !_channelReady) return;
 
@@ -122,6 +140,7 @@ class LyricsWindowService {
           'offsetMs': offsetMs,
           'trackTitle': trackTitle,
           'trackArtist': trackArtist,
+          'trackUniqueKey': trackUniqueKey,
         }),
       );
     } catch (e) {
@@ -158,12 +177,54 @@ class LyricsWindowService {
         _channelReady = false;
         _windowChangeSub?.cancel();
         _windowChangeSub = null;
+        await _unregisterMainWindowHandler();
       }
     } catch (_) {
       _controller = null;
       _channelReady = false;
       _windowChangeSub?.cancel();
       _windowChangeSub = null;
+      await _unregisterMainWindowHandler();
+    }
+  }
+
+  /// 注册主窗口 handler（处理子窗口发来的 seek/offset 命令）
+  Future<void> _registerMainWindowHandler() async {
+    try {
+      await _channel.setMethodCallHandler((call) async {
+        switch (call.method) {
+          case 'seekTo':
+            final data = jsonDecode(call.arguments as String) as Map<String, dynamic>;
+            final timestampMs = data['timestampMs'] as int;
+            final offsetMs = data['offsetMs'] as int;
+            onSeekTo?.call(timestampMs, offsetMs);
+            return 'ok';
+          case 'adjustOffset':
+            final data = jsonDecode(call.arguments as String) as Map<String, dynamic>;
+            final trackUniqueKey = data['trackUniqueKey'] as String;
+            final newOffsetMs = data['newOffsetMs'] as int;
+            onAdjustOffset?.call(trackUniqueKey, newOffsetMs);
+            return 'ok';
+          case 'resetOffset':
+            final data = jsonDecode(call.arguments as String) as Map<String, dynamic>;
+            final trackUniqueKey = data['trackUniqueKey'] as String;
+            onResetOffset?.call(trackUniqueKey);
+            return 'ok';
+          default:
+            return null;
+        }
+      });
+    } catch (e) {
+      debugPrint('LyricsWindowService: register handler error: $e');
+    }
+  }
+
+  /// 注销主窗口 handler
+  Future<void> _unregisterMainWindowHandler() async {
+    try {
+      await _channel.setMethodCallHandler(null);
+    } catch (e) {
+      debugPrint('LyricsWindowService: unregister handler error: $e');
     }
   }
 }

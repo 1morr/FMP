@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
@@ -50,16 +51,28 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   List<_LyricsLine> _lines = [];
   bool _isSynced = false;
   int _currentLineIndex = -1;
+  int _offsetMs = 0;
   String? _trackTitle;
   String? _trackArtist;
+  String? _trackUniqueKey;
   bool _alwaysOnTop = true;
+  bool _showOffsetControls = false;
+
+  /// 用户是否正在手动滚动
+  bool _userScrolling = false;
+
+  /// 恢复自动滚动的定时器
+  Timer? _scrollResumeTimer;
+
+  /// 是否正在执行程序化滚动（区分用户滚动）
+  bool _programmaticScrolling = false;
 
   final _scrollController = ItemScrollController();
   final _positionsListener = ItemPositionsListener.create();
 
   static const _channel = WindowMethodChannel(
     'lyrics_sync',
-    mode: ChannelMode.unidirectional,
+    mode: ChannelMode.bidirectional,
   );
 
   @override
@@ -67,6 +80,12 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     super.initState();
     _setupChannel();
     _initWindow();
+  }
+
+  @override
+  void dispose() {
+    _scrollResumeTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _initWindow() async {
@@ -118,10 +137,15 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
       }).toList() ?? [];
       _isSynced = data['isSynced'] as bool? ?? false;
       _currentLineIndex = data['currentLineIndex'] as int? ?? -1;
+      _offsetMs = data['offsetMs'] as int? ?? 0;
       _trackTitle = data['trackTitle'] as String?;
       _trackArtist = data['trackArtist'] as String?;
+      _trackUniqueKey = data['trackUniqueKey'] as String?;
     });
 
+    // 全量更新时重置用户滚动状态
+    _userScrolling = false;
+    _scrollResumeTimer?.cancel();
     _scrollToCurrentLine();
   }
 
@@ -133,7 +157,9 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
       setState(() {
         _currentLineIndex = newIndex;
       });
-      _scrollToCurrentLine();
+      if (!_userScrolling) {
+        _scrollToCurrentLine();
+      }
     }
   }
 
@@ -141,12 +167,66 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     if (!_isSynced || _currentLineIndex < 0 || _lines.isEmpty) return;
     if (!_scrollController.isAttached) return;
 
+    _programmaticScrolling = true;
     _scrollController.scrollTo(
       index: _currentLineIndex,
       duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
+      curve: Curves.easeOutCubic,
       alignment: 0.35,
-    );
+    ).then((_) {
+      _programmaticScrolling = false;
+    });
+  }
+
+  /// 点击歌词行 → 发送 seekTo 命令到主窗口
+  void _seekToLine(int index) {
+    if (index < 0 || index >= _lines.length) return;
+    final line = _lines[index];
+    if (line.timestamp == null) return;
+
+    try {
+      _channel.invokeMethod(
+        'seekTo',
+        jsonEncode({
+          'timestampMs': line.timestamp!.inMilliseconds,
+          'offsetMs': _offsetMs,
+        }),
+      );
+    } catch (_) {}
+  }
+
+  /// 调整 offset → 发送 adjustOffset 命令到主窗口
+  void _adjustOffset(int deltaMs) {
+    if (_trackUniqueKey == null) return;
+    final newOffsetMs = _offsetMs + deltaMs;
+
+    try {
+      _channel.invokeMethod(
+        'adjustOffset',
+        jsonEncode({
+          'trackUniqueKey': _trackUniqueKey,
+          'newOffsetMs': newOffsetMs,
+        }),
+      );
+    } catch (_) {}
+
+    // 乐观更新本地 offset 显示
+    setState(() => _offsetMs = newOffsetMs);
+  }
+
+  /// 重置 offset → 发送 resetOffset 命令到主窗口
+  void _resetOffset() {
+    if (_trackUniqueKey == null) return;
+
+    try {
+      _channel.invokeMethod(
+        'resetOffset',
+        jsonEncode({'trackUniqueKey': _trackUniqueKey}),
+      );
+    } catch (_) {}
+
+    // 乐观更新本地 offset 显示
+    setState(() => _offsetMs = 0);
   }
 
   @override
@@ -228,6 +308,22 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             ),
+            // Offset 调整切换
+            if (_isSynced && _lines.isNotEmpty)
+              IconButton(
+                icon: Icon(
+                  Icons.timer_outlined,
+                  size: 16,
+                  color: _showOffsetControls ? Colors.white : Colors.white54,
+                ),
+                onPressed: () {
+                  setState(() => _showOffsetControls = !_showOffsetControls);
+                },
+                tooltip: '偏移调整',
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
             // 关闭按钮
             IconButton(
               icon: const Icon(Icons.close, size: 16, color: Colors.white54),
@@ -276,70 +372,212 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
       );
     }
 
-    // 同步歌词：使用 ScrollablePositionedList
-    return NotificationListener<ScrollNotification>(
-      onNotification: (notification) {
-        // 检测用户手动滚动（非程序化滚动）
-        return false;
-      },
-      child: ScrollablePositionedList.builder(
-        itemScrollController: _scrollController,
-        itemPositionsListener: _positionsListener,
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-        itemCount: _lines.length,
-        itemBuilder: (context, index) {
-          final isCurrent = index == _currentLineIndex;
-          return _buildLyricsLine(index, isCurrent);
-        },
-      ),
+    // 同步歌词：使用 ScrollablePositionedList + 用户滚动检测
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              // 忽略程序化滚动
+              if (_programmaticScrolling) return false;
+
+              if (notification is ScrollStartNotification) {
+                _scrollResumeTimer?.cancel();
+                if (!_userScrolling) {
+                  setState(() => _userScrolling = true);
+                }
+              } else if (notification is ScrollEndNotification) {
+                // 用户停止滚动后 3 秒恢复自动滚动
+                _scrollResumeTimer?.cancel();
+                _scrollResumeTimer = Timer(const Duration(seconds: 3), () {
+                  if (mounted) setState(() => _userScrolling = false);
+                });
+              }
+              return false;
+            },
+            child: ScrollablePositionedList.builder(
+              itemScrollController: _scrollController,
+              itemPositionsListener: _positionsListener,
+              padding: EdgeInsets.only(
+                top: _showOffsetControls ? 56 : 20,
+                bottom: 20,
+                left: 16,
+                right: 16,
+              ),
+              itemCount: _lines.length,
+              itemBuilder: (context, index) {
+                final isCurrent = index == _currentLineIndex;
+                return _buildLyricsLine(index, isCurrent);
+              },
+            ),
+          ),
+        ),
+        // Offset 调整栏
+        if (_showOffsetControls)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: _buildOffsetBar(),
+          ),
+      ],
     );
   }
 
   Widget _buildLyricsLine(int index, bool isCurrent) {
     final line = _lines[index];
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // 主歌词
-          AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 200),
-            style: TextStyle(
-              fontSize: isCurrent ? 20 : 16,
-              fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-              color: isCurrent
-                  ? Colors.white
-                  : Colors.white.withValues(alpha: 0.4),
-              height: 1.4,
+    // 字号对齐 LyricsDisplay：当前行和非当前行使用相同字号，仅通过颜色和粗细区分
+    const mainFontSize = 18.0;
+    const subFontSize = 12.0;
+
+    return GestureDetector(
+      onTap: _isSynced && line.timestamp != null ? () => _seekToLine(index) : null,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // 主歌词
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              style: TextStyle(
+                fontSize: mainFontSize,
+                fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                color: isCurrent
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.4),
+                height: 1.4,
+              ),
+              child: Text(
+                line.text,
+                textAlign: TextAlign.center,
+              ),
             ),
-            child: Text(
-              line.text,
-              textAlign: TextAlign.center,
-            ),
-          ),
-          // 副歌词（翻译/罗马音）
-          if (line.subText != null && line.subText!.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: AnimatedDefaultTextStyle(
-                duration: const Duration(milliseconds: 200),
-                style: TextStyle(
-                  fontSize: isCurrent ? 14 : 12,
-                  color: isCurrent
-                      ? Colors.white.withValues(alpha: 0.7)
-                      : Colors.white.withValues(alpha: 0.3),
-                  height: 1.3,
+            // 副歌词（翻译/罗马音）
+            if (line.subText != null && line.subText!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 200),
+                  style: TextStyle(
+                    fontSize: subFontSize,
+                    fontWeight: isCurrent ? FontWeight.w500 : FontWeight.normal,
+                    color: isCurrent
+                        ? Colors.white.withValues(alpha: 0.7)
+                        : Colors.white.withValues(alpha: 0.3),
+                    height: 1.3,
+                  ),
+                  child: Text(
+                    line.subText!,
+                    textAlign: TextAlign.center,
+                  ),
                 ),
-                child: Text(
-                  line.subText!,
-                  textAlign: TextAlign.center,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Offset 调整栏（简化版，适配弹出窗口暗色主题）
+  Widget _buildOffsetBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A2E),
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.white.withValues(alpha: 0.1),
+          ),
+        ),
+      ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Label
+            Text(
+              '偏移',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.white.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Current offset display
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                _formatOffset(_offsetMs),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
                 ),
               ),
             ),
-        ],
+            const SizedBox(width: 12),
+            // Adjustment buttons
+            _buildOffsetButton(Icons.fast_rewind, -1000, '-1s'),
+            _buildOffsetButton(Icons.remove, -500, '-0.5s'),
+            _buildOffsetButton(Icons.remove_circle_outline, -100, '-0.1s'),
+            const SizedBox(width: 4),
+            // Reset button
+            Tooltip(
+              message: '重置',
+              child: InkWell(
+                onTap: _offsetMs != 0 ? _resetOffset : null,
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    Icons.refresh,
+                    size: 16,
+                    color: _offsetMs != 0
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: 0.2),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            _buildOffsetButton(Icons.add_circle_outline, 100, '+0.1s'),
+            _buildOffsetButton(Icons.add, 500, '+0.5s'),
+            _buildOffsetButton(Icons.fast_forward, 1000, '+1s'),
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _buildOffsetButton(IconData icon, int deltaMs, String label) {
+    return Tooltip(
+      message: label,
+      child: InkWell(
+        onTap: () => _adjustOffset(deltaMs),
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Icon(
+            icon,
+            size: 16,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatOffset(int offsetMs) {
+    if (offsetMs == 0) return '0.0s';
+    final seconds = offsetMs / 1000;
+    return '${seconds >= 0 ? '+' : ''}${seconds.toStringAsFixed(1)}s';
   }
 }
