@@ -204,6 +204,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
         itemBuilder: (context, index) {
           final track = tracks[index];
           return _ExploreTrackTile(
+            key: ValueKey('${track.sourceId}_${track.pageNum}'),
             track: track,
             rank: index + 1,
             isSelectionMode: selectionState.isSelectionMode,
@@ -231,6 +232,7 @@ class _ExploreTrackTile extends ConsumerWidget {
   final VoidCallback? onLongPress;
 
   const _ExploreTrackTile({
+    super.key,
     required this.track,
     required this.rank,
     this.isSelectionMode = false,

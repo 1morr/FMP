@@ -1041,7 +1041,25 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
     client.close();
     
     sendPort.send(_IsolateMessage(_IsolateMessageType.completed, null));
+  } on SocketException catch (e) {
+    sendPort.send(_IsolateMessage(
+      _IsolateMessageType.error,
+      '{"type":"network","message":"${e.message.replaceAll('"', r'\"')}"}',
+    ));
+  } on HttpException catch (e) {
+    sendPort.send(_IsolateMessage(
+      _IsolateMessageType.error,
+      '{"type":"http","message":"${e.message.replaceAll('"', r'\"')}"}',
+    ));
+  } on FileSystemException catch (e) {
+    sendPort.send(_IsolateMessage(
+      _IsolateMessageType.error,
+      '{"type":"filesystem","message":"${e.message.replaceAll('"', r'\"')}"}',
+    ));
   } catch (e) {
-    sendPort.send(_IsolateMessage(_IsolateMessageType.error, e.toString()));
+    sendPort.send(_IsolateMessage(
+      _IsolateMessageType.error,
+      '{"type":"unknown","message":"$e"}',
+    ));
   }
 }

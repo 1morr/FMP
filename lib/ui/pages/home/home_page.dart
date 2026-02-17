@@ -251,7 +251,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             return Column(
               children: [
                 for (int i = 0; i < displayTracks.length; i++)
-                  _RankingTrackTile(track: displayTracks[i], rank: i + 1),
+                  _RankingTrackTile(key: ValueKey('${displayTracks[i].sourceId}_${displayTracks[i].pageNum}'), track: displayTracks[i], rank: i + 1),
               ],
             );
           },
@@ -813,7 +813,7 @@ class _RankingTrackTile extends ConsumerWidget {
   final Track track;
   final int rank;
 
-  const _RankingTrackTile({required this.track, required this.rank});
+  const _RankingTrackTile({super.key, required this.track, required this.rank});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
