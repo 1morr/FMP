@@ -33,5 +33,11 @@
   "displayOriginal": "只显示原文",
   "displayPreferTranslated": "优先显示翻译",
   "displayPreferRomaji": "优先显示罗马音",
-  "searchPrompt": "输入关键词搜索歌词"
+  "searchPrompt": "输入关键词搜索歌词",
+  "windowWaitingLyrics": "等待歌词...",
+  "windowUnpin": "取消置顶",
+  "windowPin": "置顶",
+  "windowOffsetAdjust": "偏移调整",
+  "windowClose": "关闭",
+  "windowReset": "重置"
 }
