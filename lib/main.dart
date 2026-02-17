@@ -17,6 +17,7 @@ import 'services/audio/audio_handler.dart';
 import 'services/audio/windows_smtc_handler.dart';
 import 'services/cache/ranking_cache_service.dart';
 import 'services/radio/radio_refresh_service.dart';
+import 'ui/windows/lyrics_window.dart';
 
 /// 全局 AudioHandler 实例，供 AudioController 使用
 late FmpAudioHandler audioHandler;
@@ -28,6 +29,12 @@ late WindowsSmtcHandler windowsSmtcHandler;
 bool launchMinimized = false;
 
 void main(List<String> args) async {
+  // 子窗口入口：如果是由 desktop_multi_window 创建的子窗口，走独立入口
+  if (args.firstOrNull == 'multi_window') {
+    lyricsWindowMain(args);
+    return;
+  }
+
   // 捕获 Flutter 框架层错误（渲染、布局等）
   FlutterError.onError = (FlutterErrorDetails details) {
     AppLogger.error(

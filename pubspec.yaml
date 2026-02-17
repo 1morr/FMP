@@ -79,6 +79,7 @@ dependencies:
   simple_icons: ^14.6.1
   reorderable_grid_view: ^2.2.8
   launch_at_startup: ^0.5.1
+  desktop_multi_window: ^0.3.0
 
 dev_dependencies:
   flutter_test:

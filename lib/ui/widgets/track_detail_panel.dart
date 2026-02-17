@@ -24,6 +24,8 @@ import '../../data/models/radio_station.dart';
 import 'track_thumbnail.dart';
 import 'lyrics_display.dart';
 import '../pages/lyrics/lyrics_search_sheet.dart';
+import '../../services/lyrics/lyrics_window_service.dart';
+import '../../services/lyrics/lrc_parser.dart';
 
 /// 右侧歌曲详情面板（桌面模式）
 class TrackDetailPanel extends ConsumerStatefulWidget {
@@ -100,12 +102,84 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
   /// 是否显示 offset 调整控件
   bool _showOffsetControls = false;
 
+  /// 上次同步到歌词窗口的行索引
+  int _lastSyncedLineIndex = -1;
+
+  /// 同步歌词数据到弹出窗口
+  void _syncLyricsToWindow() {
+    if (!LyricsWindowService.instance.isOpen) return;
+
+    final parsedLyrics = ref.read(parsedLyricsProvider);
+    final match = ref.read(currentLyricsMatchProvider).valueOrNull;
+    final playerState = ref.read(audioControllerProvider);
+
+    // 计算当前行
+    int currentLineIndex = -1;
+    if (parsedLyrics != null && parsedLyrics.isSynced) {
+      currentLineIndex = LrcParser.findCurrentLineIndex(
+        parsedLyrics.lines,
+        playerState.position,
+        match?.offsetMs ?? 0,
+      );
+    }
+
+    // 仅行变化时同步位置（高频优化）
+    if (currentLineIndex != _lastSyncedLineIndex) {
+      _lastSyncedLineIndex = currentLineIndex;
+      LyricsWindowService.instance.syncPosition(currentLineIndex);
+    }
+  }
+
+  /// 全量同步歌词内容到弹出窗口（歌词变化时调用）
+  void _fullSyncLyricsToWindow() {
+    if (!LyricsWindowService.instance.isOpen) return;
+
+    final parsedLyrics = ref.read(parsedLyricsProvider);
+    final match = ref.read(currentLyricsMatchProvider).valueOrNull;
+    final playerState = ref.read(audioControllerProvider);
+    final currentTrack = playerState.currentTrack;
+
+    int currentLineIndex = -1;
+    if (parsedLyrics != null && parsedLyrics.isSynced) {
+      currentLineIndex = LrcParser.findCurrentLineIndex(
+        parsedLyrics.lines,
+        playerState.position,
+        match?.offsetMs ?? 0,
+      );
+    }
+    _lastSyncedLineIndex = currentLineIndex;
+
+    LyricsWindowService.instance.syncLyrics(
+      lyrics: parsedLyrics,
+      currentLineIndex: currentLineIndex,
+      offsetMs: match?.offsetMs ?? 0,
+      trackTitle: currentTrack?.title,
+      trackArtist: currentTrack?.artist,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentTrack = ref.watch(currentTrackProvider);
     final detailState = ref.watch(trackDetailProvider);
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+
+    // 歌词窗口同步：监听位置变化（高频，仅同步行索引）
+    ref.listen(audioControllerProvider.select((s) => s.position), (_, __) {
+      _syncLyricsToWindow();
+    });
+
+    // 歌词窗口同步：歌词内容变化时全量同步
+    ref.listen(parsedLyricsProvider, (_, __) {
+      _fullSyncLyricsToWindow();
+    });
+
+    // 歌词窗口同步：歌曲切换时全量同步
+    ref.listen(currentTrackProvider, (_, __) {
+      _lastSyncedLineIndex = -1;
+      _fullSyncLyricsToWindow();
+    });
 
     // 检查电台是否正在播放（优先于歌曲信息）
     final radioState = ref.watch(radioControllerProvider);
@@ -328,6 +402,31 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                 ),
               ),
             ),
+          // 歌词弹出窗口按钮（仅在显示歌词时可见；电台模式下隐藏）
+          Opacity(
+            opacity: (!isRadio && _showLyrics) ? 1.0 : 0.0,
+            child: IgnorePointer(
+              ignoring: isRadio || !_showLyrics,
+              child: IconButton(
+                icon: Icon(
+                  LyricsWindowService.instance.isOpen
+                      ? Icons.picture_in_picture
+                      : Icons.open_in_new,
+                  size: 20,
+                ),
+                onPressed: () async {
+                  await LyricsWindowService.instance.open();
+                  _fullSyncLyricsToWindow();
+                  setState(() {}); // 刷新按钮图标
+                },
+                tooltip: '弹出歌词窗口',
+                visualDensity: VisualDensity.compact,
+                style: IconButton.styleFrom(
+                  foregroundColor: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ),
           // 信息/歌词切换按钮（显示当前状态，电台模式下隐藏但占位）
           Opacity(
             opacity: isRadio ? 0.0 : 1.0,
