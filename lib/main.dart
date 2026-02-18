@@ -56,10 +56,16 @@ void main(List<String> args) async {
 
   // 限制 Flutter 图片内存缓存大小，减少内存占用
   // 默认值：maximumSize = 1000, maximumSizeBytes = 100 MB
-  // 优化后：maximumSize = 100, maximumSizeBytes = 30 MB
-  // 配合 ThumbnailUrlUtils 缩略图优化，100 张已足够覆盖可见区域
-  PaintingBinding.instance.imageCache.maximumSize = 100;
-  PaintingBinding.instance.imageCache.maximumSizeBytes = 30 * 1024 * 1024;
+  // 配合 ThumbnailUrlUtils 缩略图优化，缩略图已足够覆盖可见区域
+  if (Platform.isAndroid || Platform.isIOS) {
+    // 移动端：50 张 / 15 MB（屏幕小，同时可见的图片少）
+    PaintingBinding.instance.imageCache.maximumSize = 50;
+    PaintingBinding.instance.imageCache.maximumSizeBytes = 15 * 1024 * 1024;
+  } else {
+    // 桌面端：100 张 / 30 MB
+    PaintingBinding.instance.imageCache.maximumSize = 100;
+    PaintingBinding.instance.imageCache.maximumSizeBytes = 30 * 1024 * 1024;
+  }
 
   // Android/iOS 后台播放初始化（使用 audio_service 替代 just_audio_background）
   if (Platform.isAndroid || Platform.isIOS) {

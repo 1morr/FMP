@@ -53,7 +53,12 @@ class NetworkImageCacheService {
       (_maxCacheSizeMB * 1024 ~/ 30).clamp(500, 10000);
 
   /// 当前设置的最大缓存大小（MB）
-  static int _maxCacheSizeMB = 32;
+  /// 移动端默认 16MB，桌面端默认 32MB
+  static int _maxCacheSizeMB = _defaultMaxCacheSizeMB;
+
+  /// 平台默认缓存大小
+  static int get _defaultMaxCacheSizeMB =>
+      Platform.isAndroid || Platform.isIOS ? 16 : 32;
 
   /// 图片加载计数器
   static int _loadCounter = 0;

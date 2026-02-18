@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
@@ -21,8 +23,12 @@ Future<void> _migrateDatabase(Isar isar) async {
     // 1. 确保有默认设置
     var settings = await isar.settings.get(0);
     if (settings == null) {
-      // 全新安装，使用默认值
-      await isar.settings.put(Settings());
+      // 全新安装，根据平台设置合理默认值
+      final newSettings = Settings();
+      if (Platform.isAndroid || Platform.isIOS) {
+        newSettings.maxCacheSizeMB = 16; // 移动端默认 16MB（桌面端保持 32MB）
+      }
+      await isar.settings.put(newSettings);
     } else {
       // 旧版本升级，修复可能的异常值
       bool needsUpdate = false;

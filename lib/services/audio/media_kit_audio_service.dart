@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:audio_session/audio_session.dart' hide AudioDevice;
 import 'package:media_kit/media_kit.dart' hide Track;
@@ -101,11 +102,14 @@ class MediaKitAudioService with Logging {
     logInfo('Initializing MediaKitAudioService...');
 
     // 创建 media_kit 播放器
-    // 优化内存：将 demuxer 缓存从默认的 32 MB 降低到 4 MB
-    // 对于纯音频播放，4 MB 缓冲足够（约 2 分钟的 256kbps 音频）
+    // 优化内存：将 demuxer 缓存从默认的 32 MB 降低
+    // 移动端 2 MB（约 1 分钟 256kbps），桌面端 4 MB（约 2 分钟）
+    final bufferSize = (Platform.isAndroid || Platform.isIOS)
+        ? 2 * 1024 * 1024  // 2 MB
+        : 4 * 1024 * 1024; // 4 MB
     _player = Player(
-      configuration: const PlayerConfiguration(
-        bufferSize: 4 * 1024 * 1024, // 4 MB（默认 32 MB）
+      configuration: PlayerConfiguration(
+        bufferSize: bufferSize,
       ),
     );
 
