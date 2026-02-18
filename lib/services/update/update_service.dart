@@ -17,21 +17,25 @@ const _repoName = 'FMP';
 class UpdateInfo {
   final String version;
   final String releaseNotes;
-  final String? apkDownloadUrl;
+  /// APK download URLs keyed by ABI (arm64-v8a, armeabi-v7a, x86_64, universal)
+  final Map<String, String> apkDownloadUrls;
+  /// APK sizes keyed by ABI
+  final Map<String, int> apkSizes;
   final String? windowsZipDownloadUrl;
   final String? windowsInstallerDownloadUrl;
   final DateTime publishedAt;
-  final int? assetSize; // bytes
+  final int? windowsAssetSize;
   final String? htmlUrl; // GitHub release page URL
 
   const UpdateInfo({
     required this.version,
     required this.releaseNotes,
-    this.apkDownloadUrl,
+    this.apkDownloadUrls = const {},
+    this.apkSizes = const {},
     this.windowsZipDownloadUrl,
     this.windowsInstallerDownloadUrl,
     required this.publishedAt,
-    this.assetSize,
+    this.windowsAssetSize,
     this.htmlUrl,
   });
 
@@ -42,9 +46,31 @@ class UpdateInfo {
     return File('$appDir\\unins000.exe').existsSync();
   }
 
+  /// 设备 ABI（仅 Android）
+  static String? _deviceAbi;
+
+  /// 获取设备主 ABI
+  static Future<String> getDeviceAbi() async {
+    if (_deviceAbi != null) return _deviceAbi!;
+    if (!Platform.isAndroid) return 'universal';
+    try {
+      final result = await Process.run('getprop', ['ro.product.cpu.abi']);
+      final abi = (result.stdout as String).trim();
+      if (['arm64-v8a', 'armeabi-v7a', 'x86_64'].contains(abi)) {
+        _deviceAbi = abi;
+        return abi;
+      }
+    } catch (_) {}
+    _deviceAbi = 'universal';
+    return 'universal';
+  }
+
   /// 当前平台的下载 URL
   String? get downloadUrl {
-    if (Platform.isAndroid) return apkDownloadUrl;
+    if (Platform.isAndroid) {
+      final abi = _deviceAbi ?? 'universal';
+      return apkDownloadUrls[abi] ?? apkDownloadUrls['universal'];
+    }
     if (Platform.isWindows) {
       return isInstalledVersion
           ? windowsInstallerDownloadUrl
@@ -53,9 +79,24 @@ class UpdateInfo {
     return null;
   }
 
+  /// 当前平台的资源大小
+  int? get assetSize {
+    if (Platform.isAndroid) {
+      final abi = _deviceAbi ?? 'universal';
+      return apkSizes[abi] ?? apkSizes['universal'];
+    }
+    return windowsAssetSize;
+  }
+
+  /// 当前设备的 ABI 标签（用于 UI 显示）
+  String get deviceAbiLabel => _deviceAbi ?? 'universal';
+
   /// 当前平台的资源文件名
   String get assetFileName {
-    if (Platform.isAndroid) return 'fmp-$version-android.apk';
+    if (Platform.isAndroid) {
+      final abi = _deviceAbi ?? 'universal';
+      return 'fmp-$version-android-$abi.apk';
+    }
     if (isInstalledVersion) return 'fmp-$version-windows-installer.exe';
     return 'fmp-$version-windows.zip';
   }
@@ -74,6 +115,11 @@ class UpdateService {
   /// 返回 null 表示已是最新版本
   Future<UpdateInfo?> checkForUpdate() async {
     try {
+      // Pre-fetch device ABI on Android (cached for later use)
+      if (Platform.isAndroid) {
+        await UpdateInfo.getDeviceAbi();
+      }
+
       final response = await _dio.get(
         'https://api.github.com/repos/$_repoOwner/$_repoName/releases/latest',
         options: Options(headers: {
@@ -103,10 +149,14 @@ class UpdateService {
 
       // 解析资源
       final assets = data['assets'] as List<dynamic>;
-      String? apkUrl;
+      final apkUrls = <String, String>{};
+      final apkSizes = <String, int>{};
       String? windowsZipUrl;
       String? windowsInstallerUrl;
-      int? assetSize;
+      int? windowsAssetSize;
+
+      // ABI pattern: fmp-v1.2.0-android-arm64-v8a.apk (greedy .+ backtracks to last -android-)
+      final abiPattern = RegExp(r'fmp-.+-android-(.+)\.apk$');
 
       for (final asset in assets) {
         final name = asset['name'] as String;
@@ -114,17 +164,26 @@ class UpdateService {
         final size = asset['size'] as int?;
 
         if (name.endsWith('.apk')) {
-          apkUrl = url;
-          if (Platform.isAndroid) assetSize = size;
+          final match = abiPattern.firstMatch(name);
+          if (match != null) {
+            // New multi-arch format: fmp-v1.2.0-android-{abi}.apk
+            final abi = match.group(1)!;
+            apkUrls[abi] = url;
+            if (size != null) apkSizes[abi] = size;
+          } else {
+            // Legacy single APK format: fmp-v1.2.0-android.apk → treat as universal
+            apkUrls['universal'] = url;
+            if (size != null) apkSizes['universal'] = size;
+          }
         } else if (name.endsWith('-windows-installer.exe')) {
           windowsInstallerUrl = url;
           if (Platform.isWindows && UpdateInfo.isInstalledVersion) {
-            assetSize = size;
+            windowsAssetSize = size;
           }
         } else if (name.endsWith('-windows.zip')) {
           windowsZipUrl = url;
           if (Platform.isWindows && !UpdateInfo.isInstalledVersion) {
-            assetSize = size;
+            windowsAssetSize = size;
           }
         }
       }
@@ -133,16 +192,17 @@ class UpdateService {
       final publishedAt = DateTime.parse(data['published_at'] as String);
       final htmlUrl = data['html_url'] as String?;
 
-      AppLogger.info('Update available: $latestVersion', _tag);
+      AppLogger.info('Update available: $latestVersion, APK ABIs: ${apkUrls.keys.toList()}', _tag);
 
       return UpdateInfo(
         version: tagName,
         releaseNotes: releaseNotes,
-        apkDownloadUrl: apkUrl,
+        apkDownloadUrls: apkUrls,
+        apkSizes: apkSizes,
         windowsZipDownloadUrl: windowsZipUrl,
         windowsInstallerDownloadUrl: windowsInstallerUrl,
         publishedAt: publishedAt,
-        assetSize: assetSize,
+        windowsAssetSize: windowsAssetSize,
         htmlUrl: htmlUrl,
       );
     } on DioException catch (e) {

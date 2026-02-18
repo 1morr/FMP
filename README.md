@@ -21,7 +21,7 @@
 <!-- DOWNLOAD_START -->
 | 平台 | 下载 | 说明 |
 |------|------|------|
-| **Android** | [APK 下载](https://github.com/1morr/FMP/releases/download/v1.4.2/fmp-v1.4.2-android.apk) | 直接安装 |
+| **Android** | [APK 下载](https://github.com/1morr/FMP/releases/download/v1.4.2/fmp-v1.4.2-android-universal.apk) | 直接安装 |
 | **Windows** | [安装包下载（推荐）](https://github.com/1morr/FMP/releases/download/v1.4.2/fmp-v1.4.2-windows-installer.exe) | 完整支持SMTC 显示 |
 | Windows | [免安装版](https://github.com/1morr/FMP/releases/download/v1.4.2/fmp-v1.4.2-windows.zip) | 解压即用 |
 <!-- DOWNLOAD_END -->
