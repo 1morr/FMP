@@ -518,32 +518,41 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
       return MouseRegion(
         onEnter: (_) => setState(() => _isHovering = true),
         onExit: (_) => setState(() => _isHovering = false),
-        child: Material(
-          color: Colors.transparent,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: AnimatedPadding(
-                  duration: const Duration(milliseconds: 200),
-                  padding: EdgeInsets.only(top: _isHovering ? 48 : 0),
-                  child: _buildContent(),
-                ),
-              ),
-              // 标题栏始终在树中，通过透明度 + IgnorePointer 控制显隐
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: IgnorePointer(
-                  ignoring: !_isHovering,
-                  child: AnimatedOpacity(
-                    opacity: _isHovering ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 200),
-                    child: _buildTitleBar(),
+        child: DragToResizeArea(
+          resizeEdgeSize: 16,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            color: _isHovering
+                ? Colors.black.withValues(alpha: 0.45)
+                : Colors.transparent,
+            child: Material(
+              color: Colors.transparent,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: AnimatedPadding(
+                      duration: const Duration(milliseconds: 200),
+                      padding: EdgeInsets.only(top: _isHovering ? 48 : 0),
+                      child: _buildContent(),
+                    ),
                   ),
-                ),
+                  // 标题栏始终在树中，通过透明度 + IgnorePointer 控制显隐
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: IgnorePointer(
+                      ignoring: !_isHovering,
+                      child: AnimatedOpacity(
+                        opacity: _isHovering ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: _buildTitleBar(),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       );
