@@ -519,7 +519,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
         onEnter: (_) => setState(() => _isHovering = true),
         onExit: (_) => setState(() => _isHovering = false),
         child: DragToResizeArea(
-          resizeEdgeSize: 16,
+          resizeEdgeSize: 12,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             color: _isHovering
