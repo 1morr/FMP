@@ -41,5 +41,7 @@
   "windowClose": "關閉",
   "windowReset": "重置",
   "windowTransparentMode": "透明模式",
-  "windowNormalMode": "普通模式"
+  "windowNormalMode": "普通模式",
+  "windowSingleLine": "單行模式",
+  "windowFullLyrics": "全部歌詞模式"
 }
