@@ -69,6 +69,22 @@ class UpdateDialog extends ConsumerWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+                if (Platform.isAndroid) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      updateInfo.deviceAbiLabel,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSecondaryContainer,
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(width: 8),
                 if (updateInfo.assetSize != null)
                   Text(

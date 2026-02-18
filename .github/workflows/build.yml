@@ -13,8 +13,20 @@ env:
 
 jobs:
   build-android:
-    name: Build Android APK
+    name: Build Android APK (${{ matrix.abi }})
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - abi: arm64-v8a
+            flutter-target: android-arm64
+          - abi: armeabi-v7a
+            flutter-target: android-arm
+          - abi: x86_64
+            flutter-target: android-x64
+          - abi: universal
+            flutter-target: ""
 
     steps:
       - name: Checkout code
@@ -60,18 +72,23 @@ jobs:
         run: dart run slang
 
       - name: Build APK (Release)
-        run: flutter build apk --release
+        run: |
+          if [ -n "${{ matrix.flutter-target }}" ]; then
+            flutter build apk --release --target-platform ${{ matrix.flutter-target }}
+          else
+            flutter build apk --release
+          fi
 
       - name: Rename APK
         run: |
           cd build/app/outputs/flutter-apk
-          mv app-release.apk fmp-${{ github.ref_name }}-android.apk
+          mv app-release.apk fmp-${{ github.ref_name }}-android-${{ matrix.abi }}.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: android-apk
-          path: build/app/outputs/flutter-apk/fmp-*-android.apk
+          name: android-apk-${{ matrix.abi }}
+          path: build/app/outputs/flutter-apk/fmp-*-android-${{ matrix.abi }}.apk
           retention-days: 30
 
   build-windows:
@@ -243,7 +260,7 @@ jobs:
 
             ${{ steps.changelog.outputs.changelog_url }}
           files: |
-            artifacts/android-apk/fmp-*-android.apk
+            artifacts/android-apk-*/fmp-*-android-*.apk
             artifacts/windows-exe/fmp-*-windows.zip
             artifacts/windows-installer/fmp-*-windows-installer.exe
         env:
@@ -252,9 +269,13 @@ jobs:
       - name: Update README download links
         run: |
           VERSION=${{ github.ref_name }}
-          
-          # Update download links between markers
-          sed -i "s|/download/v[^/]*/fmp-v[^-]*-|/download/${VERSION}/fmp-${VERSION}-|g" README.md
+
+          # Update Android download link to universal APK
+          sed -i "s|/download/v[^/]*/fmp-v[^)]*\.apk|/download/${VERSION}/fmp-${VERSION}-android-universal.apk|g" README.md
+
+          # Update Windows download links
+          sed -i "s|/download/v[^/]*/fmp-v[^)]*-windows-installer\.exe|/download/${VERSION}/fmp-${VERSION}-windows-installer.exe|g" README.md
+          sed -i "s|/download/v[^/]*/fmp-v[^)]*-windows\.zip|/download/${VERSION}/fmp-${VERSION}-windows.zip|g" README.md
           
           # Check if there are changes
           if git diff --quiet README.md; then
@@ -320,7 +341,7 @@ jobs:
       - name: Build ${{ matrix.platform }}
         run: |
           if [ "${{ matrix.platform }}" = "android" ]; then
-            flutter build apk --release
+            flutter build apk --release --target-platform android-arm64
           else
             flutter build windows --release
           fi
