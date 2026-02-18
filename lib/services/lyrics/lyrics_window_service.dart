@@ -238,6 +238,8 @@ class LyricsWindowService {
       'displayPreferRomaji': t.lyrics.displayPreferRomaji,
       'transparentMode': t.lyrics.windowTransparentMode,
       'normalMode': t.lyrics.windowNormalMode,
+      'singleLine': t.lyrics.windowSingleLine,
+      'fullLyrics': t.lyrics.windowFullLyrics,
     };
 
     try {

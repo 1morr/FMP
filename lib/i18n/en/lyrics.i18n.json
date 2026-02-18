@@ -41,5 +41,7 @@
   "windowClose": "Close",
   "windowReset": "Reset",
   "windowTransparentMode": "Transparent Mode",
-  "windowNormalMode": "Normal Mode"
+  "windowNormalMode": "Normal Mode",
+  "windowSingleLine": "Single Line Mode",
+  "windowFullLyrics": "Full Lyrics Mode"
 }

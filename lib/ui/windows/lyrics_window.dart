@@ -32,6 +32,8 @@ class _LyricsWindowStrings {
   String displayPreferRomaji = '优先显示罗马音';
   String transparentMode = '透明模式';
   String normalMode = '普通模式';
+  String singleLine = '单行模式';
+  String fullLyrics = '全部歌词模式';
 
   void updateFrom(Map<String, dynamic> map) {
     waitingLyrics = map['waitingLyrics'] as String? ?? waitingLyrics;
@@ -48,6 +50,8 @@ class _LyricsWindowStrings {
         map['displayPreferRomaji'] as String? ?? displayPreferRomaji;
     transparentMode = map['transparentMode'] as String? ?? transparentMode;
     normalMode = map['normalMode'] as String? ?? normalMode;
+    singleLine = map['singleLine'] as String? ?? singleLine;
+    fullLyrics = map['fullLyrics'] as String? ?? fullLyrics;
   }
 }
 
@@ -133,6 +137,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   bool _isPlaying = false;
   int _displayModeIndex = 0; // 0=original, 1=preferTranslated, 2=preferRomaji
   bool _transparentMode = false;
+  bool _singleLineMode = false;
   bool _isHovering = false;
 
   /// 用户是否正在手动滚动
@@ -499,6 +504,12 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     return '${seconds >= 0 ? '+' : ''}${seconds.toStringAsFixed(1)}s';
   }
 
+  Widget _buildContent() {
+    if (_lines.isEmpty) return _buildEmpty();
+    if (_singleLineMode) return _buildSingleLine();
+    return _buildLyricsList();
+  }
+
   // ─── Build ───
 
   @override
@@ -515,7 +526,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
                 child: AnimatedPadding(
                   duration: const Duration(milliseconds: 200),
                   padding: EdgeInsets.only(top: _isHovering ? 48 : 0),
-                  child: _lines.isEmpty ? _buildEmpty() : _buildLyricsList(),
+                  child: _buildContent(),
                 ),
               ),
               // 标题栏始终在树中，通过透明度 + IgnorePointer 控制显隐
@@ -542,9 +553,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
       body: Column(
         children: [
           _buildTitleBar(),
-          Expanded(
-            child: _lines.isEmpty ? _buildEmpty() : _buildLyricsList(),
-          ),
+          Expanded(child: _buildContent()),
         ],
       ),
     );
@@ -621,6 +630,14 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
               _cycleLyricsDisplayMode,
               color: iconColor,
               tooltip: _displayModeTooltip,
+            ),
+            // 单行/全部歌词切换
+            _titleBarButton(
+              _singleLineMode ? Icons.view_headline : Icons.short_text,
+              16,
+              () => setState(() => _singleLineMode = !_singleLineMode),
+              color: _singleLineMode ? activeColor : iconColor,
+              tooltip: _singleLineMode ? _strings.fullLyrics : _strings.singleLine,
             ),
             // 透明模式切换
             _titleBarButton(
@@ -703,6 +720,108 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSingleLine() {
+    final t = _transparentMode;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    // 获取当前行文本
+    String mainText = '';
+    String? subText;
+    if (_currentLineIndex >= 0 && _currentLineIndex < _lines.length) {
+      final line = _lines[_currentLineIndex];
+      mainText = line.text;
+      subText = line.subText;
+    }
+    if (mainText.isEmpty) {
+      mainText = _trackTitle ?? '';
+    }
+
+    final mainColor = t ? Colors.white : colorScheme.onSurface;
+    final subColor = t
+        ? Colors.white.withValues(alpha: 0.7)
+        : colorScheme.onSurface.withValues(alpha: 0.6);
+    final hasSubText = subText != null && subText.isNotEmpty;
+
+    return GestureDetector(
+      onTap: _isSynced && _currentLineIndex >= 0
+          ? () => _seekToLine(_currentLineIndex)
+          : null,
+      behavior: HitTestBehavior.opaque,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final maxW = constraints.maxWidth - 32;
+          final maxH = constraints.maxHeight - 24;
+          if (maxW <= 0 || maxH <= 0) return const SizedBox.shrink();
+
+          // 用参考字号测量主文本宽度，然后按比例算出填满宽度的字号
+          const refSize = 100.0;
+          final td = Directionality.of(context);
+          final mainPainter = TextPainter(
+            text: TextSpan(
+              text: mainText,
+              style: const TextStyle(
+                  fontSize: refSize, fontWeight: FontWeight.bold),
+            ),
+            maxLines: 1,
+            textDirection: td,
+          )..layout();
+          final mainTextW = mainPainter.width;
+          mainPainter.dispose();
+
+          // 按宽度算出的字号
+          double mainFontSize = mainTextW > 0
+              ? (refSize * maxW / mainTextW)
+              : refSize;
+
+          // 按高度限制：主文本行高约 1.3，副文本约 0.7 倍主文本
+          final totalLineH = hasSubText ? 1.3 + 0.7 * 0.9 : 1.3;
+          final maxByHeight = maxH / totalLineH;
+          mainFontSize = mainFontSize.clamp(12.0, maxByHeight);
+
+          final subFontSize = mainFontSize * 0.7;
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    mainText,
+                    style: TextStyle(
+                      fontSize: mainFontSize,
+                      fontWeight: FontWeight.bold,
+                      color: mainColor,
+                      height: 1.3,
+                      shadows: t ? _strokeShadows : null,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.clip,
+                  ),
+                  if (hasSubText)
+                    Text(
+                      subText!,
+                      style: TextStyle(
+                        fontSize: subFontSize,
+                        fontWeight: FontWeight.w500,
+                        color: subColor,
+                        height: 1.3,
+                        shadows: t ? _strokeShadows : null,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.clip,
+                    ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
