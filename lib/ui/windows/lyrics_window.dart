@@ -560,7 +560,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     final titleColor = t ? Colors.white : colorScheme.onSurface;
     final subtitleColor = t ? Colors.white70 : colorScheme.onSurfaceVariant;
     final activeColor = t ? Colors.amber : colorScheme.primary;
-    final bgColor = t ? Colors.black.withValues(alpha: 0.45) : null;
+    final bgColor = t ? Colors.black.withValues(alpha: 0.85) : null;
     final borderColor = t
         ? Colors.white12
         : colorScheme.outlineVariant.withValues(alpha: 0.3);
@@ -855,7 +855,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     final valueColor = t ? Colors.white : colorScheme.onSurface;
     final btnColor = t ? Colors.white : colorScheme.onSurface;
     final bgColor =
-        t ? Colors.black.withValues(alpha: 0.45) : Theme.of(context).scaffoldBackgroundColor;
+        t ? Colors.black.withValues(alpha: 0.85) : Theme.of(context).scaffoldBackgroundColor;
     final borderColor = t
         ? Colors.white12
         : colorScheme.outlineVariant.withValues(alpha: 0.3);
