@@ -9,7 +9,7 @@ import '../../core/logger.dart';
 import '../../data/models/radio_station.dart';
 import '../../data/models/track.dart'; // for SourceType
 import '../../data/repositories/radio_repository.dart';
-import '../../main.dart' show windowsSmtcHandler;
+import '../../main.dart' show audioHandler, windowsSmtcHandler;
 import '../../providers/database_provider.dart';
 import '../audio/audio_service.dart';
 import '../audio/audio_types.dart';
@@ -259,6 +259,38 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     // 這些回調會在電台播放時覆蓋音樂播放的回調
   }
 
+  /// 更新 Android 通知欄顯示當前電台
+  void _updateAudioHandler(RadioStation station) {
+    if (!Platform.isAndroid) return;
+
+    audioHandler.onPlay = resume;
+    audioHandler.onPause = pause;
+    audioHandler.onStop = stop;
+    audioHandler.onSkipToNext = null;
+    audioHandler.onSkipToPrevious = null;
+    audioHandler.onSeek = null;
+
+    audioHandler.updateCurrentRadioStation(station);
+    audioHandler.updatePlaybackState(
+      isPlaying: true,
+      position: Duration.zero,
+      bufferedPosition: Duration.zero,
+      processingState: FmpAudioProcessingState.ready,
+    );
+  }
+
+  /// 清除 Android 通知欄狀態
+  void _clearAudioHandler() {
+    if (!Platform.isAndroid) return;
+
+    audioHandler.updatePlaybackState(
+      isPlaying: false,
+      position: Duration.zero,
+      bufferedPosition: Duration.zero,
+      processingState: FmpAudioProcessingState.idle,
+    );
+  }
+
   /// 更新 SMTC 顯示當前電台（僅 Windows）
   void _updateSmtc(RadioStation station) {
     if (!Platform.isWindows) return;
@@ -403,8 +435,9 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       // 啟動定時器
       _startTimers();
 
-      // 更新 SMTC（僅 Windows）
+      // 更新平台媒體控制
       _updateSmtc(station);
+      _updateAudioHandler(station);
     } catch (e) {
       if (_isSuperseded(requestId)) return;
 
@@ -450,8 +483,9 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     _playStartTime = null;
     _currentStreamInfo = null;
 
-    // 更新 SMTC 為停止狀態（僅 Windows）
+    // 更新平台媒體控制為停止狀態
     _clearSmtc();
+    _clearAudioHandler();
   }
 
   /// 暫停播放（保留電台資訊，可重新播放）
@@ -471,9 +505,17 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     _playStartTime = null;
     // 保留 _currentStreamInfo 以便快速恢復
 
-    // 更新 SMTC 為暫停狀態（僅 Windows）
+    // 更新平台媒體控制為暫停狀態
     if (Platform.isWindows && state.currentStation != null) {
       windowsSmtcHandler.updateRadioPlaybackState(isPlaying: false);
+    }
+    if (Platform.isAndroid) {
+      audioHandler.updatePlaybackState(
+        isPlaying: false,
+        position: Duration.zero,
+        bufferedPosition: Duration.zero,
+        processingState: FmpAudioProcessingState.ready,
+      );
     }
   }
 
