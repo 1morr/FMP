@@ -11,7 +11,7 @@ import '../../data/models/track.dart'; // for SourceType
 import '../../data/repositories/radio_repository.dart';
 import '../../main.dart' show windowsSmtcHandler;
 import '../../providers/database_provider.dart';
-import '../audio/media_kit_audio_service.dart';
+import '../audio/audio_service.dart';
 import '../audio/audio_types.dart';
 import '../audio/audio_provider.dart';
 import 'radio_source.dart';
@@ -176,7 +176,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
   final Ref _ref;
   final RadioRepository _repository;
   final RadioSource _radioSource;
-  final MediaKitAudioService _audioService;
+  final FmpAudioService _audioService;
 
   // 定時器
   Timer? _playDurationTimer;
@@ -622,7 +622,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
   }
 
   /// 處理播放器狀態變化
-  void _onPlayerStateChanged(MediaKitPlayerState playerState) {
+  void _onPlayerStateChanged(FmpPlayerState playerState) {
     // 只在電台播放模式下處理
     if (state.currentStation == null) return;
 
@@ -820,8 +820,8 @@ class _DummyRadioRepository implements RadioRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-/// Dummy MediaKitAudioService for loading state
-class _DummyAudioService implements MediaKitAudioService {
+/// Dummy AudioService for loading state
+class _DummyAudioService implements FmpAudioService {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

@@ -351,9 +351,6 @@ class _PlaylistCard extends ConsumerWidget {
     final coverAsync = ref.watch(playlistCoverProvider(playlist.id));
     final isRefreshing = ref.watch(isPlaylistRefreshingProvider(playlist.id));
 
-    // 預加載歌單詳情數據，這樣進入詳情頁時數據已經準備好
-    ref.read(playlistDetailProvider(playlist.id));
-
     return ContextMenuRegion(
       menuBuilder: (context) => _buildContextMenuItems(context, ref),
       onSelected: (value) => _handleContextMenuAction(context, ref, value),

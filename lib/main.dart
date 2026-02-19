@@ -58,9 +58,9 @@ void main(List<String> args) async {
   // 默认值：maximumSize = 1000, maximumSizeBytes = 100 MB
   // 配合 ThumbnailUrlUtils 缩略图优化，缩略图已足够覆盖可见区域
   if (Platform.isAndroid || Platform.isIOS) {
-    // 移动端：50 张 / 15 MB（屏幕小，同时可见的图片少）
-    PaintingBinding.instance.imageCache.maximumSize = 50;
-    PaintingBinding.instance.imageCache.maximumSizeBytes = 15 * 1024 * 1024;
+    // 移动端：30 张 / 10 MB（屏幕小，同时可见的图片少，配合缩略图优化足够）
+    PaintingBinding.instance.imageCache.maximumSize = 30;
+    PaintingBinding.instance.imageCache.maximumSizeBytes = 10 * 1024 * 1024;
   } else {
     // 桌面端：100 张 / 30 MB
     PaintingBinding.instance.imageCache.maximumSize = 100;
@@ -87,9 +87,10 @@ void main(List<String> args) async {
     audioHandler = FmpAudioHandler();
   }
 
-  // 初始化 media_kit（直接使用，不通过 just_audio）
-  // 原生支持 httpHeaders，解决了 just_audio_media_kit 代理对 audio-only 流的兼容性问题
-  MediaKit.ensureInitialized();
+  // 初始化 media_kit（仅桌面平台需要，Android 使用 just_audio）
+  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    MediaKit.ensureInitialized();
+  }
 
   // Windows 平台初始化（并行化 SMTC 和窗口管理器以优化启动时间）
   if (Platform.isWindows) {

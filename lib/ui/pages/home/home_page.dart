@@ -966,9 +966,6 @@ class _HomePlaylistCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final coverAsync = ref.watch(playlistCoverProvider(playlist.id));
 
-    // 預加載歌單詳情數據
-    ref.read(playlistDetailProvider(playlist.id));
-
     return ContextMenuRegion(
       menuBuilder: (_) => _buildContextMenuItems(context, ref),
       onSelected: (value) => _handleContextMenuAction(context, ref, value),

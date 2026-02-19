@@ -8,12 +8,14 @@ import 'package:rxdart/rxdart.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
+import 'audio_service.dart';
 import 'audio_types.dart';
 
 /// 音频播放服务（使用 media_kit 直接实现）
 /// 替代原来的 just_audio + just_audio_media_kit 方案
 /// 解决了 just_audio_media_kit 代理对 audio-only 流的兼容性问题
-class MediaKitAudioService with Logging {
+/// 用于 Windows/Linux 平台
+class MediaKitAudioService extends FmpAudioService with Logging {
   late final Player _player;
   late final AudioSession _session;
 
@@ -42,8 +44,8 @@ class MediaKitAudioService with Logging {
   double _speed = 1.0;
 
   // 状态流控制器
-  final _playerStateController = BehaviorSubject<MediaKitPlayerState>.seeded(
-    const MediaKitPlayerState(
+  final _playerStateController = BehaviorSubject<FmpPlayerState>.seeded(
+    const FmpPlayerState(
       playing: false,
       processingState: FmpAudioProcessingState.idle,
     ),
@@ -61,43 +63,63 @@ class MediaKitAudioService with Logging {
   final _volumeController = BehaviorSubject<double>.seeded(1.0);
 
   // 音频设备相关
-  final _audioDevicesController = BehaviorSubject<List<AudioDevice>>.seeded([]);
-  final _audioDeviceController = BehaviorSubject<AudioDevice?>.seeded(null);
+  final _audioDevicesController = BehaviorSubject<List<FmpAudioDevice>>.seeded([]);
+  final _audioDeviceController = BehaviorSubject<FmpAudioDevice?>.seeded(null);
 
   // ========== 状态流 ==========
-  Stream<MediaKitPlayerState> get playerStateStream => _playerStateController.stream;
+  @override
+  Stream<FmpPlayerState> get playerStateStream => _playerStateController.stream;
+  @override
   Stream<Duration> get positionStream => _positionController.stream;
+  @override
   Stream<Duration?> get durationStream => _durationController.stream;
+  @override
   Stream<Duration> get bufferedPositionStream => _bufferedPositionController.stream;
+  @override
   Stream<double> get speedStream => _speedController.stream;
+  @override
   Stream<FmpAudioProcessingState> get processingStateStream => _processingStateController.stream;
+  @override
   Stream<bool> get playingStream => _playingController.stream;
 
   /// 歌曲播放完成事件流
+  @override
   Stream<void> get completedStream => _completedController.stream;
 
   /// 可用音频设备列表流
-  Stream<List<AudioDevice>> get audioDevicesStream => _audioDevicesController.stream;
+  @override
+  Stream<List<FmpAudioDevice>> get audioDevicesStream => _audioDevicesController.stream;
 
   /// 当前音频设备流
-  Stream<AudioDevice?> get audioDeviceStream => _audioDeviceController.stream;
+  @override
+  Stream<FmpAudioDevice?> get audioDeviceStream => _audioDeviceController.stream;
 
   // ========== 当前状态 ==========
+  @override
   bool get isPlaying => _isPlaying;
+  @override
   Duration get position => _position;
+  @override
   Duration? get duration => _duration;
+  @override
   Duration get bufferedPosition => _bufferedPositionController.value;
+  @override
   double get speed => _speed;
+  @override
   double get volume => _volume;
+  @override
   FmpAudioProcessingState get processingState => _processingStateController.value;
 
   /// 可用音频设备列表
-  List<AudioDevice> get audioDevices => _audioDevicesController.value;
+  @override
+  List<FmpAudioDevice> get audioDevices => _audioDevicesController.value;
 
   /// 当前音频设备
-  AudioDevice? get audioDevice => _audioDeviceController.value;
+  @override
+  FmpAudioDevice? get audioDevice => _audioDeviceController.value;
 
   /// 初始化音频服务
+  @override
   Future<void> initialize() async {
     logInfo('Initializing MediaKitAudioService...');
 
@@ -307,7 +329,7 @@ class MediaKitAudioService with Logging {
     _subscriptions.add(
       _player.stream.audioDevices.listen((devices) {
         logDebug('Audio devices changed: ${devices.length} devices');
-        _audioDevicesController.add(devices);
+        _audioDevicesController.add(devices.map(_toFmpDevice).toList());
       }),
     );
 
@@ -315,25 +337,31 @@ class MediaKitAudioService with Logging {
     _subscriptions.add(
       _player.stream.audioDevice.listen((device) {
         logDebug('Audio device changed: ${device.name}');
-        _audioDeviceController.add(device);
+        _audioDeviceController.add(_toFmpDevice(device));
       }),
     );
 
     // 初始化时获取当前设备列表（stream 只在变化时触发）
     final initialDevices = _player.state.audioDevices;
     logDebug('Initial audio devices: ${initialDevices.length} devices');
-    _audioDevicesController.add(initialDevices);
+    _audioDevicesController.add(initialDevices.map(_toFmpDevice).toList());
 
     final initialDevice = _player.state.audioDevice;
     logDebug('Initial audio device: ${initialDevice.name}');
-    _audioDeviceController.add(initialDevice);
+    _audioDeviceController.add(_toFmpDevice(initialDevice));
   }
+
+  /// media_kit AudioDevice → FmpAudioDevice 转换
+  FmpAudioDevice _toFmpDevice(AudioDevice device) => FmpAudioDevice(
+    name: device.name,
+    description: device.description,
+  );
 
   /// 更新合成的播放器状态
   void _updatePlayerState() {
     final state = _synthesizeProcessingState();
     _processingStateController.add(state);
-    _playerStateController.add(MediaKitPlayerState(
+    _playerStateController.add(FmpPlayerState(
       playing: _isPlaying,
       processingState: state,
     ));
@@ -358,6 +386,7 @@ class MediaKitAudioService with Logging {
   }
 
   /// 释放资源
+  @override
   Future<void> dispose() async {
     // 取消所有流订阅
     for (final subscription in _subscriptions) {
@@ -383,17 +412,20 @@ class MediaKitAudioService with Logging {
   // ========== 播放控制 ==========
 
   /// 播放
+  @override
   Future<void> play() async {
     await _player.play();
   }
 
   /// 暂停
+  @override
   Future<void> pause() async {
     _cancelEnsurePlayback();
     await _player.pause();
   }
 
   /// 停止
+  @override
   Future<void> stop() async {
     _cancelEnsurePlayback();
     await _player.stop();
@@ -412,6 +444,7 @@ class MediaKitAudioService with Logging {
   }
 
   /// 切换播放/暂停
+  @override
   Future<void> togglePlayPause() async {
     await _player.playOrPause();
   }
@@ -419,6 +452,7 @@ class MediaKitAudioService with Logging {
   // ========== 进度控制 ==========
 
   /// 跳转到指定位置
+  @override
   Future<void> seekTo(Duration position) async {
     // 重置 completion 标志，允许再次触发 completion 事件
     _hasCompletionFired = false;
@@ -427,6 +461,7 @@ class MediaKitAudioService with Logging {
   }
 
   /// 快进
+  @override
   Future<void> seekForward([Duration? duration]) async {
     final seekDuration = duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
     final newPosition = _position + seekDuration;
@@ -435,6 +470,7 @@ class MediaKitAudioService with Logging {
   }
 
   /// 快退
+  @override
   Future<void> seekBackward([Duration? duration]) async {
     final seekDuration = duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
     final newPosition = _position - seekDuration;
@@ -443,6 +479,7 @@ class MediaKitAudioService with Logging {
 
   /// 嘗試跳到直播流的最新位置
   /// 返回 true 表示成功 seek，false 表示無法 seek（需要重新連接）
+  @override
   Future<bool> seekToLive() async {
     // 獲取當前 duration
     final currentDuration = _duration ?? Duration.zero;
@@ -464,11 +501,13 @@ class MediaKitAudioService with Logging {
   // ========== 播放速度 ==========
 
   /// 设置播放速度 (0.5 - 2.0)
+  @override
   Future<void> setSpeed(double speed) async {
     await _player.setRate(speed.clamp(0.5, 2.0));
   }
 
   /// 重置播放速度
+  @override
   Future<void> resetSpeed() async {
     await _player.setRate(1.0);
   }
@@ -476,6 +515,7 @@ class MediaKitAudioService with Logging {
   // ========== 音量控制 ==========
 
   /// 设置音量 (0.0 - 1.0)
+  @override
   Future<void> setVolume(double volume) async {
     // 转换为 media_kit 的 0-100 范围
     await _player.setVolume((volume.clamp(0.0, 1.0) * 100).toDouble());
@@ -484,12 +524,24 @@ class MediaKitAudioService with Logging {
   // ========== 音频设备控制 ==========
 
   /// 设置音频输出设备
-  Future<void> setAudioDevice(AudioDevice device) async {
+  @override
+  Future<void> setAudioDevice(FmpAudioDevice device) async {
     logInfo('Setting audio device: ${device.name} (${device.description})');
-    await _player.setAudioDevice(device);
+    // 通过 name 在 media_kit 设备列表中查找匹配的原始 AudioDevice
+    final nativeDevice = _player.state.audioDevices.cast<AudioDevice?>().firstWhere(
+      (d) => d!.name == device.name,
+      orElse: () => null,
+    );
+    if (nativeDevice != null) {
+      await _player.setAudioDevice(nativeDevice);
+    } else {
+      logWarning('Audio device not found: ${device.name}, falling back to auto');
+      await _player.setAudioDevice(AudioDevice.auto());
+    }
   }
 
   /// 设置为自动选择音频设备（跟随系统默认）
+  @override
   Future<void> setAudioDeviceAuto() async {
     logInfo('Setting audio device to auto');
     await _player.setAudioDevice(AudioDevice.auto());
@@ -552,6 +604,7 @@ class MediaKitAudioService with Logging {
   /// 播放指定 URL
   /// [headers] 可选的 HTTP 请求头，用于需要认证的音频源（如 Bilibili, YouTube）
   /// [track] 可选的 Track 信息，用于后台播放通知显示
+  @override
   Future<Duration?> playUrl(String url, {Map<String, String>? headers, Track? track}) async {
     logDebug('Playing URL: ${url.substring(0, url.length > 80 ? 80 : url.length)}...');
     if (headers != null) {
@@ -568,7 +621,7 @@ class MediaKitAudioService with Logging {
 
       // 设置加载状态
       _processingStateController.add(FmpAudioProcessingState.loading);
-      _playerStateController.add(MediaKitPlayerState(
+      _playerStateController.add(FmpPlayerState(
         playing: false,
         processingState: FmpAudioProcessingState.loading,
       ));
@@ -606,6 +659,7 @@ class MediaKitAudioService with Logging {
   /// 设置 URL（不自动播放）
   /// [headers] 可选的 HTTP 请求头
   /// [track] 可选的 Track 信息，用于后台播放通知显示
+  @override
   Future<Duration?> setUrl(String url, {Map<String, String>? headers, Track? track}) async {
     logDebug('Setting URL: ${url.substring(0, url.length > 50 ? 50 : url.length)}...');
     try {
@@ -638,6 +692,7 @@ class MediaKitAudioService with Logging {
 
   /// 播放本地文件
   /// [track] 可选的 Track 信息，用于后台播放通知显示
+  @override
   Future<Duration?> playFile(String filePath, {Track? track}) async {
     logDebug('Playing file: $filePath');
     try {
@@ -651,7 +706,7 @@ class MediaKitAudioService with Logging {
 
       // 设置加载状态
       _processingStateController.add(FmpAudioProcessingState.loading);
-      _playerStateController.add(MediaKitPlayerState(
+      _playerStateController.add(FmpPlayerState(
         playing: false,
         processingState: FmpAudioProcessingState.loading,
       ));
@@ -686,6 +741,7 @@ class MediaKitAudioService with Logging {
 
   /// 设置文件（不自动播放）
   /// [track] 可选的 Track 信息，用于后台播放通知显示
+  @override
   Future<Duration?> setFile(String filePath, {Track? track}) async {
     logDebug('Setting file: $filePath');
     try {

@@ -142,37 +142,36 @@ UI (player_page, mini_player)
 
 **Key Rule:** UI must call `AudioController` methods, never `AudioService` directly.
 
-### Audio Backend (media_kit)
+### Audio Backend (Platform-Split Architecture, 2026-02)
 
-Uses `media_kit` directly (not through `just_audio`). This replaces the previous `just_audio` + `just_audio_media_kit` setup.
+Uses an abstract `AudioService` interface with platform-specific implementations:
+- **Android/iOS**: `JustAudioService` (ExoPlayer via `just_audio`, ~10-15MB lighter)
+- **Windows/Linux**: `MediaKitAudioService` (libmpv via `media_kit`, supports device switching)
 
-**Why the migration:**
-- `just_audio_media_kit` created a local HTTP proxy when headers were provided
-- The proxy had compatibility issues with various stream types
-- Direct `media_kit` usage provides cleaner architecture and native header support
+**Why the split:**
+- `media_kit` on Android uses libmpv which consumes ~10-15MB more memory than ExoPlayer
+- `just_audio` on Windows doesn't support native httpHeaders without proxy issues
+- Platform-specific backends give the best of both worlds
 
 **Current architecture:**
-- `media_kit` supports `httpHeaders` natively via `Media(url, httpHeaders: headers)`
-- No proxy needed, cleaner code path
-- **Note:** audio-only streams still fail on Windows (libmpv limitation, not proxy-related)
-- YouTube playback uses muxed streams (video+audio) for reliability
+- `AudioService` abstract interface in `lib/services/audio/audio_service.dart`
+- `audioServiceProvider` selects implementation based on `Platform.isAndroid`
+- `MediaKit.ensureInitialized()` only called on desktop platforms
 
 Required initialization in `main.dart`:
 ```dart
-import 'package:media_kit/media_kit.dart';
-
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+// Only desktop platforms need media_kit
+if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
   MediaKit.ensureInitialized();
-  // ...
 }
 ```
 
 **Custom types** (`audio_types.dart`):
-- `FmpAudioProcessingState` - Replaces `just_audio.ProcessingState`
-- `MediaKitPlayerState` - Synthesized from media_kit events
+- `FmpAudioProcessingState` - Unified processing state enum
+- `FmpPlayerState` - Unified player state (renamed from `MediaKitPlayerState`)
+- `FmpAudioDevice` - Platform-agnostic audio device type (only used on desktop)
 
-**Volume conversion**: media_kit uses 0-100 range, app uses 0-1 range. Conversion handled in `MediaKitAudioService`.
+**Volume conversion**: media_kit uses 0-100 range, just_audio uses 0-1 range. Conversion handled in respective Service implementations.
 
 **YouTube Stream Format Priority**:
 1. **Audio-only via androidVr client** - Preferred (lowest bandwidth, no video data)
@@ -648,8 +647,10 @@ lib/
 ├── services/
 │   ├── audio/
 │   │   ├── audio_provider.dart          # AudioController + PlayerState + Providers
-│   │   ├── media_kit_audio_service.dart # Low-level media_kit wrapper
-│   │   ├── audio_types.dart             # FmpAudioProcessingState, MediaKitPlayerState
+│   │   ├── audio_service.dart           # Abstract AudioService interface
+│   │   ├── media_kit_audio_service.dart # Desktop: media_kit (libmpv) implementation
+│   │   ├── just_audio_service.dart      # Android: just_audio (ExoPlayer) implementation
+│   │   ├── audio_types.dart             # FmpAudioProcessingState, FmpPlayerState, FmpAudioDevice
 │   │   ├── audio_handler.dart           # FmpAudioHandler (Android notification via audio_service)
 │   │   └── queue_manager.dart           # Queue, shuffle, loop, persistence
 │   ├── cache/

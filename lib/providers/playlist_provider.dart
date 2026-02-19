@@ -191,12 +191,18 @@ class PlaylistDetailState extends Equatable {
   final Playlist? playlist;
   final List<Track> tracks;
   final bool isLoading;
+  final bool isLoadingMore;
+  final bool hasMore;
+  final int totalTrackCount;
   final String? error;
 
   const PlaylistDetailState({
     this.playlist,
     this.tracks = const [],
     this.isLoading = false,
+    this.isLoadingMore = false,
+    this.hasMore = false,
+    this.totalTrackCount = 0,
     this.error,
   });
 
@@ -204,12 +210,18 @@ class PlaylistDetailState extends Equatable {
     Playlist? playlist,
     List<Track>? tracks,
     bool? isLoading,
+    bool? isLoadingMore,
+    bool? hasMore,
+    int? totalTrackCount,
     String? error,
   }) {
     return PlaylistDetailState(
       playlist: playlist ?? this.playlist,
       tracks: tracks ?? this.tracks,
       isLoading: isLoading ?? this.isLoading,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      hasMore: hasMore ?? this.hasMore,
+      totalTrackCount: totalTrackCount ?? this.totalTrackCount,
       error: error,
     );
   }
@@ -223,7 +235,7 @@ class PlaylistDetailState extends Equatable {
   }
 
   @override
-  List<Object?> get props => [playlist, tracks, isLoading, error];
+  List<Object?> get props => [playlist, tracks, isLoading, isLoadingMore, hasMore, totalTrackCount, error];
 }
 
 /// 歌单详情控制器
@@ -232,16 +244,20 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
   final int playlistId;
   final Ref _ref;
 
+  static const _pageSize = 100;
+
   PlaylistDetailNotifier(this._service, this.playlistId, this._ref)
       : super(const PlaylistDetailState()) {
     loadPlaylist();
   }
 
-  /// 加载歌单详情
+  /// 加载歌单详情（首次加载前 _pageSize 首）
   Future<void> loadPlaylist() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final result = await _service.getPlaylistWithTracks(playlistId);
+      final result = await _service.getPlaylistWithTracksPage(
+        playlistId, offset: 0, limit: _pageSize,
+      );
       if (!mounted) return;
       if (result != null) {
         // Mix 歌單：從 InnerTube API 動態加載 tracks
@@ -250,12 +266,16 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
             playlist: result.playlist,
             tracks: const [],  // 先顯示空列表
             isLoading: true,
+            totalTrackCount: 0,
+            hasMore: false,
           );
           await _loadMixTracks(result.playlist);
         } else {
           state = state.copyWith(
             playlist: result.playlist,
             tracks: result.tracks,
+            totalTrackCount: result.totalTrackCount,
+            hasMore: result.hasMore,
             isLoading: false,
           );
         }
@@ -268,6 +288,32 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
     } catch (e) {
       if (!mounted) return;
       state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  /// 加载更多歌曲
+  Future<void> loadMore() async {
+    if (state.isLoadingMore || !state.hasMore) return;
+    state = state.copyWith(isLoadingMore: true);
+    try {
+      final result = await _service.getPlaylistWithTracksPage(
+        playlistId,
+        offset: state.tracks.length,
+        limit: _pageSize,
+      );
+      if (!mounted) return;
+      if (result != null) {
+        state = state.copyWith(
+          tracks: [...state.tracks, ...result.tracks],
+          hasMore: result.hasMore,
+          isLoadingMore: false,
+        );
+      } else {
+        state = state.copyWith(isLoadingMore: false);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      state = state.copyWith(isLoadingMore: false, error: e.toString());
     }
   }
 
@@ -304,13 +350,21 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
   }
 
   /// 静默刷新歌曲数据（不显示 loading 状态，用于下载完成后更新标记）
+  /// 只刷新已加载的部分，保持分页状态
   Future<void> refreshTracks() async {
     try {
-      final result = await _service.getPlaylistWithTracks(playlistId);
+      final loadedCount = state.tracks.length;
+      final result = await _service.getPlaylistWithTracksPage(
+        playlistId,
+        offset: 0,
+        limit: loadedCount > 0 ? loadedCount : _pageSize,
+      );
       if (!mounted) return;
       if (result != null) {
         state = state.copyWith(
           tracks: result.tracks,
+          totalTrackCount: result.totalTrackCount,
+          hasMore: result.hasMore,
         );
       }
     } catch (_) {
@@ -322,7 +376,10 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
   Future<bool> addTrack(Track track) async {
     try {
       // 乐观更新 UI
-      state = state.copyWith(tracks: [...state.tracks, track]);
+      state = state.copyWith(
+        tracks: [...state.tracks, track],
+        totalTrackCount: state.totalTrackCount + 1,
+      );
 
       await _service.addTrackToPlaylist(playlistId, track);
       if (!mounted) return true;
@@ -344,7 +401,10 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
     try {
       // 乐观更新 UI
       final updatedTracks = state.tracks.where((t) => t.id != trackId).toList();
-      state = state.copyWith(tracks: updatedTracks);
+      state = state.copyWith(
+        tracks: updatedTracks,
+        totalTrackCount: state.totalTrackCount - 1,
+      );
 
       await _service.removeTrackFromPlaylist(playlistId, trackId);
       if (!mounted) return true;
@@ -368,7 +428,11 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
       // 乐观更新 UI
       final idSet = trackIds.toSet();
       final updatedTracks = state.tracks.where((t) => !idSet.contains(t.id)).toList();
-      state = state.copyWith(tracks: updatedTracks);
+      final removedCount = state.tracks.length - updatedTracks.length;
+      state = state.copyWith(
+        tracks: updatedTracks,
+        totalTrackCount: state.totalTrackCount - removedCount,
+      );
 
       await _service.removeTracksFromPlaylist(playlistId, trackIds);
       if (!mounted) return true;

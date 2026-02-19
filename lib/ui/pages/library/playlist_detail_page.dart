@@ -209,10 +209,21 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
               SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
+                    // 接近末尾时触发加载更多
+                    if (index >= groupedTracks.length - 5 && state.hasMore && !state.isLoadingMore) {
+                      ref.read(playlistDetailProvider(widget.playlistId).notifier).loadMore();
+                    }
+                    // 最后一项：加载指示器
+                    if (index == groupedTracks.length) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
                     final group = groupedTracks[index];
                     return _buildGroupItem(context, group);
                   },
-                  childCount: groupedTracks.length,
+                  childCount: groupedTracks.length + (state.hasMore ? 1 : 0),
                 ),
               ),
           ],
