@@ -17,6 +17,7 @@
   "addSuccess": "電台新增成功",
   "add": "新增",
   "syncLive": "同步直播",
+  "reloadLive": "重新載入直播",
   "info": "資訊",
   "noPlaying": "沒有正在播放的電台",
   "unknownStation": "未知電台",

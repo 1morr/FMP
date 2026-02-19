@@ -307,7 +307,25 @@ class JustAudioService extends FmpAudioService with Logging {
 
   @override
   Future<bool> seekToLive() async {
-    // just_audio 不支持直播流 seek
+    // 策略 1：用 duration（有些流会提供）
+    final currentDuration = _player.duration;
+    if (currentDuration != null && currentDuration.inSeconds >= 5) {
+      final targetPosition = currentDuration - const Duration(seconds: 1);
+      logInfo('seekToLive: seeking to $targetPosition (duration: $currentDuration)');
+      await _player.seek(targetPosition);
+      return true;
+    }
+
+    // 策略 2：用 bufferedPosition（直播流通常 duration 为 null，但 bufferedPosition 可用）
+    final buffered = _player.bufferedPosition;
+    if (buffered.inSeconds >= 5) {
+      final targetPosition = buffered - const Duration(seconds: 1);
+      logInfo('seekToLive: seeking to buffered edge $targetPosition (buffered: $buffered)');
+      await _player.seek(targetPosition);
+      return true;
+    }
+
+    logInfo('seekToLive: no seekable range (duration: $currentDuration, buffered: $buffered)');
     return false;
   }
 

@@ -1665,7 +1665,7 @@ class _RadioDetailContent extends ConsumerWidget {
     );
   }
 
-  /// 同步按钮
+  /// 刷新直播按钮
   Widget _buildSyncButton(
     RadioController controller,
     ColorScheme colorScheme,
@@ -1673,15 +1673,15 @@ class _RadioDetailContent extends ConsumerWidget {
     final isDisabled = radioState.isBuffering || radioState.isLoading || !radioState.isPlaying;
 
     return IconButton(
-      onPressed: isDisabled ? null : () => controller.sync(),
+      onPressed: isDisabled ? null : () => controller.reload(),
       icon: Icon(
-        Icons.sync,
+        Icons.refresh,
         size: 20,
         color: isDisabled
             ? colorScheme.onSurfaceVariant.withValues(alpha: 0.38)
             : colorScheme.primary,
       ),
-      tooltip: t.trackDetail.syncLive,
+      tooltip: t.trackDetail.reloadLive,
       visualDensity: VisualDensity.compact,
     );
   }

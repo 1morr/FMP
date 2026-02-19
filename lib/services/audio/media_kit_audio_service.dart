@@ -494,7 +494,19 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     final targetPosition = currentDuration - const Duration(seconds: 1);
     logDebug('seekToLive: seeking to $targetPosition (duration: $currentDuration)');
     
+    final positionBefore = _position;
     await _player.seek(targetPosition);
+    
+    // 等待一小段時間讓 seek 生效，然後檢查 position 是否真的變了
+    await Future.delayed(const Duration(milliseconds: 300));
+    final positionAfter = _position;
+    final seekWorked = (positionAfter - positionBefore).abs() > const Duration(seconds: 1);
+    
+    if (!seekWorked) {
+      logInfo('seekToLive: seek had no effect (before: $positionBefore, after: $positionAfter), stream not seekable');
+      return false;
+    }
+    
     return true;
   }
 

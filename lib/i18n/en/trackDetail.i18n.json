@@ -15,6 +15,7 @@
   "isLive": "Live",
   "isStopped": "Stopped",
   "syncLive": "Sync live",
+  "reloadLive": "Reload live",
   "tags": "Tags",
   "justNow": "Just now"
 }

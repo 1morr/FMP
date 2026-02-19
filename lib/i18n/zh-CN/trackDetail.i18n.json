@@ -15,6 +15,7 @@
   "isLive": "直播中",
   "isStopped": "已停止",
   "syncLive": "同步直播",
+  "reloadLive": "刷新直播",
   "tags": "标签",
   "justNow": "刚刚"
 }
