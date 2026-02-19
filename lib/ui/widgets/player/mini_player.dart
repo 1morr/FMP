@@ -2,7 +2,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:media_kit/media_kit.dart' show AudioDevice;
+import 'package:fmp/services/audio/audio_types.dart' show FmpAudioDevice;
 import 'package:fmp/i18n/strings.g.dart';
 import '../../../core/utils/icon_helpers.dart';
 import '../../../data/models/play_queue.dart';
@@ -413,7 +413,7 @@ class _MiniPlayerVolumeControl extends ConsumerWidget {
     // 只监听音量和音频设备
     final volume = ref.watch(audioControllerProvider.select((s) => s.volume));
     final audioDevices = ref.watch(audioControllerProvider.select((s) => s.audioDevices));
-    final currentAudioDevice = ref.watch(audioControllerProvider.select((s) => s.currentAudioDevice));
+    final currentFmpAudioDevice = ref.watch(audioControllerProvider.select((s) => s.currentAudioDevice));
 
     final controller = ref.read(audioControllerProvider.notifier);
     final screenWidth = MediaQuery.of(context).size.width;
@@ -424,7 +424,7 @@ class _MiniPlayerVolumeControl extends ConsumerWidget {
       children: [
         // 音频设备选择器
         if (audioDevices.length > 1)
-          _buildAudioDeviceSelector(context, audioDevices, currentAudioDevice, controller),
+          _buildFmpAudioDeviceSelector(context, audioDevices, currentFmpAudioDevice, controller),
 
         // 音量控制
         if (isNarrow)
@@ -435,10 +435,10 @@ class _MiniPlayerVolumeControl extends ConsumerWidget {
     );
   }
 
-  Widget _buildAudioDeviceSelector(
+  Widget _buildFmpAudioDeviceSelector(
     BuildContext context,
-    List<AudioDevice> devices,
-    AudioDevice? currentDevice,
+    List<FmpAudioDevice> devices,
+    FmpAudioDevice? currentDevice,
     AudioController controller,
   ) {
     const menuWidth = 220.0;
@@ -499,7 +499,7 @@ class _MiniPlayerVolumeControl extends ConsumerWidget {
     );
   }
 
-  String _formatDeviceName(AudioDevice device) {
+  String _formatDeviceName(FmpAudioDevice device) {
     final displayName = device.description.isNotEmpty ? device.description : device.name;
 
     final match = RegExp(r'喇叭\s*\((.+)\)$').firstMatch(displayName);

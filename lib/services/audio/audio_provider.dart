@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:media_kit/media_kit.dart' show AudioDevice;
+// AudioDevice replaced by FmpAudioDevice from audio_types.dart
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/settings.dart';
@@ -25,7 +25,9 @@ import '../../main.dart' show audioHandler, windowsSmtcHandler;
 import 'audio_handler.dart';
 import 'windows_smtc_handler.dart';
 import 'audio_types.dart';
+import 'audio_service.dart';
 import 'media_kit_audio_service.dart';
+import 'just_audio_service.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'queue_manager.dart';
 import '../network/connectivity_service.dart';
@@ -84,9 +86,9 @@ class PlayerState {
 
   // ========== 音频输出设备 ==========
   /// 可用音频输出设备列表
-  final List<AudioDevice> audioDevices;
+  final List<FmpAudioDevice> audioDevices;
   /// 当前音频输出设备
-  final AudioDevice? currentAudioDevice;
+  final FmpAudioDevice? currentAudioDevice;
 
   const PlayerState({
     this.isPlaying = false,
@@ -180,8 +182,8 @@ class PlayerState {
     String? currentContainer,
     String? currentCodec,
     StreamType? currentStreamType,
-    List<AudioDevice>? audioDevices,
-    AudioDevice? currentAudioDevice,
+    List<FmpAudioDevice>? audioDevices,
+    FmpAudioDevice? currentAudioDevice,
   }) {
     return PlayerState(
       isPlaying: isPlaying ?? this.isPlaying,
@@ -353,7 +355,7 @@ class _MixPlaylistState {
 /// 音频控制器 - 管理所有播放相关的状态和操作
 /// 协调 AudioService（单曲播放）和 QueueManager（队列管理）
 class AudioController extends StateNotifier<PlayerState> with Logging {
-  final MediaKitAudioService _audioService;
+  final FmpAudioService _audioService;
   final QueueManager _queueManager;
   final ToastService _toastService;
   final FmpAudioHandler _audioHandler;
@@ -409,7 +411,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   StreamSubscription<void>? _networkRecoverySubscription;
 
   AudioController({
-    required MediaKitAudioService audioService,
+    required FmpAudioService audioService,
     required QueueManager queueManager,
     required ToastService toastService,
     required FmpAudioHandler audioHandler,
@@ -1296,7 +1298,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   // ========== 音频输出设备 ========== //
 
   /// 设置音频输出设备
-  Future<void> setAudioDevice(AudioDevice device) async {
+  Future<void> setAudioDevice(FmpAudioDevice device) async {
     await _audioService.setAudioDevice(device);
   }
 
@@ -2247,7 +2249,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     }
   }
 
-  void _onPlayerStateChanged(MediaKitPlayerState playerState) {
+  void _onPlayerStateChanged(FmpPlayerState playerState) {
     logDebug('PlayerState changed: playing=${playerState.playing}, processingState=${playerState.processingState}');
     state = state.copyWith(
       isPlaying: playerState.playing,
@@ -2321,12 +2323,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     state = state.copyWith(speed: speed);
   }
 
-  void _onAudioDevicesChanged(List<AudioDevice> devices) {
+  void _onAudioDevicesChanged(List<FmpAudioDevice> devices) {
     logDebug('Audio devices updated: ${devices.length} devices');
     state = state.copyWith(audioDevices: devices);
   }
 
-  void _onAudioDeviceChanged(AudioDevice? device) {
+  void _onAudioDeviceChanged(FmpAudioDevice? device) {
     logDebug('Current audio device: ${device?.name ?? "auto"}');
     state = state.copyWith(currentAudioDevice: device);
   }
@@ -2439,9 +2441,16 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
 // ========== Providers ==========
 
-/// AudioService Provider
-final audioServiceProvider = Provider<MediaKitAudioService>((ref) {
-  final service = MediaKitAudioService();
+/// AudioService Provider（平台条件选择）
+/// Android/iOS: JustAudioService (ExoPlayer, 更轻量)
+/// Windows/Linux: MediaKitAudioService (libmpv, 支持设备切换)
+final audioServiceProvider = Provider<FmpAudioService>((ref) {
+  final FmpAudioService service;
+  if (Platform.isAndroid || Platform.isIOS) {
+    service = JustAudioService();
+  } else {
+    service = MediaKitAudioService();
+  }
   ref.onDispose(() => service.dispose());
   return service;
 });

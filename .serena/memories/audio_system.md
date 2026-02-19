@@ -676,24 +676,33 @@ void main() async {
 - `_updatePlayingTrack()` 同步更新媒体信息
 - `_onPlayerStateChanged()` / `_onPositionChanged()` 同步更新播放状态
 
-### 音频后端
+### 音频后端（平台分离架构 2026-02）
 
-**直接使用 `media_kit`（不通过 `just_audio`）**
+**抽象接口 `AudioService`** (`lib/services/audio/audio_service.dart`):
+- 定义统一的音频播放接口
+- Android: `JustAudioService` (ExoPlayer, 更轻量，省 ~10-15MB 内存)
+- Windows/Linux: `MediaKitAudioService` (libmpv, 支持设备切换)
 
-之前的 `just_audio` + `just_audio_media_kit` 方案已被替换。原因：
-- `just_audio_media_kit` 在传递 headers 时创建本地 HTTP 代理
-- 该代理对所有 audio-only 流都有问题，只有 muxed 流能工作
-
-**现在的方案：**
-- `media_kit` 原生支持 `httpHeaders`（通过 `Media(url, httpHeaders: headers)`）
-- 无需代理，所有流类型都能正常工作
-- YouTube 播放现在优先使用 audio-only 流（带宽更低）
+**平台选择** (`audioServiceProvider`):
+```dart
+if (Platform.isAndroid || Platform.isIOS) {
+  service = JustAudioService();
+} else {
+  service = MediaKitAudioService();
+}
+```
 
 **自定义类型** (`audio_types.dart`):
-- `FmpAudioProcessingState` - 替代 `just_audio.ProcessingState`
-- `MediaKitPlayerState` - 从 media_kit 事件合成
+- `FmpAudioProcessingState` - 统一的处理状态枚举
+- `FmpPlayerState` - 统一的播放器状态（原 `MediaKitPlayerState`，2026-02 重命名）
+- `FmpAudioDevice` - 平台无关的音频设备类型（仅 Windows/Linux 实际使用）
 
-**音量转换**：media_kit 使用 0-100 范围，应用使用 0-1 范围。转换在 `MediaKitAudioService` 中处理。
+**音量转换**：media_kit 使用 0-100 范围，just_audio 使用 0-1 范围。转换在各自 Service 中处理。
+
+**关键差异**：
+- `JustAudioService` 不支持音频设备切换（`audioDevicesStream` 发射空列表）
+- `JustAudioService` 不支持 `seekToLive()`（返回 false）
+- `MediaKit.ensureInitialized()` 仅在桌面平台调用
 
 **YouTube 流优先级（2026-02 更新）**：
 1. **Audio-only via androidVr client** - 优先使用（带宽最低，无视频数据）

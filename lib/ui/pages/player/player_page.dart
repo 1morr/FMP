@@ -3,7 +3,7 @@ import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:media_kit/media_kit.dart' show AudioDevice;
+import 'package:fmp/services/audio/audio_types.dart' show FmpAudioDevice;
 import '../../../core/extensions/track_extensions.dart';
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/utils/duration_formatter.dart';
@@ -77,7 +77,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         actions: [
           // 桌面端音频输出设备选择
           if (isDesktop && playerState.audioDevices.length > 1)
-            _buildAudioDeviceSelector(context, playerState, controller, colorScheme),
+            _buildFmpAudioDeviceSelector(context, playerState, controller, colorScheme),
           // 桌面端音量控制（紧凑版）
           if (isDesktop)
             _buildCompactVolumeControl(context, playerState, controller, colorScheme),
@@ -547,7 +547,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   }
 
   /// 音频输出设备选择器（AppBar用，仅桌面端）
-  Widget _buildAudioDeviceSelector(
+  Widget _buildFmpAudioDeviceSelector(
     BuildContext context,
     PlayerState state,
     AudioController controller,
@@ -619,23 +619,23 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   }
 
   /// 格式化设备名称
-  String _formatDeviceName(AudioDevice device) {
+  String _formatDeviceName(FmpAudioDevice device) {
     // 优先使用 description（人类可读名称），如果为空则使用 name
     final displayName = device.description.isNotEmpty ? device.description : device.name;
-    
+
     // Windows 设备名称格式通常是 "喇叭 (设备名称)"，提取括号内的实际设备名
     // 但要排除像 "(R)" 这样的商标符号
     final match = RegExp(r'喇叭\s*\((.+)\)$').firstMatch(displayName);
     if (match != null) {
       return match.group(1) ?? displayName;
     }
-    
+
     // 英文格式 "Speakers (Device Name)"
     final matchEn = RegExp(r'Speakers?\s*\((.+)\)$', caseSensitive: false).firstMatch(displayName);
     if (matchEn != null) {
       return matchEn.group(1) ?? displayName;
     }
-    
+
     return displayName;
   }
 

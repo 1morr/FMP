@@ -81,6 +81,27 @@ class PlaylistService with Logging {
     return PlaylistWithTracks(playlist: playlist, tracks: tracks);
   }
 
+  /// 获取歌单及分页歌曲
+  Future<PlaylistWithTracks?> getPlaylistWithTracksPage(
+    int playlistId, {
+    int offset = 0,
+    int limit = 100,
+  }) async {
+    final playlist = await _playlistRepository.getById(playlistId);
+    if (playlist == null) return null;
+
+    final trackIds = playlist.trackIds;
+    final pageIds = trackIds.skip(offset).take(limit).toList();
+    final tracks = await _trackRepository.getByIds(pageIds);
+
+    return PlaylistWithTracks(
+      playlist: playlist,
+      tracks: tracks,
+      totalTrackCount: trackIds.length,
+      hasMore: offset + limit < trackIds.length,
+    );
+  }
+
   /// 创建新歌单
   Future<Playlist> createPlaylist({
     required String name,
@@ -564,13 +585,17 @@ class PlaylistService with Logging {
 class PlaylistWithTracks {
   final Playlist playlist;
   final List<Track> tracks;
+  final int totalTrackCount;
+  final bool hasMore;
 
   const PlaylistWithTracks({
     required this.playlist,
     required this.tracks,
-  });
+    int? totalTrackCount,
+    this.hasMore = false,
+  }) : totalTrackCount = totalTrackCount ?? tracks.length;
 
-  int get trackCount => tracks.length;
+  int get trackCount => totalTrackCount;
 
   Duration get totalDuration {
     int totalMs = 0;

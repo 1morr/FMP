@@ -105,7 +105,9 @@
 ### Services
 | 服务 | 文件 | 职责 |
 |------|------|------|
-| MediaKitAudioService | `services/audio/media_kit_audio_service.dart` | 底层音频播放（封装 media_kit） |
+| AudioService (abstract) | `services/audio/audio_service.dart` | 音频播放抽象接口 |
+| MediaKitAudioService | `services/audio/media_kit_audio_service.dart` | 桌面端音频播放（封装 media_kit） |
+| JustAudioService | `services/audio/just_audio_service.dart` | Android 音频播放（封装 just_audio，省内存） |
 | AudioController | `services/audio/audio_provider.dart` | 高层音频控制（UI 使用） |
 | QueueManager | `services/audio/queue_manager.dart` | 播放队列管理 |
 | FmpAudioHandler | `services/audio/audio_handler.dart` | Android 媒体通知控制（audio_service） |
