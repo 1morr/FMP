@@ -17,6 +17,7 @@
   "addSuccess": "Station added successfully",
   "add": "Add",
   "syncLive": "Sync Live",
+  "reloadLive": "Reload Live",
   "info": "Info",
   "noPlaying": "No station playing",
   "unknownStation": "Unknown station",

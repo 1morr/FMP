@@ -47,8 +47,8 @@ class RadioPlayerPage extends ConsumerWidget {
             icon: const Icon(Icons.more_vert),
             offset: const Offset(0, 48),
             onSelected: (value) {
-              if (value == 'sync') {
-                radioController.sync();
+              if (value == 'reload') {
+                radioController.reload();
               } else if (value == 'info') {
                 Future.delayed(AnimationDurations.fastest, () {
                   if (!context.mounted) return;
@@ -60,18 +60,18 @@ class RadioPlayerPage extends ConsumerWidget {
               final isDisabled = radioState.isBuffering || radioState.isLoading || !radioState.isPlaying;
               return [
                 PopupMenuItem(
-                  value: 'sync',
+                  value: 'reload',
                   enabled: !isDisabled,
                   child: Row(
                     children: [
                       Icon(
-                        Icons.sync,
+                        Icons.refresh,
                         size: 20,
                         color: isDisabled ? colorScheme.onSurfaceVariant.withValues(alpha: 0.38) : null,
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        t.radio.syncLive,
+                        t.radio.reloadLive,
                         style: isDisabled
                             ? TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.38))
                             : null,
