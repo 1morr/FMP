@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:audio_service/audio_service.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import '../../core/logger.dart';
+import '../../data/models/radio_station.dart';
 import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
 import 'audio_types.dart';
@@ -72,6 +73,18 @@ class FmpAudioHandler extends BaseAudioHandler with SeekHandler, Logging {
     );
     mediaItem.add(item);
     logDebug('Updated media item: ${track.title}');
+  }
+
+  /// 更新当前播放的电台
+  void updateCurrentRadioStation(RadioStation station) {
+    final item = MediaItem(
+      id: 'radio_${station.id}',
+      title: station.title,
+      artist: t.smtc.liveRadio,
+      artUri: station.thumbnailUrl != null ? Uri.parse(station.thumbnailUrl!) : null,
+    );
+    mediaItem.add(item);
+    logDebug('Updated media item for radio: ${station.title}');
   }
 
   /// 更新播放状态
