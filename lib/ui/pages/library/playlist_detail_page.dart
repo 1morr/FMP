@@ -857,18 +857,22 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
 
   void _playAll(List<Track> tracks, BuildContext context) async {
     final controller = ref.read(audioControllerProvider.notifier);
-    final added = await controller.addAllToQueue(tracks);
+    // 获取完整歌曲列表（懒加载可能只加载了部分）
+    final allTracks = await ref.read(playlistDetailProvider(widget.playlistId).notifier).getAllTracks();
+    final added = await controller.addAllToQueue(allTracks);
     if (added && context.mounted) {
-      ToastService.success(context, t.library.addedToQueue(n: tracks.length));
+      ToastService.success(context, t.library.addedToQueue(n: allTracks.length));
     }
   }
 
   void _shufflePlay(List<Track> tracks, BuildContext context) async {
     final controller = ref.read(audioControllerProvider.notifier);
-    final shuffled = List<Track>.from(tracks)..shuffle();
+    // 获取完整歌曲列表（懒加载可能只加载了部分）
+    final allTracks = await ref.read(playlistDetailProvider(widget.playlistId).notifier).getAllTracks();
+    final shuffled = List<Track>.from(allTracks)..shuffle();
     final added = await controller.addAllToQueue(shuffled);
     if (added && context.mounted) {
-      ToastService.success(context, t.library.shuffledAddedToQueue(n: tracks.length));
+      ToastService.success(context, t.library.shuffledAddedToQueue(n: shuffled.length));
     }
   }
 
