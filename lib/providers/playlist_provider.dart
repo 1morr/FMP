@@ -317,6 +317,14 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
     }
   }
 
+  /// 获取歌单的所有歌曲（用于 playAll、addAllToQueue 等全量操作）
+  /// 如果已全部加载则直接返回 state.tracks，否则从 service 获取完整列表
+  Future<List<Track>> getAllTracks() async {
+    if (!state.hasMore) return state.tracks;
+    final result = await _service.getPlaylistWithTracks(playlistId);
+    return result?.tracks ?? state.tracks;
+  }
+
   /// 從 InnerTube API 加載 Mix 播放列表的 tracks
   Future<void> _loadMixTracks(Playlist playlist) async {
     try {
