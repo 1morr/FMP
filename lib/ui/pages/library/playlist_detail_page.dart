@@ -751,7 +751,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                         ],
                         const SizedBox(height: 8),
                         Text(
-                          '${t.library.trackCountSongs(n: state.tracks.length)} · ${DurationFormatter.formatLong(state.totalDuration)}',
+                          '${t.library.trackCountSongs(n: state.totalTrackCount)} · ${DurationFormatter.formatLong(state.totalDuration)}',
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: Colors.white60,
