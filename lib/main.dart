@@ -51,8 +51,9 @@ void main(List<String> args) async {
   };
 
   runZonedGuarded(() async {
-    // 初始化 Marionette（仅 debug 模式，用于 AI 代理运行时交互）
-    if (kDebugMode) {
+    // 初始化 Marionette（debug + profile 模式，用于 AI 代理运行时交互）
+    // kReleaseMode 为 false 时包含 debug 和 profile 两种模式
+    if (!kReleaseMode) {
       MarionetteBinding.ensureInitialized();
     } else {
       WidgetsFlutterBinding.ensureInitialized();
