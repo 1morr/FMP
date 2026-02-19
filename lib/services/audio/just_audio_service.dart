@@ -57,9 +57,6 @@ class JustAudioService extends FmpAudioService with Logging {
   final _audioDevicesController = BehaviorSubject<List<FmpAudioDevice>>.seeded([]);
   final _audioDeviceController = BehaviorSubject<FmpAudioDevice?>.seeded(null);
 
-  // 用于取消 _ensurePlayback 的重试逻辑
-  bool _playbackCancelled = false;
-
   // ========== 状态流 ==========
   @override
   Stream<FmpPlayerState> get playerStateStream => _playerStateController.stream;
@@ -265,13 +262,11 @@ class JustAudioService extends FmpAudioService with Logging {
 
   @override
   Future<void> pause() async {
-    _cancelEnsurePlayback();
     await _player.pause();
   }
 
   @override
   Future<void> stop() async {
-    _cancelEnsurePlayback();
     await _player.stop();
     // 释放音频焦点
     await _session.setActive(false);
@@ -350,10 +345,6 @@ class JustAudioService extends FmpAudioService with Logging {
 
   // ========== 音频源设置 ==========
 
-  void _cancelEnsurePlayback() {
-    _playbackCancelled = true;
-  }
-
   /// 等待播放器进入 idle 状态
   Future<void> _waitForIdle() async {
     if (_player.processingState == ja.ProcessingState.idle) return;
@@ -370,40 +361,7 @@ class JustAudioService extends FmpAudioService with Logging {
     }
   }
 
-  /// 确保播放开始
-  Future<void> _ensurePlayback() async {
-    _playbackCancelled = false;
 
-    int attempts = 0;
-    const maxAttempts = 50;
-
-    while (attempts < maxAttempts) {
-      if (_playbackCancelled) {
-        logDebug('Playback cancelled, not calling play()');
-        return;
-      }
-
-      final state = _mapProcessingState(_player.processingState);
-      if (state == FmpAudioProcessingState.ready) break;
-      if (state == FmpAudioProcessingState.idle && attempts > 5) {
-        logError('Stream failed to open: player in idle state after setAudioSource()');
-        throw Exception('Stream failed to open');
-      }
-
-      await Future.delayed(const Duration(milliseconds: 100));
-      attempts++;
-    }
-
-    if (_playbackCancelled) {
-      logDebug('Playback cancelled, not calling play()');
-      return;
-    }
-
-    if (!_player.playing) {
-      await _player.play();
-    }
-    logDebug('_ensurePlayback completed, playing: ${_player.playing}');
-  }
 
   @override
   Future<Duration?> playUrl(String url, {Map<String, String>? headers, Track? track}) async {
@@ -435,9 +393,13 @@ class JustAudioService extends FmpAudioService with Logging {
 
       logDebug('URL loaded successfully, duration: $duration');
 
-      await _ensurePlayback();
+      // 使用 unawaited play() — just_audio 的 play() 会等待平台播放请求完成才返回，
+      // 这可能阻塞数秒（特别是首次播放）。不 await 让 playUrl() 尽快返回，
+      // 使 AudioController._exitLoadingState() 及时被调用，避免 UI 卡在加载状态。
+      // play() 内部会立即通过 _playingSubject.add(true) 广播播放状态。
+      unawaited(_player.play());
 
-      logDebug('Playback started, duration: $duration, playing: ${_player.playing}');
+      logDebug('Play requested, duration: $duration');
       return duration;
     } catch (e, stack) {
       logError('Failed to play URL', e, stack);
@@ -485,9 +447,10 @@ class JustAudioService extends FmpAudioService with Logging {
       final source = ja.AudioSource.file(filePath);
       final duration = await _player.setAudioSource(source);
 
-      await _ensurePlayback();
+      // 与 playUrl() 同理，不 await play()
+      unawaited(_player.play());
 
-      logDebug('File playback started, duration: $duration, playing: ${_player.playing}');
+      logDebug('File play requested, duration: $duration');
       return duration;
     } catch (e, stack) {
       logError('Failed to play file', e, stack);

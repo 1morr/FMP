@@ -927,6 +927,58 @@ static void RegisterPluginsForSubWindow(flutter::PluginRegistry* registry) {
 
 ---
 
+### 26. JustAudioService 的 play() 阻塞导致 UI 卡在加载状态 (2026-02)
+
+**问题**：Android 端（JustAudioService）播放歌曲时，明明已经在播放了，但播放按钮仍显示加载中，进度条也停在开头。第一首歌尤其明显。
+
+**根本原因**：`just_audio` 的 `play()` 方法内部有 `await playCompleter.future`（just_audio.dart line 975），会等待平台播放请求完全完成才返回。第一次播放时需要激活 AudioSession、初始化 ExoPlayer 平台通道等，可能阻塞数秒。
+
+**时序分析**：
+```
+_executePlayRequest()
+├─ _enterLoadingState()  → _context.isInLoadingState = true
+├─ await _audioService.playUrl()
+│  ├─ await _player.setAudioSource()  ← 阻塞：等待 ExoPlayer 加载
+│  └─ await _player.play()            ← 阻塞：等待平台播放请求完成
+│     └─ 内部立即广播 playing=true，但 Future 要等平台确认
+│     └─ 此时 ExoPlayer 已经在播放，位置在更新
+│     └─ 但 _onPositionChanged() 检查 isInLoadingState → return（丢弃！）
+│     └─ _onPlayerStateChanged() 中 isLoading = isInLoadingState || ... = true
+├─ _exitLoadingState()  ← 要等 play() 返回才能执行！
+└─ 此时 UI 才更新为非加载状态
+```
+
+对比 `MediaKitAudioService`：`_player.open()` 几乎立即返回 ready 状态，`play()` 也很快完成，所以 `_exitLoadingState()` 能及时被调用。
+
+**修复**：`playUrl()` 和 `playFile()` 中使用 `unawaited(_player.play())` 代替 `await _player.play()`。
+
+```dart
+// ❌ 错误 - play() 阻塞导致 _exitLoadingState() 延迟
+final duration = await _player.setAudioSource(source);
+await _player.play();  // 阻塞数秒
+return duration;
+// _exitLoadingState() 在这之后才能执行
+
+// ✅ 正确 - 不等待 play()，让 playUrl() 尽快返回
+final duration = await _player.setAudioSource(source);
+unawaited(_player.play());  // fire-and-forget
+return duration;
+// _exitLoadingState() 立即执行
+```
+
+**为什么安全**：
+- `play()` 内部会立即通过 `_playingSubject.add(true)` 广播播放状态
+- ExoPlayer 会自行管理缓冲和播放启动
+- `AudioController` 通过 stream 监听播放状态变化，不依赖 `play()` 的返回
+- 同时移除了不再需要的 `_ensurePlayback()` 轮询逻辑和 `_playbackCancelled` 字段
+
+**经验**：
+- 不同音频后端的 `play()` 语义不同：media_kit 几乎立即返回，just_audio 等待平台确认
+- 当 `AudioController` 使用 `_context.isInLoadingState` 阻塞位置更新时，底层 service 的 `play()` 不应该长时间阻塞
+- 抽象接口的实现需要保证相似的时序特性，否则上层的状态管理逻辑会出问题
+
+---
+
 ## 封面图片优先级
 
 1. 本地封面 (`track.localCoverPath` → `{dir}/cover.jpg`)
