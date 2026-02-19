@@ -126,3 +126,4 @@ docs/build-and-release.md
 .playwright-mcp/
 .vscode/settings.json
 .vscode/launch.json
+devtools_home.png
