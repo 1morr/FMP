@@ -276,8 +276,8 @@ class RadioSource with Logging {
       queryParameters: {
         'cid': realRoomId,
         'platform': 'web',
-        'quality': 4, // 原畫質量
-        'qn': 10000,
+        'quality': 2, // 流暢畫質（我們只需要音頻，低畫質 = 低總碼率 = 更少內存）
+        'qn': 80, // 80=流暢360p (~0.5-1Mbps) vs 10000=原畫 (~6-10Mbps)
       },
     );
 
