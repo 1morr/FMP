@@ -37,8 +37,14 @@ final titleParserProvider = Provider<TitleParser>((ref) => RegexTitleParser());
 
 /// LyricsCacheService 单例
 final lyricsCacheServiceProvider = Provider<LyricsCacheService>((ref) {
+  final settingsRepo = ref.watch(settingsRepositoryProvider);
   final service = LyricsCacheService();
-  service.initialize();
+  service.initialize(
+    initialMaxCacheFiles: () async {
+      final settings = await settingsRepo.get();
+      return settings.maxLyricsCacheFiles;
+    },
+  );
   return service;
 });
 
