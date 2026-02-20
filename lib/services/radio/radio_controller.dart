@@ -325,6 +325,8 @@ class RadioController extends StateNotifier<RadioState> with Logging {
           await stop();
         }
       };
+      // 讓 AudioController 知道電台是否正在播放，避免電台斷流時誤觸發隊列播放
+      audioController.isRadioPlaying = () => state.hasCurrentStation;
     } catch (e) {
       // AudioController 可能尚未初始化
     }

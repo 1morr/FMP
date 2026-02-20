@@ -392,6 +392,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 播放開始前的回調（用於互斥機制，如停止電台播放）
   Future<void> Function()? onPlaybackStarting;
 
+  /// 檢查電台是否正在播放（由 RadioController 設置，用於避免電台斷流時誤觸發隊列播放）
+  bool Function()? isRadioPlaying;
+
   /// 歌词自动匹配状态回调（用于 UI 显示加载动画）
   void Function(bool isMatching)? onLyricsAutoMatchStateChanged;
 
@@ -2250,6 +2253,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   void _onPlayerStateChanged(FmpPlayerState playerState) {
+    // 電台播放中的狀態變化由 RadioController 處理，AudioController 不應更新自身狀態
+    if (isRadioPlaying?.call() == true) return;
+
     logDebug('PlayerState changed: playing=${playerState.playing}, processingState=${playerState.processingState}');
     state = state.copyWith(
       isPlaying: playerState.playing,
@@ -2282,6 +2288,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   void _onPositionChanged(Duration position) {
+    // 電台播放中的位置變化與音樂播放器無關
+    if (isRadioPlaying?.call() == true) return;
     // 加载期间忽略位置更新（防止旧歌曲的位置覆盖已重置的进度条）
     if (_context.isInLoadingState) return;
 
@@ -2312,10 +2320,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   void _onDurationChanged(Duration? duration) {
+    if (isRadioPlaying?.call() == true) return;
     state = state.copyWith(duration: duration);
   }
 
   void _onBufferedPositionChanged(Duration bufferedPosition) {
+    if (isRadioPlaying?.call() == true) return;
     state = state.copyWith(bufferedPosition: bufferedPosition);
   }
 
@@ -2336,6 +2346,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   void _onTrackCompleted(void _) {
     // 防止重复处理
     if (_isHandlingCompletion) return;
+
+    // 電台播放中的流結束由 RadioController 自行處理（重連等），AudioController 不應介入
+    if (isRadioPlaying?.call() == true) {
+      logDebug('Track completed ignored: radio is playing');
+      return;
+    }
+
     _isHandlingCompletion = true;
 
     logDebug('Track completed, loopMode: ${_queueManager.loopMode}, shuffle: ${_queueManager.isShuffleEnabled}, isPlayingOutOfQueue: $_isPlayingOutOfQueue');
