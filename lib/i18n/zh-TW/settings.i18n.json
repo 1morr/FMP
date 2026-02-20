@@ -207,6 +207,15 @@
     "clearConfirm": "清除所有快取的歌詞？需要時會重新下載。",
     "cacheCleared": "歌詞快取已清除"
   },
+  "refreshInterval": {
+    "title": "重新整理間隔",
+    "rankingTitle": "排行榜重新整理間隔",
+    "rankingSubtitle": "$interval",
+    "radioTitle": "電台狀態重新整理間隔",
+    "radioSubtitle": "$interval",
+    "minutes": "$n 分鐘",
+    "hours": "$n 小時"
+  },
   "tray": {
     "title": "最小化到系統列",
     "subtitle": "關閉視窗時最小化到系統列"

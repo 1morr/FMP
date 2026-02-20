@@ -207,6 +207,15 @@
     "clearConfirm": "Clear all cached lyrics? They will be re-downloaded when needed.",
     "cacheCleared": "Lyrics cache cleared"
   },
+  "refreshInterval": {
+    "title": "Refresh Interval",
+    "rankingTitle": "Ranking refresh interval",
+    "rankingSubtitle": "$interval",
+    "radioTitle": "Radio status refresh interval",
+    "radioSubtitle": "$interval",
+    "minutes": "$n min",
+    "hours": "$n hr"
+  },
   "tray": {
     "title": "Minimize to tray",
     "subtitle": "Minimize to system tray when closing window"

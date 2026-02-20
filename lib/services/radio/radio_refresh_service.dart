@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../data/models/radio_station.dart';
 import '../../data/repositories/radio_repository.dart';
 import 'radio_source.dart';
@@ -21,6 +20,7 @@ class RadioRefreshService {
 
   RadioRepository? _repository;
   final RadioSource _radioSource;
+  Duration _refreshInterval;
 
   Timer? _refreshTimer;
 
@@ -33,7 +33,9 @@ class RadioRefreshService {
 
   RadioRefreshService({
     RadioSource? radioSource,
-  }) : _radioSource = radioSource ?? RadioSource();
+    Duration? refreshInterval,
+  })  : _radioSource = radioSource ?? RadioSource(),
+        _refreshInterval = refreshInterval ?? const Duration(minutes: 5);
 
   /// 緩存的直播狀態
   Map<int, bool> get liveStatus => _liveStatus;
@@ -58,9 +60,16 @@ class RadioRefreshService {
   /// 啟動定時刷新
   void _startRefreshTimer() {
     _refreshTimer?.cancel();
-    _refreshTimer = Timer.periodic(AppConstants.radioRefreshInterval, (_) {
+    _refreshTimer = Timer.periodic(_refreshInterval, (_) {
       refreshAll();
     });
+  }
+
+  /// 更新刷新間隔（重啟定時器）
+  void updateRefreshInterval(Duration interval) {
+    _refreshInterval = interval;
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(interval, (_) => refreshAll());
   }
 
   /// 刷新所有電台的直播狀態

@@ -91,6 +91,16 @@ Future<void> _migrateDatabase(Isar isar) async {
         needsUpdate = true;
       }
 
+      // 修复刷新间隔（旧版本可能是 0）
+      if (settings.rankingRefreshIntervalMinutes < 1) {
+        settings.rankingRefreshIntervalMinutes = 60;
+        needsUpdate = true;
+      }
+      if (settings.radioRefreshIntervalMinutes < 1) {
+        settings.radioRefreshIntervalMinutes = 5;
+        needsUpdate = true;
+      }
+
       if (needsUpdate) {
         await isar.settings.put(settings);
       }

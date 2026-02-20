@@ -159,6 +159,14 @@ class Settings {
   /// 自动匹配和搜索时跳过这些源
   String disabledLyricsSources = 'lrclib';
 
+  // ========== 刷新间隔设置 ==========
+
+  /// 排行榜缓存刷新间隔（分钟），默认 60
+  int rankingRefreshIntervalMinutes = 60;
+
+  /// 电台直播状态刷新间隔（分钟），默认 5
+  int radioRefreshIntervalMinutes = 5;
+
   /// 获取 ThemeMode
   @ignore
   ThemeMode get themeMode {

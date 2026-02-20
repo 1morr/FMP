@@ -207,6 +207,15 @@
     "clearConfirm": "清除所有缓存的歌词？需要时会重新下载。",
     "cacheCleared": "歌词缓存已清除"
   },
+  "refreshInterval": {
+    "title": "刷新间隔",
+    "rankingTitle": "排行榜刷新间隔",
+    "rankingSubtitle": "$interval",
+    "radioTitle": "电台状态刷新间隔",
+    "radioSubtitle": "$interval",
+    "minutes": "$n 分钟",
+    "hours": "$n 小时"
+  },
   "tray": {
     "title": "最小化到托盘",
     "subtitle": "关闭窗口时最小化到系统托盘"

@@ -28,9 +28,6 @@ class AppConstants {
   /// 音频 URL 默认过期时间 (小时) - YouTube 使用 (过期较快)
   static const int youtubeAudioUrlExpiryHours = 1;
 
-  /// 排行榜缓存刷新间隔
-  static const Duration rankingCacheRefreshInterval = Duration(hours: 1);
-
   /// 搜索历史最大条数
   static const int maxSearchHistoryCount = 100;
 
@@ -86,9 +83,6 @@ class AppConstants {
 
   /// 自动刷新检查间隔
   static const Duration autoRefreshCheckInterval = Duration(minutes: 30);
-
-  /// 电台刷新间隔
-  static const Duration radioRefreshInterval = Duration(minutes: 5);
 
   /// 网络状态轮询间隔
   static const Duration connectivityPollingInterval = Duration(seconds: 15);
