@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
@@ -256,6 +257,12 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     final modeIndex = data['modeIndex'] as int? ?? 0;
     if (_displayModeIndex != modeIndex) {
       setState(() => _displayModeIndex = modeIndex);
+      // 切换显示模式后滚动到当前播放行
+      if (!_singleLineMode) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToCurrentLine(jump: true);
+        });
+      }
     }
   }
 
@@ -375,6 +382,12 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
         jsonEncode({'modeIndex': nextIndex}),
       );
     } catch (_) {}
+    // 切换显示模式后滚动到当前播放行
+    if (!_singleLineMode) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToCurrentLine(jump: true);
+      });
+    }
   }
 
   Future<void> _toggleTransparentMode() async {
@@ -644,7 +657,17 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
             _titleBarButton(
               _singleLineMode ? Icons.view_headline : Icons.short_text,
               16,
-              () => setState(() => _singleLineMode = !_singleLineMode),
+              () {
+                final wasInSingleLine = _singleLineMode;
+                setState(() => _singleLineMode = !_singleLineMode);
+                // 从单行切换到多行时，ScrollablePositionedList 刚创建，
+                // 需要等下一帧 controller attach 后再滚动
+                if (wasInSingleLine) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _scrollToCurrentLine(jump: true);
+                  });
+                }
+              },
               color: _singleLineMode ? activeColor : iconColor,
               tooltip: _singleLineMode ? _strings.fullLyrics : _strings.singleLine,
             ),
@@ -766,9 +789,12 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
           final maxH = constraints.maxHeight - 24;
           if (maxW <= 0 || maxH <= 0) return const SizedBox.shrink();
 
-          // 用参考字号测量主文本宽度，然后按比例算出填满宽度的字号
           const refSize = 100.0;
+          const subRatio = 0.7;
+          const minFontSize = 24.0;
           final td = Directionality.of(context);
+
+          // 测量主文本单行宽度
           final mainPainter = TextPainter(
             text: TextSpan(
               text: mainText,
@@ -781,17 +807,91 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
           final mainTextW = mainPainter.width;
           mainPainter.dispose();
 
-          // 按宽度算出的字号
+          final safeW = maxW * _boldSafetyFactor;
+
+          // 主文本：按宽度缩放（单行填满）
           double mainFontSize = mainTextW > 0
-              ? (refSize * maxW / mainTextW)
+              ? (refSize * safeW / mainTextW)
               : refSize;
 
-          // 按高度限制：主文本行高约 1.3，副文本约 0.7 倍主文本
-          final totalLineH = hasSubText ? 1.3 + 0.7 * 0.9 : 1.3;
-          final maxByHeight = maxH / totalLineH;
-          mainFontSize = mainFontSize.clamp(12.0, maxByHeight);
+          // 副文本字号
+          double subFontSize = 0;
+          if (hasSubText) {
+            final subPainter = TextPainter(
+              text: TextSpan(
+                text: subText,
+                style: TextStyle(
+                    fontSize: refSize, fontWeight: FontWeight.w500),
+              ),
+              maxLines: 1,
+              textDirection: td,
+            )..layout();
+            final subTextW = subPainter.width;
+            subPainter.dispose();
 
-          final subFontSize = mainFontSize * 0.7;
+            final subByWidth = subTextW > 0
+                ? (refSize * safeW / subTextW)
+                : refSize;
+            final subCap = mainFontSize * subRatio;
+            subFontSize = math.min(subByWidth, subCap).clamp(8.0, 200.0);
+          }
+
+          // 高度约束（单行估算）
+          const lineH = 1.4;
+          final estMainH = mainFontSize * lineH;
+          final estSubH = hasSubText ? subFontSize * lineH : 0.0;
+          if (estMainH + estSubH > maxH && estMainH + estSubH > 0) {
+            final scale = maxH / (estMainH + estSubH);
+            mainFontSize *= scale;
+            subFontSize *= scale;
+          }
+
+          // 应用最小字号 — 低于最小值时允许换行
+          final mainWrap = mainFontSize < minFontSize;
+          final subWrap = hasSubText && subFontSize < minFontSize * subRatio;
+          if (mainWrap) mainFontSize = minFontSize;
+          if (subWrap && hasSubText) subFontSize = minFontSize * subRatio;
+
+          // 换行后用 TextPainter 测量实际高度，再做高度约束
+          if (mainWrap || subWrap) {
+            double actualH = 0;
+            final mp = TextPainter(
+              text: TextSpan(
+                text: mainText,
+                style: TextStyle(
+                    fontSize: mainFontSize, fontWeight: FontWeight.bold,
+                    height: 1.3),
+              ),
+              textDirection: td,
+            )..layout(maxWidth: maxW);
+            actualH += mp.height;
+            mp.dispose();
+
+            if (hasSubText) {
+              final sp = TextPainter(
+                text: TextSpan(
+                  text: subText,
+                  style: TextStyle(
+                      fontSize: subFontSize, fontWeight: FontWeight.w500,
+                      height: 1.3),
+                ),
+                textDirection: td,
+              )..layout(maxWidth: maxW);
+              actualH += sp.height;
+              sp.dispose();
+            }
+
+            if (actualH > maxH && actualH > 0) {
+              final scale = maxH / actualH;
+              mainFontSize = (mainFontSize * scale).clamp(10.0, 200.0);
+              subFontSize = (subFontSize * scale).clamp(8.0, 200.0);
+            }
+          }
+
+          mainFontSize = mainFontSize.clamp(10.0, 200.0);
+          if (hasSubText) {
+            subFontSize = subFontSize.clamp(8.0, 200.0);
+          }
 
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -809,8 +909,8 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
                       shadows: t ? _strokeShadows : null,
                     ),
                     textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.clip,
+                    maxLines: mainWrap ? 3 : 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   if (hasSubText)
                     Text(
@@ -823,8 +923,8 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
                         shadows: t ? _strokeShadows : null,
                       ),
                       textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.clip,
+                      maxLines: subWrap ? 2 : 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                 ],
               ),
