@@ -696,10 +696,28 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     }
   }
 
-  /// 處理流結束（嘗試重連）
+  /// 處理流結束（區分直播結束 vs 短暫中斷）
   Future<void> _handleStreamEnd() async {
-    if (state.currentStation == null || _currentStreamInfo == null) return;
+    final station = state.currentStation;
+    if (station == null || _currentStreamInfo == null) return;
 
+    // 先檢查直播狀態
+    bool isLive = false;
+    try {
+      isLive = await _radioSource.isLive(station);
+    } catch (e) {
+      // API 失敗時假設是短暫中斷，走重連邏輯
+      logWarning('Failed to check live status during stream end: $e');
+      isLive = true;
+    }
+
+    if (!isLive) {
+      // 直播已結束 → 暫停並監控
+      _pauseAndWatchForResume(station);
+      return;
+    }
+
+    // 仍在直播 → 現有重連邏輯
     final attempts = state.reconnectAttempts;
     if (attempts >= _maxReconnectAttempts) {
       state = state.copyWith(
@@ -743,6 +761,34 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       // 繼續下一次重連嘗試
       _handleStreamEnd();
     }
+  }
+
+  /// 直播結束：暫停播放，等待 RadioRefreshService 檢測到重新開播後自動恢復
+  void _pauseAndWatchForResume(RadioStation station) {
+    _stopTimers();
+    _audioService.stop();
+    _playStartTime = null;
+
+    state = state.copyWith(
+      isPlaying: false,
+      reconnectAttempts: 0,
+      reconnectMessage: t.radio.streamEnded,
+    );
+
+    // 更新平台媒體控制
+    if (Platform.isWindows) {
+      windowsSmtcHandler.updateRadioPlaybackState(isPlaying: false);
+    }
+    if (Platform.isAndroid) {
+      audioHandler.updatePlaybackState(
+        isPlaying: false,
+        position: Duration.zero,
+        bufferedPosition: Duration.zero,
+        processingState: FmpAudioProcessingState.ready,
+      );
+    }
+
+    logInfo('Stream ended for ${station.title}, waiting for RadioRefreshService to detect resume');
   }
 
   /// 啟動定時器
@@ -789,6 +835,19 @@ class RadioController extends StateNotifier<RadioState> with Logging {
 
     // 合併服務的狀態到當前狀態
     state = state.copyWith(liveStatus: serviceStatus);
+
+    // 檢查是否處於「等待重新開播」狀態，且主播已重新開播
+    final station = state.currentStation;
+    if (station != null &&
+        !state.isPlaying &&
+        state.reconnectMessage == t.radio.streamEnded &&
+        serviceStatus[station.id] == true) {
+      logInfo('Broadcaster is back live, auto-resuming: ${station.title}');
+      state = state.copyWith(
+        reconnectMessage: t.radio.autoResuming,
+      );
+      play(station);
+    }
   }
 
   @override

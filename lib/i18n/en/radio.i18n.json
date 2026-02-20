@@ -55,5 +55,7 @@
   "youtubeNotSupported": "YouTube live streams are not supported yet. Please use a Bilibili live stream link",
   "bilibiliLinkRequired": "Cannot parse this URL. Please verify it is a valid Bilibili live room link\ne.g.: https://live.bilibili.com/12345",
   "loading": "Loading...",
-  "bilibiliRoom": "Bilibili Live Room $id"
+  "bilibiliRoom": "Bilibili Live Room $id",
+  "streamEnded": "Stream ended, waiting for broadcaster to go live...",
+  "autoResuming": "Broadcaster is back, auto-resuming..."
 }

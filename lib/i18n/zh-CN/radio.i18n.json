@@ -55,5 +55,7 @@
   "youtubeNotSupported": "目前不支持 YouTube 直播，请使用 Bilibili 直播链接",
   "bilibiliLinkRequired": "无法解析此 URL，请确认是有效的 Bilibili 直播间链接\n例如：https://live.bilibili.com/12345",
   "loading": "载入中...",
-  "bilibiliRoom": "Bilibili 直播间 $id"
+  "bilibiliRoom": "Bilibili 直播间 $id",
+  "streamEnded": "直播已结束，等待重新开播...",
+  "autoResuming": "主播重新开播，自动恢复播放..."
 }
