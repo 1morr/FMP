@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../data/models/track.dart';
 import '../../data/sources/bilibili_source.dart';
 import '../../data/sources/youtube_source.dart';
@@ -63,7 +62,9 @@ class RankingCacheService {
   Stream<void> get stateChanges => _stateController.stream;
 
   /// 初始化服務：立即獲取數據並啟動定時刷新
-  Future<void> initialize() async {
+  Future<void> initialize({Duration? refreshInterval}) async {
+    final interval = refreshInterval ?? const Duration(hours: 1);
+
     // 立即開始獲取數據（並行），設置超時
     await _refreshAll().timeout(
       _initialLoadTimeout,
@@ -77,10 +78,16 @@ class RankingCacheService {
       },
     );
 
-    // 啟動定時器，每小時刷新
-    _refreshTimer = Timer.periodic(AppConstants.rankingCacheRefreshInterval, (_) {
+    // 啟動定時器
+    _refreshTimer = Timer.periodic(interval, (_) {
       _refreshAll();
     });
+  }
+
+  /// 更新刷新間隔（重啟定時器）
+  void updateRefreshInterval(Duration interval) {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(interval, (_) => _refreshAll());
   }
 
   /// 設置網絡恢復監聽（需要 Provider 可用後調用）

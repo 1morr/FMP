@@ -21,6 +21,7 @@ import '../../theme/app_theme.dart';
 import '../../../providers/download_settings_provider.dart';
 import '../../../providers/developer_options_provider.dart';
 import '../../../providers/playback_settings_provider.dart';
+import '../../../providers/refresh_settings_provider.dart';
 import '../../../providers/desktop_settings_provider.dart';
 import '../../../providers/hotkey_config_provider.dart';
 import '../../../providers/download_path_provider.dart';
@@ -92,6 +93,8 @@ class SettingsPage extends ConsumerWidget {
               _ClearImageCacheListTile(),
               _LyricsCacheSizeListTile(),
               _ClearLyricsCacheListTile(),
+              _RankingRefreshIntervalListTile(),
+              _RadioRefreshIntervalListTile(),
             ],
           ),
           const Divider(),
@@ -2407,6 +2410,121 @@ class _ClearLyricsCacheListTileState extends ConsumerState<_ClearLyricsCacheList
               }
             },
             child: Text(t.general.confirm),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 排行榜刷新间隔设置
+class _RankingRefreshIntervalListTile extends ConsumerWidget {
+  // 选项: 30分钟, 1小时, 2小时, 4小时
+  static const _options = [30, 60, 120, 240];
+
+  String _formatInterval(int minutes) {
+    if (minutes >= 60) {
+      return t.settings.refreshInterval.hours(n: minutes ~/ 60);
+    }
+    return t.settings.refreshInterval.minutes(n: minutes);
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(refreshSettingsProvider);
+    final current = settings.rankingRefreshIntervalMinutes;
+
+    return ListTile(
+      leading: const Icon(Icons.leaderboard_outlined),
+      title: Text(t.settings.refreshInterval.rankingTitle),
+      subtitle: Text(t.settings.refreshInterval.rankingSubtitle(interval: _formatInterval(current))),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => _showDialog(context, ref, current),
+    );
+  }
+
+  void _showDialog(BuildContext context, WidgetRef ref, int current) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t.settings.refreshInterval.rankingTitle),
+        content: RadioGroup<int>(
+          groupValue: current,
+          onChanged: (value) {
+            if (value != null) {
+              ref.read(refreshSettingsProvider.notifier).setRankingRefreshInterval(value);
+            }
+            Navigator.pop(context);
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: _options.map((minutes) {
+              return RadioListTile<int>(
+                title: Text(_formatInterval(minutes)),
+                value: minutes,
+              );
+            }).toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(t.general.cancel),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 电台状态刷新间隔设置
+class _RadioRefreshIntervalListTile extends ConsumerWidget {
+  // 选项: 1分钟, 3分钟, 5分钟, 10分钟
+  static const _options = [1, 3, 5, 10];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(refreshSettingsProvider);
+    final current = settings.radioRefreshIntervalMinutes;
+
+    return ListTile(
+      leading: const Icon(Icons.radio_outlined),
+      title: Text(t.settings.refreshInterval.radioTitle),
+      subtitle: Text(t.settings.refreshInterval.radioSubtitle(
+        interval: t.settings.refreshInterval.minutes(n: current),
+      )),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => _showDialog(context, ref, current),
+    );
+  }
+
+  void _showDialog(BuildContext context, WidgetRef ref, int current) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t.settings.refreshInterval.radioTitle),
+        content: RadioGroup<int>(
+          groupValue: current,
+          onChanged: (value) {
+            if (value != null) {
+              ref.read(refreshSettingsProvider.notifier).setRadioRefreshInterval(value);
+            }
+            Navigator.pop(context);
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: _options.map((minutes) {
+              return RadioListTile<int>(
+                title: Text(t.settings.refreshInterval.minutes(n: minutes)),
+                value: minutes,
+              );
+            }).toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(t.general.cancel),
           ),
         ],
       ),
