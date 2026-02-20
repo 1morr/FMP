@@ -5,6 +5,7 @@ import '../../../core/services/image_loading_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/services/audio/audio_types.dart' show FmpAudioDevice;
+import 'package:window_manager/window_manager.dart' show DragToMoveArea;
 
 import '../../../core/utils/icon_helpers.dart';
 import '../../../core/utils/number_format_utils.dart';
@@ -38,6 +39,8 @@ class RadioPlayerPage extends ConsumerWidget {
           icon: const Icon(Icons.keyboard_arrow_down),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        // Windows: 让 AppBar 空白区域可拖动窗口（播放器页面覆盖了标题栏）
+        flexibleSpace: Platform.isWindows ? const DragToMoveArea(child: SizedBox.expand()) : null,
         actions: [
           // 桌面端音頻設備選擇器
           if (isDesktop && audioState.audioDevices.length > 1)

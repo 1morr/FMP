@@ -4,6 +4,7 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/services/audio/audio_types.dart' show FmpAudioDevice;
+import 'package:window_manager/window_manager.dart' show DragToMoveArea;
 import '../../../core/extensions/track_extensions.dart';
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/utils/duration_formatter.dart';
@@ -74,6 +75,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           icon: const Icon(Icons.keyboard_arrow_down),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        // Windows: 让 AppBar 空白区域可拖动窗口（播放器页面覆盖了标题栏）
+        flexibleSpace: Platform.isWindows ? const DragToMoveArea(child: SizedBox.expand()) : null,
         actions: [
           // 桌面端音频输出设备选择
           if (isDesktop && playerState.audioDevices.length > 1)
