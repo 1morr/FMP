@@ -68,8 +68,11 @@ class RadioRefreshService {
   /// 更新刷新間隔（重啟定時器）
   void updateRefreshInterval(Duration interval) {
     _refreshInterval = interval;
-    _refreshTimer?.cancel();
-    _refreshTimer = Timer.periodic(interval, (_) => refreshAll());
+    // 僅在定時器已啟動時重啟（即 repository 已設置後）
+    if (_refreshTimer != null) {
+      _refreshTimer!.cancel();
+      _refreshTimer = Timer.periodic(interval, (_) => refreshAll());
+    }
   }
 
   /// 刷新所有電台的直播狀態
