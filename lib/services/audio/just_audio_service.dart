@@ -119,7 +119,18 @@ class JustAudioService extends FmpAudioService with Logging {
   Future<void> initialize() async {
     logInfo('Initializing JustAudioService...');
 
-    _player = ja.AudioPlayer();
+    _player = ja.AudioPlayer(
+      audioLoadConfiguration: const ja.AudioLoadConfiguration(
+        androidLoadControl: ja.AndroidLoadControl(
+          // 降低缓冲限制，防止直播 muxed 流占用过多内存
+          // 默认 minBuffer=50s, maxBuffer=50s，对高码率直播流会缓冲数百 MB
+          minBufferDuration: Duration(seconds: 15),
+          maxBufferDuration: Duration(seconds: 30),
+          backBufferDuration: Duration(seconds: 5),
+          targetBufferBytes: 2 * 1024 * 1024, // 2MB 字节限制兜底
+        ),
+      ),
+    );
 
     // 配置音频会话（just_audio 自动管理 audio_session，但我们仍需监听中断）
     _session = await AudioSession.instance;

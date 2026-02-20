@@ -231,8 +231,20 @@ class MediaKitAudioService extends FmpAudioService with Logging {
         'demuxer-max-back-bytes', '262144',  // 256 KB
       );
 
-      // 禁用额外的流缓存层（网络流已有 HTTP 层缓冲）
-      await (nativePlayer as dynamic).setProperty('cache', 'no');
+      // 限制 demuxer 预读时间（对直播流比字节限制更有效）
+      // 高码率 muxed 直播流几秒就能填满 1MB，时间限制是更可靠的上限
+      await (nativePlayer as dynamic).setProperty(
+        'demuxer-readahead-secs', '5',
+      );
+
+      // 启用 cache 但限制为 5 秒，让 mpv 正确管理直播流的缓冲回收
+      // cache=no 只禁用 seekable cache，不阻止 demuxer 缓冲
+      // cache=yes + cache-secs=5 让 mpv 主动回收超出范围的缓冲数据
+      await (nativePlayer as dynamic).setProperty('cache', 'yes');
+      await (nativePlayer as dynamic).setProperty('cache-secs', '5');
+
+      // 禁止 demuxer 将已用 buffer 捐赠给其他线程（减少内存碎片）
+      await (nativePlayer as dynamic).setProperty('demuxer-donate-buffer', 'no');
 
       // 禁用 ICY 元数据解析（网络电台标题等，减少不必要的处理）
       await (nativePlayer as dynamic).setProperty('demuxer-lavf-o', 'icy=0');
