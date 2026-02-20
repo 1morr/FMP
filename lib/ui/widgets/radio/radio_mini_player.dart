@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/services/audio/audio_types.dart' show FmpAudioDevice;
 
 import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/image_loading_service.dart';
@@ -93,9 +94,13 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
               // 播放/暫停按鈕
               _buildPlayStopButton(radioState, radioController, colorScheme),
 
-              // 桌面端音量控制
+              // 桌面端音頻設備選擇器 + 音量控制
               if (isDesktop) ...[
-                const SizedBox(width: 8),
+                const SizedBox(width: 4),
+                // 音頻設備選擇器
+                if (audioState.audioDevices.length > 1)
+                  _buildFmpAudioDeviceSelector(
+                      context, audioState, audioController, colorScheme),
                 _buildVolumeControl(
                     context, audioState, audioController, colorScheme),
               ],
@@ -235,6 +240,91 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
         onPressed: isDisabled ? null : () => controller.sync(),
       ),
     );
+  }
+
+  /// 音頻輸出設備選擇器（僅桌面端）
+  Widget _buildFmpAudioDeviceSelector(
+    BuildContext context,
+    PlayerState state,
+    AudioController controller,
+    ColorScheme colorScheme,
+  ) {
+    final currentDevice = state.currentAudioDevice;
+    final devices = state.audioDevices;
+
+    const menuWidth = 220.0;
+
+    return MenuAnchor(
+      consumeOutsideTap: true,
+      alignmentOffset: const Offset(-menuWidth / 2 + 20, 16),
+      builder: (context, menuController, child) {
+        return IconButton(
+          icon: const Icon(Icons.speaker, size: 20),
+          visualDensity: VisualDensity.compact,
+          tooltip: t.player.audioDevice,
+          onPressed: () {
+            if (menuController.isOpen) {
+              menuController.close();
+            } else {
+              menuController.open();
+            }
+          },
+        );
+      },
+      style: MenuStyle(
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+        minimumSize: const WidgetStatePropertyAll(Size(menuWidth, 0)),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
+        ),
+      ),
+      menuChildren: [
+        MenuItemButton(
+          onPressed: () => controller.setAudioDeviceAuto(),
+          leadingIcon: currentDevice == null || currentDevice.name == 'auto'
+              ? Icon(Icons.check, size: 18, color: colorScheme.primary)
+              : const SizedBox(width: 18),
+          child: Padding(
+            padding: const EdgeInsets.only(right: 20),
+            child: Text(t.player.audioDeviceAuto),
+          ),
+        ),
+        const Divider(height: 1),
+        ...devices.where((d) => d.name != 'auto' && d.name != 'openal').map((device) {
+          final isSelected = currentDevice?.name == device.name;
+          return MenuItemButton(
+            onPressed: () => controller.setAudioDevice(device),
+            leadingIcon: isSelected
+                ? Icon(Icons.check, size: 18, color: colorScheme.primary)
+                : const SizedBox(width: 18),
+            child: Padding(
+              padding: const EdgeInsets.only(right: 18),
+              child: Text(
+                _formatDeviceName(device),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  /// 格式化設備名稱
+  String _formatDeviceName(FmpAudioDevice device) {
+    final displayName = device.description.isNotEmpty ? device.description : device.name;
+
+    final match = RegExp(r'喇叭\s*\((.+)\)$').firstMatch(displayName);
+    if (match != null) {
+      return match.group(1) ?? displayName;
+    }
+
+    final matchEn = RegExp(r'Speakers?\s*\((.+)\)$', caseSensitive: false).firstMatch(displayName);
+    if (matchEn != null) {
+      return matchEn.group(1) ?? displayName;
+    }
+
+    return displayName;
   }
 
   /// 音量控制（僅桌面端）
