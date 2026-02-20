@@ -42,9 +42,22 @@ class LyricsCacheService with Logging {
   Future<void>? _initFuture;
 
   /// 初始化缓存目录（幂等，多次调用安全）
-  Future<void> initialize() => _initFuture ??= _doInitialize();
+  ///
+  /// [initialMaxCacheFiles] 如果提供，会在缓存目录就绪之前设置 _maxCacheFiles，
+  /// 避免用默认值 50 误清理用户设置了更大限制的缓存。
+  Future<void> initialize({Future<int> Function()? initialMaxCacheFiles}) =>
+      _initFuture ??= _doInitialize(initialMaxCacheFiles: initialMaxCacheFiles);
 
-  Future<void> _doInitialize() async {
+  Future<void> _doInitialize({Future<int> Function()? initialMaxCacheFiles}) async {
+    // 在缓存目录就绪之前，先读取用户设置的缓存上限
+    if (initialMaxCacheFiles != null) {
+      try {
+        _maxCacheFiles = await initialMaxCacheFiles();
+      } catch (e) {
+        logError('Failed to load initial maxCacheFiles, using default: $e');
+      }
+    }
+
     final appCacheDir = await getApplicationCacheDirectory();
     _cacheDir = Directory(path.join(appCacheDir.path, 'lyrics'));
 
