@@ -4,6 +4,7 @@ import 'dart:ui' show PointerDeviceKind;
 import '../../../core/services/image_loading_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fmp/services/audio/audio_types.dart' show FmpAudioDevice;
 
 import '../../../core/utils/icon_helpers.dart';
 import '../../../core/utils/number_format_utils.dart';
@@ -38,6 +39,10 @@ class RadioPlayerPage extends ConsumerWidget {
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
+          // 桌面端音頻設備選擇器
+          if (isDesktop && audioState.audioDevices.length > 1)
+            _buildFmpAudioDeviceSelector(
+                context, audioState, audioController, colorScheme),
           // 桌面端音量控制（緊湊版）
           if (isDesktop)
             _buildCompactVolumeControl(
@@ -366,6 +371,91 @@ class RadioPlayerPage extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  /// 音頻輸出設備選擇器（AppBar用，僅桌面端）
+  Widget _buildFmpAudioDeviceSelector(
+    BuildContext context,
+    PlayerState state,
+    AudioController controller,
+    ColorScheme colorScheme,
+  ) {
+    final currentDevice = state.currentAudioDevice;
+    final devices = state.audioDevices;
+
+    const menuWidth = 220.0;
+
+    return MenuAnchor(
+      consumeOutsideTap: true,
+      alignmentOffset: const Offset(-menuWidth / 2 + 20, 8),
+      builder: (context, menuController, child) {
+        return IconButton(
+          icon: const Icon(Icons.speaker, size: 20),
+          visualDensity: VisualDensity.compact,
+          tooltip: t.player.audioDevice,
+          onPressed: () {
+            if (menuController.isOpen) {
+              menuController.close();
+            } else {
+              menuController.open();
+            }
+          },
+        );
+      },
+      style: MenuStyle(
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+        minimumSize: const WidgetStatePropertyAll(Size(menuWidth, 0)),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
+        ),
+      ),
+      menuChildren: [
+        MenuItemButton(
+          onPressed: () => controller.setAudioDeviceAuto(),
+          leadingIcon: currentDevice == null || currentDevice.name == 'auto'
+              ? Icon(Icons.check, size: 18, color: colorScheme.primary)
+              : const SizedBox(width: 18),
+          child: Padding(
+            padding: const EdgeInsets.only(right: 18),
+            child: Text(t.player.audioDeviceAuto),
+          ),
+        ),
+        const Divider(height: 1),
+        ...devices.where((d) => d.name != 'auto' && d.name != 'openal').map((device) {
+          final isSelected = currentDevice?.name == device.name;
+          return MenuItemButton(
+            onPressed: () => controller.setAudioDevice(device),
+            leadingIcon: isSelected
+                ? Icon(Icons.check, size: 18, color: colorScheme.primary)
+                : const SizedBox(width: 18),
+            child: Padding(
+              padding: const EdgeInsets.only(right: 18),
+              child: Text(
+                _formatDeviceName(device),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  /// 格式化設備名稱
+  String _formatDeviceName(FmpAudioDevice device) {
+    final displayName = device.description.isNotEmpty ? device.description : device.name;
+
+    final match = RegExp(r'喇叭\s*\((.+)\)$').firstMatch(displayName);
+    if (match != null) {
+      return match.group(1) ?? displayName;
+    }
+
+    final matchEn = RegExp(r'Speakers?\s*\((.+)\)$', caseSensitive: false).firstMatch(displayName);
+    if (matchEn != null) {
+      return matchEn.group(1) ?? displayName;
+    }
+
+    return displayName;
   }
 
   /// 顯示直播間信息彈窗
