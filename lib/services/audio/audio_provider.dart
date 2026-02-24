@@ -493,6 +493,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         _audioService.completedStream.listen(_onTrackCompleted),
       );
 
+      // 监听错误事件（用于网络错误自动重试）
+      _subscriptions.add(
+        _audioService.errorStream.listen(_onAudioError),
+      );
+
       // 启动基于位置检测的备选切歌机制（解决后台播放 completed 事件丢失问题）
       _startPositionCheckTimer();
 
@@ -2317,6 +2322,44 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         duration: _audioService.duration,
       );
     }
+  }
+
+  /// 处理音频错误事件（来自 AudioService 错误流）
+  void _onAudioError(String error) {
+    // 電台播放中的錯誤由 RadioController 處理
+    if (isRadioPlaying?.call() == true) return;
+    
+    logError('Audio error from service: $error');
+    
+    // 检查是否为网络错误
+    if (!_isNetworkError(error)) {
+      logDebug('Non-network error, ignoring: $error');
+      return;
+    }
+    
+    // 获取当前播放的歌曲
+    final track = state.playingTrack;
+    if (track == null) {
+      logDebug('No playing track, ignoring error');
+      return;
+    }
+    
+    // 如果已经在重试中，不重复触发
+    if (state.isRetrying) {
+      logDebug('Already retrying, ignoring error');
+      return;
+    }
+    
+    logWarning('Network error detected during playback: ${track.title}');
+    
+    // 停止播放并触发重试
+    _audioService.stop().then((_) {
+      state = state.copyWith(isLoading: false, isPlaying: false);
+      _resetLoadingState();
+      _scheduleRetry(track, state.position);
+    }).catchError((e) {
+      logError('Failed to stop player after error', e);
+    });
   }
 
   void _onDurationChanged(Duration? duration) {

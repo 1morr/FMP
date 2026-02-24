@@ -18,6 +18,9 @@ class JustAudioService extends FmpAudioService with Logging {
 
   // 完成事件控制器
   final _completedController = StreamController<void>.broadcast();
+  
+  // 错误事件控制器（just_audio 没有错误流，保持空流以兼容接口）
+  final _errorController = StreamController<String>.broadcast();
 
   // 流订阅列表
   final List<StreamSubscription> _subscriptions = [];
@@ -78,6 +81,8 @@ class JustAudioService extends FmpAudioService with Logging {
   Stream<List<FmpAudioDevice>> get audioDevicesStream => _audioDevicesController.stream;
   @override
   Stream<FmpAudioDevice?> get audioDeviceStream => _audioDeviceController.stream;
+  @override
+  Stream<String> get errorStream => _errorController.stream;
 
   // ========== 当前状态 ==========
   @override
@@ -251,6 +256,7 @@ class JustAudioService extends FmpAudioService with Logging {
     _subscriptions.clear();
 
     await _completedController.close();
+    await _errorController.close();
     await _playerStateController.close();
     await _processingStateController.close();
     await _positionController.close();

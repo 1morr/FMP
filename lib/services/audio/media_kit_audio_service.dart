@@ -21,6 +21,9 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
   // 完成事件控制器
   final _completedController = StreamController<void>.broadcast();
+  
+  // 错误事件控制器
+  final _errorController = StreamController<String>.broadcast();
 
   // 流订阅列表（用于 dispose 时取消）
   final List<StreamSubscription> _subscriptions = [];
@@ -93,6 +96,10 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   /// 当前音频设备流
   @override
   Stream<FmpAudioDevice?> get audioDeviceStream => _audioDeviceController.stream;
+  
+  /// 错误事件流
+  @override
+  Stream<String> get errorStream => _errorController.stream;
 
   // ========== 当前状态 ==========
   @override
@@ -334,6 +341,8 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     _subscriptions.add(
       _player.stream.error.listen((error) {
         logError('media_kit error: $error');
+        // 将错误传播到 AudioController
+        _errorController.add(error);
       }),
     );
 
@@ -407,6 +416,7 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     _subscriptions.clear();
 
     await _completedController.close();
+    await _errorController.close();
     await _playerStateController.close();
     await _processingStateController.close();
     await _positionController.close();
