@@ -20,6 +20,7 @@ abstract class FmpAudioService {
   Stream<void> get completedStream;
   Stream<List<FmpAudioDevice>> get audioDevicesStream;
   Stream<FmpAudioDevice?> get audioDeviceStream;
+  Stream<String> get errorStream;
 
   // === State Getters ===
   bool get isPlaying;
