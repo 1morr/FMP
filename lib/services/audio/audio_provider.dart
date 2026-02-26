@@ -1912,10 +1912,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 安排重试（漸進式延遲）
   void _scheduleRetry(Track track, Duration? position) {
+    // 立即保存需要恢复的歌曲和位置（无论是否达到最大重试次数）
+    // 这样当网络恢复时，无论重试进行到哪一步，都能自动恢复播放
+    _trackToRecoverAfterReconnect = track;
+    _positionToRecoverAfterReconnect = position;
+
     if (_retryAttempt >= NetworkRetryConfig.maxRetries) {
       logInfo('Max retry attempts reached for: ${track.title}');
-      _trackToRecoverAfterReconnect = track;
-      _positionToRecoverAfterReconnect = position;
       state = state.copyWith(
         isNetworkError: true,
         isRetrying: false,
@@ -1927,7 +1930,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
     final delay = NetworkRetryConfig.getRetryDelay(_retryAttempt);
     final nextRetryTime = DateTime.now().add(delay);
-    
+
     logInfo('Scheduling retry ${_retryAttempt + 1}/${NetworkRetryConfig.maxRetries} for: ${track.title} in ${delay.inSeconds}s');
 
     state = state.copyWith(
