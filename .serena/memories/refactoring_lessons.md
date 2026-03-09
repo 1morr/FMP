@@ -977,6 +977,40 @@ return duration;
 - 当 `AudioController` 使用 `_context.isInLoadingState` 阻塞位置更新时，底层 service 的 `play()` 不应该长时间阻塞
 - 抽象接口的实现需要保证相似的时序特性，否则上层的状态管理逻辑会出问题
 
+### 27. Windows 全局快捷鍵註冊必須統一走串行同步管線 (2026-03)
+
+**問題**：全局快捷鍵偶發失效，通常要到設定頁手動關閉再重新開啟「全局快捷鍵」才恢復。
+
+**根本原因**：啟動時 `globalHotkeysEnabledProvider` 與 `hotkeyConfigProvider` 會幾乎同時呼叫 `setHotkeysEnabled()` / `applyHotkeyConfig()`。若 `WindowsDesktopService` 直接各自執行 `registerHotkeys()` / `unregisterHotkeys()`，會出現競態：Dart 側 `_hotkeysRegistered` 看似正確，但 OS 端實際註冊可能已被後續 `unregisterAll()` 清掉。
+
+**修復**：將所有熱鍵變更集中到 `_syncHotkeys()`：
+- `applyHotkeyConfig()`
+- `registerHotkeys()`
+- `unregisterHotkeys()`
+- `setHotkeysEnabled()`
+
+都只更新最新狀態，然後排入同一條 `_hotkeyOperation` 鏈順序執行。每次同步都：
+1. `unregisterAll()`
+2. 依 `_hotkeysEnabled + _hotkeyConfig` 重建註冊
+3. 最後才更新 `_hotkeysRegistered`
+
+```dart
+Future<void> _syncHotkeys() {
+  _hotkeyOperation = _hotkeyOperation.then((_) => _performHotkeySync());
+  return _hotkeyOperation;
+}
+```
+
+**附帶行為修正**：顯示/隱藏視窗快捷鍵改為三段邏輯：
+1. 已 minimize to tray → 顯示視窗
+2. 視窗可見但未 focus → 只 bring to front + focus
+3. 只有已 focus 時才 minimize to tray
+
+**經驗**：
+- 全局快捷鍵屬於 OS 全域狀態，不能依賴多個 provider 各自 register/unregister
+- 啟動載入與設定變更都應走「最新狀態覆蓋式同步」而非條件式補丁
+- `show()` 前最好先處理 `isMinimized()` / `isVisible()`，避免一般最小化與 tray 隱藏混淆
+
 ---
 
 ## 封面图片优先级

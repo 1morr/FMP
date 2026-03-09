@@ -23,6 +23,8 @@ class WindowsDesktopService with TrayListener, WindowListener {
   bool _isInitialized = false;
   bool _isMinimizedToTray = false;
   bool _hotkeysRegistered = false;
+  bool _hotkeysEnabled = false;
+  Future<void> _hotkeyOperation = Future.value();
   HotkeyConfig? _hotkeyConfig;
 
   // 回调函数，由外部设置
@@ -66,7 +68,10 @@ class WindowsDesktopService with TrayListener, WindowListener {
 
     trayManager.removeListener(this);
     windowManager.removeListener(this);
+    _hotkeysEnabled = false;
+    await _hotkeyOperation;
     await hotKeyManager.unregisterAll();
+    _hotkeysRegistered = false;
     await trayManager.destroy();
 
     _isInitialized = false;
@@ -267,21 +272,34 @@ class WindowsDesktopService with TrayListener, WindowListener {
   bool get hotkeysRegistered => _hotkeysRegistered;
 
   /// 应用快捷键配置
-  Future<void> applyHotkeyConfig(HotkeyConfig config) async {
+  Future<void> applyHotkeyConfig(HotkeyConfig config) {
     _hotkeyConfig = config;
-    if (_hotkeysRegistered) {
-      // 重新注册快捷键
-      await unregisterHotkeys();
-      await registerHotkeys();
-    }
+    return _syncHotkeys();
   }
 
   /// 注册全局快捷键
-  Future<void> registerHotkeys() async {
-    if (_hotkeysRegistered) return;
+  Future<void> registerHotkeys() {
+    _hotkeysEnabled = true;
+    return _syncHotkeys();
+  }
+
+  Future<void> _syncHotkeys() {
+    _hotkeyOperation = _hotkeyOperation.then((_) => _performHotkeySync());
+    return _hotkeyOperation;
+  }
+
+  Future<void> _performHotkeySync() async {
     if (!Platform.isWindows) return;
 
     try {
+      await hotKeyManager.unregisterAll();
+      _hotkeysRegistered = false;
+
+      if (!_hotkeysEnabled) {
+        debugPrint('[WindowsDesktopService] Hotkeys disabled');
+        return;
+      }
+
       final config = _hotkeyConfig ?? HotkeyConfig.defaults();
 
       // 注册所有配置的快捷键
@@ -301,7 +319,7 @@ class WindowsDesktopService with TrayListener, WindowListener {
       _hotkeysRegistered = true;
       debugPrint('[WindowsDesktopService] Hotkeys registered');
     } catch (e) {
-      debugPrint('[WindowsDesktopService] Failed to register hotkeys: $e');
+      debugPrint('[WindowsDesktopService] Failed to sync hotkeys: $e');
     }
   }
 
@@ -340,32 +358,28 @@ class WindowsDesktopService with TrayListener, WindowListener {
   Future<void> _toggleWindow() async {
     if (_isMinimizedToTray) {
       await _showWindow();
-    } else {
-      await minimizeToTray();
+      return;
     }
+
+    final isFocused = await windowManager.isFocused();
+    if (!isFocused) {
+      await _showWindow();
+      return;
+    }
+
+    await minimizeToTray();
   }
 
   /// 注销全局快捷键
-  Future<void> unregisterHotkeys() async {
-    if (!_hotkeysRegistered) return;
-    if (!Platform.isWindows) return;
-
-    try {
-      await hotKeyManager.unregisterAll();
-      _hotkeysRegistered = false;
-      debugPrint('[WindowsDesktopService] Hotkeys unregistered');
-    } catch (e) {
-      debugPrint('[WindowsDesktopService] Failed to unregister hotkeys: $e');
-    }
+  Future<void> unregisterHotkeys() {
+    _hotkeysEnabled = false;
+    return _syncHotkeys();
   }
 
   /// 设置快捷键启用状态
-  Future<void> setHotkeysEnabled(bool enabled) async {
-    if (enabled) {
-      await registerHotkeys();
-    } else {
-      await unregisterHotkeys();
-    }
+  Future<void> setHotkeysEnabled(bool enabled) {
+    _hotkeysEnabled = enabled;
+    return _syncHotkeys();
   }
 
   // ============================================================
@@ -378,7 +392,12 @@ class WindowsDesktopService with TrayListener, WindowListener {
 
   /// 显示窗口
   Future<void> _showWindow() async {
-    await windowManager.show();
+    if (await windowManager.isMinimized()) {
+      await windowManager.restore();
+    }
+    if (!await windowManager.isVisible()) {
+      await windowManager.show();
+    }
     await windowManager.focus();
     _isMinimizedToTray = false;
     onShowWindow?.call();
