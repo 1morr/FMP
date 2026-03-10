@@ -913,6 +913,28 @@ static void RegisterPluginsForSubWindow(flutter::PluginRegistry* registry) {
 
 ---
 
+### 28. 共享播放器被多个模式复用时，必须拆分“保留上下文”与“实际所有权” (2026-03)
+
+**问题**：电台/直播与普通歌曲共用同一个底层播放器时，如果只用一个布尔条件（例如 `currentStation != null`）来同时表示：
+1. 当前仍保留电台上下文
+2. 电台正在实际控制播放器
+
+就会产生 UI 与事件时序错乱：
+- 歌曲暂停事件被过早当成“电台事件”忽略
+- 直播结束后 UI 还停留在电台模式
+- 返回歌曲需要点击两次，或者直接从 0:00 重播
+
+**经验与修复模式**：
+- 始终拆成两个语义：
+  - **retained context**：是否仍保留业务上下文（如 `hasCurrentStation`）
+  - **active ownership**：是否实际接管共享资源（如 `hasActivePlaybackOwnership`）
+- **显示逻辑**（mini player、detail panel、右侧面板）用 active ownership
+- **返回动作**（从首页卡片返回歌曲）用 retained context
+- 互斥钩子中如果要决定“是否忽略共享播放器事件”，必须看 active ownership，而不是 retained context
+- 若模式切换前需要保存恢复快照，一定要先保存/暂停旧模式，再设置新模式的 loading/playing state，避免事件被错误归类
+
+**补充**：若某个 nullable 字段需要真正清空，`copyWith(playingTrack: null)` 往往不够，因为它通常与“未传参”语义冲突。应增加显式的 `clearXxx` 参数（如 `clearPlayingTrack`）来避免陈旧 UI 状态残留。
+
 ## 常用工具组件
 
 | 组件 | 位置 | 用途 |

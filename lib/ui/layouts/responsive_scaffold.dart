@@ -28,37 +28,37 @@ class NavDestination {
 
 /// 导航目的地列表
 List<NavDestination> get destinations => [
-  NavDestination(
-    icon: Icons.home_outlined,
-    selectedIcon: Icons.home,
-    label: t.nav.home,
-  ),
-  NavDestination(
-    icon: Icons.search_outlined,
-    selectedIcon: Icons.search,
-    label: t.nav.search,
-  ),
-  NavDestination(
-    icon: Icons.queue_music_outlined,
-    selectedIcon: Icons.queue_music,
-    label: t.nav.queue,
-  ),
-  NavDestination(
-    icon: Icons.library_music_outlined,
-    selectedIcon: Icons.library_music,
-    label: t.nav.library,
-  ),
-  NavDestination(
-    icon: Icons.radio_outlined,
-    selectedIcon: Icons.radio,
-    label: t.nav.radio,
-  ),
-  NavDestination(
-    icon: Icons.settings_outlined,
-    selectedIcon: Icons.settings,
-    label: t.nav.settings,
-  ),
-];
+      NavDestination(
+        icon: Icons.home_outlined,
+        selectedIcon: Icons.home,
+        label: t.nav.home,
+      ),
+      NavDestination(
+        icon: Icons.search_outlined,
+        selectedIcon: Icons.search,
+        label: t.nav.search,
+      ),
+      NavDestination(
+        icon: Icons.queue_music_outlined,
+        selectedIcon: Icons.queue_music,
+        label: t.nav.queue,
+      ),
+      NavDestination(
+        icon: Icons.library_music_outlined,
+        selectedIcon: Icons.library_music,
+        label: t.nav.library,
+      ),
+      NavDestination(
+        icon: Icons.radio_outlined,
+        selectedIcon: Icons.radio,
+        label: t.nav.radio,
+      ),
+      NavDestination(
+        icon: Icons.settings_outlined,
+        selectedIcon: Icons.settings,
+        label: t.nav.settings,
+      ),
+    ];
 
 /// 响应式 Scaffold - 根据屏幕宽度选择不同布局
 class ResponsiveScaffold extends StatelessWidget {
@@ -220,13 +220,12 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
   bool _isHoveredOnCollapsedBar = false;
   bool _isDraggingPanelWidth = false;
 
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final currentTrack = ref.watch(currentTrackProvider);
-    final radioState = ref.watch(radioControllerProvider);
-    final hasTrack = currentTrack != null || radioState.hasCurrentStation;
+    final isRadioPlaying = ref.watch(isRadioPlayingProvider);
+    final hasTrack = currentTrack != null || isRadioPlaying;
 
     return Scaffold(
       body: Row(
@@ -259,8 +258,7 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
           ),
           // 仅当有歌曲时显示右侧面板
           // 仅当有歌曲时显示右侧面板
-          if (hasTrack)
-            _buildDetailPanelContainer(colorScheme),
+          if (hasTrack) _buildDetailPanelContainer(colorScheme),
         ],
       ),
       bottomNavigationBar: const _MiniPlayerSwitch(),
@@ -376,12 +374,14 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
         onTap: _isDetailPanelExpanded
             ? null
             : () => setState(() {
-                _isDetailPanelExpanded = true;
-                _isHoveredOnCollapsedBar = false;
-              }),
+                  _isDetailPanelExpanded = true;
+                  _isHoveredOnCollapsedBar = false;
+                }),
         child: AnimatedContainer(
           // 拖拽调整宽度时不需要动画，避免延迟
-          duration: _isDraggingPanelWidth ? Duration.zero : AnimationDurations.fastest,
+          duration: _isDraggingPanelWidth
+              ? Duration.zero
+              : AnimationDurations.fastest,
           curve: Curves.easeInOut,
           width: totalWidth,
           clipBehavior: Clip.hardEdge,
@@ -410,7 +410,8 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
                             setState(() {
                               _detailPanelWidth -= details.delta.dx;
                               _detailPanelWidth = _detailPanelWidth.clamp(
-                                _minPanelWidth, _maxPanelWidth,
+                                _minPanelWidth,
+                                _maxPanelWidth,
                               );
                             });
                           },
@@ -467,8 +468,6 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
     );
   }
 
-
-
   Widget _buildCollapsedNav() {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
@@ -511,14 +510,11 @@ class _MiniPlayerSwitch extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isRadioPlaying = ref.watch(isRadioPlayingProvider);
-    final hasRadioStation = ref.watch(radioControllerProvider).hasCurrentStation;
 
-    // 電台正在播放或有電台站點時，顯示電台迷你播放器
-    if (isRadioPlaying || hasRadioStation) {
+    if (isRadioPlaying) {
       return const RadioMiniPlayer();
     }
 
-    // 否則顯示普通音樂迷你播放器
     return const MiniPlayer();
   }
 }

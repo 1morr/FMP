@@ -270,6 +270,17 @@ When clicking a song in search/playlist pages, it plays temporarily without modi
 - **Position restore controlled by `rememberPlaybackPosition` setting** - if disabled, returns to queue track but starts from beginning
 - **Important**: All async methods use unified `_enterLoadingState()` / `_exitLoadingState()` helpers
 
+### Radio Return and Ownership (2026-03)
+Radio playback now distinguishes between **retained radio context** and **active radio ownership of the shared player**.
+
+- `RadioState.hasCurrentStation` means the app is still retaining radio context (for example, after a live ends and the station is still remembered)
+- `RadioState.hasActivePlaybackOwnership` means radio is actually controlling the shared player (`isPlaying || isLoading || isBuffering || isReconnecting`)
+- `isRadioPlayingProvider` exposes **active ownership**, so radio UI surfaces (mini player, detail panel, desktop side panel visibility) only switch while radio truly owns playback
+- Home "Now Playing" actions use **retained context** instead: if `hasCurrentStation` is true, the home card/button must call `radioControllerProvider.notifier.returnToMusic()` instead of toggling song playback directly
+- `RadioController.play()` must capture queue index / position / playing state and pause music **before** setting radio loading state, otherwise `AudioController` may ignore the pause event too early
+- `RadioController.returnToMusic()` delegates to `AudioController.returnFromRadio()` which restores queue playback with **0-second rewind**; if temporary play is active, `AudioController.returnFromRadio()` must still prefer `_returnToQueue()` to preserve existing temporary-play semantics
+- `PlayerState.copyWith()` supports `clearPlayingTrack`, and `_clearPlayingTrack()` must use it so stale song UI can be truly cleared
+
 ### Mute Toggle
 Volume mute must use `controller.toggleMute()`, NOT `setVolume(0)` / `setVolume(1.0)`. The mute logic remembers the previous volume in `_volumeBeforeMute`.
 
