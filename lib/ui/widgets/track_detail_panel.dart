@@ -32,7 +32,7 @@ import '../../services/lyrics/lrc_parser.dart';
 /// 右侧歌曲详情面板（桌面模式）
 class TrackDetailPanel extends ConsumerStatefulWidget {
   final VoidCallback? onCollapse;
-  
+
   const TrackDetailPanel({super.key, this.onCollapse});
 
   @override
@@ -57,7 +57,8 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
   void _showLyricsDisplayModeMenu(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final currentMode = ref.read(lyricsDisplayModeProvider);
-    final renderBox = _lyricsMenuKey.currentContext?.findRenderObject() as RenderBox?;
+    final renderBox =
+        _lyricsMenuKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
     final buttonOffset = renderBox.localToGlobal(Offset.zero);
     final screenWidth = MediaQuery.of(context).size.width;
@@ -78,19 +79,21 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
         screenWidth - buttonRight,
         0,
       ),
-      items: modes.map((entry) => PopupMenuItem(
-        value: entry.$1,
-        child: Row(
-          children: [
-            if (currentMode == entry.$1)
-              Icon(Icons.check, size: 18, color: colorScheme.primary)
-            else
-              const SizedBox(width: 18),
-            const SizedBox(width: 8),
-            Text(entry.$2),
-          ],
-        ),
-      )).toList(),
+      items: modes
+          .map((entry) => PopupMenuItem(
+                value: entry.$1,
+                child: Row(
+                  children: [
+                    if (currentMode == entry.$1)
+                      Icon(Icons.check, size: 18, color: colorScheme.primary)
+                    else
+                      const SizedBox(width: 18),
+                    const SizedBox(width: 8),
+                    Text(entry.$2),
+                  ],
+                ),
+              ))
+          .toList(),
     ).then((value) {
       if (value != null) {
         ref.read(lyricsDisplayModeProvider.notifier).setMode(value);
@@ -206,17 +209,17 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     // adjustOffset: 子窗口调整 offset
     service.onAdjustOffset = (trackUniqueKey, newOffsetMs) {
       ref.read(lyricsSearchProvider.notifier).updateOffset(
-        trackUniqueKey,
-        newOffsetMs,
-      );
+            trackUniqueKey,
+            newOffsetMs,
+          );
     };
 
     // resetOffset: 子窗口重置 offset
     service.onResetOffset = (trackUniqueKey) {
       ref.read(lyricsSearchProvider.notifier).updateOffset(
-        trackUniqueKey,
-        0,
-      );
+            trackUniqueKey,
+            0,
+          );
     };
 
     // 播放控制回调
@@ -274,7 +277,8 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     });
 
     // 歌词窗口同步：播放状态变化时同步（控制按钮图标）
-    ref.listen(audioControllerProvider.select((s) => s.isPlaying), (_, isPlaying) {
+    ref.listen(audioControllerProvider.select((s) => s.isPlaying),
+        (_, isPlaying) {
       _syncPlaybackStateToWindow(isPlaying);
     });
 
@@ -292,13 +296,15 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     });
 
     // 歌词窗口同步：offset 变化时全量同步（主窗口调整 offset 时触发）
-    ref.listen(currentLyricsMatchProvider.select((v) => v.valueOrNull?.offsetMs), (_, __) {
+    ref.listen(
+        currentLyricsMatchProvider.select((v) => v.valueOrNull?.offsetMs),
+        (_, __) {
       _fullSyncLyricsToWindow();
     });
 
-    // 检查电台是否正在播放（优先于歌曲信息）
+    // 检查电台是否正在实际接管播放器（优先于歌曲信息）
     final radioState = ref.watch(radioControllerProvider);
-    if (radioState.hasCurrentStation) {
+    if (radioState.hasActivePlaybackOwnership) {
       return Container(
         color: colorScheme.surfaceContainerLow,
         child: Column(
@@ -402,7 +408,8 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                       showOffsetControls: _showOffsetControls,
                     )
                   : detail != null
-                      ? _DetailContent(key: const ValueKey('detail'), detail: detail)
+                      ? _DetailContent(
+                          key: const ValueKey('detail'), detail: detail)
                       : _buildBasicInfo(context, currentTrack),
             ),
           ),
@@ -450,73 +457,75 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
             ),
           ),
           // 歌词菜单按钮（始终占位，但仅在显示歌词时可用；电台模式下隐藏但占位）
-            Opacity(
-              opacity: (!isRadio && _showLyrics) ? 1.0 : 0.0,
-              child: IgnorePointer(
-                ignoring: isRadio || !_showLyrics,
-                child: PopupMenuButton<String>(
-                  key: _lyricsMenuKey,
-                  icon: const Icon(Icons.more_vert, size: 20),
-                  tooltip: t.general.more,
-                  offset: const Offset(0, 40),
-                  iconSize: 20,
-                  onSelected: (value) {
-                    if (value == 'search') {
-                      _openLyricsSearch(context);
-                    } else if (value == 'offset') {
-                      setState(() => _showOffsetControls = !_showOffsetControls);
-                    } else if (value == 'display_mode') {
-                      // 延迟显示子菜单，等主菜单关闭后再显示
-                      Future.delayed(AnimationDurations.fastest, () {
-                        if (!context.mounted) return;
-                        _showLyricsDisplayModeMenu(context);
-                      });
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: 'search',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.search, size: 20),
-                          const SizedBox(width: 12),
-                          Text(t.lyrics.searchLyrics),
-                        ],
-                      ),
+          Opacity(
+            opacity: (!isRadio && _showLyrics) ? 1.0 : 0.0,
+            child: IgnorePointer(
+              ignoring: isRadio || !_showLyrics,
+              child: PopupMenuButton<String>(
+                key: _lyricsMenuKey,
+                icon: const Icon(Icons.more_vert, size: 20),
+                tooltip: t.general.more,
+                offset: const Offset(0, 40),
+                iconSize: 20,
+                onSelected: (value) {
+                  if (value == 'search') {
+                    _openLyricsSearch(context);
+                  } else if (value == 'offset') {
+                    setState(() => _showOffsetControls = !_showOffsetControls);
+                  } else if (value == 'display_mode') {
+                    // 延迟显示子菜单，等主菜单关闭后再显示
+                    Future.delayed(AnimationDurations.fastest, () {
+                      if (!context.mounted) return;
+                      _showLyricsDisplayModeMenu(context);
+                    });
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'search',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.search, size: 20),
+                        const SizedBox(width: 12),
+                        Text(t.lyrics.searchLyrics),
+                      ],
                     ),
-                    PopupMenuItem(
-                      value: 'offset',
-                      child: Row(
-                        children: [
-                          Icon(
-                            _showOffsetControls ? Icons.check_box : Icons.check_box_outline_blank,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 12),
-                          Text(t.lyrics.adjustOffset),
-                        ],
-                      ),
+                  ),
+                  PopupMenuItem(
+                    value: 'offset',
+                    child: Row(
+                      children: [
+                        Icon(
+                          _showOffsetControls
+                              ? Icons.check_box
+                              : Icons.check_box_outline_blank,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(t.lyrics.adjustOffset),
+                      ],
                     ),
-                    PopupMenuItem(
-                      value: 'display_mode',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.translate, size: 20),
-                          const SizedBox(width: 12),
-                          Text(t.lyrics.displayMode),
-                          const Spacer(),
-                          Icon(
-                            Icons.chevron_right,
-                            size: 18,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                        ],
-                      ),
+                  ),
+                  PopupMenuItem(
+                    value: 'display_mode',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.translate, size: 20),
+                        const SizedBox(width: 12),
+                        Text(t.lyrics.displayMode),
+                        const Spacer(),
+                        Icon(
+                          Icons.chevron_right,
+                          size: 18,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
+          ),
           // 歌词弹出窗口按钮（仅在显示歌词时可见；电台模式下隐藏）
           Opacity(
             opacity: (!isRadio && _showLyrics) ? 1.0 : 0.0,
@@ -552,9 +561,8 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                     setState(() {});
                   }
                 },
-                tooltip: LyricsWindowService.instance.isOpen
-                    ? '关闭歌词窗口'
-                    : '弹出歌词窗口',
+                tooltip:
+                    LyricsWindowService.instance.isOpen ? '关闭歌词窗口' : '弹出歌词窗口',
                 visualDensity: VisualDensity.compact,
                 style: IconButton.styleFrom(
                   foregroundColor: colorScheme.onSurfaceVariant,
@@ -568,23 +576,23 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
             child: IgnorePointer(
               ignoring: isRadio,
               child: IconButton(
-            icon: Icon(
-              _showLyrics ? Icons.lyrics_outlined : Icons.info_outline,
-              size: 20,
-            ),
-            onPressed: () {
-              setState(() {
-                _showLyrics = !_showLyrics;
-                // 切换到信息时隐藏 offset 控件
-                if (!_showLyrics) _showOffsetControls = false;
-              });
-            },
-            tooltip: _showLyrics ? t.lyrics.lyrics : t.player.info,
-            visualDensity: VisualDensity.compact,
-            style: IconButton.styleFrom(
-              foregroundColor: colorScheme.onSurfaceVariant,
-            ),
-          ),
+                icon: Icon(
+                  _showLyrics ? Icons.lyrics_outlined : Icons.info_outline,
+                  size: 20,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _showLyrics = !_showLyrics;
+                    // 切换到信息时隐藏 offset 控件
+                    if (!_showLyrics) _showOffsetControls = false;
+                  });
+                },
+                tooltip: _showLyrics ? t.lyrics.lyrics : t.player.info,
+                visualDensity: VisualDensity.compact,
+                style: IconButton.styleFrom(
+                  foregroundColor: colorScheme.onSurfaceVariant,
+                ),
+              ),
             ),
           ),
         ],
@@ -764,7 +772,7 @@ class _DetailContent extends ConsumerWidget {
   /// YouTube 不显示收藏数（API 无法获取）
   Widget _buildSimpleStats(BuildContext context, Track? track) {
     final isYouTube = track?.sourceType == SourceType.youtube;
-    
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
@@ -852,7 +860,10 @@ class _DetailContent extends ConsumerWidget {
     final streamType = formatStreamType(playerState.currentStreamType);
 
     // 如果没有任何信息，不显示
-    if (bitrate == null && container == null && codec == null && streamType == null) {
+    if (bitrate == null &&
+        container == null &&
+        codec == null &&
+        streamType == null) {
       return const SizedBox.shrink();
     }
 
@@ -883,8 +894,7 @@ class _DetailContent extends ConsumerWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            if (bitrate != null)
-              _buildAudioChip(context, Icons.speed, bitrate),
+            if (bitrate != null) _buildAudioChip(context, Icons.speed, bitrate),
             if (container != null)
               _buildAudioChip(context, Icons.folder_outlined, container),
             if (codec != null)
@@ -1177,8 +1187,8 @@ class _DescriptionSectionState extends State<_DescriptionSection> {
       text: TextSpan(
         text: widget.description,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          height: 1.6,
-        ),
+              height: 1.6,
+            ),
       ),
       maxLines: 6,
       textDirection: TextDirection.ltr,
@@ -1276,7 +1286,8 @@ class _CommentPagerState extends State<_CommentPager> {
   bool _isForward = true; // 动画方向
   final GlobalKey _containerKey = GlobalKey();
 
-  List<VideoComment> get _commentsToShow => widget.comments.take(AppConstants.commentsPreviewCount).toList();
+  List<VideoComment> get _commentsToShow =>
+      widget.comments.take(AppConstants.commentsPreviewCount).toList();
 
   bool get _hasPrevious => _currentIndex > 0;
   bool get _hasNext => _currentIndex < _commentsToShow.length - 1;
@@ -1320,7 +1331,8 @@ class _CommentPagerState extends State<_CommentPager> {
     // 评论区顶部要在屏幕内，且至少有120像素可见（标题栏+评论卡片第一行）
     const minVisibleHeight = 120.0;
     final visibleTop = position.dy.clamp(0.0, screenSize.height);
-    final visibleBottom = (position.dy + box.size.height).clamp(0.0, screenSize.height);
+    final visibleBottom =
+        (position.dy + box.size.height).clamp(0.0, screenSize.height);
     final visibleHeight = visibleBottom - visibleTop;
 
     return visibleHeight >= minVisibleHeight && position.dy < screenSize.height;
@@ -1464,20 +1476,23 @@ class _CommentPagerState extends State<_CommentPager> {
                       Icon(
                         Icons.thumb_up_outlined,
                         size: 14,
-                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                        color:
+                            colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                       ),
                       const SizedBox(width: 6),
                       Text(
                         currentComment.formattedLikeCount,
                         style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                          color: colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.6),
                         ),
                       ),
                       const Spacer(),
                       Text(
                         currentComment.memberName,
                         style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                          color: colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.6),
                         ),
                       ),
                     ],
@@ -1551,7 +1566,8 @@ class _RadioDetailContent extends ConsumerWidget {
         MouseRegion(
           cursor: SystemMouseCursors.click,
           child: GestureDetector(
-            onTap: () => UrlLauncherService.instance.openBilibiliLive(station.sourceId),
+            onTap: () =>
+                UrlLauncherService.instance.openBilibiliLive(station.sourceId),
             child: Text(
               station.title,
               style: textTheme.titleLarge?.copyWith(
@@ -1596,7 +1612,8 @@ class _RadioDetailContent extends ConsumerWidget {
         _buildSimpleStats(context),
 
         // 公告
-        if (radioState.announcement != null && radioState.announcement!.isNotEmpty) ...[
+        if (radioState.announcement != null &&
+            radioState.announcement!.isNotEmpty) ...[
           const SizedBox(height: 20),
           const Divider(),
           const SizedBox(height: 16),
@@ -1608,7 +1625,8 @@ class _RadioDetailContent extends ConsumerWidget {
         ],
 
         // 简介
-        if (radioState.description != null && radioState.description!.isNotEmpty) ...[
+        if (radioState.description != null &&
+            radioState.description!.isNotEmpty) ...[
           const SizedBox(height: 20),
           const Divider(),
           const SizedBox(height: 16),
@@ -1648,7 +1666,8 @@ class _RadioDetailContent extends ConsumerWidget {
           _buildStatItem(
             context,
             Icons.play_circle_outline,
-            t.radio.startedBroadcast(time: _formatDateTime(radioState.liveStartTime!)),
+            t.radio.startedBroadcast(
+                time: _formatDateTime(radioState.liveStartTime!)),
           ),
         if (radioState.areaName != null)
           _buildStatItem(
@@ -1658,7 +1677,9 @@ class _RadioDetailContent extends ConsumerWidget {
           ),
         _buildStatItem(
           context,
-          radioState.isPlaying ? Icons.radio_button_checked : Icons.radio_button_off,
+          radioState.isPlaying
+              ? Icons.radio_button_checked
+              : Icons.radio_button_off,
           radioState.isPlaying ? t.trackDetail.isLive : t.trackDetail.isStopped,
         ),
       ],
@@ -1670,7 +1691,8 @@ class _RadioDetailContent extends ConsumerWidget {
     RadioController controller,
     ColorScheme colorScheme,
   ) {
-    final isDisabled = radioState.isBuffering || radioState.isLoading || !radioState.isPlaying;
+    final isDisabled =
+        radioState.isBuffering || radioState.isLoading || !radioState.isPlaying;
 
     return IconButton(
       onPressed: isDisabled ? null : () => controller.reload(),
@@ -1734,19 +1756,22 @@ class _RadioDetailContent extends ConsumerWidget {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: tagList.map((tag) => Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest,
-              borderRadius: AppRadius.borderRadiusXl,
-            ),
-            child: Text(
-              tag.trim(),
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          )).toList(),
+          children: tagList
+              .map((tag) => Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest,
+                      borderRadius: AppRadius.borderRadiusXl,
+                    ),
+                    child: Text(
+                      tag.trim(),
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ))
+              .toList(),
         ),
       ],
     );
@@ -1809,7 +1834,8 @@ class _RadioClickableCoverState extends State<_RadioClickableCover> {
     final url = widget.station.thumbnailUrl;
     if (url == null || url.isEmpty) return;
 
-    final optimizedUrl = ThumbnailUrlUtils.getOptimizedUrl(url, displaySize: 480);
+    final optimizedUrl =
+        ThumbnailUrlUtils.getOptimizedUrl(url, displaySize: 480);
     final imageProvider = CachedNetworkImageProvider(
       optimizedUrl,
       headers: {'Referer': 'https://www.bilibili.com'},
@@ -1834,7 +1860,8 @@ class _RadioClickableCoverState extends State<_RadioClickableCover> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
-        onTap: () => UrlLauncherService.instance.openBilibiliLive(widget.station.sourceId),
+        onTap: () => UrlLauncherService.instance
+            .openBilibiliLive(widget.station.sourceId),
         child: ClipRRect(
           borderRadius: AppRadius.borderRadiusXl,
           child: AspectRatio(
@@ -1847,7 +1874,7 @@ class _RadioClickableCoverState extends State<_RadioClickableCover> {
                   networkUrl: widget.station.thumbnailUrl,
                   placeholder: _buildCoverPlaceholder(context),
                   fit: BoxFit.cover,
-                  targetDisplaySize: 480,  // 高清背景
+                  targetDisplaySize: 480, // 高清背景
                 ),
                 // LIVE 标签 - 仅在图片加载完成且正在播放时显示
                 if (_isImageLoaded && widget.isPlaying)
@@ -1942,7 +1969,8 @@ class _RadioClickableAvatar extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return MouseRegion(
-      cursor: hostUid != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      cursor:
+          hostUid != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
       child: GestureDetector(
         onTap: hostUid != null
             ? () => UrlLauncherService.instance.openBilibiliSpace(hostUid!)
@@ -2001,7 +2029,8 @@ class _RadioExpandableSection extends StatefulWidget {
   });
 
   @override
-  State<_RadioExpandableSection> createState() => _RadioExpandableSectionState();
+  State<_RadioExpandableSection> createState() =>
+      _RadioExpandableSectionState();
 }
 
 class _RadioExpandableSectionState extends State<_RadioExpandableSection> {
@@ -2035,8 +2064,8 @@ class _RadioExpandableSectionState extends State<_RadioExpandableSection> {
       text: TextSpan(
         text: widget.content,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          height: 1.6,
-        ),
+              height: 1.6,
+            ),
       ),
       maxLines: _maxLines,
       textDirection: TextDirection.ltr,

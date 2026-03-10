@@ -66,6 +66,40 @@
 
 ## 重要设计决策
 
+### 0.2 电台返回歌曲与共享播放器所有权（2026-03）
+**问题：** 首页“正在播放”卡片在“歌曲 → 电台/直播 → 返回歌曲”路径上混淆了两种状态：
+1. **保留中的电台上下文**：`currentStation != null`
+2. **电台实际接管共享播放器**：`isPlaying || isLoading || isBuffering || isReconnecting`
+
+这会导致：
+- 切到电台时，`AudioController` 过早忽略共享播放器事件，首页卡片仍显示歌曲在播放
+- 直播结束后虽然仍保留电台上下文，但 UI 仍卡在电台模式
+- 首页卡片第一次点击无法直接返回歌曲
+
+**解决方案：**
+- `RadioState.hasCurrentStation` 表示**保留上下文**
+- `RadioState.hasActivePlaybackOwnership` 表示**实际占有播放器**
+- `isRadioPlayingProvider` 暴露 active ownership，而不是 retained context
+- `_setupMutualExclusion()` 中：
+  - `audioController.onPlaybackStarting` 仍然用 `hasCurrentStation`，确保歌曲重新开始前一定先退出电台上下文
+  - `audioController.isRadioPlaying` 改为 `() => state.hasActivePlaybackOwnership`，只有电台实际接管播放器时才忽略共享播放器事件
+
+**UI 规则：**
+- `ResponsiveScaffold._MiniPlayerSwitch`、`TrackDetailPanel`、桌面详情面板显示条件都使用 `hasActivePlaybackOwnership`
+- 首页 `_NowPlayingSection` 的点击动作使用 `hasCurrentStation`：只要仍保留电台上下文，就调用 `radioControllerProvider.notifier.returnToMusic()`
+
+**返回歌曲流程：**
+- `RadioController.play()` 在切换到电台前先保存 `_savedMusicQueueIndex / _savedMusicPosition / _savedMusicWasPlaying`，然后先暂停音乐，最后才设置 radio loading state
+- `RadioController.returnToMusic()` 先 `stop()` 清除电台上下文，再调用 `AudioController.returnFromRadio()`
+- `AudioController.returnFromRadio()`：
+  - 若 `_context.isTemporary && _context.hasSavedState`，优先调用 `_returnToQueue()` 保持既有临时播放恢复逻辑
+  - 否则调用共享 helper 恢复队列歌曲，使用 **0 秒 rewind**，保证回到原位置而不是 temporary play 的倒退 10 秒
+
+**playingTrack 清理：**
+- `PlayerState.copyWith()` 新增 `clearPlayingTrack`
+- `_clearPlayingTrack()` 必须使用 `state.copyWith(clearPlayingTrack: true)`，否则 `playingTrack` 会残留旧值，污染首页卡片和详情面板 UI
+
+
 ### 0. 播放歌曲与队列分离（2025年1月重构）
 **问题：** 原设计中 `_updateQueueState()` 会同时更新 `currentTrack`，导致在临时播放或添加到空队列时，UI 显示与实际播放不一致。
 

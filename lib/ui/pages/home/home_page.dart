@@ -160,12 +160,15 @@ class _MusicRankingsSection extends ConsumerWidget {
               children: [
                 if (hasBilibiliData)
                   Expanded(
-                    child: _buildRankingCard(context, colorScheme, title: 'Bilibili', asyncValue: bilibiliAsync),
+                    child: _buildRankingCard(context, colorScheme,
+                        title: 'Bilibili', asyncValue: bilibiliAsync),
                   ),
-                if (hasBilibiliData && hasYoutubeData) const SizedBox(width: 16),
+                if (hasBilibiliData && hasYoutubeData)
+                  const SizedBox(width: 16),
                 if (hasYoutubeData)
                   Expanded(
-                    child: _buildRankingCard(context, colorScheme, title: 'YouTube', asyncValue: youtubeAsync),
+                    child: _buildRankingCard(context, colorScheme,
+                        title: 'YouTube', asyncValue: youtubeAsync),
                   ),
               ],
             ),
@@ -176,10 +179,13 @@ class _MusicRankingsSection extends ConsumerWidget {
             child: Column(
               children: [
                 if (hasBilibiliData)
-                  _buildRankingCard(context, colorScheme, title: 'Bilibili', asyncValue: bilibiliAsync),
-                if (hasBilibiliData && hasYoutubeData) const SizedBox(height: 12),
+                  _buildRankingCard(context, colorScheme,
+                      title: 'Bilibili', asyncValue: bilibiliAsync),
+                if (hasBilibiliData && hasYoutubeData)
+                  const SizedBox(height: 12),
                 if (hasYoutubeData)
-                  _buildRankingCard(context, colorScheme, title: 'YouTube', asyncValue: youtubeAsync),
+                  _buildRankingCard(context, colorScheme,
+                      title: 'YouTube', asyncValue: youtubeAsync),
               ],
             ),
           );
@@ -219,11 +225,16 @@ class _MusicRankingsSection extends ConsumerWidget {
           ),
           data: (tracks) {
             if (tracks.isEmpty) return const SizedBox.shrink();
-            final displayTracks = tracks.take(AppConstants.homeTrackPreviewCount).toList();
+            final displayTracks =
+                tracks.take(AppConstants.homeTrackPreviewCount).toList();
             return Column(
               children: [
                 for (int i = 0; i < displayTracks.length; i++)
-                  _RankingTrackTile(key: ValueKey('${displayTracks[i].sourceId}_${displayTracks[i].pageNum}'), track: displayTracks[i], rank: i + 1),
+                  _RankingTrackTile(
+                      key: ValueKey(
+                          '${displayTracks[i].sourceId}_${displayTracks[i].pageNum}'),
+                      track: displayTracks[i],
+                      rank: i + 1),
               ],
             );
           },
@@ -246,7 +257,8 @@ class _RecentPlaylistsSection extends ConsumerWidget {
       loading: () => const SizedBox.shrink(),
       error: (e, s) => const SizedBox.shrink(),
       data: (lists) {
-        final recentLists = lists.take(AppConstants.homeListPreviewCount).toList();
+        final recentLists =
+            lists.take(AppConstants.homeListPreviewCount).toList();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,7 +285,8 @@ class _RecentPlaylistsSection extends ConsumerWidget {
             else
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final cardWidth = (constraints.maxWidth / 4).clamp(100.0, 140.0);
+                  final cardWidth =
+                      (constraints.maxWidth / 4).clamp(100.0, 140.0);
                   final cardHeight = cardWidth / 0.8;
 
                   final playlistCards = recentLists.map((playlist) {
@@ -296,7 +309,8 @@ class _RecentPlaylistsSection extends ConsumerWidget {
     );
   }
 
-  Widget _buildEmptyPlaylistPlaceholder(BuildContext context, ColorScheme colorScheme) {
+  Widget _buildEmptyPlaylistPlaceholder(
+      BuildContext context, ColorScheme colorScheme) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final cardWidth = (constraints.maxWidth / 4).clamp(100.0, 140.0);
@@ -319,7 +333,8 @@ class _RecentPlaylistsSection extends ConsumerWidget {
                       child: Container(
                         color: colorScheme.surfaceContainerHighest,
                         child: Center(
-                          child: Icon(Icons.add, size: 32, color: colorScheme.outline),
+                          child: Icon(Icons.add,
+                              size: 32, color: colorScheme.outline),
                         ),
                       ),
                     ),
@@ -327,7 +342,10 @@ class _RecentPlaylistsSection extends ConsumerWidget {
                       padding: const EdgeInsets.all(8),
                       child: Text(
                         t.home.createPlaylist,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: colorScheme.outline),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -361,7 +379,8 @@ class _RadioSection extends ConsumerWidget {
         final bLive = radioState.isStationLive(b.id) ? 0 : 1;
         return aLive.compareTo(bLive);
       });
-    final displayStations = sortedStations.take(AppConstants.homeListPreviewCount).toList();
+    final displayStations =
+        sortedStations.take(AppConstants.homeListPreviewCount).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -387,7 +406,8 @@ class _RadioSection extends ConsumerWidget {
           itemWidth: 120,
           children: displayStations.map((station) {
             final isLive = radioState.isStationLive(station.id);
-            final isCurrentPlaying = radioState.currentStation?.id == station.id;
+            final isCurrentPlaying =
+                radioState.currentStation?.id == station.id;
             final isPlaying = isCurrentPlaying && radioState.isPlaying;
             final isLoading = radioState.loadingStationId == station.id;
 
@@ -398,22 +418,29 @@ class _RadioSection extends ConsumerWidget {
                   PopupMenuItem(
                     value: 'delete',
                     child: ListTile(
-                      leading: Icon(Icons.delete, color: Theme.of(context).colorScheme.error),
-                      title: Text(t.radio.deleteStation, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                      leading: Icon(Icons.delete,
+                          color: Theme.of(context).colorScheme.error),
+                      title: Text(t.radio.deleteStation,
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.error)),
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
                 ],
                 onSelected: (value) {
-                  if (value == 'delete') _showRadioDeleteConfirm(context, ref, station);
+                  if (value == 'delete') {
+                    _showRadioDeleteConfirm(context, ref, station);
+                  }
                 },
                 child: _HomeRadioStationCard(
                   station: station,
                   isLive: isLive,
                   isPlaying: isPlaying,
                   isLoading: isLoading,
-                  onTap: () => _onRadioStationTap(ref, station, isCurrentPlaying, radioState),
-                  onLongPress: () => _showRadioOptionsMenu(context, ref, station),
+                  onTap: () => _onRadioStationTap(
+                      ref, station, isCurrentPlaying, radioState),
+                  onLongPress: () =>
+                      _showRadioOptionsMenu(context, ref, station),
                 ),
               ),
             );
@@ -423,7 +450,8 @@ class _RadioSection extends ConsumerWidget {
     );
   }
 
-  void _onRadioStationTap(WidgetRef ref, RadioStation station, bool isCurrentPlaying, RadioState radioState) {
+  void _onRadioStationTap(WidgetRef ref, RadioStation station,
+      bool isCurrentPlaying, RadioState radioState) {
     final controller = ref.read(radioControllerProvider.notifier);
     if (isCurrentPlaying) {
       if (radioState.isPlaying) {
@@ -436,7 +464,8 @@ class _RadioSection extends ConsumerWidget {
     }
   }
 
-  void _showRadioOptionsMenu(BuildContext context, WidgetRef ref, RadioStation station) {
+  void _showRadioOptionsMenu(
+      BuildContext context, WidgetRef ref, RadioStation station) {
     final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
@@ -448,7 +477,8 @@ class _RadioSection extends ConsumerWidget {
             children: [
               ListTile(
                 leading: Icon(Icons.delete, color: colorScheme.error),
-                title: Text(t.radio.deleteStation, style: TextStyle(color: colorScheme.error)),
+                title: Text(t.radio.deleteStation,
+                    style: TextStyle(color: colorScheme.error)),
                 onTap: () {
                   Navigator.pop(context);
                   _showRadioDeleteConfirm(context, ref, station);
@@ -461,7 +491,8 @@ class _RadioSection extends ConsumerWidget {
     );
   }
 
-  Future<void> _showRadioDeleteConfirm(BuildContext context, WidgetRef ref, RadioStation station) async {
+  Future<void> _showRadioDeleteConfirm(
+      BuildContext context, WidgetRef ref, RadioStation station) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -484,7 +515,9 @@ class _RadioSection extends ConsumerWidget {
     );
 
     if (confirmed == true) {
-      await ref.read(radioControllerProvider.notifier).deleteStation(station.id);
+      await ref
+          .read(radioControllerProvider.notifier)
+          .deleteStation(station.id);
       if (context.mounted) {
         ToastService.success(context, t.radio.stationDeleted);
       }
@@ -504,7 +537,8 @@ class _RecentHistorySection extends ConsumerWidget {
       loading: () => const SizedBox.shrink(),
       error: (e, s) => const SizedBox.shrink(),
       data: (historyList) {
-        final displayList = historyList.take(AppConstants.homeListPreviewCount).toList();
+        final displayList =
+            historyList.take(AppConstants.homeListPreviewCount).toList();
         if (displayList.isEmpty) return const SizedBox.shrink();
 
         return Column(
@@ -528,11 +562,13 @@ class _RecentHistorySection extends ConsumerWidget {
             ),
             LayoutBuilder(
               builder: (context, constraints) {
-                final cardWidth = (constraints.maxWidth / 4).clamp(100.0, 140.0);
+                final cardWidth =
+                    (constraints.maxWidth / 4).clamp(100.0, 140.0);
                 final cardHeight = cardWidth / 0.8;
 
                 final historyCards = displayList
-                    .map((history) => _buildHistoryItem(context, ref, history, cardWidth))
+                    .map((history) =>
+                        _buildHistoryItem(context, ref, history, cardWidth))
                     .toList();
 
                 return HorizontalScrollSection(
@@ -548,13 +584,15 @@ class _RecentHistorySection extends ConsumerWidget {
     );
   }
 
-  Widget _buildHistoryItem(BuildContext context, WidgetRef ref, PlayHistory history, double cardWidth) {
+  Widget _buildHistoryItem(BuildContext context, WidgetRef ref,
+      PlayHistory history, double cardWidth) {
     final colorScheme = Theme.of(context).colorScheme;
     return SizedBox(
       width: cardWidth,
       child: ContextMenuRegion(
         menuBuilder: (_) => _buildHistoryMenuItems(colorScheme),
-        onSelected: (value) => _handleHistoryMenuAction(context, ref, history, value),
+        onSelected: (value) =>
+            _handleHistoryMenuAction(context, ref, history, value),
         child: Card(
           margin: EdgeInsets.zero,
           clipBehavior: Clip.antiAlias,
@@ -600,23 +638,54 @@ class _RecentHistorySection extends ConsumerWidget {
     );
   }
 
-  List<PopupMenuEntry<String>> _buildHistoryMenuItems(ColorScheme colorScheme) => [
-    PopupMenuItem(value: 'play', child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.playHistoryPage.play), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.playHistoryPage.playNext), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.playHistoryPage.addToQueue), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.playHistoryPage.addToPlaylist), contentPadding: EdgeInsets.zero)),
-    const PopupMenuDivider(),
-    PopupMenuItem(
-      value: 'delete',
-      child: ListTile(leading: Icon(Icons.delete_outline, color: colorScheme.error), title: Text(t.playHistoryPage.deleteThisRecord, style: TextStyle(color: colorScheme.error)), contentPadding: EdgeInsets.zero),
-    ),
-    PopupMenuItem(
-      value: 'delete_all',
-      child: ListTile(leading: Icon(Icons.delete_sweep, color: colorScheme.error), title: Text(t.playHistoryPage.deleteAllForTrack, style: TextStyle(color: colorScheme.error)), contentPadding: EdgeInsets.zero),
-    ),
-  ];
+  List<PopupMenuEntry<String>> _buildHistoryMenuItems(
+          ColorScheme colorScheme) =>
+      [
+        PopupMenuItem(
+            value: 'play',
+            child: ListTile(
+                leading: const Icon(Icons.play_arrow),
+                title: Text(t.playHistoryPage.play),
+                contentPadding: EdgeInsets.zero)),
+        PopupMenuItem(
+            value: 'play_next',
+            child: ListTile(
+                leading: const Icon(Icons.queue_play_next),
+                title: Text(t.playHistoryPage.playNext),
+                contentPadding: EdgeInsets.zero)),
+        PopupMenuItem(
+            value: 'add_to_queue',
+            child: ListTile(
+                leading: const Icon(Icons.add_to_queue),
+                title: Text(t.playHistoryPage.addToQueue),
+                contentPadding: EdgeInsets.zero)),
+        PopupMenuItem(
+            value: 'add_to_playlist',
+            child: ListTile(
+                leading: const Icon(Icons.playlist_add),
+                title: Text(t.playHistoryPage.addToPlaylist),
+                contentPadding: EdgeInsets.zero)),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'delete',
+          child: ListTile(
+              leading: Icon(Icons.delete_outline, color: colorScheme.error),
+              title: Text(t.playHistoryPage.deleteThisRecord,
+                  style: TextStyle(color: colorScheme.error)),
+              contentPadding: EdgeInsets.zero),
+        ),
+        PopupMenuItem(
+          value: 'delete_all',
+          child: ListTile(
+              leading: Icon(Icons.delete_sweep, color: colorScheme.error),
+              title: Text(t.playHistoryPage.deleteAllForTrack,
+                  style: TextStyle(color: colorScheme.error)),
+              contentPadding: EdgeInsets.zero),
+        ),
+      ];
 
-  void _handleHistoryMenuAction(BuildContext context, WidgetRef ref, PlayHistory history, String action) async {
+  void _handleHistoryMenuAction(BuildContext context, WidgetRef ref,
+      PlayHistory history, String action) async {
     final controller = ref.read(audioControllerProvider.notifier);
     final track = history.toTrack();
 
@@ -645,23 +714,32 @@ class _RecentHistorySection extends ConsumerWidget {
           context: context,
           builder: (context) => AlertDialog(
             title: Text(t.playHistoryPage.deleteAllTitle),
-            content: Text(t.playHistoryPage.deleteAllConfirm(title: history.title)),
+            content:
+                Text(t.playHistoryPage.deleteAllConfirm(title: history.title)),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: Text(t.general.cancel)),
-              TextButton(onPressed: () => Navigator.pop(context, true), child: Text(t.playHistoryPage.deleteButton)),
+              TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text(t.general.cancel)),
+              TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: Text(t.playHistoryPage.deleteButton)),
             ],
           ),
         );
         if (confirmed == true && context.mounted) {
-          final count = await ref.read(playHistoryPageProvider.notifier).deleteAllForTrack(history.trackKey);
+          final count = await ref
+              .read(playHistoryPageProvider.notifier)
+              .deleteAllForTrack(history.trackKey);
           if (context.mounted) {
-            ToastService.success(context, t.playHistoryPage.toastDeletedCount(n: count));
+            ToastService.success(
+                context, t.playHistoryPage.toastDeletedCount(n: count));
           }
         }
     }
   }
 
-  void _showHistoryOptionsMenu(BuildContext context, WidgetRef ref, PlayHistory history) {
+  void _showHistoryOptionsMenu(
+      BuildContext context, WidgetRef ref, PlayHistory history) {
     final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
@@ -671,13 +749,55 @@ class _RecentHistorySection extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.playHistoryPage.play), onTap: () { Navigator.pop(context); _handleHistoryMenuAction(context, ref, history, 'play'); }),
-              ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.playHistoryPage.playNext), onTap: () { Navigator.pop(context); _handleHistoryMenuAction(context, ref, history, 'play_next'); }),
-              ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.playHistoryPage.addToQueue), onTap: () { Navigator.pop(context); _handleHistoryMenuAction(context, ref, history, 'add_to_queue'); }),
-              ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.playHistoryPage.addToPlaylist), onTap: () { Navigator.pop(context); _handleHistoryMenuAction(context, ref, history, 'add_to_playlist'); }),
+              ListTile(
+                  leading: const Icon(Icons.play_arrow),
+                  title: Text(t.playHistoryPage.play),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _handleHistoryMenuAction(context, ref, history, 'play');
+                  }),
+              ListTile(
+                  leading: const Icon(Icons.queue_play_next),
+                  title: Text(t.playHistoryPage.playNext),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _handleHistoryMenuAction(
+                        context, ref, history, 'play_next');
+                  }),
+              ListTile(
+                  leading: const Icon(Icons.add_to_queue),
+                  title: Text(t.playHistoryPage.addToQueue),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _handleHistoryMenuAction(
+                        context, ref, history, 'add_to_queue');
+                  }),
+              ListTile(
+                  leading: const Icon(Icons.playlist_add),
+                  title: Text(t.playHistoryPage.addToPlaylist),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _handleHistoryMenuAction(
+                        context, ref, history, 'add_to_playlist');
+                  }),
               const Divider(),
-              ListTile(leading: Icon(Icons.delete_outline, color: colorScheme.error), title: Text(t.playHistoryPage.deleteThisRecord, style: TextStyle(color: colorScheme.error)), onTap: () { Navigator.pop(context); _handleHistoryMenuAction(context, ref, history, 'delete'); }),
-              ListTile(leading: Icon(Icons.delete_sweep, color: colorScheme.error), title: Text(t.playHistoryPage.deleteAllForTrack, style: TextStyle(color: colorScheme.error)), onTap: () { Navigator.pop(context); _handleHistoryMenuAction(context, ref, history, 'delete_all'); }),
+              ListTile(
+                  leading: Icon(Icons.delete_outline, color: colorScheme.error),
+                  title: Text(t.playHistoryPage.deleteThisRecord,
+                      style: TextStyle(color: colorScheme.error)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _handleHistoryMenuAction(context, ref, history, 'delete');
+                  }),
+              ListTile(
+                  leading: Icon(Icons.delete_sweep, color: colorScheme.error),
+                  title: Text(t.playHistoryPage.deleteAllForTrack,
+                      style: TextStyle(color: colorScheme.error)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _handleHistoryMenuAction(
+                        context, ref, history, 'delete_all');
+                  }),
             ],
           ),
         ),
@@ -750,30 +870,45 @@ class _RankingTrackTile extends ConsumerWidget {
   }
 
   List<PopupMenuEntry<String>> _buildMenuItems() => [
-    PopupMenuItem(
-      value: 'play',
-      child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.general.play), contentPadding: EdgeInsets.zero),
-    ),
-    PopupMenuItem(
-      value: 'play_next',
-      child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.general.playNext), contentPadding: EdgeInsets.zero),
-    ),
-    PopupMenuItem(
-      value: 'add_to_queue',
-      child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.general.addToQueue), contentPadding: EdgeInsets.zero),
-    ),
-    PopupMenuItem(
-      value: 'add_to_playlist',
-      child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.general.addToPlaylist), contentPadding: EdgeInsets.zero),
-    ),
-    PopupMenuItem(
-      value: 'matchLyrics',
-      child: ListTile(leading: const Icon(Icons.lyrics_outlined), title: Text(t.lyrics.matchLyrics), contentPadding: EdgeInsets.zero),
-    ),
-  ];
+        PopupMenuItem(
+          value: 'play',
+          child: ListTile(
+              leading: const Icon(Icons.play_arrow),
+              title: Text(t.general.play),
+              contentPadding: EdgeInsets.zero),
+        ),
+        PopupMenuItem(
+          value: 'play_next',
+          child: ListTile(
+              leading: const Icon(Icons.queue_play_next),
+              title: Text(t.general.playNext),
+              contentPadding: EdgeInsets.zero),
+        ),
+        PopupMenuItem(
+          value: 'add_to_queue',
+          child: ListTile(
+              leading: const Icon(Icons.add_to_queue),
+              title: Text(t.general.addToQueue),
+              contentPadding: EdgeInsets.zero),
+        ),
+        PopupMenuItem(
+          value: 'add_to_playlist',
+          child: ListTile(
+              leading: const Icon(Icons.playlist_add),
+              title: Text(t.general.addToPlaylist),
+              contentPadding: EdgeInsets.zero),
+        ),
+        PopupMenuItem(
+          value: 'matchLyrics',
+          child: ListTile(
+              leading: const Icon(Icons.lyrics_outlined),
+              title: Text(t.lyrics.matchLyrics),
+              contentPadding: EdgeInsets.zero),
+        ),
+      ];
 
-
-  void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
+  void _handleMenuAction(
+      BuildContext context, WidgetRef ref, String action) async {
     final controller = ref.read(audioControllerProvider.notifier);
 
     switch (action) {
@@ -851,10 +986,26 @@ class _HomeRadioStationCard extends StatelessWidget {
                             BlendMode.multiply,
                           )
                         : const ColorFilter.matrix(<double>[
-                            0.2126, 0.7152, 0.0722, 0, 0,
-                            0.2126, 0.7152, 0.0722, 0, 0,
-                            0.2126, 0.7152, 0.0722, 0, 0,
-                            0, 0, 0, 1, 0,
+                            0.2126,
+                            0.7152,
+                            0.0722,
+                            0,
+                            0,
+                            0.2126,
+                            0.7152,
+                            0.0722,
+                            0,
+                            0,
+                            0.2126,
+                            0.7152,
+                            0.0722,
+                            0,
+                            0,
+                            0,
+                            0,
+                            0,
+                            1,
+                            0,
                           ]),
                     child: ImageLoadingService.loadImage(
                       networkUrl: station.thumbnailUrl,
@@ -1022,7 +1173,10 @@ class _HomePlaylistCard extends ConsumerWidget {
                           const SizedBox(width: 4),
                           Text(
                             'Mix',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
                                   color: Theme.of(context).colorScheme.tertiary,
                                 ),
                           ),
@@ -1037,7 +1191,10 @@ class _HomePlaylistCard extends ConsumerWidget {
                           ],
                           Text(
                             t.library.trackCount(n: playlist.trackCount),
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
                                   color: Theme.of(context).colorScheme.outline,
                                 ),
                           ),
@@ -1054,7 +1211,8 @@ class _HomePlaylistCard extends ConsumerWidget {
     );
   }
 
-  List<PopupMenuEntry<String>> _buildContextMenuItems(BuildContext context, WidgetRef ref) {
+  List<PopupMenuEntry<String>> _buildContextMenuItems(
+      BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final isRefreshing = ref.read(isPlaylistRefreshingProvider(playlist.id));
 
@@ -1100,7 +1258,9 @@ class _HomePlaylistCard extends ConsumerWidget {
           enabled: !isRefreshing,
           child: ListTile(
             leading: Icon(isRefreshing ? Icons.hourglass_empty : Icons.refresh),
-            title: Text(isRefreshing ? t.library.main.refreshing : t.library.main.refreshPlaylist),
+            title: Text(isRefreshing
+                ? t.library.main.refreshing
+                : t.library.main.refreshPlaylist),
             contentPadding: EdgeInsets.zero,
           ),
         ),
@@ -1108,14 +1268,16 @@ class _HomePlaylistCard extends ConsumerWidget {
         value: 'delete',
         child: ListTile(
           leading: Icon(Icons.delete, color: colorScheme.error),
-          title: Text(t.library.main.deletePlaylist, style: TextStyle(color: colorScheme.error)),
+          title: Text(t.library.main.deletePlaylist,
+              style: TextStyle(color: colorScheme.error)),
           contentPadding: EdgeInsets.zero,
         ),
       ),
     ];
   }
 
-  void _handleContextMenuAction(BuildContext context, WidgetRef ref, String value) {
+  void _handleContextMenuAction(
+      BuildContext context, WidgetRef ref, String value) {
     switch (value) {
       case 'play_mix':
         _playMix(context, ref);
@@ -1187,11 +1349,14 @@ class _HomePlaylistCard extends ConsumerWidget {
                           height: 24,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                colorScheme.primary),
                           ),
                         )
                       : const Icon(Icons.refresh),
-                  title: Text(isRefreshing ? t.library.main.refreshing : t.library.main.refreshPlaylist),
+                  title: Text(isRefreshing
+                      ? t.library.main.refreshing
+                      : t.library.main.refreshPlaylist),
                   enabled: !isRefreshing,
                   onTap: isRefreshing
                       ? null
@@ -1202,7 +1367,8 @@ class _HomePlaylistCard extends ConsumerWidget {
                 ),
               ListTile(
                 leading: Icon(Icons.delete, color: colorScheme.error),
-                title: Text(t.library.main.deletePlaylist, style: TextStyle(color: colorScheme.error)),
+                title: Text(t.library.main.deletePlaylist,
+                    style: TextStyle(color: colorScheme.error)),
                 onTap: () {
                   Navigator.pop(context);
                   _showDeleteConfirm(context, ref);
@@ -1243,7 +1409,8 @@ class _HomePlaylistCard extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(t.library.main.deletePlaylist),
-        content: Text(t.library.main.deletePlaylistConfirm(name: playlist.name)),
+        content:
+            Text(t.library.main.deletePlaylistConfirm(name: playlist.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -1277,13 +1444,13 @@ class _NowPlayingSection extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     // 只监听当前曲目和播放状态
     final track = ref.watch(currentTrackProvider);
-    final isPlaying = ref.watch(audioControllerProvider.select((s) => s.isPlaying));
+    final isPlaying =
+        ref.watch(audioControllerProvider.select((s) => s.isPlaying));
     final isRadioPlaying = ref.watch(isRadioPlayingProvider);
+    final hasRadioContext = ref.watch(currentRadioStationProvider) != null;
 
-    // 没有当前曲目时不显示
     if (track == null) return const SizedBox.shrink();
 
-    // 音樂實際播放狀態：電台播放時，音樂處於暫停狀態
     final isMusicPlaying = isPlaying && !isRadioPlaying;
 
     return Column(
@@ -1302,13 +1469,8 @@ class _NowPlayingSection extends ConsumerWidget {
             color: colorScheme.primaryContainer.withValues(alpha: 0.3),
             child: InkWell(
               onTap: () {
-                if (isRadioPlaying) {
-                  // 電台播放中，點擊播放音樂（會自動停止電台）
-                  final playerState = ref.read(audioControllerProvider);
-                  final index = playerState.currentIndex;
-                  if (index != null && index >= 0) {
-                    ref.read(audioControllerProvider.notifier).playAt(index);
-                  }
+                if (hasRadioContext) {
+                  ref.read(radioControllerProvider.notifier).returnToMusic();
                 } else {
                   ref.read(audioControllerProvider.notifier).togglePlayPause();
                 }
@@ -1332,7 +1494,10 @@ class _NowPlayingSection extends ConsumerWidget {
                         children: [
                           Text(
                             track.title,
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(
                                   fontWeight: FontWeight.w600,
                                 ),
                             maxLines: 1,
@@ -1340,9 +1505,10 @@ class _NowPlayingSection extends ConsumerWidget {
                           ),
                           Text(
                             track.artist ?? t.general.unknownArtist,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1355,15 +1521,14 @@ class _NowPlayingSection extends ConsumerWidget {
                         isMusicPlaying ? Icons.pause : Icons.play_arrow,
                       ),
                       onPressed: () {
-                        if (isRadioPlaying) {
-                          // 電台播放中，點擊播放音樂（會自動停止電台）
-                          final playerState = ref.read(audioControllerProvider);
-                          final index = playerState.currentIndex;
-                          if (index != null && index >= 0) {
-                            ref.read(audioControllerProvider.notifier).playAt(index);
-                          }
+                        if (hasRadioContext) {
+                          ref
+                              .read(radioControllerProvider.notifier)
+                              .returnToMusic();
                         } else {
-                          ref.read(audioControllerProvider.notifier).togglePlayPause();
+                          ref
+                              .read(audioControllerProvider.notifier)
+                              .togglePlayPause();
                         }
                       },
                     ),
@@ -1385,8 +1550,10 @@ class _QueuePreviewSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // 只监听即将播放的曲目
-    final upcomingTracks = ref.watch(audioControllerProvider.select((s) => s.upcomingTracks));
-    final upNext = upcomingTracks.take(AppConstants.upcomingTracksPreviewCount).toList();
+    final upcomingTracks =
+        ref.watch(audioControllerProvider.select((s) => s.upcomingTracks));
+    final upNext =
+        upcomingTracks.take(AppConstants.upcomingTracksPreviewCount).toList();
 
     if (upNext.isEmpty) return const SizedBox.shrink();
 
@@ -1412,36 +1579,39 @@ class _QueuePreviewSection extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
-            children: upNext.map((track) => ListTile(
-              contentPadding: const EdgeInsets.only(left: 18),
-              leading: TrackThumbnail(
-                track: track,
-                size: AppSizes.thumbnailSmall,
-                borderRadius: 4,
-              ),
-              title: Text(
-                track.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              subtitle: Text(
-                track.artist ?? t.general.unknownArtist,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              dense: true,
-              onTap: () {
-                final playerState = ref.read(audioControllerProvider);
-                final trackIndex = playerState.queue.indexOf(track);
-                if (trackIndex >= 0) {
-                  ref.read(audioControllerProvider.notifier).playAt(trackIndex);
-                }
-              },
-            )).toList(),
+            children: upNext
+                .map((track) => ListTile(
+                      contentPadding: const EdgeInsets.only(left: 18),
+                      leading: TrackThumbnail(
+                        track: track,
+                        size: AppSizes.thumbnailSmall,
+                        borderRadius: 4,
+                      ),
+                      title: Text(
+                        track.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        track.artist ?? t.general.unknownArtist,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      dense: true,
+                      onTap: () {
+                        final playerState = ref.read(audioControllerProvider);
+                        final trackIndex = playerState.queue.indexOf(track);
+                        if (trackIndex >= 0) {
+                          ref
+                              .read(audioControllerProvider.notifier)
+                              .playAt(trackIndex);
+                        }
+                      },
+                    ))
+                .toList(),
           ),
         ),
       ],
     );
   }
 }
-

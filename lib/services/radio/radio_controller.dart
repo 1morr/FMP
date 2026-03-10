@@ -94,8 +94,13 @@ class RadioState {
     this.areaName,
   });
 
-  /// 是否有電台在播放
+  /// 是否保留電台上下文
   bool get hasCurrentStation => currentStation != null;
+
+  /// 電台是否實際接管共享播放器
+  bool get hasActivePlaybackOwnership =>
+      currentStation != null &&
+      (isPlaying || isLoading || isBuffering || isReconnecting);
 
   /// 是否正在重連
   bool get isReconnecting => reconnectAttempts > 0;
@@ -152,8 +157,7 @@ class RadioState {
           : (loadingStationId ?? this.loadingStationId),
       isBuffering: isBuffering ?? this.isBuffering,
       error: clearError ? null : (error ?? this.error),
-      viewerCount:
-          clearViewerCount ? null : (viewerCount ?? this.viewerCount),
+      viewerCount: clearViewerCount ? null : (viewerCount ?? this.viewerCount),
       liveStartTime:
           clearLiveStartTime ? null : (liveStartTime ?? this.liveStartTime),
       playDuration: playDuration ?? this.playDuration,
@@ -161,8 +165,7 @@ class RadioState {
       reconnectMessage: clearReconnectMessage
           ? null
           : (reconnectMessage ?? this.reconnectMessage),
-      description:
-          clearDescription ? null : (description ?? this.description),
+      description: clearDescription ? null : (description ?? this.description),
       tags: clearTags ? null : (tags ?? this.tags),
       announcement:
           clearAnnouncement ? null : (announcement ?? this.announcement),
@@ -199,6 +202,11 @@ class RadioController extends StateNotifier<RadioState> with Logging {
 
   // 當前流地址（用於重連）
   LiveStreamInfo? _currentStreamInfo;
+
+  // 進入電台前的音樂恢復快照
+  int? _savedMusicQueueIndex;
+  Duration _savedMusicPosition = Duration.zero;
+  bool _savedMusicWasPlaying = false;
 
   /// 正常構造函數
   RadioController(
@@ -240,7 +248,8 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     );
 
     // 監聽 RadioRefreshService 的狀態變化
-    _refreshServiceSubscription = RadioRefreshService.instance.stateChanges.listen((_) {
+    _refreshServiceSubscription =
+        RadioRefreshService.instance.stateChanges.listen((_) {
       _syncLiveStatusFromRefreshService();
     });
 
@@ -325,8 +334,8 @@ class RadioController extends StateNotifier<RadioState> with Logging {
           await stop();
         }
       };
-      // 讓 AudioController 知道電台是否正在播放，避免電台斷流時誤觸發隊列播放
-      audioController.isRadioPlaying = () => state.hasCurrentStation;
+      // 只有電台實際接管播放器時，AudioController 才忽略共享播放器事件
+      audioController.isRadioPlaying = () => state.hasActivePlaybackOwnership;
     } catch (e) {
       // AudioController 可能尚未初始化
     }
@@ -347,30 +356,30 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     // 增加請求 ID，取消之前的請求
     final requestId = ++_playRequestId;
 
-    // 立即更新 UI 顯示新電台（迷你播放器和詳情面板會立即切換）
-    state = state.copyWith(
-      currentStation: station,
-      isLoading: true,
-      loadingStationId: station.id,
-      isPlaying: false,
-      error: null,
-      clearError: true,
-      reconnectAttempts: 0,
-      clearReconnectMessage: true,
-      // 清除舊電台的資訊
-      clearViewerCount: true,
-      clearLiveStartTime: true,
-      clearDescription: true,
-      clearTags: true,
-      clearAnnouncement: true,
-      clearAreaName: true,
-      playDuration: Duration.zero,
-    );
+    _captureMusicRestoreState();
 
     try {
-      // 互斥：先停止音樂播放
+      // 先保存歌曲恢復資訊，再暫停音樂，最後才切到電台 UI
       await _pauseMusicPlayback();
       if (_isSuperseded(requestId)) return;
+
+      state = state.copyWith(
+        currentStation: station,
+        isLoading: true,
+        loadingStationId: station.id,
+        isPlaying: false,
+        error: null,
+        clearError: true,
+        reconnectAttempts: 0,
+        clearReconnectMessage: true,
+        clearViewerCount: true,
+        clearLiveStartTime: true,
+        clearDescription: true,
+        clearTags: true,
+        clearAnnouncement: true,
+        clearAreaName: true,
+        playDuration: Duration.zero,
+      );
 
       // 獲取流地址
       final streamInfo = await _radioSource.getStreamUrl(station);
@@ -484,10 +493,31 @@ class RadioController extends StateNotifier<RadioState> with Logging {
 
     _playStartTime = null;
     _currentStreamInfo = null;
+    _clearMusicRestoreState();
 
     // 更新平台媒體控制為停止狀態
     _clearSmtc();
     _clearAudioHandler();
+  }
+
+  /// 返回歌曲播放
+  Future<void> returnToMusic() async {
+    final savedQueueIndex = _savedMusicQueueIndex;
+    final savedPosition = _savedMusicPosition;
+    final savedWasPlaying = _savedMusicWasPlaying;
+
+    await stop();
+
+    try {
+      final audioController = _ref.read(audioControllerProvider.notifier);
+      await audioController.returnFromRadio(
+        savedQueueIndex: savedQueueIndex,
+        savedPosition: savedPosition,
+        savedWasPlaying: savedWasPlaying,
+      );
+    } catch (e) {
+      logWarning('Failed to return to music: $e');
+    }
   }
 
   /// 暫停播放（保留電台資訊，可重新播放）
@@ -563,8 +593,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       }
 
       // 檢查是否已存在（目前只支持 Bilibili）
-      if (await _repository.exists(
-          SourceType.bilibili, parseResult.sourceId)) {
+      if (await _repository.exists(SourceType.bilibili, parseResult.sourceId)) {
         throw Exception(t.radio.alreadyExists);
       }
 
@@ -635,7 +664,8 @@ class RadioController extends StateNotifier<RadioState> with Logging {
 
     try {
       // 使用高能用戶數 API（更準確的觀眾數據）
-      final count = await _radioSource.getHighEnergyUserCount(state.currentStation!);
+      final count =
+          await _radioSource.getHighEnergyUserCount(state.currentStation!);
       if (count != null) {
         state = state.copyWith(viewerCount: count);
       }
@@ -676,23 +706,26 @@ class RadioController extends StateNotifier<RadioState> with Logging {
 
   /// 處理播放器狀態變化
   void _onPlayerStateChanged(FmpPlayerState playerState) {
-    // 只在電台播放模式下處理
     if (state.currentStation == null) return;
+
+    if (playerState.processingState == FmpAudioProcessingState.completed) {
+      _handleStreamEnd();
+      return;
+    }
+
+    if (!state.hasActivePlaybackOwnership) return;
 
     final wasPlaying = state.isPlaying;
     state = state.copyWith(
       isPlaying: playerState.playing,
-      isBuffering: playerState.processingState == FmpAudioProcessingState.buffering,
+      isBuffering:
+          playerState.processingState == FmpAudioProcessingState.buffering,
     );
 
-    // 同步 SMTC 播放狀態（僅 Windows）
     if (Platform.isWindows && wasPlaying != playerState.playing) {
-      windowsSmtcHandler.updateRadioPlaybackState(isPlaying: playerState.playing);
-    }
-
-    // 處理播放結束（可能是斷流）
-    if (playerState.processingState == FmpAudioProcessingState.completed) {
-      _handleStreamEnd();
+      windowsSmtcHandler.updateRadioPlaybackState(
+        isPlaying: playerState.playing,
+      );
     }
   }
 
@@ -722,6 +755,8 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     if (attempts >= _maxReconnectAttempts) {
       state = state.copyWith(
         isPlaying: false,
+        isLoading: false,
+        isBuffering: false,
         error: t.radio.connectionFailed,
         clearReconnectMessage: true,
       );
@@ -730,8 +765,12 @@ class RadioController extends StateNotifier<RadioState> with Logging {
 
     final delay = _reconnectDelays[attempts];
     state = state.copyWith(
+      isPlaying: false,
+      isLoading: false,
+      isBuffering: false,
       reconnectAttempts: attempts + 1,
-      reconnectMessage: t.radio.reconnectingCountdown(seconds: delay.inSeconds.toString()),
+      reconnectMessage:
+          t.radio.reconnectingCountdown(seconds: delay.inSeconds.toString()),
     );
 
     await Future.delayed(delay);
@@ -771,6 +810,9 @@ class RadioController extends StateNotifier<RadioState> with Logging {
 
     state = state.copyWith(
       isPlaying: false,
+      isLoading: false,
+      clearLoadingStationId: true,
+      isBuffering: false,
       reconnectAttempts: 0,
       reconnectMessage: t.radio.streamEnded,
     );
@@ -788,7 +830,8 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       );
     }
 
-    logInfo('Stream ended for ${station.title}, waiting for RadioRefreshService to detect resume');
+    logInfo(
+        'Stream ended for ${station.title}, waiting for RadioRefreshService to detect resume');
   }
 
   /// 啟動定時器
@@ -824,7 +867,27 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     state = state.copyWith(playDuration: duration);
   }
 
-  /// 從 RadioRefreshService 同步直播狀態
+  /// 保存進入電台前的音樂恢復快照
+  void _captureMusicRestoreState() {
+    if (state.hasCurrentStation) return;
+
+    try {
+      final musicState = _ref.read(audioControllerProvider);
+      _savedMusicQueueIndex = musicState.currentIndex;
+      _savedMusicPosition = musicState.position;
+      _savedMusicWasPlaying = musicState.isPlaying;
+    } catch (e) {
+      logWarning('Failed to capture music restore state: $e');
+    }
+  }
+
+  /// 清除音樂恢復快照
+  void _clearMusicRestoreState() {
+    _savedMusicQueueIndex = null;
+    _savedMusicPosition = Duration.zero;
+    _savedMusicWasPlaying = false;
+  }
+
   void _syncLiveStatusFromRefreshService() {
     final refreshService = RadioRefreshService.instance;
     final serviceStatus = refreshService.liveStatus;
@@ -856,6 +919,15 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     _playerStateSubscription?.cancel();
     _stationsSubscription?.cancel();
     _refreshServiceSubscription?.cancel();
+
+    try {
+      final audioController = _ref.read(audioControllerProvider.notifier);
+      audioController.onPlaybackStarting = null;
+      audioController.isRadioPlaying = null;
+    } catch (_) {
+      // AudioController 可能已先被銷毀
+    }
+
     super.dispose();
   }
 }
@@ -893,7 +965,7 @@ final radioControllerProvider =
 
 /// 電台是否正在播放 Provider
 final isRadioPlayingProvider = Provider<bool>((ref) {
-  return ref.watch(radioControllerProvider).isPlaying;
+  return ref.watch(radioControllerProvider).hasActivePlaybackOwnership;
 });
 
 /// 當前播放的電台 Provider
@@ -911,13 +983,16 @@ final radioStationsProvider = Provider<List<RadioStation>>((ref) {
 /// Dummy Ref for loading state
 class _DummyRef implements Ref {
   @override
-  T watch<T>(ProviderListenable<T> provider) => throw UnimplementedError('DummyRef should not be used');
+  T watch<T>(ProviderListenable<T> provider) =>
+      throw UnimplementedError('DummyRef should not be used');
 
   @override
-  T read<T>(ProviderListenable<T> provider) => throw UnimplementedError('DummyRef should not be used');
+  T read<T>(ProviderListenable<T> provider) =>
+      throw UnimplementedError('DummyRef should not be used');
 
   @override
-  void invalidate(ProviderOrFamily provider) => throw UnimplementedError('DummyRef should not be used');
+  void invalidate(ProviderOrFamily provider) =>
+      throw UnimplementedError('DummyRef should not be used');
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
