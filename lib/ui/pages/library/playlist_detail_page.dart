@@ -164,6 +164,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final tracks = state.tracks;
     final isImported = playlist.isImported;
     final isMix = playlist.isMix;
+    final isInitialTracksLoading = state.isLoading && tracks.isEmpty;
 
     // 检查并刷新下载状态缓存（当 tracks 变化时）
     _checkAndPreloadCache(tracks);
@@ -201,7 +202,11 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             ),
 
             // 歌曲列表
-            if (tracks.isEmpty)
+            if (isInitialTracksLoading)
+              SliverFillRemaining(
+                child: _buildTracksLoadingState(context),
+              )
+            else if (tracks.isEmpty)
               SliverFillRemaining(
                 child: _buildEmptyState(context),
               )
@@ -749,14 +754,18 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ],
-                        const SizedBox(height: 8),
-                        Text(
-                          '${t.library.trackCountSongs(n: state.totalTrackCount)} · ${DurationFormatter.formatLong(state.totalDuration)}',
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Colors.white60,
-                                  ),
-                        ),
+                        if (!playlist.isMix) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            '${t.library.trackCountSongs(n: state.totalTrackCount)} · ${DurationFormatter.formatLong(state.totalDuration)}',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color: Colors.white60,
+                                ),
+                          ),
+                        ],
                         if (playlist.isImported || playlist.isMix) ...[
                           const SizedBox(height: 8),
                           Container(
@@ -842,6 +851,19 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTracksLoadingState(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(height: 12),
+          Text(t.general.loading),
         ],
       ),
     );
