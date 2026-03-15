@@ -1470,7 +1470,9 @@ class _NowPlayingSection extends ConsumerWidget {
             child: InkWell(
               onTap: () {
                 if (hasRadioContext) {
-                  ref.read(radioControllerProvider.notifier).returnToMusic();
+                  ref
+                      .read(radioControllerProvider.notifier)
+                      .returnToMusic(forcePlay: true);
                 } else {
                   ref.read(audioControllerProvider.notifier).togglePlayPause();
                 }
@@ -1524,7 +1526,7 @@ class _NowPlayingSection extends ConsumerWidget {
                         if (hasRadioContext) {
                           ref
                               .read(radioControllerProvider.notifier)
-                              .returnToMusic();
+                              .returnToMusic(forcePlay: true);
                         } else {
                           ref
                               .read(audioControllerProvider.notifier)

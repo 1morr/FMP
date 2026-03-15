@@ -102,6 +102,20 @@ class RadioState {
       currentStation != null &&
       (isPlaying || isLoading || isBuffering || isReconnecting);
 
+  /// 是否為可恢復的手動暫停狀態
+  bool get hasPausedPlaybackSession =>
+      currentStation != null &&
+      !isPlaying &&
+      !isLoading &&
+      !isBuffering &&
+      !isReconnecting &&
+      reconnectMessage == null &&
+      error == null;
+
+  /// 電台是否應繼續顯示全局播放 UI（播放中或可恢復暫停）
+  bool get hasResumablePlaybackSession =>
+      hasActivePlaybackOwnership || hasPausedPlaybackSession;
+
   /// 是否正在重連
   bool get isReconnecting => reconnectAttempts > 0;
 
@@ -187,6 +201,9 @@ class RadioController extends StateNotifier<RadioState> with Logging {
 
   // 播放請求 ID（用於取消過期請求）
   int _playRequestId = 0;
+
+  // 目前是否有尚未完成的電台播放請求
+  int? _activePlayRequestId;
 
   // 訂閱
   StreamSubscription? _playerStateSubscription;
@@ -330,7 +347,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     try {
       final audioController = _ref.read(audioControllerProvider.notifier);
       audioController.onPlaybackStarting = () async {
-        if (state.hasCurrentStation) {
+        if (state.hasCurrentStation || _hasPendingPlayRequest) {
           await stop();
         }
       };
@@ -351,10 +368,18 @@ class RadioController extends StateNotifier<RadioState> with Logging {
   /// 檢查請求是否已被取代
   bool _isSuperseded(int requestId) => requestId != _playRequestId;
 
+  bool get _hasPendingPlayRequest => _activePlayRequestId != null;
+
+  void _cancelPendingPlayRequest() {
+    _playRequestId++;
+    _activePlayRequestId = null;
+  }
+
   /// 播放電台（帶自動重試）
   Future<void> play(RadioStation station, {bool isRetry = false}) async {
     // 增加請求 ID，取消之前的請求
     final requestId = ++_playRequestId;
+    _activePlayRequestId = requestId;
 
     _captureMusicRestoreState();
 
@@ -449,6 +474,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       // 更新平台媒體控制
       _updateSmtc(station);
       _updateAudioHandler(station);
+      _activePlayRequestId = null;
     } catch (e) {
       if (_isSuperseded(requestId)) return;
 
@@ -466,12 +492,14 @@ class RadioController extends StateNotifier<RadioState> with Logging {
         clearLoadingStationId: true,
         error: t.radio.playFailed(error: e.toString()),
       );
+      _activePlayRequestId = null;
     }
   }
 
   /// 停止播放
   Future<void> stop() async {
     _stopTimers();
+    _cancelPendingPlayRequest();
     await _audioService.stop();
 
     state = state.copyWith(
@@ -501,7 +529,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
   }
 
   /// 返回歌曲播放
-  Future<void> returnToMusic() async {
+  Future<void> returnToMusic({bool forcePlay = false}) async {
     final savedQueueIndex = _savedMusicQueueIndex;
     final savedPosition = _savedMusicPosition;
     final savedWasPlaying = _savedMusicWasPlaying;
@@ -513,7 +541,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       await audioController.returnFromRadio(
         savedQueueIndex: savedQueueIndex,
         savedPosition: savedPosition,
-        savedWasPlaying: savedWasPlaying,
+        savedWasPlaying: forcePlay || savedWasPlaying,
       );
     } catch (e) {
       logWarning('Failed to return to music: $e');
@@ -523,6 +551,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
   /// 暫停播放（保留電台資訊，可重新播放）
   Future<void> pause() async {
     _stopTimers();
+    _cancelPendingPlayRequest();
     await _audioService.stop();
 
     state = state.copyWith(
@@ -707,13 +736,12 @@ class RadioController extends StateNotifier<RadioState> with Logging {
   /// 處理播放器狀態變化
   void _onPlayerStateChanged(FmpPlayerState playerState) {
     if (state.currentStation == null) return;
+    if (!state.hasActivePlaybackOwnership) return;
 
     if (playerState.processingState == FmpAudioProcessingState.completed) {
       _handleStreamEnd();
       return;
     }
-
-    if (!state.hasActivePlaybackOwnership) return;
 
     final wasPlaying = state.isPlaying;
     state = state.copyWith(
@@ -733,6 +761,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
   Future<void> _handleStreamEnd() async {
     final station = state.currentStation;
     if (station == null || _currentStreamInfo == null) return;
+    if (!state.hasActivePlaybackOwnership) return;
 
     // 先檢查直播狀態
     bool isLive = false;
@@ -808,6 +837,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     _audioService.stop();
     _playStartTime = null;
 
+    _cancelPendingPlayRequest();
     state = state.copyWith(
       isPlaying: false,
       isLoading: false,
@@ -966,6 +996,11 @@ final radioControllerProvider =
 /// 電台是否正在播放 Provider
 final isRadioPlayingProvider = Provider<bool>((ref) {
   return ref.watch(radioControllerProvider).hasActivePlaybackOwnership;
+});
+
+/// 電台是否應顯示播放 UI Provider（播放中或可恢復暫停）
+final showRadioPlaybackUiProvider = Provider<bool>((ref) {
+  return ref.watch(radioControllerProvider).hasResumablePlaybackSession;
 });
 
 /// 當前播放的電台 Provider
