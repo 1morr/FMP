@@ -224,8 +224,8 @@ class _DesktopLayoutState extends ConsumerState<_DesktopLayout> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final currentTrack = ref.watch(currentTrackProvider);
-    final isRadioPlaying = ref.watch(isRadioPlayingProvider);
-    final hasTrack = currentTrack != null || isRadioPlaying;
+    final showRadioPlaybackUi = ref.watch(showRadioPlaybackUiProvider);
+    final hasTrack = currentTrack != null || showRadioPlaybackUi;
 
     return Scaffold(
       body: Row(
@@ -509,9 +509,9 @@ class _MiniPlayerSwitch extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isRadioPlaying = ref.watch(isRadioPlayingProvider);
+    final showRadioPlaybackUi = ref.watch(showRadioPlaybackUiProvider);
 
-    if (isRadioPlaying) {
+    if (showRadioPlaybackUi) {
       return const RadioMiniPlayer();
     }
 

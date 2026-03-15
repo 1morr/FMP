@@ -302,9 +302,9 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
       _fullSyncLyricsToWindow();
     });
 
-    // 检查电台是否正在实际接管播放器（优先于歌曲信息）
+    // 播放中的電台或可恢復的暫停電台，都優先顯示電台詳情
     final radioState = ref.watch(radioControllerProvider);
-    if (radioState.hasActivePlaybackOwnership) {
+    if (radioState.hasResumablePlaybackSession) {
       return Container(
         color: colorScheme.surfaceContainerLow,
         child: Column(
