@@ -5,13 +5,15 @@ import 'package:pointycastle/export.dart';
 
 /// Bilibili Cookie 刷新所需的 RSA-OAEP 加密工具
 class BilibiliCrypto {
+  static RSAPublicKey? _cachedPublicKey;
+
   /// 生成 correspondPath
   ///
   /// 使用 RSA-OAEP (SHA-256) 加密 "refresh_{timestamp}" 並返回 hex 編碼結果。
   /// [timestamp] 為當前毫秒時間戳。
   static String generateCorrespondPath(int timestamp) {
     final plaintext = 'refresh_$timestamp';
-    final publicKey = _getPublicKey();
+    final publicKey = _cachedPublicKey ??= _parsePublicKey();
 
     final encryptor = OAEPEncoding.withSHA256(RSAEngine())
       ..init(true, PublicKeyParameter<RSAPublicKey>(publicKey));
@@ -23,7 +25,7 @@ class BilibiliCrypto {
   }
 
   /// 從 base64 DER 編碼的 SubjectPublicKeyInfo 中解析 RSA 公鑰
-  static RSAPublicKey _getPublicKey() {
+  static RSAPublicKey _parsePublicKey() {
     const base64Key =
         'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDLgd2OAkcGVtoE3ThUREbio0Eg'
         'Uc/prcajMKXvkCKFCWhJYJcLkcM2DKKcSeFpD/j6Boy538YXnR6VhcuUJOhH2x71'
@@ -61,8 +63,10 @@ class BilibiliCrypto {
 
   /// 跳過 tag byte 並讀取 length，返回 content 起始 offset
   static int _skipTag(Uint8List bytes, int offset, int expectedTag) {
-    assert(bytes[offset] == expectedTag,
-        'Expected tag 0x${expectedTag.toRadixString(16)} at offset $offset, got 0x${bytes[offset].toRadixString(16)}');
+    if (bytes[offset] != expectedTag) {
+      throw FormatException(
+          'Expected tag 0x${expectedTag.toRadixString(16)} at offset $offset, got 0x${bytes[offset].toRadixString(16)}');
+    }
     offset++;
     // 讀取 length
     if (bytes[offset] & 0x80 != 0) {
@@ -77,7 +81,10 @@ class BilibiliCrypto {
   /// 讀取 tag + length，返回 content offset 和 length
   static ({int contentOffset, int length}) _readTagLength(
       Uint8List bytes, int offset, int expectedTag) {
-    assert(bytes[offset] == expectedTag);
+    if (bytes[offset] != expectedTag) {
+      throw FormatException(
+          'Expected tag 0x${expectedTag.toRadixString(16)} at offset $offset');
+    }
     offset++;
     int length;
     if (bytes[offset] & 0x80 != 0) {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 
 import '../../core/logger.dart';
@@ -10,7 +12,7 @@ import 'bilibili_account_service.dart';
 /// 因此需要在 onResponse 中攔截（而非 onError）。
 class BilibiliAuthInterceptor extends Interceptor with Logging {
   final BilibiliAccountService _accountService;
-  bool _isRefreshing = false;
+  Completer<bool>? _refreshCompleter;
 
   BilibiliAuthInterceptor(this._accountService);
 
@@ -33,23 +35,10 @@ class BilibiliAuthInterceptor extends Interceptor with Logging {
     Response response,
     ResponseInterceptorHandler handler,
   ) async {
-    if (_isAuthError(response) && !_isRefreshing) {
-      _isRefreshing = true;
-      try {
-        logWarning('Detected auth error in response, attempting credential refresh');
-        final refreshed = await _accountService.refreshCredentials();
-        if (refreshed) {
-          try {
-            // 用新 cookie 重試原始請求
-            final retryResponse =
-                await _accountService.dio.fetch(response.requestOptions);
-            return handler.resolve(retryResponse);
-          } catch (e) {
-            logError('Retry after refresh failed', e);
-          }
-        }
-      } finally {
-        _isRefreshing = false;
+    if (_isAuthError(response)) {
+      final retryResponse = await _refreshAndRetry(response.requestOptions);
+      if (retryResponse != null) {
+        return handler.resolve(retryResponse);
       }
     }
     handler.next(response);
@@ -60,26 +49,49 @@ class BilibiliAuthInterceptor extends Interceptor with Logging {
     DioException err,
     ErrorInterceptorHandler handler,
   ) async {
-    // HTTP 錯誤級別的認證失敗（較少見，但作為兜底）
-    if (_isAuthError(err.response) && !_isRefreshing) {
-      _isRefreshing = true;
-      try {
-        logWarning('Detected auth error in HTTP error, attempting credential refresh');
-        final refreshed = await _accountService.refreshCredentials();
-        if (refreshed) {
-          try {
-            final retryResponse =
-                await _accountService.dio.fetch(err.requestOptions);
-            return handler.resolve(retryResponse);
-          } catch (e) {
-            logError('Retry after refresh failed', e);
-          }
-        }
-      } finally {
-        _isRefreshing = false;
+    if (_isAuthError(err.response)) {
+      final retryResponse = await _refreshAndRetry(err.requestOptions);
+      if (retryResponse != null) {
+        return handler.resolve(retryResponse);
       }
     }
     handler.next(err);
+  }
+
+  /// 刷新憑據並重試請求。
+  ///
+  /// 使用 Completer 確保併發請求只觸發一次刷新，其他請求等待結果。
+  Future<Response?> _refreshAndRetry(RequestOptions requestOptions) async {
+    final refreshed = await _ensureRefreshed();
+    if (!refreshed) return null;
+
+    try {
+      return await _accountService.dio.fetch(requestOptions);
+    } catch (e) {
+      logError('Retry after refresh failed', e);
+      return null;
+    }
+  }
+
+  /// 確保只有一次刷新操作在進行中，併發調用共享同一個結果。
+  Future<bool> _ensureRefreshed() async {
+    if (_refreshCompleter != null) {
+      return _refreshCompleter!.future;
+    }
+
+    _refreshCompleter = Completer<bool>();
+    try {
+      logWarning('Detected auth error, attempting credential refresh');
+      final result = await _accountService.refreshCredentials();
+      _refreshCompleter!.complete(result);
+      return result;
+    } catch (e) {
+      logError('Credential refresh failed', e);
+      _refreshCompleter!.complete(false);
+      return false;
+    } finally {
+      _refreshCompleter = null;
+    }
   }
 
   bool _isAuthError(Response? response) {
