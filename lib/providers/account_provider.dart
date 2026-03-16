@@ -51,23 +51,18 @@ final isLoggedInProvider = Provider.family<bool, SourceType>((ref, platform) {
 /// 啟動時自動刷新 Bilibili Cookie（後台執行，不阻塞 UI）
 ///
 /// 在 app.dart 中 watch 此 Provider，確保每次啟動時檢查一次。
+/// refreshCredentials() 內部已包含 needsRefresh 檢查，無需額外調用。
 final accountCookieRefreshProvider = FutureProvider<void>((ref) async {
   final accountService = ref.read(bilibiliAccountServiceProvider);
   final isLoggedIn = await accountService.isLoggedIn();
   if (!isLoggedIn) return;
 
   try {
-    final needsRefresh = await accountService.needsRefresh();
-    if (needsRefresh) {
-      AppLogger.info('Bilibili cookie needs refresh, refreshing...', 'AccountRefresh');
-      final success = await accountService.refreshCredentials();
-      if (success) {
-        AppLogger.info('Bilibili cookie refreshed successfully', 'AccountRefresh');
-      } else {
-        AppLogger.warning('Bilibili cookie refresh failed', 'AccountRefresh');
-      }
+    final success = await accountService.refreshCredentials();
+    if (success) {
+      AppLogger.info('Bilibili cookie refresh check completed', 'AccountRefresh');
     } else {
-      AppLogger.debug('Bilibili cookie is still valid', 'AccountRefresh');
+      AppLogger.warning('Bilibili cookie refresh failed', 'AccountRefresh');
     }
   } catch (e) {
     AppLogger.warning('Bilibili cookie refresh check failed: $e', 'AccountRefresh');
