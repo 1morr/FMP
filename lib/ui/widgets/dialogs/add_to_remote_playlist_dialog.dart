@@ -107,12 +107,23 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
                   }
                 },
               ),
-              const SizedBox(height: 12),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(t.remote.privateFolder),
-                value: isPrivate,
-                onChanged: (v) => setDialogState(() => isPrivate = v),
+              const SizedBox(height: 16),
+              SegmentedButton<bool>(
+                segments: [
+                  ButtonSegment(
+                    value: false,
+                    label: Text(t.remote.privacyPublic),
+                    icon: const Icon(Icons.public, size: 18),
+                  ),
+                  ButtonSegment(
+                    value: true,
+                    label: Text(t.remote.privacyPrivate),
+                    icon: const Icon(Icons.lock, size: 18),
+                  ),
+                ],
+                selected: {isPrivate},
+                onSelectionChanged: (v) =>
+                    setDialogState(() => isPrivate = v.first),
               ),
             ],
           ),
