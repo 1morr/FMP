@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/services/toast_service.dart';
+import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/account_provider.dart';
 import '../../router.dart';
@@ -14,6 +15,7 @@ class AccountManagementPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bilibiliAccount = ref.watch(bilibiliAccountProvider);
+    final youtubeAccount = ref.watch(youtubeAccountProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -31,17 +33,19 @@ class AccountManagementPage extends ConsumerWidget {
             userName: bilibiliAccount?.userName,
             avatarUrl: bilibiliAccount?.avatarUrl,
             onLogin: () => context.push(RoutePaths.bilibiliLogin),
-            onLogout: () => _confirmLogout(context, ref, t.importPlatform.bilibili),
+            onLogout: () => _confirmLogout(context, ref, SourceType.bilibili),
           ),
           const SizedBox(height: 12),
-          // YouTube 卡片（暫不可操作）
+          // YouTube 卡片
           _PlatformCard(
             platformName: 'YouTube',
             icon: Icons.smart_display_outlined,
             iconColor: Colors.red,
-            isLoggedIn: false,
-            enabled: false,
-            disabledHint: t.account.comingSoon,
+            isLoggedIn: youtubeAccount?.isLoggedIn ?? false,
+            userName: youtubeAccount?.userName,
+            avatarUrl: youtubeAccount?.avatarUrl,
+            onLogin: () => context.push(RoutePaths.youtubeLogin),
+            onLogout: () => _confirmLogout(context, ref, SourceType.youtube),
           ),
         ],
       ),
@@ -50,13 +54,16 @@ class AccountManagementPage extends ConsumerWidget {
   Future<void> _confirmLogout(
     BuildContext context,
     WidgetRef ref,
-    String platform,
+    SourceType platform,
   ) async {
+    final platformName = platform == SourceType.bilibili
+        ? t.importPlatform.bilibili
+        : 'YouTube';
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(t.account.logout),
-        content: Text(t.account.logoutConfirm(platform: platform)),
+        content: Text(t.account.logoutConfirm(platform: platformName)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -71,7 +78,12 @@ class AccountManagementPage extends ConsumerWidget {
     );
 
     if (confirmed == true) {
-      await ref.read(bilibiliAccountServiceProvider).logout();
+      switch (platform) {
+        case SourceType.bilibili:
+          await ref.read(bilibiliAccountServiceProvider).logout();
+        case SourceType.youtube:
+          await ref.read(youtubeAccountServiceProvider).logout();
+      }
       if (context.mounted) {
         ToastService.show(context, t.account.logoutSuccess);
       }
@@ -89,8 +101,6 @@ class _PlatformCard extends StatelessWidget {
   final String? avatarUrl;
   final VoidCallback? onLogin;
   final VoidCallback? onLogout;
-  final bool enabled;
-  final String? disabledHint;
 
   const _PlatformCard({
     required this.platformName,
@@ -101,8 +111,6 @@ class _PlatformCard extends StatelessWidget {
     this.avatarUrl,
     this.onLogin,
     this.onLogout,
-    this.enabled = true,
-    this.disabledHint,
   });
 
   @override
@@ -113,59 +121,55 @@ class _PlatformCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Card(
         clipBehavior: Clip.antiAlias,
-        child: Opacity(
-          opacity: enabled ? 1.0 : 0.5,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                // 平台圖標或頭像
-                if (isLoggedIn && avatarUrl != null)
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundImage: NetworkImage(avatarUrl!),
-                  )
-                else
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundColor: iconColor.withValues(alpha: 0.1),
-                    child: Icon(icon, color: iconColor, size: 28),
-                  ),
-                const SizedBox(width: 16),
-                // 信息
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        platformName,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        isLoggedIn
-                            ? userName ?? t.account.loggedIn
-                            : disabledHint ?? t.account.notLoggedIn,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                      ),
-                    ],
-                  ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // 平台圖標或頭像
+              if (isLoggedIn && avatarUrl != null)
+                CircleAvatar(
+                  radius: 24,
+                  backgroundImage: NetworkImage(avatarUrl!),
+                )
+              else
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: iconColor.withValues(alpha: 0.1),
+                  child: Icon(icon, color: iconColor, size: 28),
                 ),
-                // 操作按鈕
-                if (enabled)
-                  isLoggedIn
-                      ? OutlinedButton(
-                          onPressed: onLogout,
-                          child: Text(t.account.logout),
-                        )
-                      : FilledButton(
-                          onPressed: onLogin,
-                          child: Text(t.account.login),
-                        ),
-              ],
-            ),
+              const SizedBox(width: 16),
+              // 信息
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      platformName,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      isLoggedIn
+                          ? userName ?? t.account.loggedIn
+                          : t.account.notLoggedIn,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              // 操作按鈕
+              isLoggedIn
+                  ? OutlinedButton(
+                      onPressed: onLogout,
+                      child: Text(t.account.logout),
+                    )
+                  : FilledButton(
+                      onPressed: onLogin,
+                      child: Text(t.account.login),
+                    ),
+            ],
           ),
         ),
       ),

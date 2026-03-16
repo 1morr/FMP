@@ -327,11 +327,10 @@ class _ExploreTrackTile extends ConsumerWidget {
       value: 'matchLyrics',
       child: ListTile(leading: const Icon(Icons.lyrics_outlined), title: Text(t.lyrics.matchLyrics), contentPadding: EdgeInsets.zero),
     ),
-    if (track.sourceType == SourceType.bilibili)
-      PopupMenuItem(
-        value: 'add_to_remote',
-        child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero),
-      ),
+    PopupMenuItem(
+      value: 'add_to_remote',
+      child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero),
+    ),
   ];
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
@@ -360,7 +359,7 @@ class _ExploreTrackTile extends ConsumerWidget {
         showLyricsSearchSheet(context: context, track: track);
         break;
       case 'add_to_remote':
-        final isLoggedIn = ref.read(isBilibiliLoggedInProvider);
+        final isLoggedIn = ref.read(isLoggedInProvider(track.sourceType));
         if (!isLoggedIn) {
           if (context.mounted) {
             ToastService.show(context, t.remote.pleaseLogin);

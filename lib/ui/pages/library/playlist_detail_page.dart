@@ -556,7 +556,8 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         }
         break;
       case 'add_to_remote':
-        final isLoggedIn = ref.read(isBilibiliLoggedInProvider);
+        // 檢查第一首歌的平台登錄狀態
+        final isLoggedIn = ref.read(isLoggedInProvider(tracks.first.sourceType));
         if (!isLoggedIn) {
           if (mounted) {
             ToastService.show(context, t.remote.pleaseLogin);
@@ -564,9 +565,11 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           return;
         }
         notifier.exitSelectionMode();
-        final biliTracks = tracks.where((t) => t.sourceType == SourceType.bilibili).toList();
-        if (biliTracks.isNotEmpty && mounted) {
-          showAddToRemotePlaylistDialogMulti(context: context, tracks: biliTracks);
+        // 按平台過濾（多選可能混合平台）
+        final remoteTracks = tracks.where((t) =>
+            ref.read(isLoggedInProvider(t.sourceType))).toList();
+        if (remoteTracks.isNotEmpty && mounted) {
+          showAddToRemotePlaylistDialogMulti(context: context, tracks: remoteTracks);
         }
         break;
       case 'remove_from_remote':
@@ -1216,8 +1219,7 @@ class _GroupHeader extends ConsumerWidget {
     if (!isMix)
       PopupMenuItem(value: 'download_all', child: ListTile(leading: const Icon(Icons.download_outlined), title: Text(t.library.detail.downloadAllParts), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.library.detail.addToOtherPlaylist), contentPadding: EdgeInsets.zero)),
-    if (group.tracks.first.sourceType == SourceType.bilibili)
-      PopupMenuItem(value: 'add_to_remote', child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_remote', child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero)),
     if (!isImported)
       PopupMenuItem(value: 'remove_all', child: ListTile(leading: const Icon(Icons.remove_circle_outline), title: Text(t.library.detail.removeAllFromPlaylist), contentPadding: EdgeInsets.zero)),
   ];
@@ -1231,7 +1233,7 @@ class _GroupHeader extends ConsumerWidget {
         onAddAllToQueue();
         break;
       case 'add_to_remote':
-        final isLoggedIn = ref.read(isBilibiliLoggedInProvider);
+        final isLoggedIn = ref.read(isLoggedInProvider(group.tracks.first.sourceType));
         if (!isLoggedIn) {
           if (context.mounted) {
             ToastService.show(context, t.remote.pleaseLogin);
@@ -1477,9 +1479,8 @@ class _TrackListTile extends ConsumerWidget {
       PopupMenuItem(value: 'download', child: ListTile(leading: const Icon(Icons.download_outlined), title: Text(t.library.detail.download), contentPadding: EdgeInsets.zero)),
     if (!isPartOfMultiPage)
       PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.general.addToPlaylist), contentPadding: EdgeInsets.zero)),
-    if (track.sourceType == SourceType.bilibili)
-      PopupMenuItem(value: 'add_to_remote', child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero)),
-    if (isImported && !isMix && track.sourceType == SourceType.bilibili)
+    PopupMenuItem(value: 'add_to_remote', child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero)),
+    if (isImported && !isMix)
       PopupMenuItem(value: 'remove_from_remote', child: ListTile(leading: Icon(Icons.cloud_off_outlined, color: Theme.of(context).colorScheme.error), title: Text(t.remote.removeFromFavorites, style: TextStyle(color: Theme.of(context).colorScheme.error)), contentPadding: EdgeInsets.zero)),
     if (!isImported)
       PopupMenuItem(value: 'remove', child: ListTile(leading: const Icon(Icons.remove_circle_outline), title: Text(t.library.detail.removeFromPlaylist), contentPadding: EdgeInsets.zero)),
@@ -1543,7 +1544,7 @@ class _TrackListTile extends ConsumerWidget {
         showAddToPlaylistDialog(context: context, track: track);
         break;
       case 'add_to_remote':
-        final isLoggedIn = ref.read(isBilibiliLoggedInProvider);
+        final isLoggedIn = ref.read(isLoggedInProvider(track.sourceType));
         if (!isLoggedIn) {
           if (context.mounted) {
             ToastService.show(context, t.remote.pleaseLogin);

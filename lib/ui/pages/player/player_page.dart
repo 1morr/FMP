@@ -56,7 +56,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     if (value == 'local') {
       showAddToPlaylistDialog(context: context, track: track);
     } else if (value == 'remote') {
-      final isLoggedIn = ref.read(isBilibiliLoggedInProvider);
+      final isLoggedIn = ref.read(isLoggedInProvider(track.sourceType));
       if (!isLoggedIn) {
         ToastService.show(context, t.remote.pleaseLogin);
         return;
@@ -111,7 +111,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                 });
               },
               itemBuilder: (context) {
-                final isBilibili = playerState.currentTrack?.sourceType == SourceType.bilibili;
                 return [
                   PopupMenuItem(
                     value: 'local',
@@ -123,8 +122,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                       ],
                     ),
                   ),
-                  if (isBilibili)
-                    PopupMenuItem(
+                  PopupMenuItem(
                       value: 'remote',
                       child: Row(
                         children: [

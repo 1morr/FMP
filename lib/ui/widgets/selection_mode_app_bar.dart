@@ -331,8 +331,11 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
     List<Track> tracks,
   ) async {
     final notifier = ref.read(selectionProvider.notifier);
-    final isLoggedIn = ref.read(isBilibiliLoggedInProvider);
-    if (!isLoggedIn) {
+
+    // 過濾出已登錄平台的 tracks
+    final remoteTracks = tracks.where((t) =>
+        ref.read(isLoggedInProvider(t.sourceType))).toList();
+    if (remoteTracks.isEmpty) {
       if (context.mounted) {
         ToastService.show(context, t.remote.pleaseLogin);
       }
@@ -341,12 +344,8 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
 
     notifier.exitSelectionMode();
 
-    // 過濾出 Bilibili tracks，批量處理
-    final biliTracks = tracks.where((t) => t.sourceType == SourceType.bilibili).toList();
-    if (biliTracks.isEmpty) return;
-
     if (context.mounted) {
-      showAddToRemotePlaylistDialogMulti(context: context, tracks: biliTracks);
+      showAddToRemotePlaylistDialogMulti(context: context, tracks: remoteTracks);
     }
   }
 

@@ -2,72 +2,48 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/ui_constants.dart';
-import '../../../core/logger.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
-import '../../../data/sources/bilibili_source.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/account_provider.dart';
-import '../../../providers/playlist_provider.dart';
-import '../../../providers/refresh_provider.dart';
-import '../../../providers/repository_providers.dart';
-import '../../../services/account/bilibili_favorites_service.dart';
-import 'add_to_youtube_playlist_dialog.dart';
+import '../../../services/account/youtube_playlist_service.dart';
 import '../track_thumbnail.dart';
 
-/// 顯示添加到遠程收藏夾對話框（自動路由到對應平台）
-Future<bool> showAddToRemotePlaylistDialog({
-  required BuildContext context,
-  required Track track,
-}) async {
-  return showAddToRemotePlaylistDialogMulti(context: context, tracks: [track]);
-}
-
-/// 顯示添加到遠程收藏夾對話框（多首歌曲，自動路由到對應平台）
-Future<bool> showAddToRemotePlaylistDialogMulti({
+/// 顯示添加到 YouTube 播放列表對話框
+Future<bool> showAddToYouTubePlaylistDialog({
   required BuildContext context,
   required List<Track> tracks,
 }) async {
   if (tracks.isEmpty) return false;
-
-  final sourceType = tracks.first.sourceType;
-  switch (sourceType) {
-    case SourceType.bilibili:
-      return _showBilibiliSheet(context, tracks);
-    case SourceType.youtube:
-      return showAddToYouTubePlaylistDialog(context: context, tracks: tracks);
-  }
-}
-
-/// Bilibili 收藏夾 sheet
-Future<bool> _showBilibiliSheet(BuildContext context, List<Track> tracks) async {
   final result = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    builder: (context) => _BilibiliRemoteFavSheet(tracks: tracks),
+    builder: (context) => _YouTubePlaylistSheet(tracks: tracks),
   );
   return result ?? false;
 }
 
-class _BilibiliRemoteFavSheet extends ConsumerStatefulWidget {
+class _YouTubePlaylistSheet extends ConsumerStatefulWidget {
   final List<Track> tracks;
-  const _BilibiliRemoteFavSheet({required this.tracks});
+  const _YouTubePlaylistSheet({required this.tracks});
 
   @override
-  ConsumerState<_BilibiliRemoteFavSheet> createState() =>
-      _BilibiliRemoteFavSheetState();
+  ConsumerState<_YouTubePlaylistSheet> createState() =>
+      _YouTubePlaylistSheetState();
 }
 
-class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet> {
-  List<BilibiliFavFolder>? _folders;
-  Set<int> _selectedIds = {};
-  Set<int> _originalIds = {};
+class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
+  List<YouTubePlaylistInfo>? _playlists;
+  final Set<String> _selectedIds = {};
+  final Set<String> _originalIds = {};
+  // 每個 playlist 的 containsVideo 檢查狀態
+  final Map<String, bool?> _containsStatus = {}; // null = loading
   bool _isLoading = true;
   bool _isSubmitting = false;
   String? _errorMessage;
   String? _submitProgress;
-  final _newFolderController = TextEditingController();
+  final _newPlaylistController = TextEditingController();
 
   List<Track> get _tracks => widget.tracks;
   bool get _isMulti => _tracks.length > 1;
@@ -75,30 +51,94 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
   @override
   void initState() {
     super.initState();
-    _loadFolders();
+    _loadPlaylists();
   }
 
   @override
   void dispose() {
-    _newFolderController.dispose();
+    _newPlaylistController.dispose();
     super.dispose();
   }
 
-  Future<void> _showCreateFolderDialog() async {
+  Future<void> _loadPlaylists() async {
+    try {
+      final service = ref.read(youtubePlaylistServiceProvider);
+      final playlists = await service.getPlaylists();
+
+      if (!mounted) return;
+      setState(() {
+        _playlists = playlists;
+        _isLoading = false;
+      });
+
+      // 單曲模式：異步逐個檢查 containsVideo
+      if (!_isMulti && playlists.isNotEmpty) {
+        _checkContainsVideoAsync(playlists);
+      }
+    } on YouTubePlaylistException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.message;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString();
+      });
+    }
+  }
+
+  /// 異步逐個檢查每個播放列表是否包含當前視頻
+  Future<void> _checkContainsVideoAsync(List<YouTubePlaylistInfo> playlists) async {
+    final service = ref.read(youtubePlaylistServiceProvider);
+    final videoId = _tracks.first.sourceId;
+
+    // 初始化所有為 loading 狀態
+    for (final p in playlists) {
+      _containsStatus[p.playlistId] = null;
+    }
+
+    for (final playlist in playlists) {
+      if (!mounted) return;
+      try {
+        final contains = await service.checkVideoInPlaylist(
+          playlist.playlistId,
+          videoId,
+        );
+        if (!mounted) return;
+        setState(() {
+          _containsStatus[playlist.playlistId] = contains;
+          if (contains) {
+            _originalIds.add(playlist.playlistId);
+            _selectedIds.add(playlist.playlistId);
+          }
+        });
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _containsStatus[playlist.playlistId] = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _showCreatePlaylistDialog() async {
     bool isPrivate = false;
     final result = await showDialog<({String name, bool isPrivate})>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text(t.remote.createFolder),
+          title: Text(t.remote.createPlaylist),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                controller: _newFolderController,
+                controller: _newPlaylistController,
                 autofocus: true,
                 decoration: InputDecoration(
-                  hintText: t.remote.folderNameHint,
+                  hintText: t.remote.playlistNameHint,
                 ),
                 onSubmitted: (value) {
                   if (value.trim().isNotEmpty) {
@@ -123,7 +163,7 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
             ),
             FilledButton(
               onPressed: () {
-                final name = _newFolderController.text.trim();
+                final name = _newPlaylistController.text.trim();
                 if (name.isNotEmpty) {
                   Navigator.pop(context,
                       (name: name, isPrivate: isPrivate));
@@ -136,62 +176,32 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
       ),
     );
 
-    _newFolderController.clear();
+    _newPlaylistController.clear();
 
     if (result != null && mounted) {
       try {
-        final favService = ref.read(bilibiliFavoritesServiceProvider);
-        final folder = await favService.createFavFolder(
+        final service = ref.read(youtubePlaylistServiceProvider);
+        final playlistId = await service.createPlaylist(
           title: result.name,
           isPrivate: result.isPrivate,
         );
-        if (!mounted) return;
+        if (!mounted || playlistId == null) return;
         setState(() {
-          _folders?.insert(0, folder);
-          _selectedIds.add(folder.id);
+          final newPlaylist = YouTubePlaylistInfo(
+            playlistId: playlistId,
+            title: result.name,
+            videoCount: 0,
+          );
+          _playlists?.insert(0, newPlaylist);
+          _selectedIds.add(playlistId);
         });
-      } on BilibiliFavoritesException catch (e) {
+      } on YouTubePlaylistException catch (e) {
         if (!mounted) return;
         ToastService.error(context, e.message);
       } catch (e) {
         if (!mounted) return;
         ToastService.error(context, e.toString());
       }
-    }
-  }
-
-  Future<void> _loadFolders() async {
-    try {
-      final favService = ref.read(bilibiliFavoritesServiceProvider);
-      // 用第一首歌查詢收藏夾狀態（多選時不標記已收藏狀態）
-      final aid = _isMulti ? null : await favService.getVideoAid(_tracks.first);
-      final folders = await favService.getFavFolders(videoAid: aid);
-
-      if (!mounted) return;
-      final original = <int>{};
-      if (!_isMulti) {
-        for (final f in folders) {
-          if (f.isFavorited) original.add(f.id);
-        }
-      }
-      setState(() {
-        _folders = folders;
-        _originalIds = original;
-        _selectedIds = Set.from(original);
-        _isLoading = false;
-      });
-    } on BilibiliFavoritesException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = e.message;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = e.toString();
-      });
     }
   }
 
@@ -207,7 +217,7 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
 
     setState(() => _isSubmitting = true);
     try {
-      final favService = ref.read(bilibiliFavoritesServiceProvider);
+      final service = ref.read(youtubePlaylistServiceProvider);
 
       for (var i = 0; i < _tracks.length; i++) {
         final track = _tracks[i];
@@ -216,21 +226,32 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
             _submitProgress = '${i + 1}/${_tracks.length}';
           });
         }
-        final aid = await favService.getVideoAid(track);
-        await favService.updateVideoFavorites(
-          videoAid: aid,
-          addFolderIds: toAdd,
-          removeFolderIds: toRemove,
-        );
-      }
 
-      // 同步本地歌單
-      await _syncLocalPlaylists(toAdd, toRemove);
+        // 添加到選中的播放列表
+        for (final playlistId in toAdd) {
+          await service.addToPlaylist(playlistId, track.sourceId);
+        }
+
+        // 從取消選中的播放列表移除
+        for (final playlistId in toRemove) {
+          final setVideoId = await service.getSetVideoId(
+            playlistId,
+            track.sourceId,
+          );
+          if (setVideoId != null) {
+            await service.removeFromPlaylist(
+              playlistId,
+              track.sourceId,
+              setVideoId,
+            );
+          }
+        }
+      }
 
       if (!mounted) return;
       ToastService.success(context, t.remote.updated);
       Navigator.pop(context, true);
-    } on BilibiliFavoritesException catch (e) {
+    } on YouTubePlaylistException catch (e) {
       if (!mounted) return;
       ToastService.error(context, e.message);
       setState(() {
@@ -244,62 +265,6 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
         _isSubmitting = false;
         _submitProgress = null;
       });
-    }
-  }
-
-  /// 同步本地歌單：遠程移除→本地也移除，然後觸發重新整理
-  Future<void> _syncLocalPlaylists(List<int> toAdd, List<int> toRemove) async {
-    final service = ref.read(playlistServiceProvider);
-    final playlists = await service.getAllPlaylists();
-    final changedFolderIds = {...toAdd, ...toRemove};
-    final sourceIds = _tracks.map((t) => t.sourceId).toList();
-
-    AppLogger.info('Syncing local playlists: toAdd=$toAdd, toRemove=$toRemove, '
-        'tracks=${sourceIds.length}, local playlists count=${playlists.length}', 'RemoteFav');
-
-    for (final playlist in playlists) {
-      if (playlist.importSourceType != SourceType.bilibili ||
-          playlist.sourceUrl == null) {
-        continue;
-      }
-      final fid = BilibiliSource.parseFavoritesId(playlist.sourceUrl!);
-      if (fid == null) continue;
-      final fidInt = int.tryParse(fid);
-
-      if (fidInt == null || !changedFolderIds.contains(fidInt)) continue;
-
-      AppLogger.info('Matched playlist "${playlist.name}" (id=${playlist.id}) '
-          'with folder $fidInt', 'RemoteFav');
-
-      // 遠程移除 → 先從本地歌單移除（即時 UI 反饋）
-      if (toRemove.contains(fidInt)) {
-        try {
-          final trackRepo = ref.read(trackRepositoryProvider);
-          final playlistSvc = ref.read(playlistServiceProvider);
-          final tracks = await trackRepo.getBySourceIds(sourceIds);
-          final matchingIds = tracks
-              .where((t) =>
-                  t.sourceType == _tracks.first.sourceType &&
-                  t.belongsToPlaylist(playlist.id))
-              .map((t) => t.id)
-              .toList();
-          if (matchingIds.isNotEmpty) {
-            await playlistSvc.removeTracksFromPlaylist(
-                playlist.id, matchingIds);
-            AppLogger.info('Removed ${matchingIds.length} tracks from local playlist', 'RemoteFav');
-          }
-        } catch (e) {
-          AppLogger.error('Failed to remove from local playlist: $e', 'RemoteFav');
-        }
-      }
-
-      // 觸發歌單重新整理（從遠端重新拉取同步）
-      try {
-        AppLogger.info('Triggering refresh for playlist "${playlist.name}"', 'RemoteFav');
-        ref.read(refreshManagerProvider.notifier).refreshPlaylist(playlist);
-      } catch (e) {
-        AppLogger.error('Failed to trigger refresh: $e', 'RemoteFav');
-      }
     }
   }
 
@@ -330,7 +295,7 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: [
-                  Text(t.remote.dialogTitle,
+                  Text(t.remote.dialogTitleYoutube,
                       style: Theme.of(context).textTheme.titleLarge),
                   const Spacer(),
                   IconButton(
@@ -400,7 +365,7 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
                     ),
             ),
             const SizedBox(height: 8),
-            // 新建收藏夾
+            // 新建播放列表
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: ListTile(
@@ -416,16 +381,16 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
                     color: colorScheme.onPrimaryContainer,
                   ),
                 ),
-                title: Text(t.remote.createFolder),
+                title: Text(t.remote.createPlaylist),
                 shape: RoundedRectangleBorder(
                   borderRadius: AppRadius.borderRadiusLg,
                 ),
-                onTap: _isSubmitting ? null : _showCreateFolderDialog,
+                onTap: _isSubmitting ? null : _showCreatePlaylistDialog,
               ),
             ),
             const Divider(),
-            // 收藏夾列表
-            Expanded(child: _buildFolderList(colorScheme, scrollController)),
+            // 播放列表列表
+            Expanded(child: _buildPlaylistList(colorScheme, scrollController)),
             // 確認按鈕
             SafeArea(
               child: Padding(
@@ -462,7 +427,7 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
     );
   }
 
-  Widget _buildFolderList(
+  Widget _buildPlaylistList(
       ColorScheme colorScheme, ScrollController scrollController) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -477,29 +442,29 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
         ),
       );
     }
-    final folders = _folders;
-    if (folders == null || folders.isEmpty) {
+    final playlists = _playlists;
+    if (playlists == null || playlists.isEmpty) {
       return Center(child: Text(t.remote.loading));
     }
 
     return ListView.builder(
       controller: scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: folders.length,
+      itemCount: playlists.length,
       itemBuilder: (context, index) {
-        final folder = folders[index];
-        final isSelected = _selectedIds.contains(folder.id);
+        final playlist = playlists[index];
+        final isSelected = _selectedIds.contains(playlist.playlistId);
+        final containsStatus = _containsStatus[playlist.playlistId];
 
         return ListTile(
-          leading: Icon(
-            folder.isDefault ? Icons.star : Icons.folder_outlined,
-            color: isSelected ? colorScheme.primary : colorScheme.outline,
+          leading: const Icon(Icons.playlist_play),
+          title: Text(playlist.title),
+          subtitle: Text('${playlist.videoCount}'),
+          trailing: _buildTrailing(
+            colorScheme,
+            isSelected,
+            containsStatus,
           ),
-          title: Text(folder.title),
-          subtitle: Text('${folder.mediaCount}'),
-          trailing: isSelected
-              ? Icon(Icons.check_circle, color: colorScheme.primary)
-              : Icon(Icons.circle_outlined, color: colorScheme.outline),
           selected: isSelected,
           selectedTileColor:
               colorScheme.primaryContainer.withValues(alpha: 0.3),
@@ -508,15 +473,34 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
           onTap: () {
             setState(() {
               if (isSelected) {
-                _selectedIds.remove(folder.id);
+                _selectedIds.remove(playlist.playlistId);
               } else {
-                _selectedIds.add(folder.id);
+                _selectedIds.add(playlist.playlistId);
               }
             });
           },
         );
       },
     );
+  }
+
+  Widget _buildTrailing(
+    ColorScheme colorScheme,
+    bool isSelected,
+    bool? containsStatus,
+  ) {
+    // 單曲模式且正在檢查中
+    if (!_isMulti && containsStatus == null && _playlists != null) {
+      return const SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
+    if (isSelected) {
+      return Icon(Icons.check_circle, color: colorScheme.primary);
+    }
+    return Icon(Icons.circle_outlined, color: colorScheme.outline);
   }
 
   String _getButtonText() {

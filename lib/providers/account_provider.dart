@@ -8,6 +8,8 @@ import '../data/models/account.dart';
 import '../data/models/track.dart';
 import '../services/account/bilibili_account_service.dart';
 import '../services/account/bilibili_favorites_service.dart';
+import '../services/account/youtube_account_service.dart';
+import '../services/account/youtube_playlist_service.dart';
 import 'database_provider.dart';
 
 /// Bilibili 帳號服務 Provider（單例）
@@ -38,13 +40,44 @@ final isBilibiliLoggedInProvider = Provider<bool>((ref) {
   return account?.isLoggedIn ?? false;
 });
 
+// ===== YouTube =====
+
+/// YouTube 帳號服務 Provider（單例）
+final youtubeAccountServiceProvider =
+    Provider<YouTubeAccountService>((ref) {
+  final isar = ref.watch(databaseProvider).requireValue;
+  return YouTubeAccountService(isar: isar);
+});
+
+/// YouTube 播放列表服務 Provider
+final youtubePlaylistServiceProvider =
+    Provider<YouTubePlaylistService>((ref) {
+  final accountService = ref.watch(youtubeAccountServiceProvider);
+  return YouTubePlaylistService(accountService: accountService);
+});
+
+/// YouTube 帳號狀態 Provider（響應式，監聽 Isar Account 變化）
+final youtubeAccountProvider =
+    StateNotifierProvider<YouTubeAccountNotifier, Account?>((ref) {
+  final isar = ref.watch(databaseProvider).requireValue;
+  return YouTubeAccountNotifier(isar);
+});
+
+/// 是否已登錄 YouTube（便捷 Provider）
+final isYouTubeLoggedInProvider = Provider<bool>((ref) {
+  final account = ref.watch(youtubeAccountProvider);
+  return account?.isLoggedIn ?? false;
+});
+
+// ===== 通用 =====
+
 /// 通用：根據平台獲取登錄狀態
 final isLoggedInProvider = Provider.family<bool, SourceType>((ref, platform) {
   switch (platform) {
     case SourceType.bilibili:
       return ref.watch(isBilibiliLoggedInProvider);
     case SourceType.youtube:
-      return false; // 未來實現
+      return ref.watch(isYouTubeLoggedInProvider);
   }
 });
 
@@ -90,6 +123,38 @@ class BilibiliAccountNotifier extends StateNotifier<Account?> {
     _subscription = _isar.accounts
         .filter()
         .platformEqualTo(SourceType.bilibili)
+        .watch(fireImmediately: true)
+        .listen((accounts) {
+      state = accounts.isNotEmpty ? accounts.first : null;
+    });
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
+  }
+}
+
+/// YouTube 帳號狀態管理
+class YouTubeAccountNotifier extends StateNotifier<Account?> {
+  final Isar _isar;
+  StreamSubscription? _subscription;
+
+  YouTubeAccountNotifier(this._isar) : super(null) {
+    _init();
+  }
+
+  void _init() {
+    final account = _isar.accounts
+        .filter()
+        .platformEqualTo(SourceType.youtube)
+        .findFirstSync();
+    state = account;
+
+    _subscription = _isar.accounts
+        .filter()
+        .platformEqualTo(SourceType.youtube)
         .watch(fireImmediately: true)
         .listen((accounts) {
       state = accounts.isNotEmpty ? accounts.first : null;
