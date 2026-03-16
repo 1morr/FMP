@@ -922,7 +922,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         }
         break;
       case 'add_to_remote':
-        final isLoggedIn = ref.read(isBilibiliLoggedInProvider);
+        final isLoggedIn = ref.read(isLoggedInProvider(track.sourceType));
         if (!isLoggedIn) {
           if (mounted) {
             ToastService.show(context, t.remote.pleaseLogin);
@@ -1147,8 +1147,7 @@ class _SearchResultTile extends ConsumerWidget {
     PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.general.addToQueue), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.general.addToPlaylist), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'matchLyrics', child: ListTile(leading: const Icon(Icons.lyrics_outlined), title: Text(t.lyrics.matchLyrics), contentPadding: EdgeInsets.zero)),
-    if (track.sourceType == SourceType.bilibili)
-      PopupMenuItem(value: 'add_to_remote', child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_remote', child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero)),
   ];
 
 }
@@ -1389,8 +1388,7 @@ class _LocalGroupTile extends ConsumerWidget {
     PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.general.playNext), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.general.addToQueue), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.general.addToPlaylist), contentPadding: EdgeInsets.zero)),
-    if (group.firstTrack.sourceType == SourceType.bilibili)
-      PopupMenuItem(value: 'add_to_remote', child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_remote', child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero)),
   ];
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
@@ -1433,7 +1431,7 @@ class _LocalGroupTile extends ConsumerWidget {
         showAddToPlaylistDialog(context: context, tracks: group.tracks);
         break;
       case 'add_to_remote':
-        final isLoggedIn = ref.read(isBilibiliLoggedInProvider);
+        final isLoggedIn = ref.read(isLoggedInProvider(group.firstTrack.sourceType));
         if (!isLoggedIn) {
           if (context.mounted) {
             ToastService.show(context, t.remote.pleaseLogin);
@@ -1549,8 +1547,7 @@ class _LocalTrackTile extends ConsumerWidget {
     PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.general.addToQueue), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.general.addToPlaylist), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'matchLyrics', child: ListTile(leading: const Icon(Icons.lyrics_outlined), title: Text(t.lyrics.matchLyrics), contentPadding: EdgeInsets.zero)),
-    if (track.sourceType == SourceType.bilibili)
-      PopupMenuItem(value: 'add_to_remote', child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_remote', child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero)),
   ];
 }
 

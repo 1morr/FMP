@@ -19,6 +19,7 @@ import 'pages/settings/database_viewer_page.dart';
 import 'pages/settings/log_viewer_page.dart';
 import 'pages/settings/account_management_page.dart';
 import 'pages/settings/bilibili_login_page.dart';
+import 'pages/settings/youtube_login_page.dart';
 import 'pages/radio/radio_page.dart';
 import 'pages/radio/radio_player_page.dart';
 import 'pages/library/downloaded_page.dart';
@@ -52,6 +53,7 @@ class RoutePaths {
   static const String logViewer = '/settings/developer/logs';
   static const String accountManagement = '/settings/account';
   static const String bilibiliLogin = '/settings/account/bilibili-login';
+  static const String youtubeLogin = '/settings/account/youtube-login';
 }
 
 /// 路由名称常量
@@ -80,6 +82,7 @@ class RouteNames {
   static const String logViewer = 'logViewer';
   static const String accountManagement = 'accountManagement';
   static const String bilibiliLogin = 'bilibiliLogin';
+  static const String youtubeLogin = 'youtubeLogin';
 }
 
 /// 用于根导航的 navigator key
@@ -244,6 +247,11 @@ final appRouter = GoRouter(
                   path: 'bilibili-login',
                   name: RouteNames.bilibiliLogin,
                   builder: (context, state) => const BilibiliLoginPage(),
+                ),
+                GoRoute(
+                  path: 'youtube-login',
+                  name: RouteNames.youtubeLogin,
+                  builder: (context, state) => const YouTubeLoginPage(),
                 ),
               ],
             ),
