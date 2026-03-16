@@ -1,6 +1,6 @@
 {
   "title": "帳號管理",
-  "subtitle": "管理 Bilibili、YouTube 帳號",
+  "subtitle": "管理 嗶哩嗶哩、YouTube 帳號",
   "notLoggedIn": "未登錄",
   "loggedIn": "已登錄",
   "login": "登錄",
@@ -11,7 +11,7 @@
   "refreshFailed": "認證刷新失敗，請重新登錄",
   "webLogin": "網頁登錄",
   "qrLogin": "掃碼登錄",
-  "qrWaiting": "請使用 Bilibili 手機 App 掃描",
+  "qrWaiting": "請使用 嗶哩嗶哩 手機 App 掃描",
   "qrScanned": "已掃碼，請在手機上確認",
   "qrExpired": "二維碼已過期",
   "qrRefresh": "重新生成",

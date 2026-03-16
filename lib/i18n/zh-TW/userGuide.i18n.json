@@ -2,7 +2,7 @@
   "quickStart": {
     "title": "快速開始",
     "importPlaylist": "匯入歌單",
-    "importPlaylistDesc": "音樂庫右上角點擊匯入，支援 Bilibili/YouTube 連結匯入，也支援從網易雲、QQ音樂、Spotify 匯入歌單",
+    "importPlaylistDesc": "音樂庫右上角點擊匯入，支援 嗶哩嗶哩/YouTube 連結匯入，也支援從網易雲、QQ音樂、Spotify 匯入歌單",
     "addToQueue": "加入佇列",
     "addToQueueDesc": "開啟歌單，點擊「加入全部」將歌曲加入播放佇列",
     "startPlayback": "開始播放",
@@ -13,7 +13,7 @@
     "platforms": "支援平台",
     "platformsDesc": "網易雲音樂、QQ音樂、Spotify",
     "smartMatch": "智慧配對",
-    "smartMatchDesc": "自動在 Bilibili/YouTube 搜尋配對對應歌曲",
+    "smartMatchDesc": "自動在 嗶哩嗶哩/YouTube 搜尋配對對應歌曲",
     "preview": "預覽調整",
     "previewDesc": "匯入前可預覽配對結果，手動選擇備選項或排除不需要的歌曲"
   },
@@ -33,17 +33,17 @@
   "search": {
     "title": "搜尋功能",
     "sources": "支援音源",
-    "sourcesDesc": "Bilibili、YouTube 雙源搜尋",
+    "sourcesDesc": "嗶哩嗶哩、YouTube 雙源搜尋",
     "sortFilter": "排序篩選",
     "sortFilterDesc": "支援按綜合、播放量、最新、彈幕數排序",
     "liveFilter": "直播間篩選",
-    "liveFilterDesc": "Bilibili 搜尋支援篩選直播間（全部/未開播/已開播）",
+    "liveFilterDesc": "嗶哩嗶哩 搜尋支援篩選直播間（全部/未開播/已開播）",
     "multiP": "多P展開",
     "multiPDesc": "多P影片自動偵測，可展開檢視各分P"
   },
   "liveRadio": {
     "title": "直播與電台",
-    "biliLive": "Bilibili 直播",
+    "biliLive": "嗶哩嗶哩 直播",
     "biliLiveDesc": "搜尋直播間，收聽直播音訊",
     "autoRefresh": "自動重新整理",
     "autoRefreshDesc": "直播串流地址過期時自動重新整理，保持持續播放"
@@ -60,7 +60,7 @@
   "explore": {
     "title": "探索頁面",
     "ranking": "熱門排行榜",
-    "rankingDesc": "檢視 Bilibili 和 YouTube 音樂熱門排行",
+    "rankingDesc": "檢視 嗶哩嗶哩 和 YouTube 音樂熱門排行",
     "autoUpdate": "自動更新",
     "autoUpdateDesc": "排行榜每小時自動背景重新整理，開啟即看無需等待"
   },

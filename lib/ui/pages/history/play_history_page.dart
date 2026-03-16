@@ -325,7 +325,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
                   ),
                   const SizedBox(width: 8),
                   ChoiceChip(
-                    label: const Text('Bilibili'),
+                    label: Text(t.importPlatform.bilibili),
                     selected: pageState.selectedSource == SourceType.bilibili,
                     onSelected: (_) => notifier.setSource(SourceType.bilibili),
                   ),

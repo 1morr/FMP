@@ -45,7 +45,7 @@ class _BilibiliLoginPageState extends ConsumerState<BilibiliLoginPage>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bilibili'),
+        title: Text(t.importPlatform.bilibili),
         bottom: TabBar(
           controller: _tabController,
           tabs: [
