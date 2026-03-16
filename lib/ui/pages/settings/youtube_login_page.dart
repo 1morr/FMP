@@ -144,7 +144,6 @@ class _YouTubeLoginPageState extends ConsumerState<YouTubeLoginPage> {
       ''');
       if (result is String && result.isNotEmpty && result != 'null') {
         final info = Map<String, dynamic>.from(_parseJson(result));
-        debugPrint('[YouTubeLogin] WebView basic: $info');
         avatarUrl = info['avatarUrl'] as String?;
         channelId = info['channelId'] as String?;
       }
@@ -210,7 +209,6 @@ class _YouTubeLoginPageState extends ConsumerState<YouTubeLoginPage> {
               }
               var c = findField(data, 'channelId', 0);
               if (c) result.channelId = c;
-              result.accountsListKeys = Object.keys(data).slice(0, 10);
             }
           } catch(e) { result.accountsListError = e.message; }
         }
@@ -221,23 +219,16 @@ class _YouTubeLoginPageState extends ConsumerState<YouTubeLoginPage> {
           for (var i = 0; i < nameKeys.length; i++) {
             if (cfg[nameKeys[i]]) { result.userName = cfg[nameKeys[i]]; break; }
           }
-          result.ytConfigSample = Object.keys(cfg).filter(function(k) {
-            return k.indexOf('USER') >= 0 || k.indexOf('NAME') >= 0 ||
-                   k.indexOf('CHANNEL') >= 0 || k.indexOf('ACCOUNT') >= 0;
-          }).slice(0, 15);
         }
         return JSON.stringify(result);
       ''');
       final menuResult = asyncResult?.value;
       if (menuResult is String && menuResult.isNotEmpty && menuResult != 'null') {
         final info = Map<String, dynamic>.from(_parseJson(menuResult));
-        debugPrint('[YouTubeLogin] user extract: $info');
         userName = info['userName'] as String?;
         channelId ??= info['channelId'] as String?;
       }
-    } catch (e) {
-      debugPrint('[YouTubeLogin] user extract failed: $e');
-    }
+    } catch (_) {}
 
     // 更新帳號信息
     if (avatarUrl != null || channelId != null || userName != null) {
