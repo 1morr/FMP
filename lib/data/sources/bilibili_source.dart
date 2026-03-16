@@ -425,7 +425,7 @@ class BilibiliSource extends BaseSource with Logging {
   }) async {
     try {
       // 解析收藏夹 ID
-      final fid = _parseFavoritesId(playlistUrl);
+      final fid = parseFavoritesId(playlistUrl);
       if (fid == null) {
         throw Exception('Invalid favorites URL: $playlistUrl');
       }
@@ -779,8 +779,8 @@ class BilibiliSource extends BaseSource with Logging {
     return BilibiliApiException(numericCode: numericCode, message: classified.message);
   }
 
-  /// 解析收藏夹 ID
-  String? _parseFavoritesId(String url) {
+  /// 解析收藏夹 ID（公開靜態方法，供遠程收藏夾操作使用）
+  static String? parseFavoritesId(String url) {
     // 格式1: fid=123456
     final fidMatch = RegExp(r'fid=(\d+)').firstMatch(url);
     if (fidMatch != null) {

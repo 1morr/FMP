@@ -13,6 +13,7 @@ import '../data/models/download_task.dart';
 import '../data/models/play_history.dart';
 import '../data/models/radio_station.dart';
 import '../data/models/lyrics_match.dart';
+import '../data/models/account.dart';
 
 /// Isar 数据库 Provider
 /// 数据库迁移逻辑
@@ -128,6 +129,7 @@ final databaseProvider = FutureProvider<Isar>((ref) async {
       PlayHistorySchema,
       RadioStationSchema,
       LyricsMatchSchema,
+      AccountSchema,
     ],
     directory: dir.path,
     name: 'fmp_database',

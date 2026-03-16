@@ -17,7 +17,9 @@ import '../../../data/models/radio_station.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../router.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
+import '../../widgets/dialogs/add_to_remote_playlist_dialog.dart';
 import '../lyrics/lyrics_search_sheet.dart';
+import '../../../providers/account_provider.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/horizontal_scroll_section.dart';
 import '../../widgets/context_menu_region.dart';
@@ -905,6 +907,14 @@ class _RankingTrackTile extends ConsumerWidget {
               title: Text(t.lyrics.matchLyrics),
               contentPadding: EdgeInsets.zero),
         ),
+        if (track.sourceType == SourceType.bilibili)
+          PopupMenuItem(
+            value: 'add_to_remote',
+            child: ListTile(
+                leading: const Icon(Icons.cloud_upload_outlined),
+                title: Text(t.remote.addToFavorites),
+                contentPadding: EdgeInsets.zero),
+          ),
       ];
 
   void _handleMenuAction(
@@ -932,6 +942,18 @@ class _RankingTrackTile extends ConsumerWidget {
         break;
       case 'matchLyrics':
         showLyricsSearchSheet(context: context, track: track);
+        break;
+      case 'add_to_remote':
+        final isLoggedIn = ref.read(isBilibiliLoggedInProvider);
+        if (!isLoggedIn) {
+          if (context.mounted) {
+            ToastService.show(context, t.remote.pleaseLogin);
+          }
+          return;
+        }
+        if (context.mounted) {
+          showAddToRemotePlaylistDialog(context: context, track: track);
+        }
         break;
     }
   }

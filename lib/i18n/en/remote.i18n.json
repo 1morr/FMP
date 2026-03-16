@@ -1,0 +1,30 @@
+{
+  "addToFavorites": "Add to remote favorites",
+  "removeFromFavorites": "Remove from remote favorites",
+  "dialogTitle": "Add to Bilibili Favorites",
+  "noChanges": "No changes",
+  "updated": "Favorites updated",
+  "removed": "Removed from favorites",
+  "removedAndLocal": "Removed from favorites and local playlist",
+  "confirmRemove": "Remove from Bilibili favorites?",
+  "confirmRemoveContent": "This will also remove it from the local playlist.",
+  "pleaseLogin": "Please log in to Bilibili first",
+  "goToLogin": "Go to login",
+  "loading": "Loading...",
+  "confirm": "Confirm",
+  "addToCount": "Add to $count",
+  "tracksCount": "tracks",
+  "createFolder": "New Folder",
+  "folderNameHint": "Folder name",
+  "privateFolder": "Private",
+  "processing": "Processing...",
+  "error": {
+    "notLoggedIn": "Not logged in, please log in again",
+    "csrfFailed": "Authentication failed, please log in again",
+    "noPermission": "No permission, not the folder owner",
+    "favoritesLimit": "Favorites limit reached",
+    "contentNotFound": "Content not found",
+    "alreadyFavorited": "Already favorited",
+    "unknown": "Operation failed ($code)"
+  }
+}
