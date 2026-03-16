@@ -196,6 +196,7 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
           );
           _playlists?.insert(0, newPlaylist);
           _selectedIds.add(playlistId);
+          _containsStatus[playlistId] = false;
         });
       } on YouTubePlaylistException catch (e) {
         if (!mounted) return;
