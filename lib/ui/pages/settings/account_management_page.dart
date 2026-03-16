@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:simple_icons/simple_icons.dart';
 
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
@@ -27,7 +28,7 @@ class AccountManagementPage extends ConsumerWidget {
           // Bilibili 卡片
           _PlatformCard(
             platformName: t.importPlatform.bilibili,
-            icon: Icons.play_circle_outline,
+            icon: SimpleIcons.bilibili,
             iconColor: const Color(0xFFFF6699),
             isLoggedIn: bilibiliAccount?.isLoggedIn ?? false,
             userName: bilibiliAccount?.userName,
@@ -39,7 +40,7 @@ class AccountManagementPage extends ConsumerWidget {
           // YouTube 卡片
           _PlatformCard(
             platformName: 'YouTube',
-            icon: Icons.smart_display_outlined,
+            icon: SimpleIcons.youtube,
             iconColor: Colors.red,
             isLoggedIn: youtubeAccount?.isLoggedIn ?? false,
             userName: youtubeAccount?.userName,
