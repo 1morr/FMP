@@ -17,6 +17,7 @@ import '../../../providers/selection_provider.dart';
 import '../../widgets/download_path_setup_dialog.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
+import '../../widgets/dialogs/add_to_remote_playlist_dialog.dart';
 import '../../widgets/error_display.dart';
 import '../lyrics/lyrics_search_sheet.dart';
 import '../../widgets/now_playing_indicator.dart';
@@ -24,6 +25,10 @@ import '../../widgets/selection_mode_app_bar.dart';
 import '../../widgets/context_menu_region.dart';
 import '../../widgets/track_group/track_group.dart';
 import '../../widgets/track_thumbnail.dart';
+import '../../../providers/account_provider.dart';
+import '../../../services/account/bilibili_favorites_service.dart';
+import '../../../data/sources/bilibili_source.dart';
+import '../../../providers/refresh_provider.dart';
 
 /// 歌单详情页
 class PlaylistDetailPage extends ConsumerStatefulWidget {
@@ -177,6 +182,8 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       SelectionAction.addToQueue,
       SelectionAction.playNext,
       SelectionAction.addToPlaylist,
+      SelectionAction.addToRemotePlaylist,
+      if (isImported && !isMix) SelectionAction.removeFromRemotePlaylist,
       if (!isMix) SelectionAction.download,
       if (!isImported && !isMix) SelectionAction.delete,
     };
@@ -473,6 +480,24 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             contentPadding: EdgeInsets.zero,
           ),
         ),
+      if (availableActions.contains(SelectionAction.addToRemotePlaylist))
+        PopupMenuItem(
+          value: 'add_to_remote',
+          child: ListTile(
+            leading: const Icon(Icons.cloud_upload_outlined),
+            title: Text(t.remote.addToFavorites),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      if (availableActions.contains(SelectionAction.removeFromRemotePlaylist))
+        PopupMenuItem(
+          value: 'remove_from_remote',
+          child: ListTile(
+            leading: Icon(Icons.cloud_off_outlined, color: colorScheme.error),
+            title: Text(t.remote.removeFromFavorites, style: TextStyle(color: colorScheme.error)),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
       if (availableActions.contains(SelectionAction.download))
         PopupMenuItem(
           value: 'download',
@@ -530,6 +555,23 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           showAddToPlaylistDialog(context: context, tracks: tracks);
         }
         break;
+      case 'add_to_remote':
+        final isLoggedIn = ref.read(isBilibiliLoggedInProvider);
+        if (!isLoggedIn) {
+          if (mounted) {
+            ToastService.show(context, t.remote.pleaseLogin);
+          }
+          return;
+        }
+        notifier.exitSelectionMode();
+        final biliTracks = tracks.where((t) => t.sourceType == SourceType.bilibili).toList();
+        if (biliTracks.isNotEmpty && mounted) {
+          showAddToRemotePlaylistDialogMulti(context: context, tracks: biliTracks);
+        }
+        break;
+      case 'remove_from_remote':
+        await _confirmAndBatchRemoveFromRemote(tracks);
+        break;
       case 'download':
         await _downloadSelectedTracks(context, tracks);
         notifier.exitSelectionMode();
@@ -567,6 +609,76 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       notifier.exitSelectionMode();
       if (mounted) {
         ToastService.success(context, t.library.detail.deletedSongs(n: tracks.length));
+      }
+    }
+  }
+
+  /// 確認並批量從遠程收藏夾移除
+  Future<void> _confirmAndBatchRemoveFromRemote(List<Track> tracks) async {
+    final notifier = ref.read(playlistDetailSelectionProvider.notifier);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t.remote.confirmRemove),
+        content: Text(t.remote.confirmRemoveContent),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(t.general.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(t.general.confirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final favService = ref.read(bilibiliFavoritesServiceProvider);
+      final state = ref.read(playlistDetailProvider(widget.playlistId));
+      final sourceUrl = state.playlist?.sourceUrl;
+      if (sourceUrl == null) return;
+      final fid = BilibiliSource.parseFavoritesId(sourceUrl);
+      if (fid == null) return;
+
+      final biliTracks = tracks.where((t) => t.sourceType == SourceType.bilibili).toList();
+      final aids = <int>[];
+      for (final track in biliTracks) {
+        aids.add(await favService.getVideoAid(track));
+      }
+
+      await favService.batchRemoveFromFolder(
+        folderId: int.parse(fid),
+        videoAids: aids,
+      );
+
+      // 在移除前先取得 playlist 和 refreshManager
+      final playlist = ref.read(playlistDetailProvider(widget.playlistId)).playlist;
+      final refreshManager = ref.read(refreshManagerProvider.notifier);
+
+      // 同時從本地歌單移除
+      final detailNotifier = ref.read(playlistDetailProvider(widget.playlistId).notifier);
+      await detailNotifier.removeTracks(biliTracks.map((t) => t.id).toList());
+
+      // 觸發歌單重新整理
+      if (playlist != null) {
+        refreshManager.refreshPlaylist(playlist);
+      }
+
+      notifier.exitSelectionMode();
+      if (mounted) {
+        ToastService.success(context, t.remote.removedAndLocal);
+      }
+    } on BilibiliFavoritesException catch (e) {
+      if (mounted) {
+        ToastService.error(context, e.message);
+      }
+    } catch (e) {
+      if (mounted) {
+        ToastService.error(context, e.toString());
       }
     }
   }
@@ -1104,6 +1216,8 @@ class _GroupHeader extends ConsumerWidget {
     if (!isMix)
       PopupMenuItem(value: 'download_all', child: ListTile(leading: const Icon(Icons.download_outlined), title: Text(t.library.detail.downloadAllParts), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.library.detail.addToOtherPlaylist), contentPadding: EdgeInsets.zero)),
+    if (group.tracks.first.sourceType == SourceType.bilibili)
+      PopupMenuItem(value: 'add_to_remote', child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero)),
     if (!isImported)
       PopupMenuItem(value: 'remove_all', child: ListTile(leading: const Icon(Icons.remove_circle_outline), title: Text(t.library.detail.removeAllFromPlaylist), contentPadding: EdgeInsets.zero)),
   ];
@@ -1115,6 +1229,18 @@ class _GroupHeader extends ConsumerWidget {
         break;
       case 'add_all_to_queue':
         onAddAllToQueue();
+        break;
+      case 'add_to_remote':
+        final isLoggedIn = ref.read(isBilibiliLoggedInProvider);
+        if (!isLoggedIn) {
+          if (context.mounted) {
+            ToastService.show(context, t.remote.pleaseLogin);
+          }
+          return;
+        }
+        if (context.mounted) {
+          showAddToRemotePlaylistDialog(context: context, track: group.tracks.first);
+        }
         break;
       case 'download_all':
         // 检查路径配置
@@ -1240,7 +1366,7 @@ class _TrackListTile extends ConsumerWidget {
         currentTrack.pageNum == track.pageNum;
 
     return ContextMenuRegion(
-      menuBuilder: (_) => _buildMenuItems(),
+      menuBuilder: (_) => _buildMenuItems(context),
       onSelected: (value) => _handleMenuAction(context, ref, value),
       child: Padding(
       padding: EdgeInsets.only(left: indent ? 56 : 0),
@@ -1335,7 +1461,7 @@ class _TrackListTile extends ConsumerWidget {
             PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert, size: 20),
                 onSelected: (value) => _handleMenuAction(context, ref, value),
-                itemBuilder: (_) => _buildMenuItems(),
+                itemBuilder: (_) => _buildMenuItems(context),
               ),
           ],
         ),
@@ -1344,13 +1470,17 @@ class _TrackListTile extends ConsumerWidget {
     );
   }
 
-  List<PopupMenuEntry<String>> _buildMenuItems() => [
+  List<PopupMenuEntry<String>> _buildMenuItems(BuildContext context) => [
     PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.general.playNext), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.general.addToQueue), contentPadding: EdgeInsets.zero)),
     if (!isMix)
       PopupMenuItem(value: 'download', child: ListTile(leading: const Icon(Icons.download_outlined), title: Text(t.library.detail.download), contentPadding: EdgeInsets.zero)),
     if (!isPartOfMultiPage)
       PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.general.addToPlaylist), contentPadding: EdgeInsets.zero)),
+    if (track.sourceType == SourceType.bilibili)
+      PopupMenuItem(value: 'add_to_remote', child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero)),
+    if (isImported && !isMix && track.sourceType == SourceType.bilibili)
+      PopupMenuItem(value: 'remove_from_remote', child: ListTile(leading: Icon(Icons.cloud_off_outlined, color: Theme.of(context).colorScheme.error), title: Text(t.remote.removeFromFavorites, style: TextStyle(color: Theme.of(context).colorScheme.error)), contentPadding: EdgeInsets.zero)),
     if (!isImported)
       PopupMenuItem(value: 'remove', child: ListTile(leading: const Icon(Icons.remove_circle_outline), title: Text(t.library.detail.removeFromPlaylist), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'matchLyrics', child: ListTile(leading: const Icon(Icons.lyrics_outlined), title: Text(t.lyrics.matchLyrics), contentPadding: EdgeInsets.zero)),
@@ -1412,6 +1542,23 @@ class _TrackListTile extends ConsumerWidget {
       case 'add_to_playlist':
         showAddToPlaylistDialog(context: context, track: track);
         break;
+      case 'add_to_remote':
+        final isLoggedIn = ref.read(isBilibiliLoggedInProvider);
+        if (!isLoggedIn) {
+          if (context.mounted) {
+            ToastService.show(context, t.remote.pleaseLogin);
+          }
+          return;
+        }
+        if (context.mounted) {
+          showAddToRemotePlaylistDialog(context: context, track: track);
+        }
+        break;
+      case 'remove_from_remote':
+        if (context.mounted) {
+          _confirmAndRemoveFromRemote(context, ref, track);
+        }
+        break;
       case 'remove':
         await ref
             .read(playlistDetailProvider(playlistId).notifier)
@@ -1423,6 +1570,68 @@ class _TrackListTile extends ConsumerWidget {
       case 'matchLyrics':
         showLyricsSearchSheet(context: context, track: track);
         break;
+    }
+  }
+
+  Future<void> _confirmAndRemoveFromRemote(BuildContext context, WidgetRef ref, Track track) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t.remote.confirmRemove),
+        content: Text(t.remote.confirmRemoveContent),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(t.general.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(t.general.confirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      final favService = ref.read(bilibiliFavoritesServiceProvider);
+      final aid = await favService.getVideoAid(track);
+
+      // 從 playlist sourceUrl 解析收藏夾 ID
+      final state = ref.read(playlistDetailProvider(playlistId));
+      final sourceUrl = state.playlist?.sourceUrl;
+      if (sourceUrl == null) return;
+      final fid = BilibiliSource.parseFavoritesId(sourceUrl);
+      if (fid == null) return;
+
+      await favService.updateVideoFavorites(
+        videoAid: aid,
+        removeFolderIds: [int.parse(fid)],
+      );
+
+      // 在移除前先取得 playlist 和 refreshManager（移除後 ref 可能失效）
+      final playlist = ref.read(playlistDetailProvider(playlistId)).playlist;
+      final refreshManager = ref.read(refreshManagerProvider.notifier);
+
+      // 同時從本地歌單移除
+      await ref.read(playlistDetailProvider(playlistId).notifier).removeTrack(track.id);
+
+      // 觸發歌單重新整理
+      if (playlist != null) {
+        refreshManager.refreshPlaylist(playlist);
+      }
+
+      if (context.mounted) {
+        ToastService.success(context, t.remote.removedAndLocal);
+      }
+    } on BilibiliFavoritesException catch (e) {
+      if (context.mounted) {
+        ToastService.error(context, e.message);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ToastService.error(context, e.toString());
+      }
     }
   }
 }

@@ -7,6 +7,7 @@ import 'package:fmp/services/audio/audio_types.dart' show FmpAudioDevice;
 import 'package:window_manager/window_manager.dart' show DragToMoveArea;
 import '../../../core/extensions/track_extensions.dart';
 import '../../../core/services/image_loading_service.dart';
+import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../core/utils/icon_helpers.dart';
 import '../../../data/models/play_queue.dart';
@@ -16,7 +17,10 @@ import '../../../data/models/video_detail.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/download/file_exists_cache.dart';
 import '../../../providers/download/download_providers.dart';
+import '../../../providers/account_provider.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../widgets/dialogs/add_to_playlist_dialog.dart';
+import '../../widgets/dialogs/add_to_remote_playlist_dialog.dart';
 import '../../../providers/track_detail_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/platform/url_launcher_service.dart';
@@ -47,6 +51,20 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       track: currentTrack,
     );
   }
+  /// 处理添加到歌单选项
+  void _handleAddToPlaylist(BuildContext context, Track track, String value) {
+    if (value == 'local') {
+      showAddToPlaylistDialog(context: context, track: track);
+    } else if (value == 'remote') {
+      final isLoggedIn = ref.read(isBilibiliLoggedInProvider);
+      if (!isLoggedIn) {
+        ToastService.show(context, t.remote.pleaseLogin);
+        return;
+      }
+      showAddToRemotePlaylistDialog(context: context, track: track);
+    }
+  }
+
   /// 是否为桌面平台
   bool get isDesktop =>
       Platform.isWindows || Platform.isMacOS || Platform.isLinux;
@@ -78,6 +96,47 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         // Windows: 让 AppBar 空白区域可拖动窗口（播放器页面覆盖了标题栏）
         flexibleSpace: Platform.isWindows ? const DragToMoveArea(child: SizedBox.expand()) : null,
         actions: [
+          // 添加到歌单
+          if (playerState.currentTrack != null)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.playlist_add),
+              tooltip: t.general.addToPlaylist,
+              offset: const Offset(0, 48),
+              onSelected: (value) {
+                final track = playerState.currentTrack;
+                if (track == null) return;
+                Future.delayed(AnimationDurations.fastest, () {
+                  if (!context.mounted) return;
+                  _handleAddToPlaylist(context, track, value);
+                });
+              },
+              itemBuilder: (context) {
+                final isBilibili = playerState.currentTrack?.sourceType == SourceType.bilibili;
+                return [
+                  PopupMenuItem(
+                    value: 'local',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.playlist_add, size: 20),
+                        const SizedBox(width: 12),
+                        Text(t.general.addToPlaylist),
+                      ],
+                    ),
+                  ),
+                  if (isBilibili)
+                    PopupMenuItem(
+                      value: 'remote',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.cloud_upload_outlined, size: 20),
+                          const SizedBox(width: 12),
+                          Text(t.remote.addToFavorites),
+                        ],
+                      ),
+                    ),
+                ];
+              },
+            ),
           // 桌面端音频输出设备选择
           if (isDesktop && playerState.audioDevices.length > 1)
             _buildFmpAudioDeviceSelector(context, playerState, controller, colorScheme),

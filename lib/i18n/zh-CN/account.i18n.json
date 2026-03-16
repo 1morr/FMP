@@ -1,0 +1,19 @@
+{
+  "title": "账号管理",
+  "subtitle": "管理 Bilibili、YouTube 账号",
+  "notLoggedIn": "未登录",
+  "loggedIn": "已登录",
+  "login": "登录",
+  "logout": "登出",
+  "logoutConfirm": "确定要登出 $platform 账号吗？",
+  "loginSuccess": "登录成功",
+  "logoutSuccess": "已登出",
+  "refreshFailed": "认证刷新失败，请重新登录",
+  "webLogin": "网页登录",
+  "qrLogin": "扫码登录",
+  "qrWaiting": "请使用 Bilibili 手机 App 扫描",
+  "qrScanned": "已扫码，请在手机上确认",
+  "qrExpired": "二维码已过期",
+  "qrRefresh": "重新生成",
+  "comingSoon": "即将推出"
+}

@@ -1,0 +1,19 @@
+{
+  "title": "Account Management",
+  "subtitle": "Manage Bilibili and YouTube accounts",
+  "notLoggedIn": "Not logged in",
+  "loggedIn": "Logged in",
+  "login": "Log in",
+  "logout": "Log out",
+  "logoutConfirm": "Are you sure you want to log out of $platform?",
+  "loginSuccess": "Login successful",
+  "logoutSuccess": "Logged out",
+  "refreshFailed": "Credential refresh failed, please log in again",
+  "webLogin": "Web Login",
+  "qrLogin": "QR Code Login",
+  "qrWaiting": "Scan with Bilibili mobile app",
+  "qrScanned": "Scanned, please confirm on your phone",
+  "qrExpired": "QR code expired",
+  "qrRefresh": "Regenerate",
+  "comingSoon": "Coming soon"
+}

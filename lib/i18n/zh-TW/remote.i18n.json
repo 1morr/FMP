@@ -1,0 +1,30 @@
+{
+  "addToFavorites": "添加到遠程收藏夾",
+  "removeFromFavorites": "從遠程收藏夾移除",
+  "dialogTitle": "添加到 Bilibili 收藏夾",
+  "noChanges": "沒有變更",
+  "updated": "已更新收藏",
+  "removed": "已從收藏夾移除",
+  "removedAndLocal": "已從收藏夾和本地歌單移除",
+  "confirmRemove": "確定要從 Bilibili 收藏夾中移除嗎？",
+  "confirmRemoveContent": "同時會從本地歌單中移除。",
+  "pleaseLogin": "請先登錄 Bilibili 帳號",
+  "goToLogin": "前往登錄",
+  "loading": "載入中...",
+  "confirm": "確認",
+  "addToCount": "添加到 $count 個",
+  "tracksCount": "首歌曲",
+  "createFolder": "新建收藏夾",
+  "folderNameHint": "收藏夾名稱",
+  "privateFolder": "設為私密",
+  "processing": "處理中...",
+  "error": {
+    "notLoggedIn": "帳號未登錄，請重新登錄",
+    "csrfFailed": "認證失敗，請重新登錄",
+    "noPermission": "權限不足，非收藏夾擁有者",
+    "favoritesLimit": "已達收藏上限",
+    "contentNotFound": "內容不存在",
+    "alreadyFavorited": "已收藏",
+    "unknown": "操作失敗 ($code)"
+  }
+}
