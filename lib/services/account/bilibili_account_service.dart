@@ -11,6 +11,7 @@ import '../../data/models/account.dart';
 import '../../data/models/track.dart';
 import 'account_service.dart';
 import 'bilibili_credentials.dart';
+import 'bilibili_crypto.dart';
 
 /// QR 碼數據
 class QrCodeData {
@@ -234,10 +235,116 @@ class BilibiliAccountService extends AccountService with Logging {
 
   @override
   Future<bool> refreshCredentials() async {
-    // Phase 5 實現完整 RSA 流程
-    // 暫時返回 false 表示需要重新登錄
-    logWarning('Cookie refresh not yet implemented (Phase 5)');
-    return false;
+    final credentials = await _loadCredentials();
+    if (credentials == null) return false;
+
+    try {
+      final cookieString = credentials.toCookieString();
+
+      // Step 1: 檢查是否需要刷新
+      final checkResponse = await _dio.get(
+        '$_passportBase/x/passport-login/web/cookie/info',
+        options: Options(headers: {'Cookie': cookieString}),
+      );
+      if (checkResponse.data['data']?['refresh'] != true) {
+        logInfo('Cookie refresh not needed');
+        return true; // 不需要刷新，當前 cookie 仍有效
+      }
+      final timestamp = checkResponse.data['data']['timestamp'] as int;
+
+      // Step 2: 生成 correspondPath
+      final correspondPath =
+          BilibiliCrypto.generateCorrespondPath(timestamp);
+
+      // Step 3: 獲取 refresh_csrf
+      final csrfResponse = await _dio.get(
+        'https://www.bilibili.com/correspond/1/$correspondPath',
+        options: Options(headers: {'Cookie': cookieString}),
+      );
+      final refreshCsrf = _extractRefreshCsrf(csrfResponse.data as String);
+      if (refreshCsrf == null) {
+        logWarning('Failed to extract refresh_csrf from HTML');
+        return false;
+      }
+
+      // Step 4: 刷新 Cookie
+      final refreshResponse = await _dio.post(
+        '$_passportBase/x/passport-login/web/cookie/refresh',
+        data: {
+          'csrf': credentials.biliJct,
+          'refresh_csrf': refreshCsrf,
+          'source': 'main_web',
+          'refresh_token': credentials.refreshToken,
+        },
+        options: Options(
+          headers: {'Cookie': cookieString},
+          contentType: Headers.formUrlEncodedContentType,
+        ),
+      );
+
+      final refreshData = refreshResponse.data;
+      if (refreshData['code'] != 0) {
+        logWarning(
+            'Cookie refresh failed, code: ${refreshData['code']}, message: ${refreshData['message']}');
+        return false;
+      }
+
+      // 從 Set-Cookie 提取新 cookies
+      final newCookies = _extractCookiesFromResponse(refreshResponse);
+      final newRefreshToken =
+          refreshData['data']?['refresh_token'] as String? ?? '';
+      if (newCookies == null || newRefreshToken.isEmpty) {
+        logWarning('Failed to extract new cookies from refresh response');
+        return false;
+      }
+
+      // 保存新憑據
+      final newCredentials = BilibiliCredentials(
+        sessdata: newCookies['SESSDATA'] ?? credentials.sessdata,
+        biliJct: newCookies['bili_jct'] ?? credentials.biliJct,
+        dedeUserId: newCookies['DedeUserID'] ?? credentials.dedeUserId,
+        dedeUserIdCkMd5:
+            newCookies['DedeUserID__ckMd5'] ?? credentials.dedeUserIdCkMd5,
+        refreshToken: newRefreshToken,
+        savedAt: DateTime.now(),
+      );
+      await _secureStorage.write(
+        key: _storageKey,
+        value: jsonEncode(newCredentials.toJson()),
+      );
+
+      // Step 5: 確認更新（使用新 cookie + 舊 refresh_token）
+      final newCookieString = newCredentials.toCookieString();
+      await _dio.post(
+        '$_passportBase/x/passport-login/web/confirm/refresh',
+        data: {
+          'csrf': newCredentials.biliJct,
+          'refresh_token': credentials.refreshToken, // 舊 refresh_token
+        },
+        options: Options(
+          headers: {'Cookie': newCookieString},
+          contentType: Headers.formUrlEncodedContentType,
+        ),
+      );
+
+      // 更新 Account 記錄（lastRefreshed 自動設置為 now）
+      await _updateAccount();
+
+      logInfo('Cookie refresh successful');
+      return true;
+    } catch (e) {
+      logError('Cookie refresh failed', e);
+      return false;
+    }
+  }
+
+  /// 從 HTML 中提取 refresh_csrf
+  ///
+  /// HTML 中包含 `<div id="1-name">...</div>` 標籤，其中的文本即為 refresh_csrf。
+  String? _extractRefreshCsrf(String html) {
+    final regex = RegExp(r'<div\s+id="1-name"\s*>(.*?)</div>');
+    final match = regex.firstMatch(html);
+    return match?.group(1)?.trim();
   }
 
   // ===== 用戶信息 =====

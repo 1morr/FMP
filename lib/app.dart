@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/constants/app_constants.dart';
 import 'providers/database_provider.dart';
+import 'providers/account_provider.dart';
 import 'providers/playback_settings_provider.dart';
 import 'providers/desktop_settings_provider.dart';
 import 'providers/hotkey_config_provider.dart';
@@ -97,6 +98,9 @@ class FMPApp extends ConsumerWidget {
 
         // 初始化自动刷新服务（后台运行，不阻塞 UI）
         ref.watch(autoRefreshServiceProvider);
+
+        // 啟動時檢查並刷新 Bilibili Cookie（後台執行）
+        ref.watch(accountCookieRefreshProvider);
 
         return MaterialApp.router(
           title: '${AppConstants.appName} - ${AppConstants.appFullName}',
