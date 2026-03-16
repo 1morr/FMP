@@ -90,7 +90,7 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
     }
   }
 
-  /// 異步逐個檢查每個播放列表是否包含當前視頻
+  /// 並行檢查每個播放列表是否包含當前視頻
   Future<void> _checkContainsVideoAsync(List<YouTubePlaylistInfo> playlists) async {
     final service = ref.read(youtubePlaylistServiceProvider);
     final videoId = _tracks.first.sourceId;
@@ -100,28 +100,30 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
       _containsStatus[p.playlistId] = null;
     }
 
-    for (final playlist in playlists) {
-      if (!mounted) return;
-      try {
-        final contains = await service.checkVideoInPlaylist(
-          playlist.playlistId,
-          videoId,
-        );
-        if (!mounted) return;
-        setState(() {
-          _containsStatus[playlist.playlistId] = contains;
-          if (contains) {
-            _originalIds.add(playlist.playlistId);
-            _selectedIds.add(playlist.playlistId);
-          }
-        });
-      } catch (e) {
-        if (!mounted) return;
-        setState(() {
-          _containsStatus[playlist.playlistId] = false;
-        });
+    final results = await Future.wait(
+      playlists.map((playlist) async {
+        try {
+          final contains = await service.checkVideoInPlaylist(
+            playlist.playlistId,
+            videoId,
+          );
+          return (playlist.playlistId, contains);
+        } catch (_) {
+          return (playlist.playlistId, false);
+        }
+      }),
+    );
+
+    if (!mounted) return;
+    setState(() {
+      for (final (playlistId, contains) in results) {
+        _containsStatus[playlistId] = contains;
+        if (contains) {
+          _originalIds.add(playlistId);
+          _selectedIds.add(playlistId);
+        }
       }
-    }
+    });
   }
 
   Future<void> _showCreatePlaylistDialog() async {

@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
+import '../../core/utils/innertube_utils.dart';
 import '../../i18n/strings.g.dart';
 import 'youtube_account_service.dart';
 import 'youtube_auth_interceptor.dart';
@@ -444,20 +445,8 @@ class YouTubePlaylistService with Logging {
     }
   }
 
-  /// 從 InnerTube Text 對象中提取文本（支持 simpleText 和 runs）
-  String? _extractText(dynamic textObj) {
-    if (textObj == null) return null;
-    if (textObj is String) return textObj;
-    if (textObj is Map) {
-      final simple = textObj['simpleText'] as String?;
-      if (simple != null) return simple;
-      final runs = textObj['runs'] as List?;
-      if (runs != null && runs.isNotEmpty) {
-        return runs.map((r) => r['text'] ?? '').join();
-      }
-    }
-    return null;
-  }
+  /// 從 InnerTube Text 對象中提取文本（委託到共用工具）
+  String? _extractText(dynamic textObj) => InnerTubeUtils.extractText(textObj);
 
   /// 收集 JSON 中所有以 Renderer/ViewModel 結尾的 key（用於調試）
   void _collectRendererKeys(dynamic data, Set<String> keys, [int depth = 0, int maxDepth = 15]) {

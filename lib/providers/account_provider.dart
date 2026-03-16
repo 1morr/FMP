@@ -29,9 +29,9 @@ final bilibiliFavoritesServiceProvider =
 
 /// Bilibili 帳號狀態 Provider（響應式，監聽 Isar Account 變化）
 final bilibiliAccountProvider =
-    StateNotifierProvider<BilibiliAccountNotifier, Account?>((ref) {
+    StateNotifierProvider<AccountNotifier, Account?>((ref) {
   final isar = ref.watch(databaseProvider).requireValue;
-  return BilibiliAccountNotifier(isar);
+  return AccountNotifier(isar, SourceType.bilibili);
 });
 
 /// 是否已登錄 Bilibili（便捷 Provider）
@@ -58,9 +58,9 @@ final youtubePlaylistServiceProvider =
 
 /// YouTube 帳號狀態 Provider（響應式，監聽 Isar Account 變化）
 final youtubeAccountProvider =
-    StateNotifierProvider<YouTubeAccountNotifier, Account?>((ref) {
+    StateNotifierProvider<AccountNotifier, Account?>((ref) {
   final isar = ref.watch(databaseProvider).requireValue;
-  return YouTubeAccountNotifier(isar);
+  return AccountNotifier(isar, SourceType.youtube);
 });
 
 /// 是否已登錄 YouTube（便捷 Provider）
@@ -102,59 +102,26 @@ final accountCookieRefreshProvider = FutureProvider<void>((ref) async {
   }
 });
 
-/// Bilibili 帳號狀態管理
-class BilibiliAccountNotifier extends StateNotifier<Account?> {
+/// 通用帳號狀態管理（監聽 Isar Account 變化）
+class AccountNotifier extends StateNotifier<Account?> {
   final Isar _isar;
+  final SourceType _platform;
   StreamSubscription? _subscription;
 
-  BilibiliAccountNotifier(this._isar) : super(null) {
-    _init();
-  }
-
-  void _init() {
-    // 初始加載
-    final account = _isar.accounts
-        .filter()
-        .platformEqualTo(SourceType.bilibili)
-        .findFirstSync();
-    state = account;
-
-    // 監聽變化
-    _subscription = _isar.accounts
-        .filter()
-        .platformEqualTo(SourceType.bilibili)
-        .watch(fireImmediately: true)
-        .listen((accounts) {
-      state = accounts.isNotEmpty ? accounts.first : null;
-    });
-  }
-
-  @override
-  void dispose() {
-    _subscription?.cancel();
-    super.dispose();
-  }
-}
-
-/// YouTube 帳號狀態管理
-class YouTubeAccountNotifier extends StateNotifier<Account?> {
-  final Isar _isar;
-  StreamSubscription? _subscription;
-
-  YouTubeAccountNotifier(this._isar) : super(null) {
+  AccountNotifier(this._isar, this._platform) : super(null) {
     _init();
   }
 
   void _init() {
     final account = _isar.accounts
         .filter()
-        .platformEqualTo(SourceType.youtube)
+        .platformEqualTo(_platform)
         .findFirstSync();
     state = account;
 
     _subscription = _isar.accounts
         .filter()
-        .platformEqualTo(SourceType.youtube)
+        .platformEqualTo(_platform)
         .watch(fireImmediately: true)
         .listen((accounts) {
       state = accounts.isNotEmpty ? accounts.first : null;

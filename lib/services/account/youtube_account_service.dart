@@ -6,6 +6,7 @@ import 'package:isar/isar.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
+import '../../core/utils/innertube_utils.dart';
 import '../../data/models/account.dart';
 import '../../data/models/track.dart';
 import 'account_service.dart';
@@ -19,6 +20,7 @@ class YouTubeAccountService extends AccountService with Logging {
   final Dio _dio;
   final FlutterSecureStorage _secureStorage;
   final Isar _isar;
+  YouTubeCredentials? _cachedCredentials;
 
   static const String _storageKey = 'account_youtube_credentials';
   static const String _innerTubeApiBase = 'https://www.youtube.com/youtubei/v1';
@@ -73,6 +75,7 @@ class YouTubeAccountService extends AccountService with Logging {
       key: _storageKey,
       value: jsonEncode(credentials.toJson()),
     );
+    _cachedCredentials = credentials;
 
     await _updateAccount(isLoggedIn: true, loginAt: DateTime.now());
     logInfo('YouTube login successful');
@@ -114,6 +117,7 @@ class YouTubeAccountService extends AccountService with Logging {
 
   @override
   Future<void> logout() async {
+    _cachedCredentials = null;
     await _secureStorage.delete(key: _storageKey);
     await _updateAccount(isLoggedIn: false);
     logInfo('YouTube logged out');
@@ -172,17 +176,7 @@ class YouTubeAccountService extends AccountService with Logging {
         logInfo('YouTube user info updated via account_overview: $name');
         return;
       } else if (data is Map<String, dynamic>) {
-        // 搜索更多可能的字段名
-        final nameFields = ['accountName', 'channelName', 'displayName', 'name',
-            'pageTitle', 'title', 'channelHandle'];
-        final found = <String, String?>{};
-        for (final field in nameFields) {
-          found[field] = _findStringFieldRecursive(data, field);
-        }
-        // 也嘗試從 topbar 提取
-        final topbarName = _extractNameFromTopbar(data['topbar']);
-        found['topbar'] = topbarName;
-        logWarning('YouTube: account_overview field search: $found');
+        logWarning('YouTube: account_overview returned no user name');
       }
     } catch (e) {
       logWarning('YouTube: account_overview browse failed: $e');
@@ -191,7 +185,6 @@ class YouTubeAccountService extends AccountService with Logging {
     // 策略 2: 用已有的 channelId browse 頻道頁
     final account = await getCurrentAccount();
     final channelId = account?.userId;
-    logInfo('YouTube: channelId from account: ${channelId ?? 'null'}');
     if (channelId != null && channelId.isNotEmpty) {
       final browseId = channelId.startsWith('UC') ? channelId : 'UC$channelId';
       try {
@@ -302,27 +295,9 @@ class YouTubeAccountService extends AccountService with Logging {
         lower.contains('選單') || lower.contains('菜单') || lower.contains('メニュー');
   }
 
-  /// 遞歸搜索指定字段名的字符串值
-  String? _findStringFieldRecursive(dynamic data, String fieldName, [int depth = 0]) {
-    if (depth > 10) return null;
-    if (data is Map<String, dynamic>) {
-      if (data.containsKey(fieldName)) {
-        final value = data[fieldName];
-        final text = _extractText(value);
-        if (text != null && text.isNotEmpty) return text;
-      }
-      for (final value in data.values) {
-        final result = _findStringFieldRecursive(value, fieldName, depth + 1);
-        if (result != null) return result;
-      }
-    } else if (data is List) {
-      for (final item in data) {
-        final result = _findStringFieldRecursive(item, fieldName, depth + 1);
-        if (result != null) return result;
-      }
-    }
-    return null;
-  }
+  /// 遞歸搜索指定字段名的字符串值（委託到共用工具）
+  String? _findStringFieldRecursive(dynamic data, String fieldName, [int depth = 0]) =>
+      InnerTubeUtils.findStringField(data, fieldName, depth);
 
   /// 從 guide 響應中提取頻道名
   ///
@@ -353,12 +328,6 @@ class YouTubeAccountService extends AccountService with Logging {
             ?['browseEndpoint']?['browseId'] as String?;
         final title = _extractText(entryRenderer['formattedTitle'])
             ?? _extractText(entryRenderer['title']);
-
-        // DEBUG: 記錄前幾個有 UC browseId 或有 thumbnail 的項
-        if (browseId != null && browseId.startsWith('UC')) {
-          logInfo('YouTube guide entry: title=$title, browseId=$browseId, '
-              'hasThumbnail=$hasThumbnail, hasIcon=$hasIcon');
-        }
 
         if (hasThumbnail && !hasIcon && browseId != null && browseId.startsWith('UC')) {
           if (title != null && title.isNotEmpty) return title;
@@ -391,40 +360,12 @@ class YouTubeAccountService extends AccountService with Logging {
     return null;
   }
 
-  /// 遞歸搜索指定 renderer
-  Map<String, dynamic>? _findRendererRecursive(dynamic data, String key, [int depth = 0]) {
-    if (depth > 10) return null;
-    if (data is Map<String, dynamic>) {
-      if (data.containsKey(key) && data[key] is Map<String, dynamic>) {
-        return data[key] as Map<String, dynamic>;
-      }
-      for (final value in data.values) {
-        final result = _findRendererRecursive(value, key, depth + 1);
-        if (result != null) return result;
-      }
-    } else if (data is List) {
-      for (final item in data) {
-        final result = _findRendererRecursive(item, key, depth + 1);
-        if (result != null) return result;
-      }
-    }
-    return null;
-  }
+  /// 遞歸搜索指定 renderer（委託到共用工具）
+  Map<String, dynamic>? _findRendererRecursive(dynamic data, String key, [int depth = 0]) =>
+      InnerTubeUtils.findRenderer(data, key, depth);
 
-  /// 從 InnerTube Text 對象中提取文本
-  String? _extractText(dynamic textObj) {
-    if (textObj == null) return null;
-    if (textObj is String) return textObj;
-    if (textObj is Map) {
-      final simple = textObj['simpleText'] as String?;
-      if (simple != null) return simple;
-      final runs = textObj['runs'] as List?;
-      if (runs != null && runs.isNotEmpty) {
-        return runs.map((r) => r['text'] ?? '').join();
-      }
-    }
-    return null;
-  }
+  /// 從 InnerTube Text 對象中提取文本（委託到共用工具）
+  String? _extractText(dynamic textObj) => InnerTubeUtils.extractText(textObj);
 
   // ===== InnerTube 請求輔助 =====
 
@@ -450,12 +391,14 @@ class YouTubeAccountService extends AccountService with Logging {
   // ===== 內部方法 =====
 
   Future<YouTubeCredentials?> _loadCredentials() async {
+    if (_cachedCredentials != null) return _cachedCredentials;
     final json = await _secureStorage.read(key: _storageKey);
     if (json == null) return null;
     try {
-      return YouTubeCredentials.fromJson(
+      _cachedCredentials = YouTubeCredentials.fromJson(
         jsonDecode(json) as Map<String, dynamic>,
       );
+      return _cachedCredentials;
     } catch (e) {
       logError('Failed to parse YouTube credentials', e);
       return null;
