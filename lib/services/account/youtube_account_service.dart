@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:isar/isar.dart';
 
@@ -120,6 +121,20 @@ class YouTubeAccountService extends AccountService with Logging {
     _cachedCredentials = null;
     await _secureStorage.delete(key: _storageKey);
     await _updateAccount(isLoggedIn: false);
+
+    // 清除 WebView cookies，避免重新登入時自動使用舊帳號
+    try {
+      final cookieManager = CookieManager.instance();
+      await cookieManager.deleteCookies(
+        url: WebUri('https://accounts.google.com'),
+      );
+      await cookieManager.deleteCookies(
+        url: WebUri('https://www.youtube.com'),
+      );
+    } catch (e) {
+      logWarning('Failed to clear WebView cookies: $e');
+    }
+
     logInfo('YouTube logged out');
   }
 
