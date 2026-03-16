@@ -185,7 +185,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         ),
                         const SizedBox(width: 8),
                         ChoiceChip(
-                          label: const Text('Bilibili'),
+                          label: Text(t.importPlatform.bilibili),
                           selected: state.selectedSource == SourceType.bilibili && !state.isLiveSearchMode,
                           onSelected: (_) {
                             ref.read(searchProvider.notifier).setFilters(

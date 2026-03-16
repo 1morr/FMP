@@ -20,7 +20,7 @@
   },
   "streamPriority": {
     "youtubeTitle": "YouTube 流优先级",
-    "bilibiliTitle": "Bilibili 流优先级",
+    "bilibiliTitle": "哔哩哔哩 流优先级",
     "audioOnly": "纯音频流",
     "audioOnlyDescription": "省流量，仅下载音频数据",
     "muxed": "混合流",

@@ -76,8 +76,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
                 availableActions: availableActions,
                 bottom: TabBar(
                   controller: _tabController,
-                  tabs: const [
-                    Tab(text: 'Bilibili'),
+                  tabs: [
+                    Tab(text: t.importPlatform.bilibili),
                     Tab(text: 'YouTube'),
                   ],
                 ),
@@ -90,8 +90,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
                 title: Text(t.nav.explore),
                 bottom: TabBar(
                   controller: _tabController,
-                  tabs: const [
-                    Tab(text: 'Bilibili'),
+                  tabs: [
+                    Tab(text: t.importPlatform.bilibili),
                     Tab(text: 'YouTube'),
                   ],
                 ),

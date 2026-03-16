@@ -24,14 +24,14 @@ class AccountManagementPage extends ConsumerWidget {
         children: [
           // Bilibili 卡片
           _PlatformCard(
-            platformName: 'Bilibili',
+            platformName: t.importPlatform.bilibili,
             icon: Icons.play_circle_outline,
             iconColor: const Color(0xFFFF6699),
             isLoggedIn: bilibiliAccount?.isLoggedIn ?? false,
             userName: bilibiliAccount?.userName,
             avatarUrl: bilibiliAccount?.avatarUrl,
             onLogin: () => context.push(RoutePaths.bilibiliLogin),
-            onLogout: () => _confirmLogout(context, ref, 'Bilibili'),
+            onLogout: () => _confirmLogout(context, ref, t.importPlatform.bilibili),
           ),
           const SizedBox(height: 12),
           // YouTube 卡片（暫不可操作）

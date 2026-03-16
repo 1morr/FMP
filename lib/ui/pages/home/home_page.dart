@@ -163,7 +163,7 @@ class _MusicRankingsSection extends ConsumerWidget {
                 if (hasBilibiliData)
                   Expanded(
                     child: _buildRankingCard(context, colorScheme,
-                        title: 'Bilibili', asyncValue: bilibiliAsync),
+                        title: t.importPlatform.bilibili, asyncValue: bilibiliAsync),
                   ),
                 if (hasBilibiliData && hasYoutubeData)
                   const SizedBox(width: 16),
@@ -182,7 +182,7 @@ class _MusicRankingsSection extends ConsumerWidget {
               children: [
                 if (hasBilibiliData)
                   _buildRankingCard(context, colorScheme,
-                      title: 'Bilibili', asyncValue: bilibiliAsync),
+                      title: t.importPlatform.bilibili, asyncValue: bilibiliAsync),
                 if (hasBilibiliData && hasYoutubeData)
                   const SizedBox(height: 12),
                 if (hasYoutubeData)
