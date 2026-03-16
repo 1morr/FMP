@@ -215,10 +215,10 @@ class _MiniPlayerProgressBarState extends ConsumerState<_MiniPlayerProgressBar> 
                       ),
                     ),
                     // 圆形指示器（悬停或拖动时显示）
-                    if (isExpanded)
-                      Positioned(
-                        left: constraints.maxWidth * displayProgress - 6,
-                        top: -3, // 使圆心对齐 6px 轨道中心
+                    Positioned(
+                      left: constraints.maxWidth * displayProgress - 6,
+                      top: -3, // 使圆心对齐 6px 轨道中心
+                      child: IgnorePointer(
                         child: AnimatedOpacity(
                           opacity: isExpanded ? 1.0 : 0.0,
                           duration: AnimationDurations.fast,
@@ -239,6 +239,7 @@ class _MiniPlayerProgressBarState extends ConsumerState<_MiniPlayerProgressBar> 
                           ),
                         ),
                       ),
+                    ),
                   ],
                 ),
               ),
