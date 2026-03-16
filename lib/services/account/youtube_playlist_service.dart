@@ -172,15 +172,17 @@ class YouTubePlaylistService with Logging {
   }
 
   /// 創建新播放列表
+  ///
+  /// [privacyStatus] 可選值: 'PUBLIC', 'UNLISTED', 'PRIVATE'
   Future<String?> createPlaylist({
     required String title,
-    bool isPrivate = false,
+    String privacyStatus = 'UNLISTED',
   }) async {
     final response = await _dio.post(
       '$_apiBase/playlist/create?key=$_apiKey',
       data: jsonEncode({
         'title': title,
-        'privacyStatus': isPrivate ? 'PRIVATE' : 'PUBLIC',
+        'privacyStatus': privacyStatus,
         'context': _accountService.buildInnerTubeContext(),
       }),
     );

@@ -127,8 +127,8 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
   }
 
   Future<void> _showCreatePlaylistDialog() async {
-    bool isPrivate = false;
-    final result = await showDialog<({String name, bool isPrivate})>(
+    String privacyStatus = 'UNLISTED';
+    final result = await showDialog<({String name, String privacyStatus})>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
@@ -145,16 +145,32 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
                 onSubmitted: (value) {
                   if (value.trim().isNotEmpty) {
                     Navigator.pop(context,
-                        (name: value.trim(), isPrivate: isPrivate));
+                        (name: value.trim(), privacyStatus: privacyStatus));
                   }
                 },
               ),
-              const SizedBox(height: 12),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(t.remote.privateFolder),
-                value: isPrivate,
-                onChanged: (v) => setDialogState(() => isPrivate = v),
+              const SizedBox(height: 16),
+              SegmentedButton<String>(
+                segments: [
+                  ButtonSegment(
+                    value: 'PUBLIC',
+                    label: Text(t.remote.privacyPublic),
+                    icon: const Icon(Icons.public, size: 18),
+                  ),
+                  ButtonSegment(
+                    value: 'UNLISTED',
+                    label: Text(t.remote.privacyUnlisted),
+                    icon: const Icon(Icons.link, size: 18),
+                  ),
+                  ButtonSegment(
+                    value: 'PRIVATE',
+                    label: Text(t.remote.privacyPrivate),
+                    icon: const Icon(Icons.lock, size: 18),
+                  ),
+                ],
+                selected: {privacyStatus},
+                onSelectionChanged: (v) =>
+                    setDialogState(() => privacyStatus = v.first),
               ),
             ],
           ),
@@ -168,7 +184,7 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
                 final name = _newPlaylistController.text.trim();
                 if (name.isNotEmpty) {
                   Navigator.pop(context,
-                      (name: name, isPrivate: isPrivate));
+                      (name: name, privacyStatus: privacyStatus));
                 }
               },
               child: Text(t.general.confirm),
@@ -185,7 +201,7 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
         final service = ref.read(youtubePlaylistServiceProvider);
         final playlistId = await service.createPlaylist(
           title: result.name,
-          isPrivate: result.isPrivate,
+          privacyStatus: result.privacyStatus,
         );
         if (!mounted || playlistId == null) return;
         setState(() {

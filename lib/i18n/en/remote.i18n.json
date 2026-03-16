@@ -20,6 +20,9 @@
   "folderNameHint": "Folder name",
   "playlistNameHint": "Playlist name",
   "privateFolder": "Private",
+  "privacyPublic": "Public",
+  "privacyUnlisted": "Unlisted",
+  "privacyPrivate": "Private",
   "processing": "Processing...",
   "checking": "Checking...",
   "error": {

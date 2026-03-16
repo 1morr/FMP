@@ -20,6 +20,9 @@
   "folderNameHint": "收藏夹名称",
   "playlistNameHint": "播放列表名称",
   "privateFolder": "设为私密",
+  "privacyPublic": "公开",
+  "privacyUnlisted": "不公开",
+  "privacyPrivate": "私人",
   "processing": "处理中...",
   "checking": "检查中...",
   "error": {
