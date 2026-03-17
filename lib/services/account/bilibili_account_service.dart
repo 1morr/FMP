@@ -119,75 +119,98 @@ class BilibiliAccountService extends AccountService with Logging {
   ///
   /// 最多輪詢 3 分鐘（90 次 × 2 秒），超時後自動停止。
   /// 連續網絡錯誤超過 5 次也會停止。
-  Stream<QrCodePollResult> pollQrCodeStatus(String qrcodeKey) async* {
-    const maxPolls = 90; // 3 分鐘
-    const maxConsecutiveErrors = 5;
-    int pollCount = 0;
-    int consecutiveErrors = 0;
+  /// 取消訂閱後輪詢會在當前請求完成後立即停止。
+  Stream<QrCodePollResult> pollQrCodeStatus(String qrcodeKey) {
+    var stopped = false;
+    late final StreamController<QrCodePollResult> controller;
+    controller = StreamController<QrCodePollResult>(
+      onCancel: () {
+        stopped = true;
+        if (!controller.isClosed) controller.close();
+      },
+    );
 
-    while (pollCount < maxPolls) {
-      await Future.delayed(const Duration(seconds: 2));
-      pollCount++;
+    Future<void> poll() async {
+      const maxPolls = 90; // 3 分鐘
+      const maxConsecutiveErrors = 5;
+      int pollCount = 0;
+      int consecutiveErrors = 0;
 
-      try {
-        final response = await _dio.get(
-          '$_passportBase/x/passport-login/web/qrcode/poll',
-          queryParameters: {'qrcode_key': qrcodeKey},
-        );
+      while (pollCount < maxPolls && !stopped) {
+        await Future.delayed(const Duration(seconds: 2));
+        if (stopped) break;
+        pollCount++;
 
-        final data = response.data['data'];
-        final code = data['code'] as int;
-
-        switch (code) {
-          case 0: // 登錄成功
-            // 從 Set-Cookie 提取 cookies
-            final cookies = _extractCookiesFromResponse(response);
-            final refreshToken = data['refresh_token'] as String? ?? '';
-
-            if (cookies != null) {
-              await loginWithCookies(
-                sessdata: cookies['SESSDATA'] ?? '',
-                biliJct: cookies['bili_jct'] ?? '',
-                dedeUserId: cookies['DedeUserID'] ?? '',
-                dedeUserIdCkMd5: cookies['DedeUserID__ckMd5'] ?? '',
-                refreshToken: refreshToken,
-              );
-            }
-
-            yield QrCodePollResult(status: QrCodeStatus.success);
-            return;
-
-          case 86038: // 已過期
-            yield QrCodePollResult(status: QrCodeStatus.expired);
-            return;
-
-          case 86090: // 已掃碼待確認
-            consecutiveErrors = 0;
-            yield QrCodePollResult(status: QrCodeStatus.scanned);
-
-          default: // 86101 等待掃碼
-            consecutiveErrors = 0;
-            yield QrCodePollResult(status: QrCodeStatus.waiting);
-        }
-      } catch (e) {
-        logError('QR code poll error', e);
-        consecutiveErrors++;
-        if (consecutiveErrors >= maxConsecutiveErrors) {
-          yield QrCodePollResult(
-            status: QrCodeStatus.expired,
-            message: 'Network error',
+        try {
+          final response = await _dio.get(
+            '$_passportBase/x/passport-login/web/qrcode/poll',
+            queryParameters: {'qrcode_key': qrcodeKey},
           );
-          return;
+          if (stopped) break;
+
+          final data = response.data['data'];
+          final code = data['code'] as int;
+
+          switch (code) {
+            case 0: // 登錄成功
+              // 從 Set-Cookie 提取 cookies
+              final cookies = _extractCookiesFromResponse(response);
+              final refreshToken = data['refresh_token'] as String? ?? '';
+
+              if (cookies != null) {
+                await loginWithCookies(
+                  sessdata: cookies['SESSDATA'] ?? '',
+                  biliJct: cookies['bili_jct'] ?? '',
+                  dedeUserId: cookies['DedeUserID'] ?? '',
+                  dedeUserIdCkMd5: cookies['DedeUserID__ckMd5'] ?? '',
+                  refreshToken: refreshToken,
+                );
+              }
+
+              if (!stopped) controller.add(QrCodePollResult(status: QrCodeStatus.success));
+              return;
+
+            case 86038: // 已過期
+              if (!stopped) controller.add(QrCodePollResult(status: QrCodeStatus.expired));
+              return;
+
+            case 86090: // 已掃碼待確認
+              consecutiveErrors = 0;
+              if (!stopped) controller.add(QrCodePollResult(status: QrCodeStatus.scanned));
+
+            default: // 86101 等待掃碼
+              consecutiveErrors = 0;
+              if (!stopped) controller.add(QrCodePollResult(status: QrCodeStatus.waiting));
+          }
+        } catch (e) {
+          if (stopped) break;
+          logError('QR code poll error', e);
+          consecutiveErrors++;
+          if (consecutiveErrors >= maxConsecutiveErrors) {
+            controller.add(QrCodePollResult(
+              status: QrCodeStatus.expired,
+              message: 'Network error',
+            ));
+            return;
+          }
+          controller.add(QrCodePollResult(
+            status: QrCodeStatus.waiting,
+            message: e.toString(),
+          ));
         }
-        yield QrCodePollResult(
-          status: QrCodeStatus.waiting,
-          message: e.toString(),
-        );
+      }
+
+      // 超時
+      if (!stopped) {
+        controller.add(QrCodePollResult(status: QrCodeStatus.expired));
       }
     }
 
-    // 超時
-    yield QrCodePollResult(status: QrCodeStatus.expired);
+    poll().whenComplete(() {
+      if (!controller.isClosed) controller.close();
+    });
+
+    return controller.stream;
   }
 
   // ===== 認證管理 =====
@@ -457,9 +480,17 @@ class BilibiliAccountService extends AccountService with Logging {
 
     final cookies = <String, String>{};
     for (final cookie in setCookies) {
-      final parts = cookie.split(';').first.split('=');
-      if (parts.length >= 2) {
-        cookies[parts[0].trim()] = parts.sublist(1).join('=').trim();
+      try {
+        final parts = cookie.split(';').first.split('=');
+        if (parts.length >= 2) {
+          final key = parts[0].trim();
+          final value = parts.sublist(1).join('=').trim();
+          if (key.isNotEmpty) {
+            cookies[key] = value;
+          }
+        }
+      } catch (e) {
+        logWarning('Failed to parse cookie: $cookie, error: $e');
       }
     }
     return cookies.isEmpty ? null : cookies;

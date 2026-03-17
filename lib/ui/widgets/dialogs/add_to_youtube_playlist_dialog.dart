@@ -298,8 +298,9 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
       final service = ref.read(youtubePlaylistServiceProvider);
 
       for (var i = 0; i < _tracks.length; i++) {
+        if (!mounted) return;
         final track = _tracks[i];
-        if (_isMulti && mounted) {
+        if (_isMulti) {
           setState(() {
             _submitProgress = '${i + 1}/${_tracks.length}';
           });
