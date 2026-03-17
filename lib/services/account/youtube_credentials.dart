@@ -100,5 +100,9 @@ class YouTubeCredentials {
   }
 
   /// 是否包含必要的認證 Cookie
-  bool get isValid => sapisid.isNotEmpty && secure1Psid.isNotEmpty;
+  bool get isValid =>
+      sapisid.isNotEmpty &&
+      secure1Psid.isNotEmpty &&
+      secure3Psid.isNotEmpty &&
+      loginInfo.isNotEmpty;
 }

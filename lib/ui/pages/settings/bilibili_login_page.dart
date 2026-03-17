@@ -81,10 +81,14 @@ class _WebViewLoginTabState extends ConsumerState<_WebViewLoginTab> {
   bool _loginHandled = false;
   bool _cookiesCleared = false;
 
-  /// 在 WebView 加載前清除 Bilibili 相關 cookies，確保不會自動登入舊帳號
-  Future<void> _clearCookiesBeforeLoad(InAppWebViewController controller) async {
-    if (_cookiesCleared) return;
-    _cookiesCleared = true;
+  @override
+  void initState() {
+    super.initState();
+    _clearCookiesBeforeLoad();
+  }
+
+  /// 在 WebView 創建前清除 Bilibili 相關 cookies，確保不會自動登入舊帳號
+  Future<void> _clearCookiesBeforeLoad() async {
     try {
       final cookieManager = CookieManager.instance();
       await cookieManager.deleteCookies(
@@ -95,21 +99,13 @@ class _WebViewLoginTabState extends ConsumerState<_WebViewLoginTab> {
         url: WebUri('https://passport.bilibili.com'),
         domain: '.passport.bilibili.com',
       );
-      // 清除後重新載入登入頁
-      await controller.loadUrl(
-        urlRequest: URLRequest(
-          url: WebUri('https://passport.bilibili.com/login'),
-        ),
-      );
     } catch (_) {}
+    if (mounted) {
+      setState(() => _cookiesCleared = true);
+    }
   }
 
   void _onPageLoaded(InAppWebViewController controller, WebUri? url) async {
-    if (!_cookiesCleared) {
-      await _clearCookiesBeforeLoad(controller);
-      return;
-    }
-
     setState(() => _isLoading = false);
 
     if (url == null || _loginHandled) return;
@@ -165,6 +161,10 @@ class _WebViewLoginTabState extends ConsumerState<_WebViewLoginTab> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_cookiesCleared) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return Stack(
       children: [
         InAppWebView(

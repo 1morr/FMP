@@ -63,14 +63,26 @@ class BilibiliCrypto {
 
   /// 跳過 tag byte 並讀取 length，返回 content 起始 offset
   static int _skipTag(Uint8List bytes, int offset, int expectedTag) {
+    if (offset >= bytes.length) {
+      throw FormatException('Unexpected end of DER data at offset $offset');
+    }
     if (bytes[offset] != expectedTag) {
       throw FormatException(
           'Expected tag 0x${expectedTag.toRadixString(16)} at offset $offset, got 0x${bytes[offset].toRadixString(16)}');
     }
     offset++;
+    if (offset >= bytes.length) {
+      throw FormatException('Unexpected end of DER data after tag at offset $offset');
+    }
     // 讀取 length
     if (bytes[offset] & 0x80 != 0) {
       final numLenBytes = bytes[offset] & 0x7f;
+      if (numLenBytes > 4) {
+        throw FormatException('DER length too large: $numLenBytes bytes');
+      }
+      if (offset + 1 + numLenBytes > bytes.length) {
+        throw FormatException('DER length bytes exceed data size at offset $offset');
+      }
       offset += 1 + numLenBytes;
     } else {
       offset++;
@@ -81,21 +93,36 @@ class BilibiliCrypto {
   /// 讀取 tag + length，返回 content offset 和 length
   static ({int contentOffset, int length}) _readTagLength(
       Uint8List bytes, int offset, int expectedTag) {
+    if (offset >= bytes.length) {
+      throw FormatException('Unexpected end of DER data at offset $offset');
+    }
     if (bytes[offset] != expectedTag) {
       throw FormatException(
           'Expected tag 0x${expectedTag.toRadixString(16)} at offset $offset');
     }
     offset++;
+    if (offset >= bytes.length) {
+      throw FormatException('Unexpected end of DER data after tag at offset $offset');
+    }
     int length;
     if (bytes[offset] & 0x80 != 0) {
       final numLenBytes = bytes[offset] & 0x7f;
+      if (numLenBytes > 4) {
+        throw FormatException('DER length too large: $numLenBytes bytes');
+      }
       offset++;
+      if (offset + numLenBytes > bytes.length) {
+        throw FormatException('DER length bytes exceed data size at offset $offset');
+      }
       length = 0;
       for (var i = 0; i < numLenBytes; i++) {
         length = (length << 8) | bytes[offset++];
       }
     } else {
       length = bytes[offset++];
+    }
+    if (length > bytes.length - offset) {
+      throw FormatException('DER content length $length exceeds remaining data at offset $offset');
     }
     return (contentOffset: offset, length: length);
   }
