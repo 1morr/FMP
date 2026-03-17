@@ -530,7 +530,13 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
             ),
             const Divider(),
             // 收藏夾列表
-            Expanded(child: _buildFolderList(colorScheme, scrollController)),
+            Expanded(
+              child: Material(
+                type: MaterialType.transparency,
+                clipBehavior: Clip.hardEdge,
+                child: _buildFolderList(colorScheme, scrollController),
+              ),
+            ),
             // 確認按鈕
             SafeArea(
               child: Padding(
