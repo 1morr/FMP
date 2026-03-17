@@ -51,6 +51,57 @@ class YouTubeSource extends BaseSource with Logging {
     });
   }
 
+  /// Parse Dio response data to Map (handles both String and Map responses).
+  Map<String, dynamic> _parseJsonResponse(dynamic responseData) {
+    return responseData is String
+        ? jsonDecode(responseData) as Map<String, dynamic>
+        : responseData as Map<String, dynamic>;
+  }
+
+  /// Validate InnerTube playability status, throws on error.
+  void _checkPlayability(Map<String, dynamic> data) {
+    final playabilityStatus = data['playabilityStatus'];
+    final status = playabilityStatus?['status'] as String?;
+    if (status != 'OK') {
+      throw YouTubeApiException(
+        code: status?.toLowerCase() ?? 'error',
+        message: playabilityStatus?['reason'] as String? ?? 'Video unavailable',
+      );
+    }
+  }
+
+  /// Call InnerTube /player endpoint and return parsed + validated response.
+  Future<Map<String, dynamic>> _innerTubePlayerRequest(
+    String videoId,
+    Map<String, String> authHeaders, {
+    String? clientName,
+    String? clientVersion,
+    int? androidSdkVersion,
+  }) async {
+    final clientContext = <String, dynamic>{
+      'clientName': clientName ?? _innerTubeClientName,
+      'clientVersion': clientVersion ?? _innerTubeClientVersion,
+      'hl': 'en',
+      'gl': 'US',
+    };
+    if (androidSdkVersion != null) {
+      clientContext['androidSdkVersion'] = androidSdkVersion;
+    }
+
+    final response = await _dio.post(
+      '$_innerTubeApiBase/player?key=$_innerTubeApiKey',
+      data: jsonEncode({
+        'videoId': videoId,
+        'context': {'client': clientContext},
+      }),
+      options: _innerTubeAuthOptions(authHeaders),
+    );
+
+    final data = _parseJsonResponse(response.data);
+    _checkPlayability(data);
+    return data;
+  }
+
   @override
   SourceType get sourceType => SourceType.youtube;
 
@@ -1247,36 +1298,12 @@ class YouTubeSource extends BaseSource with Logging {
     logDebug('Getting audio stream via InnerTube for: $videoId');
     try {
       // Use androidVr client for audio-only streams (proven pattern)
-      final response = await _dio.post(
-        '$_innerTubeApiBase/player?key=$_innerTubeApiKey',
-        data: jsonEncode({
-          'videoId': videoId,
-          'context': {
-            'client': {
-              'clientName': 'ANDROID_VR',
-              'clientVersion': '1.57.29',
-              'androidSdkVersion': 30,
-              'hl': 'en',
-              'gl': 'US',
-            },
-          },
-        }),
-        options: _innerTubeAuthOptions(authHeaders),
+      final data = await _innerTubePlayerRequest(
+        videoId, authHeaders,
+        clientName: 'ANDROID_VR',
+        clientVersion: '1.57.29',
+        androidSdkVersion: 30,
       );
-
-      final data = response.data is String
-          ? jsonDecode(response.data as String) as Map<String, dynamic>
-          : response.data as Map<String, dynamic>;
-
-      final playabilityStatus = data['playabilityStatus'];
-      final status = playabilityStatus?['status'] as String?;
-
-      if (status != 'OK') {
-        throw YouTubeApiException(
-          code: status?.toLowerCase() ?? 'error',
-          message: playabilityStatus?['reason'] as String? ?? 'Video unavailable',
-        );
-      }
 
       final streamingData = data['streamingData'] as Map<String, dynamic>?;
       if (streamingData == null) {
@@ -1358,25 +1385,7 @@ class YouTubeSource extends BaseSource with Logging {
     AudioStreamConfig config,
   ) async {
     logDebug('Trying WEB client fallback for audio stream: $videoId');
-    final response = await _dio.post(
-      '$_innerTubeApiBase/player?key=$_innerTubeApiKey',
-      data: jsonEncode({
-        'videoId': videoId,
-        'context': {
-          'client': {
-            'clientName': _innerTubeClientName,
-            'clientVersion': _innerTubeClientVersion,
-            'hl': 'en',
-            'gl': 'US',
-          },
-        },
-      }),
-      options: _innerTubeAuthOptions(authHeaders),
-    );
-
-    final data = response.data is String
-        ? jsonDecode(response.data as String) as Map<String, dynamic>
-        : response.data as Map<String, dynamic>;
+    final data = await _innerTubePlayerRequest(videoId, authHeaders);
 
     final streamingData = data['streamingData'] as Map<String, dynamic>?;
     if (streamingData == null) {
@@ -1426,9 +1435,7 @@ class YouTubeSource extends BaseSource with Logging {
         options: _innerTubeAuthOptions(authHeaders),
       );
 
-      final data = response.data is String
-          ? jsonDecode(response.data as String) as Map<String, dynamic>
-          : response.data as Map<String, dynamic>;
+      final data = _parseJsonResponse(response.data);
 
       // Parse playlist title from header
       // InnerTube may use playlistHeaderRenderer (old) or pageHeaderRenderer (new)
@@ -1532,35 +1539,7 @@ class YouTubeSource extends BaseSource with Logging {
   ) async {
     logDebug('Getting track info via InnerTube for: $videoId');
     try {
-      final response = await _dio.post(
-        '$_innerTubeApiBase/player?key=$_innerTubeApiKey',
-        data: jsonEncode({
-          'videoId': videoId,
-          'context': {
-            'client': {
-              'clientName': _innerTubeClientName,
-              'clientVersion': _innerTubeClientVersion,
-              'hl': 'en',
-              'gl': 'US',
-            },
-          },
-        }),
-        options: _innerTubeAuthOptions(authHeaders),
-      );
-
-      final data = response.data is String
-          ? jsonDecode(response.data as String) as Map<String, dynamic>
-          : response.data as Map<String, dynamic>;
-
-      final playabilityStatus = data['playabilityStatus'];
-      final status = playabilityStatus?['status'] as String?;
-
-      if (status != 'OK') {
-        throw YouTubeApiException(
-          code: status?.toLowerCase() ?? 'error',
-          message: playabilityStatus?['reason'] as String? ?? 'Video unavailable',
-        );
-      }
+      final data = await _innerTubePlayerRequest(videoId, authHeaders);
 
       final videoDetails = data['videoDetails'] as Map<String, dynamic>?;
       if (videoDetails == null) {
@@ -1603,35 +1582,7 @@ class YouTubeSource extends BaseSource with Logging {
   ) async {
     logDebug('Getting video detail via InnerTube for: $videoId');
     try {
-      final response = await _dio.post(
-        '$_innerTubeApiBase/player?key=$_innerTubeApiKey',
-        data: jsonEncode({
-          'videoId': videoId,
-          'context': {
-            'client': {
-              'clientName': _innerTubeClientName,
-              'clientVersion': _innerTubeClientVersion,
-              'hl': 'en',
-              'gl': 'US',
-            },
-          },
-        }),
-        options: _innerTubeAuthOptions(authHeaders),
-      );
-
-      final data = response.data is String
-          ? jsonDecode(response.data as String) as Map<String, dynamic>
-          : response.data as Map<String, dynamic>;
-
-      final playabilityStatus = data['playabilityStatus'];
-      final status = playabilityStatus?['status'] as String?;
-
-      if (status != 'OK') {
-        throw YouTubeApiException(
-          code: status?.toLowerCase() ?? 'error',
-          message: playabilityStatus?['reason'] as String? ?? 'Video unavailable',
-        );
-      }
+      final data = await _innerTubePlayerRequest(videoId, authHeaders);
 
       final videoDetails = data['videoDetails'] as Map<String, dynamic>?;
       if (videoDetails == null) {

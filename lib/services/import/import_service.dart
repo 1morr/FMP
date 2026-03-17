@@ -129,16 +129,10 @@ class ImportService with Logging {
         _youtubeAccountService = youtubeAccountService;
 
   /// 获取指定平台的认证 headers
-  Future<Map<String, String>?> _getAuthHeaders(SourceType sourceType) async {
-    switch (sourceType) {
-      case SourceType.bilibili:
-        final cookies = await _bilibiliAccountService?.getAuthCookieString();
-        if (cookies == null) return null;
-        return {'Cookie': cookies};
-      case SourceType.youtube:
-        return await _youtubeAccountService?.getAuthHeaders();
-    }
-  }
+  Future<Map<String, String>?> _getAuthHeaders(SourceType sourceType) =>
+      buildAuthHeaders(sourceType,
+          bilibiliAccountService: _bilibiliAccountService,
+          youtubeAccountService: _youtubeAccountService);
 
   /// 从 URL 导入歌单/收藏夹
   Future<ImportResult> importFromUrl(
@@ -650,14 +644,18 @@ class ImportService with Logging {
 
   /// 生成唯一歌单名称，同名时自动添加后缀 (2), (3), ...
   Future<String> _generateUniqueName(String baseName) async {
-    if (!await _playlistRepository.nameExists(baseName)) {
-      return baseName;
-    }
+    // Single query: fetch all names starting with baseName
+    final existingNames = await _isar.playlists
+        .filter()
+        .nameStartsWith(baseName)
+        .nameProperty()
+        .findAll();
+    final nameSet = existingNames.toSet();
+
+    if (!nameSet.contains(baseName)) return baseName;
     for (int i = 2; i <= 100; i++) {
       final candidate = '$baseName ($i)';
-      if (!await _playlistRepository.nameExists(candidate)) {
-        return candidate;
-      }
+      if (!nameSet.contains(candidate)) return candidate;
     }
     // 极端情况：用时间戳
     return '$baseName (${DateTime.now().millisecondsSinceEpoch})';

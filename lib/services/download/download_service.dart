@@ -116,16 +116,10 @@ class DownloadService with Logging {
         ));
 
   /// 获取指定平台的认证 headers
-  Future<Map<String, String>?> _getAuthHeaders(SourceType sourceType) async {
-    switch (sourceType) {
-      case SourceType.bilibili:
-        final cookies = await _bilibiliAccountService?.getAuthCookieString();
-        if (cookies == null) return null;
-        return {'Cookie': cookies};
-      case SourceType.youtube:
-        return await _youtubeAccountService?.getAuthHeaders();
-    }
-  }
+  Future<Map<String, String>?> _getAuthHeaders(SourceType sourceType) =>
+      buildAuthHeaders(sourceType,
+          bilibiliAccountService: _bilibiliAccountService,
+          youtubeAccountService: _youtubeAccountService);
 
   /// 初始化服务
   Future<void> initialize() async {

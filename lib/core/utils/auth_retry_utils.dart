@@ -3,22 +3,35 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/track.dart';
 import '../../data/sources/source_exception.dart';
 import '../../providers/account_provider.dart';
+import '../../services/account/bilibili_account_service.dart';
+import '../../services/account/youtube_account_service.dart';
 
-/// Get auth headers for a platform, or null if not logged in.
+/// Build auth headers from account services directly (non-Riverpod contexts).
+Future<Map<String, String>?> buildAuthHeaders(
+  SourceType platform, {
+  BilibiliAccountService? bilibiliAccountService,
+  YouTubeAccountService? youtubeAccountService,
+}) async {
+  switch (platform) {
+    case SourceType.bilibili:
+      final cookies = await bilibiliAccountService?.getAuthCookieString();
+      if (cookies == null) return null;
+      return {'Cookie': cookies};
+    case SourceType.youtube:
+      return await youtubeAccountService?.getAuthHeaders();
+  }
+}
+
+/// Get auth headers for a platform via Riverpod Ref.
 Future<Map<String, String>?> getAuthHeadersForPlatform(
   SourceType platform,
   Ref ref,
 ) async {
-  switch (platform) {
-    case SourceType.bilibili:
-      final service = ref.read(bilibiliAccountServiceProvider);
-      final cookies = await service.getAuthCookieString();
-      if (cookies == null) return null;
-      return {'Cookie': cookies};
-    case SourceType.youtube:
-      final service = ref.read(youtubeAccountServiceProvider);
-      return await service.getAuthHeaders();
-  }
+  return buildAuthHeaders(
+    platform,
+    bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
+    youtubeAccountService: ref.read(youtubeAccountServiceProvider),
+  );
 }
 
 /// Execute an action anonymously first, retry with auth on permission error.
