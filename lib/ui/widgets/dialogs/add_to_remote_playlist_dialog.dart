@@ -25,19 +25,36 @@ Future<bool> showAddToRemotePlaylistDialog({
 }
 
 /// 顯示添加到遠程收藏夾對話框（多首歌曲，自動路由到對應平台）
+/// 混合來源時按平台分組，依次顯示對應平台的對話框
 Future<bool> showAddToRemotePlaylistDialogMulti({
   required BuildContext context,
   required List<Track> tracks,
 }) async {
   if (tracks.isEmpty) return false;
 
-  final sourceType = tracks.first.sourceType;
-  switch (sourceType) {
-    case SourceType.bilibili:
-      return _showBilibiliSheet(context, tracks);
-    case SourceType.youtube:
-      return showAddToYouTubePlaylistDialog(context: context, tracks: tracks);
+  // 按平台分組
+  final bilibiliTracks = tracks.where((t) => t.sourceType == SourceType.bilibili).toList();
+  final youtubeTracks = tracks.where((t) => t.sourceType == SourceType.youtube).toList();
+
+  // 提前捕獲 navigator，避免調用方 widget dispose 後 context 失效
+  final navigator = Navigator.of(context);
+  final overlay = navigator.overlay;
+
+  bool anySuccess = false;
+
+  // 先處理 Bilibili
+  if (bilibiliTracks.isNotEmpty && overlay != null && overlay.mounted) {
+    final result = await _showBilibiliSheet(overlay.context, bilibiliTracks);
+    if (result) anySuccess = true;
   }
+
+  // 再處理 YouTube
+  if (youtubeTracks.isNotEmpty && overlay != null && overlay.mounted) {
+    final result = await showAddToYouTubePlaylistDialog(context: overlay.context, tracks: youtubeTracks);
+    if (result) anySuccess = true;
+  }
+
+  return anySuccess;
 }
 
 /// Bilibili 收藏夾 sheet
