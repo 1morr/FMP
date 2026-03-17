@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/ui_constants.dart';
 import '../../../core/logger.dart';
+import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../data/sources/bilibili_source.dart';
@@ -502,9 +503,30 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
         final isSelected = _selectedIds.contains(folder.id);
 
         return ListTile(
-          leading: Icon(
-            folder.isDefault ? Icons.star : Icons.folder_outlined,
-            color: isSelected ? colorScheme.primary : colorScheme.outline,
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              borderRadius: AppRadius.borderRadiusMd,
+              color: colorScheme.surfaceContainerHighest,
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: folder.coverUrl != null
+                ? ImageLoadingService.loadImage(
+                    networkUrl: folder.coverUrl,
+                    placeholder: Icon(
+                      folder.isDefault ? Icons.star : Icons.folder_outlined,
+                      color: colorScheme.outline,
+                    ),
+                    width: 40,
+                    height: 40,
+                    fit: BoxFit.cover,
+                    targetDisplaySize: 40,
+                  )
+                : Icon(
+                    folder.isDefault ? Icons.star : Icons.folder_outlined,
+                    color: colorScheme.outline,
+                  ),
           ),
           title: Text(folder.title),
           subtitle: Text('${folder.mediaCount}'),

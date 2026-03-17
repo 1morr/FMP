@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
@@ -476,7 +477,26 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
         final containsStatus = _containsStatus[playlist.playlistId];
 
         return ListTile(
-          leading: const Icon(Icons.playlist_play),
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              borderRadius: AppRadius.borderRadiusMd,
+              color: colorScheme.surfaceContainerHighest,
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: playlist.thumbnailUrl != null
+                ? ImageLoadingService.loadImage(
+                    networkUrl: playlist.thumbnailUrl,
+                    placeholder: Icon(Icons.playlist_play,
+                        color: colorScheme.outline),
+                    width: 40,
+                    height: 40,
+                    fit: BoxFit.cover,
+                    targetDisplaySize: 40,
+                  )
+                : Icon(Icons.playlist_play, color: colorScheme.outline),
+          ),
           title: Text(playlist.title),
           subtitle: Text('${playlist.videoCount}'),
           trailing: _buildTrailing(
