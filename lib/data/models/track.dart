@@ -236,6 +236,9 @@ class Track {
   /// 父视频标题（用于分组显示时的标题）
   String? parentTitle;
 
+  /// Bilibili 視頻 aid（收藏夾 API 需要，首次使用時從 view API 獲取並緩存）
+  int? bilibiliAid;
+
   /// 原平台歌曲 ID（导入时保存，用于歌词直接获取和来源追溯）
   /// 网易云: song ID (如 "1234567")
   /// QQ音乐: songmid (如 "0039MnYb0qxYhV")

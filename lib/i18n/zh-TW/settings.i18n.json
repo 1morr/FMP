@@ -1,5 +1,10 @@
 {
   "title": "設定",
+  "account": "帳號",
+  "accountManagement": {
+    "title": "帳號管理",
+    "subtitle": "管理 嗶哩嗶哩、YouTube 帳號"
+  },
   "appearance": "外觀",
   "playback": "播放",
   "cache": "快取",

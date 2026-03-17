@@ -11,11 +11,13 @@ import '../../../providers/selection_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/cache/ranking_cache_service.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
+import '../../widgets/dialogs/add_to_remote_playlist_dialog.dart';
 import '../../widgets/context_menu_region.dart';
 import '../../widgets/error_display.dart';
 import '../../widgets/selection_mode_app_bar.dart';
 import '../../widgets/track_tile.dart';
 import '../lyrics/lyrics_search_sheet.dart';
+import '../../../providers/account_provider.dart';
 
 /// 探索页面 - 显示音乐排行榜
 class ExplorePage extends ConsumerStatefulWidget {
@@ -56,6 +58,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       SelectionAction.addToQueue,
       SelectionAction.playNext,
       SelectionAction.addToPlaylist,
+      SelectionAction.addToRemotePlaylist,
     };
 
     return PopScope(
@@ -73,8 +76,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
                 availableActions: availableActions,
                 bottom: TabBar(
                   controller: _tabController,
-                  tabs: const [
-                    Tab(text: 'Bilibili'),
+                  tabs: [
+                    Tab(text: t.importPlatform.bilibili),
                     Tab(text: 'YouTube'),
                   ],
                 ),
@@ -87,8 +90,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
                 title: Text(t.nav.explore),
                 bottom: TabBar(
                   controller: _tabController,
-                  tabs: const [
-                    Tab(text: 'Bilibili'),
+                  tabs: [
+                    Tab(text: t.importPlatform.bilibili),
                     Tab(text: 'YouTube'),
                   ],
                 ),
@@ -324,6 +327,10 @@ class _ExploreTrackTile extends ConsumerWidget {
       value: 'matchLyrics',
       child: ListTile(leading: const Icon(Icons.lyrics_outlined), title: Text(t.lyrics.matchLyrics), contentPadding: EdgeInsets.zero),
     ),
+    PopupMenuItem(
+      value: 'add_to_remote',
+      child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero),
+    ),
   ];
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
@@ -350,6 +357,18 @@ class _ExploreTrackTile extends ConsumerWidget {
         break;
       case 'matchLyrics':
         showLyricsSearchSheet(context: context, track: track);
+        break;
+      case 'add_to_remote':
+        final isLoggedIn = ref.read(isLoggedInProvider(track.sourceType));
+        if (!isLoggedIn) {
+          if (context.mounted) {
+            ToastService.show(context, t.remote.pleaseLogin);
+          }
+          return;
+        }
+        if (context.mounted) {
+          showAddToRemotePlaylistDialog(context: context, track: track);
+        }
         break;
     }
   }

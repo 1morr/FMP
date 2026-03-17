@@ -13,6 +13,7 @@ import '../../data/repositories/settings_repository.dart';
 import '../../data/sources/source_provider.dart';
 import '../../services/download/download_service.dart';
 import '../../services/download/download_path_utils.dart';
+import '../account_provider.dart';
 import '../database_provider.dart';
 import '../repository_providers.dart';
 import 'download_scanner.dart';
@@ -52,6 +53,8 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
     trackRepository: trackRepo,
     settingsRepository: settingsRepo,
     sourceManager: sourceManager,
+    bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
+    youtubeAccountService: ref.read(youtubeAccountServiceProvider),
   );
 
   // 初始化服务

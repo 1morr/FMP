@@ -11,6 +11,9 @@ import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../data/sources/base_source.dart';
 import '../../data/sources/source_provider.dart';
+import '../../core/utils/auth_retry_utils.dart';
+import '../account/bilibili_account_service.dart';
+import '../account/youtube_account_service.dart';
 
 /// 播放队列管理器（纯队列逻辑）
 /// 负责管理播放列表、索引、播放模式和持久化
@@ -20,6 +23,8 @@ class QueueManager with Logging {
   final TrackRepository _trackRepository;
   final SettingsRepository _settingsRepository;
   final SourceManager _sourceManager;
+  final BilibiliAccountService? _bilibiliAccountService;
+  final YouTubeAccountService? _youtubeAccountService;
 
   // 队列数据
   List<Track> _tracks = [];
@@ -174,10 +179,20 @@ class QueueManager with Logging {
     required TrackRepository trackRepository,
     required SettingsRepository settingsRepository,
     required SourceManager sourceManager,
+    BilibiliAccountService? bilibiliAccountService,
+    YouTubeAccountService? youtubeAccountService,
   })  : _queueRepository = queueRepository,
         _trackRepository = trackRepository,
         _settingsRepository = settingsRepository,
-        _sourceManager = sourceManager;
+        _sourceManager = sourceManager,
+        _bilibiliAccountService = bilibiliAccountService,
+        _youtubeAccountService = youtubeAccountService;
+
+  /// 获取指定平台的认证 headers
+  Future<Map<String, String>?> _getAuthHeaders(SourceType sourceType) =>
+      buildAuthHeaders(sourceType,
+          bilibiliAccountService: _bilibiliAccountService,
+          youtubeAccountService: _youtubeAccountService);
 
   /// 初始化队列（从持久化存储加载）
   Future<void> initialize() async {
@@ -821,7 +836,10 @@ class QueueManager with Logging {
     }
 
     try {
-      final refreshedTrack = await source.refreshAudioUrl(track);
+      final refreshedTrack = await withAuthRetryDirect(
+        action: (authHeaders) => source.refreshAudioUrl(track, authHeaders: authHeaders),
+        getAuthHeaders: () => _getAuthHeaders(track.sourceType),
+      );
       if (persist) {
         // 【重要】从数据库获取最新的 track 数据，避免覆盖并发修改（如下载路径）
         // 这样做是因为 refreshAudioUrl 修改的是传入的 track 对象，
@@ -932,7 +950,10 @@ class QueueManager with Logging {
 
     try {
       final config = await _buildAudioStreamConfig(track.sourceType);
-      final streamResult = await source.getAudioStream(track.sourceId, config: config);
+      final streamResult = await withAuthRetryDirect(
+        action: (authHeaders) => source.getAudioStream(track.sourceId, config: config, authHeaders: authHeaders),
+        getAuthHeaders: () => _getAuthHeaders(track.sourceType),
+      );
       
       // 更新 track 的 URL
       track.audioUrl = streamResult.url;

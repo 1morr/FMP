@@ -5,14 +5,18 @@ import 'package:fmp/i18n/strings.g.dart';
 import '../../core/services/toast_service.dart';
 import '../../data/models/track.dart';
 import '../../providers/selection_provider.dart';
+import '../../providers/account_provider.dart';
 import '../../services/audio/audio_provider.dart';
 import 'dialogs/add_to_playlist_dialog.dart';
+import 'dialogs/add_to_remote_playlist_dialog.dart';
 
 /// 多選模式下可用的操作類型
 enum SelectionAction {
   addToQueue,
   playNext,
   addToPlaylist,
+  addToRemotePlaylist,
+  removeFromRemotePlaylist,
   download,
   delete,
 }
@@ -36,6 +40,9 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
   /// 下載操作回調（僅歌單詳情頁需要）
   final Future<void> Function(List<Track> tracks)? onDownload;
 
+  /// 從遠程收藏夾移除回調（僅導入歌單詳情頁需要）
+  final Future<void> Function(List<Track> tracks)? onRemoveFromRemote;
+
   /// AppBar 底部組件（如 TabBar）
   final PreferredSizeWidget? bottom;
 
@@ -46,6 +53,7 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
     required this.availableActions,
     this.onDelete,
     this.onDownload,
+    this.onRemoveFromRemote,
     this.bottom,
   });
 
@@ -126,6 +134,28 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
                 ),
               ),
 
+            // 添加到遠程收藏夾
+            if (availableActions.contains(SelectionAction.addToRemotePlaylist))
+              PopupMenuItem(
+                value: 'add_to_remote',
+                child: ListTile(
+                  leading: Icon(Icons.cloud_upload_outlined),
+                  title: Text(t.remote.addToFavorites),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+
+            // 從遠程收藏夾移除
+            if (availableActions.contains(SelectionAction.removeFromRemotePlaylist))
+              PopupMenuItem(
+                value: 'remove_from_remote',
+                child: ListTile(
+                  leading: Icon(Icons.cloud_off_outlined, color: colorScheme.error),
+                  title: Text(t.remote.removeFromFavorites, style: TextStyle(color: colorScheme.error)),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+
             // 下載
             if (availableActions.contains(SelectionAction.download))
               PopupMenuItem(
@@ -170,6 +200,12 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
         break;
       case 'add_to_playlist':
         _addToPlaylist(context, ref, tracks);
+        break;
+      case 'add_to_remote':
+        _addToRemotePlaylist(context, ref, tracks);
+        break;
+      case 'remove_from_remote':
+        _removeFromRemotePlaylist(context, ref, tracks);
         break;
       case 'download':
         _download(context, ref, tracks);
@@ -287,6 +323,44 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
         ToastService.success(context, t.selectionMode.removedTracks(count: tracks.length));
       }
     }
+  }
+
+  Future<void> _addToRemotePlaylist(
+    BuildContext context,
+    WidgetRef ref,
+    List<Track> tracks,
+  ) async {
+    final notifier = ref.read(selectionProvider.notifier);
+
+    // 過濾出已登錄平台的 tracks
+    final remoteTracks = tracks.where((t) =>
+        ref.read(isLoggedInProvider(t.sourceType))).toList();
+    if (remoteTracks.isEmpty) {
+      if (context.mounted) {
+        ToastService.show(context, t.remote.pleaseLogin);
+      }
+      return;
+    }
+
+    notifier.exitSelectionMode();
+
+    if (context.mounted) {
+      showAddToRemotePlaylistDialogMulti(context: context, tracks: remoteTracks);
+    }
+  }
+
+  Future<void> _removeFromRemotePlaylist(
+    BuildContext context,
+    WidgetRef ref,
+    List<Track> tracks,
+  ) async {
+    final notifier = ref.read(selectionProvider.notifier);
+
+    if (onRemoveFromRemote != null) {
+      await onRemoveFromRemote!(tracks);
+    }
+
+    notifier.exitSelectionMode();
   }
 }
 

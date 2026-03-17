@@ -1,5 +1,10 @@
 {
   "title": "Settings",
+  "account": "Account",
+  "accountManagement": {
+    "title": "Account Management",
+    "subtitle": "Manage Bilibili and YouTube accounts"
+  },
   "appearance": "Appearance",
   "playback": "Playback",
   "cache": "Cache",

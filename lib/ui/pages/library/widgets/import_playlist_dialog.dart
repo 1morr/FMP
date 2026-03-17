@@ -14,6 +14,7 @@ import '../../../../providers/playlist_provider.dart';
 import '../../../../providers/repository_providers.dart';
 import '../../../../services/import/import_service.dart' as url_import;
 import '../../../../services/import/playlist_import_service.dart';
+import '../../../../providers/account_provider.dart';
 import '../../../../data/sources/playlist_import/playlist_import_source.dart';
 import '../../../../i18n/strings.g.dart';
 import '../import_preview_page.dart';
@@ -411,6 +412,8 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
         playlistRepository: playlistRepo,
         trackRepository: trackRepo,
         isar: isar,
+        bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
+        youtubeAccountService: ref.read(youtubeAccountServiceProvider),
       );
       _internalImportService = importService;
 
