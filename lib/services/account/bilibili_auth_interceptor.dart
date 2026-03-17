@@ -79,18 +79,22 @@ class BilibiliAuthInterceptor extends Interceptor with Logging {
       return _refreshCompleter!.future;
     }
 
-    _refreshCompleter = Completer<bool>();
+    final completer = Completer<bool>();
+    _refreshCompleter = completer;
     try {
       logWarning('Detected auth error, attempting credential refresh');
       final result = await _accountService.refreshCredentials();
-      _refreshCompleter!.complete(result);
+      completer.complete(result);
       return result;
     } catch (e) {
       logError('Credential refresh failed', e);
-      _refreshCompleter!.complete(false);
+      completer.complete(false);
       return false;
     } finally {
-      _refreshCompleter = null;
+      // 只清除自己創建的 completer，避免清除併發請求創建的新 completer
+      if (_refreshCompleter == completer) {
+        _refreshCompleter = null;
+      }
     }
   }
 
