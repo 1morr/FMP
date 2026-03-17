@@ -15,5 +15,14 @@
   "qrScanned": "已掃碼，請在手機上確認",
   "qrExpired": "二維碼已過期",
   "qrRefresh": "重新生成",
-  "comingSoon": "即將推出"
+  "comingSoon": "即將推出",
+  "playlists": "歌單",
+  "selectPlaylists": "選擇歌單",
+  "alreadyImported": "已導入",
+  "importSelected": "導入選中 ($count)",
+  "importing": "正在導入...",
+  "importingProgress": "正在導入 $current/$total...",
+  "importComplete": "成功導入 $count 個歌單",
+  "noPlaylists": "沒有歌單",
+  "trackCount": "$count 首"
 }

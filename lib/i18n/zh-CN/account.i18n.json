@@ -15,5 +15,14 @@
   "qrScanned": "已扫码，请在手机上确认",
   "qrExpired": "二维码已过期",
   "qrRefresh": "重新生成",
-  "comingSoon": "即将推出"
+  "comingSoon": "即将推出",
+  "playlists": "歌单",
+  "selectPlaylists": "选择歌单",
+  "alreadyImported": "已导入",
+  "importSelected": "导入选中 ($count)",
+  "importing": "正在导入...",
+  "importingProgress": "正在导入 $current/$total...",
+  "importComplete": "成功导入 $count 个歌单",
+  "noPlaylists": "没有歌单",
+  "trackCount": "$count 首"
 }
