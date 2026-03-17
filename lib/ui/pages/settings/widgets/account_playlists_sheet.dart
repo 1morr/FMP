@@ -118,7 +118,7 @@ class _AccountPlaylistsSheetState
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = t.remote.error.unknown(code: 'LOAD');
         _isLoading = false;
       });
     }
@@ -255,7 +255,7 @@ class _AccountPlaylistsSheetState
       } catch (e) {
         if (_isCancelled) break;
         // 非取消錯誤：停止導入，顯示錯誤
-        importError = e.toString();
+        importError = t.remote.error.unknown(code: 'IMPORT');
         break;
       } finally {
         _trackProgressSub?.cancel();
@@ -278,6 +278,7 @@ class _AccountPlaylistsSheetState
       // 輕量刷新已導入狀態（不重新請求 API）
       _refreshImportStatus();
     } else {
+      if (!mounted) return;
       Navigator.pop(context);
       if (successCount > 0) {
         ToastService.success(

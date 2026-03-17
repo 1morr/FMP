@@ -42,6 +42,7 @@ class BilibiliAccountService extends AccountService with Logging {
   final Dio _dio;
   final FlutterSecureStorage _secureStorage;
   final Isar _isar;
+  BilibiliCredentials? _cachedCredentials;
 
   static const String _storageKey = 'account_bilibili_credentials';
   static const String _apiBase = 'https://api.bilibili.com';
@@ -89,6 +90,7 @@ class BilibiliAccountService extends AccountService with Logging {
       key: _storageKey,
       value: jsonEncode(credentials.toJson()),
     );
+    _cachedCredentials = credentials;
 
     // 更新 Account 記錄
     await _updateAccount(
@@ -114,9 +116,18 @@ class BilibiliAccountService extends AccountService with Logging {
   }
 
   /// QR 碼登錄 - 輪詢掃碼狀態
+  ///
+  /// 最多輪詢 3 分鐘（90 次 × 2 秒），超時後自動停止。
+  /// 連續網絡錯誤超過 5 次也會停止。
   Stream<QrCodePollResult> pollQrCodeStatus(String qrcodeKey) async* {
-    while (true) {
+    const maxPolls = 90; // 3 分鐘
+    const maxConsecutiveErrors = 5;
+    int pollCount = 0;
+    int consecutiveErrors = 0;
+
+    while (pollCount < maxPolls) {
       await Future.delayed(const Duration(seconds: 2));
+      pollCount++;
 
       try {
         final response = await _dio.get(
@@ -151,19 +162,32 @@ class BilibiliAccountService extends AccountService with Logging {
             return;
 
           case 86090: // 已掃碼待確認
+            consecutiveErrors = 0;
             yield QrCodePollResult(status: QrCodeStatus.scanned);
 
           default: // 86101 等待掃碼
+            consecutiveErrors = 0;
             yield QrCodePollResult(status: QrCodeStatus.waiting);
         }
       } catch (e) {
         logError('QR code poll error', e);
+        consecutiveErrors++;
+        if (consecutiveErrors >= maxConsecutiveErrors) {
+          yield QrCodePollResult(
+            status: QrCodeStatus.expired,
+            message: 'Network error',
+          );
+          return;
+        }
         yield QrCodePollResult(
           status: QrCodeStatus.waiting,
           message: e.toString(),
         );
       }
     }
+
+    // 超時
+    yield QrCodePollResult(status: QrCodeStatus.expired);
   }
 
   // ===== 認證管理 =====
@@ -206,6 +230,7 @@ class BilibiliAccountService extends AccountService with Logging {
   Future<void> logout() async {
     // 清除 secure storage
     await _secureStorage.delete(key: _storageKey);
+    _cachedCredentials = null;
 
     // 更新 Account 記錄
     await _updateAccount(isLoggedIn: false);
@@ -312,6 +337,7 @@ class BilibiliAccountService extends AccountService with Logging {
         key: _storageKey,
         value: jsonEncode(newCredentials.toJson()),
       );
+      _cachedCredentials = newCredentials;
 
       // Step 5: 確認更新（使用新 cookie + 舊 refresh_token）
       final newCookieString = newCredentials.toCookieString();
@@ -381,14 +407,16 @@ class BilibiliAccountService extends AccountService with Logging {
 
   // ===== 內部方法 =====
 
-  /// 從 secure storage 加載憑據
+  /// 從 secure storage 加載憑據（帶內存緩存）
   Future<BilibiliCredentials?> _loadCredentials() async {
+    if (_cachedCredentials != null) return _cachedCredentials;
     final json = await _secureStorage.read(key: _storageKey);
     if (json == null) return null;
     try {
-      return BilibiliCredentials.fromJson(
+      _cachedCredentials = BilibiliCredentials.fromJson(
         jsonDecode(json) as Map<String, dynamic>,
       );
+      return _cachedCredentials;
     } catch (e) {
       logError('Failed to parse credentials', e);
       return null;

@@ -181,6 +181,7 @@ class YouTubePlaylistService with Logging {
   /// 瀏覽播放列表分頁的通用方法
   ///
   /// [onPage] 處理每頁數據，返回非 null 值時提前停止並返回該值
+  /// 分頁請求失敗時返回已處理的結果（不會因單頁失敗丟失全部數據）
   Future<T?> _browsePlaylistPages<T>(
     String playlistId,
     T? Function(Map<String, dynamic> data) onPage,
@@ -191,16 +192,23 @@ class YouTubePlaylistService with Logging {
           ? {'continuation': continuationToken, 'context': _accountService.buildInnerTubeContext()}
           : {'browseId': 'VL$playlistId', 'context': _accountService.buildInnerTubeContext()};
 
-      final response = await _dio.post(
-        '$_apiBase/browse?key=$_apiKey',
-        data: jsonEncode(requestData),
-      );
+      try {
+        final response = await _dio.post(
+          '$_apiBase/browse?key=$_apiKey',
+          data: jsonEncode(requestData),
+        );
 
-      final data = response.data as Map<String, dynamic>;
-      final result = onPage(data);
-      if (result != null) return result;
+        final data = response.data as Map<String, dynamic>;
+        final result = onPage(data);
+        if (result != null) return result;
 
-      continuationToken = _extractContinuationToken(data);
+        continuationToken = _extractContinuationToken(data);
+      } catch (e) {
+        logWarning('Playlist pagination failed (playlist=$playlistId): $e');
+        // 首頁失敗直接拋出，後續頁失敗返回已有結果
+        if (continuationToken == null) rethrow;
+        return null;
+      }
     } while (continuationToken != null);
     return null;
   }
