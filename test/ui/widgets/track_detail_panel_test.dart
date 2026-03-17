@@ -183,7 +183,7 @@ void main() {
         hotComments: [],
       );
 
-      expect(kDetail.formattedViewCount, equals('1.5万'));
+      expect(kDetail.formattedViewCount, equals('15.0K'));
 
       // Test millions
       final mDetail = VideoDetail(
@@ -206,7 +206,7 @@ void main() {
         hotComments: [],
       );
 
-      expect(mDetail.formattedViewCount, equals('150.0万'));
+      expect(mDetail.formattedViewCount, equals('1.5M'));
     });
 
     test('VideoComment formats like count correctly', () {
@@ -219,7 +219,7 @@ void main() {
         createTime: DateTime.now(),
       );
 
-      expect(comment.formattedLikeCount, equals('2500'));
+      expect(comment.formattedLikeCount, equals('2.5K'));
     });
   });
 
