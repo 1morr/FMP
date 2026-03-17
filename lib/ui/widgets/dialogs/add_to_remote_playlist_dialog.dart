@@ -244,9 +244,22 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
     // folderId → 已收藏的 track 數量
     final favCounts = <int, int>{};
 
-    for (final track in _tracks) {
+    // 先並行獲取所有 track 的 aid
+    final aids = await Future.wait(
+      _tracks.map((track) async {
+        try {
+          return await favService.getVideoAid(track);
+        } catch (_) {
+          return null;
+        }
+      }),
+    );
+    if (!mounted) return;
+
+    // 再逐個查詢收藏狀態（避免並行觸發限流）
+    for (final aid in aids) {
+      if (aid == null) continue;
       try {
-        final aid = await favService.getVideoAid(track);
         final trackFolders = await favService.getFavFolders(videoAid: aid);
         if (!mounted) return;
         for (final f in trackFolders) {
@@ -278,13 +291,18 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
     });
   }
 
-  Future<void> _submit() async {
+  /// 計算需要添加和移除的收藏夾
+  ({List<int> toAdd, List<int> toRemove}) _computeChanges() {
     final toAdd = _selectedIds.difference(_originalIds).difference(_partialIds).toList();
-    // 移除：原本全選但被取消的 + 明確取消的半選
     final toRemove = [
       ..._originalIds.difference(_selectedIds),
       ..._deselectedPartialIds,
     ];
+    return (toAdd: toAdd, toRemove: toRemove);
+  }
+
+  Future<void> _submit() async {
+    final (:toAdd, :toRemove) = _computeChanges();
 
     if (toAdd.isEmpty && toRemove.isEmpty) {
       ToastService.show(context, t.remote.noChanges);
@@ -651,8 +669,7 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
   }
 
   String _getButtonText() {
-    final toAdd = _selectedIds.difference(_originalIds).difference(_partialIds);
-    final toRemove = _originalIds.difference(_selectedIds).union(_deselectedPartialIds);
+    final (:toAdd, :toRemove) = _computeChanges();
     if (toAdd.isEmpty && toRemove.isEmpty) return t.remote.confirm;
     if (toAdd.isNotEmpty && toRemove.isEmpty) {
       return t.remote.addToCount(count: toAdd.length.toString());

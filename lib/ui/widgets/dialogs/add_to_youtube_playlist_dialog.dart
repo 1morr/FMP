@@ -147,7 +147,10 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
 
     for (final playlist in playlists) {
       try {
-        final videoIds = await service.getVideoIdsInPlaylist(playlist.playlistId);
+        final videoIds = await service.getVideoIdsInPlaylist(
+          playlist.playlistId,
+          targetVideoIds: trackVideoIds,
+        );
         if (!mounted) return;
         final matchCount = trackVideoIds.intersection(videoIds).length;
         if (matchCount > 0) {
@@ -271,13 +274,18 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
     }
   }
 
-  Future<void> _submit() async {
+  /// 計算需要添加和移除的播放列表
+  ({List<String> toAdd, List<String> toRemove}) _computeChanges() {
     final toAdd = _selectedIds.difference(_originalIds).difference(_partialIds).toList();
-    // 移除：原本全選但被取消的 + 明確取消的半選
     final toRemove = [
       ..._originalIds.difference(_selectedIds),
       ..._deselectedPartialIds,
     ];
+    return (toAdd: toAdd, toRemove: toRemove);
+  }
+
+  Future<void> _submit() async {
+    final (:toAdd, :toRemove) = _computeChanges();
 
     if (toAdd.isEmpty && toRemove.isEmpty) {
       ToastService.show(context, t.remote.noChanges);
@@ -616,8 +624,7 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
   }
 
   String _getButtonText() {
-    final toAdd = _selectedIds.difference(_originalIds).difference(_partialIds);
-    final toRemove = _originalIds.difference(_selectedIds).union(_deselectedPartialIds);
+    final (:toAdd, :toRemove) = _computeChanges();
     if (toAdd.isEmpty && toRemove.isEmpty) return t.remote.confirm;
     if (toAdd.isNotEmpty && toRemove.isEmpty) {
       return t.remote.addToCount(count: toAdd.length.toString());
