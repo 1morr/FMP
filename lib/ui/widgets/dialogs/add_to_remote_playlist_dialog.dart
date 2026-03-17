@@ -441,6 +441,7 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.close),
+                    tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
                     onPressed: () => Navigator.pop(context, false),
                   ),
                 ],

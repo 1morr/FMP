@@ -76,6 +76,10 @@ class BilibiliAccountService extends AccountService with Logging {
     required String dedeUserIdCkMd5,
     required String refreshToken,
   }) async {
+    if (sessdata.isEmpty || biliJct.isEmpty || dedeUserId.isEmpty) {
+      throw ArgumentError('Invalid Bilibili credentials: required cookies are empty');
+    }
+
     final credentials = BilibiliCredentials(
       sessdata: sessdata,
       biliJct: biliJct,

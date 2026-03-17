@@ -379,6 +379,7 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.close),
+                    tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
                     onPressed: () => Navigator.pop(context, false),
                   ),
                 ],
