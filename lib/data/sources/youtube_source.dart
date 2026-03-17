@@ -40,11 +40,19 @@ class YouTubeSource extends BaseSource with Logging {
     ));
   }
 
+  /// 构建带认证的 InnerTube 请求 Options
+  ///
+  /// InnerTube 认证需要 Origin + Referer 头，否则 SAPISIDHASH 验证失败
+  Options _innerTubeAuthOptions(Map<String, String> authHeaders) {
+    return Options(headers: {
+      'Origin': 'https://www.youtube.com',
+      'Referer': 'https://www.youtube.com/',
+      ...authHeaders,
+    });
+  }
+
   @override
   SourceType get sourceType => SourceType.youtube;
-
-  @override
-
 
   @override
   String? parseId(String url) {
@@ -98,7 +106,12 @@ class YouTubeSource extends BaseSource with Logging {
   }
 
   @override
-  Future<Track> getTrackInfo(String videoId) async {
+  Future<Track> getTrackInfo(String videoId, {Map<String, String>? authHeaders}) async {
+    // If auth headers provided, use InnerTube API path
+    if (authHeaders != null) {
+      return _getTrackInfoViaInnerTube(videoId, authHeaders);
+    }
+
     logDebug('Getting track info for YouTube video: $videoId');
     try {
       final video = await _youtube.videos.get(videoId);
@@ -146,7 +159,12 @@ class YouTubeSource extends BaseSource with Logging {
   }
 
   /// 获取 YouTube 视频详情（用于详情面板显示）
-  Future<VideoDetail> getVideoDetail(String videoId) async {
+  Future<VideoDetail> getVideoDetail(String videoId, {Map<String, String>? authHeaders}) async {
+    // If auth headers provided, use InnerTube API path
+    if (authHeaders != null) {
+      return _getVideoDetailViaInnerTube(videoId, authHeaders);
+    }
+
     logDebug('Getting video detail for YouTube video: $videoId');
     try {
       final video = await _youtube.videos.get(videoId);
@@ -238,7 +256,13 @@ class YouTubeSource extends BaseSource with Logging {
   Future<AudioStreamResult> getAudioStream(
     String videoId, {
     AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+    Map<String, String>? authHeaders,
   }) async {
+    // If auth headers provided, use InnerTube API path
+    if (authHeaders != null) {
+      return _getAudioStreamViaInnerTube(videoId, authHeaders, config);
+    }
+
     logDebug('Getting audio stream for YouTube video: $videoId with config: qualityLevel=${config.qualityLevel}, streamPriority=${config.streamPriority}');
     
     // 按流类型优先级尝试
@@ -589,12 +613,12 @@ class YouTubeSource extends BaseSource with Logging {
   }
 
   @override
-  Future<Track> refreshAudioUrl(Track track) async {
+  Future<Track> refreshAudioUrl(Track track, {Map<String, String>? authHeaders}) async {
     if (track.sourceType != SourceType.youtube) {
       throw Exception('Invalid source type for YouTubeSource');
     }
 
-    final audioUrl = await getAudioUrl(track.sourceId);
+    final audioUrl = await getAudioUrl(track.sourceId, authHeaders: authHeaders);
     track.audioUrl = audioUrl;
     track.audioUrlExpiry = DateTime.now().add(Duration(hours: AppConstants.youtubeAudioUrlExpiryHours));
     track.updatedAt = DateTime.now();
@@ -952,6 +976,7 @@ class YouTubeSource extends BaseSource with Logging {
     String playlistUrl, {
     int page = 1,
     int pageSize = 20,
+    Map<String, String>? authHeaders,
   }) async {
     logDebug('Parsing YouTube playlist: $playlistUrl');
     try {
@@ -969,6 +994,11 @@ class YouTubeSource extends BaseSource with Logging {
       // Mix/Radio 播放列表使用 InnerTube API
       if (isMixPlaylistId(playlistId)) {
         return _parseMixPlaylist(playlistUrl, playlistId);
+      }
+
+      // If auth headers provided, use InnerTube API path
+      if (authHeaders != null) {
+        return _parsePlaylistViaInnerTube(playlistId, authHeaders, playlistUrl: playlistUrl);
       }
 
       // 普通播放列表使用 youtube_explode_dart
@@ -1208,6 +1238,436 @@ class YouTubeSource extends BaseSource with Logging {
     }
   }
 
+  /// 通过 InnerTube /player API 获取音频流（认证路径，androidVr 客户端）
+  Future<AudioStreamResult> _getAudioStreamViaInnerTube(
+    String videoId,
+    Map<String, String> authHeaders,
+    AudioStreamConfig config,
+  ) async {
+    logDebug('Getting audio stream via InnerTube for: $videoId');
+    try {
+      // Use androidVr client for audio-only streams (proven pattern)
+      final response = await _dio.post(
+        '$_innerTubeApiBase/player?key=$_innerTubeApiKey',
+        data: jsonEncode({
+          'videoId': videoId,
+          'context': {
+            'client': {
+              'clientName': 'ANDROID_VR',
+              'clientVersion': '1.57.29',
+              'androidSdkVersion': 30,
+              'hl': 'en',
+              'gl': 'US',
+            },
+          },
+        }),
+        options: _innerTubeAuthOptions(authHeaders),
+      );
+
+      final data = response.data is String
+          ? jsonDecode(response.data as String) as Map<String, dynamic>
+          : response.data as Map<String, dynamic>;
+
+      final playabilityStatus = data['playabilityStatus'];
+      final status = playabilityStatus?['status'] as String?;
+
+      if (status != 'OK') {
+        throw YouTubeApiException(
+          code: status?.toLowerCase() ?? 'error',
+          message: playabilityStatus?['reason'] as String? ?? 'Video unavailable',
+        );
+      }
+
+      final streamingData = data['streamingData'] as Map<String, dynamic>?;
+      if (streamingData == null) {
+        // Fallback: try WEB client for muxed streams
+        return _getAudioStreamViaInnerTubeWeb(videoId, authHeaders, config);
+      }
+
+      // Parse adaptiveFormats for audio-only streams
+      final adaptiveFormats = streamingData['adaptiveFormats'] as List? ?? [];
+      final audioFormats = adaptiveFormats.where((f) {
+        final mimeType = f['mimeType'] as String? ?? '';
+        return mimeType.startsWith('audio/');
+      }).toList();
+
+      if (audioFormats.isNotEmpty) {
+        // Sort by bitrate descending
+        audioFormats.sort((a, b) {
+          final bitrateA = a['bitrate'] as int? ?? 0;
+          final bitrateB = b['bitrate'] as int? ?? 0;
+          return bitrateB.compareTo(bitrateA);
+        });
+
+        // Select by quality level
+        final selectedIndex = switch (config.qualityLevel) {
+          AudioQualityLevel.high => 0,
+          AudioQualityLevel.medium => audioFormats.length ~/ 2,
+          AudioQualityLevel.low => audioFormats.length - 1,
+        };
+        final selected = audioFormats[selectedIndex];
+        final url = selected['url'] as String?;
+
+        if (url != null) {
+          final mimeType = selected['mimeType'] as String? ?? '';
+          final codec = RegExp(r'codecs="([^"]+)"').firstMatch(mimeType)?.group(1);
+          final container = mimeType.contains('webm') ? 'webm' : 'mp4';
+
+          logDebug('Got audio-only stream via InnerTube for $videoId');
+          return AudioStreamResult(
+            url: url,
+            bitrate: selected['bitrate'] as int?,
+            container: container,
+            codec: codec,
+            streamType: StreamType.audioOnly,
+          );
+        }
+      }
+
+      // Fallback to muxed formats
+      final formats = streamingData['formats'] as List? ?? [];
+      if (formats.isNotEmpty) {
+        final muxed = formats.first;
+        final url = muxed['url'] as String?;
+        if (url != null) {
+          logDebug('Got muxed stream via InnerTube for $videoId');
+          return AudioStreamResult(
+            url: url,
+            bitrate: muxed['bitrate'] as int?,
+            container: 'mp4',
+            codec: null,
+            streamType: StreamType.muxed,
+          );
+        }
+      }
+
+      throw YouTubeApiException(code: 'no_stream', message: 'No audio stream available via InnerTube');
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    } catch (e) {
+      if (e is YouTubeApiException) rethrow;
+      logError('Failed to get audio stream via InnerTube: $videoId, error: $e');
+      throw YouTubeApiException(code: 'error', message: 'Failed to get audio stream: $e');
+    }
+  }
+
+  /// Fallback: WEB client for muxed streams when androidVr has no streamingData
+  Future<AudioStreamResult> _getAudioStreamViaInnerTubeWeb(
+    String videoId,
+    Map<String, String> authHeaders,
+    AudioStreamConfig config,
+  ) async {
+    logDebug('Trying WEB client fallback for audio stream: $videoId');
+    final response = await _dio.post(
+      '$_innerTubeApiBase/player?key=$_innerTubeApiKey',
+      data: jsonEncode({
+        'videoId': videoId,
+        'context': {
+          'client': {
+            'clientName': _innerTubeClientName,
+            'clientVersion': _innerTubeClientVersion,
+            'hl': 'en',
+            'gl': 'US',
+          },
+        },
+      }),
+      options: _innerTubeAuthOptions(authHeaders),
+    );
+
+    final data = response.data is String
+        ? jsonDecode(response.data as String) as Map<String, dynamic>
+        : response.data as Map<String, dynamic>;
+
+    final streamingData = data['streamingData'] as Map<String, dynamic>?;
+    if (streamingData == null) {
+      throw YouTubeApiException(code: 'no_stream', message: 'No streaming data from WEB client');
+    }
+
+    final formats = streamingData['formats'] as List? ?? [];
+    if (formats.isNotEmpty) {
+      final muxed = formats.first;
+      final url = muxed['url'] as String?;
+      if (url != null) {
+        return AudioStreamResult(
+          url: url,
+          bitrate: muxed['bitrate'] as int?,
+          container: 'mp4',
+          codec: null,
+          streamType: StreamType.muxed,
+        );
+      }
+    }
+
+    throw YouTubeApiException(code: 'no_stream', message: 'No audio stream available');
+  }
+
+  /// 通过 InnerTube /browse API 解析播放列表（认证路径）
+  Future<PlaylistParseResult> _parsePlaylistViaInnerTube(
+    String playlistId,
+    Map<String, String> authHeaders, {
+    String? playlistUrl,
+  }) async {
+    logDebug('Parsing playlist via InnerTube for: $playlistId');
+    try {
+      final browseId = 'VL$playlistId';
+      final response = await _dio.post(
+        '$_innerTubeApiBase/browse?key=$_innerTubeApiKey',
+        data: jsonEncode({
+          'browseId': browseId,
+          'context': {
+            'client': {
+              'clientName': _innerTubeClientName,
+              'clientVersion': _innerTubeClientVersion,
+              'hl': 'en',
+              'gl': 'US',
+            },
+          },
+        }),
+        options: _innerTubeAuthOptions(authHeaders),
+      );
+
+      final data = response.data is String
+          ? jsonDecode(response.data as String) as Map<String, dynamic>
+          : response.data as Map<String, dynamic>;
+
+      // Parse playlist title from header
+      // InnerTube may use playlistHeaderRenderer (old) or pageHeaderRenderer (new)
+      final header = data['header'] as Map<String, dynamic>?;
+      String playlistTitle = 'Playlist';
+      final playlistHeaderRenderer = header?['playlistHeaderRenderer'] as Map<String, dynamic>?;
+      if (playlistHeaderRenderer != null) {
+        playlistTitle = playlistHeaderRenderer['title']?['simpleText'] as String? ?? playlistTitle;
+      } else {
+        final pageHeaderRenderer = header?['pageHeaderRenderer'] as Map<String, dynamic>?;
+        // pageHeaderRenderer.pageTitle is the simplest path
+        playlistTitle = pageHeaderRenderer?['pageTitle'] as String?
+            // Fallback: content.pageHeaderViewModel.title.dynamicTextViewModel.text.content
+            ?? (pageHeaderRenderer?['content']?['pageHeaderViewModel']?['title']
+                ?['dynamicTextViewModel']?['text']?['content'] as String?)
+            ?? playlistTitle;
+      }
+
+      // Parse video items
+      final tabs = data['contents']?['twoColumnBrowseResultsRenderer']?['tabs'] as List?;
+      final tabContent = tabs?.firstOrNull?['tabRenderer']?['content'];
+      final sectionContents = tabContent?['sectionListRenderer']?['contents'] as List?;
+      final itemContents = sectionContents?.firstOrNull?['itemSectionRenderer']?['contents'] as List?;
+      final videoList = itemContents?.firstOrNull?['playlistVideoListRenderer']?['contents'] as List?;
+
+      final tracks = <Track>[];
+      var skippedPrivate = 0;
+      if (videoList != null) {
+        for (final item in videoList) {
+          final renderer = item['playlistVideoRenderer'] as Map<String, dynamic>?;
+          if (renderer == null) continue;
+
+          final videoId = renderer['videoId'] as String?;
+          if (videoId == null) continue;
+
+          // Skip private/unavailable videos (no duration = not playable)
+          final isPlayable = renderer['isPlayable'] as bool? ?? true;
+          final lengthText = renderer['lengthText']?['simpleText'] as String?;
+          if (!isPlayable || lengthText == null) {
+            skippedPrivate++;
+            continue;
+          }
+
+          final titleRuns = renderer['title']?['runs'] as List?;
+          final title = titleRuns?.firstOrNull?['text'] as String? ?? 'Unknown';
+
+          final bylineRuns = renderer['shortBylineText']?['runs'] as List?;
+          final artist = bylineRuns?.firstOrNull?['text'] as String? ?? '';
+
+          final durationMs = _parseDurationText(lengthText);
+
+          final thumbnailUrl = 'https://i.ytimg.com/vi/$videoId/mqdefault.jpg';
+
+          tracks.add(Track()
+            ..sourceId = videoId
+            ..sourceType = SourceType.youtube
+            ..title = title
+            ..artist = artist
+            ..durationMs = durationMs
+            ..thumbnailUrl = thumbnailUrl);
+        }
+      }
+
+      if (skippedPrivate > 0) {
+        logInfo('Skipped $skippedPrivate private/unavailable videos in playlist $playlistId');
+      }
+
+      if (tracks.isEmpty) {
+        throw YouTubeApiException(
+          code: 'private_or_inaccessible',
+          message: t.importSource.playlistEmptyOrInaccessible,
+        );
+      }
+
+      final coverUrl = tracks.isNotEmpty ? tracks.first.thumbnailUrl : null;
+
+      logDebug('Parsed playlist via InnerTube: $playlistTitle, ${tracks.length} tracks');
+      return PlaylistParseResult(
+        title: playlistTitle,
+        description: null,
+        coverUrl: coverUrl,
+        tracks: tracks,
+        totalCount: tracks.length,
+        sourceUrl: playlistUrl ?? 'https://www.youtube.com/playlist?list=$playlistId',
+      );
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    } catch (e) {
+      if (e is YouTubeApiException) rethrow;
+      logError('Failed to parse playlist via InnerTube: $playlistId, error: $e');
+      throw YouTubeApiException(code: 'error', message: 'Failed to parse playlist: $e');
+    }
+  }
+
+  // ==================== 错误处理 ====================
+
+  /// 通过 InnerTube /player API 获取视频信息（认证路径）
+  Future<Track> _getTrackInfoViaInnerTube(
+    String videoId,
+    Map<String, String> authHeaders,
+  ) async {
+    logDebug('Getting track info via InnerTube for: $videoId');
+    try {
+      final response = await _dio.post(
+        '$_innerTubeApiBase/player?key=$_innerTubeApiKey',
+        data: jsonEncode({
+          'videoId': videoId,
+          'context': {
+            'client': {
+              'clientName': _innerTubeClientName,
+              'clientVersion': _innerTubeClientVersion,
+              'hl': 'en',
+              'gl': 'US',
+            },
+          },
+        }),
+        options: _innerTubeAuthOptions(authHeaders),
+      );
+
+      final data = response.data is String
+          ? jsonDecode(response.data as String) as Map<String, dynamic>
+          : response.data as Map<String, dynamic>;
+
+      final playabilityStatus = data['playabilityStatus'];
+      final status = playabilityStatus?['status'] as String?;
+
+      if (status != 'OK') {
+        throw YouTubeApiException(
+          code: status?.toLowerCase() ?? 'error',
+          message: playabilityStatus?['reason'] as String? ?? 'Video unavailable',
+        );
+      }
+
+      final videoDetails = data['videoDetails'] as Map<String, dynamic>?;
+      if (videoDetails == null) {
+        throw YouTubeApiException(code: 'parse_error', message: 'No videoDetails in response');
+      }
+
+      final lengthSeconds = int.tryParse(videoDetails['lengthSeconds']?.toString() ?? '0') ?? 0;
+      final viewCount = int.tryParse(videoDetails['viewCount']?.toString() ?? '0') ?? 0;
+      final thumbnails = videoDetails['thumbnail']?['thumbnails'] as List?;
+      final thumbnailUrl = thumbnails?.isNotEmpty == true
+          ? thumbnails!.last['url'] as String?
+          : 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
+
+      final track = Track()
+        ..sourceId = videoId
+        ..sourceType = SourceType.youtube
+        ..title = videoDetails['title'] as String? ?? 'Unknown'
+        ..artist = videoDetails['author'] as String? ?? ''
+        ..channelId = videoDetails['channelId'] as String? ?? ''
+        ..durationMs = lengthSeconds * 1000
+        ..thumbnailUrl = thumbnailUrl
+        ..viewCount = viewCount
+        ..createdAt = DateTime.now();
+
+      logDebug('Got track info via InnerTube for $videoId: ${track.title}');
+      return track;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    } catch (e) {
+      if (e is YouTubeApiException) rethrow;
+      logError('Failed to get track info via InnerTube: $videoId, error: $e');
+      throw YouTubeApiException(code: 'error', message: 'Failed to get video info: $e');
+    }
+  }
+
+  /// 通过 InnerTube /player API 获取视频详情（认证路径）
+  Future<VideoDetail> _getVideoDetailViaInnerTube(
+    String videoId,
+    Map<String, String> authHeaders,
+  ) async {
+    logDebug('Getting video detail via InnerTube for: $videoId');
+    try {
+      final response = await _dio.post(
+        '$_innerTubeApiBase/player?key=$_innerTubeApiKey',
+        data: jsonEncode({
+          'videoId': videoId,
+          'context': {
+            'client': {
+              'clientName': _innerTubeClientName,
+              'clientVersion': _innerTubeClientVersion,
+              'hl': 'en',
+              'gl': 'US',
+            },
+          },
+        }),
+        options: _innerTubeAuthOptions(authHeaders),
+      );
+
+      final data = response.data is String
+          ? jsonDecode(response.data as String) as Map<String, dynamic>
+          : response.data as Map<String, dynamic>;
+
+      final playabilityStatus = data['playabilityStatus'];
+      final status = playabilityStatus?['status'] as String?;
+
+      if (status != 'OK') {
+        throw YouTubeApiException(
+          code: status?.toLowerCase() ?? 'error',
+          message: playabilityStatus?['reason'] as String? ?? 'Video unavailable',
+        );
+      }
+
+      final videoDetails = data['videoDetails'] as Map<String, dynamic>?;
+      if (videoDetails == null) {
+        throw YouTubeApiException(code: 'parse_error', message: 'No videoDetails in response');
+      }
+
+      final lengthSeconds = int.tryParse(videoDetails['lengthSeconds']?.toString() ?? '0') ?? 0;
+      final viewCount = int.tryParse(videoDetails['viewCount']?.toString() ?? '0') ?? 0;
+      final thumbnails = videoDetails['thumbnail']?['thumbnails'] as List?;
+      final thumbnailUrl = thumbnails?.isNotEmpty == true
+          ? thumbnails!.last['url'] as String?
+          : 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
+
+      return VideoDetail.fromYouTube(
+        videoId: videoId,
+        title: videoDetails['title'] as String? ?? 'Unknown',
+        description: videoDetails['shortDescription'] as String? ?? '',
+        author: videoDetails['author'] as String? ?? '',
+        authorAvatarUrl: null,
+        thumbnailUrl: thumbnailUrl,
+        channelId: videoDetails['channelId'] as String? ?? '',
+        durationMs: lengthSeconds * 1000,
+        viewCount: viewCount,
+        likeCount: 0,
+        publishDate: null,
+        comments: [],
+      );
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    } catch (e) {
+      if (e is YouTubeApiException) rethrow;
+      logError('Failed to get video detail via InnerTube: $videoId, error: $e');
+      throw YouTubeApiException(code: 'error', message: 'Failed to get video detail: $e');
+    }
+  }
+
   // ==================== 错误处理 ====================
 
   /// 检查错误是否为限流错误
@@ -1279,7 +1739,7 @@ class YouTubeApiException extends SourceApiException {
   /// 是否是视频不可用
   @override
   bool get isUnavailable =>
-      code == 'unavailable' || code == 'not_found' || code == 'unplayable';
+      code == 'unavailable' || code == 'not_found' || code == 'unplayable' || code == 'no_stream';
 
   /// 是否是限流
   @override
@@ -1288,6 +1748,13 @@ class YouTubeApiException extends SourceApiException {
   /// 是否需要登录（年龄限制等）
   @override
   bool get requiresLogin => code == 'age_restricted' || code == 'login_required';
+
+  /// 是否是权限不足（私人视频/播放列表）
+  @override
+  bool get isPermissionDenied =>
+      code == 'login_required' ||
+      code == 'private_or_inaccessible' ||
+      code == 'age_restricted';
 
   /// 是否是地区限制
   @override

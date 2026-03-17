@@ -22,6 +22,11 @@ class PlaylistRepository {
     return _isar.playlists.where().nameEqualTo(name).findFirst();
   }
 
+  /// 根据源 URL 获取歌单
+  Future<Playlist?> getBySourceUrl(String sourceUrl) async {
+    return _isar.playlists.filter().sourceUrlEqualTo(sourceUrl).findFirst();
+  }
+
   /// 获取导入的歌单
   Future<List<Playlist>> getImported() async {
     return _isar.playlists.filter().sourceUrlIsNotNull().findAll();

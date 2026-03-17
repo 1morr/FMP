@@ -7,6 +7,7 @@ import '../data/models/playlist.dart';
 import '../services/import/import_service.dart';
 import '../core/services/toast_service.dart';
 import '../data/sources/source_provider.dart';
+import 'account_provider.dart';
 import 'database_provider.dart';
 import 'repository_providers.dart';
 import 'playlist_provider.dart';
@@ -123,6 +124,8 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
       playlistRepository: playlistRepo,
       trackRepository: trackRepo,
       isar: isar,
+      bilibiliAccountService: _ref.read(bilibiliAccountServiceProvider),
+      youtubeAccountService: _ref.read(youtubeAccountServiceProvider),
     );
 
     // 初始化刷新状态

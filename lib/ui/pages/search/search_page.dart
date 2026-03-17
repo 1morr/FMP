@@ -14,6 +14,7 @@ import '../../../data/models/video_detail.dart';
 import '../../../data/sources/base_source.dart' show SearchOrder;
 import '../../../data/sources/bilibili_source.dart';
 import '../../../data/sources/source_provider.dart';
+import '../../../core/utils/auth_retry_utils.dart';
 import '../../../providers/search_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/radio/radio_controller.dart';
@@ -797,7 +798,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     try {
       final sourceManager = ref.read(sourceManagerProvider);
       final source = sourceManager.getSource(SourceType.bilibili) as BilibiliSource;
-      final pages = await source.getVideoPages(track.sourceId);
+      final bilibiliAccountService = ref.read(bilibiliAccountServiceProvider);
+      final pages = await withAuthRetryDirect(
+        action: (authHeaders) => source.getVideoPages(track.sourceId, authHeaders: authHeaders),
+        getAuthHeaders: () async {
+          final cookies = await bilibiliAccountService.getAuthCookieString();
+          if (cookies == null) return null;
+          return {'Cookie': cookies};
+        },
+      );
 
       if (mounted) {
         setState(() {

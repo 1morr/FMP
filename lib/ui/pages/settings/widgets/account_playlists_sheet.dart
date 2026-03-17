@@ -240,6 +240,8 @@ class _AccountPlaylistsSheetState
           playlistRepository: playlistRepo,
           trackRepository: trackRepo,
           isar: isar,
+          bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
+          youtubeAccountService: ref.read(youtubeAccountServiceProvider),
         );
         _currentImportService = importService;
 
