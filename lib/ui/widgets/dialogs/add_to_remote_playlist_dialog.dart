@@ -80,8 +80,11 @@ class _BilibiliRemoteFavSheet extends ConsumerStatefulWidget {
 class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet> {
   List<BilibiliFavFolder>? _folders;
   Set<int> _selectedIds = {};
-  Set<int> _originalIds = {};
+  Set<int> _originalIds = {};              // 全部 tracks 都在的收藏夾（不可變）
+  Set<int> _partialIds = {};               // 部分 tracks 在的收藏夾（不可變）
+  final Set<int> _deselectedPartialIds = {};  // 用戶明確取消的半選收藏夾
   bool _isLoading = true;
+  bool _isCheckingMulti = false;    // 多選時異步檢查收藏狀態
   bool _isSubmitting = false;
   String? _errorMessage;
   String? _submitProgress;
@@ -192,23 +195,33 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
   Future<void> _loadFolders() async {
     try {
       final favService = ref.read(bilibiliFavoritesServiceProvider);
-      // 用第一首歌查詢收藏夾狀態（多選時不標記已收藏狀態）
-      final aid = _isMulti ? null : await favService.getVideoAid(_tracks.first);
-      final folders = await favService.getFavFolders(videoAid: aid);
 
-      if (!mounted) return;
-      final original = <int>{};
-      if (!_isMulti) {
+      if (_isMulti) {
+        // 多選：先不帶 videoAid 拿收藏夾列表，再異步檢查每首歌的收藏狀態
+        final folders = await favService.getFavFolders();
+        if (!mounted) return;
+        setState(() {
+          _folders = folders;
+          _isLoading = false;
+          _isCheckingMulti = true;
+        });
+        _checkMultiFavStatusAsync(folders);
+      } else {
+        // 單曲：帶 videoAid 查詢
+        final aid = await favService.getVideoAid(_tracks.first);
+        final folders = await favService.getFavFolders(videoAid: aid);
+        if (!mounted) return;
+        final original = <int>{};
         for (final f in folders) {
           if (f.isFavorited) original.add(f.id);
         }
+        setState(() {
+          _folders = folders;
+          _originalIds = original;
+          _selectedIds = Set.from(original);
+          _isLoading = false;
+        });
       }
-      setState(() {
-        _folders = folders;
-        _originalIds = original;
-        _selectedIds = Set.from(original);
-        _isLoading = false;
-      });
     } on BilibiliFavoritesException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -224,9 +237,54 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
     }
   }
 
+  /// 多選時異步檢查每首歌在各收藏夾的收藏狀態
+  Future<void> _checkMultiFavStatusAsync(List<BilibiliFavFolder> folders) async {
+    final favService = ref.read(bilibiliFavoritesServiceProvider);
+    final folderIds = folders.map((f) => f.id).toSet();
+    // folderId → 已收藏的 track 數量
+    final favCounts = <int, int>{};
+
+    for (final track in _tracks) {
+      try {
+        final aid = await favService.getVideoAid(track);
+        final trackFolders = await favService.getFavFolders(videoAid: aid);
+        if (!mounted) return;
+        for (final f in trackFolders) {
+          if (f.isFavorited && folderIds.contains(f.id)) {
+            favCounts[f.id] = (favCounts[f.id] ?? 0) + 1;
+          }
+        }
+      } catch (_) {
+        // 單首查詢失敗不影響整體
+      }
+    }
+
+    if (!mounted) return;
+    final trackCount = _tracks.length;
+    final original = <int>{};
+    final partial = <int>{};
+    for (final entry in favCounts.entries) {
+      if (entry.value >= trackCount) {
+        original.add(entry.key);
+      } else if (entry.value > 0) {
+        partial.add(entry.key);
+      }
+    }
+    setState(() {
+      _originalIds = original;
+      _partialIds = partial;
+      _selectedIds = Set.from(original);
+      _isCheckingMulti = false;
+    });
+  }
+
   Future<void> _submit() async {
-    final toAdd = _selectedIds.difference(_originalIds).toList();
-    final toRemove = _originalIds.difference(_selectedIds).toList();
+    final toAdd = _selectedIds.difference(_originalIds).difference(_partialIds).toList();
+    // 移除：原本全選但被取消的 + 明確取消的半選
+    final toRemove = [
+      ..._originalIds.difference(_selectedIds),
+      ..._deselectedPartialIds,
+    ];
 
     if (toAdd.isEmpty && toRemove.isEmpty) {
       ToastService.show(context, t.remote.noChanges);
@@ -518,6 +576,9 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
       itemBuilder: (context, index) {
         final folder = folders[index];
         final isSelected = _selectedIds.contains(folder.id);
+        final isPartial = !isSelected &&
+            _partialIds.contains(folder.id) &&
+            !_deselectedPartialIds.contains(folder.id);
 
         return ListTile(
           leading: Container(
@@ -547,10 +608,18 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
           ),
           title: Text(folder.title),
           subtitle: Text('${folder.mediaCount}'),
-          trailing: isSelected
-              ? Icon(Icons.check_circle, color: colorScheme.primary)
-              : Icon(Icons.circle_outlined, color: colorScheme.outline),
-          selected: isSelected,
+          trailing: _isCheckingMulti
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : isSelected
+                  ? Icon(Icons.check_circle, color: colorScheme.primary)
+                  : isPartial
+                      ? Icon(Icons.remove_circle_outline, color: colorScheme.primary)
+                      : Icon(Icons.circle_outlined, color: colorScheme.outline),
+          selected: isSelected || isPartial,
           selectedTileColor:
               colorScheme.primaryContainer.withValues(alpha: 0.3),
           shape: RoundedRectangleBorder(
@@ -558,8 +627,20 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
           onTap: () {
             setState(() {
               if (isSelected) {
+                // 全選 → 取消
                 _selectedIds.remove(folder.id);
+                // 如果原本是半選提升上來的，標記為明確取消
+                if (_partialIds.contains(folder.id)) {
+                  _deselectedPartialIds.add(folder.id);
+                }
+              } else if (isPartial) {
+                // 半選 → 全選（添加所有 tracks）
+                _selectedIds.add(folder.id);
+              } else if (_deselectedPartialIds.contains(folder.id)) {
+                // 已取消的半選 → 恢復半選（不做任何操作）
+                _deselectedPartialIds.remove(folder.id);
               } else {
+                // 未選 → 全選
                 _selectedIds.add(folder.id);
               }
             });
@@ -570,8 +651,8 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
   }
 
   String _getButtonText() {
-    final toAdd = _selectedIds.difference(_originalIds);
-    final toRemove = _originalIds.difference(_selectedIds);
+    final toAdd = _selectedIds.difference(_originalIds).difference(_partialIds);
+    final toRemove = _originalIds.difference(_selectedIds).union(_deselectedPartialIds);
     if (toAdd.isEmpty && toRemove.isEmpty) return t.remote.confirm;
     if (toAdd.isNotEmpty && toRemove.isEmpty) {
       return t.remote.addToCount(count: toAdd.length.toString());

@@ -171,6 +171,64 @@ class YouTubePlaylistService with Logging {
     return null;
   }
 
+  /// 獲取播放列表中所有視頻 ID（用於批量檢查）
+  ///
+  /// 只瀏覽一次播放列表，返回所有 videoId 的集合
+  Future<Set<String>> getVideoIdsInPlaylist(String playlistId) async {
+    final videoIds = <String>{};
+    String? continuationToken;
+
+    do {
+      final Map<String, dynamic> requestData;
+      if (continuationToken != null) {
+        requestData = {
+          'continuation': continuationToken,
+          'context': _accountService.buildInnerTubeContext(),
+        };
+      } else {
+        requestData = {
+          'browseId': 'VL$playlistId',
+          'context': _accountService.buildInnerTubeContext(),
+        };
+      }
+
+      final response = await _dio.post(
+        '$_apiBase/browse?key=$_apiKey',
+        data: jsonEncode(requestData),
+      );
+
+      final data = response.data;
+      _collectVideoIdsFromResponse(data, videoIds);
+      continuationToken = _extractContinuationToken(data);
+    } while (continuationToken != null);
+
+    return videoIds;
+  }
+
+  /// 從播放列表瀏覽響應中收集所有 videoId
+  void _collectVideoIdsFromResponse(Map<String, dynamic> data, Set<String> videoIds) {
+    try {
+      final contents = data['contents']?['twoColumnBrowseResultsRenderer']
+              ?['tabs']?[0]?['tabRenderer']?['content']
+              ?['sectionListRenderer']?['contents']?[0]
+              ?['itemSectionRenderer']?['contents']?[0]
+              ?['playlistVideoListRenderer']?['contents'] as List?
+          ?? data['onResponseReceivedActions']?[0]
+              ?['appendContinuationItemsAction']?['continuationItems'] as List?;
+
+      if (contents == null) return;
+
+      for (final item in contents) {
+        final renderer = item['playlistVideoRenderer'];
+        if (renderer == null) continue;
+        final vid = renderer['videoId'] as String?;
+        if (vid != null) videoIds.add(vid);
+      }
+    } catch (e) {
+      logWarning('Error collecting videoIds: $e');
+    }
+  }
+
   /// 創建新播放列表
   ///
   /// [privacyStatus] 可選值: 'PUBLIC', 'UNLISTED', 'PRIVATE'
