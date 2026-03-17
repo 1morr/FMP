@@ -20,7 +20,7 @@ void main() {
         final result = ErrorHandler.wrap(error);
 
         expect(result, isA<NetworkException>());
-        expect(result.message, contains('连接超时'));
+        expect(result.message, contains('Connection timeout'));
         expect((result as NetworkException).code, equals('TIMEOUT'));
       });
 
@@ -33,7 +33,7 @@ void main() {
         final result = ErrorHandler.wrap(error);
 
         expect(result, isA<NetworkException>());
-        expect(result.message, contains('发送超时'));
+        expect(result.message, contains('Send timeout'));
       });
 
       test('receive timeout should return NetworkException', () {
@@ -45,7 +45,7 @@ void main() {
         final result = ErrorHandler.wrap(error);
 
         expect(result, isA<NetworkException>());
-        expect(result.message, contains('接收超时'));
+        expect(result.message, contains('Receive timeout'));
       });
 
       test('connection error should return NetworkException', () {
@@ -57,7 +57,7 @@ void main() {
         final result = ErrorHandler.wrap(error);
 
         expect(result, isA<NetworkException>());
-        expect(result.message, contains('无法连接'));
+        expect(result.message, contains('Cannot connect'));
       });
 
       test('cancel should return CancelledException', () {
@@ -85,7 +85,7 @@ void main() {
         final result = ErrorHandler.wrap(error);
 
         expect(result, isA<NotFoundException>());
-        expect(result.message, contains('不存在'));
+        expect(result.message, contains('not found'));
       });
 
       test('500 response should return ServerException', () {
@@ -101,7 +101,7 @@ void main() {
         final result = ErrorHandler.wrap(error);
 
         expect(result, isA<ServerException>());
-        expect(result.message, contains('服务器错误'));
+        expect(result.message, contains('Server error'));
       });
 
       test('403 response should return PermissionException', () {
@@ -117,7 +117,7 @@ void main() {
         final result = ErrorHandler.wrap(error);
 
         expect(result, isA<PermissionException>());
-        expect(result.message, contains('权限'));
+        expect(result.message, contains('permission'));
       });
 
       test('bad certificate should return NetworkException', () {
@@ -129,7 +129,7 @@ void main() {
         final result = ErrorHandler.wrap(error);
 
         expect(result, isA<NetworkException>());
-        expect(result.message, contains('证书'));
+        expect(result.message, contains('Certificate'));
       });
     });
 
@@ -140,7 +140,7 @@ void main() {
         final result = ErrorHandler.wrap(error);
 
         expect(result, isA<NetworkException>());
-        expect(result.message, contains('网络连接'));
+        expect(result.message, contains('Network connection'));
       });
     });
 
@@ -224,7 +224,7 @@ void main() {
 
         final message = ErrorHandler.getDisplayMessage(error);
 
-        expect(message, contains('超时'));
+        expect(message, contains('timeout'));
       });
 
       test('should return user-friendly message for connection error', () {
@@ -235,7 +235,7 @@ void main() {
 
         final message = ErrorHandler.getDisplayMessage(error);
 
-        expect(message, contains('服务器'));
+        expect(message, contains('server'));
       });
 
       test('should preserve AppException message', () {

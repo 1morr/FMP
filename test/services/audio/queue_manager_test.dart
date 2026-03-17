@@ -269,7 +269,8 @@ void main() {
         ..sourceId = 'test123'
         ..sourceType = SourceType.bilibili
         ..title = 'P01 - Intro'
-        ..pageNum = 1;
+        ..pageNum = 1
+        ..pageCount = 3;
 
       expect(track.isPartOfMultiPage, isTrue);
     });

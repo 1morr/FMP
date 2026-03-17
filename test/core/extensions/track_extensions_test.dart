@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/core/extensions/track_extensions.dart';
 import 'package:fmp/providers/download/file_exists_cache.dart';
-import 'package:path/path.dart' as p;
 
 /// Test helper: FileExistsCache with pre-populated state
 class TestFileExistsCache extends FileExistsCache {
@@ -127,40 +126,36 @@ void main() {
       });
 
       test('returns avatar path for Bilibili when file exists', () {
-        const baseDir = '/downloads';
-        final avatarPath = p.join(baseDir, 'avatars', 'bilibili', '12345.jpg');
-
         final track = Track()
           ..sourceId = 'test123'
           ..sourceType = SourceType.bilibili
           ..title = 'Test Track'
-          ..ownerId = 12345;
+          ..ownerId = 12345
+          ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = '/downloads/video/audio.m4a'];
 
         final cache = TestFileExistsCache({
-          avatarPath,
+          '/downloads/video/avatar.jpg',
         });
         expect(
-          track.getLocalAvatarPath(cache, baseDir: baseDir),
-          equals(avatarPath),
+          track.getLocalAvatarPath(cache, baseDir: '/downloads'),
+          equals('/downloads/video/avatar.jpg'),
         );
       });
 
       test('returns avatar path for YouTube when file exists', () {
-        const baseDir = '/downloads';
-        final avatarPath = p.join(baseDir, 'avatars', 'youtube', 'UCq-Fj5jknLsUf-MWSy4_brA.jpg');
-
         final track = Track()
           ..sourceId = 'testYT123'
           ..sourceType = SourceType.youtube
           ..title = 'Test Track'
-          ..channelId = 'UCq-Fj5jknLsUf-MWSy4_brA';
+          ..channelId = 'UCq-Fj5jknLsUf-MWSy4_brA'
+          ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = '/downloads/video/audio.m4a'];
 
         final cache = TestFileExistsCache({
-          avatarPath,
+          '/downloads/video/avatar.jpg',
         });
         expect(
-          track.getLocalAvatarPath(cache, baseDir: baseDir),
-          equals(avatarPath),
+          track.getLocalAvatarPath(cache, baseDir: '/downloads'),
+          equals('/downloads/video/avatar.jpg'),
         );
       });
     });
