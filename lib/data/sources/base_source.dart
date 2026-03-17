@@ -136,7 +136,7 @@ abstract class BaseSource {
 
   /// 获取单首歌曲信息
   /// [sourceId] 音源ID（如 BV号、YouTube视频ID）
-  Future<Track> getTrackInfo(String sourceId);
+  Future<Track> getTrackInfo(String sourceId, {Map<String, String>? authHeaders});
 
   /// 获取音频流（包含元信息）
   /// [sourceId] 音源ID
@@ -145,21 +145,23 @@ abstract class BaseSource {
   Future<AudioStreamResult> getAudioStream(
     String sourceId, {
     AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+    Map<String, String>? authHeaders,
   });
 
   /// 获取音频流 URL（简化版，仅返回 URL）
   /// 内部调用 getAudioStream 并提取 URL
-  Future<String> getAudioUrl(String sourceId, {AudioStreamConfig? config}) async {
+  Future<String> getAudioUrl(String sourceId, {AudioStreamConfig? config, Map<String, String>? authHeaders}) async {
     final result = await getAudioStream(
       sourceId,
       config: config ?? AudioStreamConfig.defaultConfig,
+      authHeaders: authHeaders,
     );
     return result.url;
   }
 
   /// 刷新歌曲的音频 URL
   /// 用于 URL 过期时重新获取
-  Future<Track> refreshAudioUrl(Track track);
+  Future<Track> refreshAudioUrl(Track track, {Map<String, String>? authHeaders});
 
   /// 获取备选音频流（当主 URL 播放失败时使用）
   /// [sourceId] 音源 ID
@@ -209,6 +211,7 @@ abstract class BaseSource {
     String playlistUrl, {
     int page = 1,
     int pageSize = 20,
+    Map<String, String>? authHeaders,
   });
 
   /// 判断 URL 是否是播放列表

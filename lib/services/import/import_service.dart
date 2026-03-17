@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:isar/isar.dart';
 
 import '../../core/logger.dart';
+import '../../core/utils/auth_retry_utils.dart';
 import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
 import '../../data/repositories/playlist_repository.dart';
@@ -10,6 +11,8 @@ import '../../data/repositories/track_repository.dart';
 import '../../data/sources/bilibili_source.dart';
 import '../../data/sources/source_provider.dart';
 import '../../data/sources/youtube_source.dart';
+import '../account/bilibili_account_service.dart';
+import '../account/youtube_account_service.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
 /// 导入进度
@@ -78,6 +81,8 @@ class ImportService with Logging {
   final PlaylistRepository _playlistRepository;
   final TrackRepository _trackRepository;
   final Isar _isar;
+  final BilibiliAccountService? _bilibiliAccountService;
+  final YouTubeAccountService? _youtubeAccountService;
 
   // 导入进度流
   final _progressController = StreamController<ImportProgress>.broadcast();
@@ -114,10 +119,26 @@ class ImportService with Logging {
     required PlaylistRepository playlistRepository,
     required TrackRepository trackRepository,
     required Isar isar,
+    BilibiliAccountService? bilibiliAccountService,
+    YouTubeAccountService? youtubeAccountService,
   })  : _sourceManager = sourceManager,
         _playlistRepository = playlistRepository,
         _trackRepository = trackRepository,
-        _isar = isar;
+        _isar = isar,
+        _bilibiliAccountService = bilibiliAccountService,
+        _youtubeAccountService = youtubeAccountService;
+
+  /// 获取指定平台的认证 headers
+  Future<Map<String, String>?> _getAuthHeaders(SourceType sourceType) async {
+    switch (sourceType) {
+      case SourceType.bilibili:
+        final cookies = await _bilibiliAccountService?.getAuthCookieString();
+        if (cookies == null) return null;
+        return {'Cookie': cookies};
+      case SourceType.youtube:
+        return await _youtubeAccountService?.getAuthHeaders();
+    }
+  }
 
   /// 从 URL 导入歌单/收藏夹
   Future<ImportResult> importFromUrl(
@@ -148,7 +169,10 @@ class ImportService with Logging {
       }
 
       // 解析播放列表
-      final result = await source.parsePlaylist(url);
+      final result = await withAuthRetryDirect(
+        action: (authHeaders) => source.parsePlaylist(url, authHeaders: authHeaders),
+        getAuthHeaders: () => _getAuthHeaders(source.sourceType),
+      );
 
       // 获取分P信息并展开（仅Bilibili）
       final List<Track> expandedTracks;
@@ -179,7 +203,7 @@ class ImportService with Logging {
       // 创建歌单
       final playlistName = customName ?? result.title;
       final existingPlaylist =
-          await _playlistRepository.getByName(playlistName);
+          await _playlistRepository.getBySourceUrl(url);
 
       Playlist playlist;
       if (existingPlaylist != null) {
@@ -187,9 +211,11 @@ class ImportService with Logging {
         playlist = existingPlaylist;
       } else {
         // 创建新歌单
+        // 处理同名歌单：自动添加后缀避免唯一索引冲突
+        final uniqueName = await _generateUniqueName(playlistName);
         // 注意：coverUrl 不在此處設置，會在導入完成後使用第一首歌曲的縮略圖
         playlist = Playlist()
-          ..name = playlistName
+          ..name = uniqueName
           ..description = result.description
           ..sourceUrl = url
           ..importSourceType = source.sourceType
@@ -315,7 +341,7 @@ class ImportService with Logging {
 
       // 創建歌單名稱
       final playlistName = customName ?? mixInfo.title;
-      final existingPlaylist = await _playlistRepository.getByName(playlistName);
+      final existingPlaylist = await _playlistRepository.getBySourceUrl(url);
 
       Playlist playlist;
       if (existingPlaylist != null) {
@@ -330,8 +356,9 @@ class ImportService with Logging {
         }
       } else {
         // 創建新的 Mix 歌單
+        final uniqueName = await _generateUniqueName(playlistName);
         playlist = Playlist()
-          ..name = playlistName
+          ..name = uniqueName
           ..description = t.importSource.mixPlaylistDescription
           ..coverUrl = mixInfo.coverUrl
           ..sourceUrl = url
@@ -393,7 +420,10 @@ class ImportService with Logging {
         throw ImportException(t.importSource.unrecognizedSource);
       }
 
-      final result = await source.parsePlaylist(playlist.sourceUrl!);
+      final result = await withAuthRetryDirect(
+        action: (authHeaders) => source.parsePlaylist(playlist.sourceUrl!, authHeaders: authHeaders),
+        getAuthHeaders: () => _getAuthHeaders(source.sourceType),
+      );
 
       // 获取分P信息并展开（仅Bilibili）
       final List<Track> expandedTracks;
@@ -588,7 +618,10 @@ class ImportService with Logging {
 
       try {
         // 获取分P信息
-        final pages = await source.getVideoPages(track.sourceId);
+        final pages = await withAuthRetryDirect(
+          action: (authHeaders) => source.getVideoPages(track.sourceId, authHeaders: authHeaders),
+          getAuthHeaders: () => _getAuthHeaders(SourceType.bilibili),
+        );
 
         if (pages.length <= 1) {
           // API 返回单P，直接添加
@@ -613,6 +646,21 @@ class ImportService with Logging {
     }
 
     return expandedTracks;
+  }
+
+  /// 生成唯一歌单名称，同名时自动添加后缀 (2), (3), ...
+  Future<String> _generateUniqueName(String baseName) async {
+    if (!await _playlistRepository.nameExists(baseName)) {
+      return baseName;
+    }
+    for (int i = 2; i <= 100; i++) {
+      final candidate = '$baseName ($i)';
+      if (!await _playlistRepository.nameExists(candidate)) {
+        return candidate;
+      }
+    }
+    // 极端情况：用时间戳
+    return '$baseName (${DateTime.now().millisecondsSinceEpoch})';
   }
 
   void _updateProgress({

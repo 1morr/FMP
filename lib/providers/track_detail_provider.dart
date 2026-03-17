@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/utils/auth_retry_utils.dart';
 import '../data/models/track.dart';
 import '../data/models/video_detail.dart';
 import '../data/sources/bilibili_source.dart';
@@ -50,10 +51,11 @@ class TrackDetailState {
 class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
   final BilibiliSource _bilibiliSource;
   final YouTubeSource _youtubeSource;
+  final Ref _ref;
   String? _currentSourceId;
   SourceType? _currentSourceType;
 
-  TrackDetailNotifier(this._bilibiliSource, this._youtubeSource)
+  TrackDetailNotifier(this._bilibiliSource, this._youtubeSource, this._ref)
       : super(const TrackDetailState());
 
   /// 加载歌曲详情
@@ -101,9 +103,17 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
       // 如果本地没有或加载失败，从网络获取
       if (detail == null) {
         if (track.sourceType == SourceType.bilibili) {
-          detail = await _bilibiliSource.getVideoDetail(track.sourceId);
+          detail = await withAuthRetry(
+            action: (authHeaders) => _bilibiliSource.getVideoDetail(track.sourceId, authHeaders: authHeaders),
+            platform: SourceType.bilibili,
+            ref: _ref,
+          );
         } else if (track.sourceType == SourceType.youtube) {
-          detail = await _youtubeSource.getVideoDetail(track.sourceId);
+          detail = await withAuthRetry(
+            action: (authHeaders) => _youtubeSource.getVideoDetail(track.sourceId, authHeaders: authHeaders),
+            platform: SourceType.youtube,
+            ref: _ref,
+          );
         }
       }
 
@@ -159,9 +169,17 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
     try {
       VideoDetail detail;
       if (_currentSourceType == SourceType.bilibili) {
-        detail = await _bilibiliSource.getVideoDetail(sourceId);
+        detail = await withAuthRetry(
+          action: (authHeaders) => _bilibiliSource.getVideoDetail(sourceId, authHeaders: authHeaders),
+          platform: SourceType.bilibili,
+          ref: _ref,
+        );
       } else {
-        detail = await _youtubeSource.getVideoDetail(sourceId);
+        detail = await withAuthRetry(
+          action: (authHeaders) => _youtubeSource.getVideoDetail(sourceId, authHeaders: authHeaders),
+          platform: SourceType.youtube,
+          ref: _ref,
+        );
       }
       state = TrackDetailState(detail: detail);
     } catch (e) {
@@ -185,7 +203,7 @@ final trackDetailProvider =
     StateNotifierProvider<TrackDetailNotifier, TrackDetailState>((ref) {
   final bilibiliSource = ref.watch(bilibiliSourceProvider);
   final youtubeSource = ref.watch(youtubeSourceProvider);
-  final notifier = TrackDetailNotifier(bilibiliSource, youtubeSource);
+  final notifier = TrackDetailNotifier(bilibiliSource, youtubeSource, ref);
 
   // 监听当前播放的歌曲变化
   ref.listen<Track?>(currentTrackProvider, (previous, next) {

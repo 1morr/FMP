@@ -19,6 +19,7 @@ import '../../data/sources/source_provider.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/repository_providers.dart';
 import '../../providers/lyrics_provider.dart';
+import '../../providers/account_provider.dart';
 import '../lyrics/lyrics_auto_match_service.dart';
 import '../../core/services/toast_service.dart';
 import '../../main.dart' show audioHandler, windowsSmtcHandler;
@@ -2674,6 +2675,8 @@ final queueManagerProvider = Provider<QueueManager>((ref) {
     trackRepository: trackRepository,
     settingsRepository: settingsRepository,
     sourceManager: sourceManager,
+    bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
+    youtubeAccountService: ref.read(youtubeAccountServiceProvider),
   );
 
   ref.onDispose(() => manager.dispose());
