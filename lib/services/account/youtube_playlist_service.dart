@@ -140,93 +140,69 @@ class YouTubePlaylistService with Logging {
   ///
   /// 需要瀏覽播放列表內容找到對應的 setVideoId
   Future<String?> getSetVideoId(String playlistId, String videoId) async {
-    String? continuationToken;
-
-    do {
-      final Map<String, dynamic> requestData;
-      if (continuationToken != null) {
-        requestData = {
-          'continuation': continuationToken,
-          'context': _accountService.buildInnerTubeContext(),
-        };
-      } else {
-        requestData = {
-          'browseId': 'VL$playlistId',
-          'context': _accountService.buildInnerTubeContext(),
-        };
+    return _browsePlaylistPages(playlistId, (data) {
+      final contents = _getPlaylistVideoContents(data);
+      if (contents == null) return null;
+      for (final item in contents) {
+        final renderer = item['playlistVideoRenderer'];
+        if (renderer == null) continue;
+        if (renderer['videoId'] == videoId) {
+          return renderer['setVideoId'] as String?;
+        }
       }
+      return null;
+    });
+  }
+
+  /// 獲取播放列表中匹配目標的視頻 ID（用於批量檢查）
+  ///
+  /// [targetVideoIds] 如果提供，找到所有目標後提前停止分頁
+  Future<Set<String>> getVideoIdsInPlaylist(
+    String playlistId, {
+    Set<String>? targetVideoIds,
+  }) async {
+    final found = <String>{};
+    await _browsePlaylistPages(playlistId, (data) {
+      final contents = _getPlaylistVideoContents(data);
+      if (contents == null) return null;
+      for (final item in contents) {
+        final vid = item['playlistVideoRenderer']?['videoId'] as String?;
+        if (vid != null) found.add(vid);
+      }
+      // 如果已找到所有目標，提前停止分頁
+      if (targetVideoIds != null && targetVideoIds.difference(found).isEmpty) {
+        return true; // 非 null 值觸發提前返回
+      }
+      return null;
+    });
+    return found;
+  }
+
+  /// 瀏覽播放列表分頁的通用方法
+  ///
+  /// [onPage] 處理每頁數據，返回非 null 值時提前停止並返回該值
+  Future<T?> _browsePlaylistPages<T>(
+    String playlistId,
+    T? Function(Map<String, dynamic> data) onPage,
+  ) async {
+    String? continuationToken;
+    do {
+      final requestData = continuationToken != null
+          ? {'continuation': continuationToken, 'context': _accountService.buildInnerTubeContext()}
+          : {'browseId': 'VL$playlistId', 'context': _accountService.buildInnerTubeContext()};
 
       final response = await _dio.post(
         '$_apiBase/browse?key=$_apiKey',
         data: jsonEncode(requestData),
       );
 
-      final data = response.data;
-      final result = _findSetVideoIdInResponse(data, videoId);
+      final data = response.data as Map<String, dynamic>;
+      final result = onPage(data);
       if (result != null) return result;
 
       continuationToken = _extractContinuationToken(data);
     } while (continuationToken != null);
-
     return null;
-  }
-
-  /// 獲取播放列表中所有視頻 ID（用於批量檢查）
-  ///
-  /// 只瀏覽一次播放列表，返回所有 videoId 的集合
-  Future<Set<String>> getVideoIdsInPlaylist(String playlistId) async {
-    final videoIds = <String>{};
-    String? continuationToken;
-
-    do {
-      final Map<String, dynamic> requestData;
-      if (continuationToken != null) {
-        requestData = {
-          'continuation': continuationToken,
-          'context': _accountService.buildInnerTubeContext(),
-        };
-      } else {
-        requestData = {
-          'browseId': 'VL$playlistId',
-          'context': _accountService.buildInnerTubeContext(),
-        };
-      }
-
-      final response = await _dio.post(
-        '$_apiBase/browse?key=$_apiKey',
-        data: jsonEncode(requestData),
-      );
-
-      final data = response.data;
-      _collectVideoIdsFromResponse(data, videoIds);
-      continuationToken = _extractContinuationToken(data);
-    } while (continuationToken != null);
-
-    return videoIds;
-  }
-
-  /// 從播放列表瀏覽響應中收集所有 videoId
-  void _collectVideoIdsFromResponse(Map<String, dynamic> data, Set<String> videoIds) {
-    try {
-      final contents = data['contents']?['twoColumnBrowseResultsRenderer']
-              ?['tabs']?[0]?['tabRenderer']?['content']
-              ?['sectionListRenderer']?['contents']?[0]
-              ?['itemSectionRenderer']?['contents']?[0]
-              ?['playlistVideoListRenderer']?['contents'] as List?
-          ?? data['onResponseReceivedActions']?[0]
-              ?['appendContinuationItemsAction']?['continuationItems'] as List?;
-
-      if (contents == null) return;
-
-      for (final item in contents) {
-        final renderer = item['playlistVideoRenderer'];
-        if (renderer == null) continue;
-        final vid = renderer['videoId'] as String?;
-        if (vid != null) videoIds.add(vid);
-      }
-    } catch (e) {
-      logWarning('Error collecting videoIds: $e');
-    }
   }
 
   /// 創建新播放列表
@@ -527,55 +503,31 @@ class YouTubePlaylistService with Logging {
     }
   }
 
-  /// 在播放列表瀏覽響應中查找 setVideoId
-  String? _findSetVideoIdInResponse(Map<String, dynamic> data, String videoId) {
+  /// 從播放列表瀏覽響應中提取 contents 列表（共用 JSON 路徑）
+  List? _getPlaylistVideoContents(Map<String, dynamic> data) {
     try {
-      // 初始響應結構
-      final contents = data['contents']?['twoColumnBrowseResultsRenderer']
+      return data['contents']?['twoColumnBrowseResultsRenderer']
               ?['tabs']?[0]?['tabRenderer']?['content']
               ?['sectionListRenderer']?['contents']?[0]
               ?['itemSectionRenderer']?['contents']?[0]
               ?['playlistVideoListRenderer']?['contents'] as List?
-          // continuation 響應結構
           ?? data['onResponseReceivedActions']?[0]
               ?['appendContinuationItemsAction']?['continuationItems'] as List?;
-
-      if (contents == null) return null;
-
-      for (final item in contents) {
-        final renderer = item['playlistVideoRenderer'];
-        if (renderer == null) continue;
-
-        final vid = renderer['videoId'] as String?;
-        if (vid == videoId) {
-          return renderer['setVideoId'] as String?;
-        }
-      }
-    } catch (e) {
-      logWarning('Error parsing setVideoId: $e');
+    } catch (_) {
+      return null;
     }
-    return null;
   }
 
   /// 提取 continuation token
   String? _extractContinuationToken(Map<String, dynamic> data) {
-    try {
-      final contents = data['contents']?['twoColumnBrowseResultsRenderer']
-              ?['tabs']?[0]?['tabRenderer']?['content']
-              ?['sectionListRenderer']?['contents']?[0]
-              ?['itemSectionRenderer']?['contents']?[0]
-              ?['playlistVideoListRenderer']?['contents'] as List?
-          ?? data['onResponseReceivedActions']?[0]
-              ?['appendContinuationItemsAction']?['continuationItems'] as List?;
+    final contents = _getPlaylistVideoContents(data);
+    if (contents == null) return null;
 
-      if (contents == null) return null;
-
-      for (final item in contents) {
-        final token = item['continuationItemRenderer']?['continuationEndpoint']
-            ?['continuationCommand']?['token'] as String?;
-        if (token != null) return token;
-      }
-    } catch (_) {}
+    for (final item in contents) {
+      final token = item['continuationItemRenderer']?['continuationEndpoint']
+          ?['continuationCommand']?['token'] as String?;
+      if (token != null) return token;
+    }
     return null;
   }
 
