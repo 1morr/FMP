@@ -15,5 +15,14 @@
   "qrScanned": "Scanned, please confirm on your phone",
   "qrExpired": "QR code expired",
   "qrRefresh": "Regenerate",
-  "comingSoon": "Coming soon"
+  "comingSoon": "Coming soon",
+  "playlists": "Playlists",
+  "selectPlaylists": "Select Playlists",
+  "alreadyImported": "Imported",
+  "importSelected": "Import Selected ($count)",
+  "importing": "Importing...",
+  "importingProgress": "Importing $current/$total...",
+  "importComplete": "Successfully imported $count playlists",
+  "noPlaylists": "No playlists",
+  "trackCount": "$count tracks"
 }

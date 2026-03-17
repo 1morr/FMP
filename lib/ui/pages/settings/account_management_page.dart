@@ -8,6 +8,7 @@ import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/account_provider.dart';
 import '../../router.dart';
+import 'widgets/account_playlists_sheet.dart';
 
 /// 帳號管理頁面
 class AccountManagementPage extends ConsumerWidget {
@@ -35,6 +36,7 @@ class AccountManagementPage extends ConsumerWidget {
             avatarUrl: bilibiliAccount?.avatarUrl,
             onLogin: () => context.push(RoutePaths.bilibiliLogin),
             onLogout: () => _confirmLogout(context, ref, SourceType.bilibili),
+            onManagePlaylists: () => _showPlaylistSheet(context, SourceType.bilibili),
           ),
           const SizedBox(height: 12),
           // YouTube 卡片
@@ -47,6 +49,7 @@ class AccountManagementPage extends ConsumerWidget {
             avatarUrl: youtubeAccount?.avatarUrl,
             onLogin: () => context.push(RoutePaths.youtubeLogin),
             onLogout: () => _confirmLogout(context, ref, SourceType.youtube),
+            onManagePlaylists: () => _showPlaylistSheet(context, SourceType.youtube),
           ),
         ],
       ),
@@ -90,6 +93,15 @@ class AccountManagementPage extends ConsumerWidget {
       }
     }
   }
+
+  void _showPlaylistSheet(BuildContext context, SourceType platform) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => AccountPlaylistsSheet(platform: platform),
+    );
+  }
 }
 
 /// 平台帳號卡片
@@ -102,6 +114,7 @@ class _PlatformCard extends StatelessWidget {
   final String? avatarUrl;
   final VoidCallback? onLogin;
   final VoidCallback? onLogout;
+  final VoidCallback? onManagePlaylists;
 
   const _PlatformCard({
     required this.platformName,
@@ -112,6 +125,7 @@ class _PlatformCard extends StatelessWidget {
     this.avatarUrl,
     this.onLogin,
     this.onLogout,
+    this.onManagePlaylists,
   });
 
   @override
@@ -161,15 +175,26 @@ class _PlatformCard extends StatelessWidget {
                 ),
               ),
               // 操作按鈕
-              isLoggedIn
-                  ? OutlinedButton(
+              if (isLoggedIn)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OutlinedButton(
+                      onPressed: onManagePlaylists,
+                      child: Text(t.account.playlists),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton(
                       onPressed: onLogout,
                       child: Text(t.account.logout),
-                    )
-                  : FilledButton(
-                      onPressed: onLogin,
-                      child: Text(t.account.login),
                     ),
+                  ],
+                )
+              else
+                FilledButton(
+                  onPressed: onLogin,
+                  child: Text(t.account.login),
+                ),
             ],
           ),
         ),

@@ -13,6 +13,7 @@ class BilibiliFavFolder {
   final int id; // mlid（API 操作用這個）
   final String title;
   final int mediaCount;
+  final String? coverUrl; // 收藏夾封面
   final bool isFavorited; // 當前視頻是否已在此收藏夾
   final bool isDefault; // 是否為默認收藏夾
 
@@ -20,6 +21,7 @@ class BilibiliFavFolder {
     required this.id,
     required this.title,
     required this.mediaCount,
+    this.coverUrl,
     this.isFavorited = false,
     this.isDefault = false,
   });
@@ -68,36 +70,52 @@ class BilibiliFavoritesService with Logging {
       );
     }
 
-    final queryParams = <String, dynamic>{
-      'up_mid': mid,
-      'type': 2,
-    };
-    if (videoAid != null) {
-      queryParams['rid'] = videoAid;
+    final allFolders = <BilibiliFavFolder>[];
+    int page = 1;
+    bool hasMore = true;
+
+    while (hasMore) {
+      final queryParams = <String, dynamic>{
+        'up_mid': mid,
+        'type': 2,
+        'pn': page,
+        'ps': 20,
+      };
+      if (videoAid != null) {
+        queryParams['rid'] = videoAid;
+      }
+
+      final response = await _dio.get(
+        '$_apiBase/x/v3/fav/folder/created/list',
+        queryParameters: queryParams,
+      );
+
+      _checkResponse(response.data);
+
+      final data = response.data['data'];
+      final list = data['list'] as List? ?? [];
+
+      if (page == 1) {
+        logDebug('getFavFolders: videoAid=$videoAid, count=${data['count']}, '
+            'first page folders=${list.length}');
+      }
+
+      for (final item in list) {
+        allFolders.add(BilibiliFavFolder(
+          id: item['id'] as int,
+          title: item['title'] as String? ?? '',
+          mediaCount: item['media_count'] as int? ?? 0,
+          coverUrl: item['cover'] as String?,
+          isFavorited: (item['fav_state'] as int? ?? 0) == 1,
+          isDefault: page == 1 && item['id'] == data['default_folder_id'],
+        ));
+      }
+
+      hasMore = data['has_more'] as bool? ?? false;
+      page++;
     }
 
-    final response = await _dio.get(
-      '$_apiBase/x/v3/fav/folder/created/list-all',
-      queryParameters: queryParams,
-    );
-
-    _checkResponse(response.data);
-
-    final data = response.data['data'];
-    final list = data['list'] as List? ?? [];
-
-    logDebug('getFavFolders: videoAid=$videoAid, folders=${list.length}, '
-        'raw fav_states=${list.map((item) => '${item['title']}:${item['fav_state']}').toList()}');
-
-    return list.map((item) {
-      return BilibiliFavFolder(
-        id: item['id'] as int,
-        title: item['title'] as String? ?? '',
-        mediaCount: item['media_count'] as int? ?? 0,
-        isFavorited: (item['fav_state'] as int? ?? 0) == 1,
-        isDefault: item['id'] == data['default_folder_id'],
-      );
-    }).toList();
+    return allFolders;
   }
 
   /// 新建收藏夾

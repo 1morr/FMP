@@ -1,0 +1,485 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../core/services/toast_service.dart';
+import '../../../../data/models/track.dart';
+import '../../../../data/sources/bilibili_source.dart';
+import '../../../../data/sources/source_provider.dart';
+import '../../../../i18n/strings.g.dart';
+import '../../../../providers/account_provider.dart';
+import '../../../../providers/database_provider.dart';
+import '../../../../providers/playlist_provider.dart';
+import '../../../../providers/repository_providers.dart';
+import '../../../../services/import/import_service.dart';
+
+/// 帳號歌單列表項
+class _PlaylistItem {
+  final String id;
+  final String title;
+  final int trackCount;
+  final String? thumbnailUrl;
+  final String importUrl;
+  final bool isImported;
+
+  const _PlaylistItem({
+    required this.id,
+    required this.title,
+    required this.trackCount,
+    this.thumbnailUrl,
+    required this.importUrl,
+    this.isImported = false,
+  });
+}
+
+/// 帳號歌單導入 BottomSheet
+class AccountPlaylistsSheet extends ConsumerStatefulWidget {
+  final SourceType platform;
+
+  const AccountPlaylistsSheet({super.key, required this.platform});
+
+  @override
+  ConsumerState<AccountPlaylistsSheet> createState() =>
+      _AccountPlaylistsSheetState();
+}
+
+class _AccountPlaylistsSheetState
+    extends ConsumerState<AccountPlaylistsSheet> {
+  List<_PlaylistItem>? _playlists;
+  final Set<String> _selectedIds = {};
+  bool _isLoading = true;
+  bool _isImporting = false;
+  String? _error;
+
+  // 批量導入進度
+  int _importCurrent = 0;
+  int _importTotal = 0;
+  String? _currentPlaylistName; // 當前正在導入的歌單名稱
+  String? _importError; // 導入錯誤信息
+
+  // 單個歌單內的曲目進度
+  ImportProgress? _trackProgress;
+  StreamSubscription<ImportProgress>? _trackProgressSub;
+  ImportService? _currentImportService;
+  bool _isCancelled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPlaylists();
+  }
+
+  @override
+  void dispose() {
+    _trackProgressSub?.cancel();
+    _currentImportService?.cancelImport();
+    super.dispose();
+  }
+
+  void _cancelImport() {
+    _isCancelled = true;
+    _currentImportService?.cancelImport();
+    _trackProgressSub?.cancel();
+  }
+
+  Future<void> _loadPlaylists() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final items = await _fetchPlaylists();
+      final importedIds = await _getImportedIds();
+
+      if (!mounted) return;
+      setState(() {
+        _playlists = items.map((item) {
+          final imported = importedIds.contains(item.id);
+          return _PlaylistItem(
+            id: item.id,
+            title: item.title,
+            trackCount: item.trackCount,
+            thumbnailUrl: item.thumbnailUrl,
+            importUrl: item.importUrl,
+            isImported: imported,
+          );
+        }).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<List<_PlaylistItem>> _fetchPlaylists() async {
+    switch (widget.platform) {
+      case SourceType.bilibili:
+        final service = ref.read(bilibiliFavoritesServiceProvider);
+        final folders = await service.getFavFolders();
+        return folders.map((f) => _PlaylistItem(
+          id: f.id.toString(),
+          title: f.title,
+          trackCount: f.mediaCount,
+          thumbnailUrl: f.coverUrl,
+          importUrl: 'https://space.bilibili.com/0/favlist?fid=${f.id}',
+        )).toList();
+      case SourceType.youtube:
+        final service = ref.read(youtubePlaylistServiceProvider);
+        final playlists = await service.getPlaylists();
+        return playlists.map((p) => _PlaylistItem(
+          id: p.playlistId,
+          title: p.title,
+          trackCount: p.videoCount,
+          thumbnailUrl: p.thumbnailUrl,
+          importUrl:
+              'https://www.youtube.com/playlist?list=${p.playlistId}',
+        )).toList();
+    }
+  }
+
+  /// 獲取已導入歌單的平台 ID 集合（從 sourceUrl 中提取）
+  Future<Set<String>> _getImportedIds() async {
+    final repo = ref.read(playlistRepositoryProvider);
+    final imported = await repo.getImported();
+    final ids = <String>{};
+    for (final p in imported) {
+      final url = p.sourceUrl;
+      if (url == null) continue;
+      switch (widget.platform) {
+        case SourceType.bilibili:
+          final fid = BilibiliSource.parseFavoritesId(url);
+          if (fid != null) ids.add(fid);
+        case SourceType.youtube:
+          // YouTube playlist URL 中的 list= 參數
+          final uri = Uri.tryParse(url);
+          final listId = uri?.queryParameters['list'];
+          if (listId != null) ids.add(listId);
+      }
+    }
+    return ids;
+  }
+
+  Future<void> _importSelected() async {
+    final selected = _playlists!
+        .where((p) => _selectedIds.contains(p.id) && !p.isImported)
+        .toList();
+    if (selected.isEmpty) return;
+
+    setState(() {
+      _isImporting = true;
+      _isCancelled = false;
+      _importCurrent = 0;
+      _importTotal = selected.length;
+      _trackProgress = null;
+      _importError = null;
+    });
+
+    final sourceManager = ref.read(sourceManagerProvider);
+    final playlistRepo = ref.read(playlistRepositoryProvider);
+    final trackRepo = ref.read(trackRepositoryProvider);
+    final isar = await ref.read(databaseProvider.future);
+
+    int successCount = 0;
+    String? importError;
+
+    for (final item in selected) {
+      if (!mounted || _isCancelled) break;
+      setState(() {
+        _importCurrent++;
+        _currentPlaylistName = item.title;
+        _trackProgress = null;
+      });
+
+      try {
+        final importService = ImportService(
+          sourceManager: sourceManager,
+          playlistRepository: playlistRepo,
+          trackRepository: trackRepo,
+          isar: isar,
+        );
+        _currentImportService = importService;
+
+        _trackProgressSub?.cancel();
+        _trackProgressSub = importService.progressStream.listen((progress) {
+          if (mounted) {
+            setState(() => _trackProgress = progress);
+          }
+        });
+
+        await importService.importFromUrl(item.importUrl);
+        successCount++;
+      } catch (e) {
+        if (_isCancelled) break;
+        // 非取消錯誤：停止導入，顯示錯誤
+        importError = e.toString();
+        break;
+      } finally {
+        _trackProgressSub?.cancel();
+        _trackProgressSub = null;
+        await _currentImportService?.cleanupCancelledImport();
+        _currentImportService = null;
+      }
+    }
+
+    if (!mounted) return;
+    ref.invalidate(allPlaylistsProvider);
+
+    if (importError != null) {
+      // 有錯誤：留在 sheet，顯示錯誤信息
+      setState(() {
+        _isImporting = false;
+        _importError = importError;
+        _selectedIds.clear();
+      });
+      // 重新載入列表以更新已導入狀態
+      _loadPlaylists();
+    } else {
+      Navigator.pop(context);
+      if (successCount > 0) {
+        ToastService.success(
+          context,
+          t.account.importComplete(count: successCount.toString()),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final selectedCount = _playlists == null
+        ? 0
+        : _selectedIds.where((id) {
+            final item = _playlists!.where((p) => p.id == id).firstOrNull;
+            return item != null && !item.isImported;
+          }).length;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.3,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (context, scrollController) => Column(
+        children: [
+          // Handle bar
+          Padding(
+            padding: const EdgeInsets.only(top: 12, bottom: 8),
+            child: Container(
+              width: 32,
+              height: 4,
+              decoration: BoxDecoration(
+                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          // Title
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              t.account.selectPlaylists,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          const Divider(height: 1),
+          // Content
+          Expanded(child: _buildContent(scrollController)),
+          // Bottom action bar
+          if (!_isLoading && _error == null && (_playlists?.isNotEmpty ?? false))
+            _buildBottomBar(selectedCount),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent(ScrollController scrollController) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(_error!, textAlign: TextAlign.center),
+        ),
+      );
+    }
+    if (_playlists == null || _playlists!.isEmpty) {
+      return Center(child: Text(t.account.noPlaylists));
+    }
+
+    return ListView.builder(
+      controller: scrollController,
+      itemCount: _playlists!.length,
+      itemBuilder: (context, index) {
+        final item = _playlists![index];
+        return _buildPlaylistTile(item);
+      },
+    );
+  }
+
+  Widget _buildPlaylistTile(_PlaylistItem item) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isSelected = _selectedIds.contains(item.id);
+
+    return ListTile(
+      leading: item.thumbnailUrl != null
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: Image.network(
+                item.thumbnailUrl!,
+                width: 48,
+                height: 48,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  width: 48,
+                  height: 48,
+                  color: colorScheme.surfaceContainerHighest,
+                  child: const Icon(Icons.playlist_play, size: 24),
+                ),
+              ),
+            )
+          : Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Icon(Icons.playlist_play, size: 24),
+            ),
+      title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(t.account.trackCount(count: item.trackCount.toString())),
+      trailing: item.isImported
+          ? Chip(
+              label: Text(
+                t.account.alreadyImported,
+                style: TextStyle(fontSize: 12, color: colorScheme.primary),
+              ),
+              visualDensity: VisualDensity.compact,
+            )
+          : Checkbox(
+              value: isSelected,
+              onChanged: _isImporting
+                  ? null
+                  : (value) {
+                      setState(() {
+                        if (value == true) {
+                          _selectedIds.add(item.id);
+                        } else {
+                          _selectedIds.remove(item.id);
+                        }
+                      });
+                    },
+            ),
+      onTap: item.isImported || _isImporting
+          ? null
+          : () {
+              setState(() {
+                if (_selectedIds.contains(item.id)) {
+                  _selectedIds.remove(item.id);
+                } else {
+                  _selectedIds.add(item.id);
+                }
+              });
+            },
+    );
+  }
+
+  Widget _buildBottomBar(int selectedCount) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+        );
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_isImporting) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _currentPlaylistName ?? '',
+                      style: textStyle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Text(
+                    '$_importCurrent/$_importTotal',
+                    style: textStyle,
+                  ),
+                ],
+              ),
+              if (_trackProgress != null) ...[
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        // 分P階段 currentItem 自帶進度數字，提取純文字部分
+                        _trackProgress!.currentItem
+                                ?.replaceFirst(RegExp(r'\s*\(\d+/\d+\)$'), '') ??
+                            t.account.importing,
+                        style: textStyle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (_trackProgress!.total > 0)
+                      Text(
+                        '${_trackProgress!.current}/${_trackProgress!.total}',
+                        style: textStyle,
+                      ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 8),
+            ],
+            // 導入錯誤信息
+            if (_importError != null) ...[
+              Text(
+                _importError!,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: colorScheme.error,
+                    ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 8),
+            ],
+            SizedBox(
+              width: double.infinity,
+              child: _isImporting
+                  ? OutlinedButton(
+                      onPressed: () {
+                        _cancelImport();
+                        Navigator.pop(context);
+                      },
+                      child: Text(t.general.cancel),
+                    )
+                  : FilledButton(
+                      onPressed:
+                          selectedCount > 0 ? _importSelected : null,
+                      child: Text(
+                        t.account.importSelected(
+                            count: selectedCount.toString()),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
