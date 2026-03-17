@@ -38,9 +38,12 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
   List<YouTubePlaylistInfo>? _playlists;
   final Set<String> _selectedIds = {};
   final Set<String> _originalIds = {};
+  final Set<String> _partialIds = {};              // 部分 tracks 在的播放列表（不可變）
+  final Set<String> _deselectedPartialIds = {};    // 用戶明確取消的半選播放列表
   // 每個 playlist 的 containsVideo 檢查狀態
   final Map<String, bool?> _containsStatus = {}; // null = loading
   bool _isLoading = true;
+  bool _isCheckingMulti = false;         // 多選時異步檢查狀態
   bool _isSubmitting = false;
   String? _errorMessage;
   String? _submitProgress;
@@ -73,8 +76,14 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
       });
 
       // 單曲模式：異步逐個檢查 containsVideo
-      if (!_isMulti && playlists.isNotEmpty) {
-        _checkContainsVideoAsync(playlists);
+      // 多選模式：異步檢查每首歌在各播放列表的狀態
+      if (playlists.isNotEmpty) {
+        if (_isMulti) {
+          setState(() => _isCheckingMulti = true);
+          _checkMultiContainsAsync(playlists);
+        } else {
+          _checkContainsVideoAsync(playlists);
+        }
       }
     } on YouTubePlaylistException catch (e) {
       if (!mounted) return;
@@ -124,6 +133,43 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
           _selectedIds.add(playlistId);
         }
       }
+    });
+  }
+
+  /// 多選時異步檢查每首歌在各播放列表的收藏狀態
+  ///
+  /// 優化：每個播放列表只 browse 一次，收集所有 videoId，再批量比對
+  Future<void> _checkMultiContainsAsync(List<YouTubePlaylistInfo> playlists) async {
+    final service = ref.read(youtubePlaylistServiceProvider);
+    final trackVideoIds = _tracks.map((t) => t.sourceId).toSet();
+    // playlistId → 已包含的 track 數量
+    final containsCounts = <String, int>{};
+
+    for (final playlist in playlists) {
+      try {
+        final videoIds = await service.getVideoIdsInPlaylist(playlist.playlistId);
+        if (!mounted) return;
+        final matchCount = trackVideoIds.intersection(videoIds).length;
+        if (matchCount > 0) {
+          containsCounts[playlist.playlistId] = matchCount;
+        }
+      } catch (_) {
+        // 單個播放列表查詢失敗不影響整體
+      }
+    }
+
+    if (!mounted) return;
+    final trackCount = _tracks.length;
+    setState(() {
+      for (final entry in containsCounts.entries) {
+        if (entry.value >= trackCount) {
+          _originalIds.add(entry.key);
+          _selectedIds.add(entry.key);
+        } else if (entry.value > 0) {
+          _partialIds.add(entry.key);
+        }
+      }
+      _isCheckingMulti = false;
     });
   }
 
@@ -226,8 +272,12 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
   }
 
   Future<void> _submit() async {
-    final toAdd = _selectedIds.difference(_originalIds).toList();
-    final toRemove = _originalIds.difference(_selectedIds).toList();
+    final toAdd = _selectedIds.difference(_originalIds).difference(_partialIds).toList();
+    // 移除：原本全選但被取消的 + 明確取消的半選
+    final toRemove = [
+      ..._originalIds.difference(_selectedIds),
+      ..._deselectedPartialIds,
+    ];
 
     if (toAdd.isEmpty && toRemove.isEmpty) {
       ToastService.show(context, t.remote.noChanges);
@@ -474,6 +524,9 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
       itemBuilder: (context, index) {
         final playlist = playlists[index];
         final isSelected = _selectedIds.contains(playlist.playlistId);
+        final isPartial = !isSelected &&
+            _partialIds.contains(playlist.playlistId) &&
+            !_deselectedPartialIds.contains(playlist.playlistId);
         final containsStatus = _containsStatus[playlist.playlistId];
 
         return ListTile(
@@ -502,9 +555,10 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
           trailing: _buildTrailing(
             colorScheme,
             isSelected,
+            isPartial,
             containsStatus,
           ),
-          selected: isSelected,
+          selected: isSelected || isPartial,
           selectedTileColor:
               colorScheme.primaryContainer.withValues(alpha: 0.3),
           shape: RoundedRectangleBorder(
@@ -513,6 +567,13 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
             setState(() {
               if (isSelected) {
                 _selectedIds.remove(playlist.playlistId);
+                if (_partialIds.contains(playlist.playlistId)) {
+                  _deselectedPartialIds.add(playlist.playlistId);
+                }
+              } else if (isPartial) {
+                _selectedIds.add(playlist.playlistId);
+              } else if (_deselectedPartialIds.contains(playlist.playlistId)) {
+                _deselectedPartialIds.remove(playlist.playlistId);
               } else {
                 _selectedIds.add(playlist.playlistId);
               }
@@ -526,8 +587,17 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
   Widget _buildTrailing(
     ColorScheme colorScheme,
     bool isSelected,
+    bool isPartial,
     bool? containsStatus,
   ) {
+    // 多選模式正在檢查中
+    if (_isCheckingMulti) {
+      return const SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
     // 單曲模式且正在檢查中
     if (!_isMulti && containsStatus == null && _playlists != null) {
       return const SizedBox(
@@ -539,12 +609,15 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
     if (isSelected) {
       return Icon(Icons.check_circle, color: colorScheme.primary);
     }
+    if (isPartial) {
+      return Icon(Icons.remove_circle_outline, color: colorScheme.primary);
+    }
     return Icon(Icons.circle_outlined, color: colorScheme.outline);
   }
 
   String _getButtonText() {
-    final toAdd = _selectedIds.difference(_originalIds);
-    final toRemove = _originalIds.difference(_selectedIds);
+    final toAdd = _selectedIds.difference(_originalIds).difference(_partialIds);
+    final toRemove = _originalIds.difference(_selectedIds).union(_deselectedPartialIds);
     if (toAdd.isEmpty && toRemove.isEmpty) return t.remote.confirm;
     if (toAdd.isNotEmpty && toRemove.isEmpty) {
       return t.remote.addToCount(count: toAdd.length.toString());
