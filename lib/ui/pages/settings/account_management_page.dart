@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:simple_icons/simple_icons.dart';
 
+import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
@@ -142,9 +143,9 @@ class _PlatformCard extends StatelessWidget {
             children: [
               // 平台圖標或頭像
               if (isLoggedIn && avatarUrl != null)
-                CircleAvatar(
-                  radius: 24,
-                  backgroundImage: NetworkImage(avatarUrl!),
+                ImageLoadingService.loadAvatar(
+                  networkUrl: avatarUrl,
+                  size: 48,
                 )
               else
                 CircleAvatar(

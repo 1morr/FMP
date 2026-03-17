@@ -187,7 +187,7 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
         ToastService.error(context, e.message);
       } catch (e) {
         if (!mounted) return;
-        ToastService.error(context, e.toString());
+        ToastService.error(context, t.remote.error.unknown(code: 'UNKNOWN'));
       }
     }
   }
@@ -232,7 +232,7 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = e.toString();
+        _errorMessage = t.remote.error.unknown(code: 'LOAD');
       });
     }
   }
@@ -344,7 +344,7 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
       });
     } catch (e) {
       if (!mounted) return;
-      ToastService.error(context, e.toString());
+      ToastService.error(context, t.remote.error.unknown(code: 'UNKNOWN'));
       setState(() {
         _isSubmitting = false;
         _submitProgress = null;
@@ -553,12 +553,11 @@ class _BilibiliRemoteFavSheetState extends ConsumerState<_BilibiliRemoteFavSheet
                                 width: 16,
                                 height: 16,
                                 child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white),
+                                    strokeWidth: 2),
                               ),
                               if (_submitProgress != null) ...[
                                 const SizedBox(width: 8),
-                                Text(_submitProgress!,
-                                    style: const TextStyle(color: Colors.white)),
+                                Text(_submitProgress!),
                               ],
                             ],
                           )
