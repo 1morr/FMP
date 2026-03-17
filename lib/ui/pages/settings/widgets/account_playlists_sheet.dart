@@ -298,33 +298,40 @@ class _AccountPlaylistsSheetState
         _selectedIds.where((id) => !importedIds.contains(id)).length;
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.6,
-      minChildSize: 0.3,
+      initialChildSize: 0.7,
+      minChildSize: 0.4,
       maxChildSize: 0.9,
       expand: false,
       builder: (context, scrollController) => Column(
         children: [
-          // Handle bar
-          Padding(
-            padding: const EdgeInsets.only(top: 12, bottom: 8),
-            child: Container(
-              width: 32,
-              height: 4,
-              decoration: BoxDecoration(
-                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(2),
-              ),
+          // 拖拽指示條
+          Container(
+            margin: const EdgeInsets.only(top: 12, bottom: 8),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: colorScheme.outline.withValues(alpha: 0.3),
+              borderRadius: AppRadius.borderRadiusXs,
             ),
           ),
-          // Title
+          // 標題
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Text(
-              t.account.selectPlaylists,
-              style: Theme.of(context).textTheme.titleMedium,
+            child: Row(
+              children: [
+                Text(
+                  t.account.selectPlaylists,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
             ),
           ),
-          const Divider(height: 1),
+          const Divider(),
           // Content
           Expanded(child: _buildContent(scrollController)),
           // Bottom action bar
@@ -353,6 +360,7 @@ class _AccountPlaylistsSheetState
 
     return ListView.builder(
       controller: scrollController,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: _playlists!.length,
       itemBuilder: (context, index) {
         final item = _playlists![index];
@@ -362,48 +370,42 @@ class _AccountPlaylistsSheetState
   }
 
   Widget _buildPlaylistTile(_PlaylistItem item) {
+    final colorScheme = Theme.of(context).colorScheme;
     final isSelected = _selectedIds.contains(item.id);
-    final placeholder = ImagePlaceholder(
-      icon: Icons.playlist_play,
-      size: AppSizes.thumbnailMedium,
-    );
 
     return ListTile(
-      leading: ClipRRect(
-        borderRadius: AppRadius.borderRadiusSm,
-        child: SizedBox(
-          width: AppSizes.thumbnailMedium,
-          height: AppSizes.thumbnailMedium,
-          child: item.thumbnailUrl != null
-              ? ImageLoadingService.loadImage(
-                  networkUrl: item.thumbnailUrl,
-                  placeholder: placeholder,
-                  width: AppSizes.thumbnailMedium,
-                  height: AppSizes.thumbnailMedium,
-                  targetDisplaySize: AppSizes.thumbnailMedium,
-                )
-              : placeholder,
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          borderRadius: AppRadius.borderRadiusMd,
+          color: colorScheme.surfaceContainerHighest,
         ),
+        clipBehavior: Clip.antiAlias,
+        child: item.thumbnailUrl != null
+            ? ImageLoadingService.loadImage(
+                networkUrl: item.thumbnailUrl,
+                placeholder: Icon(Icons.playlist_play,
+                    color: colorScheme.outline),
+                width: 40,
+                height: 40,
+                fit: BoxFit.cover,
+                targetDisplaySize: 40,
+              )
+            : Icon(Icons.playlist_play, color: colorScheme.outline),
       ),
       title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(t.account.trackCount(count: item.trackCount.toString())),
       trailing: item.isImported
-          ? Chip(
-              label: Text(
-                t.account.alreadyImported,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-              visualDensity: VisualDensity.compact,
-            )
-          : Checkbox(
-              value: isSelected,
-              onChanged: _isImporting
-                  ? null
-                  : (_) => _toggleSelection(item.id),
-            ),
+          ? Icon(Icons.check_circle, color: colorScheme.outline)
+          : isSelected
+              ? Icon(Icons.check_circle, color: colorScheme.primary)
+              : Icon(Icons.circle_outlined, color: colorScheme.outline),
+      selected: isSelected,
+      selectedTileColor:
+          colorScheme.primaryContainer.withValues(alpha: 0.3),
+      shape: RoundedRectangleBorder(
+          borderRadius: AppRadius.borderRadiusLg),
       onTap: item.isImported || _isImporting
           ? null
           : () => _toggleSelection(item.id),
