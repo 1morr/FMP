@@ -240,7 +240,10 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
             ),
             // 歌单列表
             Expanded(
-              child: playlists.when(
+              child: Material(
+                type: MaterialType.transparency,
+                clipBehavior: Clip.hardEdge,
+                child: playlists.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, _) => Center(
                   child: Text(t.addToPlaylistDialog.loadFailed(error: error.toString())),
@@ -377,6 +380,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                   );
                 },
               ),
+            ),
             ),
             // 确认按钮（始终显示，允许全部取消勾选来移出歌单）
             SafeArea(

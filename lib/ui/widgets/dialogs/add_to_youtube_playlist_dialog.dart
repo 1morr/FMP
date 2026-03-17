@@ -468,7 +468,13 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
             ),
             const Divider(),
             // 播放列表列表
-            Expanded(child: _buildPlaylistList(colorScheme, scrollController)),
+            Expanded(
+              child: Material(
+                type: MaterialType.transparency,
+                clipBehavior: Clip.hardEdge,
+                child: _buildPlaylistList(colorScheme, scrollController),
+              ),
+            ),
             // 確認按鈕
             SafeArea(
               child: Padding(

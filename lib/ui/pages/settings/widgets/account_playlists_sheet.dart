@@ -333,7 +333,13 @@ class _AccountPlaylistsSheetState
           ),
           const Divider(),
           // Content
-          Expanded(child: _buildContent(scrollController)),
+          Expanded(
+            child: Material(
+              type: MaterialType.transparency,
+              clipBehavior: Clip.hardEdge,
+              child: _buildContent(scrollController),
+            ),
+          ),
           // Bottom action bar
           if (!_isLoading && _error == null && (_playlists?.isNotEmpty ?? false))
             _buildBottomBar(selectedCount),
