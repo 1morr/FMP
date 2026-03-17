@@ -1097,7 +1097,7 @@ class BilibiliApiException extends SourceApiException {
 
   /// 是否需要登录
   @override
-  bool get requiresLogin => numericCode == -101 || numericCode == -403 || numericCode == 62012;
+  bool get requiresLogin => numericCode == -101;
 
   /// 是否是权限不足（私人收藏夹/视频）
   @override

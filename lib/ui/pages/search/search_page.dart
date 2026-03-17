@@ -15,13 +15,13 @@ import '../../../data/sources/base_source.dart' show SearchOrder;
 import '../../../data/sources/bilibili_source.dart';
 import '../../../data/sources/source_provider.dart';
 import '../../../core/utils/auth_retry_utils.dart';
+import '../../../providers/account_provider.dart';
 import '../../../providers/search_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/dialogs/add_to_remote_playlist_dialog.dart';
 import '../lyrics/lyrics_search_sheet.dart';
-import '../../../providers/account_provider.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/track_group/track_group.dart';
 import '../../widgets/track_thumbnail.dart';
@@ -798,14 +798,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     try {
       final sourceManager = ref.read(sourceManagerProvider);
       final source = sourceManager.getSource(SourceType.bilibili) as BilibiliSource;
-      final bilibiliAccountService = ref.read(bilibiliAccountServiceProvider);
       final pages = await withAuthRetryDirect(
         action: (authHeaders) => source.getVideoPages(track.sourceId, authHeaders: authHeaders),
-        getAuthHeaders: () async {
-          final cookies = await bilibiliAccountService.getAuthCookieString();
-          if (cookies == null) return null;
-          return {'Cookie': cookies};
-        },
+        getAuthHeaders: () => buildAuthHeaders(
+          SourceType.bilibili,
+          bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
+        ),
       );
 
       if (mounted) {

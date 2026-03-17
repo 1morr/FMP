@@ -189,16 +189,10 @@ class QueueManager with Logging {
         _youtubeAccountService = youtubeAccountService;
 
   /// 获取指定平台的认证 headers
-  Future<Map<String, String>?> _getAuthHeaders(SourceType sourceType) async {
-    switch (sourceType) {
-      case SourceType.bilibili:
-        final cookies = await _bilibiliAccountService?.getAuthCookieString();
-        if (cookies == null) return null;
-        return {'Cookie': cookies};
-      case SourceType.youtube:
-        return await _youtubeAccountService?.getAuthHeaders();
-    }
-  }
+  Future<Map<String, String>?> _getAuthHeaders(SourceType sourceType) =>
+      buildAuthHeaders(sourceType,
+          bilibiliAccountService: _bilibiliAccountService,
+          youtubeAccountService: _youtubeAccountService);
 
   /// 初始化队列（从持久化存储加载）
   Future<void> initialize() async {
