@@ -257,7 +257,7 @@ class _YouTubeLoginPageState extends ConsumerState<YouTubeLoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('YouTube'),
+        title: Text(t.importPlatform.youtube),
       ),
       body: Stack(
         children: [

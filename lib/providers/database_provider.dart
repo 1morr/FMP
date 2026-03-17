@@ -107,6 +107,9 @@ Future<void> _migrateDatabase(Isar isar) async {
       }
     }
 
+    // Note: Track.bilibiliAid (int?) — nullable, defaults to null, populated on-demand
+    // by BilibiliFavoritesService. No migration needed.
+
     // 2. 确保有播放队列
     final queues = await isar.playQueues.where().findAll();
     if (queues.isEmpty) {

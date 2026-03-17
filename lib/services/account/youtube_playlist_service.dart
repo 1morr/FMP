@@ -204,9 +204,10 @@ class YouTubePlaylistService with Logging {
 
         continuationToken = _extractContinuationToken(data);
       } catch (e) {
-        logWarning('Playlist pagination failed (playlist=$playlistId): $e');
-        // 首頁失敗直接拋出，後續頁失敗返回已有結果
+        // 首頁失敗直接拋出，後續頁失敗返回已有結果（可能不完整）
         if (continuationToken == null) rethrow;
+        logWarning('Playlist pagination failed on subsequent page '
+            '(playlist=$playlistId), results may be incomplete: $e');
         return null;
       }
     } while (continuationToken != null);

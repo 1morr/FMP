@@ -42,7 +42,7 @@ class AccountManagementPage extends ConsumerWidget {
           const SizedBox(height: 12),
           // YouTube 卡片
           _PlatformCard(
-            platformName: 'YouTube',
+            platformName: t.importPlatform.youtube,
             icon: SimpleIcons.youtube,
             iconColor: Colors.red,
             isLoggedIn: youtubeAccount?.isLoggedIn ?? false,
@@ -63,7 +63,7 @@ class AccountManagementPage extends ConsumerWidget {
   ) async {
     final platformName = platform == SourceType.bilibili
         ? t.importPlatform.bilibili
-        : 'YouTube';
+        : t.importPlatform.youtube;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
