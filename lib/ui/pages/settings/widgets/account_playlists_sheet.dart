@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/ui_constants.dart';
+import '../../../../core/services/image_loading_service.dart';
 import '../../../../core/services/toast_service.dart';
 import '../../../../data/models/track.dart';
 import '../../../../data/sources/bilibili_source.dart';
@@ -90,21 +92,26 @@ class _AccountPlaylistsSheetState
     });
 
     try {
-      final items = await _fetchPlaylists();
-      final importedIds = await _getImportedIds();
+      // 並行獲取歌單列表和已導入 ID
+      final results = await Future.wait([
+        _fetchPlaylists(),
+        _getImportedIds(),
+      ]);
+      final items = results[0] as List<_PlaylistItem>;
+      final importedIds = results[1] as Set<String>;
 
       if (!mounted) return;
       setState(() {
         _playlists = items.map((item) {
           final imported = importedIds.contains(item.id);
-          return _PlaylistItem(
+          return imported ? _PlaylistItem(
             id: item.id,
             title: item.title,
             trackCount: item.trackCount,
             thumbnailUrl: item.thumbnailUrl,
             importUrl: item.importUrl,
-            isImported: imported,
-          );
+            isImported: true,
+          ) : item;
         }).toList();
         _isLoading = false;
       });
@@ -163,6 +170,37 @@ class _AccountPlaylistsSheetState
       }
     }
     return ids;
+  }
+
+  /// 輕量刷新已導入狀態（不重新請求 API）
+  Future<void> _refreshImportStatus() async {
+    final importedIds = await _getImportedIds();
+    if (!mounted || _playlists == null) return;
+    setState(() {
+      _playlists = _playlists!.map((item) {
+        final imported = importedIds.contains(item.id);
+        return imported != item.isImported
+            ? _PlaylistItem(
+                id: item.id,
+                title: item.title,
+                trackCount: item.trackCount,
+                thumbnailUrl: item.thumbnailUrl,
+                importUrl: item.importUrl,
+                isImported: imported,
+              )
+            : item;
+      }).toList();
+    });
+  }
+
+  void _toggleSelection(String id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+      } else {
+        _selectedIds.add(id);
+      }
+    });
   }
 
   Future<void> _importSelected() async {
@@ -237,8 +275,8 @@ class _AccountPlaylistsSheetState
         _importError = importError;
         _selectedIds.clear();
       });
-      // 重新載入列表以更新已導入狀態
-      _loadPlaylists();
+      // 輕量刷新已導入狀態（不重新請求 API）
+      _refreshImportStatus();
     } else {
       Navigator.pop(context);
       if (successCount > 0) {
@@ -253,12 +291,11 @@ class _AccountPlaylistsSheetState
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final selectedCount = _playlists == null
-        ? 0
-        : _selectedIds.where((id) {
-            final item = _playlists!.where((p) => p.id == id).firstOrNull;
-            return item != null && !item.isImported;
-          }).length;
+    final importedIds = _playlists == null
+        ? <String>{}
+        : {for (final p in _playlists!) if (p.isImported) p.id};
+    final selectedCount =
+        _selectedIds.where((id) => !importedIds.contains(id)).length;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.6,
@@ -325,42 +362,39 @@ class _AccountPlaylistsSheetState
   }
 
   Widget _buildPlaylistTile(_PlaylistItem item) {
-    final colorScheme = Theme.of(context).colorScheme;
     final isSelected = _selectedIds.contains(item.id);
+    final placeholder = ImagePlaceholder(
+      icon: Icons.playlist_play,
+      size: AppSizes.thumbnailMedium,
+    );
 
     return ListTile(
-      leading: item.thumbnailUrl != null
-          ? ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: Image.network(
-                item.thumbnailUrl!,
-                width: 48,
-                height: 48,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  width: 48,
-                  height: 48,
-                  color: colorScheme.surfaceContainerHighest,
-                  child: const Icon(Icons.playlist_play, size: 24),
-                ),
-              ),
-            )
-          : Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Icon(Icons.playlist_play, size: 24),
-            ),
+      leading: ClipRRect(
+        borderRadius: AppRadius.borderRadiusSm,
+        child: SizedBox(
+          width: AppSizes.thumbnailMedium,
+          height: AppSizes.thumbnailMedium,
+          child: item.thumbnailUrl != null
+              ? ImageLoadingService.loadImage(
+                  networkUrl: item.thumbnailUrl,
+                  placeholder: placeholder,
+                  width: AppSizes.thumbnailMedium,
+                  height: AppSizes.thumbnailMedium,
+                  targetDisplaySize: AppSizes.thumbnailMedium,
+                )
+              : placeholder,
+        ),
+      ),
       title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(t.account.trackCount(count: item.trackCount.toString())),
       trailing: item.isImported
           ? Chip(
               label: Text(
                 t.account.alreadyImported,
-                style: TextStyle(fontSize: 12, color: colorScheme.primary),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
               visualDensity: VisualDensity.compact,
             )
@@ -368,27 +402,11 @@ class _AccountPlaylistsSheetState
               value: isSelected,
               onChanged: _isImporting
                   ? null
-                  : (value) {
-                      setState(() {
-                        if (value == true) {
-                          _selectedIds.add(item.id);
-                        } else {
-                          _selectedIds.remove(item.id);
-                        }
-                      });
-                    },
+                  : (_) => _toggleSelection(item.id),
             ),
       onTap: item.isImported || _isImporting
           ? null
-          : () {
-              setState(() {
-                if (_selectedIds.contains(item.id)) {
-                  _selectedIds.remove(item.id);
-                } else {
-                  _selectedIds.add(item.id);
-                }
-              });
-            },
+          : () => _toggleSelection(item.id),
     );
   }
 
