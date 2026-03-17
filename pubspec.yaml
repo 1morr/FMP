@@ -66,6 +66,12 @@ dependencies:
   open_filex: ^4.5.0
   archive: ^4.0.2
 
+  # 帐号管理
+  flutter_inappwebview: ^6.1.5   # WebView 登录（WebView2 on Windows）
+  qr_flutter: ^4.1.0             # QR 码生成（备选登录方式）
+  flutter_secure_storage: ^9.2.4  # Cookie/Token 安全存储
+  pointycastle: ^3.9.1           # RSA 加密（Cookie 刷新流程）
+
   # 工具
   logger: ^2.5.0
   file_picker: ^8.3.7

@@ -6,6 +6,7 @@ import 'package:fmp/i18n/strings.g.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/ui_constants.dart';
+import '../../core/services/toast_service.dart';
 import '../../core/utils/number_format_utils.dart';
 import '../../core/utils/thumbnail_url_utils.dart';
 import '../../core/extensions/track_extensions.dart';
@@ -23,7 +24,10 @@ import '../../services/radio/radio_controller.dart';
 import '../../data/models/radio_station.dart';
 import 'track_thumbnail.dart';
 import 'lyrics_display.dart';
+import 'dialogs/add_to_playlist_dialog.dart';
+import 'dialogs/add_to_remote_playlist_dialog.dart';
 import '../pages/lyrics/lyrics_search_sheet.dart';
+import '../../providers/account_provider.dart';
 import '../../providers/locale_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../services/lyrics/lyrics_window_service.dart';
@@ -41,6 +45,20 @@ class TrackDetailPanel extends ConsumerStatefulWidget {
 
 class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
   final _lyricsMenuKey = GlobalKey();
+
+  /// 显示添加到歌单选项（本地 + 远程）
+  void _handleAddToPlaylist(BuildContext context, Track track, String value) {
+    if (value == 'local') {
+      showAddToPlaylistDialog(context: context, track: track);
+    } else if (value == 'remote') {
+      final isLoggedIn = ref.read(isLoggedInProvider(track.sourceType));
+      if (!isLoggedIn) {
+        ToastService.show(context, t.remote.pleaseLogin);
+        return;
+      }
+      showAddToRemotePlaylistDialog(context: context, track: track);
+    }
+  }
 
   /// 打开歌词搜索 BottomSheet
   void _openLyricsSearch(BuildContext context) {
@@ -570,6 +588,46 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
               ),
             ),
           ),
+          // 添加到歌单按钮（仅在信息模式且非电台时显示）
+          if (!_showLyrics && !isRadio)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.playlist_add, size: 20),
+              tooltip: t.general.addToPlaylist,
+              offset: const Offset(0, 40),
+              iconSize: 20,
+              onSelected: (value) {
+                final track = ref.read(currentTrackProvider);
+                if (track == null) return;
+                Future.delayed(AnimationDurations.fastest, () {
+                  if (!context.mounted) return;
+                  _handleAddToPlaylist(context, track, value);
+                });
+              },
+              itemBuilder: (context) {
+                return [
+                  PopupMenuItem(
+                    value: 'local',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.playlist_add, size: 20),
+                        const SizedBox(width: 12),
+                        Text(t.general.addToPlaylist),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                      value: 'remote',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.cloud_upload_outlined, size: 20),
+                          const SizedBox(width: 12),
+                          Text(t.remote.addToFavorites),
+                        ],
+                      ),
+                    ),
+                ];
+              },
+            ),
           // 信息/歌词切换按钮（显示当前状态，电台模式下隐藏但占位）
           Opacity(
             opacity: isRadio ? 0.0 : 1.0,

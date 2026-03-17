@@ -50,6 +50,20 @@ class SettingsPage extends ConsumerWidget {
       ),
       body: ListView(
         children: [
+          // 帳號管理
+          _SettingsSection(
+            title: t.settings.account,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.manage_accounts),
+                title: Text(t.settings.accountManagement.title),
+                subtitle: Text(t.settings.accountManagement.subtitle),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push(RoutePaths.accountManagement),
+              ),
+            ],
+          ),
+          const Divider(),
           // 外观设置
           _SettingsSection(
             title: t.settings.appearance,

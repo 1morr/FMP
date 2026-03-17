@@ -14,10 +14,13 @@ import '../../../data/models/video_detail.dart';
 import '../../../data/sources/base_source.dart' show SearchOrder;
 import '../../../data/sources/bilibili_source.dart';
 import '../../../data/sources/source_provider.dart';
+import '../../../core/utils/auth_retry_utils.dart';
+import '../../../providers/account_provider.dart';
 import '../../../providers/search_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
+import '../../widgets/dialogs/add_to_remote_playlist_dialog.dart';
 import '../lyrics/lyrics_search_sheet.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/track_group/track_group.dart';
@@ -81,6 +84,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       SelectionAction.addToQueue,
       SelectionAction.playNext,
       SelectionAction.addToPlaylist,
+      SelectionAction.addToRemotePlaylist,
     };
 
     return PopScope(
@@ -182,7 +186,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         ),
                         const SizedBox(width: 8),
                         ChoiceChip(
-                          label: const Text('Bilibili'),
+                          label: Text(t.importPlatform.bilibili),
                           selected: state.selectedSource == SourceType.bilibili && !state.isLiveSearchMode,
                           onSelected: (_) {
                             ref.read(searchProvider.notifier).setFilters(
@@ -794,7 +798,13 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     try {
       final sourceManager = ref.read(sourceManagerProvider);
       final source = sourceManager.getSource(SourceType.bilibili) as BilibiliSource;
-      final pages = await source.getVideoPages(track.sourceId);
+      final pages = await withAuthRetryDirect(
+        action: (authHeaders) => source.getVideoPages(track.sourceId, authHeaders: authHeaders),
+        getAuthHeaders: () => buildAuthHeaders(
+          SourceType.bilibili,
+          bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
+        ),
+      );
 
       if (mounted) {
         setState(() {
@@ -918,10 +928,20 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           showLyricsSearchSheet(context: context, track: track);
         }
         break;
+      case 'add_to_remote':
+        final isLoggedIn = ref.read(isLoggedInProvider(track.sourceType));
+        if (!isLoggedIn) {
+          if (mounted) {
+            ToastService.show(context, t.remote.pleaseLogin);
+          }
+          return;
+        }
+        if (mounted) {
+          showAddToRemotePlaylistDialog(context: context, track: track);
+        }
+        break;
     }
   }
-
-  /// 处理分P菜单操作
   void _handlePageMenuAction(Track parentTrack, VideoPage page, String action) async {
     final controller = ref.read(audioControllerProvider.notifier);
     final pageTrack = page.toTrack(parentTrack);
@@ -1134,6 +1154,7 @@ class _SearchResultTile extends ConsumerWidget {
     PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.general.addToQueue), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.general.addToPlaylist), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'matchLyrics', child: ListTile(leading: const Icon(Icons.lyrics_outlined), title: Text(t.lyrics.matchLyrics), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_remote', child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero)),
   ];
 
 }
@@ -1374,6 +1395,7 @@ class _LocalGroupTile extends ConsumerWidget {
     PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.general.playNext), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.general.addToQueue), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.general.addToPlaylist), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_remote', child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero)),
   ];
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
@@ -1414,6 +1436,18 @@ class _LocalGroupTile extends ConsumerWidget {
 
       case 'add_to_playlist':
         showAddToPlaylistDialog(context: context, tracks: group.tracks);
+        break;
+      case 'add_to_remote':
+        final isLoggedIn = ref.read(isLoggedInProvider(group.firstTrack.sourceType));
+        if (!isLoggedIn) {
+          if (context.mounted) {
+            ToastService.show(context, t.remote.pleaseLogin);
+          }
+          return;
+        }
+        if (context.mounted) {
+          showAddToRemotePlaylistDialog(context: context, track: group.firstTrack);
+        }
         break;
     }
   }
@@ -1520,6 +1554,7 @@ class _LocalTrackTile extends ConsumerWidget {
     PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.general.addToQueue), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.general.addToPlaylist), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'matchLyrics', child: ListTile(leading: const Icon(Icons.lyrics_outlined), title: Text(t.lyrics.matchLyrics), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: 'add_to_remote', child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero)),
   ];
 }
 

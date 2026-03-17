@@ -20,6 +20,9 @@ import '../../data/sources/source_provider.dart';
 import '../../data/sources/base_source.dart';
 import '../../data/sources/bilibili_source.dart';
 import '../../data/sources/youtube_source.dart';
+import '../../core/utils/auth_retry_utils.dart';
+import '../account/bilibili_account_service.dart';
+import '../account/youtube_account_service.dart';
 import 'download_path_utils.dart';
 
 /// 下载任务添加结果
@@ -38,6 +41,8 @@ class DownloadService with Logging {
   final TrackRepository _trackRepository;
   final SettingsRepository _settingsRepository;
   final SourceManager _sourceManager;
+  final BilibiliAccountService? _bilibiliAccountService;
+  final YouTubeAccountService? _youtubeAccountService;
 
   
   final Dio _dio;
@@ -93,10 +98,14 @@ class DownloadService with Logging {
     required TrackRepository trackRepository,
     required SettingsRepository settingsRepository,
     required SourceManager sourceManager,
+    BilibiliAccountService? bilibiliAccountService,
+    YouTubeAccountService? youtubeAccountService,
   })  : _downloadRepository = downloadRepository,
         _trackRepository = trackRepository,
         _settingsRepository = settingsRepository,
         _sourceManager = sourceManager,
+        _bilibiliAccountService = bilibiliAccountService,
+        _youtubeAccountService = youtubeAccountService,
         _dio = Dio(BaseOptions(
           connectTimeout: AppConstants.downloadConnectTimeout,
           receiveTimeout: const Duration(minutes: 30),
@@ -105,6 +114,12 @@ class DownloadService with Logging {
             'Referer': 'https://www.bilibili.com',
           },
         ));
+
+  /// 获取指定平台的认证 headers
+  Future<Map<String, String>?> _getAuthHeaders(SourceType sourceType) =>
+      buildAuthHeaders(sourceType,
+          bilibiliAccountService: _bilibiliAccountService,
+          youtubeAccountService: _youtubeAccountService);
 
   /// 初始化服务
   Future<void> initialize() async {
@@ -587,7 +602,10 @@ class DownloadService with Logging {
       }
       
       final config = await _buildAudioStreamConfig(track.sourceType);
-      final streamResult = await source.getAudioStream(track.sourceId, config: config);
+      final streamResult = await withAuthRetryDirect(
+        action: (authHeaders) => source.getAudioStream(track.sourceId, config: config, authHeaders: authHeaders),
+        getAuthHeaders: () => _getAuthHeaders(track.sourceType),
+      );
       final audioUrl = streamResult.url;
       
       // 更新 track 的 URL 信息
@@ -698,12 +716,18 @@ class DownloadService with Logging {
         if (track.sourceType == SourceType.bilibili) {
           final source = _sourceManager.getSource(SourceType.bilibili);
           if (source is BilibiliSource) {
-            videoDetail = await source.getVideoDetail(track.sourceId);
+            videoDetail = await withAuthRetryDirect(
+              action: (authHeaders) => source.getVideoDetail(track.sourceId, authHeaders: authHeaders),
+              getAuthHeaders: () => _getAuthHeaders(track.sourceType),
+            );
           }
         } else if (track.sourceType == SourceType.youtube) {
           final source = _sourceManager.getSource(SourceType.youtube);
           if (source is YouTubeSource) {
-            videoDetail = await source.getVideoDetail(track.sourceId);
+            videoDetail = await withAuthRetryDirect(
+              action: (authHeaders) => source.getVideoDetail(track.sourceId, authHeaders: authHeaders),
+              getAuthHeaders: () => _getAuthHeaders(track.sourceType),
+            );
           }
         }
       } catch (e) {

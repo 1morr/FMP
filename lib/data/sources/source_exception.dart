@@ -38,6 +38,11 @@ abstract class SourceApiException implements Exception {
   /// 超时
   bool get isTimeout;
 
+  /// 权限不足（私人内容，需要登录重试）
+  /// 与 requiresLogin 不同：requiresLogin 表示"未登录"，
+  /// isPermissionDenied 表示"内容需要特定权限（如私人收藏夹/视频）"
+  bool get isPermissionDenied;
+
   // ========== 通用 Dio 错误分类 ========== //
 
   /// 将 DioException 分类为语义化的 (code, message) 对。

@@ -20,7 +20,7 @@
   },
   "streamPriority": {
     "youtubeTitle": "YouTube 串流優先級",
-    "bilibiliTitle": "Bilibili 串流優先級",
+    "bilibiliTitle": "嗶哩嗶哩 串流優先級",
     "audioOnly": "純音訊串流",
     "audioOnlyDescription": "省流量，僅下載音訊資料",
     "muxed": "混合串流",

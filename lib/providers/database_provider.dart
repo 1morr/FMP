@@ -13,6 +13,7 @@ import '../data/models/download_task.dart';
 import '../data/models/play_history.dart';
 import '../data/models/radio_station.dart';
 import '../data/models/lyrics_match.dart';
+import '../data/models/account.dart';
 
 /// Isar 数据库 Provider
 /// 数据库迁移逻辑
@@ -106,6 +107,9 @@ Future<void> _migrateDatabase(Isar isar) async {
       }
     }
 
+    // Note: Track.bilibiliAid (int?) — nullable, defaults to null, populated on-demand
+    // by BilibiliFavoritesService. No migration needed.
+
     // 2. 确保有播放队列
     final queues = await isar.playQueues.where().findAll();
     if (queues.isEmpty) {
@@ -128,6 +132,7 @@ final databaseProvider = FutureProvider<Isar>((ref) async {
       PlayHistorySchema,
       RadioStationSchema,
       LyricsMatchSchema,
+      AccountSchema,
     ],
     directory: dir.path,
     name: 'fmp_database',
