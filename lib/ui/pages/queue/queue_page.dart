@@ -291,7 +291,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
               child: Text(
                 isMixMode
                     ? 'Mix · ${mixTitle ?? ''}'
-                    : t.queue.titleWithCount(count: '${queue.length}'),
+                    : t.queue.title,
                 overflow: TextOverflow.ellipsis,
               ),
             );
