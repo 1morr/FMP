@@ -327,6 +327,14 @@ class LyricsCacheService with Logging {
       logError('Failed to save access times: $e');
     }
   }
+
+  /// 释放资源，确保待写入的访问时间被保存
+  Future<void> dispose() async {
+    if (_accessTimesDirty) {
+      await _saveAccessTimesNow();
+    }
+    _saveDebounceTimer?.cancel();
+  }
 }
 
 /// 缓存统计信息

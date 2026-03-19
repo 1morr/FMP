@@ -166,6 +166,8 @@ class DownloadService with Logging {
     }
     _activeCancelTokens.clear();
     _pendingProgressUpdates.clear();
+
+    _dio.close();
   }
   
   /// 刷新待发送的进度更新（在主线程定时器中调用）

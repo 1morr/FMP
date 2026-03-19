@@ -136,9 +136,11 @@ class LyricsAutoMatchService with Logging {
     try {
       LyricsResult? result;
       if (source == 'netease') {
-        result = await _netease.getLyricsResult(songId);
+        result = await _netease.getLyricsResult(songId)
+            .timeout(AppConstants.networkReceiveTimeout);
       } else if (source == 'qqmusic') {
-        result = await _qqmusic.getLyricsResult(songId);
+        result = await _qqmusic.getLyricsResult(songId)
+            .timeout(AppConstants.networkReceiveTimeout);
       } else {
         return null; // Spotify 等不支持直接获取
       }

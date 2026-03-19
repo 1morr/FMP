@@ -57,6 +57,9 @@ abstract class SourceApiException implements Exception {
         return (code: 'network_error', message: t.error.networkError);
       case DioExceptionType.badResponse:
         final statusCode = e.response?.statusCode;
+        if (statusCode == null) {
+          return (code: 'api_error', message: t.error.networkError);
+        }
         if (statusCode == 429 || statusCode == 412) {
           return (code: 'rate_limited', message: t.error.rateLimited);
         }
