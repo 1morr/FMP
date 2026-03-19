@@ -1945,7 +1945,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
           logError('Fallback also failed for: ${track.title}', fallbackError);
           // Check if fallback error is also a network error
           if (_isNetworkError(fallbackError)) {
-            await _audioService.stop();
+            try {
+              await _audioService.stop();
+            } catch (stopError) {
+              logError('Failed to stop player during fallback network error', stopError);
+            }
             state = state.copyWith(isLoading: false);
             _resetLoadingState();
             _scheduleRetry(track, state.position);
@@ -1956,14 +1960,22 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
       // Check if original error is a network error
       if (_isNetworkError(e)) {
-        await _audioService.stop();
+        try {
+          await _audioService.stop();
+        } catch (stopError) {
+          logError('Failed to stop player during network error handling', stopError);
+        }
         state = state.copyWith(isLoading: false);
         _resetLoadingState();
         _scheduleRetry(track, state.position);
         throw const _RetryScheduledException();
       }
 
-      await _audioService.stop();
+      try {
+        await _audioService.stop();
+      } catch (stopError) {
+        logError('Failed to stop player after playback error', stopError);
+      }
       state = state.copyWith(error: e.toString(), isLoading: false);
       _resetLoadingState();
       _toastService.showError(t.audio.playbackFailedTrack(title: track.title));
@@ -2501,6 +2513,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       _scheduleRetry(track, state.position);
     }).catchError((e) {
       logError('Failed to stop player after error', e);
+      // stop() 失败时仍需触发重试，否则播放器会卡在错误状态
+      state = state.copyWith(isLoading: false, isPlaying: false);
+      _resetLoadingState();
+      _scheduleRetry(track, state.position);
     });
   }
 

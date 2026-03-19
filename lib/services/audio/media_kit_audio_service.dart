@@ -562,10 +562,8 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   Future<void> setAudioDevice(FmpAudioDevice device) async {
     logInfo('Setting audio device: ${device.name} (${device.description})');
     // 通过 name 在 media_kit 设备列表中查找匹配的原始 AudioDevice
-    final nativeDevice = _player.state.audioDevices.cast<AudioDevice?>().firstWhere(
-      (d) => d!.name == device.name,
-      orElse: () => null,
-    );
+    final devices = _player.state.audioDevices;
+    final nativeDevice = devices.where((d) => d.name == device.name).firstOrNull;
     if (nativeDevice != null) {
       await _player.setAudioDevice(nativeDevice);
     } else {
