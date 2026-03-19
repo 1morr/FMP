@@ -147,16 +147,8 @@ final databaseProvider = FutureProvider<Isar>((ref) async {
     ),
   );
 
-  // 数据迁移和初始化
+  // 数据迁移和初始化（包含 PlayQueue 创建）
   await _migrateDatabase(isar);
-
-  // 确保有播放队列
-  await isar.writeTxn(() async {
-    final queues = await isar.playQueues.where().findAll();
-    if (queues.isEmpty) {
-      await isar.playQueues.put(PlayQueue());
-    }
-  });
 
   return isar;
 });

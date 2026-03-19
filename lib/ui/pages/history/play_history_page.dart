@@ -150,7 +150,6 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
               ),
             ],
           ),
-          const SizedBox(width: 8),
         ],
       );
     }

@@ -106,6 +106,7 @@ class _WebViewLoginTabState extends ConsumerState<_WebViewLoginTab> {
   }
 
   void _onPageLoaded(InAppWebViewController controller, WebUri? url) async {
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (url == null || _loginHandled) return;
