@@ -42,6 +42,9 @@ class AppConstants {
   /// 快进/快退时间 (秒)
   static const int seekDurationSeconds = 10;
 
+  /// 点击"上一首"时，如果当前播放超过此秒数则重新开始当前歌曲，否则切换到上一首
+  static const int previousTrackThresholdSeconds = 3;
+
   /// 播放速度选项
   static const List<double> playbackSpeeds = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 
@@ -56,6 +59,28 @@ class AppConstants {
 
   /// 播放器 seek 前等待延迟 (确保播放器就绪)
   static const Duration seekStabilizationDelay = Duration(milliseconds: 500);
+
+  /// seek 后验证延迟 (等待 seek 生效后检查位置)
+  static const Duration seekVerificationDelay = Duration(milliseconds: 300);
+
+  // ==================== Mix 播放列表 ====================
+
+  /// Mix 模式每次加载的最少新歌曲数
+  static const int mixMinNewTracksRequired = 10;
+
+  /// Mix 模式最大加载尝试次数
+  static const int mixMaxLoadAttempts = 10;
+
+  /// Mix 模式使用相同种子视频的重试次数
+  static const int mixSameVideoRetries = 3;
+
+  /// Mix 模式加载重试延迟
+  static const Duration mixRetryDelay = Duration(seconds: 1);
+
+  // ==================== 下载 ====================
+
+  /// 下载进度更新最小间隔（避免频繁回调）
+  static const double downloadProgressUpdateThreshold = 0.05;
 
   // ==================== 网络超时 ====================
 

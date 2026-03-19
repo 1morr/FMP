@@ -520,7 +520,7 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     await _player.seek(targetPosition);
     
     // 等待一小段時間讓 seek 生效，然後檢查 position 是否真的變了
-    await Future.delayed(const Duration(milliseconds: 300));
+    await Future.delayed(AppConstants.seekVerificationDelay);
     final positionAfter = _position;
     final seekWorked = (positionAfter - positionBefore).abs() > const Duration(seconds: 1);
     

@@ -159,7 +159,10 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
       ),
       itemCount: categories.length,
       itemBuilder: (context, index) {
-        return _CategoryCard(category: categories[index]);
+        return _CategoryCard(
+          key: ValueKey(categories[index].folderPath),
+          category: categories[index],
+        );
       },
     );
   }
@@ -245,7 +248,7 @@ class _SyncProgressDialogState extends State<_SyncProgressDialog> {
 class _CategoryCard extends ConsumerWidget {
   final DownloadedCategory category;
 
-  const _CategoryCard({required this.category});
+  const _CategoryCard({super.key, required this.category});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

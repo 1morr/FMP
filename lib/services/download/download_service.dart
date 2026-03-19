@@ -1076,7 +1076,7 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
       if (totalBytes > 0) {
         final progress = receivedBytes / totalBytes;
         // 每 5% 发送一次进度更新
-        if ((progress - lastProgress) >= 0.05 || progress >= 1.0) {
+        if ((progress - lastProgress) >= AppConstants.downloadProgressUpdateThreshold || progress >= 1.0) {
           lastProgress = progress;
           sendPort.send(_IsolateMessage(_IsolateMessageType.progress, {
             'progress': progress,
