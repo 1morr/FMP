@@ -72,33 +72,74 @@ class _NowPlayingIndicatorState extends State<NowPlayingIndicator>
   @override
   Widget build(BuildContext context) {
     final color = widget.color ?? Colors.white;
-    final barWidth = widget.size * 0.18; // 更宽的长方形
+    final barWidth = widget.size * 0.18;
     final gap = widget.size * 0.08;
+    final maxBarHeight = widget.size * 0.7;
 
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return SizedBox(
-          width: widget.size,
-          height: widget.size,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: List.generate(3, (index) {
-              final heightFactor = _getBarHeight(index, _controller.value);
-              return Container(
-                width: barWidth,
-                height: widget.size * 0.7 * heightFactor,
-                margin: EdgeInsets.only(right: index < 2 ? gap : 0),
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: AppRadius.borderRadiusXs, // 小圆角，更像长方形
-                ),
-              );
-            }),
-          ),
-        );
-      },
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _controller,
+        // 使用 CustomPaint 避免每帧重建 widget 树
+        // AnimatedBuilder 的 child 参数用于缓存不变的部分
+        child: SizedBox(width: widget.size, height: widget.size),
+        builder: (context, child) {
+          return CustomPaint(
+            size: Size(widget.size, widget.size),
+            painter: _BarsPainter(
+              color: color,
+              barWidth: barWidth,
+              gap: gap,
+              maxBarHeight: maxBarHeight,
+              borderRadius: 2.0,
+              heights: List.generate(3, (i) => _getBarHeight(i, _controller.value)),
+            ),
+          );
+        },
+      ),
     );
   }
+}
+
+/// CustomPainter for the animated bars - avoids rebuilding widget tree every frame
+class _BarsPainter extends CustomPainter {
+  final Color color;
+  final double barWidth;
+  final double gap;
+  final double maxBarHeight;
+  final double borderRadius;
+  final List<double> heights;
+
+  _BarsPainter({
+    required this.color,
+    required this.barWidth,
+    required this.gap,
+    required this.maxBarHeight,
+    required this.borderRadius,
+    required this.heights,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final totalWidth = barWidth * heights.length + gap * (heights.length - 1);
+    var x = (size.width - totalWidth) / 2;
+    final centerY = size.height / 2;
+
+    for (final h in heights) {
+      final barHeight = maxBarHeight * h;
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(x + barWidth / 2, centerY),
+          width: barWidth,
+          height: barHeight,
+        ),
+        Radius.circular(borderRadius),
+      );
+      canvas.drawRRect(rect, paint);
+      x += barWidth + gap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_BarsPainter old) => true; // always repaint during animation
 }

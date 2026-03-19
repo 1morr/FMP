@@ -255,9 +255,9 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
     ParsedLyrics lyrics,
     int offsetMs,
   ) {
-    final playerState = ref.watch(audioControllerProvider);
-    final position = playerState.position;
-    final currentTrack = playerState.currentTrack;
+    // 只监听 position，避免 volume/isPlaying 等无关变化触发重建
+    final position = ref.watch(audioControllerProvider.select((s) => s.position));
+    final currentTrack = ref.watch(currentTrackProvider);
 
     // 计算当前行
     final newIndex = LrcParser.findCurrentLineIndex(

@@ -1,7 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/extensions/track_extensions.dart';
 import '../../core/services/image_loading_service.dart';
 import '../../data/models/track.dart';
 import '../../providers/download/file_exists_cache.dart';
@@ -46,9 +47,28 @@ class TrackThumbnail extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    // Watch 文件存在缓存，以便在缓存更新时重建
-    ref.watch(fileExistsCacheProvider);
-    final cache = ref.read(fileExistsCacheProvider.notifier);
+
+    // 使用 .select() 只在本 track 的封面路径结果变化时重建
+    // 避免全局 fileExistsCacheProvider 任何变化都触发所有缩略图重建
+    final coverPaths = track.hasAnyDownload
+        ? track.allDownloadPaths
+            .map((p) => '${Directory(p).parent.path}/cover.jpg')
+            .toList()
+        : <String>[];
+
+    final localCoverPath = ref.watch(
+      fileExistsCacheProvider.select((cacheSet) {
+        for (final path in coverPaths) {
+          if (cacheSet.contains(path)) return path;
+        }
+        return null;
+      }),
+    );
+
+    // 对未缓存的路径触发异步检查
+    if (localCoverPath == null && coverPaths.isNotEmpty) {
+      ref.read(fileExistsCacheProvider.notifier).getFirstExisting(coverPaths);
+    }
 
     return SizedBox(
       width: size,
@@ -62,7 +82,7 @@ class TrackThumbnail extends ConsumerWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            _buildImage(colorScheme, cache, ref),
+            _buildImage(colorScheme, localCoverPath, ref),
             if (showPlayingIndicator && isPlaying)
               _buildPlayingOverlay(colorScheme),
           ],
@@ -71,15 +91,8 @@ class TrackThumbnail extends ConsumerWidget {
     );
   }
 
-  Widget _buildImage(ColorScheme colorScheme, FileExistsCache cache, WidgetRef ref) {
+  Widget _buildImage(ColorScheme colorScheme, String? localCoverPath, WidgetRef ref) {
     final placeholder = _buildPlaceholder(colorScheme);
-
-    // 使用 FileExistsCache 获取本地封面路径（避免同步 IO）
-    final localCoverPath = track.getLocalCoverPath(cache);
-
-    // 注意：不再根据封面是否存在来清除下载路径
-    // 因为下载音频不一定有封面，这会导致误删刚下载的音频路径
-    // 无效路径由应用启动时的 cleanupInvalidDownloadPaths() 统一清理
 
     return ImageLoadingService.loadImage(
       localPath: localCoverPath,
@@ -157,9 +170,26 @@ class TrackCover extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    // Watch 文件存在缓存，以便在缓存更新时重建
-    ref.watch(fileExistsCacheProvider);
-    final cache = ref.read(fileExistsCacheProvider.notifier);
+
+    // 使用 .select() 只在本 track 的封面路径结果变化时重建
+    final coverPaths = (track != null && track!.hasAnyDownload)
+        ? track!.allDownloadPaths
+            .map((p) => '${Directory(p).parent.path}/cover.jpg')
+            .toList()
+        : <String>[];
+
+    final localCoverPath = ref.watch(
+      fileExistsCacheProvider.select((cacheSet) {
+        for (final path in coverPaths) {
+          if (cacheSet.contains(path)) return path;
+        }
+        return null;
+      }),
+    );
+
+    if (localCoverPath == null && coverPaths.isNotEmpty) {
+      ref.read(fileExistsCacheProvider.notifier).getFirstExisting(coverPaths);
+    }
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
@@ -167,19 +197,17 @@ class TrackCover extends ConsumerWidget {
         aspectRatio: aspectRatio,
         child: Container(
           color: colorScheme.surfaceContainerHighest,
-          child: _buildImage(colorScheme, cache),
+          child: _buildImage(colorScheme, localCoverPath),
         ),
       ),
     );
   }
 
-  Widget _buildImage(ColorScheme colorScheme, FileExistsCache cache) {
+  Widget _buildImage(ColorScheme colorScheme, String? localCoverPath) {
     final placeholder = _buildPlaceholder(colorScheme);
 
-    // 使用 FileExistsCache 获取本地封面路径（避免同步 IO）
-    // 高清模式使用 480px 分辨率（YouTube maxresdefault / Bilibili 640w）
     return ImageLoadingService.loadImage(
-      localPath: track?.getLocalCoverPath(cache),
+      localPath: localCoverPath,
       networkUrl: networkUrl ?? track?.thumbnailUrl,
       placeholder: placeholder,
       fit: BoxFit.cover,
