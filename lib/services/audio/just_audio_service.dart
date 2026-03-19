@@ -19,7 +19,7 @@ class JustAudioService extends FmpAudioService with Logging {
   // 完成事件控制器
   final _completedController = StreamController<void>.broadcast();
   
-  // 错误事件控制器（just_audio 没有错误流，保持空流以兼容接口）
+  // 错误事件控制器
   final _errorController = StreamController<String>.broadcast();
 
   // 流订阅列表
@@ -246,6 +246,24 @@ class JustAudioService extends FmpAudioService with Logging {
         _speedController.add(rate);
       }),
     );
+
+    // 监听播放错误（通过 playbackEventStream 捕获异常）
+    _subscriptions.add(
+      _player.playbackEventStream.handleError((Object error) {
+        if (error is ja.PlayerException) {
+          final msg = 'PlayerException: code=${error.code}, message=${error.message}';
+          logError(msg);
+          _errorController.add(msg);
+        } else if (error is ja.PlayerInterruptedException) {
+          logDebug('Playback interrupted: ${error.message}');
+          // 中断不视为错误，不转发
+        } else {
+          final msg = 'Playback error: $error';
+          logError(msg);
+          _errorController.add(msg);
+        }
+      }).listen((_) {}),
+    );
   }
 
   @override
@@ -287,7 +305,16 @@ class JustAudioService extends FmpAudioService with Logging {
     await _player.stop();
     // 释放音频焦点
     await _session.setActive(false);
+    // 重置状态，与 MediaKitAudioService 保持一致
     _hasCompletionFired = false;
+    _durationController.add(null);
+    _positionController.add(Duration.zero);
+    _processingStateController.add(FmpAudioProcessingState.idle);
+    _playingController.add(false);
+    _playerStateController.add(const FmpPlayerState(
+      playing: false,
+      processingState: FmpAudioProcessingState.idle,
+    ));
   }
 
   @override
@@ -329,8 +356,18 @@ class JustAudioService extends FmpAudioService with Logging {
     if (currentDuration != null && currentDuration.inSeconds >= 5) {
       final targetPosition = currentDuration - const Duration(seconds: 1);
       logInfo('seekToLive: seeking to $targetPosition (duration: $currentDuration)');
+      final positionBefore = _player.position;
       await _player.seek(targetPosition);
-      return true;
+      // 等待 seek 生效后验证
+      await Future.delayed(const Duration(milliseconds: 300));
+      final positionAfter = _player.position;
+      final seekWorked = (positionAfter - positionBefore).abs() > const Duration(seconds: 1);
+      if (!seekWorked) {
+        logInfo('seekToLive: seek had no effect (before: $positionBefore, after: $positionAfter)');
+        // 继续尝试策略 2
+      } else {
+        return true;
+      }
     }
 
     // 策略 2：用 bufferedPosition（直播流通常 duration 为 null，但 bufferedPosition 可用）
@@ -338,7 +375,15 @@ class JustAudioService extends FmpAudioService with Logging {
     if (buffered.inSeconds >= 5) {
       final targetPosition = buffered - const Duration(seconds: 1);
       logInfo('seekToLive: seeking to buffered edge $targetPosition (buffered: $buffered)');
+      final positionBefore = _player.position;
       await _player.seek(targetPosition);
+      await Future.delayed(const Duration(milliseconds: 300));
+      final positionAfter = _player.position;
+      final seekWorked = (positionAfter - positionBefore).abs() > const Duration(seconds: 1);
+      if (!seekWorked) {
+        logInfo('seekToLive: buffered seek had no effect (before: $positionBefore, after: $positionAfter)');
+        return false;
+      }
       return true;
     }
 

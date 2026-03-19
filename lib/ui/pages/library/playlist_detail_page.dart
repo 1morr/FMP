@@ -445,7 +445,6 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         onSelected: (value) => _handleSelectionMenuAction(value, selectedTracks),
         itemBuilder: (context) => _buildSelectionMenuItems(availableActions),
       ),
-      const SizedBox(width: 8),
     ];
   }
 
