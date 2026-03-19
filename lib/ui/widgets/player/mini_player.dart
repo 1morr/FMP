@@ -99,12 +99,14 @@ class _MiniPlayerContentState extends ConsumerState<_MiniPlayerContent> {
                 ],
               ),
             ),
-            // 可交互的进度条（定位在顶部）
+            // 可交互的进度条（定位在顶部，RepaintBoundary 隔离高频重绘）
             Positioned(
               top: 0,
               left: 0,
               right: 0,
-              child: _MiniPlayerProgressBar(isParentHovering: _isHovering),
+              child: RepaintBoundary(
+                child: _MiniPlayerProgressBar(isParentHovering: _isHovering),
+              ),
             ),
           ],
         ),
