@@ -1148,7 +1148,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     }
 
     // 如果播放超过3秒，重新开始当前歌曲
-    if (_audioService.position.inSeconds > 3) {
+    if (_audioService.position.inSeconds > AppConstants.previousTrackThresholdSeconds) {
       await _audioService.seekTo(Duration.zero);
     } else {
       final prevIdx = _queueManager.moveToPrevious();
@@ -1615,10 +1615,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     state = state.copyWith(isLoadingMoreMix: true);
     logInfo('Loading more Mix tracks...');
 
-    const minNewTracksRequired = 10;
-    const maxAttempts = 10;
-    const sameVideoRetries = 3;
-    const retryDelay = Duration(seconds: 1);
+    final minNewTracksRequired = AppConstants.mixMinNewTracksRequired;
+    final maxAttempts = AppConstants.mixMaxLoadAttempts;
+    final sameVideoRetries = AppConstants.mixSameVideoRetries;
+    final retryDelay = AppConstants.mixRetryDelay;
 
     // 收集所有新歌曲，最後一次性添加
     final collectedTracks = <Track>[];

@@ -166,6 +166,7 @@ class _RadioPageState extends ConsumerState<RadioPage> {
         final isCurrentPlaying = radioState.currentStation?.id == station.id;
 
         return ContextMenuRegion(
+          key: ValueKey(station.id),
           menuBuilder: (_) => [
             PopupMenuItem(
               value: 'delete',
