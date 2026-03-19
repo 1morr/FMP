@@ -10,9 +10,22 @@ import 'package:media_kit/media_kit.dart';
 import 'package:smtc_windows/smtc_windows.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'package:isar/isar.dart';
+import 'package:path_provider/path_provider.dart';
+
 import 'app.dart';
 import 'core/constants/app_constants.dart';
 import 'core/logger.dart';
+import 'data/models/track.dart';
+import 'data/models/playlist.dart';
+import 'data/models/play_queue.dart';
+import 'data/models/settings.dart';
+import 'data/models/search_history.dart';
+import 'data/models/download_task.dart';
+import 'data/models/play_history.dart';
+import 'data/models/radio_station.dart';
+import 'data/models/lyrics_match.dart';
+import 'data/models/account.dart';
 import 'i18n/strings.g.dart';
 import 'services/audio/audio_handler.dart';
 import 'services/audio/windows_smtc_handler.dart';
@@ -28,6 +41,15 @@ late WindowsSmtcHandler windowsSmtcHandler;
 
 /// Whether launched in minimized mode (auto-start to tray)
 bool launchMinimized = false;
+
+/// 预读的主题模式（在 runApp 之前从 Isar 读取，避免启动闪屏）
+ThemeMode preloadedThemeMode = ThemeMode.system;
+
+/// 预读的主题色
+Color? preloadedPrimaryColor;
+
+/// 预读的字体
+String? preloadedFontFamily;
 
 void main(List<String> args) async {
   // 子窗口入口：如果是由 desktop_multi_window 创建的子窗口，走独立入口
@@ -60,6 +82,9 @@ void main(List<String> args) async {
     }
 
     launchMinimized = args.contains('--minimized');
+
+    // 预读主题设置，避免启动时主题闪烁（白→黑→白）
+    await _preloadThemeSettings();
 
   // 限制 Flutter 图片内存缓存大小，减少内存占用
   // 默认值：maximumSize = 1000, maximumSizeBytes = 100 MB
@@ -172,5 +197,43 @@ Future<void> _initializeWindowManager() async {
   // Windows: 设置关闭窗口时最小化到托盘而不是退出
   if (Platform.isWindows) {
     await windowManager.setPreventClose(true);
+  }
+}
+
+/// 预读主题设置（在 runApp 之前调用，避免启动时主题闪烁）
+///
+/// 提前打开 Isar 读取 Settings，databaseProvider 后续 open 同名数据库会复用此实例。
+Future<void> _preloadThemeSettings() async {
+  try {
+    final dir = await getApplicationDocumentsDirectory();
+    final isar = await Isar.open(
+      [
+        TrackSchema,
+        PlaylistSchema,
+        PlayQueueSchema,
+        SettingsSchema,
+        SearchHistorySchema,
+        DownloadTaskSchema,
+        PlayHistorySchema,
+        RadioStationSchema,
+        LyricsMatchSchema,
+        AccountSchema,
+      ],
+      directory: dir.path,
+      name: 'fmp_database',
+      maxSizeMiB: 64,
+      compactOnLaunch: const CompactCondition(
+        minFileSize: 8 * 1024 * 1024,
+        minRatio: 2.0,
+      ),
+    );
+    final settings = await isar.settings.get(0);
+    if (settings != null) {
+      preloadedThemeMode = settings.themeMode;
+      preloadedPrimaryColor = settings.primaryColorValue;
+      preloadedFontFamily = settings.fontFamily;
+    }
+  } catch (_) {
+    // 预读失败不影响启动，使用默认值
   }
 }

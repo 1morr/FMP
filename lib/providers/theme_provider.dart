@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/settings.dart';
 import '../data/repositories/settings_repository.dart';
+import '../main.dart' show preloadedThemeMode, preloadedPrimaryColor, preloadedFontFamily;
 import 'repository_providers.dart';
 
 /// 主题状态
@@ -40,7 +41,11 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
   final SettingsRepository _settingsRepository;
   Settings? _settings;
 
-  ThemeNotifier(this._settingsRepository) : super(const ThemeState()) {
+  ThemeNotifier(this._settingsRepository) : super(ThemeState(
+    themeMode: preloadedThemeMode,
+    primaryColor: preloadedPrimaryColor,
+    fontFamily: preloadedFontFamily,
+  )) {
     _loadSettings();
   }
 
