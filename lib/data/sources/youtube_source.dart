@@ -666,7 +666,7 @@ class YouTubeSource extends BaseSource with Logging {
   @override
   Future<Track> refreshAudioUrl(Track track, {Map<String, String>? authHeaders}) async {
     if (track.sourceType != SourceType.youtube) {
-      throw Exception('Invalid source type for YouTubeSource');
+      throw YouTubeApiException(code: 'invalid_source', message: 'Invalid source type for YouTubeSource');
     }
 
     final audioUrl = await getAudioUrl(track.sourceId, authHeaders: authHeaders);

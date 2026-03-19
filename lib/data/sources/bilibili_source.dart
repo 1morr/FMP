@@ -204,7 +204,7 @@ class BilibiliSource extends BaseSource with Logging {
       final cid = viewResponse.data['data']['cid'];
       if (cid == null) {
         logError('Failed to get cid for $bvid');
-        throw Exception('Failed to get cid for $bvid');
+        throw BilibiliApiException(numericCode: -404, message: 'Failed to get cid for $bvid');
       }
       logDebug('Got cid: $cid for bvid: $bvid');
 
@@ -238,7 +238,7 @@ class BilibiliSource extends BaseSource with Logging {
     }
 
     logError('No audio stream available for $bvid:$cid');
-    throw Exception('No audio stream available');
+    throw BilibiliApiException(numericCode: -1, message: 'No audio stream available');
   }
 
   /// 根据流类型获取对应的流
@@ -363,7 +363,7 @@ class BilibiliSource extends BaseSource with Logging {
   @override
   Future<Track> refreshAudioUrl(Track track, {Map<String, String>? authHeaders}) async {
     if (track.sourceType != SourceType.bilibili) {
-      throw Exception('Invalid source type for BilibiliSource');
+      throw BilibiliApiException(numericCode: -3, message: 'Invalid source type for BilibiliSource');
     }
 
     // 如果有cid，使用指定cid获取音频URL
@@ -446,7 +446,7 @@ class BilibiliSource extends BaseSource with Logging {
       // 解析收藏夹 ID
       final fid = parseFavoritesId(playlistUrl);
       if (fid == null) {
-        throw Exception('Invalid favorites URL: $playlistUrl');
+        throw BilibiliApiException(numericCode: -3, message: 'Invalid favorites URL: $playlistUrl');
       }
 
       final authOpts = authHeaders != null ? _withAuth(authHeaders) : null;

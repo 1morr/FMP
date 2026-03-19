@@ -1,3 +1,4 @@
+import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/lyrics_match.dart';
 import '../../data/models/track.dart';
@@ -190,7 +191,7 @@ class LyricsAutoMatchService with Logging {
       // 过滤符合时长条件的结果（±10秒）
       final matching = results.where((r) {
         if (r.duration == 0) return true; // 网易云有时不返回时长
-        return (r.duration - trackDurationSec).abs() <= 10;
+        return (r.duration - trackDurationSec).abs() <= AppConstants.lyricsDurationToleranceSec;
       }).toList();
 
       if (matching.isEmpty) return null;
@@ -230,7 +231,7 @@ class LyricsAutoMatchService with Logging {
       // 过滤符合时长条件的结果（±10秒）
       final matching = results.where((r) {
         if (r.duration == 0) return true;
-        return (r.duration - trackDurationSec).abs() <= 10;
+        return (r.duration - trackDurationSec).abs() <= AppConstants.lyricsDurationToleranceSec;
       }).toList();
 
       if (matching.isEmpty) return null;
@@ -270,7 +271,7 @@ class LyricsAutoMatchService with Logging {
       // 过滤符合时长条件的结果（±10秒）
       final matchingResults = results.where((result) {
         final diff = (result.duration - trackDurationSec).abs();
-        return diff <= 10;
+        return diff <= AppConstants.lyricsDurationToleranceSec;
       }).toList();
 
       if (matchingResults.isEmpty) return null;
@@ -281,6 +282,9 @@ class LyricsAutoMatchService with Logging {
           : _selectBestMatch(matchingResults, trackName, artistName, trackDurationSec);
 
       if (result == null) return null;
+
+      // 与 netease/qqmusic 一致，只返回有同步歌词的结果
+      if (!result.hasSyncedLyrics) return null;
 
       logDebug('Selected best lrclib match: "${result.trackName}" by "${result.artistName}" (score: ${_calculateScore(result, trackName, artistName, trackDurationSec).toStringAsFixed(2)})');
       return result;
@@ -316,7 +320,7 @@ class LyricsAutoMatchService with Logging {
 
     // 只有当最高分 >= 0.6 时才认为是可信的匹配
     final best = scored.first;
-    if (best.score >= 0.6) {
+    if (best.score >= AppConstants.lyricsMatchScoreThreshold) {
       return best.result;
     }
 
