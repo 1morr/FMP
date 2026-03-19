@@ -2554,12 +2554,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
     _isHandlingCompletion = true;
 
-    logDebug(
-        'Track completed, loopMode: ${_queueManager.loopMode}, shuffle: ${_queueManager.isShuffleEnabled}, isPlayingOutOfQueue: $_isPlayingOutOfQueue');
-
     // 使用 Future.microtask 来避免在流监听器中直接操作
     Future.microtask(() async {
       try {
+        logDebug(
+            'Track completed, loopMode: ${_queueManager.loopMode}, shuffle: ${_queueManager.isShuffleEnabled}, isPlayingOutOfQueue: $_isPlayingOutOfQueue');
         // 单曲循环优先：即使在临时播放模式下也继续循环播放
         if (_queueManager.loopMode == LoopMode.one) {
           // 单曲循环：重新播放当前歌曲

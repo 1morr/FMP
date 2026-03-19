@@ -188,6 +188,12 @@ class YouTubeTrendingNotifier extends StateNotifier<YouTubeTrendingState> {
 
   YouTubeTrendingNotifier(this._source) : super(const YouTubeTrendingState());
 
+  @override
+  void dispose() {
+    _source.dispose();
+    super.dispose();
+  }
+
   /// 加載指定分類的熱門視頻
   Future<void> loadCategory(YouTubeCategory category) async {
     // 如果已經加載過，直接切換
@@ -231,7 +237,7 @@ final homeYouTubeMusicRankingProvider = StreamProvider<List<Track>>((ref) async*
     yield service.youtubeTracks.take(AppConstants.rankingPreviewCount).toList();
   }
 
-  // 監聯後續更新
+  // 監聽後續更新
   await for (final _ in service.stateChanges) {
     yield service.youtubeTracks.take(AppConstants.rankingPreviewCount).toList();
   }

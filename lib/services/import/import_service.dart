@@ -322,8 +322,8 @@ class ImportService with Logging {
   }) async {
     _updateProgress(status: ImportStatus.parsing, currentItem: t.importSource.parsingMixPlaylist);
 
+    final youtubeSource = YouTubeSource();
     try {
-      final youtubeSource = YouTubeSource();
       
       // 獲取 Mix 播放列表基本信息
       final mixInfo = await youtubeSource.getMixPlaylistInfo(url);
@@ -381,6 +381,8 @@ class ImportService with Logging {
     } catch (e) {
       _updateProgress(status: ImportStatus.failed, error: e.toString());
       rethrow;
+    } finally {
+      youtubeSource.dispose();
     }
   }
 

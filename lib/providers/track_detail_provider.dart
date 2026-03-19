@@ -17,7 +17,9 @@ final bilibiliSourceProvider = Provider<BilibiliSource>((ref) {
 
 /// YouTube 数据源 Provider
 final youtubeSourceProvider = Provider<YouTubeSource>((ref) {
-  return YouTubeSource();
+  final source = YouTubeSource();
+  ref.onDispose(() => source.dispose());
+  return source;
 });
 
 /// 当前播放歌曲详情状态
