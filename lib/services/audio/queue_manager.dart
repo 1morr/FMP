@@ -233,8 +233,10 @@ class QueueManager with Logging {
       _startPositionSaver();
 
       // 清理孤立的 Track 记录（不属于任何歌单且不在队列中的 tracks）
-      // 使用 unawaited 避免阻塞初始化
-      unawaited(_cleanupOrphanTracks());
+      // 延迟 10 秒执行，避免与启动初始化竞争 I/O 和 CPU
+      Future.delayed(const Duration(seconds: 10), () {
+        _cleanupOrphanTracks();
+      });
 
       logInfo('QueueManager initialized with ${_tracks.length} tracks');
     } catch (e, stack) {

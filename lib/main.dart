@@ -63,15 +63,16 @@ void main(List<String> args) async {
 
   // 限制 Flutter 图片内存缓存大小，减少内存占用
   // 默认值：maximumSize = 1000, maximumSizeBytes = 100 MB
-  // 配合 ThumbnailUrlUtils 缩略图优化，缩略图已足够覆盖可见区域
+  // 配合 ThumbnailUrlUtils 缩略图优化（200×200 ≈ 160KB decoded），适当增大缓存
+  // 避免首页 50+ 张缩略图导致缓存抖动（频繁驱逐→重新解码→CPU 浪费）
   if (Platform.isAndroid || Platform.isIOS) {
-    // 移动端：30 张 / 10 MB（屏幕小，同时可见的图片少，配合缩略图优化足够）
-    PaintingBinding.instance.imageCache.maximumSize = 30;
-    PaintingBinding.instance.imageCache.maximumSizeBytes = 10 * 1024 * 1024;
-  } else {
-    // 桌面端：100 张 / 30 MB
+    // 移动端：100 张 / 50 MB（首页+探索页同时可见 ~50 张缩略图）
     PaintingBinding.instance.imageCache.maximumSize = 100;
-    PaintingBinding.instance.imageCache.maximumSizeBytes = 30 * 1024 * 1024;
+    PaintingBinding.instance.imageCache.maximumSizeBytes = 50 * 1024 * 1024;
+  } else {
+    // 桌面端：200 张 / 80 MB（三栏布局同时可见更多图片）
+    PaintingBinding.instance.imageCache.maximumSize = 200;
+    PaintingBinding.instance.imageCache.maximumSizeBytes = 80 * 1024 * 1024;
   }
 
   // Android/iOS 后台播放初始化（使用 audio_service 替代 just_audio_background）
@@ -115,13 +116,16 @@ void main(List<String> args) async {
     windowsSmtcHandler = WindowsSmtcHandler();
   }
 
-  // 初始化首頁排行榜緩存服務（後台加載，不阻塞啟動）
-  RankingCacheService.instance = RankingCacheService();
-  RankingCacheService.instance.initialize(); // 不等待，後台執行
+  // 延迟初始化后台服务，避免阻塞首帧渲染
+  // 首頁排行榜和電台刷新在第一帧渲染后启动，用户感知不到延迟
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    // 初始化首頁排行榜緩存服務（後台加載）
+    RankingCacheService.instance = RankingCacheService();
+    RankingCacheService.instance.initialize();
 
-  // 初始化電台刷新服務（後台加載，不阻塞啟動）
-  // 注意：Repository 由 RadioController 設置，定時刷新在設置後自動啟動
-  RadioRefreshService.instance = RadioRefreshService();
+    // 初始化電台刷新服務（後台加載）
+    RadioRefreshService.instance = RadioRefreshService();
+  });
 
   // 初始化 i18n（先使用设备语言，后续由 LocaleProvider 加载用户设置覆盖）
   LocaleSettings.useDeviceLocale();

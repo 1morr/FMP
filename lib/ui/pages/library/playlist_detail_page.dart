@@ -233,7 +233,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                       );
                     }
                     final group = groupedTracks[index];
-                    return _buildGroupItem(context, group);
+                    return RepaintBoundary(
+                      child: _buildGroupItem(context, group),
+                    );
                   },
                   childCount: groupedTracks.length + (state.hasMore ? 1 : 0),
                 ),

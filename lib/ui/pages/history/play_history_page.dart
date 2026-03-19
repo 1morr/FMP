@@ -404,11 +404,15 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
         return ListView.builder(
           controller: _scrollController,
           itemCount: sortedDates.length,
+          // 预加载视口外 500px 的项目，减少快速滚动时的空白
+          cacheExtent: 500,
           itemBuilder: (context, index) {
             final date = sortedDates[index];
             final histories = grouped[date]!;
-            return _buildDateGroup(
-                context, date, histories, pageState, notifier);
+            return RepaintBoundary(
+              child: _buildDateGroup(
+                  context, date, histories, pageState, notifier),
+            );
           },
         );
       },

@@ -153,6 +153,8 @@ class _RadioPageState extends ConsumerState<RadioPage> {
   ) {
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+      // 预加载视口外 500px 的卡片，减少快速滚动时封面图空白
+      cacheExtent: 500,
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 160,
         mainAxisSpacing: 12,
