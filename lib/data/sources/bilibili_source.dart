@@ -1064,6 +1064,10 @@ class BilibiliSource extends BaseSource with Logging {
       return null;
     }
   }
+
+  void dispose() {
+    _dio.close();
+  }
 }
 
 /// Bilibili API 错误
