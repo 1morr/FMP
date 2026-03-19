@@ -151,6 +151,8 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
     // 使用 maxCrossAxisExtent 实现平滑缩放，与音乐库页面一致
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+      // 预加载视口外 500px 的卡片，减少快速滚动时封面图空白
+      cacheExtent: 500,
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 200,
         mainAxisSpacing: 16,

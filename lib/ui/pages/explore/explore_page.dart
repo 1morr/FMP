@@ -204,20 +204,24 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       onRefresh: onRefresh,
       child: ListView.builder(
         itemCount: tracks.length,
+        // 预加载视口外 500px 的项目，减少快速滚动时的空白
+        cacheExtent: 500,
         itemBuilder: (context, index) {
           final track = tracks[index];
-          return _ExploreTrackTile(
-            key: ValueKey('${track.sourceId}_${track.pageNum}'),
-            track: track,
-            rank: index + 1,
-            isSelectionMode: selectionState.isSelectionMode,
-            isSelected: selectionState.isSelected(track),
-            onTap: selectionState.isSelectionMode
-                ? () => selectionNotifier.toggleSelection(track)
-                : null,
-            onLongPress: selectionState.isSelectionMode
-                ? null
-                : () => selectionNotifier.enterSelectionMode(track),
+          return RepaintBoundary(
+            child: _ExploreTrackTile(
+              key: ValueKey('${track.sourceId}_${track.pageNum}'),
+              track: track,
+              rank: index + 1,
+              isSelectionMode: selectionState.isSelectionMode,
+              isSelected: selectionState.isSelected(track),
+              onTap: selectionState.isSelectionMode
+                  ? () => selectionNotifier.toggleSelection(track)
+                  : null,
+              onLongPress: selectionState.isSelectionMode
+                  ? null
+                  : () => selectionNotifier.enterSelectionMode(track),
+            ),
           );
         },
       ),
