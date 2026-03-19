@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/constants/app_constants.dart';
+import 'main.dart' show preloadedThemeMode, preloadedPrimaryColor, preloadedFontFamily;
 import 'providers/database_provider.dart';
 import 'providers/account_provider.dart';
 import 'providers/playback_settings_provider.dart';
@@ -31,8 +32,9 @@ class FMPApp extends ConsumerWidget {
     return dbAsync.when(
       loading: () => MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme(),
-        darkTheme: AppTheme.darkTheme(),
+        theme: AppTheme.lightTheme(primaryColor: preloadedPrimaryColor, fontFamily: preloadedFontFamily),
+        darkTheme: AppTheme.darkTheme(primaryColor: preloadedPrimaryColor, fontFamily: preloadedFontFamily),
+        themeMode: preloadedThemeMode,
         locale: TranslationProvider.of(context).flutterLocale,
         supportedLocales: AppLocaleUtils.supportedLocales,
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
@@ -51,8 +53,9 @@ class FMPApp extends ConsumerWidget {
       ),
       error: (error, stack) => MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme(),
-        darkTheme: AppTheme.darkTheme(),
+        theme: AppTheme.lightTheme(primaryColor: preloadedPrimaryColor, fontFamily: preloadedFontFamily),
+        darkTheme: AppTheme.darkTheme(primaryColor: preloadedPrimaryColor, fontFamily: preloadedFontFamily),
+        themeMode: preloadedThemeMode,
         locale: TranslationProvider.of(context).flutterLocale,
         supportedLocales: AppLocaleUtils.supportedLocales,
         localizationsDelegates: GlobalMaterialLocalizations.delegates,

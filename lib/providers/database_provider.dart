@@ -119,33 +119,33 @@ Future<void> _migrateDatabase(Isar isar) async {
 }
 
 final databaseProvider = FutureProvider<Isar>((ref) async {
-  final dir = await getApplicationDocumentsDirectory();
+  // 尝试复用 _preloadThemeSettings() 已打开的实例
+  var isar = Isar.getInstance('fmp_database');
 
-  final isar = await Isar.open(
-    [
-      TrackSchema,
-      PlaylistSchema,
-      PlayQueueSchema,
-      SettingsSchema,
-      SearchHistorySchema,
-      DownloadTaskSchema,
-      PlayHistorySchema,
-      RadioStationSchema,
-      LyricsMatchSchema,
-      AccountSchema,
-    ],
-    directory: dir.path,
-    name: 'fmp_database',
-    // 降低 LMDB mmap 大小：默认 1024 MB，音乐播放器不需要这么大
-    // LMDB 会 mmap 整个 maxSizeMiB 到虚拟地址空间，已访问页面计入 RSS
-    // 64 MB 足够存储数万首歌曲的元数据
-    maxSizeMiB: 64,
-    // 启动时自动压缩数据库，回收碎片空间
-    compactOnLaunch: const CompactCondition(
-      minFileSize: 8 * 1024 * 1024,  // 文件 > 8MB 时才考虑压缩
-      minRatio: 2.0,                  // 可回收空间 >= 50% 时触发
-    ),
-  );
+  if (isar == null) {
+    final dir = await getApplicationDocumentsDirectory();
+    isar = await Isar.open(
+      [
+        TrackSchema,
+        PlaylistSchema,
+        PlayQueueSchema,
+        SettingsSchema,
+        SearchHistorySchema,
+        DownloadTaskSchema,
+        PlayHistorySchema,
+        RadioStationSchema,
+        LyricsMatchSchema,
+        AccountSchema,
+      ],
+      directory: dir.path,
+      name: 'fmp_database',
+      maxSizeMiB: 64,
+      compactOnLaunch: const CompactCondition(
+        minFileSize: 8 * 1024 * 1024,
+        minRatio: 2.0,
+      ),
+    );
+  }
 
   // 数据迁移和初始化（包含 PlayQueue 创建）
   await _migrateDatabase(isar);
