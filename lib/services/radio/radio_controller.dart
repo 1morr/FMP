@@ -826,8 +826,8 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       );
     } catch (e) {
       logWarning('Reconnect attempt ${attempts + 1} failed: $e');
-      // 繼續下一次重連嘗試
-      _handleStreamEnd();
+      // 繼續下一次重連嘗試（await 防止並發重連）
+      return _handleStreamEnd();
     }
   }
 

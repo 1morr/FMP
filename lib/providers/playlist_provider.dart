@@ -327,6 +327,7 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
 
   /// 從 InnerTube API 加載 Mix 播放列表的 tracks
   Future<void> _loadMixTracks(Playlist playlist) async {
+    YouTubeSource? youtubeSource;
     try {
       if (playlist.mixPlaylistId == null || playlist.mixSeedVideoId == null) {
         if (!mounted) return;
@@ -337,7 +338,7 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
         return;
       }
 
-      final youtubeSource = YouTubeSource();
+      youtubeSource = YouTubeSource();
       final result = await youtubeSource.fetchMixTracks(
         playlistId: playlist.mixPlaylistId!,
         currentVideoId: playlist.mixSeedVideoId!,
@@ -354,6 +355,8 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
         isLoading: false,
         error: '${t.importSource.mixLoadFailed}: $e',
       );
+    } finally {
+      youtubeSource?.dispose();
     }
   }
 

@@ -95,6 +95,9 @@ class RankingCacheService {
     if (_networkMonitoringSetup) return;
     _networkMonitoringSetup = true;
 
+    // 取消舊的訂閱（防止 provider 重建時洩漏）
+    _networkRecoveredSubscription?.cancel();
+
     _networkRecoveredSubscription = connectivityNotifier.onNetworkRecovered.listen((_) {
       debugPrint('[RankingCache] 網絡恢復，重新獲取排行榜緩存');
       _refreshAll();

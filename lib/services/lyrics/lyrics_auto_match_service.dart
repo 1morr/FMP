@@ -38,12 +38,23 @@ class LyricsAutoMatchService with Logging {
         _cache = cache,
         _parser = parser;
 
+  /// 正在匹配中的 track key 集合，防止同一首歌并发匹配
+  final Set<String> _matchingKeys = {};
+
   /// 尝试自动匹配歌词
   ///
   /// [enabledSources] 按优先级排序的启用歌词源列表（如 ['netease', 'qqmusic', 'lrclib']）。
   /// 如果为 null，使用默认顺序。
   /// 返回 true 表示成功匹配，false 表示未匹配（已有匹配、无结果、多个结果等）
   Future<bool> tryAutoMatch(Track track, {List<String>? enabledSources}) async {
+    // 防止同一首歌并发匹配
+    final key = track.uniqueKey;
+    if (_matchingKeys.contains(key)) {
+      logDebug('Already matching lyrics for: $key');
+      return false;
+    }
+    _matchingKeys.add(key);
+
     try {
       // 1. 检查是否已有匹配
       final existingMatch = await _repo.getByTrackKey(track.uniqueKey);
@@ -101,6 +112,8 @@ class LyricsAutoMatchService with Logging {
     } catch (e) {
       logError('Auto-match failed for ${track.uniqueKey}: $e');
       return false;
+    } finally {
+      _matchingKeys.remove(key);
     }
   }
 

@@ -432,14 +432,17 @@ class DownloadService with Logging {
       isolateInfo.isolate.kill();
       _activeDownloads--;
     }
-    
+
     // 兼容旧的 CancelToken（如果有的话）
     final cancelToken = _activeCancelTokens.remove(taskId);
     if (cancelToken != null) {
       cancelToken.cancel('User paused');
       if (isolateInfo == null) _activeDownloads--;
     }
-    
+
+    // 防止计数器变为负数
+    if (_activeDownloads < 0) _activeDownloads = 0;
+
     await _downloadRepository.updateTaskStatus(taskId, DownloadStatus.paused);
   }
 
@@ -453,7 +456,7 @@ class DownloadService with Logging {
   /// 取消/删除下载任务
   Future<void> cancelTask(int taskId) async {
     logDebug('Canceling download task: $taskId');
-    
+
     // 取消正在进行的 Isolate 下载
     final isolateInfo = _activeDownloadIsolates.remove(taskId);
     if (isolateInfo != null) {
@@ -461,14 +464,17 @@ class DownloadService with Logging {
       isolateInfo.isolate.kill();
       _activeDownloads--;
     }
-    
+
     // 兼容旧的 CancelToken
     final cancelToken = _activeCancelTokens.remove(taskId);
     if (cancelToken != null) {
       cancelToken.cancel('User cancelled');
       if (isolateInfo == null) _activeDownloads--;
     }
-    
+
+    // 防止计数器变为负数
+    if (_activeDownloads < 0) _activeDownloads = 0;
+
     await _downloadRepository.deleteTask(taskId);
   }
 
