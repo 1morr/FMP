@@ -60,6 +60,15 @@ abstract class SourceApiException implements Exception {
         if (statusCode == 429 || statusCode == 412) {
           return (code: 'rate_limited', message: t.error.rateLimited);
         }
+        if (statusCode == 403) {
+          return (code: 'forbidden', message: 'Access forbidden (HTTP 403)');
+        }
+        if (statusCode == 404) {
+          return (code: 'not_found', message: 'Resource not found (HTTP 404)');
+        }
+        if (statusCode == 503) {
+          return (code: 'service_unavailable', message: 'Service temporarily unavailable (HTTP 503)');
+        }
         return (
           code: 'api_error',
           message: 'Server error: $statusCode',

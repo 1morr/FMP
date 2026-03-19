@@ -105,10 +105,14 @@ class RankingCacheService {
 
   /// 刷新所有數據
   Future<void> _refreshAll() async {
-    // 並行獲取兩個數據源，使用 ignoreErrors 確保失敗不會中斷
+    // 並行獲取兩個數據源，使用 catchError 確保失敗不會中斷
     await Future.wait([
-      refreshBilibili().catchError((_) => {}),
-      refreshYouTube().catchError((_) => {}),
+      refreshBilibili().catchError((e) {
+        debugPrint('[RankingCache] Bilibili 刷新異常（未預期）: $e');
+      }),
+      refreshYouTube().catchError((e) {
+        debugPrint('[RankingCache] YouTube 刷新異常（未預期）: $e');
+      }),
     ]);
 
     // 首次加載完成（無論成功或失敗都結束 loading）

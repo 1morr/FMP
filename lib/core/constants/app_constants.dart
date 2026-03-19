@@ -106,6 +106,14 @@ class AppConstants {
 
   /// 评论预览数量
   static const int commentsPreviewCount = 3;
+
+  // ==================== 歌词匹配 ====================
+
+  /// 歌词自动匹配时长容差（秒）
+  static const int lyricsDurationToleranceSec = 10;
+
+  /// 歌词自动匹配最低得分阈值（0.0 - 1.0）
+  static const double lyricsMatchScoreThreshold = 0.6;
 }
 
 /// 网络重试配置（播放失败后的渐进式重试）
