@@ -56,14 +56,7 @@ class LyricsAutoMatchService with Logging {
       if (track.originalSongId != null && track.originalSource != null) {
         final result = await _tryDirectFetch(track.originalSongId!, track.originalSource!);
         if (result != null) {
-          await _cache.put(track.uniqueKey, result);
-          final match = LyricsMatch()
-            ..trackUniqueKey = track.uniqueKey
-            ..lyricsSource = track.originalSource!
-            ..externalId = track.originalSongId!
-            ..offsetMs = 0
-            ..matchedAt = DateTime.now();
-          await _repo.save(match);
+          await _saveMatch(track, result, track.originalSource!, track.originalSongId!);
           logInfo('Auto-matched lyrics via direct ID: ${track.title} → ${track.originalSource}:${track.originalSongId}');
           return true;
         }
@@ -87,55 +80,19 @@ class LyricsAutoMatchService with Logging {
       final trackDurationSec = (track.durationMs ?? 0) ~/ 1000;
 
       for (final source in sources) {
+        LyricsResult? result;
         switch (source) {
           case 'netease':
-            final neteaseMatch = await _tryNeteaseMatch(
-              trackName, artistName, trackDurationSec,
-            );
-            if (neteaseMatch != null) {
-              await _cache.put(track.uniqueKey, neteaseMatch);
-              final match = LyricsMatch()
-                ..trackUniqueKey = track.uniqueKey
-                ..lyricsSource = 'netease'
-                ..externalId = neteaseMatch.id
-                ..offsetMs = 0
-                ..matchedAt = DateTime.now();
-              await _repo.save(match);
-              logInfo('Auto-matched lyrics: ${track.title} → netease:${neteaseMatch.id}');
-              return true;
-            }
+            result = await _tryNeteaseMatch(trackName, artistName, trackDurationSec);
           case 'qqmusic':
-            final qqmusicMatch = await _tryQQMusicMatch(
-              trackName, artistName, trackDurationSec,
-            );
-            if (qqmusicMatch != null) {
-              await _cache.put(track.uniqueKey, qqmusicMatch);
-              final match = LyricsMatch()
-                ..trackUniqueKey = track.uniqueKey
-                ..lyricsSource = 'qqmusic'
-                ..externalId = qqmusicMatch.id
-                ..offsetMs = 0
-                ..matchedAt = DateTime.now();
-              await _repo.save(match);
-              logInfo('Auto-matched lyrics: ${track.title} → qqmusic:${qqmusicMatch.id}');
-              return true;
-            }
+            result = await _tryQQMusicMatch(trackName, artistName, trackDurationSec);
           case 'lrclib':
-            final result = await _tryLrclibMatch(
-              trackName, artistName, trackDurationSec,
-            );
-            if (result != null) {
-              await _cache.put(track.uniqueKey, result);
-              final match = LyricsMatch()
-                ..trackUniqueKey = track.uniqueKey
-                ..lyricsSource = 'lrclib'
-                ..externalId = result.id
-                ..offsetMs = 0
-                ..matchedAt = DateTime.now();
-              await _repo.save(match);
-              logInfo('Auto-matched lyrics: ${track.title} → lrclib:${result.id}');
-              return true;
-            }
+            result = await _tryLrclibMatch(trackName, artistName, trackDurationSec);
+        }
+        if (result != null) {
+          await _saveMatch(track, result, source, result.id);
+          logInfo('Auto-matched lyrics: ${track.title} → $source:${result.id}');
+          return true;
         }
       }
 
@@ -145,6 +102,18 @@ class LyricsAutoMatchService with Logging {
       logError('Auto-match failed for ${track.uniqueKey}: $e');
       return false;
     }
+  }
+
+  /// 保存匹配结果到缓存和数据库
+  Future<void> _saveMatch(Track track, LyricsResult result, String source, String externalId) async {
+    await _cache.put(track.uniqueKey, result);
+    final match = LyricsMatch()
+      ..trackUniqueKey = track.uniqueKey
+      ..lyricsSource = source
+      ..externalId = externalId
+      ..offsetMs = 0
+      ..matchedAt = DateTime.now();
+    await _repo.save(match);
   }
 
   /// 通过原平台 ID 直接获取歌词（不需要搜索）

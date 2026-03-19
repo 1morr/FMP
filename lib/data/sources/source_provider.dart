@@ -134,13 +134,26 @@ class SourceManager {
 
     return await source.search(query, page: page, pageSize: pageSize);
   }
+  /// 释放所有音源资源（关闭 HTTP 客户端等）
+  void dispose() {
+    for (final source in _sources) {
+      if (source is BilibiliSource) {
+        source.dispose();
+      } else if (source is YouTubeSource) {
+        source.dispose();
+      }
+    }
+    _sources.clear();
+  }
 }
 
 // ========== Providers ==========
 
 /// SourceManager Provider
 final sourceManagerProvider = Provider<SourceManager>((ref) {
-  return SourceManager();
+  final manager = SourceManager();
+  ref.onDispose(() => manager.dispose());
+  return manager;
 });
 
 /// Bilibili 音源 Provider

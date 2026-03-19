@@ -405,8 +405,6 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   // 基于位置检测的备选切歌定时器（解决后台播放 completed 事件丢失问题）
   Timer? _positionCheckTimer;
-  static const Duration _positionCheckInterval = Duration(seconds: 1);
-  static const Duration _positionThreshold = Duration(milliseconds: 500);
 
   // 当前正在播放的歌曲（独立于队列，确保 UI 显示与实际播放一致）
   Track? _playingTrack;
@@ -1413,7 +1411,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   void _startPositionCheckTimer() {
     _stopPositionCheckTimer();
     _positionCheckTimer = Timer.periodic(
-      _positionCheckInterval,
+      AppConstants.positionCheckInterval,
       (_) => _checkPositionForAutoNext(),
     );
     logDebug('Position check timer started');
@@ -1433,7 +1431,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     if (duration == null || duration.inMilliseconds <= 0) return;
 
     final remaining = duration - position;
-    if (remaining <= _positionThreshold) {
+    if (remaining <= AppConstants.positionCheckThreshold) {
       logDebug(
           'Position check triggered auto-next: position=$position, duration=$duration');
       _onTrackCompleted(null);

@@ -63,6 +63,12 @@ class AppConstants {
   /// seek 后验证延迟 (等待 seek 生效后检查位置)
   static const Duration seekVerificationDelay = Duration(milliseconds: 300);
 
+  /// 基于位置检测的备选切歌检查间隔
+  static const Duration positionCheckInterval = Duration(seconds: 1);
+
+  /// 基于位置检测的切歌阈值（距离结尾多近时触发）
+  static const Duration positionCheckThreshold = Duration(milliseconds: 500);
+
   // ==================== Mix 播放列表 ====================
 
   /// Mix 模式每次加载的最少新歌曲数

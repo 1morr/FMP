@@ -209,9 +209,9 @@ class DownloadService with Logging {
   }
   
   /// 记录进度更新（仅更新内存，不触发任何 IO 或跨线程通信）
-  /// 由 Dio 的 onReceiveProgress 回调调用（在 IO 线程中）
+  /// 由 Dio 的 onReceiveProgress 回调调用（在主 Isolate 事件循环中）
   void _recordProgressUpdate(int taskId, int trackId, double progress, int downloadedBytes, int totalBytes) {
-    // 只更新内存中的 Map，完全线程安全（Dart 的 Map 操作是原子的）
+    // 只更新内存中的 Map，线程安全（Dart 单 Isolate 内所有代码在同一事件循环中执行，无并发竞争）
     _pendingProgressUpdates[taskId] = (trackId, progress, downloadedBytes, totalBytes);
   }
 
