@@ -132,21 +132,36 @@ class _AccountRadioImportSheetState
       _importTotal = selected.length;
     });
 
-    int successCount = 0;
+    // Pre-compute sort orders to avoid sequential DB queries
+    final baseSortOrder = await radioRepo.getNextSortOrder();
 
-    for (final item in selected) {
-      if (!mounted) break;
-      setState(() => _importCurrent++);
+    // Parallel import with progress tracking
+    int completed = 0;
+    final futures = selected.asMap().entries.map((entry) async {
+      final index = entry.key;
+      final item = entry.value;
 
       try {
         final station = await radioSource.createStationFromUrl(item.link);
-        station.sortOrder = await radioRepo.getNextSortOrder();
+        station.sortOrder = baseSortOrder + index;
         await radioRepo.save(station);
-        successCount++;
+
+        // Update progress (debounced setState - every 3 items or on completion)
+        if (mounted) {
+          completed++;
+          if (completed % 3 == 0 || completed == selected.length) {
+            setState(() => _importCurrent = completed);
+          }
+        }
+        return true;
       } catch (e) {
-        // 單個失敗不中斷，繼續導入其他
+        // Single failure doesn't interrupt others
+        return false;
       }
-    }
+    });
+
+    final results = await Future.wait(futures);
+    final successCount = results.where((r) => r).length;
 
     if (!mounted) return;
     Navigator.pop(context);
