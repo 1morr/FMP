@@ -68,6 +68,7 @@ class BilibiliAccountService extends AccountService with Logging {
   static const String _storageKey = 'account_bilibili_credentials';
   static const String _apiBase = 'https://api.bilibili.com';
   static const String _passportBase = 'https://passport.bilibili.com';
+  static const String _liveApiBase = 'https://api.live.bilibili.com';
 
   BilibiliAccountService({required Isar isar})
       : _isar = isar,
@@ -464,7 +465,7 @@ class BilibiliAccountService extends AccountService with Logging {
     if (mid == null) throw Exception('User mid not available');
 
     final response = await _dio.get(
-      'https://api.live.bilibili.com/xlive/web-ucenter/user/MedalWall',
+      '$_liveApiBase/xlive/web-ucenter/user/MedalWall',
       queryParameters: {'target_id': mid},
       options: Options(headers: {'Cookie': cookieString}),
     );
@@ -487,7 +488,7 @@ class BilibiliAccountService extends AccountService with Logging {
       try {
         // 通過 UID 獲取直播間號
         final roomResponse = await _dio.get(
-          'https://api.live.bilibili.com/room/v1/Room/getRoomInfoOld',
+          '$_liveApiBase/room/v1/Room/getRoomInfoOld',
           queryParameters: {'mid': uid},
         );
 
