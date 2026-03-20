@@ -21,6 +21,27 @@ class QrCodeData {
   QrCodeData({required this.url, required this.qrcodeKey});
 }
 
+/// 勳章牆直播間項目
+class MedalWallItem {
+  final String roomId;
+  final String name;
+  final String? avatarUrl;
+  final int uid;
+  final int liveStatus; // 0: 未直播, 1: 直播中, 2: 輪播
+  final String link;
+
+  const MedalWallItem({
+    required this.roomId,
+    required this.name,
+    this.avatarUrl,
+    required this.uid,
+    required this.liveStatus,
+    required this.link,
+  });
+
+  bool get isLive => liveStatus == 1;
+}
+
 /// QR 碼掃碼狀態
 enum QrCodeStatus {
   waiting, // 等待掃碼
@@ -430,6 +451,67 @@ class BilibiliAccountService extends AccountService with Logging {
     } catch (e) {
       logError('Failed to fetch user info', e);
     }
+  }
+
+  // ===== 勳章牆（直播間列表） =====
+
+  /// 從勳章牆 API 獲取關注的直播間列表
+  Future<List<MedalWallItem>> fetchMedalWall() async {
+    final cookieString = await getAuthCookieString();
+    if (cookieString == null) throw Exception('Not logged in');
+
+    final mid = await getUserMid();
+    if (mid == null) throw Exception('User mid not available');
+
+    final response = await _dio.get(
+      'https://api.live.bilibili.com/xlive/web-ucenter/user/MedalWall',
+      queryParameters: {'target_id': mid},
+      options: Options(headers: {'Cookie': cookieString}),
+    );
+
+    final code = response.data['code'] as int?;
+    if (code != 0) {
+      throw Exception('MedalWall API error: ${response.data['message']}');
+    }
+
+    final list = response.data['data']?['list'] as List? ?? [];
+
+    // 並行獲取所有主播的直播間信息
+    final futures = list.map((item) async {
+      final medalInfo = item['medal_info'] as Map<String, dynamic>?;
+      if (medalInfo == null) return null;
+
+      final uid = medalInfo['target_id'] as int? ?? 0;
+      if (uid == 0) return null;
+
+      try {
+        // 通過 UID 獲取直播間號
+        final roomResponse = await _dio.get(
+          'https://api.live.bilibili.com/room/v1/Room/getRoomInfoOld',
+          queryParameters: {'mid': uid},
+        );
+
+        if (roomResponse.data['code'] != 0) return null;
+
+        final roomId = roomResponse.data['data']?['roomid']?.toString();
+        if (roomId == null || roomId == '0') return null;
+
+        return MedalWallItem(
+          roomId: roomId,
+          name: item['target_name'] as String? ?? '',
+          avatarUrl: item['target_icon'] as String?,
+          uid: uid,
+          liveStatus: item['live_status'] as int? ?? 0,
+          link: 'https://live.bilibili.com/$roomId',
+        );
+      } catch (e) {
+        // 單個失敗不影響其他項
+        return null;
+      }
+    }).toList();
+
+    final items = await Future.wait(futures);
+    return items.whereType<MedalWallItem>().toList();
   }
 
   // ===== 內部方法 =====

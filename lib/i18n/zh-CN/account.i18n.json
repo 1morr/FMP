@@ -24,5 +24,12 @@
   "importingProgress": "正在导入 $current/$total...",
   "importComplete": "成功导入 $count 个歌单",
   "noPlaylists": "没有歌单",
-  "trackCount": "$count 首"
+  "trackCount": "$count 首",
+  "radioStations": "电台",
+  "selectRadioStations": "选择电台",
+  "noRadioStations": "勋章墙中没有直播间",
+  "importRadioSelected": "导入选中 ($count)",
+  "importRadioComplete": "成功导入 $count 个电台",
+  "importingRadio": "正在导入...",
+  "liveStatus": "直播中"
 }
