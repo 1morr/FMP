@@ -10,6 +10,7 @@ import '../../../i18n/strings.g.dart';
 import '../../../providers/account_provider.dart';
 import '../../router.dart';
 import 'widgets/account_playlists_sheet.dart';
+import 'widgets/account_radio_import_sheet.dart';
 
 /// 帳號管理頁面
 class AccountManagementPage extends ConsumerWidget {
@@ -38,6 +39,7 @@ class AccountManagementPage extends ConsumerWidget {
             onLogin: () => context.push(RoutePaths.bilibiliLogin),
             onLogout: () => _confirmLogout(context, ref, SourceType.bilibili),
             onManagePlaylists: () => _showPlaylistSheet(context, SourceType.bilibili),
+            onImportRadio: () => _showRadioImportSheet(context),
           ),
           const SizedBox(height: 12),
           // YouTube 卡片
@@ -103,6 +105,15 @@ class AccountManagementPage extends ConsumerWidget {
       builder: (_) => AccountPlaylistsSheet(platform: platform),
     );
   }
+
+  void _showRadioImportSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => const AccountRadioImportSheet(),
+    );
+  }
 }
 
 /// 平台帳號卡片
@@ -116,6 +127,7 @@ class _PlatformCard extends StatelessWidget {
   final VoidCallback? onLogin;
   final VoidCallback? onLogout;
   final VoidCallback? onManagePlaylists;
+  final VoidCallback? onImportRadio;
 
   const _PlatformCard({
     required this.platformName,
@@ -127,6 +139,7 @@ class _PlatformCard extends StatelessWidget {
     this.onLogin,
     this.onLogout,
     this.onManagePlaylists,
+    this.onImportRadio,
   });
 
   @override
@@ -184,6 +197,13 @@ class _PlatformCard extends StatelessWidget {
                       onPressed: onManagePlaylists,
                       child: Text(t.account.playlists),
                     ),
+                    if (onImportRadio != null) ...[
+                      const SizedBox(width: 8),
+                      OutlinedButton(
+                        onPressed: onImportRadio,
+                        child: Text(t.account.radioStations),
+                      ),
+                    ],
                     const SizedBox(width: 8),
                     OutlinedButton(
                       onPressed: onLogout,

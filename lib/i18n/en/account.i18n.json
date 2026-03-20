@@ -24,5 +24,12 @@
   "importingProgress": "Importing $current/$total...",
   "importComplete": "Successfully imported $count playlists",
   "noPlaylists": "No playlists",
-  "trackCount": "$count tracks"
+  "trackCount": "$count tracks",
+  "radioStations": "Radio",
+  "selectRadioStations": "Select Radio Stations",
+  "noRadioStations": "No live rooms in medal wall",
+  "importRadioSelected": "Import Selected ($count)",
+  "importRadioComplete": "Successfully imported $count stations",
+  "importingRadio": "Importing...",
+  "liveStatus": "Live"
 }

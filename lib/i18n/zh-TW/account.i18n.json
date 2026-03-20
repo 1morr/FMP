@@ -24,5 +24,12 @@
   "importingProgress": "正在導入 $current/$total...",
   "importComplete": "成功導入 $count 個歌單",
   "noPlaylists": "沒有歌單",
-  "trackCount": "$count 首"
+  "trackCount": "$count 首",
+  "radioStations": "電台",
+  "selectRadioStations": "選擇電台",
+  "noRadioStations": "勳章牆中沒有直播間",
+  "importRadioSelected": "導入選中 ($count)",
+  "importRadioComplete": "成功導入 $count 個電台",
+  "importingRadio": "正在導入...",
+  "liveStatus": "直播中"
 }
