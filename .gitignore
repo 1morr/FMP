@@ -127,3 +127,4 @@ docs/build-and-release.md
 .vscode/settings.json
 .vscode/launch.json
 devtools_home.png
+.gstack/

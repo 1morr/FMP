@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 
 import '../../core/constants/app_constants.dart';
@@ -189,8 +190,14 @@ class YouTubePlaylistService with Logging {
     String? continuationToken;
     do {
       final requestData = continuationToken != null
-          ? {'continuation': continuationToken, 'context': _accountService.buildInnerTubeContext()}
-          : {'browseId': 'VL$playlistId', 'context': _accountService.buildInnerTubeContext()};
+          ? {
+              'continuation': continuationToken,
+              'context': _accountService.buildInnerTubeContext()
+            }
+          : {
+              'browseId': 'VL$playlistId',
+              'context': _accountService.buildInnerTubeContext()
+            };
 
       try {
         final response = await _dio.post(
@@ -246,25 +253,29 @@ class YouTubePlaylistService with Logging {
   // ===== 內部解析方法 =====
 
   /// 從 FEplaylist_aggregation browse 響應中解析播放列表
-  List<YouTubePlaylistInfo> _parsePlaylistsFromBrowse(Map<String, dynamic> data) {
+  List<YouTubePlaylistInfo> _parsePlaylistsFromBrowse(
+      Map<String, dynamic> data) {
     final playlists = <YouTubePlaylistInfo>[];
 
     try {
       // 取得 tabRenderer.content
       final tabContent = data['contents']?['twoColumnBrowseResultsRenderer']
-              ?['tabs']?[0]?['tabRenderer']?['content'] as Map<String, dynamic>?
-          ?? data['contents']?['singleColumnBrowseResultsRenderer']
-              ?['tabs']?[0]?['tabRenderer']?['content'] as Map<String, dynamic>?;
+                  ?['tabs']?[0]?['tabRenderer']?['content']
+              as Map<String, dynamic>? ??
+          data['contents']?['singleColumnBrowseResultsRenderer']?['tabs']?[0]
+              ?['tabRenderer']?['content'] as Map<String, dynamic>?;
 
       if (tabContent != null) {
         // 路徑 A: tabContent > richGridRenderer > contents（新版 YouTube）
-        final richGridItems = tabContent['richGridRenderer']?['contents'] as List?;
+        final richGridItems =
+            tabContent['richGridRenderer']?['contents'] as List?;
         if (richGridItems != null) {
           _extractPlaylistsFromRichGrid(richGridItems, playlists);
         }
 
         // 路徑 B: tabContent > sectionListRenderer > contents（舊版）
-        final sectionContents = tabContent['sectionListRenderer']?['contents'] as List?;
+        final sectionContents =
+            tabContent['sectionListRenderer']?['contents'] as List?;
         if (sectionContents != null && playlists.isEmpty) {
           _extractPlaylistsFromSections(sectionContents, playlists);
         }
@@ -289,7 +300,8 @@ class YouTubePlaylistService with Logging {
   }
 
   /// 從 richGridRenderer contents 中提取播放列表
-  void _extractPlaylistsFromRichGrid(List items, List<YouTubePlaylistInfo> playlists) {
+  void _extractPlaylistsFromRichGrid(
+      List items, List<YouTubePlaylistInfo> playlists) {
     for (final item in items) {
       if (item is! Map<String, dynamic>) continue;
 
@@ -305,7 +317,8 @@ class YouTubePlaylistService with Logging {
   }
 
   /// 從 sectionListRenderer contents 中提取播放列表（舊版結構）
-  void _extractPlaylistsFromSections(List sections, List<YouTubePlaylistInfo> playlists) {
+  void _extractPlaylistsFromSections(
+      List sections, List<YouTubePlaylistInfo> playlists) {
     for (final section in sections) {
       if (section is! Map<String, dynamic>) continue;
       final items = section['itemSectionRenderer']?['contents'] as List?;
@@ -318,7 +331,9 @@ class YouTubePlaylistService with Logging {
               ?['horizontalListRenderer']?['items'] as List?;
           if (shelfItems != null) {
             for (final si in shelfItems) {
-              if (si is Map<String, dynamic>) _tryParsePlaylistItem(si, playlists);
+              if (si is Map<String, dynamic>) {
+                _tryParsePlaylistItem(si, playlists);
+              }
             }
           }
         }
@@ -334,16 +349,18 @@ class YouTubePlaylistService with Logging {
   }
 
   /// 嘗試從一個 item 中解析播放列表（支持多種 renderer 格式）
-  void _tryParsePlaylistItem(Map<String, dynamic> item, List<YouTubePlaylistInfo> playlists) {
+  void _tryParsePlaylistItem(
+      Map<String, dynamic> item, List<YouTubePlaylistInfo> playlists) {
     // 格式 1: gridPlaylistRenderer / playlistRenderer（經典格式）
     final renderer = item['gridPlaylistRenderer'] ?? item['playlistRenderer'];
     if (renderer is Map<String, dynamic>) {
       final playlistId = renderer['playlistId'] as String?;
       final title = _extractText(renderer['title']);
-      final countText = _extractText(renderer['videoCountShortText'])
-          ?? _extractText(renderer['videoCountText'])
-          ?? _extractText(renderer['thumbnailText']);
-      final thumbnail = renderer['thumbnail']?['thumbnails']?[0]?['url'] as String?;
+      final countText = _extractText(renderer['videoCountShortText']) ??
+          _extractText(renderer['videoCountText']) ??
+          _extractText(renderer['thumbnailText']);
+      final thumbnail =
+          renderer['thumbnail']?['thumbnails']?[0]?['url'] as String?;
 
       if (playlistId != null && title != null) {
         playlists.add(YouTubePlaylistInfo(
@@ -362,16 +379,19 @@ class YouTubePlaylistService with Logging {
       final contentId = lockup['contentId'] as String?;
       final contentType = lockup['contentType'] as String?;
       // 只處理 PLAYLIST 類型
-      if (contentId != null && (contentType == 'LOCKUP_CONTENT_TYPE_PLAYLIST' || contentType == 'PLAYLIST')) {
+      if (contentId != null &&
+          (contentType == 'LOCKUP_CONTENT_TYPE_PLAYLIST' ||
+              contentType == 'PLAYLIST')) {
         final metadata = lockup['metadata']?['lockupMetadataViewModel'];
         final title = metadata?['title']?['content'] as String?;
 
         // 縮略圖
-        final thumbnail = lockup['contentImage']?['collectionThumbnailViewModel']
-                ?['primaryThumbnail']?['thumbnailViewModel']
-                ?['image']?['sources']?[0]?['url'] as String?
-            ?? lockup['contentImage']?['thumbnailViewModel']
-                ?['image']?['sources']?[0]?['url'] as String?;
+        final thumbnail = lockup['contentImage']
+                        ?['collectionThumbnailViewModel']?['primaryThumbnail']
+                    ?['thumbnailViewModel']?['image']?['sources']?[0]?['url']
+                as String? ??
+            lockup['contentImage']?['thumbnailViewModel']?['image']?['sources']
+                ?[0]?['url'] as String?;
 
         // 視頻數量：嘗試多種路徑
         final countText = _extractVideoCountFromLockup(lockup, metadata);
@@ -389,13 +409,16 @@ class YouTubePlaylistService with Logging {
   }
 
   /// 從 lockupViewModel 中提取視頻數量文本
-  String? _extractVideoCountFromLockup(Map<String, dynamic> lockup, Map<String, dynamic>? metadata) {
+  String? _extractVideoCountFromLockup(
+      Map<String, dynamic> lockup, Map<String, dynamic>? metadata) {
+    final candidates = <String>[];
+
     // 路徑 1: metadata > contentMetadataViewModel > metadataRows
     final metadataRows = metadata?['metadata']?['contentMetadataViewModel']
         ?['metadataRows'] as List?;
     if (metadataRows != null) {
       final text = _findDigitTextInRows(metadataRows);
-      if (text != null) return text;
+      if (text != null) candidates.add(text);
     }
 
     // 路徑 2: contentImage > collectionThumbnailViewModel > primaryThumbnail > thumbnailViewModel > overlays
@@ -405,56 +428,80 @@ class YouTubePlaylistService with Logging {
     if (overlays != null) {
       for (final overlay in overlays) {
         if (overlay is! Map<String, dynamic>) continue;
-        final text = overlay['thumbnailOverlayBadgeViewModel']?['thumbnailBadges'] as List?;
+        final text = overlay['thumbnailOverlayBadgeViewModel']
+            ?['thumbnailBadges'] as List?;
         if (text != null) {
           for (final badge in text) {
-            final content = badge?['thumbnailBadgeViewModel']?['text'] as String?
-                ?? badge?['thumbnailBadgeViewModel']?['icon']?['sources']?[0]?['clientResource']?['imageName'] as String?;
-            if (content != null && RegExp(r'\d').hasMatch(content)) return content;
+            final content =
+                badge?['thumbnailBadgeViewModel']?['text'] as String? ??
+                    badge?['thumbnailBadgeViewModel']?['icon']?['sources']?[0]
+                        ?['clientResource']?['imageName'] as String?;
+            if (content != null && RegExp(r'\d').hasMatch(content)) {
+              candidates.add(content);
+            }
           }
         }
         // thumbnailOverlayBottomPanelRenderer
-        final bottomText = overlay['thumbnailOverlayBottomPanelRenderer']?['text'] as Map?;
+        final bottomText =
+            overlay['thumbnailOverlayBottomPanelRenderer']?['text'] as Map?;
         if (bottomText != null) {
-          final t = bottomText['simpleText'] as String? ?? (bottomText['runs'] as List?)?.map((r) => r['text']).join();
-          if (t != null && RegExp(r'\d').hasMatch(t)) return t;
+          final t = bottomText['simpleText'] as String? ??
+              (bottomText['runs'] as List?)?.map((r) => r['text']).join();
+          if (t != null && RegExp(r'\d').hasMatch(t)) {
+            candidates.add(t);
+          }
         }
       }
     }
 
     // 路徑 3: 遞歸搜索 lockup 中包含 "video" 或數字的文本
     final found = _findVideoCountTextRecursive(lockup);
-    if (found != null) return found;
+    if (found != null) candidates.add(found);
 
-    return null;
+    return pickBestVideoCountText(candidates);
   }
 
-  /// 在 metadataRows 中查找包含數字的文本
+  /// 在 metadataRows 中查找最像視頻數量的文本
   String? _findDigitTextInRows(List rows) {
+    final candidates = <String>[];
+
     for (final row in rows) {
       if (row is! Map<String, dynamic>) continue;
       final parts = row['metadataParts'] as List?;
-      if (parts != null) {
-        for (final part in parts) {
-          final text = part?['text']?['content'] as String?;
-          if (text != null && RegExp(r'\d').hasMatch(text)) return text;
-        }
+      if (parts == null) continue;
+
+      final rowTexts = <String>[];
+      for (final part in parts) {
+        final text = part?['text']?['content'] as String?;
+        if (text == null || text.trim().isEmpty) continue;
+        candidates.add(text);
+        rowTexts.add(text);
+      }
+
+      if (rowTexts.length > 1) {
+        candidates.add(rowTexts.join(' '));
       }
     }
-    return null;
+
+    return pickBestVideoCountText(candidates);
   }
 
   /// 遞歸搜索 lockup 中的視頻數量文本（查找 "X videos" 模式）
   String? _findVideoCountTextRecursive(dynamic data, [int depth = 0]) {
     if (depth > 8) return null;
     if (data is String) {
-      if (RegExp(r'\d+\s*(video|影片|部)').hasMatch(data)) return data;
+      if (RegExp(r'\d+(?:[\.,]\d+)?\s*[KMBkmb]?\s*(video|videos|影片|部)')
+          .hasMatch(data)) {
+        return data;
+      }
       return null;
     }
     if (data is Map<String, dynamic>) {
       // 優先檢查 content 字段
       final content = data['content'];
-      if (content is String && RegExp(r'\d+\s*(video|影片|部)').hasMatch(content)) {
+      if (content is String &&
+          RegExp(r'\d+(?:[\.,]\d+)?\s*[KMBkmb]?\s*(video|videos|影片|部)')
+              .hasMatch(content)) {
         return content;
       }
       for (final value in data.values) {
@@ -471,7 +518,9 @@ class YouTubePlaylistService with Logging {
   }
 
   /// 遞歸搜索 JSON 中的播放列表 renderer
-  void _findPlaylistsRecursive(dynamic data, List<YouTubePlaylistInfo> playlists, [int depth = 0]) {
+  void _findPlaylistsRecursive(
+      dynamic data, List<YouTubePlaylistInfo> playlists,
+      [int depth = 0]) {
     if (depth > 15 || playlists.length > 100) return;
     if (data is Map<String, dynamic>) {
       if (data.containsKey('gridPlaylistRenderer') ||
@@ -494,11 +543,14 @@ class YouTubePlaylistService with Logging {
   String? _extractText(dynamic textObj) => InnerTubeUtils.extractText(textObj);
 
   /// 收集 JSON 中所有以 Renderer/ViewModel 結尾的 key（用於調試）
-  void _collectRendererKeys(dynamic data, Set<String> keys, [int depth = 0, int maxDepth = 15]) {
+  void _collectRendererKeys(dynamic data, Set<String> keys,
+      [int depth = 0, int maxDepth = 15]) {
     if (depth > maxDepth) return;
     if (data is Map<String, dynamic>) {
       for (final key in data.keys) {
-        if (key.endsWith('Renderer') || key.endsWith('ViewModel') || key.endsWith('Model')) {
+        if (key.endsWith('Renderer') ||
+            key.endsWith('ViewModel') ||
+            key.endsWith('Model')) {
           keys.add(key);
         }
       }
@@ -515,12 +567,11 @@ class YouTubePlaylistService with Logging {
   /// 從播放列表瀏覽響應中提取 contents 列表（共用 JSON 路徑）
   List? _getPlaylistVideoContents(Map<String, dynamic> data) {
     try {
-      return data['contents']?['twoColumnBrowseResultsRenderer']
-              ?['tabs']?[0]?['tabRenderer']?['content']
-              ?['sectionListRenderer']?['contents']?[0]
-              ?['itemSectionRenderer']?['contents']?[0]
-              ?['playlistVideoListRenderer']?['contents'] as List?
-          ?? data['onResponseReceivedActions']?[0]
+      return data['contents']?['twoColumnBrowseResultsRenderer']?['tabs']?[0]
+                      ?['tabRenderer']?['content']?['sectionListRenderer']
+                  ?['contents']?[0]?['itemSectionRenderer']?['contents']?[0]
+              ?['playlistVideoListRenderer']?['contents'] as List? ??
+          data['onResponseReceivedActions']?[0]
               ?['appendContinuationItemsAction']?['continuationItems'] as List?;
     } catch (_) {
       return null;
@@ -540,11 +591,77 @@ class YouTubePlaylistService with Logging {
     return null;
   }
 
-  int _parseVideoCount(String? text) {
-    if (text == null) return 0;
-    final digits = text.replaceAll(RegExp(r'[^0-9]'), '');
-    return int.tryParse(digits) ?? 0;
+  @visibleForTesting
+  static String? pickBestVideoCountText(Iterable<String?> texts) {
+    String? bestText;
+    int bestScore = -1;
+
+    for (final raw in texts) {
+      final text = raw?.trim();
+      if (text == null || text.isEmpty) continue;
+
+      var score = 0;
+      if (RegExp(r'\d+(?:[\.,]\d+)?\s*[KMBkmb]?\s*(video|videos|影片|部)')
+          .hasMatch(text)) {
+        score += 4;
+      }
+      if (RegExp(r'\d+(?:[\.,]\d+)?\s*[KMBkmb]').hasMatch(text)) {
+        score += 2;
+      }
+      if (RegExp(r'\d').hasMatch(text)) {
+        score += 1;
+      }
+      if (RegExp(r'days?\s+ago|hours?\s+ago|minutes?\s+ago|updated',
+              caseSensitive: false)
+          .hasMatch(text)) {
+        score -= 3;
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestText = text;
+      }
+    }
+
+    return bestScore > 0 ? bestText : null;
   }
+
+  @visibleForTesting
+  static int parseVideoCount(String? text) {
+    if (text == null) return 0;
+
+    final normalized = text.trim();
+    if (normalized.isEmpty) return 0;
+
+    final patterns = [
+      RegExp(r'(\d+(?:[\.,]\d+)?)\s*([KMBkmb])?\s*(?=videos?\b|影片|部)',
+          caseSensitive: false),
+      RegExp(r'(\d+(?:[\.,]\d+)?)\s*([KMBkmb])?'),
+    ];
+
+    RegExpMatch? match;
+    for (final pattern in patterns) {
+      match = pattern.firstMatch(normalized);
+      if (match != null) break;
+    }
+    if (match == null) return 0;
+
+    final numberText = match.group(1)?.replaceAll(',', '');
+    final value = double.tryParse(numberText ?? '');
+    if (value == null) return 0;
+
+    final suffix = match.group(2)?.toUpperCase();
+    final multiplier = switch (suffix) {
+      'K' => 1e3,
+      'M' => 1e6,
+      'B' => 1e9,
+      _ => 1,
+    };
+
+    return (value * multiplier).round();
+  }
+
+  int _parseVideoCount(String? text) => parseVideoCount(text);
 
   void _checkResponse(Map<String, dynamic> data) {
     final error = data['error'];
