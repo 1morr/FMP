@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -80,6 +81,20 @@ class _WebViewLoginTabState extends ConsumerState<_WebViewLoginTab> {
   bool _isLoading = true;
   bool _loginHandled = false;
   bool _cookiesCleared = false;
+
+  String get _userAgent {
+    if (Platform.isAndroid) {
+      return 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 '
+          '(KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36';
+    }
+    if (Platform.isIOS) {
+      return 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
+          'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 '
+          'Mobile/15E148 Safari/604.1';
+    }
+    return 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+        '(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+  }
 
   @override
   void initState() {
@@ -175,8 +190,8 @@ class _WebViewLoginTabState extends ConsumerState<_WebViewLoginTab> {
           initialSettings: InAppWebViewSettings(
             javaScriptEnabled: true,
             domStorageEnabled: true,
-            userAgent:
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            userAgent: _userAgent,
+            preferredContentMode: UserPreferredContentMode.MOBILE,
           ),
           onLoadStop: _onPageLoaded,
           onLoadStart: (_, __) {
