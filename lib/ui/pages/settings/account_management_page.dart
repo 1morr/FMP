@@ -38,7 +38,8 @@ class AccountManagementPage extends ConsumerWidget {
             avatarUrl: bilibiliAccount?.avatarUrl,
             onLogin: () => context.push(RoutePaths.bilibiliLogin),
             onLogout: () => _confirmLogout(context, ref, SourceType.bilibili),
-            onManagePlaylists: () => _showPlaylistSheet(context, SourceType.bilibili),
+            onManagePlaylists: () =>
+                _showPlaylistSheet(context, SourceType.bilibili),
             onImportRadio: () => _showRadioImportSheet(context),
           ),
           const SizedBox(height: 12),
@@ -52,12 +53,14 @@ class AccountManagementPage extends ConsumerWidget {
             avatarUrl: youtubeAccount?.avatarUrl,
             onLogin: () => context.push(RoutePaths.youtubeLogin),
             onLogout: () => _confirmLogout(context, ref, SourceType.youtube),
-            onManagePlaylists: () => _showPlaylistSheet(context, SourceType.youtube),
+            onManagePlaylists: () =>
+                _showPlaylistSheet(context, SourceType.youtube),
           ),
         ],
       ),
     );
   }
+
   Future<void> _confirmLogout(
     BuildContext context,
     WidgetRef ref,
@@ -145,6 +148,18 @@ class _PlatformCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final avatar = isLoggedIn && avatarUrl != null
+        ? ImageLoadingService.loadAvatar(
+            networkUrl: avatarUrl,
+            size: 48,
+          )
+        : CircleAvatar(
+            radius: 24,
+            backgroundColor: iconColor.withValues(alpha: 0.1),
+            child: Icon(icon, color: iconColor, size: 28),
+          );
+    final accountText =
+        isLoggedIn ? userName ?? t.account.loggedIn : t.account.notLoggedIn;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -152,71 +167,99 @@ class _PlatformCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              // 平台圖標或頭像
-              if (isLoggedIn && avatarUrl != null)
-                ImageLoadingService.loadAvatar(
-                  networkUrl: avatarUrl,
-                  size: 48,
-                )
-              else
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: iconColor.withValues(alpha: 0.1),
-                  child: Icon(icon, color: iconColor, size: 28),
-                ),
-              const SizedBox(width: 16),
-              // 信息
-              Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final shouldStackActions =
+                  isLoggedIn && constraints.maxWidth < 520;
+
+              final info = Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       platformName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      isLoggedIn
-                          ? userName ?? t.account.loggedIn
-                          : t.account.notLoggedIn,
+                      accountText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
                     ),
                   ],
                 ),
-              ),
-              // 操作按鈕
-              if (isLoggedIn)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+              );
+
+              final actionButtons = <Widget>[
+                OutlinedButton(
+                  onPressed: onManagePlaylists,
+                  child: Text(t.account.playlists),
+                ),
+                if (onImportRadio != null)
+                  OutlinedButton(
+                    onPressed: onImportRadio,
+                    child: Text(t.account.radioStations),
+                  ),
+                OutlinedButton(
+                  onPressed: onLogout,
+                  child: Text(t.account.logout),
+                ),
+              ];
+
+              if (shouldStackActions) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    OutlinedButton(
-                      onPressed: onManagePlaylists,
-                      child: Text(t.account.playlists),
+                    Row(
+                      children: [
+                        avatar,
+                        const SizedBox(width: 16),
+                        info,
+                      ],
                     ),
-                    if (onImportRadio != null) ...[
-                      const SizedBox(width: 8),
-                      OutlinedButton(
-                        onPressed: onImportRadio,
-                        child: Text(t.account.radioStations),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        alignment: WrapAlignment.end,
+                        children: actionButtons,
                       ),
-                    ],
-                    const SizedBox(width: 8),
-                    OutlinedButton(
-                      onPressed: onLogout,
-                      child: Text(t.account.logout),
                     ),
                   ],
-                )
-              else
-                FilledButton(
-                  onPressed: onLogin,
-                  child: Text(t.account.login),
-                ),
-            ],
+                );
+              }
+
+              return Row(
+                children: [
+                  avatar,
+                  const SizedBox(width: 16),
+                  info,
+                  if (isLoggedIn)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (var i = 0; i < actionButtons.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 8),
+                          actionButtons[i],
+                        ],
+                      ],
+                    )
+                  else
+                    FilledButton(
+                      onPressed: onLogin,
+                      child: Text(t.account.login),
+                    ),
+                ],
+              );
+            },
           ),
         ),
       ),
