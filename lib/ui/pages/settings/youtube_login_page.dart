@@ -50,30 +50,20 @@ class _YouTubeLoginPageState extends ConsumerState<YouTubeLoginPage> {
     }
   }
 
-  Future<void> _extractCookiesAndLogin(InAppWebViewController controller) async {
+  Future<void> _extractCookiesAndLogin(
+      InAppWebViewController controller) async {
     try {
       final cookieManager = CookieManager.instance();
-      final cookies = await cookieManager.getCookies(
-        url: WebUri('https://www.youtube.com'),
-      );
-
-      final cookieMap = <String, String>{};
-      for (final cookie in cookies) {
-        cookieMap[cookie.name] = cookie.value.toString();
-      }
-
-      // 驗證 SAPISID 存在（關鍵認證 Cookie）
-      if (cookieMap['SAPISID'] == null || cookieMap['SAPISID']!.isEmpty) {
-        _loginHandled = false;
-        return;
-      }
+      final cookieMap = await _waitForRequiredCookies(cookieManager);
 
       // 可選：提取 DATASYNC_ID
       try {
         final datasyncId = await controller.evaluateJavascript(
           source: "ytcfg.get('DATASYNC_ID')",
         );
-        if (datasyncId is String && datasyncId.isNotEmpty && datasyncId != 'null') {
+        if (datasyncId is String &&
+            datasyncId.isNotEmpty &&
+            datasyncId != 'null') {
           cookieMap['DATASYNC_ID'] = datasyncId;
         }
       } catch (_) {
@@ -96,6 +86,41 @@ class _YouTubeLoginPageState extends ConsumerState<YouTubeLoginPage> {
         ToastService.error(context, e.toString());
       }
     }
+  }
+
+  Future<Map<String, String>> _waitForRequiredCookies(
+    CookieManager cookieManager,
+  ) async {
+    for (var attempt = 0; attempt < 10; attempt++) {
+      final cookies = await cookieManager.getCookies(
+        url: WebUri('https://www.youtube.com'),
+      );
+      final cookieMap = <String, String>{
+        for (final cookie in cookies) cookie.name: cookie.value.toString(),
+      };
+
+      final missingCookies = YouTubeAccountService.getMissingRequiredCookies(
+        cookieMap,
+      );
+      if (missingCookies.isEmpty) {
+        return cookieMap;
+      }
+
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    }
+
+    final cookies = await cookieManager.getCookies(
+      url: WebUri('https://www.youtube.com'),
+    );
+    final cookieMap = <String, String>{
+      for (final cookie in cookies) cookie.name: cookie.value.toString(),
+    };
+    final missingCookies = YouTubeAccountService.getMissingRequiredCookies(
+      cookieMap,
+    );
+    throw Exception(
+      'Missing required YouTube cookies: ${missingCookies.join(', ')}',
+    );
   }
 
   /// 從 WebView 頁面的 ytInitialData / ytcfg / account_menu 提取用戶信息
@@ -223,7 +248,9 @@ class _YouTubeLoginPageState extends ConsumerState<YouTubeLoginPage> {
         return JSON.stringify(result);
       ''');
       final menuResult = asyncResult?.value;
-      if (menuResult is String && menuResult.isNotEmpty && menuResult != 'null') {
+      if (menuResult is String &&
+          menuResult.isNotEmpty &&
+          menuResult != 'null') {
         final info = Map<String, dynamic>.from(_parseJson(menuResult));
         userName = info['userName'] as String?;
         channelId ??= info['channelId'] as String?;
@@ -279,8 +306,7 @@ class _YouTubeLoginPageState extends ConsumerState<YouTubeLoginPage> {
               if (mounted) setState(() => _isLoading = true);
             },
           ),
-          if (_isLoading)
-            const Center(child: CircularProgressIndicator()),
+          if (_isLoading) const Center(child: CircularProgressIndicator()),
         ],
       ),
     );

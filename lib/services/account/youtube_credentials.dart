@@ -71,22 +71,24 @@ class YouTubeCredentials {
 
   /// 生成 Cookie 字符串（供 Dio 請求使用）
   String toCookieString() {
-    final parts = <String>[
-      'SID=$sid',
-      'HSID=$hsid',
-      'SSID=$ssid',
-      'APISID=$apisid',
-      'SAPISID=$sapisid',
-      '__Secure-1PSID=$secure1Psid',
-      '__Secure-3PSID=$secure3Psid',
-      '__Secure-1PAPISID=$secure1Papisid',
-      '__Secure-3PAPISID=$secure3Papisid',
-      'LOGIN_INFO=$loginInfo',
-    ];
-    if (datasyncId != null && datasyncId!.isNotEmpty) {
-      parts.add('DATASYNC_ID=$datasyncId');
-    }
-    return parts.join('; ');
+    final cookieMap = <String, String>{
+      'SID': sid,
+      'HSID': hsid,
+      'SSID': ssid,
+      'APISID': apisid,
+      'SAPISID': sapisid,
+      '__Secure-1PSID': secure1Psid,
+      '__Secure-3PSID': secure3Psid,
+      '__Secure-1PAPISID': secure1Papisid,
+      '__Secure-3PAPISID': secure3Papisid,
+      'LOGIN_INFO': loginInfo,
+      if (datasyncId != null) 'DATASYNC_ID': datasyncId!,
+    };
+
+    return cookieMap.entries
+        .where((entry) => entry.value.isNotEmpty)
+        .map((entry) => '${entry.key}=${entry.value}')
+        .join('; ');
   }
 
   /// 生成 SAPISIDHASH Authorization header 值
@@ -101,8 +103,5 @@ class YouTubeCredentials {
 
   /// 是否包含必要的認證 Cookie
   bool get isValid =>
-      sapisid.isNotEmpty &&
-      secure1Psid.isNotEmpty &&
-      secure3Psid.isNotEmpty &&
-      loginInfo.isNotEmpty;
+      sapisid.isNotEmpty && secure1Psid.isNotEmpty && secure3Psid.isNotEmpty;
 }
