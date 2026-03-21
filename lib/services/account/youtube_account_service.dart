@@ -25,9 +25,15 @@ class YouTubeAccountService extends AccountService with Logging {
 
   static const String _storageKey = 'account_youtube_credentials';
   static const String _innerTubeApiBase = 'https://www.youtube.com/youtubei/v1';
-  static const String _innerTubeApiKey = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
+  static const String _innerTubeApiKey =
+      'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
   static const String _innerTubeClientName = 'WEB';
   static const String _innerTubeClientVersion = '2.20260128.05.00';
+  static const Set<String> requiredCookieNames = {
+    'SAPISID',
+    '__Secure-1PSID',
+    '__Secure-3PSID',
+  };
 
   YouTubeAccountService({required Isar isar})
       : _isar = isar,
@@ -52,6 +58,15 @@ class YouTubeAccountService extends AccountService with Logging {
 
   /// WebView 登錄完成後，從 WebView 提取的 cookies 初始化
   Future<void> loginWithCookies(Map<String, String> cookies) async {
+    final missingCookies =
+        YouTubeAccountService.getMissingRequiredCookies(cookies);
+    if (missingCookies.isNotEmpty) {
+      logWarning(
+          'YouTube login: missing required cookies: ${missingCookies.join(', ')}');
+      throw Exception(
+          'Missing required YouTube cookies: ${missingCookies.join(', ')}');
+    }
+
     final credentials = YouTubeCredentials(
       sid: cookies['SID'] ?? '',
       hsid: cookies['HSID'] ?? '',
@@ -67,11 +82,6 @@ class YouTubeAccountService extends AccountService with Logging {
       savedAt: DateTime.now(),
     );
 
-    if (!credentials.isValid) {
-      logWarning('YouTube login: missing required cookies (SAPISID or __Secure-1PSID)');
-      throw Exception('Missing required YouTube cookies');
-    }
-
     await _secureStorage.write(
       key: _storageKey,
       value: jsonEncode(credentials.toJson()),
@@ -83,6 +93,12 @@ class YouTubeAccountService extends AccountService with Logging {
   }
 
   // ===== 認證管理 =====
+
+  static List<String> getMissingRequiredCookies(Map<String, String> cookies) {
+    return requiredCookieNames
+        .where((name) => (cookies[name] ?? '').isEmpty)
+        .toList();
+  }
 
   /// 獲取認證 headers（Cookie + Authorization）
   Future<Map<String, String>?> getAuthHeaders() async {
@@ -260,7 +276,8 @@ class YouTubeAccountService extends AccountService with Logging {
     }
 
     // 嘗試從 settingsAccountRenderer 提取
-    final settingsAccount = _findRendererRecursive(data, 'settingsAccountRenderer');
+    final settingsAccount =
+        _findRendererRecursive(data, 'settingsAccountRenderer');
     if (settingsAccount != null) {
       return _extractText(settingsAccount['accountName']);
     }
@@ -289,13 +306,18 @@ class YouTubeAccountService extends AccountService with Logging {
 
       // 嘗試 tooltip（過濾通用標籤如 "Account menu"）
       final tooltip = menuBtn['tooltip'] as String?;
-      if (tooltip != null && tooltip.isNotEmpty && !_isGenericMenuLabel(tooltip)) {
+      if (tooltip != null &&
+          tooltip.isNotEmpty &&
+          !_isGenericMenuLabel(tooltip)) {
         return tooltip;
       }
 
       // 嘗試 accessibility（同樣過濾通用標籤）
-      final accLabel = menuBtn['accessibility']?['accessibilityData']?['label'] as String?;
-      if (accLabel != null && accLabel.isNotEmpty && !_isGenericMenuLabel(accLabel)) {
+      final accLabel =
+          menuBtn['accessibility']?['accessibilityData']?['label'] as String?;
+      if (accLabel != null &&
+          accLabel.isNotEmpty &&
+          !_isGenericMenuLabel(accLabel)) {
         return accLabel;
       }
     }
@@ -305,13 +327,19 @@ class YouTubeAccountService extends AccountService with Logging {
   /// 判斷是否為通用菜單標籤（非用戶名）
   bool _isGenericMenuLabel(String text) {
     final lower = text.toLowerCase();
-    return lower.contains('account') || lower.contains('menu') ||
-        lower.contains('帳戶') || lower.contains('账户') || lower.contains('アカウント') ||
-        lower.contains('選單') || lower.contains('菜单') || lower.contains('メニュー');
+    return lower.contains('account') ||
+        lower.contains('menu') ||
+        lower.contains('帳戶') ||
+        lower.contains('账户') ||
+        lower.contains('アカウント') ||
+        lower.contains('選單') ||
+        lower.contains('菜单') ||
+        lower.contains('メニュー');
   }
 
   /// 遞歸搜索指定字段名的字符串值（委託到共用工具）
-  String? _findStringFieldRecursive(dynamic data, String fieldName, [int depth = 0]) =>
+  String? _findStringFieldRecursive(dynamic data, String fieldName,
+          [int depth = 0]) =>
       InnerTubeUtils.findStringField(data, fieldName, depth);
 
   /// 從 guide 響應中提取頻道名
@@ -339,12 +367,15 @@ class YouTubeAccountService extends AccountService with Logging {
         // 系統頁面（Home, Music 等）有 icon，用戶頻道只有 thumbnail
         final hasThumbnail = entryRenderer['thumbnail'] != null;
         final hasIcon = entryRenderer['icon'] != null;
-        final browseId = entryRenderer['navigationEndpoint']
-            ?['browseEndpoint']?['browseId'] as String?;
-        final title = _extractText(entryRenderer['formattedTitle'])
-            ?? _extractText(entryRenderer['title']);
+        final browseId = entryRenderer['navigationEndpoint']?['browseEndpoint']
+            ?['browseId'] as String?;
+        final title = _extractText(entryRenderer['formattedTitle']) ??
+            _extractText(entryRenderer['title']);
 
-        if (hasThumbnail && !hasIcon && browseId != null && browseId.startsWith('UC')) {
+        if (hasThumbnail &&
+            !hasIcon &&
+            browseId != null &&
+            browseId.startsWith('UC')) {
           if (title != null && title.isNotEmpty) return title;
         }
       }
@@ -355,15 +386,18 @@ class YouTubeAccountService extends AccountService with Logging {
   /// 從頻道頁 browse 響應中提取頻道名
   String? _extractChannelName(Map<String, dynamic> data) {
     // 路徑 1: metadata.channelMetadataRenderer.title
-    final title = data['metadata']?['channelMetadataRenderer']?['title'] as String?;
+    final title =
+        data['metadata']?['channelMetadataRenderer']?['title'] as String?;
     if (title != null) return title;
 
     // 路徑 2: header.c4TabbedHeaderRenderer.title
-    final headerTitle = data['header']?['c4TabbedHeaderRenderer']?['title'] as String?;
+    final headerTitle =
+        data['header']?['c4TabbedHeaderRenderer']?['title'] as String?;
     if (headerTitle != null) return headerTitle;
 
     // 路徑 3: header.pageHeaderRenderer — 新版
-    final pageHeader = data['header']?['pageHeaderRenderer']?['pageTitle'] as String?;
+    final pageHeader =
+        data['header']?['pageHeaderRenderer']?['pageTitle'] as String?;
     if (pageHeader != null) return pageHeader;
 
     // 路徑 4: 遞歸搜索 channelMetadataRenderer
@@ -376,7 +410,8 @@ class YouTubeAccountService extends AccountService with Logging {
   }
 
   /// 遞歸搜索指定 renderer（委託到共用工具）
-  Map<String, dynamic>? _findRendererRecursive(dynamic data, String key, [int depth = 0]) =>
+  Map<String, dynamic>? _findRendererRecursive(dynamic data, String key,
+          [int depth = 0]) =>
       InnerTubeUtils.findRenderer(data, key, depth);
 
   /// 從 InnerTube Text 對象中提取文本（委託到共用工具）
