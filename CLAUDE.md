@@ -4,37 +4,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Important: Before Modifying Code
 
-### 1. Read Serena Memories First
-Before making any code changes, use Serena to read relevant memories:
-```
-mcp__plugin_serena_serena__list_memories()
-mcp__plugin_serena_serena__read_memory(memory_file_name: "audio_system")
-mcp__plugin_serena_serena__read_memory(memory_file_name: "architecture")
-```
+### 1. Read Project Memory Files First
+Before making any code changes, read relevant project memory files directly from `.serena/memories/` using local file tools.
 
-Key memories:
-- `audio_system` - Detailed audio architecture, design decisions, common mistakes to avoid
-- `architecture` - Overall project architecture
-- `project_overview` - Project status and features
-- `code_style` - Code style conventions
-- `ui_coding_patterns` - **UI 页面开发必读** - 统一编码模式、组件使用规范
-- `database_migration` - **数据库迁移必读** - Isar 模型修改时的迁移步骤和注意事项
+Start with:
+- `.serena/memories/audio_system.md` - Detailed audio architecture, design decisions, common mistakes to avoid
+- `.serena/memories/architecture.md` - Overall project architecture
 
-### 2. Use Serena for Code Modifications
-Always use Serena MCP tools for code changes:
-- `mcp__plugin_serena_serena__find_symbol` - Find symbols by name
-- `mcp__plugin_serena_serena__get_symbols_overview` - Get file structure
-- `mcp__plugin_serena_serena__replace_symbol_body` - Replace entire symbol
-- `mcp__plugin_serena_serena__replace_content` - Regex-based replacement
-- `mcp__plugin_serena_serena__insert_after_symbol` / `insert_before_symbol` - Add new code
+Other commonly useful files:
+- `.serena/memories/code_style.md` - Code style conventions
+- `.serena/memories/ui_coding_patterns.md` - **UI 页面开发必读** - 统一编码模式、组件使用规范
+- `.serena/memories/database_migration.md` - **数据库迁移必读** - Isar 模型修改时的迁移步骤和注意事项
+- `.serena/memories/download_system.md` - Download system details and caveats
+- `.serena/memories/refactoring_lessons.md` - Historical design decisions and lessons learned
 
-Benefits: Precise symbolic editing, better for refactoring, avoids accidental changes.
 
-### 3. Update Documentation After Significant Changes ⚠️ IMPORTANT
+### 2. Update Documentation After Significant Changes ⚠️ IMPORTANT
 
 **在完成重大代码修改后，必须同时更新：**
 1. **本文件 (CLAUDE.md)** - 项目核心文档
-2. **Serena 记忆文件** - 详细架构/实现文档
+2. **项目记忆文件（`.serena/memories/*.md`）** - 详细架构/实现文档
 
 #### 需要更新 CLAUDE.md 的情况
 
@@ -46,44 +35,32 @@ Benefits: Precise symbolic editing, better for refactoring, avoids accidental ch
 | 状态管理变更 | "State Management: Riverpod" |
 | 数据层变更 | "Data Layer" |
 
-#### 需要更新 Serena 记忆的情况
+#### 需要更新项目记忆文件的情况
 
-| 修改类型 | 需要更新的记忆 |
+| 修改类型 | 需要更新的文件 |
 |----------|---------------|
-| 音频系统架构变更 | `audio_system` |
-| 新增/删除模块、服务 | `architecture` |
-| 依赖包变更 | `project_overview` |
-| 下载系统变更 | `download_system` |
-| UI 页面结构变更 | `ui_pages_details` |
-| 新的设计决策/经验教训 | `refactoring_lessons` |
+| 音频系统架构变更 | `.serena/memories/audio_system.md` |
+| 新增/删除模块、服务 | `.serena/memories/architecture.md` |
+| 下载系统变更 | `.serena/memories/download_system.md` |
+| UI 编码规范/页面结构变更 | `.serena/memories/ui_coding_patterns.md` |
+| 新的设计决策/经验教训 | `.serena/memories/refactoring_lessons.md` |
+| 数据库模型/迁移变更 | `.serena/memories/database_migration.md` |
 
 #### 更新方法
 
-**CLAUDE.md 更新：**
-```
-mcp__plugin_serena_serena__replace_content(relative_path: "CLAUDE.md", needle: "...", repl: "...", mode: "literal")
-```
-
-**Serena 记忆更新：**
-```
-# 小范围编辑（推荐）
-mcp__plugin_serena_serena__edit_memory(memory_file_name: "...", needle: "旧内容", repl: "新内容", mode: "literal")
-
-# 大范围重写
-mcp__plugin_serena_serena__write_memory(memory_file_name: "...", content: "...")
-
-# 删除过时记忆
-mcp__plugin_serena_serena__delete_memory(memory_file_name: "...")
-```
+**CLAUDE.md / 项目记忆文件更新：**
+- 优先使用 `Read` + `Edit` 直接修改对应文件
+- 相关 memory markdown 文件位于 `.serena/memories/`
+- 仅在确实需要新增说明文档时再创建新的 memory 文件（使用 `Write`）
 
 #### 检查清单
 
 完成重大修改后，问自己：
-- [ ] 是否添加/删除了依赖包？→ 更新 CLAUDE.md + `project_overview`
-- [ ] 是否添加/删除了服务类？→ 更新 CLAUDE.md "File Structure" + `architecture`
-- [ ] 是否修改了核心架构？→ 更新 CLAUDE.md 相关章节 + 相关记忆
-- [ ] 是否有新的设计决策？→ 更新 CLAUDE.md "Key Design Decisions" + `refactoring_lessons`
-- [ ] **是否修改了数据库模型（Isar）？→ 阅读 `database_migration` 记忆并添加迁移逻辑**
+- [ ] 是否添加/删除了依赖包？→ 更新 CLAUDE.md + 对应 `.serena/memories/*.md` 文件
+- [ ] 是否添加/删除了服务类？→ 更新 CLAUDE.md "File Structure" + `.serena/memories/architecture.md`
+- [ ] 是否修改了核心架构？→ 更新 CLAUDE.md 相关章节 + 相关项目记忆文件
+- [ ] 是否有新的设计决策？→ 更新 CLAUDE.md "Key Design Decisions" + `.serena/memories/refactoring_lessons.md`
+- [ ] **是否修改了数据库模型（Isar）？→ 阅读 `.serena/memories/database_migration.md` 并添加迁移逻辑**
 
 ## Project Overview
 
@@ -101,6 +78,9 @@ flutter build windows    # Windows executable
 
 # Code generation (required after modifying Isar models)
 flutter pub run build_runner build --delete-conflicting-outputs
+
+# Regenerate i18n files (required after modifying lib/i18n/**/*.json)
+dart run slang
 
 # Static analysis
 flutter analyze
@@ -209,7 +189,7 @@ if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
 - 乐观更新失败时必须回滚（`await loadXxx()`）
 - 列表/网格项加 `ValueKey(item.id)`
 
-详见 `ui_coding_patterns` 记忆第 3 节。
+详见 `.serena/memories/ui_coding_patterns.md` 第 3 节。
 
 ### Data Layer
 
@@ -254,7 +234,7 @@ if (settings.newFeatureTimeout < 1) {
 
 **For detailed migration guide, read:**
 ```
-mcp__plugin_serena_serena__read_memory(memory_file_name: "database_migration")
+Read `.serena/memories/database_migration.md`
 ```
 
 ## Key Design Decisions
@@ -318,7 +298,7 @@ YouTube Mix/Radio playlists (ID starts with "RD") are dynamic infinite playlists
 - `lib/services/audio/audio_provider.dart` - `playMixPlaylist()`, `_MixPlaylistState`, `PlayMode.mix`
 - `lib/services/audio/queue_manager.dart` - `setMixMode()`, `clearMixMode()`, Mix state persistence
 
-See `mix_playlist_design` memory for full implementation details.
+See the corresponding project memory file in `.serena/memories/` for full implementation details.
 
 ### PlaybackContext and Play Lock (Race Condition Prevention)
 `AudioController` uses a unified `_PlaybackContext` class to manage playback state and prevent race conditions during rapid track switching.
@@ -594,7 +574,7 @@ Network images are automatically optimized to reduce memory and bandwidth usage.
 - Also sets `memCacheWidth`/`memCacheHeight` as fallback for unsupported URLs
 - Decoded bitmap memory reduced from ~8 MB (1920×1080) to ~160 KB (200×200)
 
-See `image_handling` memory for full implementation details.
+See `.serena/memories/image_handling.md` for full implementation details.
 
 ## UI Page Development Guidelines
 
