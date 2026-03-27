@@ -102,6 +102,20 @@ Future<void> _migrateDatabase(Isar isar) async {
         needsUpdate = true;
       }
 
+      // 網易雲播放認證：新字段 bool 默認 false，但需要默認 true
+      // 使用 enabledSources 是否包含 'netease' 判斷是否已遷移
+      if (!settings.enabledSources.contains('netease')) {
+        settings.useNeteaseAuthForPlay = true;
+        settings.enabledSources = [...settings.enabledSources, 'netease'];
+        needsUpdate = true;
+      }
+
+      // 網易雲流優先級
+      if (settings.neteaseStreamPriority.isEmpty) {
+        settings.neteaseStreamPriority = 'audioOnly';
+        needsUpdate = true;
+      }
+
       if (needsUpdate) {
         await isar.settings.put(settings);
       }

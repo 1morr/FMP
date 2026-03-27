@@ -78,6 +78,8 @@ final isLoggedInProvider = Provider.family<bool, SourceType>((ref, platform) {
       return ref.watch(isBilibiliLoggedInProvider);
     case SourceType.youtube:
       return ref.watch(isYouTubeLoggedInProvider);
+    case SourceType.netease:
+      return false; // TODO: Netease login state (Phase 2)
   }
 });
 

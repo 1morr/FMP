@@ -7,12 +7,14 @@ part 'track.g.dart';
 /// 音源类型枚举
 enum SourceType {
   bilibili,
-  youtube;
+  youtube,
+  netease;
 
   String get displayName {
     switch (this) {
       case SourceType.bilibili: return t.importPlatform.bilibili;
       case SourceType.youtube: return t.importPlatform.youtube;
+      case SourceType.netease: return t.importPlatform.netease;
     }
   }
 }
@@ -79,6 +81,9 @@ class Track {
 
   /// 是否可用
   bool isAvailable = true;
+
+  /// 是否為 VIP 歌曲（需要付費才能播放）
+  bool isVip = false;
 
   /// 不可用原因
   String? unavailableReason;

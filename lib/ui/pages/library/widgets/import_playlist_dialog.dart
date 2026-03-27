@@ -134,6 +134,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
       final platform = switch (internalSource.sourceType) {
         SourceType.bilibili => _SourcePlatform.bilibili,
         SourceType.youtube => _SourcePlatform.youtube,
+        SourceType.netease => _SourcePlatform.netease,
       };
       final newDetected = _DetectedUrl(type: _UrlType.internal, platform: platform);
       if (_detected?.type != newDetected.type ||

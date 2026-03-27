@@ -40,6 +40,7 @@ dependencies:
 
   # 加密
   crypto: ^3.0.3
+  encrypt: ^5.0.3
 
   # YouTube 数据提取
   youtube_explode_dart: ^2.3.5

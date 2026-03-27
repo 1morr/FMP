@@ -213,6 +213,8 @@ class ImportService with Logging {
           ..description = result.description
           ..sourceUrl = url
           ..importSourceType = source.sourceType
+          ..ownerName = result.ownerName
+          ..ownerUserId = result.ownerUserId
           ..refreshIntervalHours = refreshIntervalHours  // 默认为 null（不开启自动刷新）
           ..notifyOnUpdate = notifyOnUpdate
           ..createdAt = DateTime.now();
