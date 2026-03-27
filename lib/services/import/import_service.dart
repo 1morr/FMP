@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:isar/isar.dart';
 
 import '../../core/logger.dart';
-import '../../core/utils/auth_retry_utils.dart';
+import '../../core/utils/auth_headers_utils.dart';
 import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
 import '../../data/repositories/playlist_repository.dart';
@@ -12,6 +12,7 @@ import '../../data/sources/bilibili_source.dart';
 import '../../data/sources/source_provider.dart';
 import '../../data/sources/youtube_source.dart';
 import '../account/bilibili_account_service.dart';
+import '../account/netease_account_service.dart';
 import '../account/youtube_account_service.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
@@ -83,6 +84,7 @@ class ImportService with Logging {
   final Isar _isar;
   final BilibiliAccountService? _bilibiliAccountService;
   final YouTubeAccountService? _youtubeAccountService;
+  final NeteaseAccountService? _neteaseAccountService;
 
   // 导入进度流
   final _progressController = StreamController<ImportProgress>.broadcast();
@@ -121,18 +123,21 @@ class ImportService with Logging {
     required Isar isar,
     BilibiliAccountService? bilibiliAccountService,
     YouTubeAccountService? youtubeAccountService,
+    NeteaseAccountService? neteaseAccountService,
   })  : _sourceManager = sourceManager,
         _playlistRepository = playlistRepository,
         _trackRepository = trackRepository,
         _isar = isar,
         _bilibiliAccountService = bilibiliAccountService,
-        _youtubeAccountService = youtubeAccountService;
+        _youtubeAccountService = youtubeAccountService,
+        _neteaseAccountService = neteaseAccountService;
 
   /// 获取指定平台的认证 headers
   Future<Map<String, String>?> _getAuthHeaders(SourceType sourceType) =>
       buildAuthHeaders(sourceType,
           bilibiliAccountService: _bilibiliAccountService,
-          youtubeAccountService: _youtubeAccountService);
+          youtubeAccountService: _youtubeAccountService,
+          neteaseAccountService: _neteaseAccountService);
 
   /// 从 URL 导入歌单/收藏夹
   Future<ImportResult> importFromUrl(
@@ -140,6 +145,7 @@ class ImportService with Logging {
     String? customName,
     int? refreshIntervalHours,
     bool notifyOnUpdate = true,
+    bool useAuth = false,
   }) async {
     _isCancelled = false;
     _cancelledPlaylistId = null;
@@ -163,10 +169,11 @@ class ImportService with Logging {
       }
 
       // 解析播放列表
-      final result = await withAuthRetryDirect(
-        action: (authHeaders) => source.parsePlaylist(url, authHeaders: authHeaders),
-        getAuthHeaders: () => _getAuthHeaders(source.sourceType),
-      );
+      Map<String, String>? authHeaders;
+      if (useAuth) {
+        authHeaders = await _getAuthHeaders(source.sourceType);
+      }
+      final result = await source.parsePlaylist(url, authHeaders: authHeaders);
 
       // 获取分P信息并展开（仅Bilibili）
       final List<Track> expandedTracks;
@@ -215,6 +222,7 @@ class ImportService with Logging {
           ..importSourceType = source.sourceType
           ..ownerName = result.ownerName
           ..ownerUserId = result.ownerUserId
+          ..useAuthForRefresh = useAuth
           ..refreshIntervalHours = refreshIntervalHours  // 默认为 null（不开启自动刷新）
           ..notifyOnUpdate = notifyOnUpdate
           ..createdAt = DateTime.now();
@@ -286,8 +294,11 @@ class ImportService with Logging {
         }
       }
 
-      // 更新歌单封面（使用第一首歌曲的縮略圖）
-      if (!playlist.hasCustomCover && playlist.trackIds.isNotEmpty) {
+      // 更新歌单封面
+      // 导入歌单优先使用平台封面，只有非导入歌单才用第一首歌封面
+      if (!playlist.hasCustomCover && result.coverUrl != null) {
+        playlist.coverUrl = result.coverUrl;
+      } else if (!playlist.hasCustomCover && !playlist.isImported && playlist.trackIds.isNotEmpty) {
         final firstTrack = await _trackRepository.getById(playlist.trackIds.first);
         if (firstTrack?.thumbnailUrl != null) {
           playlist.coverUrl = firstTrack!.thumbnailUrl;
@@ -418,10 +429,15 @@ class ImportService with Logging {
         throw ImportException(t.importSource.unrecognizedSource);
       }
 
-      final result = await withAuthRetryDirect(
-        action: (authHeaders) => source.parsePlaylist(playlist.sourceUrl!, authHeaders: authHeaders),
-        getAuthHeaders: () => _getAuthHeaders(source.sourceType),
-      );
+      Map<String, String>? authHeaders;
+      if (playlist.useAuthForRefresh) {
+        authHeaders = await _getAuthHeaders(source.sourceType);
+      }
+      final result = await source.parsePlaylist(playlist.sourceUrl!, authHeaders: authHeaders);
+
+      // 更新所有者信息（刷新時可能變更）
+      playlist.ownerName = result.ownerName;
+      playlist.ownerUserId = result.ownerUserId;
 
       // 获取分P信息并展开（仅Bilibili）
       final List<Track> expandedTracks;
@@ -539,8 +555,10 @@ class ImportService with Logging {
       
       // 更新封面 URL：
       // 用戶手動設置的封面不會被自動更新
-      // 否則使用第一首歌曲的縮略圖作為默認封面
-      if (!playlist.hasCustomCover) {
+      // 刷新時更新平台封面（除非自定義）
+      if (!playlist.hasCustomCover && result.coverUrl != null) {
+        playlist.coverUrl = result.coverUrl;
+      } else if (!playlist.hasCustomCover) {
         if (newTrackIds.isNotEmpty) {
           final firstTrack = await _trackRepository.getById(newTrackIds.first);
           if (firstTrack?.thumbnailUrl != null) {
@@ -616,10 +634,7 @@ class ImportService with Logging {
 
       try {
         // 获取分P信息
-        final pages = await withAuthRetryDirect(
-          action: (authHeaders) => source.getVideoPages(track.sourceId, authHeaders: authHeaders),
-          getAuthHeaders: () => _getAuthHeaders(SourceType.bilibili),
-        );
+        final pages = await source.getVideoPages(track.sourceId);
 
         if (pages.length <= 1) {
           // API 返回单P，直接添加

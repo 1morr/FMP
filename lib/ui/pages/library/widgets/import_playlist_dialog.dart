@@ -63,6 +63,9 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
   /// 检测到的 URL 信息
   _DetectedUrl? _detected;
 
+  /// 是否使用登入狀態導入
+  bool _useAuth = false;
+
   /// 外部歌单搜索来源
   SearchSourceConfig _searchSource = SearchSourceConfig.all;
 
@@ -225,6 +228,23 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
                 ),
                 enabled: !_isImporting,
               ),
+
+              // 使用登入狀態開關（僅內部來源顯示）
+              if (_detected?.type == _UrlType.internal && !_isImporting) ...[
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(t.library.importPlaylist.useAuth),
+                  subtitle: Text(
+                    t.library.importPlaylist.useAuthHint,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.outline,
+                    ),
+                  ),
+                  value: _useAuth,
+                  onChanged: (v) => setState(() => _useAuth = v),
+                ),
+              ],
 
               // 搜索来源选择（仅外部歌单显示）
               if (isExternal && !_isImporting) ...[
@@ -415,6 +435,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
         isar: isar,
         bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
         youtubeAccountService: ref.read(youtubeAccountServiceProvider),
+        neteaseAccountService: ref.read(neteaseAccountServiceProvider),
       );
       _internalImportService = importService;
 
@@ -430,6 +451,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
       final result = await importService.importFromUrl(
         url,
         customName: customName.isEmpty ? null : customName,
+        useAuth: _useAuth,
       );
 
       // 刷新相关 providers

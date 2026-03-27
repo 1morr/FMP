@@ -150,7 +150,9 @@
     "justNow": "Just now",
     "minutesAgo": "$n minutes ago",
     "hoursAgo": "$n hours ago",
-    "daysAgo": "$n days ago"
+    "daysAgo": "$n days ago",
+    "useAuthForRefresh": "Use login credentials for refresh",
+    "useAuthForRefreshHint": "Use account credentials when auto-refreshing or manually refreshing"
   },
   "importPlaylist": {
     "title": "Import Playlist",
@@ -161,6 +163,8 @@
     "nameLabel": "Playlist name (optional)",
     "nameHint": "Leave empty to use original name",
     "searchSource": "Search source",
+    "useAuth": "Import with login credentials",
+    "useAuthHint": "Enable this for private playlists or content that requires login",
     "import": "Import",
     "processing": "Processing...",
     "preparing": "Preparing...",

@@ -257,6 +257,7 @@ class _AccountPlaylistsSheetState
           isar: isar,
           bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
           youtubeAccountService: ref.read(youtubeAccountServiceProvider),
+          neteaseAccountService: ref.read(neteaseAccountServiceProvider),
         );
         _currentImportService = importService;
 
@@ -267,7 +268,10 @@ class _AccountPlaylistsSheetState
           }
         });
 
-        await importService.importFromUrl(item.importUrl);
+        await importService.importFromUrl(
+          item.importUrl,
+          useAuth: true,
+        );
         successCount++;
       } catch (e) {
         if (_isCancelled) break;

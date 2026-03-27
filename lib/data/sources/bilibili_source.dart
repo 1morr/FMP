@@ -529,6 +529,8 @@ class BilibiliSource extends BaseSource with Logging {
         tracks: allTracks,
         totalCount: allTracks.length,
         sourceUrl: playlistUrl,
+        ownerName: info?['upper']?['name'] as String?,
+        ownerUserId: (info?['upper']?['mid'] as int?)?.toString(),
       );
     } on DioException catch (e) {
       throw _handleDioError(e);

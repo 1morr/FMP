@@ -14,7 +14,7 @@ import '../../../data/models/video_detail.dart';
 import '../../../data/sources/base_source.dart' show SearchOrder;
 import '../../../data/sources/bilibili_source.dart';
 import '../../../data/sources/source_provider.dart';
-import '../../../core/utils/auth_retry_utils.dart';
+import '../../../core/utils/auth_headers_utils.dart';
 import '../../../providers/account_provider.dart';
 import '../../../providers/search_provider.dart';
 import '../../../services/audio/audio_provider.dart';

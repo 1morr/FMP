@@ -150,7 +150,9 @@
     "justNow": "刚刚",
     "minutesAgo": "$n 分钟前",
     "hoursAgo": "$n 小时前",
-    "daysAgo": "$n 天前"
+    "daysAgo": "$n 天前",
+    "useAuthForRefresh": "使用登录状态刷新",
+    "useAuthForRefreshHint": "开启后自动刷新和手动刷新时使用登录账号的凭证"
   },
   "importPlaylist": {
     "title": "导入歌单",
@@ -161,6 +163,8 @@
     "nameLabel": "歌单名称（可选）",
     "nameHint": "留空则使用原名称",
     "searchSource": "搜索来源",
+    "useAuth": "使用登录状态导入",
+    "useAuthHint": "对私人歌单或需要登录才能查看的内容，请开启此选项",
     "import": "导入",
     "processing": "正在处理...",
     "preparing": "准备中...",

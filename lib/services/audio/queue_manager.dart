@@ -11,7 +11,7 @@ import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../data/sources/base_source.dart';
 import '../../data/sources/source_provider.dart';
-import '../../core/utils/auth_retry_utils.dart';
+import '../../core/utils/auth_headers_utils.dart';
 import '../account/bilibili_account_service.dart';
 import '../account/youtube_account_service.dart';
 
