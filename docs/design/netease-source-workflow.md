@@ -14,7 +14,7 @@
 | 1b | 帳號系統 | 6 | 登入 + Cookie + Provider |
 | 1c | 音源核心 | 5 | NeteaseSource + 搜索 |
 | 1d | 導入重構 | 7 | auth 重構 + 封面 + 所有者 |
-| 1e | 播放重構 | 5 | 設定 + QueueManager + 下載 |
+| 1e | 播放重構 | 3 | 帳號卡片 auth 開關 + QueueManager + 下載 |
 | 1f | 歌詞 + UI | 6 | 歌詞 + VIP + Owner + 縮略圖 |
 | 1g | i18n + 收尾 | 5 | 翻譯 + 路由 + 驗證 |
 
@@ -840,148 +840,66 @@ final result = await importService.importFromUrl(
 
 ## 階段 1e — 播放重構
 
-### 任務 1e-1：登入狀態播放設定頁面
+### 任務 1e-1：帳號管理卡片新增「登入播放」開關按鈕 ✅
 
-**文件**: `lib/ui/pages/settings/auth_playback_settings_page.dart` (新建)
+**文件**: `lib/ui/pages/settings/account_management_page.dart`
 
-**UI 結構**:
-```dart
-class AuthPlaybackSettingsPage extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsProvider);
+**已完成實現**:
+- `AccountManagementPage` 改為 `ConsumerStatefulWidget`，啟動時從 Settings 讀取 `useAuthForPlay` 狀態
+- `_PlatformCard` 新增 `useAuthForPlay` 和 `onToggleAuth` 參數
+- 按鈕風格：啟用時 `FilledButton.tonal`（高亮），停用時 `OutlinedButton`（中空）
+- 按鈕文字：`t.account.useAuth`（「登入播放」）
+- 僅在已登入時顯示
 
-    return Scaffold(
-      appBar: AppBar(title: Text(t.settings.authPlayback.title)),
-      body: ListView(children: [
-        // 說明文字
-        Padding(
-          padding: EdgeInsets.all(16),
-          child: Text(t.settings.authPlayback.description, ...),
-        ),
-        // 各平台開關
-        SwitchListTile(
-          title: Text('Bilibili'),
-          subtitle: Text(t.settings.authPlayback.defaultOff),
-          value: settings.useBilibiliAuthForPlay,
-          onChanged: (v) => _updateSetting(ref, SourceType.bilibili, v),
-        ),
-        SwitchListTile(
-          title: Text('YouTube'),
-          subtitle: Text(t.settings.authPlayback.defaultOff),
-          value: settings.useYoutubeAuthForPlay,
-          onChanged: (v) => _updateSetting(ref, SourceType.youtube, v),
-        ),
-        SwitchListTile(
-          title: Text(t.importPlatform.netease),
-          subtitle: Text(t.settings.authPlayback.defaultOn),
-          value: settings.useNeteaseAuthForPlay,
-          onChanged: (v) => _updateSetting(ref, SourceType.netease, v),
-        ),
-      ]),
-    );
-  }
-}
-```
+**注意**：不再使用獨立設定頁面 (`AuthPlaybackSettingsPage`)，直接在帳號卡片上切換。
+
+**i18n**: `account.useAuth` — 三語言（zh-CN: "使用登录状态", zh-TW: "登入播放", en: "Use Auth"）
 
 ---
 
-### 任務 1e-2：QueueManager auth 邏輯改造
+### 任務 1e-2：QueueManager auth 邏輯改造 ✅
 
 **文件**: `lib/services/audio/queue_manager.dart`
 
-**操作**:
+**已完成操作**:
 
-1. Constructor 新增 `NeteaseAccountService` 參數
+1. Constructor 新增 `NeteaseAccountService?` 參數
 2. `_getAuthHeaders` 更新支持 netease
-3. `ensureAudioStream()` 替換 `withAuthRetryDirect`：
-
-```dart
-// 舊:
-// final streamResult = await withAuthRetryDirect(
-//   action: (authHeaders) => source.getAudioStream(...),
-//   getAuthHeaders: () => _getAuthHeaders(track.sourceType),
-// );
-
-// 新:
-Map<String, String>? authHeaders;
-final settings = await _getSettings();
-if (settings.useAuthForPlay(track.sourceType)) {
-  authHeaders = await _getAuthHeaders(track.sourceType);
-  // 網易雲未登入阻止播放
-  if (authHeaders == null && track.sourceType == SourceType.netease) {
-    throw NeteaseApiException(
-      numericCode: 301,
-      message: t.error.neteaseLoginRequired,
-    );
-  }
-}
-final streamResult = await source.getAudioStream(
-  track.sourceId, config: config, authHeaders: authHeaders,
-);
-```
-
-4. 同樣替換 `ensureAudioUrl()` 和 `getAlternativeAudioStream()` 中的類似邏輯
+3. `ensureAudioUrl()` 和 `ensureAudioStream()` 替換 `withAuthRetryDirect`：
+   - 從 `_settingsRepository.get()` 讀取設定
+   - `settings.useAuthForPlay(track.sourceType)` 判斷是否附加 auth headers
+4. `_buildAudioStreamConfig()` 改為 `switch` 表達式，支持 `SourceType.netease` → `settings.neteaseStreamPriorityList`
+5. Provider (`queueManagerProvider`) 傳入 `neteaseAccountServiceProvider`
 
 ---
 
-### 任務 1e-3：DownloadService auth 邏輯改造
+### 任務 1e-3：DownloadService auth 邏輯改造 ✅
 
 **文件**: `lib/services/download/download_service.dart`
 
-**操作**:
+**已完成操作**:
 
-1. Constructor 新增 `NeteaseAccountService` 參數
-2. 替換 `withAuthRetryDirect` 調用（約 line 614）：
-
-```dart
-// 舊:
-// final streamResult = await withAuthRetryDirect(
-//   action: (authHeaders) => source.getAudioStream(track.sourceId, ...),
-//   getAuthHeaders: () => _getAuthHeaders(track.sourceType),
-// );
-
-// 新:
-Map<String, String>? authHeaders;
-final settings = await _getSettings();
-if (settings.useAuthForPlay(track.sourceType)) {
-  authHeaders = await _getAuthHeaders(track.sourceType);
-}
-final streamResult = await source.getAudioStream(
-  track.sourceId, config: config, authHeaders: authHeaders,
-);
-```
-
-3. 下載網易雲音頻時需要在 HTTP headers 中帶 `Referer: https://music.163.com`
+1. Constructor 新增 `NeteaseAccountService?` 參數
+2. `_getAuthHeaders` 更新支持 netease
+3. `_startDownload()` 中音頻流獲取 + 視頻詳情獲取：替換 `withAuthRetryDirect` 為 `settings.useAuthForPlay()` 判斷
+4. `_buildAudioStreamConfig()` 改為 `switch` 表達式支持 netease
+5. Isolate 下載 `Referer` header 按源類型動態選擇：
+   - `SourceType.bilibili` → `https://www.bilibili.com`
+   - `SourceType.youtube` → `https://www.youtube.com`
+   - `SourceType.netease` → `https://music.163.com`
+6. Provider (`downloadServiceProvider`) 傳入 `neteaseAccountServiceProvider`
 
 ---
 
-### 任務 1e-4：設定頁面新增入口
+### ~~任務 1e-4：設定頁面新增入口~~ (已取消)
 
-**文件**: `lib/ui/pages/settings/settings_page.dart`
-
-**操作**:
-在「播放設定」section 中新增：
-```dart
-ListTile(
-  leading: const Icon(Icons.vpn_key_outlined),
-  title: Text(t.settings.authPlayback.title),
-  subtitle: Text(t.settings.authPlayback.subtitle),
-  trailing: const Icon(Icons.chevron_right),
-  onTap: () => context.push(RoutePaths.authPlaybackSettings),
-),
-```
+> 不再需要。登入播放開關已整合到帳號管理卡片中（1e-1）。
 
 ---
 
-### 任務 1e-5：路由註冊
+### ~~任務 1e-5：路由註冊~~ (已簡化)
 
-**文件**: 路由配置文件（`lib/ui/` 中的路由定義）
-
-**操作**:
-1. 新增 `RoutePaths.neteaseLogin` 路由
-2. 新增 `RoutePaths.authPlaybackSettings` 路由
-3. 分別指向 `NeteaseLoginPage` 和 `AuthPlaybackSettingsPage`
+> `AuthPlaybackSettingsPage` 路由不再需要。`NeteaseLoginPage` 路由在 1b 階段已註冊。
 
 ---
 
@@ -1152,6 +1070,7 @@ static String _optimizeNeteaseUrl(String url, int targetWidth) {
 // account.i18n.json
 "netease": "網易雲音樂",
 "neteaseLoginTitle": "登入網易雲音樂",
+"useAuth": "登入播放",   // ← 帳號卡片上的開關按鈕文字（已在 1e-1 完成）
 
 // importPlatform (在 general 或 track 相關文件中)
 "netease": "網易雲音樂",
@@ -1164,19 +1083,14 @@ static String _optimizeNeteaseUrl(String url, int targetWidth) {
 "useAuthForRefresh": "使用登入狀態刷新",
 "useAuthForRefreshHint": "開啟後自動刷新和手動刷新時使用登入帳號的憑證",
 
-// settings/authPlayback
-"title": "登入狀態管理",
-"subtitle": "設定播放和下載時是否使用登入狀態",
-"description": "開啟後，播放和下載歌曲時會使用登入帳號的憑證獲取音頻流",
-"defaultOn": "默認開啟",
-"defaultOff": "默認關閉",
-
-// playlist
+// library/detail
 "owner": "所有者",
 
 // error
 "neteaseLoginRequired": "請先登入網易雲音樂帳號",
 ```
+
+> 注意：`settings.authPlayback.*` 相關 key 已取消，登入播放開關移至帳號卡片（`account.useAuth`）。
 
 **完成後運行**: `dart run slang`
 
@@ -1186,7 +1100,8 @@ static String _optimizeNeteaseUrl(String url, int targetWidth) {
 
 確認所有新頁面路由已在 GoRouter 配置中註冊：
 - `/settings/netease-login` → `NeteaseLoginPage`
-- `/settings/auth-playback` → `AuthPlaybackSettingsPage`
+
+> 注意：`AuthPlaybackSettingsPage` 路由已取消，登入播放開關整合在帳號管理卡片中。
 
 ---
 
@@ -1222,7 +1137,7 @@ static String _optimizeNeteaseUrl(String url, int targetWidth) {
 - [ ] 刷新歌單：使用/不使用登入狀態刷新
 - [ ] 下載：下載網易雲歌曲成功
 - [ ] 歌詞：網易雲歌曲自動匹配歌詞（直接獲取，非搜索）
-- [ ] 設定：登入狀態播放設定生效
+- [ ] 設定：帳號管理卡片「登入播放」按鈕切換生效
 - [ ] 未登入播放：網易雲歌曲在未登入時 Toast 提示
 - [ ] Bilibili/YouTube 不受影響：現有功能正常
 

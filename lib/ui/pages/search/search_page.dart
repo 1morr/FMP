@@ -809,13 +809,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     try {
       final sourceManager = ref.read(sourceManagerProvider);
       final source = sourceManager.getSource(SourceType.bilibili) as BilibiliSource;
-      final pages = await withAuthRetryDirect(
-        action: (authHeaders) => source.getVideoPages(track.sourceId, authHeaders: authHeaders),
-        getAuthHeaders: () => buildAuthHeaders(
-          SourceType.bilibili,
-          bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
-        ),
+      final authHeaders = await buildAuthHeaders(
+        SourceType.bilibili,
+        bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
       );
+      final pages = await source.getVideoPages(track.sourceId, authHeaders: authHeaders);
 
       if (mounted) {
         setState(() {

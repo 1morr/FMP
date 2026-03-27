@@ -105,17 +105,11 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
       // 如果本地没有或加载失败，从网络获取
       if (detail == null) {
         if (track.sourceType == SourceType.bilibili) {
-          detail = await withAuthRetry(
-            action: (authHeaders) => _bilibiliSource.getVideoDetail(track.sourceId, authHeaders: authHeaders),
-            platform: SourceType.bilibili,
-            ref: _ref,
-          );
+          final authHeaders = await getAuthHeadersForPlatform(SourceType.bilibili, _ref);
+          detail = await _bilibiliSource.getVideoDetail(track.sourceId, authHeaders: authHeaders);
         } else if (track.sourceType == SourceType.youtube) {
-          detail = await withAuthRetry(
-            action: (authHeaders) => _youtubeSource.getVideoDetail(track.sourceId, authHeaders: authHeaders),
-            platform: SourceType.youtube,
-            ref: _ref,
-          );
+          final authHeaders = await getAuthHeadersForPlatform(SourceType.youtube, _ref);
+          detail = await _youtubeSource.getVideoDetail(track.sourceId, authHeaders: authHeaders);
         }
       }
 
@@ -171,17 +165,11 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
     try {
       VideoDetail detail;
       if (_currentSourceType == SourceType.bilibili) {
-        detail = await withAuthRetry(
-          action: (authHeaders) => _bilibiliSource.getVideoDetail(sourceId, authHeaders: authHeaders),
-          platform: SourceType.bilibili,
-          ref: _ref,
-        );
+        final authHeaders = await getAuthHeadersForPlatform(SourceType.bilibili, _ref);
+        detail = await _bilibiliSource.getVideoDetail(sourceId, authHeaders: authHeaders);
       } else {
-        detail = await withAuthRetry(
-          action: (authHeaders) => _youtubeSource.getVideoDetail(sourceId, authHeaders: authHeaders),
-          platform: SourceType.youtube,
-          ref: _ref,
-        );
+        final authHeaders = await getAuthHeadersForPlatform(SourceType.youtube, _ref);
+        detail = await _youtubeSource.getVideoDetail(sourceId, authHeaders: authHeaders);
       }
       state = TrackDetailState(detail: detail);
     } catch (e) {
