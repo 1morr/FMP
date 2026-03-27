@@ -87,6 +87,20 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
     super.dispose();
   }
 
+  /// 将内部 _SourcePlatform 映射到 SourceType（用于查询登录状态）
+  SourceType _sourcePlatformToSourceType(_SourcePlatform platform) {
+    switch (platform) {
+      case _SourcePlatform.bilibili:
+        return SourceType.bilibili;
+      case _SourcePlatform.youtube:
+        return SourceType.youtube;
+      case _SourcePlatform.netease:
+        return SourceType.netease;
+      default:
+        return SourceType.bilibili; // fallback, should not happen for internal sources
+    }
+  }
+
   /// 根据来源平台返回对应图标
   IconData _getSourceIcon(_SourcePlatform platform) {
     switch (platform) {
@@ -232,18 +246,28 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
               // 使用登入狀態開關（僅內部來源顯示）
               if (_detected?.type == _UrlType.internal && !_isImporting) ...[
                 const SizedBox(height: 8),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(t.library.importPlaylist.useAuth),
-                  subtitle: Text(
-                    t.library.importPlaylist.useAuthHint,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.outline,
+                Builder(builder: (context) {
+                  final isLoggedIn = _detected != null
+                      ? ref.watch(isLoggedInProvider(
+                          _sourcePlatformToSourceType(_detected!.platform)))
+                      : false;
+                  return SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(t.library.importPlaylist.useAuth),
+                    subtitle: Text(
+                      isLoggedIn
+                          ? t.library.importPlaylist.useAuthHint
+                          : t.library.importPlaylist.useAuthNotLoggedIn,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.outline,
+                      ),
                     ),
-                  ),
-                  value: _useAuth,
-                  onChanged: (v) => setState(() => _useAuth = v),
-                ),
+                    value: _useAuth && isLoggedIn,
+                    onChanged: isLoggedIn
+                        ? (v) => setState(() => _useAuth = v)
+                        : null,
+                  );
+                }),
               ],
 
               // 搜索来源选择（仅外部歌单显示）

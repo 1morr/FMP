@@ -166,6 +166,7 @@
     "searchSource": "搜索来源",
     "useAuth": "使用登录状态导入",
     "useAuthHint": "对私人歌单或需要登录才能查看的内容，请开启此选项",
+    "useAuthNotLoggedIn": "请先登录对应平台的账号",
     "import": "导入",
     "processing": "正在处理...",
     "preparing": "准备中...",
