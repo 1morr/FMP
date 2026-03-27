@@ -62,7 +62,7 @@ class SearchState extends Equatable {
 
   /// 获取启用的音源列表
   Set<SourceType> get enabledSources => selectedSource == null
-      ? const {SourceType.bilibili, SourceType.youtube}
+      ? const {SourceType.bilibili, SourceType.youtube, SourceType.netease}
       : {selectedSource!};
 
   /// 获取所有在线结果（未排序）

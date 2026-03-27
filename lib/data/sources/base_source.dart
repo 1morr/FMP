@@ -223,4 +223,8 @@ abstract class BaseSource {
 
   /// 检查歌曲是否仍然可用
   Future<bool> checkAvailability(String sourceId);
+
+  /// 释放资源（关闭 HTTP 客户端等）
+  /// 子类可覆写以清理自身资源
+  void dispose() {}
 }

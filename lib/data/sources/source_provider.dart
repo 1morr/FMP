@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/track.dart';
 import 'base_source.dart';
 import 'bilibili_source.dart';
+import 'netease_source.dart';
 import 'youtube_source.dart';
 
 /// 音源管理器
@@ -13,6 +14,7 @@ class SourceManager {
     // 注册所有可用音源
     _sources.add(BilibiliSource());
     _sources.add(YouTubeSource());
+    _sources.add(NeteaseSource());
   }
 
   /// 所有可用音源
@@ -137,11 +139,7 @@ class SourceManager {
   /// 释放所有音源资源（关闭 HTTP 客户端等）
   void dispose() {
     for (final source in _sources) {
-      if (source is BilibiliSource) {
-        source.dispose();
-      } else if (source is YouTubeSource) {
-        source.dispose();
-      }
+      source.dispose();
     }
     _sources.clear();
   }
@@ -166,6 +164,12 @@ final bilibiliSourceProvider = Provider<BilibiliSource>((ref) {
 final youtubeSourceProvider = Provider<YouTubeSource>((ref) {
   final manager = ref.watch(sourceManagerProvider);
   return manager.getSource(SourceType.youtube) as YouTubeSource;
+});
+
+/// 網易雲音源 Provider
+final neteaseAudioSourceProvider = Provider<NeteaseSource>((ref) {
+  final manager = ref.watch(sourceManagerProvider);
+  return manager.getSource(SourceType.netease) as NeteaseSource;
 });
 
 /// URL 解析 Provider

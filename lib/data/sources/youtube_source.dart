@@ -1639,7 +1639,7 @@ class YouTubeSource extends BaseSource with Logging {
     return YouTubeApiException(code: classified.code, message: classified.message);
   }
 
-  /// 释放资源
+  @override
   void dispose() {
     _youtube.close();
     _dio.close();

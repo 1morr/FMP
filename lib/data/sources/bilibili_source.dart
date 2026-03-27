@@ -1065,6 +1065,7 @@ class BilibiliSource extends BaseSource with Logging {
     }
   }
 
+  @override
   void dispose() {
     _dio.close();
   }
