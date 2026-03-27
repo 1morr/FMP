@@ -33,5 +33,7 @@
   "importRadioComplete": "Successfully imported $count stations",
   "importingRadio": "Importing...",
   "liveStatus": "Live",
-  "useAuth": "Auth Playback"
+  "useAuth": "Auth Playback",
+  "authRequired": "Netease requires authentication for playback",
+  "authNotSupported": "Auth playback is not supported for this platform yet"
 }

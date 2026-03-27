@@ -23,39 +23,20 @@ class AccountManagementPage extends ConsumerStatefulWidget {
 }
 
 class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
-  Map<SourceType, bool> _authForPlay = {};
-  bool _settingsLoaded = false;
-
   @override
   void initState() {
     super.initState();
-    _loadAuthSettings();
+    // Ensure DB settings match hardcoded UI state (fire-and-forget)
+    _ensureAuthSettings();
   }
 
-  Future<void> _loadAuthSettings() async {
+  Future<void> _ensureAuthSettings() async {
     final settingsRepo = ref.read(settingsRepositoryProvider);
-    final settings = await settingsRepo.get();
-    if (mounted) {
-      setState(() {
-        _authForPlay = {
-          SourceType.bilibili: settings.useBilibiliAuthForPlay,
-          SourceType.youtube: settings.useYoutubeAuthForPlay,
-          SourceType.netease: settings.useNeteaseAuthForPlay,
-        };
-        _settingsLoaded = true;
-      });
-    }
-  }
-
-  Future<void> _toggleAuth(SourceType sourceType) async {
-    final newValue = !(_authForPlay[sourceType] ?? false);
-
-    final settingsRepo = ref.read(settingsRepositoryProvider);
-    await settingsRepo.update((s) => s.setUseAuthForPlay(sourceType, newValue));
-
-    if (mounted) {
-      setState(() => _authForPlay[sourceType] = newValue);
-    }
+    await settingsRepo.update((s) {
+      s.setUseAuthForPlay(SourceType.bilibili, false);
+      s.setUseAuthForPlay(SourceType.youtube, false);
+      s.setUseAuthForPlay(SourceType.netease, true);
+    });
   }
 
   @override
@@ -79,13 +60,14 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
             isLoggedIn: bilibiliAccount?.isLoggedIn ?? false,
             userName: bilibiliAccount?.userName,
             avatarUrl: bilibiliAccount?.avatarUrl,
-            useAuthForPlay: _settingsLoaded ? _authForPlay[SourceType.bilibili] : null,
+            useAuthForPlay: false,
+            authInteractive: false,
+            authTooltip: t.account.authNotSupported,
             onLogin: () => context.push(RoutePaths.bilibiliLogin),
             onLogout: () => _confirmLogout(SourceType.bilibili),
             onManagePlaylists: () =>
                 _showPlaylistSheet(context, SourceType.bilibili),
             onImportRadio: () => _showRadioImportSheet(context),
-            onToggleAuth: () => _toggleAuth(SourceType.bilibili),
           ),
           const SizedBox(height: 12),
           // YouTube 卡片
@@ -96,12 +78,13 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
             isLoggedIn: youtubeAccount?.isLoggedIn ?? false,
             userName: youtubeAccount?.userName,
             avatarUrl: youtubeAccount?.avatarUrl,
-            useAuthForPlay: _settingsLoaded ? _authForPlay[SourceType.youtube] : null,
+            useAuthForPlay: false,
+            authInteractive: false,
+            authTooltip: t.account.authNotSupported,
             onLogin: () => context.push(RoutePaths.youtubeLogin),
             onLogout: () => _confirmLogout(SourceType.youtube),
             onManagePlaylists: () =>
                 _showPlaylistSheet(context, SourceType.youtube),
-            onToggleAuth: () => _toggleAuth(SourceType.youtube),
           ),
           const SizedBox(height: 12),
           // 網易雲卡片
@@ -112,12 +95,13 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
             isLoggedIn: neteaseAccount?.isLoggedIn ?? false,
             userName: neteaseAccount?.userName,
             avatarUrl: neteaseAccount?.avatarUrl,
-            useAuthForPlay: _settingsLoaded ? _authForPlay[SourceType.netease] : null,
+            useAuthForPlay: true,
+            authInteractive: false,
+            authTooltip: t.account.authRequired,
             onLogin: () => context.push(RoutePaths.neteaseLogin),
             onLogout: () => _confirmLogout(SourceType.netease),
             onManagePlaylists: () =>
                 _showPlaylistSheet(context, SourceType.netease),
-            onToggleAuth: () => _toggleAuth(SourceType.netease),
           ),
         ],
       ),
@@ -187,11 +171,12 @@ class _PlatformCard extends StatelessWidget {
   final String? userName;
   final String? avatarUrl;
   final bool? useAuthForPlay;
+  final bool authInteractive;
+  final String? authTooltip;
   final VoidCallback? onLogin;
   final VoidCallback? onLogout;
   final VoidCallback? onManagePlaylists;
   final VoidCallback? onImportRadio;
-  final VoidCallback? onToggleAuth;
 
   const _PlatformCard({
     required this.platformName,
@@ -201,11 +186,12 @@ class _PlatformCard extends StatelessWidget {
     this.userName,
     this.avatarUrl,
     this.useAuthForPlay,
+    this.authInteractive = true,
+    this.authTooltip,
     this.onLogin,
     this.onLogout,
     this.onManagePlaylists,
     this.onImportRadio,
-    this.onToggleAuth,
   });
 
   @override
@@ -260,17 +246,28 @@ class _PlatformCard extends StatelessWidget {
               );
 
               // 登入狀態播放按鈕：啟用時高亮 (FilledButton.tonal)，停用時中空 (OutlinedButton)
-              final authButton = useAuthForPlay != null
-                  ? useAuthForPlay!
-                      ? FilledButton.tonal(
-                          onPressed: onToggleAuth,
-                          child: Text(t.account.useAuth),
-                        )
-                      : OutlinedButton(
-                          onPressed: onToggleAuth,
-                          child: Text(t.account.useAuth),
-                        )
-                  : null;
+              Widget? authButton;
+              if (useAuthForPlay != null) {
+                final button = useAuthForPlay!
+                    ? FilledButton.tonal(
+                        onPressed: authInteractive ? () {} : null,
+                        child: Text(t.account.useAuth),
+                      )
+                    : OutlinedButton(
+                        onPressed: authInteractive ? () {} : null,
+                        child: Text(t.account.useAuth),
+                      );
+                if (authTooltip != null) {
+                  // Wrap disabled button in ExcludeSemantics to avoid
+                  // Flutter accessibility tree errors with Tooltip
+                  authButton = Tooltip(
+                    message: authTooltip!,
+                    child: ExcludeSemantics(child: button),
+                  );
+                } else {
+                  authButton = button;
+                }
+              }
 
               final actionButtons = <Widget>[
                 if (authButton != null) authButton,
