@@ -152,6 +152,10 @@ class UrlLauncherService {
       } else if (type == _LaunchType.channel && channelId != null && channelId.isNotEmpty) {
         return 'youtube://channel/$channelId';
       }
+    } else if (sourceType == SourceType.netease) {
+      if (type == _LaunchType.video && videoId != null) {
+        return 'orpheus://song/$videoId';
+      }
     }
     return null;
   }
@@ -175,6 +179,10 @@ class UrlLauncherService {
         return 'https://www.youtube.com/watch?v=$videoId';
       } else if (type == _LaunchType.channel && channelId != null && channelId.isNotEmpty) {
         return 'https://www.youtube.com/channel/$channelId';
+      }
+    } else if (sourceType == SourceType.netease) {
+      if (type == _LaunchType.video && videoId != null) {
+        return 'https://music.163.com/song?id=$videoId';
       }
     }
     return null;
