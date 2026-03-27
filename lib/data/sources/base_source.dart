@@ -27,6 +27,20 @@ class AudioStreamConfig {
 
   /// 默认配置（高音质、兼容优先）
   static const defaultConfig = AudioStreamConfig();
+
+  /// 从 Settings 构建指定音源的配置
+  factory AudioStreamConfig.fromSettings(Settings settings, SourceType sourceType) {
+    final streamPriority = switch (sourceType) {
+      SourceType.youtube => settings.youtubeStreamPriorityList,
+      SourceType.bilibili => settings.bilibiliStreamPriorityList,
+      SourceType.netease => settings.neteaseStreamPriorityList,
+    };
+    return AudioStreamConfig(
+      qualityLevel: settings.audioQualityLevel,
+      formatPriority: settings.audioFormatPriorityList,
+      streamPriority: streamPriority,
+    );
+  }
 }
 
 /// 音频流结果（包含元信息）

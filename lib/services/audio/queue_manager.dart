@@ -958,12 +958,11 @@ class QueueManager with Logging {
     }
 
     try {
-      final config = await _buildAudioStreamConfig(track.sourceType);
-      Map<String, String>? authHeaders;
       final settings = await _settingsRepository.get();
-      if (settings.useAuthForPlay(track.sourceType)) {
-        authHeaders = await _getAuthHeaders(track.sourceType);
-      }
+      final config = AudioStreamConfig.fromSettings(settings, track.sourceType);
+      final authHeaders = settings.useAuthForPlay(track.sourceType)
+          ? await _getAuthHeaders(track.sourceType)
+          : null;
       final streamResult = await source.getAudioStream(track.sourceId, config: config, authHeaders: authHeaders);
       
       // 更新 track 的 URL
@@ -1009,7 +1008,8 @@ class QueueManager with Logging {
     if (source == null) return null;
     
     logDebug('Getting alternative audio stream for: ${track.title}');
-    final config = await _buildAudioStreamConfig(track.sourceType);
+    final settings = await _settingsRepository.get();
+    final config = AudioStreamConfig.fromSettings(settings, track.sourceType);
     return await source.getAlternativeAudioStream(track.sourceId, failedUrl: failedUrl, config: config);
   }
 
@@ -1017,24 +1017,6 @@ class QueueManager with Logging {
   Future<String?> getAlternativeAudioUrl(Track track, {String? failedUrl}) async {
     final result = await getAlternativeAudioStream(track, failedUrl: failedUrl);
     return result?.url;
-  }
-
-  /// 根据设置构建音频流配置
-  Future<AudioStreamConfig> _buildAudioStreamConfig(SourceType sourceType) async {
-    final settings = await _settingsRepository.get();
-
-    // 根据源类型选择流优先级
-    final streamPriority = switch (sourceType) {
-      SourceType.youtube => settings.youtubeStreamPriorityList,
-      SourceType.bilibili => settings.bilibiliStreamPriorityList,
-      SourceType.netease => settings.neteaseStreamPriorityList,
-    };
-
-    return AudioStreamConfig(
-      qualityLevel: settings.audioQualityLevel,
-      formatPriority: settings.audioFormatPriorityList,
-      streamPriority: streamPriority,
-    );
   }
 
   /// 预取下一首歌曲的 URL
