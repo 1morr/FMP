@@ -6,6 +6,7 @@
 /// 支持的图片源：
 /// - Bilibili (hdslb.com)
 /// - YouTube (ytimg.com, yt3.ggpht.com)
+/// - Netease (music.126.net)
 class ThumbnailUrlUtils {
   ThumbnailUrlUtils._();
 
@@ -38,6 +39,8 @@ class ThumbnailUrlUtils {
       return _optimizeBilibiliUrl(url, targetSize);
     } else if (_isYouTubeUrl(url)) {
       return _optimizeYouTubeUrl(url, targetSize);
+    } else if (_isNeteaseUrl(url)) {
+      return _optimizeNeteaseUrl(url, targetSize);
     }
 
     // 其他 URL 原样返回
@@ -206,5 +209,33 @@ class ThumbnailUrlUtils {
   /// 获取大尺寸缩略图 URL（用于详情页）
   static String getLargeThumbnail(String? url) {
     return getOptimizedUrl(url, displaySize: largeSize.toDouble());
+  }
+
+  /// 检查是否为网易云图片 URL
+  static bool _isNeteaseUrl(String url) {
+    return url.contains('music.126.net');
+  }
+
+  /// 优化网易云图片 URL
+  ///
+  /// 网易云图片 URL 支持 ?param={w}y{h} 参数调整大小：
+  /// - 原始：http://p1.music.126.net/xxx.jpg
+  /// - 优化：http://p1.music.126.net/xxx.jpg?param=200y200
+  static String _optimizeNeteaseUrl(String url, int targetSize) {
+    // 移除已有的 param 参数
+    final baseUrl = url.split('?').first;
+
+    // 选择合适的尺寸档位
+    final size = _selectNeteaseSize(targetSize);
+
+    return '$baseUrl?param=${size}y$size';
+  }
+
+  /// 选择网易云合适的尺寸档位
+  static int _selectNeteaseSize(int targetSize) {
+    if (targetSize <= 100) return 100;
+    if (targetSize <= 200) return 200;
+    if (targetSize <= 400) return 400;
+    return 800;
   }
 }
