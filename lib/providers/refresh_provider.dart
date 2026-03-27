@@ -126,6 +126,7 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
       isar: isar,
       bilibiliAccountService: _ref.read(bilibiliAccountServiceProvider),
       youtubeAccountService: _ref.read(youtubeAccountServiceProvider),
+      neteaseAccountService: _ref.read(neteaseAccountServiceProvider),
     );
 
     // 初始化刷新状态
