@@ -35,5 +35,17 @@ class NeteaseCredentials {
       };
 
   /// 生成 Cookie 字符串（供 Dio 請求使用）
-  String toCookieString() => 'MUSIC_U=$musicU; __csrf=$csrf';
+  /// 包含 os=pc 標識，讓 Netease CDN 返回桌面端可用的音頻 URL
+  String toCookieString() {
+    final cookies = <String, String>{
+      'MUSIC_U': musicU,
+      if (csrf.isNotEmpty) '__csrf': csrf,
+      'os': 'pc',
+      'deviceId': 'fmp',
+    };
+
+    return cookies.entries
+        .map((entry) => '${entry.key}=${entry.value}')
+        .join('; ');
+  }
 }

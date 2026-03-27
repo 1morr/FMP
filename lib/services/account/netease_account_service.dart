@@ -43,18 +43,25 @@ class NeteaseAccountService extends AccountService with Logging {
 
   static const String _storageKey = 'account_netease_credentials';
   static const String _apiBase = 'https://music.163.com';
+  static const String _userAgent =
+      'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 '
+      '(KHTML, like Gecko) Safari/537.36 Chrome/91.0.4472.164 '
+      'NeteaseMusicDesktop/3.0.18.203152';
+  // 匿名 Cookie — weapi QR 登入需要
+  static const String _anonymousCookie =
+      'os=pc; osver=Microsoft-Windows-10-Professional-build-10586-64bit; '
+      'appver=2.7.1.198277; channel=netease; __csrf=; MUSIC_U=';
 
   NeteaseAccountService({required Isar isar})
       : _isar = isar,
         _secureStorage = const FlutterSecureStorage(),
         _dio = Dio(BaseOptions(
           headers: {
-            'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-                    '(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-            'Referer': 'https://music.163.com',
-            'Origin': 'https://music.163.com',
-            'Accept': '*/*',
+            'User-Agent': _userAgent,
+            'Referer': '$_apiBase/',
+            'Origin': _apiBase,
+            'Accept': 'application/json, text/plain, */*',
+            'Cookie': _anonymousCookie,
           },
           contentType: Headers.formUrlEncodedContentType,
           connectTimeout: AppConstants.networkConnectTimeout,
@@ -103,7 +110,7 @@ class NeteaseAccountService extends AccountService with Logging {
   Future<({String url, String unikey})> generateQrCode() async {
     final encrypted = NeteaseCrypto.weapi({'type': 1});
     final response = await _dio.post(
-      '$_apiBase/weapi/login/qrcode/unikey',
+      '$_apiBase/weapi/login/qrcode/unikey?csrf_token=',
       data: encrypted,
     );
 
@@ -140,16 +147,16 @@ class NeteaseAccountService extends AccountService with Logging {
       int pollCount = 0;
       int consecutiveErrors = 0;
 
-      final encrypted = NeteaseCrypto.weapi({'type': 1, 'key': unikey});
-
       while (pollCount < maxPolls && !stopped) {
         await Future.delayed(const Duration(seconds: 3));
         if (stopped) break;
         pollCount++;
 
         try {
+          // 每次輪詢重新加密（避免重放問題）
+          final encrypted = NeteaseCrypto.weapi({'type': 1, 'key': unikey});
           final response = await _dio.post(
-            '$_apiBase/weapi/login/qrcode/client/login',
+            '$_apiBase/weapi/login/qrcode/client/login?csrf_token=',
             data: encrypted,
           );
           if (stopped) break;
@@ -159,18 +166,22 @@ class NeteaseAccountService extends AccountService with Logging {
 
           switch (code) {
             case 803: // 登錄成功
-              // 從 Set-Cookie 提取 MUSIC_U 和 __csrf
-              final cookies = _extractCookiesFromResponse(response);
+              // 優先從 Set-Cookie 提取，fallback 到 response body
+              var cookies = _extractCookiesFromResponse(response);
+              if (cookies == null || !cookies.containsKey('MUSIC_U')) {
+                cookies = _extractCookiesFromBody(data);
+              }
               if (cookies != null) {
                 final musicU = cookies['MUSIC_U'] ?? '';
-                final csrf = cookies['__csrf'] ?? '';
-                final userId = cookies['__csrf_token']; // 可能沒有
+                final csrf = cookies['__csrf'] ??
+                    cookies['__csrf_token'] ??
+                    '';
 
                 if (musicU.isNotEmpty) {
+                  // 注意：不從 cookie 提取 userId，由 fetchAndUpdateUserInfo() 設置
                   await loginWithCookies(
                     musicU: musicU,
                     csrf: csrf,
-                    userId: userId,
                   );
                 }
               }
@@ -222,6 +233,14 @@ class NeteaseAccountService extends AccountService with Logging {
     return credentials?.toCookieString();
   }
 
+  /// 獲取完整認證 headers（Cookie + Origin + Referer + UA）
+  /// 供音頻播放器直接使用（CDN 需要 Cookie 才能播放部分歌曲）
+  Future<Map<String, String>?> getAuthHeaders() async {
+    final credentials = await _loadCredentials();
+    if (credentials == null) return null;
+    return _buildAuthHeaders(credentials.toCookieString());
+  }
+
   /// 獲取 CSRF token
   Future<String?> getCsrfToken() async {
     final credentials = await _loadCredentials();
@@ -269,14 +288,27 @@ class NeteaseAccountService extends AccountService with Logging {
     if (cookieString == null) return;
 
     try {
-      final encrypted = NeteaseCrypto.weapi({});
-      final response = await _dio.post(
-        '$_apiBase/weapi/w/nuser/account/get',
-        data: encrypted,
-        options: Options(headers: {'Cookie': cookieString}),
-      );
+      final authHeaders = _buildAuthHeaders(cookieString);
+
+      // 優先 GET，失敗則 POST（與 reference 一致）
+      Response<dynamic>? response;
+      try {
+        response = await _dio.get(
+          '$_apiBase/api/nuser/account/get',
+          options: Options(headers: authHeaders),
+        );
+      } catch (_) {
+        response = await _dio.post(
+          '$_apiBase/api/w/nuser/account/get',
+          options: Options(headers: authHeaders),
+        );
+      }
 
       final data = response.data;
+      if (data is! Map<String, dynamic>) {
+        logWarning('Netease: invalid account response');
+        return;
+      }
       final code = data['code'] as int?;
       if (code != 200) {
         logWarning('Netease: failed to fetch user info, code: $code');
@@ -284,12 +316,13 @@ class NeteaseAccountService extends AccountService with Logging {
       }
 
       final profile = data['profile'] as Map<String, dynamic>?;
+      final account = data['account'] as Map<String, dynamic>?;
       if (profile == null) {
         logWarning('Netease: user profile is null');
         return;
       }
 
-      final userId = (profile['userId'] as num?)?.toString();
+      final userId = (profile['userId'] ?? account?['id'])?.toString();
       final userName = profile['nickname'] as String?;
       final avatarUrl = profile['avatarUrl'] as String?;
 
@@ -299,8 +332,9 @@ class NeteaseAccountService extends AccountService with Logging {
         userId: userId,
       );
 
-      // 如果 credentials 中沒有 userId，補充保存
-      if (_cachedCredentials != null && _cachedCredentials!.userId == null && userId != null) {
+      // 同步 credentials 中的 userId（首次登錄或修正錯誤值）
+      if (_cachedCredentials != null && userId != null &&
+          _cachedCredentials!.userId != userId) {
         final credentials = _cachedCredentials!;
         final updated = NeteaseCredentials(
           musicU: credentials.musicU,
@@ -332,16 +366,16 @@ class NeteaseAccountService extends AccountService with Logging {
     if (userId == null) throw Exception('User ID not available');
 
     final cookieString = credentials.toCookieString();
-    final encrypted = NeteaseCrypto.weapi({
-      'uid': userId,
-      'limit': 50,
-      'offset': 0,
-    });
+    final authHeaders = _buildAuthHeaders(cookieString);
 
-    final response = await _dio.post(
-      '$_apiBase/weapi/user/playlist',
-      data: encrypted,
-      options: Options(headers: {'Cookie': cookieString}),
+    final response = await _dio.get(
+      '$_apiBase/api/user/playlist',
+      queryParameters: {
+        'uid': userId,
+        'limit': 50,
+        'offset': 0,
+      },
+      options: Options(headers: authHeaders),
     );
 
     final data = response.data;
@@ -435,6 +469,40 @@ class NeteaseAccountService extends AccountService with Logging {
     return cookies.isEmpty ? null : cookies;
   }
 
+  /// 從 response body 的 cookie 字段提取（Netease 803 回應可能包含）
+  Map<String, String>? _extractCookiesFromBody(dynamic data) {
+    if (data is! Map) return null;
+    final cookieStr = data['cookie'] as String?;
+    if (cookieStr == null || cookieStr.isEmpty) return null;
+
+    final cookies = <String, String>{};
+    for (final part in cookieStr.split(';')) {
+      final trimmed = part.trim();
+      if (trimmed.isEmpty) continue;
+      final idx = trimmed.indexOf('=');
+      if (idx > 0) {
+        final key = trimmed.substring(0, idx).trim();
+        final value = trimmed.substring(idx + 1).trim();
+        // 跳過 path/domain/expires 等屬性
+        if (!const {'path', 'domain', 'expires', 'max-age', 'httponly', 'secure', 'samesite'}
+            .contains(key.toLowerCase())) {
+          cookies[key] = value;
+        }
+      }
+    }
+    return cookies.isEmpty ? null : cookies;
+  }
+
   /// 暴露 Dio 實例（供 Interceptor 使用）
   Dio get dio => _dio;
+
+  /// 構建完整的認證 headers（Cookie + Origin + Referer + UA）
+  Map<String, String> _buildAuthHeaders(String cookieString) {
+    return {
+      'Cookie': cookieString,
+      'Origin': _apiBase,
+      'Referer': '$_apiBase/',
+      'User-Agent': _userAgent,
+    };
+  }
 }

@@ -12,24 +12,30 @@ import 'netease_exception.dart';
 import 'source_exception.dart';
 
 /// 網易雲音樂音源實現
+///
+/// 使用三種 API 模式:
+/// - `/api/*` — 明文 form-encoded（搜索、歌曲詳情）
+/// - `/eapi/*` — eapi 加密（音頻流獲取，需登入）
+/// - 短連結解析用 HEAD/GET
 class NeteaseSource extends BaseSource with Logging {
   late final Dio _dio;
 
-  static const String _apiBase = 'https://music.163.com';
+  static const String _musicBase = 'https://music.163.com';
+  static const String _interfaceBase = 'https://interface3.music.163.com';
   static const String _userAgent =
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-      '(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
-  static const Duration _audioUrlExpiry = Duration(minutes: 16); // 20min * 0.8
+      'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 '
+      '(KHTML, like Gecko) Safari/537.36 Chrome/91.0.4472.164 '
+      'NeteaseMusicDesktop/3.0.18.203152';
+  static const Duration _audioUrlExpiry = Duration(minutes: 16);
 
   NeteaseSource({Dio? dio}) {
     _dio = dio ??
         Dio(BaseOptions(
-          baseUrl: _apiBase,
           headers: {
             'User-Agent': _userAgent,
-            'Referer': 'https://music.163.com',
-            'Origin': 'https://music.163.com',
-            'Content-Type': 'application/x-www-form-urlencoded',
+            'Referer': '$_musicBase/',
+            'Origin': _musicBase,
+            'Accept': 'application/json, text/plain, */*',
           },
           connectTimeout: AppConstants.networkConnectTimeout,
           receiveTimeout: AppConstants.networkReceiveTimeout,
@@ -43,8 +49,6 @@ class NeteaseSource extends BaseSource with Logging {
 
   @override
   String? parseId(String url) {
-    // 匹配 music.163.com/song?id=xxx 或 music.163.com/#/song?id=xxx
-    // 或 music.163.com/song/xxx
     final match =
         RegExp(r'music\.163\.com.*?(?:song[?/]|[?&]id=)(\d+)').firstMatch(url);
     return match?.group(1);
@@ -62,7 +66,6 @@ class NeteaseSource extends BaseSource with Logging {
 
   @override
   bool canHandle(String url) {
-    // 匹配所有 music.163.com 的歌曲 URL
     if (url.contains('music.163.com') && url.contains('song')) {
       return parseId(url) != null;
     }
@@ -81,12 +84,10 @@ class NeteaseSource extends BaseSource with Logging {
 
       final track = _parseSongToTrack(song, privilege);
 
-      // 嘗試獲取音頻 URL
       try {
         final audioUrl = await getAudioUrl(sourceId, authHeaders: authHeaders);
         track.audioUrl = audioUrl;
-        track.audioUrlExpiry =
-            DateTime.now().add(_audioUrlExpiry);
+        track.audioUrlExpiry = DateTime.now().add(_audioUrlExpiry);
       } catch (_) {
         // 音頻 URL 獲取失敗不影響歌曲信息
       }
@@ -102,7 +103,7 @@ class NeteaseSource extends BaseSource with Logging {
     }
   }
 
-  // ========== 音頻流 ==========
+  // ========== 音頻流（eapi 加密） ==========
 
   @override
   Future<AudioStreamResult> getAudioStream(
@@ -114,22 +115,22 @@ class NeteaseSource extends BaseSource with Logging {
         'Getting audio stream for netease song: $sourceId, quality: ${config.qualityLevel}');
     try {
       final level = _mapQualityLevel(config.qualityLevel);
-      final csrfToken = _extractCsrf(authHeaders);
-
-      final data = {
-        'ids': '[$sourceId]',
+      final payload = {
+        'ids': [int.parse(sourceId)],
         'level': level,
-        'encodeType': 'aac',
-        if (csrfToken != null) 'csrf_token': csrfToken,
+        'encodeType': 'flac',
       };
-      final encrypted = NeteaseCrypto.weapi(data);
+
+      final eapiParams = NeteaseCrypto.eapi(
+          '/api/song/enhance/player/url/v1', payload);
 
       final response = await _dio.post(
-        '/weapi/song/enhance/player/url/v1',
-        data: _encodeFormData(encrypted),
-        options: authHeaders != null
-            ? Options(headers: {'Cookie': authHeaders['Cookie'] ?? ''})
-            : null,
+        '$_interfaceBase/eapi/song/enhance/player/url/v1',
+        data: {'params': eapiParams},
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          headers: _withAuth(authHeaders),
+        ),
       );
 
       final respData = _ensureMap(response.data);
@@ -149,7 +150,6 @@ class NeteaseSource extends BaseSource with Logging {
       final freeTrialInfo = streamInfo['freeTrialInfo'];
 
       if (url == null || url.isEmpty) {
-        // 判斷失敗原因
         final fee = streamInfo['fee'] as int?;
         if (fee == 1 || fee == 4) {
           throw NeteaseApiException(
@@ -159,7 +159,6 @@ class NeteaseSource extends BaseSource with Logging {
             numericCode: -200, message: 'No stream URL available');
       }
 
-      // 判斷是否為試聽片段
       final isTrial = freeTrialInfo != null;
 
       logDebug(
@@ -182,7 +181,7 @@ class NeteaseSource extends BaseSource with Logging {
     }
   }
 
-  // ========== 搜索 ==========
+  // ========== 搜索（明文 /api/） ==========
 
   @override
   Future<SearchResult> search(
@@ -194,17 +193,19 @@ class NeteaseSource extends BaseSource with Logging {
     logDebug('Searching Netease for: "$query", page: $page');
     try {
       final offset = (page - 1) * pageSize;
-      final data = {
-        's': query,
-        'type': 1, // 歌曲
-        'limit': pageSize,
-        'offset': offset,
-      };
-      final encrypted = NeteaseCrypto.weapi(data);
 
       final response = await _dio.post(
-        '/weapi/cloudsearch/get/web',
-        data: _encodeFormData(encrypted),
+        '$_musicBase/api/search/get',
+        data: {
+          's': query,
+          'type': 1,
+          'limit': pageSize,
+          'offset': offset,
+        },
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          responseType: ResponseType.plain,
+        ),
       );
 
       final respData = _ensureMap(response.data);
@@ -214,7 +215,8 @@ class NeteaseSource extends BaseSource with Logging {
       final songs = result?['songs'] as List? ?? [];
       final songCount = result?['songCount'] as int? ?? 0;
 
-      logDebug('Netease search results: ${songs.length} tracks, total: $songCount');
+      logDebug(
+          'Netease search results: ${songs.length} tracks, total: $songCount');
 
       final tracks = songs.map((song) {
         final s = song as Map<String, dynamic>;
@@ -249,7 +251,6 @@ class NeteaseSource extends BaseSource with Logging {
     Map<String, String>? authHeaders,
   }) async {
     try {
-      // 1. 提取歌單 ID
       final playlistId = await _extractPlaylistId(playlistUrl);
       if (playlistId == null) {
         throw NeteaseApiException(
@@ -257,14 +258,14 @@ class NeteaseSource extends BaseSource with Logging {
             message: 'Invalid playlist URL: $playlistUrl');
       }
 
-      // 2. 獲取歌單詳情 + trackIds
-      final encrypted = NeteaseCrypto.weapi({'id': playlistId, 'n': 0});
       final response = await _dio.post(
-        '/weapi/v3/playlist/detail',
-        data: _encodeFormData(encrypted),
-        options: authHeaders != null
-            ? Options(headers: {'Cookie': authHeaders['Cookie'] ?? ''})
-            : null,
+        '$_musicBase/api/v6/playlist/detail',
+        data: 'id=$playlistId',
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          responseType: ResponseType.json,
+          headers: _withAuth(authHeaders),
+        ),
       );
 
       final respData = _ensureMap(response.data);
@@ -284,7 +285,6 @@ class NeteaseSource extends BaseSource with Logging {
       final ownerUserId = creator?['userId']?.toString();
       final trackCount = playlist['trackCount'] as int? ?? 0;
 
-      // 3. 提取 trackIds
       final trackIds = <int>[];
       final trackIdsList = playlist['trackIds'] as List?;
       if (trackIdsList != null) {
@@ -294,7 +294,7 @@ class NeteaseSource extends BaseSource with Logging {
         }
       }
 
-      // 4. 分批獲取歌曲詳情（每批 400 個）
+      // 分批獲取歌曲詳情（每批 400 個）
       final allTracks = <Track>[];
       const batchSize = 400;
 
@@ -304,7 +304,6 @@ class NeteaseSource extends BaseSource with Logging {
             await _fetchTrackDetailsBatch(batchIds, authHeaders: authHeaders);
         allTracks.addAll(batchTracks);
 
-        // 避免請求過快
         if (i + batchSize < trackIds.length) {
           await Future.delayed(AppConstants.networkRetryDelay);
         }
@@ -343,8 +342,7 @@ class NeteaseSource extends BaseSource with Logging {
     final result =
         await getAudioStream(track.sourceId, authHeaders: authHeaders);
     track.audioUrl = result.url;
-    track.audioUrlExpiry =
-        DateTime.now().add(_audioUrlExpiry);
+    track.audioUrlExpiry = DateTime.now().add(_audioUrlExpiry);
     track.updatedAt = DateTime.now();
     return track;
   }
@@ -368,21 +366,19 @@ class NeteaseSource extends BaseSource with Logging {
 
   // ========== 內部方法 ==========
 
-  /// 獲取單首歌曲詳情（含 privilege）
+  /// 獲取單首歌曲詳情（明文 /api/，含 privilege）
   Future<Map<String, dynamic>> _getSongDetail(String sourceId,
       {Map<String, String>? authHeaders}) async {
-    final data = {
-      'c': '[{"id":"$sourceId"}]',
-      'ids': '[$sourceId]',
-    };
-    final encrypted = NeteaseCrypto.weapi(data);
-
     final response = await _dio.post(
-      '/weapi/v3/song/detail',
-      data: _encodeFormData(encrypted),
-      options: authHeaders != null
-          ? Options(headers: {'Cookie': authHeaders['Cookie'] ?? ''})
-          : null,
+      '$_musicBase/api/v3/song/detail',
+      data: 'c=${jsonEncode([
+            {'id': int.parse(sourceId)}
+          ])}',
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        responseType: ResponseType.json,
+        headers: _withAuth(authHeaders),
+      ),
     );
 
     final respData = _ensureMap(response.data);
@@ -405,22 +401,19 @@ class NeteaseSource extends BaseSource with Logging {
     };
   }
 
-  /// 批量獲取歌曲詳情
+  /// 批量獲取歌曲詳情（明文 /api/）
   Future<List<Track>> _fetchTrackDetailsBatch(List<int> trackIds,
       {Map<String, String>? authHeaders}) async {
-    final songIds = trackIds.map((id) => '{"id":"$id"}').join(',');
-    final data = {
-      'c': '[$songIds]',
-      'ids': '[${trackIds.join(",")}]',
-    };
-    final encrypted = NeteaseCrypto.weapi(data);
+    if (trackIds.isEmpty) return const [];
 
     final response = await _dio.post(
-      '/weapi/v3/song/detail',
-      data: _encodeFormData(encrypted),
-      options: authHeaders != null
-          ? Options(headers: {'Cookie': authHeaders['Cookie'] ?? ''})
-          : null,
+      '$_musicBase/api/v3/song/detail',
+      data: 'c=${jsonEncode(trackIds.map((id) => {'id': id}).toList())}',
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        responseType: ResponseType.json,
+        headers: _withAuth(authHeaders),
+      ),
     );
 
     final respData = _ensureMap(response.data);
@@ -429,7 +422,6 @@ class NeteaseSource extends BaseSource with Logging {
     final songs = respData['songs'] as List? ?? [];
     final privileges = respData['privileges'] as List? ?? [];
 
-    // 建立 privilege 查找表
     final privilegeMap = <int, Map<String, dynamic>>{};
     for (final p in privileges) {
       final pm = p as Map<String, dynamic>;
@@ -450,18 +442,17 @@ class NeteaseSource extends BaseSource with Logging {
       Map<String, dynamic> song, Map<String, dynamic>? privilege) {
     final songId = song['id'];
     final name = song['name'] as String? ?? '';
-    final ar = song['ar'] as List?;
-    final al = song['al'] as Map<String, dynamic>?;
-    final dt = song['dt'] as int? ?? 0;
+    final ar = song['ar'] as List? ?? song['artists'] as List?;
+    final al = song['al'] as Map<String, dynamic>? ??
+        song['album'] as Map<String, dynamic>?;
+    final dt = song['dt'] as int? ?? song['duration'] as int? ?? 0;
 
-    // 歌手名拼接
     final artists = ar
             ?.map((a) => (a as Map<String, dynamic>)['name'] as String?)
             .where((n) => n != null && n.isNotEmpty)
             .join(', ') ??
         '';
 
-    // VIP 判斷
     final fee = privilege?['fee'] as int? ?? song['fee'] as int? ?? 0;
     final st = privilege?['st'] as int? ?? 0;
 
@@ -478,7 +469,6 @@ class NeteaseSource extends BaseSource with Logging {
 
   /// 提取歌單 ID（支持標準連結和短連結）
   Future<String?> _extractPlaylistId(String url) async {
-    // 短連結需要重定向
     if (url.contains('163cn.tv')) {
       final resolvedUrl = await _resolveShortUrl(url);
       return _parsePlaylistIdFromUrl(resolvedUrl);
@@ -487,11 +477,9 @@ class NeteaseSource extends BaseSource with Logging {
   }
 
   String? _parsePlaylistIdFromUrl(String url) {
-    // 標準: music.163.com/#/playlist?id=xxx 或 music.163.com/playlist?id=xxx
     final idMatch = RegExp(r'[?&]id=(\d+)').firstMatch(url);
     if (idMatch != null) return idMatch.group(1);
 
-    // 移動端: /playlist/xxx
     final pathMatch = RegExp(r'/playlist[?/].*?(\d{5,})').firstMatch(url);
     if (pathMatch != null) return pathMatch.group(1);
 
@@ -516,26 +504,33 @@ class NeteaseSource extends BaseSource with Logging {
           options: Options(followRedirects: true, maxRedirects: 5),
         );
         return response.realUri.toString();
-      } catch (_) {
-        // 返回原始 URL
-      }
+      } catch (_) {}
     }
     return url;
   }
 
-  /// 音質等級映射
+  /// 構建包含認證信息的 headers map
+  /// authHeaders 可能只有 Cookie，這裡補充 Origin/Referer/UA
+  Map<String, String> _withAuth(Map<String, String>? authHeaders) {
+    return {
+      if (authHeaders != null) ...authHeaders,
+      'Origin': _musicBase,
+      'Referer': '$_musicBase/',
+      'User-Agent': _userAgent,
+    };
+  }
+
   String _mapQualityLevel(AudioQualityLevel level) {
     switch (level) {
       case AudioQualityLevel.high:
-        return 'exhigh'; // 320kbps
+        return 'lossless';
       case AudioQualityLevel.medium:
-        return 'higher'; // 192kbps
+        return 'exhigh';
       case AudioQualityLevel.low:
-        return 'standard'; // 128kbps
+        return 'standard';
     }
   }
 
-  /// 格式到編碼映射
   String? _mapCodec(String? type) {
     if (type == null) return null;
     switch (type.toLowerCase()) {
@@ -549,22 +544,8 @@ class NeteaseSource extends BaseSource with Logging {
       case 'ogg':
         return 'vorbis';
       default:
-        return 'aac';
+        return type;
     }
-  }
-
-  /// 從 authHeaders Cookie 中提取 csrf token
-  String? _extractCsrf(Map<String, String>? authHeaders) {
-    final cookie = authHeaders?['Cookie'];
-    if (cookie == null) return null;
-    final match = RegExp(r'__csrf=([^;]+)').firstMatch(cookie);
-    return match?.group(1);
-  }
-
-  /// 編碼 weapi 加密結果為 form data
-  String _encodeFormData(Map<String, String> encrypted) {
-    return 'params=${Uri.encodeComponent(encrypted['params']!)}'
-        '&encSecKey=${Uri.encodeComponent(encrypted['encSecKey']!)}';
   }
 
   /// 確保響應數據是 Map
@@ -573,9 +554,7 @@ class NeteaseSource extends BaseSource with Logging {
     if (data is String) {
       try {
         return jsonDecode(data) as Map<String, dynamic>;
-      } catch (_) {
-        // 解析失敗
-      }
+      } catch (_) {}
     }
     throw NeteaseApiException(
       numericCode: -999,
@@ -583,28 +562,29 @@ class NeteaseSource extends BaseSource with Logging {
     );
   }
 
-  /// 檢查 API 響應
   void _checkResponse(Map<String, dynamic> data) {
     final code = data['code'] as int?;
-    if (code == null) return; // 某些 API 不返回 code
+    if (code == null) return;
 
     if (code != 200 && code != 0) {
-      final message = data['message'] as String? ?? data['msg'] as String? ?? 'Unknown error';
+      final message =
+          data['message'] as String? ?? data['msg'] as String? ?? 'Unknown error';
       logWarning('Netease API error: code=$code, message=$message');
       throw NeteaseApiException(numericCode: code, message: message);
     }
   }
 
-  /// 處理 Dio 錯誤
   NeteaseApiException _handleDioError(DioException e) {
-    logError('Netease Dio error: type=${e.type}, statusCode=${e.response?.statusCode}');
+    logError(
+        'Netease Dio error: type=${e.type}, statusCode=${e.response?.statusCode}');
 
     final classified = SourceApiException.classifyDioError(e);
 
     if (e.type == DioExceptionType.badResponse) {
       final statusCode = e.response?.statusCode;
       if (statusCode == 429 || statusCode == 460 || statusCode == 462) {
-        return NeteaseApiException(numericCode: -460, message: classified.message);
+        return NeteaseApiException(
+            numericCode: -460, message: classified.message);
       }
       return NeteaseApiException(
         numericCode: -(statusCode ?? 500),
@@ -617,6 +597,7 @@ class NeteaseSource extends BaseSource with Logging {
       'network_error' => -998,
       _ => -999,
     };
-    return NeteaseApiException(numericCode: numericCode, message: classified.message);
+    return NeteaseApiException(
+        numericCode: numericCode, message: classified.message);
   }
 }
