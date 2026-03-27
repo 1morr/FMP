@@ -22,6 +22,7 @@ import '../../data/sources/bilibili_source.dart';
 import '../../data/sources/youtube_source.dart';
 import '../../core/utils/auth_headers_utils.dart';
 import '../account/bilibili_account_service.dart';
+import '../account/netease_account_service.dart';
 import '../account/youtube_account_service.dart';
 import 'download_path_utils.dart';
 
@@ -43,6 +44,7 @@ class DownloadService with Logging {
   final SourceManager _sourceManager;
   final BilibiliAccountService? _bilibiliAccountService;
   final YouTubeAccountService? _youtubeAccountService;
+  final NeteaseAccountService? _neteaseAccountService;
 
   
   final Dio _dio;
@@ -100,12 +102,14 @@ class DownloadService with Logging {
     required SourceManager sourceManager,
     BilibiliAccountService? bilibiliAccountService,
     YouTubeAccountService? youtubeAccountService,
+    NeteaseAccountService? neteaseAccountService,
   })  : _downloadRepository = downloadRepository,
         _trackRepository = trackRepository,
         _settingsRepository = settingsRepository,
         _sourceManager = sourceManager,
         _bilibiliAccountService = bilibiliAccountService,
         _youtubeAccountService = youtubeAccountService,
+        _neteaseAccountService = neteaseAccountService,
         _dio = Dio(BaseOptions(
           connectTimeout: AppConstants.downloadConnectTimeout,
           receiveTimeout: const Duration(minutes: 30),
@@ -119,7 +123,8 @@ class DownloadService with Logging {
   Future<Map<String, String>?> _getAuthHeaders(SourceType sourceType) =>
       buildAuthHeaders(sourceType,
           bilibiliAccountService: _bilibiliAccountService,
-          youtubeAccountService: _youtubeAccountService);
+          youtubeAccountService: _youtubeAccountService,
+          neteaseAccountService: _neteaseAccountService);
 
   /// 初始化服务
   Future<void> initialize() async {
@@ -568,11 +573,13 @@ class DownloadService with Logging {
   /// 根据用户设置构建音频流配置（与播放时使用相同逻辑）
   Future<AudioStreamConfig> _buildAudioStreamConfig(SourceType sourceType) async {
     final settings = await _settingsRepository.get();
-    
+
     // 根据源类型选择流优先级
-    final streamPriority = sourceType == SourceType.youtube
-        ? settings.youtubeStreamPriorityList
-        : settings.bilibiliStreamPriorityList;
+    final streamPriority = switch (sourceType) {
+      SourceType.youtube => settings.youtubeStreamPriorityList,
+      SourceType.bilibili => settings.bilibiliStreamPriorityList,
+      SourceType.netease => settings.neteaseStreamPriorityList,
+    };
 
     return AudioStreamConfig(
       qualityLevel: settings.audioQualityLevel,
@@ -610,10 +617,12 @@ class DownloadService with Logging {
       }
       
       final config = await _buildAudioStreamConfig(track.sourceType);
-      final streamResult = await withAuthRetryDirect(
-        action: (authHeaders) => source.getAudioStream(track.sourceId, config: config, authHeaders: authHeaders),
-        getAuthHeaders: () => _getAuthHeaders(track.sourceType),
-      );
+      Map<String, String>? authHeaders;
+      final settings = await _settingsRepository.get();
+      if (settings.useAuthForPlay(track.sourceType)) {
+        authHeaders = await _getAuthHeaders(track.sourceType);
+      }
+      final streamResult = await source.getAudioStream(track.sourceId, config: config, authHeaders: authHeaders);
       final audioUrl = streamResult.url;
       
       // 更新 track 的 URL 信息
@@ -654,9 +663,14 @@ class DownloadService with Logging {
       // 使用 Isolate 进行下载，避免在主线程中进行网络 I/O
       // 这可以解决 Windows 上的 "Failed to post message to main thread" 错误
       final receivePort = ReceivePort();
+      final referer = switch (track.sourceType) {
+        SourceType.bilibili => 'https://www.bilibili.com',
+        SourceType.youtube => 'https://www.youtube.com',
+        SourceType.netease => 'https://music.163.com',
+      };
       final headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': 'https://www.bilibili.com',
+        'Referer': referer,
       };
       
       final isolate = await Isolate.spawn(
@@ -724,18 +738,18 @@ class DownloadService with Logging {
         if (track.sourceType == SourceType.bilibili) {
           final source = _sourceManager.getSource(SourceType.bilibili);
           if (source is BilibiliSource) {
-            videoDetail = await withAuthRetryDirect(
-              action: (authHeaders) => source.getVideoDetail(track.sourceId, authHeaders: authHeaders),
-              getAuthHeaders: () => _getAuthHeaders(track.sourceType),
-            );
+            final detailAuthHeaders = settings.useAuthForPlay(SourceType.bilibili)
+                ? await _getAuthHeaders(SourceType.bilibili)
+                : null;
+            videoDetail = await source.getVideoDetail(track.sourceId, authHeaders: detailAuthHeaders);
           }
         } else if (track.sourceType == SourceType.youtube) {
           final source = _sourceManager.getSource(SourceType.youtube);
           if (source is YouTubeSource) {
-            videoDetail = await withAuthRetryDirect(
-              action: (authHeaders) => source.getVideoDetail(track.sourceId, authHeaders: authHeaders),
-              getAuthHeaders: () => _getAuthHeaders(track.sourceType),
-            );
+            final detailAuthHeaders = settings.useAuthForPlay(SourceType.youtube)
+                ? await _getAuthHeaders(SourceType.youtube)
+                : null;
+            videoDetail = await source.getVideoDetail(track.sourceId, authHeaders: detailAuthHeaders);
           }
         }
       } catch (e) {

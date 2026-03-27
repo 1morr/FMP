@@ -2692,6 +2692,7 @@ final queueManagerProvider = Provider<QueueManager>((ref) {
     sourceManager: sourceManager,
     bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
     youtubeAccountService: ref.read(youtubeAccountServiceProvider),
+    neteaseAccountService: ref.read(neteaseAccountServiceProvider),
   );
 
   ref.onDispose(() => manager.dispose());

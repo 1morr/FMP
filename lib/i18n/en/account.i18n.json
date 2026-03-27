@@ -32,5 +32,6 @@
   "importRadioSelected": "Import Selected ($count)",
   "importRadioComplete": "Successfully imported $count stations",
   "importingRadio": "Importing...",
-  "liveStatus": "Live"
+  "liveStatus": "Live",
+  "useAuth": "Auth Playback"
 }

@@ -32,5 +32,6 @@
   "importRadioSelected": "导入选中 ($count)",
   "importRadioComplete": "成功导入 $count 个电台",
   "importingRadio": "正在导入...",
-  "liveStatus": "直播中"
+  "liveStatus": "直播中",
+  "useAuth": "登录播放"
 }
