@@ -166,6 +166,7 @@
     "searchSource": "Search source",
     "useAuth": "Import with login credentials",
     "useAuthHint": "Enable this for private playlists or content that requires login",
+    "useAuthNotLoggedIn": "Please log in to the corresponding account first",
     "import": "Import",
     "processing": "Processing...",
     "preparing": "Preparing...",
