@@ -220,9 +220,21 @@ class NeteaseSource extends BaseSource with Logging {
       logDebug(
           'Netease search results: ${songs.length} tracks, total: $songCount');
 
+      // 搜尋 API 可能將 privileges 放在 result 頂層（與 song detail API 一致）
+      final privileges = result?['privileges'] as List? ?? [];
+      final privilegeMap = <int, Map<String, dynamic>>{};
+      for (final p in privileges) {
+        final pm = p as Map<String, dynamic>;
+        final id = pm['id'] as int?;
+        if (id != null) privilegeMap[id] = pm;
+      }
+
       final tracks = songs.map((song) {
         final s = song as Map<String, dynamic>;
-        final privilege = s['privilege'] as Map<String, dynamic>?;
+        // 優先使用歌曲內嵌的 privilege，其次用頂層 privileges 列表
+        final songId = s['id'] as int?;
+        final privilege = s['privilege'] as Map<String, dynamic>? ??
+            (songId != null ? privilegeMap[songId] : null);
         return _parseSongToTrack(s, privilege);
       }).toList();
 
@@ -618,8 +630,13 @@ class NeteaseSource extends BaseSource with Logging {
             .join(', ') ??
         '';
 
-    final fee = privilege?['fee'] as int? ?? song['fee'] as int? ?? 0;
+    final privFee = privilege?['fee'] as int? ?? 0;
+    final songFee = song['fee'] as int? ?? 0;
     final st = privilege?['st'] as int? ?? 0;
+    // cloudsearch API 的 privilege.fee 可能不準確（VIP 歌曲返回 0），
+    // 而 song.fee 是準確的；兩者任一標記為 VIP 即視為 VIP
+    final isVip = (privFee == 1 || privFee == 4 ||
+        songFee == 1 || songFee == 4);
 
     return Track()
       ..sourceId = songId.toString()
@@ -628,7 +645,7 @@ class NeteaseSource extends BaseSource with Logging {
       ..artist = artists.isNotEmpty ? artists : null
       ..durationMs = dt
       ..thumbnailUrl = al?['picUrl'] as String?
-      ..isVip = (fee == 1 || fee == 4)
+      ..isVip = isVip
       ..isAvailable = (st != -200);
   }
 
