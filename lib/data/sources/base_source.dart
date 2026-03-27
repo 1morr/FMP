@@ -104,6 +104,8 @@ class PlaylistParseResult {
   final List<Track> tracks;
   final int totalCount;
   final String sourceUrl;
+  final String? ownerName;
+  final String? ownerUserId;
 
   const PlaylistParseResult({
     required this.title,
@@ -112,6 +114,8 @@ class PlaylistParseResult {
     required this.tracks,
     required this.totalCount,
     required this.sourceUrl,
+    this.ownerName,
+    this.ownerUserId,
   });
 }
 

@@ -37,6 +37,15 @@ class Playlist {
   /// 是否在更新时通知
   bool notifyOnUpdate = true;
 
+  /// 歌單所有者暱稱
+  String? ownerName;
+
+  /// 歌單所有者平台用戶 ID
+  String? ownerUserId;
+
+  /// 刷新時是否使用登入狀態
+  bool useAuthForRefresh = false;
+
   /// 是否為 YouTube Mix/Radio 播放列表（動態生成，不保存 tracks）
   bool isMix = false;
 

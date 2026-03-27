@@ -19,6 +19,8 @@ Future<Map<String, String>?> buildAuthHeaders(
       return {'Cookie': cookies};
     case SourceType.youtube:
       return await youtubeAccountService?.getAuthHeaders();
+    case SourceType.netease:
+      return null; // TODO: Netease auth headers (Phase 2)
   }
 }
 

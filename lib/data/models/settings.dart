@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:isar/isar.dart';
 
+import 'track.dart';
+
 part 'settings.g.dart';
 
 /// 下载图片选项枚举
@@ -134,6 +136,9 @@ class Settings {
   /// Bilibili 流优先级 (逗号分隔: "audioOnly,muxed")
   String bilibiliStreamPriority = 'audioOnly,muxed';
 
+  /// 網易雲流優先級 (逗號分隔: "audioOnly")
+  String neteaseStreamPriority = 'audioOnly';
+
   /// 首选音频输出设备 ID (null = 自动/跟随系统)
   String? preferredAudioDeviceId;
 
@@ -158,6 +163,17 @@ class Settings {
   /// 禁用的歌词源 (逗号分隔: "lrclib" 或 "netease,lrclib")
   /// 自动匹配和搜索时跳过这些源
   String disabledLyricsSources = 'lrclib';
+
+  // ========== 播放認證設置 ==========
+
+  /// Bilibili 播放時使用登入狀態
+  bool useBilibiliAuthForPlay = false;
+
+  /// YouTube 播放時使用登入狀態
+  bool useYoutubeAuthForPlay = false;
+
+  /// 網易雲播放時使用登入狀態
+  bool useNeteaseAuthForPlay = true;
 
   // ========== 刷新间隔设置 ==========
 
@@ -411,6 +427,50 @@ class Settings {
   /// 设置禁用的歌词源集合
   set disabledLyricsSourcesSet(Set<String> set) {
     disabledLyricsSources = set.join(',');
+  }
+
+  /// 獲取指定音源的播放認證設定
+  bool useAuthForPlay(SourceType sourceType) {
+    switch (sourceType) {
+      case SourceType.bilibili: return useBilibiliAuthForPlay;
+      case SourceType.youtube: return useYoutubeAuthForPlay;
+      case SourceType.netease: return useNeteaseAuthForPlay;
+    }
+  }
+
+  /// 設置指定音源的播放認證設定
+  void setUseAuthForPlay(SourceType sourceType, bool value) {
+    switch (sourceType) {
+      case SourceType.bilibili: useBilibiliAuthForPlay = value;
+      case SourceType.youtube: useYoutubeAuthForPlay = value;
+      case SourceType.netease: useNeteaseAuthForPlay = value;
+    }
+  }
+
+  /// 獲取網易雲流優先級列表
+  @ignore
+  List<StreamType> get neteaseStreamPriorityList {
+    if (neteaseStreamPriority.isEmpty) return [StreamType.audioOnly];
+    return neteaseStreamPriority.split(',').map((s) {
+      switch (s.trim()) {
+        case 'muxed': return StreamType.muxed;
+        default: return StreamType.audioOnly;
+      }
+    }).toList();
+  }
+
+  /// 設置網易雲流優先級列表
+  set neteaseStreamPriorityList(List<StreamType> list) {
+    neteaseStreamPriority = list.map((t) {
+      switch (t) {
+        case StreamType.audioOnly:
+          return 'audioOnly';
+        case StreamType.muxed:
+          return 'muxed';
+        case StreamType.hls:
+          return 'hls';
+      }
+    }).join(',');
   }
 
   @override

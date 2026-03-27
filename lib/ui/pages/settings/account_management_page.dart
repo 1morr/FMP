@@ -93,6 +93,8 @@ class AccountManagementPage extends ConsumerWidget {
           await ref.read(bilibiliAccountServiceProvider).logout();
         case SourceType.youtube:
           await ref.read(youtubeAccountServiceProvider).logout();
+        case SourceType.netease:
+          break; // TODO: Netease logout (Phase 2)
       }
       if (context.mounted) {
         ToastService.show(context, t.account.logoutSuccess);

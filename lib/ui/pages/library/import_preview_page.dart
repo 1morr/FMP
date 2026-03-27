@@ -968,6 +968,7 @@ class _SourceBadge extends StatelessWidget {
     final icon = switch (sourceType) {
       SourceType.bilibili => SimpleIcons.bilibili,
       SourceType.youtube => SimpleIcons.youtube,
+      SourceType.netease => SimpleIcons.neteasecloudmusic,
     };
 
     return Icon(

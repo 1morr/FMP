@@ -147,6 +147,8 @@ class _AccountPlaylistsSheetState
           importUrl:
               'https://www.youtube.com/playlist?list=${p.playlistId}',
         )).toList();
+      case SourceType.netease:
+        return []; // TODO: Netease playlist fetching (Phase 2)
     }
   }
 
@@ -167,6 +169,8 @@ class _AccountPlaylistsSheetState
           final uri = Uri.tryParse(url);
           final listId = uri?.queryParameters['list'];
           if (listId != null) ids.add(listId);
+        case SourceType.netease:
+          break; // TODO: Netease imported ID extraction (Phase 2)
       }
     }
     return ids;
