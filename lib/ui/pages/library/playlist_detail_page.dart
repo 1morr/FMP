@@ -25,6 +25,7 @@ import '../../widgets/selection_mode_app_bar.dart';
 import '../../widgets/context_menu_region.dart';
 import '../../widgets/track_group/track_group.dart';
 import '../../widgets/track_thumbnail.dart';
+import '../../widgets/track_tile.dart';
 import '../../../providers/account_provider.dart';
 import '../../../services/account/bilibili_favorites_service.dart';
 import '../../../data/sources/bilibili_source.dart';
@@ -106,6 +107,26 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     }
   }
 
+  /// 判断当前登录用户是否是歌单所有者
+  bool _isCurrentUserPlaylistOwner(WidgetRef ref, playlist) {
+    if (!playlist.isImported || playlist.ownerUserId == null) return false;
+
+    final sourceType = playlist.importSourceType;
+    if (sourceType == null) return false;
+
+    String? currentUserId;
+    switch (sourceType) {
+      case SourceType.bilibili:
+        currentUserId = ref.watch(bilibiliAccountProvider)?.userId;
+      case SourceType.youtube:
+        currentUserId = ref.watch(youtubeAccountProvider)?.userId;
+      case SourceType.netease:
+        currentUserId = ref.watch(neteaseAccountProvider)?.userId;
+    }
+
+    return currentUserId != null && currentUserId == playlist.ownerUserId;
+  }
+
   /// 检查并预加载缓存（在 build 中调用，当 tracks 变化时）
   void _checkAndPreloadCache(List<Track> tracks) {
     if (tracks.isNotEmpty && tracks.length != _lastRefreshedTracksLength) {
@@ -171,6 +192,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final isMix = playlist.isMix;
     final isInitialTracksLoading = state.isLoading && tracks.isEmpty;
 
+    // 判断当前用户是否是歌单所有者（非所有者隐藏远端移除按钮）
+    final isRemoteOwner = _isCurrentUserPlaylistOwner(ref, playlist);
+
     // 检查并刷新下载状态缓存（当 tracks 变化时）
     _checkAndPreloadCache(tracks);
 
@@ -183,7 +207,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       SelectionAction.playNext,
       SelectionAction.addToPlaylist,
       SelectionAction.addToRemotePlaylist,
-      if (isImported && !isMix) SelectionAction.removeFromRemotePlaylist,
+      if (isImported && !isMix && isRemoteOwner) SelectionAction.removeFromRemotePlaylist,
       if (!isMix) SelectionAction.download,
       if (!isImported && !isMix) SelectionAction.delete,
     };
@@ -329,6 +353,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final selectionNotifier = ref.read(playlistDetailSelectionProvider.notifier);
     final isImported = state.playlist?.isImported ?? false;
     final isMix = state.playlist?.isMix ?? false;
+    final isRemoteOwner = state.playlist != null
+        ? _isCurrentUserPlaylistOwner(ref, state.playlist!)
+        : false;
 
     // 如果组只有一个track，显示普通样式
     if (group.tracks.length == 1) {
@@ -346,6 +373,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         isPartOfMultiPage: false,
         isImported: isImported,
         isMix: isMix,
+        isRemoteOwner: isRemoteOwner,
         isSelectionMode: selectionState.isSelectionMode,
         isSelected: selectionState.isSelected(track),
       );
@@ -392,6 +420,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                 isImported: isImported,
                 indent: true,
                 isMix: isMix,
+                isRemoteOwner: isRemoteOwner,
                 isSelectionMode: selectionState.isSelectionMode,
                 isSelected: selectionState.isSelected(track),
               )),
@@ -1354,6 +1383,7 @@ class _TrackListTile extends ConsumerWidget {
   final bool indent;
   final bool isImported;
   final bool isMix;
+  final bool isRemoteOwner;
   final bool isSelectionMode;
   final bool isSelected;
 
@@ -1367,6 +1397,7 @@ class _TrackListTile extends ConsumerWidget {
     required this.isImported,
     this.indent = false,
     this.isMix = false,
+    this.isRemoteOwner = false,
     this.isSelectionMode = false,
     this.isSelected = false,
   });
@@ -1415,14 +1446,24 @@ class _TrackListTile extends ConsumerWidget {
                 size: 48,
                 isPlaying: isPlaying,
               ),
-        title: Text(
-          track.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: isPlaying ? colorScheme.primary : null,
-            fontWeight: isPlaying ? FontWeight.w600 : null,
-          ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                track.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: isPlaying ? colorScheme.primary : null,
+                  fontWeight: isPlaying ? FontWeight.w600 : null,
+                ),
+              ),
+            ),
+            if (track.isVip) ...[
+              const SizedBox(width: 4),
+              const VipBadge(),
+            ],
+          ],
         ),
         subtitle: isPartOfMultiPage
             ? null // 分P不显示副标题，与搜索页面一致
@@ -1493,7 +1534,7 @@ class _TrackListTile extends ConsumerWidget {
     if (!isPartOfMultiPage)
       PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.general.addToPlaylist), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'add_to_remote', child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero)),
-    if (isImported && !isMix)
+    if (isImported && !isMix && isRemoteOwner)
       PopupMenuItem(value: 'remove_from_remote', child: ListTile(leading: Icon(Icons.cloud_off_outlined, color: Theme.of(context).colorScheme.error), title: Text(t.remote.removeFromFavorites, style: TextStyle(color: Theme.of(context).colorScheme.error)), contentPadding: EdgeInsets.zero)),
     if (!isImported)
       PopupMenuItem(value: 'remove', child: ListTile(leading: const Icon(Icons.remove_circle_outline), title: Text(t.library.detail.removeFromPlaylist), contentPadding: EdgeInsets.zero)),

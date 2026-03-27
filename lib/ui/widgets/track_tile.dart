@@ -105,7 +105,7 @@ class TrackTile extends StatelessWidget {
           ),
           if (track.isVip) ...[
             const SizedBox(width: 4),
-            _VipBadge(),
+            const VipBadge(),
           ],
         ],
       ),
@@ -182,7 +182,7 @@ class TrackTile extends StatelessWidget {
                       ),
                       if (track.isVip) ...[
                         const SizedBox(width: 4),
-                        _VipBadge(),
+                        const VipBadge(),
                       ],
                     ],
                   ),
@@ -211,22 +211,27 @@ class TrackTile extends StatelessWidget {
   }
 }
 
-/// VIP 标记徽章
-class _VipBadge extends StatelessWidget {
+/// VIP 标记徽章（使用主题色）
+class VipBadge extends StatelessWidget {
+  const VipBadge({super.key});
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
       decoration: BoxDecoration(
-        color: Colors.amber.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(3),
-        border: Border.all(color: Colors.amber.withValues(alpha: 0.5), width: 0.5),
+        color: colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: colorScheme.primary.withValues(alpha: 0.4),
+          width: 0.5,
+        ),
       ),
       child: Text(
         'VIP',
         style: TextStyle(
           fontSize: 9,
-          color: Colors.amber[700],
+          color: colorScheme.onPrimaryContainer,
           fontWeight: FontWeight.w600,
         ),
       ),
