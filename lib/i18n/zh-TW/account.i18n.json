@@ -1,6 +1,6 @@
 {
   "title": "帳號管理",
-  "subtitle": "管理 嗶哩嗶哩、YouTube 帳號",
+  "subtitle": "管理 嗶哩嗶哩、YouTube、網易雲 帳號",
   "notLoggedIn": "未登錄",
   "loggedIn": "已登錄",
   "login": "登錄",
@@ -12,6 +12,7 @@
   "webLogin": "網頁登錄",
   "qrLogin": "掃碼登錄",
   "qrWaiting": "請使用 嗶哩嗶哩 手機 App 掃描",
+  "neteaseQrWaiting": "請使用 網易雲音樂 手機 App 掃描",
   "qrScanned": "已掃碼，請在手機上確認",
   "qrExpired": "二維碼已過期",
   "qrRefresh": "重新生成",

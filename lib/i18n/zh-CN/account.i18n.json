@@ -1,6 +1,6 @@
 {
   "title": "账号管理",
-  "subtitle": "管理 哔哩哔哩、YouTube 账号",
+  "subtitle": "管理 哔哩哔哩、YouTube、网易云 账号",
   "notLoggedIn": "未登录",
   "loggedIn": "已登录",
   "login": "登录",
@@ -12,6 +12,7 @@
   "webLogin": "网页登录",
   "qrLogin": "扫码登录",
   "qrWaiting": "请使用 哔哩哔哩 手机 App 扫描",
+  "neteaseQrWaiting": "请使用 网易云音乐 手机 App 扫描",
   "qrScanned": "已扫码，请在手机上确认",
   "qrExpired": "二维码已过期",
   "qrRefresh": "重新生成",

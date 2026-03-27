@@ -20,6 +20,7 @@ class AccountManagementPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final bilibiliAccount = ref.watch(bilibiliAccountProvider);
     final youtubeAccount = ref.watch(youtubeAccountProvider);
+    final neteaseAccount = ref.watch(neteaseAccountProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -56,6 +57,20 @@ class AccountManagementPage extends ConsumerWidget {
             onManagePlaylists: () =>
                 _showPlaylistSheet(context, SourceType.youtube),
           ),
+          const SizedBox(height: 12),
+          // 網易雲卡片
+          _PlatformCard(
+            platformName: t.importPlatform.netease,
+            icon: SimpleIcons.neteasecloudmusic,
+            iconColor: const Color(0xFFE60026),
+            isLoggedIn: neteaseAccount?.isLoggedIn ?? false,
+            userName: neteaseAccount?.userName,
+            avatarUrl: neteaseAccount?.avatarUrl,
+            onLogin: () => context.push(RoutePaths.neteaseLogin),
+            onLogout: () => _confirmLogout(context, ref, SourceType.netease),
+            onManagePlaylists: () =>
+                _showPlaylistSheet(context, SourceType.netease),
+          ),
         ],
       ),
     );
@@ -66,9 +81,7 @@ class AccountManagementPage extends ConsumerWidget {
     WidgetRef ref,
     SourceType platform,
   ) async {
-    final platformName = platform == SourceType.bilibili
-        ? t.importPlatform.bilibili
-        : t.importPlatform.youtube;
+    final platformName = platform.displayName;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -94,7 +107,7 @@ class AccountManagementPage extends ConsumerWidget {
         case SourceType.youtube:
           await ref.read(youtubeAccountServiceProvider).logout();
         case SourceType.netease:
-          break; // TODO: Netease logout (Phase 2)
+          await ref.read(neteaseAccountServiceProvider).logout();
       }
       if (context.mounted) {
         ToastService.show(context, t.account.logoutSuccess);

@@ -8,6 +8,7 @@ import '../data/models/account.dart';
 import '../data/models/track.dart';
 import '../services/account/bilibili_account_service.dart';
 import '../services/account/bilibili_favorites_service.dart';
+import '../services/account/netease_account_service.dart';
 import '../services/account/youtube_account_service.dart';
 import '../services/account/youtube_playlist_service.dart';
 import 'database_provider.dart';
@@ -79,8 +80,30 @@ final isLoggedInProvider = Provider.family<bool, SourceType>((ref, platform) {
     case SourceType.youtube:
       return ref.watch(isYouTubeLoggedInProvider);
     case SourceType.netease:
-      return false; // TODO: Netease login state (Phase 2)
+      return ref.watch(isNeteaseLoggedInProvider);
   }
+});
+
+// ===== 網易雲 =====
+
+/// 網易雲帳號服務 Provider（單例）
+final neteaseAccountServiceProvider =
+    Provider<NeteaseAccountService>((ref) {
+  final isar = ref.watch(databaseProvider).requireValue;
+  return NeteaseAccountService(isar: isar);
+});
+
+/// 網易雲帳號狀態 Provider（響應式，監聽 Isar Account 變化）
+final neteaseAccountProvider =
+    StateNotifierProvider<AccountNotifier, Account?>((ref) {
+  final isar = ref.watch(databaseProvider).requireValue;
+  return AccountNotifier(isar, SourceType.netease);
+});
+
+/// 是否已登錄網易雲（便捷 Provider）
+final isNeteaseLoggedInProvider = Provider<bool>((ref) {
+  final account = ref.watch(neteaseAccountProvider);
+  return account?.isLoggedIn ?? false;
 });
 
 /// 啟動時自動刷新 Bilibili Cookie（後台執行，不阻塞 UI）
