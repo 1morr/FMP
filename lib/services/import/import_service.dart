@@ -294,16 +294,8 @@ class ImportService with Logging {
         }
       }
 
-      // 更新歌单封面
-      // 导入歌单优先使用平台封面，只有非导入歌单才用第一首歌封面
-      if (!playlist.hasCustomCover && result.coverUrl != null) {
-        playlist.coverUrl = result.coverUrl;
-      } else if (!playlist.hasCustomCover && !playlist.isImported && playlist.trackIds.isNotEmpty) {
-        final firstTrack = await _trackRepository.getById(playlist.trackIds.first);
-        if (firstTrack?.thumbnailUrl != null) {
-          playlist.coverUrl = firstTrack!.thumbnailUrl;
-        }
-      }
+      // 更新歌单封面（平台封面优先，回退到第一首歌封面）
+      await _updatePlaylistCover(playlist, result.coverUrl, playlist.trackIds);
 
       // 更新歌单
       playlist.lastRefreshed = DateTime.now();
@@ -553,22 +545,8 @@ class ImportService with Logging {
       playlist.trackIds = newTrackIds;
       playlist.lastRefreshed = DateTime.now();
       
-      // 更新封面 URL：
-      // 用戶手動設置的封面不會被自動更新
-      // 刷新時更新平台封面（除非自定義）
-      if (!playlist.hasCustomCover && result.coverUrl != null) {
-        playlist.coverUrl = result.coverUrl;
-      } else if (!playlist.hasCustomCover) {
-        if (newTrackIds.isNotEmpty) {
-          final firstTrack = await _trackRepository.getById(newTrackIds.first);
-          if (firstTrack?.thumbnailUrl != null) {
-            playlist.coverUrl = firstTrack!.thumbnailUrl;
-          }
-        } else {
-          // 歌單為空時清空封面
-          playlist.coverUrl = null;
-        }
-      }
+      // 更新封面（平台封面优先，回退到第一首歌封面）
+      await _updatePlaylistCover(playlist, result.coverUrl, newTrackIds);
       await _playlistRepository.save(playlist);
 
       _updateProgress(status: ImportStatus.completed);
@@ -659,6 +637,25 @@ class ImportService with Logging {
     }
 
     return expandedTracks;
+  }
+
+  /// 更新歌单封面：自定义封面不覆盖，优先平台封面，回退到第一首歌缩略图
+  Future<void> _updatePlaylistCover(
+    Playlist playlist,
+    String? platformCoverUrl,
+    List<int> trackIds,
+  ) async {
+    if (playlist.hasCustomCover) return;
+    if (platformCoverUrl != null) {
+      playlist.coverUrl = platformCoverUrl;
+    } else if (trackIds.isNotEmpty) {
+      final firstTrack = await _trackRepository.getById(trackIds.first);
+      if (firstTrack?.thumbnailUrl != null) {
+        playlist.coverUrl = firstTrack!.thumbnailUrl;
+      }
+    } else {
+      playlist.coverUrl = null;
+    }
   }
 
   /// 生成唯一歌单名称，同名时自动添加后缀 (2), (3), ...

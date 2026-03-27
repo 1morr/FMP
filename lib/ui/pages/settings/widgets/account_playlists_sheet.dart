@@ -238,6 +238,16 @@ class _AccountPlaylistsSheetState
     final trackRepo = ref.read(trackRepositoryProvider);
     final isar = await ref.read(databaseProvider.future);
 
+    final importService = ImportService(
+      sourceManager: sourceManager,
+      playlistRepository: playlistRepo,
+      trackRepository: trackRepo,
+      isar: isar,
+      bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
+      youtubeAccountService: ref.read(youtubeAccountServiceProvider),
+      neteaseAccountService: ref.read(neteaseAccountServiceProvider),
+    );
+
     int successCount = 0;
     String? importError;
 
@@ -250,15 +260,6 @@ class _AccountPlaylistsSheetState
       });
 
       try {
-        final importService = ImportService(
-          sourceManager: sourceManager,
-          playlistRepository: playlistRepo,
-          trackRepository: trackRepo,
-          isar: isar,
-          bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
-          youtubeAccountService: ref.read(youtubeAccountServiceProvider),
-          neteaseAccountService: ref.read(neteaseAccountServiceProvider),
-        );
         _currentImportService = importService;
 
         _trackProgressSub?.cancel();
@@ -281,10 +282,12 @@ class _AccountPlaylistsSheetState
       } finally {
         _trackProgressSub?.cancel();
         _trackProgressSub = null;
-        await _currentImportService?.cleanupCancelledImport();
-        _currentImportService = null;
+        await importService.cleanupCancelledImport();
       }
     }
+
+    _currentImportService = null;
+    importService.dispose();
 
     if (!mounted) return;
     ref.invalidate(allPlaylistsProvider);
