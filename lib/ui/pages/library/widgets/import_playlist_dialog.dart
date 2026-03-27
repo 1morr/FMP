@@ -108,26 +108,8 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
       return;
     }
 
-    // 1. 先检查外部来源（网易云/QQ音乐/Spotify）
-    //    外部来源使用域名匹配，更精确；内部来源的 isPlaylistUrl 可能过于宽泛
-    //    （如 YouTube 的 url.contains('/playlist') 会误匹配 QQ音乐/网易云链接）
-    final notifier = ref.read(playlistImportProvider.notifier);
-    final externalSource = notifier.detectSource(trimmed);
-    if (externalSource != null) {
-      final platform = switch (externalSource) {
-        PlaylistSource.netease => _SourcePlatform.netease,
-        PlaylistSource.qqMusic => _SourcePlatform.qqMusic,
-        PlaylistSource.spotify => _SourcePlatform.spotify,
-      };
-      final newDetected = _DetectedUrl(type: _UrlType.external, platform: platform);
-      if (_detected?.type != newDetected.type ||
-          _detected?.platform != newDetected.platform) {
-        setState(() => _detected = newDetected);
-      }
-      return;
-    }
-
-    // 2. 再检查内部来源（B站/YouTube）
+    // 1. 先检查内部来源（B站/YouTube/网易云）
+    //    内部来源直接导入，NeteaseSource 注册后网易云 URL 走内部流程
     final sourceManager = ref.read(sourceManagerProvider);
     final internalSource = sourceManager.getSourceForUrl(trimmed);
     if (internalSource != null) {
@@ -137,6 +119,24 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
         SourceType.netease => _SourcePlatform.netease,
       };
       final newDetected = _DetectedUrl(type: _UrlType.internal, platform: platform);
+      if (_detected?.type != newDetected.type ||
+          _detected?.platform != newDetected.platform) {
+        setState(() => _detected = newDetected);
+      }
+      return;
+    }
+
+    // 2. 再检查外部来源（QQ音乐/Spotify）
+    //    网易云已由内部来源处理，此处仅匹配剩余外部来源
+    final notifier = ref.read(playlistImportProvider.notifier);
+    final externalSource = notifier.detectSource(trimmed);
+    if (externalSource != null) {
+      final platform = switch (externalSource) {
+        PlaylistSource.netease => _SourcePlatform.netease,
+        PlaylistSource.qqMusic => _SourcePlatform.qqMusic,
+        PlaylistSource.spotify => _SourcePlatform.spotify,
+      };
+      final newDetected = _DetectedUrl(type: _UrlType.external, platform: platform);
       if (_detected?.type != newDetected.type ||
           _detected?.platform != newDetected.platform) {
         setState(() => _detected = newDetected);

@@ -206,6 +206,17 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                             );
                           },
                         ),
+                        const SizedBox(width: 8),
+                        ChoiceChip(
+                          label: Text(t.importPlatform.netease),
+                          selected: state.selectedSource == SourceType.netease,
+                          onSelected: (_) {
+                            ref.read(searchProvider.notifier).setFilters(
+                              sourceType: SourceType.netease,
+                              clearLiveRoomFilter: true,
+                            );
+                          },
+                        ),
                         const SizedBox(width: 16),
                         // 分隔线
                         Container(
