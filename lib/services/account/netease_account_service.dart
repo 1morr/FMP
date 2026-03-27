@@ -39,6 +39,7 @@ class NeteaseAccountService extends AccountService with Logging {
   final FlutterSecureStorage _secureStorage;
   final Isar _isar;
   NeteaseCredentials? _cachedCredentials;
+  bool _credentialsLoaded = false;
 
   static const String _storageKey = 'account_netease_credentials';
   static const String _apiBase = 'https://music.163.com';
@@ -87,6 +88,7 @@ class NeteaseAccountService extends AccountService with Logging {
       value: jsonEncode(credentials.toJson()),
     );
     _cachedCredentials = credentials;
+    _credentialsLoaded = true;
 
     await _updateAccount(
       isLoggedIn: true,
@@ -138,13 +140,14 @@ class NeteaseAccountService extends AccountService with Logging {
       int pollCount = 0;
       int consecutiveErrors = 0;
 
+      final encrypted = NeteaseCrypto.weapi({'type': 1, 'key': unikey});
+
       while (pollCount < maxPolls && !stopped) {
         await Future.delayed(const Duration(seconds: 3));
         if (stopped) break;
         pollCount++;
 
         try {
-          final encrypted = NeteaseCrypto.weapi({'type': 1, 'key': unikey});
           final response = await _dio.post(
             '$_apiBase/weapi/login/qrcode/client/login',
             data: encrypted,
@@ -171,9 +174,8 @@ class NeteaseAccountService extends AccountService with Logging {
                   );
                 }
               }
-              if (!stopped) {
-                controller.add((code: 803, message: null));
-              }
+              if (stopped) return;
+              controller.add((code: 803, message: null));
               return;
 
             case 800: // 已過期
@@ -220,13 +222,6 @@ class NeteaseAccountService extends AccountService with Logging {
     return credentials?.toCookieString();
   }
 
-  /// 獲取認證 headers
-  Future<Map<String, String>?> getAuthHeaders() async {
-    final cookieString = await getAuthCookieString();
-    if (cookieString == null) return null;
-    return {'Cookie': cookieString};
-  }
-
   /// 獲取 CSRF token
   Future<String?> getCsrfToken() async {
     final credentials = await _loadCredentials();
@@ -253,6 +248,7 @@ class NeteaseAccountService extends AccountService with Logging {
   Future<void> logout() async {
     await _secureStorage.delete(key: _storageKey);
     _cachedCredentials = null;
+    _credentialsLoaded = false;
     await _updateAccount(isLoggedIn: false);
     logInfo('Netease logged out');
   }
@@ -304,8 +300,8 @@ class NeteaseAccountService extends AccountService with Logging {
       );
 
       // 如果 credentials 中沒有 userId，補充保存
-      final credentials = await _loadCredentials();
-      if (credentials != null && credentials.userId == null && userId != null) {
+      if (_cachedCredentials != null && _cachedCredentials!.userId == null && userId != null) {
+        final credentials = _cachedCredentials!;
         final updated = NeteaseCredentials(
           musicU: credentials.musicU,
           csrf: credentials.csrf,
@@ -371,13 +367,17 @@ class NeteaseAccountService extends AccountService with Logging {
 
   /// 從 secure storage 加載憑據（帶內存緩存）
   Future<NeteaseCredentials?> _loadCredentials() async {
-    if (_cachedCredentials != null) return _cachedCredentials;
+    if (_credentialsLoaded) return _cachedCredentials;
     final json = await _secureStorage.read(key: _storageKey);
-    if (json == null) return null;
+    if (json == null) {
+      _credentialsLoaded = true;
+      return null;
+    }
     try {
       _cachedCredentials = NeteaseCredentials.fromJson(
         jsonDecode(json) as Map<String, dynamic>,
       );
+      _credentialsLoaded = true;
       return _cachedCredentials;
     } catch (e) {
       logError('Failed to parse Netease credentials', e);

@@ -13,8 +13,12 @@ class NeteaseCredentials {
   });
 
   factory NeteaseCredentials.fromJson(Map<String, dynamic> json) {
+    final musicU = json['musicU'] as String? ?? '';
+    if (musicU.isEmpty) {
+      throw FormatException('Invalid Netease credentials: missing musicU');
+    }
     return NeteaseCredentials(
-      musicU: json['musicU'] as String? ?? '',
+      musicU: musicU,
       csrf: json['csrf'] as String? ?? '',
       userId: json['userId'] as String?,
       savedAt: json['savedAt'] != null
