@@ -3,10 +3,6 @@ import 'package:dio/dio.dart';
 import '../../core/logger.dart';
 import 'netease_account_service.dart';
 
-/// 網易雲音樂 API 認證攔截器
-///
-/// 自動注入 Cookie header 到請求。
-/// 比 Bilibili 簡單 — MUSIC_U 有效期長，不需要自動刷新邏輯。
 class NeteaseAuthInterceptor extends Interceptor with Logging {
   final NeteaseAccountService _accountService;
 
@@ -17,12 +13,32 @@ class NeteaseAuthInterceptor extends Interceptor with Logging {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    final authCookies = await _accountService.getAuthCookieString();
-    if (authCookies != null) {
-      final existing = options.headers['Cookie'] as String? ?? '';
-      options.headers['Cookie'] =
-          existing.isEmpty ? authCookies : '$existing; $authCookies';
+    final headers = await _accountService.getAuthHeaders();
+    if (headers != null) {
+      for (final entry in headers.entries) {
+        // Skip if the header is already explicitly set (e.g. _postLinuxApi sets its own Cookie)
+        if (entry.key.toLowerCase() == 'cookie' &&
+            options.headers.containsKey('Cookie')) {
+          continue;
+        }
+        options.headers[entry.key] = entry.value;
+      }
     }
     handler.next(options);
+  }
+
+  @override
+  Future<void> onResponse(
+    Response response,
+    ResponseInterceptorHandler handler,
+  ) async {
+    final data = response.data;
+    if (data is Map<String, dynamic>) {
+      final code = data['code'];
+      if (code is int && code != 200 && code != 801 && code != 802 && code != 803) {
+        logWarning('Netease response returned non-success code: $code');
+      }
+    }
+    handler.next(response);
   }
 }

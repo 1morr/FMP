@@ -3,6 +3,7 @@
   "removeFromFavorites": "Remove from remote playlist",
   "dialogTitle": "Add to Bilibili Favorites",
   "dialogTitleYoutube": "Add to YouTube Playlist",
+  "dialogTitleNetease": "Add to NetEase Playlist",
   "noChanges": "No changes",
   "updated": "Favorites updated",
   "removed": "Removed from favorites",
