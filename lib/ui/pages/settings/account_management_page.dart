@@ -8,16 +8,71 @@ import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/account_provider.dart';
+import '../../../providers/repository_providers.dart';
 import '../../router.dart';
 import 'widgets/account_playlists_sheet.dart';
 import 'widgets/account_radio_import_sheet.dart';
 
 /// 帳號管理頁面
-class AccountManagementPage extends ConsumerWidget {
+class AccountManagementPage extends ConsumerStatefulWidget {
   const AccountManagementPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AccountManagementPage> createState() =>
+      _AccountManagementPageState();
+}
+
+class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
+  bool _useBilibiliAuth = false;
+  bool _useYoutubeAuth = false;
+  bool _useNeteaseAuth = true;
+  bool _settingsLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAuthSettings();
+  }
+
+  Future<void> _loadAuthSettings() async {
+    final settingsRepo = ref.read(settingsRepositoryProvider);
+    final settings = await settingsRepo.get();
+    if (mounted) {
+      setState(() {
+        _useBilibiliAuth = settings.useBilibiliAuthForPlay;
+        _useYoutubeAuth = settings.useYoutubeAuthForPlay;
+        _useNeteaseAuth = settings.useNeteaseAuthForPlay;
+        _settingsLoaded = true;
+      });
+    }
+  }
+
+  Future<void> _toggleAuth(SourceType sourceType) async {
+    final newValue = switch (sourceType) {
+      SourceType.bilibili => !_useBilibiliAuth,
+      SourceType.youtube => !_useYoutubeAuth,
+      SourceType.netease => !_useNeteaseAuth,
+    };
+
+    final settingsRepo = ref.read(settingsRepositoryProvider);
+    await settingsRepo.update((s) => s.setUseAuthForPlay(sourceType, newValue));
+
+    if (mounted) {
+      setState(() {
+        switch (sourceType) {
+          case SourceType.bilibili:
+            _useBilibiliAuth = newValue;
+          case SourceType.youtube:
+            _useYoutubeAuth = newValue;
+          case SourceType.netease:
+            _useNeteaseAuth = newValue;
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final bilibiliAccount = ref.watch(bilibiliAccountProvider);
     final youtubeAccount = ref.watch(youtubeAccountProvider);
     final neteaseAccount = ref.watch(neteaseAccountProvider);
@@ -37,11 +92,13 @@ class AccountManagementPage extends ConsumerWidget {
             isLoggedIn: bilibiliAccount?.isLoggedIn ?? false,
             userName: bilibiliAccount?.userName,
             avatarUrl: bilibiliAccount?.avatarUrl,
+            useAuthForPlay: _settingsLoaded ? _useBilibiliAuth : null,
             onLogin: () => context.push(RoutePaths.bilibiliLogin),
-            onLogout: () => _confirmLogout(context, ref, SourceType.bilibili),
+            onLogout: () => _confirmLogout(SourceType.bilibili),
             onManagePlaylists: () =>
                 _showPlaylistSheet(context, SourceType.bilibili),
             onImportRadio: () => _showRadioImportSheet(context),
+            onToggleAuth: () => _toggleAuth(SourceType.bilibili),
           ),
           const SizedBox(height: 12),
           // YouTube 卡片
@@ -52,10 +109,12 @@ class AccountManagementPage extends ConsumerWidget {
             isLoggedIn: youtubeAccount?.isLoggedIn ?? false,
             userName: youtubeAccount?.userName,
             avatarUrl: youtubeAccount?.avatarUrl,
+            useAuthForPlay: _settingsLoaded ? _useYoutubeAuth : null,
             onLogin: () => context.push(RoutePaths.youtubeLogin),
-            onLogout: () => _confirmLogout(context, ref, SourceType.youtube),
+            onLogout: () => _confirmLogout(SourceType.youtube),
             onManagePlaylists: () =>
                 _showPlaylistSheet(context, SourceType.youtube),
+            onToggleAuth: () => _toggleAuth(SourceType.youtube),
           ),
           const SizedBox(height: 12),
           // 網易雲卡片
@@ -66,21 +125,19 @@ class AccountManagementPage extends ConsumerWidget {
             isLoggedIn: neteaseAccount?.isLoggedIn ?? false,
             userName: neteaseAccount?.userName,
             avatarUrl: neteaseAccount?.avatarUrl,
+            useAuthForPlay: _settingsLoaded ? _useNeteaseAuth : null,
             onLogin: () => context.push(RoutePaths.neteaseLogin),
-            onLogout: () => _confirmLogout(context, ref, SourceType.netease),
+            onLogout: () => _confirmLogout(SourceType.netease),
             onManagePlaylists: () =>
                 _showPlaylistSheet(context, SourceType.netease),
+            onToggleAuth: () => _toggleAuth(SourceType.netease),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _confirmLogout(
-    BuildContext context,
-    WidgetRef ref,
-    SourceType platform,
-  ) async {
+  Future<void> _confirmLogout(SourceType platform) async {
     final platformName = platform.displayName;
     final confirmed = await showDialog<bool>(
       context: context,
@@ -109,7 +166,7 @@ class AccountManagementPage extends ConsumerWidget {
         case SourceType.netease:
           await ref.read(neteaseAccountServiceProvider).logout();
       }
-      if (context.mounted) {
+      if (mounted) {
         ToastService.show(context, t.account.logoutSuccess);
       }
     }
@@ -142,10 +199,12 @@ class _PlatformCard extends StatelessWidget {
   final bool isLoggedIn;
   final String? userName;
   final String? avatarUrl;
+  final bool? useAuthForPlay;
   final VoidCallback? onLogin;
   final VoidCallback? onLogout;
   final VoidCallback? onManagePlaylists;
   final VoidCallback? onImportRadio;
+  final VoidCallback? onToggleAuth;
 
   const _PlatformCard({
     required this.platformName,
@@ -154,10 +213,12 @@ class _PlatformCard extends StatelessWidget {
     required this.isLoggedIn,
     this.userName,
     this.avatarUrl,
+    this.useAuthForPlay,
     this.onLogin,
     this.onLogout,
     this.onManagePlaylists,
     this.onImportRadio,
+    this.onToggleAuth,
   });
 
   @override
@@ -211,7 +272,21 @@ class _PlatformCard extends StatelessWidget {
                 ),
               );
 
+              // 登入狀態播放按鈕：啟用時高亮 (FilledButton.tonal)，停用時中空 (OutlinedButton)
+              final authButton = useAuthForPlay != null
+                  ? useAuthForPlay!
+                      ? FilledButton.tonal(
+                          onPressed: onToggleAuth,
+                          child: Text(t.account.useAuth),
+                        )
+                      : OutlinedButton(
+                          onPressed: onToggleAuth,
+                          child: Text(t.account.useAuth),
+                        )
+                  : null;
+
               final actionButtons = <Widget>[
+                if (authButton != null) authButton,
                 OutlinedButton(
                   onPressed: onManagePlaylists,
                   child: Text(t.account.playlists),

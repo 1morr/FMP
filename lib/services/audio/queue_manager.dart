@@ -13,6 +13,7 @@ import '../../data/sources/base_source.dart';
 import '../../data/sources/source_provider.dart';
 import '../../core/utils/auth_headers_utils.dart';
 import '../account/bilibili_account_service.dart';
+import '../account/netease_account_service.dart';
 import '../account/youtube_account_service.dart';
 
 /// 播放队列管理器（纯队列逻辑）
@@ -25,6 +26,7 @@ class QueueManager with Logging {
   final SourceManager _sourceManager;
   final BilibiliAccountService? _bilibiliAccountService;
   final YouTubeAccountService? _youtubeAccountService;
+  final NeteaseAccountService? _neteaseAccountService;
 
   // 队列数据
   List<Track> _tracks = [];
@@ -181,18 +183,21 @@ class QueueManager with Logging {
     required SourceManager sourceManager,
     BilibiliAccountService? bilibiliAccountService,
     YouTubeAccountService? youtubeAccountService,
+    NeteaseAccountService? neteaseAccountService,
   })  : _queueRepository = queueRepository,
         _trackRepository = trackRepository,
         _settingsRepository = settingsRepository,
         _sourceManager = sourceManager,
         _bilibiliAccountService = bilibiliAccountService,
-        _youtubeAccountService = youtubeAccountService;
+        _youtubeAccountService = youtubeAccountService,
+        _neteaseAccountService = neteaseAccountService;
 
   /// 获取指定平台的认证 headers
   Future<Map<String, String>?> _getAuthHeaders(SourceType sourceType) =>
       buildAuthHeaders(sourceType,
           bilibiliAccountService: _bilibiliAccountService,
-          youtubeAccountService: _youtubeAccountService);
+          youtubeAccountService: _youtubeAccountService,
+          neteaseAccountService: _neteaseAccountService);
 
   /// 初始化队列（从持久化存储加载）
   Future<void> initialize() async {
@@ -838,10 +843,12 @@ class QueueManager with Logging {
     }
 
     try {
-      final refreshedTrack = await withAuthRetryDirect(
-        action: (authHeaders) => source.refreshAudioUrl(track, authHeaders: authHeaders),
-        getAuthHeaders: () => _getAuthHeaders(track.sourceType),
-      );
+      Map<String, String>? authHeaders;
+      final settings = await _settingsRepository.get();
+      if (settings.useAuthForPlay(track.sourceType)) {
+        authHeaders = await _getAuthHeaders(track.sourceType);
+      }
+      final refreshedTrack = await source.refreshAudioUrl(track, authHeaders: authHeaders);
       if (persist) {
         // 【重要】从数据库获取最新的 track 数据，避免覆盖并发修改（如下载路径）
         // 这样做是因为 refreshAudioUrl 修改的是传入的 track 对象，
@@ -952,10 +959,12 @@ class QueueManager with Logging {
 
     try {
       final config = await _buildAudioStreamConfig(track.sourceType);
-      final streamResult = await withAuthRetryDirect(
-        action: (authHeaders) => source.getAudioStream(track.sourceId, config: config, authHeaders: authHeaders),
-        getAuthHeaders: () => _getAuthHeaders(track.sourceType),
-      );
+      Map<String, String>? authHeaders;
+      final settings = await _settingsRepository.get();
+      if (settings.useAuthForPlay(track.sourceType)) {
+        authHeaders = await _getAuthHeaders(track.sourceType);
+      }
+      final streamResult = await source.getAudioStream(track.sourceId, config: config, authHeaders: authHeaders);
       
       // 更新 track 的 URL
       track.audioUrl = streamResult.url;
@@ -1013,11 +1022,13 @@ class QueueManager with Logging {
   /// 根据设置构建音频流配置
   Future<AudioStreamConfig> _buildAudioStreamConfig(SourceType sourceType) async {
     final settings = await _settingsRepository.get();
-    
+
     // 根据源类型选择流优先级
-    final streamPriority = sourceType == SourceType.youtube
-        ? settings.youtubeStreamPriorityList
-        : settings.bilibiliStreamPriorityList;
+    final streamPriority = switch (sourceType) {
+      SourceType.youtube => settings.youtubeStreamPriorityList,
+      SourceType.bilibili => settings.bilibiliStreamPriorityList,
+      SourceType.netease => settings.neteaseStreamPriorityList,
+    };
 
     return AudioStreamConfig(
       qualityLevel: settings.audioQualityLevel,
