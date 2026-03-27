@@ -179,9 +179,9 @@ class _AccountPlaylistsSheetState
           if (listId != null) ids.add(listId);
         case SourceType.netease:
           // 網易雲歌單 URL 中的 id= 參數
-          final neteaseUri = Uri.tryParse(url);
-          final neteaseId = neteaseUri?.queryParameters['id'];
-          if (neteaseId != null) ids.add(neteaseId);
+          final uri = Uri.tryParse(url);
+          final id = uri?.queryParameters['id'];
+          if (id != null) ids.add(id);
       }
     }
     return ids;

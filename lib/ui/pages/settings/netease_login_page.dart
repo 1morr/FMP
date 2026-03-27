@@ -124,6 +124,10 @@ class _NeteaseWebViewLoginTabState
 
     if (url == null || _loginHandled) return;
 
+    // 只在 163.com 域名下檢查 cookies
+    final host = url.host;
+    if (!host.endsWith('163.com')) return;
+
     // 監控所有頁面加載，檢查 MUSIC_U cookie 是否出現
     final cookieManager = CookieManager.instance();
     final cookies = await cookieManager.getCookies(
@@ -144,14 +148,18 @@ class _NeteaseWebViewLoginTabState
     _loginHandled = true;
     final csrf = findCookie('__csrf') ?? '';
 
-    final accountService = ref.read(neteaseAccountServiceProvider);
-    await accountService.loginWithCookies(
-      musicU: musicU,
-      csrf: csrf,
-    );
-    await accountService.fetchAndUpdateUserInfo();
+    try {
+      final accountService = ref.read(neteaseAccountServiceProvider);
+      await accountService.loginWithCookies(
+        musicU: musicU,
+        csrf: csrf,
+      );
+      await accountService.fetchAndUpdateUserInfo();
 
-    widget.onLoginSuccess();
+      widget.onLoginSuccess();
+    } catch (_) {
+      _loginHandled = false;
+    }
   }
 
   @override
