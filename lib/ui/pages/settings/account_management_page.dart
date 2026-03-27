@@ -23,9 +23,7 @@ class AccountManagementPage extends ConsumerStatefulWidget {
 }
 
 class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
-  bool _useBilibiliAuth = false;
-  bool _useYoutubeAuth = false;
-  bool _useNeteaseAuth = true;
+  Map<SourceType, bool> _authForPlay = {};
   bool _settingsLoaded = false;
 
   @override
@@ -39,35 +37,24 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
     final settings = await settingsRepo.get();
     if (mounted) {
       setState(() {
-        _useBilibiliAuth = settings.useBilibiliAuthForPlay;
-        _useYoutubeAuth = settings.useYoutubeAuthForPlay;
-        _useNeteaseAuth = settings.useNeteaseAuthForPlay;
+        _authForPlay = {
+          SourceType.bilibili: settings.useBilibiliAuthForPlay,
+          SourceType.youtube: settings.useYoutubeAuthForPlay,
+          SourceType.netease: settings.useNeteaseAuthForPlay,
+        };
         _settingsLoaded = true;
       });
     }
   }
 
   Future<void> _toggleAuth(SourceType sourceType) async {
-    final newValue = switch (sourceType) {
-      SourceType.bilibili => !_useBilibiliAuth,
-      SourceType.youtube => !_useYoutubeAuth,
-      SourceType.netease => !_useNeteaseAuth,
-    };
+    final newValue = !(_authForPlay[sourceType] ?? false);
 
     final settingsRepo = ref.read(settingsRepositoryProvider);
     await settingsRepo.update((s) => s.setUseAuthForPlay(sourceType, newValue));
 
     if (mounted) {
-      setState(() {
-        switch (sourceType) {
-          case SourceType.bilibili:
-            _useBilibiliAuth = newValue;
-          case SourceType.youtube:
-            _useYoutubeAuth = newValue;
-          case SourceType.netease:
-            _useNeteaseAuth = newValue;
-        }
-      });
+      setState(() => _authForPlay[sourceType] = newValue);
     }
   }
 
@@ -92,7 +79,7 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
             isLoggedIn: bilibiliAccount?.isLoggedIn ?? false,
             userName: bilibiliAccount?.userName,
             avatarUrl: bilibiliAccount?.avatarUrl,
-            useAuthForPlay: _settingsLoaded ? _useBilibiliAuth : null,
+            useAuthForPlay: _settingsLoaded ? _authForPlay[SourceType.bilibili] : null,
             onLogin: () => context.push(RoutePaths.bilibiliLogin),
             onLogout: () => _confirmLogout(SourceType.bilibili),
             onManagePlaylists: () =>
@@ -109,7 +96,7 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
             isLoggedIn: youtubeAccount?.isLoggedIn ?? false,
             userName: youtubeAccount?.userName,
             avatarUrl: youtubeAccount?.avatarUrl,
-            useAuthForPlay: _settingsLoaded ? _useYoutubeAuth : null,
+            useAuthForPlay: _settingsLoaded ? _authForPlay[SourceType.youtube] : null,
             onLogin: () => context.push(RoutePaths.youtubeLogin),
             onLogout: () => _confirmLogout(SourceType.youtube),
             onManagePlaylists: () =>
@@ -125,7 +112,7 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
             isLoggedIn: neteaseAccount?.isLoggedIn ?? false,
             userName: neteaseAccount?.userName,
             avatarUrl: neteaseAccount?.avatarUrl,
-            useAuthForPlay: _settingsLoaded ? _useNeteaseAuth : null,
+            useAuthForPlay: _settingsLoaded ? _authForPlay[SourceType.netease] : null,
             onLogin: () => context.push(RoutePaths.neteaseLogin),
             onLogout: () => _confirmLogout(SourceType.netease),
             onManagePlaylists: () =>

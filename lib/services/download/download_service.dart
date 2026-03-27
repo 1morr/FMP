@@ -570,24 +570,6 @@ class DownloadService with Logging {
     }
   }
 
-  /// 根据用户设置构建音频流配置（与播放时使用相同逻辑）
-  Future<AudioStreamConfig> _buildAudioStreamConfig(SourceType sourceType) async {
-    final settings = await _settingsRepository.get();
-
-    // 根据源类型选择流优先级
-    final streamPriority = switch (sourceType) {
-      SourceType.youtube => settings.youtubeStreamPriorityList,
-      SourceType.bilibili => settings.bilibiliStreamPriorityList,
-      SourceType.netease => settings.neteaseStreamPriorityList,
-    };
-
-    return AudioStreamConfig(
-      qualityLevel: settings.audioQualityLevel,
-      formatPriority: settings.audioFormatPriorityList,
-      streamPriority: streamPriority,
-    );
-  }
-
   /// 开始下载任务
   Future<void> _startDownload(DownloadTask task) async {
     // 检查是否已经在下载（Isolate 或旧的 CancelToken）
@@ -616,12 +598,11 @@ class DownloadService with Logging {
         throw Exception('No source available for ${track.sourceType}');
       }
       
-      final config = await _buildAudioStreamConfig(track.sourceType);
-      Map<String, String>? authHeaders;
       final settings = await _settingsRepository.get();
-      if (settings.useAuthForPlay(track.sourceType)) {
-        authHeaders = await _getAuthHeaders(track.sourceType);
-      }
+      final config = AudioStreamConfig.fromSettings(settings, track.sourceType);
+      final authHeaders = settings.useAuthForPlay(track.sourceType)
+          ? await _getAuthHeaders(track.sourceType)
+          : null;
       final streamResult = await source.getAudioStream(track.sourceId, config: config, authHeaders: authHeaders);
       final audioUrl = streamResult.url;
       
