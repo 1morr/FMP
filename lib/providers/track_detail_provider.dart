@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/utils/auth_retry_utils.dart';
+import '../core/utils/auth_headers_utils.dart';
 import '../data/models/track.dart';
 import '../data/models/video_detail.dart';
 import '../data/sources/bilibili_source.dart';

@@ -37,6 +37,9 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
   bool _autoRefreshEnabled = false;
   int? _refreshIntervalHours;
 
+  /// 使用登入狀態刷新
+  bool _useAuthForRefresh = false;
+
   bool get isEditing => widget.playlist != null;
 
   @override
@@ -51,6 +54,7 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
     if (widget.playlist != null) {
       _autoRefreshEnabled = widget.playlist!.refreshIntervalHours != null;
       _refreshIntervalHours = widget.playlist!.refreshIntervalHours ?? 24;
+      _useAuthForRefresh = widget.playlist!.useAuthForRefresh;
     } else {
       _refreshIntervalHours = 24; // 默認 24 小時
     }
@@ -116,6 +120,19 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
                 const Divider(),
                 const SizedBox(height: 16),
                 _buildAutoRefreshSection(context),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(t.library.createPlaylist.useAuthForRefresh),
+                  subtitle: Text(
+                    t.library.createPlaylist.useAuthForRefreshHint,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                  ),
+                  value: _useAuthForRefresh,
+                  onChanged: (v) => setState(() => _useAuthForRefresh = v),
+                ),
               ],
             ],
           ),
@@ -409,6 +426,9 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
           description: description.isEmpty ? null : description,
           coverUrl: coverUrl,
           refreshIntervalHours: refreshIntervalHours,
+          useAuthForRefresh: _useAuthForRefresh != (widget.playlist!.useAuthForRefresh)
+              ? _useAuthForRefresh
+              : null,
         );
 
         if (mounted) {

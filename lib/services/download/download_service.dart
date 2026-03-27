@@ -20,7 +20,7 @@ import '../../data/sources/source_provider.dart';
 import '../../data/sources/base_source.dart';
 import '../../data/sources/bilibili_source.dart';
 import '../../data/sources/youtube_source.dart';
-import '../../core/utils/auth_retry_utils.dart';
+import '../../core/utils/auth_headers_utils.dart';
 import '../account/bilibili_account_service.dart';
 import '../account/youtube_account_service.dart';
 import 'download_path_utils.dart';

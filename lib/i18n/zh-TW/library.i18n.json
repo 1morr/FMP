@@ -150,7 +150,9 @@
     "justNow": "剛剛",
     "minutesAgo": "$n 分鐘前",
     "hoursAgo": "$n 小時前",
-    "daysAgo": "$n 天前"
+    "daysAgo": "$n 天前",
+    "useAuthForRefresh": "使用登入狀態重新整理",
+    "useAuthForRefreshHint": "開啟後自動重新整理和手動重新整理時使用登入帳號的憑證"
   },
   "importPlaylist": {
     "title": "匯入歌單",
@@ -161,6 +163,8 @@
     "nameLabel": "歌單名稱（可選）",
     "nameHint": "留空則使用原名稱",
     "searchSource": "搜尋來源",
+    "useAuth": "使用登入狀態匯入",
+    "useAuthHint": "對私人歌單或需要登入才能查看的內容，請開啟此選項",
     "import": "匯入",
     "processing": "正在處理...",
     "preparing": "準備中...",

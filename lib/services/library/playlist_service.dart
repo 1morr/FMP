@@ -141,6 +141,7 @@ class PlaylistService with Logging {
     String? description,
     String? coverUrl,
     int? refreshIntervalHours,
+    bool? useAuthForRefresh,
   }) async {
     final playlist = await _playlistRepository.getById(playlistId);
     if (playlist == null) {
@@ -199,6 +200,11 @@ class PlaylistService with Logging {
     // 更新自動刷新設置
     if (refreshIntervalHours != null) {
       playlist.refreshIntervalHours = refreshIntervalHours > 0 ? refreshIntervalHours : null;
+    }
+
+    // 更新使用登入狀態刷新
+    if (useAuthForRefresh != null) {
+      playlist.useAuthForRefresh = useAuthForRefresh;
     }
 
     await _playlistRepository.save(playlist);

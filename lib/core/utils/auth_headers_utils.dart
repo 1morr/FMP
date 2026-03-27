@@ -4,6 +4,7 @@ import '../../data/models/track.dart';
 import '../../data/sources/source_exception.dart';
 import '../../providers/account_provider.dart';
 import '../../services/account/bilibili_account_service.dart';
+import '../../services/account/netease_account_service.dart';
 import '../../services/account/youtube_account_service.dart';
 
 /// Build auth headers from account services directly (non-Riverpod contexts).
@@ -11,6 +12,7 @@ Future<Map<String, String>?> buildAuthHeaders(
   SourceType platform, {
   BilibiliAccountService? bilibiliAccountService,
   YouTubeAccountService? youtubeAccountService,
+  NeteaseAccountService? neteaseAccountService,
 }) async {
   switch (platform) {
     case SourceType.bilibili:
@@ -20,7 +22,9 @@ Future<Map<String, String>?> buildAuthHeaders(
     case SourceType.youtube:
       return await youtubeAccountService?.getAuthHeaders();
     case SourceType.netease:
-      return null; // TODO: Netease auth headers (Phase 2)
+      final cookies = await neteaseAccountService?.getAuthCookieString();
+      if (cookies == null) return null;
+      return {'Cookie': cookies};
   }
 }
 
@@ -33,6 +37,7 @@ Future<Map<String, String>?> getAuthHeadersForPlatform(
     platform,
     bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
     youtubeAccountService: ref.read(youtubeAccountServiceProvider),
+    neteaseAccountService: ref.read(neteaseAccountServiceProvider),
   );
 }
 
