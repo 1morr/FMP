@@ -7,6 +7,7 @@ import '../core/utils/auth_headers_utils.dart';
 import '../data/models/track.dart';
 import '../data/models/video_detail.dart';
 import '../data/sources/bilibili_source.dart';
+import '../data/sources/netease_source.dart';
 import '../data/sources/youtube_source.dart';
 import '../services/audio/audio_provider.dart';
 
@@ -18,6 +19,13 @@ final bilibiliSourceProvider = Provider<BilibiliSource>((ref) {
 /// YouTube 数据源 Provider
 final youtubeSourceProvider = Provider<YouTubeSource>((ref) {
   final source = YouTubeSource();
+  ref.onDispose(() => source.dispose());
+  return source;
+});
+
+/// Netease 数据源 Provider（用于歌曲详情获取）
+final _neteaseDetailSourceProvider = Provider<NeteaseSource>((ref) {
+  final source = NeteaseSource();
   ref.onDispose(() => source.dispose());
   return source;
 });
@@ -53,28 +61,18 @@ class TrackDetailState {
 class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
   final BilibiliSource _bilibiliSource;
   final YouTubeSource _youtubeSource;
+  final NeteaseSource _neteaseSource;
   final Ref _ref;
   String? _currentSourceId;
   SourceType? _currentSourceType;
 
-  TrackDetailNotifier(this._bilibiliSource, this._youtubeSource, this._ref)
+  TrackDetailNotifier(this._bilibiliSource, this._youtubeSource, this._neteaseSource, this._ref)
       : super(const TrackDetailState());
 
   /// 加载歌曲详情
   Future<void> loadDetail(Track? track) async {
     // 如果没有歌曲，清空详情
     if (track == null) {
-      if (state.detail != null) {
-        state = const TrackDetailState();
-      }
-      _currentSourceId = null;
-      _currentSourceType = null;
-      return;
-    }
-
-    // 只支持 Bilibili 和 YouTube 源
-    if (track.sourceType != SourceType.bilibili &&
-        track.sourceType != SourceType.youtube) {
       if (state.detail != null) {
         state = const TrackDetailState();
       }
@@ -97,8 +95,8 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
     try {
       VideoDetail? detail;
 
-      // 已下载歌曲优先从本地 metadata 加载
-      if (track.hasAnyDownload) {
+      // 已下载歌曲优先从本地 metadata 加载（Bilibili/YouTube）
+      if (track.hasAnyDownload && track.sourceType != SourceType.netease) {
         detail = await _loadFromLocalMetadata(track);
       }
 
@@ -110,6 +108,9 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
         } else if (track.sourceType == SourceType.youtube) {
           final authHeaders = await getAuthHeadersForPlatform(SourceType.youtube, _ref);
           detail = await _youtubeSource.getVideoDetail(track.sourceId, authHeaders: authHeaders);
+        } else if (track.sourceType == SourceType.netease) {
+          final authHeaders = await getAuthHeadersForPlatform(SourceType.netease, _ref);
+          detail = await _neteaseSource.getVideoDetail(track.sourceId, authHeaders: authHeaders);
         }
       }
 
@@ -158,7 +159,7 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
   /// 刷新当前歌曲详情
   Future<void> refresh() async {
     if (state.detail == null || _currentSourceType == null) return;
-    
+
     final sourceId = state.detail!.bvid;
     state = state.copyWith(isLoading: true, clearError: true);
 
@@ -167,6 +168,9 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
       if (_currentSourceType == SourceType.bilibili) {
         final authHeaders = await getAuthHeadersForPlatform(SourceType.bilibili, _ref);
         detail = await _bilibiliSource.getVideoDetail(sourceId, authHeaders: authHeaders);
+      } else if (_currentSourceType == SourceType.netease) {
+        final authHeaders = await getAuthHeadersForPlatform(SourceType.netease, _ref);
+        detail = await _neteaseSource.getVideoDetail(sourceId, authHeaders: authHeaders);
       } else {
         final authHeaders = await getAuthHeadersForPlatform(SourceType.youtube, _ref);
         detail = await _youtubeSource.getVideoDetail(sourceId, authHeaders: authHeaders);
@@ -193,7 +197,8 @@ final trackDetailProvider =
     StateNotifierProvider<TrackDetailNotifier, TrackDetailState>((ref) {
   final bilibiliSource = ref.watch(bilibiliSourceProvider);
   final youtubeSource = ref.watch(youtubeSourceProvider);
-  final notifier = TrackDetailNotifier(bilibiliSource, youtubeSource, ref);
+  final neteaseSource = ref.watch(_neteaseDetailSourceProvider);
+  final notifier = TrackDetailNotifier(bilibiliSource, youtubeSource, neteaseSource, ref);
 
   // 监听当前播放的歌曲变化
   ref.listen<Track?>(currentTrackProvider, (previous, next) {

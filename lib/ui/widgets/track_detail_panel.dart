@@ -754,34 +754,63 @@ class _DetailContent extends ConsumerWidget {
 
         const SizedBox(height: 12),
 
-        // UP主信息（头像可点击进入频道）
-        Row(
-          children: [
-            _ClickableAvatar(
-              track: currentTrack,
-              detail: detail,
-              cache: cache,
-              baseDir: baseDir,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                detail.ownerName,
-                style: textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
+        // UP主/歌手信息
+        if (currentTrack?.sourceType == SourceType.netease)
+          // 網易雲：歌手頭像 + 歌手名 + 發布時間
+          Row(
+            children: [
+              ImageLoadingService.loadAvatar(
+                networkUrl: detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
+                size: 32,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  detail.ownerName,
+                  style: textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            Text(
-              detail.formattedPublishDate,
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+              Text(
+                detail.formattedPublishDate,
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          )
+        else
+          // Bilibili/YouTube：頭像可點擊進入頻道
+          Row(
+            children: [
+              _ClickableAvatar(
+                track: currentTrack,
+                detail: detail,
+                cache: cache,
+                baseDir: baseDir,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  detail.ownerName,
+                  style: textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                detail.formattedPublishDate,
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                ),
+              ),
+            ],
+          ),
 
         const SizedBox(height: 16),
 
@@ -826,10 +855,35 @@ class _DetailContent extends ConsumerWidget {
     );
   }
 
-  /// 简化的统计数据（播放数、点赞数、收藏数）
-  /// YouTube 不显示收藏数（API 无法获取）
+  /// 简化的统计数据
+  /// Bilibili: 播放数、点赞数、收藏数
+  /// YouTube: 播放数、点赞数（无收藏数）
+  /// Netease: 专辑名、评论数
   Widget _buildSimpleStats(BuildContext context, Track? track) {
     final isYouTube = track?.sourceType == SourceType.youtube;
+    final isNetease = track?.sourceType == SourceType.netease;
+
+    if (isNetease) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          if (detail.albumName.isNotEmpty)
+            Flexible(
+              child: _buildStatChip(
+                context,
+                Icons.album_rounded,
+                detail.albumName,
+              ),
+            ),
+          if (detail.commentCount > 0)
+            _buildStatChip(
+              context,
+              Icons.comment_rounded,
+              detail.formattedCommentCount,
+            ),
+        ],
+      );
+    }
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -875,10 +929,14 @@ class _DetailContent extends ConsumerWidget {
           ),
         ),
         const SizedBox(width: 6),
-        Text(
-          value,
-          style: textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
+        Flexible(
+          child: Text(
+            value,
+            style: textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
           ),
         ),
       ],
@@ -1083,6 +1141,9 @@ class _ClickableCover extends StatefulWidget {
 class _ClickableCoverState extends State<_ClickableCover> {
   bool _isHovered = false;
 
+  bool get _isNetease => widget.track?.sourceType == SourceType.netease;
+  double get _aspectRatio => _isNetease ? 1.0 : 16 / 9;
+
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
@@ -1096,14 +1157,14 @@ class _ClickableCoverState extends State<_ClickableCover> {
         child: ClipRRect(
           borderRadius: AppRadius.borderRadiusXl,
           child: AspectRatio(
-            aspectRatio: 16 / 9,
+            aspectRatio: _aspectRatio,
             child: Stack(
               fit: StackFit.expand,
               children: [
                 TrackCover(
                   track: widget.track,
                   networkUrl: widget.detail.coverUrl,
-                  aspectRatio: 16 / 9,
+                  aspectRatio: _aspectRatio,
                   borderRadius: 0,
                   highResolution: true,
                 ),

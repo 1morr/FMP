@@ -7,6 +7,7 @@ import '../../core/logger.dart';
 import '../../core/utils/netease_crypto.dart';
 import '../models/settings.dart';
 import '../models/track.dart';
+import '../models/video_detail.dart';
 import 'base_source.dart';
 import 'netease_exception.dart';
 import 'source_exception.dart';
@@ -364,6 +365,97 @@ class NeteaseSource extends BaseSource with Logging {
     _dio.close();
   }
 
+  // ========== 歌曲詳情（面板展示） ==========
+
+  /// 獲取歌曲詳情（用於右側面板/播放器信息展示）
+  /// 同時獲取歌曲元數據、歌手頭像和熱門評論
+  Future<VideoDetail> getVideoDetail(String sourceId,
+      {Map<String, String>? authHeaders}) async {
+    try {
+      final songData = await _getSongDetail(sourceId, authHeaders: authHeaders);
+      final song = songData['song'] as Map<String, dynamic>;
+
+      final name = song['name'] as String? ?? '';
+      final ar = song['ar'] as List? ?? song['artists'] as List?;
+      final al = song['al'] as Map<String, dynamic>? ??
+          song['album'] as Map<String, dynamic>?;
+      final dt = song['dt'] as int? ?? song['duration'] as int? ?? 0;
+
+      final artists = ar
+              ?.map((a) => (a as Map<String, dynamic>)['name'] as String?)
+              .where((n) => n != null && n.isNotEmpty)
+              .join(', ') ??
+          '';
+
+      final albumName = al?['name'] as String? ?? '';
+      final albumCoverUrl = al?['picUrl'] as String?;
+      final albumId = al?['id'] as int?;
+
+      // 從歌曲本身獲取發布時間
+      final publishTime = song['publishTime'] as int?;
+      DateTime? publishDate = publishTime != null && publishTime > 0
+          ? DateTime.fromMillisecondsSinceEpoch(publishTime)
+          : null;
+
+      // 獲取第一位歌手的 ID（用於獲取頭像）
+      final firstArtistId = ar != null && ar.isNotEmpty
+          ? (ar[0] as Map<String, dynamic>)['id'] as int?
+          : null;
+
+      // 並行獲取：歌手頭像、專輯發布時間、熱門評論
+      String artistAvatar = '';
+      List<VideoComment> hotComments = [];
+      int commentCount = 0;
+
+      final futures = await Future.wait([
+        // 歌手頭像
+        if (firstArtistId != null && firstArtistId > 0)
+          _getArtistAvatar(firstArtistId).catchError((_) => ''),
+        // 專輯發布時間（僅當歌曲本身沒有時才獲取）
+        if (publishDate == null && albumId != null && albumId > 0)
+          _getAlbumPublishTime(albumId).catchError((_) => null),
+        // 熱門評論
+        _getHotComments(sourceId).catchError((_) => <String, dynamic>{
+              'comments': <VideoComment>[],
+              'total': 0,
+            }),
+      ]);
+
+      int futureIdx = 0;
+      if (firstArtistId != null && firstArtistId > 0) {
+        artistAvatar = futures[futureIdx] as String? ?? '';
+        futureIdx++;
+      }
+      if (publishDate == null && albumId != null && albumId > 0) {
+        final albumDate = futures[futureIdx] as DateTime?;
+        if (albumDate != null) publishDate = albumDate;
+        futureIdx++;
+      }
+      final commentResult = futures[futureIdx] as Map<String, dynamic>;
+      hotComments = commentResult['comments'] as List<VideoComment>? ?? [];
+      commentCount = commentResult['total'] as int? ?? 0;
+
+      return VideoDetail.fromNetease(
+        songId: sourceId,
+        title: name,
+        artists: artists,
+        artistAvatar: artistAvatar,
+        albumName: albumName,
+        albumCoverUrl: albumCoverUrl,
+        durationMs: dt,
+        publishDate: publishDate,
+        commentCount: commentCount,
+        comments: hotComments,
+      );
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    } catch (e) {
+      if (e is NeteaseApiException) rethrow;
+      logError('Unexpected error in getVideoDetail: $e');
+      throw NeteaseApiException(numericCode: -999, message: e.toString());
+    }
+  }
+
   // ========== 內部方法 ==========
 
   /// 獲取單首歌曲詳情（明文 /api/，含 privilege）
@@ -435,6 +527,78 @@ class NeteaseSource extends BaseSource with Logging {
       final privilege = songId != null ? privilegeMap[songId] : null;
       return _parseSongToTrack(s, privilege);
     }).toList();
+  }
+
+  /// 獲取歌手頭像 URL
+  Future<String> _getArtistAvatar(int artistId) async {
+    final response = await _dio.get(
+      '$_musicBase/api/artist/head/info/get',
+      queryParameters: {'id': artistId},
+      options: Options(responseType: ResponseType.json),
+    );
+
+    final respData = _ensureMap(response.data);
+    _checkResponse(respData);
+
+    final data = respData['data'] as Map<String, dynamic>?;
+    final artist = data?['artist'] as Map<String, dynamic>?;
+    return artist?['avatar'] as String? ?? '';
+  }
+
+  /// 獲取專輯發布時間
+  Future<DateTime?> _getAlbumPublishTime(int albumId) async {
+    final response = await _dio.get(
+      '$_musicBase/api/v1/album/$albumId',
+      options: Options(responseType: ResponseType.json),
+    );
+
+    final respData = _ensureMap(response.data);
+    _checkResponse(respData);
+
+    final album = respData['album'] as Map<String, dynamic>?;
+    final publishTime = album?['publishTime'] as int?;
+    if (publishTime != null && publishTime > 0) {
+      return DateTime.fromMillisecondsSinceEpoch(publishTime);
+    }
+    return null;
+  }
+
+  /// 獲取歌曲熱門評論
+  Future<Map<String, dynamic>> _getHotComments(String sourceId) async {
+    final response = await _dio.post(
+      '$_musicBase/api/v1/resource/comments/R_SO_4_$sourceId',
+      data: 'limit=20&offset=0',
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        responseType: ResponseType.json,
+      ),
+    );
+
+    final respData = _ensureMap(response.data);
+    _checkResponse(respData);
+
+    final total = respData['total'] as int? ?? 0;
+    final hotCommentsRaw = respData['hotComments'] as List? ?? [];
+
+    final comments = hotCommentsRaw.map((c) {
+      final comment = c as Map<String, dynamic>;
+      final user = comment['user'] as Map<String, dynamic>? ?? {};
+      final time = comment['time'] as int? ?? 0;
+
+      return VideoComment(
+        id: comment['commentId'] as int? ?? 0,
+        content: comment['content'] as String? ?? '',
+        memberName: user['nickname'] as String? ?? '',
+        memberAvatar: user['avatarUrl'] as String? ?? '',
+        likeCount: comment['likedCount'] as int? ?? 0,
+        createTime: DateTime.fromMillisecondsSinceEpoch(time),
+      );
+    }).toList();
+
+    return {
+      'comments': comments,
+      'total': total,
+    };
   }
 
   /// 解析歌曲 JSON 為 Track

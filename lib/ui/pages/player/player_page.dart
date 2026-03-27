@@ -841,7 +841,9 @@ class _TrackInfoDialog extends ConsumerWidget {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            t.player.videoInfo,
+                            currentTrack?.sourceType == SourceType.netease
+                                ? t.player.songInfo
+                                : t.player.videoInfo,
                             style: textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
@@ -871,6 +873,7 @@ class _TrackInfoDialog extends ConsumerWidget {
                         _DetailContent(
                           detail: detailState.detail!,
                           isYouTube: isYouTube,
+                          isNetease: currentTrack?.sourceType == SourceType.netease,
                           track: currentTrack,
                           cache: cache,
                           baseDir: baseDir,
@@ -905,6 +908,7 @@ class _TrackInfoDialog extends ConsumerWidget {
 class _DetailContent extends StatelessWidget {
   final VideoDetail detail;
   final bool isYouTube;
+  final bool isNetease;
   final Track? track;
   final FileExistsCache cache;
   final String? baseDir;
@@ -912,6 +916,7 @@ class _DetailContent extends StatelessWidget {
   const _DetailContent({
     required this.detail,
     required this.isYouTube,
+    this.isNetease = false,
     required this.track,
     required this.cache,
     required this.baseDir,
@@ -945,42 +950,65 @@ class _DetailContent extends StatelessWidget {
 
         const SizedBox(height: 16),
 
-        // UP主信息（点击跳转到频道/空间）
-        MouseRegion(
-          cursor: track != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
-          child: GestureDetector(
-            onTap: track != null
-                ? () => UrlLauncherService.instance.openChannel(track!)
-                : null,
-            child: Row(
-              children: [
-                // 头像
-                ImageLoadingService.loadAvatar(
-                  localPath: track?.getLocalAvatarPath(cache, baseDir: baseDir),
-                  networkUrl: detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
-                  size: 40,
-                ),
-                const SizedBox(width: 12),
-                // UP主名称
-                Expanded(
-                  child: Text(
-                    detail.ownerName,
-                    style: textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+        // UP主/歌手信息
+        if (isNetease)
+          // 網易雲：歌手頭像 + 歌手名
+          Row(
+            children: [
+              ImageLoadingService.loadAvatar(
+                networkUrl: detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
+                size: 40,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  detail.ownerName,
+                  style: textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w500,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                Icon(
-                  Icons.chevron_right,
-                  size: 20,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ],
+              ),
+            ],
+          )
+        else
+          // Bilibili/YouTube：頭像可點擊進入頻道/空間
+          MouseRegion(
+            cursor: track != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+            child: GestureDetector(
+              onTap: track != null
+                  ? () => UrlLauncherService.instance.openChannel(track!)
+                  : null,
+              child: Row(
+                children: [
+                  // 头像
+                  ImageLoadingService.loadAvatar(
+                    localPath: track?.getLocalAvatarPath(cache, baseDir: baseDir),
+                    networkUrl: detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
+                    size: 40,
+                  ),
+                  const SizedBox(width: 12),
+                  // UP主名称
+                  Expanded(
+                    child: Text(
+                      detail.ownerName,
+                      style: textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
 
         const SizedBox(height: 16),
 
@@ -989,33 +1017,60 @@ class _DetailContent extends StatelessWidget {
           spacing: 16,
           runSpacing: 8,
           children: [
-            _buildStatItem(
-              context,
-              Icons.play_arrow_rounded,
-              detail.formattedViewCount,
-            ),
-            _buildStatItem(
-              context,
-              Icons.thumb_up_rounded,
-              detail.formattedLikeCount,
-            ),
-            // YouTube 不显示收藏数
-            if (!isYouTube)
+            if (isNetease) ...[
+              // 網易雲：專輯、評論數、發布日期、時長
+              if (detail.albumName.isNotEmpty)
+                _buildStatItem(
+                  context,
+                  Icons.album_rounded,
+                  detail.albumName,
+                ),
+              if (detail.commentCount > 0)
+                _buildStatItem(
+                  context,
+                  Icons.comment_rounded,
+                  detail.formattedCommentCount,
+                ),
               _buildStatItem(
                 context,
-                Icons.star_rounded,
-                detail.formattedFavoriteCount,
+                Icons.calendar_today_outlined,
+                detail.formattedPublishDate,
               ),
-            _buildStatItem(
-              context,
-              Icons.calendar_today_outlined,
-              detail.formattedPublishDate,
-            ),
-            _buildStatItem(
-              context,
-              Icons.schedule_outlined,
-              detail.formattedDuration,
-            ),
+              _buildStatItem(
+                context,
+                Icons.schedule_outlined,
+                detail.formattedDuration,
+              ),
+            ] else ...[
+              // Bilibili/YouTube：播放數、點讚數等
+              _buildStatItem(
+                context,
+                Icons.play_arrow_rounded,
+                detail.formattedViewCount,
+              ),
+              _buildStatItem(
+                context,
+                Icons.thumb_up_rounded,
+                detail.formattedLikeCount,
+              ),
+              // YouTube 不显示收藏数
+              if (!isYouTube)
+                _buildStatItem(
+                  context,
+                  Icons.star_rounded,
+                  detail.formattedFavoriteCount,
+                ),
+              _buildStatItem(
+                context,
+                Icons.calendar_today_outlined,
+                detail.formattedPublishDate,
+              ),
+              _buildStatItem(
+                context,
+                Icons.schedule_outlined,
+                detail.formattedDuration,
+              ),
+            ],
           ],
         ),
 

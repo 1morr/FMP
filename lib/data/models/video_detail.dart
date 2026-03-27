@@ -47,7 +47,7 @@ class VideoPage {
   String toString() => 'VideoPage(cid: $cid, page: $page, part: $part)';
 }
 
-/// 视频详细信息（用于右侧详情面板显示）
+/// 视频/歌曲详细信息（用于右侧详情面板显示）
 class VideoDetail {
   final String bvid;
   final String title;
@@ -57,6 +57,7 @@ class VideoDetail {
   final String ownerFace;
   final int ownerId;
   final String channelId; // YouTube 頻道 ID
+  final String albumName; // 網易雲專輯名
   final int viewCount;
   final int likeCount;
   final int coinCount;
@@ -78,6 +79,7 @@ class VideoDetail {
     required this.ownerFace,
     required this.ownerId,
     this.channelId = '',
+    this.albumName = '',
     required this.viewCount,
     required this.likeCount,
     required this.coinCount,
@@ -171,6 +173,52 @@ class VideoDetail {
       shareCount: 0,
       danmakuCount: 0, // YouTube 没有弹幕
       commentCount: 0, // 需要额外 API 获取
+      publishDate: publishDate ?? DateTime.now(),
+      durationSeconds: durationMs ~/ 1000,
+      hotComments: comments,
+      pages: [],
+    );
+  }
+
+  /// 从网易云数据创建 VideoDetail
+  /// [songId] 歌曲 ID
+  /// [title] 歌曲标题
+  /// [artists] 歌手名称
+  /// [artistAvatar] 歌手头像 URL
+  /// [albumName] 专辑名称
+  /// [albumCoverUrl] 专辑封面 URL
+  /// [durationMs] 时长（毫秒）
+  /// [publishDate] 发布日期
+  /// [commentCount] 评论总数
+  /// [comments] 热门评论列表
+  factory VideoDetail.fromNetease({
+    required String songId,
+    required String title,
+    required String artists,
+    String artistAvatar = '',
+    String albumName = '',
+    String? albumCoverUrl,
+    int durationMs = 0,
+    DateTime? publishDate,
+    int commentCount = 0,
+    List<VideoComment> comments = const [],
+  }) {
+    return VideoDetail(
+      bvid: songId,
+      title: title,
+      description: '', // 網易雲單曲無描述
+      coverUrl: albumCoverUrl ?? '',
+      ownerName: artists,
+      ownerFace: artistAvatar,
+      ownerId: 0,
+      albumName: albumName,
+      viewCount: 0, // 網易雲無公開播放數
+      likeCount: 0, // 網易雲無公開點讚數
+      coinCount: 0,
+      favoriteCount: 0,
+      shareCount: 0,
+      danmakuCount: 0,
+      commentCount: commentCount,
       publishDate: publishDate ?? DateTime.now(),
       durationSeconds: durationMs ~/ 1000,
       hotComments: comments,
