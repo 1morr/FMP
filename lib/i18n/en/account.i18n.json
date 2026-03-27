@@ -1,6 +1,6 @@
 {
   "title": "Account Management",
-  "subtitle": "Manage Bilibili and YouTube accounts",
+  "subtitle": "Manage Bilibili, YouTube, and NetEase accounts",
   "notLoggedIn": "Not logged in",
   "loggedIn": "Logged in",
   "login": "Log in",
@@ -12,6 +12,7 @@
   "webLogin": "Web Login",
   "qrLogin": "QR Code Login",
   "qrWaiting": "Scan with Bilibili mobile app",
+  "neteaseQrWaiting": "Scan with NetEase Cloud Music mobile app",
   "qrScanned": "Scanned, please confirm on your phone",
   "qrExpired": "QR code expired",
   "qrRefresh": "Regenerate",

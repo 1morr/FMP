@@ -148,7 +148,15 @@ class _AccountPlaylistsSheetState
               'https://www.youtube.com/playlist?list=${p.playlistId}',
         )).toList();
       case SourceType.netease:
-        return []; // TODO: Netease playlist fetching (Phase 2)
+        final service = ref.read(neteaseAccountServiceProvider);
+        final playlists = await service.getUserPlaylists();
+        return playlists.map((p) => _PlaylistItem(
+          id: p.id,
+          title: p.name,
+          trackCount: p.trackCount,
+          thumbnailUrl: p.coverUrl,
+          importUrl: 'https://music.163.com/playlist?id=${p.id}',
+        )).toList();
     }
   }
 
@@ -170,7 +178,10 @@ class _AccountPlaylistsSheetState
           final listId = uri?.queryParameters['list'];
           if (listId != null) ids.add(listId);
         case SourceType.netease:
-          break; // TODO: Netease imported ID extraction (Phase 2)
+          // 網易雲歌單 URL 中的 id= 參數
+          final neteaseUri = Uri.tryParse(url);
+          final neteaseId = neteaseUri?.queryParameters['id'];
+          if (neteaseId != null) ids.add(neteaseId);
       }
     }
     return ids;
