@@ -26,6 +26,7 @@ import '../../../services/audio/audio_provider.dart';
 import '../../../services/platform/url_launcher_service.dart';
 import '../../../core/constants/ui_constants.dart';
 import '../../widgets/track_thumbnail.dart';
+import '../../widgets/track_tile.dart';
 import '../../../providers/lyrics_provider.dart';
 import '../../widgets/lyrics_display.dart';
 import '../lyrics/lyrics_search_sheet.dart';
@@ -936,14 +937,24 @@ class _DetailContent extends StatelessWidget {
             onTap: track != null
                 ? () => UrlLauncherService.instance.openVideo(track!)
                 : null,
-            child: Text(
-              detail.title,
-              style: textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                height: 1.3,
-              ),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    detail.title,
+                    style: textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      height: 1.3,
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (track?.isVip == true) ...[
+                  const SizedBox(width: 6),
+                  const VipBadge(),
+                ],
+              ],
             ),
           ),
         ),
@@ -1367,13 +1378,23 @@ class _BasicInfoContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 标题
-        Text(
-          track!.title,
-          style: textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                track!.title,
+                style: textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (track!.isVip) ...[
+              const SizedBox(width: 6),
+              const VipBadge(),
+            ],
+          ],
         ),
 
         const SizedBox(height: 8),

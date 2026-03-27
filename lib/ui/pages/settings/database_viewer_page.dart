@@ -180,6 +180,7 @@ class _TrackListView extends StatelessWidget {
                   title: t.databaseViewer.availability,
                   data: {
                     'isAvailable': track.isAvailable.toString(),
+                    'isVip': track.isVip.toString(),
                     'unavailableReason': track.unavailableReason ?? 'null',
                   },
                 ),
@@ -283,6 +284,9 @@ class _PlaylistListView extends StatelessWidget {
                     'lastRefreshed': playlist.lastRefreshed?.toIso8601String() ?? 'null',
                     'notifyOnUpdate': playlist.notifyOnUpdate.toString(),
                     'needsRefresh': playlist.needsRefresh.toString(),
+                    'ownerName': playlist.ownerName ?? 'null',
+                    'ownerUserId': playlist.ownerUserId ?? 'null',
+                    'useAuthForRefresh': playlist.useAuthForRefresh.toString(),
                   },
                 ),
                 _DataSection(
@@ -493,6 +497,15 @@ class _SettingsListView extends StatelessWidget {
                     'audioFormatPriority': setting.audioFormatPriority,
                     'youtubeStreamPriority': setting.youtubeStreamPriority,
                     'bilibiliStreamPriority': setting.bilibiliStreamPriority,
+                    'neteaseStreamPriority': setting.neteaseStreamPriority,
+                  },
+                ),
+                _DataSection(
+                  title: 'Auth Settings',
+                  data: {
+                    'useBilibiliAuthForPlay': setting.useBilibiliAuthForPlay.toString(),
+                    'useYoutubeAuthForPlay': setting.useYoutubeAuthForPlay.toString(),
+                    'useNeteaseAuthForPlay': setting.useNeteaseAuthForPlay.toString(),
                   },
                 ),
                 _DataSection(

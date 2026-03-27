@@ -23,6 +23,7 @@ import '../../services/platform/url_launcher_service.dart';
 import '../../services/radio/radio_controller.dart';
 import '../../data/models/radio_station.dart';
 import 'track_thumbnail.dart';
+import 'track_tile.dart';
 import 'lyrics_display.dart';
 import 'dialogs/add_to_playlist_dialog.dart';
 import 'dialogs/add_to_remote_playlist_dialog.dart';
@@ -680,14 +681,25 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
             ),
           ),
           const SizedBox(height: 20),
-          Text(
-            track.title,
-            style: textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Text(
+                  track.title,
+                  style: textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (track.isVip) ...[
+                const SizedBox(width: 6),
+                const VipBadge(),
+              ],
+            ],
           ),
           const SizedBox(height: 8),
           Text(
@@ -742,14 +754,24 @@ class _DetailContent extends ConsumerWidget {
         const SizedBox(height: 20),
 
         // 标题
-        Text(
-          detail.title,
-          style: textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-            height: 1.3,
-          ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                detail.title,
+                style: textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  height: 1.3,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (currentTrack?.isVip == true) ...[
+              const SizedBox(width: 6),
+              const VipBadge(),
+            ],
+          ],
         ),
 
         const SizedBox(height: 12),

@@ -25,6 +25,7 @@ import '../lyrics/lyrics_search_sheet.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/track_group/track_group.dart';
 import '../../widgets/track_thumbnail.dart';
+import '../../widgets/track_tile.dart';
 import '../../../providers/selection_provider.dart';
 import '../../widgets/context_menu_region.dart';
 import '../../widgets/selection_mode_app_bar.dart';
@@ -1036,14 +1037,24 @@ class _SearchResultTile extends ConsumerWidget {
             isPlaying: shouldHighlight,
           ),
           onLongPress: onLongPress,
-          title: Text(
-            track.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: shouldHighlight ? colorScheme.primary : null,
-              fontWeight: shouldHighlight ? FontWeight.w600 : null,
-            ),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  track.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: shouldHighlight ? colorScheme.primary : null,
+                    fontWeight: shouldHighlight ? FontWeight.w600 : null,
+                  ),
+                ),
+              ),
+              if (track.isVip) ...[
+                const SizedBox(width: 4),
+                const VipBadge(),
+              ],
+            ],
           ),
           subtitle: Row(
             children: [
