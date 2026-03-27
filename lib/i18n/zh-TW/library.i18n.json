@@ -79,7 +79,8 @@
     "allPartsAlreadyDownloaded": "所有分P已下載",
     "allPartsInDownloadQueue": "所有分P已在下載佇列中",
     "allPartsDownloadedOrQueued": "所有分P已下載或已在佇列中",
-    "view": "查看"
+    "view": "查看",
+    "owner": "所有者"
   },
   "downloadedPage": {
     "syncLocalFiles": "同步本機檔案",

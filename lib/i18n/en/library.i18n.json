@@ -79,7 +79,8 @@
     "allPartsAlreadyDownloaded": "All parts already downloaded",
     "allPartsInDownloadQueue": "All parts already in download queue",
     "allPartsDownloadedOrQueued": "All parts already downloaded or queued",
-    "view": "View"
+    "view": "View",
+    "owner": "Owner"
   },
   "downloadedPage": {
     "syncLocalFiles": "Sync local files",

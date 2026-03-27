@@ -90,14 +90,24 @@ class TrackTile extends StatelessWidget {
         size: AppSizes.thumbnailMedium,
         isPlaying: isPlaying,
       ),
-      title: Text(
-        track.title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: isPlaying ? colorScheme.primary : null,
-          fontWeight: isPlaying ? FontWeight.w600 : null,
-        ),
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+              track.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: isPlaying ? colorScheme.primary : null,
+                fontWeight: isPlaying ? FontWeight.w600 : null,
+              ),
+            ),
+          ),
+          if (track.isVip) ...[
+            const SizedBox(width: 4),
+            _VipBadge(),
+          ],
+        ],
       ),
       subtitle: subtitle ??
           Text(
@@ -157,14 +167,24 @@ class TrackTile extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   // Title - 使用 bodyLarge 匹配 ListTile
-                  Text(
-                    track.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: textTheme.bodyLarge?.copyWith(
-                      color: isPlaying ? colorScheme.primary : null,
-                      fontWeight: isPlaying ? FontWeight.w600 : null,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          track.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: textTheme.bodyLarge?.copyWith(
+                            color: isPlaying ? colorScheme.primary : null,
+                            fontWeight: isPlaying ? FontWeight.w600 : null,
+                          ),
+                        ),
+                      ),
+                      if (track.isVip) ...[
+                        const SizedBox(width: 4),
+                        _VipBadge(),
+                      ],
+                    ],
                   ),
                   // 匹配 ListTile title-subtitle 间距
                   const SizedBox(height: 2),
@@ -185,6 +205,29 @@ class TrackTile extends StatelessWidget {
             // Trailing
             if (trailing != null) trailing!,
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// VIP 标记徽章
+class _VipBadge extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.5), width: 0.5),
+      ),
+      child: Text(
+        'VIP',
+        style: TextStyle(
+          fontSize: 9,
+          color: Colors.amber[700],
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

@@ -870,6 +870,18 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ],
+                        if (playlist.ownerName != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            '${t.library.detail.owner}: ${playlist.ownerName}',
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Colors.white60,
+                                    ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                         if (!playlist.isMix) ...[
                           const SizedBox(height: 8),
                           Text(

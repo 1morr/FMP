@@ -63,7 +63,23 @@ class LyricsAutoMatchService with Logging {
         return false;
       }
 
-      // 1.5. 如果有原平台 ID，直接获取歌词（跳过搜索）
+      // 1.5a. 网易云歌曲直接用 sourceId 获取歌词（跳过搜索）
+      if (track.sourceType == SourceType.netease) {
+        try {
+          final result = await _netease.getLyricsResult(track.sourceId)
+              .timeout(AppConstants.networkReceiveTimeout);
+          if (result != null && result.hasSyncedLyrics) {
+            await _saveMatch(track, result, 'netease', track.sourceId);
+            logInfo('Auto-matched lyrics via netease sourceId: ${track.sourceId}');
+            return true;
+          }
+        } catch (e) {
+          logDebug('Direct lyrics fetch failed for netease ${track.sourceId}: $e');
+          // 降级到搜索匹配
+        }
+      }
+
+      // 1.5b. 如果有原平台 ID，直接获取歌词（跳过搜索）
       if (track.originalSongId != null && track.originalSource != null) {
         final result = await _tryDirectFetch(track.originalSongId!, track.originalSource!);
         if (result != null) {
