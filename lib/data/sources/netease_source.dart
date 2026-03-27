@@ -196,12 +196,13 @@ class NeteaseSource extends BaseSource with Logging {
       final offset = (page - 1) * pageSize;
 
       final response = await _dio.post(
-        '$_musicBase/api/cloudsearch/get/web',
+        '$_musicBase/api/cloudsearch/pc',
         data: {
           's': query,
           'type': 1,
           'limit': pageSize,
           'offset': offset,
+          'total': true,
         },
         options: Options(
           contentType: Headers.formUrlEncodedContentType,
