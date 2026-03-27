@@ -442,6 +442,23 @@ User-configurable audio quality settings for different sources.
 - Bilibili only supports AAC format, format priority has no effect
 - Bilibili live streams are always muxed (video+audio), no audio-only option
 
+### Auth for Playback (2026-03)
+Per-platform toggle controlling whether login credentials are used when fetching audio streams for playback and download.
+
+**Settings Model** (`lib/data/models/settings.dart`):
+- `useBilibiliAuthForPlay` (default `false`)
+- `useYoutubeAuthForPlay` (default `false`)
+- `useNeteaseAuthForPlay` (default `true`)
+- `useAuthForPlay(SourceType)` — convenience getter
+- `setUseAuthForPlay(SourceType, bool)` — convenience setter
+
+**UI**: Toggle button on each platform card in the account management page (`lib/ui/pages/settings/account_management_page.dart`). When enabled, rendered as `FilledButton.tonal` (highlighted); when disabled, rendered as `OutlinedButton` (hollow). Shown only when logged in.
+
+**Backend integration**:
+- `QueueManager.ensureAudioUrl()` / `ensureAudioStream()` — reads `settings.useAuthForPlay(track.sourceType)` to decide whether to attach auth headers
+- `DownloadService._startDownload()` — same pattern, also sets per-source `Referer` header for isolate downloads
+- Replaced the previous `withAuthRetryDirect` retry-on-403 pattern with explicit settings-based auth
+
 ### Playlist Import - Original Platform Song ID (2026-02)
 导入外部歌单时保存原平台歌曲 ID，用于歌词直接获取和来源追溯。
 

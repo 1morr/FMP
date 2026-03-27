@@ -813,25 +813,18 @@ await importService.importFromUrl(url, useAuth: true);
 
 ## 8. 播放功能重構
 
-### 8.1 設定頁面：登入狀態管理
+### 8.1 帳號管理卡片：登入播放開關
 
-新增頁面 `lib/ui/pages/settings/auth_playback_settings_page.dart`：
+> **實現變更**：原設計為獨立設定頁面，已改為在帳號管理頁面的每個平台卡片上放置開關按鈕。
 
-```
-登入狀態播放設定
-────────────────────────────────
-使用登入狀態播放和下載歌曲
+**文件**: `lib/ui/pages/settings/account_management_page.dart`
 
-Bilibili            [ 關閉 ]
-YouTube              [ 關閉 ]
-網易雲音樂           [ 開啟 ]
+每個平台卡片（Bilibili / YouTube / 網易雲）新增「登入播放」按鈕：
+- 啟用時：`FilledButton.tonal`（高亮填色）
+- 停用時：`OutlinedButton`（中空描邊）
+- 僅在已登入時顯示
 
-提示：開啟後，播放和下載時會使用
-登入帳號的憑證獲取音頻流
-────────────────────────────────
-```
-
-入口：設定頁面 → 播放設定 section → 「登入狀態管理」
+默認值：Bilibili 關閉、YouTube 關閉、網易雲開啟
 
 ### 8.2 QueueManager.ensureAudioStream 改造
 
@@ -1074,7 +1067,6 @@ ListTile(
 | `lib/services/account/netease_credentials.dart` | 憑證模型 |
 | `lib/services/account/netease_auth_interceptor.dart` | Dio 攔截器 |
 | `lib/ui/pages/settings/netease_login_page.dart` | 登入頁面 |
-| `lib/ui/pages/settings/auth_playback_settings_page.dart` | 登入狀態播放設定 |
 
 ### 13.2 修改文件
 
@@ -1162,10 +1154,9 @@ ListTile(
 
 | 任務 | 文件 | 依賴 |
 |------|------|------|
-| 登入狀態播放設定頁 | auth_playback_settings_page.dart | Settings 模型 |
+| 帳號卡片登入播放開關 | account_management_page.dart | Settings 模型 |
 | QueueManager 改造 | queue_manager.dart | 1b, 1c, Settings |
 | DownloadService 適配 | download_service.dart | 1b, Settings |
-| 設定頁面入口 | settings_page.dart | 設定頁 |
 
 ### Phase 1f — 歌詞 + UI
 
