@@ -1410,12 +1410,15 @@ class YouTubeSource extends BaseSource with Logging {
       final header = data['header'] as Map<String, dynamic>?;
       String playlistTitle = 'Playlist';
       String? ownerName;
+      String? ownerUserId;
       final playlistHeaderRenderer = header?['playlistHeaderRenderer'] as Map<String, dynamic>?;
       if (playlistHeaderRenderer != null) {
         playlistTitle = playlistHeaderRenderer['title']?['simpleText'] as String? ?? playlistTitle;
-        // Extract owner name from ownerText.runs[0].text
+        // Extract owner name and channel ID from ownerText.runs[0]
         final ownerRuns = playlistHeaderRenderer['ownerText']?['runs'] as List?;
-        ownerName = ownerRuns?.firstOrNull?['text'] as String?;
+        final firstRun = ownerRuns?.firstOrNull as Map<String, dynamic>?;
+        ownerName = firstRun?['text'] as String?;
+        ownerUserId = firstRun?['navigationEndpoint']?['browseEndpoint']?['browseId'] as String?;
       } else {
         final pageHeaderRenderer = header?['pageHeaderRenderer'] as Map<String, dynamic>?;
         // pageHeaderRenderer.pageTitle is the simplest path
@@ -1493,6 +1496,7 @@ class YouTubeSource extends BaseSource with Logging {
         totalCount: tracks.length,
         sourceUrl: playlistUrl ?? 'https://www.youtube.com/playlist?list=$playlistId',
         ownerName: ownerName,
+        ownerUserId: ownerUserId,
       );
     } on DioException catch (e) {
       throw _handleDioError(e);
