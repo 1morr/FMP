@@ -11,6 +11,7 @@
   "confirmRemove": "Remove from remote playlist?",
   "confirmRemoveContent": "This will also remove it from the local playlist.",
   "pleaseLogin": "Please log in first",
+  "skippedNotLoggedIn": "Skipped $platforms (not logged in)",
   "goToLogin": "Go to login",
   "loading": "Loading...",
   "confirm": "Confirm",

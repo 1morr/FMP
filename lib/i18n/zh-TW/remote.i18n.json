@@ -11,6 +11,7 @@
   "confirmRemove": "確定要從遠程播放列表中移除嗎？",
   "confirmRemoveContent": "同時會從本地歌單中移除。",
   "pleaseLogin": "請先登錄帳號",
+  "skippedNotLoggedIn": "已跳過未登錄的 $platforms",
   "goToLogin": "前往登錄",
   "loading": "載入中...",
   "confirm": "確認",

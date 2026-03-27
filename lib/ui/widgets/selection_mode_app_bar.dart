@@ -342,9 +342,18 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
       return;
     }
 
+    // 收集未登錄的平台名稱
+    final skippedPlatforms = tracks
+        .where((t) => !ref.read(isLoggedInProvider(t.sourceType)))
+        .map((t) => t.sourceType.displayName)
+        .toSet();
+
     notifier.exitSelectionMode();
 
     if (context.mounted) {
+      if (skippedPlatforms.isNotEmpty) {
+        ToastService.show(context, t.remote.skippedNotLoggedIn(platforms: skippedPlatforms.join('、')));
+      }
       showAddToRemotePlaylistDialogMulti(context: context, tracks: remoteTracks);
     }
   }
