@@ -28,6 +28,8 @@ import '../../widgets/track_thumbnail.dart';
 import '../../widgets/track_tile.dart';
 import '../../../providers/account_provider.dart';
 import '../../../services/account/bilibili_favorites_service.dart';
+import '../../../services/account/youtube_playlist_service.dart';
+import '../../../services/account/netease_playlist_service.dart';
 import '../../../data/sources/bilibili_source.dart';
 import '../../../providers/refresh_provider.dart';
 
@@ -107,26 +109,6 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     }
   }
 
-  /// 判断当前登录用户是否是歌单所有者
-  bool _isCurrentUserPlaylistOwner(WidgetRef ref, playlist) {
-    if (!playlist.isImported || playlist.ownerUserId == null) return false;
-
-    final sourceType = playlist.importSourceType;
-    if (sourceType == null) return false;
-
-    String? currentUserId;
-    switch (sourceType) {
-      case SourceType.bilibili:
-        currentUserId = ref.watch(bilibiliAccountProvider)?.userId;
-      case SourceType.youtube:
-        currentUserId = ref.watch(youtubeAccountProvider)?.userId;
-      case SourceType.netease:
-        currentUserId = ref.watch(neteaseAccountProvider)?.userId;
-    }
-
-    return currentUserId != null && currentUserId == playlist.ownerUserId;
-  }
-
   /// 检查并预加载缓存（在 build 中调用，当 tracks 变化时）
   void _checkAndPreloadCache(List<Track> tracks) {
     if (tracks.isNotEmpty && tracks.length != _lastRefreshedTracksLength) {
@@ -192,9 +174,6 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final isMix = playlist.isMix;
     final isInitialTracksLoading = state.isLoading && tracks.isEmpty;
 
-    // 判断当前用户是否是歌单所有者（非所有者隐藏远端移除按钮）
-    final isRemoteOwner = _isCurrentUserPlaylistOwner(ref, playlist);
-
     // 检查并刷新下载状态缓存（当 tracks 变化时）
     _checkAndPreloadCache(tracks);
 
@@ -207,7 +186,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       SelectionAction.playNext,
       SelectionAction.addToPlaylist,
       SelectionAction.addToRemotePlaylist,
-      if (isImported && !isMix && isRemoteOwner) SelectionAction.removeFromRemotePlaylist,
+      if (isImported && !isMix) SelectionAction.removeFromRemotePlaylist,
       if (!isMix) SelectionAction.download,
       if (!isImported && !isMix) SelectionAction.delete,
     };
@@ -353,9 +332,6 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final selectionNotifier = ref.read(playlistDetailSelectionProvider.notifier);
     final isImported = state.playlist?.isImported ?? false;
     final isMix = state.playlist?.isMix ?? false;
-    final isRemoteOwner = state.playlist != null
-        ? _isCurrentUserPlaylistOwner(ref, state.playlist!)
-        : false;
 
     // 如果组只有一个track，显示普通样式
     if (group.tracks.length == 1) {
@@ -373,7 +349,6 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         isPartOfMultiPage: false,
         isImported: isImported,
         isMix: isMix,
-        isRemoteOwner: isRemoteOwner,
         isSelectionMode: selectionState.isSelectionMode,
         isSelected: selectionState.isSelected(track),
       );
@@ -420,7 +395,6 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                 isImported: isImported,
                 indent: true,
                 isMix: isMix,
-                isRemoteOwner: isRemoteOwner,
                 isSelectionMode: selectionState.isSelectionMode,
                 isSelected: selectionState.isSelected(track),
               )),
@@ -670,23 +644,50 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     if (confirmed != true || !mounted) return;
 
     try {
-      final favService = ref.read(bilibiliFavoritesServiceProvider);
       final state = ref.read(playlistDetailProvider(widget.playlistId));
       final sourceUrl = state.playlist?.sourceUrl;
-      if (sourceUrl == null) return;
-      final fid = BilibiliSource.parseFavoritesId(sourceUrl);
-      if (fid == null) return;
+      final sourceType = state.playlist?.importSourceType;
+      if (sourceUrl == null || sourceType == null) return;
 
-      final biliTracks = tracks.where((t) => t.sourceType == SourceType.bilibili).toList();
-      final aids = <int>[];
-      for (final track in biliTracks) {
-        aids.add(await favService.getVideoAid(track));
+      switch (sourceType) {
+        case SourceType.bilibili:
+          final favService = ref.read(bilibiliFavoritesServiceProvider);
+          final fid = BilibiliSource.parseFavoritesId(sourceUrl);
+          if (fid == null) return;
+
+          final biliTracks = tracks.where((t) => t.sourceType == SourceType.bilibili).toList();
+          final aids = <int>[];
+          for (final track in biliTracks) {
+            aids.add(await favService.getVideoAid(track));
+          }
+
+          await favService.batchRemoveFromFolder(
+            folderId: int.parse(fid),
+            videoAids: aids,
+          );
+
+        case SourceType.youtube:
+          final ytService = ref.read(youtubePlaylistServiceProvider);
+          final playlistId = _parseYoutubePlaylistId(sourceUrl);
+          if (playlistId == null) return;
+
+          final ytTracks = tracks.where((t) => t.sourceType == SourceType.youtube).toList();
+          for (final track in ytTracks) {
+            final setVideoId = await ytService.getSetVideoId(playlistId, track.sourceId);
+            if (setVideoId != null) {
+              await ytService.removeFromPlaylist(playlistId, track.sourceId, setVideoId);
+            }
+          }
+
+        case SourceType.netease:
+          final neteaseService = ref.read(neteasePlaylistServiceProvider);
+          final neteasePlaylistId = _parseNeteasePlaylistId(sourceUrl);
+          if (neteasePlaylistId == null) return;
+
+          final neteaseTracks = tracks.where((t) => t.sourceType == SourceType.netease).toList();
+          final trackIds = neteaseTracks.map((t) => t.sourceId).toList();
+          await neteaseService.removeTracksFromPlaylist(neteasePlaylistId, trackIds);
       }
-
-      await favService.batchRemoveFromFolder(
-        folderId: int.parse(fid),
-        videoAids: aids,
-      );
 
       // 在移除前先取得 playlist 和 refreshManager
       final playlist = ref.read(playlistDetailProvider(widget.playlistId)).playlist;
@@ -694,7 +695,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
 
       // 同時從本地歌單移除
       final detailNotifier = ref.read(playlistDetailProvider(widget.playlistId).notifier);
-      await detailNotifier.removeTracks(biliTracks.map((t) => t.id).toList());
+      await detailNotifier.removeTracks(tracks.map((t) => t.id).toList());
 
       // 觸發歌單重新整理
       if (playlist != null) {
@@ -706,6 +707,14 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         ToastService.success(context, t.remote.removedAndLocal);
       }
     } on BilibiliFavoritesException catch (e) {
+      if (mounted) {
+        ToastService.error(context, e.message);
+      }
+    } on YouTubePlaylistException catch (e) {
+      if (mounted) {
+        ToastService.error(context, e.message);
+      }
+    } on NeteasePlaylistException catch (e) {
       if (mounted) {
         ToastService.error(context, e.message);
       }
@@ -1383,7 +1392,6 @@ class _TrackListTile extends ConsumerWidget {
   final bool indent;
   final bool isImported;
   final bool isMix;
-  final bool isRemoteOwner;
   final bool isSelectionMode;
   final bool isSelected;
 
@@ -1397,7 +1405,6 @@ class _TrackListTile extends ConsumerWidget {
     required this.isImported,
     this.indent = false,
     this.isMix = false,
-    this.isRemoteOwner = false,
     this.isSelectionMode = false,
     this.isSelected = false,
   });
@@ -1534,7 +1541,7 @@ class _TrackListTile extends ConsumerWidget {
     if (!isPartOfMultiPage)
       PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.general.addToPlaylist), contentPadding: EdgeInsets.zero)),
     PopupMenuItem(value: 'add_to_remote', child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero)),
-    if (isImported && !isMix && isRemoteOwner)
+    if (isImported && !isMix)
       PopupMenuItem(value: 'remove_from_remote', child: ListTile(leading: Icon(Icons.cloud_off_outlined, color: Theme.of(context).colorScheme.error), title: Text(t.remote.removeFromFavorites, style: TextStyle(color: Theme.of(context).colorScheme.error)), contentPadding: EdgeInsets.zero)),
     if (!isImported)
       PopupMenuItem(value: 'remove', child: ListTile(leading: const Icon(Icons.remove_circle_outline), title: Text(t.library.detail.removeFromPlaylist), contentPadding: EdgeInsets.zero)),
@@ -1649,20 +1656,39 @@ class _TrackListTile extends ConsumerWidget {
     if (confirmed != true || !context.mounted) return;
 
     try {
-      final favService = ref.read(bilibiliFavoritesServiceProvider);
-      final aid = await favService.getVideoAid(track);
-
-      // 從 playlist sourceUrl 解析收藏夾 ID
       final state = ref.read(playlistDetailProvider(playlistId));
       final sourceUrl = state.playlist?.sourceUrl;
-      if (sourceUrl == null) return;
-      final fid = BilibiliSource.parseFavoritesId(sourceUrl);
-      if (fid == null) return;
+      final sourceType = state.playlist?.importSourceType;
+      if (sourceUrl == null || sourceType == null) return;
 
-      await favService.updateVideoFavorites(
-        videoAid: aid,
-        removeFolderIds: [int.parse(fid)],
-      );
+      switch (sourceType) {
+        case SourceType.bilibili:
+          final favService = ref.read(bilibiliFavoritesServiceProvider);
+          final aid = await favService.getVideoAid(track);
+          final fid = BilibiliSource.parseFavoritesId(sourceUrl);
+          if (fid == null) return;
+
+          await favService.updateVideoFavorites(
+            videoAid: aid,
+            removeFolderIds: [int.parse(fid)],
+          );
+
+        case SourceType.youtube:
+          final ytService = ref.read(youtubePlaylistServiceProvider);
+          final ytPlaylistId = _parseYoutubePlaylistId(sourceUrl);
+          if (ytPlaylistId == null) return;
+
+          final setVideoId = await ytService.getSetVideoId(ytPlaylistId, track.sourceId);
+          if (setVideoId == null) return;
+          await ytService.removeFromPlaylist(ytPlaylistId, track.sourceId, setVideoId);
+
+        case SourceType.netease:
+          final neteaseService = ref.read(neteasePlaylistServiceProvider);
+          final neteasePlaylistId = _parseNeteasePlaylistId(sourceUrl);
+          if (neteasePlaylistId == null) return;
+
+          await neteaseService.removeTracksFromPlaylist(neteasePlaylistId, [track.sourceId]);
+      }
 
       // 在移除前先取得 playlist 和 refreshManager（移除後 ref 可能失效）
       final playlist = ref.read(playlistDetailProvider(playlistId)).playlist;
@@ -1683,12 +1709,35 @@ class _TrackListTile extends ConsumerWidget {
       if (context.mounted) {
         ToastService.error(context, e.message);
       }
+    } on YouTubePlaylistException catch (e) {
+      if (context.mounted) {
+        ToastService.error(context, e.message);
+      }
+    } on NeteasePlaylistException catch (e) {
+      if (context.mounted) {
+        ToastService.error(context, e.message);
+      }
     } catch (e) {
       if (context.mounted) {
         ToastService.error(context, e.toString());
       }
     }
   }
+}
+
+/// 從 YouTube sourceUrl 解析播放列表 ID
+String? _parseYoutubePlaylistId(String url) {
+  final uri = Uri.tryParse(url);
+  return uri?.queryParameters['list'];
+}
+
+/// 從網易雲 sourceUrl 解析歌單 ID
+String? _parseNeteasePlaylistId(String url) {
+  final uri = Uri.tryParse(url);
+  final id = uri?.queryParameters['id'];
+  if (id != null) return id;
+  final match = RegExp(r'/playlist[?/].*?(\d{5,})').firstMatch(url);
+  return match?.group(1);
 }
 
 /// 圓形選擇勾選框
