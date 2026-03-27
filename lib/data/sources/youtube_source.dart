@@ -211,12 +211,9 @@ class YouTubeSource extends BaseSource with Logging {
 
   /// 获取 YouTube 视频详情（用于详情面板显示）
   Future<VideoDetail> getVideoDetail(String videoId, {Map<String, String>? authHeaders}) async {
-    // If auth headers provided, use InnerTube API path
-    if (authHeaders != null) {
-      return _getVideoDetailViaInnerTube(videoId, authHeaders);
-    }
-
     logDebug('Getting video detail for YouTube video: $videoId');
+
+    // Always try youtube_explode first (has full metadata: avatar, likes, publish date)
     try {
       final video = await _youtube.videos.get(videoId);
 
@@ -257,6 +254,11 @@ class YouTubeSource extends BaseSource with Logging {
           code: 'rate_limited',
           message: t.error.rateLimited,
         );
+      }
+      // youtube_explode failed — fall back to InnerTube with auth if available
+      if (authHeaders != null) {
+        logDebug('youtube_explode failed for video detail $videoId, trying InnerTube with auth');
+        return _getVideoDetailViaInnerTube(videoId, authHeaders);
       }
       logError('Failed to get YouTube video detail: $videoId, error: $e');
       throw YouTubeApiException(
