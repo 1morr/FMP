@@ -1100,6 +1100,62 @@ class YouTubeSource extends BaseSource with Logging {
       // 使用第一个视频的缩略图作为歌单封面
       final coverUrl = allTracks.isNotEmpty ? allTracks.first.thumbnailUrl : null;
 
+      // youtube_explode_dart doesn't provide channel ID, try InnerTube browse to get it
+      String? ownerUserId;
+      try {
+        final browseId = 'VL$playlistId';
+        final response = await _dio.post(
+          '$_innerTubeApiBase/browse?key=$_innerTubeApiKey',
+          data: jsonEncode({
+            'browseId': browseId,
+            'context': {
+              'client': {
+                'clientName': _innerTubeClientName,
+                'clientVersion': _innerTubeClientVersion,
+                'hl': 'en',
+                'gl': 'US',
+              },
+            },
+          }),
+          options: Options(headers: {
+            'Origin': 'https://www.youtube.com',
+            'Referer': 'https://www.youtube.com/',
+          }),
+        );
+        final browseData = _parseJsonResponse(response.data);
+        final header = browseData['header'] as Map<String, dynamic>?;
+        final playlistHeaderRenderer =
+            header?['playlistHeaderRenderer'] as Map<String, dynamic>?;
+        if (playlistHeaderRenderer != null) {
+          final ownerRuns =
+              playlistHeaderRenderer['ownerText']?['runs'] as List?;
+          final firstRun = ownerRuns?.firstOrNull as Map<String, dynamic>?;
+          ownerUserId = firstRun?['navigationEndpoint']?['browseEndpoint']
+              ?['browseId'] as String?;
+        }
+        // Fallback: sidebar
+        if (ownerUserId == null) {
+          final sidebar = browseData['sidebar']?['playlistSidebarRenderer']
+              ?['items'] as List?;
+          if (sidebar != null && sidebar.length > 1) {
+            final secondaryInfo = sidebar[1]
+                ?['playlistSidebarSecondaryInfoRenderer'] as Map<String, dynamic>?;
+            final videoOwner = secondaryInfo?['videoOwner']
+                ?['videoOwnerRenderer'] as Map<String, dynamic>?;
+            if (videoOwner != null) {
+              final ownerRuns = videoOwner['title']?['runs'] as List?;
+              final firstRun = ownerRuns?.firstOrNull as Map<String, dynamic>?;
+              ownerUserId = firstRun?['navigationEndpoint']
+                  ?['browseEndpoint']?['browseId'] as String?;
+              ownerUserId ??= videoOwner['navigationEndpoint']
+                  ?['browseEndpoint']?['browseId'] as String?;
+            }
+          }
+        }
+      } catch (e) {
+        logDebug('Failed to get owner ID via InnerTube for playlist: $playlistId, error: $e');
+      }
+
       return PlaylistParseResult(
         title: playlist.title,
         description: playlist.description,
@@ -1108,6 +1164,7 @@ class YouTubeSource extends BaseSource with Logging {
         totalCount: allTracks.length,
         sourceUrl: playlistUrl,
         ownerName: playlist.author,
+        ownerUserId: ownerUserId,
       );
     } catch (e) {
       if (e is YouTubeApiException) rethrow;
@@ -1427,6 +1484,52 @@ class YouTubeSource extends BaseSource with Logging {
             ?? (pageHeaderRenderer?['content']?['pageHeaderViewModel']?['title']
                 ?['dynamicTextViewModel']?['text']?['content'] as String?)
             ?? playlistTitle;
+
+        // Extract owner info from pageHeaderViewModel metadata
+        final metadata = pageHeaderRenderer?['content']?['pageHeaderViewModel']
+            ?['metadata']?['contentMetadataViewModel'] as Map<String, dynamic>?;
+        final metadataRows = metadata?['metadataRows'] as List?;
+        if (metadataRows != null && metadataRows.isNotEmpty) {
+          final firstRow = metadataRows.first as Map<String, dynamic>?;
+          final metadataParts = firstRow?['metadataParts'] as List?;
+          if (metadataParts != null && metadataParts.isNotEmpty) {
+            final firstPart = metadataParts.first as Map<String, dynamic>?;
+            final text = firstPart?['text'] as Map<String, dynamic>?;
+            ownerName = text?['content'] as String?;
+            // Extract channel ID from commandRuns
+            final commandRuns = text?['commandRuns'] as List?;
+            if (commandRuns != null && commandRuns.isNotEmpty) {
+              final firstCommand = commandRuns.first as Map<String, dynamic>?;
+              ownerUserId = firstCommand?['onTap']?['innertubeCommand']
+                  ?['browseEndpoint']?['browseId'] as String?;
+            }
+          }
+        }
+      }
+
+      // Fallback: extract owner info from sidebar if not found in header
+      if (ownerName == null || ownerUserId == null) {
+        final sidebar = data['sidebar']?['playlistSidebarRenderer']?['items'] as List?;
+        if (sidebar != null && sidebar.length > 1) {
+          final secondaryInfo = sidebar[1]
+              ?['playlistSidebarSecondaryInfoRenderer'] as Map<String, dynamic>?;
+          final videoOwner = secondaryInfo?['videoOwner']
+              ?['videoOwnerRenderer'] as Map<String, dynamic>?;
+          if (videoOwner != null) {
+            final ownerRuns = videoOwner['title']?['runs'] as List?;
+            final firstRun = ownerRuns?.firstOrNull as Map<String, dynamic>?;
+            ownerName ??= firstRun?['text'] as String?;
+            ownerUserId ??= firstRun?['navigationEndpoint']
+                ?['browseEndpoint']?['browseId'] as String?;
+            // Also try videoOwnerRenderer's own navigationEndpoint
+            ownerUserId ??= videoOwner['navigationEndpoint']
+                ?['browseEndpoint']?['browseId'] as String?;
+          }
+        }
+      }
+
+      if (ownerName == null && ownerUserId == null) {
+        logDebug('Could not extract owner info from InnerTube response for playlist: $playlistId');
       }
 
       // Parse video items
