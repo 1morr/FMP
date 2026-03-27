@@ -13,6 +13,7 @@ import '../../../providers/playlist_provider.dart';
 import '../../../providers/refresh_provider.dart';
 import '../../../providers/repository_providers.dart';
 import '../../../services/account/bilibili_favorites_service.dart';
+import 'add_to_netease_playlist_dialog.dart';
 import 'add_to_youtube_playlist_dialog.dart';
 import '../track_thumbnail.dart';
 
@@ -35,6 +36,7 @@ Future<bool> showAddToRemotePlaylistDialogMulti({
   // 按平台分組
   final bilibiliTracks = tracks.where((t) => t.sourceType == SourceType.bilibili).toList();
   final youtubeTracks = tracks.where((t) => t.sourceType == SourceType.youtube).toList();
+  final neteaseTracks = tracks.where((t) => t.sourceType == SourceType.netease).toList();
 
   // 提前捕獲 navigator，避免調用方 widget dispose 後 context 失效
   final navigator = Navigator.of(context);
@@ -51,6 +53,12 @@ Future<bool> showAddToRemotePlaylistDialogMulti({
   // 再處理 YouTube
   if (youtubeTracks.isNotEmpty && overlay != null && overlay.mounted) {
     final result = await showAddToYouTubePlaylistDialog(context: overlay.context, tracks: youtubeTracks);
+    if (result) anySuccess = true;
+  }
+
+  // 最後處理 NetEase
+  if (neteaseTracks.isNotEmpty && overlay != null && overlay.mounted) {
+    final result = await showAddToNeteasePlaylistDialog(context: overlay.context, tracks: neteaseTracks);
     if (result) anySuccess = true;
   }
 

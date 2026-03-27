@@ -9,6 +9,7 @@ import '../data/models/track.dart';
 import '../services/account/bilibili_account_service.dart';
 import '../services/account/bilibili_favorites_service.dart';
 import '../services/account/netease_account_service.dart';
+import '../services/account/netease_playlist_service.dart';
 import '../services/account/youtube_account_service.dart';
 import '../services/account/youtube_playlist_service.dart';
 import 'database_provider.dart';
@@ -104,6 +105,13 @@ final neteaseAccountProvider =
 final isNeteaseLoggedInProvider = Provider<bool>((ref) {
   final account = ref.watch(neteaseAccountProvider);
   return account?.isLoggedIn ?? false;
+});
+
+/// 網易雲歌單服務 Provider
+final neteasePlaylistServiceProvider =
+    Provider<NeteasePlaylistService>((ref) {
+  final accountService = ref.watch(neteaseAccountServiceProvider);
+  return NeteasePlaylistService(accountService: accountService);
 });
 
 /// 啟動時自動刷新 Bilibili Cookie（後台執行，不阻塞 UI）

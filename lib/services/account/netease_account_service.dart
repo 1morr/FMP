@@ -43,7 +43,7 @@ class NeteaseAccountService extends AccountService with Logging {
 
   static const String _storageKey = 'account_netease_credentials';
   static const String _apiBase = 'https://music.163.com';
-  static const String _userAgent =
+  static const String userAgent =
       'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Safari/537.36 Chrome/91.0.4472.164 '
       'NeteaseMusicDesktop/3.0.18.203152';
@@ -57,7 +57,7 @@ class NeteaseAccountService extends AccountService with Logging {
         _secureStorage = const FlutterSecureStorage(),
         _dio = Dio(BaseOptions(
           headers: {
-            'User-Agent': _userAgent,
+            'User-Agent': userAgent,
             'Referer': '$_apiBase/',
             'Origin': _apiBase,
             'Accept': 'application/json, text/plain, */*',
@@ -502,7 +502,7 @@ class NeteaseAccountService extends AccountService with Logging {
       'Cookie': cookieString,
       'Origin': _apiBase,
       'Referer': '$_apiBase/',
-      'User-Agent': _userAgent,
+      'User-Agent': userAgent,
     };
   }
 }
