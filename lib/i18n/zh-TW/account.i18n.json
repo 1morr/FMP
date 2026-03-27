@@ -33,5 +33,7 @@
   "importRadioComplete": "成功導入 $count 個電台",
   "importingRadio": "正在導入...",
   "liveStatus": "直播中",
-  "useAuth": "登入播放"
+  "useAuth": "登入播放",
+  "authRequired": "網易雲音樂必須使用登入憑證才能播放",
+  "authNotSupported": "該平台暫不支援登入播放"
 }

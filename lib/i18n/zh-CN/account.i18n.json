@@ -33,5 +33,7 @@
   "importRadioComplete": "成功导入 $count 个电台",
   "importingRadio": "正在导入...",
   "liveStatus": "直播中",
-  "useAuth": "登录播放"
+  "useAuth": "登录播放",
+  "authRequired": "网易云音乐必须使用登录凭证才能播放",
+  "authNotSupported": "该平台暂不支持登录播放"
 }

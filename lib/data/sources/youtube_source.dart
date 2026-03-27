@@ -309,14 +309,9 @@ class YouTubeSource extends BaseSource with Logging {
     AudioStreamConfig config = AudioStreamConfig.defaultConfig,
     Map<String, String>? authHeaders,
   }) async {
-    // If auth headers provided, use InnerTube API path
-    if (authHeaders != null) {
-      return _getAudioStreamViaInnerTube(videoId, authHeaders, config);
-    }
-
     logDebug('Getting audio stream for YouTube video: $videoId with config: qualityLevel=${config.qualityLevel}, streamPriority=${config.streamPriority}');
-    
-    // 按流类型优先级尝试
+
+    // Always try youtube_explode first (most reliable)
     for (final streamType in config.streamPriority) {
       try {
         final result = await _tryGetStream(videoId, streamType, config);
@@ -333,6 +328,12 @@ class YouTubeSource extends BaseSource with Logging {
         }
         logDebug('Stream type $streamType failed for $videoId: $e');
       }
+    }
+
+    // youtube_explode failed — fall back to InnerTube with auth if available
+    if (authHeaders != null) {
+      logDebug('youtube_explode failed for $videoId, trying InnerTube with auth');
+      return _getAudioStreamViaInnerTube(videoId, authHeaders, config);
     }
 
     logError('No audio stream available for YouTube video: $videoId');
@@ -1298,18 +1299,14 @@ class YouTubeSource extends BaseSource with Logging {
   ) async {
     logDebug('Getting audio stream via InnerTube for: $videoId');
     try {
-      // Use androidVr client for audio-only streams (proven pattern)
-      final data = await _innerTubePlayerRequest(
-        videoId, authHeaders,
-        clientName: 'ANDROID_VR',
-        clientVersion: '1.57.29',
-        androidSdkVersion: 30,
-      );
+      // Use WEB client with auth headers directly.
+      // ANDROID_VR + web cookies causes 400 errors (client/auth mismatch),
+      // and this path is only reached as fallback for restricted content.
+      final data = await _innerTubePlayerRequest(videoId, authHeaders);
 
       final streamingData = data['streamingData'] as Map<String, dynamic>?;
       if (streamingData == null) {
-        // Fallback: try WEB client for muxed streams
-        return _getAudioStreamViaInnerTubeWeb(videoId, authHeaders, config);
+        throw YouTubeApiException(code: 'no_stream', message: 'No streaming data from InnerTube');
       }
 
       // Parse adaptiveFormats for audio-only streams
@@ -1377,38 +1374,6 @@ class YouTubeSource extends BaseSource with Logging {
       logError('Failed to get audio stream via InnerTube: $videoId, error: $e');
       throw YouTubeApiException(code: 'error', message: 'Failed to get audio stream: $e');
     }
-  }
-
-  /// Fallback: WEB client for muxed streams when androidVr has no streamingData
-  Future<AudioStreamResult> _getAudioStreamViaInnerTubeWeb(
-    String videoId,
-    Map<String, String> authHeaders,
-    AudioStreamConfig config,
-  ) async {
-    logDebug('Trying WEB client fallback for audio stream: $videoId');
-    final data = await _innerTubePlayerRequest(videoId, authHeaders);
-
-    final streamingData = data['streamingData'] as Map<String, dynamic>?;
-    if (streamingData == null) {
-      throw YouTubeApiException(code: 'no_stream', message: 'No streaming data from WEB client');
-    }
-
-    final formats = streamingData['formats'] as List? ?? [];
-    if (formats.isNotEmpty) {
-      final muxed = formats.first;
-      final url = muxed['url'] as String?;
-      if (url != null) {
-        return AudioStreamResult(
-          url: url,
-          bitrate: muxed['bitrate'] as int?,
-          container: 'mp4',
-          codec: null,
-          streamType: StreamType.muxed,
-        );
-      }
-    }
-
-    throw YouTubeApiException(code: 'no_stream', message: 'No audio stream available');
   }
 
   /// 通过 InnerTube /browse API 解析播放列表（认证路径）
