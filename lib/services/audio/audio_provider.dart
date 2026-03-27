@@ -20,6 +20,7 @@ import '../../providers/database_provider.dart';
 import '../../providers/repository_providers.dart';
 import '../../providers/lyrics_provider.dart';
 import '../../providers/account_provider.dart';
+import '../account/netease_account_service.dart';
 import '../lyrics/lyrics_auto_match_service.dart';
 import '../../core/services/toast_service.dart';
 import '../../main.dart' show audioHandler, windowsSmtcHandler;
@@ -382,6 +383,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   final ToastService _toastService;
   final FmpAudioHandler _audioHandler;
   final WindowsSmtcHandler _windowsSmtcHandler;
+  final NeteaseAccountService? _neteaseAccountService;
   final PlayHistoryRepository? _playHistoryRepository;
   final LyricsAutoMatchService? _lyricsAutoMatchService;
   final SettingsRepository? _settingsRepository;
@@ -443,6 +445,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     required ToastService toastService,
     required FmpAudioHandler audioHandler,
     required WindowsSmtcHandler windowsSmtcHandler,
+    NeteaseAccountService? neteaseAccountService,
     PlayHistoryRepository? playHistoryRepository,
     LyricsAutoMatchService? lyricsAutoMatchService,
     SettingsRepository? settingsRepository,
@@ -451,6 +454,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         _toastService = toastService,
         _audioHandler = audioHandler,
         _windowsSmtcHandler = windowsSmtcHandler,
+        _neteaseAccountService = neteaseAccountService,
         _playHistoryRepository = playHistoryRepository,
         _lyricsAutoMatchService = lyricsAutoMatchService,
         _settingsRepository = settingsRepository,
@@ -872,7 +876,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       if (localPath != null) {
         await _audioService.setFile(url);
       } else {
-        final headers = _getHeadersForTrack(trackWithUrl);
+        final headers = await _getHeadersForTrack(trackWithUrl);
         await _audioService.setUrl(url, headers: headers);
       }
 
@@ -1710,7 +1714,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 获取播放音频所需的 HTTP 请求头
   /// Bilibili 需要 Referer 头，YouTube 需要 Origin 和 Referer 头
-  Map<String, String>? _getHeadersForTrack(Track track) {
+  /// Netease CDN 需要 MUSIC_U Cookie 才能播放部分歌曲（尤其是 lossless）
+  Future<Map<String, String>?> _getHeadersForTrack(Track track) async {
     switch (track.sourceType) {
       case SourceType.bilibili:
         return {
@@ -1726,7 +1731,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
               'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         };
       case SourceType.netease:
-        return null; // Netease audio URLs don't require special headers
+        return await _neteaseAccountService?.getAuthHeaders() ??
+            {
+              'Origin': 'https://music.163.com',
+              'Referer': 'https://music.163.com/',
+              'User-Agent':
+                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            };
     }
   }
 
@@ -1865,7 +1876,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       if (localPath != null) {
         await _audioService.playFile(url, track: trackWithUrl);
       } else {
-        final headers = _getHeadersForTrack(trackWithUrl);
+        final headers = await _getHeadersForTrack(trackWithUrl);
         await _audioService.playUrl(url, headers: headers, track: trackWithUrl);
       }
 
@@ -1921,7 +1932,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
           if (fallbackResult != null && !_isSuperseded(requestId)) {
             final fallbackUrl = fallbackResult.url;
-            final headers = _getHeadersForTrack(track);
+            final headers = await _getHeadersForTrack(track);
             await _audioService.playUrl(fallbackUrl,
                 headers: headers, track: track);
 
@@ -2367,7 +2378,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       if (localPath != null) {
         await _audioService.setFile(url);
       } else {
-        final headers = _getHeadersForTrack(trackWithUrl);
+        final headers = await _getHeadersForTrack(trackWithUrl);
         await _audioService.setUrl(url, headers: headers);
       }
 
@@ -2720,6 +2731,7 @@ final audioControllerProvider =
     toastService: toastService,
     audioHandler: audioHandler,
     windowsSmtcHandler: windowsSmtcHandler,
+    neteaseAccountService: ref.watch(neteaseAccountServiceProvider),
     playHistoryRepository: playHistoryRepository,
     lyricsAutoMatchService: ref.watch(lyricsAutoMatchServiceProvider),
     settingsRepository: ref.watch(settingsRepositoryProvider),

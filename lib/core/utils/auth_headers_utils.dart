@@ -23,7 +23,16 @@ Future<Map<String, String>?> buildAuthHeaders(
     case SourceType.netease:
       final cookies = await neteaseAccountService?.getAuthCookieString();
       if (cookies == null) return null;
-      return {'Cookie': cookies};
+      // Netease /api/ and /eapi/ endpoints need full headers
+      return {
+        'Cookie': cookies,
+        'Origin': 'https://music.163.com',
+        'Referer': 'https://music.163.com/',
+        'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 '
+                '(KHTML, like Gecko) Safari/537.36 Chrome/91.0.4472.164 '
+                'NeteaseMusicDesktop/3.0.18.203152',
+      };
   }
 }
 
