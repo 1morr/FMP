@@ -77,13 +77,8 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
     try {
       VideoDetail? detail;
 
-      // 已下载歌曲优先从本地 metadata 加载（Bilibili/YouTube）
-      if (track.hasAnyDownload && track.sourceType != SourceType.netease) {
-        detail = await _loadFromLocalMetadata(track);
-      }
-
-      // 如果本地没有或加载失败，从网络获取
-      if (detail == null) {
+      // 优先从网络获取最新数据
+      try {
         if (track.sourceType == SourceType.bilibili) {
           final authHeaders = await getAuthHeadersForPlatform(SourceType.bilibili, _ref);
           detail = await _bilibiliSource.getVideoDetail(track.sourceId, authHeaders: authHeaders);
@@ -94,6 +89,13 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
           final authHeaders = await getAuthHeadersForPlatform(SourceType.netease, _ref);
           detail = await _neteaseSource.getVideoDetail(track.sourceId, authHeaders: authHeaders);
         }
+      } catch (_) {
+        // 网络获取失败，已下载歌曲回退到本地 metadata（Bilibili/YouTube）
+        if (track.hasAnyDownload && track.sourceType != SourceType.netease) {
+          detail = await _loadFromLocalMetadata(track);
+        }
+        // 本地也没有则重新抛出原始异常
+        if (detail == null) rethrow;
       }
 
       // 确保加载的还是当前歌曲
