@@ -442,10 +442,12 @@ class BilibiliAccountService extends AccountService with Logging {
       }
 
       final data = response.data['data'];
+      final vipStatus = data['vip']?['status'] as int? ?? 0;
       await _updateAccount(
         userName: data['uname'] as String?,
         avatarUrl: data['face'] as String?,
         userId: (data['mid'] as num?)?.toString(),
+        isVip: vipStatus == 1,
       );
 
       logInfo('User info updated: ${data['uname']}');
@@ -540,6 +542,7 @@ class BilibiliAccountService extends AccountService with Logging {
     String? userName,
     String? avatarUrl,
     DateTime? loginAt,
+    bool? isVip,
   }) async {
     await _isar.writeTxn(() async {
       var account = await _isar.accounts
@@ -554,6 +557,7 @@ class BilibiliAccountService extends AccountService with Logging {
       if (userName != null) account.userName = userName;
       if (avatarUrl != null) account.avatarUrl = avatarUrl;
       if (loginAt != null) account.loginAt = loginAt;
+      if (isVip != null) account.isVip = isVip;
       account.lastRefreshed = DateTime.now();
 
       await _isar.accounts.put(account);

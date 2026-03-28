@@ -35,5 +35,11 @@
   "liveStatus": "直播中",
   "useAuth": "登入播放",
   "authRequired": "網易雲音樂必須使用登入憑證才能播放",
-  "authNotSupported": "該平台暫不支援登入播放"
+  "authNotSupported": "該平台暫不支援登入播放",
+  "bilibiliVip": "B站大會員",
+  "bilibiliNotVip": "非B站大會員",
+  "youtubeVip": "YouTube Premium 會員",
+  "youtubeNotVip": "非 YouTube Premium 會員",
+  "neteaseVip": "網易雲音樂VIP",
+  "neteaseNotVip": "非網易雲音樂VIP"
 }

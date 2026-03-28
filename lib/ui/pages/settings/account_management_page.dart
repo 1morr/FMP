@@ -60,6 +60,14 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
             isLoggedIn: bilibiliAccount?.isLoggedIn ?? false,
             userName: bilibiliAccount?.userName,
             avatarUrl: bilibiliAccount?.avatarUrl,
+            isVip: bilibiliAccount?.isLoggedIn == true
+                ? bilibiliAccount?.isVip
+                : null,
+            vipTooltip: bilibiliAccount?.isVip == true
+                ? t.account.bilibiliVip
+                : t.account.bilibiliNotVip,
+            vipIcon: Icons.verified,
+            vipOutlinedIcon: Icons.verified_outlined,
             useAuthForPlay: false,
             authInteractive: false,
             authTooltip: t.account.authNotSupported,
@@ -78,6 +86,14 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
             isLoggedIn: youtubeAccount?.isLoggedIn ?? false,
             userName: youtubeAccount?.userName,
             avatarUrl: youtubeAccount?.avatarUrl,
+            isVip: youtubeAccount?.isLoggedIn == true
+                ? youtubeAccount?.isVip
+                : null,
+            vipTooltip: youtubeAccount?.isVip == true
+                ? t.account.youtubeVip
+                : t.account.youtubeNotVip,
+            vipIcon: Icons.workspace_premium,
+            vipOutlinedIcon: Icons.workspace_premium_outlined,
             useAuthForPlay: false,
             authInteractive: false,
             authTooltip: t.account.authNotSupported,
@@ -95,7 +111,12 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
             isLoggedIn: neteaseAccount?.isLoggedIn ?? false,
             userName: neteaseAccount?.userName,
             avatarUrl: neteaseAccount?.avatarUrl,
-            isVip: neteaseAccount?.isVip,
+            isVip: neteaseAccount?.isLoggedIn == true
+                ? neteaseAccount?.isVip
+                : null,
+            vipTooltip: neteaseAccount?.isVip == true
+                ? t.account.neteaseVip
+                : t.account.neteaseNotVip,
             useAuthForPlay: true,
             authInteractive: false,
             authTooltip: t.account.authRequired,
@@ -172,6 +193,9 @@ class _PlatformCard extends StatelessWidget {
   final String? userName;
   final String? avatarUrl;
   final bool? isVip;
+  final String? vipTooltip;
+  final IconData vipIcon;
+  final IconData vipOutlinedIcon;
   final bool? useAuthForPlay;
   final bool authInteractive;
   final String? authTooltip;
@@ -188,6 +212,9 @@ class _PlatformCard extends StatelessWidget {
     this.userName,
     this.avatarUrl,
     this.isVip,
+    this.vipTooltip,
+    this.vipIcon = Icons.diamond,
+    this.vipOutlinedIcon = Icons.diamond_outlined,
     this.useAuthForPlay,
     this.authInteractive = true,
     this.authTooltip,
@@ -250,16 +277,15 @@ class _PlatformCard extends StatelessWidget {
                                     ),
                           ),
                         ),
-                        if (isLoggedIn && isVip != null) ...[
+                        if (isLoggedIn && isVip == true) ...[
                           const SizedBox(width: 4),
-                          Icon(
-                            isVip!
-                                ? Icons.diamond
-                                : Icons.diamond_outlined,
-                            size: 14,
-                            color: isVip!
-                                ? colorScheme.primary
-                                : colorScheme.onSurfaceVariant,
+                          Tooltip(
+                            message: vipTooltip ?? '',
+                            child: Icon(
+                              vipOutlinedIcon,
+                              size: 14,
+                              color: colorScheme.primary,
+                            ),
                           ),
                         ],
                       ],
