@@ -9,6 +9,7 @@ import '../../../../data/models/track.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../../../providers/account_provider.dart';
 import '../../../../services/radio/radio_controller.dart';
+import '../../../../services/radio/radio_refresh_service.dart';
 import '../../../../services/account/bilibili_account_service.dart';
 
 /// 電台列表項（內部使用）
@@ -170,6 +171,8 @@ class _AccountRadioImportSheetState
         context,
         t.account.importRadioComplete(count: successCount.toString()),
       );
+      // 立即刷新電台直播狀態，讓電台管理頁面顯示最新狀態
+      RadioRefreshService.instance.refreshAll();
     }
   }
 
