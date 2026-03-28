@@ -4,11 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/services/image_loading_service.dart';
+import '../../../core/services/toast_service.dart';
+import '../../../core/utils/icon_helpers.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/download_provider.dart';
 
-import '../../../core/services/image_loading_service.dart';
-import '../../../core/services/toast_service.dart';
 import '../../../data/models/playlist.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../providers/refresh_provider.dart';
@@ -298,7 +299,7 @@ class _ReorderablePlaylistCard extends ConsumerWidget {
                         ] else ...[
                           if (playlist.isImported) ...[
                             Icon(
-                              Icons.link,
+                              getImportSourceIcon(playlist.importSourceType),
                               size: 12,
                               color: colorScheme.primary,
                             ),
@@ -440,7 +441,7 @@ class _PlaylistCard extends ConsumerWidget {
                       ] else ...[
                         if (playlist.isImported) ...[
                           Icon(
-                            Icons.link,
+                            getImportSourceIcon(playlist.importSourceType),
                             size: 12,
                             color: colorScheme.primary,
                           ),

@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
+import '../../../core/utils/icon_helpers.dart';
 import '../../../data/models/play_history.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/playlist_provider.dart';
@@ -1204,7 +1204,7 @@ class _HomePlaylistCard extends ConsumerWidget {
                         ] else ...[
                           if (playlist.isImported) ...[
                             Icon(
-                              Icons.link,
+                              getImportSourceIcon(playlist.importSourceType),
                               size: 12,
                               color: Theme.of(context).colorScheme.primary,
                             ),
