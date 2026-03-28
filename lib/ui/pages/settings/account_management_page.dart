@@ -66,8 +66,7 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
             vipTooltip: bilibiliAccount?.isVip == true
                 ? t.account.bilibiliVip
                 : t.account.bilibiliNotVip,
-            vipIcon: Icons.verified,
-            vipOutlinedIcon: Icons.verified_outlined,
+            vipIcon: Icons.verified_outlined,
             useAuthForPlay: false,
             authInteractive: false,
             authTooltip: t.account.authNotSupported,
@@ -92,8 +91,7 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
             vipTooltip: youtubeAccount?.isVip == true
                 ? t.account.youtubeVip
                 : t.account.youtubeNotVip,
-            vipIcon: Icons.workspace_premium,
-            vipOutlinedIcon: Icons.workspace_premium_outlined,
+            vipIcon: Icons.workspace_premium_outlined,
             useAuthForPlay: false,
             authInteractive: false,
             authTooltip: t.account.authNotSupported,
@@ -195,7 +193,6 @@ class _PlatformCard extends StatelessWidget {
   final bool? isVip;
   final String? vipTooltip;
   final IconData vipIcon;
-  final IconData vipOutlinedIcon;
   final bool? useAuthForPlay;
   final bool authInteractive;
   final String? authTooltip;
@@ -213,8 +210,7 @@ class _PlatformCard extends StatelessWidget {
     this.avatarUrl,
     this.isVip,
     this.vipTooltip,
-    this.vipIcon = Icons.diamond,
-    this.vipOutlinedIcon = Icons.diamond_outlined,
+    this.vipIcon = Icons.diamond_outlined,
     this.useAuthForPlay,
     this.authInteractive = true,
     this.authTooltip,
@@ -282,7 +278,7 @@ class _PlatformCard extends StatelessWidget {
                           Tooltip(
                             message: vipTooltip ?? '',
                             child: Icon(
-                              vipOutlinedIcon,
+                              vipIcon,
                               size: 14,
                               color: colorScheme.primary,
                             ),
