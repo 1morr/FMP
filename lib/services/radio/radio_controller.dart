@@ -112,9 +112,8 @@ class RadioState {
       reconnectMessage == null &&
       error == null;
 
-  /// 電台是否應繼續顯示全局播放 UI（播放中或可恢復暫停）
-  bool get hasResumablePlaybackSession =>
-      hasActivePlaybackOwnership || hasPausedPlaybackSession;
+  /// 電台是否應繼續顯示全局播放 UI（只要保留電台上下文就顯示，包括未開播/錯誤狀態）
+  bool get hasResumablePlaybackSession => hasCurrentStation;
 
   /// 是否正在重連
   bool get isReconnecting => reconnectAttempts > 0;
