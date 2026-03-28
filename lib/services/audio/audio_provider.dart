@@ -1810,6 +1810,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     bool recordHistory = true,
     bool prefetchNext = true,
   }) async {
+    // 保存當前播放位置，用於網路錯誤重試時恢復
+    // 必須在 _enterLoadingState（重置 position 為 zero）之前保存
+    final positionBeforeLoad = state.position;
+
     // 階段 1：立即更新 UI（在任何 await 之前）
     _updatePlayingTrack(track);
     _updateQueueState();
@@ -1918,6 +1922,19 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     } on SourceApiException catch (e) {
       logWarning(
           '${e.sourceType.name} API error for ${track.title}: ${e.message}');
+      // 网络错误和超时：走重试逻辑，而非通用错误处理
+      if (e.isNetworkError || e.isTimeout) {
+        try {
+          await _audioService.stop();
+        } catch (stopError) {
+          logError(
+              'Failed to stop player during source network error', stopError);
+        }
+        state = state.copyWith(isLoading: false);
+        _resetLoadingState();
+        _scheduleRetry(track, positionBeforeLoad);
+        throw const _RetryScheduledException();
+      }
       _handleSourceError(track, e, mode);
     } catch (e, stack) {
       logError('Failed to play track: ${track.title}', e, stack);
@@ -1963,7 +1980,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
             }
             state = state.copyWith(isLoading: false);
             _resetLoadingState();
-            _scheduleRetry(track, state.position);
+            _scheduleRetry(track, positionBeforeLoad);
             throw const _RetryScheduledException();
           }
         }
@@ -1978,7 +1995,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         }
         state = state.copyWith(isLoading: false);
         _resetLoadingState();
-        _scheduleRetry(track, state.position);
+        _scheduleRetry(track, positionBeforeLoad);
         throw const _RetryScheduledException();
       }
 
@@ -2059,7 +2076,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     // 立即保存需要恢复的歌曲和位置（无论是否达到最大重试次数）
     // 这样当网络恢复时，无论重试进行到哪一步，都能自动恢复播放
     _trackToRecoverAfterReconnect = track;
-    _positionToRecoverAfterReconnect = position;
+    // 只在有意义的位置时更新；避免重试链中零值覆盖原始位置
+    // （_enterLoadingState 会将 state.position 重置为 zero，
+    //   后续重试的 positionBeforeLoad 会是 zero）
+    if (position != null && position > Duration.zero) {
+      _positionToRecoverAfterReconnect = position;
+    }
 
     if (_retryAttempt >= NetworkRetryConfig.maxRetries) {
       logInfo('Max retry attempts reached for: ${track.title}');
@@ -2087,7 +2109,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
     _retryTimer?.cancel();
     _retryTimer = Timer(delay, () {
-      _retryPlayback(track, position);
+      // 使用已保存的恢复位置，而非本地 position 参数
+      // （重试链中 _executePlayRequest 传入的 position 可能是零）
+      _retryPlayback(track, _positionToRecoverAfterReconnect);
     });
   }
 
@@ -2095,7 +2119,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   Future<void> _retryPlayback(Track track, Duration? position) async {
     _retryAttempt++;
     logInfo(
-        'Retrying playback ($_retryAttempt/${NetworkRetryConfig.maxRetries}) for: ${track.title}');
+        'Retrying playback ($_retryAttempt/${NetworkRetryConfig.maxRetries}) for: ${track.title}, savedPosition: $position');
 
     try {
       // 更新状态为重试中
@@ -2517,17 +2541,20 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
     logWarning('Network error detected during playback: ${track.title}');
 
+    // 保存當前位置，stop() 可能會透過 positionStream 將 position 重置為 zero
+    final positionBeforeStop = state.position;
+
     // 停止播放并触发重试
     _audioService.stop().then((_) {
       state = state.copyWith(isLoading: false, isPlaying: false);
       _resetLoadingState();
-      _scheduleRetry(track, state.position);
+      _scheduleRetry(track, positionBeforeStop);
     }).catchError((e) {
       logError('Failed to stop player after error', e);
       // stop() 失败时仍需触发重试，否则播放器会卡在错误状态
       state = state.copyWith(isLoading: false, isPlaying: false);
       _resetLoadingState();
-      _scheduleRetry(track, state.position);
+      _scheduleRetry(track, positionBeforeStop);
     });
   }
 
