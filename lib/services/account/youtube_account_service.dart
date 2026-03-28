@@ -201,12 +201,15 @@ class YouTubeAccountService extends AccountService with Logging {
         options: Options(headers: headers),
       );
       final data = response.data;
+      final isPremium = _checkPremiumFromResponse(data);
       final name = _extractNameFromAccountOverview(data);
       if (name != null) {
-        await _updateAccount(userName: name);
-        logInfo('YouTube user info updated via account_overview: $name');
+        await _updateAccount(userName: name, isVip: isPremium);
+        logInfo('YouTube user info updated via account_overview: $name (premium: $isPremium)');
         return;
       } else if (data is Map<String, dynamic>) {
+        // 即使沒有名字，也更新 Premium 狀態
+        await _updateAccount(isVip: isPremium);
         logWarning('YouTube: account_overview returned no user name');
       }
     } catch (e) {
@@ -417,6 +420,21 @@ class YouTubeAccountService extends AccountService with Logging {
   /// 從 InnerTube Text 對象中提取文本（委託到共用工具）
   String? _extractText(dynamic textObj) => InnerTubeUtils.extractText(textObj);
 
+  /// 從 InnerTube 響應中檢測 YouTube Premium 狀態
+  ///
+  /// 檢查 topbar logo 類型：Premium 用戶的 logo iconType 包含 "PREMIUM"
+  bool _checkPremiumFromResponse(Map<String, dynamic> data) {
+    try {
+      final iconType = data['topbar']?['desktopTopbarRenderer']?['logo']
+          ?['topbarLogoRenderer']?['iconImage']?['iconType'] as String?;
+      if (iconType != null &&
+          iconType.toUpperCase().contains('PREMIUM')) {
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
   // ===== InnerTube 請求輔助 =====
 
   /// 構建帶認證的 InnerTube 請求 context
@@ -461,6 +479,7 @@ class YouTubeAccountService extends AccountService with Logging {
     String? userName,
     String? avatarUrl,
     DateTime? loginAt,
+    bool? isVip,
   }) async {
     await _isar.writeTxn(() async {
       var account = await _isar.accounts
@@ -475,6 +494,7 @@ class YouTubeAccountService extends AccountService with Logging {
       if (userName != null) account.userName = userName;
       if (avatarUrl != null) account.avatarUrl = avatarUrl;
       if (loginAt != null) account.loginAt = loginAt;
+      if (isVip != null) account.isVip = isVip;
       account.lastRefreshed = DateTime.now();
 
       await _isar.accounts.put(account);

@@ -35,5 +35,11 @@
   "liveStatus": "Live",
   "useAuth": "Auth Playback",
   "authRequired": "Netease requires authentication for playback",
-  "authNotSupported": "Auth playback is not supported for this platform yet"
+  "authNotSupported": "Auth playback is not supported for this platform yet",
+  "bilibiliVip": "Bilibili VIP",
+  "bilibiliNotVip": "Not a Bilibili VIP member",
+  "youtubeVip": "YouTube Premium",
+  "youtubeNotVip": "Not a YouTube Premium member",
+  "neteaseVip": "NetEase VIP",
+  "neteaseNotVip": "Not a NetEase VIP member"
 }
