@@ -143,6 +143,12 @@ class _AppContentWrapper extends ConsumerWidget {
     final isBannerVisible = ref.watch(networkBannerVisibleProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
+    // Windows 平台的 Banner 由 ResponsiveScaffold 在标题栏下方显示，
+    // 此处不重复渲染（全屏页面如播放器页面自行处理）
+    if (Platform.isWindows) {
+      return child ?? const SizedBox.shrink();
+    }
+
     // 当 banner 可见时，状态栏区域使用 banner 颜色；否则使用 scaffold 背景色
     final statusBarColor = isBannerVisible
         ? colorScheme.surfaceContainerHigh
