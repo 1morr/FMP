@@ -4,9 +4,7 @@ import '../../data/models/track.dart';
 import '../../providers/account_provider.dart';
 import '../../services/account/bilibili_account_service.dart';
 import '../../services/account/netease_account_service.dart';
-import '../../services/account/youtube_account_service.dart';
-
-/// Build auth headers from account services directly (non-Riverpod contexts).
+import '../../services/account/youtube_account_service.dart';/// Build auth headers from account services directly (non-Riverpod contexts).
 Future<Map<String, String>?> buildAuthHeaders(
   SourceType platform, {
   BilibiliAccountService? bilibiliAccountService,
@@ -28,10 +26,7 @@ Future<Map<String, String>?> buildAuthHeaders(
         'Cookie': cookies,
         'Origin': 'https://music.163.com',
         'Referer': 'https://music.163.com/',
-        'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 '
-                '(KHTML, like Gecko) Safari/537.36 Chrome/91.0.4472.164 '
-                'NeteaseMusicDesktop/3.0.18.203152',
+        'User-Agent': NeteaseAccountService.userAgent,
       };
   }
 }
