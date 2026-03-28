@@ -187,15 +187,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
 
     // 正常模式的 AppBar
     return AppBar(
-      title: pageState.selectedDate != null
-          ? Text(_formatDateTitle(pageState.selectedDate!))
-          : Text(t.playHistoryPage.title),
-      leading: pageState.selectedDate != null
-          ? IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => notifier.setSelectedDate(null),
-            )
-          : null,
+      title: Text(t.playHistoryPage.title),
       actions: [
         // 日历按钮
         IconButton(
@@ -254,7 +246,25 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
           ],
         ),
       ),
-      loading: () => const SizedBox(height: 56),
+      skipLoadingOnReload: true,
+      loading: () => Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          borderRadius: AppRadius.borderRadiusLg,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildStatItem(context, t.playHistoryPage.statsToday, 0, '--'),
+            _buildStatDivider(colorScheme),
+            _buildStatItem(context, t.playHistoryPage.statsThisWeek, 0, '--'),
+            _buildStatDivider(colorScheme),
+            _buildStatItem(context, t.playHistoryPage.statsAll, 0, '--'),
+          ],
+        ),
+      ),
       error: (error, stack) {
         debugPrint('Failed to load play history stats: $error');
         return const SizedBox.shrink();
@@ -334,6 +344,14 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
                     selected: pageState.selectedSource == SourceType.youtube,
                     onSelected: (_) => notifier.setSource(SourceType.youtube),
                   ),
+                  if (pageState.selectedDate != null) ...[
+                    const SizedBox(width: 8),
+                    InputChip(
+                      label: Text(_formatDateTitle(pageState.selectedDate!)),
+                      avatar: const Icon(Icons.calendar_today, size: 16),
+                      onDeleted: () => notifier.setSelectedDate(null),
+                    ),
+                  ],
                 ],
               ),
             ),
