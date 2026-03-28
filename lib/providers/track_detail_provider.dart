@@ -8,27 +8,9 @@ import '../data/models/track.dart';
 import '../data/models/video_detail.dart';
 import '../data/sources/bilibili_source.dart';
 import '../data/sources/netease_source.dart';
+import '../data/sources/source_provider.dart';
 import '../data/sources/youtube_source.dart';
 import '../services/audio/audio_provider.dart';
-
-/// Bilibili 数据源 Provider
-final bilibiliSourceProvider = Provider<BilibiliSource>((ref) {
-  return BilibiliSource();
-});
-
-/// YouTube 数据源 Provider
-final youtubeSourceProvider = Provider<YouTubeSource>((ref) {
-  final source = YouTubeSource();
-  ref.onDispose(() => source.dispose());
-  return source;
-});
-
-/// Netease 数据源 Provider（用于歌曲详情获取）
-final _neteaseDetailSourceProvider = Provider<NeteaseSource>((ref) {
-  final source = NeteaseSource();
-  ref.onDispose(() => source.dispose());
-  return source;
-});
 
 /// 当前播放歌曲详情状态
 class TrackDetailState {
@@ -197,7 +179,7 @@ final trackDetailProvider =
     StateNotifierProvider<TrackDetailNotifier, TrackDetailState>((ref) {
   final bilibiliSource = ref.watch(bilibiliSourceProvider);
   final youtubeSource = ref.watch(youtubeSourceProvider);
-  final neteaseSource = ref.watch(_neteaseDetailSourceProvider);
+  final neteaseSource = ref.watch(neteaseAudioSourceProvider);
   final notifier = TrackDetailNotifier(bilibiliSource, youtubeSource, neteaseSource, ref);
 
   // 监听当前播放的歌曲变化

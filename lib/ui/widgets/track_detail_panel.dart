@@ -581,7 +581,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                   }
                 },
                 tooltip:
-                    LyricsWindowService.instance.isOpen ? '关闭歌词窗口' : '弹出歌词窗口',
+                    LyricsWindowService.instance.isOpen ? t.lyrics.closeLyricsWindow : t.lyrics.openLyricsWindow,
                 visualDensity: VisualDensity.compact,
                 style: IconButton.styleFrom(
                   foregroundColor: colorScheme.onSurfaceVariant,
@@ -852,7 +852,11 @@ class _DetailContent extends ConsumerWidget {
           const SizedBox(height: 20),
           const Divider(),
           const SizedBox(height: 16),
-          _DescriptionSection(description: detail.description),
+          _ExpandableTextSection(
+            icon: Icons.info_outline_rounded,
+            title: t.trackDetail.description,
+            content: detail.description,
+          ),
         ],
 
         // 热门评论
@@ -1289,17 +1293,25 @@ class _ClickableAvatar extends StatelessWidget {
   }
 }
 
-/// 简介部分（支持展开/收起）
-class _DescriptionSection extends StatefulWidget {
-  final String description;
+/// 可展开文本区块（支持展开/收起，用于简介/公告等）
+class _ExpandableTextSection extends StatefulWidget {
+  final IconData icon;
+  final String title;
+  final String content;
+  final int maxLines;
 
-  const _DescriptionSection({required this.description});
+  const _ExpandableTextSection({
+    required this.icon,
+    required this.title,
+    required this.content,
+    this.maxLines = 6,
+  });
 
   @override
-  State<_DescriptionSection> createState() => _DescriptionSectionState();
+  State<_ExpandableTextSection> createState() => _ExpandableTextSectionState();
 }
 
-class _DescriptionSectionState extends State<_DescriptionSection> {
+class _ExpandableTextSectionState extends State<_ExpandableTextSection> {
   bool _isExpanded = false;
   bool _needsExpansion = false;
   final GlobalKey _textKey = GlobalKey();
@@ -1313,9 +1325,9 @@ class _DescriptionSectionState extends State<_DescriptionSection> {
   }
 
   @override
-  void didUpdateWidget(_DescriptionSection oldWidget) {
+  void didUpdateWidget(_ExpandableTextSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.description != widget.description) {
+    if (oldWidget.content != widget.content) {
       _isExpanded = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _checkIfNeedsExpansion();
@@ -1326,21 +1338,23 @@ class _DescriptionSectionState extends State<_DescriptionSection> {
   void _checkIfNeedsExpansion() {
     final textPainter = TextPainter(
       text: TextSpan(
-        text: widget.description,
+        text: widget.content,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               height: 1.6,
             ),
       ),
-      maxLines: 6,
+      maxLines: widget.maxLines,
       textDirection: TextDirection.ltr,
     );
 
     final renderBox = _textKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox != null) {
       textPainter.layout(maxWidth: renderBox.size.width);
-      setState(() {
-        _needsExpansion = textPainter.didExceedMaxLines;
-      });
+      if (mounted) {
+        setState(() {
+          _needsExpansion = textPainter.didExceedMaxLines;
+        });
+      }
     }
   }
 
@@ -1354,14 +1368,10 @@ class _DescriptionSectionState extends State<_DescriptionSection> {
       children: [
         Row(
           children: [
-            Icon(
-              Icons.info_outline_rounded,
-              size: 18,
-              color: colorScheme.primary,
-            ),
+            Icon(widget.icon, size: 18, color: colorScheme.primary),
             const SizedBox(width: 8),
             Text(
-              t.trackDetail.description,
+              widget.title,
               style: textTheme.titleSmall?.copyWith(
                 color: colorScheme.primary,
                 fontWeight: FontWeight.w600,
@@ -1370,18 +1380,16 @@ class _DescriptionSectionState extends State<_DescriptionSection> {
           ],
         ),
         const SizedBox(height: 12),
-        // 简介文本
         Text(
-          widget.description,
+          widget.content,
           key: _textKey,
           style: textTheme.bodyMedium?.copyWith(
             color: colorScheme.onSurfaceVariant,
             height: 1.6,
           ),
-          maxLines: _isExpanded ? null : 6,
+          maxLines: _isExpanded ? null : widget.maxLines,
           overflow: _isExpanded ? null : TextOverflow.ellipsis,
         ),
-        // 展开/收起按钮 - 固定在右下角
         if (_needsExpansion)
           Align(
             alignment: Alignment.centerRight,
@@ -1758,10 +1766,11 @@ class _RadioDetailContent extends ConsumerWidget {
           const SizedBox(height: 20),
           const Divider(),
           const SizedBox(height: 16),
-          _RadioExpandableSection(
+          _ExpandableTextSection(
             icon: Icons.campaign_outlined,
             title: t.trackDetail.streamerAnnouncement,
             content: radioState.announcement!,
+            maxLines: 4,
           ),
         ],
 
@@ -1771,10 +1780,11 @@ class _RadioDetailContent extends ConsumerWidget {
           const SizedBox(height: 20),
           const Divider(),
           const SizedBox(height: 16),
-          _RadioExpandableSection(
+          _ExpandableTextSection(
             icon: Icons.info_outline_rounded,
             title: t.trackDetail.description,
             content: radioState.description!,
+            maxLines: 4,
           ),
         ],
 
@@ -2157,129 +2167,3 @@ class _RadioClickableAvatar extends StatelessWidget {
   }
 }
 
-/// 电台可展开部分（公告/简介）
-class _RadioExpandableSection extends StatefulWidget {
-  final IconData icon;
-  final String title;
-  final String content;
-
-  const _RadioExpandableSection({
-    required this.icon,
-    required this.title,
-    required this.content,
-  });
-
-  @override
-  State<_RadioExpandableSection> createState() =>
-      _RadioExpandableSectionState();
-}
-
-class _RadioExpandableSectionState extends State<_RadioExpandableSection> {
-  bool _isExpanded = false;
-  bool _needsExpansion = false;
-  final GlobalKey _textKey = GlobalKey();
-
-  static const int _maxLines = 4;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkIfNeedsExpansion();
-    });
-  }
-
-  @override
-  void didUpdateWidget(_RadioExpandableSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.content != widget.content) {
-      _isExpanded = false;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _checkIfNeedsExpansion();
-      });
-    }
-  }
-
-  void _checkIfNeedsExpansion() {
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: widget.content,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              height: 1.6,
-            ),
-      ),
-      maxLines: _maxLines,
-      textDirection: TextDirection.ltr,
-    );
-
-    final renderBox = _textKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox != null) {
-      textPainter.layout(maxWidth: renderBox.size.width);
-      if (mounted) {
-        setState(() {
-          _needsExpansion = textPainter.didExceedMaxLines;
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(widget.icon, size: 18, color: colorScheme.primary),
-            const SizedBox(width: 8),
-            Text(
-              widget.title,
-              style: textTheme.titleSmall?.copyWith(
-                color: colorScheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Text(
-          widget.content,
-          key: _textKey,
-          style: textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-            height: 1.6,
-          ),
-          maxLines: _isExpanded ? null : _maxLines,
-          overflow: _isExpanded ? null : TextOverflow.ellipsis,
-        ),
-        if (_needsExpansion)
-          Align(
-            alignment: Alignment.centerRight,
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _isExpanded = !_isExpanded;
-                  });
-                },
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    _isExpanded ? t.trackDetail.collapse : t.trackDetail.expand,
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}

@@ -13,23 +13,6 @@ import '../../data/models/track.dart';
 import 'account_service.dart';
 import 'netease_credentials.dart';
 
-/// 網易雲帳號歌單項
-class NeteasePlaylistItem {
-  final String id;
-  final String name;
-  final int trackCount;
-  final String? coverUrl;
-  final String? creatorName;
-
-  const NeteasePlaylistItem({
-    required this.id,
-    required this.name,
-    required this.trackCount,
-    this.coverUrl,
-    this.creatorName,
-  });
-}
-
 /// 網易雲音樂帳號服務實現
 ///
 /// 使用 MUSIC_U Cookie 認證。
@@ -353,48 +336,6 @@ class NeteaseAccountService extends AccountService with Logging {
     } catch (e) {
       logError('Failed to fetch Netease user info', e);
     }
-  }
-
-  // ===== 歌單管理 =====
-
-  /// 獲取用戶歌單列表
-  Future<List<NeteasePlaylistItem>> getUserPlaylists() async {
-    final credentials = await _loadCredentials();
-    if (credentials == null) throw Exception('Not logged in');
-
-    final userId = credentials.userId;
-    if (userId == null) throw Exception('User ID not available');
-
-    final cookieString = credentials.toCookieString();
-    final authHeaders = _buildAuthHeaders(cookieString);
-
-    final response = await _dio.get(
-      '$_apiBase/api/user/playlist',
-      queryParameters: {
-        'uid': userId,
-        'limit': 50,
-        'offset': 0,
-      },
-      options: Options(headers: authHeaders),
-    );
-
-    final data = response.data;
-    final code = data['code'] as int?;
-    if (code != 200) {
-      throw Exception('Failed to fetch playlists: ${data['message']}');
-    }
-
-    final playlists = data['playlist'] as List? ?? [];
-    return playlists.map((p) {
-      final creator = p['creator'] as Map<String, dynamic>?;
-      return NeteasePlaylistItem(
-        id: (p['id'] as num).toString(),
-        name: p['name'] as String? ?? '',
-        trackCount: p['trackCount'] as int? ?? 0,
-        coverUrl: p['coverImgUrl'] as String?,
-        creatorName: creator?['nickname'] as String?,
-      );
-    }).toList();
   }
 
   // ===== 內部方法 =====

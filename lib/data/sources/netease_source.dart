@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../core/utils/netease_crypto.dart';
+import '../../services/account/netease_account_service.dart';
 import '../models/settings.dart';
 import '../models/track.dart';
 import '../models/video_detail.dart';
@@ -23,17 +24,13 @@ class NeteaseSource extends BaseSource with Logging {
 
   static const String _musicBase = 'https://music.163.com';
   static const String _interfaceBase = 'https://interface3.music.163.com';
-  static const String _userAgent =
-      'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 '
-      '(KHTML, like Gecko) Safari/537.36 Chrome/91.0.4472.164 '
-      'NeteaseMusicDesktop/3.0.18.203152';
   static const Duration _audioUrlExpiry = Duration(minutes: 16);
 
   NeteaseSource({Dio? dio}) {
     _dio = dio ??
         Dio(BaseOptions(
           headers: {
-            'User-Agent': _userAgent,
+            'User-Agent': NeteaseAccountService.userAgent,
             'Referer': '$_musicBase/',
             'Origin': _musicBase,
             'Accept': 'application/json, text/plain, */*',
@@ -692,14 +689,11 @@ class NeteaseSource extends BaseSource with Logging {
   }
 
   /// 構建包含認證信息的 headers map
-  /// authHeaders 可能只有 Cookie，這裡補充 Origin/Referer/UA
-  Map<String, String> _withAuth(Map<String, String>? authHeaders) {
-    return {
-      if (authHeaders != null) ...authHeaders,
-      'Origin': _musicBase,
-      'Referer': '$_musicBase/',
-      'User-Agent': _userAgent,
-    };
+  /// authHeaders 中只取 Cookie（Origin/Referer/UA 已在 Dio 默認 headers 中設置）
+  Map<String, String>? _withAuth(Map<String, String>? authHeaders) {
+    final cookie = authHeaders?['Cookie'];
+    if (cookie == null) return null;
+    return {'Cookie': cookie};
   }
 
   String _mapQualityLevel(AudioQualityLevel level) {

@@ -43,5 +43,7 @@
   "windowTransparentMode": "透明模式",
   "windowNormalMode": "普通模式",
   "windowSingleLine": "单行模式",
-  "windowFullLyrics": "全部歌词模式"
+  "windowFullLyrics": "全部歌词模式",
+  "openLyricsWindow": "弹出歌词窗口",
+  "closeLyricsWindow": "关闭歌词窗口"
 }

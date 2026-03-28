@@ -148,14 +148,14 @@ class _AccountPlaylistsSheetState
               'https://www.youtube.com/playlist?list=${p.playlistId}',
         )).toList();
       case SourceType.netease:
-        final service = ref.read(neteaseAccountServiceProvider);
-        final playlists = await service.getUserPlaylists();
+        final service = ref.read(neteasePlaylistServiceProvider);
+        final playlists = await service.getPlaylists();
         return playlists.map((p) => _PlaylistItem(
-          id: p.id,
-          title: p.name,
+          id: p.playlistId,
+          title: p.title,
           trackCount: p.trackCount,
-          thumbnailUrl: p.coverUrl,
-          importUrl: 'https://music.163.com/playlist?id=${p.id}',
+          thumbnailUrl: p.thumbnailUrl,
+          importUrl: 'https://music.163.com/playlist?id=${p.playlistId}',
         )).toList();
     }
   }
