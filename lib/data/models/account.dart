@@ -34,6 +34,9 @@ class Account {
   /// 登錄時間
   DateTime? loginAt;
 
+  /// 是否為 VIP（目前僅網易雲使用）
+  bool isVip = false;
+
   @override
   String toString() =>
       'Account(id: $id, platform: $platform, userName: $userName, isLoggedIn: $isLoggedIn)';
