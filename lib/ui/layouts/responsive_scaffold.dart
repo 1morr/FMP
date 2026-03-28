@@ -9,6 +9,7 @@ import '../../i18n/strings.g.dart';
 import '../../services/audio/audio_provider.dart';
 import '../../services/radio/radio_controller.dart';
 import '../widgets/custom_title_bar.dart';
+import '../widgets/network_status_banner.dart';
 import '../widgets/player/mini_player.dart';
 import '../widgets/radio/radio_mini_player.dart';
 import '../widgets/track_detail_panel.dart';
@@ -98,10 +99,12 @@ class ResponsiveScaffold extends StatelessWidget {
     };
 
     // Windows 平台使用自定义标题栏替代系统默认标题栏
+    // 网络状态 Banner 放在标题栏下方（而非上方）
     if (Platform.isWindows) {
       layout = Column(
         children: [
           const CustomTitleBar(),
+          const NetworkStatusBanner(),
           Expanded(child: layout),
         ],
       );
