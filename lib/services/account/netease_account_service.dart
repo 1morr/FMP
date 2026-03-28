@@ -308,11 +308,14 @@ class NeteaseAccountService extends AccountService with Logging {
       final userId = (profile['userId'] ?? account?['id'])?.toString();
       final userName = profile['nickname'] as String?;
       final avatarUrl = profile['avatarUrl'] as String?;
+      final vipType = profile['vipType'] as int? ?? 0;
+      final isVip = vipType > 0;
 
       await _updateAccount(
         userName: userName,
         avatarUrl: avatarUrl,
         userId: userId,
+        isVip: isVip,
       );
 
       // 同步 credentials 中的 userId（首次登錄或修正錯誤值）
@@ -367,6 +370,7 @@ class NeteaseAccountService extends AccountService with Logging {
     String? userName,
     String? avatarUrl,
     DateTime? loginAt,
+    bool? isVip,
   }) async {
     await _isar.writeTxn(() async {
       var account = await _isar.accounts
@@ -381,6 +385,7 @@ class NeteaseAccountService extends AccountService with Logging {
       if (userName != null) account.userName = userName;
       if (avatarUrl != null) account.avatarUrl = avatarUrl;
       if (loginAt != null) account.loginAt = loginAt;
+      if (isVip != null) account.isVip = isVip;
       account.lastRefreshed = DateTime.now();
 
       await _isar.accounts.put(account);

@@ -95,6 +95,7 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
             isLoggedIn: neteaseAccount?.isLoggedIn ?? false,
             userName: neteaseAccount?.userName,
             avatarUrl: neteaseAccount?.avatarUrl,
+            isVip: neteaseAccount?.isVip,
             useAuthForPlay: true,
             authInteractive: false,
             authTooltip: t.account.authRequired,
@@ -170,6 +171,7 @@ class _PlatformCard extends StatelessWidget {
   final bool isLoggedIn;
   final String? userName;
   final String? avatarUrl;
+  final bool? isVip;
   final bool? useAuthForPlay;
   final bool authInteractive;
   final String? authTooltip;
@@ -185,6 +187,7 @@ class _PlatformCard extends StatelessWidget {
     required this.isLoggedIn,
     this.userName,
     this.avatarUrl,
+    this.isVip,
     this.useAuthForPlay,
     this.authInteractive = true,
     this.authTooltip,
@@ -233,13 +236,33 @@ class _PlatformCard extends StatelessWidget {
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      accountText,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            accountText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
                           ),
+                        ),
+                        if (isLoggedIn && isVip != null) ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                            isVip!
+                                ? Icons.diamond
+                                : Icons.diamond_outlined,
+                            size: 14,
+                            color: isVip!
+                                ? colorScheme.primary
+                                : colorScheme.onSurfaceVariant,
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
