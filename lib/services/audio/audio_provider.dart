@@ -1930,7 +1930,6 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
           logError(
               'Failed to stop player during source network error', stopError);
         }
-        state = state.copyWith(isLoading: false);
         _resetLoadingState();
         _scheduleRetry(track, positionBeforeLoad);
         throw const _RetryScheduledException();
@@ -1978,7 +1977,6 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
             } catch (stopError) {
               logError('Failed to stop player during fallback network error', stopError);
             }
-            state = state.copyWith(isLoading: false);
             _resetLoadingState();
             _scheduleRetry(track, positionBeforeLoad);
             throw const _RetryScheduledException();
@@ -1993,7 +1991,6 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         } catch (stopError) {
           logError('Failed to stop player during network error handling', stopError);
         }
-        state = state.copyWith(isLoading: false);
         _resetLoadingState();
         _scheduleRetry(track, positionBeforeLoad);
         throw const _RetryScheduledException();
@@ -2144,7 +2141,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       _resetRetryState();
 
       // 如果有保存的位置，尝试恢复
-      if (position != null && position.inSeconds > 0) {
+      if (position != null && position > Duration.zero) {
         await Future.delayed(AppConstants.seekStabilizationDelay);
         await seekTo(position);
       }
@@ -2202,7 +2199,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       _resetRetryState();
 
       // 恢复播放位置
-      if (position != null && position.inSeconds > 0) {
+      if (position != null && position > Duration.zero) {
         await Future.delayed(AppConstants.seekStabilizationDelay);
         await seekTo(position);
       }
