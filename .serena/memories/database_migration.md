@@ -70,6 +70,8 @@ Future<void> _migrateDatabase(Isar isar) async {
 - `bilibiliStreamPriority`：空字符串 → 'audioOnly,muxed'
 - `lyricsSourcePriority`：空字符串 → 'netease,qqmusic,lrclib'
 - `enabledSources`：空列表 → ['bilibili', 'youtube']
+- `useNeteaseAuthForPlay`：bool 默认 false，但期望默认 true → 迁移时设置为 true
+- `neteaseStreamPriority`：空字符串 → 'audioOnly'
 
 ## 添加新字段的步骤
 
@@ -260,3 +262,4 @@ A:
 |------|---------|
 | 2026-02 | 删除 `autoRefreshImports` 和 `defaultRefreshIntervalHours` |
 | 2026-02 | 添加迁移函数 `_migrateDatabase()` |
+| 2026-03 | 添加 Track.isVip、Playlist.ownerName/ownerUserId/useAuthForRefresh、Settings.useNeteaseAuthForPlay/neteaseStreamPriority |

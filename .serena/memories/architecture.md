@@ -49,7 +49,7 @@
 ### Data Models (Isar Collections)
 | 模型 | 文件 | 说明 |
 |------|------|------|
-| Track | `data/models/track.dart` | 歌曲/音频实体（含 originalSongId/originalSource 原平台ID） |
+| Track | `data/models/track.dart` | 歌曲/音频实体（含 originalSongId/originalSource 原平台ID，isVip VIP标记） |
 | Playlist | `data/models/playlist.dart` | 歌单 |
 | PlayQueue | `data/models/play_queue.dart` | 播放队列 |
 | Settings | `data/models/settings.dart` | 应用设置 |
@@ -58,6 +58,7 @@
 | DownloadTask | `data/models/download_task.dart` | 下载任务 |
 | RadioStation | `data/models/radio_station.dart` | 电台/直播间 |
 | LyricsMatch | `data/models/lyrics_match.dart` | 歌词匹配记录（Track↔lrclib/netease） |
+| Account | `data/models/account.dart` | 平台账号信息（登录状态、VIP） |
 
 ### Repositories
 | 仓库 | 文件 | 职责 |
@@ -90,8 +91,10 @@
 | SourceApiException | `data/sources/source_exception.dart` | 统一异常基类（classifyDioError + 语义 getter） |
 | BilibiliSource | `data/sources/bilibili_source.dart` | ✅ 已实现（BilibiliApiException extends SourceApiException） |
 | YouTubeSource | `data/sources/youtube_source.dart` | ✅ 已实现（YouTubeApiException extends SourceApiException） |
+| NeteaseSource | `data/sources/netease_source.dart` | ✅ 已实现（NeteaseApiException extends SourceApiException，eapi/weapi 加密） |
 
 > **YouTubeSource Mix 功能**：支持 YouTube Mix/Radio 播放列表（RD 開頭的 ID），使用 InnerTube `/next` API 動態獲取歌曲。詳見 `mix_playlist_design` 記憶。
+> **NeteaseSource**：网易云音乐音源，支持 eapi/weapi 加密通信，搜索、歌词获取、歌曲 URL 解析。
 
 ### Playlist Import Sources (外部歌单导入)
 | 导入源 | 文件 | 状态 |
@@ -125,6 +128,8 @@
 | RadioRefreshService | `services/radio/radio_refresh_service.dart` | 直播流刷新 |
 | RadioSource | `services/radio/radio_source.dart` | 直播源解析 |
 | UpdateService | `services/update/update_service.dart` | 应用内更新（GitHub Releases） |
+| NeteaseAccountService | `services/account/netease_account_service.dart` | 网易云账号管理（QR 码登录、Cookie、MUSIC_U） |
+| NeteasePlaylistService | `services/account/netease_playlist_service.dart` | 网易云用户歌单操作 |
 
 > **详细音频系统文档见：** `audio_system` 记忆文件
 
@@ -155,6 +160,8 @@
 | currentLyricsContentProvider | `providers/lyrics_provider.dart` | FutureProvider（当前歌词内容，根据 lyricsSource 从对应 API 获取） |
 | lyricsMatchForTrackProvider | `providers/lyrics_provider.dart` | FutureProvider.family（指定 track 歌词匹配） |
 | neteaseSourceProvider | `providers/lyrics_provider.dart` | Provider（NeteaseSource 单例） |
+| neteaseAccountServiceProvider | `providers/account_provider.dart` | Provider<NeteaseAccountService> |
+| neteaseAccountProvider | `providers/account_provider.dart` | StateNotifierProvider<AccountNotifier, Account?> |
 
 ## UI 结构
 
@@ -179,6 +186,9 @@
 | 音频设置 | `/settings/audio` | `ui/pages/settings/audio_settings_page.dart` |
 | 下载管理 | `/settings/download-manager` | `ui/pages/settings/download_manager_page.dart` |
 | 用户引导 | - | `ui/pages/settings/user_guide_page.dart` |
+| 网易云登录 | `/settings/account/netease-login` | `ui/pages/settings/netease_login_page.dart` |
+| 账号管理 | `/settings/account` | `ui/pages/settings/account_management_page.dart` |
+| 歌词源设置 | `/settings/lyrics-source` | `ui/pages/settings/lyrics_source_settings_page.dart` |
 
 ### 路由配置
 - 使用 `go_router` 进行声明式路由

@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  跨平台音乐播放器，支持 Bilibili 和 YouTube 音源，提供统一的播放体验。
+  跨平台音乐播放器，支持 Bilibili、YouTube 和网易云音乐音源，提供统一的播放体验。
 </p>
 
 <p align="center">
@@ -45,6 +45,7 @@
 ### 🎵 多源音频播放
 - **Bilibili** - 视频、多P合集、直播间音频
 - **YouTube** - 视频、Mix/Radio 动态无限播放列表
+- **网易云音乐** - 歌曲搜索、歌单导入、VIP 标识
 - **音质可选** - 高/中/低音质等级
 
 ### 🎛️ 播放控制
@@ -67,7 +68,7 @@
 - 歌单内搜索与排序
 
 ### 🔍 搜索
-- Bilibili / YouTube 双源搜索
+- Bilibili / YouTube / 网易云音乐 三源搜索
 - 搜索历史记录
 - 结果排序（综合/播放量/最新）
 
@@ -119,6 +120,69 @@
 
 - [构建指南](docs/build-guide.md) - 本地编译 Android APK 和 Windows 安装包
 - [开发文档](docs/development.md) - 项目架构、技术栈、开发规范
+
+---
+
+## 免责声明
+
+> [!WARNING]
+> **本项目仅供学习与研究使用，请勿将其用于任何非法用途。**
+
+- FMP 不提供公共云端曲库或媒体分发服务。在线音频能力依赖第三方平台的公开接口，会员或受限内容仍需遵循原平台规则。
+- 使用本软件过程中，因频繁请求、异常调用等行为导致的**第三方平台账号被封禁、限制或其他处罚**，本项目概不负责，风险由用户自行承担。
+- 本项目不存储、不分发任何受版权保护的音频内容，所有内容均来自用户自行授权的第三方平台。
+- 本项目开发者不对因使用本软件而产生的任何直接或间接损失承担责任。
+
+
+---
+
+## 鸣谢
+
+### API 文档与资料
+
+<table>
+<tr>
+  <td><a href="https://github.com/SocialSisterYi/bilibili-API-collect">bilibili-API-collect</a></td>
+  <td>哔哩哔哩 API 收集整理</td>
+</tr>
+<tr>
+  <td><a href="https://github.com/chaunsin/netease-cloud-music">netease-cloud-music</a></td>
+  <td>网易云音乐 API Golang 实现</td>
+</tr>
+</table>
+
+### 核心依赖
+
+<table>
+<tr>
+  <td><a href="https://github.com/media-kit/media-kit">media_kit</a></td>
+  <td>跨平台音视频播放库（桌面端后端）</td>
+</tr>
+<tr>
+  <td><a href="https://github.com/ryanheise/just_audio">just_audio</a></td>
+  <td>Flutter 音频播放库（Android 端后端）</td>
+</tr>
+<tr>
+  <td><a href="https://github.com/Hexer10/youtube_explode_dart">youtube_explode_dart</a></td>
+  <td>YouTube 数据提取库</td>
+</tr>
+<tr>
+  <td><a href="https://github.com/isar/isar">Isar</a></td>
+  <td>高性能本地数据库</td>
+</tr>
+<tr>
+  <td><a href="https://github.com/rrousselGit/riverpod">Riverpod</a></td>
+  <td>状态管理框架</td>
+</tr>
+</table>
+
+---
+
+## 隐私与数据
+
+- FMP 不提供云端媒体分发服务，不接入广告 SDK 或第三方统计。
+- 所有数据（播放历史、歌单、设置、登录凭证）默认保存在用户设备本地。
+- 第三方平台侧的访问日志与风控策略，由对应平台按照其自身隐私政策处理。
 
 ---
 
