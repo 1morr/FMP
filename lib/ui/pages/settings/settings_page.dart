@@ -605,12 +605,16 @@ class _RememberPlaybackPositionTile extends ConsumerWidget {
           ),
         ],
       ),
-      onTap: isEnabled && !settings.isLoading
-          ? () => showDialog(
-                context: context,
-                builder: (context) => const _RewindSettingsDialog(),
-              )
-          : null,
+      onTap: settings.isLoading
+          ? null
+          : isEnabled
+              ? () => showDialog(
+                    context: context,
+                    builder: (context) => const _RewindSettingsDialog(),
+                  )
+              : () => ref
+                  .read(playbackSettingsProvider.notifier)
+                  .setRememberPlaybackPosition(true),
     );
   }
 }
@@ -649,9 +653,13 @@ class _AutoMatchLyricsTile extends ConsumerWidget {
           ),
         ],
       ),
-      onTap: isEnabled && !audioSettings.isLoading
-          ? () => _openSourceSettings(context)
-          : null,
+      onTap: audioSettings.isLoading
+          ? null
+          : isEnabled
+              ? () => _openSourceSettings(context)
+              : () => ref
+                  .read(audioSettingsProvider.notifier)
+                  .setAutoMatchLyrics(true),
     );
   }
 }
@@ -1354,7 +1362,9 @@ class _LaunchAtStartupTile extends ConsumerWidget {
       ),
       onTap: startupState.enabled
           ? () => _showLaunchModeDialog(context, ref)
-          : null,
+          : () => ref
+              .read(launchAtStartupProvider.notifier)
+              .toggleEnabled(),
     );
   }
 
