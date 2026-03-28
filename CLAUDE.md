@@ -1,98 +1,42 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## Important: Before Modifying Code
-
-### 1. Read Project Memory Files First
-Before making any code changes, read relevant project memory files directly from `.serena/memories/` using local file tools.
-
-Start with:
-- `.serena/memories/audio_system.md` - Detailed audio architecture, design decisions, common mistakes to avoid
-- `.serena/memories/architecture.md` - Overall project architecture
-
-Other commonly useful files:
-- `.serena/memories/code_style.md` - Code style conventions
-- `.serena/memories/ui_coding_patterns.md` - **UI 页面开发必读** - 统一编码模式、组件使用规范
-- `.serena/memories/database_migration.md` - **数据库迁移必读** - Isar 模型修改时的迁移步骤和注意事项
-- `.serena/memories/download_system.md` - Download system details and caveats
-- `.serena/memories/refactoring_lessons.md` - Historical design decisions and lessons learned
-
-
-### 2. Update Documentation After Significant Changes ⚠️ IMPORTANT
-
-**在完成重大代码修改后，必须同时更新：**
-1. **本文件 (CLAUDE.md)** - 项目核心文档
-2. **项目记忆文件（`.serena/memories/*.md`）** - 详细架构/实现文档
-
-#### 需要更新 CLAUDE.md 的情况
-
-| 修改类型 | 需要更新的章节 |
-|----------|---------------|
-| 音频架构变更 | "Three-Layer Audio System"、"File Structure" |
-| 核心设计决策变更 | "Key Design Decisions" |
-| 新增核心命令/工具 | "Common Commands" |
-| 状态管理变更 | "State Management: Riverpod" |
-| 数据层变更 | "Data Layer" |
-
-#### 需要更新项目记忆文件的情况
-
-| 修改类型 | 需要更新的文件 |
-|----------|---------------|
-| 音频系统架构变更 | `.serena/memories/audio_system.md` |
-| 新增/删除模块、服务 | `.serena/memories/architecture.md` |
-| 下载系统变更 | `.serena/memories/download_system.md` |
-| UI 编码规范/页面结构变更 | `.serena/memories/ui_coding_patterns.md` |
-| 新的设计决策/经验教训 | `.serena/memories/refactoring_lessons.md` |
-| 数据库模型/迁移变更 | `.serena/memories/database_migration.md` |
-
-#### 更新方法
-
-**CLAUDE.md / 项目记忆文件更新：**
-- 优先使用 `Read` + `Edit` 直接修改对应文件
-- 相关 memory markdown 文件位于 `.serena/memories/`
-- 仅在确实需要新增说明文档时再创建新的 memory 文件（使用 `Write`）
-
-#### 检查清单
-
-完成重大修改后，问自己：
-- [ ] 是否添加/删除了依赖包？→ 更新 CLAUDE.md + 对应 `.serena/memories/*.md` 文件
-- [ ] 是否添加/删除了服务类？→ 更新 CLAUDE.md "File Structure" + `.serena/memories/architecture.md`
-- [ ] 是否修改了核心架构？→ 更新 CLAUDE.md 相关章节 + 相关项目记忆文件
-- [ ] 是否有新的设计决策？→ 更新 CLAUDE.md "Key Design Decisions" + `.serena/memories/refactoring_lessons.md`
-- [ ] **是否修改了数据库模型（Isar）？→ 阅读 `.serena/memories/database_migration.md` 并添加迁移逻辑**
+This file provides guidance to Claude Code when working with code in this repository.
 
 ## Project Overview
 
-FMP (Flutter Music Player) is a cross-platform music player supporting Bilibili and YouTube audio sources. Target platforms: Android and Windows.
+FMP (Flutter Music Player) is a cross-platform music player supporting **Bilibili**, **YouTube**, and **NetEase Cloud Music (网易云音乐)** audio sources. Target platforms: Android and Windows.
+
+## Documentation Maintenance
+
+After significant code changes, update this file accordingly:
+
+| Change Type | Section to Update |
+|------------|-------------------|
+| Audio architecture | "Audio System" |
+| New model fields | "Data Models", "Database Migration" |
+| New source / service | "File Structure", "Audio Sources" |
+| Design decisions | "Key Design Decisions" |
+| UI patterns | "UI Development Guidelines" |
+
+Supplemental docs in `.serena/memories/` may exist but this file is the primary reference.
 
 ## Common Commands
 
 ```bash
-# Run the app
-flutter run
-
-# Build
-flutter build apk        # Android APK
-flutter build windows    # Windows executable
-
-# Code generation (required after modifying Isar models)
-flutter pub run build_runner build --delete-conflicting-outputs
-
-# Regenerate i18n files (required after modifying lib/i18n/**/*.json)
-dart run slang
-
-# Static analysis
-flutter analyze
-
-# Run tests
-flutter test
-flutter test test/path/to/specific_test.dart
+flutter run                          # Run the app
+flutter build apk                    # Android APK
+flutter build windows                # Windows executable
+flutter pub run build_runner build --delete-conflicting-outputs  # Isar code generation
+dart run slang                       # Regenerate i18n files (after modifying lib/i18n/**/*.json)
+flutter analyze                      # Static analysis
+flutter test                         # Run tests
 ```
+
+---
 
 ## Architecture
 
-### Three-Layer Audio System
+### Audio System (Three-Layer + Platform-Split)
 
 ```
 UI (player_page, mini_player)
@@ -108,517 +52,302 @@ UI (player_page, mini_player)
          │                    │
          ▼                    ▼
 ┌─────────────────┐  ┌─────────────────┐
-│MediaKitAudioSvc │  │  QueueManager   │
-│(media_kit direct│  │ (queue logic)   │
-│ Low-level play  │  │ Shuffle, loop   │
-│ control         │  │ Persistence     │
-└─────────────────┘  └─────────────────┘
-         │
-         ▼
-┌─────────────────┐
-│   media_kit      │  ← Native httpHeaders, no proxy
-└─────────────────┘
+│  AudioService   │  │  QueueManager   │
+│  (abstract)     │  │ (queue logic)   │
+└────────┬────────┘  │ Shuffle, loop   │
+    ┌────┴────┐      │ Persistence     │
+    ▼         ▼      └─────────────────┘
+┌────────┐ ┌──────────┐
+│just_   │ │media_kit │
+│audio   │ │AudioSvc  │
+│Service │ │(Desktop) │
+│(Android│ │          │
+│)       │ │          │
+└────────┘ └──────────┘
 ```
 
 **Key Rule:** UI must call `AudioController` methods, never `AudioService` directly.
 
-### Audio Backend (Platform-Split Architecture, 2026-02)
-
-Uses an abstract `AudioService` interface with platform-specific implementations:
-- **Android/iOS**: `JustAudioService` (ExoPlayer via `just_audio`, ~10-15MB lighter)
+**Platform-split backend:**
+- **Android**: `JustAudioService` (ExoPlayer via `just_audio`, ~10-15MB lighter)
 - **Windows/Linux**: `MediaKitAudioService` (libmpv via `media_kit`, supports device switching)
-
-**Why the split:**
-- `media_kit` on Android uses libmpv which consumes ~10-15MB more memory than ExoPlayer
-- `just_audio` on Windows doesn't support native httpHeaders without proxy issues
-- Platform-specific backends give the best of both worlds
-
-**Current architecture:**
-- `AudioService` abstract interface in `lib/services/audio/audio_service.dart`
 - `audioServiceProvider` selects implementation based on `Platform.isAndroid`
 - `MediaKit.ensureInitialized()` only called on desktop platforms
 
-Required initialization in `main.dart`:
-```dart
-// Only desktop platforms need media_kit
-if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-  MediaKit.ensureInitialized();
-}
-```
-
 **Custom types** (`audio_types.dart`):
-- `FmpAudioProcessingState` - Unified processing state enum
-- `FmpPlayerState` - Unified player state (renamed from `MediaKitPlayerState`)
-- `FmpAudioDevice` - Platform-agnostic audio device type (only used on desktop)
+- `FmpAudioProcessingState`, `FmpPlayerState`, `FmpAudioDevice`
 
-**Volume conversion**: media_kit uses 0-100 range, just_audio uses 0-1 range. Conversion handled in respective Service implementations.
-
-**YouTube Stream Format Priority**:
-1. **Audio-only via androidVr client** - Preferred (lowest bandwidth, no video data)
-2. **Muxed** (video+audio) - Fallback if androidVr fails
-3. **HLS** (m3u8 segmented) - Last resort
-
-**Important Discovery (2026-02)**: Only the `YoutubeApiClient.androidVr` client produces audio-only stream URLs that are HTTP accessible. Other clients (`android`, `ios`, `safari`) return HTTP 403 for audio-only streams. The androidVr client URLs contain `c=ANDROID_VR` parameter.
-
-**Bandwidth comparison**:
-- Audio-only (mp4/aac): ~128-256 kbps
-- Muxed (360p video+audio): ~500-1000 kbps
+**Volume conversion**: media_kit uses 0-100 range, just_audio uses 0-1 range.
 
 ### State Management: Riverpod
 
+**Key providers:**
 - `audioControllerProvider` - Main audio state (PlayerState)
 - `playlistProvider` / `playlistDetailProvider` - Playlist management
-- `searchProvider` - Search state
-- `themeProvider` - Theme configuration
-- `lyricsSearchProvider` - Multi-source lyrics search (lrclib + netease + qqmusic, with filter)
+- `searchProvider` - Search state (supports 3 sources)
 - `neteaseSourceProvider` - NeteaseSource singleton
+- `neteaseAccountProvider` / `neteaseAccountServiceProvider` - Netease account
+- `lyricsSearchProvider` - Multi-source lyrics search (lrclib + netease + qqmusic)
+- `audioSettingsProvider` - Audio quality settings
 
-#### Data Loading Pattern Selection (按数据来源选择)
+**Data Loading Patterns:**
 
-| 数据来源 | 模式 | 示例 |
-|----------|------|------|
-| DB 集合（多处可修改） | Isar `watchAll()` + `StateNotifier` | 歌单列表、电台、播放历史 |
-| DB 联合查询 | `StateNotifier` + 乐观更新 | 歌单详情 |
-| 文件系统扫描 | `FutureProvider` + `invalidate` | 已下载页面 |
-| API + 缓存 | `CacheService` + `StreamProvider` | 首页/探索页排行榜 |
-| 设置项 | `StateNotifier` + 直接更新 state | 设置页面 |
+| Source | Pattern | Example |
+|--------|---------|---------|
+| DB collection (multi-writer) | Isar `watchAll()` + `StateNotifier` | Playlists, radio, history |
+| DB join query | `StateNotifier` + optimistic update | Playlist detail |
+| File system scan | `FutureProvider` + `invalidate` | Downloaded page |
+| API + cache | `CacheService` + `StreamProvider` | Home/explore rankings |
+| Settings | `StateNotifier` + direct state update | Settings page |
 
-**关键规则：**
-- 使用 `isLoading` 的页面必须加守卫：`isLoading && data.isEmpty`
-- FutureProvider 操作后必须 `invalidate`，否则 UI 不更新
-- 乐观更新失败时必须回滚（`await loadXxx()`）
-- 列表/网格项加 `ValueKey(item.id)`
-
-详见 `.serena/memories/ui_coding_patterns.md` 第 3 节。
+**Rules:**
+- Pages using `isLoading` must guard: `isLoading && data.isEmpty`
+- FutureProvider: must `invalidate` after mutations
+- Optimistic updates: must rollback on failure
+- List/grid items: add `ValueKey(item.id)`
 
 ### Data Layer
 
-- **Models:** Isar collections in `lib/data/models/` (Track, Playlist, PlayQueue, Settings)
+- **Models:** Isar collections in `lib/data/models/`
 - **Repositories:** CRUD operations in `lib/data/repositories/`
-- **Sources:** Audio source parsers in `lib/data/sources/` (BilibiliSource, YouTubeSource implemented, SourceApiException unified base class)
+- **Sources:** Audio source parsers in `lib/data/sources/` (BilibiliSource, YouTubeSource, NeteaseSource, with unified SourceApiException base class)
 
-#### Database Migration (Isar)
+**Data Models:**
 
-**⚠️ CRITICAL: When modifying Isar models, you MUST add migration logic.**
+| Model | Description |
+|-------|-------------|
+| Track | Song entity (bilibili/youtube/netease SourceType, isVip, originalSongId) |
+| Playlist | Playlist (ownerName, ownerUserId, useAuthForRefresh) |
+| PlayQueue | Play queue (Mix mode state, position persistence) |
+| Settings | App settings (quality, auth, stream priority per source) |
+| Account | Platform account (login state, VIP status) |
+| RadioStation | Radio/live station |
+| PlayHistory | Play history record |
+| SearchHistory | Search history |
+| DownloadTask | Download task |
+| LyricsMatch | Lyrics match record (Track ↔ lyrics source) |
 
-Isar automatically handles schema changes, but uses type default values for new fields:
-- `int` → `0`
-- `bool` → `false`
-- `String?` → `null`
-- `List` → `[]`
+### Database Migration (Isar)
+
+**⚠️ CRITICAL: When modifying Isar models, check whether migration logic is needed.**
+
+Isar uses type default values for new fields on upgrade: `int` → `0`, `bool` → `false`, `String?` → `null`, `List` → `[]`.
+
+**判断是否需要迁移：** 如果 Isar 的类型默认值与业务期望的默认值**一致**，则**不需要**迁移。例如 `bool isVip = false` — Isar 升级后自动为 `false`，与期望一致，无需迁移。只有当两者不一致时才需要（如 `useNeteaseAuthForPlay` 期望 `true` 但 Isar 给 `false`）。
 
 **Migration function:** `_migrateDatabase()` in `lib/providers/database_provider.dart`
 
-This function runs on every app startup and:
-1. Initializes new installations (creates default Settings, PlayQueue)
-2. Fixes abnormal values from old version upgrades
-3. Sets reasonable defaults for new fields
-
 **When adding a new field:**
 1. Modify the model in `lib/data/models/`
-2. Add migration logic in `_migrateDatabase()` to fix the default value
+2. **判断是否需要迁移** — 若 Isar 默认值 ≠ 业务期望值，在 `_migrateDatabase()` 中添加修正逻辑
 3. Run `flutter pub run build_runner build --delete-conflicting-outputs`
 4. Test upgrade path: old version → new version
 
-**Example:**
-```dart
-// Step 1: Add field to model
-int newFeatureTimeout = 30;
+**Current migrated fields include:**
+- `maxConcurrentDownloads`, `maxCacheSizeMB`, `audioQualityLevelIndex`
+- `audioFormatPriority`, `youtubeStreamPriority`, `bilibiliStreamPriority`, `neteaseStreamPriority`
+- `lyricsSourcePriority`, `enabledSources`
+- `useNeteaseAuthForPlay` (default `true`, but Isar gives `false` on upgrade)
 
-// Step 2: Add migration logic
-if (settings.newFeatureTimeout < 1) {
-  settings.newFeatureTimeout = 30;
-  needsUpdate = true;
-}
-```
+---
 
-**For detailed migration guide, read:**
-```
-Read `.serena/memories/database_migration.md`
-```
+## Audio Sources
+
+### Bilibili (Direct Source)
+- Video audio extraction (DASH audio-only / durl muxed)
+- Multi-page video (多P) support
+- Live room audio stream (HLS)
+- Favorites folder import
+- Requires `Referer: https://www.bilibili.com` header
+- Audio URLs expire → periodic refresh via `ensureAudioUrl()`
+- Rate limiting: codes -412, -509, -799
+
+### YouTube (Direct Source)
+- Video audio extraction (`youtube_explode_dart` + InnerTube API)
+- YouTube Mix/Radio dynamic infinite playlists (RD prefix, InnerTube `/next` API)
+- Playlist import via InnerTube `/browse` API
+- **Stream format priority:** audio-only (androidVr) > muxed > HLS
+- Only `YoutubeApiClient.androidVr` produces accessible audio-only URLs (others return 403)
+- Supports Opus / AAC format selection
+- Rate limiting: HTTP 429
+
+### Netease Cloud Music (Direct Source)
+- Song search (`/api/cloudsearch/pc`, plain form-encoded)
+- Song detail + batch fetch (`/api/v3/song/detail`, max 400 per request)
+- Audio stream (`/eapi/song/enhance/player/url/v1`, eapi encrypted, requires login)
+- Playlist import (`/api/v6/playlist/detail` + batch song detail)
+- Short URL resolution (`163cn.tv` → HEAD/GET redirect)
+- VIP detection: `fee == 1 || fee == 4` → `Track.isVip = true`
+- Availability: `st == -200` → unavailable
+- Audio URL expiry: 16 minutes
+- Requires `Referer: https://music.163.com/` header
+- **Encryption:** `NeteaseCrypto` in `lib/core/utils/netease_crypto.dart` (eapi + weapi)
+- **Account:** QR code login / WebView cookie extraction, MUSIC_U long-lived token
+- Default `useNeteaseAuthForPlay = true` (most content requires login)
+
+### External Playlist Import (Search-Match Mode)
+- **Netease** - standard links / short links (`163cn.tv`)
+- **QQ Music** - multiple URL formats, custom signature encryption (`QQMusicSign`)
+- **Spotify** - Embed page parsing (`__NEXT_DATA__`), no auth needed
+
+### Unified Source Exception Handling
+`BilibiliApiException`, `YouTubeApiException`, and `NeteaseApiException` all extend `SourceApiException` (in `lib/data/sources/source_exception.dart`).
+
+- `AudioController` catches `on SourceApiException` for unified error handling
+- `_handleSourceError()` uses base class getters: `isUnavailable`, `isRateLimited`, `isGeoRestricted`
+- `BilibiliApiException` uses `numericCode` (int) with semantic `code` getter
+- `YouTubeApiException` uses `code` (String) directly
+- `NeteaseApiException` uses `numericCode` (int), adds `isVipRequired` getter
+- `SourceApiException.classifyDioError()` provides shared Dio error classification
+
+### Audio Quality Settings
+User-configurable per source:
+
+- `AudioQualityLevel` enum: high, medium, low (global, all sources)
+- `AudioFormat` enum: opus, aac (YouTube only — Bilibili/Netease only have AAC)
+- `StreamType` enum: audioOnly, muxed, hls
+
+**Per-source stream priority:**
+- YouTube: audioOnly > muxed > hls
+- Bilibili: audioOnly > muxed (live streams always muxed)
+- Netease: audioOnly (only option)
+
+`AudioStreamConfig` passed to source `getAudioUrl()`, returns `AudioStreamResult` with bitrate/codec info.
+
+### Auth for Playback
+Per-platform toggle for using login credentials when fetching audio streams:
+
+| Setting | Default | Rationale |
+|---------|---------|-----------|
+| `useBilibiliAuthForPlay` | `false` | Most content accessible without login |
+| `useYoutubeAuthForPlay` | `false` | Most content accessible without login |
+| `useNeteaseAuthForPlay` | `true` | Most songs require login for audio URLs |
+
+UI: Toggle button on each platform card in account management page. `FilledButton.tonal` when enabled, `OutlinedButton` when disabled.
+
+Backend: `QueueManager.ensureAudioUrl()` / `DownloadService._startDownload()` read `settings.useAuthForPlay(track.sourceType)`.
+
+### Lyrics System
+Multi-source auto-match priority (`LyricsAutoMatchService.tryAutoMatch()`):
+
+1. Existing match → use cache
+2. Netease source track → direct lyrics fetch by `sourceId` (skip search)
+3. Original platform ID direct fetch (imported `originalSongId` for netease/qqmusic)
+4. Netease search
+5. QQ Music search
+6. lrclib.net fallback
+
+Desktop lyrics popup window (independent Flutter engine, hide-instead-of-destroy).
+
+### Account System
+
+| Platform | Login Method | Token |
+|----------|-------------|-------|
+| Bilibili | WebView cookie extraction | Cookie auto-refresh |
+| YouTube | WebView cookie extraction | SAPISIDHASH |
+| Netease | QR code / WebView cookie | MUSIC_U (long-lived) |
+
+---
 
 ## Key Design Decisions
 
-### Temporary Play Feature
-When clicking a song in search/playlist pages, it plays temporarily without modifying the queue. After completion, the original queue position is restored (minus 10 seconds).
+### Temporary Play
+Click a song in search/playlist → plays temporarily without modifying queue. After completion, original queue position restored (minus 10 seconds).
 
-- Uses `playTemporary()` method, NOT `playTrack()`
-- Saved state is stored in `_context` with `savedQueueIndex`, `savedPosition`, `savedWasPlaying` (does NOT save queue content)
+- Uses `playTemporary()`, NOT `playTrack()`
+- Saved state in `_context`: `savedQueueIndex`, `savedPosition`, `savedWasPlaying`
 - Uses `_executePlayRequest()` with `mode: PlayMode.temporary`
-- On restore: Uses current queue directly, user's queue modifications during temporary play are preserved
-- Index is clamped to valid range if queue was modified
-- **Position restore controlled by `rememberPlaybackPosition` setting** - if disabled, returns to queue track but starts from beginning
-- **Important**: All async methods use unified `_enterLoadingState()` / `_exitLoadingState()` helpers
-
-### Radio Return and Ownership (2026-03)
-Radio playback now distinguishes between **retained radio context** and **active radio ownership of the shared player**.
-
-- `RadioState.hasCurrentStation` means the app is still retaining radio context (for example, after a live ends and the station is still remembered)
-- `RadioState.hasActivePlaybackOwnership` means radio is actually controlling the shared player (`isPlaying || isLoading || isBuffering || isReconnecting`)
-- `isRadioPlayingProvider` exposes **active ownership**, so radio UI surfaces (mini player, detail panel, desktop side panel visibility) only switch while radio truly owns playback
-- Home "Now Playing" actions use **retained context** instead: if `hasCurrentStation` is true, the home card/button must call `radioControllerProvider.notifier.returnToMusic()` instead of toggling song playback directly
-- `RadioController.play()` must capture queue index / position / playing state and pause music **before** setting radio loading state, otherwise `AudioController` may ignore the pause event too early
-- `RadioController.returnToMusic()` delegates to `AudioController.returnFromRadio()` which restores queue playback with **0-second rewind**; if temporary play is active, `AudioController.returnFromRadio()` must still prefer `_returnToQueue()` to preserve existing temporary-play semantics
-- `PlayerState.copyWith()` supports `clearPlayingTrack`, and `_clearPlayingTrack()` must use it so stale song UI can be truly cleared
-
-### Mute Toggle
-Volume mute must use `controller.toggleMute()`, NOT `setVolume(0)` / `setVolume(1.0)`. The mute logic remembers the previous volume in `_volumeBeforeMute`.
-
-### Remember Playback Position
-Unified playback position persistence controlled by `Settings.rememberPlaybackPosition` (default `true`).
-
-**Position saving** (always active regardless of setting):
-- `QueueManager` saves `currentIndex` and `lastPositionMs` to `PlayQueue` model every 10 seconds (`AppConstants.positionSaveInterval`)
-- `seekTo()`, `seekForward()`, `seekBackward()` call `savePositionNow()` immediately
-
-**Position restoring** (controlled by `rememberPlaybackPosition` setting):
-- **App restart**: `QueueManager.initialize()` restores `_currentPosition` from `PlayQueue.lastPositionMs`; if disabled, starts from `Duration.zero`
-- **Temporary play restore**: `_restoreSavedState()` checks `_queueManager.shouldRememberPosition`; if disabled, returns to queue track but starts from beginning instead of saved position
-- **UI**: Settings page toggle "记住播放位置" with subtitle "应用重启后从上次位置继续播放" (`lib/ui/pages/settings/settings_page.dart`)
-
-### Shuffle Mode
-Managed in `QueueManager` with `_shuffleOrder` list. When queue is cleared and songs added, shuffle order regenerates automatically.
-
-### Mix Playlist Mode (YouTube Mix/Radio)
-YouTube Mix/Radio playlists (ID starts with "RD") are dynamic infinite playlists. They are imported as "references" (no tracks saved), and tracks are fetched from InnerTube API at runtime.
-
-**Key behaviors:**
-- Shuffle disabled (button greyed out with tooltip)
-- addToQueue/addNext blocked (returns false, shows toast)
-- Auto-loads more tracks when approaching queue end
-- State persisted across app restart via `PlayQueue` model fields (`isMixMode`, `mixPlaylistId`, `mixSeedVideoId`, `mixTitle`)
-
-**UI changes:**
-- Queue page title: "Mix · {playlist name}" (60% max width, truncated)
-- Playlist detail page: PopupMenuButton hidden for Mix tracks (no download/add options)
-- Player page: shuffle button disabled
-
-**Implementation files:**
-- `lib/data/sources/youtube_source.dart` - `getMixPlaylistInfo()`, `fetchMixTracks()`
-- `lib/services/audio/audio_provider.dart` - `playMixPlaylist()`, `_MixPlaylistState`, `PlayMode.mix`
-- `lib/services/audio/queue_manager.dart` - `setMixMode()`, `clearMixMode()`, Mix state persistence
-
-See the corresponding project memory file in `.serena/memories/` for full implementation details.
+- Position restore controlled by `rememberPlaybackPosition` setting
 
 ### PlaybackContext and Play Lock (Race Condition Prevention)
-`AudioController` uses a unified `_PlaybackContext` class to manage playback state and prevent race conditions during rapid track switching.
+`AudioController` uses `_PlaybackContext` class to manage playback state and prevent race conditions.
 
-**New Architecture (2026-01 Refactoring):**
 ```dart
-/// 播放模式枚举
-enum PlayMode {
-  queue,      // 正常隊列播放
-  temporary,  // 臨時播放（播放完成後恢復）
-  detached,   // 脫離隊列（隊列被清空後的狀態）
-}
+enum PlayMode { queue, temporary, detached, mix }
 
-/// 統一的內部播放上下文
 class _PlaybackContext {
   final PlayMode mode;
-  final int activeRequestId;  // > 0 表示正在加載
+  final int activeRequestId;  // > 0 = loading
   final int? savedQueueIndex;
   final Duration? savedPosition;
   final bool? savedWasPlaying;
-  
-  bool get isTemporary => mode == PlayMode.temporary;
-  bool get isInLoadingState => activeRequestId > 0;
-  bool get hasSavedState => savedQueueIndex != null;
 }
 ```
 
-**Key methods:**
-- `_executePlayRequest()` - unified play entry point for all playback
-- `_enterLoadingState()` / `_exitLoadingState()` - manage loading UI
-- `_isPlayingOutOfQueue` getter - detect when playing outside queue
-- `_returnToQueue()` - unified logic to return to queue
-
-**Important: Methods with independent URL fetching must use `_playRequestId`:**
-
-Any method that fetches URLs outside of `_executePlayRequest()` (e.g., `_restoreSavedState()`) must:
-1. Increment `_playRequestId` at the start to cancel in-flight requests
+**Key rule:** Any method that fetches URLs outside `_executePlayRequest()` must:
+1. Increment `_playRequestId` at start
 2. Check `_isSuperseded(requestId)` after each `await`
-3. Abort immediately if superseded
+3. Abort if superseded
 
-This prevents race conditions like: temporary play loading → user clicks next → restore starts → temporary play finishes and overwrites restore.
+### Radio Return and Ownership
+Distinguishes **retained radio context** vs **active radio ownership of shared player**:
+- `hasCurrentStation` = retaining radio context
+- `hasActivePlaybackOwnership` = actually controlling player
+- `isRadioPlayingProvider` exposes active ownership
+- Home "Now Playing" uses retained context for tap actions
+- `RadioController.play()` must pause music BEFORE setting radio loading state
 
-**Player state listeners use `_context.isInLoadingState`:**
-```dart
-void _onPlayerStateChanged(just_audio.PlayerState playerState) {
-  state = state.copyWith(
-    isLoading: _context.isInLoadingState || 
-               playerState.processingState == ProcessingState.loading,
-  );
-}
+### Mute Toggle
+Must use `controller.toggleMute()`, NOT `setVolume(0)`. Remembers previous volume in `_volumeBeforeMute`.
 
-void _onPositionChanged(Duration position) {
-  if (_context.isInLoadingState) return;
-  state = state.copyWith(position: position);
-}
-```
+### Shuffle Mode
+Managed in `QueueManager` with `_shuffleOrder` list. UI must use `upcomingTracks`, never manually calculate next track.
 
-**AudioService also waits for player idle state:**
-```dart
-await _player.stop();
+### Mix Playlist Mode (YouTube Mix/Radio)
+YouTube Mix/Radio playlists (ID starts with "RD") are dynamic infinite playlists.
+- Shuffle disabled, addToQueue/addNext blocked
+- Auto-loads more tracks near queue end
+- State persisted via `PlayQueue` model fields
 
-// Wait for idle state before setting new audio source
-// This prevents "Player already exists" errors with just_audio_media_kit
-if (_player.processingState != ProcessingState.idle) {
-  await _player.playerStateStream
-      .where((s) => s.processingState == ProcessingState.idle)
-      .first
-      .timeout(const Duration(milliseconds: 500));
-}
-
-await _player.setAudioSource(audioSource);
-```
+### Remember Playback Position
+`Settings.rememberPlaybackPosition` (default `true`):
+- **Saving:** always active (every 10s + on seek)
+- **Restoring:** controlled by setting (app restart + temporary play restore)
 
 ### Progress Bar Dragging
-Slider `onChanged` must NOT call `seekToProgress()` directly. Only call seek in `onChangeEnd` to avoid flooding the message queue during continuous dragging. See `player_page.dart` and `mini_player.dart` for correct implementation.
+Slider `onChanged` must NOT call `seekToProgress()`. Only call seek in `onChangeEnd`.
 
-### Download System Simplification (2026-02)
-- **Path deduplication by `savePath`** (not trackId) - same track can download to multiple playlists
-- **File verification before saving path** - verify file exists after download completes
-- **Smart path clearing** - only clear non-existing paths when playing, not proactively
-- **Sync replaces paths** - local files are authority, sync REPLACES all DB paths
-- **Provider debouncing** - completion events use 300ms debouncing for bulk operations
-- **Playlist-specific download marks** - UI shows download status per playlist
-- **Isolate download (Windows)** - network I/O runs in separate Isolate to avoid PostMessage queue overflow
-- **In-memory progress state** - progress updates stored in memory only, not written to DB (avoids Isar watch triggers)
+### Download System
+- Path deduplication by `savePath` (not trackId)
+- File verification before saving path
+- Isolate download on Windows (avoids PostMessage queue overflow)
+- In-memory progress state (avoids Isar watch triggers)
+- Per-source `Referer` header: bilibili → `bilibili.com`, youtube → `youtube.com`, netease → `music.163.com`
 
-### Playlist Rename - No Auto File Migration
-When renaming a playlist that has downloaded songs, files are **NOT** automatically moved. Instead:
-- `PlaylistService.updatePlaylist()` returns `PlaylistUpdateResult` with old/new folder paths
-- UI shows a dialog prompting user to manually move the folder
-- This avoids potential data loss from failed file operations
-- Note: Precomputed paths are no longer used - download paths are saved when downloads complete
+### Playlist Import - Original Platform Song ID
+Imported tracks save original platform song ID for direct lyrics fetch:
+- `ImportedTrack.sourceId` → `Track.originalSongId` (Isar, nullable)
+- `ImportedTrack.source` → `Track.originalSource` ("netease" / "qqmusic" / "spotify")
 
-### Android Storage Permission (MANAGE_EXTERNAL_STORAGE)
-Android 10+ 引入分区存储，传统的 `WRITE_EXTERNAL_STORAGE` 不再有效。使用 `MANAGE_EXTERNAL_STORAGE` 权限访问外部存储。
+### Sub-Window Plugin Registration (Windows)
+`desktop_multi_window` sub-windows use `RegisterPluginsForSubWindow()` which excludes `tray_manager` and `hotkey_manager` (global static C++ channels would overwrite main window). When adding new plugins, check for global static channel variables.
 
-- `StoragePermissionService` 处理权限请求逻辑
-- `DownloadPathManager.selectDirectory()` 在 Android 上先请求权限再选择目录
-- 权限请求显示解释对话框，引导用户到系统设置页面授权
-- Google Play 上架需要提交权限使用说明
+### Image Thumbnail Optimization
+`ThumbnailUrlUtils` auto-optimizes image URLs by platform:
+- Bilibili: `@{size}w.jpg` suffix
+- YouTube: quality tier (default/mq/hq/sd/maxres) + webp
+- Netease: `?param={size}y{size}` parameter
 
-### Home Page Ranking Cache (Proactive Background Refresh)
-Home page ranking data (Bilibili/YouTube) is cached and refreshed in the background every hour.
+---
 
-- `RankingCacheService` initialized in `main.dart` at app startup
-- Data fetched immediately on startup, then refreshed every hour via `Timer.periodic`
-- UI always displays cached data instantly (no loading after first launch)
-- Uses `StreamProvider` to notify UI when cache updates
-- YouTube uses "New This Week" playlist from YouTube Music channel (InnerTube Browse API), falls back to search if unavailable
+## UI Development Guidelines
 
-### Audio Quality Settings (2026-02)
-User-configurable audio quality settings for different sources.
+### Code Consistency ⚠️ CRITICAL
 
-**Settings Model** (`lib/data/models/settings.dart`):
-- `AudioQualityLevel` enum: high, medium, low (global, applies to all sources)
-- `AudioFormat` enum: opus, aac (YouTube only - Bilibili only has AAC)
-- `StreamType` enum: audioOnly, muxed, hls
+1. **Unified image components:**
+   - Song cover → `TrackThumbnail` / `TrackCover`
+   - Avatar → `ImageLoadingService.loadAvatar()`
+   - Other images → `ImageLoadingService.loadImage()`
+   - **NEVER** use `Image.network()` or `Image.file()` directly
 
-**Provider** (`lib/providers/audio_settings_provider.dart`):
-- `audioSettingsProvider` - StateNotifierProvider for audio quality settings
-- `lyricsSearchProvider` - StateNotifierProvider for lyrics search
-- `currentLyricsMatchProvider` / `currentLyricsContentProvider` - Current track lyrics
-- Settings persisted via Isar Settings model
-
-**UI** (`lib/ui/pages/settings/audio_settings_page.dart`):
-- "全局音质等级" - Quality level selection (high/medium/low), applies to all sources
-- "YouTube 格式优先级" - Format priority (Opus/AAC), only affects YouTube
-- "YouTube 流优先级" - Stream type priority (audioOnly/muxed/hls)
-- "Bilibili 流优先级" - Stream type priority (audioOnly/muxed)
-
-**Source Integration**:
-- `AudioStreamConfig` passed to source `getAudioUrl()` methods
-- `AudioStreamResult` returned with bitrate, container, codec, streamType info
-- `QueueManager` reads settings and builds config for sources
-
-**PlayerState Display**:
-- `currentBitrate`, `currentContainer`, `currentCodec`, `currentStreamType` fields
-- Displayed in player info dialog and track detail panel
-
-**Key Limitations**:
-- Bilibili only supports AAC format, format priority has no effect
-- Bilibili live streams are always muxed (video+audio), no audio-only option
-
-### Auth for Playback (2026-03)
-Per-platform toggle controlling whether login credentials are used when fetching audio streams for playback and download.
-
-**Settings Model** (`lib/data/models/settings.dart`):
-- `useBilibiliAuthForPlay` (default `false`)
-- `useYoutubeAuthForPlay` (default `false`)
-- `useNeteaseAuthForPlay` (default `true`)
-- `useAuthForPlay(SourceType)` — convenience getter
-- `setUseAuthForPlay(SourceType, bool)` — convenience setter
-
-**UI**: Toggle button on each platform card in the account management page (`lib/ui/pages/settings/account_management_page.dart`). When enabled, rendered as `FilledButton.tonal` (highlighted); when disabled, rendered as `OutlinedButton` (hollow). Shown only when logged in.
-
-**Backend integration**:
-- `QueueManager.ensureAudioUrl()` / `ensureAudioStream()` — reads `settings.useAuthForPlay(track.sourceType)` to decide whether to attach auth headers
-- `DownloadService._startDownload()` — same pattern, also sets per-source `Referer` header for isolate downloads
-- Replaced the previous `withAuthRetryDirect` retry-on-403 pattern with explicit settings-based auth
-
-### Playlist Import - Original Platform Song ID (2026-02)
-导入外部歌单时保存原平台歌曲 ID，用于歌词直接获取和来源追溯。
-
-**ImportedTrack** 新增字段：
-- `sourceId` — 原平台歌曲 ID（网易云 int→String, QQ音乐 songmid, Spotify track ID）
-- `source` — 来源平台（`PlaylistSource` 枚举）
-
-**Track 模型** 新增字段（Isar，nullable，兼容旧数据）：
-- `originalSongId` — 原平台歌曲 ID
-- `originalSource` — 来源标识（`"netease"` / `"qqmusic"` / `"spotify"`）
-
-**歌词自动匹配优先级**（`LyricsAutoMatchService.tryAutoMatch()`）：
-1. 检查已有匹配
-2. **原平台 ID 直接获取**（网易云/QQ音乐，跳过搜索）
-3. 网易云搜索
-4. QQ音乐搜索
-5. lrclib fallback
-
-**数据流**：导入源提取 ID → `ImportedTrack.sourceId` → `selectedTracks` getter 复制到 `Track.originalSongId` → 保存到 Isar → 歌词自动匹配时使用
-
-### Unified Source Exception Handling (2026-02)
-`BilibiliApiException` and `YouTubeApiException` both extend `SourceApiException` (in `lib/data/sources/source_exception.dart`).
-
-**Key points:**
-- `AudioController` catches `on SourceApiException` instead of source-specific exceptions
-- `_handleSourceError()` uses base class getters (`isUnavailable`, `isRateLimited`, `isGeoRestricted`) for unified error handling
-- `BilibiliApiException` uses `numericCode` (int) field, with `code` getter mapping to semantic strings
-- `YouTubeApiException` uses `code` (String) field directly
-- `SourceApiException.classifyDioError()` provides shared Dio error classification
-- YouTube rate limiting now gets proper handling (previously fell into generic catch)
-
-**Constructor change:** `BilibiliApiException(code:` → `BilibiliApiException(numericCode:`
-
-### Sub-Window Plugin Registration (2026-02)
-`desktop_multi_window` creates sub-windows with independent Flutter engines. By default, `RegisterPlugins()` registers ALL plugins for each engine. However, `tray_manager`, `hotkey_manager`, and `window_manager` use **global static C++ channel variables** — registering them for sub-windows overwrites the main window's channel, breaking:
-- Tray icon click events (events sent to sub-window's Dart code instead of main window's)
-- Global hotkey callbacks
-- `window_manager` C++-to-Dart events (`onWindowClose`, `onWindowMaximize`, etc.)
-
-**Fix** (`windows/runner/flutter_window.cpp`):
-- Sub-windows use `RegisterPluginsForSubWindow()` which excludes `tray_manager` and `hotkey_manager`
-- `window_manager` is still registered for sub-windows (needed for `setSize`/`setAlwaysOnTop`/etc.), but its C++-to-Dart events are broken for the main window
-- Main window's title bar close button bypasses the broken event chain via `WindowsDesktopService.handleCloseButton()`
-
-**Lyrics window hide-instead-of-destroy** (`LyricsWindowService`):
-- `close()` hides the sub-window (`_controller!.hide()`) instead of destroying it
-- `open()` restores a hidden window via `_controller!.show()`
-- `destroy()` truly destroys the window (only called on app exit via `WindowsDesktopService.dispose()`)
-- Sub-window close button sends `requestHide` command to main window via `WindowMethodChannel`
-
-**IMPORTANT**: When adding new Flutter plugins, check if they use global static channel variables. If so, exclude them from `RegisterPluginsForSubWindow()` in `flutter_window.cpp`.
-
-### AppBar Actions Trailing Spacing
-All page-level `AppBar` actions lists must end with `const SizedBox(width: 8)` to maintain consistent spacing between the last action button and the screen edge. This applies when the last action is an `IconButton`. Pages where the last action is a `PopupMenuButton` do not need the extra spacing since `PopupMenuButton` has built-in padding.
-
-```dart
-// ✅ Correct
-appBar: AppBar(
-  actions: [
-    IconButton(...),
-    IconButton(...),
-    const SizedBox(width: 8), // trailing spacing
-  ],
-),
-
-// ❌ Wrong - no trailing spacing
-appBar: AppBar(
-  actions: [
-    IconButton(...),
-    IconButton(...),
-  ],
-),
-
-// ❌ Wrong - using Padding wrapper instead
-appBar: AppBar(
-  actions: [
-    Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: IconButton(...),
-    ),
-  ],
-),
-```
-
-### ListTile Performance in Lists
-**Avoid putting `Row` inside `ListTile.leading`** - this causes layout jitter during scrolling.
-
-Use flat custom layout instead:
-```dart
-// ✓ Correct - flat layout
-InkWell(
-  onTap: () => ...,
-  child: Padding(
-    padding: EdgeInsets.symmetric(vertical: 6, horizontal: 16),
-    child: Row(children: [/* rank, thumbnail, info, menu */]),
-  ),
-)
-
-// ✗ Wrong - causes layout issues
-ListTile(
-  leading: Row(children: [/* rank, thumbnail */]),  // Performance problem!
-  ...
-)
-```
-
-### UI Constants System (2026-02)
-All UI magic numbers are centralized in `lib/core/constants/ui_constants.dart`.
-
-| 常量類 | 用途 | 示例 |
-|--------|------|------|
-| `AppRadius` | 圓角值 + 預構建 BorderRadius | `AppRadius.borderRadiusLg` → 12dp |
-| `AnimationDurations` | 動畫時長 | `AnimationDurations.normal` → 300ms |
-| `AppSizes` | UI 尺寸 (按鈕、列表項高度、縮略圖、卡片比例等) | `AppSizes.thumbnailMedium` → 48.0 |
-| `ToastDurations` | Toast 顯示時長 | `ToastDurations.short` → 1500ms |
-| `DebounceDurations` | 防抖時長 | `DebounceDurations.standard` → 300ms |
-
-**注意**: `AppRadius.borderRadiusXl` 等是 `static final`（非 `const`），不能用在 `const` 上下文中。
-
-### Image Thumbnail Optimization (2026-02)
-Network images are automatically optimized to reduce memory and bandwidth usage.
-
-**ThumbnailUrlUtils** (`lib/core/utils/thumbnail_url_utils.dart`):
-- Converts high-res image URLs to appropriately-sized thumbnails
-- Bilibili: adds `@{size}w.jpg` suffix (200/400/640/1280)
-- YouTube: selects quality tier (default/mq/hq/sd/maxres) + webp format
-- Reduces download size from ~700 KB to ~20 KB for thumbnails
-
-**ImageLoadingService integration**:
-- Automatically calls `ThumbnailUrlUtils.getOptimizedUrl()` based on display size
-- Also sets `memCacheWidth`/`memCacheHeight` as fallback for unsupported URLs
-- Decoded bitmap memory reduced from ~8 MB (1920×1080) to ~160 KB (200×200)
-
-See `.serena/memories/image_handling.md` for full implementation details.
-
-## UI Page Development Guidelines
-
-### 4. Ensure Code Consistency Across Pages ⚠️ CRITICAL
-
-在创建新页面或修改现有页面前，**必须**阅读 `ui_coding_patterns` 记忆：
-
-```
-mcp__plugin_serena_serena__read_memory(memory_file_name: "ui_coding_patterns")
-```
-
-#### 核心原则
-
-1. **使用统一组件**：
-   - 歌曲封面 → `TrackThumbnail` / `TrackCover`
-   - 头像 → `ImageLoadingService.loadAvatar()`
-   - 其他图片 → `ImageLoadingService.loadImage()`
-   - **禁止**直接使用 `Image.network()` 或 `Image.file()`
-
-2. **FileExistsCache 模式**：
+2. **FileExistsCache pattern:**
    ```dart
-   ref.watch(fileExistsCacheProvider);  // 监听变化
-   final cache = ref.read(fileExistsCacheProvider.notifier);  // 读取
-   final localPath = track.getLocalCoverPath(cache);  // 使用
+   ref.watch(fileExistsCacheProvider);  // watch for changes
+   final cache = ref.read(fileExistsCacheProvider.notifier);
+   final localPath = track.getLocalCoverPath(cache);
    ```
 
-3. **播放状态判断**（统一逻辑）：
+3. **Play state check** (unified logic):
    ```dart
    final currentTrack = ref.watch(currentTrackProvider);
    final isPlaying = currentTrack != null &&
@@ -626,27 +355,23 @@ mcp__plugin_serena_serena__read_memory(memory_file_name: "ui_coding_patterns")
        currentTrack.pageNum == track.pageNum;
    ```
 
-4. **菜单操作**：参考 `ExplorePage` 或 `HomePage` 中的 `_handleMenuAction` 实现
+4. **Menu actions:** Reference `ExplorePage` or `HomePage` `_handleMenuAction`
 
-5. **刷新模式**：使用 `RefreshIndicator` + `ref.invalidate()` 或 cache service
+5. **Refresh:** Use `RefreshIndicator` + `ref.invalidate()` or cache service
 
-#### 相似页面对照
+### AppBar Actions Trailing Spacing
+All `AppBar` actions lists must end with `const SizedBox(width: 8)` when last action is `IconButton`. Not needed for `PopupMenuButton` (has built-in padding).
 
-| 新建/修改页面 | 应参考的页面 | 统一点 |
-|--------------|-------------|--------|
-| 任何带歌曲列表的页面 | `ExplorePage` | TrackTile 样式、菜单 |
-| 带分组的歌曲列表 | `PlaylistDetailPage` | 多P分组逻辑 |
-| 网格卡片页面 | `LibraryPage` / `DownloadedPage` | 卡片样式、长按菜单 |
+### ListTile Performance
+**Avoid `Row` inside `ListTile.leading`** — causes layout jitter. Use flat `InkWell` + `Padding` + `Row` instead.
 
-#### 检查清单
+### UI Constants
+All UI magic numbers centralized in `lib/core/constants/ui_constants.dart`:
+`AppRadius`, `AnimationDurations`, `AppSizes`, `ToastDurations`, `DebounceDurations`.
 
-创建或修改页面时，确认：
-- [ ] 图片加载使用统一组件
-- [ ] FileExistsCache 正确使用（watch + read）
-- [ ] 播放状态判断逻辑统一
-- [ ] 菜单操作与其他页面一致
-- [ ] 错误/空状态处理符合规范
-- [ ] AppBar actions 尾部间距：IconButton 结尾加 `SizedBox(width: 8)`
+Note: `AppRadius.borderRadiusXl` etc. are `static final` (not `const`), cannot use in `const` context.
+
+---
 
 ## File Structure Highlights
 
@@ -654,84 +379,87 @@ mcp__plugin_serena_serena__read_memory(memory_file_name: "ui_coding_patterns")
 lib/
 ├── services/
 │   ├── audio/
-│   │   ├── audio_provider.dart          # AudioController + PlayerState + Providers
+│   │   ├── audio_provider.dart          # AudioController + PlayerState
 │   │   ├── audio_service.dart           # Abstract AudioService interface
-│   │   ├── media_kit_audio_service.dart # Desktop: media_kit (libmpv) implementation
-│   │   ├── just_audio_service.dart      # Android: just_audio (ExoPlayer) implementation
-│   │   ├── audio_types.dart             # FmpAudioProcessingState, FmpPlayerState, FmpAudioDevice
-│   │   ├── audio_handler.dart           # FmpAudioHandler (Android notification via audio_service)
+│   │   ├── media_kit_audio_service.dart # Desktop: media_kit (libmpv)
+│   │   ├── just_audio_service.dart      # Android: just_audio (ExoPlayer)
+│   │   ├── audio_types.dart             # Unified player state types
+│   │   ├── audio_handler.dart           # Android notification (audio_service)
 │   │   └── queue_manager.dart           # Queue, shuffle, loop, persistence
-│   ├── cache/
-│   │   └── ranking_cache_service.dart  # 首頁排行榜緩存（主動後台刷新）
+│   ├── account/
+│   │   ├── bilibili_account_service.dart
+│   │   ├── youtube_account_service.dart
+│   │   ├── netease_account_service.dart  # QR login, cookie auth, MUSIC_U
+│   │   └── netease_playlist_service.dart # User playlist operations
 │   ├── lyrics/
-│   │   ├── lrclib_source.dart          # lrclib.net API 客戶端
-│   │   ├── netease_source.dart         # 網易雲音樂歌詞源（搜索+歌詞獲取）
-│   │   ├── lyrics_result.dart          # 統一歌詞結果類型（LyricsResult）
-│   │   ├── lyrics_auto_match_service.dart # 自動匹配（原平台ID直取優先 → 網易雲 → QQ音樂 → lrclib fallback）
-│   │   ├── qqmusic_source.dart          # QQ音樂歌詞源（搜索+歌詞獲取）
-│   │   ├── lyrics_cache_service.dart   # 歌詞緩存（LRU，支持多源）
-│   │   ├── lrc_parser.dart             # LRC 格式解析
-│   │   ├── title_parser.dart           # 標題解析（提取歌名/歌手）
-│   │   └── lyrics_window_service.dart # 桌面歌詞彈出窗口管理（hide-instead-of-destroy）
+│   │   ├── lyrics_auto_match_service.dart # Multi-source auto-match
+│   │   ├── lrclib_source.dart           # lrclib.net
+│   │   ├── netease_source.dart          # Netease lyrics (search + fetch)
+│   │   ├── qqmusic_source.dart          # QQ Music lyrics
+│   │   ├── lyrics_cache_service.dart    # LRU cache
+│   │   ├── lyrics_window_service.dart   # Desktop popup (hide-instead-of-destroy)
+│   │   ├── lrc_parser.dart / title_parser.dart
+│   │   └── lyrics_result.dart
+│   ├── cache/
+│   │   └── ranking_cache_service.dart   # Home ranking cache (hourly refresh)
 │   ├── download/
-│   │   ├── download_service.dart       # 下載任務調度
-│   │   ├── download_path_manager.dart  # 下載路徑選擇和管理
-│   │   └── download_path_utils.dart    # 路徑計算工具
+│   │   ├── download_service.dart        # Task scheduling
+│   │   ├── download_path_manager.dart   # Path selection
+│   │   └── download_path_utils.dart     # Path calculation
 │   ├── import/
-│   │   ├── import_service.dart         # URL 導入服務
-│   │   └── playlist_import_service.dart # 外部歌單導入服務（匹配搜索）
-│   ├── radio/
-│   │   ├── radio_controller.dart       # 直播/電台控制
-│   │   ├── radio_refresh_service.dart  # 直播流刷新
-│   │   └── radio_source.dart           # 直播源解析
-│   ├── update/
-│   │   └── update_service.dart         # 應用內更新（GitHub Releases）
-│   └── storage_permission_service.dart # Android 存儲權限請求（MANAGE_EXTERNAL_STORAGE）
+│   │   ├── import_service.dart          # URL import (useAuth parameter)
+│   │   └── playlist_import_service.dart # External playlist import (search-match)
+│   ├── radio/                           # Live/radio control
+│   └── update/                          # In-app update (GitHub Releases)
 ├── data/
-│   ├── models/               # Isar collections (*.dart + *.g.dart)
-│   │   └── lyrics_match.dart          # 歌词匹配记录（Track↔lrclib/netease）
-│   ├── repositories/         # Data access layer
-│   │   └── lyrics_repository.dart     # 歌词匹配 CRUD
-│   └── sources/              # Audio source parsers
-│       ├── source_exception.dart       # 统一异常基类 SourceApiException + classifyDioError
-│       ├── bilibili_source.dart        # Bilibili 音源
-│       ├── youtube_source.dart         # YouTube 音源
-│       └── playlist_import/            # 外部歌單導入源
-│           ├── netease_playlist_source.dart   # 網易雲音樂
-│           ├── qq_music_playlist_source.dart  # QQ音樂
-│           └── spotify_playlist_source.dart   # Spotify
+│   ├── models/                          # Isar collections
+│   ├── repositories/                    # Data access layer
+│   └── sources/
+│       ├── base_source.dart             # Abstract base class
+│       ├── source_exception.dart        # Unified SourceApiException
+│       ├── bilibili_source.dart         # Bilibili audio source
+│       ├── youtube_source.dart          # YouTube audio source
+│       ├── netease_source.dart          # Netease audio source
+│       ├── netease_exception.dart       # NeteaseApiException
+│       ├── source_provider.dart         # SourceManager + providers
+│       └── playlist_import/             # External playlist import sources
+│           ├── netease_playlist_source.dart
+│           ├── qq_music_playlist_source.dart
+│           └── spotify_playlist_source.dart
 ├── core/
 │   ├── constants/
-│   │   ├── app_constants.dart         # 應用級常量（超時、重試、緩存策略等）
-│   │   └── ui_constants.dart          # UI 常量（間距、圓角、動畫時長、尺寸等）
-│   ├── utils/                         # 工具類
-│   └── services/                      # 核心服務（Toast、圖片加載等）
+│   │   ├── app_constants.dart           # App-level constants
+│   │   └── ui_constants.dart            # UI constants
+│   ├── utils/
+│   │   ├── netease_crypto.dart          # Netease eapi/weapi encryption
+│   │   └── thumbnail_url_utils.dart     # Image URL optimization
+│   └── services/                        # Core services (Toast, ImageLoading)
 ├── ui/
-│   ├── pages/                # Full pages
-│   │   ├── home/             # 首頁（快捷操作、最近熱門預覽）
-│   │   ├── explore/          # 探索頁（完整排行榜）
-│   │   ├── search/           # 搜索頁
-│   │   ├── player/           # 全屏播放器
-│   │   ├── queue/            # 播放隊列
-│   │   ├── history/          # 播放歷史
-│   │   ├── library/          # 音樂庫、歌單詳情、已下載、導入預覽
-│   │   ├── live_room/        # 直播間
-│   │   │   ├── lyrics/            # 歌詞匹配搜索（多源篩選：全部/網易雲/lrclib）
-│   ├── radio/            # 電台頁面
-│   │   ├── download/         # 下載相關
-│   │   └── settings/         # 設置、下載管理、音頻設置
-│   ├── widgets/              # Shared widgets
-│   ├── windows/              # Sub-window entry points
-│   │   └── lyrics_window.dart # 歌詞彈出窗口（獨立 Flutter engine）
-│   └── layouts/              # Responsive layouts
-└── providers/                # Riverpod providers
+│   ├── pages/
+│   │   ├── home/                        # Home (quick actions, ranking preview)
+│   │   ├── explore/                     # Explore (full rankings)
+│   │   ├── search/                      # Search (3-source)
+│   │   ├── player/                      # Full-screen player
+│   │   ├── queue/                       # Play queue
+│   │   ├── history/                     # Play history
+│   │   ├── library/                     # Library, playlist detail, downloaded
+│   │   ├── live_room/                   # Live room (lyrics search)
+│   │   ├── radio/                       # Radio
+│   │   └── settings/                    # Settings + sub-pages
+│   │       ├── account_management_page.dart  # Multi-platform account
+│   │       ├── bilibili_login_page.dart
+│   │       ├── youtube_login_page.dart
+│   │       ├── netease_login_page.dart  # QR code + WebView
+│   │       ├── audio_settings_page.dart
+│   │       └── ...
+│   ├── widgets/                         # Shared widgets
+│   ├── windows/                         # Sub-window entry points
+│   └── layouts/                         # Responsive layouts
+├── i18n/                                # zh-CN, zh-TW, en
+├── providers/                           # Riverpod providers
+├── app.dart                             # Router configuration
+└── main.dart                            # Main entry point
 ```
-
-## Bilibili API Notes
-
-- Audio requires `Referer: https://www.bilibili.com` header
-- Audio URLs expire and need periodic refresh via `ensureAudioUrl()`
-- Track availability checked via `isUnavailable` / `isGeoRestricted`
 
 ## Responsive Breakpoints
 

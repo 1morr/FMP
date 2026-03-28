@@ -887,6 +887,8 @@ enum StreamType {
 - `audioFormatPriority` - 格式优先级（逗号分隔字符串）
 - `youtubeStreamPriority` - YouTube 流优先级
 - `bilibiliStreamPriority` - Bilibili 流优先级
+- `neteaseStreamPriority` - Netease 流优先级（默认 'audioOnly'）
+- `useNeteaseAuthForPlay` - 网易云播放时使用登录状态（默认 true）
 
 ### Provider
 
@@ -968,6 +970,9 @@ class PlayerState {
 1. **Bilibili 格式限制**：Bilibili 只支持 AAC 格式，格式优先级设置对其无影响
 2. **Bilibili 直播流**：直播流始终是 muxed（视频+音频混合），无法获取纯音频流
 3. **YouTube androidVr**：只有 androidVr 客户端的 audio-only 流 URL 可以正常访问
+4. **Netease 格式限制**：Netease 仅支持 audioOnly 流类型，不支持 muxed/HLS
+5. **Netease 需要登录**：大部分歌曲音频流获取需要 MUSIC_U cookie 认证（eapi 加密）
+6. **Netease 音频过期**：音频 URL 有效期约 16 分钟，需定期刷新
 
 ## 文件位置
 
@@ -982,3 +987,6 @@ class PlayerState {
 | `lib/ui/widgets/player/mini_player.dart` | 底部迷你播放器 |
 | `lib/ui/pages/queue/queue_page.dart` | 队列页面 |
 | `lib/ui/pages/settings/audio_settings_page.dart` | 音频设置页面 |
+| `lib/data/sources/netease_source.dart` | 网易云音源（搜索、详情、音频流、歌单） |
+| `lib/core/utils/netease_crypto.dart` | 网易云 eapi/weapi 加密工具 |
+| `lib/services/account/netease_account_service.dart` | 网易云账号管理 |
