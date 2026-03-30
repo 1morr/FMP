@@ -6,6 +6,7 @@ import '../../../core/services/image_loading_service.dart';
 import '../../router.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
+import '../../../core/utils/icon_helpers.dart';
 import '../../../data/models/track.dart';
 import '../../../core/constants/ui_constants.dart';
 import '../../../i18n/strings.g.dart';
@@ -949,7 +950,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  playlist.isMix ? Icons.radio : Icons.link,
+                                  playlist.isMix
+                                      ? Icons.radio
+                                      : getImportSourceIcon(playlist.importSourceType),
                                   size: 14,
                                   color: playlist.isMix
                                       ? colorScheme.onTertiaryContainer
