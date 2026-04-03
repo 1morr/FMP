@@ -915,9 +915,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         _context =
             _context.copyWith(mode: PlayMode.queue, clearSavedState: true);
       }
+      if (_isSuperseded(requestId)) return;
       final track = _queueManager.currentTrack;
       if (track != null) {
-        _handleSourceError(track, e, PlayMode.queue);
+        _handleSourceError(track, e, PlayMode.queue, requestId);
       } else {
         _resetLoadingState();
       }
@@ -1947,7 +1948,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         _scheduleRetry(track, positionBeforeLoad);
         throw const _RetryScheduledException();
       }
-      _handleSourceError(track, e, mode);
+      if (_isSuperseded(requestId)) return;
+      _handleSourceError(track, e, mode, requestId);
     } catch (e, stack) {
       logError('Failed to play track: ${track.title}', e, stack);
 
@@ -2028,7 +2030,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   /// 處理音源 API 錯誤的統一邏輯
-  void _handleSourceError(Track track, SourceApiException e, PlayMode mode) {
+  void _handleSourceError(Track track, SourceApiException e, PlayMode mode, int requestId) {
     if (e.isUnavailable || e.isGeoRestricted || e.isVipRequired) {
       logInfo('Track unavailable (${e.sourceType.name}): ${track.title}');
       final nextIdx = _queueManager.getNextIndex();
@@ -2037,7 +2039,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         _toastService
             .showWarning(t.audio.cannotPlaySkipped(title: track.title));
         Future.delayed(const Duration(milliseconds: 300), () {
-          next();
+          if (!_isSuperseded(requestId)) {
+            next();
+          }
         });
       } else {
         _audioService.stop();
