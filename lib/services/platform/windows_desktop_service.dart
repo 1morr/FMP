@@ -417,13 +417,11 @@ class WindowsDesktopService with TrayListener, WindowListener {
       // 异步检查安装程序
       if (await _isInstallerRunning()) {
         debugPrint('[WindowsDesktopService] Installer detected, exiting app');
-        await dispose();
-        exit(0);
+        await _forceExit();
       }
     } else {
       // preventClose 未启用，直接退出
-      await dispose();
-      exit(0);
+      await _forceExit();
     }
   }
 
@@ -444,9 +442,30 @@ class WindowsDesktopService with TrayListener, WindowListener {
     onQuit?.call();
     // 如果没有设置 onQuit 回调，执行默认退出
     if (onQuit == null) {
-      await dispose();
-      exit(0);
+      await _forceExit();
     }
+  }
+
+  /// 强制退出应用
+  ///
+  /// 先让用户感知"已关闭"（隐藏窗口、销毁托盘），
+  /// 再带超时地做资源清理，最后强制 exit。
+  Future<void> _forceExit() async {
+    // 1. 立即让用户看不到进程：隐藏窗口 + 销毁托盘
+    try {
+      await windowManager.hide();
+      await trayManager.destroy();
+    } catch (_) {}
+
+    // 2. 带超时地做剩余清理（最多 2 秒）
+    try {
+      await dispose().timeout(const Duration(seconds: 2));
+    } catch (_) {
+      // 超时或清理出错，直接退出
+    }
+
+    // 3. 强制退出
+    exit(0);
   }
 
   // WindowListener 回调
@@ -463,8 +482,7 @@ class WindowsDesktopService with TrayListener, WindowListener {
       // 这样 Inno Setup 的 /CLOSEAPPLICATIONS 才能正常工作
       if (await _isInstallerRunning()) {
         debugPrint('[WindowsDesktopService] Installer detected, exiting app');
-        await dispose();
-        exit(0);
+        await _forceExit();
       }
     }
   }
