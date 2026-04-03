@@ -102,8 +102,8 @@ class FMPApp extends ConsumerWidget {
         // 初始化自动刷新服务（后台运行，不阻塞 UI）
         ref.watch(autoRefreshServiceProvider);
 
-        // 啟動時檢查並刷新 Bilibili Cookie（後台執行）
-        ref.watch(accountCookieRefreshProvider);
+        // 啟動時檢查帳號狀態（含 Cookie 刷新，後台執行）
+        ref.watch(accountStatusCheckProvider);
 
         return MaterialApp.router(
           title: '${AppConstants.appName} - ${AppConstants.appFullName}',

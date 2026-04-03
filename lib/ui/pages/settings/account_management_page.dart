@@ -9,6 +9,7 @@ import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/account_provider.dart';
 import '../../../providers/repository_providers.dart';
+import '../../../services/account/account_service.dart';
 import '../../router.dart';
 import 'widgets/account_playlists_sheet.dart';
 import 'widgets/account_radio_import_sheet.dart';
@@ -23,6 +24,8 @@ class AccountManagementPage extends ConsumerStatefulWidget {
 }
 
 class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
+  bool _isVerifying = false;
+
   @override
   void initState() {
     super.initState();
@@ -48,6 +51,20 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(t.account.title),
+        actions: [
+          IconButton(
+            icon: _isVerifying
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh),
+            tooltip: t.account.checkingAccounts,
+            onPressed: _isVerifying ? null : _verifyAllAccounts,
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -126,6 +143,28 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _verifyAllAccounts() async {
+    setState(() => _isVerifying = true);
+
+    try {
+      final toastService = ref.read(toastServiceProvider);
+      toastService.showInfo(t.account.checkingAccounts);
+
+      final services = <(AccountService, String)>[
+        (ref.read(bilibiliAccountServiceProvider), 'Bilibili'),
+        (ref.read(youtubeAccountServiceProvider), 'YouTube'),
+        (ref.read(neteaseAccountServiceProvider), 'Netease'),
+      ];
+
+      await verifyAllAccountStatuses(services, toastService);
+      toastService.showSuccess(t.account.accountsVerified);
+    } finally {
+      if (mounted) {
+        setState(() => _isVerifying = false);
+      }
+    }
   }
 
   Future<void> _confirmLogout(SourceType platform) async {

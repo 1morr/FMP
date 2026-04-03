@@ -424,10 +424,13 @@ class BilibiliAccountService extends AccountService with Logging {
 
   // ===== 用戶信息 =====
 
-  /// 獲取用戶信息並更新 Account
-  Future<void> fetchAndUpdateUserInfo() async {
+  /// 檢查帳號登錄狀態和 VIP 狀態
+  @override
+  Future<AccountCheckResult> checkAccountStatus() async {
     final cookieString = await getAuthCookieString();
-    if (cookieString == null) return;
+    if (cookieString == null) {
+      return const AccountCheckResult(status: AccountStatus.invalid);
+    }
 
     try {
       final response = await _dio.get(
@@ -436,21 +439,38 @@ class BilibiliAccountService extends AccountService with Logging {
       );
 
       final code = response.data['code'] as int?;
-      if (code != 0) {
-        logWarning('Failed to fetch user info, code: $code');
-        return;
+      if (code == 0) {
+        final data = response.data['data'];
+        final vipStatus = data['vip']?['status'] as int? ?? 0;
+        final userName = data['uname'] as String?;
+        final avatarUrl = data['face'] as String?;
+        final userId = (data['mid'] as num?)?.toString();
+
+        await _updateAccount(
+          userName: userName,
+          avatarUrl: avatarUrl,
+          userId: userId,
+          isVip: vipStatus == 1,
+        );
+
+        return AccountCheckResult(
+          status: AccountStatus.valid,
+          isVip: vipStatus == 1,
+        );
+      } else if (code == -101 || code == -111) {
+        return const AccountCheckResult(status: AccountStatus.invalid);
+      } else {
+        return const AccountCheckResult(status: AccountStatus.error);
       }
+    } on DioException {
+      return const AccountCheckResult(status: AccountStatus.error);
+    }
+  }
 
-      final data = response.data['data'];
-      final vipStatus = data['vip']?['status'] as int? ?? 0;
-      await _updateAccount(
-        userName: data['uname'] as String?,
-        avatarUrl: data['face'] as String?,
-        userId: (data['mid'] as num?)?.toString(),
-        isVip: vipStatus == 1,
-      );
-
-      logInfo('User info updated: ${data['uname']}');
+  /// 獲取用戶信息並更新 Account
+  Future<void> fetchAndUpdateUserInfo() async {
+    try {
+      await checkAccountStatus();
     } catch (e) {
       logError('Failed to fetch user info', e);
     }

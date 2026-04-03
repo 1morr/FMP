@@ -41,5 +41,9 @@
   "youtubeVip": "YouTube Premium",
   "youtubeNotVip": "Not a YouTube Premium member",
   "neteaseVip": "NetEase VIP",
-  "neteaseNotVip": "Not a NetEase VIP member"
+  "neteaseNotVip": "Not a NetEase VIP member",
+  "sessionExpired": "$platform login has expired, please log in again",
+  "vipExpired": "$platform VIP has expired",
+  "checkingAccounts": "Verifying account status...",
+  "accountsVerified": "Account verification complete"
 }

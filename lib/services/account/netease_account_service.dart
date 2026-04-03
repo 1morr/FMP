@@ -265,15 +265,17 @@ class NeteaseAccountService extends AccountService with Logging {
 
   // ===== 用戶信息 =====
 
-  /// 檢查登錄狀態並獲取用戶信息
-  Future<void> fetchAndUpdateUserInfo() async {
+  /// 檢查帳號登錄狀態和 VIP 狀態
+  @override
+  Future<AccountCheckResult> checkAccountStatus() async {
     final cookieString = await getAuthCookieString();
-    if (cookieString == null) return;
+    if (cookieString == null) {
+      return const AccountCheckResult(status: AccountStatus.invalid);
+    }
 
     try {
       final authHeaders = _buildAuthHeaders(cookieString);
 
-      // 優先 GET，失敗則 POST（與 reference 一致）
       Response<dynamic>? response;
       try {
         response = await _dio.get(
@@ -289,36 +291,51 @@ class NeteaseAccountService extends AccountService with Logging {
 
       final data = response.data;
       if (data is! Map<String, dynamic>) {
-        logWarning('Netease: invalid account response');
-        return;
+        return const AccountCheckResult(status: AccountStatus.error);
       }
+
       final code = data['code'] as int?;
-      if (code != 200) {
-        logWarning('Netease: failed to fetch user info, code: $code');
-        return;
+      if (code == 200) {
+        final profile = data['profile'] as Map<String, dynamic>?;
+        if (profile == null) {
+          return const AccountCheckResult(status: AccountStatus.invalid);
+        }
+
+        final userId = (profile['userId'] ?? data['account']?['id'])?.toString();
+        final userName = profile['nickname'] as String?;
+        final avatarUrl = profile['avatarUrl'] as String?;
+        final vipType = profile['vipType'] as int? ?? 0;
+        final isVip = vipType > 0;
+
+        await _updateAccount(
+          userName: userName,
+          avatarUrl: avatarUrl,
+          userId: userId,
+          isVip: isVip,
+        );
+
+        return AccountCheckResult(
+          status: AccountStatus.valid,
+          isVip: isVip,
+        );
+      } else {
+        // code 301 = not logged in, other non-200 = invalid
+        return const AccountCheckResult(status: AccountStatus.invalid);
       }
+    } on DioException {
+      return const AccountCheckResult(status: AccountStatus.error);
+    }
+  }
 
-      final profile = data['profile'] as Map<String, dynamic>?;
-      final account = data['account'] as Map<String, dynamic>?;
-      if (profile == null) {
-        logWarning('Netease: user profile is null');
-        return;
-      }
-
-      final userId = (profile['userId'] ?? account?['id'])?.toString();
-      final userName = profile['nickname'] as String?;
-      final avatarUrl = profile['avatarUrl'] as String?;
-      final vipType = profile['vipType'] as int? ?? 0;
-      final isVip = vipType > 0;
-
-      await _updateAccount(
-        userName: userName,
-        avatarUrl: avatarUrl,
-        userId: userId,
-        isVip: isVip,
-      );
+  /// 檢查登錄狀態並獲取用戶信息
+  Future<void> fetchAndUpdateUserInfo() async {
+    try {
+      final result = await checkAccountStatus();
+      if (result.status != AccountStatus.valid) return;
 
       // 同步 credentials 中的 userId（首次登錄或修正錯誤值）
+      final account = await getCurrentAccount();
+      final userId = account?.userId;
       if (_cachedCredentials != null && userId != null &&
           _cachedCredentials!.userId != userId) {
         final credentials = _cachedCredentials!;
@@ -334,8 +351,6 @@ class NeteaseAccountService extends AccountService with Logging {
         );
         _cachedCredentials = updated;
       }
-
-      logInfo('Netease user info updated: $userName');
     } catch (e) {
       logError('Failed to fetch Netease user info', e);
     }
