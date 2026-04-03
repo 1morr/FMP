@@ -152,10 +152,10 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
       final toastService = ref.read(toastServiceProvider);
       toastService.showInfo(t.account.checkingAccounts);
 
-      final services = <(AccountService, String)>[
-        (ref.read(bilibiliAccountServiceProvider), 'Bilibili'),
-        (ref.read(youtubeAccountServiceProvider), 'YouTube'),
-        (ref.read(neteaseAccountServiceProvider), 'Netease'),
+      final services = <AccountService>[
+        ref.read(bilibiliAccountServiceProvider),
+        ref.read(youtubeAccountServiceProvider),
+        ref.read(neteaseAccountServiceProvider),
       ];
 
       await verifyAllAccountStatuses(services, toastService);

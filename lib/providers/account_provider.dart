@@ -147,10 +147,10 @@ final accountStatusCheckProvider = FutureProvider<void>((ref) async {
   await ref.watch(accountCookieRefreshProvider.future);
 
   final toastService = ref.read(toastServiceProvider);
-  final services = <(AccountService, String)>[
-    (ref.read(bilibiliAccountServiceProvider), 'Bilibili'),
-    (ref.read(youtubeAccountServiceProvider), 'YouTube'),
-    (ref.read(neteaseAccountServiceProvider), 'Netease'),
+  final services = <AccountService>[
+    ref.read(bilibiliAccountServiceProvider),
+    ref.read(youtubeAccountServiceProvider),
+    ref.read(neteaseAccountServiceProvider),
   ];
 
   await verifyAllAccountStatuses(services, toastService);
@@ -160,13 +160,14 @@ final accountStatusCheckProvider = FutureProvider<void>((ref) async {
 ///
 /// 供 [accountStatusCheckProvider] 和帳號管理頁面共用。
 Future<void> verifyAllAccountStatuses(
-  List<(AccountService, String)> services,
+  List<AccountService> services,
   ToastService toastService,
 ) async {
-  for (final (service, name) in services) {
+  for (final service in services) {
     if (!await service.isLoggedIn()) continue;
     final oldAccount = await service.getCurrentAccount();
     final oldIsVip = oldAccount?.isVip ?? false;
+    final name = service.platform.displayName;
 
     try {
       final result = await service.checkAccountStatus();
@@ -179,7 +180,7 @@ Future<void> verifyAllAccountStatuses(
         }
       }
     } catch (e) {
-      AppLogger.warning('$name status check failed: $e', 'AccountStatusCheck');
+      AppLogger.warning('${service.platform.name} status check failed: $e', 'AccountStatusCheck');
     }
   }
 }
