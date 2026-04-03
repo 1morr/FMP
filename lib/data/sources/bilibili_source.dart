@@ -5,11 +5,13 @@ import 'package:fmp/i18n/strings.g.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
+import '../../core/utils/http_client_factory.dart';
 import '../models/live_room.dart';
 import '../models/settings.dart';
 import '../models/track.dart';
 import '../models/video_detail.dart';
 import 'base_source.dart';
+import 'bilibili_exception.dart';
 import 'source_exception.dart';
 
 /// Bilibili API 参数常量
@@ -54,19 +56,15 @@ class BilibiliSource extends BaseSource with Logging {
     final buvid4 = _generateBuvid4();
     final bNut = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
-    _dio = Dio(BaseOptions(
+    _dio = HttpClientFactory.create(
       headers: {
-        'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         'Referer': 'https://search.bilibili.com/',
         'Origin': 'https://search.bilibili.com',
         'Accept': 'application/json, text/plain, */*',
         'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
         'Cookie': 'buvid3=$buvid3; buvid4=$buvid4; b_nut=$bNut; _uuid=$buvid3; buvid_fp=$buvid3',
       },
-      connectTimeout: AppConstants.networkConnectTimeout,
-      receiveTimeout: AppConstants.networkReceiveTimeout,
-    ));
+    );
   }
 
   /// 生成 buvid3 Cookie
@@ -1073,68 +1071,4 @@ class BilibiliSource extends BaseSource with Logging {
   }
 }
 
-/// Bilibili API 错误
-class BilibiliApiException extends SourceApiException {
-  final int numericCode;
-  @override
-  final String message;
-
-  const BilibiliApiException({required this.numericCode, required this.message});
-
-  @override
-  String get code => _mapCode(numericCode);
-
-  @override
-  SourceType get sourceType => SourceType.bilibili;
-
-  @override
-  String toString() => 'BilibiliApiException($numericCode): $message';
-
-  /// 是否是视频不可用（已删除/下架）
-  @override
-  bool get isUnavailable => numericCode == -404 || numericCode == 62002;
-
-  /// 是否是限流
-  @override
-  bool get isRateLimited =>
-      numericCode == -412 ||
-      numericCode == -509 ||
-      numericCode == -799 ||
-      numericCode == -429;
-
-  /// 是否需要登录
-  @override
-  bool get requiresLogin => numericCode == -101;
-
-  /// 是否是权限不足（私人收藏夹/视频）
-  @override
-  bool get isPermissionDenied => numericCode == -403 || numericCode == 62012;
-
-  /// 是否是地区限制
-  @override
-  bool get isGeoRestricted => numericCode == -10403;
-
-  /// 网络连接错误
-  @override
-  bool get isNetworkError => numericCode == -2 || numericCode == -3;
-
-  /// 超时
-  @override
-  bool get isTimeout => numericCode == -1;
-
-  /// 将数字错误码映射为语义化字符串
-  static String _mapCode(int code) {
-    if (code == -404 || code == 62002) return 'unavailable';
-    if (code == -412 || code == -509 || code == -799 || code == -429) {
-      return 'rate_limited';
-    }
-    if (code == -10403) return 'geo_restricted';
-    if (code == -101) return 'login_required';
-    if (code == -403 || code == 62012) return 'permission_denied';
-    if (code == -1) return 'timeout';
-    if (code == -2 || code == -3) return 'network_error';
-    if (code == -999) return 'error';
-    return 'api_error';
-  }
-}
 
