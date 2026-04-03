@@ -96,16 +96,15 @@ class _NeteaseWebViewLoginTabState
     extends ConsumerState<_NeteaseWebViewLoginTab> {
   bool _isLoading = true;
   bool _loginHandled = false;
-  bool _cookiesCleared = false;
 
   @override
-  void initState() {
-    super.initState();
-    _clearCookiesBeforeLoad();
+  void dispose() {
+    _cleanupWebView();
+    super.dispose();
   }
 
-  /// 在 WebView 創建前清除網易雲相關 cookies
-  Future<void> _clearCookiesBeforeLoad() async {
+  /// 清除 WebView 殘留的 cookies、快取和本地存儲
+  Future<void> _cleanupWebView() async {
     try {
       final cookieManager = CookieManager.instance();
       await cookieManager.deleteCookies(
@@ -113,9 +112,12 @@ class _NeteaseWebViewLoginTabState
         domain: '.163.com',
       );
     } catch (_) {}
-    if (mounted) {
-      setState(() => _cookiesCleared = true);
-    }
+    try {
+      await InAppWebViewController.clearAllCache();
+    } catch (_) {}
+    try {
+      await WebStorageManager.instance().deleteAllData();
+    } catch (_) {}
   }
 
   void _onPageLoaded(InAppWebViewController controller, WebUri? url) async {
@@ -155,6 +157,7 @@ class _NeteaseWebViewLoginTabState
         csrf: csrf,
       );
       await accountService.fetchAndUpdateUserInfo();
+      await _cleanupWebView();
 
       widget.onLoginSuccess();
     } catch (_) {
@@ -164,10 +167,6 @@ class _NeteaseWebViewLoginTabState
 
   @override
   Widget build(BuildContext context) {
-    if (!_cookiesCleared) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
     return Stack(
       children: [
         InAppWebView(

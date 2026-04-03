@@ -25,6 +25,37 @@ class _YouTubeLoginPageState extends ConsumerState<YouTubeLoginPage> {
   bool _isLoading = true;
   bool _loginHandled = false;
 
+  @override
+  void dispose() {
+    _cleanupWebView();
+    super.dispose();
+  }
+
+  /// 清除 WebView 殘留的 cookies、快取和本地存儲
+  Future<void> _cleanupWebView() async {
+    try {
+      final cookieManager = CookieManager.instance();
+      await cookieManager.deleteCookies(
+        url: WebUri('https://youtube.com'),
+        domain: '.youtube.com',
+      );
+      await cookieManager.deleteCookies(
+        url: WebUri('https://google.com'),
+        domain: '.google.com',
+      );
+      await cookieManager.deleteCookies(
+        url: WebUri('https://accounts.google.com'),
+        domain: 'accounts.google.com',
+      );
+    } catch (_) {}
+    try {
+      await InAppWebViewController.clearAllCache();
+    } catch (_) {}
+    try {
+      await WebStorageManager.instance().deleteAllData();
+    } catch (_) {}
+  }
+
   /// 獲取偽裝 UA（去除 ;wv 標記）
   String get _userAgent {
     if (Platform.isAndroid) {
@@ -75,6 +106,7 @@ class _YouTubeLoginPageState extends ConsumerState<YouTubeLoginPage> {
 
       // 從 WebView 頁面提取用戶信息（比 InnerTube API 更可靠）
       await _extractUserInfoFromPage(controller, accountService);
+      await _cleanupWebView();
 
       if (mounted) {
         ToastService.show(context, t.account.loginSuccess);
@@ -306,7 +338,8 @@ class _YouTubeLoginPageState extends ConsumerState<YouTubeLoginPage> {
               if (mounted) setState(() => _isLoading = true);
             },
           ),
-          if (_isLoading) const Center(child: CircularProgressIndicator()),
+          if (_isLoading)
+            const Center(child: CircularProgressIndicator()),
         ],
       ),
     );
