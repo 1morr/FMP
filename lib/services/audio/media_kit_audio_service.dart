@@ -250,6 +250,9 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       await (nativePlayer as dynamic).setProperty('cache', 'yes');
       await (nativePlayer as dynamic).setProperty('cache-secs', '5');
 
+      // 限制初始缓冲量为 1 秒（快速开始播放，减少直播场景的内存峰值）
+      await (nativePlayer as dynamic).setProperty('cache-pause-initial', 'no');
+
       // 禁止 demuxer 将已用 buffer 捐赠给其他线程（减少内存碎片）
       await (nativePlayer as dynamic).setProperty('demuxer-donate-buffer', 'no');
 

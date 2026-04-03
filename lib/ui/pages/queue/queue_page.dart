@@ -231,13 +231,12 @@ class _QueuePageState extends ConsumerState<QueuePage> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final playerState = ref.watch(audioControllerProvider);
-    final providerQueue = playerState.queue;
-    final providerCurrentIndex = playerState.currentIndex ?? -1;
+    final providerQueue = ref.watch(audioControllerProvider.select((s) => s.queue));
+    final providerCurrentIndex = ref.watch(audioControllerProvider.select((s) => s.currentIndex)) ?? -1;
     final autoScroll = ref.watch(autoScrollToCurrentTrackProvider);
 
     // 同步本地队列与provider
-    final queueVersion = playerState.queueVersion;
+    final queueVersion = ref.watch(audioControllerProvider.select((s) => s.queueVersion));
     final needsSync = _localQueue == null || _lastQueueVersion != queueVersion;
 
     if (needsSync) {
@@ -270,9 +269,9 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     }
     _lastCurrentIndex = currentIndex;
 
-    final isMixMode = playerState.isMixMode;
-    final mixTitle = playerState.mixTitle;
-    final isLoadingMoreMix = playerState.isLoadingMoreMix;
+    final isMixMode = ref.watch(audioControllerProvider.select((s) => s.isMixMode));
+    final mixTitle = ref.watch(audioControllerProvider.select((s) => s.mixTitle));
+    final isLoadingMoreMix = ref.watch(audioControllerProvider.select((s) => s.isLoadingMoreMix));
 
     return Scaffold(
       appBar: AppBar(

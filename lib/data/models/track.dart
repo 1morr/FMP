@@ -233,6 +233,7 @@ class Track {
   // ========== 分P相关字段 ==========
 
   /// Bilibili cid（分P唯一标识）
+  @Index()
   int? cid;
 
   /// 分P序号 (1, 2, 3...)，null表示单P或未获取分P信息

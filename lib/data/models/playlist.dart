@@ -65,6 +65,7 @@ class Playlist {
   DateTime? updatedAt;
 
   /// 自定義排序順序（數字越小越靠前）
+  @Index()
   int sortOrder = 0;
 
   /// 是否是导入的歌单

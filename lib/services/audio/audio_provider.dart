@@ -409,6 +409,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   // 基于位置检测的备选切歌定时器（解决后台播放 completed 事件丢失问题）
   Timer? _positionCheckTimer;
 
+  // 通知栏/SMTC 更新节流：上次更新的位置
+  Duration _lastNotificationPosition = Duration.zero;
+
   // 当前正在播放的歌曲（独立于队列，确保 UI 显示与实际播放一致）
   Track? _playingTrack;
 
@@ -2498,6 +2501,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     // 更新 QueueManager 的位置（用于恢复播放）
     _queueManager.updatePosition(position);
 
+    // 节流通知栏/SMTC 更新：每 500ms 最多更新一次，减少 IPC 开销
+    final shouldUpdateNotification =
+        (position.inMilliseconds - _lastNotificationPosition.inMilliseconds).abs() >= 500;
+    if (!shouldUpdateNotification) return;
+    _lastNotificationPosition = position;
+
     // 更新 AudioHandler 的播放状态（用于通知栏进度显示）
     if (Platform.isAndroid || Platform.isIOS) {
       _audioHandler.updatePlaybackState(
@@ -2805,30 +2814,30 @@ final isPlayingProvider = Provider<bool>((ref) {
 
 /// 当前歌曲
 final currentTrackProvider = Provider<Track?>((ref) {
-  return ref.watch(audioControllerProvider).currentTrack;
+  return ref.watch(audioControllerProvider.select((s) => s.currentTrack));
 });
 
 /// 当前进度
 final positionProvider = Provider<Duration>((ref) {
-  return ref.watch(audioControllerProvider).position;
+  return ref.watch(audioControllerProvider.select((s) => s.position));
 });
 
 /// 总时长
 final durationProvider = Provider<Duration?>((ref) {
-  return ref.watch(audioControllerProvider).duration;
+  return ref.watch(audioControllerProvider.select((s) => s.duration));
 });
 
 /// 播放队列
 final queueProvider = Provider<List<Track>>((ref) {
-  return ref.watch(audioControllerProvider).queue;
+  return ref.watch(audioControllerProvider.select((s) => s.queue));
 });
 
 /// 是否启用随机播放
 final isShuffleEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(audioControllerProvider).isShuffleEnabled;
+  return ref.watch(audioControllerProvider.select((s) => s.isShuffleEnabled));
 });
 
 /// 循环模式
 final loopModeProvider = Provider<LoopMode>((ref) {
-  return ref.watch(audioControllerProvider).loopMode;
+  return ref.watch(audioControllerProvider.select((s) => s.loopMode));
 });

@@ -836,11 +836,14 @@ class _AlternativeTrackTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    final playerState = ref.watch(audioControllerProvider);
-    final isThisTrackPlaying = playerState.playingTrack?.sourceId == track.sourceId &&
-        playerState.playingTrack?.pageNum == track.pageNum;
-    final isLoading = isThisTrackPlaying && (playerState.isLoading || playerState.isBuffering);
-    final isPlaying = isThisTrackPlaying && playerState.isPlaying && !isLoading;
+    final playingTrack = ref.watch(audioControllerProvider.select((s) => s.playingTrack));
+    final playerIsPlaying = ref.watch(audioControllerProvider.select((s) => s.isPlaying));
+    final playerIsLoading = ref.watch(audioControllerProvider.select((s) => s.isLoading));
+    final playerIsBuffering = ref.watch(audioControllerProvider.select((s) => s.isBuffering));
+    final isThisTrackPlaying = playingTrack?.sourceId == track.sourceId &&
+        playingTrack?.pageNum == track.pageNum;
+    final isLoading = isThisTrackPlaying && (playerIsLoading || playerIsBuffering);
+    final isPlaying = isThisTrackPlaying && playerIsPlaying && !isLoading;
 
     return Padding(
       padding: const EdgeInsets.only(left: 56),
