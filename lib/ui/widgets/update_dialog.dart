@@ -30,7 +30,9 @@ class UpdateDialog extends ConsumerWidget {
     final theme = Theme.of(context);
     final isDownloading = updateState.status == UpdateStatus.downloading;
     final isInstalling = updateState.status == UpdateStatus.installing;
+    final isReadyToInstall = updateState.status == UpdateStatus.readyToInstall;
     final hasError = updateState.status == UpdateStatus.error;
+    final isBusy = isDownloading || isInstalling;
 
     return AlertDialog(
       title: Row(
@@ -39,7 +41,7 @@ class UpdateDialog extends ConsumerWidget {
           const SizedBox(width: 8),
           Expanded(child: Text(t.updateDialog.title)),
           // 关闭按钮
-          if (!isDownloading && !isInstalling)
+          if (!isBusy)
             IconButton(
               onPressed: () {
                 ref.read(updateProvider.notifier).reset();
@@ -170,6 +172,22 @@ class UpdateDialog extends ConsumerWidget {
               ),
             ],
 
+            // 安装包已就绪（下载完成或安装取消后返回）
+            if (isReadyToInstall) ...[
+              Row(
+                children: [
+                  Icon(Icons.check_circle, size: 16, color: theme.colorScheme.primary),
+                  const SizedBox(width: 4),
+                  Text(
+                    t.updateDialog.readyToInstall,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+
             // 错误信息
             if (hasError && updateState.errorMessage != null) ...[
               Container(
@@ -191,7 +209,7 @@ class UpdateDialog extends ConsumerWidget {
       ),
       actions: [
         // 关闭/取消按钮
-        if (!isDownloading && !isInstalling)
+        if (!isBusy)
           TextButton(
             onPressed: () {
               ref.read(updateProvider.notifier).reset();
@@ -200,8 +218,16 @@ class UpdateDialog extends ConsumerWidget {
             child: Text(t.updateDialog.later),
           ),
 
-        // 下载/重试按钮
-        if (!isDownloading && !isInstalling)
+        // 安装包已就绪 → 直接安装
+        if (isReadyToInstall)
+          FilledButton.icon(
+            onPressed: () => ref.read(updateProvider.notifier).retryInstall(),
+            icon: const Icon(Icons.install_mobile),
+            label: Text(t.updateDialog.installNow),
+          ),
+
+        // 下载/重试按钮（非 readyToInstall 时显示）
+        if (!isBusy && !isReadyToInstall)
           FilledButton.icon(
             onPressed: updateInfo.downloadUrl == null
                 ? null
