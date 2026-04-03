@@ -129,9 +129,9 @@ class JustAudioService extends FmpAudioService with Logging {
         androidLoadControl: ja.AndroidLoadControl(
           // 降低缓冲限制，防止直播 muxed 流占用过多内存
           // 默认 minBuffer=50s, maxBuffer=50s，对高码率直播流会缓冲数百 MB
-          minBufferDuration: Duration(seconds: 15),
-          maxBufferDuration: Duration(seconds: 30),
-          backBufferDuration: Duration(seconds: 5),
+          minBufferDuration: Duration(seconds: 10),
+          maxBufferDuration: Duration(seconds: 20),
+          backBufferDuration: Duration(seconds: 3),
           targetBufferBytes: 2 * 1024 * 1024, // 2MB 字节限制兜底
         ),
       ),

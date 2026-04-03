@@ -48,6 +48,7 @@ class RadioStation {
   DateTime? lastPlayedAt;
 
   /// 是否已收藏/置頂
+  @Index()
   bool isFavorite = false;
 
   /// 額外備註

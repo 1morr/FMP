@@ -10,8 +10,8 @@ import '../../services/network/connectivity_service.dart';
 /// 供其他页面查询以决定是否需要自己提供 SafeArea top padding
 final networkBannerVisibleProvider = Provider<bool>((ref) {
   final connectivityState = ref.watch(connectivityProvider);
-  final playerState = ref.watch(audioControllerProvider);
-  return !connectivityState.isConnected || playerState.isNetworkError;
+  final isNetworkError = ref.watch(audioControllerProvider.select((s) => s.isNetworkError));
+  return !connectivityState.isConnected || isNetworkError;
 });
 
 /// 网络状态 Banner
@@ -54,12 +54,13 @@ class _NetworkStatusBannerState extends ConsumerState<NetworkStatusBanner>
 
   @override
   Widget build(BuildContext context) {
-    final playerState = ref.watch(audioControllerProvider);
+    final isNetworkError = ref.watch(audioControllerProvider.select((s) => s.isNetworkError));
+    final isRetrying = ref.watch(audioControllerProvider.select((s) => s.isRetrying));
     final connectivityState = ref.watch(connectivityProvider);
 
     // 确定是否显示 Banner
     final shouldShow = !connectivityState.isConnected ||
-                       playerState.isNetworkError;
+                       isNetworkError;
 
     // 控制动画
     if (shouldShow) {
@@ -69,7 +70,7 @@ class _NetworkStatusBannerState extends ConsumerState<NetworkStatusBanner>
     }
 
     final colorScheme = Theme.of(context).colorScheme;
-    final showRetryButton = playerState.isNetworkError && !playerState.isRetrying;
+    final showRetryButton = isNetworkError && !isRetrying;
 
     // banner 内容根据动画显示/隐藏
     // SafeArea 由 app.dart 统一提供，此处不再处理

@@ -40,6 +40,7 @@ class DownloadTask {
   String? savePath;
 
   /// 下载状态
+  @Index()
   @Enumerated(EnumType.name)
   DownloadStatus status = DownloadStatus.pending;
 
@@ -59,6 +60,7 @@ class DownloadTask {
   String? tempFilePath;
 
   /// 排序优先级（越小越优先）
+  @Index()
   int priority = 0;
 
   /// 创建时间
