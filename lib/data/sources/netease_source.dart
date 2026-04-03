@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
+import '../../core/utils/http_client_factory.dart';
 import '../../core/utils/netease_crypto.dart';
 import '../../services/account/netease_account_service.dart';
 import '../models/settings.dart';
@@ -28,16 +29,14 @@ class NeteaseSource extends BaseSource with Logging {
 
   NeteaseSource({Dio? dio}) {
     _dio = dio ??
-        Dio(BaseOptions(
+        HttpClientFactory.create(
+          userAgent: NeteaseAccountService.userAgent,
           headers: {
-            'User-Agent': NeteaseAccountService.userAgent,
             'Referer': '$_musicBase/',
             'Origin': _musicBase,
             'Accept': 'application/json, text/plain, */*',
           },
-          connectTimeout: AppConstants.networkConnectTimeout,
-          receiveTimeout: AppConstants.networkReceiveTimeout,
-        ));
+        );
   }
 
   @override
