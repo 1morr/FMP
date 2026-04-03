@@ -656,7 +656,7 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
       // 设置加载状态
       _processingStateController.add(FmpAudioProcessingState.loading);
-      _playerStateController.add(FmpPlayerState(
+      _playerStateController.add(const FmpPlayerState(
         playing: false,
         processingState: FmpAudioProcessingState.loading,
       ));
@@ -741,7 +741,7 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
       // 设置加载状态
       _processingStateController.add(FmpAudioProcessingState.loading);
-      _playerStateController.add(FmpPlayerState(
+      _playerStateController.add(const FmpPlayerState(
         playing: false,
         processingState: FmpAudioProcessingState.loading,
       ));

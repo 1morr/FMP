@@ -179,7 +179,7 @@ class YouTubeSource extends BaseSource with Logging {
       final audioUrl = await getAudioUrl(videoId);
       track.audioUrl = audioUrl;
       // YouTube URL 过期较快，使用 1 小时有效期
-      track.audioUrlExpiry = DateTime.now().add(Duration(hours: AppConstants.youtubeAudioUrlExpiryHours));
+      track.audioUrlExpiry = DateTime.now().add(const Duration(hours: AppConstants.youtubeAudioUrlExpiryHours));
       track.createdAt = DateTime.now();
 
       logDebug('Got track info for $videoId: ${video.title}');
@@ -337,7 +337,7 @@ class YouTubeSource extends BaseSource with Logging {
     }
 
     logError('No audio stream available for YouTube video: $videoId');
-    throw YouTubeApiException(
+    throw const YouTubeApiException(
       code: 'no_stream',
       message: 'No audio stream available',
     );
@@ -667,12 +667,12 @@ class YouTubeSource extends BaseSource with Logging {
   @override
   Future<Track> refreshAudioUrl(Track track, {Map<String, String>? authHeaders}) async {
     if (track.sourceType != SourceType.youtube) {
-      throw YouTubeApiException(code: 'invalid_source', message: 'Invalid source type for YouTubeSource');
+      throw const YouTubeApiException(code: 'invalid_source', message: 'Invalid source type for YouTubeSource');
     }
 
     final audioUrl = await getAudioUrl(track.sourceId, authHeaders: authHeaders);
     track.audioUrl = audioUrl;
-    track.audioUrlExpiry = DateTime.now().add(Duration(hours: AppConstants.youtubeAudioUrlExpiryHours));
+    track.audioUrlExpiry = DateTime.now().add(const Duration(hours: AppConstants.youtubeAudioUrlExpiryHours));
     track.updatedAt = DateTime.now();
     return track;
   }
@@ -827,7 +827,7 @@ class YouTubeSource extends BaseSource with Logging {
     final seedVideoId = mixInfo.seedVideoId;
 
     if (playlistId == null || seedVideoId == null) {
-      throw YouTubeApiException(
+      throw const YouTubeApiException(
         code: 'invalid_url',
         message: 'Cannot extract Mix playlist info from URL',
       );
@@ -901,7 +901,7 @@ class YouTubeSource extends BaseSource with Logging {
       final playlistData = twoColumn?['playlist']?['playlist'];
 
       if (playlistData == null) {
-        throw YouTubeApiException(
+        throw const YouTubeApiException(
           code: 'parse_error',
           message: 'Mix playlist data not found in API response',
         );
@@ -984,7 +984,7 @@ class YouTubeSource extends BaseSource with Logging {
         (playlistId.length > 2 ? playlistId.substring(2) : null);
 
     if (seedVideoId == null || seedVideoId.isEmpty) {
-      throw YouTubeApiException(
+      throw const YouTubeApiException(
         code: 'invalid_url',
         message: 'Cannot extract seed video ID from Mix playlist URL',
       );
@@ -1037,7 +1037,7 @@ class YouTubeSource extends BaseSource with Logging {
       final playlistId = listParam ?? _parsePlaylistId(playlistUrl);
 
       if (playlistId == null) {
-        throw YouTubeApiException(
+        throw const YouTubeApiException(
           code: 'invalid_url',
           message: 'Invalid playlist URL',
         );
@@ -1237,7 +1237,7 @@ class YouTubeSource extends BaseSource with Logging {
 
   /// 使用 InnerTube Browse API 獲取 "New This Week" 播放列表
   Future<List<Track>> _fetchNewThisWeekPlaylist() async {
-    final browseId = 'VL$_newThisWeekPlaylistId';
+    const browseId = 'VL$_newThisWeekPlaylistId';
     logDebug('Fetching New This Week playlist via InnerTube browse: $browseId');
 
     try {
@@ -1290,7 +1290,7 @@ class YouTubeSource extends BaseSource with Logging {
         ?.firstOrNull?['playlistVideoListRenderer']?['contents'] as List?;
 
     if (videoList == null || videoList.isEmpty) {
-      throw YouTubeApiException(
+      throw const YouTubeApiException(
         code: 'parse_error',
         message: 'New This Week playlist data not found in API response',
       );
@@ -1363,7 +1363,7 @@ class YouTubeSource extends BaseSource with Logging {
 
       final streamingData = data['streamingData'] as Map<String, dynamic>?;
       if (streamingData == null) {
-        throw YouTubeApiException(code: 'no_stream', message: 'No streaming data from InnerTube');
+        throw const YouTubeApiException(code: 'no_stream', message: 'No streaming data from InnerTube');
       }
 
       // Parse adaptiveFormats for audio-only streams
@@ -1423,7 +1423,7 @@ class YouTubeSource extends BaseSource with Logging {
         }
       }
 
-      throw YouTubeApiException(code: 'no_stream', message: 'No audio stream available via InnerTube');
+      throw const YouTubeApiException(code: 'no_stream', message: 'No audio stream available via InnerTube');
     } on DioException catch (e) {
       throw _handleDioError(e);
     } catch (e) {
@@ -1621,7 +1621,7 @@ class YouTubeSource extends BaseSource with Logging {
 
       final videoDetails = data['videoDetails'] as Map<String, dynamic>?;
       if (videoDetails == null) {
-        throw YouTubeApiException(code: 'parse_error', message: 'No videoDetails in response');
+        throw const YouTubeApiException(code: 'parse_error', message: 'No videoDetails in response');
       }
 
       final lengthSeconds = int.tryParse(videoDetails['lengthSeconds']?.toString() ?? '0') ?? 0;
@@ -1664,7 +1664,7 @@ class YouTubeSource extends BaseSource with Logging {
 
       final videoDetails = data['videoDetails'] as Map<String, dynamic>?;
       if (videoDetails == null) {
-        throw YouTubeApiException(code: 'parse_error', message: 'No videoDetails in response');
+        throw const YouTubeApiException(code: 'parse_error', message: 'No videoDetails in response');
       }
 
       final lengthSeconds = int.tryParse(videoDetails['lengthSeconds']?.toString() ?? '0') ?? 0;

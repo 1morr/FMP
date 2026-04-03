@@ -143,7 +143,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       decoration: InputDecoration(
         hintText: t.searchPage.hint,
         border: InputBorder.none,
-        prefixIcon: Icon(Icons.search),
+        prefixIcon: const Icon(Icons.search),
       ),
       textInputAction: TextInputAction.search,
       onSubmitted: _performSearch,

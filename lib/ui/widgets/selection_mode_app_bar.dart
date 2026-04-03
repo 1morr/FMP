@@ -106,7 +106,7 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
               PopupMenuItem(
                 value: 'add_to_queue',
                 child: ListTile(
-                  leading: Icon(Icons.add_to_queue),
+                  leading: const Icon(Icons.add_to_queue),
                   title: Text(t.selectionMode.addToQueue),
                   contentPadding: EdgeInsets.zero,
                 ),
@@ -117,7 +117,7 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
               PopupMenuItem(
                 value: 'play_next',
                 child: ListTile(
-                  leading: Icon(Icons.queue_play_next),
+                  leading: const Icon(Icons.queue_play_next),
                   title: Text(t.selectionMode.playNext),
                   contentPadding: EdgeInsets.zero,
                 ),
@@ -128,7 +128,7 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
               PopupMenuItem(
                 value: 'add_to_playlist',
                 child: ListTile(
-                  leading: Icon(Icons.playlist_add),
+                  leading: const Icon(Icons.playlist_add),
                   title: Text(t.selectionMode.addToPlaylist),
                   contentPadding: EdgeInsets.zero,
                 ),
@@ -139,7 +139,7 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
               PopupMenuItem(
                 value: 'add_to_remote',
                 child: ListTile(
-                  leading: Icon(Icons.cloud_upload_outlined),
+                  leading: const Icon(Icons.cloud_upload_outlined),
                   title: Text(t.remote.addToFavorites),
                   contentPadding: EdgeInsets.zero,
                 ),
@@ -161,7 +161,7 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
               PopupMenuItem(
                 value: 'download',
                 child: ListTile(
-                  leading: Icon(Icons.download),
+                  leading: const Icon(Icons.download),
                   title: Text(t.selectionMode.download),
                   contentPadding: EdgeInsets.zero,
                 ),

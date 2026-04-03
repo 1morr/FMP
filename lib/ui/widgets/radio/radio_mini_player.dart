@@ -358,7 +358,7 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
           );
         },
         style: MenuStyle(
-          padding: WidgetStatePropertyAll(EdgeInsets.zero),
+          padding: const WidgetStatePropertyAll(EdgeInsets.zero),
           shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
           ),

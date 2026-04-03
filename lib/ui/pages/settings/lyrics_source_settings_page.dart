@@ -175,7 +175,7 @@ class _LyricsSourceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final disabledAlpha = 0.38;
+    const disabledAlpha = 0.38;
 
     return ListTile(
       leading: Row(

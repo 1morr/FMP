@@ -119,22 +119,22 @@ class _ChangeDownloadPathDialogState
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(height: 16),
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
             Text(t.changeDownloadPathDialog.selectNewFolder),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
           ],
         );
       case _DialogState.processing:
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(height: 16),
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
             Text(t.changeDownloadPathDialog.updatingSettings),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
           ],
         );
       case _DialogState.error:

@@ -170,7 +170,7 @@ class ErrorHandler with Logging {
         );
 
       case DioExceptionType.cancel:
-        return CancelledException();
+        return const CancelledException();
 
       case DioExceptionType.connectionError:
         return NetworkException(

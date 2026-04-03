@@ -1432,10 +1432,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     state = state.copyWith(isLoadingMoreMix: true);
     logInfo('Loading more Mix tracks...');
 
-    final minNewTracksRequired = AppConstants.mixMinNewTracksRequired;
-    final maxAttempts = AppConstants.mixMaxLoadAttempts;
-    final sameVideoRetries = AppConstants.mixSameVideoRetries;
-    final retryDelay = AppConstants.mixRetryDelay;
+    const minNewTracksRequired = AppConstants.mixMinNewTracksRequired;
+    const maxAttempts = AppConstants.mixMaxLoadAttempts;
+    const sameVideoRetries = AppConstants.mixSameVideoRetries;
+    const retryDelay = AppConstants.mixRetryDelay;
 
     // 收集所有新歌曲，最後一次性添加
     final collectedTracks = <Track>[];
