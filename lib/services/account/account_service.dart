@@ -1,6 +1,20 @@
 import '../../data/models/account.dart';
 import '../../data/models/track.dart';
 
+/// 帳號狀態
+enum AccountStatus { valid, invalid, error }
+
+/// 帳號狀態檢查結果
+class AccountCheckResult {
+  final AccountStatus status;
+  final bool? isVip;
+
+  const AccountCheckResult({
+    required this.status,
+    this.isVip,
+  });
+}
+
 /// 帳號服務抽象接口（可擴展到 YouTube、網易雲等）
 abstract class AccountService {
   SourceType get platform;
@@ -20,4 +34,7 @@ abstract class AccountService {
 
   /// 檢查認證是否需要刷新
   Future<bool> needsRefresh();
+
+  /// 檢查帳號登錄狀態和 VIP 狀態
+  Future<AccountCheckResult> checkAccountStatus();
 }

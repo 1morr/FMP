@@ -4,8 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
 
 import '../core/logger.dart';
+import '../core/services/toast_service.dart';
 import '../data/models/account.dart';
 import '../data/models/track.dart';
+import '../i18n/strings.g.dart';
+import '../services/account/account_service.dart';
 import '../services/account/bilibili_account_service.dart';
 import '../services/account/bilibili_favorites_service.dart';
 import '../services/account/netease_account_service.dart';
@@ -116,7 +119,7 @@ final neteasePlaylistServiceProvider =
 
 /// 啟動時自動刷新 Bilibili Cookie（後台執行，不阻塞 UI）
 ///
-/// 在 app.dart 中 watch 此 Provider，確保每次啟動時檢查一次。
+/// 在 accountStatusCheckProvider 中 watch 此 Provider，確保在狀態檢查前完成。
 /// refreshCredentials() 內部已包含 needsRefresh 檢查，無需額外調用。
 final accountCookieRefreshProvider = FutureProvider<void>((ref) async {
   final accountService = ref.read(bilibiliAccountServiceProvider);
@@ -134,6 +137,52 @@ final accountCookieRefreshProvider = FutureProvider<void>((ref) async {
     AppLogger.warning('Bilibili cookie refresh check failed: $e', 'AccountRefresh');
   }
 });
+
+/// 啟動時檢查所有已登錄帳號的狀態（Session 有效性 + VIP 狀態）
+///
+/// 在 app.dart 中 watch 此 Provider。內部先等待 Cookie 刷新完成，
+/// 再依序檢查各平台，避免併發網絡請求。
+final accountStatusCheckProvider = FutureProvider<void>((ref) async {
+  // 先完成 Bilibili Cookie 刷新
+  await ref.watch(accountCookieRefreshProvider.future);
+
+  final toastService = ref.read(toastServiceProvider);
+  final services = <(AccountService, String)>[
+    (ref.read(bilibiliAccountServiceProvider), 'Bilibili'),
+    (ref.read(youtubeAccountServiceProvider), 'YouTube'),
+    (ref.read(neteaseAccountServiceProvider), 'Netease'),
+  ];
+
+  await verifyAllAccountStatuses(services, toastService);
+});
+
+/// 檢查所有已登錄帳號的 Session 有效性和 VIP 狀態
+///
+/// 供 [accountStatusCheckProvider] 和帳號管理頁面共用。
+Future<void> verifyAllAccountStatuses(
+  List<(AccountService, String)> services,
+  ToastService toastService,
+) async {
+  for (final (service, name) in services) {
+    if (!await service.isLoggedIn()) continue;
+    final oldAccount = await service.getCurrentAccount();
+    final oldIsVip = oldAccount?.isVip ?? false;
+
+    try {
+      final result = await service.checkAccountStatus();
+      if (result.status == AccountStatus.invalid) {
+        await service.logout();
+        toastService.showWarning(t.account.sessionExpired(platform: name));
+      } else if (result.status == AccountStatus.valid) {
+        if (oldIsVip && result.isVip == false) {
+          toastService.showInfo(t.account.vipExpired(platform: name));
+        }
+      }
+    } catch (e) {
+      AppLogger.warning('$name status check failed: $e', 'AccountStatusCheck');
+    }
+  }
+}
 
 /// 通用帳號狀態管理（監聽 Isar Account 變化）
 class AccountNotifier extends StateNotifier<Account?> {

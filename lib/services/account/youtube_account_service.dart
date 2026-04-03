@@ -164,6 +164,65 @@ class YouTubeAccountService extends AccountService with Logging {
 
   // ===== 用戶信息 =====
 
+  /// 檢查帳號登錄狀態和 Premium 狀態
+  @override
+  Future<AccountCheckResult> checkAccountStatus() async {
+    final headers = await getAuthHeaders();
+    if (headers == null) {
+      return const AccountCheckResult(status: AccountStatus.invalid);
+    }
+
+    try {
+      final response = await _dio.post(
+        '$_innerTubeApiBase/browse?key=$_innerTubeApiKey',
+        data: jsonEncode({
+          'browseId': 'SPaccount_overview',
+          'context': buildInnerTubeContext(),
+        }),
+        options: Options(headers: headers),
+      );
+
+      final data = response.data;
+      if (data is! Map<String, dynamic>) {
+        return const AccountCheckResult(status: AccountStatus.error);
+      }
+
+      final isPremium = _checkPremiumFromResponse(data);
+      final name = _extractNameFromAccountOverview(data);
+
+      if (name != null) {
+        await _updateAccount(userName: name, isVip: isPremium);
+        return AccountCheckResult(
+          status: AccountStatus.valid,
+          isVip: isPremium,
+        );
+      }
+
+      // Response is valid but no user name — could still be auth'd
+      // Check if there's any user-specific content
+      final hasAccountItem =
+          _findRendererRecursive(data, 'accountItemRenderer') != null;
+      final hasTopbar = data['topbar'] != null;
+
+      if (hasAccountItem || hasTopbar) {
+        await _updateAccount(isVip: isPremium);
+        return AccountCheckResult(
+          status: AccountStatus.valid,
+          isVip: isPremium,
+        );
+      }
+
+      // No user data at all → session likely invalid
+      return const AccountCheckResult(status: AccountStatus.invalid);
+    } on DioException catch (e) {
+      final statusCode = e.response?.statusCode;
+      if (statusCode == 401 || statusCode == 403) {
+        return const AccountCheckResult(status: AccountStatus.invalid);
+      }
+      return const AccountCheckResult(status: AccountStatus.error);
+    }
+  }
+
   /// 從外部（如 WebView）直接更新用戶信息
   Future<void> updateUserInfo({
     String? userName,
