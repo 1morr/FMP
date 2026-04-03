@@ -909,6 +909,19 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
       _updateQueueState();
       logInfo('$debugLabel completed successfully');
+    } on SourceApiException catch (e) {
+      logWarning('$debugLabel failed: ${e.sourceType.name} API error: ${e.message}');
+      if (clearSavedState) {
+        _context =
+            _context.copyWith(mode: PlayMode.queue, clearSavedState: true);
+      }
+      final track = _queueManager.currentTrack;
+      if (track != null) {
+        _handleSourceError(track, e, PlayMode.queue);
+      } else {
+        _resetLoadingState();
+      }
+      return;
     } catch (e, stack) {
       logError('Failed during $debugLabel', e, stack);
       if (clearSavedState) {
@@ -2016,7 +2029,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 處理音源 API 錯誤的統一邏輯
   void _handleSourceError(Track track, SourceApiException e, PlayMode mode) {
-    if (e.isUnavailable || e.isGeoRestricted) {
+    if (e.isUnavailable || e.isGeoRestricted || e.isVipRequired) {
       logInfo('Track unavailable (${e.sourceType.name}): ${track.title}');
       final nextIdx = _queueManager.getNextIndex();
       if (nextIdx != null && mode == PlayMode.queue) {

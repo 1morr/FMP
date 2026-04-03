@@ -45,6 +45,7 @@ class NeteaseApiException extends SourceApiException {
   bool get isPermissionDenied => numericCode == 403;
 
   /// VIP 歌曲需付費
+  @override
   bool get isVipRequired => numericCode == -10;
 
   static String _mapCode(int numericCode) {
