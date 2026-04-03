@@ -80,7 +80,6 @@ class _WebViewLoginTab extends ConsumerStatefulWidget {
 class _WebViewLoginTabState extends ConsumerState<_WebViewLoginTab> {
   bool _isLoading = true;
   bool _loginHandled = false;
-  bool _cookiesCleared = false;
 
   String get _userAgent {
     if (Platform.isAndroid) {
@@ -97,13 +96,13 @@ class _WebViewLoginTabState extends ConsumerState<_WebViewLoginTab> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    _clearCookiesBeforeLoad();
+  void dispose() {
+    _cleanupWebView();
+    super.dispose();
   }
 
-  /// 在 WebView 創建前清除 Bilibili 相關 cookies，確保不會自動登入舊帳號
-  Future<void> _clearCookiesBeforeLoad() async {
+  /// 清除 WebView 殘留的 cookies、快取和本地存儲
+  Future<void> _cleanupWebView() async {
     try {
       final cookieManager = CookieManager.instance();
       await cookieManager.deleteCookies(
@@ -115,9 +114,12 @@ class _WebViewLoginTabState extends ConsumerState<_WebViewLoginTab> {
         domain: '.passport.bilibili.com',
       );
     } catch (_) {}
-    if (mounted) {
-      setState(() => _cookiesCleared = true);
-    }
+    try {
+      await InAppWebViewController.clearAllCache();
+    } catch (_) {}
+    try {
+      await WebStorageManager.instance().deleteAllData();
+    } catch (_) {}
   }
 
   void _onPageLoaded(InAppWebViewController controller, WebUri? url) async {
@@ -170,6 +172,7 @@ class _WebViewLoginTabState extends ConsumerState<_WebViewLoginTab> {
         refreshToken: refreshToken ?? '',
       );
       await accountService.fetchAndUpdateUserInfo();
+      await _cleanupWebView();
 
       widget.onLoginSuccess();
     }
@@ -177,10 +180,6 @@ class _WebViewLoginTabState extends ConsumerState<_WebViewLoginTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_cookiesCleared) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
     return Stack(
       children: [
         InAppWebView(
