@@ -391,6 +391,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   final List<StreamSubscription> _subscriptions = [];
   bool _isInitialized = false;
   bool _isInitializing = false;
+  bool _isDisposed = false;
 
   // 防止重复处理完成事件
   bool _isHandlingCompletion = false;
@@ -616,6 +617,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 释放资源
   @override
   void dispose() {
+    _isDisposed = true;
     _stopPositionCheckTimer();
     _cancelRetryTimer();
     _networkRecoverySubscription?.cancel();
@@ -1837,23 +1839,15 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     logDebug(
         '_executePlayRequest started for: ${track.title} (requestId: $requestId, mode: $mode)');
 
+    // 原子性地完成舊鎖並創建新鎖（在任何 await 之前，防止競態條件）
+    _playLock?.completeIf(_playLock!.requestId);
+    _playLock = _LockWithId(requestId);
+
     // 互斥：停止電台播放（如果有）
     await onPlaybackStarting?.call();
 
     // 階段 3：停止當前播放
     await _audioService.stop();
-
-    // 等待之前的播放操作完成
-    if (_playLock != null && !_playLock!.completer.isCompleted) {
-      logDebug('Waiting for previous play operation to complete...');
-      _playLock!.completeIf(_playLock!.requestId);
-      await _playLock!.completer.future.timeout(
-        AppConstants.playLockTimeout,
-        onTimeout: () {
-          logWarning('Previous play operation timed out, proceeding anyway');
-        },
-      );
-    }
 
     // 檢查是否已被取代
     if (_isSuperseded(requestId)) {
@@ -1861,9 +1855,6 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
           'Play request $requestId superseded by $_playRequestId, aborting');
       return;
     }
-
-    // 創建新的鎖
-    _playLock = _LockWithId(requestId);
     bool completedSuccessfully = false;
     String? attemptedUrl; // 保存嘗試播放的 URL，用於 fallback 時排除
 
@@ -2458,6 +2449,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   void _onPlayerStateChanged(FmpPlayerState playerState) {
+    if (_isDisposed) return;
     // 電台播放中的狀態變化由 RadioController 處理，AudioController 不應更新自身狀態
     if (isRadioPlaying?.call() == true) return;
 
@@ -2496,6 +2488,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   void _onPositionChanged(Duration position) {
+    if (_isDisposed) return;
     // 電台播放中的位置變化與音樂播放器無關
     if (isRadioPlaying?.call() == true) return;
     // 加载期间忽略位置更新（防止旧歌曲的位置覆盖已重置的进度条）
@@ -2529,6 +2522,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 处理音频错误事件（来自 AudioService 错误流）
   void _onAudioError(String error) {
+    if (_isDisposed) return;
     // 電台播放中的錯誤由 RadioController 處理
     if (isRadioPlaying?.call() == true) return;
 
@@ -2573,30 +2567,36 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   void _onDurationChanged(Duration? duration) {
+    if (_isDisposed) return;
     if (isRadioPlaying?.call() == true) return;
     state = state.copyWith(duration: duration);
   }
 
   void _onBufferedPositionChanged(Duration bufferedPosition) {
+    if (_isDisposed) return;
     if (isRadioPlaying?.call() == true) return;
     state = state.copyWith(bufferedPosition: bufferedPosition);
   }
 
   void _onSpeedChanged(double speed) {
+    if (_isDisposed) return;
     state = state.copyWith(speed: speed);
   }
 
   void _onAudioDevicesChanged(List<FmpAudioDevice> devices) {
+    if (_isDisposed) return;
     logDebug('Audio devices updated: ${devices.length} devices');
     state = state.copyWith(audioDevices: devices);
   }
 
   void _onAudioDeviceChanged(FmpAudioDevice? device) {
+    if (_isDisposed) return;
     logDebug('Current audio device: ${device?.name ?? "auto"}');
     state = state.copyWith(currentAudioDevice: device);
   }
 
   void _onTrackCompleted(void _) {
+    if (_isDisposed) return;
     // 防止重复处理
     if (_isHandlingCompletion) return;
 
@@ -2650,6 +2650,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   void _onQueueStateChanged(void _) {
+    if (_isDisposed) return;
     _updateQueueState();
   }
 

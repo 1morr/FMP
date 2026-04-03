@@ -54,6 +54,9 @@ class DownloadService with Logging {
   
   /// 旧的取消令牌（保留用于非 Isolate 下载，如果需要回退）
   final Map<int, CancelToken> _activeCancelTokens = {};
+
+  /// 已被外部清理的任务 ID（pauseTask/cancelTask 已递减 _activeDownloads）
+  final Set<int> _externallyCleaned = {};
   
   /// 下载进度流控制器
   final _progressController = StreamController<DownloadProgressEvent>.broadcast();
@@ -431,20 +434,24 @@ class DownloadService with Logging {
   /// 暂停下载任务
   Future<void> pauseTask(int taskId) async {
     logDebug('Pausing download task: $taskId');
-    
+
     // 取消正在进行的 Isolate 下载
     final isolateInfo = _activeDownloadIsolates.remove(taskId);
     if (isolateInfo != null) {
       isolateInfo.receivePort.close();
       isolateInfo.isolate.kill();
       _activeDownloads--;
+      _externallyCleaned.add(taskId);
     }
 
     // 兼容旧的 CancelToken（如果有的话）
     final cancelToken = _activeCancelTokens.remove(taskId);
     if (cancelToken != null) {
       cancelToken.cancel('User paused');
-      if (isolateInfo == null) _activeDownloads--;
+      if (isolateInfo == null) {
+        _activeDownloads--;
+        _externallyCleaned.add(taskId);
+      }
     }
 
     // 防止计数器变为负数
@@ -470,13 +477,17 @@ class DownloadService with Logging {
       isolateInfo.receivePort.close();
       isolateInfo.isolate.kill();
       _activeDownloads--;
+      _externallyCleaned.add(taskId);
     }
 
     // 兼容旧的 CancelToken
     final cancelToken = _activeCancelTokens.remove(taskId);
     if (cancelToken != null) {
       cancelToken.cancel('User cancelled');
-      if (isolateInfo == null) _activeDownloads--;
+      if (isolateInfo == null) {
+        _activeDownloads--;
+        _externallyCleaned.add(taskId);
+      }
     }
 
     // 防止计数器变为负数
@@ -504,21 +515,25 @@ class DownloadService with Logging {
   /// 暂停所有任务
   Future<void> pauseAll() async {
     logDebug('Pausing all downloads');
-    
+
+    // 标记所有活跃任务为已外部清理
+    _externallyCleaned.addAll(_activeDownloadIsolates.keys);
+    _externallyCleaned.addAll(_activeCancelTokens.keys);
+
     // 取消所有进行中的 Isolate 下载
     for (final entry in _activeDownloadIsolates.entries) {
       entry.value.receivePort.close();
       entry.value.isolate.kill();
     }
     _activeDownloadIsolates.clear();
-    
+
     // 兼容旧的 CancelToken
     for (final entry in _activeCancelTokens.entries) {
       entry.value.cancel('User paused all');
     }
     _activeCancelTokens.clear();
     _activeDownloads = 0;
-    
+
     await _downloadRepository.pauseAllTasks();
   }
 
@@ -533,13 +548,17 @@ class DownloadService with Logging {
   Future<void> clearQueue() async {
     logDebug('Clearing download queue');
 
+    // 标记所有活跃任务为已外部清理
+    _externallyCleaned.addAll(_activeDownloadIsolates.keys);
+    _externallyCleaned.addAll(_activeCancelTokens.keys);
+
     // 取消所有进行中的 Isolate 下载
     for (final entry in _activeDownloadIsolates.entries) {
       entry.value.receivePort.close();
       entry.value.isolate.kill();
     }
     _activeDownloadIsolates.clear();
-    
+
     // 兼容旧的 CancelToken
     for (final entry in _activeCancelTokens.entries) {
       entry.value.cancel('Queue cleared');
@@ -765,13 +784,16 @@ class DownloadService with Logging {
       logError('Download failed for task: ${task.id}: $e', e, stack);
       await _handleDownloadFailure(task, trackTitle, e.toString());
     } finally {
-      // 只在未被外部取消（pauseTask/cancelTask）时清理和递减
-      // pauseTask/cancelTask 已经移除了 isolate 并递减了 _activeDownloads
+      // 递减活跃下载计数：
+      // - 如果 isolate 仍在 map 中，说明未被 pauseTask/cancelTask 外部清理
+      // - 如果已被外部清理（_externallyCleaned），则不递减（已由外部递减）
       final wasStillActive = _activeDownloadIsolates.remove(task.id) != null;
       _activeCancelTokens.remove(task.id);
-      if (wasStillActive) {
+      final wasExternallyCleaned = _externallyCleaned.remove(task.id);
+      if (wasStillActive || !wasExternallyCleaned) {
         _activeDownloads--;
       }
+      if (_activeDownloads < 0) _activeDownloads = 0;
       // 下载完成后触发调度，继续下一个任务（事件驱动）
       _triggerSchedule();
     }

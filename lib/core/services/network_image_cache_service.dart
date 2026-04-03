@@ -48,9 +48,9 @@ class NetworkImageCacheService {
   static const int _stalePeriodDays = 7;
 
   /// 根据缓存大小动态计算最大缓存文件数
-  /// 假设优化后平均每个图片文件约 30KB
+  /// 使用保守估算（100KB/image），确保文件数限制与大小限制一致
   static int get _maxNrOfCacheObjects =>
-      (_maxCacheSizeMB * 1024 ~/ 30).clamp(500, 10000);
+      (_maxCacheSizeMB * 1024 ~/ 100).clamp(100, 3000);
 
   /// 当前设置的最大缓存大小（MB）
   /// 移动端默认 16MB，桌面端默认 32MB
@@ -63,8 +63,8 @@ class NetworkImageCacheService {
   /// 图片加载计数器
   static int _loadCounter = 0;
 
-  /// 每加载多少张图片后检查一次缓存（增大间隔减少开销）
-  static const int _checkInterval = 50;
+  /// 每加载多少张图片后检查一次缓存
+  static const int _checkInterval = 30;
 
   /// 是否正在执行清理
   static bool _isTrimming = false;
@@ -112,7 +112,7 @@ class NetworkImageCacheService {
   ///
   /// [estimatedFileSize] 可选的文件大小估算值（字节），用于快速判断是否需要清理
   /// 每次图片加载完成时调用此方法，会定期触发缓存清理检查
-  static void onImageLoaded({int estimatedFileSize = 50000}) {
+  static void onImageLoaded({int estimatedFileSize = 100000}) {
     _loadCounter++;
 
     // 更新缓存大小估算值
