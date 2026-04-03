@@ -211,42 +211,42 @@ class HotkeyConfig {
   /// 默认配置
   factory HotkeyConfig.defaults() {
     return HotkeyConfig(bindings: {
-      HotkeyAction.playPause: HotkeyBinding(
+      HotkeyAction.playPause: const HotkeyBinding(
         action: HotkeyAction.playPause,
         key: LogicalKeyboardKey.space,
         modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
       ),
-      HotkeyAction.next: HotkeyBinding(
+      HotkeyAction.next: const HotkeyBinding(
         action: HotkeyAction.next,
         key: LogicalKeyboardKey.arrowRight,
         modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
       ),
-      HotkeyAction.previous: HotkeyBinding(
+      HotkeyAction.previous: const HotkeyBinding(
         action: HotkeyAction.previous,
         key: LogicalKeyboardKey.arrowLeft,
         modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
       ),
-      HotkeyAction.stop: HotkeyBinding(
+      HotkeyAction.stop: const HotkeyBinding(
         action: HotkeyAction.stop,
         key: LogicalKeyboardKey.keyS,
         modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
       ),
-      HotkeyAction.volumeUp: HotkeyBinding(
+      HotkeyAction.volumeUp: const HotkeyBinding(
         action: HotkeyAction.volumeUp,
         key: LogicalKeyboardKey.arrowUp,
         modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
       ),
-      HotkeyAction.volumeDown: HotkeyBinding(
+      HotkeyAction.volumeDown: const HotkeyBinding(
         action: HotkeyAction.volumeDown,
         key: LogicalKeyboardKey.arrowDown,
         modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
       ),
-      HotkeyAction.mute: HotkeyBinding(
+      HotkeyAction.mute: const HotkeyBinding(
         action: HotkeyAction.mute,
         key: LogicalKeyboardKey.keyM,
         modifiers: {HotKeyModifier.control, HotKeyModifier.alt},
       ),
-      HotkeyAction.toggleWindow: HotkeyBinding(
+      HotkeyAction.toggleWindow: const HotkeyBinding(
         action: HotkeyAction.toggleWindow,
         key: LogicalKeyboardKey.keyW,
         modifiers: {HotKeyModifier.control, HotKeyModifier.alt},

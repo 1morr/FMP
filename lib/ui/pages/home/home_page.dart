@@ -51,30 +51,30 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     });
 
-    return Scaffold(
+    return const Scaffold(
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 音樂排行榜（独立 ConsumerWidget）
-            const _MusicRankingsSection(),
+            _MusicRankingsSection(),
 
             // 我的歌单（独立 ConsumerWidget）
-            const _RecentPlaylistsSection(),
+            _RecentPlaylistsSection(),
 
             // 电台（独立 ConsumerWidget）
-            const _RadioSection(),
+            _RadioSection(),
 
             // 正在播放（独立 ConsumerWidget）
-            const _NowPlayingSection(),
+            _NowPlayingSection(),
 
             // 队列预览（独立 ConsumerWidget）
-            const _QueuePreviewSection(),
+            _QueuePreviewSection(),
 
             // 最近播放历史（独立 ConsumerWidget）
-            const _RecentHistorySection(),
+            _RecentHistorySection(),
 
-            const SizedBox(height: 100), // 为迷你播放器留出空间
+            SizedBox(height: 100), // 为迷你播放器留出空间
           ],
         ),
       ),

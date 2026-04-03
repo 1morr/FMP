@@ -913,7 +913,7 @@ class _YouTubeStreamTestPageState extends State<YouTubeStreamTestPage> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : () => _verifyStream(stream),
                     style: ElevatedButton.styleFrom(padding: EdgeInsets.zero),
-                    child: Text(t.debug.verify, style: TextStyle(fontSize: 10)),
+                    child: Text(t.debug.verify, style: const TextStyle(fontSize: 10)),
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -922,7 +922,7 @@ class _YouTubeStreamTestPageState extends State<YouTubeStreamTestPage> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : () => _playStream(stream),
                     style: ElevatedButton.styleFrom(padding: EdgeInsets.zero),
-                    child: Text(t.debug.play, style: TextStyle(fontSize: 10)),
+                    child: Text(t.debug.play, style: const TextStyle(fontSize: 10)),
                   ),
                 ),
               ],

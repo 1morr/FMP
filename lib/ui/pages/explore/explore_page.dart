@@ -78,7 +78,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
                   controller: _tabController,
                   tabs: [
                     Tab(text: t.importPlatform.bilibili),
-                    Tab(text: 'YouTube'),
+                    const Tab(text: 'YouTube'),
                   ],
                 ),
               )
@@ -92,7 +92,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
                   controller: _tabController,
                   tabs: [
                     Tab(text: t.importPlatform.bilibili),
-                    Tab(text: 'YouTube'),
+                    const Tab(text: 'YouTube'),
                   ],
                 ),
               ),

@@ -180,7 +180,7 @@ class _FixedHeightDownloadingSection extends ConsumerWidget {
             return _DownloadTaskTile(task: tasks[index]);
           }
           // 空槽位占位符
-          return SizedBox(height: _tileHeight);
+          return const SizedBox(height: _tileHeight);
         },
       ),
     );

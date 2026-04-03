@@ -820,7 +820,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
             final subPainter = TextPainter(
               text: TextSpan(
                 text: subText,
-                style: TextStyle(
+                style: const TextStyle(
                     fontSize: refSize, fontWeight: FontWeight.w500),
               ),
               maxLines: 1,

@@ -169,7 +169,7 @@ class BilibiliSource extends BaseSource with Logging {
       // 获取音频 URL
       final audioUrl = await getAudioUrl(bvid);
       track.audioUrl = audioUrl;
-      track.audioUrlExpiry = DateTime.now().add(Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours));
+      track.audioUrlExpiry = DateTime.now().add(const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours));
       track.createdAt = DateTime.now();
 
       return track;
@@ -236,7 +236,7 @@ class BilibiliSource extends BaseSource with Logging {
     }
 
     logError('No audio stream available for $bvid:$cid');
-    throw BilibiliApiException(numericCode: -1, message: 'No audio stream available');
+    throw const BilibiliApiException(numericCode: -1, message: 'No audio stream available');
   }
 
   /// 根据流类型获取对应的流
@@ -361,7 +361,7 @@ class BilibiliSource extends BaseSource with Logging {
   @override
   Future<Track> refreshAudioUrl(Track track, {Map<String, String>? authHeaders}) async {
     if (track.sourceType != SourceType.bilibili) {
-      throw BilibiliApiException(numericCode: -3, message: 'Invalid source type for BilibiliSource');
+      throw const BilibiliApiException(numericCode: -3, message: 'Invalid source type for BilibiliSource');
     }
 
     // 如果有cid，使用指定cid获取音频URL
@@ -372,7 +372,7 @@ class BilibiliSource extends BaseSource with Logging {
       audioUrl = await getAudioUrl(track.sourceId, authHeaders: authHeaders);
     }
     track.audioUrl = audioUrl;
-    track.audioUrlExpiry = DateTime.now().add(Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours));
+    track.audioUrlExpiry = DateTime.now().add(const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours));
     track.updatedAt = DateTime.now();
     return track;
   }

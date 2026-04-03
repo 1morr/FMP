@@ -135,7 +135,7 @@ class NeteaseSource extends BaseSource with Logging {
 
       final dataList = respData['data'] as List?;
       if (dataList == null || dataList.isEmpty) {
-        throw NeteaseApiException(
+        throw const NeteaseApiException(
             numericCode: -1, message: 'No stream data returned');
       }
 
@@ -149,10 +149,10 @@ class NeteaseSource extends BaseSource with Logging {
       if (url == null || url.isEmpty) {
         final fee = streamInfo['fee'] as int?;
         if (fee == 1 || fee == 4) {
-          throw NeteaseApiException(
+          throw const NeteaseApiException(
               numericCode: -10, message: 'VIP song, payment required');
         }
-        throw NeteaseApiException(
+        throw const NeteaseApiException(
             numericCode: -200, message: 'No stream URL available');
       }
 
@@ -283,7 +283,7 @@ class NeteaseSource extends BaseSource with Logging {
 
       final playlist = respData['playlist'] as Map<String, dynamic>?;
       if (playlist == null) {
-        throw NeteaseApiException(
+        throw const NeteaseApiException(
             numericCode: -3, message: 'Playlist data not found');
       }
 
@@ -344,7 +344,7 @@ class NeteaseSource extends BaseSource with Logging {
   Future<Track> refreshAudioUrl(Track track,
       {Map<String, String>? authHeaders}) async {
     if (track.sourceType != SourceType.netease) {
-      throw NeteaseApiException(
+      throw const NeteaseApiException(
           numericCode: -3,
           message: 'Invalid source type for NeteaseSource');
     }
