@@ -5,7 +5,9 @@
   "downloading": "Downloading... $percent%",
   "installingRestart": "Installing update, app will restart...",
   "installingOpening": "Opening installer...",
+  "readyToInstall": "Ready to install",
   "later": "Later",
   "retry": "Retry",
-  "updateNow": "Update Now"
+  "updateNow": "Update Now",
+  "installNow": "Install"
 }

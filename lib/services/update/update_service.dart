@@ -111,6 +111,56 @@ class UpdateService {
     receiveTimeout: AppConstants.networkReceiveTimeout,
   ));
 
+  /// 检查已下载的更新文件是否存在且完整
+  Future<String?> getExistingDownloadPath(UpdateInfo info) async {
+    if (!Platform.isAndroid) return null;
+    final cacheDir = await getTemporaryDirectory();
+    final filePath = '${cacheDir.path}/${info.assetFileName}';
+    final file = File(filePath);
+    if (!file.existsSync()) return null;
+    final expectedSize = info.assetSize;
+    if (expectedSize != null && file.lengthSync() != expectedSize) {
+      AppLogger.info('Existing APK size mismatch, deleting', _tag);
+      file.deleteSync();
+      return null;
+    }
+    AppLogger.info('Found existing APK: $filePath', _tag);
+    return filePath;
+  }
+
+  /// 打开 APK 安装器（Android）
+  Future<void> installApk(String filePath) async {
+    AppLogger.info('Opening APK installer: $filePath', _tag);
+    final result = await OpenFilex.open(filePath);
+    if (result.type != ResultType.done) {
+      throw Exception('Failed to open APK: ${result.message}');
+    }
+  }
+
+  /// 清理临时目录中的旧更新文件
+  Future<void> cleanupOldUpdateFiles() async {
+    try {
+      final cacheDir = await getTemporaryDirectory();
+      final dir = Directory(cacheDir.path);
+      for (final entity in dir.listSync()) {
+        if (entity is File && _isUpdateFile(entity.path)) {
+          try {
+            entity.deleteSync();
+            AppLogger.info('Cleaned up old update file: ${entity.path}', _tag);
+          } catch (_) {}
+        }
+      }
+    } catch (e) {
+      AppLogger.warning('Failed to cleanup old update files: $e', _tag);
+    }
+  }
+
+  bool _isUpdateFile(String path) {
+    final name = path.split('/').last.split('\\').last;
+    return name.startsWith('fmp-') &&
+        (name.endsWith('.apk') || name.endsWith('.exe') || name.endsWith('.zip'));
+  }
+
   /// 检查是否有新版本
   /// 返回 null 表示已是最新版本
   Future<UpdateInfo?> checkForUpdate() async {
@@ -219,7 +269,9 @@ class UpdateService {
   }
 
   /// 下载并安装更新
-  Future<void> downloadAndInstall(
+  /// Android: 返回下载的文件路径（不触发安装）
+  /// Windows: 直接执行安装并退出应用
+  Future<String> downloadAndInstall(
     UpdateInfo info, {
     void Function(int received, int total)? onProgress,
   }) async {
@@ -229,26 +281,31 @@ class UpdateService {
     }
 
     if (Platform.isAndroid) {
-      await _downloadAndInstallAndroid(url, info.assetFileName, onProgress);
+      return _downloadAndroid(url, info.assetFileName, onProgress);
     } else if (Platform.isWindows) {
       if (UpdateInfo.isInstalledVersion) {
         await _downloadAndRunInstaller(url, info.assetFileName, onProgress);
       } else {
         await _downloadAndExtractZip(url, info.assetFileName, onProgress);
       }
+      // Windows paths exit the app, this won't be reached
+      return '';
     } else {
       throw UnsupportedError('Unsupported platform');
     }
   }
 
-  /// Android: 下载 APK 并触发系统安装
-  Future<void> _downloadAndInstallAndroid(
+  /// Android: 下载 APK，清理旧文件，返回文件路径
+  Future<String> _downloadAndroid(
     String url,
     String fileName,
     void Function(int, int)? onProgress,
   ) async {
     final cacheDir = await getTemporaryDirectory();
     final filePath = '${cacheDir.path}/$fileName';
+
+    // 清理同目录下的旧 APK（保留当前目标文件名）
+    await _cleanupOldApks(cacheDir.path, fileName);
 
     AppLogger.info('Downloading APK to $filePath', _tag);
 
@@ -258,11 +315,25 @@ class UpdateService {
       onReceiveProgress: onProgress,
     );
 
-    AppLogger.info('Download complete, opening APK installer', _tag);
+    AppLogger.info('Download complete: $filePath', _tag);
+    return filePath;
+  }
 
-    final result = await OpenFilex.open(filePath);
-    if (result.type != ResultType.done) {
-      throw Exception('Failed to open APK: ${result.message}');
+  /// 清理临时目录中同类型的旧 APK 文件
+  Future<void> _cleanupOldApks(String dirPath, String keepFileName) async {
+    try {
+      final dir = Directory(dirPath);
+      for (final entity in dir.listSync()) {
+        if (entity is File) {
+          final name = entity.path.split('/').last.split('\\').last;
+          if (name != keepFileName && name.startsWith('fmp-') && name.endsWith('.apk')) {
+            entity.deleteSync();
+            AppLogger.info('Removed old APK: $name', _tag);
+          }
+        }
+      }
+    } catch (e) {
+      AppLogger.warning('Failed to cleanup old APKs: $e', _tag);
     }
   }
 
