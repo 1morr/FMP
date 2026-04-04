@@ -57,10 +57,7 @@ class UpdateState {
 class UpdateNotifier extends StateNotifier<UpdateState> {
   final UpdateService _service;
 
-  UpdateNotifier() : _service = UpdateService(), super(const UpdateState()) {
-    // 启动时清理旧的更新文件
-    _service.cleanupOldUpdateFiles();
-  }
+  UpdateNotifier() : _service = UpdateService(), super(const UpdateState());
 
   /// 检查更新
   Future<void> checkForUpdate() async {
@@ -112,9 +109,12 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
         info,
         onProgress: (received, total) {
           if (total > 0) {
-            state = state.copyWith(
-              downloadProgress: received / total,
-            );
+            final progress = received / total;
+            // 仅在进度变化 ≥ 1% 或下载完成时更新，避免过多的 UI 重建
+            if (progress >= 1.0 ||
+                progress - state.downloadProgress >= 0.01) {
+              state = state.copyWith(downloadProgress: progress);
+            }
           }
         },
       );
@@ -151,7 +151,7 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
       if (mounted) {
         state = state.copyWith(
           status: UpdateStatus.error,
-          errorMessage: '${t.updateProvider.downloadFailed}: $e',
+          errorMessage: '${t.updateProvider.installFailed}: $e',
         );
       }
     }
@@ -159,6 +159,7 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
 
   /// 重新触发安装（已下载的文件）
   Future<void> retryInstall() async {
+    if (state.status == UpdateStatus.installing) return;
     final filePath = state.downloadedFilePath;
     if (filePath == null) return;
     await _triggerInstall(filePath);

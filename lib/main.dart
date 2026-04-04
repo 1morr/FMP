@@ -31,6 +31,7 @@ import 'services/audio/audio_handler.dart';
 import 'services/audio/windows_smtc_handler.dart';
 import 'services/cache/ranking_cache_service.dart';
 import 'services/radio/radio_refresh_service.dart';
+import 'services/update/update_service.dart';
 import 'ui/windows/lyrics_window.dart';
 
 /// 全局 AudioHandler 实例，供 AudioController 使用
@@ -132,6 +133,8 @@ void main(List<String> args) async {
       _initializeSmtc(),
       _initializeWindowManager(),
     ]);
+    // 清理旧更新文件（fire-and-forget，不阻塞启动）
+    UpdateService.cleanupOldWindowsUpdateFiles();
   } else if (Platform.isLinux || Platform.isMacOS) {
     // 非 Windows 桌面平台只初始化窗口管理器
     windowsSmtcHandler = WindowsSmtcHandler();

@@ -1,4 +1,5 @@
 {
   "checkFailed": "檢查更新失敗",
-  "downloadFailed": "下載更新失敗"
+  "downloadFailed": "下載更新失敗",
+  "installFailed": "安裝更新失敗"
 }

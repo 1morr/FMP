@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:archive/archive.dart';
+import 'package:path/path.dart' as p;
 
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
@@ -137,28 +138,43 @@ class UpdateService {
     }
   }
 
-  /// 清理临时目录中的旧更新文件
-  Future<void> cleanupOldUpdateFiles() async {
+  /// 清理临时目录中旧的 Windows 更新文件
+  /// 包括：fmp-*.exe, fmp-*.zip, fmp_updater.bat, fmp_updater.vbs, fmp_update/
+  /// 仅在 Windows 上调用，Android 由 _cleanupOldApks 在下载时处理
+  static Future<void> cleanupOldWindowsUpdateFiles() async {
+    if (!Platform.isWindows) return;
     try {
       final cacheDir = await getTemporaryDirectory();
       final dir = Directory(cacheDir.path);
+
       for (final entity in dir.listSync()) {
-        if (entity is File && _isUpdateFile(entity.path)) {
-          try {
+        final name = p.basename(entity.path);
+        try {
+          if (entity is File && _isWindowsUpdateFile(name)) {
             entity.deleteSync();
-            AppLogger.info('Cleaned up old update file: ${entity.path}', _tag);
-          } catch (_) {}
-        }
+            AppLogger.info('Cleaned up old update file: $name', _tag);
+          } else if (entity is Directory && name == 'fmp_update') {
+            entity.deleteSync(recursive: true);
+            AppLogger.info('Cleaned up old update directory: $name', _tag);
+          }
+        } catch (_) {}
       }
     } catch (e) {
       AppLogger.warning('Failed to cleanup old update files: $e', _tag);
     }
   }
 
-  bool _isUpdateFile(String path) {
-    final name = path.split('/').last.split('\\').last;
-    return name.startsWith('fmp-') &&
-        (name.endsWith('.apk') || name.endsWith('.exe') || name.endsWith('.zip'));
+  static bool _isWindowsUpdateFile(String name) {
+    // fmp-v1.6.5-windows-installer.exe, fmp-v1.6.5-windows.zip
+    if (name.startsWith('fmp-') &&
+        (name.endsWith('.exe') || name.endsWith('.zip'))) {
+      return true;
+    }
+    // fmp_updater.bat, fmp_updater.vbs（更新脚本残留）
+    if (name == 'fmp_updater.bat' || name == 'fmp_updater.vbs') {
+      return true;
+    }
+    return false;
   }
 
   /// 检查是否有新版本
@@ -325,7 +341,7 @@ class UpdateService {
       final dir = Directory(dirPath);
       for (final entity in dir.listSync()) {
         if (entity is File) {
-          final name = entity.path.split('/').last.split('\\').last;
+          final name = p.basename(entity.path);
           if (name != keepFileName && name.startsWith('fmp-') && name.endsWith('.apk')) {
             entity.deleteSync();
             AppLogger.info('Removed old APK: $name', _tag);
