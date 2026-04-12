@@ -128,3 +128,4 @@ docs/build-and-release.md
 .vscode/launch.json
 devtools_home.png
 .gstack/
+graphify-out/
