@@ -60,6 +60,7 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
 
   // 初始化服务
   service.initialize();
+  final progressState = ref.read(downloadProgressStateProvider.notifier);
 
   // D1-D3: 监听下载完成事件，使用 debouncing 批量处理
   Timer? debounceTimer;
@@ -90,7 +91,7 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
     ref.read(fileExistsCacheProvider.notifier).markAsExisting(event.savePath);
     
     // 清除内存中的进度（下载完成）
-    ref.read(downloadProgressStateProvider.notifier).remove(event.taskId);
+    progressState.remove(event.taskId);
     
     // 收集需要刷新的内容
     categoriesNeedRefresh = true;
@@ -110,7 +111,7 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
   // 监听进度流并更新内存状态
   StreamSubscription<DownloadProgressEvent>? progressSubscription;
   progressSubscription = service.progressStream.listen((event) {
-    ref.read(downloadProgressStateProvider.notifier).update(
+    progressState.update(
       event.taskId,
       event.progress,
       event.downloadedBytes,
@@ -132,6 +133,7 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
     completionSubscription?.cancel();
     progressSubscription?.cancel();
     failureSubscription?.cancel();
+    progressState.clear();
     service.dispose();
   });
 
