@@ -684,7 +684,6 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       if (_isSuperseded(requestId)) {
         logDebug(
             '$debugLabel request $requestId superseded after setUrl, aborting');
-        await _audioService.stop();
         return;
       }
 
@@ -696,10 +695,23 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         await _audioService.seekTo(
           restorePosition.isNegative ? Duration.zero : restorePosition,
         );
+
+        if (_isSuperseded(requestId)) {
+          logDebug(
+              '$debugLabel request $requestId superseded after seek, aborting');
+          return;
+        }
       }
 
       if (savedWasPlaying) {
         await _audioService.play();
+
+        if (_isSuperseded(requestId)) {
+          logDebug(
+              '$debugLabel request $requestId superseded after play, aborting');
+          return;
+        }
+
         logDebug('Resumed playback after $debugLabel');
       }
 
@@ -719,9 +731,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       if (_isSuperseded(requestId)) return;
       final track = _queueManager.currentTrack;
       if (track != null) {
-        _handleSourceError(track, e, PlayMode.queue, requestId);
+        await _handleSourceError(track, e, PlayMode.queue, requestId);
       } else {
-        _resetLoadingState();
+        _resetLoadingState(requestId: requestId);
       }
       return;
     } catch (e, stack) {
@@ -731,7 +743,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
             _context.copyWith(mode: PlayMode.queue, clearSavedState: true);
       }
     } finally {
-      _resetLoadingState();
+      _resetLoadingState(requestId: requestId);
     }
   }
 
@@ -1600,7 +1612,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   /// 重置加載狀態（在請求被取代或失敗時使用）
-  void _resetLoadingState() {
+  void _resetLoadingState({int? requestId}) {
+    if (requestId != null && requestId != _playRequestId) {
+      return;
+    }
     state = state.copyWith(isLoading: false);
     _context = _context.copyWith(activeRequestId: 0);
   }
@@ -1608,6 +1623,16 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 檢查當前請求是否已被新請求取代
   bool _isSuperseded(int requestId) {
     return requestId != _playRequestId;
+  }
+
+  Future<void> _stopAudioForRequest(int requestId) async {
+    if (_isSuperseded(requestId)) return;
+    await _audioService.stop();
+  }
+
+  void _scheduleRetryForRequest(int requestId, Track track, Duration? position) {
+    if (_isSuperseded(requestId)) return;
+    _scheduleRetry(track, position);
   }
 
   /// 統一的播放請求入口
@@ -1690,8 +1715,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
       // 檢查是否被取代
       if (_isSuperseded(requestId)) {
-        logDebug('Play request $requestId superseded after playUrl, stopping');
-        await _audioService.stop();
+        logDebug(
+            'Play request $requestId superseded after playback handoff, aborting');
         return;
       }
 
@@ -1728,19 +1753,25 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
           '${e.sourceType.name} API error for ${track.title}: ${e.message}');
       // 网络错误和超时：走重试逻辑，而非通用错误处理
       if (e.isNetworkError || e.isTimeout) {
+        if (_isSuperseded(requestId)) return;
         try {
-          await _audioService.stop();
+          await _stopAudioForRequest(requestId);
         } catch (stopError) {
           logError(
               'Failed to stop player during source network error', stopError);
         }
-        _resetLoadingState();
-        _scheduleRetry(track, positionBeforeLoad);
+        _resetLoadingState(requestId: requestId);
+        _scheduleRetryForRequest(requestId, track, positionBeforeLoad);
         throw const _RetryScheduledException();
       }
       if (_isSuperseded(requestId)) return;
-      _handleSourceError(track, e, mode, requestId);
+      await _handleSourceError(track, e, mode, requestId);
     } catch (e, stack) {
+      if (_isSuperseded(requestId)) {
+        logDebug(
+            'Play request $requestId superseded after playback failure, ignoring error');
+        return;
+      }
       logError('Failed to play track: ${track.title}', e, stack);
 
       // Try fallback URL for YouTube tracks (e.g. audio-only stream proxy failure)
@@ -1754,36 +1785,48 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
           if (fallbackResult != null && !_isSuperseded(requestId)) {
             final fallbackUrl = fallbackResult.url;
             final headers = await _getHeadersForTrack(track);
+
+            if (_isSuperseded(requestId)) {
+              logDebug(
+                  'Play request $requestId superseded after fallback headers, aborting');
+              return;
+            }
+
             await _audioService.playUrl(fallbackUrl,
                 headers: headers, track: track);
 
-            if (!_isSuperseded(requestId)) {
-              track.audioUrl = fallbackUrl;
-              _exitLoadingState(requestId, track,
-                  mode: mode,
-                  recordHistory: recordHistory,
-                  streamResult: fallbackResult);
-              completedSuccessfully = true;
-              _updateQueueState();
-              logInfo('Fallback playback succeeded for: ${track.title}');
-
-              if (prefetchNext) {
-                _queueManager.prefetchNext();
-              }
+            if (_isSuperseded(requestId)) {
+              logDebug(
+                  'Play request $requestId superseded after fallback playback handoff, aborting');
               return;
             }
+
+            track.audioUrl = fallbackUrl;
+            _exitLoadingState(requestId, track,
+                mode: mode,
+                recordHistory: recordHistory,
+                streamResult: fallbackResult);
+            completedSuccessfully = true;
+            _updateQueueState();
+            logInfo('Fallback playback succeeded for: ${track.title}');
+
+            if (prefetchNext) {
+              _queueManager.prefetchNext();
+            }
+            return;
           }
         } catch (fallbackError) {
           logError('Fallback also failed for: ${track.title}', fallbackError);
           // Check if fallback error is also a network error
           if (_isNetworkError(fallbackError)) {
+            if (_isSuperseded(requestId)) return;
             try {
-              await _audioService.stop();
+              await _stopAudioForRequest(requestId);
             } catch (stopError) {
               logError('Failed to stop player during fallback network error', stopError);
             }
-            _resetLoadingState();
-            _scheduleRetry(track, positionBeforeLoad);
+            _resetLoadingState(requestId: requestId);
+            _scheduleRetryForRequest(requestId, track, positionBeforeLoad);
             throw const _RetryScheduledException();
           }
         }
@@ -1791,41 +1834,44 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
       // Check if original error is a network error
       if (_isNetworkError(e)) {
+        if (_isSuperseded(requestId)) return;
         try {
-          await _audioService.stop();
+          await _stopAudioForRequest(requestId);
         } catch (stopError) {
           logError('Failed to stop player during network error handling', stopError);
         }
-        _resetLoadingState();
-        _scheduleRetry(track, positionBeforeLoad);
+        _resetLoadingState(requestId: requestId);
+        _scheduleRetryForRequest(requestId, track, positionBeforeLoad);
         throw const _RetryScheduledException();
       }
 
+      if (_isSuperseded(requestId)) return;
       try {
-        await _audioService.stop();
+        await _stopAudioForRequest(requestId);
       } catch (stopError) {
         logError('Failed to stop player after playback error', stopError);
       }
       state = state.copyWith(error: e.toString(), isLoading: false);
-      _resetLoadingState();
+      _resetLoadingState(requestId: requestId);
       _toastService.showError(t.audio.playbackFailedTrack(title: track.title));
     } finally {
       _playLock?.completeIf(requestId);
 
       if (!completedSuccessfully && _isSuperseded(requestId)) {
         logDebug('Play request $requestId was superseded, resetting isLoading');
-        _resetLoadingState();
+        _resetLoadingState(requestId: requestId);
       }
     }
   }
 
   /// 處理音源 API 錯誤的統一邏輯
-  void _handleSourceError(Track track, SourceApiException e, PlayMode mode, int requestId) {
+  Future<void> _handleSourceError(
+      Track track, SourceApiException e, PlayMode mode, int requestId) async {
     if (e.isUnavailable || e.isGeoRestricted || e.isVipRequired) {
       logInfo('Track unavailable (${e.sourceType.name}): ${track.title}');
       final nextIdx = _queueManager.getNextIndex();
       if (nextIdx != null && mode == PlayMode.queue) {
-        _resetLoadingState();
+        _resetLoadingState(requestId: requestId);
         _toastService
             .showWarning(t.audio.cannotPlaySkipped(title: track.title));
         Future.delayed(const Duration(milliseconds: 300), () {
@@ -1834,12 +1880,17 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
           }
         });
       } else {
-        _audioService.stop();
+        try {
+          await _stopAudioForRequest(requestId);
+        } catch (stopError) {
+          logError('Failed to stop player during source error handling', stopError);
+        }
+        if (_isSuperseded(requestId)) return;
         state = state.copyWith(
           error: t.audio.playbackFailed(message: e.message),
           isLoading: false,
         );
-        _resetLoadingState();
+        _resetLoadingState(requestId: requestId);
         _toastService.showError(t.audio.cannotPlay(title: track.title));
       }
     } else if (e.isRateLimited) {
@@ -1848,14 +1899,14 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         error: e.message,
         isLoading: false,
       );
-      _resetLoadingState();
+      _resetLoadingState(requestId: requestId);
       _toastService.showWarning(e.message);
     } else {
       state = state.copyWith(
         error: t.audio.playbackFailed(message: e.message),
         isLoading: false,
       );
-      _resetLoadingState();
+      _resetLoadingState(requestId: requestId);
     }
   }
 
