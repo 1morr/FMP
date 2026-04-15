@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
@@ -131,6 +132,9 @@ Future<void> _migrateDatabase(Isar isar) async {
     }
   });
 }
+
+@visibleForTesting
+Future<void> runDatabaseMigrationForTesting(Isar isar) => _migrateDatabase(isar);
 
 final databaseProvider = FutureProvider<Isar>((ref) async {
   // 尝试复用 _preloadThemeSettings() 已打开的实例
