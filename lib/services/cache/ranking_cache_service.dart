@@ -20,7 +20,19 @@ class RankingCacheService {
   static const _initialLoadTimeout = Duration(seconds: 5); // 初始加載超時時間
 
   /// 全局單例實例，在 main.dart 中初始化
-  static late final RankingCacheService instance;
+  static RankingCacheService? _instance;
+
+  static RankingCacheService get instance {
+    final service = _instance;
+    if (service == null) {
+      throw StateError('RankingCacheService.instance has not been initialized');
+    }
+    return service;
+  }
+
+  static set instance(RankingCacheService service) {
+    _instance = service;
+  }
 
   final BilibiliSource _bilibiliSource;
   final YouTubeSource _youtubeSource;
@@ -40,8 +52,7 @@ class RankingCacheService {
   // 狀態變更通知
   final _stateController = StreamController<void>.broadcast();
 
-  // 是否已設置網絡監聽
-  bool _networkMonitoringSetup = false;
+  bool _isDisposed = false;
 
   RankingCacheService({
     BilibiliSource? bilibiliSource,
@@ -92,13 +103,11 @@ class RankingCacheService {
 
   /// 設置網絡恢復監聽（需要 Provider 可用後調用）
   void setupNetworkMonitoring(ConnectivityNotifier connectivityNotifier) {
-    if (_networkMonitoringSetup) return;
-    _networkMonitoringSetup = true;
+    if (_isDisposed) return;
 
-    // 取消舊的訂閱（防止 provider 重建時洩漏）
     _networkRecoveredSubscription?.cancel();
-
     _networkRecoveredSubscription = connectivityNotifier.onNetworkRecovered.listen((_) {
+      if (_isDisposed) return;
       debugPrint('[RankingCache] 網絡恢復，重新獲取排行榜緩存');
       _refreshAll();
     });
@@ -163,10 +172,18 @@ class RankingCacheService {
     }
   }
 
+  void clearNetworkMonitoring() {
+    _networkRecoveredSubscription?.cancel();
+    _networkRecoveredSubscription = null;
+  }
+
   /// 釋放資源
   void dispose() {
+    if (_isDisposed) return;
+    _isDisposed = true;
     _refreshTimer?.cancel();
-    _networkRecoveredSubscription?.cancel();
+    _refreshTimer = null;
+    clearNetworkMonitoring();
     _stateController.close();
   }
 }
@@ -182,9 +199,7 @@ final rankingCacheServiceProvider = Provider<RankingCacheService>((ref) {
   // 當 provider 被銷毀時取消訂閱
   ref.onDispose(() {
     // 不銷毀全局單例，只取消網絡監聽
-    service._networkRecoveredSubscription?.cancel();
-    service._networkRecoveredSubscription = null;
-    service._networkMonitoringSetup = false;
+    service.clearNetworkMonitoring();
   });
 
   return service;
