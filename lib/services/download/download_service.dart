@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:dio/dio.dart';
+import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/constants/app_constants.dart';
@@ -57,6 +58,12 @@ class DownloadService with Logging {
 
   /// 已被外部清理的任务 ID（pauseTask/cancelTask 已递减 _activeDownloads）
   final Set<int> _externallyCleaned = {};
+
+  /// 处于 Isolate 注册前异步准备阶段的任务 ID
+  final Set<int> _tasksInSetupWindow = {};
+
+  /// 在 Isolate 注册前就被外部取消/销毁的任务 ID
+  final Set<int> _setupAbortedTasks = {};
   
   /// 下载进度流控制器
   final _progressController = StreamController<DownloadProgressEvent>.broadcast();
@@ -94,9 +101,14 @@ class DownloadService with Logging {
   /// 待发送的进度更新（仅在内存中累积，由定时器统一处理）
   /// Key: taskId, Value: (trackId, progress, downloadedBytes, totalBytes)
   final Map<int, (int, double, int, int)> _pendingProgressUpdates = {};
-  
+
+  /// 待发送进度的硬上限，避免 flush 停滞时无限增长
+  static const int _pendingProgressUpdateLimit = 256;
+
   /// 进度更新定时器（主线程定时器，统一处理所有进度更新）
   Timer? _progressUpdateTimer;
+
+  bool _isDisposed = false;
 
   DownloadService({
     required DownloadRepository downloadRepository,
@@ -131,49 +143,63 @@ class DownloadService with Logging {
 
   /// 初始化服务
   Future<void> initialize() async {
+    if (_isDisposed) return;
+
     logDebug('Initializing DownloadService');
-    
+
     // 清除已完成和失败的任务（A2: 启动时清理）
     final clearedCount = await _downloadRepository.clearCompletedAndErrorTasks();
+    if (_isDisposed) return;
     if (clearedCount > 0) {
       logDebug('Cleared $clearedCount completed/error tasks at startup');
     }
-    
+
     // 重置所有 downloading 状态的任务为 paused
     await _downloadRepository.resetDownloadingToPaused();
-    
+    if (_isDisposed) return;
+
     // 启动调度器
     _startScheduler();
-    
+
     // 启动进度更新定时器（在主线程中统一处理进度更新）
     _startProgressUpdateTimer();
-    
+
     logDebug('DownloadService initialized');
   }
 
   /// 释放资源
   void dispose() {
+    if (_isDisposed) return;
+    _isDisposed = true;
+
     _schedulerTimer?.cancel();
+    _schedulerTimer = null;
     _scheduleSubscription?.cancel();
+    _scheduleSubscription = null;
     _progressUpdateTimer?.cancel();
+    _progressUpdateTimer = null;
     _scheduleController.close();
     _progressController.close();
     _completionController.close();
     _failureController.close();
-    
+
     // 取消所有进行中的 Isolate 下载
-    for (final entry in _activeDownloadIsolates.values) {
+    for (final entry in _activeDownloadIsolates.values.toList()) {
       entry.receivePort.close();
       entry.isolate.kill();
     }
     _activeDownloadIsolates.clear();
-    
+
     // 兼容旧的 CancelToken
-    for (final cancelToken in _activeCancelTokens.values) {
+    for (final cancelToken in _activeCancelTokens.values.toList()) {
       cancelToken.cancel('Service disposed');
     }
     _activeCancelTokens.clear();
     _pendingProgressUpdates.clear();
+    _externallyCleaned.clear();
+    _tasksInSetupWindow.clear();
+    _setupAbortedTasks.clear();
+    _activeDownloads = 0;
 
     _dio.close();
   }
@@ -182,17 +208,17 @@ class DownloadService with Logging {
   /// 注意：进度更新只发送到 stream，不写入数据库
   /// 这样可以避免 Isar watch 频繁触发 UI 重建
   void _flushPendingProgressUpdates() {
-    if (_pendingProgressUpdates.isEmpty) return;
-    
+    if (_isDisposed || _pendingProgressUpdates.isEmpty) return;
+
     // 复制并清空待发送列表
     final updates = Map<int, (int, double, int, int)>.from(_pendingProgressUpdates);
     _pendingProgressUpdates.clear();
-    
+
     // 批量发送 UI 通知（进度只保存在内存中，不写数据库）
     for (final entry in updates.entries) {
       final taskId = entry.key;
       final (trackId, progress, downloadedBytes, totalBytes) = entry.value;
-      
+
       // 只发送 UI 通知，不写数据库
       // 数据库只在下载完成/暂停/失败时更新
       _progressController.add(DownloadProgressEvent(
@@ -221,18 +247,31 @@ class DownloadService with Logging {
   /// 记录进度更新（仅更新内存，不触发任何 IO 或跨线程通信）
   /// 由 Dio 的 onReceiveProgress 回调调用（在主 Isolate 事件循环中）
   void _recordProgressUpdate(int taskId, int trackId, double progress, int downloadedBytes, int totalBytes) {
+    if (_isDisposed) return;
+
     // 只更新内存中的 Map，线程安全（Dart 单 Isolate 内所有代码在同一事件循环中执行，无并发竞争）
     _pendingProgressUpdates[taskId] = (trackId, progress, downloadedBytes, totalBytes);
+    if (_pendingProgressUpdates.length <= _pendingProgressUpdateLimit) {
+      return;
+    }
+
+    final overflow = _pendingProgressUpdates.length - _pendingProgressUpdateLimit;
+    final staleTaskIds = _pendingProgressUpdates.keys.take(overflow).toList();
+    for (final staleTaskId in staleTaskIds) {
+      _pendingProgressUpdates.remove(staleTaskId);
+    }
   }
 
   /// 启动调度器（事件驱动 + 周期检查）
   void _startScheduler() {
+    if (_isDisposed) return;
+
     // 事件驱动：监听调度请求
     _scheduleSubscription?.cancel();
     _scheduleSubscription = _scheduleController.stream.listen((_) {
       _scheduleDownloads();
     });
-    
+
     // 周期检查：作为备份机制
     _schedulerTimer?.cancel();
     _schedulerTimer = Timer.periodic(const Duration(seconds: 5), (_) {
@@ -242,6 +281,7 @@ class DownloadService with Logging {
   
   /// 触发调度（事件驱动入口）
   void _triggerSchedule() {
+    if (_isDisposed || _scheduleController.isClosed) return;
     _scheduleController.add(null);
   }
 
@@ -435,28 +475,8 @@ class DownloadService with Logging {
   Future<void> pauseTask(int taskId) async {
     logDebug('Pausing download task: $taskId');
 
-    // 取消正在进行的 Isolate 下载
-    final isolateInfo = _activeDownloadIsolates.remove(taskId);
-    if (isolateInfo != null) {
-      isolateInfo.receivePort.close();
-      isolateInfo.isolate.kill();
-      _activeDownloads--;
-      _externallyCleaned.add(taskId);
-    }
-
-    // 兼容旧的 CancelToken（如果有的话）
-    final cancelToken = _activeCancelTokens.remove(taskId);
-    if (cancelToken != null) {
-      cancelToken.cancel('User paused');
-      if (isolateInfo == null) {
-        _activeDownloads--;
-        _externallyCleaned.add(taskId);
-      }
-    }
-
-    // 防止计数器变为负数
-    if (_activeDownloads < 0) _activeDownloads = 0;
-
+    _clearPendingProgressForTask(taskId);
+    _cleanupActiveTask(taskId, cancelReason: 'User paused');
     await _downloadRepository.updateTaskStatus(taskId, DownloadStatus.paused);
   }
 
@@ -471,28 +491,8 @@ class DownloadService with Logging {
   Future<void> cancelTask(int taskId) async {
     logDebug('Canceling download task: $taskId');
 
-    // 取消正在进行的 Isolate 下载
-    final isolateInfo = _activeDownloadIsolates.remove(taskId);
-    if (isolateInfo != null) {
-      isolateInfo.receivePort.close();
-      isolateInfo.isolate.kill();
-      _activeDownloads--;
-      _externallyCleaned.add(taskId);
-    }
-
-    // 兼容旧的 CancelToken
-    final cancelToken = _activeCancelTokens.remove(taskId);
-    if (cancelToken != null) {
-      cancelToken.cancel('User cancelled');
-      if (isolateInfo == null) {
-        _activeDownloads--;
-        _externallyCleaned.add(taskId);
-      }
-    }
-
-    // 防止计数器变为负数
-    if (_activeDownloads < 0) _activeDownloads = 0;
-
+    _clearPendingProgressForTask(taskId);
+    _cleanupActiveTask(taskId, cancelReason: 'User cancelled');
     await _downloadRepository.deleteTask(taskId);
   }
 
@@ -516,23 +516,14 @@ class DownloadService with Logging {
   Future<void> pauseAll() async {
     logDebug('Pausing all downloads');
 
-    // 标记所有活跃任务为已外部清理
-    _externallyCleaned.addAll(_activeDownloadIsolates.keys);
-    _externallyCleaned.addAll(_activeCancelTokens.keys);
-
-    // 取消所有进行中的 Isolate 下载
-    for (final entry in _activeDownloadIsolates.entries) {
-      entry.value.receivePort.close();
-      entry.value.isolate.kill();
+    _pendingProgressUpdates.clear();
+    final activeTaskIds = {
+      ..._activeDownloadIsolates.keys,
+      ..._activeCancelTokens.keys,
+    }.toList();
+    for (final taskId in activeTaskIds) {
+      _cleanupActiveTask(taskId, cancelReason: 'User paused all');
     }
-    _activeDownloadIsolates.clear();
-
-    // 兼容旧的 CancelToken
-    for (final entry in _activeCancelTokens.entries) {
-      entry.value.cancel('User paused all');
-    }
-    _activeCancelTokens.clear();
-    _activeDownloads = 0;
 
     await _downloadRepository.pauseAllTasks();
   }
@@ -548,23 +539,14 @@ class DownloadService with Logging {
   Future<void> clearQueue() async {
     logDebug('Clearing download queue');
 
-    // 标记所有活跃任务为已外部清理
-    _externallyCleaned.addAll(_activeDownloadIsolates.keys);
-    _externallyCleaned.addAll(_activeCancelTokens.keys);
-
-    // 取消所有进行中的 Isolate 下载
-    for (final entry in _activeDownloadIsolates.entries) {
-      entry.value.receivePort.close();
-      entry.value.isolate.kill();
+    _pendingProgressUpdates.clear();
+    final activeTaskIds = {
+      ..._activeDownloadIsolates.keys,
+      ..._activeCancelTokens.keys,
+    }.toList();
+    for (final taskId in activeTaskIds) {
+      _cleanupActiveTask(taskId, cancelReason: 'Queue cleared');
     }
-    _activeDownloadIsolates.clear();
-
-    // 兼容旧的 CancelToken
-    for (final entry in _activeCancelTokens.entries) {
-      entry.value.cancel('Queue cleared');
-    }
-    _activeCancelTokens.clear();
-    _activeDownloads = 0;
 
     await _downloadRepository.clearQueue();
   }
@@ -599,6 +581,7 @@ class DownloadService with Logging {
     
     logDebug('Starting download for track: ${task.trackId}');
     _activeDownloads++;
+    _tasksInSetupWindow.add(task.id);
     String trackTitle = 'Track ${task.trackId}';
 
     try {
@@ -606,25 +589,29 @@ class DownloadService with Logging {
       
       // 获取歌曲信息
       final track = await _trackRepository.getById(task.trackId);
+      if (_shouldAbortBeforeRegistration(task.id)) return;
       if (track == null) {
         throw Exception('Track not found: ${task.trackId}');
       }
       trackTitle = track.title;
-      
+
       // 获取音频 URL（使用用户设置的音频配置，与播放时逻辑一致）
       final source = _sourceManager.getSource(track.sourceType);
       if (source == null) {
         throw Exception('No source available for ${track.sourceType}');
       }
-      
+
       final settings = await _settingsRepository.get();
+      if (_shouldAbortBeforeRegistration(task.id)) return;
       final config = AudioStreamConfig.fromSettings(settings, track.sourceType);
       final authHeaders = settings.useAuthForPlay(track.sourceType)
           ? await _getAuthHeaders(track.sourceType)
           : null;
+      if (_shouldAbortBeforeRegistration(task.id)) return;
       final streamResult = await source.getAudioStream(track.sourceId, config: config, authHeaders: authHeaders);
+      if (_shouldAbortBeforeRegistration(task.id)) return;
       final audioUrl = streamResult.url;
-      
+
       // 更新 track 的 URL 信息
       track.audioUrl = audioUrl;
       track.audioUrlExpiry = DateTime.now().add(const Duration(hours: 1));
@@ -633,17 +620,20 @@ class DownloadService with Logging {
       
       logDebug('Got audio stream for download: ${track.title}, '
           'quality=${config.qualityLevel}, bitrate=${streamResult.bitrate}');
-      
+      if (_shouldAbortBeforeRegistration(task.id)) return;
+
       // 确定保存路径
       final savePath = await _getDownloadPath(track, task);
+      if (_shouldAbortBeforeRegistration(task.id)) return;
       final tempPath = '$savePath.downloading';
-      
+
       // 确保目录存在
       final dir = Directory(p.dirname(savePath));
       if (!await dir.exists()) {
         await dir.create(recursive: true);
       }
-      
+      if (_shouldAbortBeforeRegistration(task.id)) return;
+
       // 断点续传：检查是否有已下载的部分
       int resumePosition = 0;
       final tempFile = File(tempPath);
@@ -654,7 +644,8 @@ class DownloadService with Logging {
         // 临时文件存在但不匹配，删除重新下载
         await tempFile.delete();
       }
-      
+      if (_shouldAbortBeforeRegistration(task.id)) return;
+
       // 保存临时文件路径到任务（确保状态正确，因为传入的 task 对象可能是旧状态）
       task.tempFilePath = tempPath;
       task.status = DownloadStatus.downloading;
@@ -683,8 +674,16 @@ class DownloadService with Logging {
           sendPort: receivePort.sendPort,
         ),
       );
-      
+
+      if (_shouldAbortBeforeRegistration(task.id)) {
+        receivePort.close();
+        isolate.kill();
+        logDebug('Download stopped before isolate registration for task: ${task.id}');
+        return;
+      }
+
       // 保存 Isolate 引用以支持取消
+      _tasksInSetupWindow.remove(task.id);
       _activeDownloadIsolates[task.id] = (isolate: isolate, receivePort: receivePort);
       
       // 监听来自 Isolate 的消息
@@ -717,14 +716,15 @@ class DownloadService with Logging {
 
       // 清理 Isolate 引用（不从 map 移除，由 finally 统一处理）
       isolate.kill();
-      
-      // 如果被取消，不抛异常，让 finally 处理
-      if (wasCancelled) {
-        logDebug('Download cancelled for task: ${task.id}');
-        await _saveResumeProgress(task);
+
+      if (_shouldAbortFinalization(task.id, wasCancelled: wasCancelled)) {
+        logDebug('Download stopped before finalization for task: ${task.id}');
+        if (!_isDisposed) {
+          await _saveResumeProgress(task);
+        }
         return;
       }
-      
+
       if (downloadError != null) {
         throw Exception('Download failed: $downloadError');
       }
@@ -784,25 +784,63 @@ class DownloadService with Logging {
       logError('Download failed for task: ${task.id}: $e', e, stack);
       await _handleDownloadFailure(task, trackTitle, e.toString());
     } finally {
-      // 递减活跃下载计数：
-      // - 如果 isolate 仍在 map 中，说明未被 pauseTask/cancelTask 外部清理
-      // - 如果已被外部清理（_externallyCleaned），则不递减（已由外部递减）
-      final wasStillActive = _activeDownloadIsolates.remove(task.id) != null;
-      _activeCancelTokens.remove(task.id);
-      final wasExternallyCleaned = _externallyCleaned.remove(task.id);
-      if (wasStillActive || !wasExternallyCleaned) {
-        _activeDownloads--;
-      }
-      if (_activeDownloads < 0) _activeDownloads = 0;
+      _clearPendingProgressForTask(task.id);
+      _finalizeTaskCleanup(task.id);
       // 下载完成后触发调度，继续下一个任务（事件驱动）
       _triggerSchedule();
     }
   }
   
+  void _clearPendingProgressForTask(int taskId) {
+    _pendingProgressUpdates.remove(taskId);
+  }
+
+  bool _shouldAbortBeforeRegistration(int taskId) {
+    return _isDisposed || _setupAbortedTasks.remove(taskId);
+  }
+
+  bool _shouldAbortFinalization(int taskId, {required bool wasCancelled}) {
+    return _isDisposed || wasCancelled || !_activeDownloadIsolates.containsKey(taskId);
+  }
+
+  void _cleanupActiveTask(int taskId, {required String cancelReason}) {
+    final isolateInfo = _activeDownloadIsolates.remove(taskId);
+    if (isolateInfo != null) {
+      isolateInfo.receivePort.close();
+      isolateInfo.isolate.kill();
+    }
+
+    final cancelToken = _activeCancelTokens.remove(taskId);
+    cancelToken?.cancel(cancelReason);
+
+    if (isolateInfo == null && cancelToken == null) {
+      if (_tasksInSetupWindow.contains(taskId)) {
+        _setupAbortedTasks.add(taskId);
+      }
+      return;
+    }
+
+    _externallyCleaned.add(taskId);
+    _activeDownloads--;
+    if (_activeDownloads < 0) _activeDownloads = 0;
+  }
+
+  void _finalizeTaskCleanup(int taskId) {
+    final wasStillActive = _activeDownloadIsolates.remove(taskId) != null;
+    _activeCancelTokens.remove(taskId);
+    _tasksInSetupWindow.remove(taskId);
+    final wasSetupAborted = _setupAbortedTasks.remove(taskId);
+    final wasExternallyCleaned = _externallyCleaned.remove(taskId);
+    if (!wasSetupAborted && (wasStillActive || !wasExternallyCleaned)) {
+      _activeDownloads--;
+    }
+    if (_activeDownloads < 0) _activeDownloads = 0;
+  }
+
   /// 保存断点续传进度
   Future<void> _saveResumeProgress(DownloadTask task) async {
     if (task.tempFilePath == null) return;
-    
+
     try {
       final tempFile = File(task.tempFilePath!);
       if (await tempFile.exists()) {
@@ -929,11 +967,11 @@ class DownloadService with Logging {
   /// 获取下载目录信息
   Future<DownloadDirInfo> getDownloadDirInfo() async {
     final downloadDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
-    
+
     final dir = Directory(downloadDir);
     int totalSize = 0;
     int fileCount = 0;
-    
+
     if (await dir.exists()) {
       await for (final entity in dir.list(recursive: true)) {
         if (entity is File) {
@@ -943,12 +981,71 @@ class DownloadService with Logging {
         }
       }
     }
-    
+
     return DownloadDirInfo(
       path: downloadDir,
       totalSize: totalSize,
       fileCount: fileCount,
     );
+  }
+
+  @visibleForTesting
+  int get debugActiveDownloads => _activeDownloads;
+
+  @visibleForTesting
+  int get debugPendingProgressCount => _pendingProgressUpdates.length;
+
+  @visibleForTesting
+  int get debugPendingProgressLimit => _pendingProgressUpdateLimit;
+
+  @visibleForTesting
+  bool get debugHasSchedulerTimer => _schedulerTimer != null;
+
+  @visibleForTesting
+  bool get debugHasProgressTimer => _progressUpdateTimer != null;
+
+  @visibleForTesting
+  void debugRecordProgressUpdateForTesting(
+    int taskId,
+    int trackId,
+    double progress,
+    int downloadedBytes,
+    int totalBytes,
+  ) {
+    _recordProgressUpdate(taskId, trackId, progress, downloadedBytes, totalBytes);
+  }
+
+  @visibleForTesting
+  void debugFlushPendingProgressUpdatesForTesting() {
+    _flushPendingProgressUpdates();
+  }
+
+  @visibleForTesting
+  void debugRegisterLegacyActiveDownloadForTesting(int taskId) {
+    _activeCancelTokens[taskId] = CancelToken();
+    _activeDownloads++;
+  }
+
+  @visibleForTesting
+  void debugFinalizeTaskCleanupForTesting(int taskId) {
+    _finalizeTaskCleanup(taskId);
+  }
+
+  @visibleForTesting
+  Future<void> debugStartDownloadForTesting(DownloadTask task) {
+    return _startDownload(task);
+  }
+
+  @visibleForTesting
+  Future<void> debugWaitForTaskToBecomeActiveForTesting(int taskId) async {
+    for (var i = 0; i < 100; i++) {
+      if (_activeDownloadIsolates.containsKey(taskId) ||
+          _activeCancelTokens.containsKey(taskId)) {
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    throw StateError('Task $taskId did not become active in time');
   }
 }
 
