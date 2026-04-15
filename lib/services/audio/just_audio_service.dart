@@ -16,7 +16,6 @@ class JustAudioService extends FmpAudioService with Logging {
   late final ja.AudioPlayer _player;
   late final AudioSession _session;
   bool _hasPlayer = false;
-  bool _hasSession = false;
   bool _disposed = false;
 
   // 完成事件控制器
@@ -152,7 +151,6 @@ class JustAudioService extends FmpAudioService with Logging {
 
     // 配置音频会话（just_audio 自动管理 audio_session，但我们仍需监听中断）
     _session = await AudioSession.instance;
-    _hasSession = true;
     await _session.configure(const AudioSessionConfiguration.music());
 
     // 监听音频会话中断

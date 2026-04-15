@@ -328,6 +328,13 @@ Imported tracks save original platform song ID for direct lyrics fetch:
 - YouTube: quality tier (default/mq/hq/sd/maxres) + webp
 - Netease: `?param={size}y{size}` parameter
 
+### Phase-1 Stabilization Note (2026-04-15)
+Phase-1 stabilization work is intentionally narrow in scope and should stay focused on regression resistance rather than new behavior.
+
+- Keep fixes minimal and localized when touching playback request supersession, disposal/lifecycle safety, download cleanup, queue state cleanup, ranking cache lifecycle, or database migration coverage.
+- Preserve focused regression coverage in the phase-1 verification suite before expanding related refactors.
+- If a change in these areas requires broader design movement, treat it as follow-up work rather than folding it into stabilization.
+
 ---
 
 ## UI Development Guidelines

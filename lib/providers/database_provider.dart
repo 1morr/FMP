@@ -103,16 +103,13 @@ Future<void> _migrateDatabase(Isar isar) async {
         needsUpdate = true;
       }
 
-      // 網易雲播放認證：新字段 bool 默認 false，但需要默認 true
-      // 使用 enabledSources 是否包含 'netease' 判斷是否已遷移
-      if (!settings.enabledSources.contains('netease')) {
-        settings.useNeteaseAuthForPlay = true;
-        settings.enabledSources = [...settings.enabledSources, 'netease'];
-        needsUpdate = true;
-      }
-
-      // 網易雲流優先級
+      // 網易雲相關字段：舊版本升級時，新增字段會落成 Isar 類型默認值
+      // 以 neteaseStreamPriority 是否為空判斷是否仍是未遷移的舊數據，避免後續啟動覆蓋用戶當前設置
       if (settings.neteaseStreamPriority.isEmpty) {
+        settings.useNeteaseAuthForPlay = true;
+        if (!settings.enabledSources.contains('netease')) {
+          settings.enabledSources = [...settings.enabledSources, 'netease'];
+        }
         settings.neteaseStreamPriority = 'audioOnly';
         needsUpdate = true;
       }

@@ -53,6 +53,32 @@ void main() {
       expect(migratedSettings.neteaseStreamPriority, 'audioOnly');
     });
 
+    test('preserves intentional NetEase opt-out on repeated migration runs', () async {
+      tempDir = await Directory.systemTemp.createTemp('database_migration_test_');
+      isar = await Isar.open(
+        [SettingsSchema, PlayQueueSchema],
+        directory: tempDir.path,
+        name: 'database_migration_test',
+      );
+
+      final modernSettings = Settings()
+        ..enabledSources = ['bilibili', 'youtube']
+        ..useNeteaseAuthForPlay = false
+        ..neteaseStreamPriority = 'audioOnly';
+      await isar.writeTxn(() async {
+        await isar.settings.put(modernSettings);
+      });
+
+      await runDatabaseMigrationForTesting(isar);
+      await runDatabaseMigrationForTesting(isar);
+
+      final migratedSettings = await isar.settings.get(0);
+      expect(migratedSettings, isNotNull);
+      expect(migratedSettings!.useNeteaseAuthForPlay, isFalse);
+      expect(migratedSettings.enabledSources, isNot(contains('netease')));
+      expect(migratedSettings.neteaseStreamPriority, 'audioOnly');
+    });
+
     test('creates an empty queue when none exists', () async {
       tempDir = await Directory.systemTemp.createTemp('database_migration_test_');
       isar = await Isar.open(
