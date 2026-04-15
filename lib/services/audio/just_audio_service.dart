@@ -15,10 +15,13 @@ import 'audio_types.dart';
 class JustAudioService extends FmpAudioService with Logging {
   late final ja.AudioPlayer _player;
   late final AudioSession _session;
+  bool _hasPlayer = false;
+  bool _hasSession = false;
+  bool _disposed = false;
 
   // 完成事件控制器
   final _completedController = StreamController<void>.broadcast();
-  
+
   // 错误事件控制器
   final _errorController = StreamController<String>.broadcast();
 
@@ -46,18 +49,21 @@ class JustAudioService extends FmpAudioService with Logging {
     ),
   );
 
-  final _processingStateController = BehaviorSubject<FmpAudioProcessingState>.seeded(
+  final _processingStateController =
+      BehaviorSubject<FmpAudioProcessingState>.seeded(
     FmpAudioProcessingState.idle,
   );
 
   final _positionController = BehaviorSubject<Duration>.seeded(Duration.zero);
   final _durationController = BehaviorSubject<Duration?>.seeded(null);
-  final _bufferedPositionController = BehaviorSubject<Duration>.seeded(Duration.zero);
+  final _bufferedPositionController =
+      BehaviorSubject<Duration>.seeded(Duration.zero);
   final _speedController = BehaviorSubject<double>.seeded(1.0);
   final _playingController = BehaviorSubject<bool>.seeded(false);
 
   // 音频设备（Android 不支持设备切换）
-  final _audioDevicesController = BehaviorSubject<List<FmpAudioDevice>>.seeded([]);
+  final _audioDevicesController =
+      BehaviorSubject<List<FmpAudioDevice>>.seeded([]);
   final _audioDeviceController = BehaviorSubject<FmpAudioDevice?>.seeded(null);
 
   // ========== 状态流 ==========
@@ -68,19 +74,23 @@ class JustAudioService extends FmpAudioService with Logging {
   @override
   Stream<Duration?> get durationStream => _durationController.stream;
   @override
-  Stream<Duration> get bufferedPositionStream => _bufferedPositionController.stream;
+  Stream<Duration> get bufferedPositionStream =>
+      _bufferedPositionController.stream;
   @override
   Stream<double> get speedStream => _speedController.stream;
   @override
-  Stream<FmpAudioProcessingState> get processingStateStream => _processingStateController.stream;
+  Stream<FmpAudioProcessingState> get processingStateStream =>
+      _processingStateController.stream;
   @override
   Stream<bool> get playingStream => _playingController.stream;
   @override
   Stream<void> get completedStream => _completedController.stream;
   @override
-  Stream<List<FmpAudioDevice>> get audioDevicesStream => _audioDevicesController.stream;
+  Stream<List<FmpAudioDevice>> get audioDevicesStream =>
+      _audioDevicesController.stream;
   @override
-  Stream<FmpAudioDevice?> get audioDeviceStream => _audioDeviceController.stream;
+  Stream<FmpAudioDevice?> get audioDeviceStream =>
+      _audioDeviceController.stream;
   @override
   Stream<String> get errorStream => _errorController.stream;
 
@@ -98,7 +108,8 @@ class JustAudioService extends FmpAudioService with Logging {
   @override
   double get volume => _volume;
   @override
-  FmpAudioProcessingState get processingState => _processingStateController.value;
+  FmpAudioProcessingState get processingState =>
+      _processingStateController.value;
   @override
   List<FmpAudioDevice> get audioDevices => [];
   @override
@@ -122,6 +133,7 @@ class JustAudioService extends FmpAudioService with Logging {
 
   @override
   Future<void> initialize() async {
+    if (_disposed) return;
     logInfo('Initializing JustAudioService...');
 
     _player = ja.AudioPlayer(
@@ -136,9 +148,11 @@ class JustAudioService extends FmpAudioService with Logging {
         ),
       ),
     );
+    _hasPlayer = true;
 
     // 配置音频会话（just_audio 自动管理 audio_session，但我们仍需监听中断）
     _session = await AudioSession.instance;
+    _hasSession = true;
     await _session.configure(const AudioSessionConfiguration.music());
 
     // 监听音频会话中断
@@ -154,7 +168,8 @@ class JustAudioService extends FmpAudioService with Logging {
             case AudioInterruptionType.unknown:
               _wasPlayingBeforeInterruption = _player.playing;
               if (_wasPlayingBeforeInterruption) {
-                logDebug('Audio interrupted while playing, will resume after interruption ends');
+                logDebug(
+                    'Audio interrupted while playing, will resume after interruption ends');
                 pause();
               }
               break;
@@ -251,7 +266,8 @@ class JustAudioService extends FmpAudioService with Logging {
     _subscriptions.add(
       _player.playbackEventStream.handleError((Object error) {
         if (error is ja.PlayerException) {
-          final msg = 'PlayerException: code=${error.code}, message=${error.message}';
+          final msg =
+              'PlayerException: code=${error.code}, message=${error.message}';
           logError(msg);
           _errorController.add(msg);
         } else if (error is ja.PlayerInterruptedException) {
@@ -268,6 +284,9 @@ class JustAudioService extends FmpAudioService with Logging {
 
   @override
   Future<void> dispose() async {
+    if (_disposed) return;
+    _disposed = true;
+
     for (final subscription in _subscriptions) {
       await subscription.cancel();
     }
@@ -285,7 +304,9 @@ class JustAudioService extends FmpAudioService with Logging {
     await _audioDevicesController.close();
     await _audioDeviceController.close();
 
-    await _player.dispose();
+    if (_hasPlayer) {
+      await _player.dispose();
+    }
   }
 
   // ========== 播放控制 ==========
@@ -336,7 +357,8 @@ class JustAudioService extends FmpAudioService with Logging {
 
   @override
   Future<void> seekForward([Duration? duration]) async {
-    final seekDuration = duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
+    final seekDuration =
+        duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
     final newPosition = _player.position + seekDuration;
     final maxPosition = _player.duration ?? Duration.zero;
     await _player.seek(newPosition > maxPosition ? maxPosition : newPosition);
@@ -344,9 +366,11 @@ class JustAudioService extends FmpAudioService with Logging {
 
   @override
   Future<void> seekBackward([Duration? duration]) async {
-    final seekDuration = duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
+    final seekDuration =
+        duration ?? const Duration(seconds: AppConstants.seekDurationSeconds);
     final newPosition = _player.position - seekDuration;
-    await _player.seek(newPosition < Duration.zero ? Duration.zero : newPosition);
+    await _player
+        .seek(newPosition < Duration.zero ? Duration.zero : newPosition);
   }
 
   @override
@@ -355,15 +379,18 @@ class JustAudioService extends FmpAudioService with Logging {
     final currentDuration = _player.duration;
     if (currentDuration != null && currentDuration.inSeconds >= 5) {
       final targetPosition = currentDuration - const Duration(seconds: 1);
-      logInfo('seekToLive: seeking to $targetPosition (duration: $currentDuration)');
+      logInfo(
+          'seekToLive: seeking to $targetPosition (duration: $currentDuration)');
       final positionBefore = _player.position;
       await _player.seek(targetPosition);
       // 等待 seek 生效后验证
       await Future.delayed(const Duration(milliseconds: 300));
       final positionAfter = _player.position;
-      final seekWorked = (positionAfter - positionBefore).abs() > const Duration(seconds: 1);
+      final seekWorked =
+          (positionAfter - positionBefore).abs() > const Duration(seconds: 1);
       if (!seekWorked) {
-        logInfo('seekToLive: seek had no effect (before: $positionBefore, after: $positionAfter)');
+        logInfo(
+            'seekToLive: seek had no effect (before: $positionBefore, after: $positionAfter)');
         // 继续尝试策略 2
       } else {
         return true;
@@ -374,20 +401,24 @@ class JustAudioService extends FmpAudioService with Logging {
     final buffered = _player.bufferedPosition;
     if (buffered.inSeconds >= 5) {
       final targetPosition = buffered - const Duration(seconds: 1);
-      logInfo('seekToLive: seeking to buffered edge $targetPosition (buffered: $buffered)');
+      logInfo(
+          'seekToLive: seeking to buffered edge $targetPosition (buffered: $buffered)');
       final positionBefore = _player.position;
       await _player.seek(targetPosition);
       await Future.delayed(const Duration(milliseconds: 300));
       final positionAfter = _player.position;
-      final seekWorked = (positionAfter - positionBefore).abs() > const Duration(seconds: 1);
+      final seekWorked =
+          (positionAfter - positionBefore).abs() > const Duration(seconds: 1);
       if (!seekWorked) {
-        logInfo('seekToLive: buffered seek had no effect (before: $positionBefore, after: $positionAfter)');
+        logInfo(
+            'seekToLive: buffered seek had no effect (before: $positionBefore, after: $positionAfter)');
         return false;
       }
       return true;
     }
 
-    logInfo('seekToLive: no seekable range (duration: $currentDuration, buffered: $buffered)');
+    logInfo(
+        'seekToLive: no seekable range (duration: $currentDuration, buffered: $buffered)');
     return false;
   }
 
@@ -429,7 +460,8 @@ class JustAudioService extends FmpAudioService with Logging {
   Future<void> _waitForIdle() async {
     if (_player.processingState == ja.ProcessingState.idle) return;
 
-    logDebug('Waiting for player to be idle, current state: ${_player.processingState}');
+    logDebug(
+        'Waiting for player to be idle, current state: ${_player.processingState}');
     try {
       await _player.playerStateStream
           .where((s) => s.processingState == ja.ProcessingState.idle)
@@ -441,11 +473,11 @@ class JustAudioService extends FmpAudioService with Logging {
     }
   }
 
-
-
   @override
-  Future<Duration?> playUrl(String url, {Map<String, String>? headers, Track? track}) async {
-    logDebug('Playing URL: ${url.substring(0, url.length > 80 ? 80 : url.length)}...');
+  Future<Duration?> playUrl(String url,
+      {Map<String, String>? headers, Track? track}) async {
+    logDebug(
+        'Playing URL: ${url.substring(0, url.length > 80 ? 80 : url.length)}...');
     if (headers != null) {
       logDebug('With headers: ${headers.keys.join(", ")}');
     }
@@ -488,8 +520,10 @@ class JustAudioService extends FmpAudioService with Logging {
   }
 
   @override
-  Future<Duration?> setUrl(String url, {Map<String, String>? headers, Track? track}) async {
-    logDebug('Setting URL: ${url.substring(0, url.length > 50 ? 50 : url.length)}...');
+  Future<Duration?> setUrl(String url,
+      {Map<String, String>? headers, Track? track}) async {
+    logDebug(
+        'Setting URL: ${url.substring(0, url.length > 50 ? 50 : url.length)}...');
     try {
       _processingStateController.add(FmpAudioProcessingState.loading);
       await _session.setActive(true);
