@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
 import 'package:fmp/data/sources/bilibili_source.dart';
+import 'package:fmp/data/sources/bilibili_exception.dart';
 import 'package:fmp/data/models/track.dart';
 
 void main() {
