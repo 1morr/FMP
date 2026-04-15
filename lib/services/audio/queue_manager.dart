@@ -48,6 +48,7 @@ class QueueManager with Logging {
 
   // ========== 状态变化通知 ==========
   final _stateController = StreamController<void>.broadcast();
+  bool _isDisposed = false;
 
   /// 状态变化流（当队列、索引、播放模式变化时触发）
   Stream<void> get stateStream => _stateController.stream;
@@ -252,6 +253,8 @@ class QueueManager with Logging {
 
   /// 释放资源
   void dispose() {
+    if (_isDisposed) return;
+    _isDisposed = true;
     _savePositionTimer?.cancel();
     _fetchingUrlTrackIds.clear();
     _stateController.close();
@@ -694,6 +697,10 @@ class QueueManager with Logging {
 
     if (_currentQueue != null) {
       _currentQueue!.originalOrder = [];
+      _currentQueue!.isMixMode = false;
+      _currentQueue!.mixPlaylistId = null;
+      _currentQueue!.mixSeedVideoId = null;
+      _currentQueue!.mixTitle = null;
       await _persistQueue();
     }
 
@@ -1161,6 +1168,7 @@ class QueueManager with Logging {
   }
 
   void _notifyStateChanged() {
+    if (_isDisposed || _stateController.isClosed) return;
     _stateController.add(null);
   }
 }
