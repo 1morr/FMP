@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
@@ -13,6 +14,7 @@ import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/youtube_exception.dart';
+import 'package:fmp/data/sources/youtube_source.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
@@ -27,8 +29,11 @@ void main() {
   group('AudioController phase 1 regressions', () {
     late Directory tempDir;
     late Isar isar;
+    late QueueRepository queueRepository;
+    late QueueManager queueManager;
     late FakeAudioService audioService;
     late _FakeSourceManager sourceManager;
+    late _TestMixTracksFetcher mixTracksFetcher;
     late AudioController controller;
 
     setUpAll(() async {
@@ -45,11 +50,11 @@ void main() {
         name: 'audio_controller_phase1_test',
       );
 
-      final queueRepository = QueueRepository(isar);
+      queueRepository = QueueRepository(isar);
       final trackRepository = TrackRepository(isar);
       final settingsRepository = SettingsRepository(isar);
       sourceManager = _FakeSourceManager();
-      final queueManager = QueueManager(
+      queueManager = QueueManager(
         queueRepository: queueRepository,
         trackRepository: trackRepository,
         settingsRepository: settingsRepository,
@@ -57,6 +62,7 @@ void main() {
       );
 
       audioService = FakeAudioService();
+      mixTracksFetcher = _TestMixTracksFetcher();
       controller = AudioController(
         audioService: audioService,
         queueManager: queueManager,
@@ -64,6 +70,7 @@ void main() {
         audioHandler: FmpAudioHandler(),
         windowsSmtcHandler: WindowsSmtcHandler(),
         settingsRepository: settingsRepository,
+        mixTracksFetcher: mixTracksFetcher.call,
       );
 
       final settings = await settingsRepository.get();
@@ -296,6 +303,64 @@ void main() {
       expect(controller.state.isLoading, isFalse);
       expect(controller.state.isPlaying, isTrue);
     });
+
+    test('clearing queue while mix load-more is active exits safely and clears persisted mix metadata',
+        () async {
+      final mixTracks = [
+        _track('mix-a', title: 'Mix A'),
+        _track('mix-b', title: 'Mix B'),
+      ];
+      final loadMoreGate = mixTracksFetcher.enqueuePendingResult(
+        const MixFetchResult(title: 'My Mix', tracks: []),
+      );
+
+      await controller.playMixPlaylist(
+        playlistId: 'RDmix123',
+        seedVideoId: 'seed123',
+        title: 'My Mix',
+        tracks: mixTracks,
+        startIndex: 1,
+      );
+      await pumpEventQueue(times: 5);
+
+      expect(controller.state.isMixMode, isTrue);
+      expect(controller.state.mixTitle, 'My Mix');
+      expect(controller.state.isLoadingMoreMix, isTrue);
+
+      await controller.clearQueue();
+      await pumpEventQueue(times: 5);
+
+      loadMoreGate.complete();
+      await pumpEventQueue(times: 20);
+
+      final persistedQueue = await queueRepository.getOrCreate();
+
+      expect(controller.state.isMixMode, isFalse);
+      expect(controller.state.mixTitle, isNull);
+      expect(controller.state.isLoadingMoreMix, isFalse);
+      expect(persistedQueue.trackIds, isEmpty);
+      expect(persistedQueue.isMixMode, isFalse);
+      expect(persistedQueue.mixPlaylistId, isNull);
+      expect(persistedQueue.mixSeedVideoId, isNull);
+      expect(persistedQueue.mixTitle, isNull);
+    });
+
+    test('queue manager stops state notifications after dispose', () async {
+      await queueManager.playAll([
+        _track('dispose-a', title: 'Dispose A'),
+        _track('dispose-b', title: 'Dispose B'),
+      ]);
+
+      final stateEvents = <void>[];
+      final subscription = queueManager.stateStream.listen(stateEvents.add);
+
+      queueManager.dispose();
+      queueManager.setCurrentIndex(1);
+      await pumpEventQueue(times: 5);
+
+      expect(stateEvents, isEmpty);
+      await subscription.cancel();
+    });
   });
 }
 
@@ -373,6 +438,36 @@ class _FakeSourceManager extends SourceManager {
 
   @override
   void dispose() {}
+}
+
+class _TestMixTracksFetcher {
+  final List<_PendingMixFetch> _pending = [];
+
+  Completer<void> enqueuePendingResult(MixFetchResult result) {
+    final completer = Completer<void>();
+    _pending.add(_PendingMixFetch(completer, result));
+    return completer;
+  }
+
+  Future<MixFetchResult> call({
+    required String playlistId,
+    required String currentVideoId,
+  }) async {
+    if (_pending.isEmpty) {
+      return const MixFetchResult(title: 'My Mix', tracks: []);
+    }
+
+    final pending = _pending.removeAt(0);
+    await pending.completer.future;
+    return pending.result;
+  }
+}
+
+class _PendingMixFetch {
+  _PendingMixFetch(this.completer, this.result);
+
+  final Completer<void> completer;
+  final MixFetchResult result;
 }
 
 class _FakeSource extends BaseSource {
