@@ -335,6 +335,14 @@ Phase-1 stabilization work is intentionally narrow in scope and should stay focu
 - Preserve focused regression coverage in the phase-1 verification suite before expanding related refactors.
 - If a change in these areas requires broader design movement, treat it as follow-up work rather than folding it into stabilization.
 
+### Phase-2 Maintenance Note (2026-04-15)
+Phase-2 work should stay outside core playback structure and focus on consistency at the provider and page layer.
+
+- Normalize invalidation rules by observable behavior rather than assuming every list provider is watch-driven.
+- Add stable `ValueKey` identities to dynamic list rows before changing surrounding behavior.
+- Consolidate repeated single-track menu behavior through shared handlers, while keeping multi-page and group-specific actions local.
+- Treat top-level page view-model aggregation as follow-up work unless provider fan-out becomes materially noisy enough to justify it.
+
 ---
 
 ## UI Development Guidelines

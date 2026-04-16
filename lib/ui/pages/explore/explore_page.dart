@@ -10,6 +10,7 @@ import '../../../providers/popular_provider.dart';
 import '../../../providers/selection_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/cache/ranking_cache_service.dart';
+import '../../handlers/track_action_handler.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/dialogs/add_to_remote_playlist_dialog.dart';
 import '../../widgets/context_menu_region.dart';
@@ -338,43 +339,49 @@ class _ExploreTrackTile extends ConsumerWidget {
   ];
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
-    final controller = ref.read(audioControllerProvider.notifier);
-
-    switch (action) {
-      case 'play':
-        controller.playTemporary(track);
-        break;
-      case 'play_next':
-        final added = await controller.addNext(track);
-        if (added && context.mounted) {
-          ToastService.success(context, t.general.addedToNext);
-        }
-        break;
-      case 'add_to_queue':
-        final added = await controller.addToQueue(track);
-        if (added && context.mounted) {
-          ToastService.success(context, t.general.addedToQueue);
-        }
-        break;
-      case 'add_to_playlist':
-        showAddToPlaylistDialog(context: context, track: track);
-        break;
-      case 'matchLyrics':
-        showLyricsSearchSheet(context: context, track: track);
-        break;
-      case 'add_to_remote':
-        final isLoggedIn = ref.read(isLoggedInProvider(track.sourceType));
-        if (!isLoggedIn) {
+    final handler = TrackActionHandler(
+      audioController: AudioControllerTrackActionAdapter(
+        ref.read(audioControllerProvider.notifier),
+      ),
+      feedbackSink: CallbackTrackActionFeedbackSink(
+        onAddedToNext: () {
+          if (context.mounted) {
+            ToastService.success(context, t.general.addedToNext);
+          }
+        },
+        onAddedToQueue: () {
+          if (context.mounted) {
+            ToastService.success(context, t.general.addedToQueue);
+          }
+        },
+        onPleaseLogin: () {
           if (context.mounted) {
             ToastService.show(context, t.remote.pleaseLogin);
           }
-          return;
+        },
+      ),
+    );
+
+    await handler.handle(
+      parseTrackAction(action),
+      track: track,
+      isLoggedIn: ref.read(isLoggedInProvider(track.sourceType)),
+      onAddToPlaylist: () async {
+        if (context.mounted) {
+          showAddToPlaylistDialog(context: context, track: track);
         }
+      },
+      onMatchLyrics: () async {
+        if (context.mounted) {
+          showLyricsSearchSheet(context: context, track: track);
+        }
+      },
+      onAddToRemote: () async {
         if (context.mounted) {
           showAddToRemotePlaylistDialog(context: context, track: track);
         }
-        break;
-    }
+      },
+    );
   }
 
 }
