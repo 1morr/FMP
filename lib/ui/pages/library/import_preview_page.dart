@@ -286,10 +286,12 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
       final service = ref.read(playlistServiceProvider);
       await service.addTracksToPlaylist(playlist.id, tracks);
 
-      // watch 自动更新歌单列表，只需刷新详情和封面
-      ref.invalidate(allPlaylistsProvider);
-      ref.invalidate(playlistDetailProvider(playlist.id));
-      ref.invalidate(playlistCoverProvider(playlist.id));
+      // playlistListProvider 会通过 Isar watch 自动更新；
+      // 但 detail / cover 和 allPlaylistsProvider 快照消费者仍需显式刷新。
+      ref.read(playlistListProvider.notifier).invalidatePlaylistProviders(
+        playlist.id,
+        includeAllPlaylists: true,
+      );
 
       if (mounted) {
         Navigator.pop(context);

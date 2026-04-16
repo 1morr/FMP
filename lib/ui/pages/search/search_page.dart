@@ -29,6 +29,7 @@ import '../../widgets/track_tile.dart';
 import '../../../providers/selection_provider.dart';
 import '../../widgets/context_menu_region.dart';
 import '../../widgets/selection_mode_app_bar.dart';
+import '../../handlers/track_action_handler.dart';
 
 /// 搜索页
 class SearchPage extends ConsumerStatefulWidget {
@@ -536,6 +537,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                     (context, index) {
                       final track = state.mixedOnlineTracks[index];
                       return _SearchResultTile(
+                        key: ValueKey('${track.groupKey}:${track.pageNum ?? 1}'),
                         track: track,
                         isLocal: false,
                         isExpanded: _expandedVideos.contains(track.sourceId),
@@ -869,8 +871,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   /// 处理视频菜单操作
   void _handleMenuAction(Track track, String action) async {
-    final controller = ref.read(audioControllerProvider.notifier);
-
     // 确保有分P信息
     if (!_loadedPages.containsKey(track.sourceId)) {
       await _loadVideoPages(track);
@@ -879,13 +879,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     final pages = _loadedPages[track.sourceId];
     final hasMultiplePages = pages != null && pages.length > 1;
 
-    switch (action) {
-      case 'play':
-        _playVideo(track);
-        break;
-      case 'play_next':
-        if (hasMultiplePages) {
-          // 多P视频：添加所有分P
+    if (hasMultiplePages) {
+      final controller = ref.read(audioControllerProvider.notifier);
+
+      switch (action) {
+        case 'play':
+          _playVideo(track);
+          return;
+        case 'play_next':
           bool anyAdded = false;
           for (final page in pages) {
             final added = await controller.addNext(page.toTrack(track));
@@ -894,16 +895,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           if (anyAdded && mounted) {
             ToastService.success(context, t.searchPage.toast.addedPartsToNext(count: pages.length));
           }
-        } else {
-          final added = await controller.addNext(track);
-          if (added && mounted) {
-            ToastService.success(context, t.general.addedToNext);
-          }
-        }
-        break;
-      case 'add_to_queue':
-        if (hasMultiplePages) {
-          // 多P视频：添加所有分P
+          return;
+        case 'add_to_queue':
           bool anyAdded = false;
           for (final page in pages) {
             final added = await controller.addToQueue(page.toTrack(track));
@@ -912,45 +905,76 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           if (anyAdded && mounted) {
             ToastService.success(context, t.searchPage.toast.addedPartsToQueue(count: pages.length));
           }
-        } else {
-          final added = await controller.addToQueue(track);
-          if (added && mounted) {
-            ToastService.success(context, t.general.addedToQueue);
-          }
-        }
-        break;
-
-      case 'add_to_playlist':
-        if (hasMultiplePages) {
-          // 多P视频：添加所有分P到歌单
+          return;
+        case 'add_to_playlist':
           final pageTracks = pages.map((p) => p.toTrack(track)).toList();
           if (mounted) {
             showAddToPlaylistDialog(context: context, tracks: pageTracks);
           }
-        } else {
+          return;
+        case 'matchLyrics':
           if (mounted) {
-            showAddToPlaylistDialog(context: context, track: track);
+            showLyricsSearchSheet(context: context, track: track);
           }
-        }
-        break;
-      case 'matchLyrics':
-        if (mounted) {
-          showLyricsSearchSheet(context: context, track: track);
-        }
-        break;
-      case 'add_to_remote':
-        final isLoggedIn = ref.read(isLoggedInProvider(track.sourceType));
-        if (!isLoggedIn) {
+          return;
+        case 'add_to_remote':
+          final isLoggedIn = ref.read(isLoggedInProvider(track.sourceType));
+          if (!isLoggedIn) {
+            if (mounted) {
+              ToastService.show(context, t.remote.pleaseLogin);
+            }
+            return;
+          }
+          if (mounted) {
+            showAddToRemotePlaylistDialog(context: context, track: track);
+          }
+          return;
+      }
+    }
+
+    final handler = TrackActionHandler(
+      audioController: AudioControllerTrackActionAdapter(
+        ref.read(audioControllerProvider.notifier),
+      ),
+      feedbackSink: CallbackTrackActionFeedbackSink(
+        onAddedToNext: () {
+          if (mounted) {
+            ToastService.success(context, t.general.addedToNext);
+          }
+        },
+        onAddedToQueue: () {
+          if (mounted) {
+            ToastService.success(context, t.general.addedToQueue);
+          }
+        },
+        onPleaseLogin: () {
           if (mounted) {
             ToastService.show(context, t.remote.pleaseLogin);
           }
-          return;
+        },
+      ),
+    );
+
+    await handler.handle(
+      parseTrackAction(action),
+      track: track,
+      isLoggedIn: ref.read(isLoggedInProvider(track.sourceType)),
+      onAddToPlaylist: () async {
+        if (mounted) {
+          showAddToPlaylistDialog(context: context, track: track);
         }
+      },
+      onMatchLyrics: () async {
+        if (mounted) {
+          showLyricsSearchSheet(context: context, track: track);
+        }
+      },
+      onAddToRemote: () async {
         if (mounted) {
           showAddToRemotePlaylistDialog(context: context, track: track);
         }
-        break;
-    }
+      },
+    );
   }
   void _handlePageMenuAction(Track parentTrack, VideoPage page, String action) async {
     final controller = ref.read(audioControllerProvider.notifier);
@@ -993,6 +1017,7 @@ class _SearchResultTile extends ConsumerWidget {
   final VoidCallback? onLongPress;
 
   const _SearchResultTile({
+    super.key,
     required this.track,
     required this.isLocal,
     required this.isExpanded,
@@ -1397,6 +1422,7 @@ class _LocalGroupTile extends ConsumerWidget {
         // 展开的分P列表
         if (isExpanded && hasMultipleParts)
           ...group.tracks.map((track) => _LocalTrackTile(
+                key: ValueKey('${track.groupKey}:${track.pageNum ?? 1}'),
                 track: track,
                 onTap: () => onPlayTrack(track),
                 onMenuAction: onMenuAction,
@@ -1483,6 +1509,7 @@ class _LocalTrackTile extends ConsumerWidget {
   final VoidCallback? onLongPress;
 
   const _LocalTrackTile({
+    super.key,
     required this.track,
     required this.onTap,
     required this.onMenuAction,

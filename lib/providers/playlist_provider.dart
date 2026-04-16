@@ -62,6 +62,10 @@ class PlaylistListState extends Equatable {
 }
 
 /// 歌单列表控制器（响应式，基于 Isar watch）
+///
+/// 注意：`playlistListProvider` 会随着 Isar `watchAll()` 自动更新；
+/// `allPlaylistsProvider` 仍然只是一个快照型 FutureProvider，给依赖它的 UI
+/// 或一次性读取场景使用时，仍需要显式 invalidate。
 class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
   final PlaylistService _service;
   final Ref _ref;
@@ -168,8 +172,19 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
     state = state.copyWith(playlists: orderedPlaylists);
   }
 
-  /// 刷新指定歌单的相关 Provider
-  void invalidatePlaylistProviders(int playlistId) {
+  /// 刷新指定歌单的相关 Provider。
+  ///
+  /// `playlistDetailProvider` / `playlistCoverProvider` 不是 watch-driven，
+  /// 变更后需要显式刷新。`allPlaylistsProvider` 只有在调用方依赖它的
+  /// Future 快照时才需要一并刷新；watch-driven 的 `playlistListProvider`
+  /// 不需要靠这个方法驱动更新。
+  void invalidatePlaylistProviders(
+    int playlistId, {
+    bool includeAllPlaylists = false,
+  }) {
+    if (includeAllPlaylists) {
+      _ref.invalidate(allPlaylistsProvider);
+    }
     _ref.invalidate(playlistDetailProvider(playlistId));
     _ref.invalidate(playlistCoverProvider(playlistId));
   }

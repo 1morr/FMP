@@ -18,6 +18,7 @@ import '../../../i18n/strings.g.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../lyrics/lyrics_search_sheet.dart';
 import '../../widgets/context_menu_region.dart';
+import '../../handlers/track_action_handler.dart';
 
 /// 在 Isolate 中批量删除文件和文件夹（避免阻塞 UI 线程）
 Future<void> _deleteFilesInIsolate(List<String> paths) async {
@@ -939,56 +940,68 @@ class _DownloadedTrackTile extends ConsumerWidget {
   ];
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
-    switch (action) {
-      case 'play_next':
-        final added = await ref.read(audioControllerProvider.notifier).addNext(track);
-        if (added && context.mounted) {
-          ToastService.success(context, t.general.addedToNext);
+    if (action == 'delete') {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(t.library.deleteDownload),
+          content: Text(t.library.downloadedCategory.confirmDeleteTrack),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(t.general.cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(t.general.delete),
+            ),
+          ],
+        ),
+      );
+      if (confirmed == true && context.mounted) {
+        await _deleteDownload(ref);
+        if (context.mounted) {
+          ToastService.success(context, t.library.downloadDeleted);
         }
-        break;
-      case 'add_to_queue':
-        final added = await ref.read(audioControllerProvider.notifier).addToQueue(track);
-        if (added && context.mounted) {
-          ToastService.success(context, t.general.addedToQueue);
-        }
-        break;
-      case 'add_to_playlist':
+      }
+      return;
+    }
+
+    final handler = TrackActionHandler(
+      audioController: AudioControllerTrackActionAdapter(
+        ref.read(audioControllerProvider.notifier),
+      ),
+      feedbackSink: CallbackTrackActionFeedbackSink(
+        onAddedToNext: () {
+          if (context.mounted) {
+            ToastService.success(context, t.general.addedToNext);
+          }
+        },
+        onAddedToQueue: () {
+          if (context.mounted) {
+            ToastService.success(context, t.general.addedToQueue);
+          }
+        },
+        onPleaseLogin: () {},
+      ),
+    );
+
+    await handler.handle(
+      parseTrackAction(action),
+      track: track,
+      isLoggedIn: true,
+      onAddToPlaylist: () async {
         if (context.mounted) {
           showAddToPlaylistDialog(context: context, track: track);
         }
-        break;
-      case 'matchLyrics':
+      },
+      onMatchLyrics: () async {
         if (context.mounted) {
           showLyricsSearchSheet(context: context, track: track);
         }
-        break;
-
-      case 'delete':
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text(t.library.deleteDownload),
-            content: Text(t.library.downloadedCategory.confirmDeleteTrack),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: Text(t.general.cancel),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: Text(t.general.delete),
-              ),
-            ],
-          ),
-        );
-        if (confirmed == true && context.mounted) {
-          await _deleteDownload(ref);
-          if (context.mounted) {
-            ToastService.success(context, t.library.downloadDeleted);
-          }
-        }
-        break;
-    }
+      },
+      onAddToRemote: () async {},
+    );
   }
 
   Future<void> _deleteDownload(WidgetRef ref) async {
