@@ -61,6 +61,50 @@ enum PlayMode {
   mix,
 }
 
+class _TemporaryPlaybackSnapshot {
+  const _TemporaryPlaybackSnapshot({
+    required this.mode,
+    required this.savedQueueIndex,
+    required this.savedPosition,
+    required this.savedWasPlaying,
+  });
+
+  final PlayMode mode;
+  final int? savedQueueIndex;
+  final Duration? savedPosition;
+  final bool? savedWasPlaying;
+}
+
+class _TemporaryPlayStateHelper {
+  const _TemporaryPlayStateHelper();
+
+  _TemporaryPlaybackSnapshot enterTemporary({
+    required _TemporaryPlaybackSnapshot current,
+    required bool hasQueueTrack,
+    required int currentIndex,
+    required Duration savedPosition,
+    required bool savedWasPlaying,
+  }) {
+    if (current.mode == PlayMode.temporary) {
+      return current;
+    }
+    if (!hasQueueTrack) {
+      return const _TemporaryPlaybackSnapshot(
+        mode: PlayMode.temporary,
+        savedQueueIndex: null,
+        savedPosition: null,
+        savedWasPlaying: null,
+      );
+    }
+    return _TemporaryPlaybackSnapshot(
+      mode: PlayMode.temporary,
+      savedQueueIndex: currentIndex,
+      savedPosition: savedPosition,
+      savedWasPlaying: savedWasPlaying,
+    );
+  }
+}
+
 /// 統一的內部播放上下文
 /// 管理播放模式、臨時播放狀態、加載狀態等
 class _PlaybackContext {
@@ -303,6 +347,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   Timer? _positionCheckTimer;
 
   late final _PlaybackRequestExecutor _playbackRequestExecutor;
+  late final _TemporaryPlayStateHelper _temporaryPlayStateHelper;
 
   // 通知栏/SMTC 更新节流：上次更新的位置
   Duration _lastNotificationPosition = Duration.zero;
@@ -366,6 +411,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       getHeadersForTrack: _getHeadersForTrack,
       isSuperseded: _isSuperseded,
     );
+    _temporaryPlayStateHelper = const _TemporaryPlayStateHelper();
   }
 
   /// 是否已初始化
@@ -686,24 +732,33 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
     logInfo('Playing temporary track: ${track.title}');
 
-    // 只在第一次进入临时播放时保存状态（避免连续临时播放时覆盖原始状态）
-    if (!_context.isTemporary) {
-      if (_queueManager.currentTrack != null) {
-        // 有队列歌曲：保存状态并进入临时模式
-        _context = _context.copyWith(
-          mode: PlayMode.temporary,
-          savedQueueIndex: _queueManager.currentIndex,
-          savedPosition: savedPosition,
-          savedWasPlaying: savedIsPlaying,
-        );
-        logDebug(
-            'Saved playback state: index: ${_context.savedQueueIndex}, position: ${_context.savedPosition}');
-      } else {
-        // 没有队列歌曲：只设置模式（不保存状态）
-        _context = _context.copyWith(mode: PlayMode.temporary);
-      }
+    final nextSnapshot = _temporaryPlayStateHelper.enterTemporary(
+      current: _TemporaryPlaybackSnapshot(
+        mode: _context.mode,
+        savedQueueIndex: _context.savedQueueIndex,
+        savedPosition: _context.savedPosition,
+        savedWasPlaying: _context.savedWasPlaying,
+      ),
+      hasQueueTrack: _queueManager.currentTrack != null,
+      currentIndex: _queueManager.currentIndex,
+      savedPosition: savedPosition,
+      savedWasPlaying: savedIsPlaying,
+    );
+
+    _context = _context.copyWith(
+      mode: nextSnapshot.mode,
+      savedQueueIndex: nextSnapshot.savedQueueIndex,
+      savedPosition: nextSnapshot.savedPosition,
+      savedWasPlaying: nextSnapshot.savedWasPlaying,
+      clearSavedState: nextSnapshot.savedQueueIndex == null &&
+          nextSnapshot.savedPosition == null &&
+          nextSnapshot.savedWasPlaying == null,
+    );
+
+    if (_context.hasSavedState) {
+      logDebug(
+          'Saved playback state: index: ${_context.savedQueueIndex}, position: ${_context.savedPosition}');
     }
-    // 如果已经是 temporary 模式，保留原始保存的状态
 
     try {
       await _executePlayRequest(
