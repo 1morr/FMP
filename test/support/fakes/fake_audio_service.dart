@@ -35,6 +35,7 @@ class FakeAudioService implements FmpAudioService {
   final List<Completer<void>> _pendingPlayUrl = [];
   final List<Completer<void>> _pendingSetUrl = [];
   final List<Completer<void>> _pendingSeek = [];
+  final List<Object> _stopErrors = [];
   final List<Object> _playUrlErrors = [];
   final List<_CountWaiter> _playUrlWaiters = [];
   final List<_CountWaiter> _setUrlWaiters = [];
@@ -66,6 +67,10 @@ class FakeAudioService implements FmpAudioService {
     final completer = Completer<void>();
     _pendingSeek.add(completer);
     return completer;
+  }
+
+  void enqueueStopError(Object error) {
+    _stopErrors.add(error);
   }
 
   void enqueuePlayUrlError(Object error) {
@@ -229,6 +234,9 @@ class FakeAudioService implements FmpAudioService {
   @override
   Future<void> stop() async {
     stopCallCount++;
+    if (_stopErrors.isNotEmpty) {
+      throw _stopErrors.removeAt(0);
+    }
     _isPlaying = false;
     _processingState = FmpAudioProcessingState.idle;
     _emitState();

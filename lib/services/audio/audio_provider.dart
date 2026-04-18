@@ -176,6 +176,97 @@ class _MixPlaylistState {
   }
 }
 
+class _PlaybackRequestExecution {
+  const _PlaybackRequestExecution({
+    required this.track,
+    required this.attemptedUrl,
+    required this.streamResult,
+  });
+
+  final Track track;
+  final String attemptedUrl;
+  final AudioStreamResult? streamResult;
+}
+
+class _PlaybackRequestExecutor with Logging {
+  _PlaybackRequestExecutor({
+    required FmpAudioService audioService,
+    required QueueManager queueManager,
+    required Future<Map<String, String>?> Function(Track track)
+        getHeadersForTrack,
+    required bool Function(int requestId) isSuperseded,
+  })  : _audioService = audioService,
+        _queueManager = queueManager,
+        _getHeadersForTrack = getHeadersForTrack,
+        _isSuperseded = isSuperseded;
+
+  final FmpAudioService _audioService;
+  final QueueManager _queueManager;
+  final Future<Map<String, String>?> Function(Track track) _getHeadersForTrack;
+  final bool Function(int requestId) _isSuperseded;
+
+  Future<_PlaybackRequestExecution?> execute({
+    required int requestId,
+    required Track track,
+    required bool persist,
+    required bool prefetchNext,
+  }) async {
+    if (_isSuperseded(requestId)) {
+      logDebug('Play request $requestId superseded by newer request, aborting');
+      return null;
+    }
+
+    logDebug('Fetching audio URL for: ${track.title}');
+    final (trackWithUrl, localPath, streamResult) =
+        await _queueManager.ensureAudioStream(track, persist: persist);
+
+    if (_isSuperseded(requestId)) {
+      logDebug('Play request $requestId superseded after URL fetch, aborting');
+      return null;
+    }
+
+    final url = localPath ?? trackWithUrl.audioUrl;
+    if (url == null) {
+      throw Exception('No audio URL available for: ${track.title}');
+    }
+
+    final urlType = localPath != null ? 'downloaded' : 'stream';
+    logDebug(
+      'Playing track: ${track.title}, URL type: $urlType, source: ${track.sourceType}',
+    );
+
+    if (localPath != null) {
+      await _audioService.playFile(url, track: trackWithUrl);
+    } else {
+      final headers = await _getHeadersForTrack(trackWithUrl);
+      if (_isSuperseded(requestId)) {
+        logDebug(
+          'Play request $requestId superseded after header fetch, aborting',
+        );
+        return null;
+      }
+      await _audioService.playUrl(url, headers: headers, track: trackWithUrl);
+    }
+
+    if (_isSuperseded(requestId)) {
+      logDebug(
+        'Play request $requestId superseded after playback handoff, aborting',
+      );
+      return null;
+    }
+
+    if (prefetchNext) {
+      _queueManager.prefetchNext();
+    }
+
+    return _PlaybackRequestExecution(
+      track: trackWithUrl,
+      attemptedUrl: url,
+      streamResult: streamResult,
+    );
+  }
+}
+
 /// 音频控制器 - 管理所有播放相关的状态和操作
 /// 协调 AudioService（单曲播放）和 QueueManager（队列管理）
 class AudioController extends StateNotifier<PlayerState> with Logging {
@@ -210,6 +301,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   // 基于位置检测的备选切歌定时器（解决后台播放 completed 事件丢失问题）
   Timer? _positionCheckTimer;
+
+  late final _PlaybackRequestExecutor _playbackRequestExecutor;
 
   // 通知栏/SMTC 更新节流：上次更新的位置
   Duration _lastNotificationPosition = Duration.zero;
@@ -266,7 +359,14 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         _lyricsAutoMatchService = lyricsAutoMatchService,
         _settingsRepository = settingsRepository,
         _mixTracksFetcher = mixTracksFetcher,
-        super(const PlayerState());
+        super(const PlayerState()) {
+    _playbackRequestExecutor = _PlaybackRequestExecutor(
+      audioService: _audioService,
+      queueManager: _queueManager,
+      getHeadersForTrack: _getHeadersForTrack,
+      isSuperseded: _isSuperseded,
+    );
+  }
 
   /// 是否已初始化
   bool get isInitialized => _isInitialized;
@@ -1716,60 +1816,31 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     // 互斥：停止電台播放（如果有）
     await onPlaybackStarting?.call();
 
-    // 階段 3：停止當前播放
-    await _audioService.stop();
-
-    // 檢查是否已被取代
-    if (_isSuperseded(requestId)) {
-      logDebug(
-          'Play request $requestId superseded by $_playRequestId, aborting');
-      return;
-    }
     bool completedSuccessfully = false;
     String? attemptedUrl; // 保存嘗試播放的 URL，用於 fallback 時排除
 
     try {
-      // 階段 4：獲取 URL
-      logDebug('Fetching audio URL for: ${track.title}');
-      final (trackWithUrl, localPath, streamResult) =
-          await _queueManager.ensureAudioStream(track, persist: persist);
+      await _audioService.stop();
+    } catch (_) {
+      _playLock?.completeIf(requestId);
+      _resetLoadingState(requestId: requestId);
+      rethrow;
+    }
 
-      // 檢查是否被取代
-      if (_isSuperseded(requestId)) {
-        logDebug(
-            'Play request $requestId superseded after URL fetch, aborting');
+    try {
+      final execution = await _playbackRequestExecutor.execute(
+        requestId: requestId,
+        track: track,
+        persist: persist,
+        prefetchNext: prefetchNext,
+      );
+      if (execution == null) {
         return;
       }
 
-      final url = localPath ?? trackWithUrl.audioUrl;
-      attemptedUrl = url; // 保存用於 fallback
-      if (url == null) {
-        throw Exception('No audio URL available for: ${track.title}');
-      }
-
-      final urlType = localPath != null ? 'downloaded' : 'stream';
-      logDebug(
-          'Playing track: ${track.title}, URL type: $urlType, source: ${track.sourceType}');
-
-      // 階段 5：播放
-      if (localPath != null) {
-        await _audioService.playFile(url, track: trackWithUrl);
-      } else {
-        final headers = await _getHeadersForTrack(trackWithUrl);
-        await _audioService.playUrl(url, headers: headers, track: trackWithUrl);
-      }
-
-      // 檢查是否被取代
-      if (_isSuperseded(requestId)) {
-        logDebug(
-            'Play request $requestId superseded after playback handoff, aborting');
-        return;
-      }
-
-      // 預取下一首
-      if (prefetchNext) {
-        _queueManager.prefetchNext();
-      }
+      attemptedUrl = execution.attemptedUrl;
+      final trackWithUrl = execution.track;
+      final streamResult = execution.streamResult;
 
       // 階段 6：完成
       _exitLoadingState(requestId, trackWithUrl,
