@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:audio_service/audio_service.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // AudioDevice replaced by FmpAudioDevice from audio_types.dart
 import '../../core/constants/app_constants.dart';
@@ -257,70 +256,6 @@ class _MixSessionStateHelper {
 
   void clear() {
     _current = null;
-  }
-}
-
-@visibleForTesting
-class MixSessionStateSnapshot {
-  const MixSessionStateSnapshot({
-    required this.playlistId,
-    required this.seedVideoId,
-    required this.title,
-    required this.isLoadingMore,
-  });
-
-  final String playlistId;
-  final String seedVideoId;
-  final String title;
-  final bool isLoadingMore;
-}
-
-@visibleForTesting
-class MixSessionStateToken {
-  const MixSessionStateToken._(this._state);
-
-  final _MixPlaylistState _state;
-}
-
-@visibleForTesting
-class MixSessionStateTestHarness {
-  final _MixSessionStateHelper _helper = _MixSessionStateHelper();
-
-  MixSessionStateToken start({
-    required String playlistId,
-    required String seedVideoId,
-    required String title,
-  }) {
-    final state = _helper.start(
-      playlistId: playlistId,
-      seedVideoId: seedVideoId,
-      title: title,
-    );
-    return MixSessionStateToken._(state);
-  }
-
-  MixSessionStateSnapshot? get current => _snapshot(_helper.current);
-
-  bool isCurrent(MixSessionStateToken token) => _helper.isCurrent(token._state);
-
-  bool markLoading(MixSessionStateToken token) =>
-      _helper.markLoading(token._state);
-
-  void clear() => _helper.clear();
-
-  MixSessionStateSnapshot? sessionOf(MixSessionStateToken token) =>
-      _snapshot(token._state);
-
-  MixSessionStateSnapshot? _snapshot(_MixPlaylistState? state) {
-    if (state == null) {
-      return null;
-    }
-    return MixSessionStateSnapshot(
-      playlistId: state.playlistId,
-      seedVideoId: state.seedVideoId,
-      title: state.title,
-      isLoadingMore: state.isLoadingMore,
-    );
   }
 }
 
@@ -1116,7 +1051,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     int startIndex = 0,
   }) async {
     await _ensureInitialized();
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(
+      isLoading: true,
+      error: null,
+      isLoadingMoreMix: false,
+    );
     logInfo('Playing Mix playlist: $title with ${tracks.length} tracks');
 
     try {
