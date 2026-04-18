@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:audio_service/audio_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // AudioDevice replaced by FmpAudioDevice from audio_types.dart
 import '../../core/constants/app_constants.dart';
@@ -220,6 +221,109 @@ class _MixPlaylistState {
   }
 }
 
+class _MixSessionStateHelper {
+  _MixPlaylistState? _current;
+
+  _MixPlaylistState? get current => _current;
+
+  _MixPlaylistState start({
+    required String playlistId,
+    required String seedVideoId,
+    required String title,
+  }) {
+    _current = _MixPlaylistState(
+      playlistId: playlistId,
+      seedVideoId: seedVideoId,
+      title: title,
+    );
+    return _current!;
+  }
+
+  bool isCurrent(_MixPlaylistState state) => identical(_current, state);
+
+  bool markLoading(_MixPlaylistState state) {
+    if (!isCurrent(state) || state.isLoadingMore) {
+      return false;
+    }
+    state.isLoadingMore = true;
+    return true;
+  }
+
+  void finishLoading(_MixPlaylistState state) {
+    if (isCurrent(state)) {
+      state.isLoadingMore = false;
+    }
+  }
+
+  void clear() {
+    _current = null;
+  }
+}
+
+@visibleForTesting
+class MixSessionStateSnapshot {
+  const MixSessionStateSnapshot({
+    required this.playlistId,
+    required this.seedVideoId,
+    required this.title,
+    required this.isLoadingMore,
+  });
+
+  final String playlistId;
+  final String seedVideoId;
+  final String title;
+  final bool isLoadingMore;
+}
+
+@visibleForTesting
+class MixSessionStateToken {
+  const MixSessionStateToken._(this._state);
+
+  final _MixPlaylistState _state;
+}
+
+@visibleForTesting
+class MixSessionStateTestHarness {
+  final _MixSessionStateHelper _helper = _MixSessionStateHelper();
+
+  MixSessionStateToken start({
+    required String playlistId,
+    required String seedVideoId,
+    required String title,
+  }) {
+    final state = _helper.start(
+      playlistId: playlistId,
+      seedVideoId: seedVideoId,
+      title: title,
+    );
+    return MixSessionStateToken._(state);
+  }
+
+  MixSessionStateSnapshot? get current => _snapshot(_helper.current);
+
+  bool isCurrent(MixSessionStateToken token) => _helper.isCurrent(token._state);
+
+  bool markLoading(MixSessionStateToken token) =>
+      _helper.markLoading(token._state);
+
+  void clear() => _helper.clear();
+
+  MixSessionStateSnapshot? sessionOf(MixSessionStateToken token) =>
+      _snapshot(token._state);
+
+  MixSessionStateSnapshot? _snapshot(_MixPlaylistState? state) {
+    if (state == null) {
+      return null;
+    }
+    return MixSessionStateSnapshot(
+      playlistId: state.playlistId,
+      seedVideoId: state.seedVideoId,
+      title: state.title,
+      isLoadingMore: state.isLoadingMore,
+    );
+  }
+}
+
 class _PlaybackRequestExecution {
   const _PlaybackRequestExecution({
     required this.track,
@@ -348,6 +452,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   late final _PlaybackRequestExecutor _playbackRequestExecutor;
   late final _TemporaryPlayStateHelper _temporaryPlayStateHelper;
+  late final _MixSessionStateHelper _mixSessionStateHelper;
 
   // 通知栏/SMTC 更新节流：上次更新的位置
   Duration _lastNotificationPosition = Duration.zero;
@@ -363,9 +468,6 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 歌词自动匹配状态回调（用于 UI 显示加载动画）
   void Function(bool isMatching)? onLyricsAutoMatchStateChanged;
-
-  // Mix 播放列表状态（僅在 Mix 模式下有效）
-  _MixPlaylistState? _mixState;
 
   // ========== 网络重试相关 ==========
   /// 重试定时器
@@ -412,6 +514,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       isSuperseded: _isSuperseded,
     );
     _temporaryPlayStateHelper = const _TemporaryPlayStateHelper();
+    _mixSessionStateHelper = _MixSessionStateHelper();
   }
 
   /// 是否已初始化
@@ -519,14 +622,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
             state = state.copyWith(isShuffleEnabled: false);
           }
 
-          _mixState = _MixPlaylistState(
+          final mixState = _mixSessionStateHelper.start(
             playlistId: playlistId,
             seedVideoId: seedVideoId,
             title: title,
           );
           // 將已有的歌曲添加到 seenVideoIds（避免重複加載）
-          _mixState!
-              .addSeenVideoIds(_queueManager.tracks.map((t) => t.sourceId));
+          mixState.addSeenVideoIds(_queueManager.tracks.map((t) => t.sourceId));
 
           // 更新 context 和 state
           _context = _context.copyWith(mode: PlayMode.mix);
@@ -588,7 +690,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       subscription.cancel();
     }
     _subscriptions.clear();
-    _mixState = null;
+    _mixSessionStateHelper.clear();
     _queueManager.dispose();
     _audioService.dispose();
     super.dispose();
@@ -1028,13 +1130,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       }
 
       // 初始化 Mix 狀態
-      _mixState = _MixPlaylistState(
+      final mixState = _mixSessionStateHelper.start(
         playlistId: playlistId,
         seedVideoId: seedVideoId,
         title: title,
       );
       // 記錄已加載的視頻 ID（用於去重）
-      _mixState!.addSeenVideoIds(tracks.map((t) => t.sourceId));
+      mixState.addSeenVideoIds(tracks.map((t) => t.sourceId));
 
       // 添加歌曲到隊列
       await _queueManager.playAll(tracks, startIndex: startIndex);
@@ -1072,9 +1174,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 退出 Mix 模式
   void _exitMixMode() {
-    if (_mixState != null) {
+    final mixState = _mixSessionStateHelper.current;
+    if (mixState != null) {
       logDebug('Exiting Mix mode');
-      _mixState = null;
+      _mixSessionStateHelper.clear();
       _context = _context.copyWith(mode: PlayMode.queue);
       state = state.copyWith(
         isMixMode: false,
@@ -1612,13 +1715,17 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 3. 最多嘗試 10 次，每次間隔 1 秒
   /// 4. 收集所有新歌曲後一次性添加到隊列
   Future<void> _loadMoreMixTracks() async {
-    final mixState = _mixState;
-    if (mixState == null || mixState.isLoadingMore) return;
+    final mixState = _mixSessionStateHelper.current;
+    if (mixState == null || !_mixSessionStateHelper.markLoading(mixState)) {
+      return;
+    }
 
     final queue = _queueManager.tracks;
-    if (queue.isEmpty) return;
+    if (queue.isEmpty) {
+      _mixSessionStateHelper.finishLoading(mixState);
+      return;
+    }
 
-    mixState.isLoadingMore = true;
     state = state.copyWith(isLoadingMoreMix: true);
     logInfo('Loading more Mix tracks...');
 
@@ -1638,7 +1745,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
       while (collectedTracks.length < minNewTracksRequired &&
           attempt < maxAttempts) {
-        if (!identical(_mixState, mixState)) {
+        if (!_mixSessionStateHelper.isCurrent(mixState)) {
           logDebug('Mix mode exited during load-more, aborting');
           return;
         }
@@ -1675,7 +1782,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
                 currentVideoId: seedVideoId,
               ));
 
-          if (!identical(_mixState, mixState)) {
+          if (!_mixSessionStateHelper.isCurrent(mixState)) {
             logDebug('Mix mode exited after load-more fetch, aborting');
             return;
           }
@@ -1710,7 +1817,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         }
       }
 
-      if (!identical(_mixState, mixState)) {
+      if (!_mixSessionStateHelper.isCurrent(mixState)) {
         logDebug('Mix mode exited before applying load-more results, aborting');
         return;
       }
@@ -1731,8 +1838,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       _toastService.showInfo(t.audio.mixLoadMoreError);
     } finally {
       youtubeSource?.dispose();
-      mixState.isLoadingMore = false;
-      if (identical(_mixState, mixState)) {
+      _mixSessionStateHelper.finishLoading(mixState);
+      if (_mixSessionStateHelper.isCurrent(mixState)) {
         state = state.copyWith(isLoadingMoreMix: false);
       }
     }
