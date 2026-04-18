@@ -343,6 +343,14 @@ Phase-2 work should stay outside core playback structure and focus on consistenc
 - Consolidate repeated single-track menu behavior through shared handlers, while keeping multi-page and group-specific actions local.
 - Treat top-level page view-model aggregation as follow-up work unless provider fan-out becomes materially noisy enough to justify it.
 
+### Phase-3 Boundary Purification Note (2026-04-16)
+Phase-3 work should purify boundaries inside `AudioController` and `QueueManager` without yet changing their public role in the app.
+
+- Prefer private in-file helper extraction and delegation before moving any seam into a separate file.
+- Keep `AudioController` as the only UI entry point throughout Phase 3.
+- Keep `QueueManager` as the queue-facing public API while selected stream and persistence helpers are purified behind private helpers/delegates.
+- Do not treat a helper extraction as completion of the full public boundary; Phase 3 is about seam purification, not final public manager/service splits.
+
 ---
 
 ## UI Development Guidelines

@@ -16,6 +16,7 @@ import '../account/bilibili_account_service.dart';
 import '../account/netease_account_service.dart';
 import '../account/youtube_account_service.dart';
 import 'internal/audio_stream_delegate.dart';
+import 'internal/queue_persistence_helpers.dart';
 
 /// 播放队列管理器（纯队列逻辑）
 /// 负责管理播放列表、索引、播放模式和持久化
@@ -29,6 +30,7 @@ class QueueManager with Logging {
   final YouTubeAccountService? _youtubeAccountService;
   final NeteaseAccountService? _neteaseAccountService;
   late final AudioStreamDelegate _audioStreamDelegate;
+  late final QueuePersistenceHelpers _queuePersistenceHelpers;
 
   // 队列数据
   List<Track> _tracks = [];
@@ -201,6 +203,13 @@ class QueueManager with Logging {
       getAuthHeaders: _getAuthHeaders,
       updateQueueTrack: _updateQueueTrack,
     );
+    _queuePersistenceHelpers = QueuePersistenceHelpers(
+      queueRepository: _queueRepository,
+      settingsRepository: _settingsRepository,
+      getCurrentQueue: () => _currentQueue,
+      getCurrentIndex: () => _currentIndex,
+      getCurrentPosition: () => _currentPosition,
+    );
   }
 
   /// 获取指定平台的认证 headers
@@ -294,7 +303,7 @@ class QueueManager with Logging {
 
   /// 立即保存当前位置（用于 seek 后立即保存）
   Future<void> savePositionNow() async {
-    await _savePosition();
+    await _queuePersistenceHelpers.savePositionNow();
   }
 
   /// 获取恢复位置
@@ -305,19 +314,12 @@ class QueueManager with Logging {
 
   /// 获取播放位置恢复设置
   Future<({bool enabled, int restartRewindSeconds, int tempPlayRewindSeconds})> getPositionRestoreSettings() async {
-    final settings = await _settingsRepository.get();
-    return (
-      enabled: settings.rememberPlaybackPosition,
-      restartRewindSeconds: settings.restartRewindSeconds,
-      tempPlayRewindSeconds: settings.tempPlayRewindSeconds,
-    );
+    return _queuePersistenceHelpers.getPositionRestoreSettings();
   }
 
   /// 保存音量
   Future<void> saveVolume(double volume) async {
-    if (_currentQueue == null) return;
-    _currentQueue!.lastVolume = volume.clamp(0.0, 1.0);
-    await _queueRepository.save(_currentQueue!);
+    await _queuePersistenceHelpers.saveVolume(volume);
   }
 
   // ========== Mix 播放列表狀態 ==========
@@ -1093,11 +1095,7 @@ class QueueManager with Logging {
   }
 
   Future<void> _savePosition() async {
-    if (_currentQueue == null) return;
-
-    _currentQueue!.currentIndex = _currentIndex;
-    _currentQueue!.lastPositionMs = _currentPosition.inMilliseconds;
-    await _queueRepository.save(_currentQueue!);
+    await _queuePersistenceHelpers.savePositionNow();
   }
 
   void _notifyStateChanged() {
