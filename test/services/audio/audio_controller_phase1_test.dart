@@ -345,6 +345,57 @@ void main() {
       expect(persistedQueue.mixTitle, isNull);
     });
 
+    test('replacing a loading mix session resets visible load-more state for the new session',
+        () async {
+      final oldMixTracks = [
+        _track('old-mix-a', title: 'Old Mix A'),
+        _track('old-mix-b', title: 'Old Mix B'),
+      ];
+      final newMixTracks = [
+        _track('new-mix-a', title: 'New Mix A'),
+        _track('new-mix-b', title: 'New Mix B'),
+      ];
+      final oldLoadMoreGate = mixTracksFetcher.enqueuePendingResult(
+        const MixFetchResult(title: 'Old Mix', tracks: []),
+      );
+
+      await controller.playMixPlaylist(
+        playlistId: 'RDoldmix',
+        seedVideoId: 'seed-old',
+        title: 'Old Mix',
+        tracks: oldMixTracks,
+        startIndex: 1,
+      );
+      await pumpEventQueue(times: 5);
+
+      expect(controller.state.mixTitle, 'Old Mix');
+      expect(controller.state.isLoadingMoreMix, isTrue);
+
+      await controller.playMixPlaylist(
+        playlistId: 'RDnewmix',
+        seedVideoId: 'seed-new',
+        title: 'New Mix',
+        tracks: newMixTracks,
+        startIndex: 0,
+      );
+      await pumpEventQueue(times: 5);
+
+      expect(controller.state.isMixMode, isTrue);
+      expect(controller.state.mixTitle, 'New Mix');
+      expect(controller.state.currentTrack?.sourceId, 'new-mix-a');
+      expect(controller.state.playingTrack?.sourceId, 'new-mix-a');
+      expect(controller.state.isLoadingMoreMix, isFalse);
+
+      oldLoadMoreGate.complete();
+      await pumpEventQueue(times: 20);
+
+      expect(controller.state.isMixMode, isTrue);
+      expect(controller.state.mixTitle, 'New Mix');
+      expect(controller.state.currentTrack?.sourceId, 'new-mix-a');
+      expect(controller.state.playingTrack?.sourceId, 'new-mix-a');
+      expect(controller.state.isLoadingMoreMix, isFalse);
+    });
+
     test('queue manager stops state notifications after dispose', () async {
       await queueManager.playAll([
         _track('dispose-a', title: 'Dispose A'),
