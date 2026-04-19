@@ -16,7 +16,7 @@ import '../account/bilibili_account_service.dart';
 import '../account/netease_account_service.dart';
 import '../account/youtube_account_service.dart';
 import 'internal/audio_stream_delegate.dart';
-import 'internal/queue_persistence_helpers.dart';
+import 'queue_persistence_manager.dart';
 
 /// 播放队列管理器（纯队列逻辑）
 /// 负责管理播放列表、索引、播放模式和持久化
@@ -26,11 +26,11 @@ class QueueManager with Logging {
   final TrackRepository _trackRepository;
   final SettingsRepository _settingsRepository;
   final SourceManager _sourceManager;
+  final QueuePersistenceManager _queuePersistenceManager;
   final BilibiliAccountService? _bilibiliAccountService;
   final YouTubeAccountService? _youtubeAccountService;
   final NeteaseAccountService? _neteaseAccountService;
   late final AudioStreamDelegate _audioStreamDelegate;
-  late final QueuePersistenceHelpers _queuePersistenceHelpers;
 
   // 队列数据
   List<Track> _tracks = [];
@@ -186,6 +186,7 @@ class QueueManager with Logging {
     required TrackRepository trackRepository,
     required SettingsRepository settingsRepository,
     required SourceManager sourceManager,
+    required QueuePersistenceManager queuePersistenceManager,
     BilibiliAccountService? bilibiliAccountService,
     YouTubeAccountService? youtubeAccountService,
     NeteaseAccountService? neteaseAccountService,
@@ -193,6 +194,7 @@ class QueueManager with Logging {
         _trackRepository = trackRepository,
         _settingsRepository = settingsRepository,
         _sourceManager = sourceManager,
+        _queuePersistenceManager = queuePersistenceManager,
         _bilibiliAccountService = bilibiliAccountService,
         _youtubeAccountService = youtubeAccountService,
         _neteaseAccountService = neteaseAccountService {
@@ -202,13 +204,6 @@ class QueueManager with Logging {
       sourceManager: _sourceManager,
       getAuthHeaders: _getAuthHeaders,
       updateQueueTrack: _updateQueueTrack,
-    );
-    _queuePersistenceHelpers = QueuePersistenceHelpers(
-      queueRepository: _queueRepository,
-      settingsRepository: _settingsRepository,
-      getCurrentQueue: () => _currentQueue,
-      getCurrentIndex: () => _currentIndex,
-      getCurrentPosition: () => _currentPosition,
     );
   }
 
@@ -223,35 +218,25 @@ class QueueManager with Logging {
   Future<void> initialize() async {
     logInfo('Initializing QueueManager...');
     try {
-      _currentQueue = await _queueRepository.getOrCreate();
+      final restoredState = await _queuePersistenceManager.restoreState();
+      _currentQueue = restoredState.queue;
+      _tracks = restoredState.tracks;
+      _currentPosition = restoredState.savedPosition;
 
-      // 检查是否启用记住播放位置
-      final settings = await _settingsRepository.get();
-      final shouldRestorePosition = settings.rememberPlaybackPosition;
+      if (_tracks.isNotEmpty) {
+        _currentIndex = _currentQueue!.currentIndex.clamp(0, _tracks.length - 1);
 
-      if (_currentQueue!.trackIds.isNotEmpty) {
-        logDebug('Loading ${_currentQueue!.trackIds.length} saved tracks');
-        _tracks = await _trackRepository.getByIds(_currentQueue!.trackIds);
-
-        if (_tracks.isNotEmpty) {
-          _currentIndex = _currentQueue!.currentIndex.clamp(0, _tracks.length - 1);
-          
-          // 只有启用了记住播放位置才恢复位置
-          if (shouldRestorePosition) {
-            _currentPosition = Duration(milliseconds: _currentQueue!.lastPositionMs);
-            logDebug('Restored position: $_currentPosition');
-          } else {
-            _currentPosition = Duration.zero;
-            logDebug('Remember position disabled, starting from beginning');
-          }
-
-          // 如果启用了随机播放，恢复 shuffle order
-          if (isShuffleEnabled) {
-            _generateShuffleOrder();
-          }
-
-          logDebug('Restored ${_tracks.length} tracks, index: $_currentIndex');
+        if (_currentPosition > Duration.zero) {
+          logDebug('Restored position: $_currentPosition');
+        } else {
+          logDebug('Remember position disabled, starting from beginning');
         }
+
+        if (isShuffleEnabled) {
+          _generateShuffleOrder();
+        }
+
+        logDebug('Restored ${_tracks.length} tracks, index: $_currentIndex');
       }
 
       // 启动定期保存
@@ -303,7 +288,11 @@ class QueueManager with Logging {
 
   /// 立即保存当前位置（用于 seek 后立即保存）
   Future<void> savePositionNow() async {
-    await _queuePersistenceHelpers.savePositionNow();
+    await _queuePersistenceManager.savePositionNow(
+      queue: _currentQueue,
+      currentIndex: _currentIndex,
+      currentPosition: _currentPosition,
+    );
   }
 
   /// 获取恢复位置
@@ -314,12 +303,15 @@ class QueueManager with Logging {
 
   /// 获取播放位置恢复设置
   Future<({bool enabled, int restartRewindSeconds, int tempPlayRewindSeconds})> getPositionRestoreSettings() async {
-    return _queuePersistenceHelpers.getPositionRestoreSettings();
+    return _queuePersistenceManager.getPositionRestoreSettings();
   }
 
   /// 保存音量
   Future<void> saveVolume(double volume) async {
-    await _queuePersistenceHelpers.saveVolume(volume);
+    await _queuePersistenceManager.saveVolume(
+      queue: _currentQueue,
+      volume: volume,
+    );
   }
 
   // ========== Mix 播放列表狀態 ==========
@@ -343,14 +335,13 @@ class QueueManager with Logging {
     String? seedVideoId,
     String? title,
   }) async {
-    if (_currentQueue == null) return;
-    
-    _currentQueue!.isMixMode = enabled;
-    _currentQueue!.mixPlaylistId = enabled ? playlistId : null;
-    _currentQueue!.mixSeedVideoId = enabled ? seedVideoId : null;
-    _currentQueue!.mixTitle = enabled ? title : null;
-    
-    await _queueRepository.save(_currentQueue!);
+    await _queuePersistenceManager.setMixMode(
+      queue: _currentQueue,
+      enabled: enabled,
+      playlistId: playlistId,
+      seedVideoId: seedVideoId,
+      title: title,
+    );
     logDebug('Mix mode ${enabled ? "enabled" : "disabled"}: playlistId=$playlistId, title=$title');
   }
 
@@ -1085,17 +1076,20 @@ class QueueManager with Logging {
   }
 
   Future<void> _persistQueue() async {
-    if (_currentQueue == null) return;
-
-    _currentQueue!.trackIds = _tracks.map((t) => t.id).toList();
-    _currentQueue!.currentIndex = _currentIndex;
-    _currentQueue!.lastPositionMs = _currentPosition.inMilliseconds;
-    _currentQueue!.lastUpdated = DateTime.now();
-    await _queueRepository.save(_currentQueue!);
+    await _queuePersistenceManager.persistQueue(
+      queue: _currentQueue,
+      tracks: _tracks,
+      currentIndex: _currentIndex,
+      currentPosition: _currentPosition,
+    );
   }
 
   Future<void> _savePosition() async {
-    await _queuePersistenceHelpers.savePositionNow();
+    await _queuePersistenceManager.savePositionNow(
+      queue: _currentQueue,
+      currentIndex: _currentIndex,
+      currentPosition: _currentPosition,
+    );
   }
 
   void _notifyStateChanged() {

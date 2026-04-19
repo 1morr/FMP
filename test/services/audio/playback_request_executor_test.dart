@@ -16,6 +16,7 @@ import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
+import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/windows_smtc_handler.dart';
 import 'package:isar/isar.dart';
 
@@ -60,6 +61,11 @@ void main() {
         trackRepository: trackRepository,
         settingsRepository: settingsRepository,
         sourceManager: sourceManager,
+        queuePersistenceManager: QueuePersistenceManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+        ),
       );
       audioService = FakeAudioService();
       controller = AudioController(

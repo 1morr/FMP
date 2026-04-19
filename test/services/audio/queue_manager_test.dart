@@ -1,8 +1,78 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:ffi';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/play_queue.dart';
+import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/repositories/queue_repository.dart';
+import 'package:fmp/data/repositories/settings_repository.dart';
+import 'package:fmp/data/repositories/track_repository.dart';
+import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/services/audio/queue_manager.dart';
+import 'package:fmp/services/audio/queue_persistence_manager.dart';
+import 'package:isar/isar.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  group('QueueManager Task 1 regression', () {
+    late Directory tempDir;
+    late Isar isar;
+    late QueueManager queueManager;
+
+    setUpAll(() async {
+      await Isar.initializeIsarCore(
+        libraries: {Abi.current(): await _resolveIsarLibraryPath()},
+      );
+    });
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('queue_manager_task1_');
+      isar = await Isar.open(
+        [TrackSchema, PlayQueueSchema, SettingsSchema],
+        directory: tempDir.path,
+        name: 'queue_manager_test',
+      );
+
+      queueManager = QueueManager(
+        queueRepository: QueueRepository(isar),
+        trackRepository: TrackRepository(isar),
+        settingsRepository: SettingsRepository(isar),
+        sourceManager: SourceManager(),
+        queuePersistenceManager: QueuePersistenceManager(
+          queueRepository: QueueRepository(isar),
+          trackRepository: TrackRepository(isar),
+          settingsRepository: SettingsRepository(isar),
+        ),
+      );
+
+      await queueManager.initialize();
+    });
+
+    tearDown(() async {
+      queueManager.dispose();
+      await isar.close(deleteFromDisk: true);
+      if (await tempDir.exists()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    test('dispose cancels the periodic saver after persistence promotion', () async {
+      await queueManager.playSingle(_queueTrack('timer-track'));
+      queueManager.updatePosition(const Duration(seconds: 12));
+
+      queueManager.dispose();
+      await Future<void>.delayed(const Duration(seconds: 11));
+
+      final persistedQueue = await QueueRepository(isar).getOrCreate();
+      expect(persistedQueue.trackIds, [_trackId(queueManager.currentTrack)]);
+      expect(persistedQueue.lastPositionMs, 0);
+    });
+  });
+
   group('PlayQueue model', () {
     group('properties', () {
       test('length returns correct value', () {
@@ -309,4 +379,72 @@ void main() {
       expect(page1.uniqueKey, isNot(equals(page2.uniqueKey)));
     });
   });
+}
+
+Track _queueTrack(String sourceId) {
+  return Track()
+    ..sourceId = sourceId
+    ..sourceType = SourceType.youtube
+    ..title = sourceId
+    ..artist = 'Tester';
+}
+
+int _trackId(Track? track) {
+  if (track == null) {
+    throw StateError('Expected queue manager to have a current track');
+  }
+  return track.id;
+}
+
+Future<String> _resolveIsarLibraryPath() async {
+  final packageConfig = await _loadPackageConfig();
+  final packageDir = _resolvePackageDirectory(packageConfig, 'isar_flutter_libs');
+
+  if (Platform.isWindows) {
+    return '${packageDir.path}/windows/isar.dll';
+  }
+  if (Platform.isLinux) {
+    return '${packageDir.path}/linux/libisar.so';
+  }
+  if (Platform.isMacOS) {
+    return '${packageDir.path}/macos/libisar.dylib';
+  }
+
+  throw UnsupportedError('Unsupported platform for Isar tests: ${Platform.operatingSystem}');
+}
+
+Future<Map<String, dynamic>> _loadPackageConfig() async {
+  final packageConfigFile =
+      File('${Directory.current.path}/.dart_tool/package_config.json');
+  if (!await packageConfigFile.exists()) {
+    throw StateError(
+      'Could not find .dart_tool/package_config.json for test package resolution',
+    );
+  }
+
+  return jsonDecode(await packageConfigFile.readAsString())
+      as Map<String, dynamic>;
+}
+
+Directory _resolvePackageDirectory(
+  Map<String, dynamic> packageConfig,
+  String packageName,
+) {
+  final packages = packageConfig['packages'];
+  if (packages is! List) {
+    throw StateError('Invalid package_config.json format');
+  }
+
+  final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
+  for (final package in packages) {
+    if (package is! Map<String, dynamic>) continue;
+    if (package['name'] != packageName) continue;
+
+    final rootUri = package['rootUri'];
+    if (rootUri is! String) break;
+
+    return Directory(packageConfigDir.uri.resolve(rootUri).toFilePath());
+  }
+
+  throw StateError('Package not found in package_config.json: $packageName');
 }

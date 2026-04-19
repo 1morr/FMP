@@ -20,6 +20,7 @@ import 'package:fmp/services/audio/audio_playback_types.dart';
 import 'package:fmp/services/audio/audio_provider.dart' hide MixTracksFetcher, PlayMode;
 import 'package:fmp/services/audio/mix_playlist_types.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
+import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/windows_smtc_handler.dart';
 import 'package:isar/isar.dart';
 
@@ -67,6 +68,11 @@ void main() {
         trackRepository: trackRepository,
         settingsRepository: settingsRepository,
         sourceManager: sourceManager,
+        queuePersistenceManager: QueuePersistenceManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+        ),
       );
 
       audioService = FakeAudioService();
