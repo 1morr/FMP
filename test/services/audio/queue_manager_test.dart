@@ -11,6 +11,7 @@ import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:isar/isar.dart';
@@ -37,16 +38,23 @@ void main() {
         name: 'queue_manager_test',
       );
 
+      final trackRepository = TrackRepository(isar);
+      final settingsRepository = SettingsRepository(isar);
+      final queuePersistenceManager = QueuePersistenceManager(
+        queueRepository: QueueRepository(isar),
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+      );
+      final audioStreamManager = AudioStreamManager(
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: SourceManager(),
+      );
       queueManager = QueueManager(
         queueRepository: QueueRepository(isar),
-        trackRepository: TrackRepository(isar),
-        settingsRepository: SettingsRepository(isar),
-        sourceManager: SourceManager(),
-        queuePersistenceManager: QueuePersistenceManager(
-          queueRepository: QueueRepository(isar),
-          trackRepository: TrackRepository(isar),
-          settingsRepository: SettingsRepository(isar),
-        ),
+        trackRepository: trackRepository,
+        queuePersistenceManager: queuePersistenceManager,
+        audioStreamManager: audioStreamManager,
       );
 
       await queueManager.initialize();
@@ -60,7 +68,8 @@ void main() {
       }
     });
 
-    test('dispose cancels the periodic saver after persistence promotion', () async {
+    test('dispose cancels the periodic saver after persistence promotion',
+        () async {
       await queueManager.playSingle(_queueTrack('timer-track'));
       queueManager.updatePosition(const Duration(seconds: 12));
 
@@ -398,7 +407,8 @@ int _trackId(Track? track) {
 
 Future<String> _resolveIsarLibraryPath() async {
   final packageConfig = await _loadPackageConfig();
-  final packageDir = _resolvePackageDirectory(packageConfig, 'isar_flutter_libs');
+  final packageDir =
+      _resolvePackageDirectory(packageConfig, 'isar_flutter_libs');
 
   if (Platform.isWindows) {
     return '${packageDir.path}/windows/isar.dll';
@@ -410,7 +420,8 @@ Future<String> _resolveIsarLibraryPath() async {
     return '${packageDir.path}/macos/libisar.dylib';
   }
 
-  throw UnsupportedError('Unsupported platform for Isar tests: ${Platform.operatingSystem}');
+  throw UnsupportedError(
+      'Unsupported platform for Isar tests: ${Platform.operatingSystem}');
 }
 
 Future<Map<String, dynamic>> _loadPackageConfig() async {

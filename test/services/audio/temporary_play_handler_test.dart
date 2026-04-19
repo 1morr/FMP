@@ -14,6 +14,7 @@ import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
+import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/windows_smtc_handler.dart';
@@ -52,22 +53,28 @@ void main() {
       final trackRepository = TrackRepository(isar);
       final settingsRepository = SettingsRepository(isar);
       sourceManager = _FakeSourceManager();
-      queueManager = QueueManager(
+      final queuePersistenceManager = QueuePersistenceManager(
         queueRepository: queueRepository,
         trackRepository: trackRepository,
         settingsRepository: settingsRepository,
+      );
+      final audioStreamManager = AudioStreamManager(
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
         sourceManager: sourceManager,
-        queuePersistenceManager: QueuePersistenceManager(
-          queueRepository: queueRepository,
-          trackRepository: trackRepository,
-          settingsRepository: settingsRepository,
-        ),
+      );
+      queueManager = QueueManager(
+        queueRepository: queueRepository,
+        trackRepository: trackRepository,
+        queuePersistenceManager: queuePersistenceManager,
+        audioStreamManager: audioStreamManager,
       );
 
       audioService = FakeAudioService();
       controller = AudioController(
         audioService: audioService,
         queueManager: queueManager,
+        audioStreamManager: audioStreamManager,
         toastService: ToastService(),
         audioHandler: FmpAudioHandler(),
         windowsSmtcHandler: WindowsSmtcHandler(),
@@ -127,7 +134,8 @@ void main() {
         expect(controller.state.currentIndex, 1);
         expect(controller.state.playingTrack?.sourceId, 'queue-b');
         expect(controller.state.currentTrack?.sourceId, 'queue-b');
-        expect(audioService.setUrlCalls.last.url, 'https://example.com/queue-b.m4a');
+        expect(audioService.setUrlCalls.last.url,
+            'https://example.com/queue-b.m4a');
         expect(audioService.seekCalls.last, const Duration(seconds: 35));
         expect(controller.state.isPlaying, isFalse);
       },
@@ -137,7 +145,8 @@ void main() {
 
 Future<String> _resolveIsarLibraryPath() async {
   final packageConfig = await _loadPackageConfig();
-  final packageDir = _resolvePackageDirectory(packageConfig, 'isar_flutter_libs');
+  final packageDir =
+      _resolvePackageDirectory(packageConfig, 'isar_flutter_libs');
 
   if (Platform.isWindows) {
     return '${packageDir.path}/windows/isar.dll';
