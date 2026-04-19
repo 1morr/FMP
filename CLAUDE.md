@@ -351,20 +351,18 @@ Phase-3 work should purify boundaries inside `AudioController` and `QueueManager
 - Keep `QueueManager` as the queue-facing public API while selected stream and persistence helpers are purified behind private helpers/delegates.
 - Do not treat a helper extraction as completion of the full public boundary; Phase 3 is about seam purification, not final public manager/service splits.
 
-<<<<<<< Updated upstream
 ### Phase-4 Final Audio Boundary Note (2026-04-19)
 - `AudioController` remains the only UI entry point and now delegates request execution, temporary-play state, and Mix session coordination.
 - `QueueManager` keeps repository-backed queue mutations, ordering, shuffle/loop, timer lifecycle, and queue notifications.
 - `AudioStreamManager` owns URL refresh, stream selection, playback headers, fallback streams, and prefetch while `AudioStreamDelegate` remains its Phase-4 internal implementation.
 - `QueuePersistenceManager` owns queue snapshot restore/persist, playback position save/restore, and Mix persistence operations.
-=======
+
 ### Agent Workflow Note (2026-04-19)
 When working in subagent-driven development, post-review fixups should default to a **fresh implementer agent** (or be handled directly in the main conversation) rather than reusing the previous implementer via `SendMessage`.
 
 - If a spec review or code-quality review finds issues, spawn a new implementer for the fix unless there is a clear reason to continue the existing agent.
 - Do not treat “fix review feedback” as automatic justification to resume the prior implementer context.
 - If the user explicitly asks for a new implementer, create a new local/background implementer agent instead of continuing the old one.
->>>>>>> Stashed changes
 
 ---
 
