@@ -19,7 +19,6 @@ import '../../providers/database_provider.dart';
 import '../../providers/repository_providers.dart';
 import '../../providers/lyrics_provider.dart';
 import '../../providers/account_provider.dart';
-import '../account/netease_account_service.dart';
 import '../lyrics/lyrics_auto_match_service.dart';
 import '../../core/services/toast_service.dart';
 import '../../main.dart' show audioHandler, windowsSmtcHandler;
