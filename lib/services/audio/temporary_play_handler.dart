@@ -2,13 +2,11 @@ import 'audio_playback_types.dart';
 
 class TemporaryPlaybackState {
   const TemporaryPlaybackState({
-    required this.mode,
     required this.savedQueueIndex,
     required this.savedPosition,
     required this.savedWasPlaying,
   });
 
-  final PlayMode mode;
   final int? savedQueueIndex;
   final Duration? savedPosition;
   final bool? savedWasPlaying;
@@ -22,49 +20,46 @@ class RestorePlaybackPlan {
     required this.savedPosition,
     required this.savedWasPlaying,
     required this.rewindSeconds,
-    required this.shouldClearSavedState,
   });
 
   final int savedIndex;
   final Duration savedPosition;
   final bool savedWasPlaying;
   final int rewindSeconds;
-  final bool shouldClearSavedState;
 }
 
 class TemporaryPlayHandler {
   const TemporaryPlayHandler();
 
   TemporaryPlaybackState enterTemporary({
-    required TemporaryPlaybackState current,
+    required PlayMode currentMode,
+    required TemporaryPlaybackState currentState,
     required bool hasQueueTrack,
     required int currentIndex,
-    required Duration savedPosition,
-    required bool savedWasPlaying,
+    required Duration currentPosition,
+    required bool currentWasPlaying,
   }) {
-    if (current.mode == PlayMode.temporary) {
-      return current;
+    if (currentMode == PlayMode.temporary) {
+      return currentState;
     }
     if (!hasQueueTrack) {
       return const TemporaryPlaybackState(
-        mode: PlayMode.temporary,
         savedQueueIndex: null,
         savedPosition: null,
         savedWasPlaying: null,
       );
     }
     return TemporaryPlaybackState(
-      mode: PlayMode.temporary,
       savedQueueIndex: currentIndex,
-      savedPosition: savedPosition,
-      savedWasPlaying: savedWasPlaying,
+      savedPosition: currentPosition,
+      savedWasPlaying: currentWasPlaying,
     );
   }
 
   RestorePlaybackPlan? buildRestorePlan({
     required TemporaryPlaybackState state,
-    required bool restorePositionEnabled,
-    required int tempPlayRewindSeconds,
+    required bool rememberPosition,
+    required int rewindSeconds,
   }) {
     final savedIndex = state.savedQueueIndex;
     if (savedIndex == null) {
@@ -73,12 +68,10 @@ class TemporaryPlayHandler {
 
     return RestorePlaybackPlan(
       savedIndex: savedIndex,
-      savedPosition: restorePositionEnabled
-          ? (state.savedPosition ?? Duration.zero)
-          : Duration.zero,
+      savedPosition:
+          rememberPosition ? (state.savedPosition ?? Duration.zero) : Duration.zero,
       savedWasPlaying: state.savedWasPlaying ?? false,
-      rewindSeconds: restorePositionEnabled ? tempPlayRewindSeconds : 0,
-      shouldClearSavedState: true,
+      rewindSeconds: rememberPosition ? rewindSeconds : 0,
     );
   }
 }

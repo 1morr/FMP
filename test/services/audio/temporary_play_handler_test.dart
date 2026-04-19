@@ -104,32 +104,33 @@ void main() {
       () {
         const handler = TemporaryPlayHandler();
         const originalState = TemporaryPlaybackState(
-          mode: PlayMode.queue,
           savedQueueIndex: null,
           savedPosition: null,
           savedWasPlaying: null,
         );
 
         final firstTemporary = handler.enterTemporary(
-          current: originalState,
+          currentMode: PlayMode.queue,
+          currentState: originalState,
           hasQueueTrack: true,
           currentIndex: 1,
-          savedPosition: const Duration(seconds: 45),
-          savedWasPlaying: false,
+          currentPosition: const Duration(seconds: 45),
+          currentWasPlaying: false,
         );
 
         final secondTemporary = handler.enterTemporary(
-          current: firstTemporary,
+          currentMode: PlayMode.temporary,
+          currentState: firstTemporary,
           hasQueueTrack: true,
           currentIndex: 2,
-          savedPosition: const Duration(seconds: 7),
-          savedWasPlaying: true,
+          currentPosition: const Duration(seconds: 7),
+          currentWasPlaying: true,
         );
 
         final restorePlan = handler.buildRestorePlan(
           state: secondTemporary,
-          restorePositionEnabled: true,
-          tempPlayRewindSeconds: 10,
+          rememberPosition: true,
+          rewindSeconds: 10,
         );
 
         expect(secondTemporary.savedQueueIndex, 1);
@@ -138,7 +139,6 @@ void main() {
         expect(restorePlan.savedPosition, const Duration(seconds: 45));
         expect(restorePlan.savedWasPlaying, isFalse);
         expect(restorePlan.rewindSeconds, 10);
-        expect(restorePlan.shouldClearSavedState, isTrue);
       },
     );
 

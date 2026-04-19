@@ -614,33 +614,27 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     await _ensureInitialized();
     _resetRetryState(); // 重置网络重试状态
 
-    // 【重要】立即保存当前状态（在任何 async 操作之前，因为 stop() 会重置这些值）
-    final savedPosition = _audioService.position;
-    final savedIsPlaying = _audioService.isPlaying;
-
     logInfo('Playing temporary track: ${track.title}');
 
     final nextSnapshot = _temporaryPlayHandler.enterTemporary(
-      current: TemporaryPlaybackState(
-        mode: _context.mode,
+      currentMode: _context.mode,
+      currentState: TemporaryPlaybackState(
         savedQueueIndex: _context.savedQueueIndex,
         savedPosition: _context.savedPosition,
         savedWasPlaying: _context.savedWasPlaying,
       ),
       hasQueueTrack: _queueManager.currentTrack != null,
       currentIndex: _queueManager.currentIndex,
-      savedPosition: savedPosition,
-      savedWasPlaying: savedIsPlaying,
+      currentPosition: _audioService.position,
+      currentWasPlaying: _audioService.isPlaying,
     );
 
     _context = _context.copyWith(
-      mode: nextSnapshot.mode,
+      mode: PlayMode.temporary,
       savedQueueIndex: nextSnapshot.savedQueueIndex,
       savedPosition: nextSnapshot.savedPosition,
       savedWasPlaying: nextSnapshot.savedWasPlaying,
-      clearSavedState: nextSnapshot.savedQueueIndex == null &&
-          nextSnapshot.savedPosition == null &&
-          nextSnapshot.savedWasPlaying == null,
+      clearSavedState: !nextSnapshot.hasSavedState,
     );
 
     if (_context.hasSavedState) {
@@ -822,13 +816,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     final positionSettings = await _queueManager.getPositionRestoreSettings();
     final restorePlan = _temporaryPlayHandler.buildRestorePlan(
       state: TemporaryPlaybackState(
-        mode: _context.mode,
         savedQueueIndex: _context.savedQueueIndex,
         savedPosition: _context.savedPosition,
         savedWasPlaying: _context.savedWasPlaying,
       ),
-      restorePositionEnabled: positionSettings.enabled,
-      tempPlayRewindSeconds: positionSettings.tempPlayRewindSeconds,
+      rememberPosition: positionSettings.enabled,
+      rewindSeconds: positionSettings.tempPlayRewindSeconds,
     );
 
     if (restorePlan == null) {
@@ -843,7 +836,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       savedWasPlaying: restorePlan.savedWasPlaying,
       rewindSeconds: restorePlan.rewindSeconds,
       debugLabel: '_restoreSavedState',
-      clearSavedState: restorePlan.shouldClearSavedState,
+      clearSavedState: true,
     );
   }
 
