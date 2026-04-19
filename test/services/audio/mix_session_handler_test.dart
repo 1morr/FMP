@@ -17,6 +17,7 @@ import 'package:fmp/data/sources/youtube_source.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
+import 'package:fmp/services/audio/mix_playlist_handler.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/windows_smtc_handler.dart';
@@ -26,6 +27,35 @@ import '../../support/fakes/fake_audio_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  group('MixPlaylistHandler', () {
+    test(
+        'finishLoading ignores stale session and leaves active session loading',
+        () {
+      final handler = MixPlaylistHandler();
+      final stale = handler.start(
+        playlistId: 'RD-stale',
+        seedVideoId: 'seed-stale',
+        title: 'Stale Mix',
+      );
+      expect(handler.markLoading(stale), isTrue);
+
+      final active = handler.start(
+        playlistId: 'RD-active',
+        seedVideoId: 'seed-active',
+        title: 'Active Mix',
+      );
+      expect(handler.markLoading(active), isTrue);
+
+      const fetchResult = MixFetchResult(title: 'Ignored Result', tracks: []);
+      expect(fetchResult.title, 'Ignored Result');
+
+      handler.finishLoading(stale);
+
+      expect(handler.current, same(active));
+      expect(handler.current?.isLoadingMore, isTrue);
+    });
+  });
 
   group('Mix session Task 3 regression', () {
     late Directory tempDir;
