@@ -351,6 +351,12 @@ Phase-3 work should purify boundaries inside `AudioController` and `QueueManager
 - Keep `QueueManager` as the queue-facing public API while selected stream and persistence helpers are purified behind private helpers/delegates.
 - Do not treat a helper extraction as completion of the full public boundary; Phase 3 is about seam purification, not final public manager/service splits.
 
+### Phase-4 Final Audio Boundary Note (2026-04-19)
+- `AudioController` remains the only UI entry point and now delegates request execution, temporary-play state, and Mix session coordination.
+- `QueueManager` keeps repository-backed queue mutations, ordering, shuffle/loop, timer lifecycle, and queue notifications.
+- `AudioStreamManager` owns URL refresh, stream selection, playback headers, fallback streams, and prefetch while `AudioStreamDelegate` remains its Phase-4 internal implementation.
+- `QueuePersistenceManager` owns queue snapshot restore/persist, playback position save/restore, and Mix persistence operations.
+
 ---
 
 ## UI Development Guidelines

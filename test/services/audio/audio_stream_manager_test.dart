@@ -35,12 +35,12 @@ void main() {
 
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp(
-        'audio_stream_delegate_',
+        'audio_stream_manager_',
       );
       isar = await Isar.open(
         [TrackSchema, PlayQueueSchema, SettingsSchema],
         directory: tempDir.path,
-        name: 'audio_stream_delegate_test',
+        name: 'audio_stream_manager_test',
       );
 
       trackRepository = TrackRepository(isar);

@@ -32,12 +32,12 @@ void main() {
 
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp(
-        'queue_persistence_helpers_',
+        'queue_persistence_manager_',
       );
       isar = await Isar.open(
         [TrackSchema, PlayQueueSchema, SettingsSchema],
         directory: tempDir.path,
-        name: 'queue_persistence_helpers_test',
+        name: 'queue_persistence_manager_test',
       );
 
       queueRepository = QueueRepository(isar);
