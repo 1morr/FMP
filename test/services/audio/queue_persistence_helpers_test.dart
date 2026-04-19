@@ -80,14 +80,14 @@ void main() {
       final restored = await manager.restoreState();
 
       expect(restored.queue.trackIds, currentQueue.trackIds);
-      expect(restored.queue.currentIndex, 1);
       expect(restored.tracks.map((track) => track.sourceId), ['restore-a', 'restore-b']);
+      expect(restored.currentIndex, 1);
       expect(restored.savedPosition, const Duration(minutes: 1, seconds: 15));
       expect(restored.savedVolume, 0.35);
       expect(restored.queue.isMixMode, isTrue);
-      expect(restored.queue.mixPlaylistId, 'RDrestore123');
-      expect(restored.queue.mixSeedVideoId, 'seed-restore');
-      expect(restored.queue.mixTitle, 'Restored Mix');
+      expect(restored.mixPlaylistId, 'RDrestore123');
+      expect(restored.mixSeedVideoId, 'seed-restore');
+      expect(restored.mixTitle, 'Restored Mix');
     });
 
     test('persistQueue saves queue snapshot and playback position', () async {
