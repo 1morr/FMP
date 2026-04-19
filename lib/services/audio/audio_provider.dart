@@ -33,32 +33,14 @@ import 'package:fmp/i18n/strings.g.dart';
 import 'queue_manager.dart';
 import '../network/connectivity_service.dart';
 import 'player_state.dart';
+import 'audio_playback_types.dart';
+import 'mix_playlist_types.dart';
 
 export 'player_state.dart';
-
-typedef MixTracksFetcher = Future<MixFetchResult> Function({
-  required String playlistId,
-  required String currentVideoId,
-});
 
 /// 内部异常：表示重试已被安排，调用者不应再次安排重试
 class _RetryScheduledException implements Exception {
   const _RetryScheduledException();
-}
-
-/// 播放模式枚举
-enum PlayMode {
-  /// 正常隊列播放
-  queue,
-
-  /// 臨時播放（播放完成後恢復原隊列位置）
-  temporary,
-
-  /// 脫離隊列（隊列被清空或修改後的狀態，播放的歌曲不在隊列中）
-  detached,
-
-  /// Mix 播放列表模式（無限加載，禁止隨機和添加歌曲）
-  mix,
 }
 
 class _TemporaryPlaybackSnapshot {

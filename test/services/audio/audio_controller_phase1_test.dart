@@ -16,7 +16,9 @@ import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/youtube_exception.dart';
 import 'package:fmp/data/sources/youtube_source.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
-import 'package:fmp/services/audio/audio_provider.dart';
+import 'package:fmp/services/audio/audio_playback_types.dart';
+import 'package:fmp/services/audio/audio_provider.dart' hide MixTracksFetcher, PlayMode;
+import 'package:fmp/services/audio/mix_playlist_types.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/windows_smtc_handler.dart';
 import 'package:isar/isar.dart';
@@ -27,6 +29,12 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('AudioController phase 1 regressions', () {
+    test('shared playback boundary types remain importable', () {
+      expect(PlayMode.queue, isNotNull);
+      MixTracksFetcher? fetcher;
+      expect(fetcher, isNull);
+    });
+
     late Directory tempDir;
     late Isar isar;
     late QueueRepository queueRepository;
