@@ -29,13 +29,14 @@ class YouTubeSource extends BaseSource with Logging {
   // https://www.youtube.com/playlist?list=OLPPnm121Qlcoo7kKykmswKG0IepmDUVpag
   static const String _newThisWeekPlaylistId = 'OLPPnm121Qlcoo7kKykmswKG0IepmDUVpag';
 
-  YouTubeSource() {
-    _youtube = yt.YoutubeExplode();
-    _dio = HttpClientFactory.create(
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    );
+  YouTubeSource({yt.YoutubeExplode? youtube, Dio? dio}) {
+    _youtube = youtube ?? yt.YoutubeExplode();
+    _dio =
+        dio ?? HttpClientFactory.create(
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        );
   }
 
   /// 构建带认证的 InnerTube 请求 Options
@@ -1023,6 +1024,148 @@ class YouTubeSource extends BaseSource with Logging {
     return 0;
   }
 
+  String? _extractText(dynamic textObj) {
+    if (textObj == null) return null;
+    if (textObj is String) return textObj;
+    if (textObj is Map) {
+      final simpleText = textObj['simpleText'] as String?;
+      if (simpleText != null && simpleText.isNotEmpty) return simpleText;
+      final runs = textObj['runs'] as List?;
+      if (runs != null && runs.isNotEmpty) {
+        final text = runs
+            .map((run) => run is Map ? run['text']?.toString() ?? '' : '')
+            .join()
+            .trim();
+        if (text.isNotEmpty) return text;
+      }
+    }
+    return null;
+  }
+
+  dynamic _getPlaylistVideoContents(Map<String, dynamic> data) {
+    try {
+      return data['contents']?['twoColumnBrowseResultsRenderer']?['tabs']?[0]
+                      ?['tabRenderer']?['content']?['sectionListRenderer']
+                  ?['contents']?[0]?['itemSectionRenderer']?['contents']?[0]
+              ?['playlistVideoListRenderer']?['contents'] ??
+          _extractContinuationItems(
+            data['onResponseReceivedActions'] as List?,
+          ) ??
+          _extractContinuationItems(
+            data['onResponseReceivedEndpoints'] as List?,
+          ) ??
+          data['continuationContents'];
+    } catch (_) {
+      return null;
+    }
+  }
+
+  dynamic _extractContinuationItems(List? responses) {
+    if (responses == null) return null;
+    for (final response in responses) {
+      if (response is! Map) continue;
+      final items = response['appendContinuationItemsAction']?['continuationItems'];
+      if (items != null) return items;
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? _buildContinuationRequest(
+    String? continuation,
+    String? clickTrackingParams,
+  ) {
+    if (continuation == null || continuation.isEmpty) return null;
+    return {
+      'continuation': continuation,
+      if (clickTrackingParams != null && clickTrackingParams.isNotEmpty)
+        'clickTracking': {
+          'clickTrackingParams': clickTrackingParams,
+        },
+    };
+  }
+
+  Map<String, dynamic>? _extractContinuationRequestFromEndpoint(dynamic endpoint) {
+    if (endpoint is! Map) return null;
+
+    final commands = endpoint['commandExecutorCommand']?['commands'] as List?;
+    if (commands != null) {
+      for (final command in commands) {
+        final request = _extractContinuationRequestFromEndpoint(command);
+        if (request != null) return request;
+      }
+    }
+
+    return _buildContinuationRequest(
+      endpoint['continuationCommand']?['token'] as String?,
+      endpoint['clickTrackingParams'] as String?,
+    );
+  }
+
+  Map<String, dynamic>? _extractNextContinuationRequest(dynamic renderer) {
+    if (renderer is! Map) return null;
+
+    final continuations = renderer['continuations'] as List?;
+    final nextContinuationData = continuations?.firstOrNull?['nextContinuationData']
+            as Map<String, dynamic>? ??
+        renderer['continuation']?['reloadContinuationData']
+            as Map<String, dynamic>?;
+
+    if (nextContinuationData == null) return null;
+    return _buildContinuationRequest(
+      nextContinuationData['continuation'] as String?,
+      nextContinuationData['clickTrackingParams'] as String?,
+    );
+  }
+
+  Iterable<Map<String, dynamic>> _extractPlaylistVideoRenderers(dynamic contents) sync* {
+    if (contents is List) {
+      for (final item in contents) {
+        yield* _extractPlaylistVideoRenderers(item);
+      }
+      return;
+    }
+
+    if (contents is! Map) return;
+
+    final renderer = contents['playlistVideoRenderer'] as Map<String, dynamic>?;
+    if (renderer != null) {
+      yield renderer;
+      return;
+    }
+
+    yield* _extractPlaylistVideoRenderers(contents['playlistVideoListContinuation']);
+    yield* _extractPlaylistVideoRenderers(contents['contents']);
+  }
+
+  Map<String, dynamic>? _extractPlaylistContinuationRequest(
+    Map<String, dynamic> data,
+  ) {
+    return _findPlaylistContinuationRequest(_getPlaylistVideoContents(data));
+  }
+
+  Map<String, dynamic>? _findPlaylistContinuationRequest(dynamic contents) {
+    if (contents is List) {
+      for (final item in contents) {
+        final request = _findPlaylistContinuationRequest(item);
+        if (request != null) return request;
+      }
+      return null;
+    }
+
+    if (contents is! Map) return null;
+
+    final nextContinuationRequest = _extractNextContinuationRequest(contents);
+    if (nextContinuationRequest != null) return nextContinuationRequest;
+
+    final continuationRequest = _extractContinuationRequestFromEndpoint(
+      contents['continuationItemRenderer']?['continuationEndpoint'],
+    );
+    if (continuationRequest != null) return continuationRequest;
+
+    return _findPlaylistContinuationRequest(contents['playlistVideoListContinuation']) ??
+        _findPlaylistContinuationRequest(contents['contents']);
+  }
+
   @override
   Future<PlaylistParseResult> parsePlaylist(
     String playlistUrl, {
@@ -1441,11 +1584,20 @@ class YouTubeSource extends BaseSource with Logging {
   }) async {
     logDebug('Parsing playlist via InnerTube for: $playlistId');
     try {
-      final browseId = 'VL$playlistId';
-      final response = await _dio.post(
-        '$_innerTubeApiBase/browse?key=$_innerTubeApiKey',
-        data: jsonEncode({
-          'browseId': browseId,
+      Map<String, dynamic>? continuationRequest;
+      String playlistTitle = 'Playlist';
+      String? ownerName;
+      String? ownerUserId;
+      final tracks = <Track>[];
+      var skippedPrivate = 0;
+      final seenContinuations = <String>{};
+
+      do {
+        final requestBody = {
+          ...(continuationRequest ??
+              {
+                'browseId': 'VL$playlistId',
+              }),
           'context': {
             'client': {
               'clientName': _innerTubeClientName,
@@ -1454,126 +1606,112 @@ class YouTubeSource extends BaseSource with Logging {
               'gl': 'US',
             },
           },
-        }),
-        options: _innerTubeAuthOptions(authHeaders),
-      );
+        };
 
-      final data = _parseJsonResponse(response.data);
+        final response = await _dio.post(
+          '$_innerTubeApiBase/browse?key=$_innerTubeApiKey',
+          data: jsonEncode(requestBody),
+          options: _innerTubeAuthOptions(authHeaders),
+        );
 
-      // Parse playlist title from header
-      // InnerTube may use playlistHeaderRenderer (old) or pageHeaderRenderer (new)
-      final header = data['header'] as Map<String, dynamic>?;
-      String playlistTitle = 'Playlist';
-      String? ownerName;
-      String? ownerUserId;
-      final playlistHeaderRenderer = header?['playlistHeaderRenderer'] as Map<String, dynamic>?;
-      if (playlistHeaderRenderer != null) {
-        playlistTitle = playlistHeaderRenderer['title']?['simpleText'] as String? ?? playlistTitle;
-        // Extract owner name and channel ID from ownerText.runs[0]
-        final ownerRuns = playlistHeaderRenderer['ownerText']?['runs'] as List?;
-        final firstRun = ownerRuns?.firstOrNull as Map<String, dynamic>?;
-        ownerName = firstRun?['text'] as String?;
-        ownerUserId = firstRun?['navigationEndpoint']?['browseEndpoint']?['browseId'] as String?;
-      } else {
-        final pageHeaderRenderer = header?['pageHeaderRenderer'] as Map<String, dynamic>?;
-        // pageHeaderRenderer.pageTitle is the simplest path
-        playlistTitle = pageHeaderRenderer?['pageTitle'] as String?
-            // Fallback: content.pageHeaderViewModel.title.dynamicTextViewModel.text.content
-            ?? (pageHeaderRenderer?['content']?['pageHeaderViewModel']?['title']
-                ?['dynamicTextViewModel']?['text']?['content'] as String?)
-            ?? playlistTitle;
+        final data = _parseJsonResponse(response.data);
 
-        // Extract owner info from pageHeaderViewModel metadata
-        final metadata = pageHeaderRenderer?['content']?['pageHeaderViewModel']
-            ?['metadata']?['contentMetadataViewModel'] as Map<String, dynamic>?;
-        final metadataRows = metadata?['metadataRows'] as List?;
-        if (metadataRows != null && metadataRows.isNotEmpty) {
-          final firstRow = metadataRows.first as Map<String, dynamic>?;
-          final metadataParts = firstRow?['metadataParts'] as List?;
-          if (metadataParts != null && metadataParts.isNotEmpty) {
-            final firstPart = metadataParts.first as Map<String, dynamic>?;
-            final text = firstPart?['text'] as Map<String, dynamic>?;
-            ownerName = text?['content'] as String?;
-            // Extract channel ID from commandRuns
-            final commandRuns = text?['commandRuns'] as List?;
-            if (commandRuns != null && commandRuns.isNotEmpty) {
-              final firstCommand = commandRuns.first as Map<String, dynamic>?;
-              ownerUserId = firstCommand?['onTap']?['innertubeCommand']
-                  ?['browseEndpoint']?['browseId'] as String?;
+        if (continuationRequest == null) {
+          final header = data['header'] as Map<String, dynamic>?;
+          final playlistHeaderRenderer =
+              header?['playlistHeaderRenderer'] as Map<String, dynamic>?;
+          if (playlistHeaderRenderer != null) {
+            playlistTitle = _extractText(playlistHeaderRenderer['title']) ?? playlistTitle;
+            final ownerRuns = playlistHeaderRenderer['ownerText']?['runs'] as List?;
+            final firstRun = ownerRuns?.firstOrNull as Map<String, dynamic>?;
+            ownerName = firstRun?['text'] as String?;
+            ownerUserId = firstRun?['navigationEndpoint']?['browseEndpoint']?['browseId'] as String?;
+          } else {
+            final pageHeaderRenderer = header?['pageHeaderRenderer'] as Map<String, dynamic>?;
+            playlistTitle = pageHeaderRenderer?['pageTitle'] as String?
+                    ?? (pageHeaderRenderer?['content']?['pageHeaderViewModel']?['title']
+                        ?['dynamicTextViewModel']?['text']?['content'] as String?)
+                    ?? playlistTitle;
+
+            final metadata = pageHeaderRenderer?['content']?['pageHeaderViewModel']
+                ?['metadata']?['contentMetadataViewModel'] as Map<String, dynamic>?;
+            final metadataRows = metadata?['metadataRows'] as List?;
+            if (metadataRows != null && metadataRows.isNotEmpty) {
+              final firstRow = metadataRows.first as Map<String, dynamic>?;
+              final metadataParts = firstRow?['metadataParts'] as List?;
+              if (metadataParts != null && metadataParts.isNotEmpty) {
+                final firstPart = metadataParts.first as Map<String, dynamic>?;
+                final text = firstPart?['text'] as Map<String, dynamic>?;
+                ownerName = text?['content'] as String?;
+                final commandRuns = text?['commandRuns'] as List?;
+                if (commandRuns != null && commandRuns.isNotEmpty) {
+                  final firstCommand = commandRuns.first as Map<String, dynamic>?;
+                  ownerUserId = firstCommand?['onTap']?['innertubeCommand']
+                      ?['browseEndpoint']?['browseId'] as String?;
+                }
+              }
             }
           }
-        }
-      }
 
-      // Fallback: extract owner info from sidebar if not found in header
-      if (ownerName == null || ownerUserId == null) {
-        final sidebar = data['sidebar']?['playlistSidebarRenderer']?['items'] as List?;
-        if (sidebar != null && sidebar.length > 1) {
-          final secondaryInfo = sidebar[1]
-              ?['playlistSidebarSecondaryInfoRenderer'] as Map<String, dynamic>?;
-          final videoOwner = secondaryInfo?['videoOwner']
-              ?['videoOwnerRenderer'] as Map<String, dynamic>?;
-          if (videoOwner != null) {
-            final ownerRuns = videoOwner['title']?['runs'] as List?;
-            final firstRun = ownerRuns?.firstOrNull as Map<String, dynamic>?;
-            ownerName ??= firstRun?['text'] as String?;
-            ownerUserId ??= firstRun?['navigationEndpoint']
-                ?['browseEndpoint']?['browseId'] as String?;
-            // Also try videoOwnerRenderer's own navigationEndpoint
-            ownerUserId ??= videoOwner['navigationEndpoint']
-                ?['browseEndpoint']?['browseId'] as String?;
-          }
-        }
-      }
-
-      if (ownerName == null && ownerUserId == null) {
-        logDebug('Could not extract owner info from InnerTube response for playlist: $playlistId');
-      }
-
-      // Parse video items
-      final tabs = data['contents']?['twoColumnBrowseResultsRenderer']?['tabs'] as List?;
-      final tabContent = tabs?.firstOrNull?['tabRenderer']?['content'];
-      final sectionContents = tabContent?['sectionListRenderer']?['contents'] as List?;
-      final itemContents = sectionContents?.firstOrNull?['itemSectionRenderer']?['contents'] as List?;
-      final videoList = itemContents?.firstOrNull?['playlistVideoListRenderer']?['contents'] as List?;
-
-      final tracks = <Track>[];
-      var skippedPrivate = 0;
-      if (videoList != null) {
-        for (final item in videoList) {
-          final renderer = item['playlistVideoRenderer'] as Map<String, dynamic>?;
-          if (renderer == null) continue;
-
-          final videoId = renderer['videoId'] as String?;
-          if (videoId == null) continue;
-
-          // Skip private/unavailable videos (no duration = not playable)
-          final isPlayable = renderer['isPlayable'] as bool? ?? true;
-          final lengthText = renderer['lengthText']?['simpleText'] as String?;
-          if (!isPlayable || lengthText == null) {
-            skippedPrivate++;
-            continue;
+          if (ownerName == null || ownerUserId == null) {
+            final sidebar = data['sidebar']?['playlistSidebarRenderer']?['items'] as List?;
+            if (sidebar != null && sidebar.length > 1) {
+              final secondaryInfo = sidebar[1]
+                  ?['playlistSidebarSecondaryInfoRenderer'] as Map<String, dynamic>?;
+              final videoOwner = secondaryInfo?['videoOwner']
+                  ?['videoOwnerRenderer'] as Map<String, dynamic>?;
+              if (videoOwner != null) {
+                final ownerRuns = videoOwner['title']?['runs'] as List?;
+                final firstRun = ownerRuns?.firstOrNull as Map<String, dynamic>?;
+                ownerName ??= firstRun?['text'] as String?;
+                ownerUserId ??= firstRun?['navigationEndpoint']
+                    ?['browseEndpoint']?['browseId'] as String?;
+                ownerUserId ??= videoOwner['navigationEndpoint']
+                    ?['browseEndpoint']?['browseId'] as String?;
+              }
+            }
           }
 
-          final titleRuns = renderer['title']?['runs'] as List?;
-          final title = titleRuns?.firstOrNull?['text'] as String? ?? 'Unknown';
-
-          final bylineRuns = renderer['shortBylineText']?['runs'] as List?;
-          final artist = bylineRuns?.firstOrNull?['text'] as String? ?? '';
-
-          final durationMs = _parseDurationText(lengthText);
-
-          final thumbnailUrl = 'https://i.ytimg.com/vi/$videoId/mqdefault.jpg';
-
-          tracks.add(Track()
-            ..sourceId = videoId
-            ..sourceType = SourceType.youtube
-            ..title = title
-            ..artist = artist
-            ..durationMs = durationMs
-            ..thumbnailUrl = thumbnailUrl);
+          if (ownerName == null && ownerUserId == null) {
+            logDebug('Could not extract owner info from InnerTube response for playlist: $playlistId');
+          }
         }
-      }
+
+        final videoList = _getPlaylistVideoContents(data);
+        if (videoList != null) {
+          for (final renderer in _extractPlaylistVideoRenderers(videoList)) {
+            final videoId = renderer['videoId'] as String?;
+            if (videoId == null) continue;
+
+            final isPlayable = renderer['isPlayable'] as bool? ?? true;
+            final lengthText = _extractText(renderer['lengthText']);
+            if (!isPlayable || lengthText == null) {
+              skippedPrivate++;
+              continue;
+            }
+
+            final title = _extractText(renderer['title']) ?? 'Unknown';
+            final artist = _extractText(renderer['shortBylineText']) ?? '';
+            final durationMs = _parseDurationText(lengthText);
+            final thumbnailUrl = 'https://i.ytimg.com/vi/$videoId/mqdefault.jpg';
+
+            tracks.add(Track()
+              ..sourceId = videoId
+              ..sourceType = SourceType.youtube
+              ..title = title
+              ..artist = artist
+              ..durationMs = durationMs
+              ..thumbnailUrl = thumbnailUrl);
+          }
+        }
+
+        continuationRequest = _extractPlaylistContinuationRequest(data);
+        final continuationToken = continuationRequest?['continuation'] as String?;
+        if (continuationToken != null && !seenContinuations.add(continuationToken)) {
+          logWarning('Detected repeated YouTube playlist continuation for $playlistId, stopping pagination loop');
+          continuationRequest = null;
+        }
+      } while (continuationRequest != null);
 
       if (skippedPrivate > 0) {
         logInfo('Skipped $skippedPrivate private/unavailable videos in playlist $playlistId');
