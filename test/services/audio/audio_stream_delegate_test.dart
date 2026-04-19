@@ -62,6 +62,9 @@ void main() {
       );
       manager = AudioStreamManager(
         delegate: delegate,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: sourceManager,
         replaceTrack: (updatedTrack) {
           final index =
               queueTracks.indexWhere((track) => track.id == updatedTrack.id);
@@ -80,10 +83,12 @@ void main() {
     });
 
     test(
-        'ensureAudioStream keeps the first valid local file and clears stale download paths',
+        'ensureAudioUrl preserves valid download paths and clears only missing ones',
         () async {
-      final validFile = File('${tempDir.path}/downloaded.m4a');
-      await validFile.writeAsString('audio-bytes');
+      final firstValidFile = File('${tempDir.path}/downloaded-1.m4a');
+      final secondValidFile = File('${tempDir.path}/downloaded-2.m4a');
+      await firstValidFile.writeAsString('audio-bytes-1');
+      await secondValidFile.writeAsString('audio-bytes-2');
 
       final savedTrack = await trackRepository.save(
         _track('stream-1', title: 'Stream One')
@@ -94,28 +99,90 @@ void main() {
               ..downloadPath = '${tempDir.path}/missing-file.m4a',
             PlaylistDownloadInfo()
               ..playlistId = 2
-              ..playlistName = 'Downloaded Playlist'
-              ..downloadPath = validFile.path,
+              ..playlistName = 'Downloaded Playlist One'
+              ..downloadPath = firstValidFile.path,
+            PlaylistDownloadInfo()
+              ..playlistId = 3
+              ..playlistName = 'Downloaded Playlist Two'
+              ..downloadPath = secondValidFile.path,
           ],
       );
       queueTracks.add(savedTrack);
 
-      final (updatedTrack, localPath, streamResult) =
-          await manager.ensureAudioStream(savedTrack);
+      final (updatedTrack, localPath) =
+          await manager.ensureAudioUrl(savedTrack);
 
-      expect(localPath, validFile.path);
-      expect(streamResult, isNull);
+      expect(localPath, firstValidFile.path);
       expect(updatedTrack.audioUrl, isNull);
       expect(updatedTrack.playlistInfo[0].downloadPath, isEmpty);
-      expect(updatedTrack.playlistInfo[1].downloadPath, validFile.path);
+      expect(updatedTrack.playlistInfo[1].downloadPath, firstValidFile.path);
+      expect(updatedTrack.playlistInfo[2].downloadPath, secondValidFile.path);
       expect(queueTracks.single.playlistInfo[0].downloadPath, isEmpty);
-      expect(queueTracks.single.playlistInfo[1].downloadPath, validFile.path);
+      expect(
+          queueTracks.single.playlistInfo[1].downloadPath, firstValidFile.path);
+      expect(queueTracks.single.playlistInfo[2].downloadPath,
+          secondValidFile.path);
       expect(sourceManager.source.audioStreamRequests, isEmpty);
 
       final persistedTrack = await trackRepository.getById(savedTrack.id);
       expect(persistedTrack, isNotNull);
       expect(persistedTrack!.playlistInfo[0].downloadPath, isEmpty);
-      expect(persistedTrack.playlistInfo[1].downloadPath, validFile.path);
+      expect(persistedTrack.playlistInfo[1].downloadPath, firstValidFile.path);
+      expect(persistedTrack.playlistInfo[2].downloadPath, secondValidFile.path);
+    });
+
+    test(
+        'attachQueueTrackUpdater updates queue copy for delegate-driven ensureAudioStream after construction',
+        () async {
+      final savedTrack = await trackRepository.save(
+        _track('stream-attach', title: 'Stream Attach'),
+      );
+      final queueCopy = await trackRepository.getById(savedTrack.id);
+      final requestTrack = await trackRepository.getById(savedTrack.id);
+      expect(queueCopy, isNotNull);
+      expect(requestTrack, isNotNull);
+      expect(queueCopy, isNot(same(requestTrack)));
+
+      queueTracks
+        ..clear()
+        ..add(queueCopy!);
+
+      final lateAttachedManager = AudioStreamManager(
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: sourceManager,
+      );
+      lateAttachedManager.attachQueueTrackUpdater((updatedTrack) {
+        final index =
+            queueTracks.indexWhere((track) => track.id == updatedTrack.id);
+        if (index >= 0) {
+          queueTracks[index] = updatedTrack;
+        }
+      });
+
+      final (updatedTrack, localPath, streamResult) =
+          await lateAttachedManager.ensureAudioStream(requestTrack!);
+
+      expect(localPath, isNull);
+      expect(streamResult, isNotNull);
+      expect(updatedTrack.audioUrl, isNotNull);
+      expect(queueTracks.single.audioUrl, updatedTrack.audioUrl);
+    });
+
+    test('prefetchTrack swallows refresh failures', () async {
+      sourceManager.source.throwOnRefresh = true;
+      final directManager = AudioStreamManager(
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: sourceManager,
+      );
+
+      await expectLater(
+        directManager.prefetchTrack(
+          _track('stream-prefetch', title: 'Prefetch Failure'),
+        ),
+        completes,
+      );
     });
 
     test(
@@ -223,6 +290,7 @@ class _FakeSource extends BaseSource {
   AudioStreamConfig? lastAlternativeConfig;
   String? lastFailedUrl;
   final List<String> audioStreamRequests = [];
+  bool throwOnRefresh = false;
 
   @override
   SourceType get sourceType => SourceType.youtube;
@@ -293,6 +361,9 @@ class _FakeSource extends BaseSource {
     Track track, {
     Map<String, String>? authHeaders,
   }) async {
+    if (throwOnRefresh) {
+      throw StateError('refresh failed for ${track.sourceId}');
+    }
     track.audioUrl = 'https://example.com/${track.sourceId}.m4a';
     track.audioUrlExpiry = DateTime.now().add(const Duration(minutes: 30));
     return track;

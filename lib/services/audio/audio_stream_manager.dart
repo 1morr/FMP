@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import '../../core/constants/app_constants.dart';
 import '../../core/extensions/track_extensions.dart';
+import '../../core/logger.dart';
 import '../../core/utils/auth_headers_utils.dart';
 import '../../data/models/track.dart';
 import '../../data/repositories/settings_repository.dart';
@@ -23,7 +26,7 @@ abstract class PlaybackRequestStreamAccess {
   Future<void> prefetchTrack(Track track);
 }
 
-class AudioStreamManager implements PlaybackRequestStreamAccess {
+class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
   AudioStreamManager({
     AudioStreamDelegate? delegate,
     TrackRepository? trackRepository,
@@ -38,24 +41,25 @@ class AudioStreamManager implements PlaybackRequestStreamAccess {
         _sourceManager = sourceManager,
         _bilibiliAccountService = bilibiliAccountService,
         _youtubeAccountService = youtubeAccountService,
-        _neteaseAccountService = neteaseAccountService,
-        _replaceTrack = replaceTrack,
-        _delegate = delegate ??
-            AudioStreamDelegate(
-              trackRepository: trackRepository!,
-              settingsRepository: settingsRepository!,
-              sourceManager: sourceManager!,
-              getAuthHeaders: (sourceType) => buildAuthHeaders(
-                sourceType,
-                bilibiliAccountService: bilibiliAccountService,
-                youtubeAccountService: youtubeAccountService,
-                neteaseAccountService: neteaseAccountService,
-              ),
-              updateQueueTrack: (updatedTrack) =>
-                  replaceTrack?.call(updatedTrack),
-            );
+        _neteaseAccountService = neteaseAccountService {
+    _queueTrackUpdater = replaceTrack;
+    _delegate = delegate ??
+        AudioStreamDelegate(
+          trackRepository: trackRepository!,
+          settingsRepository: settingsRepository!,
+          sourceManager: sourceManager!,
+          getAuthHeaders: (sourceType) => buildAuthHeaders(
+            sourceType,
+            bilibiliAccountService: bilibiliAccountService,
+            youtubeAccountService: youtubeAccountService,
+            neteaseAccountService: neteaseAccountService,
+          ),
+          updateQueueTrack: (updatedTrack) =>
+              _queueTrackUpdater?.call(updatedTrack),
+        );
+  }
 
-  final AudioStreamDelegate _delegate;
+  late final AudioStreamDelegate _delegate;
   final TrackRepository? _trackRepository;
   final SettingsRepository? _settingsRepository;
   final SourceManager? _sourceManager;
@@ -63,10 +67,10 @@ class AudioStreamManager implements PlaybackRequestStreamAccess {
   final YouTubeAccountService? _youtubeAccountService;
   final NeteaseAccountService? _neteaseAccountService;
   final Set<int> _fetchingUrlTrackIds = {};
-  void Function(Track updatedTrack)? _replaceTrack;
+  void Function(Track updatedTrack)? _queueTrackUpdater;
 
   void attachQueueTrackUpdater(void Function(Track updatedTrack) replaceTrack) {
-    _replaceTrack = replaceTrack;
+    _queueTrackUpdater = replaceTrack;
   }
 
   @override
@@ -94,25 +98,20 @@ class AudioStreamManager implements PlaybackRequestStreamAccess {
     int retryCount = 0,
     bool persist = true,
   }) async {
-    final localPath = track.localAudioPath;
-    if (localPath != null) {
-      if (track.hasAnyDownload) {
-        final invalidPaths = track.allDownloadPaths
-            .where((path) => path != localPath)
-            .toList(growable: false);
-        if (invalidPaths.isNotEmpty && persist) {
-          _clearInvalidPaths(track, invalidPaths);
-          await _requireTrackRepository().save(track);
-          _replaceTrack?.call(track);
-        }
+    final localFileState = _inspectLocalFiles(track);
+    if (localFileState.localPath != null) {
+      if (localFileState.invalidPaths.isNotEmpty && persist) {
+        _clearInvalidPaths(track, localFileState.invalidPaths);
+        await _requireTrackRepository().save(track);
+        _queueTrackUpdater?.call(track);
       }
-      return (track, localPath);
+      return (track, localFileState.localPath);
     }
 
-    if (track.hasAnyDownload && persist) {
+    if (localFileState.invalidPaths.isNotEmpty && persist) {
       track.clearAllDownloadPaths();
       await _requireTrackRepository().save(track);
-      _replaceTrack?.call(track);
+      _queueTrackUpdater?.call(track);
     }
 
     if (track.hasValidAudioUrl) {
@@ -153,7 +152,7 @@ class AudioStreamManager implements PlaybackRequestStreamAccess {
         }
       }
 
-      _replaceTrack?.call(refreshedTrack);
+      _queueTrackUpdater?.call(refreshedTrack);
       return (refreshedTrack, null);
     } catch (_) {
       if (retryCount < 1) {
@@ -203,9 +202,34 @@ class AudioStreamManager implements PlaybackRequestStreamAccess {
     _fetchingUrlTrackIds.add(track.id);
     try {
       await ensureAudioUrl(track);
+    } catch (error, stackTrace) {
+      logError(
+        'Failed to prefetch audio URL for ${track.sourceType.name}:${track.sourceId}',
+        error,
+        stackTrace,
+      );
     } finally {
       _fetchingUrlTrackIds.remove(track.id);
     }
+  }
+
+  _LocalFileState _inspectLocalFiles(Track track) {
+    String? localPath;
+    final invalidPaths = <String>[];
+
+    for (final path in track.allDownloadPaths) {
+      try {
+        if (File(path).existsSync()) {
+          localPath ??= path;
+          continue;
+        }
+      } catch (_) {
+        // Treat unreadable paths as invalid and clear them below.
+      }
+      invalidPaths.add(path);
+    }
+
+    return _LocalFileState(localPath: localPath, invalidPaths: invalidPaths);
   }
 
   void _clearInvalidPaths(Track track, List<String> invalidPaths) {
@@ -231,4 +255,11 @@ class AudioStreamManager implements PlaybackRequestStreamAccess {
   static const String _defaultPlaybackUserAgent =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+}
+
+class _LocalFileState {
+  const _LocalFileState({required this.localPath, required this.invalidPaths});
+
+  final String? localPath;
+  final List<String> invalidPaths;
 }
