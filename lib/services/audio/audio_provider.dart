@@ -37,6 +37,7 @@ import 'queue_persistence_manager.dart';
 import '../network/connectivity_service.dart';
 import 'player_state.dart';
 import 'audio_playback_types.dart';
+import 'mix_playlist_handler.dart';
 import 'mix_playlist_types.dart';
 import 'temporary_play_handler.dart';
 
@@ -131,76 +132,6 @@ class _LockWithId {
   bool belongsTo(int checkRequestId) => requestId == checkRequestId;
 }
 
-/// Mix 播放列表狀態
-/// 用於追蹤 Mix 模式下的播放列表信息和去重
-class _MixPlaylistState {
-  /// Mix 播放列表 ID（以 RD 開頭）
-  final String playlistId;
-
-  /// 種子影片 ID（用於首次加載）
-  final String seedVideoId;
-
-  /// Mix 播放列表標題
-  final String title;
-
-  /// 已見過的影片 ID 集合（用於去重）
-  final Set<String> seenVideoIds;
-
-  /// 是否正在加載更多
-  bool isLoadingMore = false;
-
-  _MixPlaylistState({
-    required this.playlistId,
-    required this.seedVideoId,
-    required this.title,
-    Set<String>? seenVideoIds,
-  }) : seenVideoIds = seenVideoIds ?? {};
-
-  /// 添加影片 ID 到已見集合
-  void addSeenVideoIds(Iterable<String> ids) {
-    seenVideoIds.addAll(ids);
-  }
-}
-
-class _MixSessionStateHelper {
-  _MixPlaylistState? _current;
-
-  _MixPlaylistState? get current => _current;
-
-  _MixPlaylistState start({
-    required String playlistId,
-    required String seedVideoId,
-    required String title,
-  }) {
-    _current = _MixPlaylistState(
-      playlistId: playlistId,
-      seedVideoId: seedVideoId,
-      title: title,
-    );
-    return _current!;
-  }
-
-  bool isCurrent(_MixPlaylistState state) => identical(_current, state);
-
-  bool markLoading(_MixPlaylistState state) {
-    if (!isCurrent(state) || state.isLoadingMore) {
-      return false;
-    }
-    state.isLoadingMore = true;
-    return true;
-  }
-
-  void finishLoading(_MixPlaylistState state) {
-    if (isCurrent(state)) {
-      state.isLoadingMore = false;
-    }
-  }
-
-  void clear() {
-    _current = null;
-  }
-}
-
 /// 音频控制器 - 管理所有播放相关的状态和操作
 /// 协调 AudioService（单曲播放）和 QueueManager（队列管理）
 class AudioController extends StateNotifier<PlayerState> with Logging {
@@ -238,7 +169,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   late final PlaybackRequestExecutor _playbackRequestExecutor;
   late final TemporaryPlayHandler _temporaryPlayHandler;
-  late final _MixSessionStateHelper _mixSessionStateHelper;
+  late final MixPlaylistHandler _mixPlaylistHandler;
 
   // 通知栏/SMTC 更新节流：上次更新的位置
   Duration _lastNotificationPosition = Duration.zero;
@@ -300,7 +231,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       isSuperseded: _isSuperseded,
     );
     _temporaryPlayHandler = const TemporaryPlayHandler();
-    _mixSessionStateHelper = _MixSessionStateHelper();
+    _mixPlaylistHandler = MixPlaylistHandler();
   }
 
   /// 是否已初始化
@@ -408,7 +339,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
             state = state.copyWith(isShuffleEnabled: false);
           }
 
-          final mixState = _mixSessionStateHelper.start(
+          final mixState = _mixPlaylistHandler.start(
             playlistId: playlistId,
             seedVideoId: seedVideoId,
             title: title,
@@ -476,7 +407,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       subscription.cancel();
     }
     _subscriptions.clear();
-    _mixSessionStateHelper.clear();
+    _mixPlaylistHandler.clear();
     _queueManager.dispose();
     _audioService.dispose();
     super.dispose();
@@ -924,7 +855,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       }
 
       // 初始化 Mix 狀態
-      final mixState = _mixSessionStateHelper.start(
+      final mixState = _mixPlaylistHandler.start(
         playlistId: playlistId,
         seedVideoId: seedVideoId,
         title: title,
@@ -968,10 +899,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 退出 Mix 模式
   void _exitMixMode() {
-    final mixState = _mixSessionStateHelper.current;
+    final mixState = _mixPlaylistHandler.current;
     if (mixState != null) {
       logDebug('Exiting Mix mode');
-      _mixSessionStateHelper.clear();
+      _mixPlaylistHandler.clear();
       _context = _context.copyWith(mode: PlayMode.queue);
       state = state.copyWith(
         isMixMode: false,
@@ -1509,14 +1440,14 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 3. 最多嘗試 10 次，每次間隔 1 秒
   /// 4. 收集所有新歌曲後一次性添加到隊列
   Future<void> _loadMoreMixTracks() async {
-    final mixState = _mixSessionStateHelper.current;
-    if (mixState == null || !_mixSessionStateHelper.markLoading(mixState)) {
+    final mixState = _mixPlaylistHandler.current;
+    if (mixState == null || !_mixPlaylistHandler.markLoading(mixState)) {
       return;
     }
 
     final queue = _queueManager.tracks;
     if (queue.isEmpty) {
-      _mixSessionStateHelper.finishLoading(mixState);
+      _mixPlaylistHandler.finishLoading(mixState);
       return;
     }
 
@@ -1539,7 +1470,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
       while (collectedTracks.length < minNewTracksRequired &&
           attempt < maxAttempts) {
-        if (!_mixSessionStateHelper.isCurrent(mixState)) {
+        if (!_mixPlaylistHandler.isCurrent(mixState)) {
           logDebug('Mix mode exited during load-more, aborting');
           return;
         }
@@ -1576,7 +1507,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
                 currentVideoId: seedVideoId,
               ));
 
-          if (!_mixSessionStateHelper.isCurrent(mixState)) {
+          if (!_mixPlaylistHandler.isCurrent(mixState)) {
             logDebug('Mix mode exited after load-more fetch, aborting');
             return;
           }
@@ -1611,7 +1542,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         }
       }
 
-      if (!_mixSessionStateHelper.isCurrent(mixState)) {
+      if (!_mixPlaylistHandler.isCurrent(mixState)) {
         logDebug('Mix mode exited before applying load-more results, aborting');
         return;
       }
@@ -1632,8 +1563,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       _toastService.showInfo(t.audio.mixLoadMoreError);
     } finally {
       youtubeSource?.dispose();
-      _mixSessionStateHelper.finishLoading(mixState);
-      if (_mixSessionStateHelper.isCurrent(mixState)) {
+      _mixPlaylistHandler.finishLoading(mixState);
+      if (_mixPlaylistHandler.isCurrent(mixState)) {
         state = state.copyWith(isLoadingMoreMix: false);
       }
     }
