@@ -13,10 +13,12 @@ import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
+import 'package:fmp/services/audio/audio_playback_types.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
+import 'package:fmp/services/audio/temporary_play_handler.dart';
 import 'package:fmp/services/audio/windows_smtc_handler.dart';
 import 'package:isar/isar.dart';
 
@@ -96,6 +98,49 @@ void main() {
         await tempDir.delete(recursive: true);
       }
     });
+
+    test(
+      'buildRestorePlan keeps original queue target across chained temporary play',
+      () {
+        const handler = TemporaryPlayHandler();
+        const originalState = TemporaryPlaybackState(
+          mode: PlayMode.queue,
+          savedQueueIndex: null,
+          savedPosition: null,
+          savedWasPlaying: null,
+        );
+
+        final firstTemporary = handler.enterTemporary(
+          current: originalState,
+          hasQueueTrack: true,
+          currentIndex: 1,
+          savedPosition: const Duration(seconds: 45),
+          savedWasPlaying: false,
+        );
+
+        final secondTemporary = handler.enterTemporary(
+          current: firstTemporary,
+          hasQueueTrack: true,
+          currentIndex: 2,
+          savedPosition: const Duration(seconds: 7),
+          savedWasPlaying: true,
+        );
+
+        final restorePlan = handler.buildRestorePlan(
+          state: secondTemporary,
+          restorePositionEnabled: true,
+          tempPlayRewindSeconds: 10,
+        );
+
+        expect(secondTemporary.savedQueueIndex, 1);
+        expect(restorePlan, isNotNull);
+        expect(restorePlan!.savedIndex, 1);
+        expect(restorePlan.savedPosition, const Duration(seconds: 45));
+        expect(restorePlan.savedWasPlaying, isFalse);
+        expect(restorePlan.rewindSeconds, 10);
+        expect(restorePlan.shouldClearSavedState, isTrue);
+      },
+    );
 
     test(
       'second temporary play preserves the original queue index position and play state',

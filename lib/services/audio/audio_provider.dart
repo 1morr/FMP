@@ -38,56 +38,13 @@ import '../network/connectivity_service.dart';
 import 'player_state.dart';
 import 'audio_playback_types.dart';
 import 'mix_playlist_types.dart';
+import 'temporary_play_handler.dart';
 
 export 'player_state.dart';
 
 /// 内部异常：表示重试已被安排，调用者不应再次安排重试
 class _RetryScheduledException implements Exception {
   const _RetryScheduledException();
-}
-
-class _TemporaryPlaybackSnapshot {
-  const _TemporaryPlaybackSnapshot({
-    required this.mode,
-    required this.savedQueueIndex,
-    required this.savedPosition,
-    required this.savedWasPlaying,
-  });
-
-  final PlayMode mode;
-  final int? savedQueueIndex;
-  final Duration? savedPosition;
-  final bool? savedWasPlaying;
-}
-
-class _TemporaryPlayStateHelper {
-  const _TemporaryPlayStateHelper();
-
-  _TemporaryPlaybackSnapshot enterTemporary({
-    required _TemporaryPlaybackSnapshot current,
-    required bool hasQueueTrack,
-    required int currentIndex,
-    required Duration savedPosition,
-    required bool savedWasPlaying,
-  }) {
-    if (current.mode == PlayMode.temporary) {
-      return current;
-    }
-    if (!hasQueueTrack) {
-      return const _TemporaryPlaybackSnapshot(
-        mode: PlayMode.temporary,
-        savedQueueIndex: null,
-        savedPosition: null,
-        savedWasPlaying: null,
-      );
-    }
-    return _TemporaryPlaybackSnapshot(
-      mode: PlayMode.temporary,
-      savedQueueIndex: currentIndex,
-      savedPosition: savedPosition,
-      savedWasPlaying: savedWasPlaying,
-    );
-  }
 }
 
 /// 統一的內部播放上下文
@@ -280,7 +237,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   Timer? _positionCheckTimer;
 
   late final PlaybackRequestExecutor _playbackRequestExecutor;
-  late final _TemporaryPlayStateHelper _temporaryPlayStateHelper;
+  late final TemporaryPlayHandler _temporaryPlayHandler;
   late final _MixSessionStateHelper _mixSessionStateHelper;
 
   // 通知栏/SMTC 更新节流：上次更新的位置
@@ -342,7 +299,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       getNextTrack: _nextTrackForPrefetch,
       isSuperseded: _isSuperseded,
     );
-    _temporaryPlayStateHelper = const _TemporaryPlayStateHelper();
+    _temporaryPlayHandler = const TemporaryPlayHandler();
     _mixSessionStateHelper = _MixSessionStateHelper();
   }
 
@@ -663,8 +620,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
     logInfo('Playing temporary track: ${track.title}');
 
-    final nextSnapshot = _temporaryPlayStateHelper.enterTemporary(
-      current: _TemporaryPlaybackSnapshot(
+    final nextSnapshot = _temporaryPlayHandler.enterTemporary(
+      current: TemporaryPlaybackState(
         mode: _context.mode,
         savedQueueIndex: _context.savedQueueIndex,
         savedPosition: _context.savedPosition,
@@ -862,21 +819,31 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       return;
     }
 
-    final savedIndex = _context.savedQueueIndex!;
-    final savedPosition = _context.savedPosition ?? Duration.zero;
-    final savedWasPlaying = _context.savedWasPlaying ?? false;
-
     final positionSettings = await _queueManager.getPositionRestoreSettings();
-    final rewindSeconds =
-        positionSettings.enabled ? positionSettings.tempPlayRewindSeconds : 0;
+    final restorePlan = _temporaryPlayHandler.buildRestorePlan(
+      state: TemporaryPlaybackState(
+        mode: _context.mode,
+        savedQueueIndex: _context.savedQueueIndex,
+        savedPosition: _context.savedPosition,
+        savedWasPlaying: _context.savedWasPlaying,
+      ),
+      restorePositionEnabled: positionSettings.enabled,
+      tempPlayRewindSeconds: positionSettings.tempPlayRewindSeconds,
+    );
+
+    if (restorePlan == null) {
+      logDebug('No restore plan available');
+      _context = _context.copyWith(mode: PlayMode.queue, clearSavedState: true);
+      return;
+    }
 
     await _restoreQueuePlayback(
-      savedIndex: savedIndex,
-      savedPosition: positionSettings.enabled ? savedPosition : Duration.zero,
-      savedWasPlaying: savedWasPlaying,
-      rewindSeconds: rewindSeconds,
+      savedIndex: restorePlan.savedIndex,
+      savedPosition: restorePlan.savedPosition,
+      savedWasPlaying: restorePlan.savedWasPlaying,
+      rewindSeconds: restorePlan.rewindSeconds,
       debugLabel: '_restoreSavedState',
-      clearSavedState: true,
+      clearSavedState: restorePlan.shouldClearSavedState,
     );
   }
 
