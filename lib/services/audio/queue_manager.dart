@@ -224,7 +224,7 @@ class QueueManager with Logging {
       _currentPosition = restoredState.savedPosition;
 
       if (_tracks.isNotEmpty) {
-        _currentIndex = _currentQueue!.currentIndex.clamp(0, _tracks.length - 1);
+        _currentIndex = restoredState.currentIndex.clamp(0, _tracks.length - 1);
 
         if (_currentPosition > Duration.zero) {
           logDebug('Restored position: $_currentPosition');

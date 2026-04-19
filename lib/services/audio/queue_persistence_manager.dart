@@ -8,14 +8,22 @@ class QueueRestoreState {
   const QueueRestoreState({
     required this.queue,
     required this.tracks,
+    required this.currentIndex,
     required this.savedPosition,
     required this.savedVolume,
+    required this.mixPlaylistId,
+    required this.mixSeedVideoId,
+    required this.mixTitle,
   });
 
   final PlayQueue queue;
   final List<Track> tracks;
+  final int currentIndex;
   final Duration savedPosition;
   final double savedVolume;
+  final String? mixPlaylistId;
+  final String? mixSeedVideoId;
+  final String? mixTitle;
 }
 
 class QueuePersistenceManager {
@@ -44,8 +52,12 @@ class QueuePersistenceManager {
     return QueueRestoreState(
       queue: queue,
       tracks: tracks,
+      currentIndex: queue.currentIndex,
       savedPosition: savedPosition,
       savedVolume: queue.lastVolume,
+      mixPlaylistId: queue.mixPlaylistId,
+      mixSeedVideoId: queue.mixSeedVideoId,
+      mixTitle: queue.mixTitle,
     );
   }
 
