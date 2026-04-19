@@ -30,6 +30,7 @@ import 'audio_service.dart';
 import 'media_kit_audio_service.dart';
 import 'just_audio_service.dart';
 import 'package:fmp/i18n/strings.g.dart';
+import 'audio_stream_manager.dart';
 import 'queue_manager.dart';
 import 'queue_persistence_manager.dart';
 import '../network/connectivity_service.dart';
@@ -257,18 +258,17 @@ class _PlaybackRequestExecution {
 class _PlaybackRequestExecutor with Logging {
   _PlaybackRequestExecutor({
     required FmpAudioService audioService,
-    required QueueManager queueManager,
-    required Future<Map<String, String>?> Function(Track track)
-        getHeadersForTrack,
+    required PlaybackRequestStreamAccess audioStreamManager,
+    required Track? Function() getNextTrack,
     required bool Function(int requestId) isSuperseded,
   })  : _audioService = audioService,
-        _queueManager = queueManager,
-        _getHeadersForTrack = getHeadersForTrack,
+        _audioStreamManager = audioStreamManager,
+        _getNextTrack = getNextTrack,
         _isSuperseded = isSuperseded;
 
   final FmpAudioService _audioService;
-  final QueueManager _queueManager;
-  final Future<Map<String, String>?> Function(Track track) _getHeadersForTrack;
+  final PlaybackRequestStreamAccess _audioStreamManager;
+  final Track? Function() _getNextTrack;
   final bool Function(int requestId) _isSuperseded;
 
   Future<_PlaybackRequestExecution?> execute({
@@ -284,7 +284,7 @@ class _PlaybackRequestExecutor with Logging {
 
     logDebug('Fetching audio URL for: ${track.title}');
     final (trackWithUrl, localPath, streamResult) =
-        await _queueManager.ensureAudioStream(track, persist: persist);
+        await _audioStreamManager.ensureAudioStream(track, persist: persist);
 
     if (_isSuperseded(requestId)) {
       logDebug('Play request $requestId superseded after URL fetch, aborting');
@@ -304,7 +304,8 @@ class _PlaybackRequestExecutor with Logging {
     if (localPath != null) {
       await _audioService.playFile(url, track: trackWithUrl);
     } else {
-      final headers = await _getHeadersForTrack(trackWithUrl);
+      final headers =
+          await _audioStreamManager.getPlaybackHeaders(trackWithUrl);
       if (_isSuperseded(requestId)) {
         logDebug(
           'Play request $requestId superseded after header fetch, aborting',
@@ -322,7 +323,10 @@ class _PlaybackRequestExecutor with Logging {
     }
 
     if (prefetchNext) {
-      _queueManager.prefetchNext();
+      final nextTrack = _getNextTrack();
+      if (nextTrack != null) {
+        unawaited(_audioStreamManager.prefetchTrack(nextTrack));
+      }
     }
 
     return _PlaybackRequestExecution(
@@ -338,10 +342,10 @@ class _PlaybackRequestExecutor with Logging {
 class AudioController extends StateNotifier<PlayerState> with Logging {
   final FmpAudioService _audioService;
   final QueueManager _queueManager;
+  final AudioStreamManager _audioStreamManager;
   final ToastService _toastService;
   final FmpAudioHandler _audioHandler;
   final WindowsSmtcHandler _windowsSmtcHandler;
-  final NeteaseAccountService? _neteaseAccountService;
   final PlayHistoryRepository? _playHistoryRepository;
   final LyricsAutoMatchService? _lyricsAutoMatchService;
   final SettingsRepository? _settingsRepository;
@@ -406,20 +410,20 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   AudioController({
     required FmpAudioService audioService,
     required QueueManager queueManager,
+    required AudioStreamManager audioStreamManager,
     required ToastService toastService,
     required FmpAudioHandler audioHandler,
     required WindowsSmtcHandler windowsSmtcHandler,
-    NeteaseAccountService? neteaseAccountService,
     PlayHistoryRepository? playHistoryRepository,
     LyricsAutoMatchService? lyricsAutoMatchService,
     SettingsRepository? settingsRepository,
     MixTracksFetcher? mixTracksFetcher,
   })  : _audioService = audioService,
         _queueManager = queueManager,
+        _audioStreamManager = audioStreamManager,
         _toastService = toastService,
         _audioHandler = audioHandler,
         _windowsSmtcHandler = windowsSmtcHandler,
-        _neteaseAccountService = neteaseAccountService,
         _playHistoryRepository = playHistoryRepository,
         _lyricsAutoMatchService = lyricsAutoMatchService,
         _settingsRepository = settingsRepository,
@@ -427,8 +431,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         super(const PlayerState()) {
     _playbackRequestExecutor = _PlaybackRequestExecutor(
       audioService: _audioService,
-      queueManager: _queueManager,
-      getHeadersForTrack: _getHeadersForTrack,
+      audioStreamManager: _audioStreamManager,
+      getNextTrack: _nextTrackForPrefetch,
       isSuperseded: _isSuperseded,
     );
     _temporaryPlayStateHelper = const _TemporaryPlayStateHelper();
@@ -855,7 +859,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       await _audioService.stop();
 
       final (trackWithUrl, localPath) =
-          await _queueManager.ensureAudioUrl(currentTrack);
+          await _audioStreamManager.ensureAudioUrl(currentTrack);
       if (_isSuperseded(requestId)) {
         logDebug(
             '$debugLabel request $requestId superseded after URL fetch, aborting');
@@ -870,7 +874,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       if (localPath != null) {
         await _audioService.setFile(url);
       } else {
-        final headers = await _getHeadersForTrack(trackWithUrl);
+        final headers =
+            await _audioStreamManager.getPlaybackHeaders(trackWithUrl);
         await _audioService.setUrl(url, headers: headers);
       }
 
@@ -1767,35 +1772,6 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     }
   }
 
-  /// 获取播放音频所需的 HTTP 请求头
-  /// Bilibili 需要 Referer 头，YouTube 需要 Origin 和 Referer 头
-  /// Netease CDN 需要 MUSIC_U Cookie 才能播放部分歌曲（尤其是 lossless）
-  Future<Map<String, String>?> _getHeadersForTrack(Track track) async {
-    switch (track.sourceType) {
-      case SourceType.bilibili:
-        return {
-          'Referer': 'https://www.bilibili.com',
-          'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        };
-      case SourceType.youtube:
-        return {
-          'Origin': 'https://www.youtube.com',
-          'Referer': 'https://www.youtube.com/',
-          'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        };
-      case SourceType.netease:
-        return await _neteaseAccountService?.getAuthHeaders() ??
-            {
-              'Origin': 'https://music.163.com',
-              'Referer': 'https://music.163.com/',
-              'User-Agent':
-                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            };
-    }
-  }
-
   // ========== 統一播放入口 ========== //
 
   /// 進入加載狀態（統一的 UI 更新邏輯）
@@ -1852,6 +1828,18 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 檢查當前請求是否已被新請求取代
   bool _isSuperseded(int requestId) {
     return requestId != _playRequestId;
+  }
+
+  Track? _nextTrackForPrefetch() {
+    final nextIndex = _queueManager.getNextIndex();
+    if (nextIndex == null) {
+      return null;
+    }
+    final tracks = _queueManager.tracks;
+    if (nextIndex < 0 || nextIndex >= tracks.length) {
+      return null;
+    }
+    return tracks[nextIndex];
   }
 
   Future<void> _stopAudioForRequest(int requestId) async {
@@ -1980,12 +1968,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         try {
           logInfo(
               'Attempting fallback stream for: ${track.title} (failed URL: $attemptedUrl)');
-          final fallbackResult = await _queueManager
+          final fallbackResult = await _audioStreamManager
               .getAlternativeAudioStream(track, failedUrl: attemptedUrl);
 
           if (fallbackResult != null && !_isSuperseded(requestId)) {
             final fallbackUrl = fallbackResult.url;
-            final headers = await _getHeadersForTrack(track);
+            final headers = await _audioStreamManager.getPlaybackHeaders(track);
 
             if (_isSuperseded(requestId)) {
               logDebug(
@@ -2012,7 +2000,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
             logInfo('Fallback playback succeeded for: ${track.title}');
 
             if (prefetchNext) {
-              _queueManager.prefetchNext();
+              final nextTrack = _nextTrackForPrefetch();
+              if (nextTrack != null) {
+                unawaited(_audioStreamManager.prefetchTrack(nextTrack));
+              }
             }
             return;
           }
@@ -2454,7 +2445,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
     try {
       final (trackWithUrl, localPath) =
-          await _queueManager.ensureAudioUrl(track);
+          await _audioStreamManager.ensureAudioUrl(track);
       if (_isDisposed) return;
       final url = localPath ?? trackWithUrl.audioUrl;
 
@@ -2463,7 +2454,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       if (localPath != null) {
         await _audioService.setFile(url);
       } else {
-        final headers = await _getHeadersForTrack(trackWithUrl);
+        final headers =
+            await _audioStreamManager.getPlaybackHeaders(trackWithUrl);
         if (_isDisposed) return;
         await _audioService.setUrl(url, headers: headers);
       }
@@ -2499,7 +2491,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       }
 
       // 預取下一首歌曲的 URL（程序重啟後首次切歌不需要等待）
-      _queueManager.prefetchNext();
+      final nextTrack = _nextTrackForPrefetch();
+      if (nextTrack != null) {
+        unawaited(_audioStreamManager.prefetchTrack(nextTrack));
+      }
 
       // 确保清除加载状态
       _resetLoadingState();
@@ -2795,7 +2790,8 @@ final audioServiceProvider = Provider<FmpAudioService>((ref) {
   return MediaKitAudioService();
 });
 
-final queuePersistenceManagerProvider = Provider<QueuePersistenceManager>((ref) {
+final queuePersistenceManagerProvider =
+    Provider<QueuePersistenceManager>((ref) {
   final db = ref.watch(databaseProvider).requireValue;
 
   return QueuePersistenceManager(
@@ -2805,21 +2801,30 @@ final queuePersistenceManagerProvider = Provider<QueuePersistenceManager>((ref) 
   );
 });
 
+final audioStreamManagerProvider = Provider<AudioStreamManager>((ref) {
+  final db = ref.watch(databaseProvider).requireValue;
+
+  return AudioStreamManager(
+    trackRepository: TrackRepository(db),
+    settingsRepository: SettingsRepository(db),
+    sourceManager: ref.watch(sourceManagerProvider),
+    bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
+    youtubeAccountService: ref.read(youtubeAccountServiceProvider),
+    neteaseAccountService: ref.read(neteaseAccountServiceProvider),
+  );
+});
+
 /// QueueManager Provider
 final queueManagerProvider = Provider<QueueManager>((ref) {
   final db = ref.watch(databaseProvider).requireValue;
-  final sourceManager = ref.watch(sourceManagerProvider);
   final queuePersistenceManager = ref.watch(queuePersistenceManagerProvider);
+  final audioStreamManager = ref.watch(audioStreamManagerProvider);
 
   return QueueManager(
     queueRepository: QueueRepository(db),
     trackRepository: TrackRepository(db),
-    settingsRepository: SettingsRepository(db),
-    sourceManager: sourceManager,
     queuePersistenceManager: queuePersistenceManager,
-    bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
-    youtubeAccountService: ref.read(youtubeAccountServiceProvider),
-    neteaseAccountService: ref.read(neteaseAccountServiceProvider),
+    audioStreamManager: audioStreamManager,
   );
 });
 
@@ -2841,10 +2846,10 @@ final audioControllerProvider =
   final controller = AudioController(
     audioService: audioService,
     queueManager: queueManager,
+    audioStreamManager: ref.watch(audioStreamManagerProvider),
     toastService: toastService,
     audioHandler: audioHandler,
     windowsSmtcHandler: windowsSmtcHandler,
-    neteaseAccountService: ref.watch(neteaseAccountServiceProvider),
     playHistoryRepository: playHistoryRepository,
     lyricsAutoMatchService: ref.watch(lyricsAutoMatchServiceProvider),
     settingsRepository: ref.watch(settingsRepositoryProvider),

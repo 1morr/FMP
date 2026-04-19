@@ -1,21 +1,13 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math';
+
 import '../../core/constants/app_constants.dart';
-import '../../core/extensions/track_extensions.dart';
 import '../../core/logger.dart';
-import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
+import '../../data/models/track.dart';
 import '../../data/repositories/queue_repository.dart';
-import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
-import '../../data/sources/base_source.dart';
-import '../../data/sources/source_provider.dart';
-import '../../core/utils/auth_headers_utils.dart';
-import '../account/bilibili_account_service.dart';
-import '../account/netease_account_service.dart';
-import '../account/youtube_account_service.dart';
-import 'internal/audio_stream_delegate.dart';
+import 'audio_stream_manager.dart';
 import 'queue_persistence_manager.dart';
 
 /// 播放队列管理器（纯队列逻辑）
@@ -24,13 +16,8 @@ import 'queue_persistence_manager.dart';
 class QueueManager with Logging {
   final QueueRepository _queueRepository;
   final TrackRepository _trackRepository;
-  final SettingsRepository _settingsRepository;
-  final SourceManager _sourceManager;
   final QueuePersistenceManager _queuePersistenceManager;
-  final BilibiliAccountService? _bilibiliAccountService;
-  final YouTubeAccountService? _youtubeAccountService;
-  final NeteaseAccountService? _neteaseAccountService;
-  late final AudioStreamDelegate _audioStreamDelegate;
+  final AudioStreamManager _audioStreamManager;
 
   // 队列数据
   List<Track> _tracks = [];
@@ -42,9 +29,6 @@ class QueueManager with Logging {
 
   // 当前播放位置（由外部更新）
   Duration _currentPosition = Duration.zero;
-
-  // 正在获取 URL 的 track id，防止重复获取
-  final Set<int> _fetchingUrlTrackIds = {};
 
   // ========== Shuffle 相关 ==========
   List<int> _shuffleOrder = [];
@@ -100,8 +84,10 @@ class QueueManager with Logging {
   /// 设置 shuffle 状态（用于临时播放恢复）
   void setShuffleState(List<int> order, int index) {
     _shuffleOrder = List.from(order);
-    _shuffleIndex = index.clamp(0, _shuffleOrder.isEmpty ? 0 : _shuffleOrder.length - 1);
-    logDebug('Restored shuffle state: order length=${_shuffleOrder.length}, index=$_shuffleIndex');
+    _shuffleIndex =
+        index.clamp(0, _shuffleOrder.isEmpty ? 0 : _shuffleOrder.length - 1);
+    logDebug(
+        'Restored shuffle state: order length=${_shuffleOrder.length}, index=$_shuffleIndex');
   }
 
   /// 获取接下来要播放的歌曲列表（考虑 shuffle 模式）
@@ -113,7 +99,9 @@ class QueueManager with Logging {
 
     if (isShuffleEnabled && _shuffleOrder.isNotEmpty) {
       // 随机模式：按 shuffle order 获取后续歌曲
-      for (var i = _shuffleIndex + 1; i < _shuffleOrder.length && addedCount < count; i++) {
+      for (var i = _shuffleIndex + 1;
+          i < _shuffleOrder.length && addedCount < count;
+          i++) {
         final trackIndex = _shuffleOrder[i];
         if (trackIndex >= 0 && trackIndex < _tracks.length) {
           upcoming.add(_tracks[trackIndex]);
@@ -132,7 +120,9 @@ class QueueManager with Logging {
       }
     } else {
       // 顺序模式：按原始顺序获取后续歌曲
-      for (var i = _currentIndex + 1; i < _tracks.length && addedCount < count; i++) {
+      for (var i = _currentIndex + 1;
+          i < _tracks.length && addedCount < count;
+          i++) {
         upcoming.add(_tracks[i]);
         addedCount++;
       }
@@ -162,7 +152,9 @@ class QueueManager with Logging {
       // 注意：这里从 safeIndex 对应的 shuffle 位置开始
       final shuffleIdx = _shuffleOrder.indexOf(safeIndex);
       if (shuffleIdx >= 0) {
-        for (var i = shuffleIdx; i < _shuffleOrder.length && addedCount < count; i++) {
+        for (var i = shuffleIdx;
+            i < _shuffleOrder.length && addedCount < count;
+            i++) {
           final trackIndex = _shuffleOrder[i];
           if (trackIndex >= 0 && trackIndex < _tracks.length) {
             upcoming.add(_tracks[trackIndex]);
@@ -184,35 +176,14 @@ class QueueManager with Logging {
   QueueManager({
     required QueueRepository queueRepository,
     required TrackRepository trackRepository,
-    required SettingsRepository settingsRepository,
-    required SourceManager sourceManager,
     required QueuePersistenceManager queuePersistenceManager,
-    BilibiliAccountService? bilibiliAccountService,
-    YouTubeAccountService? youtubeAccountService,
-    NeteaseAccountService? neteaseAccountService,
+    required AudioStreamManager audioStreamManager,
   })  : _queueRepository = queueRepository,
         _trackRepository = trackRepository,
-        _settingsRepository = settingsRepository,
-        _sourceManager = sourceManager,
         _queuePersistenceManager = queuePersistenceManager,
-        _bilibiliAccountService = bilibiliAccountService,
-        _youtubeAccountService = youtubeAccountService,
-        _neteaseAccountService = neteaseAccountService {
-    _audioStreamDelegate = AudioStreamDelegate(
-      trackRepository: _trackRepository,
-      settingsRepository: _settingsRepository,
-      sourceManager: _sourceManager,
-      getAuthHeaders: _getAuthHeaders,
-      updateQueueTrack: _updateQueueTrack,
-    );
+        _audioStreamManager = audioStreamManager {
+    _audioStreamManager.attachQueueTrackUpdater(replaceTrack);
   }
-
-  /// 获取指定平台的认证 headers
-  Future<Map<String, String>?> _getAuthHeaders(SourceType sourceType) =>
-      buildAuthHeaders(sourceType,
-          bilibiliAccountService: _bilibiliAccountService,
-          youtubeAccountService: _youtubeAccountService,
-          neteaseAccountService: _neteaseAccountService);
 
   /// 初始化队列（从持久化存储加载）
   Future<void> initialize() async {
@@ -260,7 +231,6 @@ class QueueManager with Logging {
     if (_isDisposed) return;
     _isDisposed = true;
     _savePositionTimer?.cancel();
-    _fetchingUrlTrackIds.clear();
     _stateController.close();
   }
 
@@ -302,7 +272,8 @@ class QueueManager with Logging {
   double get savedVolume => _currentQueue?.lastVolume ?? 1.0;
 
   /// 获取播放位置恢复设置
-  Future<({bool enabled, int restartRewindSeconds, int tempPlayRewindSeconds})> getPositionRestoreSettings() async {
+  Future<({bool enabled, int restartRewindSeconds, int tempPlayRewindSeconds})>
+      getPositionRestoreSettings() async {
     return _queuePersistenceManager.getPositionRestoreSettings();
   }
 
@@ -342,7 +313,8 @@ class QueueManager with Logging {
       seedVideoId: seedVideoId,
       title: title,
     );
-    logDebug('Mix mode ${enabled ? "enabled" : "disabled"}: playlistId=$playlistId, title=$title');
+    logDebug(
+        'Mix mode ${enabled ? "enabled" : "disabled"}: playlistId=$playlistId, title=$title');
   }
 
   /// 清除 Mix 模式
@@ -475,7 +447,8 @@ class QueueManager with Logging {
   }
 
   /// 恢复队列状态（不重新生成 shuffle order，用于临时播放恢复）
-  Future<void> restoreQueue(List<Track> tracks, {required int startIndex}) async {
+  Future<void> restoreQueue(List<Track> tracks,
+      {required int startIndex}) async {
     logInfo('restoreQueue: ${tracks.length} tracks, startIndex: $startIndex');
     if (tracks.isEmpty) return;
 
@@ -498,7 +471,8 @@ class QueueManager with Logging {
 
     // 检查队列是否超过最大容量
     if (_tracks.length >= AppConstants.maxQueueSize) {
-      logWarning('Queue size exceeds maximum ${AppConstants.maxQueueSize}, skipping add');
+      logWarning(
+          'Queue size exceeds maximum ${AppConstants.maxQueueSize}, skipping add');
       return false;
     }
 
@@ -770,211 +744,7 @@ class QueueManager with Logging {
 
   // ========== URL 获取 ==========
 
-  /// 确保歌曲有有效的音频 URL
-  /// 
-  /// 返回 (Track, String?) 元组：
-  /// - Track: 更新后的歌曲对象
-  /// - String?: 找到的本地文件路径，如果没有则为 null
-  /// 
-  /// 如果获取失败会重试一次
-  /// 本地文件检查逻辑（B1）：检查所有路径，使用第一个存在的，仅清除不存在的
-  /// [persist] 是否将 track 保存到数据库，临时播放时设为 false
-  Future<(Track, String?)> ensureAudioUrl(Track track, {int retryCount = 0, bool persist = true}) async {
-    // B1: 检查所有下载路径，找到第一个存在的文件
-    String? localPath;
-    final invalidPaths = <String>[];
-    
-    for (final path in track.allDownloadPaths) {
-      if (File(path).existsSync()) {
-        localPath = path;
-        break;
-      } else {
-        invalidPaths.add(path);
-      }
-    }
-    
-    // 如果找到有效的本地文件
-    if (localPath != null) {
-      // B1: 清除无效路径（仅清除不存在的，不清除有效的）
-      if (invalidPaths.isNotEmpty && persist) {
-        final newInfos = <PlaylistDownloadInfo>[];
-        for (final info in track.playlistInfo) {
-          if (invalidPaths.contains(info.downloadPath)) {
-            // 清除无效路径但保留歌单关联和名称
-            newInfos.add(PlaylistDownloadInfo()
-              ..playlistId = info.playlistId
-              ..playlistName = info.playlistName
-              ..downloadPath = '');
-          } else {
-            newInfos.add(PlaylistDownloadInfo()
-              ..playlistId = info.playlistId
-              ..playlistName = info.playlistName
-              ..downloadPath = info.downloadPath);
-          }
-        }
-        track.playlistInfo = newInfos;
-        await _trackRepository.save(track);
-        logDebug('Cleared ${invalidPaths.length} invalid paths for: ${track.title}');
-      }
-      
-      logDebug('Using local file for: ${track.title}, path: $localPath');
-      return (track, localPath);
-    }
-
-    // 本地文件都不存在，回退到在线播放
-    // B1: 清除所有无效路径
-    if (invalidPaths.isNotEmpty && persist) {
-      final newInfos = <PlaylistDownloadInfo>[];
-      for (final info in track.playlistInfo) {
-        // 清除所有路径但保留歌单关联和名称
-        newInfos.add(PlaylistDownloadInfo()
-          ..playlistId = info.playlistId
-          ..playlistName = info.playlistName
-          ..downloadPath = '');
-      }
-      track.playlistInfo = newInfos;
-      await _trackRepository.save(track);
-      logDebug('Cleared all ${invalidPaths.length} invalid paths for: ${track.title}, falling back to online URL');
-    } else if (track.hasAnyDownload) {
-      logDebug('Local file not found for: ${track.title}, falling back to online URL');
-    }
-
-    // 如果音频 URL 有效，直接返回（无本地文件）
-    if (track.hasValidAudioUrl) {
-      logDebug('Audio URL still valid for: ${track.title}, expiry: ${track.audioUrlExpiry}');
-      return (track, null);
-    }
-
-    // 获取音频 URL
-    logDebug('Fetching audio URL for: ${track.title} (attempt ${retryCount + 1})');
-    final source = _sourceManager.getSource(track.sourceType);
-    if (source == null) {
-      throw Exception('No source available for ${track.sourceType}');
-    }
-
-    try {
-      Map<String, String>? authHeaders;
-      final settings = await _settingsRepository.get();
-      if (settings.useAuthForPlay(track.sourceType)) {
-        authHeaders = await _getAuthHeaders(track.sourceType);
-      }
-      final refreshedTrack = await source.refreshAudioUrl(track, authHeaders: authHeaders);
-      if (persist) {
-        // 【重要】从数据库获取最新的 track 数据，避免覆盖并发修改（如下载路径）
-        // 这样做是因为 refreshAudioUrl 修改的是传入的 track 对象，
-        // 但该对象可能是从内存队列中获取的旧版本，不包含最新的下载路径
-        final freshTrack = await _trackRepository.getById(track.id);
-        if (freshTrack != null) {
-          // 只复制 URL 相关字段到最新的 track
-          freshTrack.audioUrl = refreshedTrack.audioUrl;
-          freshTrack.audioUrlExpiry = refreshedTrack.audioUrlExpiry;
-          await _trackRepository.save(freshTrack);
-          // 也更新 refreshedTrack 的 playlistInfo 以确保返回的数据是最新的
-          refreshedTrack.playlistInfo = freshTrack.playlistInfo;
-        } else {
-          // track 被删除了？回退到保存刷新后的 track
-          await _trackRepository.save(refreshedTrack);
-        }
-      }
-      logDebug('Successfully fetched audio URL for: ${track.title}');
-
-      // 更新队列中的 track
-      final index = _tracks.indexWhere((t) => t.id == track.id);
-      if (index >= 0) {
-        _tracks[index] = refreshedTrack;
-      }
-
-      return (refreshedTrack, null);
-    } catch (e) {
-      // 如果是第一次尝试且失败，等待后重试一次
-      if (retryCount < 1) {
-        logWarning('Failed to fetch audio URL for ${track.title}, retrying in 1 second: $e');
-        await Future.delayed(AppConstants.queueSaveRetryDelay);
-        return ensureAudioUrl(track, retryCount: retryCount + 1, persist: persist);
-      }
-      logError('Failed to fetch audio URL for ${track.title} after ${retryCount + 1} attempts', e);
-      rethrow;
-    }
-  }
-
-  /// 确保歌曲有有效的音频流（返回流元信息）
-  /// 
-  /// 返回 (Track, String?, AudioStreamResult?) 元组：
-  /// - Track: 更新后的歌曲对象
-  /// - String?: 找到的本地文件路径，如果没有则为 null
-  /// - AudioStreamResult?: 在线流信息（含码率/格式），如果使用本地文件则为 null
-  Future<(Track, String?, AudioStreamResult?)> ensureAudioStream(
-    Track track, {
-    int retryCount = 0,
-    bool persist = true,
-  }) async {
-    logDebug('Fetching audio stream for: ${track.title} (attempt ${retryCount + 1})');
-    try {
-      final result = await _audioStreamDelegate.ensureAudioStream(
-        track,
-        retryCount: retryCount,
-        persist: persist,
-      );
-      if (result.$2 != null) {
-        logDebug('Using local file for: ${track.title}');
-      } else if (result.$3 != null) {
-        logDebug('Got audio stream for ${track.title}: ${result.$3}');
-      }
-      return result;
-    } catch (e) {
-      logError(
-        'Failed to fetch audio stream for ${track.title} after ${retryCount + 1} attempts',
-        e,
-      );
-      rethrow;
-    }
-  }
-
-  /// 获取备选音频流（当主 URL 播放失败时使用）
-  Future<AudioStreamResult?> getAlternativeAudioStream(Track track, {String? failedUrl}) async {
-    logDebug('Getting alternative audio stream for: ${track.title}');
-    return await _audioStreamDelegate.getAlternativeAudioStream(
-      track,
-      failedUrl: failedUrl,
-    );
-  }
-
-  /// 获取备选音频 URL（简化版，向后兼容）
-  Future<String?> getAlternativeAudioUrl(Track track, {String? failedUrl}) async {
-    final result = await getAlternativeAudioStream(track, failedUrl: failedUrl);
-    return result?.url;
-  }
-
-  /// 预取下一首歌曲的 URL
-  Future<void> prefetchNext() async {
-    final nextIdx = getNextIndex();
-    if (nextIdx == null) return;
-
-    var track = _tracks[nextIdx];
-    
-    // 使用扩展方法检查本地音频文件是否存在
-    if (track.hasLocalAudio) {
-      return; // 本地文件存在，无需预取
-    }
-    
-    // 检查是否已有有效的在线 URL 或正在获取中
-    if (track.hasValidAudioUrl || _fetchingUrlTrackIds.contains(track.id)) {
-      return;
-    }
-
-    logDebug('Prefetching URL for next track: ${track.title}');
-    _fetchingUrlTrackIds.add(track.id);
-
-    try {
-      await ensureAudioUrl(track);
-    } catch (e) {
-      logError('Failed to prefetch URL for: ${track.title}', e);
-    } finally {
-      _fetchingUrlTrackIds.remove(track.id);
-    }
-  }
-
-  void _updateQueueTrack(Track updatedTrack) {
+  void replaceTrack(Track updatedTrack) {
     final index = _tracks.indexWhere((t) => t.id == updatedTrack.id);
     if (index >= 0) {
       _tracks[index] = updatedTrack;

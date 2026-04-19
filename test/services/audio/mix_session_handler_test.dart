@@ -16,6 +16,7 @@ import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/youtube_source.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
+import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/windows_smtc_handler.dart';
@@ -54,16 +55,21 @@ void main() {
       final trackRepository = TrackRepository(isar);
       final settingsRepository = SettingsRepository(isar);
       sourceManager = _FakeSourceManager();
-      queueManager = QueueManager(
+      final queuePersistenceManager = QueuePersistenceManager(
         queueRepository: queueRepository,
         trackRepository: trackRepository,
         settingsRepository: settingsRepository,
+      );
+      final audioStreamManager = AudioStreamManager(
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
         sourceManager: sourceManager,
-        queuePersistenceManager: QueuePersistenceManager(
-          queueRepository: queueRepository,
-          trackRepository: trackRepository,
-          settingsRepository: settingsRepository,
-        ),
+      );
+      queueManager = QueueManager(
+        queueRepository: queueRepository,
+        trackRepository: trackRepository,
+        queuePersistenceManager: queuePersistenceManager,
+        audioStreamManager: audioStreamManager,
       );
 
       audioService = FakeAudioService();
@@ -71,6 +77,7 @@ void main() {
       controller = AudioController(
         audioService: audioService,
         queueManager: queueManager,
+        audioStreamManager: audioStreamManager,
         toastService: ToastService(),
         audioHandler: FmpAudioHandler(),
         windowsSmtcHandler: WindowsSmtcHandler(),
@@ -89,7 +96,8 @@ void main() {
       }
     });
 
-    test('clearing an active loading mix session removes ownership and visible loading state',
+    test(
+        'clearing an active loading mix session removes ownership and visible loading state',
         () async {
       final loadMoreGate = mixTracksFetcher.enqueuePendingResult(
         const MixFetchResult(title: 'First Mix', tracks: []),
@@ -123,7 +131,8 @@ void main() {
       expect(controller.state.upcomingTracks, isEmpty);
     });
 
-    test('replacing a loading mix session keeps stale load-more work from affecting the new session',
+    test(
+        'replacing a loading mix session keeps stale load-more work from affecting the new session',
         () async {
       final staleLoadGate = mixTracksFetcher.enqueuePendingResult(
         const MixFetchResult(title: 'Old Mix', tracks: []),
@@ -178,7 +187,8 @@ void main() {
 
 Future<String> _resolveIsarLibraryPath() async {
   final packageConfig = await _loadPackageConfig();
-  final packageDir = _resolvePackageDirectory(packageConfig, 'isar_flutter_libs');
+  final packageDir =
+      _resolvePackageDirectory(packageConfig, 'isar_flutter_libs');
 
   if (Platform.isWindows) {
     return '${packageDir.path}/windows/isar.dll';
@@ -189,7 +199,8 @@ Future<String> _resolveIsarLibraryPath() async {
   if (Platform.isMacOS) {
     return '${packageDir.path}/macos/libisar.dylib';
   }
-  throw UnsupportedError('Unsupported platform for Isar test setup: ${Platform.operatingSystem}');
+  throw UnsupportedError(
+      'Unsupported platform for Isar test setup: ${Platform.operatingSystem}');
 }
 
 Future<Map<String, dynamic>> _loadPackageConfig() async {
@@ -296,9 +307,7 @@ class _FakeSource extends BaseSource {
 
   @override
   Future<PlaylistParseResult> parsePlaylist(String playlistUrl,
-      {int page = 1,
-      int pageSize = 20,
-      Map<String, String>? authHeaders}) {
+      {int page = 1, int pageSize = 20, Map<String, String>? authHeaders}) {
     throw UnimplementedError();
   }
 

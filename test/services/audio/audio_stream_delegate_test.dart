@@ -10,13 +10,14 @@ import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/internal/audio_stream_delegate.dart';
 import 'package:isar/isar.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('AudioStreamDelegate Task 4 regression', () {
+  group('AudioStreamManager Task 2 regression', () {
     late Directory tempDir;
     late Isar isar;
     late TrackRepository trackRepository;
@@ -24,6 +25,7 @@ void main() {
     late _FakeSourceManager sourceManager;
     late List<Track> queueTracks;
     late AudioStreamDelegate delegate;
+    late AudioStreamManager manager;
 
     setUpAll(() async {
       await Isar.initializeIsarCore(
@@ -51,7 +53,18 @@ void main() {
         sourceManager: sourceManager,
         getAuthHeaders: (_) async => null,
         updateQueueTrack: (updatedTrack) {
-          final index = queueTracks.indexWhere((track) => track.id == updatedTrack.id);
+          final index =
+              queueTracks.indexWhere((track) => track.id == updatedTrack.id);
+          if (index >= 0) {
+            queueTracks[index] = updatedTrack;
+          }
+        },
+      );
+      manager = AudioStreamManager(
+        delegate: delegate,
+        replaceTrack: (updatedTrack) {
+          final index =
+              queueTracks.indexWhere((track) => track.id == updatedTrack.id);
           if (index >= 0) {
             queueTracks[index] = updatedTrack;
           }
@@ -66,41 +79,53 @@ void main() {
       }
     });
 
-    test('ensureAudioStream persists stream metadata and updates the active queue copy', () async {
+    test(
+        'ensureAudioStream keeps the first valid local file and clears stale download paths',
+        () async {
+      final validFile = File('${tempDir.path}/downloaded.m4a');
+      await validFile.writeAsString('audio-bytes');
+
       final savedTrack = await trackRepository.save(
         _track('stream-1', title: 'Stream One')
           ..playlistInfo = [
             PlaylistDownloadInfo()
               ..playlistId = 1
-              ..playlistName = 'Playlist'
+              ..playlistName = 'Missing Playlist'
               ..downloadPath = '${tempDir.path}/missing-file.m4a',
+            PlaylistDownloadInfo()
+              ..playlistId = 2
+              ..playlistName = 'Downloaded Playlist'
+              ..downloadPath = validFile.path,
           ],
       );
       queueTracks.add(savedTrack);
 
-      final (updatedTrack, localPath, streamResult) = await delegate.ensureAudioStream(savedTrack);
+      final (updatedTrack, localPath, streamResult) =
+          await manager.ensureAudioStream(savedTrack);
 
-      expect(localPath, isNull);
-      expect(streamResult, isNotNull);
-      expect(streamResult!.url, 'https://example.com/stream-1.m4a');
-      expect(updatedTrack.audioUrl, streamResult.url);
-      expect(updatedTrack.audioUrlExpiry, isNotNull);
-      expect(updatedTrack.playlistInfo.single.downloadPath, isEmpty);
-      expect(queueTracks.single.audioUrl, streamResult.url);
-      expect(queueTracks.single.playlistInfo.single.downloadPath, isEmpty);
+      expect(localPath, validFile.path);
+      expect(streamResult, isNull);
+      expect(updatedTrack.audioUrl, isNull);
+      expect(updatedTrack.playlistInfo[0].downloadPath, isEmpty);
+      expect(updatedTrack.playlistInfo[1].downloadPath, validFile.path);
+      expect(queueTracks.single.playlistInfo[0].downloadPath, isEmpty);
+      expect(queueTracks.single.playlistInfo[1].downloadPath, validFile.path);
+      expect(sourceManager.source.audioStreamRequests, isEmpty);
 
       final persistedTrack = await trackRepository.getById(savedTrack.id);
       expect(persistedTrack, isNotNull);
-      expect(persistedTrack!.audioUrl, streamResult.url);
-      expect(persistedTrack.playlistInfo.single.downloadPath, isEmpty);
+      expect(persistedTrack!.playlistInfo[0].downloadPath, isEmpty);
+      expect(persistedTrack.playlistInfo[1].downloadPath, validFile.path);
     });
 
-    test('getAlternativeAudioStream uses configured stream priority for fallback selection', () async {
+    test(
+        'getAlternativeAudioStream uses configured stream priority for fallback selection',
+        () async {
       final settings = await settingsRepository.get();
       settings.youtubeStreamPriority = 'hls,muxed,audioOnly';
       await settingsRepository.save(settings);
 
-      final result = await delegate.getAlternativeAudioStream(
+      final result = await manager.getAlternativeAudioStream(
         _track('stream-2', title: 'Stream Two'),
         failedUrl: 'https://failed.example/stream-2.m4a',
       );
@@ -113,14 +138,16 @@ void main() {
         StreamType.muxed,
         StreamType.audioOnly,
       ]);
-      expect(sourceManager.source.lastFailedUrl, 'https://failed.example/stream-2.m4a');
+      expect(sourceManager.source.lastFailedUrl,
+          'https://failed.example/stream-2.m4a');
     });
   });
 }
 
 Future<String> _resolveIsarLibraryPath() async {
   final packageConfig = await _loadPackageConfig();
-  final packageDir = _resolvePackageDirectory(packageConfig, 'isar_flutter_libs');
+  final packageDir =
+      _resolvePackageDirectory(packageConfig, 'isar_flutter_libs');
 
   if (Platform.isWindows) {
     return '${packageDir.path}/windows/isar.dll';
@@ -132,7 +159,8 @@ Future<String> _resolveIsarLibraryPath() async {
     return '${packageDir.path}/macos/libisar.dylib';
   }
 
-  throw UnsupportedError('Unsupported platform for Isar tests: ${Platform.operatingSystem}');
+  throw UnsupportedError(
+      'Unsupported platform for Isar tests: ${Platform.operatingSystem}');
 }
 
 Future<Map<String, dynamic>> _loadPackageConfig() async {
@@ -194,6 +222,7 @@ class _FakeSourceManager extends SourceManager {
 class _FakeSource extends BaseSource {
   AudioStreamConfig? lastAlternativeConfig;
   String? lastFailedUrl;
+  final List<String> audioStreamRequests = [];
 
   @override
   SourceType get sourceType => SourceType.youtube;
@@ -234,6 +263,7 @@ class _FakeSource extends BaseSource {
     AudioStreamConfig config = AudioStreamConfig.defaultConfig,
     Map<String, String>? authHeaders,
   }) async {
+    audioStreamRequests.add(sourceId);
     return AudioStreamResult(
       url: 'https://example.com/$sourceId.m4a',
       container: 'm4a',

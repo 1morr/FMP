@@ -17,7 +17,9 @@ import 'package:fmp/data/sources/youtube_exception.dart';
 import 'package:fmp/data/sources/youtube_source.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_playback_types.dart';
-import 'package:fmp/services/audio/audio_provider.dart' hide MixTracksFetcher, PlayMode;
+import 'package:fmp/services/audio/audio_provider.dart'
+    hide MixTracksFetcher, PlayMode;
+import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/mix_playlist_types.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
@@ -52,7 +54,8 @@ void main() {
     });
 
     setUp(() async {
-      tempDir = await Directory.systemTemp.createTemp('audio_controller_phase1_');
+      tempDir =
+          await Directory.systemTemp.createTemp('audio_controller_phase1_');
       isar = await Isar.open(
         [TrackSchema, PlayQueueSchema, SettingsSchema],
         directory: tempDir.path,
@@ -63,16 +66,21 @@ void main() {
       final trackRepository = TrackRepository(isar);
       final settingsRepository = SettingsRepository(isar);
       sourceManager = _FakeSourceManager();
-      queueManager = QueueManager(
+      final queuePersistenceManager = QueuePersistenceManager(
         queueRepository: queueRepository,
         trackRepository: trackRepository,
         settingsRepository: settingsRepository,
+      );
+      final audioStreamManager = AudioStreamManager(
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
         sourceManager: sourceManager,
-        queuePersistenceManager: QueuePersistenceManager(
-          queueRepository: queueRepository,
-          trackRepository: trackRepository,
-          settingsRepository: settingsRepository,
-        ),
+      );
+      queueManager = QueueManager(
+        queueRepository: queueRepository,
+        trackRepository: trackRepository,
+        queuePersistenceManager: queuePersistenceManager,
+        audioStreamManager: audioStreamManager,
       );
 
       audioService = FakeAudioService();
@@ -80,6 +88,7 @@ void main() {
       controller = AudioController(
         audioService: audioService,
         queueManager: queueManager,
+        audioStreamManager: audioStreamManager,
         toastService: ToastService(),
         audioHandler: FmpAudioHandler(),
         windowsSmtcHandler: WindowsSmtcHandler(),
@@ -130,11 +139,13 @@ void main() {
 
       expect(controller.state.playingTrack?.sourceId, 'queue-b');
       expect(controller.state.currentTrack?.sourceId, 'queue-b');
-      expect(audioService.setUrlCalls.last.url, 'https://example.com/queue-b.m4a');
+      expect(
+          audioService.setUrlCalls.last.url, 'https://example.com/queue-b.m4a');
       expect(audioService.seekCalls.last, const Duration(seconds: 32));
     });
 
-    test('superseded request stays loading until the latest request finishes', () async {
+    test('superseded request stays loading until the latest request finishes',
+        () async {
       final firstTrack = _track('first', title: 'First Track');
       final secondTrack = _track('second', title: 'Second Track');
       final firstPlayGate = audioService.enqueuePendingPlayUrl();
@@ -163,7 +174,8 @@ void main() {
       expect(controller.state.isLoading, isFalse);
     });
 
-    test('superseded failing request does not stop or error the newer request', () async {
+    test('superseded failing request does not stop or error the newer request',
+        () async {
       final firstTrack = _track('first-error', title: 'First Error Track');
       final secondTrack = _track('second-ok', title: 'Second Ok Track');
       final firstPlayGate = audioService.enqueuePendingPlayUrl();
@@ -235,13 +247,17 @@ void main() {
       expect(audioService.stopCallCount, 4);
       expect(controller.state.playingTrack?.sourceId, 'newer');
       expect(controller.state.currentTrack?.sourceId, 'newer');
-      expect(audioService.playUrlCalls.last.url, 'https://example.com/newer.m4a');
+      expect(
+          audioService.playUrlCalls.last.url, 'https://example.com/newer.m4a');
     });
 
-    test('superseded fallback playback does not start while newer request is loading',
+    test(
+        'superseded fallback playback does not start while newer request is loading',
         () async {
-      final firstTrack = _track('first-fallback', title: 'First Fallback Track');
-      final secondTrack = _track('second-fallback', title: 'Second Fallback Track');
+      final firstTrack =
+          _track('first-fallback', title: 'First Fallback Track');
+      final secondTrack =
+          _track('second-fallback', title: 'Second Fallback Track');
       final firstPlayGate = audioService.enqueuePendingPlayUrl();
       final fallbackPlayGate = audioService.enqueuePendingPlayUrl();
       final secondPlayGate = audioService.enqueuePendingPlayUrl();
@@ -283,10 +299,13 @@ void main() {
       expect(controller.state.isPlaying, isTrue);
     });
 
-    test('superseded source error without next track does not stop newer request',
+    test(
+        'superseded source error without next track does not stop newer request',
         () async {
-      final firstTrack = _track('stale-source-error', title: 'Stale Source Error');
-      final secondTrack = _track('fresh-after-error', title: 'Fresh After Error');
+      final firstTrack =
+          _track('stale-source-error', title: 'Stale Source Error');
+      final secondTrack =
+          _track('fresh-after-error', title: 'Fresh After Error');
       final secondPlayGate = audioService.enqueuePendingPlayUrl();
       sourceManager.throwGetAudioStreamOnce(
         const YouTubeApiException(code: 'unavailable', message: 'gone'),
@@ -318,7 +337,8 @@ void main() {
       expect(controller.state.isPlaying, isTrue);
     });
 
-    test('clearing queue while mix load-more is active exits safely and clears persisted mix metadata',
+    test(
+        'clearing queue while mix load-more is active exits safely and clears persisted mix metadata',
         () async {
       final mixTracks = [
         _track('mix-a', title: 'Mix A'),
@@ -359,7 +379,8 @@ void main() {
       expect(persistedQueue.mixTitle, isNull);
     });
 
-    test('replacing a loading mix session resets visible load-more state for the new session',
+    test(
+        'replacing a loading mix session resets visible load-more state for the new session',
         () async {
       final oldMixTracks = [
         _track('old-mix-a', title: 'Old Mix A'),
@@ -431,7 +452,8 @@ void main() {
 
 Future<String> _resolveIsarLibraryPath() async {
   final packageConfig = await _loadPackageConfig();
-  final packageDir = _resolvePackageDirectory(packageConfig, 'isar_flutter_libs');
+  final packageDir =
+      _resolvePackageDirectory(packageConfig, 'isar_flutter_libs');
 
   if (Platform.isWindows) {
     return '${packageDir.path}/windows/isar.dll';
@@ -442,7 +464,8 @@ Future<String> _resolveIsarLibraryPath() async {
   if (Platform.isMacOS) {
     return '${packageDir.path}/macos/libisar.dylib';
   }
-  throw UnsupportedError('Unsupported platform for Isar test setup: ${Platform.operatingSystem}');
+  throw UnsupportedError(
+      'Unsupported platform for Isar test setup: ${Platform.operatingSystem}');
 }
 
 Future<Map<String, dynamic>> _loadPackageConfig() async {
@@ -559,9 +582,7 @@ class _FakeSource extends BaseSource {
 
   @override
   Future<PlaylistParseResult> parsePlaylist(String playlistUrl,
-      {int page = 1,
-      int pageSize = 20,
-      Map<String, String>? authHeaders}) {
+      {int page = 1, int pageSize = 20, Map<String, String>? authHeaders}) {
     throw UnimplementedError();
   }
 

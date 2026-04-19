@@ -22,6 +22,7 @@ import 'package:fmp/providers/repository_providers.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
+import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/just_audio_service.dart';
 import 'package:fmp/services/audio/media_kit_audio_service.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
@@ -82,12 +83,15 @@ void main() {
       final queueManager = _ThrowOnSecondDisposeQueueManager(
         queueRepository: queueRepository,
         trackRepository: trackRepository,
-        settingsRepository: settingsRepository,
-        sourceManager: SourceManager(),
         queuePersistenceManager: QueuePersistenceManager(
           queueRepository: queueRepository,
           trackRepository: trackRepository,
           settingsRepository: settingsRepository,
+        ),
+        audioStreamManager: AudioStreamManager(
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+          sourceManager: SourceManager(),
         ),
       );
       final container = _createContainer(
@@ -114,12 +118,15 @@ void main() {
       final queueManager = _ThrowOnSecondDisposeQueueManager(
         queueRepository: queueRepository,
         trackRepository: trackRepository,
-        settingsRepository: settingsRepository,
-        sourceManager: SourceManager(),
         queuePersistenceManager: QueuePersistenceManager(
           queueRepository: queueRepository,
           trackRepository: trackRepository,
           settingsRepository: settingsRepository,
+        ),
+        audioStreamManager: AudioStreamManager(
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+          sourceManager: SourceManager(),
         ),
       );
       final container = _createContainer(
@@ -166,6 +173,14 @@ ProviderContainer _createContainer({
     overrides: [
       audioServiceProvider.overrideWith((ref) => audioService),
       queueManagerProvider.overrideWith((ref) => queueManager),
+      audioStreamManagerProvider.overrideWith(
+        (ref) => AudioStreamManager(
+          trackRepository: TrackRepository(isar),
+          settingsRepository: SettingsRepository(isar),
+          sourceManager: SourceManager(),
+          neteaseAccountService: ref.read(neteaseAccountServiceProvider),
+        ),
+      ),
       connectivityProvider.overrideWith((ref) => _TestConnectivityNotifier()),
       settingsRepositoryProvider
           .overrideWith((ref) => SettingsRepository(isar)),
@@ -242,9 +257,8 @@ class _ThrowOnSecondDisposeQueueManager extends QueueManager {
   _ThrowOnSecondDisposeQueueManager({
     required super.queueRepository,
     required super.trackRepository,
-    required super.settingsRepository,
-    required super.sourceManager,
     required super.queuePersistenceManager,
+    required super.audioStreamManager,
   });
 
   int disposeCallCount = 0;
