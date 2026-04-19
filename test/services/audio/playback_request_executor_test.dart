@@ -16,6 +16,7 @@ import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
+import 'package:fmp/services/audio/playback_request_executor.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/windows_smtc_handler.dart';
@@ -95,15 +96,67 @@ void main() {
       }
     });
 
-    test('audio provider uses a file-local playback request executor helper',
+    test('execute aborts after async header resolution when superseded',
         () async {
-      final source = await File(
-        '${Directory.current.path}/lib/services/audio/audio_provider.dart',
-      ).readAsString();
+      final firstTrack = _track('first-netease', title: 'First Netease')
+        ..sourceType = SourceType.netease;
+      final secondTrack = _track('second-youtube', title: 'Second Youtube');
+      final streamManager = _HarnessPlaybackRequestStreamAccess(
+        trackBySourceId: {
+          firstTrack.sourceId: firstTrack,
+          secondTrack.sourceId: secondTrack,
+        },
+      );
+      final audioService = FakeAudioService();
+      final secondPlayGate = audioService.enqueuePendingPlayUrl();
+      final headerGate = Completer<void>();
+      var activeRequestId = 1;
+      streamManager.onGetPlaybackHeaders = (track) async {
+        if (track.sourceId == firstTrack.sourceId) {
+          await headerGate.future;
+        }
+        return {'Referer': 'https://example.com/${track.sourceId}'};
+      };
 
-      expect(source, contains('class _PlaybackRequestExecutor'));
-      expect(source, contains('_PlaybackRequestExecutor('));
-      expect(source, contains('.execute('));
+      final executor = PlaybackRequestExecutor(
+        audioService: audioService,
+        audioStreamManager: streamManager,
+        getNextTrack: () => null,
+        isSuperseded: (requestId) => requestId != activeRequestId,
+      );
+
+      final firstExecution = executor.execute(
+        requestId: 1,
+        track: firstTrack,
+        persist: true,
+        prefetchNext: false,
+      );
+      await streamManager.waitForHeaderRequest(firstTrack.sourceId);
+
+      activeRequestId = 2;
+      final secondExecution = executor.execute(
+        requestId: 2,
+        track: secondTrack,
+        persist: true,
+        prefetchNext: false,
+      );
+      await audioService.waitForPlayUrlCallCount(1);
+
+      headerGate.complete();
+      expect(await firstExecution, isNull);
+
+      expect(audioService.playUrlCalls.length, 1);
+      expect(audioService.playUrlCalls.single.url,
+          'https://example.com/second-youtube.m4a');
+
+      secondPlayGate.complete();
+      final secondResult = await secondExecution;
+      expect(secondResult, isNotNull);
+      expect(secondResult!.track.sourceId, 'second-youtube');
+      expect(secondResult.attemptedUrl, 'https://example.com/second-youtube.m4a');
+      expect(streamManager.ensureAudioStreamRequests,
+          ['first-netease', 'second-youtube']);
+      expect(streamManager.headerRequests, ['first-netease', 'second-youtube']);
     });
 
     test(
@@ -286,18 +339,75 @@ class _BlockingNeteaseAccountService extends NeteaseAccountService {
   Future<void> waitForHeaderRequest() => _headerRequested.future;
 
   @override
-  Future<Map<String, String>?> getAuthHeaders() async {
+  Future<String?> getAuthCookieString() async {
     if (!_headerRequested.isCompleted) {
       _headerRequested.complete();
     }
     await _headerFuture;
+    return 'MUSIC_U=test';
+  }
+
+  @override
+  Future<Map<String, String>?> getAuthHeaders() async {
+    final cookie = await getAuthCookieString();
+    if (cookie == null) return null;
     return {
-      'Cookie': 'MUSIC_U=test',
+      'Cookie': cookie,
       'Origin': 'https://music.163.com',
       'Referer': 'https://music.163.com/',
       'User-Agent': NeteaseAccountService.userAgent,
     };
   }
+}
+
+class _HarnessPlaybackRequestStreamAccess
+    implements PlaybackRequestStreamAccess {
+  _HarnessPlaybackRequestStreamAccess({required this.trackBySourceId});
+
+  final Map<String, Track> trackBySourceId;
+  final List<String> ensureAudioStreamRequests = [];
+  final List<String> headerRequests = [];
+  final Map<String, Completer<void>> _headerRequestWaiters = {};
+  Future<Map<String, String>?> Function(Track track)? onGetPlaybackHeaders;
+
+  Future<void> waitForHeaderRequest(String sourceId) {
+    return (_headerRequestWaiters[sourceId] ??= Completer<void>()).future;
+  }
+
+  @override
+  Future<(Track, String?, AudioStreamResult?)> ensureAudioStream(
+    Track track, {
+    int retryCount = 0,
+    bool persist = true,
+  }) async {
+    ensureAudioStreamRequests.add(track.sourceId);
+    final trackWithUrl = trackBySourceId[track.sourceId] ?? track;
+    trackWithUrl.audioUrl = 'https://example.com/${track.sourceId}.m4a';
+    trackWithUrl.audioUrlExpiry = DateTime.now().add(const Duration(minutes: 30));
+    return (
+      trackWithUrl,
+      null,
+      AudioStreamResult(
+        url: trackWithUrl.audioUrl!,
+        container: 'm4a',
+        codec: 'aac',
+        streamType: StreamType.audioOnly,
+      ),
+    );
+  }
+
+  @override
+  Future<Map<String, String>?> getPlaybackHeaders(Track track) async {
+    headerRequests.add(track.sourceId);
+    final waiter = _headerRequestWaiters[track.sourceId];
+    if (waiter != null && !waiter.isCompleted) {
+      waiter.complete();
+    }
+    return onGetPlaybackHeaders?.call(track);
+  }
+
+  @override
+  Future<void> prefetchTrack(Track track) async {}
 }
 
 class _FakeSource extends BaseSource {

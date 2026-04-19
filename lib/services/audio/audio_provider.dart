@@ -31,6 +31,7 @@ import 'media_kit_audio_service.dart';
 import 'just_audio_service.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'audio_stream_manager.dart';
+import 'playback_request_executor.dart';
 import 'queue_manager.dart';
 import 'queue_persistence_manager.dart';
 import '../network/connectivity_service.dart';
@@ -243,100 +244,6 @@ class _MixSessionStateHelper {
   }
 }
 
-class _PlaybackRequestExecution {
-  const _PlaybackRequestExecution({
-    required this.track,
-    required this.attemptedUrl,
-    required this.streamResult,
-  });
-
-  final Track track;
-  final String attemptedUrl;
-  final AudioStreamResult? streamResult;
-}
-
-class _PlaybackRequestExecutor with Logging {
-  _PlaybackRequestExecutor({
-    required FmpAudioService audioService,
-    required PlaybackRequestStreamAccess audioStreamManager,
-    required Track? Function() getNextTrack,
-    required bool Function(int requestId) isSuperseded,
-  })  : _audioService = audioService,
-        _audioStreamManager = audioStreamManager,
-        _getNextTrack = getNextTrack,
-        _isSuperseded = isSuperseded;
-
-  final FmpAudioService _audioService;
-  final PlaybackRequestStreamAccess _audioStreamManager;
-  final Track? Function() _getNextTrack;
-  final bool Function(int requestId) _isSuperseded;
-
-  Future<_PlaybackRequestExecution?> execute({
-    required int requestId,
-    required Track track,
-    required bool persist,
-    required bool prefetchNext,
-  }) async {
-    if (_isSuperseded(requestId)) {
-      logDebug('Play request $requestId superseded by newer request, aborting');
-      return null;
-    }
-
-    logDebug('Fetching audio URL for: ${track.title}');
-    final (trackWithUrl, localPath, streamResult) =
-        await _audioStreamManager.ensureAudioStream(track, persist: persist);
-
-    if (_isSuperseded(requestId)) {
-      logDebug('Play request $requestId superseded after URL fetch, aborting');
-      return null;
-    }
-
-    final url = localPath ?? trackWithUrl.audioUrl;
-    if (url == null) {
-      throw Exception('No audio URL available for: ${track.title}');
-    }
-
-    final urlType = localPath != null ? 'downloaded' : 'stream';
-    logDebug(
-      'Playing track: ${track.title}, URL type: $urlType, source: ${track.sourceType}',
-    );
-
-    if (localPath != null) {
-      await _audioService.playFile(url, track: trackWithUrl);
-    } else {
-      final headers =
-          await _audioStreamManager.getPlaybackHeaders(trackWithUrl);
-      if (_isSuperseded(requestId)) {
-        logDebug(
-          'Play request $requestId superseded after header fetch, aborting',
-        );
-        return null;
-      }
-      await _audioService.playUrl(url, headers: headers, track: trackWithUrl);
-    }
-
-    if (_isSuperseded(requestId)) {
-      logDebug(
-        'Play request $requestId superseded after playback handoff, aborting',
-      );
-      return null;
-    }
-
-    if (prefetchNext) {
-      final nextTrack = _getNextTrack();
-      if (nextTrack != null) {
-        unawaited(_audioStreamManager.prefetchTrack(nextTrack));
-      }
-    }
-
-    return _PlaybackRequestExecution(
-      track: trackWithUrl,
-      attemptedUrl: url,
-      streamResult: streamResult,
-    );
-  }
-}
-
 /// 音频控制器 - 管理所有播放相关的状态和操作
 /// 协调 AudioService（单曲播放）和 QueueManager（队列管理）
 class AudioController extends StateNotifier<PlayerState> with Logging {
@@ -372,7 +279,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   // 基于位置检测的备选切歌定时器（解决后台播放 completed 事件丢失问题）
   Timer? _positionCheckTimer;
 
-  late final _PlaybackRequestExecutor _playbackRequestExecutor;
+  late final PlaybackRequestExecutor _playbackRequestExecutor;
   late final _TemporaryPlayStateHelper _temporaryPlayStateHelper;
   late final _MixSessionStateHelper _mixSessionStateHelper;
 
@@ -429,7 +336,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         _settingsRepository = settingsRepository,
         _mixTracksFetcher = mixTracksFetcher,
         super(const PlayerState()) {
-    _playbackRequestExecutor = _PlaybackRequestExecutor(
+    _playbackRequestExecutor = PlaybackRequestExecutor(
       audioService: _audioService,
       audioStreamManager: _audioStreamManager,
       getNextTrack: _nextTrackForPrefetch,
