@@ -31,6 +31,7 @@ import 'media_kit_audio_service.dart';
 import 'just_audio_service.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'queue_manager.dart';
+import 'queue_persistence_manager.dart';
 import '../network/connectivity_service.dart';
 import 'player_state.dart';
 import 'audio_playback_types.dart';
@@ -2794,16 +2795,28 @@ final audioServiceProvider = Provider<FmpAudioService>((ref) {
   return MediaKitAudioService();
 });
 
+final queuePersistenceManagerProvider = Provider<QueuePersistenceManager>((ref) {
+  final db = ref.watch(databaseProvider).requireValue;
+
+  return QueuePersistenceManager(
+    queueRepository: QueueRepository(db),
+    trackRepository: TrackRepository(db),
+    settingsRepository: SettingsRepository(db),
+  );
+});
+
 /// QueueManager Provider
 final queueManagerProvider = Provider<QueueManager>((ref) {
   final db = ref.watch(databaseProvider).requireValue;
   final sourceManager = ref.watch(sourceManagerProvider);
+  final queuePersistenceManager = ref.watch(queuePersistenceManagerProvider);
 
   return QueueManager(
     queueRepository: QueueRepository(db),
     trackRepository: TrackRepository(db),
     settingsRepository: SettingsRepository(db),
     sourceManager: sourceManager,
+    queuePersistenceManager: queuePersistenceManager,
     bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
     youtubeAccountService: ref.read(youtubeAccountServiceProvider),
     neteaseAccountService: ref.read(neteaseAccountServiceProvider),

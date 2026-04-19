@@ -1,0 +1,113 @@
+import '../../data/models/play_queue.dart';
+import '../../data/models/track.dart';
+import '../../data/repositories/queue_repository.dart';
+import '../../data/repositories/settings_repository.dart';
+import '../../data/repositories/track_repository.dart';
+
+class QueueRestoreState {
+  const QueueRestoreState({
+    required this.queue,
+    required this.tracks,
+    required this.savedPosition,
+    required this.savedVolume,
+  });
+
+  final PlayQueue queue;
+  final List<Track> tracks;
+  final Duration savedPosition;
+  final double savedVolume;
+}
+
+class QueuePersistenceManager {
+  QueuePersistenceManager({
+    required QueueRepository queueRepository,
+    required TrackRepository trackRepository,
+    required SettingsRepository settingsRepository,
+  })  : _queueRepository = queueRepository,
+        _trackRepository = trackRepository,
+        _settingsRepository = settingsRepository;
+
+  final QueueRepository _queueRepository;
+  final TrackRepository _trackRepository;
+  final SettingsRepository _settingsRepository;
+
+  Future<QueueRestoreState> restoreState() async {
+    final queue = await _queueRepository.getOrCreate();
+    final settings = await _settingsRepository.get();
+    final tracks = queue.trackIds.isEmpty
+        ? <Track>[]
+        : await _trackRepository.getByIds(queue.trackIds);
+    final savedPosition = settings.rememberPlaybackPosition
+        ? Duration(milliseconds: queue.lastPositionMs)
+        : Duration.zero;
+
+    return QueueRestoreState(
+      queue: queue,
+      tracks: tracks,
+      savedPosition: savedPosition,
+      savedVolume: queue.lastVolume,
+    );
+  }
+
+  Future<void> persistQueue({
+    required PlayQueue? queue,
+    required List<Track> tracks,
+    required int currentIndex,
+    required Duration currentPosition,
+  }) async {
+    if (queue == null) return;
+
+    queue.trackIds = tracks.map((track) => track.id).toList();
+    queue.currentIndex = currentIndex;
+    queue.lastPositionMs = currentPosition.inMilliseconds;
+    await _queueRepository.save(queue);
+  }
+
+  Future<void> savePositionNow({
+    required PlayQueue? queue,
+    required int currentIndex,
+    required Duration currentPosition,
+  }) async {
+    if (queue == null) return;
+
+    queue.currentIndex = currentIndex;
+    queue.lastPositionMs = currentPosition.inMilliseconds;
+    await _queueRepository.save(queue);
+  }
+
+  Future<void> saveVolume({
+    required PlayQueue? queue,
+    required double volume,
+  }) async {
+    if (queue == null) return;
+
+    queue.lastVolume = volume.clamp(0.0, 1.0);
+    await _queueRepository.save(queue);
+  }
+
+  Future<void> setMixMode({
+    required PlayQueue? queue,
+    required bool enabled,
+    String? playlistId,
+    String? seedVideoId,
+    String? title,
+  }) async {
+    if (queue == null) return;
+
+    queue.isMixMode = enabled;
+    queue.mixPlaylistId = enabled ? playlistId : null;
+    queue.mixSeedVideoId = enabled ? seedVideoId : null;
+    queue.mixTitle = enabled ? title : null;
+    await _queueRepository.save(queue);
+  }
+
+  Future<({bool enabled, int restartRewindSeconds, int tempPlayRewindSeconds})>
+      getPositionRestoreSettings() async {
+    final settings = await _settingsRepository.get();
+    return (
+      enabled: settings.rememberPlaybackPosition,
+      restartRewindSeconds: settings.restartRewindSeconds,
+      tempPlayRewindSeconds: settings.tempPlayRewindSeconds,
+    );
+  }
+}

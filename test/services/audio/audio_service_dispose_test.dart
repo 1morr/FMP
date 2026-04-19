@@ -25,6 +25,7 @@ import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/audio/just_audio_service.dart';
 import 'package:fmp/services/audio/media_kit_audio_service.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
+import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/windows_smtc_handler.dart';
 import 'package:fmp/services/lyrics/lrclib_source.dart';
 import 'package:fmp/services/lyrics/lyrics_auto_match_service.dart';
@@ -75,11 +76,19 @@ void main() {
     test('provider disposal does not double-dispose owned dependencies',
         () async {
       final audioService = _ThrowOnSecondDisposeAudioService();
+      final queueRepository = QueueRepository(isar);
+      final trackRepository = TrackRepository(isar);
+      final settingsRepository = SettingsRepository(isar);
       final queueManager = _ThrowOnSecondDisposeQueueManager(
-        queueRepository: QueueRepository(isar),
-        trackRepository: TrackRepository(isar),
-        settingsRepository: SettingsRepository(isar),
+        queueRepository: queueRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
         sourceManager: SourceManager(),
+        queuePersistenceManager: QueuePersistenceManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+        ),
       );
       final container = _createContainer(
         isar: isar,
@@ -99,11 +108,19 @@ void main() {
         'provider disposal is safe when container is disposed before scheduled initialization runs',
         () async {
       final audioService = _ThrowOnSecondDisposeAudioService();
+      final queueRepository = QueueRepository(isar);
+      final trackRepository = TrackRepository(isar);
+      final settingsRepository = SettingsRepository(isar);
       final queueManager = _ThrowOnSecondDisposeQueueManager(
-        queueRepository: QueueRepository(isar),
-        trackRepository: TrackRepository(isar),
-        settingsRepository: SettingsRepository(isar),
+        queueRepository: queueRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
         sourceManager: SourceManager(),
+        queuePersistenceManager: QueuePersistenceManager(
+          queueRepository: queueRepository,
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+        ),
       );
       final container = _createContainer(
         isar: isar,
@@ -227,6 +244,7 @@ class _ThrowOnSecondDisposeQueueManager extends QueueManager {
     required super.trackRepository,
     required super.settingsRepository,
     required super.sourceManager,
+    required super.queuePersistenceManager,
   });
 
   int disposeCallCount = 0;
