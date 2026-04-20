@@ -39,14 +39,15 @@ class YouTubeSource extends BaseSource with Logging {
         );
   }
 
-  /// 构建带认证的 InnerTube 请求 Options
+  /// 构建 InnerTube 请求 Options。
   ///
-  /// InnerTube 认证需要 Origin + Referer 头，否则 SAPISIDHASH 验证失败
-  Options _innerTubeAuthOptions(Map<String, String> authHeaders) {
+  /// 对于带认证请求，Origin + Referer 是 SAPISIDHASH 校验所必需的；
+  /// 匿名 browse 请求也复用相同头部，以保持与网页请求一致。
+  Options _innerTubeRequestOptions([Map<String, String>? headers]) {
     return Options(headers: {
       'Origin': 'https://www.youtube.com',
       'Referer': 'https://www.youtube.com/',
-      ...authHeaders,
+      if (headers != null) ...headers,
     });
   }
 
@@ -93,7 +94,7 @@ class YouTubeSource extends BaseSource with Logging {
         'videoId': videoId,
         'context': {'client': clientContext},
       }),
-      options: _innerTubeAuthOptions(authHeaders),
+      options: _innerTubeRequestOptions(authHeaders),
     );
 
     final data = _parseJsonResponse(response.data);
@@ -1191,12 +1192,29 @@ class YouTubeSource extends BaseSource with Logging {
         return _parseMixPlaylist(playlistUrl, playlistId);
       }
 
-      // If auth headers provided, use InnerTube API path
+      // 優先使用 InnerTube 解析普通播放列表。
+      // 匿名路徑下若 InnerTube 失敗，再回退到 youtube_explode_dart。
       if (authHeaders != null) {
-        return _parsePlaylistViaInnerTube(playlistId, authHeaders, playlistUrl: playlistUrl);
+        return _parsePlaylistViaInnerTube(
+          playlistId,
+          authHeaders: authHeaders,
+          playlistUrl: playlistUrl,
+        );
       }
 
-      // 普通播放列表使用 youtube_explode_dart
+      try {
+        return await _parsePlaylistViaInnerTube(
+          playlistId,
+          playlistUrl: playlistUrl,
+        );
+      } catch (e) {
+        logDebug(
+          'Anonymous InnerTube playlist parsing failed for $playlistId, '
+          'falling back to youtube_explode_dart: $e',
+        );
+      }
+
+      // 回退：使用 youtube_explode_dart
       final playlist = await _youtube.playlists.get(playlistId);
 
       // 檢測私人或無法訪問的播放列表
@@ -1576,10 +1594,10 @@ class YouTubeSource extends BaseSource with Logging {
     }
   }
 
-  /// 通过 InnerTube /browse API 解析播放列表（认证路径）
+  /// 通过 InnerTube /browse API 解析播放列表。
   Future<PlaylistParseResult> _parsePlaylistViaInnerTube(
-    String playlistId,
-    Map<String, String> authHeaders, {
+    String playlistId, {
+    Map<String, String>? authHeaders,
     String? playlistUrl,
   }) async {
     logDebug('Parsing playlist via InnerTube for: $playlistId');
@@ -1611,7 +1629,7 @@ class YouTubeSource extends BaseSource with Logging {
         final response = await _dio.post(
           '$_innerTubeApiBase/browse?key=$_innerTubeApiKey',
           data: jsonEncode(requestBody),
-          options: _innerTubeAuthOptions(authHeaders),
+          options: _innerTubeRequestOptions(authHeaders),
         );
 
         final data = _parseJsonResponse(response.data);
