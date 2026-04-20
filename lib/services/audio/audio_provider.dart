@@ -800,6 +800,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     );
   }
 
+  /// 重新綁定歌曲播放的全局媒體控制回調
+  void restoreMediaControlOwnership() {
+    _setupAudioHandler();
+    _setupWindowsSmtc();
+  }
+
   /// 播放多首歌曲
   Future<void> playAll(List<Track> tracks, {int startIndex = 0}) async {
     await _ensureInitialized();
