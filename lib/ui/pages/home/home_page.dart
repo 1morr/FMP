@@ -27,7 +27,7 @@ import '../../widgets/playlist_card_actions.dart';
 import '../../../core/utils/number_format_utils.dart';
 import '../../../i18n/strings.g.dart';
 import '../../widgets/track_thumbnail.dart';
-import '../../widgets/ranked_track_tile.dart';
+import '../../widgets/vip_badge.dart';
 import '../../../data/models/playlist.dart';
 import '../../../providers/refresh_provider.dart';
 import '../library/widgets/create_playlist_dialog.dart';
@@ -827,46 +827,100 @@ class _RankingTrackTile extends ConsumerWidget {
     return ContextMenuRegion(
       menuBuilder: (_) => _buildMenuItems(),
       onSelected: (value) => _handleMenuAction(context, ref, value),
-      child: RankedTrackTile(
-        track: track,
-        rank: rank,
-        isPlaying: isPlaying,
+      child: InkWell(
         onTap: () {
           ref.read(audioControllerProvider.notifier).playTemporary(track);
         },
-        subtitle: Row(
-          children: [
-            Flexible(
-              child: Text(
-                track.artist ?? t.general.unknownArtist,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+        borderRadius: AppRadius.borderRadiusMd,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            vertical: 8,
+            horizontal: 16,
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 28,
+                child: Text(
+                  '$rank',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.outline,
+                      ),
+                ),
               ),
-            ),
-            if (track.viewCount != null) ...[
-              const SizedBox(width: 8),
-              Icon(
-                Icons.play_arrow,
-                size: 14,
-                color: colorScheme.outline,
+              const SizedBox(width: 16),
+              TrackThumbnail(
+                track: track,
+                size: AppSizes.thumbnailMedium,
+                borderRadius: 4,
+                isPlaying: isPlaying,
               ),
-              const SizedBox(width: 2),
-              Text(
-                formatCount(track.viewCount!),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.outline,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            track.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                  color: isPlaying ? colorScheme.primary : null,
+                                  fontWeight: isPlaying ? FontWeight.w600 : null,
+                                ),
+                          ),
+                        ),
+                        if (track.isVip) ...[
+                          const SizedBox(width: 4),
+                          const VipBadge(),
+                        ],
+                      ],
                     ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            track.artist ?? t.general.unknownArtist,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ),
+                        if (track.viewCount != null) ...[
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.play_arrow,
+                            size: 14,
+                            color: colorScheme.outline,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            formatCount(track.viewCount!),
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.outline,
+                                ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert),
+                onSelected: (value) => _handleMenuAction(context, ref, value),
+                itemBuilder: (_) => _buildMenuItems(),
               ),
             ],
-          ],
-        ),
-        trailing: PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert),
-          onSelected: (value) => _handleMenuAction(context, ref, value),
-          itemBuilder: (_) => _buildMenuItems(),
+          ),
         ),
       ),
     );
