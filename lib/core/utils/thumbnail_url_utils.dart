@@ -27,24 +27,49 @@ class ThumbnailUrlUtils {
     double? displaySize,
     double devicePixelRatio = 2.0,
   }) {
-    if (url == null || url.isEmpty) return url ?? '';
+    final candidates = getOptimizedUrlCandidates(
+      url,
+      displaySize: displaySize,
+      devicePixelRatio: devicePixelRatio,
+    );
+    return candidates.isNotEmpty ? candidates.first : '';
+  }
+
+  /// 获取按优先级排序的缩略图候选 URL
+  ///
+  /// 用于先尝试优化后的 URL，失败时再回退到原始 URL。
+  static List<String> getOptimizedUrlCandidates(
+    String? url, {
+    double? displaySize,
+    double devicePixelRatio = 2.0,
+  }) {
+    if (url == null || url.isEmpty) return const [];
 
     // 计算实际需要的像素尺寸
     final targetSize = displaySize != null
         ? (displaySize * devicePixelRatio).toInt()
         : mediumSize * devicePixelRatio.toInt();
 
-    // 根据 URL 域名选择处理方式
-    if (_isBilibiliUrl(url)) {
-      return _optimizeBilibiliUrl(url, targetSize);
-    } else if (_isYouTubeUrl(url)) {
-      return _optimizeYouTubeUrl(url, targetSize);
-    } else if (_isNeteaseUrl(url)) {
-      return _optimizeNeteaseUrl(url, targetSize);
+    final candidates = <String>[];
+
+    void addCandidate(String candidate) {
+      if (candidate.isNotEmpty && !candidates.contains(candidate)) {
+        candidates.add(candidate);
+      }
     }
 
-    // 其他 URL 原样返回
-    return url;
+    // 根据 URL 域名选择处理方式
+    if (_isBilibiliUrl(url)) {
+      addCandidate(_optimizeBilibiliUrl(url, targetSize));
+    } else if (_isYouTubeUrl(url)) {
+      addCandidate(_optimizeYouTubeUrl(url, targetSize));
+    } else if (_isNeteaseUrl(url)) {
+      addCandidate(_optimizeNeteaseUrl(url, targetSize));
+    }
+
+    // 最后回退到原始 URL
+    addCandidate(url);
+    return candidates;
   }
 
   /// 检查是否为 Bilibili 图片 URL

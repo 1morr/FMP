@@ -75,6 +75,33 @@ void main() {
 
         expect(result, contains('.jpg'));
       });
+
+      test('returns optimized and original candidates for large youtube thumbnail', () {
+        const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg';
+        final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
+          url,
+          displaySize: 200,
+          devicePixelRatio: 1.0,
+        );
+
+        expect(result, equals([
+          'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
+          'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
+        ]));
+      });
+
+      test('dedupes youtube candidates when optimized url matches original', () {
+        const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg';
+        final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
+          url,
+          displaySize: 100,
+          devicePixelRatio: 1.0,
+        );
+
+        expect(result, equals([
+          'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
+        ]));
+      });
     });
 
     group('Netease URL optimization', () {

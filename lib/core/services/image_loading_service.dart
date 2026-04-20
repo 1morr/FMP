@@ -118,13 +118,13 @@ class ImageLoadingService {
     if (networkUrl != null && networkUrl.isNotEmpty) {
       // 根据显示尺寸优化 URL（优先使用 targetDisplaySize）
       final displaySize = targetDisplaySize ?? width ?? height;
-      final optimizedUrl = ThumbnailUrlUtils.getOptimizedUrl(
+      final candidateUrls = ThumbnailUrlUtils.getOptimizedUrlCandidates(
         networkUrl,
         displaySize: displaySize,
       );
 
       return _CachedNetworkImage(
-        url: optimizedUrl,
+        urls: candidateUrls,
         fit: fit,
         width: width,
         height: height,
@@ -338,7 +338,7 @@ class _FadeInImageState extends State<_FadeInImage>
 /// 使用 StatefulWidget 确保 onImageLoaded() 只在首次加载时通知一次，
 /// 避免 widget rebuild 时重复触发缓存大小估算和清理检查。
 class _CachedNetworkImage extends StatefulWidget {
-  final String url;
+  final List<String> urls;
   final BoxFit fit;
   final double? width;
   final double? height;
@@ -348,7 +348,7 @@ class _CachedNetworkImage extends StatefulWidget {
   final Duration fadeInDuration;
 
   const _CachedNetworkImage({
-    required this.url,
+    required this.urls,
     required this.fit,
     this.width,
     this.height,
@@ -365,25 +365,56 @@ class _CachedNetworkImage extends StatefulWidget {
 class _CachedNetworkImageState extends State<_CachedNetworkImage> {
   /// 是否已通知过 onImageLoaded，避免 rebuild 时重复触发
   bool _notified = false;
+  bool _retryScheduled = false;
+  int _urlIndex = 0;
+
+  String get _currentUrl => widget.urls[_urlIndex];
 
   @override
   void didUpdateWidget(covariant _CachedNetworkImage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // URL 变化时重置，允许新图片再次通知
-    if (oldWidget.url != widget.url) {
+    // URL 候选变化时重置，允许新图片再次通知
+    if (!_sameUrlList(oldWidget.urls, widget.urls)) {
       _notified = false;
+      _retryScheduled = false;
+      _urlIndex = 0;
+    } else if (_urlIndex >= widget.urls.length) {
+      _retryScheduled = false;
+      _urlIndex = 0;
     }
+  }
+
+  bool _sameUrlList(List<String> a, List<String> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  void _advanceToNextUrl() {
+    if (_urlIndex >= widget.urls.length - 1) return;
+    setState(() {
+      _urlIndex += 1;
+      _notified = false;
+      _retryScheduled = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    if (widget.urls.isEmpty) {
+      return widget.placeholder;
+    }
+
     // 计算内存缓存尺寸（考虑设备像素比）
     final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
     final memCacheWidth = widget.width != null ? (widget.width! * devicePixelRatio).toInt() : null;
     final memCacheHeight = widget.height != null ? (widget.height! * devicePixelRatio).toInt() : null;
 
     return CachedNetworkImage(
-      imageUrl: widget.url,
+      imageUrl: _currentUrl,
       fit: widget.fit,
       width: widget.width,
       height: widget.height,
@@ -399,8 +430,19 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           : widget.placeholder,
-      errorWidget: (context, url, error) => widget.placeholder,
+      errorWidget: (context, url, error) {
+        if (_urlIndex < widget.urls.length - 1 && !_retryScheduled) {
+          _retryScheduled = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _advanceToNextUrl();
+            }
+          });
+        }
+        return widget.placeholder;
+      },
       imageBuilder: (context, imageProvider) {
+        _retryScheduled = false;
         // 仅首次加载时通知缓存服务，避免 rebuild 时重复累加估算值
         if (!_notified) {
           _notified = true;
