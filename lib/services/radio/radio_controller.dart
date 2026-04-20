@@ -341,6 +341,14 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     windowsSmtcHandler.setStoppedState();
   }
 
+  void _restoreMusicMediaControlOwnership() {
+    try {
+      _ref.read(audioControllerProvider.notifier).restoreMediaControlOwnership();
+    } catch (e) {
+      logDebug('Skipping music media-control ownership restore: $e');
+    }
+  }
+
   /// 設置互斥機制：音樂播放時自動停止電台
   void _setupMutualExclusion() {
     try {
@@ -525,6 +533,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     // 更新平台媒體控制為停止狀態
     _clearSmtc();
     _clearAudioHandler();
+    _restoreMusicMediaControlOwnership();
   }
 
   /// 返回歌曲播放

@@ -8,7 +8,6 @@ import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/account_provider.dart';
-import '../../../providers/repository_providers.dart';
 import '../../../services/account/account_service.dart';
 import '../../router.dart';
 import 'widgets/account_playlists_sheet.dart';
@@ -25,22 +24,6 @@ class AccountManagementPage extends ConsumerStatefulWidget {
 
 class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
   bool _isVerifying = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // Ensure DB settings match hardcoded UI state (fire-and-forget)
-    _ensureAuthSettings();
-  }
-
-  Future<void> _ensureAuthSettings() async {
-    final settingsRepo = ref.read(settingsRepositoryProvider);
-    await settingsRepo.update((s) {
-      s.setUseAuthForPlay(SourceType.bilibili, false);
-      s.setUseAuthForPlay(SourceType.youtube, false);
-      s.setUseAuthForPlay(SourceType.netease, true);
-    });
-  }
 
   @override
   Widget build(BuildContext context) {

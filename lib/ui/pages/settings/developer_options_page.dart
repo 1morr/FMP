@@ -7,9 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../../../data/models/play_queue.dart';
 import '../../../data/models/playlist.dart';
-import '../../../data/models/settings.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/database_provider.dart';
@@ -54,7 +52,8 @@ class DeveloperOptionsPage extends ConsumerWidget {
               ListTile(
                 leading: const Icon(Icons.music_note_outlined),
                 title: Text(t.settings.developerOptions.ytStreamTest),
-                subtitle: Text(t.settings.developerOptions.ytStreamTestSubtitle),
+                subtitle:
+                    Text(t.settings.developerOptions.ytStreamTestSubtitle),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
@@ -325,7 +324,9 @@ class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
         ],
       ),
       childrenPadding: const EdgeInsets.only(
-        left: 16, right: 16, bottom: 12,
+        left: 16,
+        right: 16,
+        bottom: 12,
       ),
       children: [
         // 进程总内存
@@ -345,12 +346,14 @@ class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
             count: info.imageCacheCount.toString(),
             maxCount: info.imageCacheMaxCount.toString(),
             size: (info.imageCacheSizeBytes / (1024 * 1024)).toStringAsFixed(1),
-            maxSize: (info.imageCacheMaxSizeBytes / (1024 * 1024)).toStringAsFixed(0),
+            maxSize: (info.imageCacheMaxSizeBytes / (1024 * 1024))
+                .toStringAsFixed(0),
           ),
           colorScheme,
           label: t.settings.developerOptions.flutterImageCache,
           // 超过 70% 显示警告色
-          isWarning: info.imageCacheSizeBytes > info.imageCacheMaxSizeBytes * 0.7,
+          isWarning:
+              info.imageCacheSizeBytes > info.imageCacheMaxSizeBytes * 0.7,
         ),
 
         // Native 内存估算
@@ -359,7 +362,8 @@ class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
             Icons.developer_board_outlined,
             t.settings.developerOptions.nativeMemoryDetail(
               size: _formatBytes(
-                (info.rssBytes! - info.imageCacheSizeBytes).clamp(0, info.rssBytes!),
+                (info.rssBytes! - info.imageCacheSizeBytes)
+                    .clamp(0, info.rssBytes!),
               ),
             ),
             colorScheme,
@@ -565,12 +569,7 @@ class _ResetDataTile extends ConsumerWidget {
       });
 
       // 重新创建默认数据
-      await isar.writeTxn(() async {
-        // 创建默认设置
-        await isar.settings.put(Settings());
-        // 创建默认播放队列
-        await isar.playQueues.put(PlayQueue());
-      });
+      await initializeDatabaseDefaults(isar);
 
       scaffoldMessenger.hideCurrentSnackBar();
       scaffoldMessenger.showSnackBar(
@@ -582,7 +581,9 @@ class _ResetDataTile extends ConsumerWidget {
     } catch (e) {
       scaffoldMessenger.hideCurrentSnackBar();
       scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text(t.settings.developerOptions.resetFailed(error: '$e'))),
+        SnackBar(
+            content:
+                Text(t.settings.developerOptions.resetFailed(error: '$e'))),
       );
     }
   }
