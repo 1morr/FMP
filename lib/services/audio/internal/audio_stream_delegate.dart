@@ -69,7 +69,9 @@ class AudioStreamDelegate {
       );
 
       track.audioUrl = streamResult.url;
-      track.audioUrlExpiry = DateTime.now().add(const Duration(hours: 1));
+      track.audioUrlExpiry = DateTime.now().add(
+        streamResult.expiry ?? const Duration(hours: 1),
+      );
       track.updatedAt = DateTime.now();
 
       if (persist) {
@@ -121,8 +123,8 @@ class AudioStreamDelegate {
 
     for (final path in track.allDownloadPaths) {
       if (File(path).existsSync()) {
-        localPath = path;
-        break;
+        localPath ??= path;
+        continue;
       }
       invalidPaths.add(path);
     }

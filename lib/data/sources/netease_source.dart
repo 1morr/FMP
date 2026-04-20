@@ -168,7 +168,9 @@ class NeteaseSource extends BaseSource with Logging {
         container: type ?? 'mp3',
         codec: _mapCodec(type),
         streamType: StreamType.audioOnly,
+        expiry: _audioUrlExpiry,
       );
+
     } on DioException catch (e) {
       throw _handleDioError(e);
     } catch (e) {

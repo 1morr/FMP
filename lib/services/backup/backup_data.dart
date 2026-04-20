@@ -1,3 +1,7 @@
+import 'dart:io';
+
+import '../../data/models/settings.dart';
+
 /// 备份数据模型
 /// 导出数据的根结构
 ///
@@ -60,12 +64,13 @@ class BackupData {
               .toList() ??
           [],
       playHistory: (json['playHistory'] as List<dynamic>?)
-              ?.map((e) => PlayHistoryBackup.fromJson(e as Map<String, dynamic>))
+              ?.map(
+                  (e) => PlayHistoryBackup.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
       searchHistory: (json['searchHistory'] as List<dynamic>?)
-              ?.map(
-                  (e) => SearchHistoryBackup.fromJson(e as Map<String, dynamic>))
+              ?.map((e) =>
+                  SearchHistoryBackup.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
       radioStations: (json['radioStations'] as List<dynamic>?)
@@ -77,8 +82,8 @@ class BackupData {
           ? SettingsBackup.fromJson(json['settings'] as Map<String, dynamic>)
           : null,
       lyricsMatches: (json['lyricsMatches'] as List<dynamic>?)
-              ?.map((e) =>
-                  LyricsMatchBackup.fromJson(e as Map<String, dynamic>))
+              ?.map(
+                  (e) => LyricsMatchBackup.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
     );
@@ -217,9 +222,8 @@ class TrackBackup {
   });
 
   /// 生成唯一键（用于匹配）
-  String get uniqueKey => cid != null
-      ? '$sourceType:$sourceId:$cid'
-      : '$sourceType:$sourceId';
+  String get uniqueKey =>
+      cid != null ? '$sourceType:$sourceId:$cid' : '$sourceType:$sourceId';
 
   factory TrackBackup.fromJson(Map<String, dynamic> json) {
     return TrackBackup(
@@ -287,9 +291,8 @@ class PlayHistoryBackup {
   });
 
   /// 生成唯一键（用于去重）
-  String get trackKey => cid != null
-      ? '$sourceType:$sourceId:$cid'
-      : '$sourceType:$sourceId';
+  String get trackKey =>
+      cid != null ? '$sourceType:$sourceId:$cid' : '$sourceType:$sourceId';
 
   factory PlayHistoryBackup.fromJson(Map<String, dynamic> json) {
     return PlayHistoryBackup(
@@ -408,6 +411,12 @@ class RadioStationBackup {
   }
 }
 
+bool _isMobilePlatform() => Platform.isAndroid || Platform.isIOS;
+
+int _defaultBackupCacheSizeMB() => _isMobilePlatform() ? 16 : 32;
+
+final _settingsBackupDefaults = Settings();
+
 /// 设置备份数据
 class SettingsBackup {
   final int themeModeIndex;
@@ -435,12 +444,18 @@ class SettingsBackup {
   final String audioFormatPriority;
   final String youtubeStreamPriority;
   final String bilibiliStreamPriority;
+  final String neteaseStreamPriority;
   final String? hotkeyConfig;
   final bool autoMatchLyrics;
   final int maxLyricsCacheFiles;
   final int lyricsDisplayModeIndex;
   final String lyricsSourcePriority;
   final String disabledLyricsSources;
+  final bool useBilibiliAuthForPlay;
+  final bool useYoutubeAuthForPlay;
+  final bool useNeteaseAuthForPlay;
+  final int rankingRefreshIntervalMinutes;
+  final int radioRefreshIntervalMinutes;
 
   SettingsBackup({
     this.themeModeIndex = 0,
@@ -450,7 +465,7 @@ class SettingsBackup {
     this.surfaceColor,
     this.textColor,
     this.cardColor,
-    this.maxCacheSizeMB = 32,
+    int? maxCacheSizeMB,
     this.enabledSources = const ['bilibili', 'youtube'],
     this.autoScrollToCurrentTrack = false,
     this.rememberPlaybackPosition = true,
@@ -458,8 +473,8 @@ class SettingsBackup {
     this.tempPlayRewindSeconds = 10,
     this.maxConcurrentDownloads = 3,
     this.downloadImageOptionIndex = 1,
-    this.minimizeToTrayOnClose = true,
-    this.enableGlobalHotkeys = true,
+    this.minimizeToTrayOnClose = false,
+    this.enableGlobalHotkeys = false,
     this.launchAtStartup = false,
     this.launchMinimized = false,
     this.fontFamily,
@@ -468,13 +483,19 @@ class SettingsBackup {
     this.audioFormatPriority = 'aac,opus',
     this.youtubeStreamPriority = 'audioOnly,muxed,hls',
     this.bilibiliStreamPriority = 'audioOnly,muxed',
+    this.neteaseStreamPriority = 'audioOnly',
     this.hotkeyConfig,
-    this.autoMatchLyrics = true,
+    this.autoMatchLyrics = false,
     this.maxLyricsCacheFiles = 50,
     this.lyricsDisplayModeIndex = 0,
     this.lyricsSourcePriority = 'netease,qqmusic,lrclib',
-    this.disabledLyricsSources = '',
-  });
+    this.disabledLyricsSources = 'lrclib',
+    this.useBilibiliAuthForPlay = false,
+    this.useYoutubeAuthForPlay = false,
+    this.useNeteaseAuthForPlay = true,
+    this.rankingRefreshIntervalMinutes = 60,
+    this.radioRefreshIntervalMinutes = 5,
+  }) : maxCacheSizeMB = maxCacheSizeMB ?? _defaultBackupCacheSizeMB();
 
   factory SettingsBackup.fromJson(Map<String, dynamic> json) {
     return SettingsBackup(
@@ -485,7 +506,8 @@ class SettingsBackup {
       surfaceColor: json['surfaceColor'] as int?,
       textColor: json['textColor'] as int?,
       cardColor: json['cardColor'] as int?,
-      maxCacheSizeMB: json['maxCacheSizeMB'] as int? ?? 32,
+      maxCacheSizeMB:
+          json['maxCacheSizeMB'] as int? ?? _defaultBackupCacheSizeMB(),
       enabledSources: (json['enabledSources'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
@@ -498,27 +520,37 @@ class SettingsBackup {
       tempPlayRewindSeconds: json['tempPlayRewindSeconds'] as int? ?? 10,
       maxConcurrentDownloads: json['maxConcurrentDownloads'] as int? ?? 3,
       downloadImageOptionIndex: json['downloadImageOptionIndex'] as int? ?? 1,
-      minimizeToTrayOnClose: json['minimizeToTrayOnClose'] as bool? ?? true,
-      enableGlobalHotkeys: json['enableGlobalHotkeys'] as bool? ?? true,
+      minimizeToTrayOnClose: json['minimizeToTrayOnClose'] as bool? ??
+          _settingsBackupDefaults.minimizeToTrayOnClose,
+      enableGlobalHotkeys: json['enableGlobalHotkeys'] as bool? ??
+          _settingsBackupDefaults.enableGlobalHotkeys,
       launchAtStartup: json['launchAtStartup'] as bool? ?? false,
       launchMinimized: json['launchMinimized'] as bool? ?? false,
       fontFamily: json['fontFamily'] as String?,
       locale: json['locale'] as String?,
       audioQualityLevelIndex: json['audioQualityLevelIndex'] as int? ?? 0,
-      audioFormatPriority:
-          json['audioFormatPriority'] as String? ?? 'aac,opus',
+      audioFormatPriority: json['audioFormatPriority'] as String? ?? 'aac,opus',
       youtubeStreamPriority:
           json['youtubeStreamPriority'] as String? ?? 'audioOnly,muxed,hls',
       bilibiliStreamPriority:
           json['bilibiliStreamPriority'] as String? ?? 'audioOnly,muxed',
+      neteaseStreamPriority:
+          json['neteaseStreamPriority'] as String? ?? 'audioOnly',
       hotkeyConfig: json['hotkeyConfig'] as String?,
-      autoMatchLyrics: json['autoMatchLyrics'] as bool? ?? true,
+      autoMatchLyrics: json['autoMatchLyrics'] as bool? ?? false,
       maxLyricsCacheFiles: json['maxLyricsCacheFiles'] as int? ?? 50,
       lyricsDisplayModeIndex: json['lyricsDisplayModeIndex'] as int? ?? 0,
       lyricsSourcePriority:
           json['lyricsSourcePriority'] as String? ?? 'netease,qqmusic,lrclib',
       disabledLyricsSources:
-          json['disabledLyricsSources'] as String? ?? '',
+          json['disabledLyricsSources'] as String? ?? 'lrclib',
+      useBilibiliAuthForPlay: json['useBilibiliAuthForPlay'] as bool? ?? false,
+      useYoutubeAuthForPlay: json['useYoutubeAuthForPlay'] as bool? ?? false,
+      useNeteaseAuthForPlay: json['useNeteaseAuthForPlay'] as bool? ?? true,
+      rankingRefreshIntervalMinutes:
+          json['rankingRefreshIntervalMinutes'] as int? ?? 60,
+      radioRefreshIntervalMinutes:
+          json['radioRefreshIntervalMinutes'] as int? ?? 5,
     );
   }
 
@@ -549,12 +581,18 @@ class SettingsBackup {
       'audioFormatPriority': audioFormatPriority,
       'youtubeStreamPriority': youtubeStreamPriority,
       'bilibiliStreamPriority': bilibiliStreamPriority,
+      'neteaseStreamPriority': neteaseStreamPriority,
       if (hotkeyConfig != null) 'hotkeyConfig': hotkeyConfig,
       'autoMatchLyrics': autoMatchLyrics,
       'maxLyricsCacheFiles': maxLyricsCacheFiles,
       'lyricsDisplayModeIndex': lyricsDisplayModeIndex,
       'lyricsSourcePriority': lyricsSourcePriority,
       'disabledLyricsSources': disabledLyricsSources,
+      'useBilibiliAuthForPlay': useBilibiliAuthForPlay,
+      'useYoutubeAuthForPlay': useYoutubeAuthForPlay,
+      'useNeteaseAuthForPlay': useNeteaseAuthForPlay,
+      'rankingRefreshIntervalMinutes': rankingRefreshIntervalMinutes,
+      'radioRefreshIntervalMinutes': radioRefreshIntervalMinutes,
     };
   }
 }
