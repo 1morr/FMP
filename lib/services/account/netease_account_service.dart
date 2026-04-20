@@ -56,7 +56,7 @@ class NeteaseAccountService extends AccountService with Logging {
 
   // ===== 登錄 =====
 
-  /// 使用 Cookie 登錄（WebView 提取或手動輸入）
+  /// 保存 Cookie 憑據，供後續驗證登錄有效性
   Future<void> loginWithCookies({
     required String musicU,
     required String csrf,
@@ -73,26 +73,47 @@ class NeteaseAccountService extends AccountService with Logging {
       savedAt: DateTime.now(),
     );
 
-    await _secureStorage.write(
-      key: _storageKey,
-      value: jsonEncode(credentials.toJson()),
-    );
-    _cachedCredentials = credentials;
-    _credentialsLoaded = true;
+    await _persistCredentials(credentials);
+  }
 
-    await _updateAccount(
-      isLoggedIn: true,
-      userId: userId,
-      loginAt: DateTime.now(),
-    );
+  /// 保存 Cookie 後立即驗證登錄是否有效
+  Future<bool> loginWithCookiesAndValidate({
+    required String musicU,
+    required String csrf,
+    String? userId,
+  }) async {
+    final snapshot = await _captureLoginSnapshot();
 
-    logInfo('Netease login successful${userId != null ? ', userId: $userId' : ''}');
+    try {
+      await loginWithCookies(
+        musicU: musicU,
+        csrf: csrf,
+        userId: userId,
+      );
+
+      final isValid = await fetchAndUpdateUserInfo();
+      if (!isValid) {
+        await _restoreLoginSnapshot(snapshot);
+        logWarning('Netease login validation failed');
+        return false;
+      }
+
+      await _updateAccount(loginAt: DateTime.now());
+      final validatedUserId = (await getCurrentAccount())?.userId;
+      logInfo(
+        'Netease login successful${validatedUserId != null ? ', userId: $validatedUserId' : ''}',
+      );
+      return true;
+    } catch (_) {
+      await _restoreLoginSnapshot(snapshot);
+      rethrow;
+    }
   }
 
   /// QR 碼登錄 - 生成 QR 碼
   Future<({String url, String unikey})> generateQrCode() async {
     final encrypted = NeteaseCrypto.weapi({'type': 1});
-    final response = await _dio.post(
+    final response = await dio.post(
       '$_apiBase/weapi/login/qrcode/unikey?csrf_token=',
       data: encrypted,
     );
@@ -138,7 +159,7 @@ class NeteaseAccountService extends AccountService with Logging {
         try {
           // 每次輪詢重新加密（避免重放問題）
           final encrypted = NeteaseCrypto.weapi({'type': 1, 'key': unikey});
-          final response = await _dio.post(
+          final response = await dio.post(
             '$_apiBase/weapi/login/qrcode/client/login?csrf_token=',
             data: encrypted,
           );
@@ -154,19 +175,29 @@ class NeteaseAccountService extends AccountService with Logging {
               if (cookies == null || !cookies.containsKey('MUSIC_U')) {
                 cookies = _extractCookiesFromBody(data);
               }
-              if (cookies != null) {
-                final musicU = cookies['MUSIC_U'] ?? '';
-                final csrf = cookies['__csrf'] ??
-                    cookies['__csrf_token'] ??
-                    '';
+              if (cookies == null) {
+                if (stopped) return;
+                controller.add((code: 800, message: 'Missing login cookies'));
+                return;
+              }
 
-                if (musicU.isNotEmpty) {
-                  // 注意：不從 cookie 提取 userId，由 fetchAndUpdateUserInfo() 設置
-                  await loginWithCookies(
-                    musicU: musicU,
-                    csrf: csrf,
-                  );
-                }
+              final musicU = cookies['MUSIC_U'] ?? '';
+              final csrf = cookies['__csrf'] ?? cookies['__csrf_token'] ?? '';
+
+              if (musicU.isEmpty) {
+                if (stopped) return;
+                controller.add((code: 800, message: 'Missing login cookies'));
+                return;
+              }
+
+              final success = await loginWithCookiesAndValidate(
+                musicU: musicU,
+                csrf: csrf,
+              );
+              if (!success) {
+                if (stopped) return;
+                controller.add((code: 800, message: 'Invalid login status'));
+                return;
               }
               if (stopped) return;
               controller.add((code: 803, message: null));
@@ -278,12 +309,12 @@ class NeteaseAccountService extends AccountService with Logging {
 
       Response<dynamic>? response;
       try {
-        response = await _dio.get(
+        response = await dio.get(
           '$_apiBase/api/nuser/account/get',
           options: Options(headers: authHeaders),
         );
       } catch (_) {
-        response = await _dio.post(
+        response = await dio.post(
           '$_apiBase/api/w/nuser/account/get',
           options: Options(headers: authHeaders),
         );
@@ -301,7 +332,8 @@ class NeteaseAccountService extends AccountService with Logging {
           return const AccountCheckResult(status: AccountStatus.invalid);
         }
 
-        final userId = (profile['userId'] ?? data['account']?['id'])?.toString();
+        final userId =
+            (profile['userId'] ?? data['account']?['id'])?.toString();
         final userName = profile['nickname'] as String?;
         final avatarUrl = profile['avatarUrl'] as String?;
         final vipType = profile['vipType'] as int? ?? 0;
@@ -328,15 +360,18 @@ class NeteaseAccountService extends AccountService with Logging {
   }
 
   /// 檢查登錄狀態並獲取用戶信息
-  Future<void> fetchAndUpdateUserInfo() async {
+  Future<bool> fetchAndUpdateUserInfo() async {
     try {
       final result = await checkAccountStatus();
-      if (result.status != AccountStatus.valid) return;
+      if (result.status != AccountStatus.valid) {
+        return false;
+      }
 
       // 同步 credentials 中的 userId（首次登錄或修正錯誤值）
       final account = await getCurrentAccount();
       final userId = account?.userId;
-      if (_cachedCredentials != null && userId != null &&
+      if (_cachedCredentials != null &&
+          userId != null &&
           _cachedCredentials!.userId != userId) {
         final credentials = _cachedCredentials!;
         final updated = NeteaseCredentials(
@@ -345,14 +380,12 @@ class NeteaseAccountService extends AccountService with Logging {
           userId: userId,
           savedAt: credentials.savedAt,
         );
-        await _secureStorage.write(
-          key: _storageKey,
-          value: jsonEncode(updated.toJson()),
-        );
-        _cachedCredentials = updated;
+        await _persistCredentials(updated);
       }
+      return true;
     } catch (e) {
       logError('Failed to fetch Netease user info', e);
+      return false;
     }
   }
 
@@ -407,6 +440,74 @@ class NeteaseAccountService extends AccountService with Logging {
     });
   }
 
+  Future<void> _persistCredentials(NeteaseCredentials credentials) async {
+    await _secureStorage.write(
+      key: _storageKey,
+      value: jsonEncode(credentials.toJson()),
+    );
+    _cachedCredentials = credentials;
+    _credentialsLoaded = true;
+    await _updateAccount(
+      isLoggedIn: true,
+      userId: credentials.userId,
+    );
+  }
+
+  Future<_LoginSnapshot> _captureLoginSnapshot() async {
+    final storedJson = await _secureStorage.read(key: _storageKey);
+    final account = await getCurrentAccount();
+    Account? accountCopy;
+    if (account != null) {
+      accountCopy = Account()
+        ..id = account.id
+        ..platform = account.platform
+        ..userId = account.userId
+        ..userName = account.userName
+        ..avatarUrl = account.avatarUrl
+        ..isLoggedIn = account.isLoggedIn
+        ..lastRefreshed = account.lastRefreshed
+        ..loginAt = account.loginAt
+        ..isVip = account.isVip;
+    }
+
+    return _LoginSnapshot(
+      credentialsJson: storedJson,
+      account: accountCopy,
+    );
+  }
+
+  Future<void> _restoreLoginSnapshot(_LoginSnapshot snapshot) async {
+    if (snapshot.credentialsJson == null) {
+      await _secureStorage.delete(key: _storageKey);
+      _cachedCredentials = null;
+      _credentialsLoaded = true;
+    } else {
+      await _secureStorage.write(
+        key: _storageKey,
+        value: snapshot.credentialsJson!,
+      );
+      _cachedCredentials = NeteaseCredentials.fromJson(
+        jsonDecode(snapshot.credentialsJson!) as Map<String, dynamic>,
+      );
+      _credentialsLoaded = true;
+    }
+
+    await _isar.writeTxn(() async {
+      if (snapshot.account == null) {
+        final existing = await _isar.accounts
+            .filter()
+            .platformEqualTo(SourceType.netease)
+            .findFirst();
+        if (existing != null) {
+          await _isar.accounts.delete(existing.id);
+        }
+        return;
+      }
+
+      await _isar.accounts.put(snapshot.account!);
+    });
+  }
+
   /// 從 HTTP 響應中提取 Set-Cookie
   Map<String, String>? _extractCookiesFromResponse(Response response) {
     final setCookies = response.headers['set-cookie'];
@@ -445,8 +546,15 @@ class NeteaseAccountService extends AccountService with Logging {
         final key = trimmed.substring(0, idx).trim();
         final value = trimmed.substring(idx + 1).trim();
         // 跳過 path/domain/expires 等屬性
-        if (!const {'path', 'domain', 'expires', 'max-age', 'httponly', 'secure', 'samesite'}
-            .contains(key.toLowerCase())) {
+        if (!const {
+          'path',
+          'domain',
+          'expires',
+          'max-age',
+          'httponly',
+          'secure',
+          'samesite'
+        }.contains(key.toLowerCase())) {
           cookies[key] = value;
         }
       }
@@ -466,4 +574,14 @@ class NeteaseAccountService extends AccountService with Logging {
       'User-Agent': userAgent,
     };
   }
+}
+
+class _LoginSnapshot {
+  final String? credentialsJson;
+  final Account? account;
+
+  const _LoginSnapshot({
+    required this.credentialsJson,
+    required this.account,
+  });
 }
