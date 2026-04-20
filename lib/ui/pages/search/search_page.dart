@@ -25,7 +25,7 @@ import '../lyrics/lyrics_search_sheet.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/track_group/track_group.dart';
 import '../../widgets/track_thumbnail.dart';
-import '../../widgets/track_tile.dart';
+import '../../widgets/vip_badge.dart';
 import '../../../providers/selection_provider.dart';
 import '../../widgets/context_menu_region.dart';
 import '../../widgets/selection_mode_app_bar.dart';

@@ -26,7 +26,7 @@ import '../../widgets/selection_mode_app_bar.dart';
 import '../../widgets/context_menu_region.dart';
 import '../../widgets/track_group/track_group.dart';
 import '../../widgets/track_thumbnail.dart';
-import '../../widgets/track_tile.dart';
+import '../../widgets/vip_badge.dart';
 import '../../../providers/account_provider.dart';
 import '../../../services/account/bilibili_favorites_service.dart';
 import '../../../services/account/youtube_playlist_service.dart';

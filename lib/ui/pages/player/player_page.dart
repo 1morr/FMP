@@ -26,7 +26,7 @@ import '../../../services/audio/audio_provider.dart';
 import '../../../services/platform/url_launcher_service.dart';
 import '../../../core/constants/ui_constants.dart';
 import '../../widgets/track_thumbnail.dart';
-import '../../widgets/track_tile.dart';
+import '../../widgets/vip_badge.dart';
 import '../../../providers/lyrics_provider.dart';
 import '../../widgets/lyrics_display.dart';
 import '../lyrics/lyrics_search_sheet.dart';
