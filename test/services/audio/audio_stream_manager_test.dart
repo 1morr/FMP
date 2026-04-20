@@ -132,6 +132,45 @@ void main() {
     });
 
     test(
+        'ensureAudioStream clears stale paths that appear after a valid local path',
+        () async {
+      final validFile = File('${tempDir.path}/downloaded-valid.m4a');
+      await validFile.writeAsString('audio-bytes-valid');
+
+      final savedTrack = await trackRepository.save(
+        _track('stream-ordered-paths', title: 'Stream Ordered Paths')
+          ..playlistInfo = [
+            PlaylistDownloadInfo()
+              ..playlistId = 1
+              ..playlistName = 'Downloaded Playlist'
+              ..downloadPath = validFile.path,
+            PlaylistDownloadInfo()
+              ..playlistId = 2
+              ..playlistName = 'Stale Playlist'
+              ..downloadPath = '${tempDir.path}/missing-after-valid.m4a',
+          ],
+      );
+      queueTracks.add(savedTrack);
+
+      final (updatedTrack, localPath, streamResult) =
+          await manager.ensureAudioStream(savedTrack);
+
+      expect(localPath, validFile.path);
+      expect(streamResult, isNull);
+      expect(updatedTrack.audioUrl, isNull);
+      expect(updatedTrack.playlistInfo[0].downloadPath, validFile.path);
+      expect(updatedTrack.playlistInfo[1].downloadPath, isEmpty);
+      expect(queueTracks.single.playlistInfo[0].downloadPath, validFile.path);
+      expect(queueTracks.single.playlistInfo[1].downloadPath, isEmpty);
+      expect(sourceManager.source.audioStreamRequests, isEmpty);
+
+      final persistedTrack = await trackRepository.getById(savedTrack.id);
+      expect(persistedTrack, isNotNull);
+      expect(persistedTrack!.playlistInfo[0].downloadPath, validFile.path);
+      expect(persistedTrack.playlistInfo[1].downloadPath, isEmpty);
+    });
+
+    test(
         'attachQueueTrackUpdater updates queue copy for delegate-driven ensureAudioStream after construction',
         () async {
       final savedTrack = await trackRepository.save(
@@ -167,6 +206,32 @@ void main() {
       expect(streamResult, isNotNull);
       expect(updatedTrack.audioUrl, isNotNull);
       expect(queueTracks.single.audioUrl, updatedTrack.audioUrl);
+    });
+
+    test('ensureAudioStream uses source-provided expiry instead of defaulting to one hour', () async {
+      sourceManager.source.streamExpiry = const Duration(minutes: 16);
+      final savedTrack = await trackRepository.save(
+        _track('stream-netease-expiry', title: 'Netease Expiry')
+          ..sourceType = SourceType.netease,
+      );
+      queueTracks
+        ..clear()
+        ..add(savedTrack);
+
+      final before = DateTime.now();
+      final (updatedTrack, localPath, streamResult) =
+          await manager.ensureAudioStream(savedTrack);
+      final remaining = updatedTrack.audioUrlExpiry!.difference(before);
+
+      expect(localPath, isNull);
+      expect(streamResult, isNotNull);
+      expect(streamResult!.expiry, const Duration(minutes: 16));
+      expect(remaining, greaterThanOrEqualTo(const Duration(minutes: 15)));
+      expect(remaining, lessThanOrEqualTo(const Duration(minutes: 16, seconds: 5)));
+      expect(queueTracks.single.audioUrlExpiry, updatedTrack.audioUrlExpiry);
+
+      final persistedTrack = await trackRepository.getById(savedTrack.id);
+      expect(persistedTrack?.audioUrlExpiry, updatedTrack.audioUrlExpiry);
     });
 
     test('prefetchTrack swallows refresh failures', () async {
@@ -291,6 +356,7 @@ class _FakeSource extends BaseSource {
   String? lastFailedUrl;
   final List<String> audioStreamRequests = [];
   bool throwOnRefresh = false;
+  Duration? streamExpiry;
 
   @override
   SourceType get sourceType => SourceType.youtube;
@@ -337,6 +403,7 @@ class _FakeSource extends BaseSource {
       container: 'm4a',
       codec: 'aac',
       streamType: StreamType.audioOnly,
+      expiry: streamExpiry,
     );
   }
 

@@ -60,12 +60,16 @@ class AudioStreamResult {
   /// 流类型
   final StreamType streamType;
 
+  /// URL 有效期
+  final Duration? expiry;
+
   const AudioStreamResult({
     required this.url,
     this.bitrate,
     this.container,
     this.codec,
     required this.streamType,
+    this.expiry,
   });
 
   @override

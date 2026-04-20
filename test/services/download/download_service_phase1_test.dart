@@ -430,6 +430,165 @@ void main() {
       await failureSub.cancel();
     });
 
+    test('resume restarts cleanly when server ignores Range and returns 200 OK', () async {
+      final baseDir = await Directory.systemTemp.createTemp('download_resume_http200_');
+      addTearDown(() async {
+        for (var i = 0; i < 100; i++) {
+          if (!await baseDir.exists()) return;
+          try {
+            await baseDir.delete(recursive: true);
+            return;
+          } on FileSystemException {
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
+        }
+      });
+
+      final settings = await settingsRepository.get();
+      settings.customDownloadDir = baseDir.path;
+      await settingsRepository.save(settings);
+
+      final fullBytes = Uint8List.fromList([10, 20, 30, 40, 50, 60]);
+      final partialBytes = Uint8List.fromList(fullBytes.take(2).toList());
+      String? requestedRange;
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final serverSub = server.listen((request) async {
+        requestedRange = request.headers.value(HttpHeaders.rangeHeader);
+        request.response.statusCode = HttpStatus.ok;
+        request.response.headers.contentType = ContentType.binary;
+        request.response.contentLength = fullBytes.length;
+        request.response.add(fullBytes);
+        await request.response.close();
+      });
+      addTearDown(() async {
+        await serverSub.cancel();
+        await server.close(force: true);
+      });
+
+      final track = Track()
+        ..sourceId = 'yt-resume-http200'
+        ..sourceType = SourceType.youtube
+        ..title = 'Resume HTTP 200'
+        ..artist = 'Test Artist'
+        ..createdAt = DateTime.now();
+      final savedTrack = await trackRepository.save(track);
+
+      final playlist = Playlist()..name = 'Phase1';
+      final savePath = DownloadPathUtils.computeDownloadPath(
+        baseDir: baseDir.path,
+        playlistName: playlist.name,
+        track: savedTrack,
+      );
+      final tempPath = '$savePath.downloading';
+      await Directory(tempPath).parent.create(recursive: true);
+      await File(tempPath).writeAsBytes(partialBytes, flush: true);
+
+      final task = await downloadRepository.saveTask(
+        DownloadTask()
+          ..trackId = savedTrack.id
+          ..playlistId = playlist.id
+          ..playlistName = playlist.name
+          ..status = DownloadStatus.downloading
+          ..tempFilePath = tempPath
+          ..downloadedBytes = partialBytes.length
+          ..createdAt = DateTime.now(),
+      );
+
+      final audioUrl = 'http://${server.address.address}:${server.port}/audio.m4a';
+      final service = DownloadService(
+        downloadRepository: downloadRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: _SingleSourceManager(_StaticAudioSource(audioUrl)),
+      );
+
+      await service.debugStartDownloadForTesting(task);
+      await _waitUntil(() async => service.debugActiveDownloads == 0);
+
+      expect(requestedRange, 'bytes=${partialBytes.length}-');
+      expect(await File(savePath).readAsBytes(), fullBytes);
+      expect(await File(tempPath).exists(), isFalse);
+      final updatedTask = await downloadRepository.getTaskById(task.id);
+      expect(updatedTask?.status, DownloadStatus.completed);
+
+      service.dispose();
+    });
+
+    test('download start uses source-provided expiry instead of defaulting to one hour', () async {
+      final baseDir = await Directory.systemTemp.createTemp('download_netease_expiry_');
+      addTearDown(() async {
+        for (var i = 0; i < 100; i++) {
+          if (!await baseDir.exists()) return;
+          try {
+            await baseDir.delete(recursive: true);
+            return;
+          } on FileSystemException {
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
+        }
+      });
+
+      final settings = await settingsRepository.get();
+      settings.customDownloadDir = baseDir.path;
+      await settingsRepository.save(settings);
+
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final serverSub = server.listen((request) async {
+        request.response.headers.contentType = ContentType.binary;
+        request.response.contentLength = 4;
+        request.response.add(Uint8List.fromList([1, 2, 3, 4]));
+        await request.response.close();
+      });
+      addTearDown(() async {
+        await serverSub.cancel();
+        await server.close(force: true);
+      });
+
+      final track = Track()
+        ..sourceId = 'netease-expiry'
+        ..sourceType = SourceType.netease
+        ..title = 'Netease Expiry'
+        ..artist = 'Test Artist'
+        ..createdAt = DateTime.now();
+      final savedTrack = await trackRepository.save(track);
+
+      final playlist = Playlist()..name = 'Phase1';
+      final task = await downloadRepository.saveTask(
+        DownloadTask()
+          ..trackId = savedTrack.id
+          ..playlistId = playlist.id
+          ..playlistName = playlist.name
+          ..status = DownloadStatus.downloading
+          ..createdAt = DateTime.now(),
+      );
+
+      final audioUrl = 'http://${server.address.address}:${server.port}/audio.mp3';
+      final service = DownloadService(
+        downloadRepository: downloadRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: _SingleSourceManager(
+          _StaticAudioSource(
+            audioUrl,
+            sourceTypeOverride: SourceType.netease,
+            streamExpiry: const Duration(minutes: 16),
+          ),
+        ),
+      );
+
+      final before = DateTime.now();
+      await service.debugStartDownloadForTesting(task);
+      await _waitUntil(() async => service.debugActiveDownloads == 0);
+
+      final updatedTrack = await trackRepository.getById(savedTrack.id);
+      expect(updatedTrack, isNotNull);
+      final remaining = updatedTrack!.audioUrlExpiry!.difference(before);
+      expect(remaining, greaterThanOrEqualTo(const Duration(minutes: 15)));
+      expect(remaining, lessThanOrEqualTo(const Duration(minutes: 16, seconds: 5)));
+
+      service.dispose();
+    });
+
     test('provider disposal keeps a late-initializing service inert', () async {
       final delayedRepository = _DelayedDownloadRepository(isar);
       final container = ProviderContainer(
@@ -508,12 +667,18 @@ class _SingleSourceManager extends SourceManager {
 }
 
 class _StaticAudioSource extends BaseSource {
-  _StaticAudioSource(this.audioUrl);
+  _StaticAudioSource(
+    this.audioUrl, {
+    this.sourceTypeOverride = SourceType.youtube,
+    this.streamExpiry,
+  });
 
   final String audioUrl;
+  final SourceType sourceTypeOverride;
+  final Duration? streamExpiry;
 
   @override
-  SourceType get sourceType => SourceType.youtube;
+  SourceType get sourceType => sourceTypeOverride;
 
   @override
   String? parseId(String url) => null;
@@ -535,6 +700,7 @@ class _StaticAudioSource extends BaseSource {
     return AudioStreamResult(
       url: audioUrl,
       streamType: StreamType.audioOnly,
+      expiry: streamExpiry,
     );
   }
 

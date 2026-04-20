@@ -614,7 +614,9 @@ class DownloadService with Logging {
 
       // 更新 track 的 URL 信息
       track.audioUrl = audioUrl;
-      track.audioUrlExpiry = DateTime.now().add(const Duration(hours: 1));
+      track.audioUrlExpiry = DateTime.now().add(
+        streamResult.expiry ?? const Duration(hours: 1),
+      );
       track.updatedAt = DateTime.now();
       await _trackRepository.save(track);
       
@@ -1177,18 +1179,22 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
     }
     
     final response = await request.close();
-    
+
     if (response.statusCode >= 400) {
       sendPort.send(_IsolateMessage(_IsolateMessageType.error, 'HTTP ${response.statusCode}'));
       return;
     }
-    
+
+    final shouldRestartFromZero =
+        params.resumePosition > 0 && response.statusCode == HttpStatus.ok;
+    final resumePosition = shouldRestartFromZero ? 0 : params.resumePosition;
+
     final file = File(params.savePath);
-    final sink = file.openWrite(mode: params.resumePosition > 0 ? FileMode.append : FileMode.write);
-    
+    final sink = file.openWrite(mode: resumePosition > 0 ? FileMode.append : FileMode.write);
+
     final contentLength = response.contentLength;
-    final totalBytes = contentLength > 0 ? contentLength + params.resumePosition : -1;
-    int receivedBytes = params.resumePosition;
+    final totalBytes = contentLength > 0 ? contentLength + resumePosition : -1;
+    int receivedBytes = resumePosition;
     double lastProgress = 0;
     
     await for (final chunk in response) {
