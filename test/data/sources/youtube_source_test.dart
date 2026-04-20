@@ -6,7 +6,157 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/sources/youtube_source.dart';
 
 void main() {
-  group('YouTubeSource authenticated playlist parsing', () {
+  group('YouTubeSource playlist parsing', () {
+    test('uses InnerTube pagination for anonymous playlists before fallback', () async {
+      final dio = Dio();
+      final requests = <Map<String, dynamic>>[];
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        requests.add(
+          jsonDecode(requestBody as String) as Map<String, dynamic>,
+        );
+
+        final request = requests.last;
+        if (request['browseId'] == 'VLPLANON') {
+          return ResponseBody.fromString(
+            jsonEncode({
+              'header': {
+                'playlistHeaderRenderer': {
+                  'title': {'simpleText': 'Anonymous Playlist'},
+                  'ownerText': {
+                    'runs': [
+                      {
+                        'text': 'Anon Channel',
+                        'navigationEndpoint': {
+                          'browseEndpoint': {'browseId': 'UCANON'}
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              'contents': {
+                'twoColumnBrowseResultsRenderer': {
+                  'tabs': [
+                    {
+                      'tabRenderer': {
+                        'content': {
+                          'sectionListRenderer': {
+                            'contents': [
+                              {
+                                'itemSectionRenderer': {
+                                  'contents': [
+                                    {
+                                      'playlistVideoListRenderer': {
+                                        'contents': [
+                                          {
+                                            'playlistVideoRenderer': {
+                                              'videoId': 'anon-1',
+                                              'isPlayable': true,
+                                              'title': {
+                                                'runs': [
+                                                  {'text': 'Anon Track 1'}
+                                                ]
+                                              },
+                                              'shortBylineText': {
+                                                'runs': [
+                                                  {'text': 'Anon Artist 1'}
+                                                ]
+                                              },
+                                              'lengthText': {
+                                                'simpleText': '1:11'
+                                              }
+                                            }
+                                          },
+                                          {
+                                            'continuationItemRenderer': {
+                                              'continuationEndpoint': {
+                                                'continuationCommand': {
+                                                  'token': 'ANON_TOKEN_2'
+                                                }
+                                              }
+                                            }
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }),
+            200,
+            headers: {
+              Headers.contentTypeHeader: ['application/json'],
+            },
+          );
+        }
+
+        if (request['continuation'] == 'ANON_TOKEN_2') {
+          return ResponseBody.fromString(
+            jsonEncode({
+              'onResponseReceivedActions': [
+                {
+                  'appendContinuationItemsAction': {
+                    'continuationItems': [
+                      {
+                        'playlistVideoRenderer': {
+                          'videoId': 'anon-2',
+                          'isPlayable': true,
+                          'title': {
+                            'runs': [
+                              {'text': 'Anon Track 2'}
+                            ]
+                          },
+                          'shortBylineText': {
+                            'runs': [
+                              {'text': 'Anon Artist 2'}
+                            ]
+                          },
+                          'lengthText': {
+                            'simpleText': '2:22'
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }),
+            200,
+            headers: {
+              Headers.contentTypeHeader: ['application/json'],
+            },
+          );
+        }
+
+        throw StateError('Unexpected request: $request');
+      });
+
+      final source = YouTubeSource(dio: dio);
+      final result = await source.parsePlaylist(
+        'https://www.youtube.com/playlist?list=PLANON',
+      );
+
+      expect(result.title, 'Anonymous Playlist');
+      expect(result.ownerName, 'Anon Channel');
+      expect(result.ownerUserId, 'UCANON');
+      expect(result.totalCount, 2);
+      expect(result.tracks.map((track) => track.sourceId).toList(), [
+        'anon-1',
+        'anon-2',
+      ]);
+      expect(requests, hasLength(2));
+      expect(requests.first['browseId'], 'VLPLANON');
+      expect(requests.last['continuation'], 'ANON_TOKEN_2');
+    });
+
     test('follows continuation pages beyond the first 100 items', () async {
       final dio = Dio();
       final requests = <Map<String, dynamic>>[];
