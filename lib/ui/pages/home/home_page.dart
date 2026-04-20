@@ -27,7 +27,7 @@ import '../../widgets/playlist_card_actions.dart';
 import '../../../core/utils/number_format_utils.dart';
 import '../../../i18n/strings.g.dart';
 import '../../widgets/track_thumbnail.dart';
-import '../../widgets/track_tile.dart';
+import '../../widgets/ranked_track_tile.dart';
 import '../../../data/models/playlist.dart';
 import '../../../providers/refresh_provider.dart';
 import '../library/widgets/create_playlist_dialog.dart';
@@ -827,7 +827,7 @@ class _RankingTrackTile extends ConsumerWidget {
     return ContextMenuRegion(
       menuBuilder: (_) => _buildMenuItems(),
       onSelected: (value) => _handleMenuAction(context, ref, value),
-      child: TrackTile(
+      child: RankedTrackTile(
         track: track,
         rank: rank,
         isPlaying: isPlaying,

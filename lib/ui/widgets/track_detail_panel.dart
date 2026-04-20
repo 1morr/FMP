@@ -23,7 +23,7 @@ import '../../services/platform/url_launcher_service.dart';
 import '../../services/radio/radio_controller.dart';
 import '../../data/models/radio_station.dart';
 import 'track_thumbnail.dart';
-import 'track_tile.dart';
+import 'vip_badge.dart';
 import 'lyrics_display.dart';
 import 'dialogs/add_to_playlist_dialog.dart';
 import 'dialogs/add_to_remote_playlist_dialog.dart';

@@ -16,7 +16,7 @@ import '../../widgets/dialogs/add_to_remote_playlist_dialog.dart';
 import '../../widgets/context_menu_region.dart';
 import '../../widgets/error_display.dart';
 import '../../widgets/selection_mode_app_bar.dart';
-import '../../widgets/track_tile.dart';
+import '../../widgets/ranked_track_tile.dart';
 import '../lyrics/lyrics_search_sheet.dart';
 import '../../../providers/account_provider.dart';
 
@@ -260,7 +260,7 @@ class _ExploreTrackTile extends ConsumerWidget {
     return ContextMenuRegion(
       menuBuilder: (_) => _buildMenuItems(),
       onSelected: (value) => _handleMenuAction(context, ref, value),
-      child: TrackTile(
+      child: RankedTrackTile(
         track: track,
         rank: rank,
         isPlaying: isPlaying,
