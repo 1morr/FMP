@@ -152,11 +152,14 @@ class _NeteaseWebViewLoginTabState
 
     try {
       final accountService = ref.read(neteaseAccountServiceProvider);
-      await accountService.loginWithCookies(
+      final success = await accountService.loginWithCookiesAndValidate(
         musicU: musicU,
         csrf: csrf,
       );
-      await accountService.fetchAndUpdateUserInfo();
+      if (!success) {
+        _loginHandled = false;
+        return;
+      }
       await _cleanupWebView();
 
       widget.onLoginSuccess();
@@ -259,8 +262,7 @@ class _NeteaseQrCodeLoginTabState
 
       setState(() => _status = result.code);
 
-      if (result.code == 803) {
-        await accountService.fetchAndUpdateUserInfo();
+      if (result.code == 803 && mounted) {
         widget.onLoginSuccess();
       }
     });
@@ -311,8 +313,8 @@ class _NeteaseQrCodeLoginTabState
                                   size: 40, color: colorScheme.primary),
                               const SizedBox(height: 8),
                               Text(t.account.qrExpired,
-                                  style: TextStyle(
-                                      color: colorScheme.onSurface)),
+                                  style:
+                                      TextStyle(color: colorScheme.onSurface)),
                             ],
                           ),
                         ),
