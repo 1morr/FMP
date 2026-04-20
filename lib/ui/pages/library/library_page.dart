@@ -196,22 +196,31 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
           playlist: playlist,
         );
       },
-      onReorder: (oldIndex, newIndex) {
+      onReorder: (oldIndex, newIndex) async {
+        final previousPlaylists = List<Playlist>.from(_localPlaylists!);
+        final updatedPlaylists = List<Playlist>.from(_localPlaylists!);
+        final item = updatedPlaylists.removeAt(oldIndex);
+        updatedPlaylists.insert(newIndex, item);
+
         setState(() {
-          final item = _localPlaylists!.removeAt(oldIndex);
-          _localPlaylists!.insert(newIndex, item);
+          _localPlaylists = updatedPlaylists;
         });
-        // 異步保存到數據庫
-        _savePlaylistOrder();
+
+        try {
+          await _savePlaylistOrder(updatedPlaylists);
+        } catch (_) {
+          if (!mounted) return;
+          setState(() {
+            _localPlaylists = previousPlaylists;
+          });
+        }
       },
     );
   }
 
-  Future<void> _savePlaylistOrder() async {
-    if (_localPlaylists == null) return;
-
+  Future<void> _savePlaylistOrder(List<Playlist> playlists) async {
     final service = ref.read(playlistServiceProvider);
-    await service.reorderPlaylists(_localPlaylists!);
+    await service.reorderPlaylists(playlists);
     // 不立即刷新 provider，避免閃爍
     // 退出排序模式時會刷新
   }

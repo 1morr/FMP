@@ -213,17 +213,24 @@ class _RadioPageState extends ConsumerState<RadioPage> {
       itemCount: stations.length,
       dragStartDelay: Duration.zero,
       onReorder: (oldIndex, newIndex) async {
+        final controller = ref.read(radioControllerProvider.notifier);
+        final previousStations = List<RadioStation>.from(stations);
+
         // 樂觀更新 UI
         final updatedStations = List<RadioStation>.from(stations);
         final station = updatedStations.removeAt(oldIndex);
         updatedStations.insert(newIndex, station);
 
         // 直接更新狀態（避免閃爍）
-        ref.read(radioControllerProvider.notifier).updateStationsOrder(updatedStations);
+        controller.updateStationsOrder(updatedStations);
 
-        // 保存到數據庫
-        final newOrder = updatedStations.map((s) => s.id).toList();
-        await ref.read(radioControllerProvider.notifier).reorderStations(newOrder);
+        try {
+          // 保存到數據庫
+          final newOrder = updatedStations.map((s) => s.id).toList();
+          await controller.reorderStations(newOrder);
+        } catch (_) {
+          controller.updateStationsOrder(previousStations);
+        }
       },
       itemBuilder: (context, index) {
         final station = stations[index];
