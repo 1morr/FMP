@@ -118,6 +118,7 @@ void main() {
         toastService: ToastService(),
         audioHandler: app_main.audioHandler,
         windowsSmtcHandler: app_main.windowsSmtcHandler,
+        youtubeSource: YouTubeSource(),
         settingsRepository: settingsRepository,
         mixTracksFetcher: mixTracksFetcher.call,
       );

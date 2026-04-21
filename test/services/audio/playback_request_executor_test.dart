@@ -12,6 +12,7 @@ import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/data/sources/youtube_source.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
@@ -82,6 +83,7 @@ void main() {
         toastService: ToastService(),
         audioHandler: FmpAudioHandler(),
         windowsSmtcHandler: WindowsSmtcHandler(),
+        youtubeSource: YouTubeSource(),
         settingsRepository: settingsRepository,
       );
 
@@ -231,6 +233,7 @@ void main() {
         toastService: ToastService(),
         audioHandler: FmpAudioHandler(),
         windowsSmtcHandler: WindowsSmtcHandler(),
+        youtubeSource: YouTubeSource(),
         settingsRepository: settingsRepository,
       );
       await controller.initialize();
