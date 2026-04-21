@@ -328,41 +328,14 @@ Imported tracks save original platform song ID for direct lyrics fetch:
 - YouTube: quality tier (default/mq/hq/sd/maxres) + webp
 - Netease: `?param={size}y{size}` parameter
 
-### Phase-1 Stabilization Note (2026-04-15)
-Phase-1 stabilization work is intentionally narrow in scope and should stay focused on regression resistance rather than new behavior.
 
-- Keep fixes minimal and localized when touching playback request supersession, disposal/lifecycle safety, download cleanup, queue state cleanup, ranking cache lifecycle, or database migration coverage.
-- Preserve focused regression coverage in the phase-1 verification suite before expanding related refactors.
-- If a change in these areas requires broader design movement, treat it as follow-up work rather than folding it into stabilization.
+## Claude Code Subagent Coordination
 
-### Phase-2 Maintenance Note (2026-04-15)
-Phase-2 work should stay outside core playback structure and focus on consistency at the provider and page layer.
-
-- Normalize invalidation rules by observable behavior rather than assuming every list provider is watch-driven.
-- Add stable `ValueKey` identities to dynamic list rows before changing surrounding behavior.
-- Consolidate repeated single-track menu behavior through shared handlers, while keeping multi-page and group-specific actions local.
-- Treat top-level page view-model aggregation as follow-up work unless provider fan-out becomes materially noisy enough to justify it.
-
-### Phase-3 Boundary Purification Note (2026-04-16)
-Phase-3 work should purify boundaries inside `AudioController` and `QueueManager` without yet changing their public role in the app.
-
-- Prefer private in-file helper extraction and delegation before moving any seam into a separate file.
-- Keep `AudioController` as the only UI entry point throughout Phase 3.
-- Keep `QueueManager` as the queue-facing public API while selected stream and persistence helpers are purified behind private helpers/delegates.
-- Do not treat a helper extraction as completion of the full public boundary; Phase 3 is about seam purification, not final public manager/service splits.
-
-### Phase-4 Final Audio Boundary Note (2026-04-19)
-- `AudioController` remains the only UI entry point and now delegates request execution, temporary-play state, and Mix session coordination.
-- `QueueManager` keeps repository-backed queue mutations, ordering, shuffle/loop, timer lifecycle, and queue notifications.
-- `AudioStreamManager` owns URL refresh, stream selection, playback headers, fallback streams, and prefetch while `AudioStreamDelegate` remains its Phase-4 internal implementation.
-- `QueuePersistenceManager` owns queue snapshot restore/persist, playback position save/restore, and Mix persistence operations.
-
-### Agent Workflow Note (2026-04-19)
-When working in subagent-driven development, post-review fixups should default to a **fresh implementer agent** (or be handled directly in the main conversation) rather than reusing the previous implementer via `SendMessage`.
-
-- If a spec review or code-quality review finds issues, spawn a new implementer for the fix unless there is a clear reason to continue the existing agent.
-- Do not treat “fix review feedback” as automatic justification to resume the prior implementer context.
-- If the user explicitly asks for a new implementer, create a new local/background implementer agent instead of continuing the old one.
+- **Root cause of the recent coordination failure**: when resuming a standalone spawned agent after review feedback, the follow-up message was sent to a human-friendly label instead of the actual resumable agent identity returned by the `Agent` tool result. The message appeared to send, but the implementer was not actually resumed to continue work.
+- **Correct method**: for standalone `Agent(...)` subagents, prefer sending follow-up work to the exact `agentId` returned in the agent result when you need to resume a completed or idle agent. This is the most reliable resumable identifier.
+- **Important distinction**: teammate names are for swarm/team workflows. For one-off spawned agents outside a team, treat the returned `agentId` as the source of truth for resuming work.
+- **Verification rule**: after `SendMessage`, read the tool result carefully. If Claude reports only inbox delivery and you need immediate continued execution, resend to the actual `agentId` and confirm the result explicitly says the agent was resumed from transcript/background.
+- **Do not mark delegation as active** until the messaging result confirms the intended agent has actually resumed.
 
 ---
 
