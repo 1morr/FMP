@@ -12,7 +12,6 @@ import '../../data/repositories/radio_repository.dart';
 import '../../main.dart' show audioHandler, windowsSmtcHandler;
 import '../../providers/account_provider.dart';
 import '../../providers/database_provider.dart';
-import '../account/bilibili_account_service.dart';
 import '../audio/audio_service.dart';
 import '../audio/audio_types.dart';
 import '../audio/audio_provider.dart';
@@ -27,6 +26,26 @@ class RadioAccountImportResult {
 
   final int successCount;
   final int failureCount;
+}
+
+class RadioAccountImportCandidate {
+  const RadioAccountImportCandidate({
+    required this.roomId,
+    required this.name,
+    required this.avatarUrl,
+    required this.uid,
+    required this.isLive,
+    required this.link,
+    required this.isImported,
+  });
+
+  final String roomId;
+  final String name;
+  final String? avatarUrl;
+  final int uid;
+  final bool isLive;
+  final String link;
+  final bool isImported;
 }
 
 /// 電台播放狀態
@@ -235,14 +254,17 @@ class RadioController extends StateNotifier<RadioState> with Logging {
   int? _savedMusicQueueIndex;
   Duration _savedMusicPosition = Duration.zero;
   bool _savedMusicWasPlaying = false;
+  final Duration _initialLoadDelay;
 
   /// 正常構造函數
   RadioController(
     this._ref,
     this._repository,
     this._radioSource,
-    this._audioService,
-  ) : super(const RadioState()) {
+    this._audioService, {
+    Duration initialLoadDelay = Duration.zero,
+  }) : _initialLoadDelay = initialLoadDelay,
+       super(const RadioState()) {
     _initialize();
     _setupMutualExclusion();
   }
@@ -253,6 +275,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
         _repository = _DummyRadioRepository(),
         _radioSource = RadioSource(),
         _audioService = _DummyAudioService(),
+        _initialLoadDelay = Duration.zero,
         super(const RadioState()) {
     // 不初始化，等待真正的 controller
   }
@@ -260,6 +283,10 @@ class RadioController extends StateNotifier<RadioState> with Logging {
   Future<void> _initialize() async {
     // 設置 RadioRefreshService 的 Repository
     RadioRefreshService.instance.setRepository(_repository);
+
+    if (_initialLoadDelay > Duration.zero) {
+      await Future<void>.delayed(_initialLoadDelay);
+    }
 
     // 載入電台列表
     await _loadStations();
@@ -656,9 +683,24 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     }
   }
 
-  Future<List<MedalWallItem>> loadAccountImportCandidates() async {
+  Future<List<RadioAccountImportCandidate>> loadAccountImportCandidates() async {
     final service = _ref.read(bilibiliAccountServiceProvider);
-    return service.fetchMedalWall();
+    final items = await service.fetchMedalWall();
+    final importedSourceIds = await _loadImportedSourceIds();
+
+    return items
+        .map(
+          (item) => RadioAccountImportCandidate(
+            roomId: item.roomId,
+            name: item.name,
+            avatarUrl: item.avatarUrl,
+            uid: item.uid,
+            isLive: item.isLive,
+            link: item.link,
+            isImported: importedSourceIds.contains(item.roomId),
+          ),
+        )
+        .toList();
   }
 
   Future<RadioAccountImportResult> importAccountStations(
@@ -705,6 +747,14 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       successCount: successCount,
       failureCount: total - successCount,
     );
+  }
+
+  Future<Set<String>> _loadImportedSourceIds() async {
+    final stations = await _repository.getAll();
+    return {
+      for (final station in stations)
+        if (station.sourceType == SourceType.bilibili) station.sourceId,
+    };
   }
 
   Future<RadioStation?> _createUniqueStationFromUrl(

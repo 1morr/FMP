@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/ui_constants.dart';
 import '../../../../core/services/image_loading_service.dart';
 import '../../../../core/services/toast_service.dart';
-import '../../../../data/models/track.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../../../services/radio/radio_controller.dart';
 import '../../../../services/radio/radio_refresh_service.dart';
@@ -64,26 +63,19 @@ class _AccountRadioImportSheetState
 
     try {
       final controller = ref.read(radioControllerProvider.notifier);
-      final medalItems = await controller.loadAccountImportCandidates();
-      final existingStations = ref.read(radioControllerProvider).stations;
+      final candidates = await controller.loadAccountImportCandidates();
 
       if (!mounted) return;
 
-      // 建立已存在的 sourceId 集合
-      final existingSourceIds = <String>{
-        for (final s in existingStations)
-          if (s.sourceType == SourceType.bilibili) s.sourceId,
-      };
-
       setState(() {
-        _stations = medalItems.map((item) => _RadioItem(
+        _stations = candidates.map((item) => _RadioItem(
           roomId: item.roomId,
           name: item.name,
           avatarUrl: item.avatarUrl,
           uid: item.uid,
           isLive: item.isLive,
           link: item.link,
-          isImported: existingSourceIds.contains(item.roomId),
+          isImported: item.isImported,
         )).toList();
         _isLoading = false;
       });

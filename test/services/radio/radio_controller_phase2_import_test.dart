@@ -59,6 +59,43 @@ void main() {
 
       expect(items.map((item) => item.roomId), ['101', '202']);
       expect(items.where((item) => item.isLive).map((item) => item.name), ['Alpha']);
+      expect(items.every((item) => !item.isImported), isTrue);
+    });
+
+    test('marks already imported candidates even before radio state finishes loading', () async {
+      final harness = await createHarness(
+        medalWallItems: const [
+          MedalWallItem(
+            roomId: '101',
+            name: 'Existing room',
+            uid: 1,
+            liveStatus: 1,
+            link: 'https://live.bilibili.com/101',
+          ),
+          MedalWallItem(
+            roomId: '202',
+            name: 'New room',
+            uid: 2,
+            liveStatus: 0,
+            link: 'https://live.bilibili.com/202',
+          ),
+        ],
+        initialStations: [
+          _buildStation(sourceId: '101', title: 'Existing imported room'),
+        ],
+        initialLoadDelay: const Duration(milliseconds: 200),
+        waitForInitialLoad: false,
+      );
+      addTearDown(harness.dispose);
+
+      expect(harness.controller.state.stations, isEmpty);
+
+      final items = await harness.controller.loadAccountImportCandidates();
+      final importedCandidate = items.firstWhere((item) => item.roomId == '101');
+      final newCandidate = items.firstWhere((item) => item.roomId == '202');
+
+      expect(importedCandidate.isImported, isTrue);
+      expect(newCandidate.isImported, isFalse);
     });
 
     test('imports only unique stations and applies sequential ordering', () async {
@@ -124,6 +161,8 @@ Future<RadioControllerImportHarness> createHarness({
   List<MedalWallItem> medalWallItems = const [],
   List<RadioStation> initialStations = const [],
   Map<String, RadioStation> sourceStationsByUrl = const {},
+  Duration initialLoadDelay = Duration.zero,
+  bool waitForInitialLoad = true,
 }) async {
   final tempDir = await Directory.systemTemp.createTemp('radio_controller_phase2_import_test_');
   final isar = await Isar.open([RadioStationSchema], directory: tempDir.path, name: 'radio_controller_phase2_import_test');
@@ -135,11 +174,14 @@ Future<RadioControllerImportHarness> createHarness({
     repository,
     _FakeRadioSource(sourceStationsByUrl),
     FakeAudioService(),
+    initialLoadDelay: initialLoadDelay,
   );
 
   final harness = RadioControllerImportHarness(controller: controller, repository: repository, isar: isar, tempDir: tempDir);
   await Future<void>.delayed(const Duration(milliseconds: 50));
-  await harness.pumpUntil(() => controller.state.stations.length == initialStations.length, reason: 'controller should load initial radio state');
+  if (waitForInitialLoad) {
+    await harness.pumpUntil(() => controller.state.stations.length == initialStations.length, reason: 'controller should load initial radio state');
+  }
   return harness;
 }
 
