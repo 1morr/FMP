@@ -41,7 +41,10 @@ void main() {
         );
         await Future<void>.delayed(Duration.zero);
 
-        expect(container.read(importPlaylistProvider('phase2-test')).isImporting, isTrue);
+        expect(
+          container.read(importPlaylistProvider('phase2-test')).isImporting,
+          isTrue,
+        );
         expect(
           container.read(importPlaylistProvider('phase2-test')).progress.currentItem,
           'Track 1',
@@ -72,6 +75,60 @@ void main() {
         expect(fakeService.disposeCalls, 1);
       },
     );
+
+    test(
+      'cancels before async service creation completes and prevents a late import start',
+      () async {
+        final fakeService = FakeImportService();
+        final serviceCompleter = Completer<ImportServiceFacade>();
+        final container = ProviderContainer(
+          overrides: [
+            importServiceFactoryProvider.overrideWithValue(
+              () => serviceCompleter.future,
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final subscription = container.listen<ImportPlaylistState>(
+          importPlaylistProvider('async-cancel'),
+          (_, __) {},
+          fireImmediately: true,
+        );
+        addTearDown(subscription.close);
+
+        final notifier =
+            container.read(importPlaylistProvider('async-cancel').notifier);
+        final importFuture = notifier.importFromUrl(
+          'https://example.com/playlist?list=async-cancel',
+          useAuth: true,
+        );
+
+        notifier.cancelImport();
+        expect(
+          container.read(importPlaylistProvider('async-cancel')).wasCancelled,
+          isTrue,
+        );
+
+        serviceCompleter.complete(fakeService);
+        await Future<void>.delayed(Duration.zero);
+
+        if (fakeService.importCalls > 0) {
+          fakeService.fail(const ImportException('late import started'));
+        }
+
+        final result = await importFuture.timeout(const Duration(seconds: 1));
+
+        expect(result, isNull);
+        expect(fakeService.importCalls, 0);
+        expect(fakeService.cancelCalls, 1);
+        expect(fakeService.cleanupCalls, 1);
+        expect(
+          container.read(importPlaylistProvider('async-cancel')).wasCancelled,
+          isTrue,
+        );
+      },
+    );
   });
 }
 
@@ -79,6 +136,7 @@ class FakeImportService implements ImportServiceFacade {
   final _progressController = StreamController<ImportProgress>.broadcast();
   final _completer = Completer<ImportResult>();
 
+  int importCalls = 0;
   int cancelCalls = 0;
   int cleanupCalls = 0;
   int disposeCalls = 0;
@@ -120,6 +178,7 @@ class FakeImportService implements ImportServiceFacade {
     bool notifyOnUpdate = true,
     bool useAuth = false,
   }) {
+    importCalls++;
     return _completer.future;
   }
 }
