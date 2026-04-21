@@ -4,13 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/ui_constants.dart';
 import '../../../../core/services/image_loading_service.dart';
 import '../../../../core/services/toast_service.dart';
-import '../../../../data/models/radio_station.dart';
 import '../../../../data/models/track.dart';
 import '../../../../i18n/strings.g.dart';
-import '../../../../providers/account_provider.dart';
 import '../../../../services/radio/radio_controller.dart';
 import '../../../../services/radio/radio_refresh_service.dart';
-import '../../../../services/account/bilibili_account_service.dart';
 
 /// 電台列表項（內部使用）
 class _RadioItem {
@@ -66,17 +63,9 @@ class _AccountRadioImportSheetState
     });
 
     try {
-      final service = ref.read(bilibiliAccountServiceProvider);
-      final radioRepo = ref.read(radioRepositoryProvider);
-
-      // 並行獲取勳章牆和已存在的電台
-      final medalFuture = service.fetchMedalWall();
-      final stationsFuture = radioRepo != null
-          ? radioRepo.getAll()
-          : Future.value(<RadioStation>[]);
-      final results = await Future.wait([medalFuture, stationsFuture]);
-      final medalItems = results[0] as List<MedalWallItem>;
-      final existingStations = results[1] as List<RadioStation>;
+      final controller = ref.read(radioControllerProvider.notifier);
+      final medalItems = await controller.loadAccountImportCandidates();
+      final existingStations = ref.read(radioControllerProvider).stations;
 
       if (!mounted) return;
 
@@ -123,9 +112,7 @@ class _AccountRadioImportSheetState
         .toList();
     if (selected.isEmpty) return;
 
-    final radioSource = ref.read(radioSourceProvider);
-    final radioRepo = ref.read(radioRepositoryProvider);
-    if (radioRepo == null) return;
+    final controller = ref.read(radioControllerProvider.notifier);
 
     setState(() {
       _isImporting = true;
@@ -133,43 +120,23 @@ class _AccountRadioImportSheetState
       _importTotal = selected.length;
     });
 
-    // Pre-compute sort orders to avoid sequential DB queries
-    final baseSortOrder = await radioRepo.getNextSortOrder();
-
-    // Parallel import with progress tracking
-    int completed = 0;
-    final futures = selected.asMap().entries.map((entry) async {
-      final index = entry.key;
-      final item = entry.value;
-
-      try {
-        final station = await radioSource.createStationFromUrl(item.link);
-        station.sortOrder = baseSortOrder + index;
-        await radioRepo.save(station);
-
-        // Update progress (debounced setState - every 3 items or on completion)
-        if (mounted) {
-          completed++;
-          if (completed % 3 == 0 || completed == selected.length) {
-            setState(() => _importCurrent = completed);
-          }
-        }
-        return true;
-      } catch (e) {
-        // Single failure doesn't interrupt others
-        return false;
-      }
-    });
-
-    final results = await Future.wait(futures);
-    final successCount = results.where((r) => r).length;
+    final result = await controller.importAccountStations(
+      selected.map((item) => item.link).toList(),
+      onProgress: (completed, total) {
+        if (!mounted) return;
+        setState(() {
+          _importCurrent = completed;
+          _importTotal = total;
+        });
+      },
+    );
 
     if (!mounted) return;
     Navigator.pop(context);
-    if (successCount > 0) {
+    if (result.successCount > 0) {
       ToastService.success(
         context,
-        t.account.importRadioComplete(count: successCount.toString()),
+        t.account.importRadioComplete(count: result.successCount.toString()),
       );
       // 立即刷新電台直播狀態，讓電台管理頁面顯示最新狀態
       RadioRefreshService.instance.refreshAll();

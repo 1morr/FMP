@@ -10,12 +10,24 @@ import '../../data/models/radio_station.dart';
 import '../../data/models/track.dart'; // for SourceType
 import '../../data/repositories/radio_repository.dart';
 import '../../main.dart' show audioHandler, windowsSmtcHandler;
+import '../../providers/account_provider.dart';
 import '../../providers/database_provider.dart';
+import '../account/bilibili_account_service.dart';
 import '../audio/audio_service.dart';
 import '../audio/audio_types.dart';
 import '../audio/audio_provider.dart';
 import 'radio_source.dart';
 import 'radio_refresh_service.dart';
+
+class RadioAccountImportResult {
+  const RadioAccountImportResult({
+    required this.successCount,
+    required this.failureCount,
+  });
+
+  final int successCount;
+  final int failureCount;
+}
 
 /// 電台播放狀態
 class RadioState {
@@ -614,24 +626,11 @@ class RadioController extends StateNotifier<RadioState> with Logging {
   /// 添加電台
   Future<RadioStation?> addStation(String url) async {
     try {
-      // 解析 URL
-      final parseResult = _radioSource.parseUrl(url);
-      if (parseResult == null) {
-        throw Exception(t.radio.cannotParseUrl);
-      }
-
-      // 檢查是否已存在（目前只支持 Bilibili）
-      if (await _repository.exists(SourceType.bilibili, parseResult.sourceId)) {
+      final station = await _createUniqueStationFromUrl(url);
+      if (station == null) {
         throw Exception(t.radio.alreadyExists);
       }
 
-      // 創建並獲取資訊
-      final station = await _radioSource.createStationFromUrl(url);
-
-      // 設置排序順序
-      station.sortOrder = await _repository.getNextSortOrder();
-
-      // 保存
       final id = await _repository.save(station);
       final savedStation = await _repository.getById(id);
 
@@ -655,6 +654,82 @@ class RadioController extends StateNotifier<RadioState> with Logging {
       logError('Failed to add station: $e');
       rethrow;
     }
+  }
+
+  Future<List<MedalWallItem>> loadAccountImportCandidates() async {
+    final service = _ref.read(bilibiliAccountServiceProvider);
+    return service.fetchMedalWall();
+  }
+
+  Future<RadioAccountImportResult> importAccountStations(
+    List<String> urls, {
+    void Function(int completed, int total)? onProgress,
+  }) async {
+    if (urls.isEmpty) {
+      return const RadioAccountImportResult(successCount: 0, failureCount: 0);
+    }
+
+    final total = urls.length;
+    var completed = 0;
+    var successCount = 0;
+
+    final baseSortOrder = await _repository.getNextSortOrder();
+    final reservedKeys = <String>{};
+    final stationsToSave = <RadioStation>[];
+
+    for (final url in urls) {
+      try {
+        final station = await _createUniqueStationFromUrl(
+          url,
+          sortOrder: baseSortOrder + stationsToSave.length,
+          reservedKeys: reservedKeys,
+        );
+        if (station != null) {
+          stationsToSave.add(station);
+          reservedKeys.add(station.uniqueKey);
+          successCount++;
+        }
+      } catch (e) {
+        logWarning('Failed to import account radio station from $url: $e');
+      } finally {
+        completed++;
+        onProgress?.call(completed, total);
+      }
+    }
+
+    if (stationsToSave.isNotEmpty) {
+      await _repository.saveAll(stationsToSave);
+    }
+
+    return RadioAccountImportResult(
+      successCount: successCount,
+      failureCount: total - successCount,
+    );
+  }
+
+  Future<RadioStation?> _createUniqueStationFromUrl(
+    String url, {
+    int? sortOrder,
+    Set<String>? reservedKeys,
+  }) async {
+    final parseResult = _radioSource.parseUrl(url);
+    if (parseResult == null) {
+      throw Exception(t.radio.cannotParseUrl);
+    }
+
+    const sourceType = SourceType.bilibili;
+    final uniqueKey = '${sourceType.name}:${parseResult.sourceId}';
+    if (reservedKeys?.contains(uniqueKey) == true) {
+      return null;
+    }
+
+    if (await _repository.exists(sourceType, parseResult.sourceId)) {
+      return null;
+    }
+
+    final station = await _radioSource.createStationFromUrl(url);
+    station.sortOrder = sortOrder ?? await _repository.getNextSortOrder();
+    return station;
   }
 
   /// 刪除電台
