@@ -76,8 +76,26 @@ class ImportResult {
   });
 }
 
+abstract class ImportServiceFacade {
+  Stream<ImportProgress> get progressStream;
+
+  Future<ImportResult> importFromUrl(
+    String url, {
+    String? customName,
+    int? refreshIntervalHours,
+    bool notifyOnUpdate = true,
+    bool useAuth = false,
+  });
+
+  void cancelImport();
+
+  Future<void> cleanupCancelledImport();
+
+  void dispose();
+}
+
 /// 外部导入服务
-class ImportService with Logging {
+class ImportService with Logging implements ImportServiceFacade {
   final SourceManager _sourceManager;
   final PlaylistRepository _playlistRepository;
   final TrackRepository _trackRepository;
@@ -88,6 +106,7 @@ class ImportService with Logging {
 
   // 导入进度流
   final _progressController = StreamController<ImportProgress>.broadcast();
+  @override
   Stream<ImportProgress> get progressStream => _progressController.stream;
 
   ImportProgress _currentProgress = const ImportProgress();
@@ -99,11 +118,13 @@ class ImportService with Logging {
   int? _cancelledPlaylistId;
 
   /// 取消当前导入
+  @override
   void cancelImport() {
     _isCancelled = true;
   }
 
   /// 清理取消导入后残留的歌单（在导入完全停止后调用）
+  @override
   Future<void> cleanupCancelledImport() async {
     final playlistId = _cancelledPlaylistId;
     _cancelledPlaylistId = null;
@@ -140,6 +161,7 @@ class ImportService with Logging {
           neteaseAccountService: _neteaseAccountService);
 
   /// 从 URL 导入歌单/收藏夹
+  @override
   Future<ImportResult> importFromUrl(
     String url, {
     String? customName,
@@ -694,6 +716,7 @@ class ImportService with Logging {
     _progressController.add(_currentProgress);
   }
 
+  @override
   void dispose() {
     _progressController.close();
   }
