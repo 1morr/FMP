@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // AudioDevice replaced by FmpAudioDevice from audio_types.dart
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
+import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
 import '../../data/sources/base_source.dart';
@@ -144,6 +145,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   final LyricsAutoMatchService? _lyricsAutoMatchService;
   final SettingsRepository? _settingsRepository;
   final MixTracksFetcher? _mixTracksFetcher;
+  final YouTubeSource _youtubeSource;
 
   final List<StreamSubscription> _subscriptions = [];
   bool _isInitialized = false;
@@ -208,6 +210,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     required ToastService toastService,
     required FmpAudioHandler audioHandler,
     required WindowsSmtcHandler windowsSmtcHandler,
+    required YouTubeSource youtubeSource,
     PlayHistoryRepository? playHistoryRepository,
     LyricsAutoMatchService? lyricsAutoMatchService,
     SettingsRepository? settingsRepository,
@@ -218,6 +221,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         _toastService = toastService,
         _audioHandler = audioHandler,
         _windowsSmtcHandler = windowsSmtcHandler,
+        _youtubeSource = youtubeSource,
         _playHistoryRepository = playHistoryRepository,
         _lyricsAutoMatchService = lyricsAutoMatchService,
         _settingsRepository = settingsRepository,
@@ -820,6 +824,34 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 播放歌单 (别名方法)
   Future<void> playPlaylist(List<Track> tracks, {int startIndex = 0}) =>
       playAll(tracks, startIndex: startIndex);
+
+  Future<void> startMixFromPlaylist(Playlist playlist) async {
+    final playlistId = playlist.mixPlaylistId;
+    final seedVideoId = playlist.mixSeedVideoId;
+    if (playlistId == null || seedVideoId == null) {
+      throw StateError(t.library.main.mixInfoIncomplete);
+    }
+
+    final result = await (_mixTracksFetcher?.call(
+          playlistId: playlistId,
+          currentVideoId: seedVideoId,
+        ) ??
+        _youtubeSource.fetchMixTracks(
+          playlistId: playlistId,
+          currentVideoId: seedVideoId,
+        ));
+
+    if (result.tracks.isEmpty) {
+      throw StateError(t.library.main.cannotLoadMix);
+    }
+
+    await playMixPlaylist(
+      playlistId: playlistId,
+      seedVideoId: seedVideoId,
+      title: playlist.name,
+      tracks: result.tracks,
+    );
+  }
 
   /// 播放 Mix 播放列表
   ///
@@ -2647,6 +2679,7 @@ final audioControllerProvider =
     toastService: toastService,
     audioHandler: audioHandler,
     windowsSmtcHandler: windowsSmtcHandler,
+    youtubeSource: ref.watch(youtubeSourceProvider),
     playHistoryRepository: playHistoryRepository,
     lyricsAutoMatchService: ref.watch(lyricsAutoMatchServiceProvider),
     settingsRepository: ref.watch(settingsRepositoryProvider),
