@@ -12,9 +12,6 @@ import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
 import '../../../data/models/video_detail.dart';
 import '../../../data/sources/base_source.dart' show SearchOrder;
-import '../../../data/sources/bilibili_source.dart';
-import '../../../data/sources/source_provider.dart';
-import '../../../core/utils/auth_headers_utils.dart';
 import '../../../providers/account_provider.dart';
 import '../../../providers/search_provider.dart';
 import '../../../services/audio/audio_provider.dart';
@@ -810,13 +807,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     });
 
     try {
-      final sourceManager = ref.read(sourceManagerProvider);
-      final source = sourceManager.getSource(SourceType.bilibili) as BilibiliSource;
-      final authHeaders = await buildAuthHeaders(
-        SourceType.bilibili,
-        bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
-      );
-      final pages = await source.getVideoPages(track.sourceId, authHeaders: authHeaders);
+      final pages = await ref.read(searchProvider.notifier).loadVideoPagesForTrack(track);
 
       if (mounted) {
         setState(() {
