@@ -6,7 +6,6 @@ import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
 import '../../services/audio/audio_provider.dart';
 import '../../providers/playlist_provider.dart';
-import '../../data/sources/source_provider.dart';
 import '../../i18n/strings.g.dart';
 
 /// PlaylistCard 共享操作工具类
@@ -72,26 +71,8 @@ class PlaylistCardActions {
     }
 
     try {
-      final youtubeSource = ref.read(youtubeSourceProvider);
-      final result = await youtubeSource.fetchMixTracks(
-        playlistId: playlist.mixPlaylistId!,
-        currentVideoId: playlist.mixSeedVideoId!,
-      );
-
-      if (result.tracks.isEmpty) {
-        if (context.mounted) {
-          ToastService.error(context, t.library.main.cannotLoadMix);
-        }
-        return;
-      }
-
       final controller = ref.read(audioControllerProvider.notifier);
-      await controller.playMixPlaylist(
-        playlistId: playlist.mixPlaylistId!,
-        seedVideoId: playlist.mixSeedVideoId!,
-        title: playlist.name,
-        tracks: result.tracks,
-      );
+      await controller.startMixFromPlaylist(playlist);
     } catch (e) {
       if (context.mounted) {
         ToastService.error(context, '${t.library.main.playMixFailed}: $e');

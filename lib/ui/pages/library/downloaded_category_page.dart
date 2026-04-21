@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,9 @@ import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/download_provider.dart';
+import '../../../providers/download_path_provider.dart';
+import '../../../providers/download/file_exists_cache.dart';
+import '../../../providers/playlist_provider.dart' show playlistListProvider;
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/error_display.dart';
 import '../../widgets/now_playing_indicator.dart';
@@ -19,33 +23,6 @@ import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../lyrics/lyrics_search_sheet.dart';
 import '../../widgets/context_menu_region.dart';
 import '../../handlers/track_action_handler.dart';
-
-/// 在 Isolate 中批量删除文件和文件夹（避免阻塞 UI 线程）
-Future<void> _deleteFilesInIsolate(List<String> paths) async {
-  final foldersToDelete = <String>{};
-  for (final path in paths) {
-    try {
-      final file = File(path);
-      if (await file.exists()) {
-        foldersToDelete.add(file.parent.path);
-        await file.delete();
-      }
-    } on FileSystemException catch (_) {
-      // 单个文件删除失败不影响其他文件
-    }
-  }
-  // 删除所有父文件夹（包括 metadata, cover 等附属文件）
-  for (final folderPath in foldersToDelete) {
-    try {
-      final dir = Directory(folderPath);
-      if (await dir.exists()) {
-        await dir.delete(recursive: true);
-      }
-    } on FileSystemException catch (_) {
-      // 文件夹删除失败不影响流程
-    }
-  }
-}
 
 /// 在 Isolate 中删除单首歌曲的文件（含 metadata 清理和空文件夹检测）
 Future<void> _deleteTrackFilesInIsolate(List<String> paths) async {
@@ -62,8 +39,10 @@ Future<void> _deleteTrackFilesInIsolate(List<String> paths) async {
 
       // 删除对应的 metadata 文件
       if (audioFileName.startsWith('P') && audioFileName.contains('.')) {
-        final pageNumStr = audioFileName.substring(1, audioFileName.indexOf('.'));
-        final metadataFile = File('${parentDir.path}/metadata_P$pageNumStr.json');
+        final pageNumStr =
+            audioFileName.substring(1, audioFileName.indexOf('.'));
+        final metadataFile =
+            File('${parentDir.path}/metadata_P$pageNumStr.json');
         if (await metadataFile.exists()) await metadataFile.delete();
       } else {
         final metadataFile = File('${parentDir.path}/metadata.json');
@@ -75,8 +54,10 @@ Future<void> _deleteTrackFilesInIsolate(List<String> paths) async {
         final remainingAudio = await parentDir.list().where((entity) {
           if (entity is! File) return false;
           final name = entity.path.split('/').last.split('\\').last;
-          return name.endsWith('.m4a') || name.endsWith('.mp3') ||
-              name.endsWith('.aac') || name.endsWith('.opus');
+          return name.endsWith('.m4a') ||
+              name.endsWith('.mp3') ||
+              name.endsWith('.aac') ||
+              name.endsWith('.opus');
         }).toList();
 
         if (remainingAudio.isEmpty) {
@@ -105,10 +86,12 @@ class DownloadedCategoryPage extends ConsumerStatefulWidget {
   const DownloadedCategoryPage({super.key, required this.category});
 
   @override
-  ConsumerState<DownloadedCategoryPage> createState() => _DownloadedCategoryPageState();
+  ConsumerState<DownloadedCategoryPage> createState() =>
+      _DownloadedCategoryPageState();
 }
 
-class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage> {
+class _DownloadedCategoryPageState
+    extends ConsumerState<DownloadedCategoryPage> {
   // 展开状态：key是groupKey
   final Set<String> _expandedGroups = {};
 
@@ -159,8 +142,10 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
       _cachedGroups = null;
     });
     // 使 provider 失效并等待重新加载
-    ref.invalidate(downloadedCategoryTracksProvider(widget.category.folderPath));
-    await ref.read(downloadedCategoryTracksProvider(widget.category.folderPath).future);
+    ref.invalidate(
+        downloadedCategoryTracksProvider(widget.category.folderPath));
+    await ref.read(
+        downloadedCategoryTracksProvider(widget.category.folderPath).future);
   }
 
   /// 获取分组后的 tracks，使用缓存避免重复计算
@@ -175,7 +160,8 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
 
   @override
   Widget build(BuildContext context) {
-    final tracksAsync = ref.watch(downloadedCategoryTracksProvider(widget.category.folderPath));
+    final tracksAsync =
+        ref.watch(downloadedCategoryTracksProvider(widget.category.folderPath));
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -198,9 +184,11 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.error_outline, size: 64, color: colorScheme.error),
+                    Icon(Icons.error_outline,
+                        size: 64, color: colorScheme.error),
                     const SizedBox(height: 16),
-                    Text(t.library.loadFailedWithError(error: error.toString())),
+                    Text(
+                        t.library.loadFailedWithError(error: error.toString())),
                   ],
                 ),
               ),
@@ -323,19 +311,24 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
                         // 分类名称
                         Text(
                           widget.category.displayName,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          t.library.downloadedCategory.trackCountDuration(count: tracks.length, duration: DurationFormatter.formatLong(totalDuration)),
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.white60,
-                              ),
+                          t.library.downloadedCategory.trackCountDuration(
+                              count: tracks.length,
+                              duration:
+                                  DurationFormatter.formatLong(totalDuration)),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.white60,
+                                  ),
                         ),
                         const SizedBox(height: 8),
                         Container(
@@ -358,7 +351,10 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
                               const SizedBox(width: 4),
                               Text(
                                 t.library.downloaded,
-                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(
                                       color: colorScheme.onPrimaryContainer,
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -473,7 +469,8 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
     final controller = ref.read(audioControllerProvider.notifier);
     final shuffled = List<Track>.from(tracks)..shuffle();
     controller.addAllToQueue(shuffled);
-    ToastService.success(context, t.library.shuffledAddedToQueue(n: tracks.length));
+    ToastService.success(
+        context, t.library.shuffledAddedToQueue(n: tracks.length));
   }
 
   Widget _buildEmptyState(BuildContext context) {
@@ -537,7 +534,8 @@ class _DownloadedCategoryPageState extends ConsumerState<DownloadedCategoryPage>
     final controller = ref.read(audioControllerProvider.notifier);
     final added = await controller.addAllToQueue(tracks);
     if (added && context.mounted) {
-      ToastService.success(context, t.library.downloadedCategory.addedPartsToQueue(n: tracks.length));
+      ToastService.success(context,
+          t.library.downloadedCategory.addedPartsToQueue(n: tracks.length));
     }
   }
 
@@ -581,118 +579,120 @@ class _GroupHeader extends ConsumerWidget {
       menuBuilder: (_) => _buildMenuItems(),
       onSelected: (value) => _handleMenuAction(context, ref, value),
       child: ListTile(
-      onTap: onToggle,
-      leading: TrackThumbnail(
-        track: firstTrack,
-        size: 48,
-        isPlaying: isPlayingThisGroup,
-      ),
-      title: Text(
-        group.parentTitle,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: isPlayingThisGroup ? colorScheme.primary : null,
-          fontWeight: isPlayingThisGroup ? FontWeight.w600 : FontWeight.w500,
+        onTap: onToggle,
+        leading: TrackThumbnail(
+          track: firstTrack,
+          size: 48,
+          isPlaying: isPlayingThisGroup,
         ),
-      ),
-      subtitle: Row(
-        children: [
-          Text(
-            firstTrack.artist ?? t.library.unknownUploader,
-            style: Theme.of(context).textTheme.bodySmall,
+        title: Text(
+          group.parentTitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: isPlayingThisGroup ? colorScheme.primary : null,
+            fontWeight: isPlayingThisGroup ? FontWeight.w600 : FontWeight.w500,
           ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: colorScheme.primaryContainer,
-              borderRadius: AppRadius.borderRadiusSm,
+        ),
+        subtitle: Row(
+          children: [
+            Text(
+              firstTrack.artist ?? t.library.unknownUploader,
+              style: Theme.of(context).textTheme.bodySmall,
             ),
-            child: Text(
-              '${group.tracks.length}P',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onPrimaryContainer,
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                borderRadius: AppRadius.borderRadiusSm,
+              ),
+              child: Text(
+                '${group.tracks.length}P',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onPrimaryContainer,
+                    ),
+              ),
+            ),
+          ],
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 展开/折叠按钮
+            IconButton(
+              icon: Icon(
+                isExpanded ? Icons.expand_less : Icons.expand_more,
+              ),
+              onPressed: onToggle,
+            ),
+            // 菜单
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              onSelected: (value) => _handleMenuAction(context, ref, value),
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'play_first',
+                  child: ListTile(
+                    leading: const Icon(Icons.play_arrow),
+                    title: Text(t.library.downloadedCategory.playFirstPart),
+                    contentPadding: EdgeInsets.zero,
                   ),
+                ),
+                PopupMenuItem(
+                  value: 'add_all_to_queue',
+                  child: ListTile(
+                    leading: const Icon(Icons.add_to_queue),
+                    title: Text(t.library.downloadedCategory.addAllToQueue),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'delete_all',
+                  child: ListTile(
+                    leading: const Icon(Icons.delete_outline),
+                    title:
+                        Text(t.library.downloadedCategory.deleteAllDownloads),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 展开/折叠按钮
-          IconButton(
-            icon: Icon(
-              isExpanded ? Icons.expand_less : Icons.expand_more,
-            ),
-            onPressed: onToggle,
-          ),
-          // 菜单
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (value) => _handleMenuAction(context, ref, value),
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'play_first',
-                child: ListTile(
-                  leading: const Icon(Icons.play_arrow),
-                  title: Text(t.library.downloadedCategory.playFirstPart),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem(
-                value: 'add_all_to_queue',
-                child: ListTile(
-                  leading: const Icon(Icons.add_to_queue),
-                  title: Text(t.library.downloadedCategory.addAllToQueue),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem(
-                value: 'delete_all',
-                child: ListTile(
-                  leading: const Icon(Icons.delete_outline),
-                  title: Text(t.library.downloadedCategory.deleteAllDownloads),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
 
   List<PopupMenuEntry<String>> _buildMenuItems() => [
-    PopupMenuItem(
-      value: 'play_first',
-      child: ListTile(
-        leading: const Icon(Icons.play_arrow),
-        title: Text(t.library.downloadedCategory.playFirstPart),
-        contentPadding: EdgeInsets.zero,
-      ),
-    ),
-    PopupMenuItem(
-      value: 'add_all_to_queue',
-      child: ListTile(
-        leading: const Icon(Icons.add_to_queue),
-        title: Text(t.library.downloadedCategory.addAllToQueue),
-        contentPadding: EdgeInsets.zero,
-      ),
-    ),
-    PopupMenuItem(
-      value: 'delete_all',
-      child: ListTile(
-        leading: const Icon(Icons.delete_outline),
-        title: Text(t.library.downloadedCategory.deleteAllDownloads),
-        contentPadding: EdgeInsets.zero,
-      ),
-    ),
-  ];
+        PopupMenuItem(
+          value: 'play_first',
+          child: ListTile(
+            leading: const Icon(Icons.play_arrow),
+            title: Text(t.library.downloadedCategory.playFirstPart),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          value: 'add_all_to_queue',
+          child: ListTile(
+            leading: const Icon(Icons.add_to_queue),
+            title: Text(t.library.downloadedCategory.addAllToQueue),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          value: 'delete_all',
+          child: ListTile(
+            leading: const Icon(Icons.delete_outline),
+            title: Text(t.library.downloadedCategory.deleteAllDownloads),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      ];
 
-  void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
+  void _handleMenuAction(
+      BuildContext context, WidgetRef ref, String action) async {
     switch (action) {
       case 'play_first':
         onPlayFirst();
@@ -706,7 +706,8 @@ class _GroupHeader extends ConsumerWidget {
           context: context,
           builder: (context) => AlertDialog(
             title: Text(t.library.deleteDownload),
-            content: Text(t.library.downloadedCategory.confirmDeleteParts(n: group.tracks.length)),
+            content: Text(t.library.downloadedCategory
+                .confirmDeleteParts(n: group.tracks.length)),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -722,7 +723,10 @@ class _GroupHeader extends ConsumerWidget {
         if (confirmed == true && context.mounted) {
           await _deleteAllDownloads(ref);
           if (context.mounted) {
-            ToastService.success(context, t.library.downloadedCategory.deletedParts(n: group.tracks.length));
+            ToastService.success(
+                context,
+                t.library.downloadedCategory
+                    .deletedParts(n: group.tracks.length));
           }
         }
         break;
@@ -730,25 +734,18 @@ class _GroupHeader extends ConsumerWidget {
   }
 
   Future<void> _deleteAllDownloads(WidgetRef ref) async {
-    final trackRepo = ref.read(trackRepositoryProvider);
+    final maintenanceService = ref.read(downloadPathMaintenanceServiceProvider);
+    final result =
+        await maintenanceService.deleteDownloadedTracks(group.tracks);
 
-    // 收集所有需要删除的文件路径
-    final allPaths = <String>[];
-    for (final track in group.tracks) {
-      allPaths.addAll(track.allDownloadPaths);
-    }
-
-    // 在 Isolate 中执行文件删除（避免阻塞 UI）
-    await compute(_deleteFilesInIsolate, allPaths);
-
-    // 清除数据库中的下载路径（必须在主线程）
-    for (final track in group.tracks) {
-      await trackRepo.clearDownloadPath(track.id);
-    }
-
-    // 刷新列表
     ref.invalidate(downloadedCategoryTracksProvider(folderPath));
     ref.invalidate(downloadedCategoriesProvider);
+    ref.invalidate(fileExistsCacheProvider);
+
+    final playlistNotifier = ref.read(playlistListProvider.notifier);
+    for (final playlistId in result.affectedPlaylistIds) {
+      playlistNotifier.invalidatePlaylistProviders(playlistId);
+    }
   }
 }
 
@@ -781,165 +778,166 @@ class _DownloadedTrackTile extends ConsumerWidget {
       menuBuilder: (_) => _buildMenuItems(),
       onSelected: (value) => _handleMenuAction(context, ref, value),
       child: Padding(
-      padding: EdgeInsets.only(left: indent ? 56 : 0),
-      child: ListTile(
-        leading: isPartOfMultiPage
-            // 分P使用与搜索页面相同的样式
-            ? (isPlaying
-                ? NowPlayingIndicator(
-                    size: 24,
-                    color: colorScheme.primary,
-                  )
-                : Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest,
-                      borderRadius: AppRadius.borderRadiusSm,
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      'P${track.pageNum ?? 1}',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: colorScheme.outline,
-                          ),
-                    ),
-                  ))
-            : TrackThumbnail(
-                track: track,
-                size: 48,
-                isPlaying: isPlaying,
-              ),
-        title: Text(
-          track.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: isPlaying ? colorScheme.primary : null,
-            fontWeight: isPlaying ? FontWeight.w600 : null,
-          ),
-        ),
-        subtitle: isPartOfMultiPage
-            ? null // 分P不显示副标题，与搜索页面一致
-            : Text(
-                track.artist ?? t.general.unknownArtist,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (track.durationMs != null)
-              SizedBox(
-                width: 48, // 与 IconButton 宽度对齐
-                child: Text(
-                  DurationFormatter.formatMs(track.durationMs!),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.outline,
+        padding: EdgeInsets.only(left: indent ? 56 : 0),
+        child: ListTile(
+          leading: isPartOfMultiPage
+              // 分P使用与搜索页面相同的样式
+              ? (isPlaying
+                  ? NowPlayingIndicator(
+                      size: 24,
+                      color: colorScheme.primary,
+                    )
+                  : Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest,
+                        borderRadius: AppRadius.borderRadiusSm,
                       ),
-                  textAlign: TextAlign.center,
+                      alignment: Alignment.center,
+                      child: Text(
+                        'P${track.pageNum ?? 1}',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: colorScheme.outline,
+                            ),
+                      ),
+                    ))
+              : TrackThumbnail(
+                  track: track,
+                  size: 48,
+                  isPlaying: isPlaying,
                 ),
-              ),
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, size: 20),
-              onSelected: (value) => _handleMenuAction(context, ref, value),
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'play_next',
-                  child: ListTile(
-                    leading: const Icon(Icons.queue_play_next),
-                    title: Text(t.general.playNext),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'add_to_queue',
-                  child: ListTile(
-                    leading: const Icon(Icons.add_to_queue),
-                    title: Text(t.general.addToQueue),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'add_to_playlist',
-                  child: ListTile(
-                    leading: const Icon(Icons.playlist_add),
-                    title: Text(t.general.addToPlaylist),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'matchLyrics',
-                  child: ListTile(
-                    leading: const Icon(Icons.lyrics_outlined),
-                    title: Text(t.lyrics.matchLyrics),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                const PopupMenuDivider(),
-                PopupMenuItem(
-                  value: 'delete',
-                  child: ListTile(
-                    leading: const Icon(Icons.delete_outline),
-                    title: Text(t.library.deleteDownload),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              ],
+          title: Text(
+            track.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: isPlaying ? colorScheme.primary : null,
+              fontWeight: isPlaying ? FontWeight.w600 : null,
             ),
-          ],
+          ),
+          subtitle: isPartOfMultiPage
+              ? null // 分P不显示副标题，与搜索页面一致
+              : Text(
+                  track.artist ?? t.general.unknownArtist,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (track.durationMs != null)
+                SizedBox(
+                  width: 48, // 与 IconButton 宽度对齐
+                  child: Text(
+                    DurationFormatter.formatMs(track.durationMs!),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.outline,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, size: 20),
+                onSelected: (value) => _handleMenuAction(context, ref, value),
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'play_next',
+                    child: ListTile(
+                      leading: const Icon(Icons.queue_play_next),
+                      title: Text(t.general.playNext),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'add_to_queue',
+                    child: ListTile(
+                      leading: const Icon(Icons.add_to_queue),
+                      title: Text(t.general.addToQueue),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'add_to_playlist',
+                    child: ListTile(
+                      leading: const Icon(Icons.playlist_add),
+                      title: Text(t.general.addToPlaylist),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'matchLyrics',
+                    child: ListTile(
+                      leading: const Icon(Icons.lyrics_outlined),
+                      title: Text(t.lyrics.matchLyrics),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: ListTile(
+                      leading: const Icon(Icons.delete_outline),
+                      title: Text(t.library.deleteDownload),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          onTap: onTap,
         ),
-        onTap: onTap,
-      ),
       ),
     );
   }
 
   List<PopupMenuEntry<String>> _buildMenuItems() => [
-    PopupMenuItem(
-      value: 'play_next',
-      child: ListTile(
-        leading: const Icon(Icons.queue_play_next),
-        title: Text(t.general.playNext),
-        contentPadding: EdgeInsets.zero,
-      ),
-    ),
-    PopupMenuItem(
-      value: 'add_to_queue',
-      child: ListTile(
-        leading: const Icon(Icons.add_to_queue),
-        title: Text(t.general.addToQueue),
-        contentPadding: EdgeInsets.zero,
-      ),
-    ),
-    PopupMenuItem(
-      value: 'add_to_playlist',
-      child: ListTile(
-        leading: const Icon(Icons.playlist_add),
-        title: Text(t.general.addToPlaylist),
-        contentPadding: EdgeInsets.zero,
-      ),
-    ),
-    PopupMenuItem(
-      value: 'matchLyrics',
-      child: ListTile(
-        leading: const Icon(Icons.lyrics_outlined),
-        title: Text(t.lyrics.matchLyrics),
-        contentPadding: EdgeInsets.zero,
-      ),
-    ),
-    const PopupMenuDivider(),
-    PopupMenuItem(
-      value: 'delete',
-      child: ListTile(
-        leading: const Icon(Icons.delete_outline),
-        title: Text(t.library.deleteDownload),
-        contentPadding: EdgeInsets.zero,
-      ),
-    ),
-  ];
+        PopupMenuItem(
+          value: 'play_next',
+          child: ListTile(
+            leading: const Icon(Icons.queue_play_next),
+            title: Text(t.general.playNext),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          value: 'add_to_queue',
+          child: ListTile(
+            leading: const Icon(Icons.add_to_queue),
+            title: Text(t.general.addToQueue),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          value: 'add_to_playlist',
+          child: ListTile(
+            leading: const Icon(Icons.playlist_add),
+            title: Text(t.general.addToPlaylist),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          value: 'matchLyrics',
+          child: ListTile(
+            leading: const Icon(Icons.lyrics_outlined),
+            title: Text(t.lyrics.matchLyrics),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'delete',
+          child: ListTile(
+            leading: const Icon(Icons.delete_outline),
+            title: Text(t.library.deleteDownload),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      ];
 
-  void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
+  void _handleMenuAction(
+      BuildContext context, WidgetRef ref, String action) async {
     if (action == 'delete') {
       final confirmed = await showDialog<bool>(
         context: context,

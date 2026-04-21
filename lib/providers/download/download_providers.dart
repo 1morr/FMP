@@ -8,7 +8,6 @@ import '../../core/constants/ui_constants.dart';
 import '../../data/models/download_task.dart';
 import '../../data/models/track.dart';
 import '../../data/repositories/download_repository.dart';
-import '../../data/repositories/track_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/sources/source_provider.dart';
 import '../../services/download/download_service.dart';
@@ -25,6 +24,7 @@ import '../../i18n/strings.g.dart';
 // Re-export for convenience
 export 'download_scanner.dart';
 export '../../services/download/download_service.dart' show DownloadResult;
+export '../repository_providers.dart' show trackRepositoryProvider;
 
 // ==================== Repository Providers ====================
 
@@ -34,18 +34,12 @@ final downloadRepositoryProvider = Provider<DownloadRepository>((ref) {
   return DownloadRepository(isar);
 });
 
-/// TrackRepository Provider (for downloaded tracks)
-final trackRepositoryProvider = Provider<TrackRepository>((ref) {
-  final isar = ref.watch(databaseProvider).requireValue;
-  return TrackRepository(isar);
-});
-
 // ==================== Service Providers ====================
 
 /// DownloadService Provider
 final downloadServiceProvider = Provider<DownloadService>((ref) {
   final downloadRepo = ref.watch(downloadRepositoryProvider);
-  final trackRepo = TrackRepository(ref.watch(databaseProvider).requireValue);
+  final trackRepo = ref.watch(trackRepositoryProvider);
   final settingsRepo = SettingsRepository(ref.watch(databaseProvider).requireValue);
   final sourceManager = ref.watch(sourceManagerProvider);
   final service = DownloadService(

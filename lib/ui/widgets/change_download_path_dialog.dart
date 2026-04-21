@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import '../../core/constants/ui_constants.dart';
 import '../../providers/download_path_provider.dart';
-import '../../providers/repository_providers.dart';
 import '../../providers/download/file_exists_cache.dart';
-import '../../providers/download/download_providers.dart' show downloadedCategoriesProvider, downloadServiceProvider;
-import '../../providers/playlist_provider.dart' show allPlaylistsProvider, playlistDetailProvider;
+import '../../providers/download/download_providers.dart'
+    show downloadedCategoriesProvider;
+import '../../providers/playlist_provider.dart' show playlistListProvider;
 
 /// 更改下载路径对话框
 ///
@@ -189,7 +189,7 @@ class _ChangeDownloadPathDialogState
 
   Future<void> _onContinue() async {
     final pathManager = ref.read(downloadPathManagerProvider);
-    final trackRepo = ref.read(trackRepositoryProvider);
+    final maintenanceService = ref.read(downloadPathMaintenanceServiceProvider);
 
     // 显示选择状态
     setState(() => _state = _DialogState.selecting);
@@ -209,37 +209,22 @@ class _ChangeDownloadPathDialogState
       // 显示处理状态
       setState(() => _state = _DialogState.processing);
 
-      // A1: 清空所有下载路径
-      debugPrint('[ChangeDownloadPath] Clearing all download paths...');
-      await trackRepo.clearAllDownloadPaths();
-      debugPrint('[ChangeDownloadPath] Download paths cleared');
+      final result = await maintenanceService.changeBasePathAndResetDownloads(
+        newPath,
+      );
 
-      // A1: 清除已完成和失败的下载任务
-      debugPrint('[ChangeDownloadPath] Getting download service...');
-      final downloadService = ref.read(downloadServiceProvider);
-      debugPrint('[ChangeDownloadPath] Clearing completed/error tasks...');
-      await downloadService.clearCompletedAndErrorTasks();
-      debugPrint('[ChangeDownloadPath] Completed/error tasks cleared');
-
-      // 保存新路径
-      await pathManager.saveDownloadPath(newPath);
-
-      // 刷新相关 Provider
       ref.invalidate(fileExistsCacheProvider);
       ref.invalidate(downloadedCategoriesProvider);
       ref.invalidate(downloadPathProvider);
 
-      // 刷新所有歌单详情（因为下载路径被清空了）
-      final playlists = await ref.read(allPlaylistsProvider.future);
-      for (final playlist in playlists) {
-        ref.invalidate(playlistDetailProvider(playlist.id));
+      final playlistNotifier = ref.read(playlistListProvider.notifier);
+      for (final playlistId in result.affectedPlaylistIds) {
+        playlistNotifier.invalidatePlaylistProviders(playlistId);
       }
 
       if (mounted) {
-        // 保存 messenger 引用，避免跨异步间隙使用 context
         final messenger = ScaffoldMessenger.maybeOf(context);
         Navigator.pop(context, true);
-        // 延迟显示 toast，确保对话框已关闭
         if (messenger != null) {
           Future.delayed(AnimationDurations.fastest, () {
             messenger.showSnackBar(
@@ -262,7 +247,7 @@ class _ChangeDownloadPathDialogState
 /// 对话框状态
 enum _DialogState {
   confirmation, // 确认阶段
-  selecting,    // 正在选择文件夹
-  processing,   // 正在处理
-  error,        // 错误
+  selecting, // 正在选择文件夹
+  processing, // 正在处理
+  error, // 错误
 }
