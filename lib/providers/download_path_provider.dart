@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/download/download_path_maintenance_service.dart';
 import '../services/download/download_path_manager.dart';
 import '../services/download/download_path_sync_service.dart';
-import 'download/download_providers.dart' show downloadServiceProvider;
+import 'download/download_providers.dart' show downloadRepositoryProvider;
 import 'repository_providers.dart';
 
 /// DownloadPathManager Provider
@@ -22,11 +22,12 @@ final downloadPathMaintenanceServiceProvider =
     Provider<DownloadPathMaintenanceService>((ref) {
   final trackRepo = ref.watch(trackRepositoryProvider);
   final pathManager = ref.watch(downloadPathManagerProvider);
-  final downloadService = ref.watch(downloadServiceProvider);
+  final downloadRepository = ref.watch(downloadRepositoryProvider);
   return DownloadPathMaintenanceService(
     trackRepository: trackRepo,
     pathManager: pathManager,
-    clearCompletedAndErrorTasks: downloadService.clearCompletedAndErrorTasks,
+    clearCompletedAndErrorTasks:
+        downloadRepository.clearCompletedAndErrorTasks,
   );
 });
 

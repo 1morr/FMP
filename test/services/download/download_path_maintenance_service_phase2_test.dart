@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/download_task.dart';
 import 'package:fmp/data/models/settings.dart';
@@ -9,6 +10,10 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/download_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
+import 'package:fmp/providers/download/download_providers.dart'
+    as download_providers;
+import 'package:fmp/providers/download_path_provider.dart';
+import 'package:fmp/providers/repository_providers.dart' as repository_providers;
 import 'package:fmp/services/download/download_path_maintenance_service.dart';
 import 'package:fmp/services/download/download_path_manager.dart';
 import 'package:isar/isar.dart';
@@ -58,6 +63,31 @@ void main() {
         await tempDir.delete(recursive: true);
       }
     });
+
+    test(
+      'downloadPathMaintenanceServiceProvider builds without touching downloadServiceProvider',
+      () async {
+        final container = ProviderContainer(
+          overrides: [
+            repository_providers.trackRepositoryProvider
+                .overrideWith((ref) => trackRepository),
+            repository_providers.settingsRepositoryProvider
+                .overrideWith((ref) => settingsRepository),
+            download_providers.downloadRepositoryProvider
+                .overrideWith((ref) => downloadRepository),
+            download_providers.downloadServiceProvider.overrideWith((ref) {
+              throw StateError('downloadServiceProvider should not be read');
+            }),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final providerService =
+            container.read(downloadPathMaintenanceServiceProvider);
+
+        expect(providerService, isA<DownloadPathMaintenanceService>());
+      },
+    );
 
     test(
       'changeBasePathAndResetDownloads clears paths and tasks then saves new path',
@@ -115,6 +145,62 @@ void main() {
     );
 
     test(
+      'deleteDownloadedTracks clears only the matching multi-page entry by cid',
+      () async {
+        final pageOneFolder = Directory('${tempDir.path}/Playlist A/video-multi');
+        await pageOneFolder.create(recursive: true);
+        final pageOneAudioPath = '${pageOneFolder.path}/P01.m4a';
+        await File(pageOneAudioPath).writeAsString('audio');
+
+        final pageTwoFolder = Directory('${tempDir.path}/Playlist B/video-multi');
+        await pageTwoFolder.create(recursive: true);
+        final pageTwoAudioPath = '${pageTwoFolder.path}/P02.m4a';
+        await File(pageTwoAudioPath).writeAsString('audio');
+
+        final persistedPageOne = await trackRepository.save(
+          _track('video-multi')
+            ..cid = 101
+            ..pageNum = 1
+            ..playlistInfo = [
+              _info(1, 'Playlist A', pageOneAudioPath),
+            ],
+        );
+        final persistedPageTwo = await trackRepository.save(
+          _track('video-multi')
+            ..cid = 202
+            ..pageNum = 2
+            ..playlistInfo = [
+              _info(2, 'Playlist B', pageTwoAudioPath),
+            ],
+        );
+
+        final scannedTrack = _track('video-multi')
+          ..cid = 101
+          ..pageNum = 1
+          ..playlistInfo = [
+            _info(0, 'Playlist A', pageOneAudioPath),
+          ];
+
+        final result = await service.deleteDownloadedTracks([scannedTrack]);
+
+        expect(result.clearedPathCount, 1);
+        expect(result.affectedPlaylistIds, [1]);
+        expect(await File(pageOneAudioPath).exists(), isFalse);
+        expect(await File(pageTwoAudioPath).exists(), isTrue);
+
+        final refreshedPageOne =
+            await trackRepository.getById(persistedPageOne.id);
+        final refreshedPageTwo =
+            await trackRepository.getById(persistedPageTwo.id);
+        expect(refreshedPageOne?.playlistInfo.single.downloadPath, '');
+        expect(
+          refreshedPageTwo?.playlistInfo.single.downloadPath,
+          pageTwoAudioPath,
+        );
+      },
+    );
+
+    test(
       'deleteDownloadedCategory clears only matching persisted paths for deleted files',
       () async {
         final deletedFolder = Directory('${tempDir.path}/Playlist A/video-a');
@@ -143,8 +229,8 @@ void main() {
             ],
         );
 
-        final result = await service
-            .deleteDownloadedCategory('${tempDir.path}/Playlist A');
+        final result =
+            await service.deleteDownloadedCategory('${tempDir.path}/Playlist A');
 
         expect(result.clearedPathCount, 1);
         expect(result.affectedPlaylistIds, [1]);
