@@ -47,6 +47,7 @@ class AccountPlaylistsSheet extends ConsumerStatefulWidget {
 
 class _AccountPlaylistsSheetState
     extends ConsumerState<AccountPlaylistsSheet> {
+  final Object _importScopeToken = Object();
   List<_PlaylistItem>? _playlists;
   final Set<String> _selectedIds = {};
   bool _isLoading = true;
@@ -73,6 +74,7 @@ class _AccountPlaylistsSheetState
 
   @override
   void dispose() {
+    _cancelImport();
     _importStateSub?.close();
     super.dispose();
   }
@@ -239,7 +241,7 @@ class _AccountPlaylistsSheetState
     for (final item in selected) {
       if (!mounted || _isCancelled) break;
 
-      final scopeId = 'account-import-${widget.platform.name}-${item.id}';
+      final scopeId = 'account-import-${widget.platform.name}-${item.id}-${identityHashCode(_importScopeToken)}';
       final provider = importPlaylistProvider(scopeId);
       final notifier = ref.read(provider.notifier);
 

@@ -71,6 +71,9 @@ class ImportPlaylistNotifier extends StateNotifier<ImportPlaylistState> {
     _progressSubscription = service.progressStream.listen((progress) {
       state = state.copyWith(progress: progress);
     });
+    if (_cancelRequested) {
+      service.cancelImport();
+    }
     return service;
   }
 
@@ -94,6 +97,10 @@ class ImportPlaylistNotifier extends StateNotifier<ImportPlaylistState> {
     final service = await _ensureService();
 
     try {
+      if (_cancelRequested) {
+        state = const ImportPlaylistState(wasCancelled: true);
+        return null;
+      }
       final result = await service.importFromUrl(
         url,
         customName: customName,

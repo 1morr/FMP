@@ -51,6 +51,7 @@ class ImportPlaylistDialog extends ConsumerStatefulWidget {
 }
 
 class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
+  final Object _internalImportScopeToken = Object();
   final _urlController = TextEditingController();
   final _nameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -68,6 +69,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
   SearchSourceConfig _searchSource = SearchSourceConfig.all;
 
   // 内部导入
+  late final String _internalImportScopeId;
   ProviderSubscription<ImportPlaylistState>? _internalImportSub;
   ImportPlaylistState? _internalState;
 
@@ -78,8 +80,10 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
   @override
   void initState() {
     super.initState();
+    _internalImportScopeId =
+        'library-import-${identityHashCode(_internalImportScopeToken)}';
     _internalImportSub = ref.listenManual<ImportPlaylistState>(
-      importPlaylistProvider('library-import'),
+      importPlaylistProvider(_internalImportScopeId),
       (_, next) {
         if (!mounted) return;
         setState(() {
@@ -440,7 +444,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
     if (_detected?.type == _UrlType.external) {
       ref.read(playlistImportProvider.notifier).cancelImport();
     } else if (_detected?.type == _UrlType.internal) {
-      ref.read(importPlaylistProvider('library-import').notifier).cancelImport();
+      ref.read(importPlaylistProvider(_internalImportScopeId).notifier).cancelImport();
     }
     _externalProgressSub?.cancel();
   }
@@ -468,7 +472,7 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
       _internalState = const ImportPlaylistState();
     });
 
-    final provider = importPlaylistProvider('library-import');
+    final provider = importPlaylistProvider(_internalImportScopeId);
     final notifier = ref.read(provider.notifier);
 
     try {
