@@ -3,6 +3,7 @@ import 'package:equatable/equatable.dart';
 
 import '../data/models/live_room.dart';
 import '../data/models/track.dart';
+import '../data/models/video_detail.dart';
 export '../data/models/track.dart' show SourceType;
 export '../data/models/live_room.dart' show LiveRoomFilter, LiveRoom, LiveSearchResult;
 import '../data/models/search_history.dart';
@@ -10,6 +11,7 @@ import '../data/sources/base_source.dart';
 import '../data/sources/bilibili_source.dart';
 import '../data/sources/source_provider.dart' show sourceManagerProvider, bilibiliSourceProvider;
 import '../services/search/search_service.dart';
+import 'account_provider.dart';
 import 'database_provider.dart';
 import 'repository_providers.dart';
 
@@ -25,6 +27,7 @@ final searchServiceProvider = Provider<SearchService>((ref) {
     sourceManager: sourceManager,
     trackRepository: trackRepo,
     isar: db,
+    bilibiliAccountService: ref.watch(bilibiliAccountServiceProvider),
   );
 });
 
@@ -193,6 +196,10 @@ class SearchNotifier extends StateNotifier<SearchState> {
   int _searchRequestId = 0;
 
   SearchNotifier(this._service, this._bilibiliSource) : super(const SearchState());
+
+  Future<List<VideoPage>> loadVideoPagesForTrack(Track track) {
+    return _service.loadVideoPagesForTrack(track);
+  }
 
   /// 执行搜索（根据当前模式自动选择视频或直播间搜索）
   Future<void> search(String query) async {

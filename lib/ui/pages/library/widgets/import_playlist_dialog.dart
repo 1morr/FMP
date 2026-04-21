@@ -7,16 +7,14 @@ import 'package:simple_icons/simple_icons.dart';
 import '../../../../core/constants/ui_constants.dart';
 import '../../../../core/services/toast_service.dart';
 import '../../../../data/models/track.dart';
+import '../../../../data/sources/playlist_import/playlist_import_source.dart';
 import '../../../../data/sources/source_provider.dart';
-import '../../../../providers/database_provider.dart';
+import '../../../../i18n/strings.g.dart';
+import '../../../../providers/account_provider.dart';
+import '../../../../providers/import_playlist_provider.dart';
 import '../../../../providers/playlist_import_provider.dart';
 import '../../../../providers/playlist_provider.dart';
-import '../../../../providers/repository_providers.dart';
-import '../../../../services/import/import_service.dart' as url_import;
 import '../../../../services/import/playlist_import_service.dart';
-import '../../../../providers/account_provider.dart';
-import '../../../../data/sources/playlist_import/playlist_import_source.dart';
-import '../../../../i18n/strings.g.dart';
 import '../import_preview_page.dart';
 
 /// URL 导入类型
@@ -53,6 +51,7 @@ class ImportPlaylistDialog extends ConsumerStatefulWidget {
 }
 
 class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
+  final Object _internalImportScopeToken = Object();
   final _urlController = TextEditingController();
   final _nameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -70,19 +69,42 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
   SearchSourceConfig _searchSource = SearchSourceConfig.all;
 
   // 内部导入
-  url_import.ImportService? _internalImportService;
-  url_import.ImportProgress? _internalProgress;
-  StreamSubscription<url_import.ImportProgress>? _internalProgressSub;
+  late final String _internalImportScopeId;
+  ProviderSubscription<ImportPlaylistState>? _internalImportSub;
+  ImportPlaylistState? _internalState;
 
   // 外部导入进度
   ImportProgress? _externalProgress;
   StreamSubscription<ImportProgress>? _externalProgressSub;
 
   @override
+  void initState() {
+    super.initState();
+    _internalImportScopeId =
+        'library-import-${identityHashCode(_internalImportScopeToken)}';
+    _internalImportSub = ref.listenManual<ImportPlaylistState>(
+      importPlaylistProvider(_internalImportScopeId),
+      (_, next) {
+        if (!mounted) return;
+        setState(() {
+          _internalState = next;
+          if (!next.isImporting) {
+            _isImporting = false;
+          }
+          if (next.errorMessage != null) {
+            _errorMessage = next.errorMessage;
+          }
+        });
+      },
+      fireImmediately: true,
+    );
+  }
+
+  @override
   void dispose() {
     _urlController.dispose();
     _nameController.dispose();
-    _internalProgressSub?.cancel();
+    _internalImportSub?.close();
     _externalProgressSub?.cancel();
     super.dispose();
   }
@@ -372,7 +394,8 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
 
   String _getProgressText() {
     if (_detected?.type == _UrlType.internal) {
-      return _internalProgress?.currentItem ?? t.library.importPlaylist.processing;
+      return _internalState?.progress.currentItem ??
+          t.library.importPlaylist.processing;
     } else {
       return _externalProgress?.currentItem ??
           _getPhaseText(_externalProgress?.phase ?? ImportPhase.idle);
@@ -381,8 +404,8 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
 
   double? _getProgressValue() {
     if (_detected?.type == _UrlType.internal) {
-      final p = _internalProgress;
-      return p != null && p.total > 0 ? p.percentage : null;
+      final progress = _internalState?.progress;
+      return progress != null && progress.total > 0 ? progress.percentage : null;
     } else {
       final p = _externalProgress;
       return p != null && p.total > 0 ? p.percentage : null;
@@ -391,8 +414,10 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
 
   String? _getProgressCount() {
     if (_detected?.type == _UrlType.internal) {
-      final p = _internalProgress;
-      return p != null && p.total > 0 ? '${p.current} / ${p.total}' : null;
+      final progress = _internalState?.progress;
+      return progress != null && progress.total > 0
+          ? '${progress.current} / ${progress.total}'
+          : null;
     } else {
       final p = _externalProgress;
       return p != null && p.total > 0 ? '${p.current} / ${p.total}' : null;
@@ -418,9 +443,9 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
   void _cancelImport() {
     if (_detected?.type == _UrlType.external) {
       ref.read(playlistImportProvider.notifier).cancelImport();
+    } else if (_detected?.type == _UrlType.internal) {
+      ref.read(importPlaylistProvider(_internalImportScopeId).notifier).cancelImport();
     }
-    _internalImportService?.cancelImport();
-    _internalProgressSub?.cancel();
     _externalProgressSub?.cancel();
   }
 
@@ -444,41 +469,29 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
     setState(() {
       _isImporting = true;
       _errorMessage = null;
+      _internalState = const ImportPlaylistState();
     });
 
+    final provider = importPlaylistProvider(_internalImportScopeId);
+    final notifier = ref.read(provider.notifier);
+
     try {
-      final sourceManager = ref.read(sourceManagerProvider);
-      final playlistRepo = ref.read(playlistRepositoryProvider);
-      final trackRepo = ref.read(trackRepositoryProvider);
-      final isar = await ref.read(databaseProvider.future);
-
-      final importService = url_import.ImportService(
-        sourceManager: sourceManager,
-        playlistRepository: playlistRepo,
-        trackRepository: trackRepo,
-        isar: isar,
-        bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
-        youtubeAccountService: ref.read(youtubeAccountServiceProvider),
-        neteaseAccountService: ref.read(neteaseAccountServiceProvider),
-      );
-      _internalImportService = importService;
-
-      _internalProgressSub = importService.progressStream.listen((progress) {
-        if (mounted) {
-          setState(() => _internalProgress = progress);
-        }
-      });
-
       final url = _urlController.text.trim();
       final customName = _nameController.text.trim();
 
-      final result = await importService.importFromUrl(
+      final result = await notifier.importFromUrl(
         url,
         customName: customName.isEmpty ? null : customName,
         useAuth: _useAuth,
       );
 
-      // 刷新相关 providers
+      if (result == null) {
+        if (mounted) {
+          setState(() => _isImporting = false);
+        }
+        return;
+      }
+
       ref.invalidate(allPlaylistsProvider);
       ref.invalidate(playlistDetailProvider(result.playlist.id));
       ref.invalidate(playlistCoverProvider(result.playlist.id));
@@ -492,17 +505,18 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
         );
       }
     } catch (e) {
-      if (mounted && !e.toString().contains('导入已取消')) {
+      if (mounted) {
         setState(() {
           _isImporting = false;
           _errorMessage = e.toString();
         });
       }
     } finally {
-      _internalProgressSub?.cancel();
-      // 导入完全停止后清理残留的部分歌单（此时无 Isar 写入冲突）
-      await _internalImportService?.cleanupCancelledImport();
-      _internalImportService = null;
+      if (mounted) {
+        setState(() {
+          _internalState = ref.read(provider);
+        });
+      }
     }
   }
 

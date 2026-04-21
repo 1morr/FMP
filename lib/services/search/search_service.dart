@@ -4,11 +4,15 @@ import 'package:fmp/i18n/strings.g.dart';
 import 'package:isar/isar.dart';
 
 import '../../core/constants/app_constants.dart';
-import '../../data/models/track.dart';
+import '../../core/utils/auth_headers_utils.dart';
 import '../../data/models/search_history.dart';
-import '../../data/sources/base_source.dart';
-import '../../data/sources/source_provider.dart';
+import '../../data/models/track.dart';
+import '../../data/models/video_detail.dart';
 import '../../data/repositories/track_repository.dart';
+import '../../data/sources/base_source.dart';
+import '../../data/sources/bilibili_source.dart';
+import '../../data/sources/source_provider.dart';
+import '../../services/account/bilibili_account_service.dart';
 
 /// 搜索结果（包含多个音源）
 class MultiSourceSearchResult {
@@ -67,14 +71,17 @@ class SearchService {
   final SourceManager _sourceManager;
   final TrackRepository _trackRepository;
   final Isar _isar;
+  final BilibiliAccountService _bilibiliAccountService;
 
   SearchService({
     required SourceManager sourceManager,
     required TrackRepository trackRepository,
     required Isar isar,
+    required BilibiliAccountService bilibiliAccountService,
   })  : _sourceManager = sourceManager,
         _trackRepository = trackRepository,
-        _isar = isar;
+        _isar = isar,
+        _bilibiliAccountService = bilibiliAccountService;
 
   /// 在线搜索（所有启用的音源）
   Future<MultiSourceSearchResult> searchOnline(
@@ -136,6 +143,25 @@ class SearchService {
     }
 
     return source.search(query, page: page, pageSize: pageSize, order: order);
+  }
+
+  /// 加载 Bilibili 视频分P信息
+  Future<List<VideoPage>> loadVideoPagesForTrack(Track track) async {
+    if (track.sourceType != SourceType.bilibili) {
+      return const [];
+    }
+
+    final source = _sourceManager.getSource(SourceType.bilibili);
+    if (source is! BilibiliSource) {
+      throw SearchException(t.error.sourceUnavailable(source: SourceType.bilibili.name));
+    }
+
+    final authHeaders = await buildAuthHeaders(
+      SourceType.bilibili,
+      bilibiliAccountService: _bilibiliAccountService,
+    );
+
+    return source.getVideoPages(track.sourceId, authHeaders: authHeaders);
   }
 
   /// 本地搜索（已保存的歌曲）
