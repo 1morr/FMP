@@ -1,6 +1,3 @@
-import 'dart:io';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,24 +9,13 @@ import '../../../data/models/track.dart';
 import '../../../providers/download_provider.dart';
 import '../../../providers/download_path_provider.dart';
 import '../../../providers/download/file_exists_cache.dart';
-import '../../../providers/playlist_provider.dart' show allPlaylistsProvider, playlistDetailProvider;
+import '../../../providers/playlist_provider.dart'
+    show allPlaylistsProvider, playlistListProvider;
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/download/download_path_sync_service.dart';
 import '../../../i18n/strings.g.dart';
 import '../../router.dart';
 import '../../widgets/error_display.dart';
-
-/// 在 Isolate 中删除文件夹（避免阻塞 UI 线程）
-Future<void> _deleteFolderInIsolate(String folderPath) async {
-  try {
-    final folder = Directory(folderPath);
-    if (await folder.exists()) {
-      await folder.delete(recursive: true);
-    }
-  } on FileSystemException catch (_) {
-    // 文件夹删除失败不影响流程
-  }
-}
 
 /// 已下载页面 - 显示分类网格
 class DownloadedPage extends ConsumerStatefulWidget {
@@ -62,10 +48,10 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
       if (added > 0 || removed > 0) {
         // 刷新文件存在性缓存
         ref.invalidate(fileExistsCacheProvider);
-        // 刷新所有歌单详情（因为 track 的 downloadPaths 已更新）
+        final playlistNotifier = ref.read(playlistListProvider.notifier);
         final playlists = await ref.read(allPlaylistsProvider.future);
         for (final playlist in playlists) {
-          ref.invalidate(playlistDetailProvider(playlist.id));
+          playlistNotifier.invalidatePlaylistProviders(playlist.id);
         }
       }
 
@@ -200,7 +186,8 @@ class _SyncProgressDialogState extends State<_SyncProgressDialog> {
             setState(() {
               _current = current;
               _total = total;
-              _status = t.library.downloadedPage.scanningProgress(current: current, total: total);
+              _status = t.library.downloadedPage
+                  .scanningProgress(current: current, total: total);
             });
           }
         },
@@ -382,7 +369,8 @@ class _CategoryCard extends ConsumerWidget {
               ),
               ListTile(
                 leading: Icon(Icons.delete, color: colorScheme.error),
-                title: Text(t.library.downloadedPage.deleteCategory, style: TextStyle(color: colorScheme.error)),
+                title: Text(t.library.downloadedPage.deleteCategory,
+                    style: TextStyle(color: colorScheme.error)),
                 onTap: () {
                   Navigator.pop(context);
                   _showDeleteConfirm(context, ref);
@@ -396,7 +384,8 @@ class _CategoryCard extends ConsumerWidget {
   }
 
   void _addAllToQueue(BuildContext context, WidgetRef ref) async {
-    final tracksAsync = await ref.read(downloadedCategoryTracksProvider(category.folderPath).future);
+    final tracksAsync = await ref
+        .read(downloadedCategoryTracksProvider(category.folderPath).future);
 
     if (tracksAsync.isEmpty) {
       if (context.mounted) {
@@ -409,12 +398,14 @@ class _CategoryCard extends ConsumerWidget {
     final added = await controller.addAllToQueue(tracksAsync);
 
     if (added && context.mounted) {
-      ToastService.success(context, t.library.addedToQueue(n: tracksAsync.length));
+      ToastService.success(
+          context, t.library.addedToQueue(n: tracksAsync.length));
     }
   }
 
   void _shuffleAddToQueue(BuildContext context, WidgetRef ref) async {
-    final tracksAsync = await ref.read(downloadedCategoryTracksProvider(category.folderPath).future);
+    final tracksAsync = await ref
+        .read(downloadedCategoryTracksProvider(category.folderPath).future);
 
     if (tracksAsync.isEmpty) {
       if (context.mounted) {
@@ -428,7 +419,8 @@ class _CategoryCard extends ConsumerWidget {
     final added = await controller.addAllToQueue(shuffled);
 
     if (added && context.mounted) {
-      ToastService.success(context, t.library.shuffledAddedToQueue(n: tracksAsync.length));
+      ToastService.success(
+          context, t.library.shuffledAddedToQueue(n: tracksAsync.length));
     }
   }
 
@@ -437,7 +429,8 @@ class _CategoryCard extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(t.library.downloadedPage.deleteCategoryTitle),
-        content: Text(t.library.downloadedPage.deleteCategoryConfirm(name: category.displayName)),
+        content: Text(t.library.downloadedPage
+            .deleteCategoryConfirm(name: category.displayName)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -460,27 +453,30 @@ class _CategoryCard extends ConsumerWidget {
 
   Future<void> _deleteCategory(BuildContext context, WidgetRef ref) async {
     try {
-      // 获取分类中的所有歌曲
-      final tracks = await ref.read(downloadedCategoryTracksProvider(category.folderPath).future);
-      final trackRepo = ref.read(trackRepositoryProvider);
+      final maintenanceService =
+          ref.read(downloadPathMaintenanceServiceProvider);
+      final result = await maintenanceService.deleteDownloadedCategory(
+        category.folderPath,
+      );
 
-      // 清除每首歌的下载路径（必须在主线程）
-      for (final track in tracks) {
-        await trackRepo.clearDownloadPath(track.id);
+      ref.invalidate(downloadedCategoriesProvider);
+      ref.invalidate(fileExistsCacheProvider);
+
+      final playlistNotifier = ref.read(playlistListProvider.notifier);
+      for (final playlistId in result.affectedPlaylistIds) {
+        playlistNotifier.invalidatePlaylistProviders(playlistId);
       }
 
-      // 在 Isolate 中删除整个文件夹（避免阻塞 UI）
-      await compute(_deleteFolderInIsolate, category.folderPath);
-
-      // 刷新分类列表
-      ref.invalidate(downloadedCategoriesProvider);
-
       if (context.mounted) {
-        ToastService.success(context, t.library.downloadedPage.categoryDeleted(name: category.displayName));
+        ToastService.success(
+          context,
+          t.library.downloadedPage.categoryDeleted(name: category.displayName),
+        );
       }
     } catch (e) {
       if (context.mounted) {
-        ToastService.error(context, t.library.downloadedPage.deleteFailed(error: e.toString()));
+        ToastService.error(context,
+            t.library.downloadedPage.deleteFailed(error: e.toString()));
       }
     }
   }
