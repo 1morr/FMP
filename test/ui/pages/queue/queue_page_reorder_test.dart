@@ -13,6 +13,7 @@ import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/data/sources/youtube_source.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
@@ -140,6 +141,7 @@ class _QueuePageTestAudioController extends AudioController {
          toastService: ToastService(),
          audioHandler: FmpAudioHandler(),
          windowsSmtcHandler: WindowsSmtcHandler(),
+         youtubeSource: YouTubeSource(),
        ) {
     state = PlayerState(
       queue: queue,
