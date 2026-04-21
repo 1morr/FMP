@@ -17,7 +17,7 @@ enum TrackAction {
   addToRemote,
 }
 
-TrackAction parseTrackAction(String action) {
+TrackAction? tryParseTrackAction(String action) {
   switch (action) {
     case _playMenuAction:
       return TrackAction.play;
@@ -31,6 +31,15 @@ TrackAction parseTrackAction(String action) {
       return TrackAction.matchLyrics;
     case _addToRemoteMenuAction:
       return TrackAction.addToRemote;
+  }
+
+  return null;
+}
+
+TrackAction parseTrackAction(String action) {
+  final parsedAction = tryParseTrackAction(action);
+  if (parsedAction != null) {
+    return parsedAction;
   }
 
   throw ArgumentError('Unsupported track action: $action');
