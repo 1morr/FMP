@@ -10,11 +10,47 @@ import '../../../data/repositories/play_history_repository.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/play_history_provider.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../handlers/track_action_handler.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../lyrics/lyrics_search_sheet.dart';
 import '../../widgets/context_menu_region.dart';
 import '../../widgets/track_thumbnail.dart';
 import '../../../core/constants/ui_constants.dart';
+
+Future<bool> handleHistorySharedTrackAction({
+  required String action,
+  required Track track,
+  required TrackActionAudioController audioController,
+  required void Function() onAddedToNext,
+  required void Function() onAddedToQueue,
+  required Future<void> Function() onAddToPlaylist,
+  required Future<void> Function() onMatchLyrics,
+}) async {
+  final parsedAction = tryParseTrackAction(action);
+  if (parsedAction == null || parsedAction == TrackAction.addToRemote) {
+    return false;
+  }
+
+  final handler = TrackActionHandler(
+    audioController: audioController,
+    feedbackSink: CallbackTrackActionFeedbackSink(
+      onAddedToNext: onAddedToNext,
+      onAddedToQueue: onAddedToQueue,
+      onPleaseLogin: () {},
+    ),
+  );
+
+  await handler.handle(
+    parsedAction,
+    track: track,
+    isLoggedIn: false,
+    onAddToPlaylist: onAddToPlaylist,
+    onMatchLyrics: onMatchLyrics,
+    onAddToRemote: () async {},
+  );
+
+  return true;
+}
 
 /// 播放历史页面
 class PlayHistoryPage extends ConsumerStatefulWidget {
@@ -936,31 +972,35 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     PlayHistory history,
     String action,
   ) async {
-    final controller = ref.read(audioControllerProvider.notifier);
     final track = history.toTrack();
-
-    switch (action) {
-      case 'play':
-        controller.playTemporary(track);
-        break;
-      case 'play_next':
-        final added = await controller.addNext(track);
-        if (added && context.mounted) {
+    final handled = await handleHistorySharedTrackAction(
+      action: action,
+      track: track,
+      audioController: AudioControllerTrackActionAdapter(
+        ref.read(audioControllerProvider.notifier),
+      ),
+      onAddedToNext: () {
+        if (context.mounted) {
           ToastService.success(context, t.playHistoryPage.toastAddedToNext);
         }
-        break;
-      case 'add_to_queue':
-        final added = await controller.addToQueue(track);
-        if (added && context.mounted) {
+      },
+      onAddedToQueue: () {
+        if (context.mounted) {
           ToastService.success(context, t.playHistoryPage.toastAddedToQueue);
         }
-        break;
-      case 'add_to_playlist':
+      },
+      onAddToPlaylist: () async {
         showAddToPlaylistDialog(context: context, track: track);
-        break;
-      case 'matchLyrics':
+      },
+      onMatchLyrics: () async {
         showLyricsSearchSheet(context: context, track: track);
-        break;
+      },
+    );
+    if (handled) {
+      return;
+    }
+
+    switch (action) {
       case 'delete':
         await ref.read(playHistoryActionsProvider).delete(history.id);
         if (context.mounted) {
@@ -968,6 +1008,9 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
         }
         break;
       case 'delete_all':
+        if (!context.mounted) {
+          return;
+        }
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
