@@ -8,10 +8,9 @@ import '../../../../core/services/image_loading_service.dart';
 import '../../../../core/services/toast_service.dart';
 import '../../../../data/models/track.dart';
 import '../../../../data/sources/bilibili_source.dart';
-import '../../../../data/sources/source_provider.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../../../providers/account_provider.dart';
-import '../../../../providers/database_provider.dart';
+import '../../../../providers/import_playlist_provider.dart';
 import '../../../../providers/playlist_provider.dart';
 import '../../../../providers/repository_providers.dart';
 import '../../../../services/import/import_service.dart';
@@ -62,8 +61,8 @@ class _AccountPlaylistsSheetState
 
   // 單個歌單內的曲目進度
   ImportProgress? _trackProgress;
-  StreamSubscription<ImportProgress>? _trackProgressSub;
-  ImportService? _currentImportService;
+  ProviderSubscription<ImportPlaylistState>? _importStateSub;
+  String? _activeImportScopeId;
   bool _isCancelled = false;
 
   @override
@@ -74,15 +73,16 @@ class _AccountPlaylistsSheetState
 
   @override
   void dispose() {
-    _trackProgressSub?.cancel();
-    _currentImportService?.cancelImport();
+    _importStateSub?.close();
     super.dispose();
   }
 
   void _cancelImport() {
     _isCancelled = true;
-    _currentImportService?.cancelImport();
-    _trackProgressSub?.cancel();
+    final activeScopeId = _activeImportScopeId;
+    if (activeScopeId != null) {
+      ref.read(importPlaylistProvider(activeScopeId).notifier).cancelImport();
+    }
   }
 
   Future<void> _loadPlaylists() async {
@@ -233,73 +233,65 @@ class _AccountPlaylistsSheetState
       _importError = null;
     });
 
-    final sourceManager = ref.read(sourceManagerProvider);
-    final playlistRepo = ref.read(playlistRepositoryProvider);
-    final trackRepo = ref.read(trackRepositoryProvider);
-    final isar = await ref.read(databaseProvider.future);
-
-    final importService = ImportService(
-      sourceManager: sourceManager,
-      playlistRepository: playlistRepo,
-      trackRepository: trackRepo,
-      isar: isar,
-      bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
-      youtubeAccountService: ref.read(youtubeAccountServiceProvider),
-      neteaseAccountService: ref.read(neteaseAccountServiceProvider),
-    );
-
     int successCount = 0;
     String? importError;
 
     for (final item in selected) {
       if (!mounted || _isCancelled) break;
+
+      final scopeId = 'account-import-${widget.platform.name}-${item.id}';
+      final provider = importPlaylistProvider(scopeId);
+      final notifier = ref.read(provider.notifier);
+
       setState(() {
         _importCurrent++;
         _currentPlaylistName = item.title;
         _trackProgress = null;
+        _activeImportScopeId = scopeId;
       });
 
       try {
-        _currentImportService = importService;
+        _importStateSub?.close();
+        _importStateSub = ref.listenManual<ImportPlaylistState>(
+          provider,
+          (_, next) {
+            if (!mounted) return;
+            setState(() {
+              _trackProgress = next.progress.total > 0 || next.progress.currentItem != null
+                  ? next.progress
+                  : null;
+            });
+          },
+          fireImmediately: true,
+        );
 
-        _trackProgressSub?.cancel();
-        _trackProgressSub = importService.progressStream.listen((progress) {
-          if (mounted) {
-            setState(() => _trackProgress = progress);
-          }
-        });
-
-        await importService.importFromUrl(
+        final result = await notifier.importFromUrl(
           item.importUrl,
           useAuth: true,
         );
-        successCount++;
+        if (result != null) {
+          successCount++;
+        }
       } catch (e) {
         if (_isCancelled) break;
-        // 非取消錯誤：停止導入，顯示錯誤
         importError = t.remote.error.unknown(code: 'IMPORT');
         break;
       } finally {
-        _trackProgressSub?.cancel();
-        _trackProgressSub = null;
-        await importService.cleanupCancelledImport();
+        _importStateSub?.close();
+        _importStateSub = null;
+        _activeImportScopeId = null;
       }
     }
-
-    _currentImportService = null;
-    importService.dispose();
 
     if (!mounted) return;
     ref.invalidate(allPlaylistsProvider);
 
     if (importError != null) {
-      // 有錯誤：留在 sheet，顯示錯誤信息
       setState(() {
         _isImporting = false;
         _importError = importError;
         _selectedIds.clear();
       });
-      // 輕量刷新已導入狀態（不重新請求 API）
       _refreshImportStatus();
     } else {
       if (!mounted) return;
