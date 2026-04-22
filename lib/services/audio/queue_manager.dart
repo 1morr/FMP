@@ -7,7 +7,6 @@ import '../../data/models/play_queue.dart';
 import '../../data/models/track.dart';
 import '../../data/repositories/queue_repository.dart';
 import '../../data/repositories/track_repository.dart';
-import 'audio_stream_manager.dart';
 import 'queue_persistence_manager.dart';
 
 /// 播放队列管理器（纯队列逻辑）
@@ -17,7 +16,6 @@ class QueueManager with Logging {
   final QueueRepository _queueRepository;
   final TrackRepository _trackRepository;
   final QueuePersistenceManager _queuePersistenceManager;
-  final AudioStreamManager _audioStreamManager;
 
   // 队列数据
   List<Track> _tracks = [];
@@ -177,13 +175,9 @@ class QueueManager with Logging {
     required QueueRepository queueRepository,
     required TrackRepository trackRepository,
     required QueuePersistenceManager queuePersistenceManager,
-    required AudioStreamManager audioStreamManager,
   })  : _queueRepository = queueRepository,
         _trackRepository = trackRepository,
-        _queuePersistenceManager = queuePersistenceManager,
-        _audioStreamManager = audioStreamManager {
-    _audioStreamManager.attachQueueTrackUpdater(replaceTrack);
-  }
+        _queuePersistenceManager = queuePersistenceManager;
 
   /// 初始化队列（从持久化存储加载）
   Future<void> initialize() async {
@@ -272,8 +266,7 @@ class QueueManager with Logging {
   double get savedVolume => _currentQueue?.lastVolume ?? 1.0;
 
   /// 获取播放位置恢复设置
-  Future<({bool enabled, int restartRewindSeconds, int tempPlayRewindSeconds})>
-      getPositionRestoreSettings() async {
+  Future<AudioRuntimeSettings> getPositionRestoreSettings() async {
     return _queuePersistenceManager.getPositionRestoreSettings();
   }
 
@@ -286,18 +279,6 @@ class QueueManager with Logging {
   }
 
   // ========== Mix 播放列表狀態 ==========
-
-  /// 是否為 Mix 播放模式
-  bool get isMixMode => _currentQueue?.isMixMode ?? false;
-
-  /// Mix 播放列表 ID
-  String? get mixPlaylistId => _currentQueue?.mixPlaylistId;
-
-  /// Mix 種子視頻 ID
-  String? get mixSeedVideoId => _currentQueue?.mixSeedVideoId;
-
-  /// Mix 播放列表標題
-  String? get mixTitle => _currentQueue?.mixTitle;
 
   /// 設置 Mix 播放模式
   Future<void> setMixMode({
@@ -674,10 +655,7 @@ class QueueManager with Logging {
 
     if (_currentQueue != null) {
       _currentQueue!.originalOrder = [];
-      _currentQueue!.isMixMode = false;
-      _currentQueue!.mixPlaylistId = null;
-      _currentQueue!.mixSeedVideoId = null;
-      _currentQueue!.mixTitle = null;
+      await clearMixMode();
       await _persistQueue();
     }
 
@@ -748,6 +726,7 @@ class QueueManager with Logging {
     final index = _tracks.indexWhere((t) => t.id == updatedTrack.id);
     if (index >= 0) {
       _tracks[index] = updatedTrack;
+      _notifyStateChanged();
     }
   }
 
