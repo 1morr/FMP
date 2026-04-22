@@ -4,6 +4,20 @@ import '../../data/repositories/queue_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
 
+class AudioRuntimeSettings {
+  const AudioRuntimeSettings({
+    required this.rememberPlaybackPosition,
+    required this.restartRewindSeconds,
+    required this.tempPlayRewindSeconds,
+  });
+
+  final bool rememberPlaybackPosition;
+  final int restartRewindSeconds;
+  final int tempPlayRewindSeconds;
+
+  bool get enabled => rememberPlaybackPosition;
+}
+
 class QueueRestoreState {
   const QueueRestoreState({
     required this.queue,
@@ -113,11 +127,10 @@ class QueuePersistenceManager {
     await _queueRepository.save(queue);
   }
 
-  Future<({bool enabled, int restartRewindSeconds, int tempPlayRewindSeconds})>
-      getPositionRestoreSettings() async {
+  Future<AudioRuntimeSettings> getPositionRestoreSettings() async {
     final settings = await _settingsRepository.get();
-    return (
-      enabled: settings.rememberPlaybackPosition,
+    return AudioRuntimeSettings(
+      rememberPlaybackPosition: settings.rememberPlaybackPosition,
       restartRewindSeconds: settings.restartRewindSeconds,
       tempPlayRewindSeconds: settings.tempPlayRewindSeconds,
     );
