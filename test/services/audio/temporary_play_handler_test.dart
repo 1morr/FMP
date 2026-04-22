@@ -12,7 +12,6 @@ import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
-import 'package:fmp/data/sources/youtube_source.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_playback_types.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
@@ -70,7 +69,6 @@ void main() {
         queueRepository: queueRepository,
         trackRepository: trackRepository,
         queuePersistenceManager: queuePersistenceManager,
-        audioStreamManager: audioStreamManager,
       );
 
       audioService = FakeAudioService();
@@ -81,7 +79,6 @@ void main() {
         toastService: ToastService(),
         audioHandler: FmpAudioHandler(),
         windowsSmtcHandler: WindowsSmtcHandler(),
-        youtubeSource: YouTubeSource(),
         settingsRepository: settingsRepository,
       );
 
@@ -100,6 +97,25 @@ void main() {
         await tempDir.delete(recursive: true);
       }
     });
+
+    test(
+      'buildQueueRestorePlan keeps queue restore shape inside handler',
+      () {
+        const handler = TemporaryPlayHandler();
+
+        final restorePlan = handler.buildQueueRestorePlan(
+          savedQueueIndex: 2,
+          savedPosition: const Duration(seconds: 28),
+          savedWasPlaying: true,
+        );
+
+        expect(restorePlan, isNotNull);
+        expect(restorePlan!.savedIndex, 2);
+        expect(restorePlan.savedPosition, const Duration(seconds: 28));
+        expect(restorePlan.savedWasPlaying, isTrue);
+        expect(restorePlan.rewindSeconds, 0);
+      },
+    );
 
     test(
       'buildRestorePlan keeps original queue target across chained temporary play',
@@ -175,15 +191,22 @@ void main() {
           orderedEquals(['queue-b', 'queue-c']),
         );
 
+        audioService.setUrlCalls.clear();
+        audioService.seekCalls.clear();
+        final restoreSetUrl = audioService.waitForSetUrlCallCount(1);
+        final restoreSeek = audioService.waitForSeekCallCount(1);
+
         audioService.emitCompleted();
+        await restoreSetUrl;
+        await restoreSeek;
         await pumpEventQueue(times: 20);
 
         expect(controller.state.currentIndex, 1);
         expect(controller.state.playingTrack?.sourceId, 'queue-b');
         expect(controller.state.currentTrack?.sourceId, 'queue-b');
-        expect(audioService.setUrlCalls.last.url,
+        expect(audioService.setUrlCalls.single.url,
             'https://example.com/queue-b.m4a');
-        expect(audioService.seekCalls.last, const Duration(seconds: 35));
+        expect(audioService.seekCalls.single, const Duration(seconds: 35));
         expect(controller.state.isPlaying, isFalse);
       },
     );

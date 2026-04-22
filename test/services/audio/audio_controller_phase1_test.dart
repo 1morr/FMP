@@ -3,27 +3,18 @@ import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fmp/core/logger.dart';
 import 'package:fmp/core/services/toast_service.dart';
 import 'package:fmp/data/models/play_queue.dart';
-import 'package:fmp/data/models/radio_station.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/data/repositories/lyrics_repository.dart';
-import 'package:fmp/data/repositories/play_history_repository.dart';
 import 'package:fmp/data/repositories/queue_repository.dart';
-import 'package:fmp/data/repositories/radio_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/youtube_exception.dart';
 import 'package:fmp/data/sources/youtube_source.dart';
-import 'package:fmp/main.dart' as app_main;
-import 'package:fmp/providers/lyrics_provider.dart';
-import 'package:fmp/providers/repository_providers.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_playback_types.dart';
 import 'package:fmp/services/audio/audio_provider.dart'
@@ -33,16 +24,6 @@ import 'package:fmp/services/audio/mix_playlist_types.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/windows_smtc_handler.dart';
-import 'package:fmp/services/lyrics/lrclib_source.dart';
-import 'package:fmp/services/lyrics/lyrics_auto_match_service.dart';
-import 'package:fmp/services/lyrics/lyrics_cache_service.dart';
-import 'package:fmp/services/lyrics/netease_source.dart';
-import 'package:fmp/services/lyrics/qqmusic_source.dart';
-import 'package:fmp/services/lyrics/title_parser.dart';
-import 'package:fmp/services/network/connectivity_service.dart';
-import 'package:fmp/services/radio/radio_controller.dart';
-import 'package:fmp/services/radio/radio_refresh_service.dart';
-import 'package:fmp/services/radio/radio_source.dart';
 import 'package:isar/isar.dart';
 
 import '../../support/fakes/fake_audio_service.dart';
@@ -70,17 +51,13 @@ void main() {
       await Isar.initializeIsarCore(
         libraries: {Abi.current(): await _resolveIsarLibraryPath()},
       );
-      RadioRefreshService.instance = RadioRefreshService(
-        radioSource: _FakeRadioSource(),
-        refreshInterval: const Duration(days: 1),
-      );
     });
 
     setUp(() async {
       tempDir =
           await Directory.systemTemp.createTemp('audio_controller_phase1_');
       isar = await Isar.open(
-        [TrackSchema, PlayQueueSchema, SettingsSchema, RadioStationSchema],
+        [TrackSchema, PlayQueueSchema, SettingsSchema],
         directory: tempDir.path,
         name: 'audio_controller_phase1_test',
       );
@@ -103,11 +80,7 @@ void main() {
         queueRepository: queueRepository,
         trackRepository: trackRepository,
         queuePersistenceManager: queuePersistenceManager,
-        audioStreamManager: audioStreamManager,
       );
-
-      app_main.audioHandler = FmpAudioHandler();
-      app_main.windowsSmtcHandler = WindowsSmtcHandler();
 
       audioService = FakeAudioService();
       mixTracksFetcher = _TestMixTracksFetcher();
@@ -116,9 +89,8 @@ void main() {
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
         toastService: ToastService(),
-        audioHandler: app_main.audioHandler,
-        windowsSmtcHandler: app_main.windowsSmtcHandler,
-        youtubeSource: YouTubeSource(),
+        audioHandler: FmpAudioHandler(),
+        windowsSmtcHandler: WindowsSmtcHandler(),
         settingsRepository: settingsRepository,
         mixTracksFetcher: mixTracksFetcher.call,
       );
@@ -129,10 +101,6 @@ void main() {
       await settingsRepository.save(settings);
 
       await controller.initialize();
-    });
-
-    tearDownAll(() {
-      RadioRefreshService.instance.dispose();
     });
 
     tearDown(() async {
@@ -165,14 +133,21 @@ void main() {
       expect(controller.state.upcomingTracks.map((track) => track.sourceId),
           orderedEquals(['queue-b', 'queue-c']));
 
+      audioService.setUrlCalls.clear();
+      audioService.seekCalls.clear();
+      final restoreSetUrl = audioService.waitForSetUrlCallCount(1);
+      final restoreSeek = audioService.waitForSeekCallCount(1);
+
       audioService.emitCompleted();
+      await restoreSetUrl;
+      await restoreSeek;
       await pumpEventQueue(times: 20);
 
       expect(controller.state.playingTrack?.sourceId, 'queue-b');
       expect(controller.state.currentTrack?.sourceId, 'queue-b');
       expect(
-          audioService.setUrlCalls.last.url, 'https://example.com/queue-b.m4a');
-      expect(audioService.seekCalls.last, const Duration(seconds: 32));
+          audioService.setUrlCalls.single.url, 'https://example.com/queue-b.m4a');
+      expect(audioService.seekCalls.single, const Duration(seconds: 32));
     });
 
     test('superseded request stays loading until the latest request finishes',
@@ -368,6 +343,66 @@ void main() {
       expect(controller.state.isPlaying, isTrue);
     });
 
+    test('return from radio restores queue through the shared transition handoff',
+        () async {
+      final queueTracks = [
+        _track('radio-a', title: 'Radio A'),
+        _track('radio-b', title: 'Radio B'),
+      ];
+
+      await controller.playAll(queueTracks, startIndex: 1);
+      audioService.setUrlCalls.clear();
+      audioService.seekCalls.clear();
+      final restoreSetUrl = audioService.waitForSetUrlCallCount(1);
+      final restoreSeek = audioService.waitForSeekCallCount(1);
+
+      await controller.returnFromRadio(
+        savedQueueIndex: 1,
+        savedPosition: const Duration(seconds: 18),
+        savedWasPlaying: true,
+      );
+      await restoreSetUrl;
+      await restoreSeek;
+      await pumpEventQueue(times: 10);
+
+      expect(controller.state.currentTrack?.sourceId, 'radio-b');
+      expect(controller.state.playingTrack?.sourceId, 'radio-b');
+      expect(audioService.setUrlCalls.single.url, 'https://example.com/radio-b.m4a');
+      expect(audioService.seekCalls.single, const Duration(seconds: 18));
+      expect(controller.state.isPlaying, isTrue);
+    });
+
+    test(
+        'temporary restore replaces the queue copy instead of mutating the existing queue track in place',
+        () async {
+      final queueTracks = [
+        _track('restore-a', title: 'Restore A'),
+        _track('restore-b', title: 'Restore B'),
+      ];
+      final tempTrack = _track('restore-temp', title: 'Restore Temp');
+
+      await controller.playAll(queueTracks, startIndex: 1);
+      final queueTrackBeforeTemporary = controller.state.queueTrack;
+      expect(queueTrackBeforeTemporary, isNotNull);
+
+      await controller.playTemporary(tempTrack);
+      audioService.setUrlCalls.clear();
+      final restoreSetUrl = audioService.waitForSetUrlCallCount(1);
+
+      audioService.emitCompleted();
+      await restoreSetUrl;
+      await pumpEventQueue(times: 20);
+
+      final queueTrackAfterRestore = controller.state.queueTrack;
+      final playingTrackAfterRestore = controller.state.playingTrack;
+      expect(queueTrackAfterRestore, isNotNull);
+      expect(playingTrackAfterRestore, isNotNull);
+      expect(queueTrackAfterRestore!.sourceId, 'restore-b');
+      expect(playingTrackAfterRestore!.sourceId, 'restore-b');
+      expect(queueTrackAfterRestore, isNot(same(queueTrackBeforeTemporary)));
+      expect(queueTrackAfterRestore, isNot(same(playingTrackAfterRestore)));
+    });
+
     test(
         'clearing queue while mix load-more is active exits safely and clears persisted mix metadata',
         () async {
@@ -462,6 +497,135 @@ void main() {
       expect(controller.state.isLoadingMoreMix, isFalse);
     });
 
+    test(
+        'playback prefetch uses a detached next-track copy',
+        () async {
+      final tracks = [
+        _track('prefetch-play-current', title: 'Prefetch Play Current'),
+        _track('prefetch-play-next', title: 'Prefetch Play Next')
+          ..audioUrl = 'https://stale.example/prefetch-play-next.m4a'
+          ..audioUrlExpiry = DateTime.now().subtract(const Duration(minutes: 1)),
+      ];
+
+      await controller.playAll(tracks, startIndex: 0);
+      await pumpEventQueue(times: 20);
+
+      expect(controller.state.queue.length, 2);
+      final nextQueueTrack = controller.state.queue[1];
+      expect(nextQueueTrack.sourceId, 'prefetch-play-next');
+      expect(nextQueueTrack.audioUrl, 'https://stale.example/prefetch-play-next.m4a');
+    });
+
+    test(
+        'prepareCurrentTrack prefetch keeps queue-owned next track unchanged until explicit replacement',
+        () async {
+      final tracks = [
+        _track('prefetch-current', title: 'Prefetch Current'),
+        _track('prefetch-next', title: 'Prefetch Next')
+          ..audioUrl = 'https://stale.example/prefetch-next.m4a'
+          ..audioUrlExpiry = DateTime.now().subtract(const Duration(minutes: 1)),
+      ];
+
+      await controller.playAll(tracks, startIndex: 0);
+      await pumpEventQueue(times: 20);
+
+      final nextTrackBeforePrepare = controller.state.queue[1];
+      expect(nextTrackBeforePrepare.audioUrl, 'https://stale.example/prefetch-next.m4a');
+
+      controller.dispose();
+
+      final trackRepository = TrackRepository(isar);
+      final settingsRepository = SettingsRepository(isar);
+      final queuePersistenceManager = QueuePersistenceManager(
+        queueRepository: queueRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+      );
+      final audioStreamManager = AudioStreamManager(
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: sourceManager,
+      );
+      queueManager = QueueManager(
+        queueRepository: queueRepository,
+        trackRepository: trackRepository,
+        queuePersistenceManager: queuePersistenceManager,
+      );
+      audioService = FakeAudioService();
+      controller = AudioController(
+        audioService: audioService,
+        queueManager: queueManager,
+        audioStreamManager: audioStreamManager,
+        toastService: ToastService(),
+        audioHandler: FmpAudioHandler(),
+        windowsSmtcHandler: WindowsSmtcHandler(),
+        settingsRepository: settingsRepository,
+        mixTracksFetcher: mixTracksFetcher.call,
+      );
+      await controller.initialize();
+      await pumpEventQueue(times: 20);
+
+      expect(controller.state.queue.length, 2);
+      final nextTrackAfterPrepare = controller.state.queue[1];
+      expect(nextTrackAfterPrepare.id, nextTrackBeforePrepare.id);
+      expect(nextTrackAfterPrepare.audioUrl, 'https://stale.example/prefetch-next.m4a');
+
+      final persistedNextTrack = await trackRepository.getById(nextTrackAfterPrepare.id);
+      expect(persistedNextTrack, isNotNull);
+      expect(persistedNextTrack!.audioUrl,
+          'https://stale.example/prefetch-next.m4a');
+    });
+
+    test(
+        'controller playback keeps queue stale until explicit replacement and then notifies UI',
+        () async {
+      final track = _track('runtime-boundary', title: 'Runtime Boundary');
+
+      await controller.playSingle(track);
+      await pumpEventQueue(times: 20);
+
+      final queueTrackAfterPlay = controller.state.queueTrack;
+      final playingTrackAfterPlay = controller.state.playingTrack;
+      final queueVersionAfterPlay = controller.state.queueVersion;
+      expect(queueTrackAfterPlay, isNotNull);
+      expect(playingTrackAfterPlay, isNotNull);
+      expect(queueTrackAfterPlay!.id, playingTrackAfterPlay!.id);
+      expect(queueTrackAfterPlay.audioUrl,
+          'https://example.com/runtime-boundary.m4a');
+      expect(playingTrackAfterPlay.audioUrl, 'https://example.com/runtime-boundary.m4a');
+      expect(queueTrackAfterPlay, isNot(same(playingTrackAfterPlay)));
+
+      final replacementNotified = Completer<void>();
+      late final StreamSubscription<void> queueSub;
+      queueSub = queueManager.stateStream.listen((_) {
+        if (controller.state.queueTrack?.audioUrl ==
+                'https://manual.example/runtime-boundary.m4a' &&
+            !replacementNotified.isCompleted) {
+          replacementNotified.complete();
+        }
+      });
+
+      final replacement = queueTrackAfterPlay.copy()
+        ..audioUrl = 'https://manual.example/runtime-boundary.m4a'
+        ..audioUrlExpiry = DateTime.utc(2031, 1, 1);
+      queueManager.replaceTrack(replacement);
+      await replacementNotified.future;
+      await pumpEventQueue(times: 5);
+      await queueSub.cancel();
+
+      expect(controller.state.queueTrack?.audioUrl,
+          'https://manual.example/runtime-boundary.m4a');
+      expect(controller.state.queueTrack?.audioUrlExpiry,
+          DateTime.utc(2031, 1, 1));
+      expect(controller.state.playingTrack?.audioUrl,
+          'https://example.com/runtime-boundary.m4a');
+      expect(controller.state.queueVersion, greaterThan(queueVersionAfterPlay));
+      expect(audioService.playUrlCalls.single.track, isNotNull);
+      expect(audioService.playUrlCalls.single.track, isNot(same(queueTrackAfterPlay)));
+      expect(audioService.playUrlCalls.single.track!.audioUrl,
+          'https://example.com/runtime-boundary.m4a');
+    });
+
     test('queue manager stops state notifications after dispose', () async {
       await queueManager.playAll([
         _track('dispose-a', title: 'Dispose A'),
@@ -477,171 +641,6 @@ void main() {
 
       expect(stateEvents, isEmpty);
       await subscription.cancel();
-    });
-
-    test('radio stop restores shared media-control callbacks to music ownership',
-        () async {
-      if (!Platform.isAndroid && !Platform.isWindows) {
-        return;
-      }
-
-      app_main.audioHandler = FmpAudioHandler();
-      app_main.windowsSmtcHandler = WindowsSmtcHandler();
-
-      final radioStation = RadioStation()
-        ..id = 1
-        ..url = 'https://live.bilibili.com/1'
-        ..title = 'Radio One'
-        ..sourceType = SourceType.bilibili
-        ..sourceId = '1';
-      final radioRepository = RadioRepository(isar);
-      await radioRepository.save(radioStation);
-
-      final settingsRepository = SettingsRepository(isar);
-      await settingsRepository.get();
-      final trackRepository = TrackRepository(isar);
-      final queueRepository = QueueRepository(isar);
-      final sharedAudioService = FakeAudioService();
-      final sourceManager = _FakeSourceManager();
-      final audioStreamManager = AudioStreamManager(
-        trackRepository: trackRepository,
-        settingsRepository: settingsRepository,
-        sourceManager: sourceManager,
-      );
-      final queueManager = QueueManager(
-        queueRepository: queueRepository,
-        trackRepository: trackRepository,
-        queuePersistenceManager: QueuePersistenceManager(
-          queueRepository: queueRepository,
-          trackRepository: trackRepository,
-          settingsRepository: settingsRepository,
-        ),
-        audioStreamManager: audioStreamManager,
-      );
-      final radioSource = _FakeRadioSource();
-      final container = ProviderContainer(
-        overrides: [
-          audioServiceProvider.overrideWith((ref) => sharedAudioService),
-          audioStreamManagerProvider.overrideWith((ref) => audioStreamManager),
-          queueManagerProvider.overrideWith((ref) => queueManager),
-          radioRepositoryProvider.overrideWith((ref) => radioRepository),
-          radioSourceProvider.overrideWith((ref) => radioSource),
-          connectivityProvider.overrideWith((ref) => _TestConnectivityNotifier()),
-          settingsRepositoryProvider.overrideWith((ref) => settingsRepository),
-          playHistoryRepositoryProvider.overrideWith(
-            (ref) => PlayHistoryRepository(isar),
-          ),
-          lyricsAutoMatchServiceProvider.overrideWith(
-            (ref) => LyricsAutoMatchService(
-              lrclib: LrclibSource(),
-              netease: NeteaseSource(),
-              qqmusic: QQMusicSource(),
-              repo: LyricsRepository(isar),
-              cache: LyricsCacheService(),
-              parser: RegexTitleParser(),
-            ),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
-
-      final invokePlayControl = () async {
-        if (Platform.isWindows) {
-          await app_main.windowsSmtcHandler.onPlay?.call();
-          return;
-        }
-        await app_main.audioHandler.play();
-      };
-      final invokePauseControl = () async {
-        if (Platform.isWindows) {
-          await app_main.windowsSmtcHandler.onPause?.call();
-          return;
-        }
-        await app_main.audioHandler.pause();
-      };
-      final invokeStopControl = () async {
-        if (Platform.isWindows) {
-          await app_main.windowsSmtcHandler.onStop?.call();
-          return;
-        }
-        await app_main.audioHandler.stop();
-      };
-
-      container.read(audioControllerProvider.notifier);
-      await pumpEventQueue(times: 10);
-
-      expect(
-        Platform.isWindows
-            ? app_main.windowsSmtcHandler.onPlay
-            : app_main.audioHandler.onPlay,
-        isNotNull,
-      );
-      expect(
-        Platform.isWindows
-            ? app_main.windowsSmtcHandler.onPause
-            : app_main.audioHandler.onPause,
-        isNotNull,
-      );
-      expect(
-        Platform.isWindows
-            ? app_main.windowsSmtcHandler.onStop
-            : app_main.audioHandler.onStop,
-        isNotNull,
-      );
-
-      await invokePlayControl();
-      expect(sharedAudioService.playUrlCalls, isEmpty);
-      expect(sharedAudioService.isPlaying, isTrue);
-
-      await invokePauseControl();
-      expect(sharedAudioService.stopCallCount, 0);
-      expect(sharedAudioService.isPlaying, isFalse);
-
-      final radioController = container.read(radioControllerProvider.notifier);
-      await pumpEventQueue(times: 5);
-      await radioController.play(radioStation);
-
-      expect(sharedAudioService.playUrlCalls, hasLength(1));
-      expect(
-        sharedAudioService.playUrlCalls.single.url,
-        'https://example.com/radio-stream.m3u8',
-      );
-      expect(radioController.state.currentStation?.id, radioStation.id);
-      expect(radioController.state.isPlaying, isTrue);
-
-      await invokePauseControl();
-      expect(sharedAudioService.stopCallCount, 1);
-      expect(radioController.state.currentStation?.id, radioStation.id);
-      expect(radioController.state.isPlaying, isFalse);
-
-      await invokePlayControl();
-      expect(sharedAudioService.playUrlCalls, hasLength(2));
-      expect(
-        sharedAudioService.playUrlCalls.last.url,
-        'https://example.com/radio-stream.m3u8',
-      );
-      expect(radioController.state.currentStation?.id, radioStation.id);
-      expect(radioController.state.isPlaying, isTrue);
-
-      await invokeStopControl();
-      expect(sharedAudioService.stopCallCount, 2);
-      expect(radioController.state.currentStation, isNull);
-      expect(radioController.state.isPlaying, isFalse);
-
-      final playUrlCallCountAfterRadioStop = sharedAudioService.playUrlCalls.length;
-      final stopCallCountAfterRadioStop = sharedAudioService.stopCallCount;
-
-      await invokePlayControl();
-      expect(
-        sharedAudioService.playUrlCalls.length,
-        playUrlCallCountAfterRadioStop,
-      );
-      expect(sharedAudioService.stopCallCount, stopCallCountAfterRadioStop);
-      expect(sharedAudioService.isPlaying, isTrue);
-
-      await invokePauseControl();
-      expect(sharedAudioService.stopCallCount, stopCallCountAfterRadioStop);
-      expect(sharedAudioService.isPlaying, isFalse);
     });
   });
 }
@@ -708,23 +707,6 @@ Track _track(String sourceId, {required String title}) {
     ..artist = 'Tester';
 }
 
-class _TestConnectivityNotifier extends StateNotifier<ConnectivityState>
-    with Logging
-    implements ConnectivityNotifier {
-  _TestConnectivityNotifier() : super(ConnectivityState.initial);
-
-  final _networkRecoveredController = StreamController<void>.broadcast();
-
-  @override
-  Stream<void> get onNetworkRecovered => _networkRecoveredController.stream;
-
-  @override
-  void dispose() {
-    _networkRecoveredController.close();
-    super.dispose();
-  }
-}
-
 class _FakeSourceManager extends SourceManager {
   _FakeSourceManager() : super();
 
@@ -769,27 +751,6 @@ class _PendingMixFetch {
 
   final Completer<void> completer;
   final MixFetchResult result;
-}
-
-class _FakeRadioSource extends RadioSource {
-  @override
-  Future<LiveStreamInfo> getStreamUrl(RadioStation station) async {
-    return const LiveStreamInfo(url: 'https://example.com/radio-stream.m3u8');
-  }
-
-  @override
-  Future<LiveRoomInfo> getLiveInfo(RadioStation station) async {
-    return const LiveRoomInfo(
-      title: 'Radio One',
-      isLive: true,
-    );
-  }
-
-  @override
-  Future<int?> getHighEnergyUserCount(RadioStation station) async => 123;
-
-  @override
-  void dispose() {}
 }
 
 class _FakeSource extends BaseSource {

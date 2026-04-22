@@ -144,8 +144,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   final PlayHistoryRepository? _playHistoryRepository;
   final LyricsAutoMatchService? _lyricsAutoMatchService;
   final SettingsRepository? _settingsRepository;
+  final QueuePersistenceManager? _queuePersistenceManager;
   final MixTracksFetcher? _mixTracksFetcher;
-  final YouTubeSource _youtubeSource;
 
   final List<StreamSubscription> _subscriptions = [];
   bool _isInitialized = false;
@@ -210,10 +210,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     required ToastService toastService,
     required FmpAudioHandler audioHandler,
     required WindowsSmtcHandler windowsSmtcHandler,
-    required YouTubeSource youtubeSource,
     PlayHistoryRepository? playHistoryRepository,
     LyricsAutoMatchService? lyricsAutoMatchService,
     SettingsRepository? settingsRepository,
+    QueuePersistenceManager? queuePersistenceManager,
     MixTracksFetcher? mixTracksFetcher,
   })  : _audioService = audioService,
         _queueManager = queueManager,
@@ -221,10 +221,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         _toastService = toastService,
         _audioHandler = audioHandler,
         _windowsSmtcHandler = windowsSmtcHandler,
-        _youtubeSource = youtubeSource,
         _playHistoryRepository = playHistoryRepository,
         _lyricsAutoMatchService = lyricsAutoMatchService,
         _settingsRepository = settingsRepository,
+        _queuePersistenceManager = queuePersistenceManager,
         _mixTracksFetcher = mixTracksFetcher,
         super(const PlayerState()) {
     _playbackRequestExecutor = PlaybackRequestExecutor(
@@ -326,37 +326,42 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // 更新初始状态
       _updateQueueState();
 
-      // 恢復 Mix 播放模式（如果之前是 Mix 模式）
-      if (_queueManager.isMixMode) {
-        final playlistId = _queueManager.mixPlaylistId;
-        final seedVideoId = _queueManager.mixSeedVideoId;
-        final title = _queueManager.mixTitle;
+      // 恢復 Mix 播放模式（如果之前有持久化的 Mix metadata）
+      final restoredQueueState = _queuePersistenceManager == null
+          ? null
+          : await _queuePersistenceManager!.restoreState();
+      final isRestoredMixMode = restoredQueueState?.queue.isMixMode ?? false;
+      final playlistId = restoredQueueState?.mixPlaylistId;
+      final seedVideoId = restoredQueueState?.mixSeedVideoId;
+      final title = restoredQueueState?.mixTitle;
+      if (isRestoredMixMode &&
+          playlistId != null &&
+          seedVideoId != null &&
+          title != null) {
+        logDebug('Restoring Mix mode: $title');
 
-        if (playlistId != null && seedVideoId != null && title != null) {
-          logDebug('Restoring Mix mode: $title');
-
-          // Mix 模式不支持隨機播放，確保關閉
-          if (_queueManager.isShuffleEnabled) {
-            await _queueManager.setShuffle(false);
-            if (_isDisposed) return;
-            state = state.copyWith(isShuffleEnabled: false);
-          }
-
-          final mixState = _mixPlaylistHandler.start(
-            playlistId: playlistId,
-            seedVideoId: seedVideoId,
-            title: title,
-          );
-          // 將已有的歌曲添加到 seenVideoIds（避免重複加載）
-          mixState.addSeenVideoIds(_queueManager.tracks.map((t) => t.sourceId));
-
-          // 更新 context 和 state
-          _context = _context.copyWith(mode: PlayMode.mix);
-          state = state.copyWith(
-            isMixMode: true,
-            mixTitle: title,
-          );
+        // Mix 模式不支持隨機播放，確保關閉
+        if (_queueManager.isShuffleEnabled) {
+          await _queueManager.setShuffle(false);
+          if (_isDisposed) return;
+          state = state.copyWith(isShuffleEnabled: false);
         }
+
+        final mixState = _mixPlaylistHandler.start(
+          playlistId: playlistId,
+          seedVideoId: seedVideoId,
+          title: title,
+        );
+        // 將已有的歌曲添加到 seenVideoIds（避免重複加載）
+        mixState.addSeenVideoIds(_queueManager.tracks.map((t) => t.sourceId));
+
+        // 更新 context 和 state
+        _context = _context.copyWith(mode: PlayMode.mix);
+        state = state.copyWith(
+          isMixMode: true,
+          mixTitle: title,
+        );
+        _triggerMixLoadMoreIfAtQueueEnd(PlayMode.mix);
       }
 
       // 恢复音量
@@ -552,11 +557,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
     final nextSnapshot = _temporaryPlayHandler.enterTemporary(
       currentMode: _context.mode,
-      currentState: TemporaryPlaybackState(
-        savedQueueIndex: _context.savedQueueIndex,
-        savedPosition: _context.savedPosition,
-        savedWasPlaying: _context.savedWasPlaying,
-      ),
+      currentState: _currentTemporaryPlaybackState(),
       hasQueueTrack: _queueManager.currentTrack != null,
       currentIndex: _queueManager.currentIndex,
       currentPosition: _audioService.position,
@@ -613,15 +614,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 按保存的隊列索引與位置恢復歌曲播放
   Future<void> _restoreQueuePlayback({
-    required int savedIndex,
-    required Duration savedPosition,
-    required bool savedWasPlaying,
-    required int rewindSeconds,
+    required RestorePlaybackPlan restorePlan,
+    required PlayMode targetMode,
     required String debugLabel,
     bool clearSavedState = false,
   }) async {
-    final requestId = ++_playRequestId;
-    _context = _context.copyWith(activeRequestId: requestId);
+    final requestId = _enterLoadingState();
     logDebug('$debugLabel started (requestId: $requestId)');
 
     try {
@@ -630,99 +628,70 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         logDebug('$debugLabel aborted: queue is empty');
         if (clearSavedState) {
           _context =
-              _context.copyWith(mode: PlayMode.queue, clearSavedState: true);
+              _context.copyWith(mode: targetMode, clearSavedState: true);
         }
         _updateQueueState();
         return;
       }
 
-      final targetIndex = savedIndex.clamp(0, queue.length - 1);
+      final targetIndex = restorePlan.savedIndex.clamp(0, queue.length - 1);
       _queueManager.setCurrentIndex(targetIndex);
 
       final currentTrack = _queueManager.currentTrack;
       if (currentTrack == null) {
         return;
       }
+      final requestTrack = _createPlaybackRequestTrack(currentTrack);
 
       _updatePlayingTrack(currentTrack);
       _updateQueueState();
-      state =
-          state.copyWith(isLoading: true, position: Duration.zero, error: null);
-      await _audioService.stop();
 
-      final (trackWithUrl, localPath) =
-          await _audioStreamManager.ensureAudioUrl(currentTrack);
-      if (_isSuperseded(requestId)) {
-        logDebug(
-            '$debugLabel request $requestId superseded after URL fetch, aborting');
+      try {
+        await _audioService.stop();
+      } catch (_) {
+        _resetLoadingState(requestId: requestId);
+        rethrow;
+      }
+
+      final rewind = Duration(seconds: restorePlan.rewindSeconds);
+      final adjustedPosition = restorePlan.savedPosition - rewind;
+      final restorePosition =
+          adjustedPosition.isNegative ? Duration.zero : adjustedPosition;
+
+      final execution = await _playbackRequestExecutor.executeQueueRestore(
+        requestId: requestId,
+        track: requestTrack,
+        position: restorePosition,
+        shouldResume: restorePlan.savedWasPlaying,
+      );
+      if (execution == null) {
         return;
       }
 
-      final url = localPath ?? trackWithUrl.audioUrl;
-      if (url == null) {
-        return;
-      }
-
-      if (localPath != null) {
-        await _audioService.setFile(url);
-      } else {
-        final headers =
-            await _audioStreamManager.getPlaybackHeaders(trackWithUrl);
-        await _audioService.setUrl(url, headers: headers);
-      }
-
-      if (_isSuperseded(requestId)) {
-        logDebug(
-            '$debugLabel request $requestId superseded after setUrl, aborting');
-        return;
-      }
-
-      _updatePlayingTrack(trackWithUrl);
-
-      if (savedPosition > Duration.zero) {
-        final restorePosition =
-            savedPosition - Duration(seconds: rewindSeconds);
-        await _audioService.seekTo(
-          restorePosition.isNegative ? Duration.zero : restorePosition,
-        );
-
-        if (_isSuperseded(requestId)) {
-          logDebug(
-              '$debugLabel request $requestId superseded after seek, aborting');
-          return;
-        }
-      }
-
-      if (savedWasPlaying) {
-        await _audioService.play();
-
-        if (_isSuperseded(requestId)) {
-          logDebug(
-              '$debugLabel request $requestId superseded after play, aborting');
-          return;
-        }
-
-        logDebug('Resumed playback after $debugLabel');
-      }
+      _replaceQueueTrackIfCurrent(execution.track);
 
       if (clearSavedState) {
-        _context =
-            _context.copyWith(mode: PlayMode.queue, clearSavedState: true);
+        _context = _context.copyWith(clearSavedState: true);
       }
 
+      _exitLoadingState(
+        requestId,
+        execution.track,
+        mode: targetMode,
+        streamResult: execution.streamResult,
+      );
       _updateQueueState();
       logInfo('$debugLabel completed successfully');
     } on SourceApiException catch (e) {
       logWarning(
           '$debugLabel failed: ${e.sourceType.name} API error: ${e.message}');
       if (clearSavedState) {
-        _context =
-            _context.copyWith(mode: PlayMode.queue, clearSavedState: true);
+        _context = _context.copyWith(clearSavedState: true);
       }
       if (_isSuperseded(requestId)) return;
       final track = _queueManager.currentTrack;
       if (track != null) {
-        await _handleSourceError(track, e, PlayMode.queue, requestId);
+        await _handleSourceError(track, e, targetMode, requestId);
       } else {
         _resetLoadingState(requestId: requestId);
       }
@@ -730,12 +699,19 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     } catch (e, stack) {
       logError('Failed during $debugLabel', e, stack);
       if (clearSavedState) {
-        _context =
-            _context.copyWith(mode: PlayMode.queue, clearSavedState: true);
+        _context = _context.copyWith(clearSavedState: true);
       }
     } finally {
       _resetLoadingState(requestId: requestId);
     }
+  }
+
+  TemporaryPlaybackState _currentTemporaryPlaybackState() {
+    return TemporaryPlaybackState(
+      savedQueueIndex: _context.savedQueueIndex,
+      savedPosition: _context.savedPosition,
+      savedWasPlaying: _context.savedWasPlaying,
+    );
   }
 
   /// 恢复保存的播放状态
@@ -749,11 +725,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
     final positionSettings = await _queueManager.getPositionRestoreSettings();
     final restorePlan = _temporaryPlayHandler.buildRestorePlan(
-      state: TemporaryPlaybackState(
-        savedQueueIndex: _context.savedQueueIndex,
-        savedPosition: _context.savedPosition,
-        savedWasPlaying: _context.savedWasPlaying,
-      ),
+      state: _currentTemporaryPlaybackState(),
       rememberPosition: positionSettings.enabled,
       rewindSeconds: positionSettings.tempPlayRewindSeconds,
     );
@@ -765,10 +737,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     }
 
     await _restoreQueuePlayback(
-      savedIndex: restorePlan.savedIndex,
-      savedPosition: restorePlan.savedPosition,
-      savedWasPlaying: restorePlan.savedWasPlaying,
-      rewindSeconds: restorePlan.rewindSeconds,
+      restorePlan: restorePlan,
+      targetMode: PlayMode.queue,
       debugLabel: '_restoreSavedState',
       clearSavedState: true,
     );
@@ -788,7 +758,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       return;
     }
 
-    if (savedQueueIndex == null) {
+    final restorePlan = _temporaryPlayHandler.buildQueueRestorePlan(
+      savedQueueIndex: savedQueueIndex,
+      savedPosition: savedPosition,
+      savedWasPlaying: savedWasPlaying,
+    );
+    if (restorePlan == null) {
       if (!savedWasPlaying && state.currentTrack != null) {
         _clearPlayingTrack();
       }
@@ -796,18 +771,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     }
 
     await _restoreQueuePlayback(
-      savedIndex: savedQueueIndex,
-      savedPosition: savedPosition,
-      savedWasPlaying: savedWasPlaying,
-      rewindSeconds: 0,
+      restorePlan: restorePlan,
+      targetMode: PlayMode.queue,
       debugLabel: 'returnFromRadio',
     );
-  }
-
-  /// 重新綁定歌曲播放的全局媒體控制回調
-  void restoreMediaControlOwnership() {
-    _setupAudioHandler();
-    _setupWindowsSmtc();
   }
 
   /// 播放多首歌曲
@@ -831,6 +798,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   Future<void> playPlaylist(List<Track> tracks, {int startIndex = 0}) =>
       playAll(tracks, startIndex: startIndex);
 
+  /// 重新綁定歌曲播放的全局媒體控制回調
+  void restoreMediaControlOwnership() {
+    _setupAudioHandler();
+    _setupWindowsSmtc();
+  }
+
   Future<void> startMixFromPlaylist(Playlist playlist) async {
     final playlistId = playlist.mixPlaylistId;
     final seedVideoId = playlist.mixSeedVideoId;
@@ -838,25 +811,33 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       throw StateError(t.library.main.mixInfoIncomplete);
     }
 
-    final result = await (_mixTracksFetcher?.call(
-          playlistId: playlistId,
-          currentVideoId: seedVideoId,
-        ) ??
-        _youtubeSource.fetchMixTracks(
-          playlistId: playlistId,
-          currentVideoId: seedVideoId,
-        ));
+    YouTubeSource? youtubeSource;
+    try {
+      final result = await (_mixTracksFetcher?.call(
+            playlistId: playlistId,
+            currentVideoId: seedVideoId,
+          ) ??
+          (() {
+            youtubeSource = YouTubeSource();
+            return youtubeSource!.fetchMixTracks(
+              playlistId: playlistId,
+              currentVideoId: seedVideoId,
+            );
+          })());
 
-    if (result.tracks.isEmpty) {
-      throw StateError(t.library.main.cannotLoadMix);
+      if (result.tracks.isEmpty) {
+        throw StateError(t.library.main.cannotLoadMix);
+      }
+
+      await playMixPlaylist(
+        playlistId: playlistId,
+        seedVideoId: seedVideoId,
+        title: playlist.name,
+        tracks: result.tracks,
+      );
+    } finally {
+      youtubeSource?.dispose();
     }
-
-    await playMixPlaylist(
-      playlistId: playlistId,
-      seedVideoId: seedVideoId,
-      title: playlist.name,
-      tracks: result.tracks,
-    );
   }
 
   /// 播放 Mix 播放列表
@@ -1312,6 +1293,24 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   // ========== 私有方法 ==========
 
+  Track _createPlaybackRequestTrack(Track track) => track.copy();
+
+  void _replaceQueueTrackIfCurrent(Track updatedTrack) {
+    final queueTrack = _queueManager.currentTrack;
+    if (queueTrack == null || queueTrack.id != updatedTrack.id) {
+      return;
+    }
+    _queueManager.replaceTrack(updatedTrack.copy());
+  }
+
+  void _triggerMixLoadMoreIfAtQueueEnd(PlayMode mode) {
+    if (mode == PlayMode.mix &&
+        _queueManager.currentIndex == _queueManager.tracks.length - 1) {
+      logDebug('Mix mode: started playing last track, loading more...');
+      unawaited(_loadMoreMixTracks());
+    }
+  }
+
   /// 设置 AudioHandler 回调函数
   void _setupAudioHandler() {
     _audioHandler.onPlay = play;
@@ -1724,7 +1723,6 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     await onPlaybackStarting?.call();
 
     bool completedSuccessfully = false;
-    String? attemptedUrl; // 保存嘗試播放的 URL，用於 fallback 時排除
 
     try {
       await _audioService.stop();
@@ -1735,9 +1733,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     }
 
     try {
+      final requestTrack = _createPlaybackRequestTrack(track);
       final execution = await _playbackRequestExecutor.execute(
         requestId: requestId,
-        track: track,
+        track: requestTrack,
         persist: persist,
         prefetchNext: prefetchNext,
       );
@@ -1745,9 +1744,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         return;
       }
 
-      attemptedUrl = execution.attemptedUrl;
       final trackWithUrl = execution.track;
       final streamResult = execution.streamResult;
+      _replaceQueueTrackIfCurrent(trackWithUrl);
 
       // 階段 6：完成
       _exitLoadingState(requestId, trackWithUrl,
@@ -1763,12 +1762,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       }
 
       // Mix 模式：當開始播放最後一首時，立即加載更多歌曲
-      if (mode == PlayMode.mix &&
-          _queueManager.currentIndex == _queueManager.tracks.length - 1) {
-        logDebug('Mix mode: started playing last track, loading more...');
-        // 使用 unawaited 避免阻塞當前播放
-        unawaited(_loadMoreMixTracks());
-      }
+      _triggerMixLoadMoreIfAtQueueEnd(mode);
 
       logDebug(
           '_executePlayRequest completed successfully for: ${track.title}');
@@ -1797,68 +1791,6 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         return;
       }
       logError('Failed to play track: ${track.title}', e, stack);
-
-      // Try fallback URL for YouTube tracks (e.g. audio-only stream proxy failure)
-      if (track.sourceType == SourceType.youtube && !_isSuperseded(requestId)) {
-        try {
-          logInfo(
-              'Attempting fallback stream for: ${track.title} (failed URL: $attemptedUrl)');
-          final fallbackResult = await _audioStreamManager
-              .getAlternativeAudioStream(track, failedUrl: attemptedUrl);
-
-          if (fallbackResult != null && !_isSuperseded(requestId)) {
-            final fallbackUrl = fallbackResult.url;
-            final headers = await _audioStreamManager.getPlaybackHeaders(track);
-
-            if (_isSuperseded(requestId)) {
-              logDebug(
-                  'Play request $requestId superseded after fallback headers, aborting');
-              return;
-            }
-
-            await _audioService.playUrl(fallbackUrl,
-                headers: headers, track: track);
-
-            if (_isSuperseded(requestId)) {
-              logDebug(
-                  'Play request $requestId superseded after fallback playback handoff, aborting');
-              return;
-            }
-
-            track.audioUrl = fallbackUrl;
-            _exitLoadingState(requestId, track,
-                mode: mode,
-                recordHistory: recordHistory,
-                streamResult: fallbackResult);
-            completedSuccessfully = true;
-            _updateQueueState();
-            logInfo('Fallback playback succeeded for: ${track.title}');
-
-            if (prefetchNext) {
-              final nextTrack = _nextTrackForPrefetch();
-              if (nextTrack != null) {
-                unawaited(_audioStreamManager.prefetchTrack(nextTrack));
-              }
-            }
-            return;
-          }
-        } catch (fallbackError) {
-          logError('Fallback also failed for: ${track.title}', fallbackError);
-          // Check if fallback error is also a network error
-          if (_isNetworkError(fallbackError)) {
-            if (_isSuperseded(requestId)) return;
-            try {
-              await _stopAudioForRequest(requestId);
-            } catch (stopError) {
-              logError('Failed to stop player during fallback network error',
-                  stopError);
-            }
-            _resetLoadingState(requestId: requestId);
-            _scheduleRetryForRequest(requestId, track, positionBeforeLoad);
-            throw const _RetryScheduledException();
-          }
-        }
-      }
 
       // Check if original error is a network error
       if (_isNetworkError(e)) {
@@ -2248,7 +2180,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     logDebug(
         'Audio URL expired for: ${track.title}, re-fetching and resuming from ${state.position}');
     final position = state.position;
-    await _playTrack(track);
+    final requestTrack = _createPlaybackRequestTrack(track);
+    await _playTrack(requestTrack);
 
     // 播放成功后恢复到之前的位置
     if (position.inSeconds > 0) {
@@ -2278,65 +2211,62 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     final track = _queueManager.currentTrack;
     if (track == null) return;
 
+    final requestId = _enterLoadingState();
     try {
-      final (trackWithUrl, localPath) =
-          await _audioStreamManager.ensureAudioUrl(track);
-      if (_isDisposed) return;
-      final url = localPath ?? trackWithUrl.audioUrl;
+      _updatePlayingTrack(track);
+      _updateQueueState();
 
-      if (url == null) return;
-
-      if (localPath != null) {
-        await _audioService.setFile(url);
-      } else {
-        final headers =
-            await _audioStreamManager.getPlaybackHeaders(trackWithUrl);
-        if (_isDisposed) return;
-        await _audioService.setUrl(url, headers: headers);
+      try {
+        await _audioService.stop();
+      } catch (_) {
+        _resetLoadingState(requestId: requestId);
+        rethrow;
       }
-      if (_isDisposed) return;
 
-      // 设置正在播放的歌曲（用于 UI 显示）
-      _updatePlayingTrack(trackWithUrl);
-
-      // 恢复播放位置（优先使用传入的位置，否则使用 QueueManager 保存的位置）
+      final requestTrack = _createPlaybackRequestTrack(track);
       final positionToSeek = initialPosition ?? _queueManager.savedPosition;
       logDebug('Attempting to restore position: $positionToSeek');
+
+      Duration restorePosition = Duration.zero;
       if (positionToSeek > Duration.zero) {
-        // 应用回退秒数设置
         final positionSettings =
             await _queueManager.getPositionRestoreSettings();
         if (_isDisposed) return;
         final rewind = Duration(seconds: positionSettings.restartRewindSeconds);
         final adjustedPosition = positionToSeek - rewind;
-        final finalPosition =
+        restorePosition =
             adjustedPosition.isNegative ? Duration.zero : adjustedPosition;
         logDebug(
-            'Seeking to position: $finalPosition (original: $positionToSeek, rewind: ${rewind.inSeconds}s)');
-        await _audioService.seekTo(finalPosition);
-        if (_isDisposed) return;
-        logDebug('Seek completed');
+            'Seeking to position: $restorePosition (original: $positionToSeek, rewind: ${rewind.inSeconds}s)');
       } else {
         logDebug('No saved position to restore (position is zero)');
       }
 
-      if (autoPlay) {
-        await _audioService.play();
-        if (_isDisposed) return;
-      }
+      final execution = await _playbackRequestExecutor.executeQueueRestore(
+        requestId: requestId,
+        track: requestTrack,
+        position: restorePosition,
+        shouldResume: autoPlay,
+      );
+      if (execution == null || _isDisposed) return;
 
-      // 預取下一首歌曲的 URL（程序重啟後首次切歌不需要等待）
+      _replaceQueueTrackIfCurrent(execution.track);
+      _exitLoadingState(
+        requestId,
+        execution.track,
+        mode: _context.isMix ? PlayMode.mix : PlayMode.queue,
+        streamResult: execution.streamResult,
+      );
+      _updateQueueState();
+
       final nextTrack = _nextTrackForPrefetch();
       if (nextTrack != null) {
-        unawaited(_audioStreamManager.prefetchTrack(nextTrack));
+        unawaited(_audioStreamManager.prefetchTrack(nextTrack.copy()));
       }
-
-      // 确保清除加载状态
-      _resetLoadingState();
     } catch (e) {
       if (_isDisposed) return;
       logError('Failed to prepare track: ${track.title}', e);
-      _resetLoadingState();
+      _resetLoadingState(requestId: requestId);
     }
   }
 
@@ -2653,13 +2583,11 @@ final audioStreamManagerProvider = Provider<AudioStreamManager>((ref) {
 final queueManagerProvider = Provider<QueueManager>((ref) {
   final db = ref.watch(databaseProvider).requireValue;
   final queuePersistenceManager = ref.watch(queuePersistenceManagerProvider);
-  final audioStreamManager = ref.watch(audioStreamManagerProvider);
 
   return QueueManager(
     queueRepository: QueueRepository(db),
     trackRepository: TrackRepository(db),
     queuePersistenceManager: queuePersistenceManager,
-    audioStreamManager: audioStreamManager,
   );
 });
 
@@ -2685,10 +2613,10 @@ final audioControllerProvider =
     toastService: toastService,
     audioHandler: audioHandler,
     windowsSmtcHandler: windowsSmtcHandler,
-    youtubeSource: ref.watch(youtubeSourceProvider),
     playHistoryRepository: playHistoryRepository,
     lyricsAutoMatchService: ref.watch(lyricsAutoMatchServiceProvider),
     settingsRepository: ref.watch(settingsRepositoryProvider),
+    queuePersistenceManager: ref.watch(queuePersistenceManagerProvider),
   );
 
   // 设置网络恢复监听（用于断网重连自动恢复播放）
