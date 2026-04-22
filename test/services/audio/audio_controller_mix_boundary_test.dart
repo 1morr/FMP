@@ -14,7 +14,6 @@ import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
-import 'package:fmp/data/sources/youtube_source.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_provider.dart' hide MixTracksFetcher;
 import 'package:fmp/services/audio/audio_stream_manager.dart';
@@ -72,7 +71,6 @@ void main() {
         queueRepository: queueRepository,
         trackRepository: trackRepository,
         queuePersistenceManager: queuePersistenceManager,
-        audioStreamManager: audioStreamManager,
       );
 
       audioService = FakeAudioService();
@@ -84,8 +82,8 @@ void main() {
         toastService: ToastService(),
         audioHandler: FmpAudioHandler(),
         windowsSmtcHandler: WindowsSmtcHandler(),
-        youtubeSource: YouTubeSource(),
         settingsRepository: settingsRepository,
+        queuePersistenceManager: queuePersistenceManager,
         mixTracksFetcher: mixTracksFetcher.call,
       );
 
@@ -98,6 +96,100 @@ void main() {
       if (await tempDir.exists()) {
         await tempDir.delete(recursive: true);
       }
+    });
+
+    test('restoring a persisted mix session at queue end schedules load-more runtime state',
+        () async {
+      controller.dispose();
+
+      final trackRepository = TrackRepository(isar);
+      final queuePersistenceManager = QueuePersistenceManager(
+        queueRepository: queueRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+      );
+      final persistedTracks = await trackRepository.getOrCreateAll([
+        _track('restored-a', title: 'Restored A'),
+        _track('restored-b', title: 'Restored B'),
+      ]);
+      final persistedQueue = await queueRepository.getOrCreate();
+      persistedQueue.trackIds = persistedTracks.map((track) => track.id).toList();
+      persistedQueue.currentIndex = 1;
+      persistedQueue.isMixMode = true;
+      persistedQueue.mixPlaylistId = 'RDrestore123';
+      persistedQueue.mixSeedVideoId = 'seed-restore';
+      persistedQueue.mixTitle = 'Restored Mix';
+      await queueRepository.save(persistedQueue);
+
+      final source = await File(
+        '${Directory.current.path}/lib/services/audio/audio_provider.dart',
+      ).readAsString();
+      expect(source.contains('_queueManager.isMixMode'), isFalse);
+      expect(source.contains('_queueManager.mixPlaylistId'), isFalse);
+      expect(source.contains('_queueManager.mixSeedVideoId'), isFalse);
+      expect(source.contains('_queueManager.mixTitle'), isFalse);
+
+      final loadMoreTracks = List.generate(
+        10,
+        (index) => _track('restored-new-$index', title: 'Restored New $index'),
+      );
+      final loadMoreGate = mixTracksFetcher.enqueuePendingResult(
+        MixFetchResult(title: 'Restored Mix', tracks: loadMoreTracks),
+      );
+      final audioStreamManager = AudioStreamManager(
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: sourceManager,
+      );
+      queueManager = QueueManager(
+        queueRepository: queueRepository,
+        trackRepository: trackRepository,
+        queuePersistenceManager: queuePersistenceManager,
+      );
+      audioService = FakeAudioService();
+      controller = AudioController(
+        audioService: audioService,
+        queueManager: queueManager,
+        audioStreamManager: audioStreamManager,
+        toastService: ToastService(),
+        audioHandler: FmpAudioHandler(),
+        windowsSmtcHandler: WindowsSmtcHandler(),
+        settingsRepository: settingsRepository,
+        queuePersistenceManager: queuePersistenceManager,
+        mixTracksFetcher: mixTracksFetcher.call,
+      );
+
+      await controller.initialize();
+      await pumpEventQueue(times: 10);
+
+      expect(controller.state.isMixMode, isTrue);
+      expect(controller.state.mixTitle, 'Restored Mix');
+      expect(controller.state.currentTrack?.sourceId, 'restored-b');
+      expect(controller.state.playingTrack?.sourceId, 'restored-b');
+      expect(controller.state.isLoadingMoreMix, isTrue);
+
+      final loadMoreApplied = Completer<void>();
+      late final StreamSubscription<void> queueSub;
+      queueSub = queueManager.stateStream.listen((_) {
+        final hasNewTrack =
+            controller.state.queue.any((track) => track.sourceId == 'restored-new-0');
+        if (hasNewTrack &&
+            !controller.state.isLoadingMoreMix &&
+            !loadMoreApplied.isCompleted) {
+          loadMoreApplied.complete();
+        }
+      });
+
+      loadMoreGate.complete();
+      await loadMoreApplied.future;
+      await queueSub.cancel();
+      await pumpEventQueue(times: 5);
+
+      expect(controller.state.isLoadingMoreMix, isFalse);
+      expect(
+        controller.state.queue.map((track) => track.sourceId),
+        contains('restored-new-0'),
+      );
     });
 
     test('startMixFromPlaylist loads mix tracks and starts mix playback',
@@ -214,7 +306,14 @@ class _FakeSourceManager extends SourceManager {
 
 class _RecordingMixTracksFetcher {
   final List<_MixFetchCall> calls = [];
+  final List<_PendingMixFetch> _pending = [];
   MixFetchResult result = const MixFetchResult(title: 'Empty', tracks: []);
+
+  Completer<void> enqueuePendingResult(MixFetchResult result) {
+    final completer = Completer<void>();
+    _pending.add(_PendingMixFetch(completer, result));
+    return completer;
+  }
 
   Future<MixFetchResult> call({
     required String playlistId,
@@ -226,8 +325,20 @@ class _RecordingMixTracksFetcher {
         currentVideoId: currentVideoId,
       ),
     );
+    if (_pending.isNotEmpty) {
+      final pending = _pending.removeAt(0);
+      await pending.completer.future;
+      return pending.result;
+    }
     return result;
   }
+}
+
+class _PendingMixFetch {
+  _PendingMixFetch(this.completer, this.result);
+
+  final Completer<void> completer;
+  final MixFetchResult result;
 }
 
 class _MixFetchCall {
