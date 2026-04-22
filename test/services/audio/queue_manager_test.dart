@@ -45,16 +45,10 @@ void main() {
         trackRepository: trackRepository,
         settingsRepository: settingsRepository,
       );
-      final audioStreamManager = AudioStreamManager(
-        trackRepository: trackRepository,
-        settingsRepository: settingsRepository,
-        sourceManager: SourceManager(),
-      );
       queueManager = QueueManager(
         queueRepository: QueueRepository(isar),
         trackRepository: trackRepository,
         queuePersistenceManager: queuePersistenceManager,
-        audioStreamManager: audioStreamManager,
       );
 
       await queueManager.initialize();
@@ -66,6 +60,52 @@ void main() {
       if (await tempDir.exists()) {
         await tempDir.delete(recursive: true);
       }
+    });
+
+    test('source no longer attaches a queue track updater callback', () async {
+      final sourceFile = File(
+        '${Directory.current.path}/lib/services/audio/queue_manager.dart',
+      );
+
+      final source = await sourceFile.readAsString();
+
+      expect(source, isNot(contains('attachQueueTrackUpdater')));
+    });
+
+    test(
+        'replaceTrack updates the queue-visible track only through explicit caller ownership',
+        () async {
+      final queuedTrack = await queueManager.playSingle(
+        _queueTrack('replace-track-runtime')
+          ..audioUrl = 'https://stale.example/replace-track-runtime.m4a'
+          ..audioUrlExpiry = DateTime.utc(2024, 1, 1),
+      );
+      final queueTrackBeforeReplace = queueManager.currentTrack;
+      expect(queueTrackBeforeReplace, isNotNull);
+      expect(queueTrackBeforeReplace, same(queuedTrack));
+
+      final replacement = Track()
+        ..id = queuedTrack.id
+        ..sourceId = queuedTrack.sourceId
+        ..sourceType = queuedTrack.sourceType
+        ..title = queuedTrack.title
+        ..artist = queuedTrack.artist
+        ..audioUrl = 'https://fresh.example/replace-track-runtime.m4a'
+        ..audioUrlExpiry = DateTime.utc(2030, 1, 1);
+
+      queueManager.replaceTrack(replacement);
+
+      expect(queueManager.currentTrack, isNotNull);
+      expect(queueManager.currentTrack, isNot(same(queueTrackBeforeReplace)));
+      expect(queueManager.currentTrack!.id, queuedTrack.id);
+      expect(
+        queueManager.currentTrack!.audioUrl,
+        'https://fresh.example/replace-track-runtime.m4a',
+      );
+      expect(
+        queueManager.currentTrack!.audioUrlExpiry,
+        DateTime.utc(2030, 1, 1),
+      );
     });
 
     test('dispose cancels the periodic saver after persistence promotion',

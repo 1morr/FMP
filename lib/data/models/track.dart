@@ -33,6 +33,11 @@ class PlaylistDownloadInfo {
 
   PlaylistDownloadInfo();
 
+  PlaylistDownloadInfo copy() => PlaylistDownloadInfo()
+    ..playlistId = playlistId
+    ..playlistName = playlistName
+    ..downloadPath = downloadPath;
+
   /// 是否已下载
   bool get isDownloaded => downloadPath.isNotEmpty;
 
@@ -276,6 +281,35 @@ class Track {
     if (audioUrl == null) return false;
     if (audioUrlExpiry == null) return true;
     return DateTime.now().isBefore(audioUrlExpiry!);
+  }
+
+  Track copy() {
+    return Track()
+      ..id = id
+      ..sourceId = sourceId
+      ..sourceType = sourceType
+      ..title = title
+      ..artist = artist
+      ..ownerId = ownerId
+      ..channelId = channelId
+      ..durationMs = durationMs
+      ..thumbnailUrl = thumbnailUrl
+      ..audioUrl = audioUrl
+      ..audioUrlExpiry = audioUrlExpiry
+      ..isAvailable = isAvailable
+      ..isVip = isVip
+      ..unavailableReason = unavailableReason
+      ..playlistInfo = playlistInfo.map((info) => info.copy()).toList()
+      ..viewCount = viewCount
+      ..pageCount = pageCount
+      ..cid = cid
+      ..pageNum = pageNum
+      ..parentTitle = parentTitle
+      ..bilibiliAid = bilibiliAid
+      ..originalSongId = originalSongId
+      ..originalSource = originalSource
+      ..createdAt = createdAt
+      ..updatedAt = updatedAt;
   }
 
   /// 是否是多P视频中的一个分P
