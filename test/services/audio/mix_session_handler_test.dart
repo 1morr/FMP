@@ -99,7 +99,6 @@ void main() {
         queueRepository: queueRepository,
         trackRepository: trackRepository,
         queuePersistenceManager: queuePersistenceManager,
-        audioStreamManager: audioStreamManager,
       );
 
       audioService = FakeAudioService();
@@ -111,7 +110,6 @@ void main() {
         toastService: ToastService(),
         audioHandler: FmpAudioHandler(),
         windowsSmtcHandler: WindowsSmtcHandler(),
-        youtubeSource: YouTubeSource(),
         settingsRepository: settingsRepository,
         mixTracksFetcher: mixTracksFetcher.call,
       );
