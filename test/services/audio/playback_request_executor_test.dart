@@ -12,7 +12,6 @@ import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
-import 'package:fmp/data/sources/youtube_source.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
@@ -73,7 +72,6 @@ void main() {
         queueRepository: queueRepository,
         trackRepository: trackRepository,
         queuePersistenceManager: queuePersistenceManager,
-        audioStreamManager: audioStreamManager,
       );
       audioService = FakeAudioService();
       controller = AudioController(
@@ -83,7 +81,6 @@ void main() {
         toastService: ToastService(),
         audioHandler: FmpAudioHandler(),
         windowsSmtcHandler: WindowsSmtcHandler(),
-        youtubeSource: YouTubeSource(),
         settingsRepository: settingsRepository,
       );
 
@@ -96,6 +93,248 @@ void main() {
       if (await tempDir.exists()) {
         await tempDir.delete(recursive: true);
       }
+    });
+
+
+    test('executeQueueRestore uses playback handoff and seek playback state',
+        () async {
+      final restoreTrack = _track('queue-restore', title: 'Queue Restore');
+      final streamManager = _HarnessPlaybackRequestStreamAccess(
+        trackBySourceId: {restoreTrack.sourceId: restoreTrack},
+      );
+      final audioService = FakeAudioService();
+      final executor = PlaybackRequestExecutor(
+        audioService: audioService,
+        audioStreamManager: streamManager,
+        getNextTrack: () => null,
+        isSuperseded: (_) => false,
+      );
+
+      final result = await executor.executeQueueRestore(
+        requestId: 7,
+        track: restoreTrack,
+        position: const Duration(seconds: 35),
+        shouldResume: true,
+      );
+
+      expect(result, isNotNull);
+      expect(result!.track.sourceId, 'queue-restore');
+      expect(result.attemptedUrl, 'https://example.com/queue-restore.m4a');
+      expect(audioService.playUrlCalls, isEmpty);
+      expect(audioService.setUrlCalls.single.url,
+          'https://example.com/queue-restore.m4a');
+      expect(audioService.seekCalls, [const Duration(seconds: 35)]);
+      expect(audioService.isPlaying, isTrue);
+      expect(streamManager.ensureAudioStreamRequests, ['queue-restore']);
+      expect(streamManager.headerRequests, ['queue-restore']);
+    });
+
+    test('executeQueueRestore skips seek and play when restore state is idle',
+        () async {
+      final restoreTrack = _track('queue-idle', title: 'Queue Idle');
+      final streamManager = _HarnessPlaybackRequestStreamAccess(
+        trackBySourceId: {restoreTrack.sourceId: restoreTrack},
+      );
+      final audioService = FakeAudioService();
+      final executor = PlaybackRequestExecutor(
+        audioService: audioService,
+        audioStreamManager: streamManager,
+        getNextTrack: () => null,
+        isSuperseded: (_) => false,
+      );
+
+      final result = await executor.executeQueueRestore(
+        requestId: 8,
+        track: restoreTrack,
+        position: Duration.zero,
+        shouldResume: false,
+      );
+
+      expect(result, isNotNull);
+      expect(audioService.playUrlCalls, isEmpty);
+      expect(audioService.setUrlCalls.single.url,
+          'https://example.com/queue-idle.m4a');
+      expect(audioService.seekCalls, isEmpty);
+      expect(audioService.isPlaying, isFalse);
+    });
+
+    test('execute uses stream manager selection headers directly', () async {
+      final track = _track('headers-owned', title: 'Headers Owned');
+      final streamManager = _HarnessPlaybackRequestStreamAccess(
+        trackBySourceId: {track.sourceId: track},
+      );
+      streamManager.onGetPlaybackHeaders = (_) async => {
+            'X-Test-Header': 'owned-by-manager',
+          };
+      final audioService = FakeAudioService();
+
+      final executor = PlaybackRequestExecutor(
+        audioService: audioService,
+        audioStreamManager: streamManager,
+        getNextTrack: () => null,
+        isSuperseded: (_) => false,
+      );
+
+      final result = await executor.execute(
+        requestId: 1,
+        track: track,
+        persist: true,
+        prefetchNext: false,
+      );
+
+      expect(result, isNotNull);
+      expect(audioService.playUrlCalls.single.url,
+          'https://example.com/headers-owned.m4a');
+      expect(audioService.playUrlCalls.single.headers, {
+        'X-Test-Header': 'owned-by-manager',
+      });
+      expect(streamManager.selectionRequests, ['headers-owned']);
+      expect(streamManager.headerRequests, ['headers-owned']);
+    });
+
+    test(
+        'execute retries with manager-owned fallback selection regardless of source type',
+        () async {
+      final track = _track(
+        'source-agnostic-fallback',
+        title: 'Source Agnostic Fallback',
+      )..sourceType = SourceType.bilibili;
+      final streamManager = _HarnessPlaybackRequestStreamAccess(
+        trackBySourceId: {track.sourceId: track},
+      );
+      streamManager.onGetPlaybackHeaders = (_) async => {
+            'X-Primary-Header': 'primary',
+          };
+      streamManager.onSelectFallbackPlayback = (track, failedUrl) async {
+        return PlaybackSelection(
+          track: track
+            ..audioUrl = 'https://example.com/${track.sourceId}-fallback.m3u8',
+          url: 'https://example.com/${track.sourceId}-fallback.m3u8',
+          localPath: null,
+          headers: {
+            'X-Fallback-Header': 'fallback',
+          },
+          streamResult: AudioStreamResult(
+            url: 'https://example.com/${track.sourceId}-fallback.m3u8',
+            container: 'm3u8',
+            codec: 'aac',
+            streamType: StreamType.muxed,
+          ),
+        );
+      };
+      final audioService = FakeAudioService();
+      audioService.enqueuePlayUrlError(Exception('audio-only proxy failed'));
+
+      final executor = PlaybackRequestExecutor(
+        audioService: audioService,
+        audioStreamManager: streamManager,
+        getNextTrack: () => null,
+        isSuperseded: (_) => false,
+      );
+
+      final result = await executor.execute(
+        requestId: 1,
+        track: track,
+        persist: true,
+        prefetchNext: false,
+      );
+
+      expect(result, isNotNull);
+      expect(result!.attemptedUrl,
+          'https://example.com/source-agnostic-fallback-fallback.m3u8');
+      expect(result.streamResult?.streamType, StreamType.muxed);
+      expect(audioService.playUrlCalls.map((call) => call.url).toList(), [
+        'https://example.com/source-agnostic-fallback.m4a',
+        'https://example.com/source-agnostic-fallback-fallback.m3u8',
+      ]);
+      expect(audioService.playUrlCalls.first.headers, {
+        'X-Primary-Header': 'primary',
+      });
+      expect(audioService.playUrlCalls.last.headers, {
+        'X-Fallback-Header': 'fallback',
+      });
+      expect(streamManager.selectionRequests, ['source-agnostic-fallback']);
+      expect(streamManager.fallbackSelectionTracks, ['source-agnostic-fallback']);
+      expect(streamManager.fallbackSelectionFailedUrls,
+          ['https://example.com/source-agnostic-fallback.m4a']);
+    });
+
+    test('execute rethrows original error when manager has no fallback', () async {
+      final track = _track('no-fallback', title: 'No Fallback')
+        ..sourceType = SourceType.bilibili;
+      final streamManager = _HarnessPlaybackRequestStreamAccess(
+        trackBySourceId: {track.sourceId: track},
+      );
+      final audioService = FakeAudioService();
+      final playbackError = Exception('playback handoff failed');
+      audioService.enqueuePlayUrlError(playbackError);
+
+      final executor = PlaybackRequestExecutor(
+        audioService: audioService,
+        audioStreamManager: streamManager,
+        getNextTrack: () => null,
+        isSuperseded: (_) => false,
+      );
+
+      await expectLater(
+        () => executor.execute(
+          requestId: 1,
+          track: track,
+          persist: true,
+          prefetchNext: false,
+        ),
+        throwsA(same(playbackError)),
+      );
+
+      expect(streamManager.selectionRequests, ['no-fallback']);
+      expect(streamManager.fallbackSelectionTracks, ['no-fallback']);
+      expect(streamManager.fallbackSelectionFailedUrls,
+          ['https://example.com/no-fallback.m4a']);
+      expect(audioService.playUrlCalls.map((call) => call.url).toList(), [
+        'https://example.com/no-fallback.m4a',
+      ]);
+    });
+
+    test(
+        'execute preserves original playback error when fallback selection throws',
+        () async {
+      final track = _track('fallback-throws', title: 'Fallback Throws')
+        ..sourceType = SourceType.bilibili;
+      final streamManager = _HarnessPlaybackRequestStreamAccess(
+        trackBySourceId: {track.sourceId: track},
+      );
+      final audioService = FakeAudioService();
+      final playbackError = Exception('primary playback failed');
+      final fallbackError = Exception('fallback selection failed');
+      audioService.enqueuePlayUrlError(playbackError);
+      streamManager.onSelectFallbackPlayback = (_, __) async {
+        throw fallbackError;
+      };
+
+      final executor = PlaybackRequestExecutor(
+        audioService: audioService,
+        audioStreamManager: streamManager,
+        getNextTrack: () => null,
+        isSuperseded: (_) => false,
+      );
+
+      await expectLater(
+        () => executor.execute(
+          requestId: 1,
+          track: track,
+          persist: true,
+          prefetchNext: false,
+        ),
+        throwsA(same(playbackError)),
+      );
+
+      expect(streamManager.selectionRequests, ['fallback-throws']);
+      expect(streamManager.fallbackSelectionTracks, ['fallback-throws']);
+      expect(streamManager.fallbackSelectionFailedUrls,
+          ['https://example.com/fallback-throws.m4a']);
+      expect(audioService.playUrlCalls.map((call) => call.url).toList(), [
+        'https://example.com/fallback-throws.m4a',
+      ]);
     });
 
     test('execute aborts after async header resolution when superseded',
@@ -162,7 +401,7 @@ void main() {
     });
 
     test(
-        'happy path delegates playback handoff and prefetch without leaving loading',
+        'happy path delegates playback handoff and prefetches next track through stream manager',
         () async {
       final queueTracks = [
         _track('first', title: 'First Track'),
@@ -178,8 +417,8 @@ void main() {
       expect(controller.state.playingTrack?.sourceId, 'first');
       expect(controller.state.currentTrack?.sourceId, 'first');
       expect(controller.state.isLoading, isFalse);
-      expect(sourceManager.audioStreamRequests, ['first']);
-      expect(sourceManager.refreshAudioUrlRequests, ['next']);
+      expect(sourceManager.audioStreamRequests, ['first', 'next']);
+      expect(sourceManager.refreshAudioUrlRequests, isEmpty);
     });
 
     test('stop failure stays outside playback fallback handling', () async {
@@ -224,7 +463,6 @@ void main() {
           trackRepository: TrackRepository(isar),
           settingsRepository: settingsRepository,
         ),
-        audioStreamManager: audioStreamManager,
       );
       controller = AudioController(
         audioService: audioService,
@@ -233,7 +471,6 @@ void main() {
         toastService: ToastService(),
         audioHandler: FmpAudioHandler(),
         windowsSmtcHandler: WindowsSmtcHandler(),
-        youtubeSource: YouTubeSource(),
         settingsRepository: settingsRepository,
       );
       await controller.initialize();
@@ -368,13 +605,49 @@ class _HarnessPlaybackRequestStreamAccess
   _HarnessPlaybackRequestStreamAccess({required this.trackBySourceId});
 
   final Map<String, Track> trackBySourceId;
+  final List<String> selectionRequests = [];
+  final List<String> fallbackSelectionTracks = [];
+  final List<String?> fallbackSelectionFailedUrls = [];
   final List<String> ensureAudioStreamRequests = [];
   final List<String> headerRequests = [];
   final Map<String, Completer<void>> _headerRequestWaiters = {};
   Future<Map<String, String>?> Function(Track track)? onGetPlaybackHeaders;
+  Future<PlaybackSelection?> Function(Track track, String? failedUrl)?
+      onSelectFallbackPlayback;
 
   Future<void> waitForHeaderRequest(String sourceId) {
     return (_headerRequestWaiters[sourceId] ??= Completer<void>()).future;
+  }
+
+  @override
+  Future<PlaybackSelection> selectPlayback(
+    Track track, {
+    bool persist = true,
+  }) async {
+    selectionRequests.add(track.sourceId);
+    final (trackWithUrl, localPath, streamResult) =
+        await ensureAudioStream(track, persist: persist);
+    final url = localPath ?? trackWithUrl.audioUrl;
+    if (url == null) {
+      throw StateError('No playback URL available for ${track.sourceId}');
+    }
+    return PlaybackSelection(
+      track: trackWithUrl,
+      url: url,
+      localPath: localPath,
+      headers: localPath == null ? await getPlaybackHeaders(trackWithUrl) : null,
+      streamResult: streamResult,
+    );
+  }
+
+  @override
+  Future<PlaybackSelection?> selectFallbackPlayback(
+    Track track, {
+    String? failedUrl,
+  }) async {
+    fallbackSelectionTracks.add(track.sourceId);
+    fallbackSelectionFailedUrls.add(failedUrl);
+    return onSelectFallbackPlayback?.call(track, failedUrl);
   }
 
   @override

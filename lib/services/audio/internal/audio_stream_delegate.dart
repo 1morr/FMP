@@ -10,7 +10,6 @@ import '../../../data/sources/source_provider.dart';
 typedef AuthHeadersLoader = Future<Map<String, String>?> Function(
   SourceType sourceType,
 );
-typedef QueueTrackUpdater = void Function(Track updatedTrack);
 
 class AudioStreamDelegate {
   AudioStreamDelegate({
@@ -18,18 +17,15 @@ class AudioStreamDelegate {
     required SettingsRepository settingsRepository,
     required SourceManager sourceManager,
     required AuthHeadersLoader getAuthHeaders,
-    required QueueTrackUpdater updateQueueTrack,
   })  : _trackRepository = trackRepository,
         _settingsRepository = settingsRepository,
         _sourceManager = sourceManager,
-        _getAuthHeaders = getAuthHeaders,
-        _updateQueueTrack = updateQueueTrack;
+        _getAuthHeaders = getAuthHeaders;
 
   final TrackRepository _trackRepository;
   final SettingsRepository _settingsRepository;
   final SourceManager _sourceManager;
   final AuthHeadersLoader _getAuthHeaders;
-  final QueueTrackUpdater _updateQueueTrack;
 
   Future<(Track, String?, AudioStreamResult?)> ensureAudioStream(
     Track track, {
@@ -69,9 +65,7 @@ class AudioStreamDelegate {
       );
 
       track.audioUrl = streamResult.url;
-      track.audioUrlExpiry = DateTime.now().add(
-        streamResult.expiry ?? const Duration(hours: 1),
-      );
+      track.audioUrlExpiry = DateTime.now().add(const Duration(hours: 1));
       track.updatedAt = DateTime.now();
 
       if (persist) {
@@ -86,7 +80,6 @@ class AudioStreamDelegate {
         }
       }
 
-      _updateQueueTrack(track);
       return (track, null, streamResult);
     } catch (_) {
       if (retryCount < 1) {
@@ -123,8 +116,8 @@ class AudioStreamDelegate {
 
     for (final path in track.allDownloadPaths) {
       if (File(path).existsSync()) {
-        localPath ??= path;
-        continue;
+        localPath = path;
+        break;
       }
       invalidPaths.add(path);
     }

@@ -15,6 +15,16 @@ import '../account/youtube_account_service.dart';
 import 'internal/audio_stream_delegate.dart';
 
 abstract class PlaybackRequestStreamAccess {
+  Future<PlaybackSelection> selectPlayback(
+    Track track, {
+    bool persist = true,
+  });
+
+  Future<PlaybackSelection?> selectFallbackPlayback(
+    Track track, {
+    String? failedUrl,
+  });
+
   Future<(Track, String?, AudioStreamResult?)> ensureAudioStream(
     Track track, {
     int retryCount = 0,
@@ -26,6 +36,22 @@ abstract class PlaybackRequestStreamAccess {
   Future<void> prefetchTrack(Track track);
 }
 
+class PlaybackSelection {
+  const PlaybackSelection({
+    required this.track,
+    required this.url,
+    required this.localPath,
+    required this.headers,
+    required this.streamResult,
+  });
+
+  final Track track;
+  final String url;
+  final String? localPath;
+  final Map<String, String>? headers;
+  final AudioStreamResult? streamResult;
+}
+
 class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
   AudioStreamManager({
     AudioStreamDelegate? delegate,
@@ -35,14 +61,12 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
     BilibiliAccountService? bilibiliAccountService,
     YouTubeAccountService? youtubeAccountService,
     NeteaseAccountService? neteaseAccountService,
-    void Function(Track updatedTrack)? replaceTrack,
   })  : _trackRepository = trackRepository,
         _settingsRepository = settingsRepository,
         _sourceManager = sourceManager,
         _bilibiliAccountService = bilibiliAccountService,
         _youtubeAccountService = youtubeAccountService,
         _neteaseAccountService = neteaseAccountService {
-    _queueTrackUpdater = replaceTrack;
     _delegate = delegate ??
         AudioStreamDelegate(
           trackRepository: trackRepository!,
@@ -54,8 +78,6 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
             youtubeAccountService: youtubeAccountService,
             neteaseAccountService: neteaseAccountService,
           ),
-          updateQueueTrack: (updatedTrack) =>
-              _queueTrackUpdater?.call(updatedTrack),
         );
   }
 
@@ -67,11 +89,6 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
   final YouTubeAccountService? _youtubeAccountService;
   final NeteaseAccountService? _neteaseAccountService;
   final Set<int> _fetchingUrlTrackIds = {};
-  void Function(Track updatedTrack)? _queueTrackUpdater;
-
-  void attachQueueTrackUpdater(void Function(Track updatedTrack) replaceTrack) {
-    _queueTrackUpdater = replaceTrack;
-  }
 
   @override
   Future<(Track, String?, AudioStreamResult?)> ensureAudioStream(
@@ -86,6 +103,27 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
     );
   }
 
+  @override
+  Future<PlaybackSelection> selectPlayback(
+    Track track, {
+    bool persist = true,
+  }) async {
+    final (trackWithUrl, localPath, streamResult) =
+        await ensureAudioStream(track, persist: persist);
+    final url = localPath ?? trackWithUrl.audioUrl;
+    if (url == null) {
+      throw Exception('No audio URL available for: ${track.title}');
+    }
+
+    return PlaybackSelection(
+      track: trackWithUrl,
+      url: url,
+      localPath: localPath,
+      headers: localPath == null ? await getPlaybackHeaders(trackWithUrl) : null,
+      streamResult: streamResult,
+    );
+  }
+
   Future<AudioStreamResult?> getAlternativeAudioStream(
     Track track, {
     String? failedUrl,
@@ -93,78 +131,40 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
     return _delegate.getAlternativeAudioStream(track, failedUrl: failedUrl);
   }
 
+  @override
+  Future<PlaybackSelection?> selectFallbackPlayback(
+    Track track, {
+    String? failedUrl,
+  }) async {
+    final fallbackResult = await getAlternativeAudioStream(
+      track,
+      failedUrl: failedUrl,
+    );
+    if (fallbackResult == null) return null;
+
+    track.audioUrl = fallbackResult.url;
+    track.audioUrlExpiry = DateTime.now().add(const Duration(hours: 1));
+
+    return PlaybackSelection(
+      track: track,
+      url: fallbackResult.url,
+      localPath: null,
+      headers: await getPlaybackHeaders(track),
+      streamResult: fallbackResult,
+    );
+  }
+
   Future<(Track, String?)> ensureAudioUrl(
     Track track, {
     int retryCount = 0,
     bool persist = true,
   }) async {
-    final localFileState = _inspectLocalFiles(track);
-    if (localFileState.localPath != null) {
-      if (localFileState.invalidPaths.isNotEmpty && persist) {
-        _clearInvalidPaths(track, localFileState.invalidPaths);
-        await _requireTrackRepository().save(track);
-        _queueTrackUpdater?.call(track);
-      }
-      return (track, localFileState.localPath);
-    }
-
-    if (localFileState.invalidPaths.isNotEmpty && persist) {
-      track.clearAllDownloadPaths();
-      await _requireTrackRepository().save(track);
-      _queueTrackUpdater?.call(track);
-    }
-
-    if (track.hasValidAudioUrl) {
-      return (track, null);
-    }
-
-    final source = _requireSourceManager().getSource(track.sourceType);
-    if (source == null) {
-      throw Exception('No source available for ${track.sourceType}');
-    }
-
-    try {
-      Map<String, String>? authHeaders;
-      final settings = await _requireSettingsRepository().get();
-      if (settings.useAuthForPlay(track.sourceType)) {
-        authHeaders = await buildAuthHeaders(
-          track.sourceType,
-          bilibiliAccountService: _bilibiliAccountService,
-          youtubeAccountService: _youtubeAccountService,
-          neteaseAccountService: _neteaseAccountService,
-        );
-      }
-
-      final refreshedTrack = await source.refreshAudioUrl(
-        track,
-        authHeaders: authHeaders,
-      );
-
-      if (persist) {
-        final freshTrack = await _requireTrackRepository().getById(track.id);
-        if (freshTrack != null) {
-          freshTrack.audioUrl = refreshedTrack.audioUrl;
-          freshTrack.audioUrlExpiry = refreshedTrack.audioUrlExpiry;
-          await _requireTrackRepository().save(freshTrack);
-          refreshedTrack.playlistInfo = freshTrack.playlistInfo;
-        } else {
-          await _requireTrackRepository().save(refreshedTrack);
-        }
-      }
-
-      _queueTrackUpdater?.call(refreshedTrack);
-      return (refreshedTrack, null);
-    } catch (_) {
-      if (retryCount < 1) {
-        await Future.delayed(AppConstants.queueSaveRetryDelay);
-        return ensureAudioUrl(
-          track,
-          retryCount: retryCount + 1,
-          persist: persist,
-        );
-      }
-      rethrow;
-    }
+    final (trackWithStream, localPath, _) = await ensureAudioStream(
+      track,
+      retryCount: retryCount,
+      persist: persist,
+    );
+    return (trackWithStream, localPath);
   }
 
   @override
@@ -173,20 +173,20 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
       case SourceType.bilibili:
         return {
           'Referer': 'https://www.bilibili.com',
-          'User-Agent': _defaultPlaybackUserAgent,
+          'User-Agent': defaultPlaybackUserAgent,
         };
       case SourceType.youtube:
         return {
           'Origin': 'https://www.youtube.com',
           'Referer': 'https://www.youtube.com/',
-          'User-Agent': _defaultPlaybackUserAgent,
+          'User-Agent': defaultPlaybackUserAgent,
         };
       case SourceType.netease:
         return await _neteaseAccountService?.getAuthHeaders() ??
             {
               'Origin': 'https://music.163.com',
               'Referer': 'https://music.163.com/',
-              'User-Agent': _defaultPlaybackUserAgent,
+              'User-Agent': defaultPlaybackUserAgent,
             };
     }
   }
@@ -201,7 +201,7 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
 
     _fetchingUrlTrackIds.add(track.id);
     try {
-      await ensureAudioUrl(track);
+      await ensureAudioUrl(track, persist: false);
     } catch (error, stackTrace) {
       logError(
         'Failed to prefetch audio URL for ${track.sourceType.name}:${track.sourceId}',
@@ -252,7 +252,7 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
   SourceManager _requireSourceManager() =>
       _sourceManager ?? (throw StateError('SourceManager is required'));
 
-  static const String _defaultPlaybackUserAgent =
+  static const String defaultPlaybackUserAgent =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 }
