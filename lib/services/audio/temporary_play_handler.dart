@@ -56,6 +56,23 @@ class TemporaryPlayHandler {
     );
   }
 
+  RestorePlaybackPlan? buildQueueRestorePlan({
+    required int? savedQueueIndex,
+    required Duration savedPosition,
+    required bool savedWasPlaying,
+  }) {
+    if (savedQueueIndex == null) {
+      return null;
+    }
+
+    return RestorePlaybackPlan(
+      savedIndex: savedQueueIndex,
+      savedPosition: savedPosition,
+      savedWasPlaying: savedWasPlaying,
+      rewindSeconds: 0,
+    );
+  }
+
   RestorePlaybackPlan? buildRestorePlan({
     required TemporaryPlaybackState state,
     required bool rememberPosition,

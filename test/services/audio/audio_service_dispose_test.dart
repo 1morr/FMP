@@ -80,30 +80,33 @@ void main() {
       final queueRepository = QueueRepository(isar);
       final trackRepository = TrackRepository(isar);
       final settingsRepository = SettingsRepository(isar);
+      final queuePersistenceManager = QueuePersistenceManager(
+        queueRepository: queueRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+      );
       final queueManager = _ThrowOnSecondDisposeQueueManager(
         queueRepository: queueRepository,
         trackRepository: trackRepository,
-        queuePersistenceManager: QueuePersistenceManager(
-          queueRepository: queueRepository,
-          trackRepository: trackRepository,
-          settingsRepository: settingsRepository,
-        ),
-        audioStreamManager: AudioStreamManager(
-          trackRepository: trackRepository,
-          settingsRepository: settingsRepository,
-          sourceManager: SourceManager(),
-        ),
+        queuePersistenceManager: queuePersistenceManager,
       );
       final container = _createContainer(
         isar: isar,
         audioService: audioService,
         queueManager: queueManager,
+        queuePersistenceManager: queuePersistenceManager,
       );
 
-      container.read(audioControllerProvider);
+      final controller = container.read(audioControllerProvider.notifier);
+      await controller.initialize();
       await pumpEventQueue(times: 5);
 
       expect(container.dispose, returnsNormally);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(audioService.initializeAfterDisposeCallCount, 0);
+      expect(queueManager.initializeAfterDisposeCallCount, 0);
       expect(audioService.disposeCallCount, 1);
       expect(queueManager.disposeCallCount, 1);
     });
@@ -115,27 +118,24 @@ void main() {
       final queueRepository = QueueRepository(isar);
       final trackRepository = TrackRepository(isar);
       final settingsRepository = SettingsRepository(isar);
+      final queuePersistenceManager = QueuePersistenceManager(
+        queueRepository: queueRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+      );
       final queueManager = _ThrowOnSecondDisposeQueueManager(
         queueRepository: queueRepository,
         trackRepository: trackRepository,
-        queuePersistenceManager: QueuePersistenceManager(
-          queueRepository: queueRepository,
-          trackRepository: trackRepository,
-          settingsRepository: settingsRepository,
-        ),
-        audioStreamManager: AudioStreamManager(
-          trackRepository: trackRepository,
-          settingsRepository: settingsRepository,
-          sourceManager: SourceManager(),
-        ),
+        queuePersistenceManager: queuePersistenceManager,
       );
       final container = _createContainer(
         isar: isar,
         audioService: audioService,
         queueManager: queueManager,
+        queuePersistenceManager: queuePersistenceManager,
       );
 
-      container.read(audioControllerProvider);
+      container.read(audioControllerProvider.notifier);
       expect(container.dispose, returnsNormally);
       await Future<void>.delayed(Duration.zero);
       await Future<void>.delayed(Duration.zero);
@@ -168,11 +168,14 @@ ProviderContainer _createContainer({
   required Isar isar,
   required _ThrowOnSecondDisposeAudioService audioService,
   required _ThrowOnSecondDisposeQueueManager queueManager,
+  required QueuePersistenceManager queuePersistenceManager,
 }) {
   return ProviderContainer(
     overrides: [
       audioServiceProvider.overrideWith((ref) => audioService),
       queueManagerProvider.overrideWith((ref) => queueManager),
+      queuePersistenceManagerProvider
+          .overrideWith((ref) => queuePersistenceManager),
       audioStreamManagerProvider.overrideWith(
         (ref) => AudioStreamManager(
           trackRepository: TrackRepository(isar),
@@ -258,7 +261,6 @@ class _ThrowOnSecondDisposeQueueManager extends QueueManager {
     required super.queueRepository,
     required super.trackRepository,
     required super.queuePersistenceManager,
-    required super.audioStreamManager,
   });
 
   int disposeCallCount = 0;
