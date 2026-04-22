@@ -16,6 +16,33 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('QueuePersistenceManager Task 1 regression', () {
+    test('queue persistence manager owns playback position restore selectors',
+        () async {
+      final source = await File(
+        '${Directory.current.path}/lib/services/audio/queue_persistence_manager.dart',
+      ).readAsString();
+
+      expect(source.contains('class AudioRuntimeSettings'), isTrue);
+      expect(
+          source.contains('Future<AudioRuntimeSettings> getPositionRestoreSettings()'),
+          isTrue);
+    });
+
+    test('queue manager does not directly own persisted mix metadata fields',
+        () async {
+      final source = await File(
+        '${Directory.current.path}/lib/services/audio/queue_manager.dart',
+      ).readAsString();
+
+      expect(source.contains('bool get isMixMode'), isFalse);
+      expect(source.contains('String? get mixPlaylistId'), isFalse);
+      expect(source.contains('String? get mixSeedVideoId'), isFalse);
+      expect(source.contains('String? get mixTitle'), isFalse);
+      expect(source.contains('_currentQueue!.isMixMode = false'), isFalse);
+      expect(source.contains('_currentQueue!.mixPlaylistId = null'), isFalse);
+      expect(source.contains('_currentQueue!.mixSeedVideoId = null'), isFalse);
+      expect(source.contains('_currentQueue!.mixTitle = null'), isFalse);
+    });
     late Directory tempDir;
     late Isar isar;
     late QueueRepository queueRepository;
