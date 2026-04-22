@@ -6,12 +6,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/play_queue.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/internal/audio_stream_delegate.dart';
+import 'package:fmp/services/audio/queue_manager.dart';
+import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:isar/isar.dart';
 
 void main() {
@@ -23,9 +26,11 @@ void main() {
     late TrackRepository trackRepository;
     late SettingsRepository settingsRepository;
     late _FakeSourceManager sourceManager;
-    late List<Track> queueTracks;
+    late QueueManager queueManager;
     late AudioStreamDelegate delegate;
     late AudioStreamManager manager;
+    late Map<String, String>? delegateAuthHeaders;
+    late List<SourceType> authHeaderRequests;
 
     setUpAll(() async {
       await Isar.initializeIsarCore(
@@ -46,18 +51,15 @@ void main() {
       trackRepository = TrackRepository(isar);
       settingsRepository = SettingsRepository(isar);
       sourceManager = _FakeSourceManager();
-      queueTracks = [];
+      delegateAuthHeaders = null;
+      authHeaderRequests = [];
       delegate = AudioStreamDelegate(
         trackRepository: trackRepository,
         settingsRepository: settingsRepository,
         sourceManager: sourceManager,
-        getAuthHeaders: (_) async => null,
-        updateQueueTrack: (updatedTrack) {
-          final index =
-              queueTracks.indexWhere((track) => track.id == updatedTrack.id);
-          if (index >= 0) {
-            queueTracks[index] = updatedTrack;
-          }
+        getAuthHeaders: (sourceType) async {
+          authHeaderRequests.add(sourceType);
+          return delegateAuthHeaders;
         },
       );
       manager = AudioStreamManager(
@@ -65,21 +67,63 @@ void main() {
         trackRepository: trackRepository,
         settingsRepository: settingsRepository,
         sourceManager: sourceManager,
-        replaceTrack: (updatedTrack) {
-          final index =
-              queueTracks.indexWhere((track) => track.id == updatedTrack.id);
-          if (index >= 0) {
-            queueTracks[index] = updatedTrack;
-          }
-        },
       );
+      queueManager = QueueManager(
+        queueRepository: QueueRepository(isar),
+        trackRepository: trackRepository,
+        queuePersistenceManager: QueuePersistenceManager(
+          queueRepository: QueueRepository(isar),
+          trackRepository: trackRepository,
+          settingsRepository: settingsRepository,
+        ),
+      );
+      await queueManager.initialize();
     });
 
     tearDown(() async {
+      queueManager.dispose();
       await isar.close(deleteFromDisk: true);
       if (await tempDir.exists()) {
         await tempDir.delete(recursive: true);
       }
+    });
+
+    test('selectPlayback passes auth headers to stream fetch when auth-for-play is enabled',
+        () async {
+      final settings = await settingsRepository.get();
+      settings.useYoutubeAuthForPlay = true;
+      await settingsRepository.save(settings);
+      delegateAuthHeaders = {
+        'Authorization': 'Bearer sentinel',
+      };
+
+      await manager.selectPlayback(
+        _track('stream-auth', title: 'Stream Auth'),
+      );
+
+      expect(sourceManager.source.audioStreamRequests, ['stream-auth']);
+      expect(authHeaderRequests, [SourceType.youtube]);
+      expect(sourceManager.source.lastAudioAuthHeaders, {
+        'Authorization': 'Bearer sentinel',
+      });
+    });
+
+    test('selectPlayback skips auth header loading when auth-for-play is disabled',
+        () async {
+      final settings = await settingsRepository.get();
+      settings.useYoutubeAuthForPlay = false;
+      await settingsRepository.save(settings);
+      delegateAuthHeaders = {
+        'Authorization': 'Bearer sentinel',
+      };
+
+      await manager.selectPlayback(
+        _track('stream-no-auth', title: 'Stream No Auth'),
+      );
+
+      expect(sourceManager.source.audioStreamRequests, ['stream-no-auth']);
+      expect(authHeaderRequests, isEmpty);
+      expect(sourceManager.source.lastAudioAuthHeaders, isNull);
     });
 
     test(
@@ -107,7 +151,9 @@ void main() {
               ..downloadPath = secondValidFile.path,
           ],
       );
-      queueTracks.add(savedTrack);
+      final queueCopy = await trackRepository.getById(savedTrack.id);
+      expect(queueCopy, isNotNull);
+      expect(queueCopy, isNot(same(savedTrack)));
 
       final (updatedTrack, localPath) =
           await manager.ensureAudioUrl(savedTrack);
@@ -117,11 +163,9 @@ void main() {
       expect(updatedTrack.playlistInfo[0].downloadPath, isEmpty);
       expect(updatedTrack.playlistInfo[1].downloadPath, firstValidFile.path);
       expect(updatedTrack.playlistInfo[2].downloadPath, secondValidFile.path);
-      expect(queueTracks.single.playlistInfo[0].downloadPath, isEmpty);
-      expect(
-          queueTracks.single.playlistInfo[1].downloadPath, firstValidFile.path);
-      expect(queueTracks.single.playlistInfo[2].downloadPath,
-          secondValidFile.path);
+      expect(queueCopy!.playlistInfo[0].downloadPath, '${tempDir.path}/missing-file.m4a');
+      expect(queueCopy.playlistInfo[1].downloadPath, firstValidFile.path);
+      expect(queueCopy.playlistInfo[2].downloadPath, secondValidFile.path);
       expect(sourceManager.source.audioStreamRequests, isEmpty);
 
       final persistedTrack = await trackRepository.getById(savedTrack.id);
@@ -132,106 +176,37 @@ void main() {
     });
 
     test(
-        'ensureAudioStream clears stale paths that appear after a valid local path',
+        'ensureAudioStream leaves queue copy stale until caller explicitly replaces it',
         () async {
-      final validFile = File('${tempDir.path}/downloaded-valid.m4a');
-      await validFile.writeAsString('audio-bytes-valid');
-
-      final savedTrack = await trackRepository.save(
-        _track('stream-ordered-paths', title: 'Stream Ordered Paths')
-          ..playlistInfo = [
-            PlaylistDownloadInfo()
-              ..playlistId = 1
-              ..playlistName = 'Downloaded Playlist'
-              ..downloadPath = validFile.path,
-            PlaylistDownloadInfo()
-              ..playlistId = 2
-              ..playlistName = 'Stale Playlist'
-              ..downloadPath = '${tempDir.path}/missing-after-valid.m4a',
-          ],
-      );
-      queueTracks.add(savedTrack);
-
-      final (updatedTrack, localPath, streamResult) =
-          await manager.ensureAudioStream(savedTrack);
-
-      expect(localPath, validFile.path);
-      expect(streamResult, isNull);
-      expect(updatedTrack.audioUrl, isNull);
-      expect(updatedTrack.playlistInfo[0].downloadPath, validFile.path);
-      expect(updatedTrack.playlistInfo[1].downloadPath, isEmpty);
-      expect(queueTracks.single.playlistInfo[0].downloadPath, validFile.path);
-      expect(queueTracks.single.playlistInfo[1].downloadPath, isEmpty);
-      expect(sourceManager.source.audioStreamRequests, isEmpty);
-
-      final persistedTrack = await trackRepository.getById(savedTrack.id);
-      expect(persistedTrack, isNotNull);
-      expect(persistedTrack!.playlistInfo[0].downloadPath, validFile.path);
-      expect(persistedTrack.playlistInfo[1].downloadPath, isEmpty);
-    });
-
-    test(
-        'attachQueueTrackUpdater updates queue copy for delegate-driven ensureAudioStream after construction',
-        () async {
-      final savedTrack = await trackRepository.save(
+      final queuedTrack = await queueManager.playSingle(
         _track('stream-attach', title: 'Stream Attach'),
       );
-      final queueCopy = await trackRepository.getById(savedTrack.id);
-      final requestTrack = await trackRepository.getById(savedTrack.id);
-      expect(queueCopy, isNotNull);
+      final queueCopyBeforeRefresh = queueManager.currentTrack;
+      expect(queueCopyBeforeRefresh, isNotNull);
+      expect(queueCopyBeforeRefresh, same(queuedTrack));
+
+      final requestTrack = await trackRepository.getById(queuedTrack.id);
       expect(requestTrack, isNotNull);
-      expect(queueCopy, isNot(same(requestTrack)));
-
-      queueTracks
-        ..clear()
-        ..add(queueCopy!);
-
-      final lateAttachedManager = AudioStreamManager(
-        trackRepository: trackRepository,
-        settingsRepository: settingsRepository,
-        sourceManager: sourceManager,
-      );
-      lateAttachedManager.attachQueueTrackUpdater((updatedTrack) {
-        final index =
-            queueTracks.indexWhere((track) => track.id == updatedTrack.id);
-        if (index >= 0) {
-          queueTracks[index] = updatedTrack;
-        }
-      });
+      expect(requestTrack, isNot(same(queueCopyBeforeRefresh)));
 
       final (updatedTrack, localPath, streamResult) =
-          await lateAttachedManager.ensureAudioStream(requestTrack!);
+          await manager.ensureAudioStream(requestTrack!);
 
       expect(localPath, isNull);
       expect(streamResult, isNotNull);
       expect(updatedTrack.audioUrl, isNotNull);
-      expect(queueTracks.single.audioUrl, updatedTrack.audioUrl);
-    });
+      expect(queueManager.currentTrack, same(queueCopyBeforeRefresh));
+      expect(queueManager.currentTrack!.audioUrl, isNull);
 
-    test('ensureAudioStream uses source-provided expiry instead of defaulting to one hour', () async {
-      sourceManager.source.streamExpiry = const Duration(minutes: 16);
-      final savedTrack = await trackRepository.save(
-        _track('stream-netease-expiry', title: 'Netease Expiry')
-          ..sourceType = SourceType.netease,
-      );
-      queueTracks
-        ..clear()
-        ..add(savedTrack);
+      final persistedTrack = await trackRepository.getById(queuedTrack.id);
+      expect(persistedTrack, isNotNull);
+      expect(persistedTrack!.audioUrl, updatedTrack.audioUrl);
 
-      final before = DateTime.now();
-      final (updatedTrack, localPath, streamResult) =
-          await manager.ensureAudioStream(savedTrack);
-      final remaining = updatedTrack.audioUrlExpiry!.difference(before);
+      queueManager.replaceTrack(updatedTrack);
 
-      expect(localPath, isNull);
-      expect(streamResult, isNotNull);
-      expect(streamResult!.expiry, const Duration(minutes: 16));
-      expect(remaining, greaterThanOrEqualTo(const Duration(minutes: 15)));
-      expect(remaining, lessThanOrEqualTo(const Duration(minutes: 16, seconds: 5)));
-      expect(queueTracks.single.audioUrlExpiry, updatedTrack.audioUrlExpiry);
-
-      final persistedTrack = await trackRepository.getById(savedTrack.id);
-      expect(persistedTrack?.audioUrlExpiry, updatedTrack.audioUrlExpiry);
+      expect(queueManager.currentTrack, isNotNull);
+      expect(queueManager.currentTrack, isNot(same(queueCopyBeforeRefresh)));
+      expect(queueManager.currentTrack!.audioUrl, updatedTrack.audioUrl);
     });
 
     test('prefetchTrack swallows refresh failures', () async {
@@ -248,6 +223,52 @@ void main() {
         ),
         completes,
       );
+    });
+
+    test('selectPlayback attaches playback headers for remote streams',
+        () async {
+      final selection = await manager.selectPlayback(
+        _track('stream-headers', title: 'Stream Headers'),
+      );
+
+      expect(selection.localPath, isNull);
+      expect(selection.url, 'https://example.com/stream-headers.m4a');
+      expect(selection.track.audioUrl, selection.url);
+      expect(selection.headers, {
+        'Origin': 'https://www.youtube.com',
+        'Referer': 'https://www.youtube.com/',
+        'User-Agent': AudioStreamManager.defaultPlaybackUserAgent,
+      });
+      expect(selection.streamResult, isNotNull);
+    });
+
+    test('selectFallbackPlayback assembles fallback selection with headers',
+        () async {
+      final track = _track('stream-fallback', title: 'Stream Fallback');
+
+      final selection = await manager.selectFallbackPlayback(
+        track,
+        failedUrl: 'https://failed.example/stream-fallback.m4a',
+      );
+
+      expect(selection, isNotNull);
+      expect(selection!.localPath, isNull);
+      expect(selection.url, 'https://example.com/stream-fallback-fallback.m3u8');
+      expect(selection.track, same(track));
+      expect(selection.track.audioUrl,
+          'https://example.com/stream-fallback-fallback.m3u8');
+      expect(selection.track.audioUrlExpiry, isNotNull);
+      expect(selection.headers, {
+        'Origin': 'https://www.youtube.com',
+        'Referer': 'https://www.youtube.com/',
+        'User-Agent': AudioStreamManager.defaultPlaybackUserAgent,
+      });
+      expect(selection.streamResult, isNotNull);
+      expect(selection.streamResult!.url,
+          'https://example.com/stream-fallback-fallback.m3u8');
+      expect(selection.streamResult!.streamType, StreamType.audioOnly);
+      expect(sourceManager.source.lastFailedUrl,
+          'https://failed.example/stream-fallback.m4a');
     });
 
     test(
@@ -355,8 +376,8 @@ class _FakeSource extends BaseSource {
   AudioStreamConfig? lastAlternativeConfig;
   String? lastFailedUrl;
   final List<String> audioStreamRequests = [];
+  Map<String, String>? lastAudioAuthHeaders;
   bool throwOnRefresh = false;
-  Duration? streamExpiry;
 
   @override
   SourceType get sourceType => SourceType.youtube;
@@ -398,12 +419,12 @@ class _FakeSource extends BaseSource {
     Map<String, String>? authHeaders,
   }) async {
     audioStreamRequests.add(sourceId);
+    lastAudioAuthHeaders = authHeaders;
     return AudioStreamResult(
       url: 'https://example.com/$sourceId.m4a',
       container: 'm4a',
       codec: 'aac',
       streamType: StreamType.audioOnly,
-      expiry: streamExpiry,
     );
   }
 
