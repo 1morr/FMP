@@ -257,6 +257,23 @@ class PlayHistoryRepository {
     );
   }
 
+  /// 共享历史快照加载入口
+  Future<List<PlayHistory>> loadHistorySnapshot({
+    Set<SourceType>? sourceTypes,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? searchKeyword,
+  }) async {
+    return queryHistory(
+      sourceTypes: sourceTypes,
+      startDate: startDate,
+      endDate: endDate,
+      searchKeyword: searchKeyword,
+      sortOrder: HistorySortOrder.timeDesc,
+      limit: 1000,
+    );
+  }
+
   /// 综合查询历史记录
   Future<List<PlayHistory>> queryHistory({
     Set<SourceType>? sourceTypes,
