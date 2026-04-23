@@ -21,6 +21,7 @@ import '../../../providers/account_provider.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/dialogs/add_to_remote_playlist_dialog.dart';
+import '../../../providers/audio_player_selectors.dart';
 import '../../../providers/track_detail_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/platform/url_launcher_service.dart';
@@ -85,7 +86,28 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final playerState = ref.watch(audioControllerProvider);
+    final currentTrack = ref.watch(currentTrackProvider);
+    final playbackSpeed = ref.watch(playbackSpeedProvider);
+    final desktopAudioDeviceState = ref.watch(desktopAudioDeviceStateProvider);
+    final playerState = ref.watch(
+      audioControllerProvider.select(
+        (state) => (
+          volume: state.volume,
+          progress: state.progress,
+          position: state.position,
+          duration: state.duration,
+          isShuffleEnabled: state.isShuffleEnabled,
+          isMixMode: state.isMixMode,
+          canPlayPrevious: state.canPlayPrevious,
+          canPlayNext: state.canPlayNext,
+          isBuffering: state.isBuffering,
+          isLoading: state.isLoading,
+          isPlaying: state.isPlaying,
+          loopMode: state.loopMode,
+          hasCurrentTrack: state.hasCurrentTrack,
+        ),
+      ),
+    );
     final controller = ref.read(audioControllerProvider.notifier);
 
     return Scaffold(
@@ -98,13 +120,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         flexibleSpace: Platform.isWindows ? const DragToMoveArea(child: SizedBox.expand()) : null,
         actions: [
           // 添加到歌单
-          if (playerState.currentTrack != null)
+          if (currentTrack != null)
             PopupMenuButton<String>(
               icon: const Icon(Icons.playlist_add),
               tooltip: t.general.addToPlaylist,
               offset: const Offset(0, 48),
               onSelected: (value) {
-                final track = playerState.currentTrack;
+                final track = currentTrack;
                 if (track == null) return;
                 Future.delayed(AnimationDurations.fastest, () {
                   if (!context.mounted) return;
@@ -137,11 +159,21 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               },
             ),
           // 桌面端音频输出设备选择
-          if (isDesktop && playerState.audioDevices.length > 1)
-            _buildFmpAudioDeviceSelector(context, playerState, controller, colorScheme),
+          if (isDesktop && desktopAudioDeviceState.hasSelectableDevices)
+            _buildFmpAudioDeviceSelector(
+              context,
+              desktopAudioDeviceState,
+              controller,
+              colorScheme,
+            ),
           // 桌面端音量控制（紧凑版）
           if (isDesktop)
-            _buildCompactVolumeControl(context, playerState, controller, colorScheme),
+            _buildCompactVolumeControl(
+              context,
+              playerState.volume,
+              controller,
+              colorScheme,
+            ),
           // 更多选项（包含信息、倍速、歌词）
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
@@ -157,7 +189,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                 // 延迟显示子菜单，等主菜单关闭后再显示
                 Future.delayed(AnimationDurations.fastest, () {
                   if (!context.mounted) return;
-                  _showSpeedMenu(context, controller, playerState.speed, colorScheme);
+                  _showSpeedMenu(context, controller, playbackSpeed, colorScheme);
                 });
               } else if (value == 'lyrics_search') {
                 // 打开歌词搜索
@@ -193,7 +225,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                   children: [
                     const Icon(Icons.speed, size: 20),
                     const SizedBox(width: 12),
-                    Text('${playerState.speed}x'),
+                    Text('${playbackSpeed}x'),
                     const Spacer(),
                     Icon(
                       Icons.chevron_right,
@@ -267,22 +299,41 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                       )
                     : GestureDetector(
                         onLongPress: () => setState(() => _showLyrics = true),
-                        child: _buildCoverArt(context, playerState, colorScheme),
+                        child: _buildCoverArt(context, currentTrack, colorScheme),
                       ),
               ),
             ),
             const SizedBox(height: 32),
 
             // 歌曲信息
-            _buildTrackInfo(context, playerState, colorScheme),
+            _buildTrackInfo(context, currentTrack, colorScheme),
             const SizedBox(height: 32),
 
             // 进度条
-            _buildProgressBar(context, playerState, controller, colorScheme),
+            _buildProgressBar(
+              context,
+              playerState.position,
+              playerState.duration,
+              playerState.progress,
+              controller,
+            ),
             const SizedBox(height: 24),
 
             // 播放控制
-            _buildPlaybackControls(context, playerState, controller, colorScheme),
+            _buildPlaybackControls(
+              context,
+              playerState.isShuffleEnabled,
+              playerState.isMixMode,
+              playerState.canPlayPrevious,
+              playerState.canPlayNext,
+              playerState.isBuffering,
+              playerState.isLoading,
+              playerState.hasCurrentTrack,
+              playerState.isPlaying,
+              playerState.loopMode,
+              controller,
+              colorScheme,
+            ),
           ],
         ),
       ),
@@ -292,10 +343,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   /// 封面图
   Widget _buildCoverArt(
     BuildContext context,
-    PlayerState state,
+    Track? track,
     ColorScheme colorScheme,
   ) {
-    final track = state.currentTrack;
 
     return AspectRatio(
       key: const ValueKey('cover'),
@@ -334,10 +384,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   /// 歌曲信息
   Widget _buildTrackInfo(
     BuildContext context,
-    PlayerState state,
+    Track? track,
     ColorScheme colorScheme,
   ) {
-    final track = state.currentTrack;
 
     return Column(
       children: [
@@ -367,17 +416,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   /// 进度条
   Widget _buildProgressBar(
     BuildContext context,
-    PlayerState state,
+    Duration position,
+    Duration? duration,
+    double progress,
     AudioController controller,
-    ColorScheme colorScheme,
   ) {
     // 显示的进度：拖动时显示拖动进度，否则显示实际播放进度
-    final displayProgress = _isDragging ? _dragProgress : state.progress.clamp(0.0, 1.0);
+    final displayProgress = _isDragging ? _dragProgress : progress.clamp(0.0, 1.0);
 
     // 显示的位置：拖动时根据拖动进度计算，否则显示实际位置
-    final displayPosition = _isDragging && state.duration != null
-        ? Duration(milliseconds: (state.duration!.inMilliseconds * _dragProgress).round())
-        : state.position;
+    final displayPosition = _isDragging && duration != null
+        ? Duration(milliseconds: (duration.inMilliseconds * _dragProgress).round())
+        : position;
 
     return Column(
       children: [
@@ -416,7 +466,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               Text(
-                DurationFormatter.formatMs((state.duration ?? Duration.zero).inMilliseconds),
+                DurationFormatter.formatMs((duration ?? Duration.zero).inMilliseconds),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -429,7 +479,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   /// 播放控制按钮
   Widget _buildPlaybackControls(
     BuildContext context,
-    PlayerState state,
+    bool isShuffleEnabled,
+    bool isMixMode,
+    bool canPlayPrevious,
+    bool canPlayNext,
+    bool isBuffering,
+    bool isLoading,
+    bool hasCurrentTrack,
+    bool isPlaying,
+    LoopMode loopMode,
     AudioController controller,
     ColorScheme colorScheme,
   ) {
@@ -438,37 +496,45 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       children: [
         // 顺序/乱序按钮（Mix 模式下禁用）
         IconButton(
-          icon: Icon(state.isShuffleEnabled ? Icons.shuffle : Icons.arrow_forward),
-          color: state.isShuffleEnabled ? colorScheme.primary : null,
-          onPressed: state.isMixMode ? null : () => controller.toggleShuffle(),
-          tooltip: state.isMixMode
+          icon: Icon(isShuffleEnabled ? Icons.shuffle : Icons.arrow_forward),
+          color: isShuffleEnabled ? colorScheme.primary : null,
+          onPressed: isMixMode ? null : () => controller.toggleShuffle(),
+          tooltip: isMixMode
               ? t.player.mixShuffleDisabled
-              : (state.isShuffleEnabled ? t.player.shuffleOn : t.player.shuffleOff),
+              : (isShuffleEnabled ? t.player.shuffleOn : t.player.shuffleOff),
         ),
 
         // 上一首
         IconButton(
           icon: const Icon(Icons.skip_previous),
           iconSize: 40,
-          onPressed: state.canPlayPrevious ? () => controller.previous() : null,
+          onPressed: canPlayPrevious ? () => controller.previous() : null,
         ),
 
         // 播放/暂停
-        _buildPlayPauseButton(context, state, controller, colorScheme),
+        _buildPlayPauseButton(
+          context,
+          isBuffering,
+          isLoading,
+          hasCurrentTrack,
+          isPlaying,
+          controller,
+          colorScheme,
+        ),
 
         // 下一首
         IconButton(
           icon: const Icon(Icons.skip_next),
           iconSize: 40,
-          onPressed: state.canPlayNext ? () => controller.next() : null,
+          onPressed: canPlayNext ? () => controller.next() : null,
         ),
 
         // 循环模式按钮
         IconButton(
-          icon: Icon(_getLoopModeIcon(state.loopMode)),
-          color: state.loopMode != LoopMode.none ? colorScheme.primary : null,
+          icon: Icon(_getLoopModeIcon(loopMode)),
+          color: loopMode != LoopMode.none ? colorScheme.primary : null,
           onPressed: () => controller.cycleLoopMode(),
-          tooltip: _getLoopModeTooltip(state.loopMode),
+          tooltip: _getLoopModeTooltip(loopMode),
         ),
       ],
     );
@@ -477,13 +543,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   /// 播放/暂停按钮
   Widget _buildPlayPauseButton(
     BuildContext context,
-    PlayerState state,
+    bool isBuffering,
+    bool isLoading,
+    bool hasCurrentTrack,
+    bool isPlaying,
     AudioController controller,
     ColorScheme colorScheme,
   ) {
     const double buttonSize = AppSizes.playerMainButton;
 
-    if (state.isBuffering || state.isLoading) {
+    if (isBuffering || isLoading) {
       return SizedBox(
         width: buttonSize,
         height: buttonSize,
@@ -511,7 +580,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       width: buttonSize,
       height: buttonSize,
       child: FilledButton(
-        onPressed: state.hasCurrentTrack
+        onPressed: hasCurrentTrack
             ? () => controller.togglePlayPause()
             : null,
         style: FilledButton.styleFrom(
@@ -521,7 +590,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           padding: EdgeInsets.zero,
         ),
         child: Icon(
-          state.isPlaying ? Icons.pause : Icons.play_arrow,
+          isPlaying ? Icons.pause : Icons.play_arrow,
           size: 40,
         ),
       ),
@@ -610,7 +679,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   /// 音频输出设备选择器（AppBar用，仅桌面端）
   Widget _buildFmpAudioDeviceSelector(
     BuildContext context,
-    PlayerState state,
+    DesktopAudioDeviceState state,
     AudioController controller,
     ColorScheme colorScheme,
   ) {
@@ -703,7 +772,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   /// 紧凑音量控制（AppBar用，仅桌面端）
   Widget _buildCompactVolumeControl(
     BuildContext context,
-    PlayerState state,
+    double volume,
     AudioController controller,
     ColorScheme colorScheme,
   ) {
@@ -712,9 +781,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       children: [
         // 音量图标按钮
         IconButton(
-          icon: Icon(getVolumeIcon(state.volume), size: 20),
+          icon: Icon(getVolumeIcon(volume), size: 20),
           visualDensity: VisualDensity.compact,
-          tooltip: state.volume > 0 ? t.player.mute : t.player.unmute,
+          tooltip: volume > 0 ? t.player.mute : t.player.unmute,
           onPressed: () => controller.toggleMute(),
         ),
         // 音量滑块
@@ -731,7 +800,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               overlayColor: colorScheme.primary.withValues(alpha: 0.2),
             ),
             child: Slider(
-              value: state.volume,
+              value: volume,
               min: 0.0,
               max: 1.0,
               onChanged: (value) => controller.setVolume(value),
@@ -773,8 +842,8 @@ class _TrackInfoDialog extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final detailState = ref.watch(trackDetailProvider);
-    final playerState = ref.watch(audioControllerProvider);
-    final currentTrack = playerState.currentTrack;
+    final currentTrack = ref.watch(currentTrackProvider);
+    final currentStreamMetadata = ref.watch(currentStreamMetadataProvider);
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
@@ -816,86 +885,85 @@ class _TrackInfoDialog extends ConsumerWidget {
             child: CustomScrollView(
               controller: scrollController,
               slivers: [
-              // 顶部拖动手柄和标题栏（固定在顶部）
-              SliverToBoxAdapter(
-                child: Column(
-                  children: [
-                    // 拖动手柄
-                    Container(
-                      margin: const EdgeInsets.only(top: 12),
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                        borderRadius: AppRadius.borderRadiusXs,
-                      ),
-                    ),
-                    // 标题栏
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline_rounded,
-                            size: 20,
-                            color: colorScheme.primary,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            currentTrack?.sourceType == SourceType.netease
-                                ? t.player.songInfo
-                                : t.player.videoInfo,
-                            style: textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const Spacer(),
-                          IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: () => Navigator.of(context).pop(),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 1),
-                  ],
-                ),
-              ),
-
-              // 内容区域
-              SliverPadding(
-                padding: const EdgeInsets.all(20),
-                sliver: SliverToBoxAdapter(
+                // 顶部拖动手柄和标题栏（固定在顶部）
+                SliverToBoxAdapter(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 视频详情内容
-                      if (detailState.detail != null)
-                        _DetailContent(
-                          detail: detailState.detail!,
-                          isYouTube: isYouTube,
-                          isNetease: currentTrack?.sourceType == SourceType.netease,
-                          track: currentTrack,
-                          cache: cache,
-                          baseDir: baseDir,
-                        )
-                      else if (detailState.isLoading)
-                        const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(40),
-                            child: CircularProgressIndicator(),
-                          ),
-                        )
-                      else
-                        _BasicInfoContent(track: currentTrack),
-                      // 音频技术信息
-                      if (playerState.currentBitrate != null ||
-                          playerState.currentContainer != null)
-                        _AudioInfoSection(playerState: playerState),
+                      // 拖动手柄
+                      Container(
+                        margin: const EdgeInsets.only(top: 12),
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                          borderRadius: AppRadius.borderRadiusXs,
+                        ),
+                      ),
+                      // 标题栏
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline_rounded,
+                              size: 20,
+                              color: colorScheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              currentTrack?.sourceType == SourceType.netease
+                                  ? t.player.songInfo
+                                  : t.player.videoInfo,
+                              style: textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () => Navigator.of(context).pop(),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1),
                     ],
                   ),
                 ),
-              ),
+
+                // 内容区域
+                SliverPadding(
+                  padding: const EdgeInsets.all(20),
+                  sliver: SliverToBoxAdapter(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 视频详情内容
+                        if (detailState.detail != null)
+                          _DetailContent(
+                            detail: detailState.detail!,
+                            isYouTube: isYouTube,
+                            isNetease: currentTrack?.sourceType == SourceType.netease,
+                            track: currentTrack,
+                            cache: cache,
+                            baseDir: baseDir,
+                          )
+                        else if (detailState.isLoading)
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(40),
+                              child: CircularProgressIndicator(),
+                            ),
+                          )
+                        else
+                          _BasicInfoContent(track: currentTrack),
+                        // 音频技术信息
+                        if (currentStreamMetadata.hasAnyInfo)
+                          _AudioInfoSection(metadata: currentStreamMetadata),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1478,9 +1546,9 @@ class _BasicInfoContent extends StatelessWidget {
 
 /// 音频技术信息部分
 class _AudioInfoSection extends StatelessWidget {
-  final PlayerState playerState;
+  final CurrentStreamMetadata metadata;
 
-  const _AudioInfoSection({required this.playerState});
+  const _AudioInfoSection({required this.metadata});
 
   @override
   Widget build(BuildContext context) {
@@ -1509,10 +1577,10 @@ class _AudioInfoSection extends StatelessWidget {
       }
     }
 
-    final bitrate = formatBitrate(playerState.currentBitrate);
-    final container = playerState.currentContainer?.toUpperCase();
-    final codec = playerState.currentCodec?.toUpperCase();
-    final streamType = formatStreamType(playerState.currentStreamType);
+    final bitrate = formatBitrate(metadata.bitrate);
+    final container = metadata.container?.toUpperCase();
+    final codec = metadata.codec?.toUpperCase();
+    final streamType = formatStreamType(metadata.streamType);
 
     // 如果没有任何信息，不显示此部分
     if (bitrate == null && container == null && codec == null && streamType == null) {

@@ -7,6 +7,7 @@ import 'package:fmp/i18n/strings.g.dart';
 import '../../../core/utils/icon_helpers.dart';
 import '../../../data/models/play_queue.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../../providers/audio_player_selectors.dart';
 import '../../router.dart';
 import '../track_thumbnail.dart';
 import '../../../core/constants/ui_constants.dart';
@@ -415,8 +416,7 @@ class _MiniPlayerVolumeControl extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // 只监听音量和音频设备
     final volume = ref.watch(audioControllerProvider.select((s) => s.volume));
-    final audioDevices = ref.watch(audioControllerProvider.select((s) => s.audioDevices));
-    final currentFmpAudioDevice = ref.watch(audioControllerProvider.select((s) => s.currentAudioDevice));
+    final desktopAudioDeviceState = ref.watch(desktopAudioDeviceStateProvider);
 
     final controller = ref.read(audioControllerProvider.notifier);
     final screenWidth = MediaQuery.of(context).size.width;
@@ -426,8 +426,13 @@ class _MiniPlayerVolumeControl extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         // 音频设备选择器
-        if (audioDevices.length > 1)
-          _buildFmpAudioDeviceSelector(context, audioDevices, currentFmpAudioDevice, controller),
+        if (desktopAudioDeviceState.hasSelectableDevices)
+          _buildFmpAudioDeviceSelector(
+            context,
+            desktopAudioDeviceState.audioDevices,
+            desktopAudioDeviceState.currentAudioDevice,
+            controller,
+          ),
 
         // 音量控制
         if (isNarrow)
