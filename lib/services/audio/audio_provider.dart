@@ -330,7 +330,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // 恢復 Mix 播放模式（如果之前有持久化的 Mix metadata）
       final restoredQueueState = _queuePersistenceManager == null
           ? null
-          : await _queuePersistenceManager!.restoreState();
+          : await _queuePersistenceManager.restoreState();
       final isRestoredMixMode = restoredQueueState?.queue.isMixMode ?? false;
       final playlistId = restoredQueueState?.mixPlaylistId;
       final seedVideoId = restoredQueueState?.mixSeedVideoId;

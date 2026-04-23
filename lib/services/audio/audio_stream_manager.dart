@@ -1,6 +1,3 @@
-import 'dart:io';
-
-import '../../core/constants/app_constants.dart';
 import '../../core/extensions/track_extensions.dart';
 import '../../core/logger.dart';
 import '../../core/utils/auth_headers_utils.dart';
@@ -61,12 +58,7 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
     BilibiliAccountService? bilibiliAccountService,
     YouTubeAccountService? youtubeAccountService,
     NeteaseAccountService? neteaseAccountService,
-  })  : _trackRepository = trackRepository,
-        _settingsRepository = settingsRepository,
-        _sourceManager = sourceManager,
-        _bilibiliAccountService = bilibiliAccountService,
-        _youtubeAccountService = youtubeAccountService,
-        _neteaseAccountService = neteaseAccountService {
+  }) : _neteaseAccountService = neteaseAccountService {
     _delegate = delegate ??
         AudioStreamDelegate(
           trackRepository: trackRepository!,
@@ -82,11 +74,6 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
   }
 
   late final AudioStreamDelegate _delegate;
-  final TrackRepository? _trackRepository;
-  final SettingsRepository? _settingsRepository;
-  final SourceManager? _sourceManager;
-  final BilibiliAccountService? _bilibiliAccountService;
-  final YouTubeAccountService? _youtubeAccountService;
   final NeteaseAccountService? _neteaseAccountService;
   final Set<int> _fetchingUrlTrackIds = {};
 
@@ -213,53 +200,8 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
     }
   }
 
-  _LocalFileState _inspectLocalFiles(Track track) {
-    String? localPath;
-    final invalidPaths = <String>[];
-
-    for (final path in track.allDownloadPaths) {
-      try {
-        if (File(path).existsSync()) {
-          localPath ??= path;
-          continue;
-        }
-      } catch (_) {
-        // Treat unreadable paths as invalid and clear them below.
-      }
-      invalidPaths.add(path);
-    }
-
-    return _LocalFileState(localPath: localPath, invalidPaths: invalidPaths);
-  }
-
-  void _clearInvalidPaths(Track track, List<String> invalidPaths) {
-    track.playlistInfo = track.playlistInfo
-        .map((info) => PlaylistDownloadInfo()
-          ..playlistId = info.playlistId
-          ..playlistName = info.playlistName
-          ..downloadPath =
-              invalidPaths.contains(info.downloadPath) ? '' : info.downloadPath)
-        .toList();
-  }
-
-  TrackRepository _requireTrackRepository() =>
-      _trackRepository ?? (throw StateError('TrackRepository is required'));
-
-  SettingsRepository _requireSettingsRepository() =>
-      _settingsRepository ??
-      (throw StateError('SettingsRepository is required'));
-
-  SourceManager _requireSourceManager() =>
-      _sourceManager ?? (throw StateError('SourceManager is required'));
-
   static const String defaultPlaybackUserAgent =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 }
 
-class _LocalFileState {
-  const _LocalFileState({required this.localPath, required this.invalidPaths});
-
-  final String? localPath;
-  final List<String> invalidPaths;
-}

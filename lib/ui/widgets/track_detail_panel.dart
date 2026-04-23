@@ -12,7 +12,6 @@ import '../../core/constants/ui_constants.dart';
 import '../../core/services/toast_service.dart';
 import '../../core/utils/number_format_utils.dart';
 import '../../core/utils/thumbnail_url_utils.dart';
-import '../../core/extensions/track_extensions.dart';
 import '../../core/services/image_loading_service.dart';
 import '../../data/models/settings.dart';
 import '../../data/models/track.dart';
