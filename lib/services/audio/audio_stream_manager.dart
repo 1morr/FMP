@@ -130,7 +130,9 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
     if (fallbackResult == null) return null;
 
     track.audioUrl = fallbackResult.url;
-    track.audioUrlExpiry = DateTime.now().add(const Duration(hours: 1));
+    track.audioUrlExpiry = DateTime.now().add(
+      fallbackResult.expiry ?? const Duration(hours: 1),
+    );
 
     return PlaybackSelection(
       track: track,
