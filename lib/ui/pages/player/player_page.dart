@@ -127,7 +127,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               offset: const Offset(0, 48),
               onSelected: (value) {
                 final track = currentTrack;
-                if (track == null) return;
                 Future.delayed(AnimationDurations.fastest, () {
                   if (!context.mounted) return;
                   _handleAddToPlaylist(context, track, value);
