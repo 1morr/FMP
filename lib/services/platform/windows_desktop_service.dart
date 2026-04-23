@@ -403,31 +403,38 @@ class WindowsDesktopService with TrayListener, WindowListener {
     onShowWindow?.call();
   }
 
-  /// 处理标题栏关闭按钮点击
+  /// 统一处理系统关闭与自定义标题栏关闭意图。
   ///
-  /// 直接执行关闭逻辑，不依赖 window_manager 的 WM_CLOSE → onWindowClose 事件链。
-  /// 这样即使 window_manager 的全局 channel 被子窗口销毁置空，关闭按钮仍然正常工作。
-  Future<void> handleCloseButton() async {
-    if (!Platform.isWindows || !_isInitialized) return;
+  /// [fromSystemClose] 为 true 时，表示来自系统 WM_CLOSE 事件；
+  /// 为 false 时，表示来自自定义标题栏关闭按钮，需要在未启用 preventClose 时自行退出。
+  Future<void> handleCloseIntent({required bool fromSystemClose}) async {
+    if (!Platform.isWindows) return;
 
     final isPreventClose = await windowManager.isPreventClose();
-    if (isPreventClose) {
-      await minimizeToTray();
-
-      // 异步检查安装程序
-      if (await _isInstallerRunning()) {
-        debugPrint('[WindowsDesktopService] Installer detected, exiting app');
+    if (!isPreventClose) {
+      if (!fromSystemClose) {
         await _forceExit();
       }
-    } else {
-      // preventClose 未启用，直接退出
+      return;
+    }
+
+    await minimizeToTray();
+
+    // 异步检查安装程序
+    if (await _isInstallerRunning()) {
+      debugPrint('[WindowsDesktopService] Installer detected, exiting app');
       await _forceExit();
     }
   }
 
+  /// 处理标题栏关闭按钮点击
+  Future<void> handleCloseButton() => handleCloseIntent(
+        fromSystemClose: false,
+      );
+
   /// 最小化到托盘
   Future<void> minimizeToTray() async {
-    if (!Platform.isWindows || !_isInitialized) return;
+    if (!Platform.isWindows) return;
 
     await windowManager.hide();
     _isMinimizedToTray = true;
@@ -471,21 +478,9 @@ class WindowsDesktopService with TrayListener, WindowListener {
   // WindowListener 回调
 
   @override
-  void onWindowClose() async {
-    // 关闭窗口时最小化到托盘而不是退出
-    final isPreventClose = await windowManager.isPreventClose();
-    if (isPreventClose) {
-      // 先隐藏窗口，避免 tasklist 检查造成的延迟
-      await minimizeToTray();
-
-      // 再异步检查安装程序，如果检测到则真正退出
-      // 这样 Inno Setup 的 /CLOSEAPPLICATIONS 才能正常工作
-      if (await _isInstallerRunning()) {
-        debugPrint('[WindowsDesktopService] Installer detected, exiting app');
-        await _forceExit();
-      }
-    }
-  }
+  void onWindowClose() => unawaited(handleCloseIntent(
+        fromSystemClose: true,
+      ));
 
   /// 检查是否有 FMP 安装程序正在运行
   Future<bool> _isInstallerRunning() async {

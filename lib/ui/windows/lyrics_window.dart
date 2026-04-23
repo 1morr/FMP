@@ -22,6 +22,10 @@ void lyricsWindowMain(List<String> args) {
 /// 歌词窗口翻译字符串（从主窗口同步）
 class _LyricsWindowStrings {
   String waitingLyrics = '等待歌词...';
+  String previous = '上一首';
+  String play = '播放';
+  String pause = '暂停';
+  String next = '下一首';
   String unpin = '取消置顶';
   String pin = '置顶';
   String offsetAdjust = '偏移调整';
@@ -38,6 +42,10 @@ class _LyricsWindowStrings {
 
   void updateFrom(Map<String, dynamic> map) {
     waitingLyrics = map['waitingLyrics'] as String? ?? waitingLyrics;
+    previous = map['previous'] as String? ?? previous;
+    play = map['play'] as String? ?? play;
+    pause = map['pause'] as String? ?? pause;
+    next = map['next'] as String? ?? next;
     unpin = map['unpin'] as String? ?? unpin;
     pin = map['pin'] as String? ?? pin;
     offsetAdjust = map['offsetAdjust'] as String? ?? offsetAdjust;
@@ -89,22 +97,18 @@ class _LyricsWindowAppState extends State<LyricsWindowApp> {
 
   @override
   Widget build(BuildContext context) {
-    // ExcludeSemantics 包裹整个 MaterialApp，防止子窗口中
-    // Tooltip Overlay 等组件触发 AXTree 错误
-    return ExcludeSemantics(
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme(
-          primaryColor: _primaryColor,
-          fontFamily: _fontFamily,
-        ),
-        darkTheme: AppTheme.darkTheme(
-          primaryColor: _primaryColor,
-          fontFamily: _fontFamily,
-        ),
-        themeMode: _themeMode,
-        home: const LyricsWindowPage(),
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme(
+        primaryColor: _primaryColor,
+        fontFamily: _fontFamily,
       ),
+      darkTheme: AppTheme.darkTheme(
+        primaryColor: _primaryColor,
+        fontFamily: _fontFamily,
+      ),
+      themeMode: _themeMode,
+      home: const LyricsWindowPage(),
     );
   }
 }
@@ -634,16 +638,27 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
               ),
             ),
             // 播放控制
-            _titleBarButton(Icons.skip_previous_rounded, 18, _sendPrevious,
-                color: iconColor),
+            _titleBarButton(
+              Icons.skip_previous_rounded,
+              18,
+              _sendPrevious,
+              color: iconColor,
+              semanticsLabel: _strings.previous,
+            ),
             _titleBarButton(
               _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
               20,
               _sendPlayPause,
               color: titleColor,
+              semanticsLabel: _isPlaying ? _strings.pause : _strings.play,
             ),
-            _titleBarButton(Icons.skip_next_rounded, 18, _sendNext,
-                color: iconColor),
+            _titleBarButton(
+              Icons.skip_next_rounded,
+              18,
+              _sendNext,
+              color: iconColor,
+              semanticsLabel: _strings.next,
+            ),
             const SizedBox(width: 4),
             // 歌词显示模式
             _titleBarButton(
@@ -652,6 +667,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
               _cycleLyricsDisplayMode,
               color: iconColor,
               tooltip: _displayModeTooltip,
+              semanticsLabel: _displayModeTooltip,
             ),
             // 单行/全部歌词切换
             _titleBarButton(
@@ -670,6 +686,8 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
               },
               color: _singleLineMode ? activeColor : iconColor,
               tooltip: _singleLineMode ? _strings.fullLyrics : _strings.singleLine,
+              semanticsLabel:
+                  _singleLineMode ? _strings.fullLyrics : _strings.singleLine,
             ),
             // 透明模式切换
             _titleBarButton(
@@ -678,6 +696,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
               _toggleTransparentMode,
               color: t ? activeColor : iconColor,
               tooltip: t ? _strings.normalMode : _strings.transparentMode,
+              semanticsLabel: t ? _strings.normalMode : _strings.transparentMode,
             ),
             // 置顶
             _titleBarButton(
@@ -689,6 +708,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
               },
               color: _alwaysOnTop ? activeColor : iconColor,
               tooltip: _alwaysOnTop ? _strings.unpin : _strings.pin,
+              semanticsLabel: _alwaysOnTop ? _strings.unpin : _strings.pin,
             ),
             // Offset 调整
             if (_isSynced && _lines.isNotEmpty)
@@ -699,10 +719,17 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
                     () => _showOffsetControls = !_showOffsetControls),
                 color: _showOffsetControls ? activeColor : iconColor,
                 tooltip: _strings.offsetAdjust,
+                semanticsLabel: _strings.offsetAdjust,
               ),
             // 关闭
-            _titleBarButton(Icons.close, 16, _requestHide,
-                color: iconColor, tooltip: _strings.close),
+            _titleBarButton(
+              Icons.close,
+              16,
+              _requestHide,
+              color: iconColor,
+              tooltip: _strings.close,
+              semanticsLabel: _strings.close,
+            ),
           ],
         ),
       ),
@@ -715,14 +742,19 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     VoidCallback onPressed, {
     Color? color,
     String? tooltip,
+    required String semanticsLabel,
   }) {
-    return IconButton(
-      icon: Icon(icon, size: size, color: color),
-      tooltip: tooltip,
-      onPressed: onPressed,
-      visualDensity: VisualDensity.compact,
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+    return Semantics(
+      button: true,
+      label: tooltip ?? semanticsLabel,
+      child: IconButton(
+        icon: ExcludeSemantics(child: Icon(icon, size: size, color: color)),
+        tooltip: tooltip,
+        onPressed: onPressed,
+        visualDensity: VisualDensity.compact,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+      ),
     );
   }
 

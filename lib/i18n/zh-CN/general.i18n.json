@@ -21,6 +21,9 @@
   "addToQueue": "添加到队列",
   "addToPlaylist": "添加到歌单",
   "matchLyrics": "歌词匹配",
+  "minimize": "最小化",
+  "maximize": "最大化",
+  "restore": "还原",
   "addedToNext": "已添加到下一首",
   "addedToQueue": "已添加到播放队列",
   "addedToPlaylist": "已添加到歌单"
