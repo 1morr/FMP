@@ -7,7 +7,8 @@ import 'package:fmp/providers/download/file_exists_cache.dart';
 
 /// Test helper: FileExistsCache with pre-populated state
 class TestFileExistsCache extends FileExistsCache {
-  TestFileExistsCache(Set<String> initialState) : super() {
+  TestFileExistsCache(Set<String> initialState)
+      : super(onEpochChanged: (_) {}) {
     state = initialState;
   }
 

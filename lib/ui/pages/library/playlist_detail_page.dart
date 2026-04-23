@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -53,8 +54,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   List<Track>? _cachedTracks;
   List<TrackGroup>? _cachedGroups;
 
-  // 上次刷新缓存时的 tracks 长度，用于检测变化
-  int _lastRefreshedTracksLength = -1;
+  // 上次预加载过的封面路径集合，用于避免重复 fan-out I/O
+  Set<String> _cachedCoverPaths = const {};
+  int _lastCacheEpoch = -1;
 
   // 滚动控制器，用于跟踪 AppBar 收起状态
   final ScrollController _scrollController = ScrollController();
@@ -95,40 +97,46 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     super.dispose();
   }
 
+  Set<String> _buildCoverPathsSet(List<Track> tracks) {
+    return tracks
+        .where((t) => t.hasAnyDownload)
+        .map((t) => '${t.allDownloadPaths.first.replaceAll(RegExp(r'[/\\][^/\\]+$'), '')}/cover.jpg')
+        .toSet();
+  }
+
   /// 预加载封面图路径缓存
   Future<void> _preloadCoverPaths() async {
     final state = ref.read(playlistDetailProvider(widget.playlistId));
-    if (state.tracks.isNotEmpty && state.tracks.length != _lastRefreshedTracksLength) {
-      _lastRefreshedTracksLength = state.tracks.length;
-      // 预加载封面路径（用于 TrackThumbnail）
-      final coverPaths = state.tracks
-          .where((t) => t.hasAnyDownload)
-              .map((t) => '${t.allDownloadPaths.first.replaceAll(RegExp(r'[/\\][^/\\]+$'), '')}/cover.jpg')
-          .toList();
-      if (coverPaths.isNotEmpty) {
-        await ref.read(fileExistsCacheProvider.notifier).preloadPaths(coverPaths);
-      }
+    final cacheEpoch = ref.read(fileExistsCacheEpochProvider);
+    final coverPaths = _buildCoverPathsSet(state.tracks);
+    if (setEquals(coverPaths, _cachedCoverPaths) && cacheEpoch == _lastCacheEpoch) {
+      return;
     }
+
+    _cachedCoverPaths = coverPaths;
+    _lastCacheEpoch = cacheEpoch;
+    if (coverPaths.isEmpty) return;
+
+    await ref.read(fileExistsCacheProvider.notifier).preloadPaths(coverPaths.toList());
   }
 
-  /// 检查并预加载缓存（在 build 中调用，当 tracks 变化时）
-  void _checkAndPreloadCache(List<Track> tracks) {
-    if (tracks.isNotEmpty && tracks.length != _lastRefreshedTracksLength) {
-      // 使用 addPostFrameCallback 避免在 build 期间修改 state
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _lastRefreshedTracksLength = tracks.length;
-          // 预加载封面路径
-          final coverPaths = tracks
-              .where((t) => t.hasAnyDownload)
-              .map((t) => '${t.allDownloadPaths.first.replaceAll(RegExp(r'[/\\][^/\\]+$'), '')}/cover.jpg')
-              .toList();
-          if (coverPaths.isNotEmpty) {
-            ref.read(fileExistsCacheProvider.notifier).preloadPaths(coverPaths);
-          }
-        }
-      });
+  /// 检查并预加载缓存（在 build 中调用，当实际封面路径集合变化时）
+  void _checkAndPreloadCache(List<Track> tracks, int cacheEpoch) {
+    final coverPaths = _buildCoverPathsSet(tracks);
+    if (setEquals(coverPaths, _cachedCoverPaths) && cacheEpoch == _lastCacheEpoch) {
+      return;
     }
+
+    _cachedCoverPaths = coverPaths;
+    _lastCacheEpoch = cacheEpoch;
+    if (coverPaths.isEmpty) return;
+
+    // 使用 addPostFrameCallback 避免在 build 期间修改 state
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(fileExistsCacheProvider.notifier).preloadPaths(coverPaths.toList());
+      }
+    });
   }
 
   /// 获取分组后的 tracks，使用缓存避免重复计算
@@ -145,6 +153,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   Widget build(BuildContext context) {
     final state = ref.watch(playlistDetailProvider(widget.playlistId));
     final selectionState = ref.watch(playlistDetailSelectionProvider);
+    final cacheEpoch = ref.watch(fileExistsCacheEpochProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
     if (state.isLoading && state.playlist == null) {
@@ -177,7 +186,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final isInitialTracksLoading = state.isLoading && tracks.isEmpty;
 
     // 检查并刷新下载状态缓存（当 tracks 变化时）
-    _checkAndPreloadCache(tracks);
+    _checkAndPreloadCache(tracks, cacheEpoch);
 
     // 使用缓存的分组结果，避免每次 build 重新计算
     final groupedTracks = _getGroupedTracks(tracks);

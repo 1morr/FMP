@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:io';
+
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
@@ -18,6 +21,7 @@ import '../../providers/download/download_providers.dart';
 import '../../providers/download/file_exists_cache.dart';
 import '../../providers/track_detail_provider.dart';
 import '../../providers/lyrics_provider.dart';
+import '../../providers/audio_player_selectors.dart';
 import '../../services/audio/audio_provider.dart';
 import '../../services/platform/url_launcher_service.dart';
 import '../../services/radio/radio_controller.dart';
@@ -716,30 +720,82 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
 }
 
 /// 详情内容组件
-class _DetailContent extends ConsumerWidget {
+class _DetailContent extends ConsumerStatefulWidget {
   final VideoDetail detail;
 
   const _DetailContent({super.key, required this.detail});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_DetailContent> createState() => _DetailContentState();
+}
+
+class _DetailContentState extends ConsumerState<_DetailContent> {
+  Set<String> _lastAvatarPaths = const {};
+  int _lastAvatarCacheEpoch = -1;
+
+  String? _getLocalAvatarPath(Track? track, Set<String> existingPaths) {
+    if (track == null) return null;
+
+    for (final downloadPath in track.allDownloadPaths) {
+      final avatarPath = '${Directory(downloadPath).parent.path}/avatar.jpg';
+      if (existingPaths.contains(avatarPath)) {
+        return avatarPath;
+      }
+    }
+
+    return null;
+  }
+
+  void _scheduleAvatarPathPreload(List<String> avatarPaths, int cacheEpoch) {
+    final avatarPathSet = avatarPaths.toSet();
+    if (avatarPathSet.isEmpty ||
+        (setEquals(avatarPathSet, _lastAvatarPaths) &&
+            cacheEpoch == _lastAvatarCacheEpoch)) {
+      return;
+    }
+
+    _lastAvatarPaths = avatarPathSet;
+    _lastAvatarCacheEpoch = cacheEpoch;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(fileExistsCacheProvider.notifier).preloadPaths(
+            avatarPathSet.toList(),
+          );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final detailState = ref.watch(trackDetailProvider);
-    final playerState = ref.watch(audioControllerProvider);
     final currentTrack = ref.watch(currentTrackProvider);
-    // Watch 文件存在缓存，以便在缓存更新时重建
-    ref.watch(fileExistsCacheProvider);
-    final cache = ref.read(fileExistsCacheProvider.notifier);
+    final currentStreamMetadata = ref.watch(currentStreamMetadataProvider);
+    final nextTrack = ref.watch(
+      audioControllerProvider.select(
+        (state) => state.upcomingTracks.isNotEmpty ? state.upcomingTracks.first : null,
+      ),
+    );
+
+    final avatarPaths = currentTrack == null
+        ? const <String>[]
+        : currentTrack.allDownloadPaths
+            .map((path) => '${Directory(path).parent.path}/avatar.jpg')
+            .toList();
+    final cacheEpoch = ref.watch(fileExistsCacheEpochProvider);
+
+    _scheduleAvatarPathPreload(avatarPaths, cacheEpoch);
+
+    final existingAvatarPaths = <String>{
+      for (final path in avatarPaths)
+        if (ref.watch(filePathExistsProvider(path))) path,
+    };
+
+    final localAvatarPath = _getLocalAvatarPath(currentTrack, existingAvatarPaths);
 
     // 獲取下載基礎目錄（用於頭像路徑查找）
     final baseDirAsync = ref.watch(downloadBaseDirProvider);
     final baseDir = baseDirAsync.valueOrNull;
-
-    // 获取下一首歌曲（已考虑 shuffle 模式）
-    final nextTrack = playerState.upcomingTracks.isNotEmpty
-        ? playerState.upcomingTracks.first
-        : null;
 
     return ListView(
       padding: const EdgeInsets.all(20),
@@ -747,7 +803,7 @@ class _DetailContent extends ConsumerWidget {
         // 封面（可点击打开视频）
         _ClickableCover(
           track: currentTrack,
-          detail: detail,
+          detail: widget.detail,
           detailState: detailState,
         ),
 
@@ -758,7 +814,7 @@ class _DetailContent extends ConsumerWidget {
           children: [
             Expanded(
               child: Text(
-                detail.title,
+                widget.detail.title,
                 style: textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                   height: 1.3,
@@ -782,13 +838,13 @@ class _DetailContent extends ConsumerWidget {
           Row(
             children: [
               ImageLoadingService.loadAvatar(
-                networkUrl: detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
+                networkUrl: widget.detail.ownerFace.isNotEmpty ? widget.detail.ownerFace : null,
                 size: 32,
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  detail.ownerName,
+                  widget.detail.ownerName,
                   style: textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w500,
                   ),
@@ -797,7 +853,7 @@ class _DetailContent extends ConsumerWidget {
                 ),
               ),
               Text(
-                detail.formattedPublishDate,
+                widget.detail.formattedPublishDate,
                 style: textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                 ),
@@ -810,14 +866,14 @@ class _DetailContent extends ConsumerWidget {
             children: [
               _ClickableAvatar(
                 track: currentTrack,
-                detail: detail,
-                cache: cache,
+                detail: widget.detail,
+                localAvatarPath: localAvatarPath,
                 baseDir: baseDir,
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  detail.ownerName,
+                  widget.detail.ownerName,
                   style: textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w500,
                   ),
@@ -826,7 +882,7 @@ class _DetailContent extends ConsumerWidget {
                 ),
               ),
               Text(
-                detail.formattedPublishDate,
+                widget.detail.formattedPublishDate,
                 style: textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                 ),
@@ -848,32 +904,31 @@ class _DetailContent extends ConsumerWidget {
         ],
 
         // 简介
-        if (detail.description.isNotEmpty) ...[
+        if (widget.detail.description.isNotEmpty) ...[
           const SizedBox(height: 20),
           const Divider(),
           const SizedBox(height: 16),
           _ExpandableTextSection(
             icon: Icons.info_outline_rounded,
             title: t.trackDetail.description,
-            content: detail.description,
+            content: widget.detail.description,
           ),
         ],
 
         // 热门评论
-        if (detail.hotComments.isNotEmpty) ...[
+        if (widget.detail.hotComments.isNotEmpty) ...[
           const SizedBox(height: 20),
           const Divider(),
           const SizedBox(height: 16),
-          _CommentPager(comments: detail.hotComments),
+          _CommentPager(comments: widget.detail.hotComments),
         ],
 
         // 音频信息（放在最下方）
-        if (playerState.currentBitrate != null ||
-            playerState.currentContainer != null) ...[
+        if (currentStreamMetadata.hasAnyInfo) ...[
           const SizedBox(height: 20),
           const Divider(),
           const SizedBox(height: 16),
-          _buildAudioInfo(context, playerState),
+          _buildAudioInfo(context, currentStreamMetadata),
         ],
 
         const SizedBox(height: 32),
@@ -893,19 +948,19 @@ class _DetailContent extends ConsumerWidget {
       return Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          if (detail.albumName.isNotEmpty)
+          if (widget.detail.albumName.isNotEmpty)
             Flexible(
               child: _buildStatChip(
                 context,
                 Icons.album_rounded,
-                detail.albumName,
+                widget.detail.albumName,
               ),
             ),
-          if (detail.commentCount > 0)
+          if (widget.detail.commentCount > 0)
             _buildStatChip(
               context,
               Icons.comment_rounded,
-              detail.formattedCommentCount,
+              widget.detail.formattedCommentCount,
             ),
         ],
       );
@@ -917,21 +972,21 @@ class _DetailContent extends ConsumerWidget {
         _buildStatChip(
           context,
           Icons.play_arrow_rounded,
-          detail.formattedViewCount,
+          widget.detail.formattedViewCount,
           iconSize: 26,
           offsetY: 1.2,
         ),
         _buildStatChip(
           context,
           Icons.thumb_up_rounded,
-          detail.formattedLikeCount,
+          widget.detail.formattedLikeCount,
         ),
         // YouTube 不显示收藏数
         if (!isYouTube)
           _buildStatChip(
             context,
             Icons.star_rounded,
-            detail.formattedFavoriteCount,
+            widget.detail.formattedFavoriteCount,
             iconSize: 24,
           ),
       ],
@@ -970,7 +1025,7 @@ class _DetailContent extends ConsumerWidget {
   }
 
   /// 音频技术信息
-  Widget _buildAudioInfo(BuildContext context, PlayerState playerState) {
+  Widget _buildAudioInfo(BuildContext context, CurrentStreamMetadata metadata) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
@@ -996,10 +1051,10 @@ class _DetailContent extends ConsumerWidget {
       }
     }
 
-    final bitrate = formatBitrate(playerState.currentBitrate);
-    final container = playerState.currentContainer?.toUpperCase();
-    final codec = playerState.currentCodec?.toUpperCase();
-    final streamType = formatStreamType(playerState.currentStreamType);
+    final bitrate = formatBitrate(metadata.bitrate);
+    final container = metadata.container?.toUpperCase();
+    final codec = metadata.codec?.toUpperCase();
+    final streamType = formatStreamType(metadata.streamType);
 
     // 如果没有任何信息，不显示
     if (bitrate == null &&
@@ -1256,13 +1311,13 @@ class _ClickableCoverState extends State<_ClickableCover> {
 class _ClickableAvatar extends StatelessWidget {
   final Track? track;
   final VideoDetail detail;
-  final FileExistsCache cache;
+  final String? localAvatarPath;
   final String? baseDir;
 
   const _ClickableAvatar({
     required this.track,
     required this.detail,
-    required this.cache,
+    required this.localAvatarPath,
     required this.baseDir,
   });
 
@@ -1283,7 +1338,7 @@ class _ClickableAvatar extends StatelessWidget {
             ),
           ),
           child: ImageLoadingService.loadAvatar(
-            localPath: track?.getLocalAvatarPath(cache, baseDir: baseDir),
+            localPath: localAvatarPath,
             networkUrl: detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
             size: 32,
           ),

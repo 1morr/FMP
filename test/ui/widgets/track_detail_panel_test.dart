@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/video_detail.dart';
@@ -253,6 +255,60 @@ void main() {
 
       expect(find.text(shortDescription), findsOneWidget);
       expect(find.text('展开'), findsNothing);
+    });
+  });
+
+  group('Phase 4 regression guards', () {
+    test('detail content state uses widget detail and required imports', () {
+      final source = File(
+        '${Directory.current.path}/lib/ui/widgets/track_detail_panel.dart',
+      ).readAsStringSync();
+      final stateStart = source.indexOf(
+        'class _DetailContentState extends ConsumerState<_DetailContent>',
+      );
+      final stateEnd = source.indexOf('/// 可点击的封面');
+      final stateSection = source.substring(stateStart, stateEnd);
+
+      expect(source, contains("import 'dart:io';"));
+      expect(source, contains("import 'package:flutter/foundation.dart';"));
+      expect(stateStart, isNonNegative);
+      expect(stateEnd, greaterThan(stateStart));
+      expect(stateSection, contains('widget.detail.title'));
+      expect(stateSection, contains('widget.detail.ownerFace'));
+      expect(stateSection, contains('widget.detail.description'));
+      expect(stateSection, contains('widget.detail.hotComments'));
+      expect(stateSection, contains('detail: widget.detail'));
+      expect(
+        stateSection.contains(RegExp(r'^\s*detail\.title,', multiLine: true)),
+        isFalse,
+      );
+      expect(
+        stateSection.contains(
+          RegExp(
+            r'^\s*networkUrl: detail\.ownerFace\.isNotEmpty',
+            multiLine: true,
+          ),
+        ),
+        isFalse,
+      );
+      expect(
+        stateSection.contains(
+          RegExp(r'^\s*if \(detail\.description', multiLine: true),
+        ),
+        isFalse,
+      );
+      expect(
+        stateSection.contains(
+          RegExp(r'^\s*if \(detail\.hotComments', multiLine: true),
+        ),
+        isFalse,
+      );
+
+      final avatarStart = source.indexOf('class _ClickableAvatar extends StatelessWidget');
+      final avatarEnd = source.indexOf('/// 可展开文本区块');
+      final avatarSection = source.substring(avatarStart, avatarEnd);
+      expect(avatarSection, contains('networkUrl: detail.ownerFace.isNotEmpty ? detail.ownerFace : null'));
+      expect(avatarSection.contains('widget.detail.ownerFace'), isFalse);
     });
   });
 
