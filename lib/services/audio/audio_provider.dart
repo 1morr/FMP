@@ -30,6 +30,7 @@ import 'audio_service.dart';
 import 'media_kit_audio_service.dart';
 import 'just_audio_service.dart';
 import 'package:fmp/i18n/strings.g.dart';
+import 'audio_runtime_platform.dart';
 import 'audio_stream_manager.dart';
 import 'playback_request_executor.dart';
 import 'queue_manager.dart';
@@ -2549,7 +2550,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 /// Android/iOS: JustAudioService (ExoPlayer, 更轻量)
 /// Windows/Linux: MediaKitAudioService (libmpv, 支持设备切换)
 final audioServiceProvider = Provider<FmpAudioService>((ref) {
-  if (Platform.isAndroid || Platform.isIOS) {
+  final runtimePlatform = ref.watch(audioRuntimePlatformProvider);
+  if (runtimePlatform == AudioRuntimePlatform.mobile) {
     return JustAudioService();
   }
   return MediaKitAudioService();
