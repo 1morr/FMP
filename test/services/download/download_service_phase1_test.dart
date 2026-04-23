@@ -18,6 +18,7 @@ import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/providers/database_provider.dart';
 import 'package:fmp/providers/download/download_providers.dart';
+import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/services/download/download_path_utils.dart';
 import 'package:fmp/services/download/download_service.dart';
 import 'package:isar/isar.dart';
@@ -514,6 +515,76 @@ void main() {
       service.dispose();
     });
 
+    test('download start passes auth headers to source.getAudioStream only when auth-for-play is enabled', () async {
+      final baseDir = await Directory.systemTemp.createTemp('download_auth_headers_');
+      addTearDown(() async {
+        for (var i = 0; i < 100; i++) {
+          if (!await baseDir.exists()) return;
+          try {
+            await baseDir.delete(recursive: true);
+            return;
+          } on FileSystemException {
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
+        }
+      });
+
+      Future<DownloadTask> createTaskForTrack(String sourceId) async {
+        final track = Track()
+          ..sourceId = sourceId
+          ..sourceType = SourceType.netease
+          ..title = sourceId
+          ..artist = 'Test Artist'
+          ..createdAt = DateTime.now();
+        final savedTrack = await trackRepository.save(track);
+        final playlist = Playlist()..name = 'Phase1';
+        return downloadRepository.saveTask(
+          DownloadTask()
+            ..trackId = savedTrack.id
+            ..playlistId = playlist.id
+            ..playlistName = playlist.name
+            ..status = DownloadStatus.downloading
+            ..createdAt = DateTime.now(),
+        );
+      }
+
+      final recordingSource = _RecordingAudioSource(
+        'http://127.0.0.1:1/audio.mp3',
+        sourceTypeOverride: SourceType.netease,
+      );
+      final service = DownloadService(
+        downloadRepository: downloadRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: _SingleSourceManager(recordingSource),
+        neteaseAccountService: _HeaderOnlyNeteaseAccountService(isar),
+      );
+
+      final settings = await settingsRepository.get();
+      settings.customDownloadDir = baseDir.path;
+      settings.useNeteaseAuthForPlay = true;
+      await settingsRepository.save(settings);
+
+      final enabledTask = await createTaskForTrack('netease-auth-enabled');
+      await service.debugStartDownloadForTesting(enabledTask);
+      expect(recordingSource.recordedAuthHeaders.single, {
+        'Cookie': 'MUSIC_U=music-u; __csrf=csrf',
+        'Origin': 'https://music.163.com',
+        'Referer': 'https://music.163.com/',
+        'User-Agent': NeteaseAccountService.userAgent,
+      });
+
+      recordingSource.recordedAuthHeaders.clear();
+      settings.useNeteaseAuthForPlay = false;
+      await settingsRepository.save(settings);
+
+      final disabledTask = await createTaskForTrack('netease-auth-disabled');
+      await service.debugStartDownloadForTesting(disabledTask);
+      expect(recordingSource.recordedAuthHeaders.single, isNull);
+
+      service.dispose();
+    });
+
     test('download start uses source-provided expiry instead of defaulting to one hour', () async {
       final baseDir = await Directory.systemTemp.createTemp('download_netease_expiry_');
       addTearDown(() async {
@@ -766,6 +837,37 @@ class _BlockingAudioSource extends _StaticAudioSource {
       authHeaders: authHeaders,
     );
   }
+}
+
+class _RecordingAudioSource extends _StaticAudioSource {
+  _RecordingAudioSource(
+    super.audioUrl, {
+    super.sourceTypeOverride,
+    super.streamExpiry,
+  });
+
+  final List<Map<String, String>?> recordedAuthHeaders = [];
+
+  @override
+  Future<AudioStreamResult> getAudioStream(
+    String sourceId, {
+    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+    Map<String, String>? authHeaders,
+  }) async {
+    recordedAuthHeaders.add(authHeaders == null ? null : Map<String, String>.from(authHeaders));
+    return super.getAudioStream(
+      sourceId,
+      config: config,
+      authHeaders: authHeaders,
+    );
+  }
+}
+
+class _HeaderOnlyNeteaseAccountService extends NeteaseAccountService {
+  _HeaderOnlyNeteaseAccountService(Isar isar) : super(isar: isar);
+
+  @override
+  Future<String?> getAuthCookieString() async => 'MUSIC_U=music-u; __csrf=csrf';
 }
 
 Future<void> _waitUntil(Future<bool> Function() condition) async {

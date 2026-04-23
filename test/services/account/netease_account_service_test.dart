@@ -82,6 +82,28 @@ void main() {
       expect(secureStorageData, isEmpty);
     });
 
+    test('returns auth headers with cookie origin referer and desktop user agent',
+        () async {
+      final service = _FakeNeteaseAccountService(
+        isar: isar,
+        nextStatus: const AccountCheckResult(status: AccountStatus.valid),
+      );
+
+      await service.loginWithCookiesAndValidate(
+        musicU: 'music-u',
+        csrf: 'csrf',
+      );
+
+      final headers = await service.getAuthHeaders();
+
+      expect(headers, isNotNull);
+      expect(headers!['Cookie'], contains('MUSIC_U=music-u'));
+      expect(headers['Cookie'], contains('__csrf=csrf'));
+      expect(headers['Origin'], 'https://music.163.com');
+      expect(headers['Referer'], 'https://music.163.com/');
+      expect(headers['User-Agent'], NeteaseAccountService.userAgent);
+    });
+
     test(
         'returns true and keeps logged-in account state when validation passes',
         () async {

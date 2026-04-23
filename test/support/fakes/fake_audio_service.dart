@@ -110,6 +110,15 @@ class FakeAudioService implements FmpAudioService {
     _completedController.add(null);
   }
 
+  void emitError(String error) {
+    _errorController.add(error);
+  }
+
+  void emitPosition(Duration position) {
+    _position = position;
+    _positionController.add(position);
+  }
+
   void _notifyPlayUrlWaiters() {
     for (final waiter in List<_CountWaiter>.from(_playUrlWaiters)) {
       if (playUrlCalls.length >= waiter.target && !waiter.completer.isCompleted) {
