@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fmp/i18n/strings.g.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../providers/windows_desktop_provider.dart';
@@ -74,6 +75,7 @@ class _CustomTitleBarState extends ConsumerState<CustomTitleBar> with WindowList
           _TitleBarButton(
             icon: Icons.remove,
             onPressed: windowManager.minimize,
+            tooltip: t.general.minimize,
           ),
           // 最大化 / 还原
           _TitleBarButton(
@@ -86,6 +88,7 @@ class _CustomTitleBarState extends ConsumerState<CustomTitleBar> with WindowList
                 await windowManager.maximize();
               }
             },
+            tooltip: _isMaximized ? t.general.restore : t.general.maximize,
           ),
           // 关闭（直接调用 handleCloseButton，不依赖 window_manager 事件链）
           _TitleBarButton(
@@ -93,11 +96,12 @@ class _CustomTitleBarState extends ConsumerState<CustomTitleBar> with WindowList
             onPressed: () {
               final service = ref.read(windowsDesktopServiceProvider);
               if (service != null) {
-                service.handleCloseButton();
+                service.handleCloseIntent(fromSystemClose: false);
               } else {
                 windowManager.close();
               }
             },
+            tooltip: t.general.close,
             isClose: true,
           ),
         ],
@@ -111,12 +115,14 @@ class _TitleBarButton extends StatefulWidget {
   final IconData icon;
   final double iconSize;
   final VoidCallback onPressed;
+  final String tooltip;
   final bool isClose;
 
   const _TitleBarButton({
     required this.icon,
     this.iconSize = 15,
     required this.onPressed,
+    required this.tooltip,
     this.isClose = false,
   });
 
@@ -134,23 +140,32 @@ class _TitleBarButtonState extends State<_TitleBarButton> {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onPressed,
-        child: Container(
-          width: 46,
-          height: 36,
-          color: _isHovered
-              ? (widget.isClose
-                  ? Colors.red
-                  : colorScheme.onSurface.withValues(alpha: 0.08))
-              : Colors.transparent,
-          child: Center(
-            child: Icon(
-              widget.icon,
-              size: widget.iconSize,
-              color: _isHovered && widget.isClose
-                  ? Colors.white
-                  : colorScheme.onSurface.withValues(alpha: 0.7),
+      child: Semantics(
+        button: true,
+        label: widget.tooltip,
+        child: Tooltip(
+          message: widget.tooltip,
+          child: GestureDetector(
+            onTap: widget.onPressed,
+            child: Container(
+              width: 46,
+              height: 36,
+              color: _isHovered
+                  ? (widget.isClose
+                      ? Colors.red
+                      : colorScheme.onSurface.withValues(alpha: 0.08))
+                  : Colors.transparent,
+              child: Center(
+                child: ExcludeSemantics(
+                  child: Icon(
+                    widget.icon,
+                    size: widget.iconSize,
+                    color: _isHovered && widget.isClose
+                        ? Colors.white
+                        : colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                ),
+              ),
             ),
           ),
         ),

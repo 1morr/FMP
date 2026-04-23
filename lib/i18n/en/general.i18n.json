@@ -21,6 +21,9 @@
   "addToQueue": "Add to Queue",
   "addToPlaylist": "Add to Playlist",
   "matchLyrics": "Match Lyrics",
+  "minimize": "Minimize",
+  "maximize": "Maximize",
+  "restore": "Restore",
   "addedToNext": "Added to play next",
   "addedToQueue": "Added to queue",
   "addedToPlaylist": "Added to playlist"

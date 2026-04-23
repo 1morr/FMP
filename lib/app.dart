@@ -123,15 +123,7 @@ class FMPApp extends ConsumerWidget {
           routerConfig: appRouter,
 
           // 全局 Banner 包装器 - 确保在所有页面（包括全屏播放器）显示网络状态
-          // Windows: 禁用 semantics 避免 Flutter 引擎 accessibility_bridge 报错
-          // (已知 Flutter Windows bug: AXTree 更新失败)
-          builder: (context, child) {
-            Widget content = _AppContentWrapper(child: child);
-            if (Platform.isWindows) {
-              content = ExcludeSemantics(child: content);
-            }
-            return content;
-          },
+          builder: (context, child) => _AppContentWrapper(child: child),
         );
       },
     );

@@ -227,6 +227,10 @@ class LyricsWindowService {
     // 收集歌词窗口需要的翻译字符串
     final strings = {
       'waitingLyrics': t.lyrics.windowWaitingLyrics,
+      'previous': t.tray.previous,
+      'play': t.tray.play,
+      'pause': t.tray.pause,
+      'next': t.tray.next,
       'unpin': t.lyrics.windowUnpin,
       'pin': t.lyrics.windowPin,
       'offsetAdjust': t.lyrics.windowOffsetAdjust,
