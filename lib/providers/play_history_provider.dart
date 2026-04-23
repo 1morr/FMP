@@ -5,19 +5,24 @@ import '../data/models/track.dart';
 import '../data/repositories/play_history_repository.dart';
 import 'repository_providers.dart';
 
-/// 最近播放历史 Provider（用于首页显示，去重）
-/// 默认获取最近 10 首不重复的歌曲
-final recentPlayHistoryProvider =
+/// 共享播放历史快照 Provider
+final playHistorySnapshotProvider =
     StreamProvider.autoDispose<List<PlayHistory>>((ref) async* {
   final repo = ref.watch(playHistoryRepositoryProvider);
 
-  // 初始加载（去重）
-  yield await repo.getRecentHistoryDistinct(limit: 10);
+  yield await repo.loadHistorySnapshot();
 
-  // 监听变化
   await for (final _ in repo.watchHistory()) {
-    yield await repo.getRecentHistoryDistinct(limit: 10);
+    yield await repo.loadHistorySnapshot();
   }
+});
+
+/// 最近播放历史 Provider（用于首页显示，去重）
+/// 默认获取最近 10 首不重复的歌曲
+final recentPlayHistoryProvider =
+    Provider.autoDispose<AsyncValue<List<PlayHistory>>>((ref) {
+  final snapshot = ref.watch(playHistorySnapshotProvider);
+  return snapshot.whenData((records) => _distinctRecent(records, limit: 10));
 });
 
 /// 播放次数最多的歌曲 Provider
@@ -60,19 +65,150 @@ class PlayHistoryActions {
   Future<void> delete(int id) => _repo.deleteHistory(id);
 }
 
+/// 当前筛选后的播放历史 Provider
+final filteredPlayHistoryProvider =
+    Provider.autoDispose<AsyncValue<List<PlayHistory>>>((ref) {
+  final snapshot = ref.watch(playHistorySnapshotProvider);
+  final selectedSource = ref.watch(playHistoryPageProvider.select((s) => s.selectedSource));
+  final sortOrder = ref.watch(playHistoryPageProvider.select((s) => s.sortOrder));
+  final searchKeyword = ref.watch(playHistoryPageProvider.select((s) => s.searchKeyword));
+  final selectedDate = ref.watch(playHistoryPageProvider.select((s) => s.selectedDate));
+
+  return snapshot.whenData(
+    (records) => _filterAndSortHistory(
+      records,
+      selectedSource: selectedSource,
+      sortOrder: sortOrder,
+      searchKeyword: searchKeyword,
+      selectedDate: selectedDate,
+    ),
+  );
+});
+
 /// 播放历史统计 Provider
 final playHistoryStatsProvider =
-    StreamProvider.autoDispose<PlayHistoryStats>((ref) async* {
-  final repo = ref.watch(playHistoryRepositoryProvider);
-
-  // 初始加载
-  yield await repo.getHistoryStats();
-
-  // 监听变化
-  await for (final _ in repo.watchHistory()) {
-    yield await repo.getHistoryStats();
-  }
+    Provider.autoDispose<AsyncValue<PlayHistoryStats>>((ref) {
+  final snapshot = ref.watch(playHistorySnapshotProvider);
+  return snapshot.whenData(_buildHistoryStats);
 });
+
+List<PlayHistory> _distinctRecent(List<PlayHistory> records, {int limit = 10}) {
+  final seen = <String>{};
+  final result = <PlayHistory>[];
+
+  for (final history in records) {
+    if (seen.add(history.trackKey)) {
+      result.add(history);
+      if (result.length >= limit) {
+        break;
+      }
+    }
+  }
+
+  return result;
+}
+
+List<PlayHistory> _filterAndSortHistory(
+  List<PlayHistory> records, {
+  SourceType? selectedSource,
+  HistorySortOrder sortOrder = HistorySortOrder.timeDesc,
+  String? searchKeyword,
+  DateTime? selectedDate,
+}) {
+  var filtered = List<PlayHistory>.from(records);
+
+  if (selectedSource != null) {
+    filtered = filtered.where((history) => history.sourceType == selectedSource).toList();
+  }
+
+  if (selectedDate != null) {
+    final start = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+    final endExclusive = start.add(const Duration(days: 1));
+    filtered = filtered
+        .where((history) =>
+            !history.playedAt.isBefore(start) && history.playedAt.isBefore(endExclusive))
+        .toList();
+  }
+
+  if (searchKeyword != null && searchKeyword.isNotEmpty) {
+    final lower = searchKeyword.toLowerCase();
+    filtered = filtered
+        .where((history) =>
+            history.title.toLowerCase().contains(lower) ||
+            (history.artist?.toLowerCase().contains(lower) ?? false))
+        .toList();
+  }
+
+  switch (sortOrder) {
+    case HistorySortOrder.timeDesc:
+      filtered.sort((a, b) => b.playedAt.compareTo(a.playedAt));
+      break;
+    case HistorySortOrder.timeAsc:
+      filtered.sort((a, b) => a.playedAt.compareTo(b.playedAt));
+      break;
+    case HistorySortOrder.playCount:
+      final countMap = <String, int>{};
+      for (final history in filtered) {
+        countMap[history.trackKey] = (countMap[history.trackKey] ?? 0) + 1;
+      }
+      filtered.sort(
+        (a, b) => (countMap[b.trackKey] ?? 0).compareTo(countMap[a.trackKey] ?? 0),
+      );
+      break;
+  }
+
+  return filtered;
+}
+
+PlayHistoryStats _buildHistoryStats(List<PlayHistory> records) {
+  final now = DateTime.now();
+  final todayStart = DateTime(now.year, now.month, now.day);
+  final weekStart = todayStart.subtract(Duration(days: now.weekday - 1));
+
+  var todayCount = 0;
+  var todayDurationMs = 0;
+  var weekCount = 0;
+  var weekDurationMs = 0;
+  var totalDurationMs = 0;
+
+  for (final history in records) {
+    final duration = history.durationMs ?? 0;
+    totalDurationMs += duration;
+
+    if (!history.playedAt.isBefore(todayStart)) {
+      todayCount++;
+      todayDurationMs += duration;
+    }
+    if (!history.playedAt.isBefore(weekStart)) {
+      weekCount++;
+      weekDurationMs += duration;
+    }
+  }
+
+  return PlayHistoryStats(
+    totalCount: records.length,
+    todayCount: todayCount,
+    weekCount: weekCount,
+    totalDurationMs: totalDurationMs,
+    todayDurationMs: todayDurationMs,
+    weekDurationMs: weekDurationMs,
+  );
+}
+
+Map<DateTime, List<PlayHistory>> _groupHistoryByDate(List<PlayHistory> records) {
+  final grouped = <DateTime, List<PlayHistory>>{};
+
+  for (final history in records) {
+    final date = DateTime(
+      history.playedAt.year,
+      history.playedAt.month,
+      history.playedAt.day,
+    );
+    grouped.putIfAbsent(date, () => []).add(history);
+  }
+
+  return grouped;
+}
 
 /// 播放历史页面状态
 class PlayHistoryPageState {
@@ -224,49 +360,9 @@ final playHistoryPageProvider =
 /// 分组后的播放历史 Provider
 /// 注意：只監聽影響數據獲取的字段，不監聽選擇狀態，避免選擇時重新獲取數據導致閃爍
 final groupedPlayHistoryProvider =
-    StreamProvider.autoDispose<Map<DateTime, List<PlayHistory>>>((ref) async* {
-  final repo = ref.watch(playHistoryRepositoryProvider);
-  
-  // 只監聽影響數據獲取的字段，不監聽 selectedIds 和 isMultiSelectMode
-  final selectedSource = ref.watch(playHistoryPageProvider.select((s) => s.selectedSource));
-  final sortOrder = ref.watch(playHistoryPageProvider.select((s) => s.sortOrder));
-  final searchKeyword = ref.watch(playHistoryPageProvider.select((s) => s.searchKeyword));
-  final selectedDate = ref.watch(playHistoryPageProvider.select((s) => s.selectedDate));
-
-  Future<Map<DateTime, List<PlayHistory>>> fetchData() async {
-    // 如果选择了特定日期，只获取该日期的记录
-    if (selectedDate != null) {
-      final date = selectedDate;
-      final start = DateTime(date.year, date.month, date.day);
-      final end = DateTime(date.year, date.month, date.day, 23, 59, 59);
-      
-      final records = await repo.queryHistory(
-        sourceTypes: selectedSource == null ? null : {selectedSource},
-        startDate: start,
-        endDate: end,
-        searchKeyword: searchKeyword,
-        sortOrder: sortOrder,
-        limit: 1000,
-      );
-      
-      return {start: records};
-    }
-
-    // 否则获取分组数据
-    return repo.getHistoryGroupedByDate(
-      sourceTypes: selectedSource == null ? null : {selectedSource},
-      searchKeyword: searchKeyword,
-      sortOrder: sortOrder,
-    );
-  }
-
-  // 初始加载
-  yield await fetchData();
-
-  // 监听变化
-  await for (final _ in repo.watchHistory()) {
-    yield await fetchData();
-  }
+    Provider.autoDispose<AsyncValue<Map<DateTime, List<PlayHistory>>>>((ref) {
+  final filtered = ref.watch(filteredPlayHistoryProvider);
+  return filtered.whenData(_groupHistoryByDate);
 });
 
 /// 获取某首歌的播放次数 Provider
