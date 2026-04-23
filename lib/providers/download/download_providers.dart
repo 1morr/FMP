@@ -186,6 +186,12 @@ final downloadProgressStateProvider = StateNotifierProvider<DownloadProgressStat
   return DownloadProgressState();
 });
 
+final downloadTaskProgressProvider = Provider.family<(double, int, int?)?, int>((ref, taskId) {
+  return ref.watch(
+    downloadProgressStateProvider.select((state) => state[taskId]),
+  );
+});
+
 /// 下载进度流 Provider（原始 stream，进度更新由 downloadServiceProvider 处理）
 final downloadProgressProvider = StreamProvider<DownloadProgressEvent>((ref) {
   final service = ref.watch(downloadServiceProvider);

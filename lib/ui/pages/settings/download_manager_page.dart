@@ -238,13 +238,18 @@ class _DownloadTaskTile extends ConsumerWidget {
     final trackAsync = ref.watch(trackByIdProvider(task.trackId));
 
     // 从内存中获取实时进度（如果有的话）
-    final progressState = ref.watch(downloadProgressStateProvider);
-    final memProgress = progressState[task.id];
+    final memProgress = ref.watch(downloadTaskProgressProvider(task.id));
+    final dbProgress = (
+      task.progress,
+      task.downloadedBytes,
+      task.totalBytes,
+    );
+    final effectiveProgress = memProgress ?? dbProgress;
 
     // 优先使用内存中的进度，否则使用数据库中的进度
-    final progress = memProgress?.$1 ?? task.progress;
-    final downloadedBytes = memProgress?.$2 ?? task.downloadedBytes;
-    final totalBytes = memProgress?.$3 ?? task.totalBytes;
+    final progress = effectiveProgress.$1;
+    final downloadedBytes = effectiveProgress.$2;
+    final totalBytes = effectiveProgress.$3;
 
     final title = trackAsync.maybeWhen(
       data: (track) => track?.title ?? t.settings.downloadManager.unknownTrack,
