@@ -258,6 +258,12 @@ void main() {
       expect(selection.track.audioUrl,
           'https://example.com/stream-fallback-fallback.m3u8');
       expect(selection.track.audioUrlExpiry, isNotNull);
+      final fallbackExpiryDelta =
+          selection.track.audioUrlExpiry!.difference(DateTime.now());
+      expect(
+        fallbackExpiryDelta.inMinutes,
+        inInclusiveRange(15, 16),
+      );
       expect(selection.headers, {
         'Origin': 'https://www.youtube.com',
         'Referer': 'https://www.youtube.com/',
@@ -441,6 +447,7 @@ class _FakeSource extends BaseSource {
       container: 'm3u8',
       codec: 'aac',
       streamType: config.streamPriority.first,
+      expiry: const Duration(minutes: 16),
     );
   }
 
