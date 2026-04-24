@@ -313,6 +313,7 @@ class _CategoryCard extends ConsumerWidget {
         networkUrl: null,
         placeholder: _buildDefaultCover(colorScheme),
         fit: BoxFit.cover,
+        targetDisplaySize: 160,
       );
     }
     return _buildDefaultCover(colorScheme);

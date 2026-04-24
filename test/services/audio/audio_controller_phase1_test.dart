@@ -214,6 +214,87 @@ void main() {
       expect(controller.state.isLoading, isFalse);
     });
 
+    test('togglePlayPause refreshes expired remote URL and restores position',
+        () async {
+      sourceManager.setNextAudioExpiry(const Duration(milliseconds: 1));
+      await controller
+          .playTrack(_track('expired-resume', title: 'Expired Resume'));
+      await controller.seekTo(const Duration(seconds: 42));
+      audioService.setPositionValue(const Duration(seconds: 42));
+      await controller.pause();
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+
+      audioService.playUrlCalls.clear();
+      audioService.seekCalls.clear();
+
+      await controller.togglePlayPause();
+      await pumpEventQueue(times: 20);
+
+      expect(audioService.playUrlCalls.single.url,
+          'https://example.com/expired-resume.m4a');
+      expect(audioService.seekCalls.single, const Duration(seconds: 42));
+      expect(controller.state.playingTrack?.sourceId, 'expired-resume');
+      expect(controller.state.isPlaying, isTrue);
+    });
+
+    test('togglePlayPause does not refresh expired URL when local file exists',
+        () async {
+      final localFile = File('${tempDir.path}/local-expired.m4a');
+      await localFile.writeAsString('audio-bytes');
+      final track = _track('local-expired', title: 'Local Expired')
+        ..audioUrl = 'https://stale.example/local-expired.m4a'
+        ..audioUrlExpiry = DateTime.now().subtract(const Duration(minutes: 1))
+        ..playlistInfo = [
+          PlaylistDownloadInfo()
+            ..playlistId = 1
+            ..playlistName = 'Downloaded'
+            ..downloadPath = localFile.path,
+        ];
+
+      await controller.playTrack(track);
+      await controller.pause();
+      audioService.playUrlCalls.clear();
+      audioService.seekCalls.clear();
+
+      await controller.togglePlayPause();
+      await pumpEventQueue(times: 10);
+
+      expect(audioService.playUrlCalls, isEmpty);
+      expect(audioService.seekCalls, isEmpty);
+      expect(controller.state.isPlaying, isTrue);
+    });
+
+    test('superseded expired URL resume does not seek the newer track',
+        () async {
+      sourceManager.setNextAudioExpiry(const Duration(milliseconds: 1));
+      await controller.playTrack(_track('old-expired', title: 'Old Expired'));
+      await controller.seekTo(const Duration(seconds: 42));
+      audioService.setPositionValue(const Duration(seconds: 42));
+      await controller.pause();
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+
+      audioService.playUrlCalls.clear();
+      audioService.seekCalls.clear();
+      final oldResume = controller.togglePlayPause();
+      await audioService.waitForPlayUrlCallCount(1);
+
+      final newerTrack =
+          _track('new-after-expired', title: 'New After Expired');
+      await controller.playTrack(newerTrack);
+      await oldResume;
+      await pumpEventQueue(times: 20);
+
+      expect(controller.state.playingTrack?.sourceId, 'new-after-expired');
+      expect(controller.state.currentTrack?.sourceId, 'new-after-expired');
+      expect(
+          audioService.playUrlCalls.map((call) => call.url),
+          containsAllInOrder([
+            'https://example.com/old-expired.m4a',
+            'https://example.com/new-after-expired.m4a',
+          ]));
+      expect(audioService.seekCalls, isEmpty);
+    });
+
     test('superseded restore does not stop or overwrite the newer request',
         () async {
       final queueTracks = [
@@ -716,6 +797,10 @@ class _FakeSourceManager extends SourceManager {
     _source.throwGetAudioStreamOnce(error);
   }
 
+  void setNextAudioExpiry(Duration? expiry) {
+    _source.nextAudioExpiry = expiry;
+  }
+
   @override
   BaseSource? getSource(SourceType type) => _source;
 
@@ -755,6 +840,7 @@ class _PendingMixFetch {
 
 class _FakeSource extends BaseSource {
   Object? _nextGetAudioStreamError;
+  Duration? nextAudioExpiry;
 
   void throwGetAudioStreamOnce(Object error) {
     _nextGetAudioStreamError = error;
@@ -797,11 +883,14 @@ class _FakeSource extends BaseSource {
       throw error;
     }
 
+    final expiry = nextAudioExpiry;
+    nextAudioExpiry = null;
     return AudioStreamResult(
       url: 'https://example.com/$sourceId.m4a',
       container: 'm4a',
       codec: 'aac',
       streamType: StreamType.audioOnly,
+      expiry: expiry,
     );
   }
 

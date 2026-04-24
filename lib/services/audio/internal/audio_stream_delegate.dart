@@ -65,7 +65,9 @@ class AudioStreamDelegate {
       );
 
       track.audioUrl = streamResult.url;
-      track.audioUrlExpiry = DateTime.now().add(const Duration(hours: 1));
+      track.audioUrlExpiry = DateTime.now().add(
+        streamResult.expiry ?? const Duration(hours: 1),
+      );
       track.updatedAt = DateTime.now();
 
       if (persist) {

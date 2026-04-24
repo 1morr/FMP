@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -175,6 +176,41 @@ class UpdateService {
       return true;
     }
     return false;
+  }
+
+  @visibleForTesting
+  static String safeZipEntryDestinationForTest(
+    String extractDir,
+    String entryName,
+  ) {
+    return _safeZipEntryDestination(extractDir, entryName);
+  }
+
+  static String _safeZipEntryDestination(String extractDir, String entryName) {
+    final normalizedName = entryName.replaceAll('\\', '/');
+    final parts = p.posix.split(normalizedName);
+    final hasDrivePrefix = RegExp(r'^[A-Za-z]:').hasMatch(entryName);
+
+    if (normalizedName.startsWith('/') ||
+        normalizedName.startsWith('\\') ||
+        hasDrivePrefix ||
+        parts.any((part) => part == '..')) {
+      throw FormatException('Unsafe ZIP entry path: $entryName');
+    }
+
+    final normalizedExtractDir = p.normalize(extractDir);
+    final destination =
+        p.normalize(p.joinAll([normalizedExtractDir, ...parts]));
+    final extractWithSeparator = normalizedExtractDir.endsWith(p.separator)
+        ? normalizedExtractDir
+        : '$normalizedExtractDir${p.separator}';
+
+    if (destination != normalizedExtractDir &&
+        !destination.startsWith(extractWithSeparator)) {
+      throw FormatException('Unsafe ZIP entry path: $entryName');
+    }
+
+    return destination;
   }
 
   /// 检查是否有新版本
@@ -413,7 +449,7 @@ class UpdateService {
     final bytes = File(zipPath).readAsBytesSync();
     final archive = ZipDecoder().decodeBytes(bytes);
     for (final file in archive) {
-      final filePath = '$extractDir/${file.name}';
+      final filePath = _safeZipEntryDestination(extractDir, file.name);
       if (file.isFile) {
         final outFile = File(filePath);
         outFile.createSync(recursive: true);

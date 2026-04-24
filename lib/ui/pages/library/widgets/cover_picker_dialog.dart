@@ -142,7 +142,8 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
-          child: Text(t.library.loadFailedWithError(error: state.error.toString())),
+          child: Text(
+              t.library.loadFailedWithError(error: state.error.toString())),
         ),
       );
     }
@@ -189,6 +190,7 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
         final isSelected = track.thumbnailUrl == widget.currentCoverUrl;
 
         return _CoverGridItem(
+          key: ValueKey(track.thumbnailUrl),
           imageUrl: track.thumbnailUrl!,
           isSelected: isSelected,
           onTap: () {
@@ -263,6 +265,7 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
                         networkUrl: _urlController.text,
                         placeholder: const ImagePlaceholder.track(),
                         fit: BoxFit.contain,
+                        targetDisplaySize: 320,
                       ),
                     ),
                   ),
@@ -295,6 +298,7 @@ class _CoverGridItem extends StatelessWidget {
   final VoidCallback onTap;
 
   const _CoverGridItem({
+    super.key,
     required this.imageUrl,
     required this.isSelected,
     required this.onTap,
@@ -317,7 +321,8 @@ class _CoverGridItem extends StatelessWidget {
                 : null,
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(isSelected ? AppRadius.sm : AppRadius.md),
+            borderRadius:
+                BorderRadius.circular(isSelected ? AppRadius.sm : AppRadius.md),
             child: Stack(
               fit: StackFit.expand,
               children: [
