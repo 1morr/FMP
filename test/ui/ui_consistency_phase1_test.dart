@@ -32,8 +32,17 @@ void main() {
         isTrue,
       );
       expect(
-        source.contains("ValueKey('alternative-search-") ||
-            source.contains("ValueKey('alternative-expanded-"),
+        RegExp(
+          r"ValueKey\(\s*'alternative-search-\$\{result\.sourceType\.name\}:\$\{result\.sourceId\}:\$\{result\.pageNum\s*\?\?\s*result\.cid\s*\?\?\s*0\}'\s*\)",
+          dotAll: true,
+        ).hasMatch(source),
+        isTrue,
+      );
+      expect(
+        RegExp(
+          r"ValueKey\(\s*'alternative-expanded-\$\{altTrack\.sourceType\.name\}:\$\{altTrack\.sourceId\}:\$\{altTrack\.pageNum\s*\?\?\s*altTrack\.cid\s*\?\?\s*0\}'\s*\)",
+          dotAll: true,
+        ).hasMatch(source),
         isTrue,
       );
     });
