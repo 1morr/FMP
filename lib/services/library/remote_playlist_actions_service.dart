@@ -30,54 +30,59 @@ class RemotePlaylistActionsService {
     required this.removeNeteaseTracks,
   });
 
-  Future<void> removeTrackFromRemote({
+  Future<bool> removeTrackFromRemote({
     required String sourceUrl,
     required SourceType importSourceType,
     required Track track,
   }) async {
-    if (track.sourceType != importSourceType) return;
+    if (track.sourceType != importSourceType) return false;
 
     switch (importSourceType) {
       case SourceType.bilibili:
         final folderId = _parseBilibiliFolderId(sourceUrl);
-        if (folderId == null) return;
+        if (folderId == null) return false;
         final videoAid = await getBilibiliAid(track);
         await removeBilibiliTrack(videoAid: videoAid, folderId: folderId);
+        return true;
       case SourceType.youtube:
         final playlistId = _parseYoutubePlaylistId(sourceUrl);
-        if (playlistId == null) return;
+        if (playlistId == null) return false;
         final setVideoId =
             await getYoutubeSetVideoId(playlistId, track.sourceId);
-        if (setVideoId == null) return;
+        if (setVideoId == null) return false;
         await removeYoutubeTrack(playlistId, track.sourceId, setVideoId);
+        return true;
       case SourceType.netease:
         final playlistId = _parseNeteasePlaylistId(sourceUrl);
-        if (playlistId == null) return;
+        if (playlistId == null) return false;
         await removeNeteaseTracks(playlistId, [track.sourceId]);
+        return true;
     }
   }
 
-  Future<void> removeTracksFromRemote({
+  Future<bool> removeTracksFromRemote({
     required String sourceUrl,
     required SourceType importSourceType,
     required List<Track> tracks,
   }) async {
     final matchingTracks =
         tracks.where((track) => track.sourceType == importSourceType).toList();
-    if (matchingTracks.isEmpty) return;
+    if (matchingTracks.isEmpty) return false;
 
     switch (importSourceType) {
       case SourceType.bilibili:
         final folderId = _parseBilibiliFolderId(sourceUrl);
-        if (folderId == null) return;
+        if (folderId == null) return false;
         final videoAids = <int>[];
         for (final track in matchingTracks) {
           videoAids.add(await getBilibiliAid(track));
         }
         await removeBilibiliTracks(folderId: folderId, videoAids: videoAids);
+        return true;
       case SourceType.youtube:
         final playlistId = _parseYoutubePlaylistId(sourceUrl);
-        if (playlistId == null) return;
+        if (playlistId == null) return false;
+        var removedAny = false;
         for (final track in matchingTracks) {
           final setVideoId = await getYoutubeSetVideoId(
             playlistId,
@@ -85,14 +90,17 @@ class RemotePlaylistActionsService {
           );
           if (setVideoId == null) continue;
           await removeYoutubeTrack(playlistId, track.sourceId, setVideoId);
+          removedAny = true;
         }
+        return removedAny;
       case SourceType.netease:
         final playlistId = _parseNeteasePlaylistId(sourceUrl);
-        if (playlistId == null) return;
+        if (playlistId == null) return false;
         await removeNeteaseTracks(
           playlistId,
           matchingTracks.map((track) => track.sourceId).toList(),
         );
+        return true;
     }
   }
 

@@ -28,7 +28,7 @@ void main() {
           },
         );
 
-        await service.removeTracksFromRemote(
+        final removed = await service.removeTracksFromRemote(
           sourceUrl: 'https://space.bilibili.com/1/favlist?fid=12345',
           importSourceType: SourceType.bilibili,
           tracks: [
@@ -38,6 +38,7 @@ void main() {
           ],
         );
 
+        expect(removed, isTrue);
         expect(requestedAidTracks, ['BV1', 'BV2']);
         expect(removedFolderId, 12345);
         expect(removedAids, [101, 202]);
@@ -56,12 +57,13 @@ void main() {
         },
       );
 
-      await service.removeTrackFromRemote(
+      final removed = await service.removeTrackFromRemote(
         sourceUrl: 'https://www.bilibili.com/medialist/detail/ml98765',
         importSourceType: SourceType.bilibili,
         track: _track(SourceType.bilibili, 'BV3'),
       );
 
+      expect(removed, isTrue);
       expect(removedVideoAid, 303);
       expect(removedFolderId, 98765);
     });
@@ -82,7 +84,7 @@ void main() {
           },
         );
 
-        await service.removeTracksFromRemote(
+        final removed = await service.removeTracksFromRemote(
           sourceUrl: 'https://www.youtube.com/playlist?list=PL123',
           importSourceType: SourceType.youtube,
           tracks: [
@@ -92,6 +94,7 @@ void main() {
           ],
         );
 
+        expect(removed, isTrue);
         expect(lookupCalls, ['PL123:keep', 'PL123:missing']);
         expect(removeCalls, ['PL123:keep:set-keep']);
       },
@@ -108,7 +111,7 @@ void main() {
         },
       );
 
-      await service.removeTracksFromRemote(
+      final removed = await service.removeTracksFromRemote(
         sourceUrl: 'https://music.163.com/#/playlist?id=24680',
         importSourceType: SourceType.netease,
         tracks: [
@@ -118,9 +121,62 @@ void main() {
         ],
       );
 
+      expect(removed, isTrue);
       expect(removedPlaylistId, '24680');
       expect(removedTrackIds, ['11', '22']);
     });
+
+    test('invalid playlist URL returns false and does not invoke callbacks',
+        () async {
+      var getAidCalled = false;
+      var removeCalled = false;
+      final service = _service(
+        getBilibiliAid: (_) async {
+          getAidCalled = true;
+          return 1;
+        },
+        removeBilibiliTracks: ({required folderId, required videoAids}) async {
+          removeCalled = true;
+        },
+      );
+
+      final removed = await service.removeTracksFromRemote(
+        sourceUrl: 'https://space.bilibili.com/1/favlist',
+        importSourceType: SourceType.bilibili,
+        tracks: [_track(SourceType.bilibili, 'BV1')],
+      );
+
+      expect(removed, isFalse);
+      expect(getAidCalled, isFalse);
+      expect(removeCalled, isFalse);
+    });
+
+    test(
+      'single YouTube removal with missing setVideoId returns false and does not remove',
+      () async {
+        final lookupCalls = <String>[];
+        var removeCalled = false;
+        final service = _service(
+          getYoutubeSetVideoId: (playlistId, videoId) async {
+            lookupCalls.add('$playlistId:$videoId');
+            return null;
+          },
+          removeYoutubeTrack: (playlistId, videoId, setVideoId) async {
+            removeCalled = true;
+          },
+        );
+
+        final removed = await service.removeTrackFromRemote(
+          sourceUrl: 'https://www.youtube.com/playlist?list=PL123',
+          importSourceType: SourceType.youtube,
+          track: _track(SourceType.youtube, 'missing'),
+        );
+
+        expect(removed, isFalse);
+        expect(lookupCalls, ['PL123:missing']);
+        expect(removeCalled, isFalse);
+      },
+    );
   });
 }
 

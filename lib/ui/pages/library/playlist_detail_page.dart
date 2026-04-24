@@ -697,13 +697,14 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       final sourceType = state.playlist?.importSourceType;
       if (sourceUrl == null || sourceType == null) return;
 
-      await ref
+      final removedFromRemote = await ref
           .read(remotePlaylistActionsServiceProvider)
           .removeTracksFromRemote(
             sourceUrl: sourceUrl,
             importSourceType: sourceType,
             tracks: tracks,
           );
+      if (!removedFromRemote) return;
 
       // 在移除前先取得 playlist 和 refreshManager
       final playlist =
@@ -1808,13 +1809,14 @@ class _TrackListTile extends ConsumerWidget {
       final sourceType = state.playlist?.importSourceType;
       if (sourceUrl == null || sourceType == null) return;
 
-      await ref
+      final removedFromRemote = await ref
           .read(remotePlaylistActionsServiceProvider)
           .removeTrackFromRemote(
             sourceUrl: sourceUrl,
             importSourceType: sourceType,
             track: track,
           );
+      if (!removedFromRemote) return;
 
       // 在移除前先取得 playlist 和 refreshManager（移除後 ref 可能失效）
       final playlist = ref.read(playlistDetailProvider(playlistId)).playlist;
