@@ -49,36 +49,40 @@ class PlaylistImportState {
 
   /// 获取已匹配的歌曲数量
   int get matchedCount => matchedTracks
-      .where((t) => t.status == MatchStatus.matched || t.status == MatchStatus.userSelected)
+      .where((t) =>
+          t.status == MatchStatus.matched ||
+          t.status == MatchStatus.userSelected)
       .length;
 
   /// 获取未匹配的歌曲数量
-  int get unmatchedCount => matchedTracks
-      .where((t) => t.status == MatchStatus.noResult)
-      .length;
+  int get unmatchedCount =>
+      matchedTracks.where((t) => t.status == MatchStatus.noResult).length;
 
   /// 获取已选中的歌曲（用于创建歌单）
   List<Track> get selectedTracks => matchedTracks
-      .where((t) => t.isIncluded && t.selectedTrack != null)
-      .map((t) {
-        final track = t.selectedTrack!;
+          .where((t) => t.isIncluded && t.selectedTrack != null)
+          .map((t) {
+        final track = t.selectedTrack!.copy();
         if (t.original.sourceId != null) {
           track.originalSongId = t.original.sourceId;
           track.originalSource = _mapSourceToString(t.original.source);
         }
         return track;
-      })
-      .toList();
+      }).toList();
 
   /// 获取未匹配的原始歌曲（包括用户手动选择的）
   List<ImportedTrack> get unmatchedOriginalTracks => matchedTracks
-      .where((t) => t.status == MatchStatus.noResult || t.status == MatchStatus.userSelected)
+      .where((t) =>
+          t.status == MatchStatus.noResult ||
+          t.status == MatchStatus.userSelected)
       .map((t) => t.original)
       .toList();
 
   /// 获取未匹配的 MatchedTrack（包括用户手动选择的，用于 UI 显示选中状态）
   List<MatchedTrack> get unmatchedMatchedTracks => matchedTracks
-      .where((t) => t.status == MatchStatus.noResult || t.status == MatchStatus.userSelected)
+      .where((t) =>
+          t.status == MatchStatus.noResult ||
+          t.status == MatchStatus.userSelected)
       .toList();
 
   /// PlaylistSource → 歌词系统兼容的字符串
@@ -237,7 +241,8 @@ class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
   }
 
   /// 用手动搜索结果更新未匹配歌曲（保留在未匹配区域，使用 userSelected 状态）
-  void updateWithManualMatch(int index, Track selectedTrack, List<Track> searchResults) {
+  void updateWithManualMatch(
+      int index, Track selectedTrack, List<Track> searchResults) {
     if (index < 0 || index >= state.matchedTracks.length) return;
 
     final updatedTracks = List<MatchedTrack>.from(state.matchedTracks);

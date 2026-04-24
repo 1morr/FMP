@@ -1,11 +1,54 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/playlist_import/playlist_import_source.dart';
 import 'package:fmp/providers/import_playlist_provider.dart';
+import 'package:fmp/providers/playlist_import_provider.dart';
 import 'package:fmp/services/import/import_service.dart';
 import 'package:riverpod/riverpod.dart';
 
 void main() {
+  group('PlaylistImportState.selectedTracks', () {
+    test('copies selected tracks before writing original platform metadata',
+        () {
+      final selected = Track()
+        ..id = 42
+        ..sourceId = 'matched-bv'
+        ..sourceType = SourceType.bilibili
+        ..title = 'Matched Song'
+        ..artist = 'Matched Artist';
+
+      final state = PlaylistImportState(
+        matchedTracks: [
+          MatchedTrack(
+            original: const ImportedTrack(
+              title: 'Original Song',
+              artists: ['Original Artist'],
+              sourceId: 'qq-songmid-1',
+              source: PlaylistSource.qqMusic,
+            ),
+            selectedTrack: selected,
+            status: MatchStatus.userSelected,
+          ),
+        ],
+      );
+
+      final tracks = state.selectedTracks;
+
+      expect(tracks, hasLength(1));
+      expect(identical(tracks.single, selected), isFalse);
+      expect(tracks.single.id, selected.id);
+      expect(tracks.single.sourceType, selected.sourceType);
+      expect(tracks.single.sourceId, selected.sourceId);
+      expect(tracks.single.originalSongId, 'qq-songmid-1');
+      expect(tracks.single.originalSource, 'qqmusic');
+      expect(selected.originalSongId, isNull);
+      expect(selected.originalSource, isNull);
+    });
+  });
+
   group('import playlist provider phase 2', () {
     test(
       'forwards progress and owns cancellation cleanup after listeners detach',
@@ -46,7 +89,10 @@ void main() {
           isTrue,
         );
         expect(
-          container.read(importPlaylistProvider('phase2-test')).progress.currentItem,
+          container
+              .read(importPlaylistProvider('phase2-test'))
+              .progress
+              .currentItem,
           'Track 1',
         );
 
