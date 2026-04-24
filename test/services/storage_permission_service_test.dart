@@ -52,10 +52,13 @@ void main() {
       expect(storageChecked, isFalse);
     });
 
-    testWidgets('Android 10 denied request returns false from storage permission branch', (tester) async {
+    testWidgets(
+        'Android 10 denied request returns false from storage permission branch',
+        (tester) async {
       StoragePermissionService.debugIsAndroidOverride = true;
       StoragePermissionService.debugAndroidSdkProvider = () async => 29;
-      StoragePermissionService.debugRequestStorage = () async => PermissionStatus.denied;
+      StoragePermissionService.debugRequestStorage =
+          () async => PermissionStatus.denied;
       StoragePermissionService.debugRequestManageExternalStorage = () async {
         throw StateError('manageExternalStorage should not be requested');
       };
@@ -65,7 +68,10 @@ void main() {
           home: Builder(
             builder: (context) => TextButton(
               onPressed: () async {
-                final allowed = await StoragePermissionService.requestStoragePermission(context);
+                final allowed =
+                    await StoragePermissionService.requestStoragePermission(
+                  context,
+                );
                 expect(allowed, isFalse);
               },
               child: const Text('request'),
@@ -76,6 +82,60 @@ void main() {
 
       await tester.tap(find.text('request'));
       await tester.pump();
+    });
+
+    testWidgets(
+        'Android 11 denied request shows dialog and requests manage external storage',
+        (tester) async {
+      var manageStatusChecked = false;
+      var manageRequested = false;
+      var storageRequested = false;
+      bool? allowedResult;
+
+      StoragePermissionService.debugIsAndroidOverride = true;
+      StoragePermissionService.debugAndroidSdkProvider = () async => 30;
+      StoragePermissionService.debugManageExternalStorageStatus = () async {
+        manageStatusChecked = true;
+        return PermissionStatus.denied;
+      };
+      StoragePermissionService.debugRequestManageExternalStorage = () async {
+        manageRequested = true;
+        return PermissionStatus.granted;
+      };
+      StoragePermissionService.debugRequestStorage = () async {
+        storageRequested = true;
+        return PermissionStatus.denied;
+      };
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () async {
+                allowedResult =
+                    await StoragePermissionService.requestStoragePermission(
+                  context,
+                );
+              },
+              child: const Text('request'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('request'));
+      await tester.pump();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(manageStatusChecked, isTrue);
+      expect(manageRequested, isFalse);
+
+      await tester.tap(find.byType(FilledButton));
+      await tester.pumpAndSettle();
+
+      expect(manageRequested, isTrue);
+      expect(storageRequested, isFalse);
+      expect(allowedResult, isTrue);
     });
   });
 }
