@@ -91,7 +91,8 @@ class TrackThumbnail extends ConsumerWidget {
     );
   }
 
-  Widget _buildImage(ColorScheme colorScheme, String? localCoverPath, WidgetRef ref) {
+  Widget _buildImage(
+      ColorScheme colorScheme, String? localCoverPath, WidgetRef ref) {
     final placeholder = _buildPlaceholder(colorScheme);
 
     return ImageLoadingService.loadImage(
@@ -226,5 +227,3 @@ class TrackCover extends ConsumerWidget {
     );
   }
 }
-
-

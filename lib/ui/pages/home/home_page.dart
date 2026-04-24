@@ -164,7 +164,8 @@ class _MusicRankingsSection extends ConsumerWidget {
                 if (hasBilibiliData)
                   Expanded(
                     child: _buildRankingCard(context, colorScheme,
-                        title: t.importPlatform.bilibili, asyncValue: bilibiliAsync),
+                        title: t.importPlatform.bilibili,
+                        asyncValue: bilibiliAsync),
                   ),
                 if (hasBilibiliData && hasYoutubeData)
                   const SizedBox(width: 16),
@@ -183,7 +184,8 @@ class _MusicRankingsSection extends ConsumerWidget {
               children: [
                 if (hasBilibiliData)
                   _buildRankingCard(context, colorScheme,
-                      title: t.importPlatform.bilibili, asyncValue: bilibiliAsync),
+                      title: t.importPlatform.bilibili,
+                      asyncValue: bilibiliAsync),
                 if (hasBilibiliData && hasYoutubeData)
                   const SizedBox(height: 12),
                 if (hasYoutubeData)
@@ -869,9 +871,13 @@ class _RankingTrackTile extends ConsumerWidget {
                             track.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyLarge
+                                ?.copyWith(
                                   color: isPlaying ? colorScheme.primary : null,
-                                  fontWeight: isPlaying ? FontWeight.w600 : null,
+                                  fontWeight:
+                                      isPlaying ? FontWeight.w600 : null,
                                 ),
                           ),
                         ),
@@ -889,7 +895,10 @@ class _RankingTrackTile extends ConsumerWidget {
                             track.artist ?? t.general.unknownArtist,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
                                   color: colorScheme.onSurfaceVariant,
                                 ),
                           ),
@@ -904,9 +913,10 @@ class _RankingTrackTile extends ConsumerWidget {
                           const SizedBox(width: 2),
                           Text(
                             formatCount(track.viewCount!),
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.outline,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.outline,
+                                    ),
                           ),
                         ],
                       ],
