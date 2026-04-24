@@ -2181,12 +2181,21 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     logDebug(
         'Audio URL expired for: ${track.title}, re-fetching and resuming from ${state.position}');
     final position = state.position;
+    final trackKey = track.uniqueKey;
+    final requestGeneration = _playRequestId;
     final requestTrack = _createPlaybackRequestTrack(track);
     await _playTrack(requestTrack);
+
+    if (_isDisposed) return true;
+    if (_playRequestId != requestGeneration + 1) return true;
+    if (state.currentTrack?.uniqueKey != trackKey) return true;
 
     // 播放成功后恢复到之前的位置
     if (position.inSeconds > 0) {
       await Future.delayed(AppConstants.seekStabilizationDelay);
+      if (_isDisposed) return true;
+      if (_playRequestId != requestGeneration + 1) return true;
+      if (state.currentTrack?.uniqueKey != trackKey) return true;
       await seekTo(position);
     }
     return true;
