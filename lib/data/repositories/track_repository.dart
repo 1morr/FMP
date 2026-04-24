@@ -82,14 +82,9 @@ class TrackRepository with Logging {
 
   /// 保存歌曲并返回更新后的歌曲
   Future<Track> save(Track track) async {
-    logDebug('Saving track: ${track.title} (id: ${track.id}, sourceId: ${track.sourceId})');
-    logDebug('  playlistInfo: ${track.playlistInfo.map((i) => "playlist=${i.playlistId}:path=${i.downloadPath.isNotEmpty ? "HAS_PATH" : "EMPTY"}").join(", ")}');
-    // 打印调用栈以找出谁在调用 save
-    logDebug('  caller: ${StackTrace.current.toString().split('\n').take(5).join(' -> ')}');
     track.updatedAt = DateTime.now();
     final id = await _isar.writeTxn(() => _isar.tracks.put(track));
     track.id = id;
-    logDebug('Track saved with id: $id');
     return track;
   }
 
