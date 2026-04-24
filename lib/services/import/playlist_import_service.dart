@@ -18,13 +18,15 @@ enum SearchSourceConfig {
 
   String get displayName {
     switch (this) {
-      case SearchSourceConfig.all: return t.searchPage.all;
-      case SearchSourceConfig.bilibiliOnly: return t.searchPage.bilibiliOnly;
-      case SearchSourceConfig.youtubeOnly: return t.searchPage.youtubeOnly;
+      case SearchSourceConfig.all:
+        return t.searchPage.all;
+      case SearchSourceConfig.bilibiliOnly:
+        return t.searchPage.bilibiliOnly;
+      case SearchSourceConfig.youtubeOnly:
+        return t.searchPage.youtubeOnly;
     }
   }
 }
-
 
 /// 导入进度
 class ImportProgress {
@@ -45,8 +47,8 @@ class ImportProgress {
 
 enum ImportPhase {
   idle,
-  fetching,    // 获取歌单
-  matching,    // 搜索匹配
+  fetching, // 获取歌单
+  matching, // 搜索匹配
   completed,
   error,
 }
@@ -61,21 +63,22 @@ class PlaylistImportResult {
   PlaylistImportResult({
     required this.playlist,
     required this.matchedTracks,
-  }) : matchedCount = matchedTracks.where((t) => t.status == MatchStatus.matched).length,
-       unmatchedCount = matchedTracks.where((t) => t.status == MatchStatus.noResult).length;
+  })  : matchedCount =
+            matchedTracks.where((t) => t.status == MatchStatus.matched).length,
+        unmatchedCount =
+            matchedTracks.where((t) => t.status == MatchStatus.noResult).length;
 
   /// 获取已匹配的歌曲（用于创建歌单）
   List<Track> get selectedTracks => matchedTracks
-      .where((t) => t.isIncluded && t.selectedTrack != null)
-      .map((t) {
-        final track = t.selectedTrack!;
+          .where((t) => t.isIncluded && t.selectedTrack != null)
+          .map((t) {
+        final track = t.selectedTrack!.copy();
         if (t.original.sourceId != null) {
           track.originalSongId = t.original.sourceId;
           track.originalSource = _mapSourceToString(t.original.source);
         }
         return track;
-      })
-      .toList();
+      }).toList();
 
   /// 获取未匹配的歌曲
   List<ImportedTrack> get unmatchedTracks => matchedTracks
@@ -122,12 +125,12 @@ class PlaylistImportService {
 
   PlaylistImportService({
     required SourceManager sourceManager,
-  }) : _sourceManager = sourceManager,
-       _importSources = [
-         NeteasePlaylistSource(),
-         QQMusicPlaylistSource(),
-         SpotifyPlaylistSource(),
-       ];
+  })  : _sourceManager = sourceManager,
+        _importSources = [
+          NeteasePlaylistSource(),
+          QQMusicPlaylistSource(),
+          SpotifyPlaylistSource(),
+        ];
 
   /// 检测链接对应的平台
   PlaylistSource? detectSource(String url) {
@@ -254,9 +257,9 @@ class PlaylistImportService {
       // Bilibili 对请求频率限制较严格，需要较长间隔
       if (i < tracks.length - 1) {
         final delay = switch (searchSource) {
-          SearchSourceConfig.all => 1000,        // 搜索两个源，需要更长间隔
-          SearchSourceConfig.bilibiliOnly => 800,  // Bilibili 限制较严
-          SearchSourceConfig.youtubeOnly => 800,   // YouTube 相对宽松
+          SearchSourceConfig.all => 1000, // 搜索两个源，需要更长间隔
+          SearchSourceConfig.bilibiliOnly => 800, // Bilibili 限制较严
+          SearchSourceConfig.youtubeOnly => 800, // YouTube 相对宽松
         };
         await Future.delayed(Duration(milliseconds: delay));
       }
@@ -321,10 +324,14 @@ class PlaylistImportService {
     final originalArtist = _normalize(track.artists.join(' '));
     final originalDuration = track.duration;
     final filtered = allResults
-        .where((t) => _calculateRelevanceScore(
-              t, originalTitle, originalArtist,
+        .where((t) =>
+            _calculateRelevanceScore(
+              t,
+              originalTitle,
+              originalArtist,
               originalDuration: originalDuration,
-            ) >= 0)
+            ) >=
+            0)
         .take(maxResults)
         .toList();
 
@@ -340,17 +347,20 @@ class PlaylistImportService {
     final originalDuration = original.duration;
 
     // 计算所有结果的播放量，用于差异加权
-    final maxViewCount = results
-        .map((t) => t.viewCount ?? 0)
-        .reduce((a, b) => a > b ? a : b);
+    final maxViewCount =
+        results.map((t) => t.viewCount ?? 0).reduce((a, b) => a > b ? a : b);
 
     results.sort((a, b) {
       var scoreA = _calculateRelevanceScore(
-        a, originalTitle, originalArtist,
+        a,
+        originalTitle,
+        originalArtist,
         originalDuration: originalDuration,
       );
       var scoreB = _calculateRelevanceScore(
-        b, originalTitle, originalArtist,
+        b,
+        originalTitle,
+        originalArtist,
         originalDuration: originalDuration,
       );
 
@@ -407,7 +417,8 @@ class PlaylistImportService {
 
     // 时长匹配检查（与原曲时长对比）- 提前过滤
     if (originalDuration != null && originalDuration.inSeconds > 0) {
-      final durationScore = _calculateDurationMatchScore(durationSeconds, originalDuration.inSeconds);
+      final durationScore = _calculateDurationMatchScore(
+          durationSeconds, originalDuration.inSeconds);
       if (durationScore < -50) {
         // 时长差异过大，直接过滤
         return -100;
@@ -416,11 +427,14 @@ class PlaylistImportService {
 
     // 标题相似度（权重 35%）- 提高权重
     // 同时尝试括号内容匹配，取较高分
-    final directTitleSimilarity = _calculateSimilarity(originalTitle, trackTitle);
+    final directTitleSimilarity =
+        _calculateSimilarity(originalTitle, trackTitle);
     final bracketTitleSimilarity = _calculateBracketContentSimilarity(
-      track.title, originalTitle,
+      track.title,
+      originalTitle,
     );
-    final titleSimilarity = math.max(directTitleSimilarity, bracketTitleSimilarity);
+    final titleSimilarity =
+        math.max(directTitleSimilarity, bracketTitleSimilarity);
 
     // 艺术家相似度（权重 25%）- 改进：对标题中的艺术家匹配设置更高阈值
     final artistInChannel = _calculateSimilarity(originalArtist, trackArtist);
@@ -434,13 +448,14 @@ class PlaylistImportService {
     final viewScore = _normalizeViewCount(track.viewCount ?? 0);
 
     // 标题中同时包含歌名和艺术家的额外加分（权重 15%）
-    final combinedScore = _calculateCombinedScore(trackTitle, originalTitle, originalArtist);
+    final combinedScore =
+        _calculateCombinedScore(trackTitle, originalTitle, originalArtist);
 
     // 基础分数
     double score = titleSimilarity * 0.35 +
-                   artistSimilarity * 0.25 +
-                   viewScore * 0.15 +
-                   combinedScore * 0.15;
+        artistSimilarity * 0.25 +
+        viewScore * 0.15 +
+        combinedScore * 0.15;
 
     // 精确匹配加分（最多 +25）
     score += _calculateExactMatchBonus(trackTitle, originalTitle);
@@ -456,14 +471,16 @@ class PlaylistImportService {
 
     // 时长匹配加分/减分 - 绝对值+百分比结合
     if (originalDuration != null && originalDuration.inSeconds > 0) {
-      score += _calculateDurationMatchScore(durationSeconds, originalDuration.inSeconds);
+      score += _calculateDurationMatchScore(
+          durationSeconds, originalDuration.inSeconds);
     }
 
     // 版本匹配加分（-5~+10）
     score += _calculateVersionMatchBonus(track.title, originalTitle);
 
     // 括号内容精确匹配加分（+0~15）
-    if (bracketTitleSimilarity > directTitleSimilarity && bracketTitleSimilarity > 80) {
+    if (bracketTitleSimilarity > directTitleSimilarity &&
+        bracketTitleSimilarity > 80) {
       score += 15; // 括号内歌名精确匹配，强烈暗示是目标歌曲
     }
 
@@ -500,12 +517,17 @@ class PlaylistImportService {
 
     // 版本关键词
     const versionKeywords = [
-      'remaster', 'remastered',
+      'remaster',
+      'remastered',
       'deluxe',
       'anniversary',
       'edition',
       'version',
-      '2024', '2023', '2022', '2021', '2020',
+      '2024',
+      '2023',
+      '2022',
+      '2021',
+      '2020',
       'bonus',
       'extended',
     ];
@@ -521,7 +543,8 @@ class PlaylistImportService {
     // 如果原曲指定了版本
     if (originalVersions.isNotEmpty) {
       // 检查是否有相同版本关键词
-      final matchedVersions = trackVersions.where((v) => originalVersions.contains(v)).length;
+      final matchedVersions =
+          trackVersions.where((v) => originalVersions.contains(v)).length;
       if (matchedVersions > 0) {
         return 10; // 版本匹配，加分
       } else if (trackVersions.isNotEmpty) {
@@ -541,7 +564,7 @@ class PlaylistImportService {
   }
 
   /// 计算时长匹配得分（与原曲时长对比）- 改进版
-  /// 
+  ///
   /// 使用绝对值和百分比结合的方式：
   /// - 短歌曲（<3分钟）：允许更大的绝对误差
   /// - 长歌曲（>5分钟）：主要看百分比
@@ -589,14 +612,16 @@ class PlaylistImportService {
   }
 
   /// A. 计算频道名与艺术家匹配加分
-  double _calculateArtistChannelBonus(String channelName, String originalArtist) {
+  double _calculateArtistChannelBonus(
+      String channelName, String originalArtist) {
     if (channelName.isEmpty || originalArtist.isEmpty) return 0;
 
     // 使用 N-gram 相似度检查频道名是否包含艺术家名
     final similarity = _calculateNGramSimilarity(originalArtist, channelName);
 
     // 如果频道名包含艺术家名（子串匹配）
-    if (channelName.contains(originalArtist) || originalArtist.contains(channelName)) {
+    if (channelName.contains(originalArtist) ||
+        originalArtist.contains(channelName)) {
       return 15; // 最高加分
     }
 
@@ -616,13 +641,16 @@ class PlaylistImportService {
   ) {
     // 检查视频标题是否同时包含原曲名和艺术家名的关键词
     // 对 CJK 语言：直接检查子串包含关系（不依赖空格分词）
-    final hasCJK = RegExp(r'[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]')
-        .hasMatch(originalTitle + originalArtist);
+    final hasCJK =
+        RegExp(r'[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]')
+            .hasMatch(originalTitle + originalArtist);
 
     if (hasCJK) {
       // CJK 模式：直接检查子串
-      final titleFound = originalTitle.length > 1 && trackTitle.contains(originalTitle);
-      final artistFound = originalArtist.length > 1 && trackTitle.contains(originalArtist);
+      final titleFound =
+          originalTitle.length > 1 && trackTitle.contains(originalTitle);
+      final artistFound =
+          originalArtist.length > 1 && trackTitle.contains(originalArtist);
 
       if (titleFound && artistFound) {
         return 100; // 标题和艺术家都完整出现在视频标题中
@@ -652,8 +680,10 @@ class PlaylistImportService {
         }
       }
 
-      final titleBigrams = originalTitle.length >= 2 ? originalTitle.length - 1 : 1;
-      final artistBigrams = originalArtist.length >= 2 ? originalArtist.length - 1 : 1;
+      final titleBigrams =
+          originalTitle.length >= 2 ? originalTitle.length - 1 : 1;
+      final artistBigrams =
+          originalArtist.length >= 2 ? originalArtist.length - 1 : 1;
 
       if (titleCharMatches > 0 && artistCharMatches > 0) {
         final titleRatio = titleCharMatches / titleBigrams;
@@ -665,8 +695,10 @@ class PlaylistImportService {
     }
 
     // 非 CJK 模式：基于空格分词的关键词匹配
-    final titleWords = originalTitle.split(' ').where((w) => w.length > 1).toSet();
-    final artistWords = originalArtist.split(' ').where((w) => w.length > 1).toSet();
+    final titleWords =
+        originalTitle.split(' ').where((w) => w.length > 1).toSet();
+    final artistWords =
+        originalArtist.split(' ').where((w) => w.length > 1).toSet();
 
     int titleMatches = 0;
     int artistMatches = 0;
@@ -680,8 +712,10 @@ class PlaylistImportService {
 
     // 如果标题和艺术家都有匹配，给予高分
     if (titleMatches > 0 && artistMatches > 0) {
-      final titleRatio = titleWords.isNotEmpty ? titleMatches / titleWords.length : 0;
-      final artistRatio = artistWords.isNotEmpty ? artistMatches / artistWords.length : 0;
+      final titleRatio =
+          titleWords.isNotEmpty ? titleMatches / titleWords.length : 0;
+      final artistRatio =
+          artistWords.isNotEmpty ? artistMatches / artistWords.length : 0;
       return (titleRatio + artistRatio) / 2 * 100;
     }
 
@@ -695,10 +729,10 @@ class PlaylistImportService {
 
     // 高权重官方标识（+8）
     const highPriorityKeywords = [
-      'vevo',           // YouTube 官方音乐合作伙伴
-      'official',       // 官方
-      'オフィシャル',    // 日文官方
-      '官方',           // 中文官方
+      'vevo', // YouTube 官方音乐合作伙伴
+      'official', // 官方
+      'オフィシャル', // 日文官方
+      '官方', // 中文官方
     ];
 
     for (final keyword in highPriorityKeywords) {
@@ -710,13 +744,13 @@ class PlaylistImportService {
 
     // 中权重音乐相关标识（+4）
     const mediumPriorityKeywords = [
-      'music',          // 音乐
-      'ミュージック',    // 日文音乐
-      'records',        // 唱片公司
-      'レコード',       // 日文唱片
-      'entertainment',  // 娱乐公司
+      'music', // 音乐
+      'ミュージック', // 日文音乐
+      'records', // 唱片公司
+      'レコード', // 日文唱片
+      'entertainment', // 娱乐公司
       'エンタテインメント',
-      'label',          // 厂牌
+      'label', // 厂牌
       'レーベル',
     ];
 
@@ -734,17 +768,32 @@ class PlaylistImportService {
 
     // 知名唱片公司/厂牌名称（+3）
     const majorLabels = [
-      'sony', 'universal', 'warner', 'emi', 'bmg',
-      'avex', 'エイベックス',
-      'jvckenwood', 'ビクター',
-      'king records', 'キングレコード',
-      'columbia', 'コロムビア',
-      'pony canyon', 'ポニーキャニオン',
-      'lantis', 'ランティス',
-      'aniplex', 'アニプレックス',
+      'sony',
+      'universal',
+      'warner',
+      'emi',
+      'bmg',
+      'avex',
+      'エイベックス',
+      'jvckenwood',
+      'ビクター',
+      'king records',
+      'キングレコード',
+      'columbia',
+      'コロムビア',
+      'pony canyon',
+      'ポニーキャニオン',
+      'lantis',
+      'ランティス',
+      'aniplex',
+      'アニプレックス',
       'sacra music',
       'being',
-      'sm entertainment', 'jyp', 'yg entertainment', 'hybe', 'bighit',
+      'sm entertainment',
+      'jyp',
+      'yg entertainment',
+      'hybe',
+      'bighit',
     ];
 
     for (final label in majorLabels) {
@@ -810,7 +859,7 @@ class PlaylistImportService {
       'karaoke',
       'カラオケ',
       '伴奏',
-      '歌ってみた',    // 日文"试着唱了"（翻唱）
+      '歌ってみた', // 日文"试着唱了"（翻唱）
       'covered by',
       'bass',
       'ベース',
@@ -883,8 +932,10 @@ class PlaylistImportService {
     return text
         .toLowerCase()
         // 移除各种括号、分隔符、装饰符号
-        .replaceAll(RegExp(r'[【】\[\]()（）「」『』《》〈〉\-_·・｜丨／/\\——\u2014\u2013~～＊✦❖▶►▻➸]'), ' ')
-        .replaceAll(RegExp(r'[#＃]'), ' ')  // 移除 hashtag
+        .replaceAll(
+            RegExp(r'[【】\[\]()（）「」『』《》〈〉\-_·・｜丨／/\\——\u2014\u2013~～＊✦❖▶►▻➸]'),
+            ' ')
+        .replaceAll(RegExp(r'[#＃]'), ' ') // 移除 hashtag
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }
@@ -898,14 +949,15 @@ class PlaylistImportService {
   /// - (楽譜あり) YOASOBI「夜に駆ける」- Piano Cover
   ///
   /// 提取括号内的歌名与原标题比较，可以获得更精确的匹配
-  double _calculateBracketContentSimilarity(String rawTitle, String originalTitle) {
+  double _calculateBracketContentSimilarity(
+      String rawTitle, String originalTitle) {
     // 提取各种括号内的内容
     final bracketPatterns = [
-      RegExp(r'「([^」]+)」'),   // 日文括号 「」
-      RegExp(r'《([^》]+)》'),   // 中文书名号 《》
-      RegExp(r'『([^』]+)』'),   // 日文双括号 『』
-      RegExp(r'【([^】]+)】'),   // 中文方括号 【】
-      RegExp(r'〈([^〉]+)〉'),   // 中文尖括号 〈〉
+      RegExp(r'「([^」]+)」'), // 日文括号 「」
+      RegExp(r'《([^》]+)》'), // 中文书名号 《》
+      RegExp(r'『([^』]+)』'), // 日文双括号 『』
+      RegExp(r'【([^】]+)】'), // 中文方括号 【】
+      RegExp(r'〈([^〉]+)〉'), // 中文尖括号 〈〉
     ];
 
     double bestSimilarity = 0;
@@ -1049,11 +1101,13 @@ class PlaylistImportService {
 
     switch (searchSource) {
       case SearchSourceConfig.all:
-        final results = await _sourceManager.searchAll(query, pageSize: maxResults);
+        final results =
+            await _sourceManager.searchAll(query, pageSize: maxResults);
         for (final result in results.values) {
           allResults.addAll(result.tracks);
         }
-        allResults.sort((a, b) => (b.viewCount ?? 0).compareTo(a.viewCount ?? 0));
+        allResults
+            .sort((a, b) => (b.viewCount ?? 0).compareTo(a.viewCount ?? 0));
         break;
 
       case SearchSourceConfig.bilibiliOnly:
