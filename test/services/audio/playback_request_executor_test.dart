@@ -95,7 +95,6 @@ void main() {
       }
     });
 
-
     test('executeQueueRestore uses playback handoff and seek playback state',
         () async {
       final restoreTrack = _track('queue-restore', title: 'Queue Restore');
@@ -156,6 +155,48 @@ void main() {
           'https://example.com/queue-idle.m4a');
       expect(audioService.seekCalls, isEmpty);
       expect(audioService.isPlaying, isFalse);
+    });
+
+    test('execute plays local selections with playFile and skips URL headers',
+        () async {
+      final localTrack = _track('downloaded-local', title: 'Downloaded Local');
+      final streamManager = _HarnessPlaybackRequestStreamAccess(
+        trackBySourceId: {localTrack.sourceId: localTrack},
+      );
+      streamManager.onEnsureAudioStream = (track, persist) async {
+        expect(persist, isTrue);
+        return (localTrack, '/music/fmp/downloaded-local.m4a', null);
+      };
+      streamManager.onGetPlaybackHeaders = (_) async {
+        fail('Local file playback must not request network headers.');
+      };
+      streamManager.onSelectFallbackPlayback = (_, __) async {
+        fail('Local file playback must not request stream fallback.');
+      };
+      final audioService = FakeAudioService();
+      final executor = PlaybackRequestExecutor(
+        audioService: audioService,
+        audioStreamManager: streamManager,
+        getNextTrack: () => null,
+        isSuperseded: (_) => false,
+      );
+
+      final result = await executor.execute(
+        requestId: 11,
+        track: localTrack,
+        persist: true,
+        prefetchNext: false,
+      );
+
+      expect(result, isNotNull);
+      expect(result!.attemptedUrl, '/music/fmp/downloaded-local.m4a');
+      expect(audioService.playFileCalls.single.filePath,
+          '/music/fmp/downloaded-local.m4a');
+      expect(audioService.playFileCalls.single.track?.sourceId,
+          'downloaded-local');
+      expect(audioService.playUrlCalls, isEmpty);
+      expect(streamManager.headerRequests, isEmpty);
+      expect(streamManager.fallbackSelectionTracks, isEmpty);
     });
 
     test('execute uses stream manager selection headers directly', () async {
@@ -254,12 +295,14 @@ void main() {
         'X-Fallback-Header': 'fallback',
       });
       expect(streamManager.selectionRequests, ['source-agnostic-fallback']);
-      expect(streamManager.fallbackSelectionTracks, ['source-agnostic-fallback']);
+      expect(
+          streamManager.fallbackSelectionTracks, ['source-agnostic-fallback']);
       expect(streamManager.fallbackSelectionFailedUrls,
           ['https://example.com/source-agnostic-fallback.m4a']);
     });
 
-    test('execute rethrows original error when manager has no fallback', () async {
+    test('execute rethrows original error when manager has no fallback',
+        () async {
       final track = _track('no-fallback', title: 'No Fallback')
         ..sourceType = SourceType.bilibili;
       final streamManager = _HarnessPlaybackRequestStreamAccess(
@@ -394,7 +437,8 @@ void main() {
       final secondResult = await secondExecution;
       expect(secondResult, isNotNull);
       expect(secondResult!.track.sourceId, 'second-youtube');
-      expect(secondResult.attemptedUrl, 'https://example.com/second-youtube.m4a');
+      expect(
+          secondResult.attemptedUrl, 'https://example.com/second-youtube.m4a');
       expect(streamManager.ensureAudioStreamRequests,
           ['first-netease', 'second-youtube']);
       expect(streamManager.headerRequests, ['first-netease', 'second-youtube']);
@@ -614,6 +658,10 @@ class _HarnessPlaybackRequestStreamAccess
   Future<Map<String, String>?> Function(Track track)? onGetPlaybackHeaders;
   Future<PlaybackSelection?> Function(Track track, String? failedUrl)?
       onSelectFallbackPlayback;
+  Future<(Track, String?, AudioStreamResult?)> Function(
+    Track track,
+    bool persist,
+  )? onEnsureAudioStream;
 
   Future<void> waitForHeaderRequest(String sourceId) {
     return (_headerRequestWaiters[sourceId] ??= Completer<void>()).future;
@@ -635,7 +683,8 @@ class _HarnessPlaybackRequestStreamAccess
       track: trackWithUrl,
       url: url,
       localPath: localPath,
-      headers: localPath == null ? await getPlaybackHeaders(trackWithUrl) : null,
+      headers:
+          localPath == null ? await getPlaybackHeaders(trackWithUrl) : null,
       streamResult: streamResult,
     );
   }
@@ -657,9 +706,14 @@ class _HarnessPlaybackRequestStreamAccess
     bool persist = true,
   }) async {
     ensureAudioStreamRequests.add(track.sourceId);
+    final result = await onEnsureAudioStream?.call(track, persist);
+    if (result != null) {
+      return result;
+    }
     final trackWithUrl = trackBySourceId[track.sourceId] ?? track;
     trackWithUrl.audioUrl = 'https://example.com/${track.sourceId}.m4a';
-    trackWithUrl.audioUrlExpiry = DateTime.now().add(const Duration(minutes: 30));
+    trackWithUrl.audioUrlExpiry =
+        DateTime.now().add(const Duration(minutes: 30));
     return (
       trackWithUrl,
       null,

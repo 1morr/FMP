@@ -12,6 +12,13 @@ class AudioUrlCall {
   final Track? track;
 }
 
+class AudioFileCall {
+  AudioFileCall({required this.filePath, this.track});
+
+  final String filePath;
+  final Track? track;
+}
+
 class FakeAudioService implements FmpAudioService {
   final _playerStateController = StreamController<FmpPlayerState>.broadcast();
   final _playingController = StreamController<bool>.broadcast();
@@ -29,6 +36,8 @@ class FakeAudioService implements FmpAudioService {
 
   final List<AudioUrlCall> playUrlCalls = [];
   final List<AudioUrlCall> setUrlCalls = [];
+  final List<AudioFileCall> playFileCalls = [];
+  final List<AudioFileCall> setFileCalls = [];
   final List<Duration> seekCalls = [];
   int stopCallCount = 0;
 
@@ -121,7 +130,8 @@ class FakeAudioService implements FmpAudioService {
 
   void _notifyPlayUrlWaiters() {
     for (final waiter in List<_CountWaiter>.from(_playUrlWaiters)) {
-      if (playUrlCalls.length >= waiter.target && !waiter.completer.isCompleted) {
+      if (playUrlCalls.length >= waiter.target &&
+          !waiter.completer.isCompleted) {
         waiter.completer.complete();
         _playUrlWaiters.remove(waiter);
       }
@@ -130,7 +140,8 @@ class FakeAudioService implements FmpAudioService {
 
   void _notifySetUrlWaiters() {
     for (final waiter in List<_CountWaiter>.from(_setUrlWaiters)) {
-      if (setUrlCalls.length >= waiter.target && !waiter.completer.isCompleted) {
+      if (setUrlCalls.length >= waiter.target &&
+          !waiter.completer.isCompleted) {
         waiter.completer.complete();
         _setUrlWaiters.remove(waiter);
       }
@@ -179,15 +190,18 @@ class FakeAudioService implements FmpAudioService {
   @override
   Stream<Duration?> get durationStream => _durationController.stream;
   @override
-  Stream<Duration> get bufferedPositionStream => _bufferedPositionController.stream;
+  Stream<Duration> get bufferedPositionStream =>
+      _bufferedPositionController.stream;
   @override
   Stream<double> get speedStream => _speedController.stream;
   @override
   Stream<void> get completedStream => _completedController.stream;
   @override
-  Stream<List<FmpAudioDevice>> get audioDevicesStream => _audioDevicesController.stream;
+  Stream<List<FmpAudioDevice>> get audioDevicesStream =>
+      _audioDevicesController.stream;
   @override
-  Stream<FmpAudioDevice?> get audioDeviceStream => _audioDeviceController.stream;
+  Stream<FmpAudioDevice?> get audioDeviceStream =>
+      _audioDeviceController.stream;
   @override
   Stream<String> get errorStream => _errorController.stream;
 
@@ -277,7 +291,8 @@ class FakeAudioService implements FmpAudioService {
   @override
   Future<void> setVolume(double volume) async => _volume = volume;
   @override
-  Future<void> setAudioDevice(FmpAudioDevice device) async => _audioDevice = device;
+  Future<void> setAudioDevice(FmpAudioDevice device) async =>
+      _audioDevice = device;
   @override
   Future<void> setAudioDeviceAuto() async => _audioDevice = null;
 
@@ -308,9 +323,21 @@ class FakeAudioService implements FmpAudioService {
   }
 
   @override
-  Future<Duration?> playFile(String filePath, {Track? track}) async => null;
+  Future<Duration?> playFile(String filePath, {Track? track}) async {
+    playFileCalls.add(AudioFileCall(filePath: filePath, track: track));
+    _isPlaying = true;
+    _processingState = FmpAudioProcessingState.ready;
+    _emitState();
+    return _duration;
+  }
+
   @override
-  Future<Duration?> setFile(String filePath, {Track? track}) async => null;
+  Future<Duration?> setFile(String filePath, {Track? track}) async {
+    setFileCalls.add(AudioFileCall(filePath: filePath, track: track));
+    _processingState = FmpAudioProcessingState.ready;
+    _emitState();
+    return _duration;
+  }
 }
 
 class _CountWaiter {
