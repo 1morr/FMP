@@ -7,7 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// 主要用于 UI 层的图片加载优化，避免重复检查
 ///
 /// 简化设计：
-/// - 只缓存存在的文件路径（`Set<String>`）
+/// - 缓存存在的文件路径（`Set<String>`）
+/// - 有界缓存不存在的文件路径，避免重复检查
 /// - 移除 Track 相关方法，使用 TrackExtensions 代替
 /// - 保留核心缓存功能
 /// - 添加大小限制防止内存泄漏（最多 5000 条）
@@ -18,13 +19,16 @@ class FileExistsCache extends StateNotifier<Set<String>> {
 
   final void Function(int epoch) _onEpochChanged;
   final Set<String> _pendingRefreshPaths = <String>{};
+  final Set<String> _missingPaths = <String>{};
   int _cacheEpoch = 0;
 
   int get pendingRefreshCount => _pendingRefreshPaths.length;
   int get cacheEpoch => _cacheEpoch;
+  int get debugMissingPathCount => _missingPaths.length;
 
   /// 最大缓存条目数
   static const int _maxCacheSize = 5000;
+  static const int _maxMissingCacheSize = 5000;
 
   /// 检查路径是否存在（带缓存）
   ///
@@ -32,6 +36,7 @@ class FileExistsCache extends StateNotifier<Set<String>> {
   /// 如果路径未缓存，安排异步检查并返回 false
   bool exists(String path) {
     if (state.contains(path)) return true;
+    if (_missingPaths.contains(path)) return false;
 
     // 异步检查并缓存
     _checkAndCache(path);
@@ -57,10 +62,12 @@ class FileExistsCache extends StateNotifier<Set<String>> {
   /// 检查哪些路径实际存在，并加入缓存
   /// 自动应用大小限制
   Future<void> preloadPaths(List<String> paths, {int batchSize = 64}) async {
-    final uncached = paths.toSet().difference(state).toList();
+    final uncachedPaths = paths.toSet().difference(state).toList();
+    final uncached = uncachedPaths.toSet().difference(_missingPaths).toList();
     if (uncached.isEmpty) return;
 
     final existing = <String>{};
+    final missing = <String>{};
     for (var i = 0; i < uncached.length; i += batchSize) {
       final batch = uncached.skip(i).take(batchSize).toList();
       final results = await Future.wait(
@@ -76,11 +83,17 @@ class FileExistsCache extends StateNotifier<Set<String>> {
       for (final result in results) {
         if (result.exists) {
           existing.add(result.path);
+        } else {
+          missing.add(result.path);
         }
       }
     }
 
+    if (missing.isNotEmpty) {
+      _markAsMissingAll(missing);
+    }
     if (existing.isNotEmpty) {
+      _missingPaths.removeAll(existing);
       _updateState({...state, ...existing});
     }
   }
@@ -89,12 +102,14 @@ class FileExistsCache extends StateNotifier<Set<String>> {
   ///
   /// 下载完成后调用，避免重新检测
   void markAsExisting(String path) {
+    _missingPaths.remove(path);
     if (state.contains(path)) return;
     _updateState({...state, path});
   }
 
   /// 移除路径缓存
   void remove(String path) {
+    _missingPaths.remove(path);
     if (!state.contains(path)) return;
     final newState = Set<String>.from(state)..remove(path);
     _updateState(newState);
@@ -102,8 +117,13 @@ class FileExistsCache extends StateNotifier<Set<String>> {
 
   /// 清除所有缓存
   void clearAll() {
+    _missingPaths.clear();
     if (state.isEmpty) return;
     _updateState(<String>{});
+  }
+
+  void debugMarkMissingForTesting(String path) {
+    _markAsMissing(path);
   }
 
   // ============== 内部方法 ==============
@@ -126,21 +146,44 @@ class FileExistsCache extends StateNotifier<Set<String>> {
     state = _trimToMaxSize(newState);
   }
 
+  void _markAsMissing(String path) {
+    if (_missingPaths.contains(path)) return;
+    _missingPaths.add(path);
+    if (_missingPaths.length <= _maxMissingCacheSize) return;
+
+    final toRemove = _missingPaths.length - _maxMissingCacheSize;
+    final keysToRemove = _missingPaths.take(toRemove).toList();
+    _missingPaths.removeAll(keysToRemove);
+  }
+
+  void _markAsMissingAll(Set<String> paths) {
+    for (final path in paths) {
+      _markAsMissing(path);
+    }
+  }
+
   /// 异步检查并缓存单个路径
   void _checkAndCache(String path) {
     Future.microtask(() async {
       try {
         if (await File(path).exists()) {
+          _missingPaths.remove(path);
           _updateState({...state, path});
+        } else {
+          _markAsMissing(path);
         }
-      } catch (_) {}
+      } catch (_) {
+        _markAsMissing(path);
+      }
     });
   }
 
   /// 安排异步刷新多个路径
   /// 自动应用大小限制
   void _scheduleRefreshPaths(List<String> paths) {
-    final uncached = paths.where((path) => !state.contains(path)).toSet();
+    final uncached = paths
+        .where((path) => !state.contains(path) && !_missingPaths.contains(path))
+        .toSet();
     if (uncached.isEmpty) return;
 
     final pending = uncached.difference(_pendingRefreshPaths);
@@ -150,15 +193,24 @@ class FileExistsCache extends StateNotifier<Set<String>> {
 
     Future.microtask(() async {
       final existing = <String>{};
+      final missing = <String>{};
       try {
         for (final path in pending) {
           try {
             if (await File(path).exists()) {
               existing.add(path);
+            } else {
+              missing.add(path);
             }
-          } catch (_) {}
+          } catch (_) {
+            missing.add(path);
+          }
+        }
+        if (missing.isNotEmpty) {
+          _markAsMissingAll(missing);
         }
         if (existing.isNotEmpty) {
+          _missingPaths.removeAll(existing);
           _updateState({...state, ...existing});
         }
       } finally {
@@ -181,5 +233,6 @@ final fileExistsCacheProvider =
 });
 
 final filePathExistsProvider = Provider.family<bool, String>((ref, path) {
-  return ref.watch(fileExistsCacheProvider.select((paths) => paths.contains(path)));
+  return ref
+      .watch(fileExistsCacheProvider.select((paths) => paths.contains(path)));
 });

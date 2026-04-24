@@ -16,7 +16,8 @@ Future<void> _waitForCondition(bool Function() condition) async {
 
 void main() {
   group('Phase 4 Task 3 file exists cache', () {
-    test('file exists cache exposes path-scoped and reactive epoch providers', () {
+    test('file exists cache exposes path-scoped and reactive epoch providers',
+        () {
       final source = File(
         '${Directory.current.path}/lib/providers/download/file_exists_cache.dart',
       ).readAsStringSync();
@@ -44,14 +45,20 @@ void main() {
       );
       addTearDown(subscription.close);
 
-      container.read(fileExistsCacheProvider.notifier).markAsExisting('/other/cover.jpg');
+      container
+          .read(fileExistsCacheProvider.notifier)
+          .markAsExisting('/other/cover.jpg');
 
-      expect(container.read(filePathExistsProvider('/watched/cover.jpg')), isFalse);
+      expect(container.read(filePathExistsProvider('/watched/cover.jpg')),
+          isFalse);
       expect(values, [false]);
 
-      container.read(fileExistsCacheProvider.notifier).markAsExisting('/watched/cover.jpg');
+      container
+          .read(fileExistsCacheProvider.notifier)
+          .markAsExisting('/watched/cover.jpg');
 
-      expect(container.read(filePathExistsProvider('/watched/cover.jpg')), isTrue);
+      expect(
+          container.read(filePathExistsProvider('/watched/cover.jpg')), isTrue);
       expect(values, [false, true]);
     });
 
@@ -76,7 +83,8 @@ void main() {
       expect(values, [0, 1, 2, 3, 4]);
     });
 
-    test('single-path overflow trimming stays stable for incremental inserts', () {
+    test('single-path overflow trimming stays stable for incremental inserts',
+        () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
@@ -97,7 +105,8 @@ void main() {
       expect(container.read(filePathExistsProvider(watchedPath)), isTrue);
     });
 
-    test('batched preload overflow trims without throwing and caps cache size', () async {
+    test('batched preload overflow trims without throwing and caps cache size',
+        () async {
       final tempDir = await Directory.systemTemp.createTemp(
         'file_exists_cache_phase4_trim_',
       );
@@ -132,7 +141,8 @@ void main() {
       expect(state.contains(batchPaths.last), isTrue);
     });
 
-    test('cache epoch provider updates for async cache population paths', () async {
+    test('cache epoch provider updates for async cache population paths',
+        () async {
       final tempDir = await Directory.systemTemp.createTemp(
         'file_exists_cache_phase4_',
       );
@@ -199,8 +209,12 @@ void main() {
         '${Directory.current.path}/lib/providers/download/file_exists_cache.dart',
       ).readAsStringSync();
 
-      expect(source, contains("final Set<String> _pendingRefreshPaths = <String>{};"));
-      expect(source, contains('final pending = uncached.difference(_pendingRefreshPaths);'));
+      expect(source,
+          contains("final Set<String> _pendingRefreshPaths = <String>{};"));
+      expect(
+          source,
+          contains(
+              'final pending = uncached.difference(_pendingRefreshPaths);'));
       expect(source, contains('_pendingRefreshPaths.addAll(pending);'));
       expect(source, contains('_pendingRefreshPaths.removeAll(pending);'));
     });
@@ -216,7 +230,8 @@ void main() {
         expect(source, contains('setEquals(coverPaths, _cachedCoverPaths)'));
         expect(source, contains('_lastCacheEpoch'));
         expect(source, contains('fileExistsCacheEpochProvider'));
-        expect(source, isNot(contains('tracks.length != _lastRefreshedTracksLength')));
+        expect(source,
+            isNot(contains('tracks.length != _lastRefreshedTracksLength')));
         expect(
           source,
           isNot(
@@ -243,8 +258,62 @@ void main() {
       expect(source, contains('fileExistsCacheEpochProvider'));
       expect(
         source,
-        isNot(contains('ref.read(fileExistsCacheProvider.notifier).cacheEpoch')),
+        isNot(
+            contains('ref.read(fileExistsCacheProvider.notifier).cacheEpoch')),
       );
+    });
+
+    test('missing paths are cached to avoid repeated refresh scheduling',
+        () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'file_exists_cache_phase4_missing_',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final cache = container.read(fileExistsCacheProvider.notifier);
+      final missingPath = '${tempDir.path}/missing_cover.jpg';
+
+      expect(cache.exists(missingPath), isFalse);
+      await _waitForCondition(() => cache.debugMissingPathCount == 1);
+
+      expect(cache.getFirstExisting([missingPath]), isNull);
+      expect(cache.pendingRefreshCount, 0);
+      expect(cache.exists(missingPath), isFalse);
+      expect(cache.debugMissingPathCount, 1);
+    });
+
+    test('markAsExisting clears missing cache entry and updates selector', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final cache = container.read(fileExistsCacheProvider.notifier);
+      const path = '/previously/missing/cover.jpg';
+
+      cache.debugMarkMissingForTesting(path);
+      expect(cache.debugMissingPathCount, 1);
+      expect(container.read(filePathExistsProvider(path)), isFalse);
+
+      cache.markAsExisting(path);
+
+      expect(cache.debugMissingPathCount, 0);
+      expect(container.read(filePathExistsProvider(path)), isTrue);
+    });
+
+    test('missing path cache is bounded', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final cache = container.read(fileExistsCacheProvider.notifier);
+
+      for (var i = 0; i < 6000; i++) {
+        cache.debugMarkMissingForTesting('/missing/$i.jpg');
+      }
+
+      expect(cache.debugMissingPathCount, 5000);
     });
   });
 }
