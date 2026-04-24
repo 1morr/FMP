@@ -15,11 +15,11 @@ import '../services/account/netease_account_service.dart';
 import '../services/account/netease_playlist_service.dart';
 import '../services/account/youtube_account_service.dart';
 import '../services/account/youtube_playlist_service.dart';
+import '../services/library/remote_playlist_actions_service.dart';
 import 'database_provider.dart';
 
 /// Bilibili 帳號服務 Provider（單例）
-final bilibiliAccountServiceProvider =
-    Provider<BilibiliAccountService>((ref) {
+final bilibiliAccountServiceProvider = Provider<BilibiliAccountService>((ref) {
   final isar = ref.watch(databaseProvider).requireValue;
   return BilibiliAccountService(isar: isar);
 });
@@ -48,15 +48,13 @@ final isBilibiliLoggedInProvider = Provider<bool>((ref) {
 // ===== YouTube =====
 
 /// YouTube 帳號服務 Provider（單例）
-final youtubeAccountServiceProvider =
-    Provider<YouTubeAccountService>((ref) {
+final youtubeAccountServiceProvider = Provider<YouTubeAccountService>((ref) {
   final isar = ref.watch(databaseProvider).requireValue;
   return YouTubeAccountService(isar: isar);
 });
 
 /// YouTube 播放列表服務 Provider
-final youtubePlaylistServiceProvider =
-    Provider<YouTubePlaylistService>((ref) {
+final youtubePlaylistServiceProvider = Provider<YouTubePlaylistService>((ref) {
   final accountService = ref.watch(youtubeAccountServiceProvider);
   return YouTubePlaylistService(accountService: accountService);
 });
@@ -91,8 +89,7 @@ final isLoggedInProvider = Provider.family<bool, SourceType>((ref, platform) {
 // ===== 網易雲 =====
 
 /// 網易雲帳號服務 Provider（單例）
-final neteaseAccountServiceProvider =
-    Provider<NeteaseAccountService>((ref) {
+final neteaseAccountServiceProvider = Provider<NeteaseAccountService>((ref) {
   final isar = ref.watch(databaseProvider).requireValue;
   return NeteaseAccountService(isar: isar);
 });
@@ -111,10 +108,30 @@ final isNeteaseLoggedInProvider = Provider<bool>((ref) {
 });
 
 /// 網易雲歌單服務 Provider
-final neteasePlaylistServiceProvider =
-    Provider<NeteasePlaylistService>((ref) {
+final neteasePlaylistServiceProvider = Provider<NeteasePlaylistService>((ref) {
   final accountService = ref.watch(neteaseAccountServiceProvider);
   return NeteasePlaylistService(accountService: accountService);
+});
+
+/// 遠端歌單移除操作服務 Provider
+final remotePlaylistActionsServiceProvider =
+    Provider<RemotePlaylistActionsService>((ref) {
+  final bilibiliService = ref.watch(bilibiliFavoritesServiceProvider);
+  final youtubeService = ref.watch(youtubePlaylistServiceProvider);
+  final neteaseService = ref.watch(neteasePlaylistServiceProvider);
+
+  return RemotePlaylistActionsService(
+    getBilibiliAid: bilibiliService.getVideoAid,
+    removeBilibiliTracks: bilibiliService.batchRemoveFromFolder,
+    removeBilibiliTrack: ({required videoAid, required folderId}) =>
+        bilibiliService.updateVideoFavorites(
+      videoAid: videoAid,
+      removeFolderIds: [folderId],
+    ),
+    getYoutubeSetVideoId: youtubeService.getSetVideoId,
+    removeYoutubeTrack: youtubeService.removeFromPlaylist,
+    removeNeteaseTracks: neteaseService.removeTracksFromPlaylist,
+  );
 });
 
 /// 啟動時自動刷新 Bilibili Cookie（後台執行，不阻塞 UI）
@@ -129,12 +146,14 @@ final accountCookieRefreshProvider = FutureProvider<void>((ref) async {
   try {
     final success = await accountService.refreshCredentials();
     if (success) {
-      AppLogger.info('Bilibili cookie refresh check completed', 'AccountRefresh');
+      AppLogger.info(
+          'Bilibili cookie refresh check completed', 'AccountRefresh');
     } else {
       AppLogger.warning('Bilibili cookie refresh failed', 'AccountRefresh');
     }
   } catch (e) {
-    AppLogger.warning('Bilibili cookie refresh check failed: $e', 'AccountRefresh');
+    AppLogger.warning(
+        'Bilibili cookie refresh check failed: $e', 'AccountRefresh');
   }
 });
 
@@ -180,7 +199,8 @@ Future<void> verifyAllAccountStatuses(
         }
       }
     } catch (e) {
-      AppLogger.warning('${service.platform.name} status check failed: $e', 'AccountStatusCheck');
+      AppLogger.warning('${service.platform.name} status check failed: $e',
+          'AccountStatusCheck');
     }
   }
 }
@@ -196,10 +216,8 @@ class AccountNotifier extends StateNotifier<Account?> {
   }
 
   void _init() {
-    final account = _isar.accounts
-        .filter()
-        .platformEqualTo(_platform)
-        .findFirstSync();
+    final account =
+        _isar.accounts.filter().platformEqualTo(_platform).findFirstSync();
     state = account;
 
     _subscription = _isar.accounts
