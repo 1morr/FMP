@@ -438,6 +438,8 @@ lib/
 │   ├── import/
 │   │   ├── import_service.dart          # URL import (useAuth parameter)
 │   │   └── playlist_import_service.dart # External playlist import (search-match)
+│   ├── library/
+│   │   └── remote_playlist_actions_service.dart # Remote playlist remove actions
 │   ├── radio/                           # Live/radio control
 │   └── update/                          # In-app update (GitHub Releases, APK/Windows installer/ZIP)
 ├── data/
