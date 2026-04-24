@@ -2,8 +2,6 @@ import 'dart:async';
 import 'dart:isolate';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart' as p;
-
 import '../../core/constants/ui_constants.dart';
 import '../../data/models/download_task.dart';
 import '../../data/models/track.dart';
@@ -15,6 +13,7 @@ import '../../services/download/download_path_utils.dart';
 import '../account_provider.dart';
 import '../database_provider.dart';
 import '../repository_providers.dart';
+import 'download_event_handler.dart';
 import 'download_scanner.dart';
 import 'file_exists_cache.dart';
 import '../playlist_provider.dart' show playlistDetailProvider;
@@ -40,7 +39,8 @@ final downloadRepositoryProvider = Provider<DownloadRepository>((ref) {
 final downloadServiceProvider = Provider<DownloadService>((ref) {
   final downloadRepo = ref.watch(downloadRepositoryProvider);
   final trackRepo = ref.watch(trackRepositoryProvider);
-  final settingsRepo = SettingsRepository(ref.watch(databaseProvider).requireValue);
+  final settingsRepo =
+      SettingsRepository(ref.watch(databaseProvider).requireValue);
   final sourceManager = ref.watch(sourceManagerProvider);
   final service = DownloadService(
     downloadRepository: downloadRepo,
@@ -55,53 +55,31 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
   // 初始化服务
   service.initialize();
   final progressState = ref.read(downloadProgressStateProvider.notifier);
-
-  // D1-D3: 监听下载完成事件，使用 debouncing 批量处理
-  Timer? debounceTimer;
-  final pendingPlaylistIds = <int>{};
-  final pendingCategoryPaths = <String>{};
-  bool categoriesNeedRefresh = false;
-
-  void flushInvalidations() {
-    if (categoriesNeedRefresh) {
-      ref.invalidate(downloadedCategoriesProvider);
-      categoriesNeedRefresh = false;
-    }
-    for (final categoryPath in pendingCategoryPaths) {
+  final eventHandler = DownloadEventHandler(
+    markFileExisting: ref.read(fileExistsCacheProvider.notifier).markAsExisting,
+    removeProgress: progressState.remove,
+    invalidateCategories: () => ref.invalidate(downloadedCategoriesProvider),
+    invalidateCategoryTracks: (categoryPath) {
       ref.invalidate(downloadedCategoryTracksProvider(categoryPath));
-    }
-    pendingCategoryPaths.clear();
-    // 使用静默刷新而不是 invalidate，避免页面闪烁
-    for (final playlistId in pendingPlaylistIds) {
+    },
+    refreshPlaylist: (playlistId) {
+      // 使用静默刷新而不是 invalidate，避免页面闪烁
       final notifier = ref.read(playlistDetailProvider(playlistId).notifier);
       notifier.refreshTracks();
-    }
-    pendingPlaylistIds.clear();
-  }
+    },
+    showFailure: (event) {
+      ref.read(toastServiceProvider).showError(
+            t.library.downloadFailed(title: event.trackTitle),
+          );
+    },
+    debounceDuration: DebounceDurations.standard,
+  );
 
   StreamSubscription<DownloadCompletionEvent>? completionSubscription;
-  completionSubscription = service.completionStream.listen((event) {
-    // 标记文件已存在，触发 UI 更新
-    ref.read(fileExistsCacheProvider.notifier).markAsExisting(event.savePath);
-    
-    // 清除内存中的进度（下载完成）
-    progressState.remove(event.taskId);
-    
-    // 收集需要刷新的内容
-    categoriesNeedRefresh = true;
-    final categoryFolderPath = p.dirname(p.dirname(event.savePath));
-    pendingCategoryPaths.add(categoryFolderPath);
-    if (event.playlistId != null) {
-      pendingPlaylistIds.add(event.playlistId!);
-    }
-    
-    // D1-D3: 使用 debouncing，300ms 后批量刷新
-    debounceTimer?.cancel();
-    debounceTimer = Timer(DebounceDurations.standard, () {
-      Future.microtask(flushInvalidations);
-    });
-  });
-  
+  completionSubscription = service.completionStream.listen(
+    eventHandler.handleCompletion,
+  );
+
   // 监听进度流并更新内存状态
   StreamSubscription<DownloadProgressEvent>? progressSubscription;
   progressSubscription = service.progressStream.listen((event) {
@@ -115,15 +93,13 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
 
   // 监听下载失败事件，显示 Toast 提示
   StreamSubscription<DownloadFailureEvent>? failureSubscription;
-  failureSubscription = service.failureStream.listen((event) {
-    ref.read(toastServiceProvider).showError(
-      t.library.downloadFailed(title: event.trackTitle),
-    );
-  });
+  failureSubscription = service.failureStream.listen(
+    eventHandler.handleFailure,
+  );
 
   // 在 provider 被销毁时清理
   ref.onDispose(() {
-    debounceTimer?.cancel();
+    eventHandler.dispose();
     completionSubscription?.cancel();
     progressSubscription?.cancel();
     failureSubscription?.cancel();
@@ -164,29 +140,34 @@ final completedDownloadsProvider = Provider<List<DownloadTask>>((ref) {
 
 /// 内存中的下载进度状态（避免频繁写数据库触发 Isar watch）
 /// Key: taskId, Value: (progress, downloadedBytes, totalBytes)
-class DownloadProgressState extends StateNotifier<Map<int, (double, int, int?)>> {
+class DownloadProgressState
+    extends StateNotifier<Map<int, (double, int, int?)>> {
   DownloadProgressState() : super({});
-  
-  void update(int taskId, double progress, int downloadedBytes, int? totalBytes) {
+
+  void update(
+      int taskId, double progress, int downloadedBytes, int? totalBytes) {
     state = {...state, taskId: (progress, downloadedBytes, totalBytes)};
   }
-  
+
   void remove(int taskId) {
     state = Map.from(state)..remove(taskId);
   }
-  
+
   void clear() {
     state = {};
   }
-  
+
   (double, int, int?)? getProgress(int taskId) => state[taskId];
 }
 
-final downloadProgressStateProvider = StateNotifierProvider<DownloadProgressState, Map<int, (double, int, int?)>>((ref) {
+final downloadProgressStateProvider =
+    StateNotifierProvider<DownloadProgressState, Map<int, (double, int, int?)>>(
+        (ref) {
   return DownloadProgressState();
 });
 
-final downloadTaskProgressProvider = Provider.family<(double, int, int?)?, int>((ref, taskId) {
+final downloadTaskProgressProvider =
+    Provider.family<(double, int, int?)?, int>((ref, taskId) {
   return ref.watch(
     downloadProgressStateProvider.select((state) => state[taskId]),
   );
@@ -216,13 +197,15 @@ final downloadBaseDirProvider = FutureProvider<String>((ref) async {
 final isTrackDownloadingProvider = Provider.family<bool, int>((ref, trackId) {
   final tasks = ref.watch(downloadTasksProvider);
   return tasks.maybeWhen(
-    data: (data) => data.any((t) => t.trackId == trackId && (t.isDownloading || t.isPending)),
+    data: (data) => data
+        .any((t) => t.trackId == trackId && (t.isDownloading || t.isPending)),
     orElse: () => false,
   );
 });
 
 /// 获取歌曲的下载任务
-final trackDownloadTaskProvider = Provider.family<DownloadTask?, int>((ref, trackId) {
+final trackDownloadTaskProvider =
+    Provider.family<DownloadTask?, int>((ref, trackId) {
   final tasks = ref.watch(downloadTasksProvider);
   return tasks.maybeWhen(
     data: (data) {
@@ -237,7 +220,8 @@ final trackDownloadTaskProvider = Provider.family<DownloadTask?, int>((ref, trac
 });
 
 /// 根据 trackId 获取 Track 信息（带缓存）
-final trackByIdProvider = FutureProvider.family<Track?, int>((ref, trackId) async {
+final trackByIdProvider =
+    FutureProvider.family<Track?, int>((ref, trackId) async {
   final trackRepo = ref.watch(trackRepositoryProvider);
   return trackRepo.getById(trackId);
 });
@@ -245,19 +229,23 @@ final trackByIdProvider = FutureProvider.family<Track?, int>((ref, trackId) asyn
 // ==================== Category Providers ====================
 
 /// 已下载分类列表 Provider
-/// 
+///
 /// 使用 Isolate.run() 在单独的 isolate 中执行文件扫描，
 /// 避免阻塞 UI 线程
-final downloadedCategoriesProvider = FutureProvider<List<DownloadedCategory>>((ref) async {
+final downloadedCategoriesProvider =
+    FutureProvider<List<DownloadedCategory>>((ref) async {
   // 直接获取下载目录，避免循环依赖 downloadServiceProvider
-  final settingsRepo = SettingsRepository(ref.watch(databaseProvider).requireValue);
+  final settingsRepo =
+      SettingsRepository(ref.watch(databaseProvider).requireValue);
   final downloadPath = await DownloadPathUtils.getDefaultBaseDir(settingsRepo);
 
   // 在单独的 isolate 中执行文件扫描，直接返回 DownloadedCategory 列表
-  return Isolate.run(() => scanCategoriesInIsolate(ScanCategoriesParams(downloadPath)));
+  return Isolate.run(
+      () => scanCategoriesInIsolate(ScanCategoriesParams(downloadPath)));
 });
 
 /// 获取指定分类文件夹中的已下载歌曲（基于本地文件扫描）
-final downloadedCategoryTracksProvider = FutureProvider.family<List<Track>, String>((ref, folderPath) async {
+final downloadedCategoryTracksProvider =
+    FutureProvider.family<List<Track>, String>((ref, folderPath) async {
   return DownloadScanner.scanFolderForTracks(folderPath);
 });
