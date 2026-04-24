@@ -242,6 +242,43 @@ void main() {
       expect(selection.streamResult, isNotNull);
     });
 
+    test('selectPlayback stores source-provided stream expiry on the track',
+        () async {
+      sourceManager.source.nextAudioExpiry = const Duration(minutes: 16);
+
+      final selection = await manager.selectPlayback(
+        _track('stream-expiry', title: 'Stream Expiry'),
+      );
+
+      expect(selection.localPath, isNull);
+      expect(selection.url, 'https://example.com/stream-expiry.m4a');
+      expect(selection.track.audioUrl, selection.url);
+      expect(selection.track.audioUrlExpiry, isNotNull);
+      final expiryDelta =
+          selection.track.audioUrlExpiry!.difference(DateTime.now());
+      expect(
+        expiryDelta.inMinutes,
+        inInclusiveRange(15, 16),
+      );
+    });
+
+    test('selectPlayback falls back to one hour when source omits expiry',
+        () async {
+      sourceManager.source.nextAudioExpiry = null;
+
+      final selection = await manager.selectPlayback(
+        _track('stream-default-expiry', title: 'Stream Default Expiry'),
+      );
+
+      expect(selection.track.audioUrlExpiry, isNotNull);
+      final expiryDelta =
+          selection.track.audioUrlExpiry!.difference(DateTime.now());
+      expect(
+        expiryDelta.inMinutes,
+        inInclusiveRange(59, 60),
+      );
+    });
+
     test('selectFallbackPlayback assembles fallback selection with headers',
         () async {
       final track = _track('stream-fallback', title: 'Stream Fallback');
@@ -384,6 +421,7 @@ class _FakeSource extends BaseSource {
   final List<String> audioStreamRequests = [];
   Map<String, String>? lastAudioAuthHeaders;
   bool throwOnRefresh = false;
+  Duration? nextAudioExpiry;
 
   @override
   SourceType get sourceType => SourceType.youtube;
@@ -426,11 +464,14 @@ class _FakeSource extends BaseSource {
   }) async {
     audioStreamRequests.add(sourceId);
     lastAudioAuthHeaders = authHeaders;
+    final expiry = nextAudioExpiry;
+    nextAudioExpiry = null;
     return AudioStreamResult(
       url: 'https://example.com/$sourceId.m4a',
       container: 'm4a',
       codec: 'aac',
       streamType: StreamType.audioOnly,
+      expiry: expiry,
     );
   }
 

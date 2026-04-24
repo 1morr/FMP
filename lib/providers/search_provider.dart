@@ -598,13 +598,6 @@ final searchProvider =
   return SearchNotifier(service, bilibiliSource);
 });
 
-/// 搜索历史 Provider
-final searchHistoryProvider =
-    FutureProvider<List<SearchHistory>>((ref) async {
-  final service = ref.watch(searchServiceProvider);
-  return service.getSearchHistory();
-});
-
 /// 搜索建议 Provider
 final searchSuggestionsProvider =
     FutureProvider.family<List<String>, String>((ref, prefix) async {

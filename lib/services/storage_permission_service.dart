@@ -1,5 +1,7 @@
 import 'dart:io';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' hide visibleForTesting;
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
@@ -9,32 +11,65 @@ import '../core/constants/ui_constants.dart';
 ///
 /// 处理 Android 11+ 的 MANAGE_EXTERNAL_STORAGE 权限
 class StoragePermissionService {
+  static const MethodChannel _platformChannel =
+      MethodChannel('com.personal.fmp/platform');
+
+  @visibleForTesting
+  static Future<int?> Function()? debugAndroidSdkProvider;
+
+  @visibleForTesting
+  static Future<bool> Function()? debugManageExternalStorageGranted;
+
+  @visibleForTesting
+  static Future<bool> Function()? debugStorageGranted;
+
+  @visibleForTesting
+  static Future<PermissionStatus> Function()? debugManageExternalStorageStatus;
+
+  @visibleForTesting
+  static Future<PermissionStatus> Function()? debugRequestManageExternalStorage;
+
+  @visibleForTesting
+  static Future<PermissionStatus> Function()? debugRequestStorage;
+
+  @visibleForTesting
+  static bool? debugIsAndroidOverride;
+
+  @visibleForTesting
+  static void resetDebugOverrides() {
+    debugAndroidSdkProvider = null;
+    debugManageExternalStorageGranted = null;
+    debugStorageGranted = null;
+    debugManageExternalStorageStatus = null;
+    debugRequestManageExternalStorage = null;
+    debugRequestStorage = null;
+    debugIsAndroidOverride = null;
+  }
+
   /// 检查是否有外部存储管理权限
   ///
   /// - Android 11+: 检查 MANAGE_EXTERNAL_STORAGE
   /// - Android 10 及以下: 检查 WRITE_EXTERNAL_STORAGE
   /// - 非 Android 平台: 返回 true
   static Future<bool> hasStoragePermission() async {
-    if (!Platform.isAndroid) return true;
+    if (!_isAndroid) return true;
 
-    // Android 11+ (API 30+)
     if (await _isAndroid11OrHigher()) {
-      return await Permission.manageExternalStorage.isGranted;
+      return _isManageExternalStorageGranted();
     }
 
-    // Android 10 及以下
-    return await Permission.storage.isGranted;
+    return _isStorageGranted();
   }
 
   /// 请求存储权限
   ///
   /// 返回是否获得了权限
   static Future<bool> requestStoragePermission(BuildContext context) async {
-    if (!Platform.isAndroid) return true;
+    if (!_isAndroid) return true;
 
     // Android 11+ (API 30+)
     if (await _isAndroid11OrHigher()) {
-      final status = await Permission.manageExternalStorage.status;
+      final status = await _manageExternalStorageStatus();
 
       if (status.isGranted) return true;
 
@@ -46,7 +81,7 @@ class StoragePermissionService {
         }
 
         // 请求权限（会打开系统设置页面）
-        final result = await Permission.manageExternalStorage.request();
+        final result = await _requestManageExternalStorage();
         return result.isGranted;
       }
 
@@ -62,26 +97,59 @@ class StoragePermissionService {
     }
 
     // Android 10 及以下
-    final status = await Permission.storage.request();
+    final status = await _requestStorage();
     return status.isGranted;
   }
 
   /// 检查是否为 Android 11 或更高版本
+  static bool get _isAndroid => debugIsAndroidOverride ?? Platform.isAndroid;
+
+  static Future<int?> _androidSdkInt() async {
+    final debugProvider = debugAndroidSdkProvider;
+    if (debugProvider != null) return debugProvider();
+    return _platformChannel.invokeMethod<int>('getAndroidSdkInt');
+  }
+
   static Future<bool> _isAndroid11OrHigher() async {
-    // permission_handler 内部会处理版本检查
-    // 这里简单通过检查 manageExternalStorage 权限状态来判断
-    try {
-      await Permission.manageExternalStorage.status;
-      return true;
-    } catch (_) {
-      return false;
-    }
+    final sdkInt = await _androidSdkInt();
+    return sdkInt != null && sdkInt >= 30;
+  }
+
+  static Future<bool> _isManageExternalStorageGranted() async {
+    final debugGranted = debugManageExternalStorageGranted;
+    if (debugGranted != null) return debugGranted();
+    return Permission.manageExternalStorage.isGranted;
+  }
+
+  static Future<bool> _isStorageGranted() async {
+    final debugGranted = debugStorageGranted;
+    if (debugGranted != null) return debugGranted();
+    return Permission.storage.isGranted;
+  }
+
+  static Future<PermissionStatus> _manageExternalStorageStatus() async {
+    final debugStatus = debugManageExternalStorageStatus;
+    if (debugStatus != null) return debugStatus();
+    return Permission.manageExternalStorage.status;
+  }
+
+  static Future<PermissionStatus> _requestManageExternalStorage() async {
+    final debugRequest = debugRequestManageExternalStorage;
+    if (debugRequest != null) return debugRequest();
+    return Permission.manageExternalStorage.request();
+  }
+
+  static Future<PermissionStatus> _requestStorage() async {
+    final debugRequest = debugRequestStorage;
+    if (debugRequest != null) return debugRequest();
+    return Permission.storage.request();
   }
 
   /// 显示权限解释对话框
-  static Future<bool> _showPermissionExplanationDialog(BuildContext context) async {
+  static Future<bool> _showPermissionExplanationDialog(
+      BuildContext context) async {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     return await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
@@ -143,7 +211,7 @@ class StoragePermissionService {
   /// 显示引导用户去设置的对话框
   static Future<void> _showGoToSettingsDialog(BuildContext context) async {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     final goToSettings = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(

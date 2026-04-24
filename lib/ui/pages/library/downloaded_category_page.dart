@@ -399,6 +399,7 @@ class _DownloadedCategoryPageState
           networkUrl: null,
           placeholder: gradientPlaceholder,
           fit: BoxFit.cover,
+          targetDisplaySize: 240,
         ),
       );
     }
@@ -421,6 +422,7 @@ class _DownloadedCategoryPageState
         networkUrl: null,
         placeholder: placeholder,
         fit: BoxFit.cover,
+        targetDisplaySize: 160,
       );
     }
     return placeholder;
