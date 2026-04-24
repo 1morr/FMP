@@ -212,7 +212,7 @@ class TrackCover extends ConsumerWidget {
       placeholder: placeholder,
       fit: BoxFit.cover,
       showLoadingIndicator: showLoadingIndicator,
-      targetDisplaySize: highResolution ? 480.0 : null,
+      targetDisplaySize: highResolution ? 480.0 : 320.0,
     );
   }
 

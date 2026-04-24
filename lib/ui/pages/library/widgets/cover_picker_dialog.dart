@@ -189,6 +189,7 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
         final isSelected = track.thumbnailUrl == widget.currentCoverUrl;
 
         return _CoverGridItem(
+          key: ValueKey(track.thumbnailUrl),
           imageUrl: track.thumbnailUrl!,
           isSelected: isSelected,
           onTap: () {
@@ -263,6 +264,7 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
                         networkUrl: _urlController.text,
                         placeholder: const ImagePlaceholder.track(),
                         fit: BoxFit.contain,
+                        targetDisplaySize: 320,
                       ),
                     ),
                   ),
@@ -295,6 +297,7 @@ class _CoverGridItem extends StatelessWidget {
   final VoidCallback onTap;
 
   const _CoverGridItem({
+    super.key,
     required this.imageUrl,
     required this.isSelected,
     required this.onTap,
