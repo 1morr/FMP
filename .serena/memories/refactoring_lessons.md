@@ -18,7 +18,7 @@
 
 ### 4. 清理无用字段
 - 移除 `cachedPath` 字段（从未被设置）
-- `localCoverPath` 不再使用 `existsSync()`（由 ImageLoadingService 处理回退）
+- `localCoverPath` 旧同步 getter 已被 UI 侧 FileExistsCache 模式取代
 
 ---
 
@@ -41,10 +41,10 @@ void _scheduleRefresh(String path) {
 
 ### 2. ref.watch vs ref.read 的正确使用
 ```dart
-// 正确：watch 监听状态变化，read 调用方法
-ref.watch(downloadStatusCacheProvider);  // 触发重建
-final cache = ref.read(downloadStatusCacheProvider.notifier);
-final isDownloaded = cache.isDownloadedForPlaylist(track, playlistId);
+// 正确：watch 缓存状态变化，read notifier 调用方法
+ref.watch(fileExistsCacheProvider);  // 触发重建
+final cache = ref.read(fileExistsCacheProvider.notifier);
+final isDownloaded = track.allDownloadPaths.any(cache.exists);
 
 // 错误：watch notifier 不触发重建
 ref.watch(provider.notifier).method();  // UI 不会更新
@@ -306,7 +306,7 @@ class AudioController {
   // 統一的播放上下文
   _PlaybackContext _context = const _PlaybackContext();
 
-  void _onPlayerStateChanged(MediaKitPlayerState playerState) {
+  void _onPlayerStateChanged(FmpPlayerState playerState) {
     state = state.copyWith(
       isPlaying: playerState.playing,
       isBuffering: playerState.processingState == FmpAudioProcessingState.buffering,
@@ -546,8 +546,6 @@ if (removedTrackIds.isNotEmpty) {
 }
 playlist.trackIds = newTrackIds;
 ```
-
-$1
 
 **问题**：逐个查询和保存导致删除大歌单极慢（N 首歌 = 2N 次数据库操作）。
 
@@ -945,7 +943,7 @@ static void RegisterPluginsForSubWindow(flutter::PluginRegistry* registry) {
 | ToastService | `lib/core/services/toast_service.dart` | 消息提示 |
 | ImageLoadingService | `lib/core/services/image_loading_service.dart` | 图片加载（本地优先）|
 | DownloadPathUtils | `lib/services/download/download_path_utils.dart` | 路径计算 |
-| DownloadStatusCache | `lib/providers/download/download_status_cache.dart` | 下载状态缓存 |
+| FileExistsCache | `lib/providers/download/file_exists_cache.dart` | 文件存在性缓存 |
 
 ---
 
@@ -1037,7 +1035,7 @@ Future<void> _syncHotkeys() {
 
 ## 封面图片优先级
 
-1. 本地封面 (`track.localCoverPath` → `{dir}/cover.jpg`)
+1. 本地封面（`track.getLocalCoverPath(cache)` → `{videoDir}/cover.jpg`）
 2. 网络封面 (`track.thumbnailUrl`)
 3. 占位符 (Icons.music_note)
 
