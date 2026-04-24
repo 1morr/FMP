@@ -1,81 +1,63 @@
-# 应用内更新系统
+# FMP 应用内更新系统
 
-## 概述
-
-FMP 支持应用内检查更新，通过 GitHub Releases API 获取最新版本信息，支持 Android APK 和 Windows EXE 的下载与安装。
+核心文件结构见 `CLAUDE.md`。此文件记录更新流程细节。
 
 ## 核心文件
 
 | 文件 | 说明 |
 |------|------|
-| `lib/services/update/update_service.dart` | 核心服务：GitHub API 调用、版本比较、下载、平台安装逻辑 |
-| `lib/providers/update_provider.dart` | Riverpod 状态管理（StateNotifier + StateNotifierProvider） |
-| `lib/ui/widgets/update_dialog.dart` | 更新对话框 UI，显示版本、Release Notes、下载进度 |
+| `lib/services/update/update_service.dart` | GitHub Releases API、版本比较、下载、平台安装逻辑 |
+| `lib/providers/update_provider.dart` | Riverpod 更新状态 |
+| `lib/ui/widgets/update_dialog.dart` | 更新对话框、版本说明、下载进度 |
 
-## 入口
+入口：设置页 → 关于 → 检查更新。
 
-设置页 → 关于 → 检查更新（`_CheckUpdateListTile` in `settings_page.dart`）
+## Release 查询
 
-## 状态流转
+- 请求 GitHub Releases latest API。
+- `tag_name` 去掉 `v` 后与 `PackageInfo.fromPlatform()` 当前版本比较。
+- 解析 assets：
+  - Android 多 ABI：`fmp-<version>-android-<abi>.apk`
+  - Android 旧格式：`fmp-<version>-android.apk` 当作 universal
+  - Windows 安装版：`*-windows-installer.exe`
+  - Windows 便携版：`*-windows.zip`
 
-```
-UpdateState:
-  - checking: 正在检查
-  - upToDate: 已是最新
-  - updateAvailable: 有新版本可用
-  - downloading: 下载中（含进度）
-  - error: 出错
-```
+## Android
 
-## 更新流程
+- 根据设备 ABI 选择 APK，fallback 到 universal。
+- 下载到临时目录，并清理旧 `fmp-*.apk`。
+- `downloadAndInstall()` 返回 APK 路径，不直接安装。
+- `installApk()` 使用 `open_filex` 打开系统安装器。
+- 需要 `REQUEST_INSTALL_PACKAGES` 权限。
 
-### 检查更新
-1. 调用 `GET https://api.github.com/repos/1morr/FMP/releases/latest`
-2. 解析 `tag_name`（如 `v1.2.0`）与当前 app 版本比较
-3. 有更新则弹出 `UpdateDialog`
+## Windows
 
-### Android 安装
-1. 下载 APK 到外部存储 `getExternalStorageDirectory()`
-2. 使用 `open_filex` 包调用系统安装器
-3. 需要 `REQUEST_INSTALL_PACKAGES` 权限（已在 AndroidManifest.xml 配置）
+`UpdateInfo.isInstalledVersion` 通过当前应用目录下是否存在 `unins000.exe` 判断。
 
-### Windows 安装
-1. 下载 ZIP 到临时目录
-2. 使用 `archive` 包解压
-3. 创建 `fmp_updater.bat` 批处理脚本（等待 2 秒 → 复制文件 → 重启应用 → 自删除）
-4. 创建 `fmp_updater.vbs` 包装脚本，使用 `WScript.Shell` 隐藏 CMD 窗口
-5. 通过 `wscript` 启动 VBS，实现静默更新
+### 安装版
+
+1. 下载 `*-windows-installer.exe` 到临时目录。
+2. 使用参数启动：`/SILENT`, `/DIR=<current app dir>`, `/CLOSEAPPLICATIONS`, `/RESTARTAPPLICATIONS`。
+3. 退出当前进程。
+
+### 便携版
+
+1. 下载 `*-windows.zip` 到临时目录。
+2. 解压到临时 `fmp_update` 目录。
+3. 生成 `fmp_updater.bat`，等待后 `xcopy` 覆盖当前目录并重启 exe。
+4. 用 `fmp_updater.vbs` 隐藏 CMD 窗口运行 bat。
+5. 退出当前进程。
+
+启动时 `UpdateService.cleanupOldWindowsUpdateFiles()` 会清理旧更新残留。
+
+## 版本来源
+
+- 开发时：`pubspec.yaml` 的 `version`。
+- CI 构建时：从 git tag 写入版本。
+- 运行时：`package_info_plus`。
 
 ## 依赖
 
-```yaml
-# pubspec.yaml
-dependencies:
-  package_info_plus: ^8.0.0  # 获取当前 app 版本
-  open_filex: ^4.5.0         # Android APK 安装
-  archive: ^4.0.2            # Windows ZIP 解压
-```
-
-## 版本号来源
-
-- 开发时：`pubspec.yaml` 中的 `version` 字段
-- CI 构建时：从 git tag 自动提取并写入 `pubspec.yaml`
-- 运行时：通过 `PackageInfo.fromPlatform()` 读取编译后的版本
-
-## 签名配置
-
-Android APK 必须使用固定签名密钥，否则无法覆盖安装。
-
-- 本地：`android/key.properties` + `android/release.keystore`
-- CI：从 GitHub Secrets 解码 keystore
-
-详见 `docs/build-and-release.md`
-
-## 相关 Secrets
-
-| Secret | 说明 |
-|--------|------|
-| `KEYSTORE_BASE64` | release.keystore 的 base64 编码 |
-| `KEYSTORE_PASSWORD` | keystore 密码 |
-| `KEY_PASSWORD` | key 密码 |
-| `KEY_ALIAS` | key 别名（fmp） |
+- `package_info_plus`
+- `open_filex`
+- `archive`

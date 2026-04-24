@@ -194,7 +194,7 @@ Widget build(BuildContext context, WidgetRef ref) {
   
   // 3. 使用缓存方法
   final localCoverPath = track.getLocalCoverPath(cache);
-  final isDownloaded = cache.hasAnyDownload(track);
+  final isDownloaded = track.allDownloadPaths.any(cache.exists);
   
   // ...
 }
@@ -208,7 +208,9 @@ void initState() {
   // 异步预加载缓存
   Future.microtask(() async {
     final cache = ref.read(fileExistsCacheProvider.notifier);
-    await cache.refreshCache(tracks);
+    await cache.preloadPaths(tracks.expand((t) {
+      return t.allDownloadPaths.map((p) => '${Directory(p).parent.path}/cover.jpg');
+    }).toList());
   });
 }
 ```
@@ -620,7 +622,7 @@ if (items.isEmpty) {
 | `TrackThumbnail` | `widgets/track_thumbnail.dart` | 歌曲封面缩略图 |
 | `TrackCover` | `widgets/track_thumbnail.dart` | 大尺寸封面 |
 | `NowPlayingIndicator` | `widgets/now_playing_indicator.dart` | 播放中动画指示器 |
-| `ImagePlaceholder` | `services/image_loading_service.dart` | 图片占位符 |
+| `ImagePlaceholder` | `core/services/image_loading_service.dart` | 图片占位符 |
 | `TrackGroup` / `groupTracks()` | `widgets/track_group/track_group.dart` | 多P分组工具 |
 | `RefreshProgressIndicator` | `widgets/refresh_progress_indicator.dart` | 刷新进度指示器 |
 | `ErrorDisplay` | `widgets/error_display.dart` | 错误展示组件 |

@@ -18,7 +18,16 @@ After significant code changes, update this file accordingly:
 | Design decisions | "Key Design Decisions" |
 | UI patterns | "UI Development Guidelines" |
 
-Supplemental docs in `.serena/memories/` may exist but this file is the primary reference.
+Keep `.serena/memories/` for narrow supplemental notes only. Do not duplicate this file; when information becomes core/current, merge it here and delete the memory.
+
+Current supplemental memories:
+- `code_style.md` - coding style details not worth duplicating in this file
+- `debugging_vm_service.md` - Flutter VM Service / DevTools API quick reference
+- `download_system.md` - detailed download path, metadata, and Android storage notes
+- `memory_usage_analysis.md` - memory/cache limits and profiling notes
+- `refactoring_lessons.md` - non-obvious project-specific pitfalls
+- `ui_coding_patterns.md` - detailed UI implementation patterns
+- `update_system.md` - in-app update flow details
 
 ## Common Commands
 
@@ -116,16 +125,16 @@ UI (player_page, mini_player)
 
 | Model | Description |
 |-------|-------------|
-| Track | Song entity (bilibili/youtube/netease SourceType, isVip, originalSongId) |
+| Track | Song entity (bilibili/youtube/netease SourceType, isVip, originalSongId/originalSource, bilibiliAid populated on demand) |
 | Playlist | Playlist (ownerName, ownerUserId, useAuthForRefresh) |
-| PlayQueue | Play queue (Mix mode state, position persistence) |
-| Settings | App settings (quality, auth, stream priority per source) |
+| PlayQueue | Play queue (Mix mode state, position persistence, volume persistence) |
+| Settings | App settings (quality, auth, lyrics, refresh intervals, stream priority per source) |
 | Account | Platform account (login state, VIP status) |
 | RadioStation | Radio/live station |
 | PlayHistory | Play history record |
 | SearchHistory | Search history |
 | DownloadTask | Download task |
-| LyricsMatch | Lyrics match record (Track ↔ lyrics source) |
+| LyricsMatch | Lyrics match record (Track ↔ lrclib/netease/qqmusic) |
 
 ### Database Migration (Isar)
 
@@ -143,11 +152,14 @@ Isar uses type default values for new fields on upgrade: `int` → `0`, `bool` �
 3. Run `flutter pub run build_runner build --delete-conflicting-outputs`
 4. Test upgrade path: old version → new version
 
-**Current migrated fields include:**
-- `maxConcurrentDownloads`, `maxCacheSizeMB`, `audioQualityLevelIndex`
+**Current migrated/default-repaired fields include:**
+- `maxConcurrentDownloads`, `maxCacheSizeMB`, `audioQualityLevelIndex`, `downloadImageOptionIndex`
+- `lyricsDisplayModeIndex`, `maxLyricsCacheFiles`, `lyricsSourcePriority`, `disabledLyricsSources`
 - `audioFormatPriority`, `youtubeStreamPriority`, `bilibiliStreamPriority`, `neteaseStreamPriority`
-- `lyricsSourcePriority`, `enabledSources`
+- `enabledSources`, `rankingRefreshIntervalMinutes`, `radioRefreshIntervalMinutes`
 - `useNeteaseAuthForPlay` (default `true`, but Isar gives `false` on upgrade)
+- Legacy default-signature repair for `rememberPlaybackPosition`, `tempPlayRewindSeconds`, and disabled lrclib auto-match defaults
+- Legacy queue default repair for `PlayQueue.lastVolume`
 
 ---
 
@@ -233,11 +245,12 @@ Multi-source auto-match priority (`LyricsAutoMatchService.tryAutoMatch()`):
 1. Existing match → use cache
 2. Netease source track → direct lyrics fetch by `sourceId` (skip search)
 3. Original platform ID direct fetch (imported `originalSongId` for netease/qqmusic)
-4. Netease search
-5. QQ Music search
-6. lrclib.net fallback
+4. User-configured enabled source order from `Settings.lyricsSourcePriorityList`
+   - default order: Netease → QQ Music → lrclib
+   - `disabledLyricsSources` are skipped (default disables lrclib for auto-match)
+5. Manual lyrics search supports filters: All / Netease / QQ Music / lrclib
 
-Desktop lyrics popup window (independent Flutter engine, hide-instead-of-destroy).
+Desktop lyrics popup window uses an independent Flutter engine and hide-instead-of-destroy lifecycle.
 
 ### Account System
 
@@ -310,9 +323,14 @@ Slider `onChanged` must NOT call `seekToProgress()`. Only call seek in `onChange
 ### Download System
 - Path deduplication by `savePath` (not trackId)
 - File verification before saving path
-- Isolate download on Windows (avoids PostMessage queue overflow)
-- In-memory progress state (avoids Isar watch triggers)
+- Windows downloads run in an isolate and progress is kept in memory first (avoids PostMessage queue overflow and Isar watch churn)
+- Audio, metadata, cover, and avatar live inside each video folder:
+  - `audio.m4a` or `P{NN}.m4a`
+  - `metadata.json` or `metadata_P{NN}.json`
+  - `cover.jpg`
+  - `avatar.jpg`
 - Per-source `Referer` header: bilibili → `bilibili.com`, youtube → `youtube.com`, netease → `music.163.com`
+- Android custom download directories require storage permission (`MANAGE_EXTERNAL_STORAGE` on Android 11+); default base dir is `Music/FMP` via external storage fallback logic.
 
 ### Playlist Import - Original Platform Song ID
 Imported tracks save original platform song ID for direct lyrics fetch:
@@ -324,8 +342,9 @@ Imported tracks save original platform song ID for direct lyrics fetch:
 
 ### Image Thumbnail Optimization
 `ThumbnailUrlUtils` auto-optimizes image URLs by platform:
-- Bilibili: `@{size}w.jpg` suffix
-- YouTube: quality tier (default/mq/hq/sd/maxres) + webp
+- Bilibili: `@{size}w_{size}h.jpg` suffix
+- YouTube: quality tier (default/mq/hq/sd/maxres) + webp; small UI should pass size to avoid unavailable `maxresdefault`
+- YouTube avatar: `=s{size}` parameter
 - Netease: `?param={size}y{size}` parameter
 
 
@@ -348,6 +367,7 @@ Imported tracks save original platform song ID for direct lyrics fetch:
    - Avatar → `ImageLoadingService.loadAvatar()`
    - Other images → `ImageLoadingService.loadImage()`
    - **NEVER** use `Image.network()` or `Image.file()` directly
+   - Pass `width`/`height` or `targetDisplaySize` to `loadImage()` so thumbnail URL optimization selects reliable sizes
 
 2. **FileExistsCache pattern:**
    ```dart
@@ -419,7 +439,7 @@ lib/
 │   │   ├── import_service.dart          # URL import (useAuth parameter)
 │   │   └── playlist_import_service.dart # External playlist import (search-match)
 │   ├── radio/                           # Live/radio control
-│   └── update/                          # In-app update (GitHub Releases)
+│   └── update/                          # In-app update (GitHub Releases, APK/Windows installer/ZIP)
 ├── data/
 │   ├── models/                          # Isar collections
 │   ├── repositories/                    # Data access layer
