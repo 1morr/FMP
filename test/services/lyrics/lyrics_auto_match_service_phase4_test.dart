@@ -68,6 +68,112 @@ void main() {
       }
     });
 
+    test('tryAutoMatch short-circuits when a lyrics match already exists',
+        () async {
+      await repo.save(
+        LyricsMatch()
+          ..trackUniqueKey = 'youtube:existing'
+          ..lyricsSource = 'netease'
+          ..externalId = 'existing-lyrics'
+          ..offsetMs = 0
+          ..matchedAt = DateTime.now(),
+      );
+
+      final matched = await service.tryAutoMatch(
+        _track('existing'),
+        enabledSources: const ['netease', 'qqmusic'],
+      );
+
+      expect(matched, isFalse);
+      expect(netease.directFetchCalls, isEmpty);
+      expect(qqmusic.directFetchCalls, isEmpty);
+      expect(netease.searchCalls, isEmpty);
+      expect(qqmusic.searchCalls, isEmpty);
+      expect(lrclib.searchCalls, isEmpty);
+      expect(cache.savedKeys, isEmpty);
+    });
+
+    test('tryAutoMatch fetches netease source lyrics directly by sourceId',
+        () async {
+      netease.directResults['netease-song-1'] = _lyricsResult(
+        id: 'netease-song-1',
+        source: 'netease',
+      );
+      final track = _track('netease-song-1')..sourceType = SourceType.netease;
+
+      final matched = await service.tryAutoMatch(
+        track,
+        enabledSources: const ['qqmusic', 'netease'],
+      );
+
+      expect(matched, isTrue);
+      expect(netease.directFetchCalls, ['netease-song-1']);
+      expect(qqmusic.directFetchCalls, isEmpty);
+      expect(qqmusic.searchCalls, isEmpty);
+      expect(netease.searchCalls, isEmpty);
+      expect(lrclib.searchCalls, isEmpty);
+      final saved = await repo.getByTrackKey('netease:netease-song-1');
+      expect(saved, isNotNull);
+      expect(saved!.lyricsSource, 'netease');
+      expect(saved.externalId, 'netease-song-1');
+      expect(cache.savedKeys, ['netease:netease-song-1']);
+    });
+
+    test('tryAutoMatch fetches imported qqmusic lyrics directly by original ID',
+        () async {
+      qqmusic.directResults['qq-songmid-1'] = _lyricsResult(
+        id: 'qq-songmid-1',
+        source: 'qqmusic',
+      );
+      final track = _track('imported-qq')
+        ..originalSongId = 'qq-songmid-1'
+        ..originalSource = 'qqmusic';
+
+      final matched = await service.tryAutoMatch(
+        track,
+        enabledSources: const ['netease', 'qqmusic'],
+      );
+
+      expect(matched, isTrue);
+      expect(qqmusic.directFetchCalls, ['qq-songmid-1']);
+      expect(netease.directFetchCalls, isEmpty);
+      expect(netease.searchCalls, isEmpty);
+      expect(qqmusic.searchCalls, isEmpty);
+      expect(lrclib.searchCalls, isEmpty);
+      final saved = await repo.getByTrackKey('youtube:imported-qq');
+      expect(saved, isNotNull);
+      expect(saved!.lyricsSource, 'qqmusic');
+      expect(saved.externalId, 'qq-songmid-1');
+      expect(cache.savedKeys, ['youtube:imported-qq']);
+    });
+
+    test('tryAutoMatch searches for spotify imports instead of direct fetch',
+        () async {
+      netease.searchResults = [
+        _lyricsResult(id: 'netease-fallback-1', source: 'netease'),
+      ];
+      final track = _track('spotify-import')
+        ..originalSongId = 'spotify-track-1'
+        ..originalSource = 'spotify';
+
+      final matched = await service.tryAutoMatch(
+        track,
+        enabledSources: const ['netease'],
+      );
+
+      expect(matched, isTrue);
+      expect(netease.directFetchCalls, isEmpty);
+      expect(qqmusic.directFetchCalls, isEmpty);
+      expect(netease.searchCalls, ['Song Name Singer']);
+      expect(qqmusic.searchCalls, isEmpty);
+      expect(lrclib.searchCalls, isEmpty);
+      final saved = await repo.getByTrackKey('youtube:spotify-import');
+      expect(saved, isNotNull);
+      expect(saved!.lyricsSource, 'netease');
+      expect(saved.externalId, 'netease-fallback-1');
+      expect(cache.savedKeys, ['youtube:spotify-import']);
+    });
+
     test('tryAutoMatch respects enabled source ordering before fallback',
         () async {
       qqmusic.searchResults = [
@@ -137,7 +243,8 @@ void main() {
 
       expect(second, isTrue);
       expect(netease.searchCalls.length, 3);
-      expect(cache.savedKeys, ['youtube:track-2', 'youtube:track-2', 'youtube:track-3']);
+      expect(cache.savedKeys,
+          ['youtube:track-2', 'youtube:track-2', 'youtube:track-3']);
     });
   });
 }
@@ -186,8 +293,10 @@ class _FakeTitleParser implements TitleParser {
 
 class _FakeNeteaseSource extends NeteaseSource {
   final List<String> searchCalls = [];
+  final List<String> directFetchCalls = [];
   final Completer<void> _searchCalled = Completer<void>();
   List<LyricsResult> searchResults = [];
+  Map<String, LyricsResult> directResults = {};
   Future<List<LyricsResult>> Function()? onSearch;
 
   Future<void> waitForSearchCall() => _searchCalled.future;
@@ -209,12 +318,17 @@ class _FakeNeteaseSource extends NeteaseSource {
   }
 
   @override
-  Future<LyricsResult?> getLyricsResult(String songId) async => null;
+  Future<LyricsResult?> getLyricsResult(String songId) async {
+    directFetchCalls.add(songId);
+    return directResults[songId];
+  }
 }
 
 class _FakeQQMusicSource extends QQMusicSource {
   final List<String> searchCalls = [];
+  final List<String> directFetchCalls = [];
   List<LyricsResult> searchResults = [];
+  Map<String, LyricsResult> directResults = {};
 
   @override
   Future<List<LyricsResult>> searchLyrics({
@@ -230,7 +344,10 @@ class _FakeQQMusicSource extends QQMusicSource {
   }
 
   @override
-  Future<LyricsResult?> getLyricsResult(String songmid) async => null;
+  Future<LyricsResult?> getLyricsResult(String songmid) async {
+    directFetchCalls.add(songmid);
+    return directResults[songmid];
+  }
 }
 
 class _FakeLrclibSource extends LrclibSource {
