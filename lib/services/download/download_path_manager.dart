@@ -64,9 +64,9 @@ class DownloadPathManager {
 
   /// 保存下载路径
   Future<void> saveDownloadPath(String path) async {
-    final settings = await _settingsRepo.get();
-    settings.customDownloadDir = path;
-    await _settingsRepo.save(settings);
+    await _settingsRepo.update((settings) {
+      settings.customDownloadDir = path;
+    });
   }
 
   /// 获取当前下载路径
@@ -77,15 +77,15 @@ class DownloadPathManager {
 
   /// 清除下载路径配置
   Future<void> clearDownloadPath() async {
-    final settings = await _settingsRepo.get();
-    settings.customDownloadDir = null;
-    await _settingsRepo.save(settings);
+    await _settingsRepo.update((settings) {
+      settings.customDownloadDir = null;
+    });
   }
 
   /// 显示权限错误对话框
   void _showPermissionError(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
