@@ -146,9 +146,10 @@ class StoragePermissionService {
   }
 
   /// 显示权限解释对话框
-  static Future<bool> _showPermissionExplanationDialog(BuildContext context) async {
+  static Future<bool> _showPermissionExplanationDialog(
+      BuildContext context) async {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     return await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
@@ -210,7 +211,7 @@ class StoragePermissionService {
   /// 显示引导用户去设置的对话框
   static Future<void> _showGoToSettingsDialog(BuildContext context) async {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     final goToSettings = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(

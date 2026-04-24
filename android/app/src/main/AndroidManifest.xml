@@ -30,7 +30,7 @@
 
         <!-- 主 Activity - 用于 audio_service -->
         <activity
-            android:name="com.ryanheise.audioservice.AudioServiceActivity"
+            android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
             android:taskAffinity=""
