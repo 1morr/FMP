@@ -1223,6 +1223,7 @@ class _HomePlaylistCard extends ConsumerWidget {
                               networkUrl: coverData.networkUrl,
                               placeholder: const ImagePlaceholder.playlist(),
                               fit: BoxFit.cover,
+                              targetDisplaySize: 160,
                             )
                           : const ImagePlaceholder.playlist(),
                       loading: () => const ImagePlaceholder.playlist(),

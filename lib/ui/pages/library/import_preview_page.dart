@@ -646,6 +646,7 @@ class _UnmatchedTrackTile extends ConsumerWidget {
 
           // 搜索结果列表 - 使用与已匹配相同的样式
           ...searchResults.take(5).map((result) => _AlternativeTrackTile(
+                key: ValueKey('alternative-search-${result.sourceType.name}:${result.sourceId}:${result.pageNum ?? result.cid ?? 0}'),
                 track: result,
                 isSelected: matchedTrack.selectedTrack?.sourceId == result.sourceId,
                 onSelect: () => onSelectTrack(result),
@@ -811,6 +812,7 @@ class _ImportMatchTile extends StatelessWidget {
         // 展开的其他搜索结果列表
         if (isExpanded)
           ...matchedTrack.searchResults.map((altTrack) => _AlternativeTrackTile(
+                key: ValueKey('alternative-expanded-${altTrack.sourceType.name}:${altTrack.sourceId}:${altTrack.pageNum ?? altTrack.cid ?? 0}'),
                 track: altTrack,
                 isSelected: altTrack.sourceId == track.sourceId,
                 onSelect: () => onSelectAlternative(altTrack),
@@ -830,6 +832,7 @@ class _AlternativeTrackTile extends ConsumerWidget {
   final VoidCallback onSelect;
 
   const _AlternativeTrackTile({
+    super.key,
     required this.track,
     required this.isSelected,
     required this.onSelect,
