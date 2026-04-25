@@ -128,12 +128,15 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
           tooltip: t.playHistoryPage.exitSelectMode,
           onPressed: () => notifier.exitMultiSelectMode(),
         ),
-        title: Text(t.playHistoryPage.selectedCount(n: pageState.selectedIds.length)),
+        title: Text(
+            t.playHistoryPage.selectedCount(n: pageState.selectedIds.length)),
         actions: [
           // 全選按鈕（圖標）
           IconButton(
             icon: Icon(isAllSelected ? Icons.deselect : Icons.select_all),
-            tooltip: isAllSelected ? t.playHistoryPage.deselectAll : t.playHistoryPage.selectAll,
+            tooltip: isAllSelected
+                ? t.playHistoryPage.deselectAll
+                : t.playHistoryPage.selectAll,
             onPressed: () {
               if (isAllSelected) {
                 notifier.deselectAll();
@@ -271,14 +274,14 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _buildStatItem(
-                context, t.playHistoryPage.statsToday, stats.todayCount, stats.formattedTodayDuration),
+            _buildStatItem(context, t.playHistoryPage.statsToday,
+                stats.todayCount, stats.formattedTodayDuration),
             _buildStatDivider(colorScheme),
-            _buildStatItem(
-                context, t.playHistoryPage.statsThisWeek, stats.weekCount, stats.formattedWeekDuration),
+            _buildStatItem(context, t.playHistoryPage.statsThisWeek,
+                stats.weekCount, stats.formattedWeekDuration),
             _buildStatDivider(colorScheme),
-            _buildStatItem(
-                context, t.playHistoryPage.statsAll, stats.totalCount, stats.formattedTotalDuration),
+            _buildStatItem(context, t.playHistoryPage.statsAll,
+                stats.totalCount, stats.formattedTotalDuration),
           ],
         ),
       ),
@@ -332,7 +335,9 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
                 style: TextStyle(
                     fontWeight: FontWeight.bold, color: colorScheme.onSurface),
               ),
-              TextSpan(text: ' ${t.playHistoryPage.trackCount(n: count).replaceFirst('$count ', '')}'),
+              TextSpan(
+                  text:
+                      ' ${t.playHistoryPage.trackCount(n: count).replaceFirst('$count ', '')}'),
             ],
           ),
         ),
@@ -448,24 +453,39 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
           );
         }
 
-        // 按日期排序（最新的在前）
-        final sortedDates = grouped.keys.toList()
-          ..sort((a, b) => b.compareTo(a));
-
         final pageState = ref.watch(playHistoryPageProvider);
         final notifier = ref.read(playHistoryPageProvider.notifier);
+        final List<HistoryTimelineRow> rows =
+            buildHistoryTimelineRows(grouped, _collapsedGroups);
 
         return ListView.builder(
           controller: _scrollController,
-          itemCount: sortedDates.length,
+          itemCount: rows.length,
           // 预加载视口外 500px 的项目，减少快速滚动时的空白
           cacheExtent: 500,
           itemBuilder: (context, index) {
-            final date = sortedDates[index];
-            final histories = grouped[date]!;
+            final row = rows[index];
             return RepaintBoundary(
-              child: _buildDateGroup(
-                  context, date, histories, pageState, notifier),
+              child: switch (row) {
+                HistoryDateHeaderRow(:final date, :final histories) =>
+                  _buildDateHeader(
+                    context,
+                    date,
+                    histories,
+                    pageState,
+                    notifier,
+                  ),
+                HistoryTrackRow(:final history) => _buildTimelineItem(
+                    context,
+                    history,
+                    isMultiSelectMode: pageState.isMultiSelectMode,
+                    isSelected: pageState.selectedIds.contains(history.id),
+                    onToggleSelection: () =>
+                        notifier.toggleSelection(history.id),
+                    onEnterMultiSelect: () =>
+                        notifier.enterMultiSelectMode(history.id),
+                  ),
+              },
             );
           },
         );
@@ -484,7 +504,7 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     );
   }
 
-  Widget _buildDateGroup(
+  Widget _buildDateHeader(
     BuildContext context,
     DateTime date,
     List<PlayHistory> histories,
@@ -557,17 +577,6 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
             ),
           ),
         ),
-        // 该日期下的歌曲列表（可收起）
-        if (!isCollapsed)
-          ...histories.map((history) => _buildTimelineItem(
-                context,
-                history,
-                isMultiSelectMode: pageState.isMultiSelectMode,
-                isSelected: pageState.selectedIds.contains(history.id),
-                onToggleSelection: () => notifier.toggleSelection(history.id),
-                onEnterMultiSelect: () =>
-                    notifier.enterMultiSelectMode(history.id),
-              )),
       ],
     );
   }
@@ -832,18 +841,22 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     } else if (date == yesterday) {
       return t.playHistoryPage.dateYesterday;
     } else if (date.year == now.year) {
-      return t.playHistoryPage.dateFormat(month: '${date.month}', day: '${date.day}');
+      return t.playHistoryPage
+          .dateFormat(month: '${date.month}', day: '${date.day}');
     } else {
-      return t.playHistoryPage.dateFormatWithYear(year: '${date.year}', month: '${date.month}', day: '${date.day}');
+      return t.playHistoryPage.dateFormatWithYear(
+          year: '${date.year}', month: '${date.month}', day: '${date.day}');
     }
   }
 
   String _formatDateTitle(DateTime date) {
     final now = DateTime.now();
     if (date.year == now.year) {
-      return t.playHistoryPage.dateFormat(month: '${date.month}', day: '${date.day}');
+      return t.playHistoryPage
+          .dateFormat(month: '${date.month}', day: '${date.day}');
     }
-    return t.playHistoryPage.dateFormatWithYear(year: '${date.year}', month: '${date.month}', day: '${date.day}');
+    return t.playHistoryPage.dateFormatWithYear(
+        year: '${date.year}', month: '${date.month}', day: '${date.day}');
   }
 
   String _formatPlayedTime(DateTime time) {
@@ -857,9 +870,11 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     if (playedDate == today) {
       return timeStr;
     } else if (time.year == now.year) {
-      return t.playHistoryPage.dateTimeFormat(month: '${time.month}', day: '${time.day}', time: timeStr);
+      return t.playHistoryPage.dateTimeFormat(
+          month: '${time.month}', day: '${time.day}', time: timeStr);
     } else {
-      return t.playHistoryPage.dateFormatWithYear(year: '${time.year}', month: '${time.month}', day: '${time.day}');
+      return t.playHistoryPage.dateFormatWithYear(
+          year: '${time.year}', month: '${time.month}', day: '${time.day}');
     }
   }
 
@@ -932,7 +947,8 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     ref.read(playHistoryPageProvider.notifier).exitMultiSelectMode();
 
     if (context.mounted) {
-      ToastService.success(context, t.playHistoryPage.toastAddedNextCount(n: addedCount));
+      ToastService.success(
+          context, t.playHistoryPage.toastAddedNextCount(n: addedCount));
     }
   }
 
@@ -1015,7 +1031,8 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
           context: context,
           builder: (context) => AlertDialog(
             title: Text(t.playHistoryPage.deleteAllTitle),
-            content: Text(t.playHistoryPage.deleteAllConfirm(title: history.title)),
+            content:
+                Text(t.playHistoryPage.deleteAllConfirm(title: history.title)),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -1033,7 +1050,8 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
               .read(playHistoryPageProvider.notifier)
               .deleteAllForTrack(history.trackKey);
           if (context.mounted) {
-            ToastService.success(context, t.playHistoryPage.toastDeletedCount(n: count));
+            ToastService.success(
+                context, t.playHistoryPage.toastDeletedCount(n: count));
           }
         }
         break;
@@ -1046,7 +1064,8 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
   ) async {
     final count = await notifier.deleteSelected();
     if (context.mounted) {
-      ToastService.success(context, t.playHistoryPage.toastDeletedCount(n: count));
+      ToastService.success(
+          context, t.playHistoryPage.toastDeletedCount(n: count));
     }
   }
 
@@ -1070,7 +1089,8 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     ref.read(playHistoryPageProvider.notifier).exitMultiSelectMode();
 
     if (context.mounted) {
-      ToastService.success(context, t.playHistoryPage.toastAddedQueueCount(n: addedCount));
+      ToastService.success(
+          context, t.playHistoryPage.toastAddedQueueCount(n: addedCount));
     }
   }
 

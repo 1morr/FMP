@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/ui/handlers/track_action_handler.dart';
@@ -5,7 +7,8 @@ import 'package:fmp/ui/pages/history/play_history_page.dart';
 
 void main() {
   group('history page shared track actions', () {
-    test('play next and add to queue keep history feedback callbacks', () async {
+    test('play next and add to queue keep history feedback callbacks',
+        () async {
       final audio = _FakeTrackActionAudioController()
         ..addNextResult = true
         ..addToQueueResult = true;
@@ -44,7 +47,8 @@ void main() {
       expect(lyricsCalls, 0);
     });
 
-    test('playlist and lyrics actions delegate through shared handler', () async {
+    test('playlist and lyrics actions delegate through shared handler',
+        () async {
       final audio = _FakeTrackActionAudioController();
       var playlistCalls = 0;
       var lyricsCalls = 0;
@@ -108,6 +112,34 @@ void main() {
       expect(audio.addToQueueCalls, isEmpty);
     });
   });
+
+  group('history page lazy timeline structure', () {
+    test('timeline list does not expand grouped histories with spread map', () {
+      final source = File('lib/ui/pages/history/play_history_page.dart')
+          .readAsStringSync();
+      final timelineBody = _methodBody(source, '_buildTimelineList');
+      final dateGroupBody = _methodBody(source, '_buildDateHeader');
+
+      expect(timelineBody, contains('ListView.builder'));
+      expect(dateGroupBody, isNot(contains('...histories.map')));
+      expect(timelineBody, contains('HistoryTimelineRow'));
+    });
+  });
+}
+
+String _methodBody(String source, String name) {
+  final match =
+      RegExp('(?:^|\\n)\\s*[\\w<>?]+\\s+$name' r'\s*\(').firstMatch(source);
+  expect(match, isNotNull, reason: 'method $name should exist');
+  final firstBrace = source.indexOf('{', match!.start);
+  var depth = 0;
+  for (var i = firstBrace; i < source.length; i++) {
+    final char = source[i];
+    if (char == '{') depth++;
+    if (char == '}') depth--;
+    if (depth == 0) return source.substring(firstBrace, i + 1);
+  }
+  fail('method $name body did not close');
 }
 
 Track _buildTrack() {
