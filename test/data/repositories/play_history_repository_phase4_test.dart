@@ -3,6 +3,7 @@ import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/data/models/play_history.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/play_history_repository.dart';
@@ -156,6 +157,25 @@ void main() {
       expect(stats.totalDurationMs, 7000);
       expect(stats.todayDurationMs, sameBoundary ? 3000 : 1000);
       expect(stats.weekDurationMs, 3000);
+    });
+
+    test('addHistory preserves records beyond the old snapshot cap', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+
+      for (var i = 0; i < AppConstants.maxPlayHistoryCount + 1; i++) {
+        await harness.repository.addHistory(Track()
+          ..sourceId = 'song-$i'
+          ..sourceType = SourceType.youtube
+          ..title = 'Song $i'
+          ..durationMs = 1000);
+      }
+
+      final stats = await harness.repository.getHistoryStats();
+
+      expect(stats.totalCount, AppConstants.maxPlayHistoryCount + 1);
+      expect(
+          stats.totalDurationMs, (AppConstants.maxPlayHistoryCount + 1) * 1000);
     });
   });
 }
