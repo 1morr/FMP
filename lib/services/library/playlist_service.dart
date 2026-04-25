@@ -13,7 +13,6 @@ import '../../data/repositories/track_repository.dart';
 import '../download/download_path_utils.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
-
 /// 歌单更新结果
 class PlaylistUpdateResult {
   /// 更新后的歌单
@@ -160,7 +159,8 @@ class PlaylistService with Logging {
       playlist.name = name;
 
       // 检查旧文件夹是否存在（有下载文件）
-      final baseDir = await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
+      final baseDir =
+          await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
       final oldFolderName = DownloadPathUtils.sanitizeFileName(oldName);
       final oldFolder = Directory(p.join(baseDir, oldFolderName));
       if (await oldFolder.exists()) {
@@ -176,7 +176,8 @@ class PlaylistService with Logging {
         }
         if (tracks.isNotEmpty) {
           await _trackRepository.saveAll(tracks);
-          logDebug('Cleared download paths for ${tracks.length} tracks in renamed playlist');
+          logDebug(
+              'Cleared download paths for ${tracks.length} tracks in renamed playlist');
         }
       }
     }
@@ -199,7 +200,8 @@ class PlaylistService with Logging {
 
     // 更新自動刷新設置
     if (refreshIntervalHours != null) {
-      playlist.refreshIntervalHours = refreshIntervalHours > 0 ? refreshIntervalHours : null;
+      playlist.refreshIntervalHours =
+          refreshIntervalHours > 0 ? refreshIntervalHours : null;
     }
 
     // 更新使用登入狀態刷新
@@ -220,7 +222,7 @@ class PlaylistService with Logging {
   }
 
   /// 删除歌单
-  /// 
+  ///
   /// 同时清理不被其他歌单引用的孤立歌曲。
   /// 使用批量操作优化性能，避免逐个查询和保存。
   Future<void> deletePlaylist(int playlistId) async {
@@ -229,7 +231,7 @@ class PlaylistService with Logging {
     if (playlist == null) return;
 
     final trackIds = playlist.trackIds;
-    
+
     if (trackIds.isEmpty) {
       // 没有歌曲，直接删除歌单
       await _playlistRepository.delete(playlistId);
@@ -238,7 +240,7 @@ class PlaylistService with Logging {
 
     // 批量获取所有 tracks（一次数据库查询）
     final tracks = await _trackRepository.getByIds(trackIds);
-    
+
     // 分类处理
     final toDelete = <int>[];
     final toUpdate = <Track>[];
@@ -259,13 +261,13 @@ class PlaylistService with Logging {
     await _isar.writeTxn(() async {
       // 删除歌单
       await _isar.playlists.delete(playlistId);
-      
+
       // 批量删除孤儿 tracks
       if (toDelete.isNotEmpty) {
         await _isar.tracks.deleteAll(toDelete);
         logDebug('Batch deleted ${toDelete.length} orphan tracks');
       }
-      
+
       // 批量更新其他 tracks
       if (toUpdate.isNotEmpty) {
         for (final track in toUpdate) {
@@ -278,7 +280,7 @@ class PlaylistService with Logging {
   }
 
   /// 添加歌曲到歌单
-  /// 
+  ///
   /// 使用 getOrCreate 确保使用数据库中的最新数据，避免缓存导致的数据不同步问题。
   /// 注意：下载路径不再预计算，将在实际下载完成时由 DownloadService 设置。
   Future<void> addTrackToPlaylist(int playlistId, Track track) async {
@@ -290,35 +292,33 @@ class PlaylistService with Logging {
     // 先获取数据库中最新的 track 或创建新的
     // 这避免了使用缓存的旧 track 对象导致 playlistIds/downloadPaths 数据不同步
     final existingTrack = await _trackRepository.getOrCreate(track);
-    
+
     // 检查是否已在该歌单中
     if (existingTrack.belongsToPlaylist(playlistId)) {
-      logDebug('Track ${existingTrack.title} already in playlist $playlistId, skipping');
+      logDebug(
+          'Track ${existingTrack.title} already in playlist $playlistId, skipping');
       return;
     }
 
-    // 将歌单 ID 和名称添加到 track 的 playlistInfo（不设置下载路径）
     existingTrack.addToPlaylist(playlistId, playlistName: playlist.name);
-
-    // 记录添加前是否为空（用于判断是否需要更新封面）
     final wasEmpty = playlist.trackIds.isEmpty;
-
-    // 保存歌曲
-    final savedTrack = await _trackRepository.save(existingTrack);
-    await _playlistRepository.addTrack(playlistId, savedTrack.id);
-
-    // 如果这是第一首歌，更新非 Bilibili 歌单的封面
-    if (wasEmpty) {
-      // 重新获取歌单以获得最新的 trackIds
-      final updatedPlaylist = await _playlistRepository.getById(playlistId);
-      if (updatedPlaylist != null) {
-        await _updateDefaultCover(updatedPlaylist);
-      }
+    if (!playlist.trackIds.contains(existingTrack.id)) {
+      playlist.trackIds = [...playlist.trackIds, existingTrack.id];
     }
+    if (wasEmpty && !playlist.hasCustomCover) {
+      playlist.coverUrl = existingTrack.thumbnailUrl;
+    }
+    playlist.updatedAt = DateTime.now();
+    existingTrack.updatedAt = DateTime.now();
+
+    await _isar.writeTxn(() async {
+      await _isar.tracks.put(existingTrack);
+      await _isar.playlists.put(playlist);
+    });
   }
 
   /// 批量添加歌曲到歌单
-  /// 
+  ///
   /// 使用 getOrCreateAll 确保使用数据库中的最新数据，避免缓存导致的数据不同步问题。
   /// 注意：下载路径不再预计算，将在实际下载完成时由 DownloadService 设置。
   Future<void> addTracksToPlaylist(int playlistId, List<Track> tracks) async {
@@ -329,14 +329,14 @@ class PlaylistService with Logging {
 
     // 先获取数据库中最新的 tracks 或创建新的
     final existingTracks = await _trackRepository.getOrCreateAll(tracks);
-    
+
     // 过滤掉已在该歌单中的 tracks
-    final tracksToAdd = existingTracks
-        .where((t) => !t.belongsToPlaylist(playlistId))
-        .toList();
-    
+    final tracksToAdd =
+        existingTracks.where((t) => !t.belongsToPlaylist(playlistId)).toList();
+
     if (tracksToAdd.isEmpty) {
-      logDebug('All ${tracks.length} tracks already in playlist $playlistId, skipping');
+      logDebug(
+          'All ${tracks.length} tracks already in playlist $playlistId, skipping');
       return;
     }
 
@@ -345,36 +345,36 @@ class PlaylistService with Logging {
       track.addToPlaylist(playlistId, playlistName: playlist.name);
     }
 
-    // 记录添加前是否为空（用于判断是否需要更新封面）
     final wasEmpty = playlist.trackIds.isEmpty;
-
-    // 保存所有歌曲
-    final savedTracks = await _trackRepository.saveAll(tracksToAdd);
-    final trackIds = savedTracks.map((t) => t.id).toList();
-    await _playlistRepository.addTracks(playlistId, trackIds);
-    
-    if (tracksToAdd.length < existingTracks.length) {
-      logDebug('Added ${tracksToAdd.length}/${existingTracks.length} tracks to playlist $playlistId (${existingTracks.length - tracksToAdd.length} already existed)');
+    final trackIds = tracksToAdd.map((track) => track.id).toList();
+    playlist.trackIds = [...playlist.trackIds, ...trackIds];
+    if (wasEmpty && !playlist.hasCustomCover && tracksToAdd.isNotEmpty) {
+      playlist.coverUrl = tracksToAdd.first.thumbnailUrl;
+    }
+    playlist.updatedAt = DateTime.now();
+    for (final track in tracksToAdd) {
+      track.updatedAt = DateTime.now();
     }
 
-    // 如果之前是空歌单，更新非 Bilibili 歌单的封面
-    if (wasEmpty && tracksToAdd.isNotEmpty) {
-      // 重新获取歌单以获得最新的 trackIds
-      final updatedPlaylist = await _playlistRepository.getById(playlistId);
-      if (updatedPlaylist != null) {
-        await _updateDefaultCover(updatedPlaylist);
-      }
+    await _isar.writeTxn(() async {
+      await _isar.tracks.putAll(tracksToAdd);
+      await _isar.playlists.put(playlist);
+    });
+
+    if (tracksToAdd.length < existingTracks.length) {
+      logDebug(
+          'Added ${tracksToAdd.length}/${existingTracks.length} tracks to playlist $playlistId (${existingTracks.length - tracksToAdd.length} already existed)');
     }
   }
 
   /// 从歌单移除歌曲
-  /// 
+  ///
   /// 同时清理该歌单的下载路径，如果歌曲不属于任何歌单则删除
   Future<void> removeTrackFromPlaylist(int playlistId, int trackId) async {
     // 先获取歌单，检查被移除的是否是第一首歌
     final playlist = await _playlistRepository.getById(playlistId);
-    final wasFirstTrack = playlist != null && 
-        playlist.trackIds.isNotEmpty && 
+    final wasFirstTrack = playlist != null &&
+        playlist.trackIds.isNotEmpty &&
         playlist.trackIds.first == trackId;
 
     await _playlistRepository.removeTrack(playlistId, trackId);
@@ -403,7 +403,8 @@ class PlaylistService with Logging {
   }
 
   /// 批量从歌单移除歌曲
-  Future<void> removeTracksFromPlaylist(int playlistId, List<int> trackIds) async {
+  Future<void> removeTracksFromPlaylist(
+      int playlistId, List<int> trackIds) async {
     if (trackIds.isEmpty) return;
 
     // 先获取歌单，检查第一首歌是否会被移除
@@ -417,11 +418,11 @@ class PlaylistService with Logging {
 
     // 批量获取所有 tracks
     final tracks = await _trackRepository.getByIds(trackIds);
-    
+
     // 分类：需要删除的和需要更新的
     final toDelete = <int>[];
     final toUpdate = <Track>[];
-    
+
     for (final track in tracks) {
       track.removeFromPlaylist(playlistId);
       if (track.playlistInfo.isEmpty) {
@@ -460,7 +461,7 @@ class PlaylistService with Logging {
 
     final trackIds = List<int>.from(playlist.trackIds);
     final originalFirstTrackId = trackIds.isNotEmpty ? trackIds.first : null;
-    
+
     final trackId = trackIds.removeAt(oldIndex);
 
     // 调整插入位置
@@ -498,7 +499,8 @@ class PlaylistService with Logging {
 
     // 如果没有网络封面或需要本地封面，尝试使用第一首歌的封面
     if (playlist.trackIds.isNotEmpty) {
-      final firstTrack = await _trackRepository.getById(playlist.trackIds.first);
+      final firstTrack =
+          await _trackRepository.getById(playlist.trackIds.first);
       if (firstTrack != null) {
         // 异步检查第一首歌的本地封面
         for (final downloadPath in firstTrack.allDownloadPaths) {
@@ -531,7 +533,8 @@ class PlaylistService with Logging {
 
     String? newCoverUrl;
     if (playlist.trackIds.isNotEmpty) {
-      final firstTrack = await _trackRepository.getById(playlist.trackIds.first);
+      final firstTrack =
+          await _trackRepository.getById(playlist.trackIds.first);
       newCoverUrl = firstTrack?.thumbnailUrl;
     }
 
@@ -539,7 +542,8 @@ class PlaylistService with Logging {
     if (playlist.coverUrl != newCoverUrl) {
       playlist.coverUrl = newCoverUrl;
       await _playlistRepository.save(playlist);
-      logDebug('Updated playlist cover for "${playlist.name}" to: $newCoverUrl');
+      logDebug(
+          'Updated playlist cover for "${playlist.name}" to: $newCoverUrl');
     }
   }
 
@@ -574,8 +578,21 @@ class PlaylistService with Logging {
       ..sortOrder = nextSortOrder
       ..createdAt = DateTime.now();
 
-    final id = await _playlistRepository.save(copy);
-    copy.id = id;
+    await _isar.writeTxn(() async {
+      final id = await _isar.playlists.put(copy);
+      copy.id = id;
+
+      final copiedTracks = (await _isar.tracks.getAll(copy.trackIds))
+          .whereType<Track>()
+          .toList();
+      for (final track in copiedTracks) {
+        track.addToPlaylist(copy.id, playlistName: copy.name);
+        track.updatedAt = DateTime.now();
+      }
+      if (copiedTracks.isNotEmpty) {
+        await _isar.tracks.putAll(copiedTracks);
+      }
+    });
     return copy;
   }
 
@@ -627,5 +644,6 @@ class PlaylistNotFoundException implements Exception {
   const PlaylistNotFoundException(this.playlistId);
 
   @override
-  String toString() => t.importSource.playlistIdNotFound(id: playlistId.toString());
+  String toString() =>
+      t.importSource.playlistIdNotFound(id: playlistId.toString());
 }
