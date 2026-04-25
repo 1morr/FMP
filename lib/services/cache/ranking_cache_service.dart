@@ -25,6 +25,7 @@ class RankingCacheService {
 
   Timer? _refreshTimer;
   StreamSubscription<void>? _networkRecoveredSubscription;
+  Duration _refreshInterval = const Duration(hours: 1);
 
   // 緩存數據
   List<Track> _bilibiliTracks = [];
@@ -60,13 +61,17 @@ class RankingCacheService {
 
   /// 初始化服務：立即獲取數據並啟動定時刷新
   Future<void> initialize({Duration? refreshInterval}) async {
-    final interval = refreshInterval ?? const Duration(hours: 1);
+    if (_isDisposed) return;
+    if (refreshInterval != null && _refreshTimer == null) {
+      _refreshInterval = refreshInterval;
+    }
 
     // 立即開始獲取數據（並行），設置超時
     await _refreshAll().timeout(
       _initialLoadTimeout,
       onTimeout: () {
         debugPrint('[RankingCache] 初始加載超時（${_initialLoadTimeout.inSeconds}秒）');
+        if (_isDisposed) return;
         // 確保結束 loading 狀態
         if (_isInitialLoading) {
           _isInitialLoading = false;
@@ -75,16 +80,24 @@ class RankingCacheService {
       },
     );
 
-    // 啟動定時器
-    _refreshTimer = Timer.periodic(interval, (_) {
-      _refreshAll();
-    });
+    if (_isDisposed) return;
+    _startRefreshTimer();
   }
 
   /// 更新刷新間隔（重啟定時器）
   void updateRefreshInterval(Duration interval) {
+    if (_isDisposed) return;
+    _refreshInterval = interval;
+    _startRefreshTimer();
+  }
+
+  void _startRefreshTimer() {
+    if (_isDisposed) return;
     _refreshTimer?.cancel();
-    _refreshTimer = Timer.periodic(interval, (_) => _refreshAll());
+    _refreshTimer = Timer.periodic(_refreshInterval, (_) {
+      if (_isDisposed) return;
+      _refreshAll();
+    });
   }
 
   /// 設置網絡恢復監聽（需要 Provider 可用後調用）
@@ -104,6 +117,8 @@ class RankingCacheService {
 
   /// 刷新所有數據
   Future<void> _refreshAll() async {
+    if (_isDisposed) return;
+
     // 並行獲取兩個數據源，使用 catchError 確保失敗不會中斷
     await Future.wait([
       refreshBilibili().catchError((e) {
@@ -113,6 +128,8 @@ class RankingCacheService {
         debugPrint('[RankingCache] YouTube 刷新異常（未預期）: $e');
       }),
     ]);
+
+    if (_isDisposed) return;
 
     // 首次加載完成（無論成功或失敗都結束 loading）
     if (_isInitialLoading) {
@@ -125,15 +142,18 @@ class RankingCacheService {
 
   /// 刷新 Bilibili 數據（使用 rid=1003 音樂區排行榜）
   Future<void> refreshBilibili() async {
+    if (_isDisposed) return;
     try {
       // rid=1003 是音樂區排行榜的正確 ID（網頁 /v/popular/rank/music 使用此 ID）
       final tracks = await _bilibiliSource.getRankingVideos(rid: 1003);
+      if (_isDisposed) return;
       _bilibiliTracks = tracks; // 緩存完整數據
       _bilibiliLoaded = true;
       _notifyStateChange();
       debugPrint(
           '[RankingCache] Bilibili 音樂排行榜緩存已刷新: ${_bilibiliTracks.length} 首');
     } catch (e) {
+      if (_isDisposed) return;
       debugPrint('[RankingCache] Bilibili 刷新失敗: $e');
       // 失敗時保留舊緩存
     }
@@ -141,8 +161,10 @@ class RankingCacheService {
 
   /// 刷新 YouTube 數據
   Future<void> refreshYouTube() async {
+    if (_isDisposed) return;
     try {
       final tracks = await _youtubeSource.getTrendingVideos(category: 'music');
+      if (_isDisposed) return;
       // 按播放數降序排序
       tracks.sort((a, b) => (b.viewCount ?? 0).compareTo(a.viewCount ?? 0));
       _youtubeTracks = tracks; // 緩存完整數據
@@ -150,6 +172,7 @@ class RankingCacheService {
       _notifyStateChange();
       debugPrint('[RankingCache] YouTube 緩存已刷新: ${_youtubeTracks.length} 首');
     } catch (e) {
+      if (_isDisposed) return;
       debugPrint('[RankingCache] YouTube 刷新失敗: $e');
       // 失敗時保留舊緩存
     }

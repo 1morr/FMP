@@ -115,25 +115,86 @@ void main() {
       firstNotifier.closeStream();
       secondNotifier.closeStream();
     });
+
+    test('updateRefreshInterval before initialize uses one latest timer',
+        () async {
+      final bilibiliSource = _FakeBilibiliSource();
+      final youtubeSource = _FakeYouTubeSource();
+      final service = RankingCacheService(
+        bilibiliSource: bilibiliSource,
+        youtubeSource: youtubeSource,
+      );
+
+      service.updateRefreshInterval(const Duration(milliseconds: 20));
+      await service.initialize(refreshInterval: const Duration(days: 1));
+      await Future<void>.delayed(const Duration(milliseconds: 70));
+
+      service.dispose();
+
+      expect(bilibiliSource.fetchCount, greaterThanOrEqualTo(2));
+      expect(bilibiliSource.fetchCount, lessThanOrEqualTo(6));
+      expect(youtubeSource.fetchCount, greaterThanOrEqualTo(2));
+      expect(youtubeSource.fetchCount, lessThanOrEqualTo(6));
+    });
+
+    test('dispose before initialize completes prevents later refreshes',
+        () async {
+      final bilibiliSource = _FakeBilibiliSource()
+        ..nextFetchCompleter = Completer<void>();
+      final youtubeSource = _FakeYouTubeSource()
+        ..nextFetchCompleter = Completer<void>();
+      final service = RankingCacheService(
+        bilibiliSource: bilibiliSource,
+        youtubeSource: youtubeSource,
+      );
+
+      final initializeFuture = service.initialize(
+        refreshInterval: const Duration(milliseconds: 20),
+      );
+      await pumpEventQueue();
+      expect(bilibiliSource.fetchCount, 1);
+      expect(youtubeSource.fetchCount, 1);
+
+      service.dispose();
+      bilibiliSource.nextFetchCompleter?.complete();
+      youtubeSource.nextFetchCompleter?.complete();
+      await initializeFuture;
+      await Future<void>.delayed(const Duration(milliseconds: 70));
+
+      expect(bilibiliSource.fetchCount, 1);
+      expect(youtubeSource.fetchCount, 1);
+    });
   });
 }
 
 class _FakeBilibiliSource extends BilibiliSource {
   int fetchCount = 0;
+  Completer<void>? nextFetchCompleter;
 
   @override
   Future<List<Track>> getRankingVideos({int rid = 0}) async {
     fetchCount++;
+    final completer = nextFetchCompleter;
+    if (completer != null) {
+      nextFetchCompleter = null;
+      await completer.future;
+    }
     return [];
   }
 }
 
 class _FakeYouTubeSource extends YouTubeSource {
   int fetchCount = 0;
+  Completer<void>? nextFetchCompleter;
 
   @override
   Future<List<Track>> getTrendingVideos({String category = 'music'}) async {
     fetchCount++;
+    final completer = nextFetchCompleter;
+    if (completer != null) {
+      nextFetchCompleter = null;
+      await completer.future;
+    }
     return [];
   }
 }
