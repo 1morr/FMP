@@ -158,6 +158,55 @@ void main() {
       expect(queue.currentIndex, 0);
       expect(queue.currentTrackId, keptTrack.id);
     });
+
+    test('repair preserves duplicate track state metadata', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+
+      await harness.seedTrackStateMetadataDuplicate();
+
+      await harness.service.repair();
+
+      final track = (await harness.isar.tracks.where().findAll()).single;
+      expect(track.title, 'Kept Default State Track');
+      expect(track.isVip, isTrue);
+      expect(track.isAvailable, isFalse);
+      expect(track.unavailableReason, 'Removed track unavailable');
+      expect(track.createdAt, DateTime(2026, 4, 20));
+      expect(track.updatedAt, DateTime(2026, 4, 26));
+    });
+
+    test('repair preserves duplicate account profile metadata', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+
+      await harness.seedAccountProfileMetadataDuplicate();
+
+      await harness.service.repair();
+
+      final account = (await harness.isar.accounts.where().findAll()).single;
+      expect(account.isLoggedIn, isTrue);
+      expect(account.userId, 'rich-user-id');
+      expect(account.userName, 'Rich User');
+      expect(account.avatarUrl, 'https://img.example/avatar.jpg');
+      expect(account.isVip, isTrue);
+      expect(account.loginAt, DateTime(2026, 4, 20));
+      expect(account.lastRefreshed, DateTime(2026, 4, 26));
+    });
+
+    test('repair keeps populated queue over newer empty queue', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+
+      await harness.seedNewerEmptyQueueDuplicate();
+
+      await harness.service.repair();
+
+      final track = (await harness.isar.tracks.where().findAll()).single;
+      final queue = (await harness.isar.playQueues.where().findAll()).single;
+      expect(queue.trackIds, [track.id]);
+      expect(queue.currentIndex, 0);
+    });
   });
 }
 
@@ -318,6 +367,72 @@ class _Harness {
           ..currentIndex = 1
           ..lastUpdated = DateTime(2026, 4, 25),
       );
+    });
+  }
+
+  Future<void> seedTrackStateMetadataDuplicate() async {
+    await isar.writeTxn(() async {
+      await isar.tracks.putAll([
+        Track()
+          ..sourceId = 'state'
+          ..sourceType = SourceType.youtube
+          ..title = 'Removed State Track'
+          ..isVip = true
+          ..isAvailable = false
+          ..unavailableReason = 'Removed track unavailable'
+          ..createdAt = DateTime(2026, 4, 20)
+          ..updatedAt = DateTime(2026, 4, 26),
+        Track()
+          ..sourceId = 'state'
+          ..sourceType = SourceType.youtube
+          ..title = 'Kept Default State Track'
+          ..thumbnailUrl = 'https://img.example/state.jpg'
+          ..createdAt = DateTime(2026, 4, 25)
+          ..updatedAt = DateTime(2026, 4, 25),
+      ]);
+    });
+  }
+
+  Future<void> seedAccountProfileMetadataDuplicate() async {
+    await isar.writeTxn(() async {
+      await isar.accounts.putAll([
+        Account()
+          ..platform = SourceType.netease
+          ..isLoggedIn = true
+          ..loginAt = DateTime(2026, 4, 25)
+          ..lastRefreshed = DateTime(2026, 4, 25),
+        Account()
+          ..platform = SourceType.netease
+          ..isLoggedIn = false
+          ..userId = 'rich-user-id'
+          ..userName = 'Rich User'
+          ..avatarUrl = 'https://img.example/avatar.jpg'
+          ..isVip = true
+          ..loginAt = DateTime(2026, 4, 20)
+          ..lastRefreshed = DateTime(2026, 4, 26),
+      ]);
+    });
+  }
+
+  Future<void> seedNewerEmptyQueueDuplicate() async {
+    await isar.writeTxn(() async {
+      final trackId = await isar.tracks.put(
+        Track()
+          ..sourceId = 'queue-populated'
+          ..sourceType = SourceType.youtube
+          ..title = 'Queue Populated Track'
+          ..createdAt = DateTime(2026, 4, 25),
+      );
+      await isar.playQueues.putAll([
+        PlayQueue()
+          ..trackIds = [trackId]
+          ..currentIndex = 0
+          ..lastUpdated = DateTime(2026, 4, 24),
+        PlayQueue()
+          ..trackIds = []
+          ..currentIndex = 0
+          ..lastUpdated = DateTime(2026, 4, 25),
+      ]);
     });
   }
 
