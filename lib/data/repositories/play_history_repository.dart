@@ -34,34 +34,37 @@ class PlayHistoryRepository {
   }
 
   /// 获取歌曲播放次数
-  Future<int> getPlayCount(String sourceId, SourceType sourceType, {int? cid}) async {
+  Future<int> getPlayCount(String sourceId, SourceType sourceType,
+      {int? cid}) async {
     final trackKey = cid != null
         ? '${sourceType.name}:$sourceId:$cid'
         : '${sourceType.name}:$sourceId';
-    
+
     final all = await _isar.playHistorys.where().findAll();
     return all.where((h) => h.trackKey == trackKey).length;
   }
 
   /// 获取播放次数最多的歌曲（去重）
-  Future<List<({PlayHistory history, int count})>> getMostPlayed({int limit = 10}) async {
+  Future<List<({PlayHistory history, int count})>> getMostPlayed(
+      {int limit = 10}) async {
     final all = await _isar.playHistorys.where().findAll();
-    
+
     // 按 trackKey 分组统计
     final countMap = <String, ({PlayHistory history, int count})>{};
     for (final h in all) {
       final key = h.trackKey;
       if (countMap.containsKey(key)) {
-        countMap[key] = (history: countMap[key]!.history, count: countMap[key]!.count + 1);
+        countMap[key] =
+            (history: countMap[key]!.history, count: countMap[key]!.count + 1);
       } else {
         countMap[key] = (history: h, count: 1);
       }
     }
-    
+
     // 按播放次数排序
     final sorted = countMap.values.toList()
       ..sort((a, b) => b.count.compareTo(a.count));
-    
+
     return sorted.take(limit).toList();
   }
 
@@ -76,23 +79,31 @@ class PlayHistoryRepository {
 
   /// 获取最近播放历史（去重，每首歌只显示最新一条）
   Future<List<PlayHistory>> getRecentHistoryDistinct({int limit = 10}) async {
-    final all = await _isar.playHistorys
-        .where()
-        .sortByPlayedAtDesc()
-        .findAll();
-    
-    // 按 trackKey 去重，保留最新的记录
+    const batchSize = 50;
     final seen = <String>{};
     final result = <PlayHistory>[];
-    
-    for (final h in all) {
-      if (!seen.contains(h.trackKey)) {
-        seen.add(h.trackKey);
-        result.add(h);
-        if (result.length >= limit) break;
+    var offset = 0;
+
+    while (result.length < limit) {
+      final batch = await _isar.playHistorys
+          .where()
+          .sortByPlayedAtDesc()
+          .offset(offset)
+          .limit(batchSize)
+          .findAll();
+      if (batch.isEmpty) break;
+
+      for (final h in batch) {
+        if (seen.add(h.trackKey)) {
+          result.add(h);
+          if (result.length >= limit) break;
+        }
       }
+
+      if (batch.length < batchSize) break;
+      offset += batchSize;
     }
-    
+
     return result;
   }
 
@@ -146,10 +157,7 @@ class PlayHistoryRepository {
     DateTime end, {
     Set<SourceType>? sourceTypes,
   }) async {
-    var query = _isar.playHistorys
-        .where()
-        .filter()
-        .playedAtBetween(start, end);
+    var query = _isar.playHistorys.where().filter().playedAtBetween(start, end);
 
     if (sourceTypes != null && sourceTypes.isNotEmpty) {
       query = query.anyOf(
@@ -183,13 +191,10 @@ class PlayHistoryRepository {
     Set<SourceType>? sourceTypes,
     int limit = 50,
   }) async {
-    var query = _isar.playHistorys
-        .where()
-        .filter()
-        .group((q) => q
-            .titleContains(keyword, caseSensitive: false)
-            .or()
-            .artistContains(keyword, caseSensitive: false));
+    var query = _isar.playHistorys.where().filter().group((q) => q
+        .titleContains(keyword, caseSensitive: false)
+        .or()
+        .artistContains(keyword, caseSensitive: false));
 
     if (sourceTypes != null && sourceTypes.isNotEmpty) {
       query = query.anyOf(
@@ -204,12 +209,13 @@ class PlayHistoryRepository {
   /// 删除某首歌的所有播放记录
   Future<int> deleteAllForTrack(String trackKey) async {
     final all = await _isar.playHistorys.where().findAll();
-    final toDelete = all.where((h) => h.trackKey == trackKey).map((h) => h.id).toList();
-    
+    final toDelete =
+        all.where((h) => h.trackKey == trackKey).map((h) => h.id).toList();
+
     await _isar.writeTxn(() async {
       await _isar.playHistorys.deleteAll(toDelete);
     });
-    
+
     return toDelete.length;
   }
 
@@ -224,19 +230,19 @@ class PlayHistoryRepository {
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
     final weekStart = todayStart.subtract(Duration(days: now.weekday - 1));
-    
+
     final all = await _isar.playHistorys.where().findAll();
-    
+
     int todayCount = 0;
     int todayDurationMs = 0;
     int weekCount = 0;
     int weekDurationMs = 0;
     int totalDurationMs = 0;
-    
+
     for (final h in all) {
       final duration = h.durationMs ?? 0;
       totalDurationMs += duration;
-      
+
       if (h.playedAt.isAfter(todayStart)) {
         todayCount++;
         todayDurationMs += duration;
@@ -246,7 +252,7 @@ class PlayHistoryRepository {
         weekDurationMs += duration;
       }
     }
-    
+
     return PlayHistoryStats(
       totalCount: all.length,
       todayCount: todayCount,
@@ -284,31 +290,61 @@ class PlayHistoryRepository {
     int offset = 0,
     int limit = 50,
   }) async {
+    final hasFilters = (sourceTypes != null && sourceTypes.isNotEmpty) ||
+        startDate != null ||
+        endDate != null ||
+        (searchKeyword != null && searchKeyword.isNotEmpty);
+
+    if (!hasFilters && sortOrder == HistorySortOrder.timeDesc) {
+      return _isar.playHistorys
+          .where()
+          .sortByPlayedAtDesc()
+          .offset(offset)
+          .limit(limit)
+          .findAll();
+    }
+    if (!hasFilters && sortOrder == HistorySortOrder.timeAsc) {
+      return _isar.playHistorys
+          .where()
+          .sortByPlayedAt()
+          .offset(offset)
+          .limit(limit)
+          .findAll();
+    }
+
     // 基础查询
     var records = await _isar.playHistorys.where().findAll();
-    
+
     // 筛选音源
     if (sourceTypes != null && sourceTypes.isNotEmpty) {
-      records = records.where((h) => sourceTypes.contains(h.sourceType)).toList();
+      records =
+          records.where((h) => sourceTypes.contains(h.sourceType)).toList();
     }
-    
+
     // 筛选日期范围
     if (startDate != null) {
-      records = records.where((h) => h.playedAt.isAfter(startDate) || h.playedAt.isAtSameMomentAs(startDate)).toList();
+      records = records
+          .where((h) =>
+              h.playedAt.isAfter(startDate) ||
+              h.playedAt.isAtSameMomentAs(startDate))
+          .toList();
     }
     if (endDate != null) {
-      final endOfDay = DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59);
+      final endOfDay =
+          DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59);
       records = records.where((h) => h.playedAt.isBefore(endOfDay)).toList();
     }
-    
+
     // 搜索关键词
     if (searchKeyword != null && searchKeyword.isNotEmpty) {
       final lower = searchKeyword.toLowerCase();
-      records = records.where((h) =>
-          h.title.toLowerCase().contains(lower) ||
-          (h.artist?.toLowerCase().contains(lower) ?? false)).toList();
+      records = records
+          .where((h) =>
+              h.title.toLowerCase().contains(lower) ||
+              (h.artist?.toLowerCase().contains(lower) ?? false))
+          .toList();
     }
-    
+
     // 排序
     switch (sortOrder) {
       case HistorySortOrder.timeDesc:
@@ -323,10 +359,11 @@ class PlayHistoryRepository {
         for (final h in records) {
           countMap[h.trackKey] = (countMap[h.trackKey] ?? 0) + 1;
         }
-        records.sort((a, b) => (countMap[b.trackKey] ?? 0).compareTo(countMap[a.trackKey] ?? 0));
+        records.sort((a, b) =>
+            (countMap[b.trackKey] ?? 0).compareTo(countMap[a.trackKey] ?? 0));
         break;
     }
-    
+
     // 分页
     if (offset >= records.length) return [];
     final end = (offset + limit).clamp(0, records.length);
@@ -345,13 +382,13 @@ class PlayHistoryRepository {
       sortOrder: sortOrder,
       limit: 1000, // 获取所有记录用于分组
     );
-    
+
     final grouped = <DateTime, List<PlayHistory>>{};
     for (final h in records) {
       final date = DateTime(h.playedAt.year, h.playedAt.month, h.playedAt.day);
       grouped.putIfAbsent(date, () => []).add(h);
     }
-    
+
     return grouped;
   }
 }
@@ -382,9 +419,10 @@ class PlayHistoryStats {
     final duration = Duration(milliseconds: ms);
     final hours = duration.inHours;
     final minutes = duration.inMinutes.remainder(60);
-    
+
     if (hours > 0) {
-      return t.playHistoryPage.hoursMinutes(hours: hours.toString(), minutes: minutes.toString());
+      return t.playHistoryPage
+          .hoursMinutes(hours: hours.toString(), minutes: minutes.toString());
     }
     return t.playHistoryPage.minutesOnly(minutes: minutes.toString());
   }
@@ -392,7 +430,7 @@ class PlayHistoryStats {
 
 /// 历史记录排序方式
 enum HistorySortOrder {
-  timeDesc,   // 时间倒序（最新优先）
-  timeAsc,    // 时间正序（最早优先）
-  playCount,  // 播放次数
+  timeDesc, // 时间倒序（最新优先）
+  timeAsc, // 时间正序（最早优先）
+  playCount, // 播放次数
 }

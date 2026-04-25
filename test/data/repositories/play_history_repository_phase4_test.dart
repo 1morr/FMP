@@ -55,6 +55,64 @@ void main() {
 
       expect(records.map((e) => e.sourceId).toList(), ['yt-new']);
     });
+
+    test('queryHistory applies time order pagination without snapshot cap',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+
+      final records = List.generate(75, (index) {
+        return _history(
+          sourceId: 'song-$index',
+          sourceType: SourceType.youtube,
+          title: 'Song $index',
+          playedAt:
+              DateTime(2026, 4, 20, 12).subtract(Duration(minutes: index)),
+        );
+      });
+      await harness.seedMany(records);
+
+      final page = await harness.repository.queryHistory(
+        offset: 20,
+        limit: 10,
+      );
+
+      expect(page.map((e) => e.sourceId).toList(),
+          List.generate(10, (index) => 'song-${index + 20}'));
+    });
+
+    test(
+        'getRecentHistoryDistinct scans only enough recent rows for unique tracks',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+
+      await harness.seedMany([
+        _history(
+          sourceId: 'repeat',
+          sourceType: SourceType.youtube,
+          title: 'Repeat Latest',
+          playedAt: DateTime(2026, 4, 20, 12),
+        ),
+        _history(
+          sourceId: 'repeat',
+          sourceType: SourceType.youtube,
+          title: 'Repeat Older',
+          playedAt: DateTime(2026, 4, 20, 11),
+        ),
+        _history(
+          sourceId: 'unique',
+          sourceType: SourceType.youtube,
+          title: 'Unique',
+          playedAt: DateTime(2026, 4, 20, 10),
+        ),
+      ]);
+
+      final recent =
+          await harness.repository.getRecentHistoryDistinct(limit: 2);
+
+      expect(recent.map((e) => e.sourceId).toList(), ['repeat', 'unique']);
+    });
   });
 }
 
@@ -69,8 +127,17 @@ class _Harness {
   final Isar isar;
   final Directory tempDir;
 
-  Future<void> seed(PlayHistory first, [PlayHistory? second, PlayHistory? third]) async {
-    final records = [first, if (second != null) second, if (third != null) third];
+  Future<void> seed(PlayHistory first,
+      [PlayHistory? second, PlayHistory? third]) async {
+    final records = [
+      first,
+      if (second != null) second,
+      if (third != null) third
+    ];
+    await seedMany(records);
+  }
+
+  Future<void> seedMany(List<PlayHistory> records) async {
     await isar.writeTxn(() async {
       await isar.playHistorys.putAll(records);
     });
@@ -120,8 +187,8 @@ Future<String> _resolveIsarLibraryPath() async {
   final packageConfigFile = File(
     '${Directory.current.path}/.dart_tool/package_config.json',
   );
-  final packageConfig =
-      jsonDecode(await packageConfigFile.readAsString()) as Map<String, dynamic>;
+  final packageConfig = jsonDecode(await packageConfigFile.readAsString())
+      as Map<String, dynamic>;
   final packages = packageConfig['packages'] as List<dynamic>;
   final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
 

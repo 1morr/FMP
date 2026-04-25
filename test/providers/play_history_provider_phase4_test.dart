@@ -14,7 +14,8 @@ void main() {
       expect(source, isA<AutoDisposeStreamProvider<List<PlayHistory>>>());
     });
 
-    test('recent history and stats derive from one shared snapshot stream', () async {
+    test('filtered and grouped history derive from one shared snapshot stream',
+        () async {
       final repository = _FakePlayHistoryRepository([
         _history(
           id: 1,
@@ -43,14 +44,34 @@ void main() {
       addTearDown(container.dispose);
 
       await container.read(playHistorySnapshotProvider.future);
-      final recent = container.read(recentPlayHistoryProvider).requireValue;
-      final stats = container.read(playHistoryStatsProvider).requireValue;
       final grouped = container.read(groupedPlayHistoryProvider).requireValue;
 
       expect(repository.snapshotCalls, 1);
-      expect(recent.map((e) => e.sourceId).toList(), ['song-a', 'song-b']);
-      expect(stats.totalCount, 3);
       expect(grouped.keys, [DateTime(2026, 4, 20), DateTime(2026, 4, 19)]);
+    });
+
+    test('recent and stats use purpose-specific repository queries', () async {
+      final repository = _FakePlayHistoryRepository([
+        _history(
+          id: 1,
+          sourceId: 'song-a',
+          title: 'Song A',
+          playedAt: DateTime(2026, 4, 20, 12),
+        ),
+      ]);
+      final container = ProviderContainer(
+        overrides: [
+          playHistoryRepositoryProvider.overrideWith((ref) => repository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(recentPlayHistoryProvider.future);
+      await container.read(playHistoryStatsProvider.future);
+
+      expect(repository.snapshotCalls, 0);
+      expect(repository.recentDistinctCalls, 1);
+      expect(repository.statsCalls, 1);
     });
   });
 }
@@ -60,6 +81,8 @@ class _FakePlayHistoryRepository extends PlayHistoryRepository {
 
   final List<PlayHistory> records;
   int snapshotCalls = 0;
+  int recentDistinctCalls = 0;
+  int statsCalls = 0;
 
   @override
   Future<List<PlayHistory>> loadHistorySnapshot({
@@ -72,7 +95,8 @@ class _FakePlayHistoryRepository extends PlayHistoryRepository {
     var filtered = List<PlayHistory>.from(records);
 
     if (sourceTypes != null && sourceTypes.isNotEmpty) {
-      filtered = filtered.where((e) => sourceTypes.contains(e.sourceType)).toList();
+      filtered =
+          filtered.where((e) => sourceTypes.contains(e.sourceType)).toList();
     }
     if (startDate != null) {
       filtered = filtered
@@ -95,6 +119,25 @@ class _FakePlayHistoryRepository extends PlayHistoryRepository {
 
     filtered.sort((a, b) => b.playedAt.compareTo(a.playedAt));
     return filtered;
+  }
+
+  @override
+  Future<List<PlayHistory>> getRecentHistoryDistinct({int limit = 10}) async {
+    recentDistinctCalls++;
+    return records.take(limit).toList();
+  }
+
+  @override
+  Future<PlayHistoryStats> getHistoryStats() async {
+    statsCalls++;
+    return PlayHistoryStats(
+      totalCount: records.length,
+      todayCount: records.length,
+      weekCount: records.length,
+      totalDurationMs: 0,
+      todayDurationMs: 0,
+      weekDurationMs: 0,
+    );
   }
 
   @override

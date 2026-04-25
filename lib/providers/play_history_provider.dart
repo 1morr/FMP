@@ -20,21 +20,22 @@ final playHistorySnapshotProvider =
 /// 最近播放历史 Provider（用于首页显示，去重）
 /// 默认获取最近 10 首不重复的歌曲
 final recentPlayHistoryProvider =
-    Provider.autoDispose<AsyncValue<List<PlayHistory>>>((ref) {
-  final snapshot = ref.watch(playHistorySnapshotProvider);
-  return snapshot.whenData((records) => _distinctRecent(records, limit: 10));
+    FutureProvider.autoDispose<List<PlayHistory>>((ref) async {
+  final repo = ref.watch(playHistoryRepositoryProvider);
+  return repo.getRecentHistoryDistinct(limit: 10);
 });
 
 /// 播放次数最多的歌曲 Provider
 final mostPlayedProvider =
-    FutureProvider.autoDispose<List<({PlayHistory history, int count})>>((ref) async {
+    FutureProvider.autoDispose<List<({PlayHistory history, int count})>>(
+        (ref) async {
   final repo = ref.watch(playHistoryRepositoryProvider);
   return repo.getMostPlayed(limit: 10);
 });
 
 /// 所有播放历史 Provider（用于历史页面，支持分页）
-final allPlayHistoryProvider =
-    FutureProvider.autoDispose.family<List<PlayHistory>, int>((ref, page) async {
+final allPlayHistoryProvider = FutureProvider.autoDispose
+    .family<List<PlayHistory>, int>((ref, page) async {
   final repo = ref.watch(playHistoryRepositoryProvider);
   const pageSize = 50;
   return repo.getAllHistory(offset: page * pageSize, limit: pageSize);
@@ -69,10 +70,14 @@ class PlayHistoryActions {
 final filteredPlayHistoryProvider =
     Provider.autoDispose<AsyncValue<List<PlayHistory>>>((ref) {
   final snapshot = ref.watch(playHistorySnapshotProvider);
-  final selectedSource = ref.watch(playHistoryPageProvider.select((s) => s.selectedSource));
-  final sortOrder = ref.watch(playHistoryPageProvider.select((s) => s.sortOrder));
-  final searchKeyword = ref.watch(playHistoryPageProvider.select((s) => s.searchKeyword));
-  final selectedDate = ref.watch(playHistoryPageProvider.select((s) => s.selectedDate));
+  final selectedSource =
+      ref.watch(playHistoryPageProvider.select((s) => s.selectedSource));
+  final sortOrder =
+      ref.watch(playHistoryPageProvider.select((s) => s.sortOrder));
+  final searchKeyword =
+      ref.watch(playHistoryPageProvider.select((s) => s.searchKeyword));
+  final selectedDate =
+      ref.watch(playHistoryPageProvider.select((s) => s.selectedDate));
 
   return snapshot.whenData(
     (records) => _filterAndSortHistory(
@@ -87,26 +92,10 @@ final filteredPlayHistoryProvider =
 
 /// 播放历史统计 Provider
 final playHistoryStatsProvider =
-    Provider.autoDispose<AsyncValue<PlayHistoryStats>>((ref) {
-  final snapshot = ref.watch(playHistorySnapshotProvider);
-  return snapshot.whenData(_buildHistoryStats);
+    FutureProvider.autoDispose<PlayHistoryStats>((ref) async {
+  final repo = ref.watch(playHistoryRepositoryProvider);
+  return repo.getHistoryStats();
 });
-
-List<PlayHistory> _distinctRecent(List<PlayHistory> records, {int limit = 10}) {
-  final seen = <String>{};
-  final result = <PlayHistory>[];
-
-  for (final history in records) {
-    if (seen.add(history.trackKey)) {
-      result.add(history);
-      if (result.length >= limit) {
-        break;
-      }
-    }
-  }
-
-  return result;
-}
 
 List<PlayHistory> _filterAndSortHistory(
   List<PlayHistory> records, {
@@ -118,15 +107,19 @@ List<PlayHistory> _filterAndSortHistory(
   var filtered = List<PlayHistory>.from(records);
 
   if (selectedSource != null) {
-    filtered = filtered.where((history) => history.sourceType == selectedSource).toList();
+    filtered = filtered
+        .where((history) => history.sourceType == selectedSource)
+        .toList();
   }
 
   if (selectedDate != null) {
-    final start = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+    final start =
+        DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
     final endExclusive = start.add(const Duration(days: 1));
     filtered = filtered
         .where((history) =>
-            !history.playedAt.isBefore(start) && history.playedAt.isBefore(endExclusive))
+            !history.playedAt.isBefore(start) &&
+            history.playedAt.isBefore(endExclusive))
         .toList();
   }
 
@@ -152,7 +145,8 @@ List<PlayHistory> _filterAndSortHistory(
         countMap[history.trackKey] = (countMap[history.trackKey] ?? 0) + 1;
       }
       filtered.sort(
-        (a, b) => (countMap[b.trackKey] ?? 0).compareTo(countMap[a.trackKey] ?? 0),
+        (a, b) =>
+            (countMap[b.trackKey] ?? 0).compareTo(countMap[a.trackKey] ?? 0),
       );
       break;
   }
@@ -160,42 +154,8 @@ List<PlayHistory> _filterAndSortHistory(
   return filtered;
 }
 
-PlayHistoryStats _buildHistoryStats(List<PlayHistory> records) {
-  final now = DateTime.now();
-  final todayStart = DateTime(now.year, now.month, now.day);
-  final weekStart = todayStart.subtract(Duration(days: now.weekday - 1));
-
-  var todayCount = 0;
-  var todayDurationMs = 0;
-  var weekCount = 0;
-  var weekDurationMs = 0;
-  var totalDurationMs = 0;
-
-  for (final history in records) {
-    final duration = history.durationMs ?? 0;
-    totalDurationMs += duration;
-
-    if (!history.playedAt.isBefore(todayStart)) {
-      todayCount++;
-      todayDurationMs += duration;
-    }
-    if (!history.playedAt.isBefore(weekStart)) {
-      weekCount++;
-      weekDurationMs += duration;
-    }
-  }
-
-  return PlayHistoryStats(
-    totalCount: records.length,
-    todayCount: todayCount,
-    weekCount: weekCount,
-    totalDurationMs: totalDurationMs,
-    todayDurationMs: todayDurationMs,
-    weekDurationMs: weekDurationMs,
-  );
-}
-
-Map<DateTime, List<PlayHistory>> _groupHistoryByDate(List<PlayHistory> records) {
+Map<DateTime, List<PlayHistory>> _groupHistoryByDate(
+    List<PlayHistory> records) {
   final grouped = <DateTime, List<PlayHistory>>{};
 
   for (final history in records) {
@@ -243,10 +203,13 @@ class PlayHistoryPageState {
     bool clearSelectedDate = false,
   }) {
     return PlayHistoryPageState(
-      selectedSource: clearSelectedSource ? null : (selectedSource ?? this.selectedSource),
+      selectedSource:
+          clearSelectedSource ? null : (selectedSource ?? this.selectedSource),
       sortOrder: sortOrder ?? this.sortOrder,
-      searchKeyword: clearSearchKeyword ? null : (searchKeyword ?? this.searchKeyword),
-      selectedDate: clearSelectedDate ? null : (selectedDate ?? this.selectedDate),
+      searchKeyword:
+          clearSearchKeyword ? null : (searchKeyword ?? this.searchKeyword),
+      selectedDate:
+          clearSelectedDate ? null : (selectedDate ?? this.selectedDate),
       isSearching: isSearching ?? this.isSearching,
       selectedIds: selectedIds ?? this.selectedIds,
       isMultiSelectMode: isMultiSelectMode ?? this.isMultiSelectMode,
@@ -351,8 +314,8 @@ class PlayHistoryPageNotifier extends StateNotifier<PlayHistoryPageState> {
 }
 
 /// 播放历史页面状态 Provider
-final playHistoryPageProvider =
-    StateNotifierProvider.autoDispose<PlayHistoryPageNotifier, PlayHistoryPageState>((ref) {
+final playHistoryPageProvider = StateNotifierProvider.autoDispose<
+    PlayHistoryPageNotifier, PlayHistoryPageState>((ref) {
   final repo = ref.watch(playHistoryRepositoryProvider);
   return PlayHistoryPageNotifier(repo);
 });
