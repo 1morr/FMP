@@ -428,6 +428,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
           isMixMode: true,
           mixTitle: title,
         );
+        _publishCurrentQueueState();
         _triggerMixLoadMoreIfAtQueueEnd(PlayMode.mix);
       }
 
@@ -926,6 +927,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       error: null,
       isLoadingMoreMix: false,
     );
+    _publishCurrentQueueState();
     logInfo('Playing Mix playlist: $title with ${tracks.length} tracks');
 
     try {
@@ -963,6 +965,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         isMixMode: true,
         mixTitle: title,
       );
+      _publishCurrentQueueState();
 
       // 播放第一首（使用 PlayMode.mix 以保持 Mix 模式）
       final currentTrack = _queueManager.currentTrack;
@@ -993,6 +996,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         clearMixTitle: true,
         isLoadingMoreMix: false,
       );
+      _publishCurrentQueueState();
       // 清除持久化的 Mix 狀態
       _queueManager.clearMixMode();
     }
@@ -1377,6 +1381,27 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     }
   }
 
+  QueueState _createQueueStateFromCurrentState({int? queueVersion}) {
+    return QueueState(
+      queue: state.queue,
+      upcomingTracks: state.upcomingTracks,
+      currentIndex: state.currentIndex,
+      queueTrack: state.queueTrack,
+      isShuffleEnabled: state.isShuffleEnabled,
+      loopMode: state.loopMode,
+      canPlayPrevious: state.canPlayPrevious,
+      canPlayNext: state.canPlayNext,
+      queueVersion: queueVersion ?? state.queueVersion,
+      isMixMode: state.isMixMode,
+      mixTitle: state.mixTitle,
+      isLoadingMoreMix: state.isLoadingMoreMix,
+    );
+  }
+
+  void _publishCurrentQueueState() {
+    onQueueStateChanged?.call(_createQueueStateFromCurrentState());
+  }
+
   /// 设置 AudioHandler 回调函数
   void _setupAudioHandler() {
     _audioHandler.onPlay = play;
@@ -1554,6 +1579,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     }
 
     state = state.copyWith(isLoadingMoreMix: true);
+    _publishCurrentQueueState();
     logInfo('Loading more Mix tracks...');
 
     const minNewTracksRequired = AppConstants.mixMinNewTracksRequired;
@@ -1668,6 +1694,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       _mixPlaylistHandler.finishLoading(mixState);
       if (_mixPlaylistHandler.isCurrent(mixState)) {
         state = state.copyWith(isLoadingMoreMix: false);
+        _publishCurrentQueueState();
       }
     }
   }
@@ -2604,21 +2631,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
     logDebug(
         'Updating queue state: ${queue.length} tracks, index: $currentIndex, queueTrack: ${queueTrack?.title ?? "null"}, playingTrack: ${_playingTrack?.title ?? "null"}, isPlayingOutOfQueue: $_isPlayingOutOfQueue');
-    final nextQueueState = QueueState(
-      queue: queue,
-      upcomingTracks: upcomingTracks,
-      currentIndex: currentIndex,
-      queueTrack: queueTrack,
-      isShuffleEnabled: _queueManager.isShuffleEnabled,
-      loopMode: _queueManager.loopMode,
-      canPlayPrevious: canPlayPrevious,
-      canPlayNext: canPlayNext,
-      queueVersion: state.queueVersion + 1,
-      isMixMode: state.isMixMode,
-      mixTitle: state.mixTitle,
-      isLoadingMoreMix: state.isLoadingMoreMix,
-    );
-    onQueueStateChanged?.call(nextQueueState);
+    final nextQueueVersion = state.queueVersion + 1;
     state = state.copyWith(
       queue: queue,
       upcomingTracks: upcomingTracks,
@@ -2628,7 +2641,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       loopMode: _queueManager.loopMode,
       canPlayPrevious: canPlayPrevious,
       canPlayNext: canPlayNext,
-      queueVersion: state.queueVersion + 1,
+      queueVersion: nextQueueVersion,
+    );
+    onQueueStateChanged?.call(
+      _createQueueStateFromCurrentState(queueVersion: nextQueueVersion),
     );
   }
 }
