@@ -11,17 +11,20 @@ import 'package:fmp/data/models/download_task.dart';
 import 'package:fmp/data/models/playlist.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/models/video_detail.dart';
 import 'package:fmp/data/repositories/download_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/data/sources/youtube_source.dart';
 import 'package:fmp/providers/database_provider.dart';
 import 'package:fmp/providers/download/download_providers.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/services/download/download_path_utils.dart';
 import 'package:fmp/services/download/download_service.dart';
 import 'package:isar/isar.dart';
+import 'package:path/path.dart' as p;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -72,7 +75,8 @@ void main() {
       final events = <DownloadProgressEvent>[];
       final sub = service.progressStream.listen(events.add);
 
-      service.debugRecordProgressUpdateForTesting(task.id, task.trackId, 0.4, 40, 100);
+      service.debugRecordProgressUpdateForTesting(
+          task.id, task.trackId, 0.4, 40, 100);
       await service.pauseTask(task.id);
       service.debugFlushPendingProgressUpdatesForTesting();
       await pumpEventQueue();
@@ -91,11 +95,18 @@ void main() {
         settingsRepository: settingsRepository,
         sourceManager: SourceManager(),
       );
-      final task = await downloadRepository.saveTask(_task(trackId: 22));
+      final tempFile =
+          File('${tempDir.path}/cancel-progress/audio.m4a.downloading');
+      await tempFile.parent.create(recursive: true);
+      await tempFile.writeAsBytes([1, 2, 3]);
+      final task = await downloadRepository.saveTask(
+        _task(trackId: 22)..tempFilePath = tempFile.path,
+      );
       final events = <DownloadProgressEvent>[];
       final sub = service.progressStream.listen(events.add);
 
-      service.debugRecordProgressUpdateForTesting(task.id, task.trackId, 0.7, 70, 100);
+      service.debugRecordProgressUpdateForTesting(
+          task.id, task.trackId, 0.7, 70, 100);
       await service.cancelTask(task.id);
       service.debugFlushPendingProgressUpdatesForTesting();
       await pumpEventQueue();
@@ -103,8 +114,49 @@ void main() {
       expect(service.debugPendingProgressCount, 0);
       expect(events, isEmpty);
       expect(await downloadRepository.getTaskById(task.id), isNull);
+      expect(await tempFile.exists(), isFalse);
+      expect(await tempFile.parent.exists(), isFalse);
 
       await sub.cancel();
+      service.dispose();
+    });
+
+    test('cancelTask keeps completed download files and track metadata',
+        () async {
+      final service = DownloadService(
+        downloadRepository: downloadRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: SourceManager(),
+      );
+      final downloadFile = File('${tempDir.path}/completed/audio.m4a');
+      await downloadFile.parent.create(recursive: true);
+      await downloadFile.writeAsBytes([1, 2, 3]);
+      final track = Track()
+        ..sourceId = 'completed-track'
+        ..sourceType = SourceType.youtube
+        ..title = 'Completed Track'
+        ..artist = 'Test Artist'
+        ..createdAt = DateTime.now();
+      final savedTrack = await trackRepository.save(track);
+      await trackRepository.addDownloadPath(
+          savedTrack.id, null, null, downloadFile.path);
+      final task = await downloadRepository.saveTask(
+        DownloadTask()
+          ..trackId = savedTrack.id
+          ..status = DownloadStatus.completed
+          ..savePath = downloadFile.path
+          ..createdAt = DateTime.now(),
+      );
+
+      await service.cancelTask(task.id);
+
+      expect(await downloadRepository.getTaskById(task.id), isNull);
+      expect(await downloadFile.exists(), isTrue);
+      final updatedTrack = await trackRepository.getById(savedTrack.id);
+      expect(updatedTrack?.hasAnyDownload, isTrue);
+      expect(updatedTrack?.allDownloadPaths, [downloadFile.path]);
+
       service.dispose();
     });
 
@@ -126,7 +178,9 @@ void main() {
       service.dispose();
     });
 
-    test('external cleanup and final cleanup do not double-decrement active downloads', () async {
+    test(
+        'external cleanup and final cleanup do not double-decrement active downloads',
+        () async {
       final service = DownloadService(
         downloadRepository: downloadRepository,
         trackRepository: trackRepository,
@@ -158,8 +212,11 @@ void main() {
       expect(service.dispose, returnsNormally);
     });
 
-    test('pausing unrelated task while another is active does not stale-abort its later start', () async {
-      final baseDir = await Directory.systemTemp.createTemp('download_stale_setup_abort_');
+    test(
+        'pausing unrelated task while another is active does not stale-abort its later start',
+        () async {
+      final baseDir =
+          await Directory.systemTemp.createTemp('download_stale_setup_abort_');
       addTearDown(() async {
         for (var i = 0; i < 100; i++) {
           if (!await baseDir.exists()) return;
@@ -229,7 +286,8 @@ void main() {
           ..createdAt = DateTime.now(),
       );
 
-      final audioUrl = 'http://${server.address.address}:${server.port}/audio.m4a';
+      final audioUrl =
+          'http://${server.address.address}:${server.port}/audio.m4a';
       final service = DownloadService(
         downloadRepository: downloadRepository,
         trackRepository: trackRepository,
@@ -260,8 +318,129 @@ void main() {
       service.dispose();
     });
 
-    test('cancel during setup window prevents download start before isolate registration', () async {
-      final baseDir = await Directory.systemTemp.createTemp('download_setup_cancel_');
+    test('clearQueue aborts setup-window tasks before isolate registration',
+        () async {
+      final baseDir =
+          await Directory.systemTemp.createTemp('download_clear_queue_setup_');
+      addTearDown(() async {
+        for (var i = 0; i < 100; i++) {
+          if (!await baseDir.exists()) return;
+          try {
+            await baseDir.delete(recursive: true);
+            return;
+          } on FileSystemException {
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
+        }
+      });
+
+      final settings = await settingsRepository.get();
+      settings.customDownloadDir = baseDir.path;
+      await settingsRepository.save(settings);
+
+      final track = Track()
+        ..sourceId = 'yt-clear-queue-setup'
+        ..sourceType = SourceType.youtube
+        ..title = 'Clear Queue Setup Race'
+        ..artist = 'Test Artist'
+        ..createdAt = DateTime.now();
+      await trackRepository.save(track);
+
+      final playlist = Playlist()..name = 'Phase1';
+      final task = await downloadRepository.saveTask(
+        DownloadTask()
+          ..trackId = track.id
+          ..playlistId = playlist.id
+          ..playlistName = playlist.name
+          ..status = DownloadStatus.downloading
+          ..createdAt = DateTime.now(),
+      );
+
+      final sourceManager = _SingleSourceManager(
+        _BlockingAudioSource('http://127.0.0.1:1/audio.m4a'),
+      );
+      final blockedSource =
+          sourceManager.getSource(SourceType.youtube)! as _BlockingAudioSource;
+      final service = DownloadService(
+        downloadRepository: downloadRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: sourceManager,
+      );
+
+      final downloadFuture = service.debugStartDownloadForTesting(task);
+      await blockedSource.waitUntilRequested();
+      await service.clearQueue();
+      blockedSource.release();
+      await downloadFuture;
+
+      final savePath = DownloadPathUtils.computeDownloadPath(
+        baseDir: baseDir.path,
+        playlistName: playlist.name,
+        track: track,
+      );
+      expect(await downloadRepository.getTaskById(task.id), isNull);
+      expect(await File(savePath).exists(), isFalse);
+      expect(await File('$savePath.downloading').exists(), isFalse);
+      expect(await Directory(p.dirname(savePath)).exists(), isFalse);
+
+      service.dispose();
+    });
+
+    test('repeated setup-window cleanup only decrements active count once',
+        () async {
+      final track = Track()
+        ..sourceId = 'yt-setup-double-cleanup'
+        ..sourceType = SourceType.youtube
+        ..title = 'Setup Double Cleanup Race'
+        ..artist = 'Test Artist'
+        ..createdAt = DateTime.now();
+      await trackRepository.save(track);
+
+      final setupTask = await downloadRepository.saveTask(
+        DownloadTask()
+          ..trackId = track.id
+          ..playlistName = 'Phase1'
+          ..status = DownloadStatus.downloading
+          ..createdAt = DateTime.now(),
+      );
+      final activeTask = await downloadRepository.saveTask(_task(trackId: 44));
+
+      final sourceManager = _SingleSourceManager(
+        _BlockingAudioSource('http://127.0.0.1:1/audio.m4a'),
+      );
+      final blockedSource =
+          sourceManager.getSource(SourceType.youtube)! as _BlockingAudioSource;
+      final service = DownloadService(
+        downloadRepository: downloadRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: sourceManager,
+      );
+      service.debugRegisterLegacyActiveDownloadForTesting(activeTask.id);
+
+      final downloadFuture = service.debugStartDownloadForTesting(setupTask);
+      await blockedSource.waitUntilRequested();
+      expect(service.debugActiveDownloads, 2);
+
+      await service.cancelTask(setupTask.id);
+      await service.cancelTask(setupTask.id);
+
+      expect(service.debugActiveDownloads, 1);
+
+      blockedSource.release();
+      await downloadFuture;
+      await service.pauseTask(activeTask.id);
+      expect(service.debugActiveDownloads, 0);
+
+      service.dispose();
+    });
+
+    test(
+        'cancel during setup window prevents download start before isolate registration',
+        () async {
+      final baseDir =
+          await Directory.systemTemp.createTemp('download_setup_cancel_');
       addTearDown(() async {
         for (var i = 0; i < 100; i++) {
           if (!await baseDir.exists()) return;
@@ -299,7 +478,8 @@ void main() {
       final sourceManager = _SingleSourceManager(
         _BlockingAudioSource('http://127.0.0.1:1/audio.m4a'),
       );
-      final blockedSource = sourceManager.getSource(SourceType.youtube)! as _BlockingAudioSource;
+      final blockedSource =
+          sourceManager.getSource(SourceType.youtube)! as _BlockingAudioSource;
       final service = DownloadService(
         downloadRepository: downloadRepository,
         trackRepository: trackRepository,
@@ -308,7 +488,8 @@ void main() {
       );
       final completionEvents = <DownloadCompletionEvent>[];
       final failureEvents = <DownloadFailureEvent>[];
-      final completionSub = service.completionStream.listen(completionEvents.add);
+      final completionSub =
+          service.completionStream.listen(completionEvents.add);
       final failureSub = service.failureStream.listen(failureEvents.add);
 
       final downloadFuture = service.debugStartDownloadForTesting(task);
@@ -327,6 +508,7 @@ void main() {
       expect(await downloadRepository.getTaskById(task.id), isNull);
       expect(await File(savePath).exists(), isFalse);
       expect(await File('$savePath.downloading').exists(), isFalse);
+      expect(await Directory(p.dirname(savePath)).exists(), isFalse);
       final savedTrack = await trackRepository.getById(track.id);
       expect(savedTrack?.hasAnyDownload, isFalse);
 
@@ -335,8 +517,209 @@ void main() {
       service.dispose();
     });
 
-    test('dispose during download does not finalize partial work after receive loop ends', () async {
-      final baseDir = await Directory.systemTemp.createTemp('download_dispose_midflight_');
+    test('cancel active download deletes the partial file after isolate stops',
+        () async {
+      final baseDir =
+          await Directory.systemTemp.createTemp('download_active_cancel_');
+      addTearDown(() async {
+        for (var i = 0; i < 100; i++) {
+          if (!await baseDir.exists()) return;
+          try {
+            await baseDir.delete(recursive: true);
+            return;
+          } on FileSystemException {
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
+        }
+      });
+
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final serverSub = server.listen((request) async {
+        try {
+          request.response.headers.contentType = ContentType.binary;
+          request.response.contentLength = 1024 * 1024;
+          for (var i = 0; i < 128; i++) {
+            request.response.add(Uint8List(8 * 1024));
+            await request.response.flush();
+            await Future<void>.delayed(const Duration(milliseconds: 20));
+          }
+          await request.response.close();
+        } catch (_) {
+          // Client disconnected during cancellation.
+        }
+      });
+      addTearDown(() async {
+        await serverSub.cancel();
+        await server.close(force: true);
+      });
+
+      final settings = await settingsRepository.get();
+      settings.customDownloadDir = baseDir.path;
+      await settingsRepository.save(settings);
+
+      final track = Track()
+        ..sourceId = 'yt-active-cancel'
+        ..sourceType = SourceType.youtube
+        ..title = 'Active Cancel Race'
+        ..artist = 'Test Artist'
+        ..createdAt = DateTime.now();
+      final savedTrack = await trackRepository.save(track);
+
+      final playlist = Playlist()..name = 'Phase1';
+      final task = await downloadRepository.saveTask(
+        DownloadTask()
+          ..trackId = savedTrack.id
+          ..playlistId = playlist.id
+          ..playlistName = playlist.name
+          ..status = DownloadStatus.downloading
+          ..createdAt = DateTime.now(),
+      );
+
+      final audioUrl =
+          'http://${server.address.address}:${server.port}/audio.m4a';
+      final service = DownloadService(
+        downloadRepository: downloadRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: _SingleSourceManager(_StaticAudioSource(audioUrl)),
+      );
+
+      final downloadFuture = service.debugStartDownloadForTesting(task);
+      await service.debugWaitForTaskToBecomeActiveForTesting(task.id);
+
+      final savePath = DownloadPathUtils.computeDownloadPath(
+        baseDir: baseDir.path,
+        playlistName: playlist.name,
+        track: savedTrack,
+      );
+      final tempFile = File('$savePath.downloading');
+      await _waitUntil(
+          () async => await tempFile.exists() && await tempFile.length() > 0);
+
+      await service.cancelTask(task.id);
+      await downloadFuture;
+      await _waitUntil(() async => service.debugActiveDownloads == 0);
+
+      expect(await downloadRepository.getTaskById(task.id), isNull);
+      expect(await tempFile.exists(), isFalse);
+      expect(await File(savePath).exists(), isFalse);
+      expect(await Directory(p.dirname(savePath)).exists(), isFalse);
+
+      service.dispose();
+    });
+
+    test('cancel during finalization does not persist completed download',
+        () async {
+      final baseDir = await Directory.systemTemp
+          .createTemp('download_cancel_finalization_');
+      addTearDown(() async {
+        for (var i = 0; i < 100; i++) {
+          if (!await baseDir.exists()) return;
+          try {
+            await baseDir.delete(recursive: true);
+            return;
+          } on FileSystemException {
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
+        }
+      });
+
+      final settings = await settingsRepository.get();
+      settings.customDownloadDir = baseDir.path;
+      await settingsRepository.save(settings);
+
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final serverSub = server.listen((request) async {
+        request.response.headers.contentType = ContentType.binary;
+        request.response.contentLength = 4;
+        request.response.add(Uint8List.fromList([1, 2, 3, 4]));
+        await request.response.close();
+      });
+      addTearDown(() async {
+        await serverSub.cancel();
+        await server.close(force: true);
+      });
+
+      final detailRequested = Completer<void>();
+      final releaseDetail = Completer<void>();
+      final track = Track()
+        ..sourceId = 'yt-cancel-finalization'
+        ..sourceType = SourceType.youtube
+        ..title = 'Cancel During Finalization'
+        ..artist = 'Test Artist'
+        ..createdAt = DateTime.now();
+      final savedTrack = await trackRepository.save(track);
+
+      final playlist = Playlist()..name = 'Phase1';
+      final task = await downloadRepository.saveTask(
+        DownloadTask()
+          ..trackId = savedTrack.id
+          ..playlistId = playlist.id
+          ..playlistName = playlist.name
+          ..status = DownloadStatus.downloading
+          ..createdAt = DateTime.now(),
+      );
+
+      final audioUrl =
+          'http://${server.address.address}:${server.port}/audio.m4a';
+      final service = DownloadService(
+        downloadRepository: downloadRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: _SingleSourceManager(
+          _DetailBlockingYouTubeSource(
+            audioUrl: audioUrl,
+            onGetVideoDetail: (_) async {
+              if (!detailRequested.isCompleted) {
+                detailRequested.complete();
+              }
+              await releaseDetail.future;
+              return VideoDetail.fromYouTube(
+                videoId: 'yt-cancel-finalization',
+                title: 'Cancel During Finalization',
+                description: '',
+                author: 'Test Artist',
+              );
+            },
+          ),
+        ),
+      );
+      final completionEvents = <DownloadCompletionEvent>[];
+      final failureEvents = <DownloadFailureEvent>[];
+      final completionSub =
+          service.completionStream.listen(completionEvents.add);
+      final failureSub = service.failureStream.listen(failureEvents.add);
+
+      final downloadFuture = service.debugStartDownloadForTesting(task);
+      await detailRequested.future;
+      await service.cancelTask(task.id);
+      releaseDetail.complete();
+      await downloadFuture;
+
+      final savePath = DownloadPathUtils.computeDownloadPath(
+        baseDir: baseDir.path,
+        playlistName: playlist.name,
+        track: savedTrack,
+      );
+      expect(completionEvents, isEmpty);
+      expect(failureEvents, isEmpty);
+      expect(await downloadRepository.getTaskById(task.id), isNull);
+      expect(await File(savePath).exists(), isFalse);
+      expect(await Directory(p.dirname(savePath)).exists(), isFalse);
+      final updatedTrack = await trackRepository.getById(savedTrack.id);
+      expect(updatedTrack?.hasAnyDownload, isFalse);
+      expect(updatedTrack?.allDownloadPaths, isEmpty);
+
+      await completionSub.cancel();
+      await failureSub.cancel();
+      service.dispose();
+    });
+
+    test(
+        'dispose during download does not finalize partial work after receive loop ends',
+        () async {
+      final baseDir =
+          await Directory.systemTemp.createTemp('download_dispose_midflight_');
       addTearDown(() async {
         for (var i = 0; i < 100; i++) {
           if (!await baseDir.exists()) return;
@@ -391,7 +774,8 @@ void main() {
           ..createdAt = DateTime.now(),
       );
 
-      final audioUrl = 'http://${server.address.address}:${server.port}/audio.m4a';
+      final audioUrl =
+          'http://${server.address.address}:${server.port}/audio.m4a';
       final sourceManager = _SingleSourceManager(_StaticAudioSource(audioUrl));
       final service = DownloadService(
         downloadRepository: downloadRepository,
@@ -401,7 +785,8 @@ void main() {
       );
       final completionEvents = <DownloadCompletionEvent>[];
       final failureEvents = <DownloadFailureEvent>[];
-      final completionSub = service.completionStream.listen(completionEvents.add);
+      final completionSub =
+          service.completionStream.listen(completionEvents.add);
       final failureSub = service.failureStream.listen(failureEvents.add);
 
       final downloadFuture = service.debugStartDownloadForTesting(task);
@@ -413,7 +798,8 @@ void main() {
         track: track,
       );
       final tempFile = File('$savePath.downloading');
-      await _waitUntil(() async => await tempFile.exists() && await tempFile.length() > 0);
+      await _waitUntil(
+          () async => await tempFile.exists() && await tempFile.length() > 0);
 
       service.dispose();
       await _waitUntil(() async => service.debugActiveDownloads == 0);
@@ -431,8 +817,10 @@ void main() {
       await failureSub.cancel();
     });
 
-    test('resume restarts cleanly when server ignores Range and returns 200 OK', () async {
-      final baseDir = await Directory.systemTemp.createTemp('download_resume_http200_');
+    test('resume restarts cleanly when server ignores Range and returns 200 OK',
+        () async {
+      final baseDir =
+          await Directory.systemTemp.createTemp('download_resume_http200_');
       addTearDown(() async {
         for (var i = 0; i < 100; i++) {
           if (!await baseDir.exists()) return;
@@ -495,7 +883,8 @@ void main() {
           ..createdAt = DateTime.now(),
       );
 
-      final audioUrl = 'http://${server.address.address}:${server.port}/audio.m4a';
+      final audioUrl =
+          'http://${server.address.address}:${server.port}/audio.m4a';
       final service = DownloadService(
         downloadRepository: downloadRepository,
         trackRepository: trackRepository,
@@ -515,8 +904,11 @@ void main() {
       service.dispose();
     });
 
-    test('download start passes auth headers to source.getAudioStream only when auth-for-play is enabled', () async {
-      final baseDir = await Directory.systemTemp.createTemp('download_auth_headers_');
+    test(
+        'download start passes auth headers to source.getAudioStream only when auth-for-play is enabled',
+        () async {
+      final baseDir =
+          await Directory.systemTemp.createTemp('download_auth_headers_');
       addTearDown(() async {
         for (var i = 0; i < 100; i++) {
           if (!await baseDir.exists()) return;
@@ -585,8 +977,11 @@ void main() {
       service.dispose();
     });
 
-    test('download start uses source-provided expiry instead of defaulting to one hour', () async {
-      final baseDir = await Directory.systemTemp.createTemp('download_netease_expiry_');
+    test(
+        'download start uses source-provided expiry instead of defaulting to one hour',
+        () async {
+      final baseDir =
+          await Directory.systemTemp.createTemp('download_netease_expiry_');
       addTearDown(() async {
         for (var i = 0; i < 100; i++) {
           if (!await baseDir.exists()) return;
@@ -633,7 +1028,8 @@ void main() {
           ..createdAt = DateTime.now(),
       );
 
-      final audioUrl = 'http://${server.address.address}:${server.port}/audio.mp3';
+      final audioUrl =
+          'http://${server.address.address}:${server.port}/audio.mp3';
       final service = DownloadService(
         downloadRepository: downloadRepository,
         trackRepository: trackRepository,
@@ -655,7 +1051,8 @@ void main() {
       expect(updatedTrack, isNotNull);
       final remaining = updatedTrack!.audioUrlExpiry!.difference(before);
       expect(remaining, greaterThanOrEqualTo(const Duration(minutes: 15)));
-      expect(remaining, lessThanOrEqualTo(const Duration(minutes: 16, seconds: 5)));
+      expect(remaining,
+          lessThanOrEqualTo(const Duration(minutes: 16, seconds: 5)));
 
       service.dispose();
     });
@@ -688,14 +1085,19 @@ DownloadTask _task({required int trackId}) => DownloadTask()
   ..createdAt = DateTime.now();
 
 Future<String> _resolveIsarLibraryPath() async {
-  final packageConfigFile = File('${Directory.current.path}/.dart_tool/package_config.json');
-  final packageConfig = jsonDecode(await packageConfigFile.readAsString()) as Map<String, dynamic>;
+  final packageConfigFile =
+      File('${Directory.current.path}/.dart_tool/package_config.json');
+  final packageConfig = jsonDecode(await packageConfigFile.readAsString())
+      as Map<String, dynamic>;
   final packages = packageConfig['packages'] as List<dynamic>;
   final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
 
   for (final package in packages) {
-    if (package is! Map<String, dynamic> || package['name'] != 'isar_flutter_libs') continue;
-    final packageDir = Directory(packageConfigDir.uri.resolve(package['rootUri'] as String).toFilePath());
+    if (package is! Map<String, dynamic> ||
+        package['name'] != 'isar_flutter_libs') continue;
+    final packageDir = Directory(packageConfigDir.uri
+        .resolve(package['rootUri'] as String)
+        .toFilePath());
     if (Platform.isWindows) return '${packageDir.path}/windows/isar.dll';
     if (Platform.isLinux) return '${packageDir.path}/linux/libisar.so';
     if (Platform.isMacOS) return '${packageDir.path}/macos/libisar.dylib';
@@ -758,7 +1160,8 @@ class _StaticAudioSource extends BaseSource {
   bool isValidId(String id) => true;
 
   @override
-  Future<Track> getTrackInfo(String sourceId, {Map<String, String>? authHeaders}) {
+  Future<Track> getTrackInfo(String sourceId,
+      {Map<String, String>? authHeaders}) {
     throw UnimplementedError();
   }
 
@@ -776,7 +1179,8 @@ class _StaticAudioSource extends BaseSource {
   }
 
   @override
-  Future<Track> refreshAudioUrl(Track track, {Map<String, String>? authHeaders}) {
+  Future<Track> refreshAudioUrl(Track track,
+      {Map<String, String>? authHeaders}) {
     throw UnimplementedError();
   }
 
@@ -839,6 +1243,31 @@ class _BlockingAudioSource extends _StaticAudioSource {
   }
 }
 
+class _DetailBlockingYouTubeSource extends YouTubeSource {
+  _DetailBlockingYouTubeSource({
+    required this.audioUrl,
+    required this.onGetVideoDetail,
+  });
+
+  final String audioUrl;
+  final Future<VideoDetail> Function(String sourceId) onGetVideoDetail;
+
+  @override
+  Future<AudioStreamResult> getAudioStream(
+    String sourceId, {
+    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+    Map<String, String>? authHeaders,
+  }) async {
+    return AudioStreamResult(url: audioUrl, streamType: StreamType.audioOnly);
+  }
+
+  @override
+  Future<VideoDetail> getVideoDetail(String videoId,
+      {Map<String, String>? authHeaders}) {
+    return onGetVideoDetail(videoId);
+  }
+}
+
 class _RecordingAudioSource extends _StaticAudioSource {
   _RecordingAudioSource(
     super.audioUrl, {
@@ -854,7 +1283,8 @@ class _RecordingAudioSource extends _StaticAudioSource {
     AudioStreamConfig config = AudioStreamConfig.defaultConfig,
     Map<String, String>? authHeaders,
   }) async {
-    recordedAuthHeaders.add(authHeaders == null ? null : Map<String, String>.from(authHeaders));
+    recordedAuthHeaders.add(
+        authHeaders == null ? null : Map<String, String>.from(authHeaders));
     return super.getAudioStream(
       sourceId,
       config: config,
