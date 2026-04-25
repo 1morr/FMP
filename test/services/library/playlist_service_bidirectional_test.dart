@@ -100,22 +100,41 @@ void main() {
       );
     });
 
-    test('addTracksToPlaylist skips already-associated tracks unchanged',
-        () async {
+    test('addTrackToPlaylist repairs missing playlist trackId side', () async {
       final harness = await _createHarness();
       addTearDown(harness.dispose);
 
-      final playlist = await _createPlaylist(harness, 'Already Associated');
-      final track =
-          _newTrack('yt-already-associated', 'Already Associated Track')
-            ..addToPlaylist(playlist.id, playlistName: playlist.name);
+      final playlist = await _createPlaylist(harness, 'Single Repair');
+      final track = _newTrack('yt-single-repair', 'Single Repair Track')
+        ..addToPlaylist(playlist.id, playlistName: playlist.name);
+      final savedTrack = await harness.tracks.save(track);
+
+      await harness.service.addTrackToPlaylist(playlist.id, savedTrack);
+
+      final savedPlaylist = await harness.playlists.getById(playlist.id);
+      final reloadedTrack = await harness.tracks.getById(savedTrack.id);
+      expect(savedPlaylist!.trackIds, [savedTrack.id]);
+      expect(
+        reloadedTrack!.playlistInfo
+            .where((info) => info.playlistId == playlist.id),
+        hasLength(1),
+      );
+    });
+
+    test('addTracksToPlaylist repairs missing playlist trackId side', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+
+      final playlist = await _createPlaylist(harness, 'Batch Repair');
+      final track = _newTrack('yt-batch-repair', 'Batch Repair Track')
+        ..addToPlaylist(playlist.id, playlistName: playlist.name);
       final savedTrack = await harness.tracks.save(track);
 
       await harness.service.addTracksToPlaylist(playlist.id, [savedTrack]);
 
       final savedPlaylist = await harness.playlists.getById(playlist.id);
       final reloadedTrack = await harness.tracks.getById(savedTrack.id);
-      expect(savedPlaylist!.trackIds, isEmpty);
+      expect(savedPlaylist!.trackIds, [savedTrack.id]);
       expect(
         reloadedTrack!.playlistInfo
             .where((info) => info.playlistId == playlist.id),

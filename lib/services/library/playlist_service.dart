@@ -293,34 +293,41 @@ class PlaylistService with Logging {
     // 这避免了使用缓存的旧 track 对象导致 playlistIds/downloadPaths 数据不同步
     final existingTrack = await _trackRepository.getOrCreate(track);
 
-    // 检查是否已在该歌单中
-    if (existingTrack.belongsToPlaylist(playlistId)) {
-      logDebug(
-          'Track ${existingTrack.title} already in playlist $playlistId, skipping');
-      return;
-    }
-
     await _isar.writeTxn(() async {
       final freshPlaylist = await _isar.playlists.get(playlistId);
       if (freshPlaylist == null) {
         throw PlaylistNotFoundException(playlistId);
       }
 
-      existingTrack.addToPlaylist(
-        playlistId,
-        playlistName: freshPlaylist.name,
-      );
-      final wasEmpty = freshPlaylist.trackIds.isEmpty;
-      if (!freshPlaylist.trackIds.contains(existingTrack.id)) {
-        freshPlaylist.trackIds = [...freshPlaylist.trackIds, existingTrack.id];
+      final freshTrack = await _isar.tracks.get(existingTrack.id);
+      final trackToUpdate = freshTrack ?? existingTrack;
+      final trackLinked = trackToUpdate.belongsToPlaylist(playlistId);
+      final playlistLinked = freshPlaylist.trackIds.contains(trackToUpdate.id);
+      if (freshTrack != null && trackLinked && playlistLinked) {
+        logDebug(
+            'Track ${trackToUpdate.title} already in playlist $playlistId, skipping');
+        return;
       }
-      if (wasEmpty && !freshPlaylist.hasCustomCover) {
-        freshPlaylist.coverUrl = existingTrack.thumbnailUrl;
-      }
-      freshPlaylist.updatedAt = DateTime.now();
-      existingTrack.updatedAt = DateTime.now();
 
-      await _isar.tracks.put(existingTrack);
+      if (!trackLinked) {
+        trackToUpdate.addToPlaylist(
+          playlistId,
+          playlistName: freshPlaylist.name,
+        );
+      }
+      final wasEmpty = freshPlaylist.trackIds.isEmpty;
+      if (!playlistLinked) {
+        freshPlaylist.trackIds = [...freshPlaylist.trackIds, trackToUpdate.id];
+      }
+      if (wasEmpty && !freshPlaylist.hasCustomCover && !playlistLinked) {
+        freshPlaylist.coverUrl = trackToUpdate.thumbnailUrl;
+      }
+      final now = DateTime.now();
+      freshPlaylist.updatedAt = now;
+      if (freshTrack == null || !trackLinked) {
+        trackToUpdate.updatedAt = now;
+        await _isar.tracks.put(trackToUpdate);
+      }
       await _isar.playlists.put(freshPlaylist);
     });
   }
@@ -338,62 +345,88 @@ class PlaylistService with Logging {
     // 先获取数据库中最新的 tracks 或创建新的
     final existingTracks = await _trackRepository.getOrCreateAll(tracks);
 
-    // 过滤掉已在该歌单中的 tracks，并按数据库 ID 去重，避免重复写入同一 Track
-    var alreadyAssociatedCount = 0;
+    final tracksById = <int, Track>{};
     var duplicateInputCount = 0;
-    final tracksToAddById = <int, Track>{};
     for (final track in existingTracks) {
-      if (track.belongsToPlaylist(playlistId)) {
-        alreadyAssociatedCount++;
-      } else if (tracksToAddById.containsKey(track.id)) {
+      if (tracksById.containsKey(track.id)) {
         duplicateInputCount++;
       } else {
-        tracksToAddById[track.id] = track;
+        tracksById[track.id] = track;
       }
     }
-    final tracksToAdd = tracksToAddById.values.toList();
+    final candidateTracks = tracksById.values.toList();
 
-    if (tracksToAdd.isEmpty) {
-      logDebug(
-          'All ${tracks.length} tracks already in playlist $playlistId, skipping');
+    if (candidateTracks.isEmpty) {
       return;
     }
 
+    var alreadyFullyLinkedCount = 0;
+    var changedCount = 0;
     await _isar.writeTxn(() async {
       final freshPlaylist = await _isar.playlists.get(playlistId);
       if (freshPlaylist == null) {
         throw PlaylistNotFoundException(playlistId);
       }
 
-      // 将歌单 ID 和名称添加到每个 track 的 playlistInfo（不设置下载路径）
-      for (final track in tracksToAdd) {
-        track.addToPlaylist(playlistId, playlistName: freshPlaylist.name);
-      }
-
-      final wasEmpty = freshPlaylist.trackIds.isEmpty;
       final trackIds = List<int>.from(freshPlaylist.trackIds);
       final existingTrackIds = trackIds.toSet();
-      for (final track in tracksToAdd) {
-        if (existingTrackIds.add(track.id)) {
-          trackIds.add(track.id);
+      final wasEmpty = trackIds.isEmpty;
+      Track? firstNewPlaylistTrack;
+      final tracksToPut = <Track>[];
+
+      for (final existingTrack in candidateTracks) {
+        final freshTrack = await _isar.tracks.get(existingTrack.id);
+        final trackToUpdate = freshTrack ?? existingTrack;
+        final trackLinked = trackToUpdate.belongsToPlaylist(playlistId);
+        final playlistLinked = existingTrackIds.contains(trackToUpdate.id);
+
+        if (freshTrack != null && trackLinked && playlistLinked) {
+          alreadyFullyLinkedCount++;
+          continue;
         }
-      }
-      freshPlaylist.trackIds = trackIds;
-      if (wasEmpty && !freshPlaylist.hasCustomCover) {
-        freshPlaylist.coverUrl = tracksToAdd.first.thumbnailUrl;
-      }
-      freshPlaylist.updatedAt = DateTime.now();
-      for (final track in tracksToAdd) {
-        track.updatedAt = DateTime.now();
+
+        if (!trackLinked) {
+          trackToUpdate.addToPlaylist(
+            playlistId,
+            playlistName: freshPlaylist.name,
+          );
+        }
+        if (!playlistLinked && existingTrackIds.add(trackToUpdate.id)) {
+          trackIds.add(trackToUpdate.id);
+          firstNewPlaylistTrack ??= trackToUpdate;
+        }
+        if (freshTrack == null || !trackLinked) {
+          tracksToPut.add(trackToUpdate);
+        }
+        changedCount++;
       }
 
-      await _isar.tracks.putAll(tracksToAdd);
+      if (changedCount == 0) {
+        return;
+      }
+
+      freshPlaylist.trackIds = trackIds;
+      if (wasEmpty && !freshPlaylist.hasCustomCover) {
+        freshPlaylist.coverUrl = firstNewPlaylistTrack?.thumbnailUrl;
+      }
+      final now = DateTime.now();
+      freshPlaylist.updatedAt = now;
+      for (final track in tracksToPut) {
+        track.updatedAt = now;
+      }
+
+      if (tracksToPut.isNotEmpty) {
+        await _isar.tracks.putAll(tracksToPut);
+      }
       await _isar.playlists.put(freshPlaylist);
     });
 
-    if (tracksToAdd.length < existingTracks.length) {
+    if (changedCount == 0) {
       logDebug(
-          'Added ${tracksToAdd.length}/${existingTracks.length} tracks to playlist $playlistId ($alreadyAssociatedCount already existed, $duplicateInputCount duplicate inputs)');
+          'All ${tracks.length} tracks already in playlist $playlistId, skipping');
+    } else if (changedCount < existingTracks.length) {
+      logDebug(
+          'Added or repaired $changedCount/${existingTracks.length} tracks in playlist $playlistId ($alreadyFullyLinkedCount already linked, $duplicateInputCount duplicate inputs)');
     }
   }
 
@@ -601,15 +634,21 @@ class PlaylistService with Logging {
 
     final copy = Playlist()
       ..name = newName
-      ..description = original.description
-      ..coverUrl = original.coverUrl
-      ..hasCustomCover = original.hasCustomCover
-      ..trackIds = List.from(original.trackIds)
       ..sortOrder = nextSortOrder
       ..createdAt = DateTime.now();
 
     await _isar.writeTxn(() async {
-      copy.updatedAt = DateTime.now();
+      final freshOriginal = await _isar.playlists.get(playlistId);
+      if (freshOriginal == null) {
+        throw PlaylistNotFoundException(playlistId);
+      }
+
+      copy
+        ..description = freshOriginal.description
+        ..coverUrl = freshOriginal.coverUrl
+        ..hasCustomCover = freshOriginal.hasCustomCover
+        ..trackIds = List.from(freshOriginal.trackIds)
+        ..updatedAt = DateTime.now();
       final id = await _isar.playlists.put(copy);
       copy.id = id;
 
