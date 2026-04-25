@@ -182,6 +182,48 @@ Map<DateTime, List<PlayHistory>> _groupHistoryByDate(
   return grouped;
 }
 
+sealed class HistoryTimelineRow {
+  const HistoryTimelineRow();
+}
+
+class HistoryDateHeaderRow extends HistoryTimelineRow {
+  final DateTime date;
+  final List<PlayHistory> histories;
+
+  const HistoryDateHeaderRow({
+    required this.date,
+    required this.histories,
+  });
+}
+
+class HistoryTrackRow extends HistoryTimelineRow {
+  final DateTime date;
+  final PlayHistory history;
+
+  const HistoryTrackRow({
+    required this.date,
+    required this.history,
+  });
+}
+
+List<HistoryTimelineRow> buildHistoryTimelineRows(
+  Map<DateTime, List<PlayHistory>> grouped,
+  Set<DateTime> collapsedGroups,
+) {
+  final sortedDates = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+  final rows = <HistoryTimelineRow>[];
+  for (final date in sortedDates) {
+    final histories = grouped[date]!;
+    rows.add(HistoryDateHeaderRow(date: date, histories: histories));
+    if (!collapsedGroups.contains(date)) {
+      for (final history in histories) {
+        rows.add(HistoryTrackRow(date: date, history: history));
+      }
+    }
+  }
+  return rows;
+}
+
 /// 播放历史页面状态
 class PlayHistoryPageState {
   final SourceType? selectedSource; // null = 全部
