@@ -346,12 +346,14 @@ class PlaylistService with Logging {
     }
 
     final wasEmpty = playlist.trackIds.isEmpty;
-    final existingTrackIds = playlist.trackIds.toSet();
-    final trackIds = tracksToAdd
-        .map((track) => track.id)
-        .where((trackId) => !existingTrackIds.contains(trackId))
-        .toList();
-    playlist.trackIds = [...playlist.trackIds, ...trackIds];
+    final trackIds = List<int>.from(playlist.trackIds);
+    final existingTrackIds = trackIds.toSet();
+    for (final track in tracksToAdd) {
+      if (existingTrackIds.add(track.id)) {
+        trackIds.add(track.id);
+      }
+    }
+    playlist.trackIds = trackIds;
     if (wasEmpty && !playlist.hasCustomCover && tracksToAdd.isNotEmpty) {
       playlist.coverUrl = tracksToAdd.first.thumbnailUrl;
     }
@@ -583,6 +585,7 @@ class PlaylistService with Logging {
       ..createdAt = DateTime.now();
 
     await _isar.writeTxn(() async {
+      copy.updatedAt = DateTime.now();
       final id = await _isar.playlists.put(copy);
       copy.id = id;
 
