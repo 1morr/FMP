@@ -1,7 +1,6 @@
 import 'package:isar/isar.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../models/play_history.dart';
 import '../models/track.dart';
 
@@ -17,19 +16,6 @@ class PlayHistoryRepository {
     final history = PlayHistory.fromTrack(track);
     await _isar.writeTxn(() async {
       await _isar.playHistorys.put(history);
-
-      // 清理超出限制的旧记录
-      final count = await _isar.playHistorys.count();
-      if (count > AppConstants.maxPlayHistoryCount) {
-        final toDelete = count - AppConstants.maxPlayHistoryCount;
-        final oldRecords = await _isar.playHistorys
-            .where()
-            .sortByPlayedAt()
-            .limit(toDelete)
-            .findAll();
-        await _isar.playHistorys
-            .deleteAll(oldRecords.map((e) => e.id).toList());
-      }
     });
   }
 
