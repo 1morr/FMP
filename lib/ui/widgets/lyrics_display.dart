@@ -140,8 +140,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
     }
 
     final safeWidth = availableWidth * _boldSafetyFactor;
-    final mainSize =
-        (_refFontSize * (safeWidth / _cachedRefWidth!)).clamp(
+    final mainSize = (_refFontSize * (safeWidth / _cachedRefWidth!)).clamp(
       _minFontSize,
       _maxFontSize,
     );
@@ -241,7 +240,8 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
 
     // 同步歌词
     if (parsedLyrics.isSynced) {
-      return _buildSyncedLyrics(context, colorScheme, parsedLyrics, match.offsetMs);
+      return _buildSyncedLyrics(
+          context, colorScheme, parsedLyrics, match.offsetMs);
     }
 
     // 纯文本歌词
@@ -255,16 +255,8 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
     ParsedLyrics lyrics,
     int offsetMs,
   ) {
-    // 只监听 position，避免 volume/isPlaying 等无关变化触发重建
-    final position = ref.watch(audioControllerProvider.select((s) => s.position));
+    final newIndex = ref.watch(currentLyricsLineIndexProvider);
     final currentTrack = ref.watch(currentTrackProvider);
-
-    // 计算当前行
-    final newIndex = LrcParser.findCurrentLineIndex(
-      lyrics.lines,
-      position,
-      offsetMs,
-    );
 
     // 首次构建时立即滚动到当前行
     if (_isFirstBuild && newIndex >= 0) {
@@ -294,7 +286,8 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final availableWidth = constraints.maxWidth - hPad * 2;
-                final fontSizes = _getFontSizes(lyrics, availableWidth, context);
+                final fontSizes =
+                    _getFontSizes(lyrics, availableWidth, context);
 
                 return NotificationListener<ScrollNotification>(
                   onNotification: (notification) {
@@ -309,7 +302,8 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
                     } else if (notification is ScrollEndNotification) {
                       // 用户停止滚动后 3 秒恢复自动滚动
                       _scrollResumeTimer?.cancel();
-                      _scrollResumeTimer = Timer(const Duration(seconds: 3), () {
+                      _scrollResumeTimer =
+                          Timer(const Duration(seconds: 3), () {
                         if (mounted) setState(() => _userScrolling = false);
                       });
                     }
@@ -437,7 +431,8 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   /// 所以 position = timestamp - offsetMs
   void _seekToLyricsLine(LyricsLine line, int offsetMs) {
     final targetMs = line.timestamp.inMilliseconds - offsetMs;
-    final targetPosition = Duration(milliseconds: targetMs.clamp(0, double.maxFinite.toInt()));
+    final targetPosition =
+        Duration(milliseconds: targetMs.clamp(0, double.maxFinite.toInt()));
     ref.read(audioControllerProvider.notifier).seekTo(targetPosition);
   }
 
@@ -459,12 +454,14 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
         );
         _programmaticScrolling = false;
       } else {
-        _itemScrollController.scrollTo(
+        _itemScrollController
+            .scrollTo(
           index: index,
           alignment: 0.35,
           duration: AnimationDurations.normal,
           curve: Curves.easeOutCubic,
-        ).then((_) {
+        )
+            .then((_) {
           _programmaticScrolling = false;
         });
       }
@@ -609,60 +606,60 @@ class _OffsetAdjustmentBar extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 12),
-          // Adjustment buttons
-          _buildOffsetButton(
-            context,
-            ref,
-            icon: Icons.fast_rewind,
-            deltaMs: -1000,
-            label: '-1s',
-            compact: compact,
-          ),
-          _buildOffsetButton(
-            context,
-            ref,
-            icon: Icons.remove,
-            deltaMs: -500,
-            label: '-0.5s',
-            compact: compact,
-          ),
-          _buildOffsetButton(
-            context,
-            ref,
-            icon: Icons.remove_circle_outline,
-            deltaMs: -100,
-            label: '-0.1s',
-            compact: compact,
-          ),
-          const SizedBox(width: 4),
-          // Reset button
-          _buildResetButton(context, ref, compact),
-          const SizedBox(width: 4),
-          _buildOffsetButton(
-            context,
-            ref,
-            icon: Icons.add_circle_outline,
-            deltaMs: 100,
-            label: '+0.1s',
-            compact: compact,
-          ),
-          _buildOffsetButton(
-            context,
-            ref,
-            icon: Icons.add,
-            deltaMs: 500,
-            label: '+0.5s',
-            compact: compact,
-          ),
-          _buildOffsetButton(
-            context,
-            ref,
-            icon: Icons.fast_forward,
-            deltaMs: 1000,
-            label: '+1s',
-            compact: compact,
-          ),
-        ],
+            // Adjustment buttons
+            _buildOffsetButton(
+              context,
+              ref,
+              icon: Icons.fast_rewind,
+              deltaMs: -1000,
+              label: '-1s',
+              compact: compact,
+            ),
+            _buildOffsetButton(
+              context,
+              ref,
+              icon: Icons.remove,
+              deltaMs: -500,
+              label: '-0.5s',
+              compact: compact,
+            ),
+            _buildOffsetButton(
+              context,
+              ref,
+              icon: Icons.remove_circle_outline,
+              deltaMs: -100,
+              label: '-0.1s',
+              compact: compact,
+            ),
+            const SizedBox(width: 4),
+            // Reset button
+            _buildResetButton(context, ref, compact),
+            const SizedBox(width: 4),
+            _buildOffsetButton(
+              context,
+              ref,
+              icon: Icons.add_circle_outline,
+              deltaMs: 100,
+              label: '+0.1s',
+              compact: compact,
+            ),
+            _buildOffsetButton(
+              context,
+              ref,
+              icon: Icons.add,
+              deltaMs: 500,
+              label: '+0.5s',
+              compact: compact,
+            ),
+            _buildOffsetButton(
+              context,
+              ref,
+              icon: Icons.fast_forward,
+              deltaMs: 1000,
+              label: '+1s',
+              compact: compact,
+            ),
+          ],
         ),
       ),
     );
