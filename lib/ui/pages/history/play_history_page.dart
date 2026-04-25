@@ -465,7 +465,14 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
           cacheExtent: 500,
           itemBuilder: (context, index) {
             final row = rows[index];
+            final key = switch (row) {
+              HistoryDateHeaderRow(:final date) =>
+                ValueKey('history-date-${date.toIso8601String()}'),
+              HistoryTrackRow(:final history) =>
+                ValueKey('history-track-${history.id}'),
+            };
             return RepaintBoundary(
+              key: key,
               child: switch (row) {
                 HistoryDateHeaderRow(:final date, :final histories) =>
                   _buildDateHeader(
