@@ -1,0 +1,228 @@
+import 'dart:convert';
+import 'dart:ffi';
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/data/models/account.dart';
+import 'package:fmp/data/models/download_task.dart';
+import 'package:fmp/data/models/play_queue.dart';
+import 'package:fmp/data/models/playlist.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/services/database/data_integrity_service.dart';
+import 'package:isar/isar.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  group('DataIntegrityService', () {
+    setUpAll(() async {
+      await Isar.initializeIsarCore(
+        libraries: {Abi.current(): await _resolveIsarLibraryPath()},
+      );
+    });
+
+    test('scan reports duplicate logical records without modifying data',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+
+      await harness.seedDuplicates();
+
+      final report = await harness.service.scan();
+
+      expect(report.duplicateTrackKeys, contains('youtube:same'));
+      expect(report.duplicateDownloadSavePaths,
+          contains('/downloads/Playlist/Song/audio.m4a'));
+      expect(report.duplicateAccountPlatforms, contains(SourceType.youtube));
+      expect(report.playQueueCount, 2);
+      expect(report.hasIssues, isTrue);
+
+      final tracks = await harness.isar.tracks.where().findAll();
+      final tasks = await harness.isar.downloadTasks.where().findAll();
+      final accounts = await harness.isar.accounts.where().findAll();
+      final queues = await harness.isar.playQueues.where().findAll();
+      expect(tracks, hasLength(3));
+      expect(tasks, hasLength(2));
+      expect(accounts, hasLength(2));
+      expect(queues, hasLength(2));
+    });
+
+    test('repair merges or removes duplicates using deterministic keep rules',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+
+      await harness.seedDuplicates();
+
+      final result = await harness.service.repair();
+
+      expect(result.removedTrackIds, hasLength(1));
+      expect(result.removedDownloadTaskIds, hasLength(1));
+      expect(result.removedAccountIds, hasLength(1));
+      expect(result.removedPlayQueueIds, hasLength(1));
+
+      final report = await harness.service.scan();
+      expect(report.hasIssues, isFalse);
+
+      await harness.service.repair();
+      final secondReport = await harness.service.scan();
+      expect(secondReport.hasIssues, isFalse);
+
+      final tracks = await harness.isar.tracks.where().findAll();
+      expect(tracks, hasLength(2));
+      expect(tracks.map((track) => track.title),
+          containsAll(['Complete Track', 'Other Track']));
+      final keptTrack = tracks.singleWhere((track) => track.sourceId == 'same');
+      expect(keptTrack.title, 'Complete Track');
+      expect(keptTrack.thumbnailUrl, 'https://img.example/cover.jpg');
+
+      final playlists = await harness.isar.playlists.where().findAll();
+      expect(playlists.single.trackIds, [keptTrack.id]);
+      expect(playlists.single.trackIds,
+          isNot(contains(harness.trackIdsByTitle['Sparse Track'])));
+
+      final tasks = await harness.isar.downloadTasks.where().findAll();
+      expect(tasks, hasLength(1));
+      expect(tasks.single.status, DownloadStatus.completed);
+      expect(tasks.single.trackId, keptTrack.id);
+
+      final accounts = await harness.isar.accounts.where().findAll();
+      expect(accounts, hasLength(1));
+      expect(accounts.single.isLoggedIn, isTrue);
+      expect(accounts.single.userName, 'Logged In');
+
+      final queues = await harness.isar.playQueues.where().findAll();
+      expect(queues, hasLength(1));
+      expect(queues.single.trackIds, [
+        keptTrack.id,
+        harness.trackIdsByTitle['Other Track'],
+      ]);
+    });
+  });
+}
+
+class _Harness {
+  _Harness(this.isar) : service = DataIntegrityService(isar);
+
+  final Isar isar;
+  final DataIntegrityService service;
+  final trackIdsByTitle = <String, int>{};
+
+  Future<void> seedDuplicates() async {
+    await isar.writeTxn(() async {
+      final trackIds = await isar.tracks.putAll([
+        Track()
+          ..sourceId = 'same'
+          ..sourceType = SourceType.youtube
+          ..title = 'Sparse Track'
+          ..createdAt = DateTime(2026, 4, 24),
+        Track()
+          ..sourceId = 'same'
+          ..sourceType = SourceType.youtube
+          ..title = 'Complete Track'
+          ..thumbnailUrl = 'https://img.example/cover.jpg'
+          ..durationMs = 180000
+          ..createdAt = DateTime(2026, 4, 25),
+        Track()
+          ..sourceId = 'other'
+          ..sourceType = SourceType.youtube
+          ..title = 'Other Track'
+          ..createdAt = DateTime(2026, 4, 25),
+      ]);
+      final sparseTrackId = trackIds[0];
+      final completeTrackId = trackIds[1];
+      final otherTrackId = trackIds[2];
+      trackIdsByTitle['Sparse Track'] = sparseTrackId;
+      trackIdsByTitle['Complete Track'] = completeTrackId;
+      trackIdsByTitle['Other Track'] = otherTrackId;
+
+      await isar.playlists.put(Playlist()
+        ..name = 'Mixed Playlist'
+        ..trackIds = [sparseTrackId, completeTrackId]
+        ..createdAt = DateTime(2026, 4, 25));
+      await isar.downloadTasks.putAll([
+        DownloadTask()
+          ..trackId = sparseTrackId
+          ..savePath = '/downloads/Playlist/Song/audio.m4a'
+          ..status = DownloadStatus.pending
+          ..createdAt = DateTime(2026, 4, 24),
+        DownloadTask()
+          ..trackId = sparseTrackId
+          ..savePath = '/downloads/Playlist/Song/audio.m4a'
+          ..status = DownloadStatus.completed
+          ..createdAt = DateTime(2026, 4, 25)
+          ..completedAt = DateTime(2026, 4, 25, 1),
+      ]);
+      await isar.accounts.putAll([
+        Account()
+          ..platform = SourceType.youtube
+          ..isLoggedIn = false
+          ..userName = 'Logged Out'
+          ..lastRefreshed = DateTime(2026, 4, 24),
+        Account()
+          ..platform = SourceType.youtube
+          ..isLoggedIn = true
+          ..userName = 'Logged In'
+          ..lastRefreshed = DateTime(2026, 4, 25),
+      ]);
+      await isar.playQueues.putAll([
+        PlayQueue()
+          ..trackIds = [sparseTrackId]
+          ..lastUpdated = DateTime(2026, 4, 24),
+        PlayQueue()
+          ..trackIds = [sparseTrackId, completeTrackId, otherTrackId]
+          ..lastUpdated = DateTime(2026, 4, 25),
+      ]);
+    });
+  }
+
+  Future<void> dispose() async {
+    final dir = Directory(isar.directory!);
+    await isar.close(deleteFromDisk: true);
+    if (await dir.exists()) {
+      await dir.delete(recursive: true);
+    }
+  }
+}
+
+Future<_Harness> _createHarness() async {
+  final tempDir = await Directory.systemTemp.createTemp(
+    'data_integrity_service_test_',
+  );
+  final isar = await Isar.open(
+    [
+      TrackSchema,
+      PlaylistSchema,
+      DownloadTaskSchema,
+      AccountSchema,
+      PlayQueueSchema,
+    ],
+    directory: tempDir.path,
+    name: 'data_integrity_service_test',
+  );
+  return _Harness(isar);
+}
+
+Future<String> _resolveIsarLibraryPath() async {
+  final packageConfigFile =
+      File('${Directory.current.path}/.dart_tool/package_config.json');
+  final packageConfig = jsonDecode(await packageConfigFile.readAsString())
+      as Map<String, dynamic>;
+  final packages = packageConfig['packages'] as List<dynamic>;
+  final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
+
+  for (final package in packages) {
+    if (package is! Map<String, dynamic> ||
+        package['name'] != 'isar_flutter_libs') {
+      continue;
+    }
+    final packageDir = Directory(
+      packageConfigDir.uri.resolve(package['rootUri'] as String).toFilePath(),
+    );
+    if (Platform.isWindows) return '${packageDir.path}/windows/isar.dll';
+    if (Platform.isLinux) return '${packageDir.path}/linux/libisar.so';
+    if (Platform.isMacOS) return '${packageDir.path}/macos/libisar.dylib';
+  }
+
+  throw StateError('Unsupported platform for Isar test setup');
+}
