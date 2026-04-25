@@ -214,6 +214,52 @@ void main() {
         'Copy',
       );
     });
+
+    test('removeTrackFromPlaylist updates playlist and deletes orphan track',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+
+      final playlist = await _createPlaylist(harness, 'Remove Single');
+      final track = await harness.tracks.save(_newTrack(
+        'yt-remove-single',
+        'Remove Single Track',
+      ));
+      await harness.service.addTrackToPlaylist(playlist.id, track);
+
+      await harness.service.removeTrackFromPlaylist(playlist.id, track.id);
+
+      final updatedPlaylist = await harness.playlists.getById(playlist.id);
+      expect(updatedPlaylist!.trackIds, isEmpty);
+      expect(await harness.tracks.getById(track.id), isNull);
+    });
+
+    test('removeTracksFromPlaylist updates shared tracks and deletes orphans',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+
+      final first = await _createPlaylist(harness, 'First');
+      final second = await _createPlaylist(harness, 'Second');
+      final orphan =
+          await harness.tracks.save(_newTrack('yt-orphan', 'Orphan'));
+      final shared =
+          await harness.tracks.save(_newTrack('yt-shared', 'Shared'));
+      await harness.service.addTracksToPlaylist(first.id, [orphan, shared]);
+      await harness.service.addTrackToPlaylist(second.id, shared);
+
+      await harness.service.removeTracksFromPlaylist(
+        first.id,
+        [orphan.id, shared.id],
+      );
+
+      final updatedFirst = await harness.playlists.getById(first.id);
+      expect(updatedFirst!.trackIds, isEmpty);
+      expect(await harness.tracks.getById(orphan.id), isNull);
+      final updatedShared = await harness.tracks.getById(shared.id);
+      expect(updatedShared!.belongsToPlaylist(first.id), isFalse);
+      expect(updatedShared.belongsToPlaylist(second.id), isTrue);
+    });
   });
 }
 

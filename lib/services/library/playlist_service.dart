@@ -517,25 +517,30 @@ class PlaylistService with Logging {
   Future<void> removeTrackFromPlaylist(int playlistId, int trackId) async {
     // 先获取歌单，检查被移除的是否是第一首歌
     final playlist = await _playlistRepository.getById(playlistId);
-    final wasFirstTrack = playlist != null &&
-        playlist.trackIds.isNotEmpty &&
-        playlist.trackIds.first == trackId;
+    if (playlist == null) return;
 
-    await _playlistRepository.removeTrack(playlistId, trackId);
+    final wasFirstTrack =
+        playlist.trackIds.isNotEmpty && playlist.trackIds.first == trackId;
 
-    // 移除该歌单的关联
-    final track = await _trackRepository.getById(trackId);
-    if (track != null) {
+    await _isar.writeTxn(() async {
+      playlist.trackIds = List<int>.from(playlist.trackIds)..remove(trackId);
+      playlist.updatedAt = DateTime.now();
+      await _isar.playlists.put(playlist);
+
+      final track = await _isar.tracks.get(trackId);
+      if (track == null) return;
+
       track.removeFromPlaylist(playlistId);
 
       if (track.playlistInfo.isEmpty) {
         // 不属于任何歌单，删除歌曲记录
-        await _trackRepository.delete(trackId);
+        await _isar.tracks.delete(trackId);
         logDebug('Deleted orphan track: ${track.title}');
       } else {
-        await _trackRepository.save(track);
+        track.updatedAt = DateTime.now();
+        await _isar.tracks.put(track);
       }
-    }
+    });
 
     // 如果移除的是第一首歌，更新非 Bilibili 歌单的封面
     if (wasFirstTrack) {
@@ -553,37 +558,42 @@ class PlaylistService with Logging {
 
     // 先获取歌单，检查第一首歌是否会被移除
     final playlist = await _playlistRepository.getById(playlistId);
-    final wasFirstTrackRemoved = playlist != null &&
-        playlist.trackIds.isNotEmpty &&
-        trackIds.contains(playlist.trackIds.first);
+    if (playlist == null) return;
 
-    // 批量从歌单移除
-    await _playlistRepository.removeTracks(playlistId, trackIds);
+    final trackIdsToRemove = trackIds.toSet();
+    final wasFirstTrackRemoved = playlist.trackIds.isNotEmpty &&
+        trackIdsToRemove.contains(playlist.trackIds.first);
 
-    // 批量获取所有 tracks
-    final tracks = await _trackRepository.getByIds(trackIds);
+    await _isar.writeTxn(() async {
+      playlist.trackIds = List<int>.from(playlist.trackIds)
+        ..removeWhere(trackIdsToRemove.contains);
+      playlist.updatedAt = DateTime.now();
+      await _isar.playlists.put(playlist);
 
-    // 分类：需要删除的和需要更新的
-    final toDelete = <int>[];
-    final toUpdate = <Track>[];
+      final tracks =
+          (await _isar.tracks.getAll(trackIds)).whereType<Track>().toList();
 
-    for (final track in tracks) {
-      track.removeFromPlaylist(playlistId);
-      if (track.playlistInfo.isEmpty) {
-        toDelete.add(track.id);
-        logDebug('Will delete orphan track: ${track.title}');
-      } else {
-        toUpdate.add(track);
+      final toDelete = <int>[];
+      final toUpdate = <Track>[];
+
+      for (final track in tracks) {
+        track.removeFromPlaylist(playlistId);
+        if (track.playlistInfo.isEmpty) {
+          toDelete.add(track.id);
+          logDebug('Will delete orphan track: ${track.title}');
+        } else {
+          track.updatedAt = DateTime.now();
+          toUpdate.add(track);
+        }
       }
-    }
 
-    // 批量删除和更新
-    if (toDelete.isNotEmpty) {
-      await _trackRepository.deleteAll(toDelete);
-    }
-    if (toUpdate.isNotEmpty) {
-      await _trackRepository.saveAll(toUpdate);
-    }
+      if (toDelete.isNotEmpty) {
+        await _isar.tracks.deleteAll(toDelete);
+      }
+      if (toUpdate.isNotEmpty) {
+        await _isar.tracks.putAll(toUpdate);
+      }
+    });
 
     // 如果移除的包含第一首歌，更新封面
     if (wasFirstTrackRemoved) {
