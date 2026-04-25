@@ -86,8 +86,10 @@ class DataIntegrityService {
         final remove =
             duplicateGroup.where((track) => track.id != keep.id).toList();
         for (final track in remove) {
+          _mergeTrackMetadata(keep, track);
           trackIdRemap[track.id] = keep.id;
         }
+        await _isar.tracks.put(keep);
         removedTrackIds.addAll(remove.map((track) => track.id));
       }
       await _remapTrackReferences(trackIdRemap);
@@ -159,9 +161,44 @@ class DataIntegrityService {
 
     final queues = await _isar.playQueues.where().findAll();
     for (final queue in queues) {
-      queue.trackIds = _remapAndDedupeIds(queue.trackIds, remap);
+      _remapQueueTrackReferences(queue, remap);
     }
     await _isar.playQueues.putAll(queues);
+  }
+
+  static void _remapQueueTrackReferences(PlayQueue queue, Map<int, int> remap) {
+    final oldCurrentTrackId =
+        queue.currentIndex >= 0 && queue.currentIndex < queue.trackIds.length
+            ? queue.trackIds[queue.currentIndex]
+            : null;
+    final mappedCurrentTrackId = oldCurrentTrackId == null
+        ? null
+        : remap[oldCurrentTrackId] ?? oldCurrentTrackId;
+
+    queue.trackIds = _remapAndDedupeIds(queue.trackIds, remap);
+    final originalOrder = queue.originalOrder;
+    if (originalOrder != null) {
+      queue.originalOrder = _remapAndDedupeIds(originalOrder, remap);
+    }
+
+    if (queue.trackIds.isEmpty) {
+      queue.currentIndex = 0;
+      return;
+    }
+
+    final mappedCurrentIndex = mappedCurrentTrackId == null
+        ? -1
+        : queue.trackIds.indexOf(mappedCurrentTrackId);
+    if (mappedCurrentIndex >= 0) {
+      queue.currentIndex = mappedCurrentIndex;
+      return;
+    }
+
+    if (queue.currentIndex < 0) {
+      queue.currentIndex = 0;
+    } else if (queue.currentIndex >= queue.trackIds.length) {
+      queue.currentIndex = queue.trackIds.length - 1;
+    }
   }
 
   static List<int> _remapAndDedupeIds(List<int> ids, Map<int, int> remap) {
@@ -174,6 +211,71 @@ class DataIntegrityService {
       }
     }
     return result;
+  }
+
+  static void _mergeTrackMetadata(Track keep, Track remove) {
+    keep
+      ..artist = _preferNullableString(keep.artist, remove.artist)
+      ..ownerId = keep.ownerId ?? remove.ownerId
+      ..channelId = _preferNullableString(keep.channelId, remove.channelId)
+      ..durationMs = keep.durationMs ?? remove.durationMs
+      ..thumbnailUrl =
+          _preferNullableString(keep.thumbnailUrl, remove.thumbnailUrl)
+      ..audioUrl = _preferNullableString(keep.audioUrl, remove.audioUrl)
+      ..audioUrlExpiry = keep.audioUrlExpiry ?? remove.audioUrlExpiry
+      ..unavailableReason = _preferNullableString(
+        keep.unavailableReason,
+        remove.unavailableReason,
+      )
+      ..pageCount = keep.pageCount ?? remove.pageCount
+      ..cid = keep.cid ?? remove.cid
+      ..pageNum = keep.pageNum ?? remove.pageNum
+      ..parentTitle =
+          _preferNullableString(keep.parentTitle, remove.parentTitle)
+      ..bilibiliAid = keep.bilibiliAid ?? remove.bilibiliAid
+      ..originalSongId =
+          _preferNullableString(keep.originalSongId, remove.originalSongId)
+      ..originalSource =
+          _preferNullableString(keep.originalSource, remove.originalSource)
+      ..playlistInfo = _mergePlaylistInfo(
+        keep.playlistInfo,
+        remove.playlistInfo,
+      );
+  }
+
+  static String? _preferNullableString(String? keep, String? remove) {
+    if (keep != null && keep.isNotEmpty) return keep;
+    if (remove != null && remove.isNotEmpty) return remove;
+    return keep ?? remove;
+  }
+
+  static List<PlaylistDownloadInfo> _mergePlaylistInfo(
+    List<PlaylistDownloadInfo> keepInfos,
+    List<PlaylistDownloadInfo> removeInfos,
+  ) {
+    final merged = keepInfos.map((info) => info.copy()).toList();
+    for (final removeInfo in removeInfos) {
+      final existingIndex = merged.indexWhere(
+        (info) =>
+            info.playlistId == removeInfo.playlistId &&
+            info.playlistName == removeInfo.playlistName,
+      );
+      if (existingIndex < 0) {
+        merged.add(removeInfo.copy());
+        continue;
+      }
+
+      final existing = merged[existingIndex];
+      merged[existingIndex] = PlaylistDownloadInfo()
+        ..playlistId = existing.playlistId
+        ..playlistName = existing.playlistName.isNotEmpty
+            ? existing.playlistName
+            : removeInfo.playlistName
+        ..downloadPath = existing.downloadPath.isNotEmpty
+            ? existing.downloadPath
+            : removeInfo.downloadPath;
+    }
+    return merged;
   }
 
   static List<K> _duplicateKeys<T, K>(
@@ -208,8 +310,9 @@ class DataIntegrityService {
   static int _trackCompletenessScore(Track track) {
     var score = 0;
     if (track.audioUrl != null && track.audioUrl!.isNotEmpty) score += 8;
-    if (track.thumbnailUrl != null && track.thumbnailUrl!.isNotEmpty)
+    if (track.thumbnailUrl != null && track.thumbnailUrl!.isNotEmpty) {
       score += 4;
+    }
     if (track.durationMs != null && track.durationMs! > 0) score += 2;
     if (track.artist != null && track.artist!.isNotEmpty) score += 1;
     if (track.playlistInfo.isNotEmpty) score += 1;

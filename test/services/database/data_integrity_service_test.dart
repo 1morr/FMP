@@ -98,6 +98,66 @@ void main() {
         harness.trackIdsByTitle['Other Track'],
       ]);
     });
+
+    test('repair preserves duplicate track playlist download metadata',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+
+      await harness.seedTrackMetadataMergeDuplicate();
+
+      await harness.service.repair();
+
+      final tracks = await harness.isar.tracks.where().findAll();
+      expect(tracks, hasLength(1));
+      final keptTrack = tracks.single;
+      expect(keptTrack.title, 'Kept Rich Track');
+      expect(keptTrack.thumbnailUrl, 'https://img.example/rich.jpg');
+      expect(keptTrack.durationMs, 240000);
+      expect(keptTrack.artist, 'Recovered Artist');
+      expect(
+        keptTrack.getDownloadPath(42, playlistName: 'Downloaded Playlist'),
+        '/downloads/Downloaded Playlist/Rich Track/audio.m4a',
+      );
+    });
+
+    test('repair remaps shuffled queue original order', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+
+      await harness.seedShuffledQueueDuplicateTracks();
+
+      await harness.service.repair();
+
+      final tracks = await harness.isar.tracks.where().findAll();
+      final keptTrack =
+          tracks.singleWhere((track) => track.sourceId == 'queue');
+      final otherTrack =
+          tracks.singleWhere((track) => track.sourceId == 'other');
+      final queue = (await harness.isar.playQueues.where().findAll()).single;
+
+      expect(queue.trackIds, [otherTrack.id, keptTrack.id]);
+      expect(queue.originalOrder, [keptTrack.id, otherTrack.id]);
+      expect(queue.currentIndex, 1);
+      expect(queue.currentTrackId, keptTrack.id);
+    });
+
+    test('repair clamps queue current index after deduping track ids',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+
+      await harness.seedInvalidCurrentIndexQueueDuplicateTracks();
+
+      await harness.service.repair();
+
+      final keptTrack = (await harness.isar.tracks.where().findAll()).single;
+      final queue = (await harness.isar.playQueues.where().findAll()).single;
+
+      expect(queue.trackIds, [keptTrack.id]);
+      expect(queue.currentIndex, 0);
+      expect(queue.currentTrackId, keptTrack.id);
+    });
   });
 }
 
@@ -173,6 +233,91 @@ class _Harness {
           ..trackIds = [sparseTrackId, completeTrackId, otherTrackId]
           ..lastUpdated = DateTime(2026, 4, 25),
       ]);
+    });
+  }
+
+  Future<void> seedTrackMetadataMergeDuplicate() async {
+    await isar.writeTxn(() async {
+      await isar.tracks.putAll([
+        Track()
+          ..sourceId = 'merge'
+          ..sourceType = SourceType.youtube
+          ..title = 'Removed Download Track'
+          ..artist = 'Recovered Artist'
+          ..playlistInfo = [
+            PlaylistDownloadInfo()
+              ..playlistId = 42
+              ..playlistName = 'Downloaded Playlist'
+              ..downloadPath =
+                  '/downloads/Downloaded Playlist/Rich Track/audio.m4a',
+          ]
+          ..createdAt = DateTime(2026, 4, 24),
+        Track()
+          ..sourceId = 'merge'
+          ..sourceType = SourceType.youtube
+          ..title = 'Kept Rich Track'
+          ..thumbnailUrl = 'https://img.example/rich.jpg'
+          ..durationMs = 240000
+          ..createdAt = DateTime(2026, 4, 25),
+      ]);
+    });
+  }
+
+  Future<void> seedShuffledQueueDuplicateTracks() async {
+    await isar.writeTxn(() async {
+      final trackIds = await isar.tracks.putAll([
+        Track()
+          ..sourceId = 'queue'
+          ..sourceType = SourceType.youtube
+          ..title = 'Sparse Queue Track'
+          ..createdAt = DateTime(2026, 4, 24),
+        Track()
+          ..sourceId = 'queue'
+          ..sourceType = SourceType.youtube
+          ..title = 'Complete Queue Track'
+          ..thumbnailUrl = 'https://img.example/queue.jpg'
+          ..createdAt = DateTime(2026, 4, 25),
+        Track()
+          ..sourceId = 'other'
+          ..sourceType = SourceType.youtube
+          ..title = 'Queue Other Track'
+          ..createdAt = DateTime(2026, 4, 25),
+      ]);
+      final sparseTrackId = trackIds[0];
+      final completeTrackId = trackIds[1];
+      final otherTrackId = trackIds[2];
+      await isar.playQueues.put(
+        PlayQueue()
+          ..trackIds = [otherTrackId, sparseTrackId, completeTrackId]
+          ..currentIndex = 2
+          ..isShuffleEnabled = true
+          ..originalOrder = [sparseTrackId, otherTrackId, completeTrackId]
+          ..lastUpdated = DateTime(2026, 4, 25),
+      );
+    });
+  }
+
+  Future<void> seedInvalidCurrentIndexQueueDuplicateTracks() async {
+    await isar.writeTxn(() async {
+      final trackIds = await isar.tracks.putAll([
+        Track()
+          ..sourceId = 'invalid-index'
+          ..sourceType = SourceType.youtube
+          ..title = 'Sparse Invalid Index Track'
+          ..createdAt = DateTime(2026, 4, 24),
+        Track()
+          ..sourceId = 'invalid-index'
+          ..sourceType = SourceType.youtube
+          ..title = 'Complete Invalid Index Track'
+          ..thumbnailUrl = 'https://img.example/invalid-index.jpg'
+          ..createdAt = DateTime(2026, 4, 25),
+      ]);
+      await isar.playQueues.put(
+        PlayQueue()
+          ..trackIds = [trackIds[0], trackIds[1]]
+          ..currentIndex = 1
+          ..lastUpdated = DateTime(2026, 4, 25),
+      );
     });
   }
 
