@@ -40,7 +40,8 @@ class DownloadManagerPage extends ConsumerWidget {
                     context: context,
                     builder: (context) => AlertDialog(
                       title: Text(t.settings.downloadManager.clearQueue),
-                      content: Text(t.settings.downloadManager.clearQueueConfirm),
+                      content:
+                          Text(t.settings.downloadManager.clearQueueConfirm),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(context, false),
@@ -99,7 +100,9 @@ class DownloadManagerPage extends ConsumerWidget {
       ),
       body: tasksAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text(t.settings.downloadManager.loadFailed(error: '$error'))),
+        error: (error, stack) => Center(
+            child:
+                Text(t.settings.downloadManager.loadFailed(error: '$error'))),
         data: (tasks) {
           if (tasks.isEmpty) {
             return ErrorDisplay.empty(
@@ -109,47 +112,132 @@ class DownloadManagerPage extends ConsumerWidget {
             );
           }
 
-          // 按状态分组
-          final downloading = tasks.where((t) => t.isDownloading).toList();
-          final pending = tasks.where((t) => t.isPending).toList();
-          final paused = tasks.where((t) => t.isPaused).toList();
-          final failed = tasks.where((t) => t.isFailed).toList();
-          final completed = tasks.where((t) => t.isCompleted).toList();
-
-          // 获取最大并发下载数，用于固定"正在下载"区域高度
           final maxConcurrent = ref.watch(maxConcurrentDownloadsProvider);
+          final rows = _buildRows(
+            tasks: tasks,
+            maxConcurrent: maxConcurrent,
+          );
 
-          return ListView(
-            children: [
-              if (downloading.isNotEmpty || pending.isNotEmpty) ...[
-                _SectionHeader(title: t.settings.downloadManager.downloading, count: downloading.length),
-                _FixedHeightDownloadingSection(
-                  tasks: downloading,
-                  maxSlots: maxConcurrent,
-                ),
-              ],
-              if (pending.isNotEmpty) ...[
-                _SectionHeader(title: t.settings.downloadManager.waiting, count: pending.length),
-                ...pending.map((task) => _DownloadTaskTile(task: task)),
-              ],
-              if (paused.isNotEmpty) ...[
-                _SectionHeader(title: t.settings.downloadManager.paused, count: paused.length),
-                ...paused.map((task) => _DownloadTaskTile(task: task)),
-              ],
-              if (failed.isNotEmpty) ...[
-                _SectionHeader(title: t.settings.downloadManager.failed, count: failed.length),
-                ...failed.map((task) => _DownloadTaskTile(task: task)),
-              ],
-              if (completed.isNotEmpty) ...[
-                _SectionHeader(title: t.settings.downloadManager.completed, count: completed.length),
-                ...completed.map((task) => _DownloadTaskTile(task: task)),
-              ],
-            ],
+          return ListView.builder(
+            itemCount: rows.length,
+            itemBuilder: (context, index) {
+              final row = rows[index];
+              switch (row.type) {
+                case _DownloadListRowType.header:
+                  return _SectionHeader(
+                    title: row.title!,
+                    count: row.count!,
+                  );
+                case _DownloadListRowType.fixedDownloadingSection:
+                  return _FixedHeightDownloadingSection(
+                    tasks: row.tasks!,
+                    maxSlots: row.maxSlots!,
+                  );
+                case _DownloadListRowType.task:
+                  return _DownloadTaskTile(task: row.task!);
+              }
+            },
           );
         },
       ),
     );
   }
+}
+
+enum _DownloadListRowType { header, fixedDownloadingSection, task }
+
+class _DownloadListRow {
+  const _DownloadListRow._({
+    required this.type,
+    this.title,
+    this.count,
+    this.tasks,
+    this.task,
+    this.maxSlots,
+  });
+
+  const _DownloadListRow.header({
+    required String title,
+    required int count,
+  }) : this._(
+          type: _DownloadListRowType.header,
+          title: title,
+          count: count,
+        );
+
+  const _DownloadListRow.fixedDownloadingSection({
+    required List<DownloadTask> tasks,
+    required int maxSlots,
+  }) : this._(
+          type: _DownloadListRowType.fixedDownloadingSection,
+          tasks: tasks,
+          maxSlots: maxSlots,
+        );
+
+  const _DownloadListRow.task(DownloadTask task)
+      : this._(
+          type: _DownloadListRowType.task,
+          task: task,
+        );
+
+  final _DownloadListRowType type;
+  final String? title;
+  final int? count;
+  final List<DownloadTask>? tasks;
+  final DownloadTask? task;
+  final int? maxSlots;
+}
+
+List<_DownloadListRow> _buildRows({
+  required List<DownloadTask> tasks,
+  required int maxConcurrent,
+}) {
+  final downloading = tasks.where((task) => task.isDownloading).toList();
+  final pending = tasks.where((task) => task.isPending).toList();
+  final paused = tasks.where((task) => task.isPaused).toList();
+  final failed = tasks.where((task) => task.isFailed).toList();
+  final completed = tasks.where((task) => task.isCompleted).toList();
+
+  final rows = <_DownloadListRow>[];
+  if (downloading.isNotEmpty || pending.isNotEmpty) {
+    rows.add(_DownloadListRow.header(
+      title: t.settings.downloadManager.downloading,
+      count: downloading.length,
+    ));
+    rows.add(_DownloadListRow.fixedDownloadingSection(
+      tasks: downloading,
+      maxSlots: maxConcurrent,
+    ));
+  }
+  if (pending.isNotEmpty) {
+    rows.add(_DownloadListRow.header(
+      title: t.settings.downloadManager.waiting,
+      count: pending.length,
+    ));
+    rows.addAll(pending.map(_DownloadListRow.task));
+  }
+  if (paused.isNotEmpty) {
+    rows.add(_DownloadListRow.header(
+      title: t.settings.downloadManager.paused,
+      count: paused.length,
+    ));
+    rows.addAll(paused.map(_DownloadListRow.task));
+  }
+  if (failed.isNotEmpty) {
+    rows.add(_DownloadListRow.header(
+      title: t.settings.downloadManager.failed,
+      count: failed.length,
+    ));
+    rows.addAll(failed.map(_DownloadListRow.task));
+  }
+  if (completed.isNotEmpty) {
+    rows.add(_DownloadListRow.header(
+      title: t.settings.downloadManager.completed,
+      count: completed.length,
+    ));
+    rows.addAll(completed.map(_DownloadListRow.task));
+  }
+  return rows;
 }
 
 /// 固定高度的正在下载区域
@@ -281,7 +369,8 @@ class _DownloadTaskTile extends ConsumerWidget {
             const SizedBox(height: 4),
             LinearProgressIndicator(
               value: progress,
-              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+              backgroundColor:
+                  Theme.of(context).colorScheme.surfaceContainerHighest,
             ),
             const SizedBox(height: 2),
             Text(
@@ -336,7 +425,7 @@ class _DownloadTaskTile extends ConsumerWidget {
 
   Widget _buildStatusIcon(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     switch (task.status) {
       case DownloadStatus.downloading:
         return const SizedBox(
@@ -355,7 +444,8 @@ class _DownloadTaskTile extends ConsumerWidget {
     }
   }
 
-  String _buildProgressText(double progress, int downloadedBytes, int? totalBytes) {
+  String _buildProgressText(
+      double progress, int downloadedBytes, int? totalBytes) {
     final percentText = '${(progress * 100).toStringAsFixed(1)}%';
     if (totalBytes != null && totalBytes > 0) {
       final downloaded = _formatBytes(downloadedBytes);
