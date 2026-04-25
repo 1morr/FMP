@@ -77,15 +77,13 @@ final currentLyricsMatchProvider =
 });
 
 /// 当前歌词的 externalId（用于触发内容加载，避免 offset 变化时重新加载）
-final _currentLyricsExternalIdProvider =
-    Provider.autoDispose<String?>((ref) {
+final _currentLyricsExternalIdProvider = Provider.autoDispose<String?>((ref) {
   final match = ref.watch(currentLyricsMatchProvider).valueOrNull;
   return match?.externalId;
 });
 
 /// 当前歌词源标识（用于决定从哪个源获取歌词内容）
-final _currentLyricsSourceProvider =
-    Provider.autoDispose<String?>((ref) {
+final _currentLyricsSourceProvider = Provider.autoDispose<String?>((ref) {
   final match = ref.watch(currentLyricsMatchProvider).valueOrNull;
   return match?.lyricsSource;
 });
@@ -200,6 +198,40 @@ final parsedLyricsProvider = Provider.autoDispose<ParsedLyrics?>((ref) {
   return LrcParser.mergeSubLyrics(parsed, subText);
 });
 
+int calculateCurrentLyricsLineIndex({
+  required ParsedLyrics? lyrics,
+  required Duration position,
+  required int offsetMs,
+}) {
+  if (lyrics == null || !lyrics.isSynced || lyrics.isEmpty) {
+    return -1;
+  }
+  return LrcParser.findCurrentLineIndex(
+    lyrics.lines,
+    position,
+    offsetMs,
+  );
+}
+
+/// 当前同步歌词行索引。
+///
+/// This provider may recompute for every playback position tick, but it only
+/// notifies dependents when the integer line index changes. Lyrics widgets
+/// should watch this provider instead of watching raw playback position.
+final currentLyricsLineIndexProvider = Provider.autoDispose<int>((ref) {
+  final lyrics = ref.watch(parsedLyricsProvider);
+  final match = ref.watch(currentLyricsMatchProvider).valueOrNull;
+  final position = ref.watch(
+    audioControllerProvider.select((state) => state.position),
+  );
+
+  return calculateCurrentLyricsLineIndex(
+    lyrics: lyrics,
+    position: position,
+    offsetMs: match?.offsetMs ?? 0,
+  );
+});
+
 // ---------------------------------------------------------------------------
 // 歌词搜索
 // ---------------------------------------------------------------------------
@@ -263,10 +295,11 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
   }
 
   /// 搜索歌词
-  Future<void> search({String? query, String? trackName, String? artistName}) async {
+  Future<void> search(
+      {String? query, String? trackName, String? artistName}) async {
     // 取消之前的搜索
     final requestId = ++_searchRequestId;
-    
+
     state = state.copyWith(isLoading: true, error: null);
     try {
       final filter = state.filter;
@@ -293,9 +326,8 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
           );
         case LyricsSourceFilter.all:
           // 按用户配置的优先级并行搜索启用的源
-          final enabledSources = _sourceOrder
-              .where((s) => !_disabledSources.contains(s))
-              .toList();
+          final enabledSources =
+              _sourceOrder.where((s) => !_disabledSources.contains(s)).toList();
           final sourceResults = <String, List<LyricsResult>>{};
           final searchFutures = <Future<void>>[];
 
@@ -303,30 +335,39 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
             switch (source) {
               case 'netease':
                 searchFutures.add(
-                  _netease.searchLyrics(
-                    query: query,
-                    trackName: trackName,
-                    artistName: artistName,
-                  ).then((r) => sourceResults['netease'] = r)
-                   .catchError((_) => sourceResults['netease'] = <LyricsResult>[]),
+                  _netease
+                      .searchLyrics(
+                        query: query,
+                        trackName: trackName,
+                        artistName: artistName,
+                      )
+                      .then((r) => sourceResults['netease'] = r)
+                      .catchError(
+                          (_) => sourceResults['netease'] = <LyricsResult>[]),
                 );
               case 'qqmusic':
                 searchFutures.add(
-                  _qqmusic.searchLyrics(
-                    query: query,
-                    trackName: trackName,
-                    artistName: artistName,
-                  ).then((r) => sourceResults['qqmusic'] = r)
-                   .catchError((_) => sourceResults['qqmusic'] = <LyricsResult>[]),
+                  _qqmusic
+                      .searchLyrics(
+                        query: query,
+                        trackName: trackName,
+                        artistName: artistName,
+                      )
+                      .then((r) => sourceResults['qqmusic'] = r)
+                      .catchError(
+                          (_) => sourceResults['qqmusic'] = <LyricsResult>[]),
                 );
               case 'lrclib':
                 searchFutures.add(
-                  _lrclib.search(
-                    q: query,
-                    trackName: trackName,
-                    artistName: artistName,
-                  ).then((r) => sourceResults['lrclib'] = r)
-                   .catchError((_) => sourceResults['lrclib'] = <LyricsResult>[]),
+                  _lrclib
+                      .search(
+                        q: query,
+                        trackName: trackName,
+                        artistName: artistName,
+                      )
+                      .then((r) => sourceResults['lrclib'] = r)
+                      .catchError(
+                          (_) => sourceResults['lrclib'] = <LyricsResult>[]),
                 );
             }
           }
@@ -362,7 +403,7 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
       ..offsetMs = 0
       ..matchedAt = DateTime.now();
     await _repo.save(match);
-    
+
     // 先删除旧缓存再写入新内容，确保重新匹配后不会返回旧歌词
     await _cache.remove(trackUniqueKey);
     await _cache.put(trackUniqueKey, result);
