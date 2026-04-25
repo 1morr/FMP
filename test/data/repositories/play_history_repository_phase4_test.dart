@@ -113,6 +113,50 @@ void main() {
 
       expect(recent.map((e) => e.sourceId).toList(), ['repeat', 'unique']);
     });
+
+    test('getHistoryStats includes records at today and week boundaries',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+
+      final now = DateTime.now();
+      final todayStart = DateTime(now.year, now.month, now.day);
+      final weekStart = todayStart.subtract(Duration(days: now.weekday - 1));
+      final sameBoundary = todayStart.isAtSameMomentAs(weekStart);
+
+      await harness.seedMany([
+        _history(
+          sourceId: 'today-start',
+          sourceType: SourceType.youtube,
+          title: 'Today Start',
+          playedAt: todayStart,
+          durationMs: 1000,
+        ),
+        _history(
+          sourceId: 'week-start',
+          sourceType: SourceType.youtube,
+          title: 'Week Start',
+          playedAt: weekStart,
+          durationMs: 2000,
+        ),
+        _history(
+          sourceId: 'before-week',
+          sourceType: SourceType.youtube,
+          title: 'Before Week',
+          playedAt: weekStart.subtract(const Duration(milliseconds: 1)),
+          durationMs: 4000,
+        ),
+      ]);
+
+      final stats = await harness.repository.getHistoryStats();
+
+      expect(stats.totalCount, 3);
+      expect(stats.todayCount, sameBoundary ? 2 : 1);
+      expect(stats.weekCount, 2);
+      expect(stats.totalDurationMs, 7000);
+      expect(stats.todayDurationMs, sameBoundary ? 3000 : 1000);
+      expect(stats.weekDurationMs, 3000);
+    });
   });
 }
 
@@ -174,13 +218,15 @@ PlayHistory _history({
   required String title,
   String? artist,
   required DateTime playedAt,
+  int? durationMs,
 }) {
   return PlayHistory()
     ..sourceId = sourceId
     ..sourceType = sourceType
     ..title = title
     ..artist = artist
-    ..playedAt = playedAt;
+    ..playedAt = playedAt
+    ..durationMs = durationMs;
 }
 
 Future<String> _resolveIsarLibraryPath() async {
