@@ -300,20 +300,28 @@ class PlaylistService with Logging {
       return;
     }
 
-    existingTrack.addToPlaylist(playlistId, playlistName: playlist.name);
-    final wasEmpty = playlist.trackIds.isEmpty;
-    if (!playlist.trackIds.contains(existingTrack.id)) {
-      playlist.trackIds = [...playlist.trackIds, existingTrack.id];
-    }
-    if (wasEmpty && !playlist.hasCustomCover) {
-      playlist.coverUrl = existingTrack.thumbnailUrl;
-    }
-    playlist.updatedAt = DateTime.now();
-    existingTrack.updatedAt = DateTime.now();
-
     await _isar.writeTxn(() async {
+      final freshPlaylist = await _isar.playlists.get(playlistId);
+      if (freshPlaylist == null) {
+        throw PlaylistNotFoundException(playlistId);
+      }
+
+      existingTrack.addToPlaylist(
+        playlistId,
+        playlistName: freshPlaylist.name,
+      );
+      final wasEmpty = freshPlaylist.trackIds.isEmpty;
+      if (!freshPlaylist.trackIds.contains(existingTrack.id)) {
+        freshPlaylist.trackIds = [...freshPlaylist.trackIds, existingTrack.id];
+      }
+      if (wasEmpty && !freshPlaylist.hasCustomCover) {
+        freshPlaylist.coverUrl = existingTrack.thumbnailUrl;
+      }
+      freshPlaylist.updatedAt = DateTime.now();
+      existingTrack.updatedAt = DateTime.now();
+
       await _isar.tracks.put(existingTrack);
-      await _isar.playlists.put(playlist);
+      await _isar.playlists.put(freshPlaylist);
     });
   }
 
@@ -330,9 +338,20 @@ class PlaylistService with Logging {
     // 先获取数据库中最新的 tracks 或创建新的
     final existingTracks = await _trackRepository.getOrCreateAll(tracks);
 
-    // 过滤掉已在该歌单中的 tracks
-    final tracksToAdd =
-        existingTracks.where((t) => !t.belongsToPlaylist(playlistId)).toList();
+    // 过滤掉已在该歌单中的 tracks，并按数据库 ID 去重，避免重复写入同一 Track
+    var alreadyAssociatedCount = 0;
+    var duplicateInputCount = 0;
+    final tracksToAddById = <int, Track>{};
+    for (final track in existingTracks) {
+      if (track.belongsToPlaylist(playlistId)) {
+        alreadyAssociatedCount++;
+      } else if (tracksToAddById.containsKey(track.id)) {
+        duplicateInputCount++;
+      } else {
+        tracksToAddById[track.id] = track;
+      }
+    }
+    final tracksToAdd = tracksToAddById.values.toList();
 
     if (tracksToAdd.isEmpty) {
       logDebug(
@@ -340,36 +359,41 @@ class PlaylistService with Logging {
       return;
     }
 
-    // 将歌单 ID 和名称添加到每个 track 的 playlistInfo（不设置下载路径）
-    for (final track in tracksToAdd) {
-      track.addToPlaylist(playlistId, playlistName: playlist.name);
-    }
-
-    final wasEmpty = playlist.trackIds.isEmpty;
-    final trackIds = List<int>.from(playlist.trackIds);
-    final existingTrackIds = trackIds.toSet();
-    for (final track in tracksToAdd) {
-      if (existingTrackIds.add(track.id)) {
-        trackIds.add(track.id);
-      }
-    }
-    playlist.trackIds = trackIds;
-    if (wasEmpty && !playlist.hasCustomCover && tracksToAdd.isNotEmpty) {
-      playlist.coverUrl = tracksToAdd.first.thumbnailUrl;
-    }
-    playlist.updatedAt = DateTime.now();
-    for (final track in tracksToAdd) {
-      track.updatedAt = DateTime.now();
-    }
-
     await _isar.writeTxn(() async {
+      final freshPlaylist = await _isar.playlists.get(playlistId);
+      if (freshPlaylist == null) {
+        throw PlaylistNotFoundException(playlistId);
+      }
+
+      // 将歌单 ID 和名称添加到每个 track 的 playlistInfo（不设置下载路径）
+      for (final track in tracksToAdd) {
+        track.addToPlaylist(playlistId, playlistName: freshPlaylist.name);
+      }
+
+      final wasEmpty = freshPlaylist.trackIds.isEmpty;
+      final trackIds = List<int>.from(freshPlaylist.trackIds);
+      final existingTrackIds = trackIds.toSet();
+      for (final track in tracksToAdd) {
+        if (existingTrackIds.add(track.id)) {
+          trackIds.add(track.id);
+        }
+      }
+      freshPlaylist.trackIds = trackIds;
+      if (wasEmpty && !freshPlaylist.hasCustomCover) {
+        freshPlaylist.coverUrl = tracksToAdd.first.thumbnailUrl;
+      }
+      freshPlaylist.updatedAt = DateTime.now();
+      for (final track in tracksToAdd) {
+        track.updatedAt = DateTime.now();
+      }
+
       await _isar.tracks.putAll(tracksToAdd);
-      await _isar.playlists.put(playlist);
+      await _isar.playlists.put(freshPlaylist);
     });
 
     if (tracksToAdd.length < existingTracks.length) {
       logDebug(
-          'Added ${tracksToAdd.length}/${existingTracks.length} tracks to playlist $playlistId (${existingTracks.length - tracksToAdd.length} already existed)');
+          'Added ${tracksToAdd.length}/${existingTracks.length} tracks to playlist $playlistId ($alreadyAssociatedCount already existed, $duplicateInputCount duplicate inputs)');
     }
   }
 
