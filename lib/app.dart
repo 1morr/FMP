@@ -9,6 +9,7 @@ import 'main.dart' show preloadedThemeMode, preloadedPrimaryColor, preloadedFont
 import 'providers/database_provider.dart';
 import 'providers/account_provider.dart';
 import 'providers/playback_settings_provider.dart';
+import 'providers/startup_download_sync_provider.dart';
 import 'providers/desktop_settings_provider.dart';
 import 'providers/hotkey_config_provider.dart';
 import 'providers/theme_provider.dart';
@@ -104,6 +105,9 @@ class FMPApp extends ConsumerWidget {
 
         // 啟動時檢查帳號狀態（含 Cookie 刷新，後台執行）
         ref.watch(accountStatusCheckProvider);
+
+        // 啟動後靜默同步已下載頁面的本地文件狀態
+        ref.watch(startupDownloadSyncProvider);
 
         return MaterialApp.router(
           title: '${AppConstants.appName} - ${AppConstants.appFullName}',
