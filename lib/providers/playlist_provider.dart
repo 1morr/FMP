@@ -5,7 +5,7 @@ import 'package:equatable/equatable.dart';
 
 import '../data/models/playlist.dart';
 import '../data/models/track.dart';
-import '../data/sources/youtube_source.dart';
+import '../data/sources/source_provider.dart';
 import '../services/library/playlist_service.dart';
 
 // 导出 PlaylistUpdateResult 供 UI 使用
@@ -71,7 +71,8 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
   final Ref _ref;
   StreamSubscription<List<Playlist>>? _watchSubscription;
 
-  PlaylistListNotifier(this._service, this._ref) : super(const PlaylistListState(isLoading: true)) {
+  PlaylistListNotifier(this._service, this._ref)
+      : super(const PlaylistListState(isLoading: true)) {
     _setupWatch();
   }
 
@@ -252,7 +253,15 @@ class PlaylistDetailState extends Equatable {
   }
 
   @override
-  List<Object?> get props => [playlist, tracks, isLoading, isLoadingMore, hasMore, totalTrackCount, error];
+  List<Object?> get props => [
+        playlist,
+        tracks,
+        isLoading,
+        isLoadingMore,
+        hasMore,
+        totalTrackCount,
+        error
+      ];
 }
 
 /// 歌单详情控制器
@@ -273,7 +282,9 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final result = await _service.getPlaylistWithTracksPage(
-        playlistId, offset: 0, limit: _pageSize,
+        playlistId,
+        offset: 0,
+        limit: _pageSize,
       );
       if (!mounted) return;
       if (result != null) {
@@ -281,7 +292,7 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
         if (result.playlist.isMix) {
           state = state.copyWith(
             playlist: result.playlist,
-            tracks: const [],  // 先顯示空列表
+            tracks: const [], // 先顯示空列表
             isLoading: true,
             totalTrackCount: 0,
             hasMore: false,
@@ -344,7 +355,6 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
 
   /// 從 InnerTube API 加載 Mix 播放列表的 tracks
   Future<void> _loadMixTracks(Playlist playlist) async {
-    YouTubeSource? youtubeSource;
     try {
       if (playlist.mixPlaylistId == null || playlist.mixSeedVideoId == null) {
         if (!mounted) return;
@@ -355,7 +365,7 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
         return;
       }
 
-      youtubeSource = YouTubeSource();
+      final youtubeSource = _ref.watch(youtubeSourceProvider);
       final result = await youtubeSource.fetchMixTracks(
         playlistId: playlist.mixPlaylistId!,
         currentVideoId: playlist.mixSeedVideoId!,
@@ -372,8 +382,6 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
         isLoading: false,
         error: '${t.importSource.mixLoadFailed}: $e',
       );
-    } finally {
-      youtubeSource?.dispose();
     }
   }
 
@@ -455,7 +463,8 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
     try {
       // 乐观更新 UI
       final idSet = trackIds.toSet();
-      final updatedTracks = state.tracks.where((t) => !idSet.contains(t.id)).toList();
+      final updatedTracks =
+          state.tracks.where((t) => !idSet.contains(t.id)).toList();
       final removedCount = state.tracks.length - updatedTracks.length;
       state = state.copyWith(
         tracks: updatedTracks,
@@ -524,7 +533,8 @@ final allPlaylistsProvider = FutureProvider<List<Playlist>>((ref) async {
 
 /// 添加歌曲到歌单的快捷方法
 final addTrackToPlaylistProvider =
-    FutureProvider.family<bool, ({int playlistId, Track track})>((ref, params) async {
+    FutureProvider.family<bool, ({int playlistId, Track track})>(
+        (ref, params) async {
   final service = ref.watch(playlistServiceProvider);
   await service.addTrackToPlaylist(params.playlistId, params.track);
   // 刷新相关的 provider（封面可能已更新）

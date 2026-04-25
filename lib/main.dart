@@ -29,7 +29,6 @@ import 'data/models/account.dart';
 import 'i18n/strings.g.dart';
 import 'services/audio/audio_handler.dart';
 import 'services/audio/windows_smtc_handler.dart';
-import 'services/cache/ranking_cache_service.dart';
 import 'services/radio/radio_refresh_service.dart';
 import 'services/update/update_service.dart';
 import 'ui/windows/lyrics_window.dart';
@@ -147,10 +146,6 @@ void main(List<String> args) async {
   // 延迟初始化后台服务，避免阻塞首帧渲染
   // 首頁排行榜和電台刷新在第一帧渲染后启动，用户感知不到延迟
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    // 初始化首頁排行榜緩存服務（後台加載）
-    RankingCacheService.instance = RankingCacheService();
-    RankingCacheService.instance.initialize();
-
     // 初始化電台刷新服務（後台加載）
     RadioRefreshService.instance = RadioRefreshService();
   });
