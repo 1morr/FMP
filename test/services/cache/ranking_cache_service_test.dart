@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/bilibili_source.dart';
+import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/youtube_source.dart';
 import 'package:fmp/services/cache/ranking_cache_service.dart';
 import 'package:fmp/services/network/connectivity_service.dart';
@@ -13,7 +14,8 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('RankingCacheService lifecycle hardening', () {
-    test('setupNetworkMonitoring rebinds to the latest connectivity notifier', () async {
+    test('setupNetworkMonitoring rebinds to the latest connectivity notifier',
+        () async {
       final bilibiliSource = _FakeBilibiliSource();
       final youtubeSource = _FakeYouTubeSource();
       final service = RankingCacheService(
@@ -54,50 +56,62 @@ void main() {
       expect(service.dispose, returnsNormally);
     });
 
-    test('provider teardown allows rebinding to a fresh connectivity notifier', () async {
-      final bilibiliSource = _FakeBilibiliSource();
-      final youtubeSource = _FakeYouTubeSource();
-      final service = RankingCacheService(
-        bilibiliSource: bilibiliSource,
-        youtubeSource: youtubeSource,
-      );
-      RankingCacheService.instance = service;
-
+    test('provider teardown allows rebinding to a fresh connectivity notifier',
+        () async {
+      final firstBilibiliSource = _FakeBilibiliSource();
+      final firstYouTubeSource = _FakeYouTubeSource();
       final firstNotifier = _TestConnectivityNotifier();
       final firstContainer = ProviderContainer(
         overrides: [
+          bilibiliSourceProvider.overrideWith((ref) => firstBilibiliSource),
+          youtubeSourceProvider.overrideWith((ref) => firstYouTubeSource),
           connectivityProvider.overrideWith((ref) => firstNotifier),
         ],
       );
-      firstContainer.read(rankingCacheServiceProvider);
+      final firstService = firstContainer.read(rankingCacheServiceProvider);
+      await pumpEventQueue(times: 5);
+      expect(firstBilibiliSource.fetchCount, 1);
+      expect(firstYouTubeSource.fetchCount, 1);
       firstContainer.dispose();
 
       firstNotifier.emitNetworkRecovered();
       await pumpEventQueue(times: 5);
-      expect(bilibiliSource.fetchCount, 0);
-      expect(youtubeSource.fetchCount, 0);
+      expect(firstBilibiliSource.fetchCount, 1);
+      expect(firstYouTubeSource.fetchCount, 1);
+      expect(firstService.dispose, returnsNormally);
 
+      final secondBilibiliSource = _FakeBilibiliSource();
+      final secondYouTubeSource = _FakeYouTubeSource();
       final secondNotifier = _TestConnectivityNotifier();
       final secondContainer = ProviderContainer(
         overrides: [
+          bilibiliSourceProvider.overrideWith((ref) => secondBilibiliSource),
+          youtubeSourceProvider.overrideWith((ref) => secondYouTubeSource),
           connectivityProvider.overrideWith((ref) => secondNotifier),
         ],
       );
-      secondContainer.read(rankingCacheServiceProvider);
+      final secondService = secondContainer.read(rankingCacheServiceProvider);
+
+      expect(identical(firstService, secondService), isFalse);
+
+      await pumpEventQueue(times: 5);
+      expect(secondBilibiliSource.fetchCount, 1);
+      expect(secondYouTubeSource.fetchCount, 1);
 
       firstNotifier.emitNetworkRecovered();
       await pumpEventQueue(times: 5);
-      expect(bilibiliSource.fetchCount, 0);
-      expect(youtubeSource.fetchCount, 0);
+      expect(firstBilibiliSource.fetchCount, 1);
+      expect(firstYouTubeSource.fetchCount, 1);
+      expect(secondBilibiliSource.fetchCount, 1);
+      expect(secondYouTubeSource.fetchCount, 1);
 
       secondNotifier.emitNetworkRecovered();
       await pumpEventQueue(times: 5);
 
-      expect(bilibiliSource.fetchCount, 1);
-      expect(youtubeSource.fetchCount, 1);
+      expect(secondBilibiliSource.fetchCount, 2);
+      expect(secondYouTubeSource.fetchCount, 2);
 
       secondContainer.dispose();
-      service.dispose();
       firstNotifier.closeStream();
       secondNotifier.closeStream();
     });
@@ -140,10 +154,5 @@ class _TestConnectivityNotifier extends StateNotifier<ConnectivityState>
 
   Future<void> closeStream() {
     return _networkRecoveredController.close();
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 }

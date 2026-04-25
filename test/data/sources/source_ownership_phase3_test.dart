@@ -23,5 +23,22 @@ void main() {
 
       expect(offenders, isEmpty);
     });
+
+    test('runtime code does not use RankingCacheService singleton', () {
+      const checkedFiles = [
+        'lib/providers/refresh_settings_provider.dart',
+        'lib/ui/pages/settings/developer_options_page.dart',
+      ];
+
+      final offenders = <String>[];
+      for (final path in checkedFiles) {
+        final source = File(path).readAsStringSync();
+        if (source.contains('RankingCacheService.instance')) {
+          offenders.add(path);
+        }
+      }
+
+      expect(offenders, isEmpty);
+    });
   });
 }

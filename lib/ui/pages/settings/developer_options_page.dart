@@ -216,7 +216,7 @@ class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
 
       // 数据缓存统计
       final queueTrackCount = ref.read(queueProvider).length;
-      final rankingCache = RankingCacheService.instance;
+      final rankingCache = ref.read(rankingCacheServiceProvider);
       final bilibiliCacheCount = rankingCache.bilibiliTracks.length;
       final youtubeCacheCount = rankingCache.youtubeTracks.length;
 

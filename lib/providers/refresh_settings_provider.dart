@@ -22,8 +22,10 @@ class RefreshSettingsState {
     bool? isLoading,
   }) {
     return RefreshSettingsState(
-      rankingRefreshIntervalMinutes: rankingRefreshIntervalMinutes ?? this.rankingRefreshIntervalMinutes,
-      radioRefreshIntervalMinutes: radioRefreshIntervalMinutes ?? this.radioRefreshIntervalMinutes,
+      rankingRefreshIntervalMinutes:
+          rankingRefreshIntervalMinutes ?? this.rankingRefreshIntervalMinutes,
+      radioRefreshIntervalMinutes:
+          radioRefreshIntervalMinutes ?? this.radioRefreshIntervalMinutes,
       isLoading: isLoading ?? this.isLoading,
     );
   }
@@ -51,9 +53,9 @@ class RefreshSettingsNotifier extends StateNotifier<RefreshSettingsState> {
     );
 
     // 用用户设置的间隔更新服务定时器
-    RankingCacheService.instance.updateRefreshInterval(
-      Duration(minutes: rankingMinutes),
-    );
+    _ref.read(rankingCacheServiceProvider).updateRefreshInterval(
+          Duration(minutes: rankingMinutes),
+        );
     RadioRefreshService.instance.updateRefreshInterval(
       Duration(minutes: radioMinutes),
     );
@@ -63,20 +65,22 @@ class RefreshSettingsNotifier extends StateNotifier<RefreshSettingsState> {
     if (_settings == null) return;
 
     final settingsRepository = _ref.read(settingsRepositoryProvider);
-    await settingsRepository.update((s) => s.rankingRefreshIntervalMinutes = minutes);
+    await settingsRepository
+        .update((s) => s.rankingRefreshIntervalMinutes = minutes);
     _settings!.rankingRefreshIntervalMinutes = minutes;
     state = state.copyWith(rankingRefreshIntervalMinutes: minutes);
 
-    RankingCacheService.instance.updateRefreshInterval(
-      Duration(minutes: minutes),
-    );
+    _ref.read(rankingCacheServiceProvider).updateRefreshInterval(
+          Duration(minutes: minutes),
+        );
   }
 
   Future<void> setRadioRefreshInterval(int minutes) async {
     if (_settings == null) return;
 
     final settingsRepository = _ref.read(settingsRepositoryProvider);
-    await settingsRepository.update((s) => s.radioRefreshIntervalMinutes = minutes);
+    await settingsRepository
+        .update((s) => s.radioRefreshIntervalMinutes = minutes);
     _settings!.radioRefreshIntervalMinutes = minutes;
     state = state.copyWith(radioRefreshIntervalMinutes: minutes);
 
