@@ -11,9 +11,9 @@ class ThumbnailUrlUtils {
   ThumbnailUrlUtils._();
 
   /// 缩略图尺寸预设
-  static const int smallSize = 120;   // 列表小图
-  static const int mediumSize = 200;  // 网格卡片
-  static const int largeSize = 480;   // 详情页
+  static const int smallSize = 120; // 列表小图
+  static const int mediumSize = 200; // 网格卡片
+  static const int largeSize = 480; // 详情页
 
   /// 获取适合显示尺寸的缩略图 URL
   ///
@@ -156,13 +156,18 @@ class ThumbnailUrlUtils {
 
     // 替换 URL 中的质量参数
     // 常见格式：/vi/{videoId}/hqdefault.jpg 或 /vi_webp/{videoId}/hqdefault.webp
-    final pattern = RegExp(r'/vi(_webp)?/([^/]+)/[^/]+\.(jpg|webp)');
+    final pattern = RegExp(r'/vi(_webp)?/([^/]+)/([^/]+)\.(jpg|webp)');
 
     final match = pattern.firstMatch(url);
     if (match != null) {
       final isWebp = match.group(1) != null; // 原始 URL 是否使用 webp
       final videoId = match.group(2);
-      final ext = match.group(3); // 保持原始扩展名
+      final originalQuality = match.group(3);
+      final ext = match.group(4); // 保持原始扩展名
+
+      if (originalQuality == 'mqdefault' && quality == 'maxresdefault') {
+        return url;
+      }
 
       // 保持原始格式（不强制转换为 webp，因为不是所有视频都支持）
       if (isWebp) {

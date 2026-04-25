@@ -25,7 +25,8 @@ void main() {
 
         expect(result, contains('@'));
         expect(result, contains('w.jpg'));
-        expect(result, startsWith('https://i0.hdslb.com/bfs/archive/test.jpg@'));
+        expect(
+            result, startsWith('https://i0.hdslb.com/bfs/archive/test.jpg@'));
       });
 
       test('replaces existing size suffix', () {
@@ -61,8 +62,7 @@ void main() {
       });
 
       test('preserves webp format', () {
-        const url =
-            'https://i.ytimg.com/vi_webp/dQw4w9WgXcQ/hqdefault.webp';
+        const url = 'https://i.ytimg.com/vi_webp/dQw4w9WgXcQ/hqdefault.webp';
         final result = ThumbnailUrlUtils.getOptimizedUrl(url, displaySize: 100);
 
         expect(result, contains('.webp'));
@@ -76,7 +76,7 @@ void main() {
         expect(result, contains('.jpg'));
       });
 
-      test('returns optimized and original candidates for large youtube thumbnail', () {
+      test('does not upscale mqdefault candidates to maxresdefault', () {
         const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg';
         final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           url,
@@ -84,13 +84,15 @@ void main() {
           devicePixelRatio: 1.0,
         );
 
-        expect(result, equals([
-          'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
-          'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
-        ]));
+        expect(
+            result,
+            equals([
+              'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
+            ]));
       });
 
-      test('dedupes youtube candidates when optimized url matches original', () {
+      test('dedupes youtube candidates when optimized url matches original',
+          () {
         const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg';
         final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           url,
@@ -98,9 +100,11 @@ void main() {
           devicePixelRatio: 1.0,
         );
 
-        expect(result, equals([
-          'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
-        ]));
+        expect(
+            result,
+            equals([
+              'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
+            ]));
       });
     });
 
