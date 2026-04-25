@@ -365,7 +365,7 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
         return;
       }
 
-      final youtubeSource = _ref.watch(youtubeSourceProvider);
+      final youtubeSource = _ref.read(youtubeSourceProvider);
       final result = await youtubeSource.fetchMixTracks(
         playlistId: playlist.mixPlaylistId!,
         currentVideoId: playlist.mixSeedVideoId!,

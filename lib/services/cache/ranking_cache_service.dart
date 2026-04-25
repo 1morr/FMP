@@ -20,21 +20,6 @@ import '../network/connectivity_service.dart';
 class RankingCacheService {
   static const _initialLoadTimeout = Duration(seconds: 5); // 初始加載超時時間
 
-  /// 全局單例實例，在 main.dart 中初始化
-  static RankingCacheService? _instance;
-
-  static RankingCacheService get instance {
-    final service = _instance;
-    if (service == null) {
-      throw StateError('RankingCacheService.instance has not been initialized');
-    }
-    return service;
-  }
-
-  static set instance(RankingCacheService service) {
-    _instance = service;
-  }
-
   final BilibiliSource _bilibiliSource;
   final YouTubeSource _youtubeSource;
 
@@ -194,26 +179,19 @@ class RankingCacheService {
 
 /// RankingCacheService Provider（負責設置網絡監聽）
 final rankingCacheServiceProvider = Provider<RankingCacheService>((ref) {
-  final existingService = RankingCacheService._instance;
-  final service = existingService ??
-      RankingCacheService(
-        bilibiliSource: ref.watch(bilibiliSourceProvider),
-        youtubeSource: ref.watch(youtubeSourceProvider),
-      );
-  if (existingService == null) {
-    RankingCacheService._instance = service;
-    Future.microtask(() => service.initialize());
-  }
+  final service = RankingCacheService(
+    bilibiliSource: ref.watch(bilibiliSourceProvider),
+    youtubeSource: ref.watch(youtubeSourceProvider),
+  );
+
+  Future.microtask(() => service.initialize());
 
   // 設置網絡恢復監聽
   final connectivityNotifier = ref.read(connectivityProvider.notifier);
   service.setupNetworkMonitoring(connectivityNotifier);
 
-  // 當 provider 被銷毀時取消訂閱
-  ref.onDispose(() {
-    // 不銷毀全局單例，只取消網絡監聽
-    service.clearNetworkMonitoring();
-  });
+  // 當 provider 被銷毀時釋放服務，但不 dispose provider-owned sources
+  ref.onDispose(service.dispose);
 
   return service;
 });
