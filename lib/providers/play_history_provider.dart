@@ -17,10 +17,21 @@ final playHistorySnapshotProvider =
   }
 });
 
+/// 播放历史变更通知 Provider
+final playHistoryChangeProvider = StreamProvider.autoDispose<int>((ref) async* {
+  final repo = ref.watch(playHistoryRepositoryProvider);
+  var tick = 0;
+
+  await for (final _ in repo.watchHistory()) {
+    yield ++tick;
+  }
+});
+
 /// 最近播放历史 Provider（用于首页显示，去重）
 /// 默认获取最近 10 首不重复的歌曲
 final recentPlayHistoryProvider =
     FutureProvider.autoDispose<List<PlayHistory>>((ref) async {
+  ref.watch(playHistoryChangeProvider);
   final repo = ref.watch(playHistoryRepositoryProvider);
   return repo.getRecentHistoryDistinct(limit: 10);
 });
@@ -93,6 +104,7 @@ final filteredPlayHistoryProvider =
 /// 播放历史统计 Provider
 final playHistoryStatsProvider =
     FutureProvider.autoDispose<PlayHistoryStats>((ref) async {
+  ref.watch(playHistoryChangeProvider);
   final repo = ref.watch(playHistoryRepositoryProvider);
   return repo.getHistoryStats();
 });

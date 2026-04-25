@@ -243,11 +243,11 @@ class PlayHistoryRepository {
       final duration = h.durationMs ?? 0;
       totalDurationMs += duration;
 
-      if (h.playedAt.isAfter(todayStart)) {
+      if (!h.playedAt.isBefore(todayStart)) {
         todayCount++;
         todayDurationMs += duration;
       }
-      if (h.playedAt.isAfter(weekStart)) {
+      if (!h.playedAt.isBefore(weekStart)) {
         weekCount++;
         weekDurationMs += duration;
       }

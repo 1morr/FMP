@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/play_history.dart';
@@ -42,6 +44,7 @@ void main() {
         ],
       );
       addTearDown(container.dispose);
+      addTearDown(repository.dispose);
 
       await container.read(playHistorySnapshotProvider.future);
       final grouped = container.read(groupedPlayHistoryProvider).requireValue;
@@ -65,6 +68,7 @@ void main() {
         ],
       );
       addTearDown(container.dispose);
+      addTearDown(repository.dispose);
 
       await container.read(recentPlayHistoryProvider.future);
       await container.read(playHistoryStatsProvider.future);
@@ -73,6 +77,50 @@ void main() {
       expect(repository.recentDistinctCalls, 1);
       expect(repository.statsCalls, 1);
     });
+
+    test('recent and stats rerun purpose-specific queries after watch events',
+        () async {
+      final repository = _FakePlayHistoryRepository([
+        _history(
+          id: 1,
+          sourceId: 'song-a',
+          title: 'Song A',
+          playedAt: DateTime(2026, 4, 20, 12),
+        ),
+      ]);
+      final container = ProviderContainer(
+        overrides: [
+          playHistoryRepositoryProvider.overrideWith((ref) => repository),
+        ],
+      );
+      addTearDown(container.dispose);
+      addTearDown(repository.dispose);
+
+      final recentSubscription = container.listen(
+        recentPlayHistoryProvider,
+        (_, __) {},
+        fireImmediately: true,
+      );
+      final statsSubscription = container.listen(
+        playHistoryStatsProvider,
+        (_, __) {},
+        fireImmediately: true,
+      );
+      addTearDown(recentSubscription.close);
+      addTearDown(statsSubscription.close);
+
+      await container.read(recentPlayHistoryProvider.future);
+      await container.read(playHistoryStatsProvider.future);
+
+      repository.emitChange();
+      await container.pump();
+      await container.read(recentPlayHistoryProvider.future);
+      await container.read(playHistoryStatsProvider.future);
+
+      expect(repository.snapshotCalls, 0);
+      expect(repository.recentDistinctCalls, 2);
+      expect(repository.statsCalls, 2);
+    });
   });
 }
 
@@ -80,6 +128,7 @@ class _FakePlayHistoryRepository extends PlayHistoryRepository {
   _FakePlayHistoryRepository(this.records) : super(_FakeIsar());
 
   final List<PlayHistory> records;
+  final _changeController = StreamController<void>.broadcast();
   int snapshotCalls = 0;
   int recentDistinctCalls = 0;
   int statsCalls = 0;
@@ -140,8 +189,16 @@ class _FakePlayHistoryRepository extends PlayHistoryRepository {
     );
   }
 
+  void emitChange() {
+    _changeController.add(null);
+  }
+
+  void dispose() {
+    _changeController.close();
+  }
+
   @override
-  Stream<void> watchHistory() => const Stream<void>.empty();
+  Stream<void> watchHistory() => _changeController.stream;
 }
 
 class _FakeIsar extends Fake implements Isar {}
