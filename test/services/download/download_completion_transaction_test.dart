@@ -40,9 +40,6 @@ void main() {
 
       await harness.repository.completeTaskWithDownloadPath(
         taskId: task.id,
-        trackId: trackId,
-        playlistId: 7,
-        playlistName: 'Phase3',
         savePath: 'C:/Music/FMP/Phase3/audio.m4a',
       );
 
@@ -66,9 +63,6 @@ void main() {
       await expectLater(
         harness.repository.completeTaskWithDownloadPath(
           taskId: task.id,
-          trackId: 999,
-          playlistId: null,
-          playlistName: null,
           savePath: 'C:/Music/FMP/Missing/audio.m4a',
         ),
         throwsStateError,
@@ -76,6 +70,32 @@ void main() {
 
       final updatedTask = await harness.repository.getTaskById(task.id);
       expect(updatedTask!.status, DownloadStatus.downloading);
+    });
+
+    test(
+        'completeTaskWithDownloadPath does not update track when task is missing',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+
+      final trackId = await harness.isar.writeTxn(() async {
+        return harness.isar.tracks.put(Track()
+          ..sourceId = 'yt-missing-task'
+          ..sourceType = SourceType.youtube
+          ..title = 'Missing Task Track'
+          ..createdAt = DateTime.now());
+      });
+
+      await expectLater(
+        harness.repository.completeTaskWithDownloadPath(
+          taskId: 999,
+          savePath: 'C:/Music/FMP/MissingTask/audio.m4a',
+        ),
+        throwsStateError,
+      );
+
+      final updatedTrack = await harness.isar.tracks.get(trackId);
+      expect(updatedTrack!.hasAnyDownload, isFalse);
     });
   });
 }

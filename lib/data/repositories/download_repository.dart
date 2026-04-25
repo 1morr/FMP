@@ -179,26 +179,24 @@ class DownloadRepository with Logging {
   /// Complete a download and attach its saved path to the Track in one DB txn.
   Future<void> completeTaskWithDownloadPath({
     required int taskId,
-    required int trackId,
-    required int? playlistId,
-    required String? playlistName,
     required String savePath,
   }) async {
     await _isar.writeTxn(() async {
-      final track = await _isar.tracks.get(trackId);
-      if (track == null) {
-        throw StateError('Track not found for completed download: $trackId');
-      }
       final task = await _isar.downloadTasks.get(taskId);
       if (task == null) {
         throw StateError('Download task not found for completion: $taskId');
       }
+      final track = await _isar.tracks.get(task.trackId);
+      if (track == null) {
+        throw StateError(
+            'Track not found for completed download: ${task.trackId}');
+      }
 
-      final effectivePlaylistId = playlistId ?? 0;
+      final effectivePlaylistId = task.playlistId ?? 0;
       track.setDownloadPath(
         effectivePlaylistId,
         savePath,
-        playlistName: playlistName,
+        playlistName: task.playlistName,
       );
       task.status = DownloadStatus.completed;
       task.completedAt = DateTime.now();
