@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/data/models/play_history.dart';
 import 'package:fmp/data/models/track.dart';
+import 'package:fmp/providers/play_history_provider.dart';
 import 'package:fmp/ui/handlers/track_action_handler.dart';
 import 'package:fmp/ui/pages/history/play_history_page.dart';
 
@@ -124,6 +126,52 @@ void main() {
       expect(dateGroupBody, isNot(contains('...histories.map')));
       expect(timelineBody, contains('HistoryTimelineRow'));
     });
+
+    test('timeline rows are keyed by stable date and history ids', () {
+      final source = File('lib/ui/pages/history/play_history_page.dart')
+          .readAsStringSync();
+      final timelineBody = _methodBody(source, '_buildTimelineList');
+
+      expect(timelineBody, contains("ValueKey('history-date-"));
+      expect(timelineBody, contains("ValueKey('history-track-"));
+      expect(timelineBody, contains('key:'));
+    });
+
+    test('buildHistoryTimelineRows keeps date order and skips collapsed tracks',
+        () {
+      final newerDate = DateTime(2026, 4, 20);
+      final olderDate = DateTime(2026, 4, 19);
+      final newerFirst = _buildHistory(id: 1, playedAt: newerDate);
+      final newerSecond = _buildHistory(id: 2, playedAt: newerDate);
+      final older = _buildHistory(id: 3, playedAt: olderDate);
+
+      final expandedRows = buildHistoryTimelineRows(
+        {
+          olderDate: [older],
+          newerDate: [newerFirst, newerSecond],
+        },
+        {},
+      );
+      final collapsedRows = buildHistoryTimelineRows(
+        {
+          olderDate: [older],
+          newerDate: [newerFirst, newerSecond],
+        },
+        {newerDate},
+      );
+
+      expect(expandedRows, hasLength(5));
+      expect((expandedRows[0] as HistoryDateHeaderRow).date, newerDate);
+      expect((expandedRows[1] as HistoryTrackRow).history.id, 1);
+      expect((expandedRows[2] as HistoryTrackRow).history.id, 2);
+      expect((expandedRows[3] as HistoryDateHeaderRow).date, olderDate);
+      expect((expandedRows[4] as HistoryTrackRow).history.id, 3);
+
+      expect(collapsedRows, hasLength(3));
+      expect((collapsedRows[0] as HistoryDateHeaderRow).date, newerDate);
+      expect((collapsedRows[1] as HistoryDateHeaderRow).date, olderDate);
+      expect((collapsedRows[2] as HistoryTrackRow).history.id, 3);
+    });
   });
 }
 
@@ -147,6 +195,18 @@ Track _buildTrack() {
     ..sourceId = 'history-track'
     ..sourceType = SourceType.youtube
     ..title = 'History Track';
+}
+
+PlayHistory _buildHistory({
+  required int id,
+  required DateTime playedAt,
+}) {
+  return PlayHistory()
+    ..id = id
+    ..sourceId = 'history-track-$id'
+    ..sourceType = SourceType.youtube
+    ..title = 'History Track $id'
+    ..playedAt = playedAt;
 }
 
 class _FakeTrackActionAudioController implements TrackActionAudioController {
