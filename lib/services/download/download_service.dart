@@ -872,9 +872,6 @@ class DownloadService with Logging {
         }
         await _downloadRepository.completeTaskWithDownloadPath(
           taskId: task.id,
-          trackId: track.id,
-          playlistId: task.playlistId,
-          playlistName: task.playlistName,
           savePath: savePath,
         );
       } else {
