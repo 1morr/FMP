@@ -119,6 +119,10 @@ class DataIntegrityService {
         final keep = duplicateGroup.reduce(_preferAccount);
         final remove =
             duplicateGroup.where((account) => account.id != keep.id).toList();
+        for (final account in remove) {
+          _mergeAccountMetadata(keep, account);
+        }
+        await _isar.accounts.put(keep);
         removedAccountIds.addAll(remove.map((account) => account.id));
         await _isar.accounts.deleteAll(
           remove.map((account) => account.id).toList(),
@@ -223,6 +227,8 @@ class DataIntegrityService {
           _preferNullableString(keep.thumbnailUrl, remove.thumbnailUrl)
       ..audioUrl = _preferNullableString(keep.audioUrl, remove.audioUrl)
       ..audioUrlExpiry = keep.audioUrlExpiry ?? remove.audioUrlExpiry
+      ..isVip = keep.isVip || remove.isVip
+      ..isAvailable = keep.isAvailable && remove.isAvailable
       ..unavailableReason = _preferNullableString(
         keep.unavailableReason,
         remove.unavailableReason,
@@ -237,9 +243,24 @@ class DataIntegrityService {
           _preferNullableString(keep.originalSongId, remove.originalSongId)
       ..originalSource =
           _preferNullableString(keep.originalSource, remove.originalSource)
+      ..createdAt = _earliestDateTime(keep.createdAt, remove.createdAt)
+      ..updatedAt = _latestNullableDateTime(keep.updatedAt, remove.updatedAt)
       ..playlistInfo = _mergePlaylistInfo(
         keep.playlistInfo,
         remove.playlistInfo,
+      );
+  }
+
+  static void _mergeAccountMetadata(Account keep, Account remove) {
+    keep
+      ..userId = _preferNullableString(keep.userId, remove.userId)
+      ..userName = _preferNullableString(keep.userName, remove.userName)
+      ..avatarUrl = _preferNullableString(keep.avatarUrl, remove.avatarUrl)
+      ..isVip = keep.isVip || remove.isVip
+      ..loginAt = _earliestNullableDateTime(keep.loginAt, remove.loginAt)
+      ..lastRefreshed = _latestNullableDateTime(
+        keep.lastRefreshed,
+        remove.lastRefreshed,
       );
   }
 
@@ -247,6 +268,22 @@ class DataIntegrityService {
     if (keep != null && keep.isNotEmpty) return keep;
     if (remove != null && remove.isNotEmpty) return remove;
     return keep ?? remove;
+  }
+
+  static DateTime _earliestDateTime(DateTime a, DateTime b) {
+    return a.isBefore(b) ? a : b;
+  }
+
+  static DateTime? _earliestNullableDateTime(DateTime? a, DateTime? b) {
+    if (a == null) return b;
+    if (b == null) return a;
+    return a.isBefore(b) ? a : b;
+  }
+
+  static DateTime? _latestNullableDateTime(DateTime? a, DateTime? b) {
+    if (a == null) return b;
+    if (b == null) return a;
+    return a.isAfter(b) ? a : b;
   }
 
   static List<PlaylistDownloadInfo> _mergePlaylistInfo(
@@ -353,11 +390,14 @@ class DataIntegrityService {
   }
 
   static PlayQueue _preferPlayQueue(PlayQueue a, PlayQueue b) {
+    if (a.trackIds.length != b.trackIds.length) {
+      return a.trackIds.length > b.trackIds.length ? a : b;
+    }
     final updatedA = a.lastUpdated ?? DateTime.fromMillisecondsSinceEpoch(0);
     final updatedB = b.lastUpdated ?? DateTime.fromMillisecondsSinceEpoch(0);
     if (!updatedA.isAtSameMomentAs(updatedB)) {
       return updatedA.isAfter(updatedB) ? a : b;
     }
-    return a.trackIds.length >= b.trackIds.length ? a : b;
+    return a;
   }
 }
