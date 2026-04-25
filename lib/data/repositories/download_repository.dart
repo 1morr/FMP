@@ -1,5 +1,6 @@
 import 'package:isar/isar.dart';
 import '../models/download_task.dart';
+import '../models/track.dart';
 import '../../core/logger.dart';
 
 /// 下载任务数据仓库
@@ -22,14 +23,12 @@ class DownloadRepository with Logging {
 
   /// 根据 trackId 获取下载任务
   Future<DownloadTask?> getTaskByTrackId(int trackId) async {
-    return _isar.downloadTasks
-        .where()
-        .trackIdEqualTo(trackId)
-        .findFirst();
+    return _isar.downloadTasks.where().trackIdEqualTo(trackId).findFirst();
   }
 
   /// 根据 trackId 和 playlistId 获取下载任务
-  Future<DownloadTask?> getTaskByTrackIdAndPlaylist(int trackId, int playlistId) async {
+  Future<DownloadTask?> getTaskByTrackIdAndPlaylist(
+      int trackId, int playlistId) async {
     return _isar.downloadTasks
         .filter()
         .trackIdEqualTo(trackId)
@@ -40,23 +39,24 @@ class DownloadRepository with Logging {
 
   /// 根据 savePath 获取下载任务（用于任务去重）
   Future<DownloadTask?> getTaskBySavePath(String savePath) async {
-    return _isar.downloadTasks
-        .filter()
-        .savePathEqualTo(savePath)
-        .findFirst();
+    return _isar.downloadTasks.filter().savePathEqualTo(savePath).findFirst();
   }
 
   /// 批量根据 savePath 获取下载任务（用于批量去重）
   /// 返回 savePath -> DownloadTask 的映射
-  Future<Map<String, DownloadTask>> getTasksBySavePaths(List<String> savePaths) async {
+  Future<Map<String, DownloadTask>> getTasksBySavePaths(
+      List<String> savePaths) async {
     if (savePaths.isEmpty) return {};
-    
+
     final tasks = await _isar.downloadTasks
         .filter()
         .anyOf(savePaths, (q, path) => q.savePathEqualTo(path))
         .findAll();
-    
-    return {for (final task in tasks) if (task.savePath != null) task.savePath!: task};
+
+    return {
+      for (final task in tasks)
+        if (task.savePath != null) task.savePath!: task
+    };
   }
 
   /// 清除已完成和失败的任务（用于启动时清理）
@@ -64,14 +64,16 @@ class DownloadRepository with Logging {
     logDebug('clearCompletedAndErrorTasks: Starting');
     try {
       return await _isar.writeTxn(() async {
-        logDebug('clearCompletedAndErrorTasks: Inside transaction, querying tasks');
+        logDebug(
+            'clearCompletedAndErrorTasks: Inside transaction, querying tasks');
         final tasks = await _isar.downloadTasks
             .filter()
             .statusEqualTo(DownloadStatus.completed)
             .or()
             .statusEqualTo(DownloadStatus.failed)
             .findAll();
-        logDebug('clearCompletedAndErrorTasks: Found ${tasks.length} tasks to delete');
+        logDebug(
+            'clearCompletedAndErrorTasks: Found ${tasks.length} tasks to delete');
         if (tasks.isEmpty) {
           return 0;
         }
@@ -118,7 +120,8 @@ class DownloadRepository with Logging {
 
   /// 保存下载任务
   Future<DownloadTask> saveTask(DownloadTask task) async {
-    logDebug('Saving download task: trackId=${task.trackId}, status=${task.status}');
+    logDebug(
+        'Saving download task: trackId=${task.trackId}, status=${task.status}');
     final id = await _isar.writeTxn(() => _isar.downloadTasks.put(task));
     task.id = id;
     return task;
@@ -156,7 +159,8 @@ class DownloadRepository with Logging {
   }
 
   /// 更新任务状态
-  Future<void> updateTaskStatus(int id, DownloadStatus status, {String? errorMessage}) async {
+  Future<void> updateTaskStatus(int id, DownloadStatus status,
+      {String? errorMessage}) async {
     await _isar.writeTxn(() async {
       final task = await _isar.downloadTasks.get(id);
       if (task != null) {
@@ -169,6 +173,40 @@ class DownloadRepository with Logging {
         }
         await _isar.downloadTasks.put(task);
       }
+    });
+  }
+
+  /// Complete a download and attach its saved path to the Track in one DB txn.
+  Future<void> completeTaskWithDownloadPath({
+    required int taskId,
+    required int trackId,
+    required int? playlistId,
+    required String? playlistName,
+    required String savePath,
+  }) async {
+    await _isar.writeTxn(() async {
+      final track = await _isar.tracks.get(trackId);
+      if (track == null) {
+        throw StateError('Track not found for completed download: $trackId');
+      }
+      final task = await _isar.downloadTasks.get(taskId);
+      if (task == null) {
+        throw StateError('Download task not found for completion: $taskId');
+      }
+
+      final effectivePlaylistId = playlistId ?? 0;
+      track.setDownloadPath(
+        effectivePlaylistId,
+        savePath,
+        playlistName: playlistName,
+      );
+      task.status = DownloadStatus.completed;
+      task.completedAt = DateTime.now();
+      task.savePath = savePath;
+      track.updatedAt = DateTime.now();
+
+      await _isar.tracks.put(track);
+      await _isar.downloadTasks.put(task);
     });
   }
 
@@ -185,12 +223,14 @@ class DownloadRepository with Logging {
           }
         }
       }
-      await _isar.downloadTasks.putAll(tasks.whereType<DownloadTask>().toList());
+      await _isar.downloadTasks
+          .putAll(tasks.whereType<DownloadTask>().toList());
     });
   }
 
   /// 更新任务进度
-  Future<void> updateTaskProgress(int id, double progress, int downloadedBytes, int? totalBytes) async {
+  Future<void> updateTaskProgress(
+      int id, double progress, int downloadedBytes, int? totalBytes) async {
     await _isar.writeTxn(() async {
       final task = await _isar.downloadTasks.get(id);
       if (task != null) {
@@ -284,7 +324,8 @@ class DownloadRepository with Logging {
 
   /// 获取下一个优先级值（用于新任务）
   Future<int> getNextPriority() async {
-    final task = await _isar.downloadTasks.where().sortByPriorityDesc().findFirst();
+    final task =
+        await _isar.downloadTasks.where().sortByPriorityDesc().findFirst();
     return (task?.priority ?? 0) + 1;
   }
 }

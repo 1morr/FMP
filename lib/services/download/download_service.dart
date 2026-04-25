@@ -870,21 +870,17 @@ class DownloadService with Logging {
           await _deleteTaskFiles(task);
           return;
         }
-        await _trackRepository.addDownloadPath(
-            track.id, task.playlistId, task.playlistName, savePath);
+        await _downloadRepository.completeTaskWithDownloadPath(
+          taskId: task.id,
+          trackId: track.id,
+          playlistId: task.playlistId,
+          playlistName: task.playlistName,
+          savePath: savePath,
+        );
       } else {
         logError('Download completed but file not found at: $savePath');
         throw Exception('Downloaded file not found at expected path');
       }
-      if (_shouldAbortAfterFinalizationStarted(task.id)) {
-        await _clearDownloadPathForTask(task);
-        await _deleteTaskFiles(task);
-        return;
-      }
-
-      // 更新任务状态为已完成
-      await _downloadRepository.updateTaskStatus(
-          task.id, DownloadStatus.completed);
       if (_shouldAbortAfterFinalizationStarted(task.id)) {
         await _clearDownloadPathForTask(task);
         await _deleteTaskFiles(task);
