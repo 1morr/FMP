@@ -8,9 +8,9 @@ void main() {
   group('current lyrics line index provider support', () {
     test('calculateCurrentLyricsLineIndex changes only at lyric boundaries',
         () {
-      final lyrics = ParsedLyrics(
+      const lyrics = ParsedLyrics(
         isSynced: true,
-        lines: const [
+        lines: [
           LyricsLine(timestamp: Duration(seconds: 1), text: 'first'),
           LyricsLine(timestamp: Duration(seconds: 5), text: 'second'),
           LyricsLine(timestamp: Duration(seconds: 9), text: 'third'),
@@ -52,9 +52,9 @@ void main() {
     });
 
     test('calculateCurrentLyricsLineIndex applies offset', () {
-      final lyrics = ParsedLyrics(
+      const lyrics = ParsedLyrics(
         isSynced: true,
-        lines: const [
+        lines: [
           LyricsLine(timestamp: Duration(seconds: 3), text: 'line'),
         ],
       );
