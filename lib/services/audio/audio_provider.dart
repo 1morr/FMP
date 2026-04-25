@@ -49,6 +49,70 @@ class _RetryScheduledException implements Exception {
   const _RetryScheduledException();
 }
 
+class QueueState {
+  final List<Track> queue;
+  final List<Track> upcomingTracks;
+  final int? currentIndex;
+  final Track? queueTrack;
+  final bool canPlayPrevious;
+  final bool canPlayNext;
+  final bool isShuffleEnabled;
+  final LoopMode loopMode;
+  final int queueVersion;
+  final bool isMixMode;
+  final String? mixTitle;
+  final bool isLoadingMoreMix;
+
+  const QueueState({
+    this.queue = const [],
+    this.upcomingTracks = const [],
+    this.currentIndex,
+    this.queueTrack,
+    this.canPlayPrevious = false,
+    this.canPlayNext = false,
+    this.isShuffleEnabled = false,
+    this.loopMode = LoopMode.none,
+    this.queueVersion = 0,
+    this.isMixMode = false,
+    this.mixTitle,
+    this.isLoadingMoreMix = false,
+  });
+
+  QueueState copyWith({
+    List<Track>? queue,
+    List<Track>? upcomingTracks,
+    int? currentIndex,
+    Track? queueTrack,
+    bool? canPlayPrevious,
+    bool? canPlayNext,
+    bool? isShuffleEnabled,
+    LoopMode? loopMode,
+    int? queueVersion,
+    bool? isMixMode,
+    String? mixTitle,
+    bool clearMixTitle = false,
+    bool? isLoadingMoreMix,
+  }) {
+    return QueueState(
+      queue: queue ?? this.queue,
+      upcomingTracks: upcomingTracks ?? this.upcomingTracks,
+      currentIndex: currentIndex ?? this.currentIndex,
+      queueTrack: queueTrack ?? this.queueTrack,
+      canPlayPrevious: canPlayPrevious ?? this.canPlayPrevious,
+      canPlayNext: canPlayNext ?? this.canPlayNext,
+      isShuffleEnabled: isShuffleEnabled ?? this.isShuffleEnabled,
+      loopMode: loopMode ?? this.loopMode,
+      queueVersion: queueVersion ?? this.queueVersion,
+      isMixMode: isMixMode ?? this.isMixMode,
+      mixTitle: clearMixTitle ? null : (mixTitle ?? this.mixTitle),
+      isLoadingMoreMix: isLoadingMoreMix ?? this.isLoadingMoreMix,
+    );
+  }
+}
+
+final queueStateProvider =
+    StateProvider<QueueState>((ref) => const QueueState());
+
 /// 統一的內部播放上下文
 /// 管理播放模式、臨時播放狀態、加載狀態等
 class _PlaybackContext {
@@ -187,6 +251,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 歌词自动匹配状态回调（用于 UI 显示加载动画）
   void Function(bool isMatching)? onLyricsAutoMatchStateChanged;
+
+  void Function(QueueState queueState)? onQueueStateChanged;
 
   // ========== 网络重试相关 ==========
   /// 重试定时器
@@ -628,8 +694,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       if (queue.isEmpty) {
         logDebug('$debugLabel aborted: queue is empty');
         if (clearSavedState) {
-          _context =
-              _context.copyWith(mode: targetMode, clearSavedState: true);
+          _context = _context.copyWith(mode: targetMode, clearSavedState: true);
         }
         _updateQueueState();
         return;
@@ -2539,6 +2604,21 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
     logDebug(
         'Updating queue state: ${queue.length} tracks, index: $currentIndex, queueTrack: ${queueTrack?.title ?? "null"}, playingTrack: ${_playingTrack?.title ?? "null"}, isPlayingOutOfQueue: $_isPlayingOutOfQueue');
+    final nextQueueState = QueueState(
+      queue: queue,
+      upcomingTracks: upcomingTracks,
+      currentIndex: currentIndex,
+      queueTrack: queueTrack,
+      isShuffleEnabled: _queueManager.isShuffleEnabled,
+      loopMode: _queueManager.loopMode,
+      canPlayPrevious: canPlayPrevious,
+      canPlayNext: canPlayNext,
+      queueVersion: state.queueVersion + 1,
+      isMixMode: state.isMixMode,
+      mixTitle: state.mixTitle,
+      isLoadingMoreMix: state.isLoadingMoreMix,
+    );
+    onQueueStateChanged?.call(nextQueueState);
     state = state.copyWith(
       queue: queue,
       upcomingTracks: upcomingTracks,
@@ -2640,6 +2720,10 @@ final audioControllerProvider =
     ref.read(lyricsAutoMatchingProvider.notifier).state = isMatching;
   };
 
+  controller.onQueueStateChanged = (queueState) {
+    ref.read(queueStateProvider.notifier).state = queueState;
+  };
+
   // 启动初始化（异步，但不阻塞）
   // _ensureInitialized 会在每个操作前确保初始化完成
   Future.microtask(() => controller.initialize());
@@ -2671,7 +2755,15 @@ final durationProvider = Provider<Duration?>((ref) {
 
 /// 播放队列
 final queueProvider = Provider<List<Track>>((ref) {
-  return ref.watch(audioControllerProvider.select((s) => s.queue));
+  return ref.watch(queueStateProvider.select((s) => s.queue));
+});
+
+final queueVersionProvider = Provider<int>((ref) {
+  return ref.watch(queueStateProvider.select((s) => s.queueVersion));
+});
+
+final queueTrackProvider = Provider<Track?>((ref) {
+  return ref.watch(queueStateProvider.select((s) => s.queueTrack));
 });
 
 /// 是否启用随机播放
