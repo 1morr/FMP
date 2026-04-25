@@ -247,5 +247,8 @@ final downloadedCategoriesProvider =
 /// 获取指定分类文件夹中的已下载歌曲（基于本地文件扫描）
 final downloadedCategoryTracksProvider =
     FutureProvider.family<List<Track>, String>((ref, folderPath) async {
-  return DownloadScanner.scanFolderForTracks(folderPath);
+  final dtos = await Isolate.run(
+    () => scanFolderTrackDtosInIsolate(ScanFolderTracksParams(folderPath)),
+  );
+  return dtos.map((dto) => dto.toTrack()).toList();
 });

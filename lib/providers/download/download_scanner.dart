@@ -47,12 +47,73 @@ class ScanCategoriesParams {
   const ScanCategoriesParams(this.downloadPath);
 }
 
+/// 参数类（用于 Isolate.run() 扫描单个下载分类详情）
+class ScanFolderTracksParams {
+  final String folderPath;
+  const ScanFolderTracksParams(this.folderPath);
+}
+
+class DownloadedTrackDto {
+  const DownloadedTrackDto({
+    required this.sourceId,
+    required this.sourceTypeName,
+    required this.title,
+    required this.audioPath,
+    this.artist,
+    this.durationMs,
+    this.thumbnailUrl,
+    this.cid,
+    this.pageNum,
+    this.pageCount,
+    this.parentTitle,
+    required this.createdAtIso,
+  });
+
+  final String sourceId;
+  final String sourceTypeName;
+  final String title;
+  final String? artist;
+  final int? durationMs;
+  final String? thumbnailUrl;
+  final int? cid;
+  final int? pageNum;
+  final int? pageCount;
+  final String? parentTitle;
+  final String audioPath;
+  final String createdAtIso;
+
+  Track toTrack() {
+    final sourceType = SourceType.values.firstWhere(
+      (e) => e.name == sourceTypeName,
+      orElse: () => SourceType.bilibili,
+    );
+    return Track()
+      ..sourceId = sourceId
+      ..sourceType = sourceType
+      ..title = title
+      ..artist = artist
+      ..durationMs = durationMs
+      ..thumbnailUrl = thumbnailUrl
+      ..cid = cid
+      ..pageNum = pageNum
+      ..pageCount = pageCount
+      ..parentTitle = parentTitle
+      ..playlistInfo = [
+        PlaylistDownloadInfo()
+          ..playlistId = 0
+          ..downloadPath = audioPath,
+      ]
+      ..createdAt = DateTime.tryParse(createdAtIso) ?? DateTime.now();
+  }
+}
+
 /// 在单独的 isolate 中扫描已下载分类
-/// 
+///
 /// 这是一个顶级函数，可以被 Isolate.run() 调用
-Future<List<DownloadedCategory>> scanCategoriesInIsolate(ScanCategoriesParams params) async {
+Future<List<DownloadedCategory>> scanCategoriesInIsolate(
+    ScanCategoriesParams params) async {
   final downloadDir = Directory(params.downloadPath);
-  
+
   if (!await downloadDir.exists()) {
     return [];
   }
@@ -88,6 +149,12 @@ Future<List<DownloadedCategory>> scanCategoriesInIsolate(ScanCategoriesParams pa
   return results;
 }
 
+Future<List<DownloadedTrackDto>> scanFolderTrackDtosInIsolate(
+  ScanFolderTracksParams params,
+) {
+  return DownloadScanner.scanFolderForTrackDtos(params.folderPath);
+}
+
 /// 内部函数：提取显示名称（用于 isolate）
 String _extractDisplayNameInternal(String folderName) {
   final underscoreIndex = folderName.indexOf('_');
@@ -98,14 +165,14 @@ String _extractDisplayNameInternal(String folderName) {
 }
 
 /// 内部函数：查找封面（用于 isolate）
-/// 
+///
 /// 按照与歌曲列表相同的排序逻辑（parentTitle/title 字母顺序），
 /// 返回排序后第一首歌的封面，确保封面与歌曲列表第一首一致。
 Future<String?> _findFirstCoverInternal(Directory folder) async {
   try {
     // 收集所有子文件夹及其排序信息
     final subFolders = <_FolderSortInfo>[];
-    
+
     await for (final entity in folder.list()) {
       if (entity is Directory) {
         final coverFile = File(p.join(entity.path, 'cover.jpg'));
@@ -118,9 +185,9 @@ Future<String?> _findFirstCoverInternal(Directory folder) async {
               final content = await metadataFile.readAsString();
               final metadata = jsonDecode(content) as Map<String, dynamic>;
               // 使用与 scanFolderForTracks 相同的排序逻辑
-              sortKey = (metadata['parentTitle'] as String?) ?? 
-                        (metadata['title'] as String?) ?? 
-                        sortKey;
+              sortKey = (metadata['parentTitle'] as String?) ??
+                  (metadata['title'] as String?) ??
+                  sortKey;
             } catch (_) {}
           }
           subFolders.add(_FolderSortInfo(
@@ -130,12 +197,12 @@ Future<String?> _findFirstCoverInternal(Directory folder) async {
         }
       }
     }
-    
+
     if (subFolders.isEmpty) return null;
-    
+
     // 按 sortKey 排序（与歌曲列表排序逻辑一致）
     subFolders.sort((a, b) => a.sortKey.compareTo(b.sortKey));
-    
+
     return subFolders.first.coverPath;
   } catch (_) {}
   return null;
@@ -145,7 +212,7 @@ Future<String?> _findFirstCoverInternal(Directory folder) async {
 class _FolderSortInfo {
   final String coverPath;
   final String sortKey;
-  
+
   _FolderSortInfo({required this.coverPath, required this.sortKey});
 }
 
@@ -194,138 +261,149 @@ class DownloadScanner {
     return _countAudioFilesInternal(folder);
   }
 
-  /// 从 metadata.json 创建 Track 对象
-  static Track? trackFromMetadata(Map<String, dynamic> json, String audioPath) {
+  /// 从 metadata.json 创建可跨 isolate 传输的 DTO
+  static DownloadedTrackDto? trackDtoFromMetadata(
+    Map<String, dynamic> json,
+    String audioPath,
+  ) {
     try {
       final sourceTypeStr = json['sourceType'] as String?;
       if (sourceTypeStr == null) return null;
 
-      final sourceType = SourceType.values.firstWhere(
-        (e) => e.name == sourceTypeStr,
-        orElse: () => SourceType.bilibili,
+      return DownloadedTrackDto(
+        sourceId: json['sourceId'] as String? ?? '',
+        sourceTypeName: sourceTypeStr,
+        title:
+            json['title'] as String? ?? p.basenameWithoutExtension(audioPath),
+        artist: json['artist'] as String?,
+        durationMs: json['durationMs'] as int?,
+        thumbnailUrl: json['thumbnailUrl'] as String?,
+        cid: json['cid'] as int?,
+        pageNum: json['pageNum'] as int?,
+        pageCount: json['pageCount'] as int?,
+        parentTitle: json['parentTitle'] as String?,
+        audioPath: audioPath,
+        createdAtIso: json['downloadedAt'] as String? ?? '',
       );
-
-      return Track()
-        ..sourceId = json['sourceId'] as String? ?? ''
-        ..sourceType = sourceType
-        ..title = json['title'] as String? ?? p.basenameWithoutExtension(audioPath)
-        ..artist = json['artist'] as String?
-        ..durationMs = json['durationMs'] as int?
-        ..thumbnailUrl = json['thumbnailUrl'] as String?
-        ..cid = json['cid'] as int?
-        ..pageNum = json['pageNum'] as int?
-        ..pageCount = json['pageCount'] as int?
-        ..parentTitle = json['parentTitle'] as String?
-        ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = audioPath]
-        ..createdAt = DateTime.tryParse(json['downloadedAt'] as String? ?? '') ?? DateTime.now();
     } catch (_) {
       return null;
     }
   }
 
-  /// 扫描文件夹获取已下载的 Track 列表（基于本地文件）
-  static Future<List<Track>> scanFolderForTracks(String folderPath) async {
+  /// 扫描文件夹获取已下载歌曲 DTO 列表（基于本地文件）
+  static Future<List<DownloadedTrackDto>> scanFolderForTrackDtos(
+    String folderPath,
+  ) async {
     final folder = Directory(folderPath);
     if (!await folder.exists()) return [];
 
-    final tracks = <Track>[];
+    final tracks = <DownloadedTrackDto>[];
 
-    // 遍历视频文件夹（每个视频一个子文件夹）
     await for (final entity in folder.list()) {
       if (entity is Directory) {
         final folderName = p.basename(entity.path);
-
-        // 尝试从文件夹名提取 sourceId（新格式: sourceId_title）
         final sourceIdFromFolder = extractSourceId(folderName);
 
-        // 扫描该视频文件夹下的所有 .m4a 文件
         await for (final audioEntity in entity.list()) {
-          if (audioEntity is File && audioEntity.path.endsWith('.m4a')) {
-            Track? track;
-
-            // 从文件名判断是否是多P视频，并确定 metadata 文件名
-            final fileName = p.basenameWithoutExtension(audioEntity.path);
-
-            // 新格式: P01.m4a, P02.m4a
-            final newPageMatch = RegExp(r'^P(\d+)$').firstMatch(fileName);
-            // 旧格式: P01 - xxx.m4a
-            final oldPageMatch = RegExp(r'^P(\d+)\s*-\s*(.+)$').firstMatch(fileName);
-
-            // 确定要读取的 metadata 文件
-            File? metadataFile;
-            Map<String, dynamic>? metadata;
-
-            if (newPageMatch != null) {
-              // 多P新格式：优先读取 metadata_P{NN}.json，fallback 到 metadata.json
-              final pageNumStr = newPageMatch.group(1)!;
-              final pageMetadataFile = File(p.join(entity.path, 'metadata_P$pageNumStr.json'));
-              final defaultMetadataFile = File(p.join(entity.path, 'metadata.json'));
-
-              if (await pageMetadataFile.exists()) {
-                metadataFile = pageMetadataFile;
-              } else if (await defaultMetadataFile.exists()) {
-                metadataFile = defaultMetadataFile;
-              }
-            } else if (oldPageMatch != null) {
-              // 多P旧格式：读取 metadata.json（旧格式没有分P metadata）
-              metadataFile = File(p.join(entity.path, 'metadata.json'));
-            } else {
-              // 单P视频：读取 metadata.json
-              metadataFile = File(p.join(entity.path, 'metadata.json'));
-            }
-
-            // 读取 metadata
-            if (metadataFile != null && await metadataFile.exists()) {
-              try {
-                final content = await metadataFile.readAsString();
-                metadata = jsonDecode(content) as Map<String, dynamic>;
-              } catch (_) {}
-            }
-
-            if (metadata != null) {
-              if (newPageMatch != null) {
-                // 新格式多P视频：P01.m4a
-                final pageNum = int.tryParse(newPageMatch.group(1)!);
-                track = trackFromMetadata(metadata, audioEntity.path);
-                if (track != null) {
-                  track.pageNum = pageNum;
-                }
-              } else if (oldPageMatch != null) {
-                // 旧格式多P视频：P01 - xxx.m4a
-                final pageNum = int.tryParse(oldPageMatch.group(1)!);
-                track = trackFromMetadata(metadata, audioEntity.path);
-                if (track != null) {
-                  track.pageNum = pageNum;
-                  // 旧格式的 title 使用文件名中的标题
-                  track.title = oldPageMatch.group(2)!;
-                }
-              } else {
-                // 单P视频 (audio.m4a)
-                track = trackFromMetadata(metadata, audioEntity.path);
-              }
-            }
-
-            // 如果没有 metadata 或解析失败，创建基本 Track
-            track ??= Track()
-                ..sourceId = sourceIdFromFolder ?? p.basename(entity.path)
-                ..sourceType = SourceType.bilibili
-                ..title = extractDisplayName(p.basename(entity.path))
-                ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = audioEntity.path]
-                ..createdAt = DateTime.now();
-
-            tracks.add(track);
+          if (audioEntity is! File || !audioEntity.path.endsWith('.m4a')) {
+            continue;
           }
+
+          DownloadedTrackDto? track;
+          final audioPath =
+              '$folderPath/${p.basename(entity.path)}/${p.basename(audioEntity.path)}';
+          final fileName = p.basenameWithoutExtension(audioEntity.path);
+          final newPageMatch = RegExp(r'^P(\d+)$').firstMatch(fileName);
+          final oldPageMatch =
+              RegExp(r'^P(\d+)\s*-\s*(.+)$').firstMatch(fileName);
+
+          File? metadataFile;
+          Map<String, dynamic>? metadata;
+
+          if (newPageMatch != null) {
+            final pageNumStr = newPageMatch.group(1)!;
+            final pageMetadataFile =
+                File(p.join(entity.path, 'metadata_P$pageNumStr.json'));
+            final defaultMetadataFile =
+                File(p.join(entity.path, 'metadata.json'));
+
+            if (await pageMetadataFile.exists()) {
+              metadataFile = pageMetadataFile;
+            } else if (await defaultMetadataFile.exists()) {
+              metadataFile = defaultMetadataFile;
+            }
+          } else {
+            metadataFile = File(p.join(entity.path, 'metadata.json'));
+          }
+
+          if (metadataFile != null && await metadataFile.exists()) {
+            try {
+              final content = await metadataFile.readAsString();
+              metadata = jsonDecode(content) as Map<String, dynamic>;
+            } catch (_) {}
+          }
+
+          if (metadata != null) {
+            track = trackDtoFromMetadata(metadata, audioPath);
+            if (track != null && newPageMatch != null) {
+              track = DownloadedTrackDto(
+                sourceId: track.sourceId,
+                sourceTypeName: track.sourceTypeName,
+                title: track.title,
+                artist: track.artist,
+                durationMs: track.durationMs,
+                thumbnailUrl: track.thumbnailUrl,
+                cid: track.cid,
+                pageNum: int.tryParse(newPageMatch.group(1)!),
+                pageCount: track.pageCount,
+                parentTitle: track.parentTitle,
+                audioPath: track.audioPath,
+                createdAtIso: track.createdAtIso,
+              );
+            } else if (track != null && oldPageMatch != null) {
+              track = DownloadedTrackDto(
+                sourceId: track.sourceId,
+                sourceTypeName: track.sourceTypeName,
+                title: oldPageMatch.group(2)!,
+                artist: track.artist,
+                durationMs: track.durationMs,
+                thumbnailUrl: track.thumbnailUrl,
+                cid: track.cid,
+                pageNum: int.tryParse(oldPageMatch.group(1)!),
+                pageCount: track.pageCount,
+                parentTitle: track.parentTitle,
+                audioPath: track.audioPath,
+                createdAtIso: track.createdAtIso,
+              );
+            }
+          }
+
+          track ??= DownloadedTrackDto(
+            sourceId: sourceIdFromFolder ?? p.basename(entity.path),
+            sourceTypeName: SourceType.bilibili.name,
+            title: extractDisplayName(p.basename(entity.path)),
+            audioPath: audioPath,
+            createdAtIso: DateTime.now().toIso8601String(),
+          );
+
+          tracks.add(track);
         }
       }
     }
 
-    // 按 parentTitle + pageNum 排序（多P视频按分P顺序）
     tracks.sort((a, b) {
-      final groupCompare = (a.parentTitle ?? a.title).compareTo(b.parentTitle ?? b.title);
+      final groupCompare =
+          (a.parentTitle ?? a.title).compareTo(b.parentTitle ?? b.title);
       if (groupCompare != 0) return groupCompare;
       return (a.pageNum ?? 0).compareTo(b.pageNum ?? 0);
     });
 
     return tracks;
+  }
+
+  /// 扫描文件夹获取已下载的 Track 列表（基于本地文件）
+  static Future<List<Track>> scanFolderForTracks(String folderPath) async {
+    final dtos = await scanFolderForTrackDtos(folderPath);
+    return dtos.map((dto) => dto.toTrack()).toList();
   }
 }
