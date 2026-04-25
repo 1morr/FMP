@@ -281,7 +281,8 @@ class PlaylistService with Logging {
 
   /// 添加歌曲到歌单
   ///
-  /// 使用 getOrCreate 确保使用数据库中的最新数据，避免缓存导致的数据不同步问题。
+  /// 在单个事务中解析或创建 Track，并同时写入 Playlist.trackIds 和
+  /// Track.playlistInfo，避免关系事务前先写入孤立 Track。
   /// 注意：下载路径不再预计算，将在实际下载完成时由 DownloadService 设置。
   Future<void> addTrackToPlaylist(int playlistId, Track track) async {
     final playlist = await _playlistRepository.getById(playlistId);
@@ -289,52 +290,61 @@ class PlaylistService with Logging {
       throw PlaylistNotFoundException(playlistId);
     }
 
-    // 先获取数据库中最新的 track 或创建新的
-    // 这避免了使用缓存的旧 track 对象导致 playlistIds/downloadPaths 数据不同步
-    final existingTrack = await _trackRepository.getOrCreate(track);
-
     await _isar.writeTxn(() async {
       final freshPlaylist = await _isar.playlists.get(playlistId);
       if (freshPlaylist == null) {
         throw PlaylistNotFoundException(playlistId);
       }
 
-      final freshTrack = await _isar.tracks.get(existingTrack.id);
-      final trackToUpdate = freshTrack ?? existingTrack;
+      final freshTrack = await _findTrackByIdentity(track);
+      final trackToUpdate = freshTrack ?? track;
+      final metadataChanged =
+          freshTrack != null && _mergeTrackMetadataIfNeeded(freshTrack, track);
       final trackLinked = trackToUpdate.belongsToPlaylist(playlistId);
-      final playlistLinked = freshPlaylist.trackIds.contains(trackToUpdate.id);
-      if (freshTrack != null && trackLinked && playlistLinked) {
+      final playlistLinked = freshTrack != null &&
+          freshPlaylist.trackIds.contains(trackToUpdate.id);
+
+      if (freshTrack != null &&
+          trackLinked &&
+          playlistLinked &&
+          !metadataChanged) {
         logDebug(
             'Track ${trackToUpdate.title} already in playlist $playlistId, skipping');
         return;
       }
 
+      final now = DateTime.now();
       if (!trackLinked) {
         trackToUpdate.addToPlaylist(
           playlistId,
           playlistName: freshPlaylist.name,
         );
       }
+      if (freshTrack == null || !trackLinked || metadataChanged) {
+        trackToUpdate.updatedAt = now;
+        trackToUpdate.id = await _isar.tracks.put(trackToUpdate);
+      }
+
+      var playlistChanged = false;
       final wasEmpty = freshPlaylist.trackIds.isEmpty;
       if (!playlistLinked) {
         freshPlaylist.trackIds = [...freshPlaylist.trackIds, trackToUpdate.id];
+        playlistChanged = true;
       }
-      if (wasEmpty && !freshPlaylist.hasCustomCover && !playlistLinked) {
+      if (wasEmpty && !freshPlaylist.hasCustomCover && playlistChanged) {
         freshPlaylist.coverUrl = trackToUpdate.thumbnailUrl;
       }
-      final now = DateTime.now();
-      freshPlaylist.updatedAt = now;
-      if (freshTrack == null || !trackLinked) {
-        trackToUpdate.updatedAt = now;
-        await _isar.tracks.put(trackToUpdate);
+      if (playlistChanged) {
+        freshPlaylist.updatedAt = now;
+        await _isar.playlists.put(freshPlaylist);
       }
-      await _isar.playlists.put(freshPlaylist);
     });
   }
 
   /// 批量添加歌曲到歌单
   ///
-  /// 使用 getOrCreateAll 确保使用数据库中的最新数据，避免缓存导致的数据不同步问题。
+  /// 在单个事务中解析或创建 Track，并同时写入 Playlist.trackIds 和
+  /// Track.playlistInfo，避免关系事务前先写入孤立 Track。
   /// 注意：下载路径不再预计算，将在实际下载完成时由 DownloadService 设置。
   Future<void> addTracksToPlaylist(int playlistId, List<Track> tracks) async {
     final playlist = await _playlistRepository.getById(playlistId);
@@ -342,23 +352,11 @@ class PlaylistService with Logging {
       throw PlaylistNotFoundException(playlistId);
     }
 
-    // 先获取数据库中最新的 tracks 或创建新的
-    final existingTracks = await _trackRepository.getOrCreateAll(tracks);
-
-    final tracksById = <int, Track>{};
-    var duplicateInputCount = 0;
-    for (final track in existingTracks) {
-      if (tracksById.containsKey(track.id)) {
-        duplicateInputCount++;
-      } else {
-        tracksById[track.id] = track;
-      }
-    }
-    final candidateTracks = tracksById.values.toList();
-
+    final candidateTracks = _dedupeTracksByUniqueKey(tracks);
     if (candidateTracks.isEmpty) {
       return;
     }
+    final duplicateInputCount = tracks.length - candidateTracks.length;
 
     var alreadyFullyLinkedCount = 0;
     var changedCount = 0;
@@ -368,19 +366,26 @@ class PlaylistService with Logging {
         throw PlaylistNotFoundException(playlistId);
       }
 
+      final now = DateTime.now();
       final trackIds = List<int>.from(freshPlaylist.trackIds);
       final existingTrackIds = trackIds.toSet();
       final wasEmpty = trackIds.isEmpty;
       Track? firstNewPlaylistTrack;
-      final tracksToPut = <Track>[];
+      var playlistChanged = false;
 
-      for (final existingTrack in candidateTracks) {
-        final freshTrack = await _isar.tracks.get(existingTrack.id);
-        final trackToUpdate = freshTrack ?? existingTrack;
+      for (final inputTrack in candidateTracks) {
+        final freshTrack = await _findTrackByIdentity(inputTrack);
+        final trackToUpdate = freshTrack ?? inputTrack;
+        final metadataChanged = freshTrack != null &&
+            _mergeTrackMetadataIfNeeded(freshTrack, inputTrack);
         final trackLinked = trackToUpdate.belongsToPlaylist(playlistId);
-        final playlistLinked = existingTrackIds.contains(trackToUpdate.id);
+        final playlistLinked =
+            freshTrack != null && existingTrackIds.contains(trackToUpdate.id);
 
-        if (freshTrack != null && trackLinked && playlistLinked) {
+        if (freshTrack != null &&
+            trackLinked &&
+            playlistLinked &&
+            !metadataChanged) {
           alreadyFullyLinkedCount++;
           continue;
         }
@@ -391,12 +396,14 @@ class PlaylistService with Logging {
             playlistName: freshPlaylist.name,
           );
         }
+        if (freshTrack == null || !trackLinked || metadataChanged) {
+          trackToUpdate.updatedAt = now;
+          trackToUpdate.id = await _isar.tracks.put(trackToUpdate);
+        }
         if (!playlistLinked && existingTrackIds.add(trackToUpdate.id)) {
           trackIds.add(trackToUpdate.id);
           firstNewPlaylistTrack ??= trackToUpdate;
-        }
-        if (freshTrack == null || !trackLinked) {
-          tracksToPut.add(trackToUpdate);
+          playlistChanged = true;
         }
         changedCount++;
       }
@@ -405,29 +412,103 @@ class PlaylistService with Logging {
         return;
       }
 
-      freshPlaylist.trackIds = trackIds;
-      if (wasEmpty && !freshPlaylist.hasCustomCover) {
-        freshPlaylist.coverUrl = firstNewPlaylistTrack?.thumbnailUrl;
+      if (playlistChanged) {
+        freshPlaylist.trackIds = trackIds;
+        if (wasEmpty && !freshPlaylist.hasCustomCover) {
+          freshPlaylist.coverUrl = firstNewPlaylistTrack?.thumbnailUrl;
+        }
+        freshPlaylist.updatedAt = now;
+        await _isar.playlists.put(freshPlaylist);
       }
-      final now = DateTime.now();
-      freshPlaylist.updatedAt = now;
-      for (final track in tracksToPut) {
-        track.updatedAt = now;
-      }
-
-      if (tracksToPut.isNotEmpty) {
-        await _isar.tracks.putAll(tracksToPut);
-      }
-      await _isar.playlists.put(freshPlaylist);
     });
 
     if (changedCount == 0) {
       logDebug(
           'All ${tracks.length} tracks already in playlist $playlistId, skipping');
-    } else if (changedCount < existingTracks.length) {
+    } else if (changedCount < tracks.length) {
       logDebug(
-          'Added or repaired $changedCount/${existingTracks.length} tracks in playlist $playlistId ($alreadyFullyLinkedCount already linked, $duplicateInputCount duplicate inputs)');
+          'Added or repaired $changedCount/${tracks.length} tracks in playlist $playlistId ($alreadyFullyLinkedCount already linked, $duplicateInputCount duplicate inputs)');
     }
+  }
+
+  Future<Track?> _findTrackByIdentity(Track track) {
+    if (track.cid == null) {
+      return _isar.tracks
+          .where()
+          .sourceIdEqualTo(track.sourceId)
+          .filter()
+          .sourceTypeEqualTo(track.sourceType)
+          .findFirst();
+    }
+
+    return _isar.tracks
+        .where()
+        .sourceIdEqualTo(track.sourceId)
+        .filter()
+        .sourceTypeEqualTo(track.sourceType)
+        .and()
+        .cidEqualTo(track.cid)
+        .findFirst();
+  }
+
+  List<Track> _dedupeTracksByUniqueKey(List<Track> tracks) {
+    final keyToIndex = <String, int>{};
+    final uniqueTracks = <Track>[];
+
+    for (final track in tracks) {
+      final key = track.uniqueKey;
+      final existingIndex = keyToIndex[key];
+      if (existingIndex == null) {
+        keyToIndex[key] = uniqueTracks.length;
+        uniqueTracks.add(track);
+      } else if (_hasMoreCompleteTrackData(
+          track, uniqueTracks[existingIndex])) {
+        uniqueTracks[existingIndex] = track;
+      }
+    }
+
+    return uniqueTracks;
+  }
+
+  bool _hasMoreCompleteTrackData(Track a, Track b) {
+    return _trackCompletenessScore(a) > _trackCompletenessScore(b);
+  }
+
+  int _trackCompletenessScore(Track track) {
+    var score = 0;
+    if (track.audioUrl != null && track.audioUrl!.isNotEmpty) score += 10;
+    if (track.thumbnailUrl != null) score += 5;
+    if (track.durationMs != null && track.durationMs! > 0) score += 3;
+    if (track.artist != null && track.artist!.isNotEmpty) score += 2;
+    return score;
+  }
+
+  bool _mergeTrackMetadataIfNeeded(Track target, Track incoming) {
+    var changed = false;
+
+    if (incoming.audioUrl != null && incoming.audioUrl!.isNotEmpty) {
+      if (target.audioUrl == null ||
+          target.audioUrl!.isEmpty ||
+          !target.hasValidAudioUrl) {
+        target.audioUrl = incoming.audioUrl;
+        target.audioUrlExpiry = incoming.audioUrlExpiry;
+        changed = true;
+      }
+    }
+    if (target.thumbnailUrl == null && incoming.thumbnailUrl != null) {
+      target.thumbnailUrl = incoming.thumbnailUrl;
+      changed = true;
+    }
+    if (target.durationMs == null && incoming.durationMs != null) {
+      target.durationMs = incoming.durationMs;
+      changed = true;
+    }
+    if (target.artist == null && incoming.artist != null) {
+      target.artist = incoming.artist;
+      changed = true;
+    }
+
+    return changed;
   }
 
   /// 从歌单移除歌曲

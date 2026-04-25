@@ -142,6 +142,54 @@ void main() {
       );
     });
 
+    test('addTrackToPlaylist repairs missing track playlistInfo side',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+
+      final playlist = await _createPlaylist(harness, 'Single Reverse Repair');
+      final savedTrack = await harness.tracks.save(
+        _newTrack('yt-single-reverse-repair', 'Single Reverse Repair Track'),
+      );
+      playlist.trackIds = [savedTrack.id];
+      await harness.playlists.save(playlist);
+
+      await harness.service.addTrackToPlaylist(playlist.id, savedTrack);
+
+      final savedPlaylist = await harness.playlists.getById(playlist.id);
+      final reloadedTrack = await harness.tracks.getById(savedTrack.id);
+      expect(savedPlaylist!.trackIds, [savedTrack.id]);
+      expect(
+        reloadedTrack!.playlistInfo
+            .where((info) => info.playlistId == playlist.id),
+        hasLength(1),
+      );
+    });
+
+    test('addTracksToPlaylist repairs missing track playlistInfo side',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+
+      final playlist = await _createPlaylist(harness, 'Batch Reverse Repair');
+      final savedTrack = await harness.tracks.save(
+        _newTrack('yt-batch-reverse-repair', 'Batch Reverse Repair Track'),
+      );
+      playlist.trackIds = [savedTrack.id];
+      await harness.playlists.save(playlist);
+
+      await harness.service.addTracksToPlaylist(playlist.id, [savedTrack]);
+
+      final savedPlaylist = await harness.playlists.getById(playlist.id);
+      final reloadedTrack = await harness.tracks.getById(savedTrack.id);
+      expect(savedPlaylist!.trackIds, [savedTrack.id]);
+      expect(
+        reloadedTrack!.playlistInfo
+            .where((info) => info.playlistId == playlist.id),
+        hasLength(1),
+      );
+    });
+
     test('duplicatePlaylist adds reverse playlistInfo to copied tracks',
         () async {
       final harness = await _createHarness();
