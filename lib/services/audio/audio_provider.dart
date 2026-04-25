@@ -211,6 +211,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   final SettingsRepository? _settingsRepository;
   final QueuePersistenceManager? _queuePersistenceManager;
   final MixTracksFetcher? _mixTracksFetcher;
+  final YouTubeSource? _youtubeSource;
 
   final List<StreamSubscription> _subscriptions = [];
   bool _isInitialized = false;
@@ -282,6 +283,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     SettingsRepository? settingsRepository,
     QueuePersistenceManager? queuePersistenceManager,
     MixTracksFetcher? mixTracksFetcher,
+    YouTubeSource? youtubeSource,
   })  : _audioService = audioService,
         _queueManager = queueManager,
         _audioStreamManager = audioStreamManager,
@@ -293,6 +295,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         _settingsRepository = settingsRepository,
         _queuePersistenceManager = queuePersistenceManager,
         _mixTracksFetcher = mixTracksFetcher,
+        _youtubeSource = youtubeSource,
         super(const PlayerState()) {
     _playbackRequestExecutor = PlaybackRequestExecutor(
       audioService: _audioService,
@@ -878,33 +881,26 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       throw StateError(t.library.main.mixInfoIncomplete);
     }
 
-    YouTubeSource? youtubeSource;
-    try {
-      final result = await (_mixTracksFetcher?.call(
-            playlistId: playlistId,
-            currentVideoId: seedVideoId,
-          ) ??
-          (() {
-            youtubeSource = YouTubeSource();
-            return youtubeSource!.fetchMixTracks(
-              playlistId: playlistId,
-              currentVideoId: seedVideoId,
-            );
-          })());
-
-      if (result.tracks.isEmpty) {
-        throw StateError(t.library.main.cannotLoadMix);
-      }
-
-      await playMixPlaylist(
-        playlistId: playlistId,
-        seedVideoId: seedVideoId,
-        title: playlist.name,
-        tracks: result.tracks,
-      );
-    } finally {
-      youtubeSource?.dispose();
+    final fetcher = _mixTracksFetcher ?? _youtubeSource?.fetchMixTracks;
+    if (fetcher == null) {
+      throw StateError(t.library.main.cannotLoadMix);
     }
+
+    final result = await fetcher(
+      playlistId: playlistId,
+      currentVideoId: seedVideoId,
+    );
+
+    if (result.tracks.isEmpty) {
+      throw StateError(t.library.main.cannotLoadMix);
+    }
+
+    await playMixPlaylist(
+      playlistId: playlistId,
+      seedVideoId: seedVideoId,
+      title: playlist.name,
+      tracks: result.tracks,
+    );
   }
 
   /// 播放 Mix 播放列表
@@ -1591,11 +1587,19 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     final collectedTracks = <Track>[];
     final collectedVideoIds = <String>{};
     int attempt = 0;
-    YouTubeSource? youtubeSource;
+    final fetcher = _mixTracksFetcher ?? _youtubeSource?.fetchMixTracks;
+    if (fetcher == null) {
+      logWarning('Mix load failed: YouTube source unavailable');
+      _toastService.showInfo(t.audio.mixLoadMoreError);
+      _mixPlaylistHandler.finishLoading(mixState);
+      if (_mixPlaylistHandler.isCurrent(mixState)) {
+        state = state.copyWith(isLoadingMoreMix: false);
+        _publishCurrentQueueState();
+      }
+      return;
+    }
 
     try {
-      youtubeSource = YouTubeSource();
-
       while (collectedTracks.length < minNewTracksRequired &&
           attempt < maxAttempts) {
         if (!_mixPlaylistHandler.isCurrent(mixState)) {
@@ -1626,14 +1630,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         }
 
         try {
-          final result = await (_mixTracksFetcher?.call(
-                playlistId: mixState.playlistId,
-                currentVideoId: seedVideoId,
-              ) ??
-              youtubeSource.fetchMixTracks(
-                playlistId: mixState.playlistId,
-                currentVideoId: seedVideoId,
-              ));
+          final result = await fetcher(
+            playlistId: mixState.playlistId,
+            currentVideoId: seedVideoId,
+          );
 
           if (!_mixPlaylistHandler.isCurrent(mixState)) {
             logDebug('Mix mode exited after load-more fetch, aborting');
@@ -1690,7 +1690,6 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       logError('Failed to load more Mix tracks', e, stack);
       _toastService.showInfo(t.audio.mixLoadMoreError);
     } finally {
-      youtubeSource?.dispose();
       _mixPlaylistHandler.finishLoading(mixState);
       if (_mixPlaylistHandler.isCurrent(mixState)) {
         state = state.copyWith(isLoadingMoreMix: false);
@@ -2724,6 +2723,7 @@ final audioControllerProvider =
     lyricsAutoMatchService: ref.watch(lyricsAutoMatchServiceProvider),
     settingsRepository: ref.watch(settingsRepositoryProvider),
     queuePersistenceManager: ref.watch(queuePersistenceManagerProvider),
+    youtubeSource: ref.watch(youtubeSourceProvider),
   );
 
   // 设置网络恢复监听（用于断网重连自动恢复播放）

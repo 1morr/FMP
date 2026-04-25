@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/track.dart';
 import '../../data/sources/bilibili_source.dart';
+import '../../data/sources/source_provider.dart';
 import '../../data/sources/youtube_source.dart';
 import '../network/connectivity_service.dart';
 
@@ -55,10 +56,10 @@ class RankingCacheService {
   bool _isDisposed = false;
 
   RankingCacheService({
-    BilibiliSource? bilibiliSource,
-    YouTubeSource? youtubeSource,
-  })  : _bilibiliSource = bilibiliSource ?? BilibiliSource(),
-        _youtubeSource = youtubeSource ?? YouTubeSource();
+    required BilibiliSource bilibiliSource,
+    required YouTubeSource youtubeSource,
+  })  : _bilibiliSource = bilibiliSource,
+        _youtubeSource = youtubeSource;
 
   /// 緩存的 Bilibili 音樂排行
   List<Track> get bilibiliTracks => _bilibiliTracks;
@@ -106,7 +107,8 @@ class RankingCacheService {
     if (_isDisposed) return;
 
     _networkRecoveredSubscription?.cancel();
-    _networkRecoveredSubscription = connectivityNotifier.onNetworkRecovered.listen((_) {
+    _networkRecoveredSubscription =
+        connectivityNotifier.onNetworkRecovered.listen((_) {
       if (_isDisposed) return;
       debugPrint('[RankingCache] 網絡恢復，重新獲取排行榜緩存');
       _refreshAll();
@@ -131,7 +133,8 @@ class RankingCacheService {
     if (_isInitialLoading) {
       _isInitialLoading = false;
       _notifyStateChange();
-      debugPrint('[RankingCache] 初始加載完成（Bilibili: $_bilibiliLoaded, YouTube: $_youtubeLoaded）');
+      debugPrint(
+          '[RankingCache] 初始加載完成（Bilibili: $_bilibiliLoaded, YouTube: $_youtubeLoaded）');
     }
   }
 
@@ -143,7 +146,8 @@ class RankingCacheService {
       _bilibiliTracks = tracks; // 緩存完整數據
       _bilibiliLoaded = true;
       _notifyStateChange();
-      debugPrint('[RankingCache] Bilibili 音樂排行榜緩存已刷新: ${_bilibiliTracks.length} 首');
+      debugPrint(
+          '[RankingCache] Bilibili 音樂排行榜緩存已刷新: ${_bilibiliTracks.length} 首');
     } catch (e) {
       debugPrint('[RankingCache] Bilibili 刷新失敗: $e');
       // 失敗時保留舊緩存
@@ -190,7 +194,16 @@ class RankingCacheService {
 
 /// RankingCacheService Provider（負責設置網絡監聽）
 final rankingCacheServiceProvider = Provider<RankingCacheService>((ref) {
-  final service = RankingCacheService.instance;
+  final existingService = RankingCacheService._instance;
+  final service = existingService ??
+      RankingCacheService(
+        bilibiliSource: ref.watch(bilibiliSourceProvider),
+        youtubeSource: ref.watch(youtubeSourceProvider),
+      );
+  if (existingService == null) {
+    RankingCacheService._instance = service;
+    Future.microtask(() => service.initialize());
+  }
 
   // 設置網絡恢復監聽
   final connectivityNotifier = ref.read(connectivityProvider.notifier);

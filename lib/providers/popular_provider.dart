@@ -4,6 +4,7 @@ import 'package:fmp/i18n/strings.g.dart';
 import '../core/constants/app_constants.dart';
 import '../data/models/track.dart';
 import '../data/sources/bilibili_source.dart';
+import '../data/sources/source_provider.dart';
 import '../data/sources/youtube_source.dart';
 import '../services/cache/ranking_cache_service.dart';
 
@@ -26,16 +27,26 @@ enum BilibiliCategory {
 
   String get displayName {
     switch (this) {
-      case BilibiliCategory.all: return t.popularCategory.all;
-      case BilibiliCategory.music: return t.popularCategory.music;
-      case BilibiliCategory.dance: return t.popularCategory.dance;
-      case BilibiliCategory.game: return t.popularCategory.game;
-      case BilibiliCategory.anime: return t.popularCategory.anime;
-      case BilibiliCategory.entertainment: return t.popularCategory.entertainment;
-      case BilibiliCategory.tech: return t.popularCategory.tech;
-      case BilibiliCategory.life: return t.popularCategory.life;
-      case BilibiliCategory.movie: return t.popularCategory.movie;
-      case BilibiliCategory.kichiku: return t.popularCategory.kichiku;
+      case BilibiliCategory.all:
+        return t.popularCategory.all;
+      case BilibiliCategory.music:
+        return t.popularCategory.music;
+      case BilibiliCategory.dance:
+        return t.popularCategory.dance;
+      case BilibiliCategory.game:
+        return t.popularCategory.game;
+      case BilibiliCategory.anime:
+        return t.popularCategory.anime;
+      case BilibiliCategory.entertainment:
+        return t.popularCategory.entertainment;
+      case BilibiliCategory.tech:
+        return t.popularCategory.tech;
+      case BilibiliCategory.life:
+        return t.popularCategory.life;
+      case BilibiliCategory.movie:
+        return t.popularCategory.movie;
+      case BilibiliCategory.kichiku:
+        return t.popularCategory.kichiku;
     }
   }
 }
@@ -76,7 +87,7 @@ class RankingState {
 /// 排行榜 Provider
 final rankingVideosProvider =
     StateNotifierProvider<RankingVideosNotifier, RankingState>((ref) {
-  return RankingVideosNotifier(BilibiliSource());
+  return RankingVideosNotifier(ref.watch(bilibiliSourceProvider));
 });
 
 class RankingVideosNotifier extends StateNotifier<RankingState> {
@@ -92,7 +103,8 @@ class RankingVideosNotifier extends StateNotifier<RankingState> {
       return;
     }
 
-    state = state.copyWith(isLoading: true, selectedCategory: category, error: null);
+    state = state.copyWith(
+        isLoading: true, selectedCategory: category, error: null);
 
     try {
       final tracks = await _source.getRankingVideos(rid: category.rid);
@@ -119,17 +131,22 @@ class RankingVideosNotifier extends StateNotifier<RankingState> {
 }
 
 /// 首頁 Bilibili 音樂排行預覽 Provider（使用緩存服務）
-final homeBilibiliMusicRankingProvider = StreamProvider<List<Track>>((ref) async* {
+final homeBilibiliMusicRankingProvider =
+    StreamProvider<List<Track>>((ref) async* {
   final service = ref.watch(rankingCacheServiceProvider);
 
   // 發送當前緩存的前 10 首（如果有）
   if (service.bilibiliTracks.isNotEmpty) {
-    yield service.bilibiliTracks.take(AppConstants.rankingPreviewCount).toList();
+    yield service.bilibiliTracks
+        .take(AppConstants.rankingPreviewCount)
+        .toList();
   }
 
   // 監聽後續更新
   await for (final _ in service.stateChanges) {
-    yield service.bilibiliTracks.take(AppConstants.rankingPreviewCount).toList();
+    yield service.bilibiliTracks
+        .take(AppConstants.rankingPreviewCount)
+        .toList();
   }
 });
 
@@ -180,19 +197,13 @@ class YouTubeTrendingState {
 /// YouTube 熱門 Provider
 final youtubeTrendingProvider =
     StateNotifierProvider<YouTubeTrendingNotifier, YouTubeTrendingState>((ref) {
-  return YouTubeTrendingNotifier(YouTubeSource());
+  return YouTubeTrendingNotifier(ref.watch(youtubeSourceProvider));
 });
 
 class YouTubeTrendingNotifier extends StateNotifier<YouTubeTrendingState> {
   final YouTubeSource _source;
 
   YouTubeTrendingNotifier(this._source) : super(const YouTubeTrendingState());
-
-  @override
-  void dispose() {
-    _source.dispose();
-    super.dispose();
-  }
 
   /// 加載指定分類的熱門視頻
   Future<void> loadCategory(YouTubeCategory category) async {
@@ -202,7 +213,8 @@ class YouTubeTrendingNotifier extends StateNotifier<YouTubeTrendingState> {
       return;
     }
 
-    state = state.copyWith(isLoading: true, selectedCategory: category, error: null);
+    state = state.copyWith(
+        isLoading: true, selectedCategory: category, error: null);
 
     try {
       final tracks = await _source.getTrendingVideos(category: category.id);
@@ -229,7 +241,8 @@ class YouTubeTrendingNotifier extends StateNotifier<YouTubeTrendingState> {
 }
 
 /// 首頁 YouTube 音樂排行預覽 Provider（使用緩存服務）
-final homeYouTubeMusicRankingProvider = StreamProvider<List<Track>>((ref) async* {
+final homeYouTubeMusicRankingProvider =
+    StreamProvider<List<Track>>((ref) async* {
   final service = ref.watch(rankingCacheServiceProvider);
 
   // 發送當前緩存的前 10 首（如果有）

@@ -171,7 +171,8 @@ class ImportService with Logging implements ImportServiceFacade {
   }) async {
     _isCancelled = false;
     _cancelledPlaylistId = null;
-    _updateProgress(status: ImportStatus.parsing, currentItem: t.importSource.parsingUrl);
+    _updateProgress(
+        status: ImportStatus.parsing, currentItem: t.importSource.parsingUrl);
 
     try {
       // 识别音源类型
@@ -208,7 +209,8 @@ class ImportService with Logging implements ImportServiceFacade {
               status: ImportStatus.importing,
               current: current,
               total: total,
-              currentItem: t.importSource.gettingPageInfo(current: current.toString(), total: total.toString()),
+              currentItem: t.importSource.gettingPageInfo(
+                  current: current.toString(), total: total.toString()),
             );
           },
         );
@@ -225,8 +227,7 @@ class ImportService with Logging implements ImportServiceFacade {
 
       // 创建歌单
       final playlistName = customName ?? result.title;
-      final existingPlaylist =
-          await _playlistRepository.getBySourceUrl(url);
+      final existingPlaylist = await _playlistRepository.getBySourceUrl(url);
 
       Playlist playlist;
       if (existingPlaylist != null) {
@@ -245,7 +246,7 @@ class ImportService with Logging implements ImportServiceFacade {
           ..ownerName = result.ownerName
           ..ownerUserId = result.ownerUserId
           ..useAuthForRefresh = useAuth
-          ..refreshIntervalHours = refreshIntervalHours  // 默认为 null（不开启自动刷新）
+          ..refreshIntervalHours = refreshIntervalHours // 默认为 null（不开启自动刷新）
           ..notifyOnUpdate = notifyOnUpdate
           ..createdAt = DateTime.now();
         // 先保存以获取 ID（用于计算下载路径）
@@ -290,7 +291,7 @@ class ImportService with Logging implements ImportServiceFacade {
               // 只添加歌单关联，不预计算下载路径（路径在下载完成时设置）
               existing.addToPlaylist(playlist.id, playlistName: playlist.name);
               await _trackRepository.save(existing);
-              
+
               // 创建可变列表副本，避免 fixed-length list 错误
               final newTrackIds = List<int>.from(playlist.trackIds);
               newTrackIds.add(existing.id);
@@ -302,7 +303,7 @@ class ImportService with Logging implements ImportServiceFacade {
           } else {
             // 只添加歌单关联，不预计算下载路径（路径在下载完成时设置）
             track.addToPlaylist(playlist.id, playlistName: playlist.name);
-            
+
             // 保存新歌曲
             final savedTrack = await _trackRepository.save(track);
             // 创建可变列表副本，避免 fixed-length list 错误
@@ -338,7 +339,7 @@ class ImportService with Logging implements ImportServiceFacade {
   }
 
   /// 導入 YouTube Mix 播放列表
-  /// 
+  ///
   /// Mix 播放列表是動態生成的，只保存元數據（不保存 tracks）
   /// tracks 會在進入歌單頁時從 InnerTube API 實時獲取
   Future<ImportResult> _importMixPlaylist({
@@ -347,14 +348,20 @@ class ImportService with Logging implements ImportServiceFacade {
     int? refreshIntervalHours,
     bool notifyOnUpdate = true,
   }) async {
-    _updateProgress(status: ImportStatus.parsing, currentItem: t.importSource.parsingMixPlaylist);
+    _updateProgress(
+        status: ImportStatus.parsing,
+        currentItem: t.importSource.parsingMixPlaylist);
 
-    final youtubeSource = YouTubeSource();
+    final youtubeSource =
+        _sourceManager.getSource(SourceType.youtube) as YouTubeSource?;
+    if (youtubeSource == null) {
+      throw ImportException(t.importSource.unrecognizedSource);
+    }
+
     try {
-      
       // 獲取 Mix 播放列表基本信息
       final mixInfo = await youtubeSource.getMixPlaylistInfo(url);
-      
+
       _updateProgress(
         status: ImportStatus.importing,
         currentItem: t.importSource.creatingPlaylist,
@@ -387,7 +394,7 @@ class ImportService with Logging implements ImportServiceFacade {
           ..isMix = true
           ..mixPlaylistId = mixInfo.playlistId
           ..mixSeedVideoId = mixInfo.seedVideoId
-          ..refreshIntervalHours = null  // Mix 不需要定時刷新
+          ..refreshIntervalHours = null // Mix 不需要定時刷新
           ..notifyOnUpdate = notifyOnUpdate
           ..createdAt = DateTime.now();
       }
@@ -397,19 +404,18 @@ class ImportService with Logging implements ImportServiceFacade {
 
       _updateProgress(status: ImportStatus.completed);
 
-      logInfo('Mix playlist imported: ${playlist.name} (playlistId: ${mixInfo.playlistId})');
+      logInfo(
+          'Mix playlist imported: ${playlist.name} (playlistId: ${mixInfo.playlistId})');
 
       return ImportResult(
         playlist: playlist,
-        addedCount: 0,  // Mix 歌單不保存 tracks
+        addedCount: 0, // Mix 歌單不保存 tracks
         skippedCount: 0,
         errors: [],
       );
     } catch (e) {
       _updateProgress(status: ImportStatus.failed, error: e.toString());
       rethrow;
-    } finally {
-      youtubeSource.dispose();
     }
   }
 
@@ -435,7 +441,9 @@ class ImportService with Logging implements ImportServiceFacade {
       );
     }
 
-    _updateProgress(status: ImportStatus.parsing, currentItem: t.importSource.refreshingImport);
+    _updateProgress(
+        status: ImportStatus.parsing,
+        currentItem: t.importSource.refreshingImport);
 
     try {
       final source = _sourceManager.detectSource(playlist.sourceUrl!);
@@ -447,7 +455,8 @@ class ImportService with Logging implements ImportServiceFacade {
       if (playlist.useAuthForRefresh) {
         authHeaders = await _getAuthHeaders(source.sourceType);
       }
-      final result = await source.parsePlaylist(playlist.sourceUrl!, authHeaders: authHeaders);
+      final result = await source.parsePlaylist(playlist.sourceUrl!,
+          authHeaders: authHeaders);
 
       // 更新所有者信息（刷新時可能變更）
       playlist.ownerName = result.ownerName;
@@ -464,7 +473,8 @@ class ImportService with Logging implements ImportServiceFacade {
               status: ImportStatus.importing,
               current: current,
               total: total,
-              currentItem: t.importSource.gettingPageInfo(current: current.toString(), total: total.toString()),
+              currentItem: t.importSource.gettingPageInfo(
+                  current: current.toString(), total: total.toString()),
             );
           },
         );
@@ -512,7 +522,8 @@ class ImportService with Logging implements ImportServiceFacade {
             } else {
               // 已在歌单中，确保有歌单关联
               if (!existing.belongsToPlaylist(playlist.id)) {
-                existing.addToPlaylist(playlist.id, playlistName: playlist.name);
+                existing.addToPlaylist(playlist.id,
+                    playlistName: playlist.name);
                 await _trackRepository.save(existing);
               }
               skippedCount++;
@@ -520,7 +531,7 @@ class ImportService with Logging implements ImportServiceFacade {
           } else {
             // 只添加歌单关联，不预计算下载路径（路径在下载完成时设置）
             track.addToPlaylist(playlist.id, playlistName: playlist.name);
-            
+
             final savedTrack = await _trackRepository.save(track);
             newTrackIds.add(savedTrack.id);
             addedCount++;
@@ -537,7 +548,8 @@ class ImportService with Logging implements ImportServiceFacade {
 
       // 清理被移除的 tracks 的 playlistIds 和 downloadPaths
       if (removedTrackIds.isNotEmpty) {
-        final removedTracks = await _trackRepository.getByIds(removedTrackIds.toList());
+        final removedTracks =
+            await _trackRepository.getByIds(removedTrackIds.toList());
         final tracksToDelete = <int>[];
         final tracksToUpdate = <Track>[];
 
@@ -553,20 +565,22 @@ class ImportService with Logging implements ImportServiceFacade {
         // 批量删除孤儿 tracks
         if (tracksToDelete.isNotEmpty) {
           await _isar.writeTxn(() => _isar.tracks.deleteAll(tracksToDelete));
-          logDebug('Deleted ${tracksToDelete.length} orphan tracks after playlist refresh');
+          logDebug(
+              'Deleted ${tracksToDelete.length} orphan tracks after playlist refresh');
         }
 
         // 批量更新其他 tracks
         if (tracksToUpdate.isNotEmpty) {
           await _trackRepository.saveAll(tracksToUpdate);
-          logDebug('Updated ${tracksToUpdate.length} tracks after playlist refresh');
+          logDebug(
+              'Updated ${tracksToUpdate.length} tracks after playlist refresh');
         }
       }
 
       // 更新歌单
       playlist.trackIds = newTrackIds;
       playlist.lastRefreshed = DateTime.now();
-      
+
       // 更新封面（平台封面优先，回退到第一首歌封面）
       await _updatePlaylistCover(playlist, result.coverUrl, newTrackIds);
       await _playlistRepository.save(playlist);
