@@ -346,7 +346,11 @@ class PlaylistService with Logging {
     }
 
     final wasEmpty = playlist.trackIds.isEmpty;
-    final trackIds = tracksToAdd.map((track) => track.id).toList();
+    final existingTrackIds = playlist.trackIds.toSet();
+    final trackIds = tracksToAdd
+        .map((track) => track.id)
+        .where((trackId) => !existingTrackIds.contains(trackId))
+        .toList();
     playlist.trackIds = [...playlist.trackIds, ...trackIds];
     if (wasEmpty && !playlist.hasCustomCover && tracksToAdd.isNotEmpty) {
       playlist.coverUrl = tracksToAdd.first.thumbnailUrl;
