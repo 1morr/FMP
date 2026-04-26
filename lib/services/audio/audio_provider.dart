@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:path/path.dart' as p;
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // AudioDevice replaced by FmpAudioDevice from audio_types.dart
@@ -20,6 +21,9 @@ import '../../providers/database_provider.dart';
 import '../../providers/repository_providers.dart';
 import '../../providers/lyrics_provider.dart';
 import '../../providers/account_provider.dart';
+import '../../providers/download/download_providers.dart';
+import '../../providers/download/file_exists_cache.dart';
+import '../../providers/playlist_provider.dart';
 import '../lyrics/lyrics_auto_match_service.dart';
 import '../../core/services/toast_service.dart';
 import '../../main.dart' show audioHandler, windowsSmtcHandler;
@@ -2675,7 +2679,7 @@ final queuePersistenceManagerProvider =
 final audioStreamManagerProvider = Provider<AudioStreamManager>((ref) {
   final db = ref.watch(databaseProvider).requireValue;
 
-  return AudioStreamManager(
+  final manager = AudioStreamManager(
     trackRepository: TrackRepository(db),
     settingsRepository: SettingsRepository(db),
     sourceManager: ref.watch(sourceManagerProvider),
@@ -2683,6 +2687,8 @@ final audioStreamManagerProvider = Provider<AudioStreamManager>((ref) {
     youtubeAccountService: ref.read(youtubeAccountServiceProvider),
     neteaseAccountService: ref.read(neteaseAccountServiceProvider),
   );
+  ref.onDispose(manager.dispose);
+  return manager;
 });
 
 /// QueueManager Provider
@@ -2739,6 +2745,35 @@ final audioControllerProvider =
   controller.onQueueStateChanged = (queueState) {
     ref.read(queueStateProvider.notifier).state = queueState;
   };
+
+  final downloadPathSubscription =
+      ref.watch(audioStreamManagerProvider).downloadPathsChangedStream.listen(
+    (event) {
+      final categories = <String>{};
+      for (final path in event.removedPaths) {
+        ref.read(fileExistsCacheProvider.notifier).remove(path);
+        categories.add(p.dirname(p.dirname(path)));
+      }
+      if (categories.isNotEmpty) {
+        ref.invalidate(downloadedCategoriesProvider);
+      }
+      for (final categoryPath in categories) {
+        ref.invalidate(downloadedCategoryTracksProvider(categoryPath));
+      }
+
+      final playlistIds = <int>{};
+      for (final info in event.track.playlistInfo) {
+        if (info.playlistId > 0) {
+          playlistIds.add(info.playlistId);
+        }
+      }
+      for (final playlistId in playlistIds) {
+        ref.invalidate(playlistDetailProvider(playlistId));
+        ref.invalidate(playlistCoverProvider(playlistId));
+      }
+    },
+  );
+  ref.onDispose(downloadPathSubscription.cancel);
 
   // 启动初始化（异步，但不阻塞）
   // _ensureInitialized 会在每个操作前确保初始化完成

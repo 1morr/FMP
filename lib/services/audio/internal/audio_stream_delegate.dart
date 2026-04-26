@@ -11,21 +11,36 @@ typedef AuthHeadersLoader = Future<Map<String, String>?> Function(
   SourceType sourceType,
 );
 
+typedef DownloadPathsChanged = void Function(DownloadPathsChangedEvent event);
+
+class DownloadPathsChangedEvent {
+  const DownloadPathsChangedEvent({
+    required this.track,
+    required this.removedPaths,
+  });
+
+  final Track track;
+  final List<String> removedPaths;
+}
+
 class AudioStreamDelegate {
   AudioStreamDelegate({
     required TrackRepository trackRepository,
     required SettingsRepository settingsRepository,
     required SourceManager sourceManager,
     required AuthHeadersLoader getAuthHeaders,
+    DownloadPathsChanged? onDownloadPathsChanged,
   })  : _trackRepository = trackRepository,
         _settingsRepository = settingsRepository,
         _sourceManager = sourceManager,
-        _getAuthHeaders = getAuthHeaders;
+        _getAuthHeaders = getAuthHeaders,
+        _onDownloadPathsChanged = onDownloadPathsChanged;
 
   final TrackRepository _trackRepository;
   final SettingsRepository _settingsRepository;
   final SourceManager _sourceManager;
   final AuthHeadersLoader _getAuthHeaders;
+  final DownloadPathsChanged? _onDownloadPathsChanged;
 
   Future<(Track, String?, AudioStreamResult?)> ensureAudioStream(
     Track track, {
@@ -34,17 +49,13 @@ class AudioStreamDelegate {
   }) async {
     final localFileState = _inspectLocalFiles(track);
 
-    if (localFileState.localPath != null) {
-      if (localFileState.invalidPaths.isNotEmpty && persist) {
-        _clearInvalidPaths(track, localFileState.invalidPaths);
-        await _trackRepository.save(track);
-      }
-      return (track, localFileState.localPath, null);
+    if (localFileState.invalidPaths.isNotEmpty) {
+      track =
+          await _clearInvalidDownloadPaths(track, localFileState.invalidPaths);
     }
 
-    if (localFileState.invalidPaths.isNotEmpty && persist) {
-      track.clearAllDownloadPaths();
-      await _trackRepository.save(track);
+    if (localFileState.localPath != null) {
+      return (track, localFileState.localPath, null);
     }
 
     final source = _sourceManager.getSource(track.sourceType);
@@ -118,24 +129,93 @@ class AudioStreamDelegate {
 
     for (final path in track.allDownloadPaths) {
       if (File(path).existsSync()) {
-        localPath = path;
-        break;
+        localPath ??= path;
+      } else {
+        invalidPaths.add(path);
       }
-      invalidPaths.add(path);
     }
 
     return _LocalFileState(localPath: localPath, invalidPaths: invalidPaths);
   }
 
-  void _clearInvalidPaths(Track track, List<String> invalidPaths) {
-    track.playlistInfo = track.playlistInfo
-        .map((info) => PlaylistDownloadInfo()
-          ..playlistId = info.playlistId
-          ..playlistName = info.playlistName
-          ..downloadPath = invalidPaths.contains(info.downloadPath)
-              ? ''
-              : info.downloadPath)
+  Future<Track> _clearInvalidDownloadPaths(
+    Track requestTrack,
+    List<String> invalidPaths,
+  ) async {
+    final persistedTrack = await _findPersistedTrack(requestTrack);
+    final targetTrack = persistedTrack ?? requestTrack;
+    final removedPaths = _clearInvalidPaths(targetTrack, invalidPaths);
+    if (removedPaths.isEmpty) return targetTrack;
+
+    if (persistedTrack != null) {
+      await _trackRepository.save(persistedTrack);
+      _syncPlaylistInfo(requestTrack, persistedTrack);
+      _onDownloadPathsChanged?.call(
+        DownloadPathsChangedEvent(
+          track: persistedTrack,
+          removedPaths: removedPaths,
+        ),
+      );
+      return persistedTrack;
+    }
+
+    _onDownloadPathsChanged?.call(
+      DownloadPathsChangedEvent(
+        track: requestTrack,
+        removedPaths: removedPaths,
+      ),
+    );
+    return requestTrack;
+  }
+
+  Future<Track?> _findPersistedTrack(Track track) async {
+    if (track.id > 0) {
+      final byId = await _trackRepository.getById(track.id);
+      if (byId != null) return byId;
+    }
+
+    if (track.cid != null) {
+      return _trackRepository.getBySourceIdAndCid(
+        track.sourceId,
+        track.sourceType,
+        cid: track.cid,
+      );
+    }
+
+    final candidates = await _trackRepository.getBySourceIds([track.sourceId]);
+    final sameSource = candidates
+        .where((candidate) => candidate.sourceType == track.sourceType)
         .toList();
+    if (sameSource.length == 1) return sameSource.single;
+
+    if (track.pageNum != null) {
+      final pageMatches = sameSource
+          .where((candidate) => candidate.pageNum == track.pageNum)
+          .toList();
+      if (pageMatches.length == 1) return pageMatches.single;
+    }
+
+    return null;
+  }
+
+  List<String> _clearInvalidPaths(Track track, List<String> invalidPaths) {
+    final invalidPathSet = invalidPaths.toSet();
+    final removedPaths = <String>[];
+    track.playlistInfo = track.playlistInfo.map((info) {
+      final updatedInfo = info.copy();
+      if (invalidPathSet.contains(info.downloadPath)) {
+        removedPaths.add(info.downloadPath);
+        updatedInfo.downloadPath = '';
+      }
+      return updatedInfo;
+    }).toList();
+    return removedPaths;
+  }
+
+  void _syncPlaylistInfo(Track requestTrack, Track persistedTrack) {
+    requestTrack.id = persistedTrack.id;
+    requestTrack.playlistInfo =
+        persistedTrack.playlistInfo.map((info) => info.copy()).toList();
   }
 }
 
