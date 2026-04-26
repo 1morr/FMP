@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../core/extensions/track_extensions.dart';
 import '../../core/logger.dart';
 import '../../core/utils/auth_headers_utils.dart';
@@ -70,12 +72,29 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
             youtubeAccountService: youtubeAccountService,
             neteaseAccountService: neteaseAccountService,
           ),
+          onDownloadPathsChanged: _emitDownloadPathsChanged,
         );
   }
 
   late final AudioStreamDelegate _delegate;
   final NeteaseAccountService? _neteaseAccountService;
   final Set<int> _fetchingUrlTrackIds = {};
+  var _isDisposed = false;
+  final _downloadPathsChangedController =
+      StreamController<DownloadPathsChangedEvent>.broadcast();
+
+  Stream<DownloadPathsChangedEvent> get downloadPathsChangedStream =>
+      _downloadPathsChangedController.stream;
+
+  void _emitDownloadPathsChanged(DownloadPathsChangedEvent event) {
+    if (_isDisposed || _downloadPathsChangedController.isClosed) return;
+    _downloadPathsChangedController.add(event);
+  }
+
+  void dispose() {
+    _isDisposed = true;
+    _downloadPathsChangedController.close();
+  }
 
   @override
   Future<(Track, String?, AudioStreamResult?)> ensureAudioStream(
@@ -106,7 +125,8 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
       track: trackWithUrl,
       url: url,
       localPath: localPath,
-      headers: localPath == null ? await getPlaybackHeaders(trackWithUrl) : null,
+      headers:
+          localPath == null ? await getPlaybackHeaders(trackWithUrl) : null,
       streamResult: streamResult,
     );
   }
@@ -206,4 +226,3 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 }
-
