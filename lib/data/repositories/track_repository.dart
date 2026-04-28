@@ -25,7 +25,7 @@ class TrackRepository with Logging {
 
   /// 根据ID列表获取歌曲（保持顺序）
   Future<List<Track>> getByIds(List<int> ids) async {
-    logDebug('Getting tracks by ids: $ids');
+    // logDebug('Getting tracks by ids: $ids');
     final tracks = await _isar.tracks.getAll(ids);
     // 过滤null并保持顺序
     final result = <Track>[];
