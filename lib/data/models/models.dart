@@ -9,3 +9,5 @@ export 'search_history.dart';
 export 'download_task.dart';
 export 'play_history.dart';
 export 'radio_station.dart';
+export 'lyrics_match.dart';
+export 'lyrics_title_parse_cache.dart';

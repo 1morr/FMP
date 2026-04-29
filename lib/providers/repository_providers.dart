@@ -56,3 +56,12 @@ final lyricsRepositoryProvider = Provider<LyricsRepository>((ref) {
   }
   return LyricsRepository(db);
 });
+
+final lyricsTitleParseCacheRepositoryProvider =
+    Provider<LyricsTitleParseCacheRepository>((ref) {
+  final db = ref.watch(databaseProvider).valueOrNull;
+  if (db == null) {
+    throw StateError('Database not initialized');
+  }
+  return LyricsTitleParseCacheRepository(db);
+});

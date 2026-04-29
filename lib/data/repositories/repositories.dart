@@ -9,3 +9,4 @@ export 'download_repository.dart';
 export 'play_history_repository.dart';
 export 'radio_repository.dart';
 export 'lyrics_repository.dart';
+export 'lyrics_title_parse_cache_repository.dart';

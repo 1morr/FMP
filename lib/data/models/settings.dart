@@ -53,6 +53,12 @@ enum LyricsDisplayMode {
   preferRomaji,
 }
 
+enum LyricsAiTitleParsingMode {
+  off,
+  fallbackAfterRules,
+  alwaysForVideoSources,
+}
+
 /// 应用设置实体（单例模式，始终使用 ID 0）
 @collection
 class Settings {
@@ -163,6 +169,18 @@ class Settings {
   /// 禁用的歌词源 (逗号分隔: "lrclib" 或 "netease,lrclib")
   /// 自动匹配和搜索时跳过这些源
   String disabledLyricsSources = 'lrclib';
+
+  /// AI 标题解析模式: 0=off, 1=fallbackAfterRules, 2=alwaysForVideoSources
+  int lyricsAiTitleParsingModeIndex = 1;
+
+  /// OpenAI-compatible API base URL for AI title parsing.
+  String lyricsAiEndpoint = '';
+
+  /// OpenAI-compatible model name for AI title parsing.
+  String lyricsAiModel = '';
+
+  /// AI title parsing request timeout in seconds.
+  int lyricsAiTimeoutSeconds = 10;
 
   // ========== 播放認證設置 ==========
 
@@ -427,6 +445,32 @@ class Settings {
   /// 设置禁用的歌词源集合
   set disabledLyricsSourcesSet(Set<String> set) {
     disabledLyricsSources = set.join(',');
+  }
+
+  @ignore
+  LyricsAiTitleParsingMode get lyricsAiTitleParsingMode {
+    switch (lyricsAiTitleParsingModeIndex) {
+      case 0:
+        return LyricsAiTitleParsingMode.off;
+      case 2:
+        return LyricsAiTitleParsingMode.alwaysForVideoSources;
+      default:
+        return LyricsAiTitleParsingMode.fallbackAfterRules;
+    }
+  }
+
+  set lyricsAiTitleParsingMode(LyricsAiTitleParsingMode mode) {
+    switch (mode) {
+      case LyricsAiTitleParsingMode.off:
+        lyricsAiTitleParsingModeIndex = 0;
+        break;
+      case LyricsAiTitleParsingMode.fallbackAfterRules:
+        lyricsAiTitleParsingModeIndex = 1;
+        break;
+      case LyricsAiTitleParsingMode.alwaysForVideoSources:
+        lyricsAiTitleParsingModeIndex = 2;
+        break;
+    }
   }
 
   /// 獲取指定音源的播放認證設定
