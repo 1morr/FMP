@@ -129,6 +129,39 @@ class _LyricsSourceSettingsPageState
     }
   }
 
+  Future<void> _saveLyricsAiEndpoint(String endpoint) async {
+    final normalized = endpoint.trim();
+    await ref
+        .read(audioSettingsProvider.notifier)
+        .setLyricsAiEndpoint(normalized);
+    _endpointController.text = normalized;
+  }
+
+  Future<void> _saveLyricsAiModel(String model) async {
+    final normalized = model.trim();
+    await ref.read(audioSettingsProvider.notifier).setLyricsAiModel(normalized);
+    _modelController.text = normalized;
+  }
+
+  Future<void> _saveLyricsAiTimeoutSeconds(int seconds) async {
+    final normalized = seconds < 1 ? 10 : seconds;
+    await ref
+        .read(audioSettingsProvider.notifier)
+        .setLyricsAiTimeoutSeconds(normalized);
+    _timeoutController.text = normalized.toString();
+  }
+
+  Future<void> _saveLyricsAiApiKey(String apiKey) async {
+    if (apiKey.trim().isEmpty) return;
+    await ref.read(audioSettingsProvider.notifier).setLyricsAiApiKey(apiKey);
+    _apiKeyController.clear();
+  }
+
+  Future<void> _clearLyricsAiApiKey() async {
+    await ref.read(audioSettingsProvider.notifier).setLyricsAiApiKey('');
+    _apiKeyController.clear();
+  }
+
   Future<void> _clearAiParseCache() async {
     await ref.read(lyricsTitleParseCacheRepositoryProvider).clear();
     if (mounted) {
@@ -223,22 +256,11 @@ class _LyricsSourceSettingsPageState
                     onModeChanged: (mode) => ref
                         .read(audioSettingsProvider.notifier)
                         .setLyricsAiTitleParsingMode(mode),
-                    onEndpointSubmitted: (value) => ref
-                        .read(audioSettingsProvider.notifier)
-                        .setLyricsAiEndpoint(value),
-                    onApiKeySubmitted: (value) async {
-                      if (value.trim().isEmpty) return;
-                      await ref
-                          .read(audioSettingsProvider.notifier)
-                          .setLyricsAiApiKey(value);
-                      _apiKeyController.clear();
-                    },
-                    onModelSubmitted: (value) => ref
-                        .read(audioSettingsProvider.notifier)
-                        .setLyricsAiModel(value),
-                    onTimeoutChanged: (seconds) => ref
-                        .read(audioSettingsProvider.notifier)
-                        .setLyricsAiTimeoutSeconds(seconds),
+                    onEndpointSubmitted: _saveLyricsAiEndpoint,
+                    onApiKeySubmitted: _saveLyricsAiApiKey,
+                    onClearApiKey: _clearLyricsAiApiKey,
+                    onModelSubmitted: _saveLyricsAiModel,
+                    onTimeoutChanged: _saveLyricsAiTimeoutSeconds,
                     onClearCache: _clearAiParseCache,
                   ),
                 ),
@@ -330,10 +352,11 @@ class _AiTitleParsingSection extends StatelessWidget {
   final TextEditingController timeoutController;
   final String Function(LyricsAiTitleParsingMode mode) modeLabelBuilder;
   final ValueChanged<LyricsAiTitleParsingMode> onModeChanged;
-  final ValueChanged<String> onEndpointSubmitted;
+  final Future<void> Function(String value) onEndpointSubmitted;
   final Future<void> Function(String value) onApiKeySubmitted;
-  final ValueChanged<String> onModelSubmitted;
-  final ValueChanged<int> onTimeoutChanged;
+  final Future<void> Function() onClearApiKey;
+  final Future<void> Function(String value) onModelSubmitted;
+  final Future<void> Function(int seconds) onTimeoutChanged;
   final Future<void> Function() onClearCache;
 
   const _AiTitleParsingSection({
@@ -346,6 +369,7 @@ class _AiTitleParsingSection extends StatelessWidget {
     required this.onModeChanged,
     required this.onEndpointSubmitted,
     required this.onApiKeySubmitted,
+    required this.onClearApiKey,
     required this.onModelSubmitted,
     required this.onTimeoutChanged,
     required this.onClearCache,
@@ -425,6 +449,17 @@ class _AiTitleParsingSection extends StatelessWidget {
                 onSubmitted: onApiKeySubmitted,
                 onTapOutside: (_) => onApiKeySubmitted(apiKeyController.text),
               ),
+              if (audioSettings.lyricsAiApiKeyConfigured) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: onClearApiKey,
+                    icon: const Icon(Icons.key_off_outlined),
+                    label: Text(t.settings.lyricsSourceSettings.aiClearApiKey),
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               TextField(
                 controller: modelController,
