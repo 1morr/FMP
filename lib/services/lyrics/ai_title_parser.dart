@@ -14,7 +14,7 @@ class AiParsedTitle {
   });
 
   final String trackName;
-  final String artistName;
+  final String? artistName;
   final List<String> alternativeTrackNames;
   final List<String> alternativeArtistNames;
   final double confidence;
@@ -116,21 +116,36 @@ class AiTitleParser {
         return null;
       }
 
-      final trackName = _trimString(decoded['trackName']);
+      final trackNameValue = decoded['trackName'];
+      final artistNameValue = decoded['artistName'];
+      final alternativeTrackNamesValue = decoded['alternativeTrackNames'];
+      final alternativeArtistNamesValue = decoded['alternativeArtistNames'];
+      final confidenceValue = decoded['confidence'];
+
+      if (trackNameValue is! String ||
+          artistNameValue is! String ||
+          alternativeTrackNamesValue is! List ||
+          alternativeArtistNamesValue is! List ||
+          confidenceValue is! num) {
+        return null;
+      }
+
+      final trackName = trackNameValue.trim();
       if (trackName.isEmpty) {
         return null;
       }
 
-      final confidence = _parseConfidence(decoded['confidence']);
-      if (confidence == null || confidence < minConfidence) {
+      final confidence = confidenceValue.toDouble();
+      if (confidence < minConfidence) {
         return null;
       }
 
+      final artistName = artistNameValue.trim();
       return AiParsedTitle(
         trackName: trackName,
-        artistName: _trimString(decoded['artistName']),
-        alternativeTrackNames: _parseAliases(decoded['alternativeTrackNames']),
-        alternativeArtistNames: _parseAliases(decoded['alternativeArtistNames']),
+        artistName: artistName.isEmpty ? null : artistName,
+        alternativeTrackNames: _parseAliases(alternativeTrackNamesValue),
+        alternativeArtistNames: _parseAliases(alternativeArtistNamesValue),
         confidence: confidence,
       );
     } catch (_) {
@@ -143,20 +158,6 @@ class AiTitleParser {
     final match = RegExp(r'^```(?:json)?\s*([\s\S]*?)\s*```$', caseSensitive: false)
         .firstMatch(trimmed);
     return match?.group(1)?.trim() ?? trimmed;
-  }
-
-  static String _trimString(Object? value) {
-    return value is String ? value.trim() : '';
-  }
-
-  static double? _parseConfidence(Object? value) {
-    if (value is num) {
-      return value.toDouble();
-    }
-    if (value is String) {
-      return double.tryParse(value.trim());
-    }
-    return null;
   }
 
   static List<String> _parseAliases(Object? value) {
