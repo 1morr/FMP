@@ -83,7 +83,6 @@
     "disabled": "已停用",
     "sourceDisabledToast": "該歌詞源已停用",
     "aiSectionTitle": "AI 標題解析",
-    "aiPrivacyHint": "啟用後，FMP 會將最少量的歌曲中繼資料傳送到你設定的第三方 API 端點用於標題解析。不會傳送影片 ID、連結、帳號資料或播放歷史。",
     "aiMode": "模式",
     "aiModeOff": "關閉",
     "aiModeFallback": "規則失敗後使用",

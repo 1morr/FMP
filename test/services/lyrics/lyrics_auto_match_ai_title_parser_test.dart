@@ -10,6 +10,7 @@ import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/lyrics_repository.dart';
 import 'package:fmp/data/repositories/lyrics_title_parse_cache_repository.dart';
+import 'package:fmp/core/logger.dart';
 import 'package:fmp/services/lyrics/ai_title_parser.dart';
 import 'package:fmp/services/lyrics/lrclib_source.dart';
 import 'package:fmp/services/lyrics/lyrics_ai_config_service.dart';
@@ -61,6 +62,7 @@ void main() {
       repo = LyricsRepository(isar);
       titleParseCacheRepo = LyricsTitleParseCacheRepository(isar);
       config = _config(mode: LyricsAiTitleParsingMode.fallbackAfterRules);
+      AppLogger.clearLogs();
     });
 
     tearDown(() async {
@@ -129,6 +131,11 @@ void main() {
       ]);
       expect(aiParser.calls, hasLength(1));
       expect(aiParser.calls.single.title, 'Video Title');
+      expect(
+        AppLogger.logs.map((entry) => entry.message),
+        contains(
+            'Calling AI title parser for netease:fallback-match: Video Title'),
+      );
       final cached = await titleParseCacheRepo.getReusable(
         trackUniqueKey: 'netease:fallback-match',
       );
@@ -177,6 +184,41 @@ void main() {
       ]);
       final saved = await repo.getByTrackKey('youtube:cached-ai');
       expect(saved?.externalId, 'cached-match');
+    });
+
+    test('low-confidence cached AI artist is ignored for search', () async {
+      await titleParseCacheRepo.save(
+        trackUniqueKey: 'youtube:cached-low-confidence-artist',
+        sourceType: SourceType.youtube.name,
+        parsedTrackName: 'Cached Song',
+        parsedArtistName: 'Wrong Uploader',
+        confidence: 0.79,
+        provider: 'openai-compatible',
+        model: 'test-model',
+      );
+      netease.searchResultsByQuery['Cached Song'] = [
+        _lyricsResult(
+          id: 'cached-title-only-match',
+          source: 'netease',
+          trackName: 'Cached Song',
+          artistName: 'Real Artist',
+        ),
+      ];
+
+      final matched = await buildService().tryAutoMatch(
+        _track('cached-low-confidence-artist'),
+        enabledSources: const ['netease'],
+      );
+
+      expect(matched, isTrue);
+      expect(aiParser.calls, isEmpty);
+      expect(netease.searchCalls, [
+        'Regex Song Regex Artist',
+        'Cached Song',
+      ]);
+      final saved =
+          await repo.getByTrackKey('youtube:cached-low-confidence-artist');
+      expect(saved?.externalId, 'cached-title-only-match');
     });
 
     test(

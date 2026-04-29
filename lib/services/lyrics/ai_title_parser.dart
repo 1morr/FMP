@@ -107,9 +107,7 @@ class AiTitleParser {
       final artistNameValue = decoded['artistName'];
       final artistConfidenceValue = decoded['artistConfidence'];
 
-      if (trackNameValue is! String ||
-          artistNameValue is! String ||
-          artistConfidenceValue is! num) {
+      if (trackNameValue is! String) {
         return null;
       }
 
@@ -118,8 +116,10 @@ class AiTitleParser {
         return null;
       }
 
-      final artistName = artistNameValue.trim();
-      final artistConfidence = artistConfidenceValue.toDouble();
+      final artistName =
+          artistNameValue is String ? artistNameValue.trim() : '';
+      final artistConfidence =
+          artistConfidenceValue is num ? artistConfidenceValue.toDouble() : 0.0;
       return AiParsedTitle(
         trackName: trackName,
         artistName:

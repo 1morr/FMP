@@ -79,22 +79,38 @@ void main() {
       expect(result, isNull);
     });
 
-    test('missing artistName returns null', () {
+    test('missing artistName returns track-only parse', () {
       final result = AiTitleParser.parseContent(jsonEncode({
         'trackName': 'Song',
         'artistConfidence': 0.8,
       }));
 
-      expect(result, isNull);
+      expect(result?.trackName, 'Song');
+      expect(result?.artistName, isNull);
+      expect(result?.artistConfidence, 0.8);
     });
 
-    test('missing artistConfidence returns null', () {
+    test('null artistName returns track-only parse', () {
+      final result = AiTitleParser.parseContent(jsonEncode({
+        'trackName': 'Song',
+        'artistName': null,
+        'artistConfidence': 0.8,
+      }));
+
+      expect(result?.trackName, 'Song');
+      expect(result?.artistName, isNull);
+      expect(result?.artistConfidence, 0.8);
+    });
+
+    test('missing artistConfidence omits artist only', () {
       final result = AiTitleParser.parseContent(jsonEncode({
         'trackName': 'Song',
         'artistName': 'Artist',
       }));
 
-      expect(result, isNull);
+      expect(result?.trackName, 'Song');
+      expect(result?.artistName, isNull);
+      expect(result?.artistConfidence, 0);
     });
 
     test('blank artistName string is accepted as null', () {
