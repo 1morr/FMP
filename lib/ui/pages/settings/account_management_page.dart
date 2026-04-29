@@ -67,9 +67,6 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
                 ? t.account.bilibiliVip
                 : t.account.bilibiliNotVip,
             vipIcon: Icons.verified_outlined,
-            useAuthForPlay: false,
-            authInteractive: false,
-            authTooltip: t.account.authNotSupported,
             onLogin: () => context.push(RoutePaths.bilibiliLogin),
             onLogout: () => _confirmLogout(SourceType.bilibili),
             onManagePlaylists: () =>
@@ -92,9 +89,6 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
                 ? t.account.youtubeVip
                 : t.account.youtubeNotVip,
             vipIcon: Icons.workspace_premium_outlined,
-            useAuthForPlay: false,
-            authInteractive: false,
-            authTooltip: t.account.authNotSupported,
             onLogin: () => context.push(RoutePaths.youtubeLogin),
             onLogout: () => _confirmLogout(SourceType.youtube),
             onManagePlaylists: () =>
@@ -115,9 +109,6 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
             vipTooltip: neteaseAccount?.isVip == true
                 ? t.account.neteaseVip
                 : t.account.neteaseNotVip,
-            useAuthForPlay: true,
-            authInteractive: false,
-            authTooltip: t.account.authRequired,
             onLogin: () => context.push(RoutePaths.neteaseLogin),
             onLogout: () => _confirmLogout(SourceType.netease),
             onManagePlaylists: () =>
@@ -215,9 +206,6 @@ class _PlatformCard extends StatelessWidget {
   final bool? isVip;
   final String? vipTooltip;
   final IconData vipIcon;
-  final bool? useAuthForPlay;
-  final bool authInteractive;
-  final String? authTooltip;
   final VoidCallback? onLogin;
   final VoidCallback? onLogout;
   final VoidCallback? onManagePlaylists;
@@ -233,9 +221,6 @@ class _PlatformCard extends StatelessWidget {
     this.isVip,
     this.vipTooltip,
     this.vipIcon = Icons.diamond_outlined,
-    this.useAuthForPlay,
-    this.authInteractive = true,
-    this.authTooltip,
     this.onLogin,
     this.onLogout,
     this.onManagePlaylists,
@@ -312,32 +297,7 @@ class _PlatformCard extends StatelessWidget {
                 ),
               );
 
-              // 登入狀態播放按鈕：啟用時高亮 (FilledButton.tonal)，停用時中空 (OutlinedButton)
-              Widget? authButton;
-              if (useAuthForPlay != null) {
-                final button = useAuthForPlay!
-                    ? FilledButton.tonal(
-                        onPressed: authInteractive ? () {} : null,
-                        child: Text(t.account.useAuth),
-                      )
-                    : OutlinedButton(
-                        onPressed: authInteractive ? () {} : null,
-                        child: Text(t.account.useAuth),
-                      );
-                if (authTooltip != null) {
-                  // Wrap disabled button in ExcludeSemantics to avoid
-                  // Flutter accessibility tree errors with Tooltip
-                  authButton = Tooltip(
-                    message: authTooltip!,
-                    child: ExcludeSemantics(child: button),
-                  );
-                } else {
-                  authButton = button;
-                }
-              }
-
               final actionButtons = <Widget>[
-                if (authButton != null) authButton,
                 OutlinedButton(
                   onPressed: onManagePlaylists,
                   child: Text(t.account.playlists),
