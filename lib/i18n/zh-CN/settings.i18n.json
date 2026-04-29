@@ -83,7 +83,6 @@
     "disabled": "已禁用",
     "sourceDisabledToast": "该歌词源已禁用",
     "aiSectionTitle": "AI 标题解析",
-    "aiPrivacyHint": "启用后，FMP 会将最少量的歌曲元数据发送到你配置的第三方 API 端点用于标题解析。不会发送视频 ID、链接、账号数据或播放历史。",
     "aiMode": "模式",
     "aiModeOff": "关闭",
     "aiModeFallback": "规则失败后使用",

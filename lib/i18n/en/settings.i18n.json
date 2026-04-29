@@ -83,7 +83,6 @@
     "disabled": "Disabled",
     "sourceDisabledToast": "This lyrics source is disabled",
     "aiSectionTitle": "AI title parsing",
-    "aiPrivacyHint": "When enabled, FMP sends minimal song metadata to your configured third-party API endpoint for title parsing. It does not send video IDs, links, account data, or play history.",
     "aiMode": "Mode",
     "aiModeOff": "Off",
     "aiModeFallback": "Use after rules fail",
