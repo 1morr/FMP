@@ -46,7 +46,15 @@ class AppConstants {
   static const int previousTrackThresholdSeconds = 3;
 
   /// 播放速度选项
-  static const List<double> playbackSpeeds = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+  static const List<double> playbackSpeeds = [
+    0.5,
+    0.75,
+    1.0,
+    1.25,
+    1.5,
+    1.75,
+    2.0
+  ];
 
   /// 位置保存定时器间隔
   static const Duration positionSaveInterval = Duration(seconds: 10);
@@ -141,7 +149,7 @@ class AppConstants {
   // ==================== 歌词匹配 ====================
 
   /// 歌词自动匹配时长容差（秒）
-  static const int lyricsDurationToleranceSec = 10;
+  static const int lyricsDurationToleranceSec = 20;
 
   /// 歌词自动匹配最低得分阈值（0.0 - 1.0）
   static const double lyricsMatchScoreThreshold = 0.6;

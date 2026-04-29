@@ -2,30 +2,22 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
-import '../../data/models/track.dart';
-
 class AiParsedTitle {
   const AiParsedTitle({
     required this.trackName,
     required this.artistName,
-    required this.alternativeTrackNames,
-    required this.alternativeArtistNames,
-    required this.confidence,
+    required this.artistConfidence,
   });
 
   final String trackName;
   final String? artistName;
-  final List<String> alternativeTrackNames;
-  final List<String> alternativeArtistNames;
-  final double confidence;
+  final double artistConfidence;
 }
 
 class AiTitleParser {
   AiTitleParser({Dio? dio}) : _dio = dio ?? Dio();
 
-  static const double minConfidence = 0.6;
-  static const int maxAliases = 5;
-  static const int maxAliasLength = 80;
+  static const double minArtistConfidence = 0.8;
 
   final Dio _dio;
 
@@ -34,20 +26,18 @@ class AiTitleParser {
     required String apiKey,
     required String model,
     required String title,
-    required String artist,
-    required SourceType sourceType,
-    required int? durationMs,
     required int timeoutSeconds,
   }) async {
     final trimmedEndpoint = endpoint.trim().replaceAll(RegExp(r'/+$'), '');
     final trimmedApiKey = apiKey.trim();
     final trimmedModel = model.trim();
-    if (trimmedEndpoint.isEmpty || trimmedApiKey.isEmpty || trimmedModel.isEmpty) {
+    if (trimmedEndpoint.isEmpty ||
+        trimmedApiKey.isEmpty ||
+        trimmedModel.isEmpty) {
       return null;
     }
 
     final timeout = Duration(seconds: timeoutSeconds < 1 ? 10 : timeoutSeconds);
-    final durationSeconds = durationMs == null ? null : (durationMs / 1000).round();
 
     try {
       final response = await _dio.post<dynamic>(
@@ -67,16 +57,12 @@ class AiTitleParser {
           'messages': [
             {
               'role': 'system',
-              'content': 'Extract the likely music track title and artist from the provided minimal metadata. Respond with strict JSON only using exactly these fields: trackName, artistName, alternativeTrackNames, alternativeArtistNames, confidence.',
+              'content':
+                  'Extract the likely music track title and artist from the provided video title. Respond with strict JSON only using exactly these fields: trackName, artistName, artistConfidence.',
             },
             {
               'role': 'user',
-              'content': jsonEncode({
-                'title': title,
-                'artist': artist,
-                'sourceType': sourceType.name,
-                'durationSeconds': durationSeconds,
-              }),
+              'content': jsonEncode({'title': title}),
             },
           ],
         },
@@ -119,15 +105,11 @@ class AiTitleParser {
 
       final trackNameValue = decoded['trackName'];
       final artistNameValue = decoded['artistName'];
-      final alternativeTrackNamesValue = decoded['alternativeTrackNames'];
-      final alternativeArtistNamesValue = decoded['alternativeArtistNames'];
-      final confidenceValue = decoded['confidence'];
+      final artistConfidenceValue = decoded['artistConfidence'];
 
       if (trackNameValue is! String ||
           artistNameValue is! String ||
-          alternativeTrackNamesValue is! List ||
-          alternativeArtistNamesValue is! List ||
-          confidenceValue is! num) {
+          artistConfidenceValue is! num) {
         return null;
       }
 
@@ -136,18 +118,15 @@ class AiTitleParser {
         return null;
       }
 
-      final confidence = confidenceValue.toDouble();
-      if (confidence < minConfidence) {
-        return null;
-      }
-
       final artistName = artistNameValue.trim();
+      final artistConfidence = artistConfidenceValue.toDouble();
       return AiParsedTitle(
         trackName: trackName,
-        artistName: artistName.isEmpty ? null : artistName,
-        alternativeTrackNames: _parseAliases(alternativeTrackNamesValue),
-        alternativeArtistNames: _parseAliases(alternativeArtistNamesValue),
-        confidence: confidence,
+        artistName:
+            artistName.isNotEmpty && artistConfidence >= minArtistConfidence
+                ? artistName
+                : null,
+        artistConfidence: artistConfidence,
       );
     } catch (_) {
       return null;
@@ -156,30 +135,9 @@ class AiTitleParser {
 
   static String _stripCodeFence(String content) {
     final trimmed = content.trim();
-    final match = RegExp(r'^```(?:json)?\s*([\s\S]*?)\s*```$', caseSensitive: false)
-        .firstMatch(trimmed);
+    final match =
+        RegExp(r'^```(?:json)?\s*([\s\S]*?)\s*```$', caseSensitive: false)
+            .firstMatch(trimmed);
     return match?.group(1)?.trim() ?? trimmed;
-  }
-
-  static List<String> _parseAliases(Object? value) {
-    if (value is! List) {
-      return const [];
-    }
-
-    final aliases = <String>[];
-    for (final alias in value) {
-      if (alias is! String) {
-        continue;
-      }
-      final trimmed = alias.trim();
-      if (trimmed.isEmpty || trimmed.length > maxAliasLength) {
-        continue;
-      }
-      aliases.add(trimmed);
-      if (aliases.length == maxAliases) {
-        break;
-      }
-    }
-    return aliases;
   }
 }

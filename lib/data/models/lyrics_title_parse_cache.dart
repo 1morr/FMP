@@ -10,13 +10,8 @@ class LyricsTitleParseCache {
   late String trackUniqueKey;
 
   late String sourceType;
-  late String originalTitle;
-  String? originalArtist;
-  int? durationMs;
   late String parsedTrackName;
   String? parsedArtistName;
-  List<String> alternativeTrackNames = [];
-  List<String> alternativeArtistNames = [];
   double confidence = 0;
   late String provider;
   late String model;
