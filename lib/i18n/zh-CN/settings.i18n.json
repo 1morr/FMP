@@ -93,6 +93,7 @@
     "aiApiKey": "API Key",
     "aiApiKeyConfigured": "已配置 API Key。输入新 Key 可替换，留空则保持不变。",
     "aiApiKeyEmpty": "未配置 API Key。输入后可启用 AI 解析。",
+    "aiClearApiKey": "清除 API Key",
     "aiModel": "模型",
     "aiModelHint": "模型名称",
     "aiTimeout": "超时时间",
