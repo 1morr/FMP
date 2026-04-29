@@ -83,17 +83,89 @@ void main() {
     });
 
     test('missing trackName returns null', () {
-      final result = AiTitleParser.parseContent(
-        '{"artistName":"Artist","confidence":0.8}',
-      );
+      final result = AiTitleParser.parseContent(jsonEncode({
+        'artistName': 'Artist',
+        'alternativeTrackNames': <String>[],
+        'alternativeArtistNames': <String>[],
+        'confidence': 0.8,
+      }));
 
       expect(result, isNull);
     });
 
-    test('confidence below minimum returns null', () {
-      final result = AiTitleParser.parseContent(
-        '{"trackName":"Song","artistName":"Artist","confidence":0.59}',
+    test('missing artistName returns null', () {
+      final result = AiTitleParser.parseContent(jsonEncode({
+        'trackName': 'Song',
+        'alternativeTrackNames': <String>[],
+        'alternativeArtistNames': <String>[],
+        'confidence': 0.8,
+      }));
+
+      expect(result, isNull);
+    });
+
+    test('blank artistName string is accepted as null', () {
+      final result = AiTitleParser.parseContent(jsonEncode({
+        'trackName': 'Song',
+        'artistName': '   ',
+        'alternativeTrackNames': <String>[],
+        'alternativeArtistNames': <String>[],
+        'confidence': 0.8,
+      }));
+
+      expect(result?.artistName, isNull);
+    });
+
+    test('missing alias arrays return null without throwing', () {
+      expect(
+        () => AiTitleParser.parseContent(jsonEncode({
+          'trackName': 'Song',
+          'artistName': 'Artist',
+          'confidence': 0.8,
+        })),
+        returnsNormally,
       );
+      expect(
+        AiTitleParser.parseContent(jsonEncode({
+          'trackName': 'Song',
+          'artistName': 'Artist',
+          'confidence': 0.8,
+        })),
+        isNull,
+      );
+    });
+
+    test('non-list alias arrays return null without throwing', () {
+      expect(
+        () => AiTitleParser.parseContent(jsonEncode({
+          'trackName': 'Song',
+          'artistName': 'Artist',
+          'alternativeTrackNames': 'Song alias',
+          'alternativeArtistNames': <String>[],
+          'confidence': 0.8,
+        })),
+        returnsNormally,
+      );
+      expect(
+        AiTitleParser.parseContent(jsonEncode({
+          'trackName': 'Song',
+          'artistName': 'Artist',
+          'alternativeTrackNames': <String>[],
+          'alternativeArtistNames': 'Artist alias',
+          'confidence': 0.8,
+        })),
+        isNull,
+      );
+    });
+
+    test('confidence below minimum returns null', () {
+      final result = AiTitleParser.parseContent(jsonEncode({
+        'trackName': 'Song',
+        'artistName': 'Artist',
+        'alternativeTrackNames': <String>[],
+        'alternativeArtistNames': <String>[],
+        'confidence': 0.59,
+      }));
 
       expect(result, isNull);
     });
