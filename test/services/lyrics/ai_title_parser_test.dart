@@ -3,10 +3,13 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/core/logger.dart';
 import 'package:fmp/services/lyrics/ai_title_parser.dart';
 
 void main() {
   group('AiTitleParser', () {
+    setUp(AppLogger.clearLogs);
+
     test('sends only minimal metadata, appends path, and sets auth header',
         () async {
       final dio = Dio();
@@ -58,6 +61,64 @@ void main() {
       final metadata =
           jsonDecode(userMessage['content'] as String) as Map<String, dynamic>;
       expect(metadata, {'title': 'Song - Artist'});
+      expect(
+        AppLogger.logs.map((entry) => entry.message),
+        contains('Calling AI title parser: Song - Artist'),
+      );
+    });
+
+    test('logs Dio failures from direct AI parser calls', () async {
+      final dio = Dio();
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        throw DioException(
+          requestOptions: options,
+          type: DioExceptionType.connectionError,
+          error: 'connection failed',
+        );
+      });
+
+      final result = await AiTitleParser(dio: dio).parse(
+        endpoint: 'https://api.example.com/v1',
+        apiKey: 'secret-key',
+        model: 'gpt-test',
+        title: 'Song - Artist',
+        timeoutSeconds: 7,
+      );
+
+      expect(result, isNull);
+      expect(
+        AppLogger.logs.map((entry) => entry.message),
+        contains(
+            'AI title parser request failed for title "Song - Artist": connection failed'),
+      );
+    });
+
+    test('logs invalid AI response content', () async {
+      final dio = Dio();
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        return _jsonResponse({
+          'choices': [
+            {
+              'message': {'content': 'not json'},
+            },
+          ],
+        });
+      });
+
+      final result = await AiTitleParser(dio: dio).parse(
+        endpoint: 'https://api.example.com/v1',
+        apiKey: 'secret-key',
+        model: 'gpt-test',
+        title: 'Song - Artist',
+        timeoutSeconds: 7,
+      );
+
+      expect(result, isNull);
+      expect(
+        AppLogger.logs.map((entry) => entry.message),
+        contains(
+            'AI title parser returned invalid content for title "Song - Artist"'),
+      );
     });
 
     test('strips code-fenced JSON and parses content', () {
