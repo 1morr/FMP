@@ -472,29 +472,37 @@ class _AiTitleParsingSettingsDialogState
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return AlertDialog(
-      title: Text(t.settings.lyricsSourceSettings.aiSectionTitle),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
+      title: Row(
+        children: [
+          Icon(Icons.smart_toy_outlined, color: colorScheme.primary),
+          const SizedBox(width: 8),
+          Expanded(child: Text(t.settings.lyricsSourceSettings.aiSectionTitle)),
+          IconButton(
+            onPressed: _isTesting ? null : () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close),
+            tooltip: t.general.close,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            iconSize: 20,
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 400,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                t.settings.lyricsSourceSettings.aiPrivacyHint,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 16),
               DropdownButtonFormField<LyricsAiTitleParsingMode>(
                 initialValue: widget.audioSettings.lyricsAiTitleParsingMode,
+                isExpanded: true,
                 decoration: InputDecoration(
                   labelText: t.settings.lyricsSourceSettings.aiMode,
+                  prefixIcon: const Icon(Icons.tune_outlined),
                   border: const OutlineInputBorder(),
                 ),
                 items: LyricsAiTitleParsingMode.values
@@ -515,6 +523,7 @@ class _AiTitleParsingSettingsDialogState
                 decoration: InputDecoration(
                   labelText: t.settings.lyricsSourceSettings.aiEndpoint,
                   hintText: t.settings.lyricsSourceSettings.aiEndpointHint,
+                  prefixIcon: const Icon(Icons.link_outlined),
                   border: const OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.url,
@@ -531,6 +540,7 @@ class _AiTitleParsingSettingsDialogState
                   helperText: widget.audioSettings.lyricsAiApiKeyConfigured
                       ? t.settings.lyricsSourceSettings.aiApiKeyConfigured
                       : t.settings.lyricsSourceSettings.aiApiKeyEmpty,
+                  prefixIcon: const Icon(Icons.key_outlined),
                   border: const OutlineInputBorder(),
                 ),
                 obscureText: true,
@@ -546,7 +556,7 @@ class _AiTitleParsingSettingsDialogState
                 Align(
                   alignment: Alignment.centerLeft,
                   child: TextButton.icon(
-                    onPressed: widget.onClearApiKey,
+                    onPressed: _isTesting ? null : widget.onClearApiKey,
                     icon: const Icon(Icons.key_off_outlined),
                     label: Text(t.settings.lyricsSourceSettings.aiClearApiKey),
                   ),
@@ -558,6 +568,7 @@ class _AiTitleParsingSettingsDialogState
                 decoration: InputDecoration(
                   labelText: t.settings.lyricsSourceSettings.aiModel,
                   hintText: t.settings.lyricsSourceSettings.aiModelHint,
+                  prefixIcon: const Icon(Icons.memory_outlined),
                   border: const OutlineInputBorder(),
                 ),
                 textInputAction: TextInputAction.done,
@@ -571,6 +582,7 @@ class _AiTitleParsingSettingsDialogState
                 decoration: InputDecoration(
                   labelText: t.settings.lyricsSourceSettings.aiTimeout,
                   suffixText: t.settings.lyricsSourceSettings.aiTimeoutUnit,
+                  prefixIcon: const Icon(Icons.timer_outlined),
                   border: const OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.number,
@@ -585,37 +597,30 @@ class _AiTitleParsingSettingsDialogState
                       widget.audioSettings.lyricsAiTimeoutSeconds,
                 ),
               ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: widget.onClearCache,
-                    icon: const Icon(Icons.delete_sweep_outlined),
-                    label: Text(t.settings.lyricsSourceSettings.aiClearCache),
-                  ),
-                  FilledButton.tonalIcon(
-                    onPressed: _isTesting ? null : _testAi,
-                    icon: _isTesting
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.network_check_outlined),
-                    label: Text(t.settings.lyricsSourceSettings.aiTest),
-                  ),
-                ],
-              ),
             ],
           ),
         ),
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _isTesting ? null : () => Navigator.of(context).pop(),
           child: Text(t.general.close),
+        ),
+        OutlinedButton.icon(
+          onPressed: _isTesting ? null : widget.onClearCache,
+          icon: const Icon(Icons.delete_sweep_outlined),
+          label: Text(t.settings.lyricsSourceSettings.aiClearCache),
+        ),
+        FilledButton.icon(
+          onPressed: _isTesting ? null : _testAi,
+          icon: _isTesting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.network_check_outlined),
+          label: Text(t.settings.lyricsSourceSettings.aiTest),
         ),
       ],
     );
