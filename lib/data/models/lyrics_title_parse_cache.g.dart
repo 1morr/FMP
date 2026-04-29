@@ -18,73 +18,48 @@ const LyricsTitleParseCacheSchema = CollectionSchema(
   name: r'LyricsTitleParseCache',
   id: 2186950417259062788,
   properties: {
-    r'alternativeArtistNames': PropertySchema(
-      id: 0,
-      name: r'alternativeArtistNames',
-      type: IsarType.stringList,
-    ),
-    r'alternativeTrackNames': PropertySchema(
-      id: 1,
-      name: r'alternativeTrackNames',
-      type: IsarType.stringList,
-    ),
     r'confidence': PropertySchema(
-      id: 2,
+      id: 0,
       name: r'confidence',
       type: IsarType.double,
     ),
     r'createdAt': PropertySchema(
-      id: 3,
+      id: 1,
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
-    r'durationMs': PropertySchema(
-      id: 4,
-      name: r'durationMs',
-      type: IsarType.long,
-    ),
     r'model': PropertySchema(
-      id: 5,
+      id: 2,
       name: r'model',
       type: IsarType.string,
     ),
-    r'originalArtist': PropertySchema(
-      id: 6,
-      name: r'originalArtist',
-      type: IsarType.string,
-    ),
-    r'originalTitle': PropertySchema(
-      id: 7,
-      name: r'originalTitle',
-      type: IsarType.string,
-    ),
     r'parsedArtistName': PropertySchema(
-      id: 8,
+      id: 3,
       name: r'parsedArtistName',
       type: IsarType.string,
     ),
     r'parsedTrackName': PropertySchema(
-      id: 9,
+      id: 4,
       name: r'parsedTrackName',
       type: IsarType.string,
     ),
     r'provider': PropertySchema(
-      id: 10,
+      id: 5,
       name: r'provider',
       type: IsarType.string,
     ),
     r'sourceType': PropertySchema(
-      id: 11,
+      id: 6,
       name: r'sourceType',
       type: IsarType.string,
     ),
     r'trackUniqueKey': PropertySchema(
-      id: 12,
+      id: 7,
       name: r'trackUniqueKey',
       type: IsarType.string,
     ),
     r'updatedAt': PropertySchema(
-      id: 13,
+      id: 8,
       name: r'updatedAt',
       type: IsarType.dateTime,
     )
@@ -123,28 +98,7 @@ int _lyricsTitleParseCacheEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
-  bytesCount += 3 + object.alternativeArtistNames.length * 3;
-  {
-    for (var i = 0; i < object.alternativeArtistNames.length; i++) {
-      final value = object.alternativeArtistNames[i];
-      bytesCount += value.length * 3;
-    }
-  }
-  bytesCount += 3 + object.alternativeTrackNames.length * 3;
-  {
-    for (var i = 0; i < object.alternativeTrackNames.length; i++) {
-      final value = object.alternativeTrackNames[i];
-      bytesCount += value.length * 3;
-    }
-  }
   bytesCount += 3 + object.model.length * 3;
-  {
-    final value = object.originalArtist;
-    if (value != null) {
-      bytesCount += 3 + value.length * 3;
-    }
-  }
-  bytesCount += 3 + object.originalTitle.length * 3;
   {
     final value = object.parsedArtistName;
     if (value != null) {
@@ -164,20 +118,15 @@ void _lyricsTitleParseCacheSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeStringList(offsets[0], object.alternativeArtistNames);
-  writer.writeStringList(offsets[1], object.alternativeTrackNames);
-  writer.writeDouble(offsets[2], object.confidence);
-  writer.writeDateTime(offsets[3], object.createdAt);
-  writer.writeLong(offsets[4], object.durationMs);
-  writer.writeString(offsets[5], object.model);
-  writer.writeString(offsets[6], object.originalArtist);
-  writer.writeString(offsets[7], object.originalTitle);
-  writer.writeString(offsets[8], object.parsedArtistName);
-  writer.writeString(offsets[9], object.parsedTrackName);
-  writer.writeString(offsets[10], object.provider);
-  writer.writeString(offsets[11], object.sourceType);
-  writer.writeString(offsets[12], object.trackUniqueKey);
-  writer.writeDateTime(offsets[13], object.updatedAt);
+  writer.writeDouble(offsets[0], object.confidence);
+  writer.writeDateTime(offsets[1], object.createdAt);
+  writer.writeString(offsets[2], object.model);
+  writer.writeString(offsets[3], object.parsedArtistName);
+  writer.writeString(offsets[4], object.parsedTrackName);
+  writer.writeString(offsets[5], object.provider);
+  writer.writeString(offsets[6], object.sourceType);
+  writer.writeString(offsets[7], object.trackUniqueKey);
+  writer.writeDateTime(offsets[8], object.updatedAt);
 }
 
 LyricsTitleParseCache _lyricsTitleParseCacheDeserialize(
@@ -187,21 +136,16 @@ LyricsTitleParseCache _lyricsTitleParseCacheDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = LyricsTitleParseCache();
-  object.alternativeArtistNames = reader.readStringList(offsets[0]) ?? [];
-  object.alternativeTrackNames = reader.readStringList(offsets[1]) ?? [];
-  object.confidence = reader.readDouble(offsets[2]);
-  object.createdAt = reader.readDateTime(offsets[3]);
-  object.durationMs = reader.readLongOrNull(offsets[4]);
+  object.confidence = reader.readDouble(offsets[0]);
+  object.createdAt = reader.readDateTime(offsets[1]);
   object.id = id;
-  object.model = reader.readString(offsets[5]);
-  object.originalArtist = reader.readStringOrNull(offsets[6]);
-  object.originalTitle = reader.readString(offsets[7]);
-  object.parsedArtistName = reader.readStringOrNull(offsets[8]);
-  object.parsedTrackName = reader.readString(offsets[9]);
-  object.provider = reader.readString(offsets[10]);
-  object.sourceType = reader.readString(offsets[11]);
-  object.trackUniqueKey = reader.readString(offsets[12]);
-  object.updatedAt = reader.readDateTime(offsets[13]);
+  object.model = reader.readString(offsets[2]);
+  object.parsedArtistName = reader.readStringOrNull(offsets[3]);
+  object.parsedTrackName = reader.readString(offsets[4]);
+  object.provider = reader.readString(offsets[5]);
+  object.sourceType = reader.readString(offsets[6]);
+  object.trackUniqueKey = reader.readString(offsets[7]);
+  object.updatedAt = reader.readDateTime(offsets[8]);
   return object;
 }
 
@@ -213,32 +157,22 @@ P _lyricsTitleParseCacheDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readStringList(offset) ?? []) as P;
-    case 1:
-      return (reader.readStringList(offset) ?? []) as P;
-    case 2:
       return (reader.readDouble(offset)) as P;
-    case 3:
+    case 1:
       return (reader.readDateTime(offset)) as P;
+    case 2:
+      return (reader.readString(offset)) as P;
+    case 3:
+      return (reader.readStringOrNull(offset)) as P;
     case 4:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 5:
       return (reader.readString(offset)) as P;
     case 6:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 7:
       return (reader.readString(offset)) as P;
     case 8:
-      return (reader.readStringOrNull(offset)) as P;
-    case 9:
-      return (reader.readString(offset)) as P;
-    case 10:
-      return (reader.readString(offset)) as P;
-    case 11:
-      return (reader.readString(offset)) as P;
-    case 12:
-      return (reader.readString(offset)) as P;
-    case 13:
       return (reader.readDateTime(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -447,464 +381,6 @@ extension LyricsTitleParseCacheQueryWhere on QueryBuilder<LyricsTitleParseCache,
 extension LyricsTitleParseCacheQueryFilter on QueryBuilder<
     LyricsTitleParseCache, LyricsTitleParseCache, QFilterCondition> {
   QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeArtistNamesElementEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'alternativeArtistNames',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeArtistNamesElementGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'alternativeArtistNames',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeArtistNamesElementLessThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'alternativeArtistNames',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeArtistNamesElementBetween(
-    String lower,
-    String upper, {
-    bool includeLower = true,
-    bool includeUpper = true,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'alternativeArtistNames',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeArtistNamesElementStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'alternativeArtistNames',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeArtistNamesElementEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'alternativeArtistNames',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-          QAfterFilterCondition>
-      alternativeArtistNamesElementContains(String value,
-          {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'alternativeArtistNames',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-          QAfterFilterCondition>
-      alternativeArtistNamesElementMatches(String pattern,
-          {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'alternativeArtistNames',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeArtistNamesElementIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'alternativeArtistNames',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeArtistNamesElementIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'alternativeArtistNames',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeArtistNamesLengthEqualTo(int length) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'alternativeArtistNames',
-        length,
-        true,
-        length,
-        true,
-      );
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeArtistNamesIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'alternativeArtistNames',
-        0,
-        true,
-        0,
-        true,
-      );
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeArtistNamesIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'alternativeArtistNames',
-        0,
-        false,
-        999999,
-        true,
-      );
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeArtistNamesLengthLessThan(
-    int length, {
-    bool include = false,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'alternativeArtistNames',
-        0,
-        true,
-        length,
-        include,
-      );
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeArtistNamesLengthGreaterThan(
-    int length, {
-    bool include = false,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'alternativeArtistNames',
-        length,
-        include,
-        999999,
-        true,
-      );
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeArtistNamesLengthBetween(
-    int lower,
-    int upper, {
-    bool includeLower = true,
-    bool includeUpper = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'alternativeArtistNames',
-        lower,
-        includeLower,
-        upper,
-        includeUpper,
-      );
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeTrackNamesElementEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'alternativeTrackNames',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeTrackNamesElementGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'alternativeTrackNames',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeTrackNamesElementLessThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'alternativeTrackNames',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeTrackNamesElementBetween(
-    String lower,
-    String upper, {
-    bool includeLower = true,
-    bool includeUpper = true,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'alternativeTrackNames',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeTrackNamesElementStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'alternativeTrackNames',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeTrackNamesElementEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'alternativeTrackNames',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-          QAfterFilterCondition>
-      alternativeTrackNamesElementContains(String value,
-          {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'alternativeTrackNames',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-          QAfterFilterCondition>
-      alternativeTrackNamesElementMatches(String pattern,
-          {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'alternativeTrackNames',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeTrackNamesElementIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'alternativeTrackNames',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeTrackNamesElementIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'alternativeTrackNames',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeTrackNamesLengthEqualTo(int length) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'alternativeTrackNames',
-        length,
-        true,
-        length,
-        true,
-      );
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeTrackNamesIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'alternativeTrackNames',
-        0,
-        true,
-        0,
-        true,
-      );
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeTrackNamesIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'alternativeTrackNames',
-        0,
-        false,
-        999999,
-        true,
-      );
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeTrackNamesLengthLessThan(
-    int length, {
-    bool include = false,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'alternativeTrackNames',
-        0,
-        true,
-        length,
-        include,
-      );
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeTrackNamesLengthGreaterThan(
-    int length, {
-    bool include = false,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'alternativeTrackNames',
-        length,
-        include,
-        999999,
-        true,
-      );
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> alternativeTrackNamesLengthBetween(
-    int lower,
-    int upper, {
-    bool includeLower = true,
-    bool includeUpper = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'alternativeTrackNames',
-        lower,
-        includeLower,
-        upper,
-        includeUpper,
-      );
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
       QAfterFilterCondition> confidenceEqualTo(
     double value, {
     double epsilon = Query.epsilon,
@@ -1018,80 +494,6 @@ extension LyricsTitleParseCacheQueryFilter on QueryBuilder<
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
         property: r'createdAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> durationMsIsNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'durationMs',
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> durationMsIsNotNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'durationMs',
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> durationMsEqualTo(int? value) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'durationMs',
-        value: value,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> durationMsGreaterThan(
-    int? value, {
-    bool include = false,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'durationMs',
-        value: value,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> durationMsLessThan(
-    int? value, {
-    bool include = false,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'durationMs',
-        value: value,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> durationMsBetween(
-    int? lower,
-    int? upper, {
-    bool includeLower = true,
-    bool includeUpper = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'durationMs',
         lower: lower,
         includeLower: includeLower,
         upper: upper,
@@ -1289,300 +691,6 @@ extension LyricsTitleParseCacheQueryFilter on QueryBuilder<
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'model',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> originalArtistIsNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'originalArtist',
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> originalArtistIsNotNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'originalArtist',
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> originalArtistEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'originalArtist',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> originalArtistGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'originalArtist',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> originalArtistLessThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'originalArtist',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> originalArtistBetween(
-    String? lower,
-    String? upper, {
-    bool includeLower = true,
-    bool includeUpper = true,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'originalArtist',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> originalArtistStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'originalArtist',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> originalArtistEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'originalArtist',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-          QAfterFilterCondition>
-      originalArtistContains(String value, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'originalArtist',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-          QAfterFilterCondition>
-      originalArtistMatches(String pattern, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'originalArtist',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> originalArtistIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'originalArtist',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> originalArtistIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'originalArtist',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> originalTitleEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'originalTitle',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> originalTitleGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'originalTitle',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> originalTitleLessThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'originalTitle',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> originalTitleBetween(
-    String lower,
-    String upper, {
-    bool includeLower = true,
-    bool includeUpper = true,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'originalTitle',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> originalTitleStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'originalTitle',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> originalTitleEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'originalTitle',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-          QAfterFilterCondition>
-      originalTitleContains(String value, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'originalTitle',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-          QAfterFilterCondition>
-      originalTitleMatches(String pattern, {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'originalTitle',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> originalTitleIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'originalTitle',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache,
-      QAfterFilterCondition> originalTitleIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'originalTitle',
         value: '',
       ));
     });
@@ -2390,20 +1498,6 @@ extension LyricsTitleParseCacheQuerySortBy
   }
 
   QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache, QAfterSortBy>
-      sortByDurationMs() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'durationMs', Sort.asc);
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache, QAfterSortBy>
-      sortByDurationMsDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'durationMs', Sort.desc);
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache, QAfterSortBy>
       sortByModel() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'model', Sort.asc);
@@ -2414,34 +1508,6 @@ extension LyricsTitleParseCacheQuerySortBy
       sortByModelDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'model', Sort.desc);
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache, QAfterSortBy>
-      sortByOriginalArtist() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'originalArtist', Sort.asc);
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache, QAfterSortBy>
-      sortByOriginalArtistDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'originalArtist', Sort.desc);
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache, QAfterSortBy>
-      sortByOriginalTitle() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'originalTitle', Sort.asc);
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache, QAfterSortBy>
-      sortByOriginalTitleDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'originalTitle', Sort.desc);
     });
   }
 
@@ -2561,20 +1627,6 @@ extension LyricsTitleParseCacheQuerySortThenBy
   }
 
   QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache, QAfterSortBy>
-      thenByDurationMs() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'durationMs', Sort.asc);
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache, QAfterSortBy>
-      thenByDurationMsDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'durationMs', Sort.desc);
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache, QAfterSortBy>
       thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
@@ -2599,34 +1651,6 @@ extension LyricsTitleParseCacheQuerySortThenBy
       thenByModelDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'model', Sort.desc);
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache, QAfterSortBy>
-      thenByOriginalArtist() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'originalArtist', Sort.asc);
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache, QAfterSortBy>
-      thenByOriginalArtistDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'originalArtist', Sort.desc);
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache, QAfterSortBy>
-      thenByOriginalTitle() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'originalTitle', Sort.asc);
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache, QAfterSortBy>
-      thenByOriginalTitleDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'originalTitle', Sort.desc);
     });
   }
 
@@ -2718,20 +1742,6 @@ extension LyricsTitleParseCacheQuerySortThenBy
 extension LyricsTitleParseCacheQueryWhereDistinct
     on QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache, QDistinct> {
   QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache, QDistinct>
-      distinctByAlternativeArtistNames() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'alternativeArtistNames');
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache, QDistinct>
-      distinctByAlternativeTrackNames() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'alternativeTrackNames');
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache, QDistinct>
       distinctByConfidence() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'confidence');
@@ -2746,32 +1756,9 @@ extension LyricsTitleParseCacheQueryWhereDistinct
   }
 
   QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache, QDistinct>
-      distinctByDurationMs() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'durationMs');
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache, QDistinct>
       distinctByModel({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'model', caseSensitive: caseSensitive);
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache, QDistinct>
-      distinctByOriginalArtist({bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'originalArtist',
-          caseSensitive: caseSensitive);
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, LyricsTitleParseCache, QDistinct>
-      distinctByOriginalTitle({bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'originalTitle',
-          caseSensitive: caseSensitive);
     });
   }
 
@@ -2829,20 +1816,6 @@ extension LyricsTitleParseCacheQueryProperty on QueryBuilder<
     });
   }
 
-  QueryBuilder<LyricsTitleParseCache, List<String>, QQueryOperations>
-      alternativeArtistNamesProperty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addPropertyName(r'alternativeArtistNames');
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, List<String>, QQueryOperations>
-      alternativeTrackNamesProperty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addPropertyName(r'alternativeTrackNames');
-    });
-  }
-
   QueryBuilder<LyricsTitleParseCache, double, QQueryOperations>
       confidenceProperty() {
     return QueryBuilder.apply(this, (query) {
@@ -2857,31 +1830,10 @@ extension LyricsTitleParseCacheQueryProperty on QueryBuilder<
     });
   }
 
-  QueryBuilder<LyricsTitleParseCache, int?, QQueryOperations>
-      durationMsProperty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addPropertyName(r'durationMs');
-    });
-  }
-
   QueryBuilder<LyricsTitleParseCache, String, QQueryOperations>
       modelProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'model');
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, String?, QQueryOperations>
-      originalArtistProperty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addPropertyName(r'originalArtist');
-    });
-  }
-
-  QueryBuilder<LyricsTitleParseCache, String, QQueryOperations>
-      originalTitleProperty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addPropertyName(r'originalTitle');
     });
   }
 

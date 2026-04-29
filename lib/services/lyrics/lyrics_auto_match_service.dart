@@ -19,7 +19,7 @@ import 'title_parser.dart';
 ///
 /// 在播放歌曲时自动搜索并匹配歌词（仅当没有已匹配的歌词时）。
 /// 匹配条件：
-/// - 时长差距 ≤ 10 秒
+/// - 时长差距 ≤ 20 秒
 /// - 只有一个结果符合时长条件时才自动匹配
 class LyricsAutoMatchService with Logging {
   final LrclibSource _lrclib;
@@ -230,43 +230,16 @@ class LyricsAutoMatchService with Logging {
   List<({String trackName, String artistName})> _buildAiQueryPairs(
     AiParsedTitle parsed,
   ) {
-    final trackNames = <String>[
-      parsed.trackName,
-      ...parsed.alternativeTrackNames,
-    ];
-    final artistNames = <String>[
-      if (parsed.artistName != null) parsed.artistName!,
-      ...parsed.alternativeArtistNames,
-    ];
-    final queries = <({String trackName, String artistName})>[];
-    final seen = <String>{};
-
-    void add(String trackName, String artistName) {
-      final normalizedTrack = trackName.trim();
-      final normalizedArtist = artistName.trim();
-      if (normalizedTrack.isEmpty) return;
-      final key =
-          '${normalizedTrack.toLowerCase()}\u0000${normalizedArtist.toLowerCase()}';
-      if (!seen.add(key)) return;
-      queries.add((trackName: normalizedTrack, artistName: normalizedArtist));
+    final trackName = parsed.trackName.trim();
+    if (trackName.isEmpty) return const [];
+    final artistName = parsed.artistName?.trim();
+    if (artistName != null && artistName.isNotEmpty) {
+      return [
+        (trackName: trackName, artistName: artistName),
+        (trackName: trackName, artistName: ''),
+      ];
     }
-
-    if (parsed.artistName != null && parsed.artistName!.trim().isNotEmpty) {
-      add(parsed.trackName, parsed.artistName!);
-    }
-
-    // Reserve a no-artist query inside the 6-query cap. This keeps the first
-    // query as parsedTrackName + parsedArtistName when available while ensuring
-    // artist-heavy alternatives cannot crowd out the source's broadest query.
-    add(parsed.trackName, '');
-
-    for (final trackName in trackNames) {
-      for (final artistName in artistNames) {
-        add(trackName, artistName);
-        if (queries.length >= 6) return queries;
-      }
-    }
-    return queries;
+    return [(trackName: trackName, artistName: '')];
   }
 
   Future<AiParsedTitle?> _loadOrParseAiTitle(
@@ -280,9 +253,6 @@ class LyricsAutoMatchService with Logging {
     try {
       final cached = await titleParseCacheRepo.getReusable(
         trackUniqueKey: track.uniqueKey,
-        originalTitle: track.title,
-        originalArtist: track.artist,
-        durationMs: track.durationMs,
       );
       if (cached != null) {
         final parsed = _cacheEntryToAiParsedTitle(cached);
@@ -298,9 +268,6 @@ class LyricsAutoMatchService with Logging {
         apiKey: config.apiKey,
         model: config.model,
         title: track.title,
-        artist: track.artist ?? '',
-        sourceType: track.sourceType,
-        durationMs: track.durationMs,
         timeoutSeconds: config.timeoutSeconds,
       );
       if (parsed == null) return null;
@@ -312,14 +279,9 @@ class LyricsAutoMatchService with Logging {
       await titleParseCacheRepo.save(
         trackUniqueKey: track.uniqueKey,
         sourceType: track.sourceType.name,
-        originalTitle: track.title,
-        originalArtist: track.artist,
-        durationMs: track.durationMs,
         parsedTrackName: parsed.trackName,
         parsedArtistName: parsed.artistName,
-        alternativeTrackNames: parsed.alternativeTrackNames,
-        alternativeArtistNames: parsed.alternativeArtistNames,
-        confidence: parsed.confidence,
+        confidence: parsed.artistConfidence,
         provider: 'openai-compatible',
         model: config.model,
       );
@@ -331,17 +293,14 @@ class LyricsAutoMatchService with Logging {
   }
 
   bool _isValidAiParsedTitle(AiParsedTitle parsed) {
-    return parsed.trackName.trim().isNotEmpty &&
-        parsed.confidence >= AiTitleParser.minConfidence;
+    return parsed.trackName.trim().isNotEmpty;
   }
 
   AiParsedTitle _cacheEntryToAiParsedTitle(LyricsTitleParseCache cached) {
     return AiParsedTitle(
       trackName: cached.parsedTrackName,
       artistName: cached.parsedArtistName,
-      alternativeTrackNames: cached.alternativeTrackNames,
-      alternativeArtistNames: cached.alternativeArtistNames,
-      confidence: cached.confidence,
+      artistConfidence: cached.confidence,
     );
   }
 
@@ -403,7 +362,7 @@ class LyricsAutoMatchService with Logging {
 
       if (results.isEmpty) return null;
 
-      // 过滤符合时长条件的结果（±10秒）
+      // 过滤符合时长条件的结果（±20秒）
       final matching = results.where((r) {
         if (r.duration == 0) return true; // 网易云有时不返回时长
         return (r.duration - trackDurationSec).abs() <=
@@ -444,7 +403,7 @@ class LyricsAutoMatchService with Logging {
 
       if (results.isEmpty) return null;
 
-      // 过滤符合时长条件的结果（±10秒）
+      // 过滤符合时长条件的结果（±20秒）
       final matching = results.where((r) {
         if (r.duration == 0) return true;
         return (r.duration - trackDurationSec).abs() <=
@@ -485,7 +444,7 @@ class LyricsAutoMatchService with Logging {
 
       if (results.isEmpty) return null;
 
-      // 过滤符合时长条件的结果（±10秒）
+      // 过滤符合时长条件的结果（±20秒）
       final matchingResults = results.where((result) {
         final diff = (result.duration - trackDurationSec).abs();
         return diff <= AppConstants.lyricsDurationToleranceSec;
@@ -570,11 +529,11 @@ class LyricsAutoMatchService with Logging {
 
     // 3. 时长匹配度（权重 20%）
     final durationDiff = (result.duration - trackDurationSec).abs();
-    final durationScore = durationDiff <= 2
+    final durationScore = durationDiff <= 3
         ? 1.0
-        : durationDiff <= 5
+        : durationDiff <= 10
             ? 0.8
-            : durationDiff <= 10
+            : durationDiff <= AppConstants.lyricsDurationToleranceSec
                 ? 0.5
                 : 0.0;
 

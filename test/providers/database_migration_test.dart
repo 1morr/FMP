@@ -3,6 +3,7 @@ import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/data/models/lyrics_title_parse_cache.dart';
 import 'package:fmp/data/models/play_queue.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/providers/database_provider.dart';
@@ -32,7 +33,7 @@ void main() {
       tempDir =
           await Directory.systemTemp.createTemp('database_migration_test_');
       isar = await Isar.open(
-        [SettingsSchema, PlayQueueSchema],
+        [SettingsSchema, PlayQueueSchema, LyricsTitleParseCacheSchema],
         directory: tempDir.path,
         name: 'database_migration_test',
       );
@@ -54,6 +55,22 @@ void main() {
       expect(queues.single.lastVolume, 1.0);
       expect(queues.single.trackIds, isEmpty);
       expect(queues.single.currentIndex, 0);
+    });
+
+    test('clears AI title parse cache during startup migration', () async {
+      await openTestDatabase();
+      final cache = LyricsTitleParseCache()
+        ..trackUniqueKey = 'youtube:abc'
+        ..sourceType = 'youtube'
+        ..parsedTrackName = 'Old song'
+        ..confidence = 1
+        ..provider = 'openai-compatible'
+        ..model = 'test-model';
+      await isar.writeTxn(() => isar.lyricsTitleParseCaches.put(cache));
+
+      await runDatabaseMigrationForTesting(isar);
+
+      expect(await isar.lyricsTitleParseCaches.count(), 0);
     });
 
     test('repairs AI title parsing fields from Isar upgrade defaults',
@@ -147,7 +164,8 @@ void main() {
       expect(migratedSettings.disabledLyricsSources, 'qqmusic');
     });
 
-    test('preserves intentional legacy-shaped playback and lyrics values', () async {
+    test('preserves intentional legacy-shaped playback and lyrics values',
+        () async {
       await openTestDatabase();
 
       final intentionallyConfiguredSettings = Settings()

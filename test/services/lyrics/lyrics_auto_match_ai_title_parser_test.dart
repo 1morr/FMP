@@ -128,12 +128,9 @@ void main() {
         'AI Song AI Artist',
       ]);
       expect(aiParser.calls, hasLength(1));
-      expect(aiParser.calls.single.sourceType, SourceType.netease);
+      expect(aiParser.calls.single.title, 'Video Title');
       final cached = await titleParseCacheRepo.getReusable(
         trackUniqueKey: 'netease:fallback-match',
-        originalTitle: 'Video Title',
-        originalArtist: 'Uploader',
-        durationMs: 180000,
       );
       expect(cached, isNotNull);
       expect(cached!.parsedTrackName, 'AI Song');
@@ -152,13 +149,8 @@ void main() {
       await titleParseCacheRepo.save(
         trackUniqueKey: 'youtube:cached-ai',
         sourceType: SourceType.youtube.name,
-        originalTitle: 'Video Title',
-        originalArtist: 'Uploader',
-        durationMs: 180000,
         parsedTrackName: 'Cached Song',
         parsedArtistName: 'Cached Artist',
-        alternativeTrackNames: const [],
-        alternativeArtistNames: const [],
         confidence: 0.91,
         provider: 'openai-compatible',
         model: 'test-model',
@@ -212,7 +204,7 @@ void main() {
       expect(netease.directFetchCalls, ['always-ai']);
       expect(netease.searchCalls, ['AI Song AI Artist']);
       expect(aiParser.calls, hasLength(1));
-      expect(aiParser.calls.single.sourceType, SourceType.netease);
+      expect(aiParser.calls.single.title, 'Video Title');
       final saved = await repo.getByTrackKey('netease:always-ai');
       expect(saved?.externalId, 'always-ai-match');
     });
@@ -253,9 +245,6 @@ void main() {
       expect(aiParser.calls, hasLength(1));
       final cached = await titleParseCacheRepo.getReusable(
         trackUniqueKey: 'youtube:cache-without-match',
-        originalTitle: 'Video Title',
-        originalArtist: 'Uploader',
-        durationMs: 180000,
       );
       expect(cached, isNotNull);
       expect(cached!.parsedTrackName, 'No Match Song');
@@ -307,13 +296,8 @@ void main() {
       await titleParseCacheRepo.save(
         trackUniqueKey: 'youtube:invalid-cache',
         sourceType: SourceType.youtube.name,
-        originalTitle: 'Video Title',
-        originalArtist: 'Uploader',
-        durationMs: 180000,
         parsedTrackName: '',
         parsedArtistName: 'Cached Artist',
-        alternativeTrackNames: const [],
-        alternativeArtistNames: const [],
         confidence: 0.95,
         provider: 'openai-compatible',
         model: 'test-model',
@@ -340,9 +324,6 @@ void main() {
       expect(aiParser.calls, hasLength(1));
       final cached = await titleParseCacheRepo.getReusable(
         trackUniqueKey: 'youtube:invalid-cache',
-        originalTitle: 'Video Title',
-        originalArtist: 'Uploader',
-        durationMs: 180000,
       );
       expect(cached?.parsedTrackName, 'Fresh AI Song');
       final saved = await repo.getByTrackKey('youtube:invalid-cache');
@@ -353,7 +334,6 @@ void main() {
       aiParser.result = _aiParsed(
         trackName: 'AI Song',
         artistName: 'AI Artist',
-        alternativeArtistNames: const ['Alt Artist'],
       );
       qqmusic.searchResultsByQuery['AI Song AI Artist'] = [
         _lyricsResult(
@@ -363,12 +343,12 @@ void main() {
           artistName: 'AI Artist',
         ),
       ];
-      netease.searchResultsByQuery['AI Song Alt Artist'] = [
+      netease.searchResultsByQuery['AI Song'] = [
         _lyricsResult(
-          id: 'netease-later-query-match',
+          id: 'netease-no-artist-match',
           source: 'netease',
           trackName: 'AI Song',
-          artistName: 'Alt Artist',
+          artistName: 'Different Artist',
         ),
       ];
 
@@ -382,48 +362,30 @@ void main() {
         'Regex Song Regex Artist',
         'AI Song AI Artist',
         'AI Song',
-        'AI Song Alt Artist',
       ]);
       expect(qqmusic.searchCalls, ['Regex Song Regex Artist']);
       final saved = await repo.getByTrackKey('youtube:source-priority');
       expect(saved?.lyricsSource, 'netease');
-      expect(saved?.externalId, 'netease-later-query-match');
+      expect(saved?.externalId, 'netease-no-artist-match');
     });
 
-    test('AI-derived queries are bounded, deduped, and include no-artist query',
-        () async {
+    test('low-confidence AI artist is ignored for search', () async {
       aiParser.result = _aiParsed(
         trackName: 'AI Song',
-        artistName: 'AI Artist',
-        alternativeTrackNames: const [
-          'AI Song',
-          'Alt Song 1',
-          'Alt Song 2',
-          'Alt Song 3',
-        ],
-        alternativeArtistNames: const [
-          'AI Artist',
-          'Alt Artist 1',
-          'Alt Artist 2',
-        ],
+        artistName: null,
+        artistConfidence: 0.79,
       );
 
       final matched = await buildService().tryAutoMatch(
-        _track('bounded-queries'),
+        _track('artist-confidence'),
         enabledSources: const ['netease'],
       );
 
       expect(matched, isFalse);
-      expect(netease.searchCalls.first, 'Regex Song Regex Artist');
-      expect(netease.searchCalls.skip(1).take(6), [
-        'AI Song AI Artist',
+      expect(netease.searchCalls, [
+        'Regex Song Regex Artist',
         'AI Song',
-        'AI Song Alt Artist 1',
-        'AI Song Alt Artist 2',
-        'Alt Song 1 AI Artist',
-        'Alt Song 1 Alt Artist 1',
       ]);
-      expect(netease.searchCalls.length, 7);
     });
   });
 }
@@ -468,16 +430,12 @@ LyricsResult _lyricsResult({
 AiParsedTitle _aiParsed({
   String trackName = 'AI Song',
   String? artistName = 'AI Artist',
-  List<String> alternativeTrackNames = const [],
-  List<String> alternativeArtistNames = const [],
-  double confidence = 0.92,
+  double artistConfidence = 0.92,
 }) {
   return AiParsedTitle(
     trackName: trackName,
     artistName: artistName,
-    alternativeTrackNames: alternativeTrackNames,
-    alternativeArtistNames: alternativeArtistNames,
-    confidence: confidence,
+    artistConfidence: artistConfidence,
   );
 }
 
@@ -506,7 +464,7 @@ class _FakeTitleParser implements TitleParser {
 }
 
 class _FakeAiTitleParser extends AiTitleParser {
-  final List<({String title, String artist, SourceType sourceType})> calls = [];
+  final List<({String title})> calls = [];
   AiParsedTitle? result;
 
   @override
@@ -515,12 +473,9 @@ class _FakeAiTitleParser extends AiTitleParser {
     required String apiKey,
     required String model,
     required String title,
-    required String artist,
-    required SourceType sourceType,
-    required int? durationMs,
     required int timeoutSeconds,
   }) async {
-    calls.add((title: title, artist: artist, sourceType: sourceType));
+    calls.add((title: title));
     return result;
   }
 }

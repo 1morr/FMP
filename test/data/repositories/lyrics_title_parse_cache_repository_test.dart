@@ -36,17 +36,12 @@ void main() {
       if (await tempDir.exists()) await tempDir.delete(recursive: true);
     });
 
-    test('saves and returns reusable cache for unchanged metadata', () async {
+    test('saves and returns reusable cache by track key', () async {
       await repo.save(
         trackUniqueKey: 'youtube:abc',
         sourceType: 'youtube',
-        originalTitle: '【MV】YOASOBI「アイドル」Official Music Video',
-        originalArtist: 'YOASOBI',
-        durationMs: 213000,
         parsedTrackName: 'アイドル',
         parsedArtistName: 'YOASOBI',
-        alternativeTrackNames: const ['Idol'],
-        alternativeArtistNames: const [],
         confidence: 0.92,
         provider: 'openai-compatible',
         model: 'test-model',
@@ -54,27 +49,18 @@ void main() {
 
       final cached = await repo.getReusable(
         trackUniqueKey: 'youtube:abc',
-        originalTitle: '【MV】YOASOBI「アイドル」Official Music Video',
-        originalArtist: 'YOASOBI',
-        durationMs: 214000,
       );
 
       expect(cached, isNotNull);
       expect(cached!.parsedTrackName, 'アイドル');
-      expect(cached.alternativeTrackNames, ['Idol']);
     });
 
     test('save upserts by trackUniqueKey and preserves createdAt', () async {
       await repo.save(
         trackUniqueKey: 'youtube:abc',
         sourceType: 'youtube',
-        originalTitle: 'Old title',
-        originalArtist: 'Singer',
-        durationMs: 180000,
         parsedTrackName: 'Old song',
         parsedArtistName: 'Old singer',
-        alternativeTrackNames: const ['Old alt'],
-        alternativeArtistNames: const ['Old artist alt'],
         confidence: 0.7,
         provider: 'openai-compatible',
         model: 'old-model',
@@ -92,13 +78,8 @@ void main() {
       await repo.save(
         trackUniqueKey: 'youtube:abc',
         sourceType: 'youtube',
-        originalTitle: 'New title',
-        originalArtist: 'New singer',
-        durationMs: 181000,
         parsedTrackName: 'New song',
         parsedArtistName: 'New singer',
-        alternativeTrackNames: const ['New alt'],
-        alternativeArtistNames: const ['New artist alt'],
         confidence: 0.95,
         provider: 'openai-compatible',
         model: 'new-model',
@@ -112,78 +93,18 @@ void main() {
       expect(updated, isNotNull);
       expect(updated!.createdAt, createdAt);
       expect(updated.updatedAt.isAfter(firstUpdatedAt), isTrue);
-      expect(updated.originalTitle, 'New title');
       expect(updated.parsedTrackName, 'New song');
       expect(updated.parsedArtistName, 'New singer');
-      expect(updated.alternativeTrackNames, ['New alt']);
-      expect(updated.alternativeArtistNames, ['New artist alt']);
       expect(updated.confidence, 0.95);
       expect(updated.model, 'new-model');
-    });
-
-    test('returns null when title changes', () async {
-      await repo.save(
-        trackUniqueKey: 'youtube:abc',
-        sourceType: 'youtube',
-        originalTitle: 'Old title',
-        originalArtist: 'Singer',
-        durationMs: 180000,
-        parsedTrackName: 'Song',
-        parsedArtistName: 'Singer',
-        alternativeTrackNames: const [],
-        alternativeArtistNames: const [],
-        confidence: 0.8,
-        provider: 'openai-compatible',
-        model: 'test-model',
-      );
-
-      final cached = await repo.getReusable(
-        trackUniqueKey: 'youtube:abc',
-        originalTitle: 'New title',
-        originalArtist: 'Singer',
-        durationMs: 180000,
-      );
-
-      expect(cached, isNull);
-    });
-
-    test('returns null when duration differs by more than 2 seconds', () async {
-      await repo.save(
-        trackUniqueKey: 'youtube:abc',
-        sourceType: 'youtube',
-        originalTitle: 'Song title',
-        originalArtist: 'Singer',
-        durationMs: 180000,
-        parsedTrackName: 'Song',
-        parsedArtistName: 'Singer',
-        alternativeTrackNames: const [],
-        alternativeArtistNames: const [],
-        confidence: 0.8,
-        provider: 'openai-compatible',
-        model: 'test-model',
-      );
-
-      final cached = await repo.getReusable(
-        trackUniqueKey: 'youtube:abc',
-        originalTitle: 'Song title',
-        originalArtist: 'Singer',
-        durationMs: 183001,
-      );
-
-      expect(cached, isNull);
     });
 
     test('clear deletes all cache rows', () async {
       await repo.save(
         trackUniqueKey: 'youtube:abc',
         sourceType: 'youtube',
-        originalTitle: 'Song title',
-        originalArtist: 'Singer',
-        durationMs: 180000,
         parsedTrackName: 'Song',
         parsedArtistName: 'Singer',
-        alternativeTrackNames: const [],
-        alternativeArtistNames: const [],
         confidence: 0.8,
         provider: 'openai-compatible',
         model: 'test-model',

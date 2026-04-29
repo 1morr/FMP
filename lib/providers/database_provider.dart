@@ -173,6 +173,8 @@ Future<void> _initializeDatabaseDefaultsInTxn(Isar isar) async {
     }
   }
 
+  await isar.lyricsTitleParseCaches.clear();
+
   // Note: Track.bilibiliAid (int?) — nullable, defaults to null, populated on-demand
   // by BilibiliFavoritesService. No migration needed.
 

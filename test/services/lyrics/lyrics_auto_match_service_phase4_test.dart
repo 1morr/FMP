@@ -199,6 +199,35 @@ void main() {
       expect(cache.savedKeys, ['youtube:track-1']);
     });
 
+    test('tryAutoMatch accepts search result within 20 seconds', () async {
+      netease.searchResults = [
+        _lyricsResult(id: 'netease-20s', source: 'netease', duration: 200),
+      ];
+
+      final matched = await service.tryAutoMatch(
+        _track('duration-20s'),
+        enabledSources: const ['netease'],
+      );
+
+      expect(matched, isTrue);
+      final saved = await repo.getByTrackKey('youtube:duration-20s');
+      expect(saved?.externalId, 'netease-20s');
+    });
+
+    test('tryAutoMatch rejects search result beyond 20 seconds', () async {
+      netease.searchResults = [
+        _lyricsResult(id: 'netease-21s', source: 'netease', duration: 201),
+      ];
+
+      final matched = await service.tryAutoMatch(
+        _track('duration-21s'),
+        enabledSources: const ['netease'],
+      );
+
+      expect(matched, isFalse);
+      expect(await repo.getByTrackKey('youtube:duration-21s'), isNull);
+    });
+
     test('tryAutoMatch clears in-flight state after completion', () async {
       final gate = _Gate();
       netease.onSearch = () async {
@@ -258,13 +287,17 @@ Track _track(String sourceId) {
     ..durationMs = 180000;
 }
 
-LyricsResult _lyricsResult({required String id, required String source}) {
+LyricsResult _lyricsResult({
+  required String id,
+  required String source,
+  int duration = 180,
+}) {
   return LyricsResult(
     id: id,
     trackName: 'Song Name',
     artistName: 'Singer',
     albumName: 'Album',
-    duration: 180,
+    duration: duration,
     instrumental: false,
     syncedLyrics: '[00:01.00]line',
     source: source,
