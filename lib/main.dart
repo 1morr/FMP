@@ -25,6 +25,7 @@ import 'data/models/download_task.dart';
 import 'data/models/play_history.dart';
 import 'data/models/radio_station.dart';
 import 'data/models/lyrics_match.dart';
+import 'data/models/lyrics_title_parse_cache.dart';
 import 'data/models/account.dart';
 import 'i18n/strings.g.dart';
 import 'services/audio/audio_handler.dart';
@@ -215,6 +216,7 @@ Future<void> _preloadThemeSettings() async {
         PlayHistorySchema,
         RadioStationSchema,
         LyricsMatchSchema,
+        LyricsTitleParseCacheSchema,
         AccountSchema,
       ],
       directory: dir.path,
