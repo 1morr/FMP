@@ -57,6 +57,7 @@ class AiTitleParser {
             Headers.contentTypeHeader: Headers.jsonContentType,
             'Authorization': 'Bearer $trimmedApiKey',
           },
+          connectTimeout: timeout,
           sendTimeout: timeout,
           receiveTimeout: timeout,
         ),
