@@ -135,7 +135,7 @@ UI (player_page, mini_player)
 | SearchHistory | Search history |
 | DownloadTask | Download task |
 | LyricsMatch | Lyrics match record (Track ↔ lrclib/netease/qqmusic) |
-| LyricsTitleParseCache | AI-parsed title cache for video-source lyrics matching |
+| LyricsTitleParseCache | AI-parsed title cache for lyrics matching |
 
 ### Database Migration (Isar)
 
@@ -252,7 +252,7 @@ Multi-source auto-match priority (`LyricsAutoMatchService.tryAutoMatch()`):
    - `disabledLyricsSources` are skipped (default disables lrclib for auto-match)
 5. Manual lyrics search supports filters: All / Netease / QQ Music / lrclib
 
-AI title parsing can improve Bilibili/YouTube auto-match by extracting likely song metadata from video titles. Modes: `off`, `fallbackAfterRules`, `alwaysForVideoSources`. Requests send only minimal metadata (title, artist/uploader, source type, duration) to the configured OpenAI-compatible endpoint, and successful parses are stored in `LyricsTitleParseCache` for reuse. AI output is used only to generate bounded candidate search terms; actual matching still queries the enabled lyrics sources and saves a normal source-backed `LyricsMatch` only when a source result passes matching rules.
+AI title parsing can improve auto-match by extracting likely song metadata from noisy titles. Modes: `off`, `fallbackAfterRules`, `alwaysAi`. `alwaysAi` means the search-title parsing step uses AI first after direct ID fetches fail or are unavailable; it is not limited to Bilibili/YouTube. Requests send only minimal metadata (title, artist/uploader, source type, duration) to the configured OpenAI-compatible endpoint, and successful parses are stored in `LyricsTitleParseCache` for reuse. AI output is used only to generate bounded candidate search terms; actual matching still queries the enabled lyrics sources and saves a normal source-backed `LyricsMatch` only when a source result passes matching rules.
 
 Desktop lyrics popup window uses an independent Flutter engine and hide-instead-of-destroy lifecycle.
 
@@ -426,7 +426,7 @@ lib/
 │   │   └── netease_playlist_service.dart # User playlist operations
 │   ├── lyrics/
 │   │   ├── lyrics_auto_match_service.dart # Multi-source auto-match
-│   │   ├── ai_title_parser.dart         # OpenAI-compatible video title parser
+│   │   ├── ai_title_parser.dart         # OpenAI-compatible title parser
 │   │   ├── lyrics_ai_config_service.dart # AI parser settings + secure API key
 │   │   ├── lrclib_source.dart           # lrclib.net
 │   │   ├── netease_source.dart          # Netease lyrics (search + fetch)

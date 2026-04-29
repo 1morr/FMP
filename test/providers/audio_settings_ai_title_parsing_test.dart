@@ -30,15 +30,14 @@ void main() {
       );
 
       final updated = state.copyWith(
-        lyricsAiTitleParsingMode:
-            LyricsAiTitleParsingMode.alwaysForVideoSources,
+        lyricsAiTitleParsingMode: LyricsAiTitleParsingMode.alwaysAi,
         lyricsAiModel: 'claude-haiku',
         lyricsAiApiKeyConfigured: false,
       );
 
       expect(
         updated.lyricsAiTitleParsingMode,
-        LyricsAiTitleParsingMode.alwaysForVideoSources,
+        LyricsAiTitleParsingMode.alwaysAi,
       );
       expect(updated.lyricsAiModel, 'claude-haiku');
       expect(updated.lyricsAiApiKeyConfigured, isFalse);

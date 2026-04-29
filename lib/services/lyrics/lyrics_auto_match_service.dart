@@ -112,10 +112,9 @@ class LyricsAutoMatchService with Logging {
 
       final sources = enabledSources ?? ['netease', 'qqmusic', 'lrclib'];
       final aiConfig = await _loadAiConfigSafely();
-      final shouldTryAi = _shouldTryAi(track, aiConfig);
+      final shouldTryAi = _shouldTryAi(aiConfig);
 
-      if (shouldTryAi &&
-          aiConfig!.mode == LyricsAiTitleParsingMode.alwaysForVideoSources) {
+      if (shouldTryAi && aiConfig!.mode == LyricsAiTitleParsingMode.alwaysAi) {
         final aiParsed = await _loadOrParseAiTitle(track, aiConfig);
         if (aiParsed != null) {
           final aiMatched = await _matchAiParsedTitle(track, aiParsed, sources);
@@ -156,17 +155,11 @@ class LyricsAutoMatchService with Logging {
     }
   }
 
-  bool _shouldTryAi(Track track, LyricsAiConfig? config) {
+  bool _shouldTryAi(LyricsAiConfig? config) {
     return _aiTitleParser != null &&
         _titleParseCacheRepo != null &&
         config != null &&
-        config.isAvailable &&
-        _isVideoSource(track.sourceType);
-  }
-
-  bool _isVideoSource(SourceType sourceType) {
-    return sourceType == SourceType.bilibili ||
-        sourceType == SourceType.youtube;
+        config.isAvailable;
   }
 
   Future<bool> _matchRegexParsedTitle(Track track, List<String> sources) async {

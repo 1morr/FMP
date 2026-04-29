@@ -114,20 +114,23 @@ void main() {
           artistName: 'AI Artist',
         ),
       ];
+      final track = _track('fallback-match')..sourceType = SourceType.netease;
 
       final matched = await buildService().tryAutoMatch(
-        _track('fallback-match'),
+        track,
         enabledSources: const ['netease'],
       );
 
       expect(matched, isTrue);
+      expect(netease.directFetchCalls, ['fallback-match']);
       expect(netease.searchCalls, [
         'Regex Song Regex Artist',
         'AI Song AI Artist',
       ]);
       expect(aiParser.calls, hasLength(1));
+      expect(aiParser.calls.single.sourceType, SourceType.netease);
       final cached = await titleParseCacheRepo.getReusable(
-        trackUniqueKey: 'youtube:fallback-match',
+        trackUniqueKey: 'netease:fallback-match',
         originalTitle: 'Video Title',
         originalArtist: 'Uploader',
         durationMs: 180000,
@@ -137,11 +140,11 @@ void main() {
       expect(cached.parsedArtistName, 'AI Artist');
       expect(cached.provider, 'openai-compatible');
       expect(cached.model, 'test-model');
-      final saved = await repo.getByTrackKey('youtube:fallback-match');
+      final saved = await repo.getByTrackKey('netease:fallback-match');
       expect(saved, isNotNull);
       expect(saved!.lyricsSource, 'netease');
       expect(saved.externalId, 'ai-match-1');
-      expect(cache.savedKeys, ['youtube:fallback-match']);
+      expect(cache.savedKeys, ['netease:fallback-match']);
     });
 
     test('fallbackAfterRules reuses cached AI parse without calling AI',
@@ -184,9 +187,10 @@ void main() {
       expect(saved?.externalId, 'cached-match');
     });
 
-    test('alwaysForVideoSources tries AI before regex for YouTube/Bilibili',
+    test(
+        'alwaysAi tries AI before regex for any source after direct fetch fails',
         () async {
-      config = _config(mode: LyricsAiTitleParsingMode.alwaysForVideoSources);
+      config = _config(mode: LyricsAiTitleParsingMode.alwaysAi);
       aiParser.result =
           _aiParsed(trackName: 'AI Song', artistName: 'AI Artist');
       netease.searchResultsByQuery['AI Song AI Artist'] = [
@@ -197,34 +201,43 @@ void main() {
           artistName: 'AI Artist',
         ),
       ];
-
-      final matched = await buildService().tryAutoMatch(
-        _track('always-ai')..sourceType = SourceType.bilibili,
-        enabledSources: const ['netease'],
-      );
-
-      expect(matched, isTrue);
-      expect(netease.searchCalls, ['AI Song AI Artist']);
-      expect(aiParser.calls, hasLength(1));
-      final saved = await repo.getByTrackKey('bilibili:always-ai');
-      expect(saved?.externalId, 'always-ai-match');
-    });
-
-    test('non-video Netease source does not use AI', () async {
-      config = _config(mode: LyricsAiTitleParsingMode.alwaysForVideoSources);
-      aiParser.result =
-          _aiParsed(trackName: 'AI Song', artistName: 'AI Artist');
-      final track = _track('netease-no-ai')..sourceType = SourceType.netease;
+      final track = _track('always-ai')..sourceType = SourceType.netease;
 
       final matched = await buildService().tryAutoMatch(
         track,
         enabledSources: const ['netease'],
       );
 
-      expect(matched, isFalse);
+      expect(matched, isTrue);
+      expect(netease.directFetchCalls, ['always-ai']);
+      expect(netease.searchCalls, ['AI Song AI Artist']);
+      expect(aiParser.calls, hasLength(1));
+      expect(aiParser.calls.single.sourceType, SourceType.netease);
+      final saved = await repo.getByTrackKey('netease:always-ai');
+      expect(saved?.externalId, 'always-ai-match');
+    });
+
+    test('netease direct lyrics fetch still runs before always AI', () async {
+      config = _config(mode: LyricsAiTitleParsingMode.alwaysAi);
+      aiParser.result =
+          _aiParsed(trackName: 'AI Song', artistName: 'AI Artist');
+      netease.directResults['netease-direct'] = _lyricsResult(
+        id: 'netease-direct',
+        source: 'netease',
+      );
+      final track = _track('netease-direct')..sourceType = SourceType.netease;
+
+      final matched = await buildService().tryAutoMatch(
+        track,
+        enabledSources: const ['netease'],
+      );
+
+      expect(matched, isTrue);
       expect(aiParser.calls, isEmpty);
-      expect(netease.directFetchCalls, ['netease-no-ai']);
-      expect(netease.searchCalls, ['Regex Song Regex Artist']);
+      expect(netease.directFetchCalls, ['netease-direct']);
+      expect(netease.searchCalls, isEmpty);
+      final saved = await repo.getByTrackKey('netease:netease-direct');
+      expect(saved?.externalId, 'netease-direct');
     });
 
     test('valid AI parse is cached even when lyrics matching fails', () async {
@@ -251,7 +264,7 @@ void main() {
     });
 
     test('AI unavailable or null falls back without throwing', () async {
-      config = _config(mode: LyricsAiTitleParsingMode.alwaysForVideoSources);
+      config = _config(mode: LyricsAiTitleParsingMode.alwaysAi);
       aiParser.result = null;
       netease.searchResultsByQuery['Regex Song Regex Artist'] = [
         _lyricsResult(id: 'regex-fallback', source: 'netease'),
@@ -271,7 +284,7 @@ void main() {
     });
 
     test('invalid non-null AI parse falls back without saving cache', () async {
-      config = _config(mode: LyricsAiTitleParsingMode.alwaysForVideoSources);
+      config = _config(mode: LyricsAiTitleParsingMode.alwaysAi);
       aiParser.result = _aiParsed(trackName: '   ', artistName: 'AI Artist');
       netease.searchResultsByQuery['Regex Song Regex Artist'] = [
         _lyricsResult(id: 'invalid-ai-regex-fallback', source: 'netease'),

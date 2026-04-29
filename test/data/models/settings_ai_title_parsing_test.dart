@@ -16,11 +16,10 @@ void main() {
     test('round-trips title parsing mode through index', () {
       final settings = Settings();
 
-      settings.lyricsAiTitleParsingMode =
-          LyricsAiTitleParsingMode.alwaysForVideoSources;
+      settings.lyricsAiTitleParsingMode = LyricsAiTitleParsingMode.alwaysAi;
       expect(settings.lyricsAiTitleParsingModeIndex, 2);
-      expect(settings.lyricsAiTitleParsingMode,
-          LyricsAiTitleParsingMode.alwaysForVideoSources);
+      expect(
+          settings.lyricsAiTitleParsingMode, LyricsAiTitleParsingMode.alwaysAi);
 
       settings.lyricsAiTitleParsingMode = LyricsAiTitleParsingMode.off;
       expect(settings.lyricsAiTitleParsingModeIndex, 0);
