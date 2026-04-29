@@ -6,8 +6,10 @@ import 'package:simple_icons/simple_icons.dart';
 import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/settings.dart';
+import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/audio_settings_provider.dart';
+import '../../../providers/lyrics_provider.dart';
 import '../../../providers/repository_providers.dart';
 
 /// 歌词匹配源设置页面
@@ -124,7 +126,7 @@ class _LyricsSourceSettingsPageState
         return t.settings.lyricsSourceSettings.aiModeOff;
       case LyricsAiTitleParsingMode.fallbackAfterRules:
         return t.settings.lyricsSourceSettings.aiModeFallback;
-      case LyricsAiTitleParsingMode.alwaysForVideoSources:
+      case LyricsAiTitleParsingMode.alwaysAi:
         return t.settings.lyricsSourceSettings.aiModeAlways;
     }
   }
@@ -172,6 +174,94 @@ class _LyricsSourceSettingsPageState
     }
   }
 
+  Future<void> _testLyricsAiConnection() async {
+    await _saveLyricsAiEndpoint(_endpointController.text);
+    await _saveLyricsAiModel(_modelController.text);
+    await _saveLyricsAiTimeoutSeconds(
+      int.tryParse(_timeoutController.text) ??
+          ref.read(audioSettingsProvider).lyricsAiTimeoutSeconds,
+    );
+    if (_apiKeyController.text.trim().isNotEmpty) {
+      await _saveLyricsAiApiKey(_apiKeyController.text);
+    }
+
+    final config = await ref.read(lyricsAiConfigServiceProvider).loadConfig();
+    if (config.endpoint.isEmpty ||
+        config.apiKey.isEmpty ||
+        config.model.isEmpty) {
+      if (mounted) {
+        ToastService.warning(
+          context,
+          t.settings.lyricsSourceSettings.aiTestMissingConfig,
+        );
+      }
+      return;
+    }
+
+    final result = await ref.read(aiTitleParserProvider).parse(
+          endpoint: config.endpoint,
+          apiKey: config.apiKey,
+          model: config.model,
+          title: '【MV】YOASOBI「アイドル」Official Music Video',
+          artist: 'YOASOBI',
+          sourceType: SourceType.youtube,
+          durationMs: 213000,
+          timeoutSeconds: config.timeoutSeconds,
+        );
+
+    if (!mounted) return;
+    if (result == null) {
+      ToastService.error(
+        context,
+        t.settings.lyricsSourceSettings.aiTestFailed,
+      );
+      return;
+    }
+
+    final artist = result.artistName;
+    ToastService.success(
+      context,
+      artist == null || artist.isEmpty
+          ? t.settings.lyricsSourceSettings.aiTestSuccess(
+              track: result.trackName,
+            )
+          : t.settings.lyricsSourceSettings.aiTestSuccessWithArtist(
+              track: result.trackName,
+              artist: artist,
+            ),
+    );
+  }
+
+  Future<void> _showLyricsAiSettingsDialog() async {
+    _syncControllers(ref.read(audioSettingsProvider));
+    await showDialog<void>(
+      context: context,
+      builder: (context) => Consumer(
+        builder: (context, ref, _) {
+          final audioSettings = ref.watch(audioSettingsProvider);
+          return _AiTitleParsingSettingsDialog(
+            audioSettings: audioSettings,
+            endpointController: _endpointController,
+            apiKeyController: _apiKeyController,
+            modelController: _modelController,
+            timeoutController: _timeoutController,
+            modeLabelBuilder: _getModeLabel,
+            onModeChanged: (mode) => ref
+                .read(audioSettingsProvider.notifier)
+                .setLyricsAiTitleParsingMode(mode),
+            onEndpointSubmitted: _saveLyricsAiEndpoint,
+            onApiKeySubmitted: _saveLyricsAiApiKey,
+            onClearApiKey: _clearLyricsAiApiKey,
+            onModelSubmitted: _saveLyricsAiModel,
+            onTimeoutChanged: _saveLyricsAiTimeoutSeconds,
+            onClearCache: _clearAiParseCache,
+            onTestAi: _testLyricsAiConnection,
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -182,6 +272,14 @@ class _LyricsSourceSettingsPageState
     return Scaffold(
       appBar: AppBar(
         title: Text(t.settings.lyricsSourceSettings.title),
+        actions: [
+          IconButton(
+            tooltip: t.settings.lyricsSourceSettings.aiSectionTitle,
+            icon: const Icon(Icons.smart_toy_outlined),
+            onPressed: _showLyricsAiSettingsDialog,
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: Column(
         children: [
@@ -244,25 +342,6 @@ class _LyricsSourceSettingsPageState
                       onToggle: (enabled) => _onToggleSource(source, enabled),
                     );
                   },
-                ),
-                SliverToBoxAdapter(
-                  child: _AiTitleParsingSection(
-                    audioSettings: audioSettings,
-                    endpointController: _endpointController,
-                    apiKeyController: _apiKeyController,
-                    modelController: _modelController,
-                    timeoutController: _timeoutController,
-                    modeLabelBuilder: _getModeLabel,
-                    onModeChanged: (mode) => ref
-                        .read(audioSettingsProvider.notifier)
-                        .setLyricsAiTitleParsingMode(mode),
-                    onEndpointSubmitted: _saveLyricsAiEndpoint,
-                    onApiKeySubmitted: _saveLyricsAiApiKey,
-                    onClearApiKey: _clearLyricsAiApiKey,
-                    onModelSubmitted: _saveLyricsAiModel,
-                    onTimeoutChanged: _saveLyricsAiTimeoutSeconds,
-                    onClearCache: _clearAiParseCache,
-                  ),
                 ),
               ],
             ),
@@ -344,7 +423,7 @@ class _LyricsSourceTile extends StatelessWidget {
   }
 }
 
-class _AiTitleParsingSection extends StatelessWidget {
+class _AiTitleParsingSettingsDialog extends StatefulWidget {
   final AudioSettingsState audioSettings;
   final TextEditingController endpointController;
   final TextEditingController apiKeyController;
@@ -358,8 +437,9 @@ class _AiTitleParsingSection extends StatelessWidget {
   final Future<void> Function(String value) onModelSubmitted;
   final Future<void> Function(int seconds) onTimeoutChanged;
   final Future<void> Function() onClearCache;
+  final Future<void> Function() onTestAi;
 
-  const _AiTitleParsingSection({
+  const _AiTitleParsingSettingsDialog({
     required this.audioSettings,
     required this.endpointController,
     required this.apiKeyController,
@@ -373,26 +453,41 @@ class _AiTitleParsingSection extends StatelessWidget {
     required this.onModelSubmitted,
     required this.onTimeoutChanged,
     required this.onClearCache,
+    required this.onTestAi,
   });
+
+  @override
+  State<_AiTitleParsingSettingsDialog> createState() =>
+      _AiTitleParsingSettingsDialogState();
+}
+
+class _AiTitleParsingSettingsDialogState
+    extends State<_AiTitleParsingSettingsDialog> {
+  bool _isTesting = false;
+
+  Future<void> _testAi() async {
+    setState(() => _isTesting = true);
+    try {
+      await widget.onTestAi();
+    } finally {
+      if (mounted) setState(() => _isTesting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
+    return AlertDialog(
+      title: Text(t.settings.lyricsSourceSettings.aiSectionTitle),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: SingleChildScrollView(
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                t.settings.lyricsSourceSettings.aiSectionTitle,
-                style: theme.textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
               Text(
                 t.settings.lyricsSourceSettings.aiPrivacyHint,
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -401,7 +496,7 @@ class _AiTitleParsingSection extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<LyricsAiTitleParsingMode>(
-                initialValue: audioSettings.lyricsAiTitleParsingMode,
+                initialValue: widget.audioSettings.lyricsAiTitleParsingMode,
                 decoration: InputDecoration(
                   labelText: t.settings.lyricsSourceSettings.aiMode,
                   border: const OutlineInputBorder(),
@@ -410,17 +505,17 @@ class _AiTitleParsingSection extends StatelessWidget {
                     .map(
                       (mode) => DropdownMenuItem(
                         value: mode,
-                        child: Text(modeLabelBuilder(mode)),
+                        child: Text(widget.modeLabelBuilder(mode)),
                       ),
                     )
                     .toList(),
                 onChanged: (mode) {
-                  if (mode != null) onModeChanged(mode);
+                  if (mode != null) widget.onModeChanged(mode);
                 },
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: endpointController,
+                controller: widget.endpointController,
                 decoration: InputDecoration(
                   labelText: t.settings.lyricsSourceSettings.aiEndpoint,
                   hintText: t.settings.lyricsSourceSettings.aiEndpointHint,
@@ -428,16 +523,16 @@ class _AiTitleParsingSection extends StatelessWidget {
                 ),
                 keyboardType: TextInputType.url,
                 textInputAction: TextInputAction.done,
-                onSubmitted: onEndpointSubmitted,
+                onSubmitted: widget.onEndpointSubmitted,
                 onTapOutside: (_) =>
-                    onEndpointSubmitted(endpointController.text),
+                    widget.onEndpointSubmitted(widget.endpointController.text),
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: apiKeyController,
+                controller: widget.apiKeyController,
                 decoration: InputDecoration(
                   labelText: t.settings.lyricsSourceSettings.aiApiKey,
-                  helperText: audioSettings.lyricsAiApiKeyConfigured
+                  helperText: widget.audioSettings.lyricsAiApiKeyConfigured
                       ? t.settings.lyricsSourceSettings.aiApiKeyConfigured
                       : t.settings.lyricsSourceSettings.aiApiKeyEmpty,
                   border: const OutlineInputBorder(),
@@ -446,15 +541,16 @@ class _AiTitleParsingSection extends StatelessWidget {
                 enableSuggestions: false,
                 autocorrect: false,
                 textInputAction: TextInputAction.done,
-                onSubmitted: onApiKeySubmitted,
-                onTapOutside: (_) => onApiKeySubmitted(apiKeyController.text),
+                onSubmitted: widget.onApiKeySubmitted,
+                onTapOutside: (_) =>
+                    widget.onApiKeySubmitted(widget.apiKeyController.text),
               ),
-              if (audioSettings.lyricsAiApiKeyConfigured) ...[
+              if (widget.audioSettings.lyricsAiApiKeyConfigured) ...[
                 const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: TextButton.icon(
-                    onPressed: onClearApiKey,
+                    onPressed: widget.onClearApiKey,
                     icon: const Icon(Icons.key_off_outlined),
                     label: Text(t.settings.lyricsSourceSettings.aiClearApiKey),
                   ),
@@ -462,19 +558,20 @@ class _AiTitleParsingSection extends StatelessWidget {
               ],
               const SizedBox(height: 12),
               TextField(
-                controller: modelController,
+                controller: widget.modelController,
                 decoration: InputDecoration(
                   labelText: t.settings.lyricsSourceSettings.aiModel,
                   hintText: t.settings.lyricsSourceSettings.aiModelHint,
                   border: const OutlineInputBorder(),
                 ),
                 textInputAction: TextInputAction.done,
-                onSubmitted: onModelSubmitted,
-                onTapOutside: (_) => onModelSubmitted(modelController.text),
+                onSubmitted: widget.onModelSubmitted,
+                onTapOutside: (_) =>
+                    widget.onModelSubmitted(widget.modelController.text),
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: timeoutController,
+                controller: widget.timeoutController,
                 decoration: InputDecoration(
                   labelText: t.settings.lyricsSourceSettings.aiTimeout,
                   suffixText: t.settings.lyricsSourceSettings.aiTimeoutUnit,
@@ -483,27 +580,48 @@ class _AiTitleParsingSection extends StatelessWidget {
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 textInputAction: TextInputAction.done,
-                onSubmitted: (value) => onTimeoutChanged(
-                  int.tryParse(value) ?? audioSettings.lyricsAiTimeoutSeconds,
+                onSubmitted: (value) => widget.onTimeoutChanged(
+                  int.tryParse(value) ??
+                      widget.audioSettings.lyricsAiTimeoutSeconds,
                 ),
-                onTapOutside: (_) => onTimeoutChanged(
-                  int.tryParse(timeoutController.text) ??
-                      audioSettings.lyricsAiTimeoutSeconds,
+                onTapOutside: (_) => widget.onTimeoutChanged(
+                  int.tryParse(widget.timeoutController.text) ??
+                      widget.audioSettings.lyricsAiTimeoutSeconds,
                 ),
               ),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: OutlinedButton.icon(
-                  onPressed: onClearCache,
-                  icon: const Icon(Icons.delete_sweep_outlined),
-                  label: Text(t.settings.lyricsSourceSettings.aiClearCache),
-                ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: widget.onClearCache,
+                    icon: const Icon(Icons.delete_sweep_outlined),
+                    label: Text(t.settings.lyricsSourceSettings.aiClearCache),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: _isTesting ? null : _testAi,
+                    icon: _isTesting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.network_check_outlined),
+                    label: Text(t.settings.lyricsSourceSettings.aiTest),
+                  ),
+                ],
               ),
             ],
           ),
         ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(t.general.close),
+        ),
+      ],
     );
   }
 }

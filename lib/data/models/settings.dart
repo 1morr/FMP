@@ -9,8 +9,10 @@ part 'settings.g.dart';
 enum DownloadImageOption {
   /// 不下载图片
   none,
+
   /// 仅封面
   coverOnly,
+
   /// 封面和头像
   coverAndAvatar,
 }
@@ -19,8 +21,10 @@ enum DownloadImageOption {
 enum AudioQualityLevel {
   /// 最高码率
   high,
+
   /// 中等码率
   medium,
+
   /// 最低码率（省流量）
   low,
 }
@@ -29,6 +33,7 @@ enum AudioQualityLevel {
 enum AudioFormat {
   /// Opus 编码 (WebM 容器，音质好、体积小，兼容性稍差)
   opus,
+
   /// AAC 编码 (MP4/M4A 容器，兼容性好)
   aac,
 }
@@ -37,8 +42,10 @@ enum AudioFormat {
 enum StreamType {
   /// 纯音频流
   audioOnly,
+
   /// 混合流 (视频+音频)
   muxed,
+
   /// HLS 分段流 (仅 YouTube)
   hls,
 }
@@ -47,8 +54,10 @@ enum StreamType {
 enum LyricsDisplayMode {
   /// 只显示原文
   original,
+
   /// 优先显示翻译（翻译 → 罗马音 → 原文）
   preferTranslated,
+
   /// 优先显示罗马音（罗马音 → 翻译 → 原文）
   preferRomaji,
 }
@@ -56,7 +65,7 @@ enum LyricsDisplayMode {
 enum LyricsAiTitleParsingMode {
   off,
   fallbackAfterRules,
-  alwaysForVideoSources,
+  alwaysAi,
 }
 
 /// 应用设置实体（单例模式，始终使用 ID 0）
@@ -170,7 +179,7 @@ class Settings {
   /// 自动匹配和搜索时跳过这些源
   String disabledLyricsSources = 'lrclib';
 
-  /// AI 标题解析模式: 0=off, 1=fallbackAfterRules, 2=alwaysForVideoSources
+  /// AI 标题解析模式: 0=off, 1=fallbackAfterRules, 2=alwaysAi
   int lyricsAiTitleParsingModeIndex = 1;
 
   /// OpenAI-compatible API base URL for AI title parsing.
@@ -453,7 +462,7 @@ class Settings {
       case 0:
         return LyricsAiTitleParsingMode.off;
       case 2:
-        return LyricsAiTitleParsingMode.alwaysForVideoSources;
+        return LyricsAiTitleParsingMode.alwaysAi;
       default:
         return LyricsAiTitleParsingMode.fallbackAfterRules;
     }
@@ -467,7 +476,7 @@ class Settings {
       case LyricsAiTitleParsingMode.fallbackAfterRules:
         lyricsAiTitleParsingModeIndex = 1;
         break;
-      case LyricsAiTitleParsingMode.alwaysForVideoSources:
+      case LyricsAiTitleParsingMode.alwaysAi:
         lyricsAiTitleParsingModeIndex = 2;
         break;
     }
@@ -476,18 +485,24 @@ class Settings {
   /// 獲取指定音源的播放認證設定
   bool useAuthForPlay(SourceType sourceType) {
     switch (sourceType) {
-      case SourceType.bilibili: return useBilibiliAuthForPlay;
-      case SourceType.youtube: return useYoutubeAuthForPlay;
-      case SourceType.netease: return useNeteaseAuthForPlay;
+      case SourceType.bilibili:
+        return useBilibiliAuthForPlay;
+      case SourceType.youtube:
+        return useYoutubeAuthForPlay;
+      case SourceType.netease:
+        return useNeteaseAuthForPlay;
     }
   }
 
   /// 設置指定音源的播放認證設定
   void setUseAuthForPlay(SourceType sourceType, bool value) {
     switch (sourceType) {
-      case SourceType.bilibili: useBilibiliAuthForPlay = value;
-      case SourceType.youtube: useYoutubeAuthForPlay = value;
-      case SourceType.netease: useNeteaseAuthForPlay = value;
+      case SourceType.bilibili:
+        useBilibiliAuthForPlay = value;
+      case SourceType.youtube:
+        useYoutubeAuthForPlay = value;
+      case SourceType.netease:
+        useNeteaseAuthForPlay = value;
     }
   }
 
@@ -497,8 +512,10 @@ class Settings {
     if (neteaseStreamPriority.isEmpty) return [StreamType.audioOnly];
     return neteaseStreamPriority.split(',').map((s) {
       switch (s.trim()) {
-        case 'muxed': return StreamType.muxed;
-        default: return StreamType.audioOnly;
+        case 'muxed':
+          return StreamType.muxed;
+        default:
+          return StreamType.audioOnly;
       }
     }).toList();
   }
