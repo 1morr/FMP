@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
+import '../../core/logger.dart';
+
 class AiParsedTitle {
   const AiParsedTitle({
     required this.trackName,
@@ -14,7 +16,7 @@ class AiParsedTitle {
   final double artistConfidence;
 }
 
-class AiTitleParser {
+class AiTitleParser with Logging {
   AiTitleParser({Dio? dio}) : _dio = dio ?? Dio();
 
   static const double minArtistConfidence = 0.8;
@@ -40,6 +42,7 @@ class AiTitleParser {
     final timeout = Duration(seconds: timeoutSeconds < 1 ? 10 : timeoutSeconds);
 
     try {
+      logInfo('Calling AI title parser: $title');
       final response = await _dio.post<dynamic>(
         '$trimmedEndpoint/chat/completions',
         options: Options(
@@ -70,28 +73,46 @@ class AiTitleParser {
 
       final data = response.data;
       if (data is! Map<String, dynamic>) {
+        logWarning(
+            'AI title parser returned non-object response for title "$title"');
         return null;
       }
       final choices = data['choices'];
       if (choices is! List || choices.isEmpty) {
+        logWarning(
+            'AI title parser response has no choices for title "$title"');
         return null;
       }
       final firstChoice = choices.first;
       if (firstChoice is! Map<String, dynamic>) {
+        logWarning(
+            'AI title parser first choice is invalid for title "$title"');
         return null;
       }
       final message = firstChoice['message'];
       if (message is! Map<String, dynamic>) {
+        logWarning(
+            'AI title parser response message is invalid for title "$title"');
         return null;
       }
       final content = message['content'];
       if (content is! String) {
+        logWarning(
+            'AI title parser response content is invalid for title "$title"');
         return null;
       }
-      return parseContent(content);
-    } on DioException {
+      final parsed = parseContent(content);
+      if (parsed == null) {
+        logWarning(
+            'AI title parser returned invalid content for title "$title"');
+      }
+      return parsed;
+    } on DioException catch (e) {
+      logWarning(
+          'AI title parser request failed for title "$title": ${e.message ?? e.error ?? e.type}');
       return null;
-    } catch (_) {
+    } catch (e) {
+      logWarning('AI title parser failed for title "$title": $e');
       return null;
     }
   }

@@ -263,7 +263,6 @@ class LyricsAutoMatchService with Logging {
             'Ignoring invalid cached AI title parse for ${track.uniqueKey}');
       }
 
-      logInfo('Calling AI title parser for ${track.uniqueKey}: ${track.title}');
       final parsed = await aiTitleParser.parse(
         endpoint: config.endpoint,
         apiKey: config.apiKey,
