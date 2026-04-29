@@ -64,6 +64,63 @@ void main() {
       expect(cached.alternativeTrackNames, ['Idol']);
     });
 
+    test('save upserts by trackUniqueKey and preserves createdAt', () async {
+      await repo.save(
+        trackUniqueKey: 'youtube:abc',
+        sourceType: 'youtube',
+        originalTitle: 'Old title',
+        originalArtist: 'Singer',
+        durationMs: 180000,
+        parsedTrackName: 'Old song',
+        parsedArtistName: 'Old singer',
+        alternativeTrackNames: const ['Old alt'],
+        alternativeArtistNames: const ['Old artist alt'],
+        confidence: 0.7,
+        provider: 'openai-compatible',
+        model: 'old-model',
+      );
+      final first = await isar.lyricsTitleParseCaches
+          .where()
+          .trackUniqueKeyEqualTo('youtube:abc')
+          .findFirst();
+      expect(first, isNotNull);
+      final createdAt = first!.createdAt;
+      final firstUpdatedAt = first.updatedAt;
+
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+
+      await repo.save(
+        trackUniqueKey: 'youtube:abc',
+        sourceType: 'youtube',
+        originalTitle: 'New title',
+        originalArtist: 'New singer',
+        durationMs: 181000,
+        parsedTrackName: 'New song',
+        parsedArtistName: 'New singer',
+        alternativeTrackNames: const ['New alt'],
+        alternativeArtistNames: const ['New artist alt'],
+        confidence: 0.95,
+        provider: 'openai-compatible',
+        model: 'new-model',
+      );
+
+      expect(await isar.lyricsTitleParseCaches.count(), 1);
+      final updated = await isar.lyricsTitleParseCaches
+          .where()
+          .trackUniqueKeyEqualTo('youtube:abc')
+          .findFirst();
+      expect(updated, isNotNull);
+      expect(updated!.createdAt, createdAt);
+      expect(updated.updatedAt.isAfter(firstUpdatedAt), isTrue);
+      expect(updated.originalTitle, 'New title');
+      expect(updated.parsedTrackName, 'New song');
+      expect(updated.parsedArtistName, 'New singer');
+      expect(updated.alternativeTrackNames, ['New alt']);
+      expect(updated.alternativeArtistNames, ['New artist alt']);
+      expect(updated.confidence, 0.95);
+      expect(updated.model, 'new-model');
+    });
+
     test('returns null when title changes', () async {
       await repo.save(
         trackUniqueKey: 'youtube:abc',

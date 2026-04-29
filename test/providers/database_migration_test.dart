@@ -56,6 +56,51 @@ void main() {
       expect(queues.single.currentIndex, 0);
     });
 
+    test('repairs AI title parsing fields from Isar upgrade defaults',
+        () async {
+      await openTestDatabase();
+
+      final upgradedSettings = Settings()
+        ..lyricsAiTitleParsingModeIndex = 0
+        ..lyricsAiEndpoint = ''
+        ..lyricsAiModel = ''
+        ..lyricsAiTimeoutSeconds = 0;
+      await isar.writeTxn(() async {
+        await isar.settings.put(upgradedSettings);
+      });
+
+      await runDatabaseMigrationForTesting(isar);
+
+      final migratedSettings = await isar.settings.get(0);
+      expect(migratedSettings, isNotNull);
+      expect(migratedSettings!.lyricsAiTitleParsingModeIndex, 1);
+      expect(migratedSettings.lyricsAiTitleParsingMode,
+          LyricsAiTitleParsingMode.fallbackAfterRules);
+      expect(migratedSettings.lyricsAiTimeoutSeconds, 10);
+      expect(migratedSettings.lyricsAiEndpoint, isEmpty);
+      expect(migratedSettings.lyricsAiModel, isEmpty);
+    });
+
+    test('repairs invalid AI title parsing mode index', () async {
+      await openTestDatabase();
+
+      final settings = Settings()
+        ..lyricsAiTitleParsingModeIndex = 99
+        ..lyricsAiTimeoutSeconds = 10;
+      await isar.writeTxn(() async {
+        await isar.settings.put(settings);
+      });
+
+      await runDatabaseMigrationForTesting(isar);
+
+      final migratedSettings = await isar.settings.get(0);
+      expect(migratedSettings, isNotNull);
+      expect(migratedSettings!.lyricsAiTitleParsingModeIndex, 1);
+      expect(migratedSettings.lyricsAiTitleParsingMode,
+          LyricsAiTitleParsingMode.fallbackAfterRules);
+      expect(migratedSettings.lyricsAiTimeoutSeconds, 10);
+    });
+
     test(
         'repairs legacy playback and lyrics defaults only for legacy signature',
         () async {
