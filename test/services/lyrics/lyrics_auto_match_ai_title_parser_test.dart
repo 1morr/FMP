@@ -250,7 +250,7 @@ void main() {
       expect(await repo.getByTrackKey('youtube:cache-without-match'), isNull);
     });
 
-    test('AI unavailable or invalid falls back without throwing', () async {
+    test('AI unavailable or null falls back without throwing', () async {
       config = _config(mode: LyricsAiTitleParsingMode.alwaysForVideoSources);
       aiParser.result = null;
       netease.searchResultsByQuery['Regex Song Regex Artist'] = [
@@ -270,7 +270,114 @@ void main() {
       expect(await _cachedCount(isar), 0);
     });
 
-    test('AI-derived queries are bounded, deduped, and start with title artist',
+    test('invalid non-null AI parse falls back without saving cache', () async {
+      config = _config(mode: LyricsAiTitleParsingMode.alwaysForVideoSources);
+      aiParser.result = _aiParsed(trackName: '   ', artistName: 'AI Artist');
+      netease.searchResultsByQuery['Regex Song Regex Artist'] = [
+        _lyricsResult(id: 'invalid-ai-regex-fallback', source: 'netease'),
+      ];
+
+      final matched = await buildService().tryAutoMatch(
+        _track('invalid-ai-fallback'),
+        enabledSources: const ['netease'],
+      );
+
+      expect(matched, isTrue);
+      expect(aiParser.calls, hasLength(1));
+      expect(netease.searchCalls, ['Regex Song Regex Artist']);
+      expect(await _cachedCount(isar), 0);
+      final saved = await repo.getByTrackKey('youtube:invalid-ai-fallback');
+      expect(saved?.externalId, 'invalid-ai-regex-fallback');
+    });
+
+    test('invalid cached AI parse is ignored and refreshed', () async {
+      await titleParseCacheRepo.save(
+        trackUniqueKey: 'youtube:invalid-cache',
+        sourceType: SourceType.youtube.name,
+        originalTitle: 'Video Title',
+        originalArtist: 'Uploader',
+        durationMs: 180000,
+        parsedTrackName: '',
+        parsedArtistName: 'Cached Artist',
+        alternativeTrackNames: const [],
+        alternativeArtistNames: const [],
+        confidence: 0.95,
+        provider: 'openai-compatible',
+        model: 'test-model',
+      );
+      aiParser.result = _aiParsed(
+        trackName: 'Fresh AI Song',
+        artistName: 'Fresh AI Artist',
+      );
+      netease.searchResultsByQuery['Fresh AI Song Fresh AI Artist'] = [
+        _lyricsResult(
+          id: 'fresh-ai-match',
+          source: 'netease',
+          trackName: 'Fresh AI Song',
+          artistName: 'Fresh AI Artist',
+        ),
+      ];
+
+      final matched = await buildService().tryAutoMatch(
+        _track('invalid-cache'),
+        enabledSources: const ['netease'],
+      );
+
+      expect(matched, isTrue);
+      expect(aiParser.calls, hasLength(1));
+      final cached = await titleParseCacheRepo.getReusable(
+        trackUniqueKey: 'youtube:invalid-cache',
+        originalTitle: 'Video Title',
+        originalArtist: 'Uploader',
+        durationMs: 180000,
+      );
+      expect(cached?.parsedTrackName, 'Fresh AI Song');
+      final saved = await repo.getByTrackKey('youtube:invalid-cache');
+      expect(saved?.externalId, 'fresh-ai-match');
+    });
+
+    test('source priority dominates AI query order', () async {
+      aiParser.result = _aiParsed(
+        trackName: 'AI Song',
+        artistName: 'AI Artist',
+        alternativeArtistNames: const ['Alt Artist'],
+      );
+      qqmusic.searchResultsByQuery['AI Song AI Artist'] = [
+        _lyricsResult(
+          id: 'qq-first-query-match',
+          source: 'qqmusic',
+          trackName: 'AI Song',
+          artistName: 'AI Artist',
+        ),
+      ];
+      netease.searchResultsByQuery['AI Song Alt Artist'] = [
+        _lyricsResult(
+          id: 'netease-later-query-match',
+          source: 'netease',
+          trackName: 'AI Song',
+          artistName: 'Alt Artist',
+        ),
+      ];
+
+      final matched = await buildService().tryAutoMatch(
+        _track('source-priority'),
+        enabledSources: const ['netease', 'qqmusic'],
+      );
+
+      expect(matched, isTrue);
+      expect(netease.searchCalls, [
+        'Regex Song Regex Artist',
+        'AI Song AI Artist',
+        'AI Song',
+        'AI Song Alt Artist',
+      ]);
+      expect(qqmusic.searchCalls, ['Regex Song Regex Artist']);
+      final saved = await repo.getByTrackKey('youtube:source-priority');
+      expect(saved?.lyricsSource, 'netease');
+      expect(saved?.externalId, 'netease-later-query-match');
+    });
+
+    test('AI-derived queries are bounded, deduped, and include no-artist query',
         () async {
       aiParser.result = _aiParsed(
         trackName: 'AI Song',
@@ -297,11 +404,11 @@ void main() {
       expect(netease.searchCalls.first, 'Regex Song Regex Artist');
       expect(netease.searchCalls.skip(1).take(6), [
         'AI Song AI Artist',
+        'AI Song',
         'AI Song Alt Artist 1',
         'AI Song Alt Artist 2',
         'Alt Song 1 AI Artist',
         'Alt Song 1 Alt Artist 1',
-        'Alt Song 1 Alt Artist 2',
       ]);
       expect(netease.searchCalls.length, 7);
     });
@@ -350,13 +457,14 @@ AiParsedTitle _aiParsed({
   String? artistName = 'AI Artist',
   List<String> alternativeTrackNames = const [],
   List<String> alternativeArtistNames = const [],
+  double confidence = 0.92,
 }) {
   return AiParsedTitle(
     trackName: trackName,
     artistName: artistName,
     alternativeTrackNames: alternativeTrackNames,
     alternativeArtistNames: alternativeArtistNames,
-    confidence: 0.92,
+    confidence: confidence,
   );
 }
 

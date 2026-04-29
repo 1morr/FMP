@@ -201,8 +201,8 @@ class LyricsAutoMatchService with Logging {
     List<String> sources,
   ) async {
     final trackDurationSec = (track.durationMs ?? 0) ~/ 1000;
-    for (final query in queryPairs) {
-      for (final source in sources) {
+    for (final source in sources) {
+      for (final query in queryPairs) {
         LyricsResult? result;
         switch (source) {
           case 'netease':
@@ -261,15 +261,17 @@ class LyricsAutoMatchService with Logging {
     if (parsed.artistName != null && parsed.artistName!.trim().isNotEmpty) {
       add(parsed.trackName, parsed.artistName!);
     }
+
+    // Reserve a no-artist query inside the 6-query cap. This keeps the first
+    // query as parsedTrackName + parsedArtistName when available while ensuring
+    // artist-heavy alternatives cannot crowd out the source's broadest query.
+    add(parsed.trackName, '');
+
     for (final trackName in trackNames) {
       for (final artistName in artistNames) {
         add(trackName, artistName);
         if (queries.length >= 6) return queries;
       }
-    }
-    for (final trackName in trackNames) {
-      add(trackName, '');
-      if (queries.length >= 6) return queries;
     }
     return queries;
   }
@@ -290,7 +292,12 @@ class LyricsAutoMatchService with Logging {
         durationMs: track.durationMs,
       );
       if (cached != null) {
-        return _cacheEntryToAiParsedTitle(cached);
+        final parsed = _cacheEntryToAiParsedTitle(cached);
+        if (_isValidAiParsedTitle(parsed)) {
+          return parsed;
+        }
+        logDebug(
+            'Ignoring invalid cached AI title parse for ${track.uniqueKey}');
       }
 
       final parsed = await aiTitleParser.parse(
@@ -304,6 +311,10 @@ class LyricsAutoMatchService with Logging {
         timeoutSeconds: config.timeoutSeconds,
       );
       if (parsed == null) return null;
+      if (!_isValidAiParsedTitle(parsed)) {
+        logDebug('Ignoring invalid AI title parse for ${track.uniqueKey}');
+        return null;
+      }
 
       await titleParseCacheRepo.save(
         trackUniqueKey: track.uniqueKey,
@@ -324,6 +335,11 @@ class LyricsAutoMatchService with Logging {
       logWarning('AI title parsing failed for ${track.uniqueKey}: $e');
       return null;
     }
+  }
+
+  bool _isValidAiParsedTitle(AiParsedTitle parsed) {
+    return parsed.trackName.trim().isNotEmpty &&
+        parsed.confidence >= AiTitleParser.minConfidence;
   }
 
   AiParsedTitle _cacheEntryToAiParsedTitle(LyricsTitleParseCache cached) {
