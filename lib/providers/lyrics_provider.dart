@@ -5,8 +5,10 @@ import '../data/models/settings.dart';
 import '../data/repositories/lyrics_repository.dart';
 import '../data/repositories/settings_repository.dart';
 import '../services/audio/audio_provider.dart';
+import '../services/lyrics/ai_title_parser.dart';
 import '../services/lyrics/lrc_parser.dart';
 import '../services/lyrics/lrclib_source.dart';
+import '../services/lyrics/lyrics_ai_config_service.dart';
 import '../services/lyrics/lyrics_auto_match_service.dart';
 import '../services/lyrics/lyrics_cache_service.dart';
 import '../services/lyrics/lyrics_result.dart';
@@ -35,6 +37,15 @@ enum LyricsSourceFilter { all, netease, qqmusic, lrclib }
 /// TitleParser 单例
 final titleParserProvider = Provider<TitleParser>((ref) => RegexTitleParser());
 
+/// AI TitleParser 单例
+final aiTitleParserProvider = Provider<AiTitleParser>((ref) => AiTitleParser());
+
+/// Lyrics AI config service 单例
+final lyricsAiConfigServiceProvider = Provider<LyricsAiConfigService>((ref) {
+  final settingsRepo = ref.watch(settingsRepositoryProvider);
+  return LyricsAiConfigService(loadSettings: settingsRepo.get);
+});
+
 /// LyricsCacheService 单例
 final lyricsCacheServiceProvider = Provider<LyricsCacheService>((ref) {
   final settingsRepo = ref.watch(settingsRepositoryProvider);
@@ -50,6 +61,7 @@ final lyricsCacheServiceProvider = Provider<LyricsCacheService>((ref) {
 
 /// LyricsAutoMatchService 单例
 final lyricsAutoMatchServiceProvider = Provider<LyricsAutoMatchService>((ref) {
+  final aiConfigService = ref.watch(lyricsAiConfigServiceProvider);
   return LyricsAutoMatchService(
     lrclib: ref.watch(lrclibSourceProvider),
     netease: ref.watch(neteaseSourceProvider),
@@ -57,6 +69,9 @@ final lyricsAutoMatchServiceProvider = Provider<LyricsAutoMatchService>((ref) {
     repo: ref.watch(lyricsRepositoryProvider),
     cache: ref.watch(lyricsCacheServiceProvider),
     parser: ref.watch(titleParserProvider),
+    aiTitleParser: ref.watch(aiTitleParserProvider),
+    aiConfigLoader: aiConfigService.loadConfig,
+    titleParseCacheRepo: ref.watch(lyricsTitleParseCacheRepositoryProvider),
   );
 });
 

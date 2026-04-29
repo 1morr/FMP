@@ -1,9 +1,14 @@
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/lyrics_match.dart';
+import '../../data/models/lyrics_title_parse_cache.dart';
+import '../../data/models/settings.dart';
 import '../../data/models/track.dart';
 import '../../data/repositories/lyrics_repository.dart';
+import '../../data/repositories/lyrics_title_parse_cache_repository.dart';
+import 'ai_title_parser.dart';
 import 'lrclib_source.dart';
+import 'lyrics_ai_config_service.dart';
 import 'lyrics_cache_service.dart';
 import 'lyrics_result.dart';
 import 'netease_source.dart';
@@ -23,6 +28,9 @@ class LyricsAutoMatchService with Logging {
   final LyricsRepository _repo;
   final LyricsCacheService _cache;
   final TitleParser _parser;
+  final AiTitleParser? _aiTitleParser;
+  final Future<LyricsAiConfig> Function()? _aiConfigLoader;
+  final LyricsTitleParseCacheRepository? _titleParseCacheRepo;
 
   LyricsAutoMatchService({
     required LrclibSource lrclib,
@@ -31,12 +39,18 @@ class LyricsAutoMatchService with Logging {
     required LyricsRepository repo,
     required LyricsCacheService cache,
     required TitleParser parser,
+    AiTitleParser? aiTitleParser,
+    Future<LyricsAiConfig> Function()? aiConfigLoader,
+    LyricsTitleParseCacheRepository? titleParseCacheRepo,
   })  : _lrclib = lrclib,
         _netease = netease,
         _qqmusic = qqmusic,
         _repo = repo,
         _cache = cache,
-        _parser = parser;
+        _parser = parser,
+        _aiTitleParser = aiTitleParser,
+        _aiConfigLoader = aiConfigLoader,
+        _titleParseCacheRepo = titleParseCacheRepo;
 
   /// 正在匹配中的 track key 集合，防止同一首歌并发匹配
   final Set<String> _matchingKeys = {};
@@ -66,64 +80,62 @@ class LyricsAutoMatchService with Logging {
       // 1.5a. 网易云歌曲直接用 sourceId 获取歌词（跳过搜索）
       if (track.sourceType == SourceType.netease) {
         try {
-          final result = await _netease.getLyricsResult(track.sourceId)
+          final result = await _netease
+              .getLyricsResult(track.sourceId)
               .timeout(AppConstants.networkReceiveTimeout);
           if (result != null && result.hasSyncedLyrics) {
             await _saveMatch(track, result, 'netease', track.sourceId);
-            logInfo('Auto-matched lyrics via netease sourceId: ${track.sourceId}');
+            logInfo(
+                'Auto-matched lyrics via netease sourceId: ${track.sourceId}');
             return true;
           }
         } catch (e) {
-          logDebug('Direct lyrics fetch failed for netease ${track.sourceId}: $e');
+          logDebug(
+              'Direct lyrics fetch failed for netease ${track.sourceId}: $e');
           // 降级到搜索匹配
         }
       }
 
       // 1.5b. 如果有原平台 ID，直接获取歌词（跳过搜索）
       if (track.originalSongId != null && track.originalSource != null) {
-        final result = await _tryDirectFetch(track.originalSongId!, track.originalSource!);
+        final result =
+            await _tryDirectFetch(track.originalSongId!, track.originalSource!);
         if (result != null) {
-          await _saveMatch(track, result, track.originalSource!, track.originalSongId!);
-          logInfo('Auto-matched lyrics via direct ID: ${track.title} → ${track.originalSource}:${track.originalSongId}');
+          await _saveMatch(
+              track, result, track.originalSource!, track.originalSongId!);
+          logInfo(
+              'Auto-matched lyrics via direct ID: ${track.title} → ${track.originalSource}:${track.originalSongId}');
           return true;
         }
         // 直接获取失败，fallback 到搜索流程
       }
 
-      // 2. 解析标题和艺术家
-      final parsed = _parser.parse(track.title);
-      final trackName = parsed.trackName;
-      final artistName = parsed.artistName ?? track.artist ?? '';
-
-      if (trackName.isEmpty) {
-        logDebug('Cannot parse track name: ${track.title}');
-        return false;
-      }
-
-      logDebug('Auto-matching: "$trackName" by "$artistName"');
-
-      // 3. 按用户配置的优先级顺序尝试各歌词源
       final sources = enabledSources ?? ['netease', 'qqmusic', 'lrclib'];
-      final trackDurationSec = (track.durationMs ?? 0) ~/ 1000;
+      final aiConfig = await _loadAiConfigSafely();
+      final shouldTryAi = _shouldTryAi(track, aiConfig);
 
-      for (final source in sources) {
-        LyricsResult? result;
-        switch (source) {
-          case 'netease':
-            result = await _tryNeteaseMatch(trackName, artistName, trackDurationSec);
-          case 'qqmusic':
-            result = await _tryQQMusicMatch(trackName, artistName, trackDurationSec);
-          case 'lrclib':
-            result = await _tryLrclibMatch(trackName, artistName, trackDurationSec);
-        }
-        if (result != null) {
-          await _saveMatch(track, result, source, result.id);
-          logInfo('Auto-matched lyrics: ${track.title} → $source:${result.id}');
-          return true;
+      if (shouldTryAi &&
+          aiConfig!.mode == LyricsAiTitleParsingMode.alwaysForVideoSources) {
+        final aiParsed = await _loadOrParseAiTitle(track, aiConfig);
+        if (aiParsed != null) {
+          final aiMatched = await _matchAiParsedTitle(track, aiParsed, sources);
+          if (aiMatched) return true;
         }
       }
 
-      logDebug('No lyrics matched for: $trackName');
+      final regexMatched = await _matchRegexParsedTitle(track, sources);
+      if (regexMatched) return true;
+
+      if (shouldTryAi &&
+          aiConfig!.mode == LyricsAiTitleParsingMode.fallbackAfterRules) {
+        final aiParsed = await _loadOrParseAiTitle(track, aiConfig);
+        if (aiParsed != null) {
+          final aiMatched = await _matchAiParsedTitle(track, aiParsed, sources);
+          if (aiMatched) return true;
+        }
+      }
+
+      logDebug('No lyrics matched for: ${track.title}');
       return false;
     } catch (e) {
       logError('Auto-match failed for ${track.uniqueKey}: $e');
@@ -133,8 +145,200 @@ class LyricsAutoMatchService with Logging {
     }
   }
 
+  Future<LyricsAiConfig?> _loadAiConfigSafely() async {
+    final aiConfigLoader = _aiConfigLoader;
+    if (aiConfigLoader == null) return null;
+    try {
+      return await aiConfigLoader();
+    } catch (e) {
+      logWarning('Failed to load lyrics AI config: $e');
+      return null;
+    }
+  }
+
+  bool _shouldTryAi(Track track, LyricsAiConfig? config) {
+    return _aiTitleParser != null &&
+        _titleParseCacheRepo != null &&
+        config != null &&
+        config.isAvailable &&
+        _isVideoSource(track.sourceType);
+  }
+
+  bool _isVideoSource(SourceType sourceType) {
+    return sourceType == SourceType.bilibili ||
+        sourceType == SourceType.youtube;
+  }
+
+  Future<bool> _matchRegexParsedTitle(Track track, List<String> sources) async {
+    final parsed = _parser.parse(track.title);
+    final trackName = parsed.trackName;
+    final artistName = parsed.artistName ?? track.artist ?? '';
+
+    if (trackName.isEmpty) {
+      logDebug('Cannot parse track name: ${track.title}');
+      return false;
+    }
+
+    logDebug('Auto-matching: "$trackName" by "$artistName"');
+    return _matchQueryPairs(
+      track,
+      [(trackName: trackName, artistName: artistName)],
+      sources,
+    );
+  }
+
+  Future<bool> _matchAiParsedTitle(
+    Track track,
+    AiParsedTitle parsed,
+    List<String> sources,
+  ) {
+    return _matchQueryPairs(track, _buildAiQueryPairs(parsed), sources);
+  }
+
+  Future<bool> _matchQueryPairs(
+    Track track,
+    List<({String trackName, String artistName})> queryPairs,
+    List<String> sources,
+  ) async {
+    final trackDurationSec = (track.durationMs ?? 0) ~/ 1000;
+    for (final query in queryPairs) {
+      for (final source in sources) {
+        LyricsResult? result;
+        switch (source) {
+          case 'netease':
+            result = await _tryNeteaseMatch(
+              query.trackName,
+              query.artistName,
+              trackDurationSec,
+            );
+          case 'qqmusic':
+            result = await _tryQQMusicMatch(
+              query.trackName,
+              query.artistName,
+              trackDurationSec,
+            );
+          case 'lrclib':
+            result = await _tryLrclibMatch(
+              query.trackName,
+              query.artistName,
+              trackDurationSec,
+            );
+        }
+        if (result != null) {
+          await _saveMatch(track, result, source, result.id);
+          logInfo('Auto-matched lyrics: ${track.title} → $source:${result.id}');
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  List<({String trackName, String artistName})> _buildAiQueryPairs(
+    AiParsedTitle parsed,
+  ) {
+    final trackNames = <String>[
+      parsed.trackName,
+      ...parsed.alternativeTrackNames,
+    ];
+    final artistNames = <String>[
+      if (parsed.artistName != null) parsed.artistName!,
+      ...parsed.alternativeArtistNames,
+    ];
+    final queries = <({String trackName, String artistName})>[];
+    final seen = <String>{};
+
+    void add(String trackName, String artistName) {
+      final normalizedTrack = trackName.trim();
+      final normalizedArtist = artistName.trim();
+      if (normalizedTrack.isEmpty) return;
+      final key =
+          '${normalizedTrack.toLowerCase()}\u0000${normalizedArtist.toLowerCase()}';
+      if (!seen.add(key)) return;
+      queries.add((trackName: normalizedTrack, artistName: normalizedArtist));
+    }
+
+    if (parsed.artistName != null && parsed.artistName!.trim().isNotEmpty) {
+      add(parsed.trackName, parsed.artistName!);
+    }
+    for (final trackName in trackNames) {
+      for (final artistName in artistNames) {
+        add(trackName, artistName);
+        if (queries.length >= 6) return queries;
+      }
+    }
+    for (final trackName in trackNames) {
+      add(trackName, '');
+      if (queries.length >= 6) return queries;
+    }
+    return queries;
+  }
+
+  Future<AiParsedTitle?> _loadOrParseAiTitle(
+    Track track,
+    LyricsAiConfig config,
+  ) async {
+    final titleParseCacheRepo = _titleParseCacheRepo;
+    final aiTitleParser = _aiTitleParser;
+    if (titleParseCacheRepo == null || aiTitleParser == null) return null;
+
+    try {
+      final cached = await titleParseCacheRepo.getReusable(
+        trackUniqueKey: track.uniqueKey,
+        originalTitle: track.title,
+        originalArtist: track.artist,
+        durationMs: track.durationMs,
+      );
+      if (cached != null) {
+        return _cacheEntryToAiParsedTitle(cached);
+      }
+
+      final parsed = await aiTitleParser.parse(
+        endpoint: config.endpoint,
+        apiKey: config.apiKey,
+        model: config.model,
+        title: track.title,
+        artist: track.artist ?? '',
+        sourceType: track.sourceType,
+        durationMs: track.durationMs,
+        timeoutSeconds: config.timeoutSeconds,
+      );
+      if (parsed == null) return null;
+
+      await titleParseCacheRepo.save(
+        trackUniqueKey: track.uniqueKey,
+        sourceType: track.sourceType.name,
+        originalTitle: track.title,
+        originalArtist: track.artist,
+        durationMs: track.durationMs,
+        parsedTrackName: parsed.trackName,
+        parsedArtistName: parsed.artistName,
+        alternativeTrackNames: parsed.alternativeTrackNames,
+        alternativeArtistNames: parsed.alternativeArtistNames,
+        confidence: parsed.confidence,
+        provider: 'openai-compatible',
+        model: config.model,
+      );
+      return parsed;
+    } catch (e) {
+      logWarning('AI title parsing failed for ${track.uniqueKey}: $e');
+      return null;
+    }
+  }
+
+  AiParsedTitle _cacheEntryToAiParsedTitle(LyricsTitleParseCache cached) {
+    return AiParsedTitle(
+      trackName: cached.parsedTrackName,
+      artistName: cached.parsedArtistName,
+      alternativeTrackNames: cached.alternativeTrackNames,
+      alternativeArtistNames: cached.alternativeArtistNames,
+      confidence: cached.confidence,
+    );
+  }
+
   /// 保存匹配结果到缓存和数据库
-  Future<void> _saveMatch(Track track, LyricsResult result, String source, String externalId) async {
+  Future<void> _saveMatch(Track track, LyricsResult result, String source,
+      String externalId) async {
     await _cache.put(track.uniqueKey, result);
     final match = LyricsMatch()
       ..trackUniqueKey = track.uniqueKey
@@ -152,10 +356,12 @@ class LyricsAutoMatchService with Logging {
     try {
       LyricsResult? result;
       if (source == 'netease') {
-        result = await _netease.getLyricsResult(songId)
+        result = await _netease
+            .getLyricsResult(songId)
             .timeout(AppConstants.networkReceiveTimeout);
       } else if (source == 'qqmusic') {
-        result = await _qqmusic.getLyricsResult(songId)
+        result = await _qqmusic
+            .getLyricsResult(songId)
             .timeout(AppConstants.networkReceiveTimeout);
       } else {
         return null; // Spotify 等不支持直接获取
@@ -191,7 +397,8 @@ class LyricsAutoMatchService with Logging {
       // 过滤符合时长条件的结果（±10秒）
       final matching = results.where((r) {
         if (r.duration == 0) return true; // 网易云有时不返回时长
-        return (r.duration - trackDurationSec).abs() <= AppConstants.lyricsDurationToleranceSec;
+        return (r.duration - trackDurationSec).abs() <=
+            AppConstants.lyricsDurationToleranceSec;
       }).toList();
 
       if (matching.isEmpty) return null;
@@ -231,7 +438,8 @@ class LyricsAutoMatchService with Logging {
       // 过滤符合时长条件的结果（±10秒）
       final matching = results.where((r) {
         if (r.duration == 0) return true;
-        return (r.duration - trackDurationSec).abs() <= AppConstants.lyricsDurationToleranceSec;
+        return (r.duration - trackDurationSec).abs() <=
+            AppConstants.lyricsDurationToleranceSec;
       }).toList();
 
       if (matching.isEmpty) return null;
@@ -279,14 +487,16 @@ class LyricsAutoMatchService with Logging {
       // 如果有多个结果，选择最相似的
       final result = matchingResults.length == 1
           ? matchingResults.first
-          : _selectBestMatch(matchingResults, trackName, artistName, trackDurationSec);
+          : _selectBestMatch(
+              matchingResults, trackName, artistName, trackDurationSec);
 
       if (result == null) return null;
 
       // 与 netease/qqmusic 一致，只返回有同步歌词的结果
       if (!result.hasSyncedLyrics) return null;
 
-      logDebug('Selected best lrclib match: "${result.trackName}" by "${result.artistName}" (score: ${_calculateScore(result, trackName, artistName, trackDurationSec).toStringAsFixed(2)})');
+      logDebug(
+          'Selected best lrclib match: "${result.trackName}" by "${result.artistName}" (score: ${_calculateScore(result, trackName, artistName, trackDurationSec).toStringAsFixed(2)})');
       return result;
     } catch (e) {
       logWarning('lrclib auto-match failed: $e');
@@ -311,7 +521,8 @@ class LyricsAutoMatchService with Logging {
 
     // 计算每个候选的得分
     final scored = candidates.map((result) {
-      final score = _calculateScore(result, trackName, artistName, trackDurationSec);
+      final score =
+          _calculateScore(result, trackName, artistName, trackDurationSec);
       return (result: result, score: score);
     }).toList();
 
@@ -359,9 +570,10 @@ class LyricsAutoMatchService with Logging {
                 : 0.0;
 
     // 4. 是否有同步歌词（权重 10%）
-    final syncedScore = result.syncedLyrics != null && result.syncedLyrics!.isNotEmpty
-        ? 1.0
-        : 0.0;
+    final syncedScore =
+        result.syncedLyrics != null && result.syncedLyrics!.isNotEmpty
+            ? 1.0
+            : 0.0;
 
     // 加权总分
     final totalScore = titleSimilarity * 0.4 +
