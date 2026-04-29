@@ -102,6 +102,22 @@ Future<void> _initializeDatabaseDefaultsInTxn(Isar isar) async {
       needsUpdate = true;
     }
 
+    // 修复 AI 标题解析设置（旧版本升级时新增 int 字段会落成 0）
+    if (settings.lyricsAiTimeoutSeconds < 1) {
+      if (settings.lyricsAiTitleParsingModeIndex == 0 &&
+          settings.lyricsAiEndpoint.isEmpty &&
+          settings.lyricsAiModel.isEmpty) {
+        settings.lyricsAiTitleParsingModeIndex = 1;
+      }
+      settings.lyricsAiTimeoutSeconds = 10;
+      needsUpdate = true;
+    }
+    if (settings.lyricsAiTitleParsingModeIndex < 0 ||
+        settings.lyricsAiTitleParsingModeIndex > 2) {
+      settings.lyricsAiTitleParsingModeIndex = 1;
+      needsUpdate = true;
+    }
+
     // 修复空字符串字段（设置默认值）
     if (settings.audioFormatPriority.isEmpty) {
       settings.audioFormatPriority = 'aac,opus';
