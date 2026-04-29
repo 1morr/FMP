@@ -48,6 +48,7 @@ void main() {
           'https://api.example.com/v1/chat/completions');
       expect(capturedOptions?.headers['Authorization'], 'Bearer secret-key');
       expect(capturedOptions?.headers['Content-Type'], contains('application/json'));
+      expect(capturedOptions?.connectTimeout, const Duration(seconds: 7));
       expect(capturedOptions?.sendTimeout, const Duration(seconds: 7));
       expect(capturedOptions?.receiveTimeout, const Duration(seconds: 7));
 
