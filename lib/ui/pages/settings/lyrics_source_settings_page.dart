@@ -191,6 +191,7 @@ class _LyricsSourceSettingsPageState
           apiKey: config.apiKey,
           model: config.model,
           title: '【MV】YOASOBI「アイドル」Official Music Video',
+          uploader: 'Ayase / YOASOBI',
           timeoutSeconds: config.timeoutSeconds,
         );
 
