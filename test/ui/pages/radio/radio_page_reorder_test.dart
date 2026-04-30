@@ -37,6 +37,7 @@ void main() {
 
       await tester.pump();
 
+      expect(_sortButtonIsLeftOfTitle(tester), isTrue);
       expect(_stationOrder(tester), ['Alpha', 'Bravo', 'Charlie']);
 
       await tester.tap(find.byIcon(Icons.swap_vert));
@@ -92,6 +93,14 @@ RadioStation _buildStation({
     ..sourceType = SourceType.bilibili
     ..sourceId = '$id'
     ..sortOrder = sortOrder;
+}
+
+bool _sortButtonIsLeftOfTitle(WidgetTester tester) {
+  final sortButtonRight = tester
+      .getTopRight(find.byIcon(Icons.swap_vert))
+      .dx;
+  final titleLeft = tester.getTopLeft(find.text(t.radio.title)).dx;
+  return sortButtonRight <= titleLeft;
 }
 
 List<String> _stationOrder(WidgetTester tester) {

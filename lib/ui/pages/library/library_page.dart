@@ -52,42 +52,48 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
 
     return Scaffold(
       appBar: AppBar(
-        leadingWidth: 56,
-        leading: IconButton(
-          icon: const Icon(Icons.download_done),
-          tooltip: t.library.downloaded,
-          onPressed: () async {
-            ref.invalidate(downloadedCategoriesProvider);
-            await ref.read(downloadedCategoriesProvider.future);
-            if (context.mounted) {
-              context.pushNamed(RouteNames.downloaded);
-            }
-          },
+        leadingWidth: state.playlists.length > 1 ? 112 : 56,
+        leading: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.download_done),
+              tooltip: t.library.downloaded,
+              onPressed: () async {
+                ref.invalidate(downloadedCategoriesProvider);
+                await ref.read(downloadedCategoriesProvider.future);
+                if (context.mounted) {
+                  context.pushNamed(RouteNames.downloaded);
+                }
+              },
+            ),
+            if (state.playlists.length > 1)
+              IconButton(
+                icon: Icon(
+                  _isReorderMode ? Icons.check : Icons.swap_vert,
+                  color: _isReorderMode ? colorScheme.primary : null,
+                ),
+                tooltip: _isReorderMode
+                    ? t.library.main.finishSort
+                    : t.library.main.sortPlaylists,
+                onPressed: () {
+                  if (_isReorderMode && _localPlaylists != null) {
+                    // 退出排序模式時直接更新 provider 狀態，避免閃爍
+                    ref
+                        .read(playlistListProvider.notifier)
+                        .updatePlaylistsOrder(_localPlaylists!);
+                  }
+                  setState(() {
+                    _isReorderMode = !_isReorderMode;
+                    if (!_isReorderMode) {
+                      _localPlaylists = null;
+                    }
+                  });
+                },
+              ),
+          ],
         ),
         title: Text(_isReorderMode ? t.library.main.sortMode : t.library.title),
         actions: [
-          // 排序模式按鈕
-          if (state.playlists.length > 1)
-            IconButton(
-              icon: Icon(
-                _isReorderMode ? Icons.check : Icons.swap_vert,
-                color: _isReorderMode ? colorScheme.primary : null,
-              ),
-              tooltip: _isReorderMode ? t.library.main.finishSort : t.library.main.sortPlaylists,
-              onPressed: () {
-                if (_isReorderMode && _localPlaylists != null) {
-                  // 退出排序模式時直接更新 provider 狀態，避免閃爍
-                  ref.read(playlistListProvider.notifier)
-                      .updatePlaylistsOrder(_localPlaylists!);
-                }
-                setState(() {
-                  _isReorderMode = !_isReorderMode;
-                  if (!_isReorderMode) {
-                    _localPlaylists = null;
-                  }
-                });
-              },
-            ),
           if (!_isReorderMode) ...[
             IconButton(
               icon: const Icon(Icons.add),
