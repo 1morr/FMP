@@ -268,6 +268,7 @@ class LyricsAutoMatchService with Logging {
         apiKey: config.apiKey,
         model: config.model,
         title: track.title,
+        uploader: track.artist,
         timeoutSeconds: config.timeoutSeconds,
       );
       if (parsed == null) return null;

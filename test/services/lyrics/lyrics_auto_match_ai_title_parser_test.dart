@@ -129,6 +129,7 @@ void main() {
       ]);
       expect(aiParser.calls, hasLength(1));
       expect(aiParser.calls.single.title, 'Video Title');
+      expect(aiParser.calls.single.uploader, 'Uploader');
       final cached = await titleParseCacheRepo.getReusable(
         trackUniqueKey: 'netease:fallback-match',
       );
@@ -499,7 +500,7 @@ class _FakeTitleParser implements TitleParser {
 }
 
 class _FakeAiTitleParser extends AiTitleParser {
-  final List<({String title})> calls = [];
+  final List<({String title, String? uploader})> calls = [];
   AiParsedTitle? result;
 
   @override
@@ -508,9 +509,10 @@ class _FakeAiTitleParser extends AiTitleParser {
     required String apiKey,
     required String model,
     required String title,
+    String? uploader,
     required int timeoutSeconds,
   }) async {
-    calls.add((title: title));
+    calls.add((title: title, uploader: uploader));
     return result;
   }
 }

@@ -10,7 +10,8 @@ void main() {
   group('AiTitleParser', () {
     setUp(AppLogger.clearLogs);
 
-    test('sends only minimal metadata, appends path, and sets auth header',
+    test(
+        'sends title and uploader metadata without treating uploader as artist',
         () async {
       final dio = Dio();
       RequestOptions? capturedOptions;
@@ -39,6 +40,7 @@ void main() {
         apiKey: '  secret-key  ',
         model: 'gpt-test',
         title: 'Song - Artist',
+        uploader: 'Uploader Channel',
         timeoutSeconds: 7,
       );
 
@@ -55,12 +57,22 @@ void main() {
       expect(capturedBody?['model'], 'gpt-test');
       expect(capturedBody?['temperature'], 0.1);
       final messages = capturedBody?['messages'] as List<dynamic>;
+      final systemMessage = messages.singleWhere(
+        (message) => (message as Map<String, dynamic>)['role'] == 'system',
+      ) as Map<String, dynamic>;
+      final systemPrompt = systemMessage['content'] as String;
+      expect(systemPrompt, contains('uploader'));
+      expect(systemPrompt, contains('not necessarily'));
+      expect(systemPrompt, contains('artist'));
       final userMessage = messages.singleWhere(
         (message) => (message as Map<String, dynamic>)['role'] == 'user',
       ) as Map<String, dynamic>;
       final metadata =
           jsonDecode(userMessage['content'] as String) as Map<String, dynamic>;
-      expect(metadata, {'title': 'Song - Artist'});
+      expect(metadata, {
+        'title': 'Song - Artist',
+        'uploader': 'Uploader Channel',
+      });
       expect(
         AppLogger.logs.map((entry) => entry.message),
         contains('Calling AI title parser: Song - Artist'),

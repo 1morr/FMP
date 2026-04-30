@@ -28,11 +28,13 @@ class AiTitleParser with Logging {
     required String apiKey,
     required String model,
     required String title,
+    String? uploader,
     required int timeoutSeconds,
   }) async {
     final trimmedEndpoint = endpoint.trim().replaceAll(RegExp(r'/+$'), '');
     final trimmedApiKey = apiKey.trim();
     final trimmedModel = model.trim();
+    final trimmedUploader = uploader?.trim();
     if (trimmedEndpoint.isEmpty ||
         trimmedApiKey.isEmpty ||
         trimmedModel.isEmpty) {
@@ -61,11 +63,15 @@ class AiTitleParser with Logging {
             {
               'role': 'system',
               'content':
-                  'Extract the likely music track title and artist from the provided video title. Respond with strict JSON only using exactly these fields: trackName, artistName, artistConfidence.',
+                  'Extract the likely music track title and artist from the provided video title and optional uploader context. The uploader is the video/content uploader and is not necessarily the song artist or performer. Use uploader only as context; do not copy it into artistName unless the title or context strongly indicates it is the actual music artist. Respond with strict JSON only using exactly these fields: trackName, artistName, artistConfidence.',
             },
             {
               'role': 'user',
-              'content': jsonEncode({'title': title}),
+              'content': jsonEncode({
+                'title': title,
+                if (trimmedUploader != null && trimmedUploader.isNotEmpty)
+                  'uploader': trimmedUploader,
+              }),
             },
           ],
         },
