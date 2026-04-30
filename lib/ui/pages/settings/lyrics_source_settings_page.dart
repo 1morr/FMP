@@ -9,7 +9,6 @@ import '../../../data/models/settings.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/audio_settings_provider.dart';
 import '../../../providers/lyrics_provider.dart';
-import '../../../providers/repository_providers.dart';
 
 /// 歌词匹配源设置页面
 ///
@@ -163,16 +162,6 @@ class _LyricsSourceSettingsPageState
     _apiKeyController.clear();
   }
 
-  Future<void> _clearAiParseCache() async {
-    await ref.read(lyricsTitleParseCacheRepositoryProvider).clear();
-    if (mounted) {
-      ToastService.show(
-        context,
-        t.settings.lyricsSourceSettings.aiClearCacheDone,
-      );
-    }
-  }
-
   Future<void> _testLyricsAiConnection() async {
     await _saveLyricsAiEndpoint(_endpointController.text);
     await _saveLyricsAiModel(_modelController.text);
@@ -232,6 +221,7 @@ class _LyricsSourceSettingsPageState
     _syncControllers(ref.read(audioSettingsProvider));
     await showDialog<void>(
       context: context,
+      useRootNavigator: false,
       builder: (context) => Consumer(
         builder: (context, ref, _) {
           final audioSettings = ref.watch(audioSettingsProvider);
@@ -250,7 +240,6 @@ class _LyricsSourceSettingsPageState
             onClearApiKey: _clearLyricsAiApiKey,
             onModelSubmitted: _saveLyricsAiModel,
             onTimeoutChanged: _saveLyricsAiTimeoutSeconds,
-            onClearCache: _clearAiParseCache,
             onTestAi: _testLyricsAiConnection,
           );
         },
@@ -432,7 +421,6 @@ class _AiTitleParsingSettingsDialog extends StatefulWidget {
   final Future<void> Function() onClearApiKey;
   final Future<void> Function(String value) onModelSubmitted;
   final Future<void> Function(int seconds) onTimeoutChanged;
-  final Future<void> Function() onClearCache;
   final Future<void> Function() onTestAi;
 
   const _AiTitleParsingSettingsDialog({
@@ -448,7 +436,6 @@ class _AiTitleParsingSettingsDialog extends StatefulWidget {
     required this.onClearApiKey,
     required this.onModelSubmitted,
     required this.onTimeoutChanged,
-    required this.onClearCache,
     required this.onTestAi,
   });
 
@@ -605,11 +592,6 @@ class _AiTitleParsingSettingsDialogState
         TextButton(
           onPressed: _isTesting ? null : () => Navigator.of(context).pop(),
           child: Text(t.general.close),
-        ),
-        OutlinedButton.icon(
-          onPressed: _isTesting ? null : widget.onClearCache,
-          icon: const Icon(Icons.delete_sweep_outlined),
-          label: Text(t.settings.lyricsSourceSettings.aiClearCache),
         ),
         FilledButton.icon(
           onPressed: _isTesting ? null : _testAi,
