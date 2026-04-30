@@ -57,19 +57,19 @@ class _RadioPageState extends ConsumerState<RadioPage> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: radioState.stations.length > 1
+            ? IconButton(
+                onPressed: () {
+                  setState(() {
+                    _isSortMode = !_isSortMode;
+                  });
+                },
+                icon: Icon(_isSortMode ? Icons.check : Icons.swap_vert),
+                tooltip: _isSortMode ? t.radio.finishSort : t.radio.sortTitle,
+              )
+            : null,
         title: Text(_isSortMode ? t.radio.sortTitle : t.radio.title),
         actions: [
-          // 排序模式切换
-          if (radioState.stations.length > 1)
-            IconButton(
-              onPressed: () {
-                setState(() {
-                  _isSortMode = !_isSortMode;
-                });
-              },
-              icon: Icon(_isSortMode ? Icons.check : Icons.swap_vert),
-              tooltip: _isSortMode ? t.radio.finishSort : t.radio.sortTitle,
-            ),
           // 刷新按钮（排序模式下隐藏）
           if (!_isSortMode)
             IconButton(

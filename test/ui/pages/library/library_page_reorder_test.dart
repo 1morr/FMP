@@ -60,6 +60,7 @@ void main() {
         () => _allPlaylistTitlesPresent(tester),
       );
 
+      expect(_sortButtonIsLeftOfTitle(tester), isTrue);
       expect(_playlistOrder(tester), ['Alpha', 'Bravo', 'Charlie']);
 
       await tester.tap(find.byIcon(Icons.swap_vert));
@@ -204,6 +205,14 @@ List<String> _playlistOrder(WidgetTester tester) {
   final ordered = positions.entries.toList()
     ..sort((a, b) => a.value.compareTo(b.value));
   return ordered.map((entry) => entry.key).toList();
+}
+
+bool _sortButtonIsLeftOfTitle(WidgetTester tester) {
+  final sortButtonRight = tester
+      .getTopRight(find.byIcon(Icons.swap_vert))
+      .dx;
+  final titleLeft = tester.getTopLeft(find.text(t.library.title)).dx;
+  return sortButtonRight <= titleLeft;
 }
 
 bool _allPlaylistTitlesPresent(WidgetTester tester) {
