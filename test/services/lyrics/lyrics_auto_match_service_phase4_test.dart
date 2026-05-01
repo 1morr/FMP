@@ -119,6 +119,94 @@ void main() {
       expect(cache.savedKeys, ['netease:netease-song-1']);
     });
 
+    test('rejects netease source direct plain-only lyrics by default',
+        () async {
+      netease.directResults['netease-plain-default'] = _lyricsResult(
+        id: 'netease-plain-default',
+        source: 'netease',
+        syncedLyrics: null,
+        plainLyrics: 'plain line',
+      );
+      final track = _track('netease-plain-default')
+        ..sourceType = SourceType.netease;
+
+      final matched = await service.tryAutoMatch(
+        track,
+        enabledSources: const [],
+      );
+
+      expect(matched, isFalse);
+      expect(netease.directFetchCalls, ['netease-plain-default']);
+      expect(await repo.getByTrackKey('netease:netease-plain-default'), isNull);
+      expect(cache.savedKeys, isEmpty);
+    });
+
+    test(
+        'accepts netease source direct plain-only lyrics when setting allows it',
+        () async {
+      service = LyricsAutoMatchService(
+        lrclib: lrclib,
+        netease: netease,
+        qqmusic: qqmusic,
+        repo: repo,
+        cache: cache,
+        parser: parser,
+        allowPlainLyricsAutoMatch: true,
+      );
+      netease.directResults['netease-plain-allowed'] = _lyricsResult(
+        id: 'netease-plain-allowed',
+        source: 'netease',
+        syncedLyrics: null,
+        plainLyrics: 'plain line',
+      );
+      final track = _track('netease-plain-allowed')
+        ..sourceType = SourceType.netease;
+
+      final matched = await service.tryAutoMatch(
+        track,
+        enabledSources: const [],
+      );
+
+      expect(matched, isTrue);
+      final saved = await repo.getByTrackKey('netease:netease-plain-allowed');
+      expect(saved, isNotNull);
+      expect(saved!.lyricsSource, 'netease');
+      expect(saved.externalId, 'netease-plain-allowed');
+      expect(cache.savedKeys, ['netease:netease-plain-allowed']);
+    });
+
+    test(
+        'rejects netease source direct empty plain lyrics when setting allows it',
+        () async {
+      service = LyricsAutoMatchService(
+        lrclib: lrclib,
+        netease: netease,
+        qqmusic: qqmusic,
+        repo: repo,
+        cache: cache,
+        parser: parser,
+        allowPlainLyricsAutoMatch: true,
+      );
+      netease.directResults['netease-empty-plain'] = _lyricsResult(
+        id: 'netease-empty-plain',
+        source: 'netease',
+        syncedLyrics: null,
+        plainLyrics: '',
+      );
+      final track = _track('netease-empty-plain')
+        ..sourceType = SourceType.netease;
+
+      final matched = await service.tryAutoMatch(
+        track,
+        enabledSources: const [],
+      );
+
+      expect(matched, isFalse);
+      expect(netease.directFetchCalls, ['netease-empty-plain']);
+      expect(await repo.getByTrackKey('netease:netease-empty-plain'), isNull);
+      expect(cache.savedKeys, isEmpty);
+    });
+
     test('tryAutoMatch fetches imported qqmusic lyrics directly by original ID',
         () async {
       qqmusic.directResults['qq-songmid-1'] = _lyricsResult(

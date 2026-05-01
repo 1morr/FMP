@@ -341,7 +341,7 @@ class LyricsAutoMatchService with Logging {
         return null; // Spotify 等不支持直接获取
       }
 
-      // 只返回有同步歌词的结果
+      // 只返回自动匹配允许的歌词结果（同步歌词，或已开启的纯文本歌词）
       if (result != null && _isAllowedLyricsResult(result)) {
         return result;
       }
