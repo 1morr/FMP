@@ -19,6 +19,7 @@ void main() {
       expect(state.lyricsAiModel, '');
       expect(state.lyricsAiTimeoutSeconds, 10);
       expect(state.lyricsAiApiKeyConfigured, isFalse);
+      expect(state.allowPlainLyricsAutoMatch, isFalse);
     });
 
     test('copyWith updates AI settings and preserves unchanged values', () {
@@ -78,6 +79,18 @@ void main() {
 
       await notifier.setLyricsAiApiKey('');
       expect(notifier.state.lyricsAiApiKeyConfigured, isFalse);
+    });
+
+    test('updates plain lyrics automatic matching setting', () async {
+      FlutterSecureStorage.setMockInitialValues(<String, String>{});
+      final repository = _FakeSettingsRepository(Settings());
+      final notifier = AudioSettingsNotifier(repository);
+      await Future<void>.delayed(Duration.zero);
+
+      await notifier.setAllowPlainLyricsAutoMatch(true);
+
+      expect(notifier.state.allowPlainLyricsAutoMatch, isTrue);
+      expect(repository.settings.allowPlainLyricsAutoMatch, isTrue);
     });
   });
 }
