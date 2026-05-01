@@ -15,7 +15,6 @@
   "spotifyCannotParsePageData": "無法解析 Spotify 頁面資料，頁面結構可能已變更",
   "spotifyPageDataAbnormal": "Spotify 頁面資料結構異常",
   "spotifyCannotGetTrackList": "無法取得曲目列表",
-  "neteaseMusic": "網易雲音樂",
   "playlistNameExists": "歌單名稱「$name」已存在",
   "playlistIdNotFound": "歌單 (id: $id) 不存在",
   "mixMissingInfo": "Mix 播放列表缺少必要資訊",

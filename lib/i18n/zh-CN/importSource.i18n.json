@@ -15,7 +15,6 @@
   "spotifyCannotParsePageData": "无法解析 Spotify 页面数据，页面结构可能已变更",
   "spotifyPageDataAbnormal": "Spotify 页面数据结构异常",
   "spotifyCannotGetTrackList": "无法获取曲目列表",
-  "neteaseMusic": "网易云音乐",
   "playlistNameExists": "歌单名称 \"$name\" 已存在",
   "playlistIdNotFound": "歌单 (id: $id) 不存在",
   "mixMissingInfo": "Mix 播放列表缺少必要信息",

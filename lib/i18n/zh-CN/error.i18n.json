@@ -26,6 +26,5 @@
   "genericSubtitle": "请稍后重试",
   "rateLimited": "请求过于频繁，请稍后再试",
   "retry": "重试",
-  "operationCancelled": "操作已取消",
   "sourceUnavailable": "音源 $source 不可用"
 }

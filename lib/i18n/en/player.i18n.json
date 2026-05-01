@@ -19,8 +19,6 @@
   "muxedStream": "Muxed stream",
   "audioInfo": "Audio Info",
   "volume": "Volume",
-  "nextTrack": "Next",
-  "selectTrack": "Select a track to play",
   "mixShuffleDisabled": "Shuffle is not supported in Mix mode",
   "audioDevice": "Audio Output Device",
   "audioDeviceAuto": "Auto (System Default)"

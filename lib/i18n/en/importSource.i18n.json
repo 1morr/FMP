@@ -15,7 +15,6 @@
   "spotifyCannotParsePageData": "Cannot parse Spotify page data, page structure may have changed",
   "spotifyPageDataAbnormal": "Spotify page data structure abnormal",
   "spotifyCannotGetTrackList": "Cannot get track list",
-  "neteaseMusic": "NetEase Cloud Music",
   "playlistNameExists": "Playlist name \"$name\" already exists",
   "playlistIdNotFound": "Playlist (id: $id) not found",
   "mixMissingInfo": "Mix playlist is missing required information",

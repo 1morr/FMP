@@ -74,14 +74,12 @@
   },
   "lyricsSourceSettings": {
     "title": "歌詞匹配源",
-    "subtitle": "調整歌詞源的優先順序和啟用狀態",
     "hint": "拖動調整搜尋優先順序，排在前面的源優先匹配。原平台ID直取始終優先執行，不受此設定影響。",
     "sourceNetease": "網易雲音樂",
     "sourceQQMusic": "QQ音樂",
     "sourceLrclib": "lrclib",
     "enabled": "已啟用",
     "disabled": "已停用",
-    "sourceDisabledToast": "該歌詞源已停用",
     "aiSectionTitle": "AI 標題解析",
     "aiMode": "模式",
     "aiModeOff": "關閉",
@@ -101,9 +99,7 @@
     "aiTestMissingConfig": "請先設定 API 端點、API Key 和模型",
     "aiTestSuccess": "AI 測試成功：$track",
     "aiTestSuccessWithArtist": "AI 測試成功：$track - $artist",
-    "aiTestFailed": "AI 測試失敗，請檢查端點、API Key 和模型",
-    "aiClearCache": "清除 AI 解析快取",
-    "aiClearCacheDone": "已清除 AI 解析快取"
+    "aiTestFailed": "AI 測試失敗，請檢查端點、API Key 和模型"
   },
   "version": {
     "title": "版本",
@@ -138,7 +134,6 @@
     "ytStreamTest": "YouTube 串流測試",
     "ytStreamTestSubtitle": "測試 Audio-only / Muxed / HLS 串流播放",
     "dataManagement": "資料管理",
-    "experimentalFeatures": "實驗性功能",
     "devInfo": "開發資訊",
     "debugMode": "偵錯模式",
     "dbInfo": "資料庫資訊",
@@ -150,8 +145,6 @@
     "processMemory": "程序總記憶體 (RSS): $size",
     "flutterImageCache": "Flutter 圖片記憶體快取",
     "flutterImageCacheDetail": "$count 張 / $maxCount 張上限，$size / $maxSize MB",
-    "dartHeap": "Dart 堆積記憶體",
-    "dartHeapDetail": "已用 $used，已分配 $allocated",
     "nativeMemory": "Native 記憶體",
     "nativeMemoryDetail": "約 $size（RSS - Dart堆積）",
     "dataCaches": "資料快取",
@@ -167,9 +160,7 @@
     "resetWarning": "此操作將刪除所有資料，包括：\n• 所有歌單\n• 播放佇列\n• 搜尋紀錄\n• 應用程式設定\n\n此操作不可恢復！",
     "resetting": "正在重置資料...",
     "resetDone": "資料已重置，請重新啟動應用程式",
-    "resetFailed": "重置失敗: $error",
-    "autoScrollToPlaying": "切歌時自動定位",
-    "autoScrollSubtitle": "切換歌曲時自動跳轉到佇列頁面並定位目前播放"
+    "resetFailed": "重置失敗: $error"
   },
   "downloadManager": {
     "title": "下載管理",
@@ -235,7 +226,6 @@
     "cacheCleared": "歌詞快取已清除"
   },
   "refreshInterval": {
-    "title": "重新整理間隔",
     "rankingTitle": "排行榜重新整理間隔",
     "rankingSubtitle": "$interval",
     "radioTitle": "電台狀態重新整理間隔",
@@ -283,8 +273,7 @@
       "title": "匯出資料",
       "subtitle": "將所有資料匯出為 JSON 檔案",
       "success": "資料已匯出到: $path",
-      "failed": "匯出失敗: $error",
-      "cancelled": "匯出已取消"
+      "failed": "匯出失敗: $error"
     },
     "import": {
       "title": "匯入資料",
@@ -292,20 +281,14 @@
       "preview": "匯入預覽",
       "previewSubtitle": "以下資料將被匯入（已存在的資料將被跳過）",
       "playlists": "歌單",
-      "tracks": "歌曲",
       "playHistory": "播放歷史",
       "searchHistory": "搜尋紀錄",
       "radioStations": "電台收藏",
       "lyricsMatches": "歌詞匹配",
-      "settings": "設定",
       "importSettings": "匯入設定",
-      "importSettingsSubtitle": "覆蓋目前設定",
       "confirm": "確認匯入",
       "success": "匯入完成",
       "failed": "匯入失敗: $error",
-      "cancelled": "匯入已取消",
-      "invalidFile": "無效的備份檔案",
-      "versionMismatch": "備份檔案版本不相容",
       "result": {
         "playlistsImported": "歌單: 匯入 $imported 個，跳過 $skipped 個",
         "tracksImported": "歌曲: 匯入 $imported 個，跳過 $skipped 個",

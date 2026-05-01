@@ -20,11 +20,9 @@
   "playNext": "下一首播放",
   "addToQueue": "加入佇列",
   "addToPlaylist": "加入播放清單",
-  "matchLyrics": "歌詞配對",
   "minimize": "最小化",
   "maximize": "最大化",
   "restore": "還原",
   "addedToNext": "已加入下一首",
-  "addedToQueue": "已加入播放佇列",
-  "addedToPlaylist": "已加入播放清單"
+  "addedToQueue": "已加入播放佇列"
 }

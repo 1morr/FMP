@@ -1,6 +1,5 @@
 {
   "title": "Play Queue",
-  "titleWithCount": "Play Queue ($count)",
   "shuffle": "Shuffle",
   "shuffled": "Queue shuffled",
   "clear": "Clear queue",
