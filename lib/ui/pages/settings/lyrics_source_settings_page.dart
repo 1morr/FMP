@@ -122,9 +122,9 @@ class _LyricsSourceSettingsPageState
     switch (mode) {
       case LyricsAiTitleParsingMode.off:
         return t.settings.lyricsSourceSettings.aiModeOff;
-      case LyricsAiTitleParsingMode.fallbackAfterRules:
-        return t.settings.lyricsSourceSettings.aiModeFallback;
       case LyricsAiTitleParsingMode.alwaysAi:
+        return t.settings.lyricsSourceSettings.aiModeAlways;
+      case LyricsAiTitleParsingMode.advancedAiSelect:
         return t.settings.lyricsSourceSettings.aiModeAlways;
     }
   }
