@@ -15,6 +15,7 @@ class AudioSettingsState {
   final List<String> lyricsSourceOrder;
   final Set<String> disabledLyricsSources;
   final LyricsAiTitleParsingMode lyricsAiTitleParsingMode;
+  final bool allowPlainLyricsAutoMatch;
   final String lyricsAiEndpoint;
   final String lyricsAiModel;
   final int lyricsAiTimeoutSeconds;
@@ -40,6 +41,7 @@ class AudioSettingsState {
     this.lyricsSourceOrder = const ['netease', 'qqmusic', 'lrclib'],
     this.disabledLyricsSources = const {'lrclib'},
     this.lyricsAiTitleParsingMode = LyricsAiTitleParsingMode.off,
+    this.allowPlainLyricsAutoMatch = false,
     this.lyricsAiEndpoint = '',
     this.lyricsAiModel = '',
     this.lyricsAiTimeoutSeconds = 10,
@@ -61,6 +63,7 @@ class AudioSettingsState {
     List<String>? lyricsSourceOrder,
     Set<String>? disabledLyricsSources,
     LyricsAiTitleParsingMode? lyricsAiTitleParsingMode,
+    bool? allowPlainLyricsAutoMatch,
     String? lyricsAiEndpoint,
     String? lyricsAiModel,
     int? lyricsAiTimeoutSeconds,
@@ -80,6 +83,8 @@ class AudioSettingsState {
           disabledLyricsSources ?? this.disabledLyricsSources,
       lyricsAiTitleParsingMode:
           lyricsAiTitleParsingMode ?? this.lyricsAiTitleParsingMode,
+      allowPlainLyricsAutoMatch:
+          allowPlainLyricsAutoMatch ?? this.allowPlainLyricsAutoMatch,
       lyricsAiEndpoint: lyricsAiEndpoint ?? this.lyricsAiEndpoint,
       lyricsAiModel: lyricsAiModel ?? this.lyricsAiModel,
       lyricsAiTimeoutSeconds:
@@ -117,6 +122,7 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
       lyricsSourceOrder: _settings!.lyricsSourcePriorityList,
       disabledLyricsSources: _settings!.disabledLyricsSourcesSet,
       lyricsAiTitleParsingMode: _settings!.lyricsAiTitleParsingMode,
+      allowPlainLyricsAutoMatch: _settings!.allowPlainLyricsAutoMatch,
       lyricsAiEndpoint: _settings!.lyricsAiEndpoint.trim(),
       lyricsAiModel: _settings!.lyricsAiModel.trim(),
       lyricsAiTimeoutSeconds: _settings!.lyricsAiTimeoutSeconds < 1
@@ -193,6 +199,16 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
     await _settingsRepository.update((s) => s.lyricsAiTitleParsingMode = mode);
     _settings!.lyricsAiTitleParsingMode = mode;
     state = state.copyWith(lyricsAiTitleParsingMode: mode);
+  }
+
+  /// 设置是否允许纯文本歌词自动匹配
+  Future<void> setAllowPlainLyricsAutoMatch(bool enabled) async {
+    if (_settings == null) return;
+
+    await _settingsRepository
+        .update((s) => s.allowPlainLyricsAutoMatch = enabled);
+    _settings!.allowPlainLyricsAutoMatch = enabled;
+    state = state.copyWith(allowPlainLyricsAutoMatch: enabled);
   }
 
   /// 设置 AI 标题解析 API 端点
