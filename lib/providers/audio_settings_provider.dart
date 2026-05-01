@@ -39,7 +39,7 @@ class AudioSettingsState {
     this.autoMatchLyrics = true,
     this.lyricsSourceOrder = const ['netease', 'qqmusic', 'lrclib'],
     this.disabledLyricsSources = const {'lrclib'},
-    this.lyricsAiTitleParsingMode = LyricsAiTitleParsingMode.fallbackAfterRules,
+    this.lyricsAiTitleParsingMode = LyricsAiTitleParsingMode.off,
     this.lyricsAiEndpoint = '',
     this.lyricsAiModel = '',
     this.lyricsAiTimeoutSeconds = 10,

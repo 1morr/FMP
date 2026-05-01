@@ -125,15 +125,6 @@ class LyricsAutoMatchService with Logging {
       final regexMatched = await _matchRegexParsedTitle(track, sources);
       if (regexMatched) return true;
 
-      if (shouldTryAi &&
-          aiConfig!.mode == LyricsAiTitleParsingMode.fallbackAfterRules) {
-        final aiParsed = await _loadOrParseAiTitle(track, aiConfig);
-        if (aiParsed != null) {
-          final aiMatched = await _matchAiParsedTitle(track, aiParsed, sources);
-          if (aiMatched) return true;
-        }
-      }
-
       logDebug('No lyrics matched for: ${track.title}');
       return false;
     } catch (e) {
