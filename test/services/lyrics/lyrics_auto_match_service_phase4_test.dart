@@ -360,6 +360,26 @@ void main() {
       expect(saved?.externalId, 'plain-allowed');
     });
 
+    test('accepts plain-only lyrics when call-time setting allows it',
+        () async {
+      netease.searchResults = [
+        _lyricsResult(
+          id: 'plain-call-time-allowed',
+          source: 'netease',
+          syncedLyrics: null,
+          plainLyrics: 'plain line',
+        ),
+      ];
+      final matched = await service.tryAutoMatch(
+        _track('plain-call-time-allowed'),
+        enabledSources: const ['netease'],
+        allowPlainLyricsAutoMatch: true,
+      );
+      expect(matched, isTrue);
+      final saved = await repo.getByTrackKey('youtube:plain-call-time-allowed');
+      expect(saved?.externalId, 'plain-call-time-allowed');
+    });
+
     test('tryAutoMatch clears in-flight state after completion', () async {
       final gate = _Gate();
       netease.onSearch = () async {

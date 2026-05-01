@@ -1535,6 +1535,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       final matched = await autoMatchService.tryAutoMatch(
         track,
         enabledSources: enabledSources.isNotEmpty ? enabledSources : null,
+        allowPlainLyricsAutoMatch: settings.allowPlainLyricsAutoMatch,
       );
       if (matched) {
         logInfo('Auto-matched lyrics for: ${track.title}');
