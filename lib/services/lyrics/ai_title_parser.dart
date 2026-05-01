@@ -42,9 +42,17 @@ class AiTitleParser with Logging {
     }
 
     final timeout = Duration(seconds: timeoutSeconds < 1 ? 10 : timeoutSeconds);
+    final userPayload = {
+      'title': title,
+      if (trimmedUploader != null && trimmedUploader.isNotEmpty)
+        'uploader': trimmedUploader,
+    };
 
     try {
       logInfo('Calling AI title parser: $title');
+      logDebug(
+          'AI title parser config: endpoint=$trimmedEndpoint, model=$trimmedModel, timeoutSeconds=${timeout.inSeconds}');
+      logDebug('AI title parser request payload: ${jsonEncode(userPayload)}');
       final response = await _dio.post<dynamic>(
         '$trimmedEndpoint/chat/completions',
         options: Options(
@@ -67,11 +75,7 @@ class AiTitleParser with Logging {
             },
             {
               'role': 'user',
-              'content': jsonEncode({
-                'title': title,
-                if (trimmedUploader != null && trimmedUploader.isNotEmpty)
-                  'uploader': trimmedUploader,
-              }),
+              'content': jsonEncode(userPayload),
             },
           ],
         },
@@ -107,7 +111,10 @@ class AiTitleParser with Logging {
             'AI title parser response content is invalid for title "$title"');
         return null;
       }
+      logDebug('AI title parser raw response content: $content');
       final parsed = parseContent(content);
+      logDebug(
+          'AI title parser parsed result: track=${parsed?.trackName}, artist=${parsed?.artistName}, artistConfidence=${parsed?.artistConfidence}');
       if (parsed == null) {
         logWarning(
             'AI title parser returned invalid content for title "$title"');
