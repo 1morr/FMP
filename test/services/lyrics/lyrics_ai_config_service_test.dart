@@ -4,6 +4,18 @@ import 'package:fmp/services/lyrics/lyrics_ai_config_service.dart';
 
 void main() {
   group('LyricsAiConfigService', () {
+    test('uses unavailable off mode by default', () async {
+      final service = LyricsAiConfigService(
+        loadSettings: () async => Settings(),
+        secureStorage: _MemorySecureKeyValueStore(),
+      );
+
+      final config = await service.loadConfig();
+
+      expect(config.mode, LyricsAiTitleParsingMode.off);
+      expect(config.isAvailable, isFalse);
+    });
+
     test('returns unavailable when mode is off', () async {
       final settings = Settings()
         ..lyricsAiTitleParsingMode = LyricsAiTitleParsingMode.off
@@ -18,6 +30,7 @@ void main() {
 
       final config = await service.loadConfig();
 
+      expect(config.mode, LyricsAiTitleParsingMode.off);
       expect(config.isAvailable, isFalse);
     });
 
@@ -41,6 +54,22 @@ void main() {
       expect(config.apiKey, 'key');
       expect(config.model, 'gpt-test');
       expect(config.timeoutSeconds, 15);
+    });
+
+    test('advanced mode is available with endpoint key and model', () async {
+      final service = LyricsAiConfigService(
+        loadSettings: () async => Settings()
+          ..lyricsAiTitleParsingMode =
+              LyricsAiTitleParsingMode.advancedAiSelect
+          ..lyricsAiEndpoint = 'https://example.test/v1'
+          ..lyricsAiModel = 'test-model',
+        secureStorage: _MemorySecureKeyValueStore({'lyrics_ai_api_key': 'key'}),
+      );
+
+      final config = await service.loadConfig();
+
+      expect(config.mode, LyricsAiTitleParsingMode.advancedAiSelect);
+      expect(config.isAvailable, isTrue);
     });
 
     test('clamps invalid timeout to 10 seconds', () async {
