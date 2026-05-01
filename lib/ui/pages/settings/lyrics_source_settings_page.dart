@@ -242,9 +242,6 @@ class _LyricsSourceSettingsPageState
             onModelSubmitted: _saveLyricsAiModel,
             onTimeoutChanged: _saveLyricsAiTimeoutSeconds,
             onTestAi: _testLyricsAiConnection,
-            onAllowPlainLyricsAutoMatchChanged: (enabled) => ref
-                .read(audioSettingsProvider.notifier)
-                .setAllowPlainLyricsAutoMatch(enabled),
           );
         },
       ),
@@ -253,8 +250,6 @@ class _LyricsSourceSettingsPageState
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final audioSettings = ref.watch(audioSettingsProvider);
     _syncControllers(audioSettings);
 
@@ -272,30 +267,21 @@ class _LyricsSourceSettingsPageState
       ),
       body: Column(
         children: [
-          // 提示信息
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  Icons.info_outline,
-                  size: 18,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    t.settings.lyricsSourceSettings.hint,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ],
+          SwitchListTile(
+            contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            title: Text(
+              t.settings.lyricsSourceSettings.allowPlainLyricsAutoMatch,
             ),
+            subtitle: Text(
+              t.settings.lyricsSourceSettings
+                  .allowPlainLyricsAutoMatchDescription,
+            ),
+            value: audioSettings.allowPlainLyricsAutoMatch,
+            onChanged: (enabled) => ref
+                .read(audioSettingsProvider.notifier)
+                .setAllowPlainLyricsAutoMatch(enabled),
           ),
-          const Divider(),
+          const Divider(height: 1),
           Expanded(
             child: CustomScrollView(
               slivers: [
@@ -426,7 +412,6 @@ class _AiTitleParsingSettingsDialog extends StatefulWidget {
   final Future<void> Function(String value) onModelSubmitted;
   final Future<void> Function(int seconds) onTimeoutChanged;
   final Future<void> Function() onTestAi;
-  final ValueChanged<bool> onAllowPlainLyricsAutoMatchChanged;
 
   const _AiTitleParsingSettingsDialog({
     required this.audioSettings,
@@ -442,7 +427,6 @@ class _AiTitleParsingSettingsDialog extends StatefulWidget {
     required this.onModelSubmitted,
     required this.onTimeoutChanged,
     required this.onTestAi,
-    required this.onAllowPlainLyricsAutoMatchChanged,
   });
 
   @override
@@ -530,19 +514,6 @@ class _AiTitleParsingSettingsDialogState
                       ),
                 ),
               ],
-              const SizedBox(height: 12),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  t.settings.lyricsSourceSettings.allowPlainLyricsAutoMatch,
-                ),
-                subtitle: Text(
-                  t.settings.lyricsSourceSettings
-                      .allowPlainLyricsAutoMatchDescription,
-                ),
-                value: widget.audioSettings.allowPlainLyricsAutoMatch,
-                onChanged: widget.onAllowPlainLyricsAutoMatchChanged,
-              ),
               const SizedBox(height: 12),
               TextField(
                 controller: widget.endpointController,
