@@ -13,7 +13,7 @@
 ## File Structure
 
 - Modify `lib/data/models/settings.dart`: stable AI mode mapping, default AI off, new `allowPlainLyricsAutoMatch` field.
-- Regenerate `lib/data/models/settings.g.dart` with build_runner.
+- Regenerate ignored Isar `.g.dart` files locally with build_runner; do not commit generated files because `*.g.dart` is ignored.
 - Modify `lib/providers/database_provider.dart`: repair legacy fallback/invalid AI mode indexes to off.
 - Modify `lib/providers/audio_settings_provider.dart`: expose `allowPlainLyricsAutoMatch` and setter.
 - Modify `lib/services/lyrics/lyrics_ai_config_service.dart`: no schema change; verify mode availability uses new enum.
@@ -23,7 +23,7 @@
 - Modify `lib/services/lyrics/lyrics_auto_match_service.dart`: new mode flow, candidate collection, plain-lyrics filtering, fallback rules.
 - Modify `lib/ui/pages/settings/lyrics_source_settings_page.dart`: remove fallback option, add advanced mode and plain lyrics switch.
 - Modify i18n files: `lib/i18n/en/settings.i18n.json`, `lib/i18n/zh-CN/settings.i18n.json`, `lib/i18n/zh-TW/settings.i18n.json`.
-- Regenerate `lib/i18n/strings.g.dart` with `dart run slang`.
+- Regenerate ignored `lib/i18n/strings.g.dart` locally with `dart run slang`; do not commit generated files because `*.g.dart` is ignored.
 - Update tests under `test/data/models`, `test/providers`, and `test/services/lyrics`.
 - Update `CLAUDE.md` Data Models / Lyrics System notes after implementation.
 
@@ -193,7 +193,7 @@ Expected: PASS.
 Commit:
 
 ```bash
-git add lib/data/models/settings.dart lib/data/models/settings.g.dart lib/providers/database_provider.dart test/data/models/settings_ai_title_parsing_test.dart test/providers/database_migration_test.dart
+git add lib/data/models/settings.dart lib/providers/database_provider.dart test/data/models/settings_ai_title_parsing_test.dart test/providers/database_migration_test.dart
 git commit -m "feat(lyrics): default AI matching mode to off"
 ```
 
@@ -1280,7 +1280,7 @@ git commit -m "feat(lyrics): add advanced AI lyrics matching"
 - Modify: `lib/i18n/en/settings.i18n.json:75-107`
 - Modify: `lib/i18n/zh-CN/settings.i18n.json:75-107`
 - Modify: `lib/i18n/zh-TW/settings.i18n.json:75-107`
-- Regenerate: `lib/i18n/strings.g.dart`
+- Regenerate locally: `lib/i18n/strings.g.dart` (ignored generated file, not committed)
 
 - [ ] **Step 1: Update i18n JSON**
 
@@ -1431,7 +1431,7 @@ Expected: no new analysis errors.
 Commit:
 
 ```bash
-git add lib/ui/pages/settings/lyrics_source_settings_page.dart lib/i18n/en/settings.i18n.json lib/i18n/zh-CN/settings.i18n.json lib/i18n/zh-TW/settings.i18n.json lib/i18n/strings.g.dart
+git add lib/ui/pages/settings/lyrics_source_settings_page.dart lib/i18n/en/settings.i18n.json lib/i18n/zh-CN/settings.i18n.json lib/i18n/zh-TW/settings.i18n.json
 git commit -m "feat(settings): add AI lyrics matching options"
 ```
 
