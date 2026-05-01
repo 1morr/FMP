@@ -31,6 +31,7 @@ class LyricsAutoMatchService with Logging {
   final AiTitleParser? _aiTitleParser;
   final Future<LyricsAiConfig> Function()? _aiConfigLoader;
   final LyricsTitleParseCacheRepository? _titleParseCacheRepo;
+  final bool _allowPlainLyricsAutoMatch;
 
   LyricsAutoMatchService({
     required LrclibSource lrclib,
@@ -42,6 +43,7 @@ class LyricsAutoMatchService with Logging {
     AiTitleParser? aiTitleParser,
     Future<LyricsAiConfig> Function()? aiConfigLoader,
     LyricsTitleParseCacheRepository? titleParseCacheRepo,
+    bool allowPlainLyricsAutoMatch = false,
   })  : _lrclib = lrclib,
         _netease = netease,
         _qqmusic = qqmusic,
@@ -50,7 +52,8 @@ class LyricsAutoMatchService with Logging {
         _parser = parser,
         _aiTitleParser = aiTitleParser,
         _aiConfigLoader = aiConfigLoader,
-        _titleParseCacheRepo = titleParseCacheRepo;
+        _titleParseCacheRepo = titleParseCacheRepo,
+        _allowPlainLyricsAutoMatch = allowPlainLyricsAutoMatch;
 
   /// 正在匹配中的 track key 集合，防止同一首歌并发匹配
   final Set<String> _matchingKeys = {};
@@ -83,7 +86,7 @@ class LyricsAutoMatchService with Logging {
           final result = await _netease
               .getLyricsResult(track.sourceId)
               .timeout(AppConstants.networkReceiveTimeout);
-          if (result != null && result.hasSyncedLyrics) {
+          if (result != null && _isAllowedLyricsResult(result)) {
             await _saveMatch(track, result, 'netease', track.sourceId);
             logInfo(
                 'Auto-matched lyrics via netease sourceId: ${track.sourceId}');
@@ -151,6 +154,11 @@ class LyricsAutoMatchService with Logging {
         _titleParseCacheRepo != null &&
         config != null &&
         config.isAvailable;
+  }
+
+  bool _isAllowedLyricsResult(LyricsResult result) {
+    if (result.hasSyncedLyrics) return true;
+    return _allowPlainLyricsAutoMatch && result.hasPlainLyrics;
   }
 
   Future<bool> _matchRegexParsedTitle(Track track, List<String> sources) async {
@@ -334,7 +342,7 @@ class LyricsAutoMatchService with Logging {
       }
 
       // 只返回有同步歌词的结果
-      if (result != null && result.hasSyncedLyrics) {
+      if (result != null && _isAllowedLyricsResult(result)) {
         return result;
       }
       return null;
@@ -374,7 +382,7 @@ class LyricsAutoMatchService with Logging {
           ? matching.first
           : _selectBestMatch(matching, trackName, artistName, trackDurationSec);
 
-      if (best != null && best.hasSyncedLyrics) {
+      if (best != null && _isAllowedLyricsResult(best)) {
         return best;
       }
 
@@ -415,7 +423,7 @@ class LyricsAutoMatchService with Logging {
           ? matching.first
           : _selectBestMatch(matching, trackName, artistName, trackDurationSec);
 
-      if (best != null && best.hasSyncedLyrics) {
+      if (best != null && _isAllowedLyricsResult(best)) {
         return best;
       }
 
@@ -458,8 +466,8 @@ class LyricsAutoMatchService with Logging {
 
       if (result == null) return null;
 
-      // 与 netease/qqmusic 一致，只返回有同步歌词的结果
-      if (!result.hasSyncedLyrics) return null;
+      // 与 netease/qqmusic 一致，只返回自动匹配允许的歌词结果
+      if (!_isAllowedLyricsResult(result)) return null;
 
       logDebug(
           'Selected best lrclib match: "${result.trackName}" by "${result.artistName}" (score: ${_calculateScore(result, trackName, artistName, trackDurationSec).toStringAsFixed(2)})');

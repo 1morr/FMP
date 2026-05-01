@@ -228,6 +228,50 @@ void main() {
       expect(await repo.getByTrackKey('youtube:duration-21s'), isNull);
     });
 
+    test('rejects plain-only lyrics by default', () async {
+      netease.searchResults = [
+        _lyricsResult(
+          id: 'plain-only',
+          source: 'netease',
+          syncedLyrics: null,
+          plainLyrics: 'plain line',
+        ),
+      ];
+      final matched = await service.tryAutoMatch(
+        _track('plain-default'),
+        enabledSources: const ['netease'],
+      );
+      expect(matched, isFalse);
+      expect(await repo.getByTrackKey('youtube:plain-default'), isNull);
+    });
+
+    test('accepts plain-only lyrics when setting allows it', () async {
+      service = LyricsAutoMatchService(
+        lrclib: lrclib,
+        netease: netease,
+        qqmusic: qqmusic,
+        repo: repo,
+        cache: cache,
+        parser: parser,
+        allowPlainLyricsAutoMatch: true,
+      );
+      netease.searchResults = [
+        _lyricsResult(
+          id: 'plain-allowed',
+          source: 'netease',
+          syncedLyrics: null,
+          plainLyrics: 'plain line',
+        ),
+      ];
+      final matched = await service.tryAutoMatch(
+        _track('plain-allowed'),
+        enabledSources: const ['netease'],
+      );
+      expect(matched, isTrue);
+      final saved = await repo.getByTrackKey('youtube:plain-allowed');
+      expect(saved?.externalId, 'plain-allowed');
+    });
+
     test('tryAutoMatch clears in-flight state after completion', () async {
       final gate = _Gate();
       netease.onSearch = () async {
@@ -291,6 +335,8 @@ LyricsResult _lyricsResult({
   required String id,
   required String source,
   int duration = 180,
+  String? syncedLyrics = '[00:01.00]line',
+  String? plainLyrics,
 }) {
   return LyricsResult(
     id: id,
@@ -299,7 +345,8 @@ LyricsResult _lyricsResult({
     albumName: 'Album',
     duration: duration,
     instrumental: false,
-    syncedLyrics: '[00:01.00]line',
+    syncedLyrics: syncedLyrics,
+    plainLyrics: plainLyrics,
     source: source,
   );
 }
