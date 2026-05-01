@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
@@ -566,6 +565,45 @@ void main() {
       final saved = await repo.getByTrackKey('youtube:advanced-selector-null');
       expect(saved?.externalId, 'regex-fallback');
     });
+
+    test('advanced mode continues after source search errors', () async {
+      config = _config(mode: LyricsAiTitleParsingMode.advancedAiSelect);
+      aiParser.result =
+          _aiParsed(trackName: 'AI Song', artistName: 'AI Artist');
+      netease.searchErrorsByQuery['AI Song AI Artist'] = StateError(
+        'temporary netease failure',
+      );
+      qqmusic.searchResultsByQuery['AI Song AI Artist'] = [
+        _lyricsResult(
+          id: 'qq-chosen',
+          source: 'qqmusic',
+          trackName: 'AI Song',
+          artistName: 'AI Artist',
+        ),
+      ];
+      aiLyricsSelector.result = const AiLyricsSelection(
+        selectedCandidateId: 'qqmusic:qq-chosen',
+        confidence: 0.92,
+        reason: 'best remaining synced candidate',
+      );
+
+      final matched = await buildService().tryAutoMatch(
+        _track('advanced-source-error'),
+        enabledSources: const ['netease', 'qqmusic'],
+      );
+
+      expect(matched, isTrue);
+      expect(netease.searchCalls, ['AI Song AI Artist', 'AI Song']);
+      expect(qqmusic.searchCalls, ['AI Song AI Artist', 'AI Song']);
+      expect(aiLyricsSelector.calls, hasLength(1));
+      expect(
+        aiLyricsSelector.calls.single.candidates.single.candidateId,
+        'qqmusic:qq-chosen',
+      );
+      final saved = await repo.getByTrackKey('youtube:advanced-source-error');
+      expect(saved?.lyricsSource, 'qqmusic');
+      expect(saved?.externalId, 'qq-chosen');
+    });
   });
 }
 
@@ -713,6 +751,7 @@ class _FakeNeteaseSource extends NeteaseSource {
   final List<String> searchCalls = [];
   final List<String> directFetchCalls = [];
   final Map<String, List<LyricsResult>> searchResultsByQuery = {};
+  final Map<String, Object> searchErrorsByQuery = {};
   final Map<String, LyricsResult> directResults = {};
 
   @override
@@ -725,6 +764,8 @@ class _FakeNeteaseSource extends NeteaseSource {
     final effectiveQuery =
         query ?? [trackName, artistName].whereType<String>().join(' ');
     searchCalls.add(effectiveQuery);
+    final error = searchErrorsByQuery[effectiveQuery];
+    if (error != null) throw error;
     return searchResultsByQuery[effectiveQuery] ?? const [];
   }
 
