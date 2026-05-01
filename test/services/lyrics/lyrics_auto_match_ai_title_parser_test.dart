@@ -60,7 +60,7 @@ void main() {
       lrclib = _FakeLrclibSource();
       repo = LyricsRepository(isar);
       titleParseCacheRepo = LyricsTitleParseCacheRepository(isar);
-      config = _config(mode: LyricsAiTitleParsingMode.fallbackAfterRules);
+      config = _config(mode: LyricsAiTitleParsingMode.alwaysAi);
     });
 
     tearDown(() async {
@@ -99,8 +99,7 @@ void main() {
       expect(await _cachedCount(isar), 0);
     });
 
-    test(
-        'fallbackAfterRules calls AI after regex failure, caches parse, and saves match',
+    test('alwaysAi calls AI after regex failure, caches parse, and saves match',
         () async {
       aiParser.result = _aiParsed(
         trackName: 'AI Song',
@@ -123,10 +122,7 @@ void main() {
 
       expect(matched, isTrue);
       expect(netease.directFetchCalls, ['fallback-match']);
-      expect(netease.searchCalls, [
-        'Regex Song Regex Artist',
-        'AI Song AI Artist',
-      ]);
+      expect(netease.searchCalls, ['AI Song AI Artist']);
       expect(aiParser.calls, hasLength(1));
       expect(aiParser.calls.single.title, 'Video Title');
       expect(aiParser.calls.single.uploader, 'Uploader');
@@ -145,8 +141,7 @@ void main() {
       expect(cache.savedKeys, ['netease:fallback-match']);
     });
 
-    test('fallbackAfterRules reuses cached AI parse without calling AI',
-        () async {
+    test('alwaysAi reuses cached AI parse without calling AI', () async {
       await titleParseCacheRepo.save(
         trackUniqueKey: 'youtube:cached-ai',
         sourceType: SourceType.youtube.name,
@@ -172,10 +167,7 @@ void main() {
 
       expect(matched, isTrue);
       expect(aiParser.calls, isEmpty);
-      expect(netease.searchCalls, [
-        'Regex Song Regex Artist',
-        'Cached Song Cached Artist',
-      ]);
+      expect(netease.searchCalls, ['Cached Song Cached Artist']);
       final saved = await repo.getByTrackKey('youtube:cached-ai');
       expect(saved?.externalId, 'cached-match');
     });
@@ -206,10 +198,7 @@ void main() {
 
       expect(matched, isTrue);
       expect(aiParser.calls, isEmpty);
-      expect(netease.searchCalls, [
-        'Regex Song Regex Artist',
-        'Cached Song',
-      ]);
+      expect(netease.searchCalls, ['Cached Song']);
       final saved =
           await repo.getByTrackKey('youtube:cached-low-confidence-artist');
       expect(saved?.externalId, 'cached-title-only-match');
@@ -395,11 +384,10 @@ void main() {
 
       expect(matched, isTrue);
       expect(netease.searchCalls, [
-        'Regex Song Regex Artist',
         'AI Song AI Artist',
         'AI Song',
       ]);
-      expect(qqmusic.searchCalls, ['Regex Song Regex Artist']);
+      expect(qqmusic.searchCalls, isEmpty);
       final saved = await repo.getByTrackKey('youtube:source-priority');
       expect(saved?.lyricsSource, 'netease');
       expect(saved?.externalId, 'netease-no-artist-match');
@@ -419,8 +407,8 @@ void main() {
 
       expect(matched, isFalse);
       expect(netease.searchCalls, [
-        'Regex Song Regex Artist',
         'AI Song',
+        'Regex Song Regex Artist',
       ]);
     });
   });
