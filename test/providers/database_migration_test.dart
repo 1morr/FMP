@@ -90,9 +90,9 @@ void main() {
 
       final migratedSettings = await isar.settings.get(0);
       expect(migratedSettings, isNotNull);
-      expect(migratedSettings!.lyricsAiTitleParsingModeIndex, 1);
+      expect(migratedSettings!.lyricsAiTitleParsingModeIndex, 0);
       expect(migratedSettings.lyricsAiTitleParsingMode,
-          LyricsAiTitleParsingMode.fallbackAfterRules);
+          LyricsAiTitleParsingMode.off);
       expect(migratedSettings.lyricsAiTimeoutSeconds, 10);
       expect(migratedSettings.lyricsAiEndpoint, isEmpty);
       expect(migratedSettings.lyricsAiModel, isEmpty);
@@ -112,10 +112,23 @@ void main() {
 
       final migratedSettings = await isar.settings.get(0);
       expect(migratedSettings, isNotNull);
-      expect(migratedSettings!.lyricsAiTitleParsingModeIndex, 1);
+      expect(migratedSettings!.lyricsAiTitleParsingModeIndex, 0);
       expect(migratedSettings.lyricsAiTitleParsingMode,
-          LyricsAiTitleParsingMode.fallbackAfterRules);
+          LyricsAiTitleParsingMode.off);
       expect(migratedSettings.lyricsAiTimeoutSeconds, 10);
+    });
+
+    test('repairs legacy fallback AI mode index to off', () async {
+      await openTestDatabase();
+      final settings = Settings()
+        ..lyricsAiTitleParsingModeIndex = 1
+        ..lyricsAiTimeoutSeconds = 10;
+      await isar.writeTxn(() async => isar.settings.put(settings));
+      await runDatabaseMigrationForTesting(isar);
+      final migratedSettings = await isar.settings.get(0);
+      expect(migratedSettings!.lyricsAiTitleParsingModeIndex, 0);
+      expect(migratedSettings.lyricsAiTitleParsingMode,
+          LyricsAiTitleParsingMode.off);
     });
 
     test(

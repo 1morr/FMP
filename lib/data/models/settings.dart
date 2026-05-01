@@ -64,8 +64,8 @@ enum LyricsDisplayMode {
 
 enum LyricsAiTitleParsingMode {
   off,
-  fallbackAfterRules,
   alwaysAi,
+  advancedAiSelect,
 }
 
 /// 应用设置实体（单例模式，始终使用 ID 0）
@@ -179,8 +179,11 @@ class Settings {
   /// 自动匹配和搜索时跳过这些源
   String disabledLyricsSources = 'lrclib';
 
-  /// AI 标题解析模式: 0=off, 1=fallbackAfterRules, 2=alwaysAi
-  int lyricsAiTitleParsingModeIndex = 1;
+  /// AI 标题解析模式: 0=off, 2=alwaysAi, 3=advancedAiSelect
+  int lyricsAiTitleParsingModeIndex = 0;
+
+  /// Allow auto-matching plain lyrics without timestamps.
+  bool allowPlainLyricsAutoMatch = false;
 
   /// OpenAI-compatible API base URL for AI title parsing.
   String lyricsAiEndpoint = '';
@@ -459,12 +462,14 @@ class Settings {
   @ignore
   LyricsAiTitleParsingMode get lyricsAiTitleParsingMode {
     switch (lyricsAiTitleParsingModeIndex) {
-      case 0:
-        return LyricsAiTitleParsingMode.off;
       case 2:
         return LyricsAiTitleParsingMode.alwaysAi;
+      case 3:
+        return LyricsAiTitleParsingMode.advancedAiSelect;
+      case 0:
+      case 1:
       default:
-        return LyricsAiTitleParsingMode.fallbackAfterRules;
+        return LyricsAiTitleParsingMode.off;
     }
   }
 
@@ -472,13 +477,10 @@ class Settings {
     switch (mode) {
       case LyricsAiTitleParsingMode.off:
         lyricsAiTitleParsingModeIndex = 0;
-        break;
-      case LyricsAiTitleParsingMode.fallbackAfterRules:
-        lyricsAiTitleParsingModeIndex = 1;
-        break;
       case LyricsAiTitleParsingMode.alwaysAi:
         lyricsAiTitleParsingModeIndex = 2;
-        break;
+      case LyricsAiTitleParsingMode.advancedAiSelect:
+        lyricsAiTitleParsingModeIndex = 3;
     }
   }
 
