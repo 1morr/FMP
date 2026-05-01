@@ -417,6 +417,13 @@ int _defaultBackupCacheSizeMB() => _isMobilePlatform() ? 16 : 32;
 
 final _settingsBackupDefaults = Settings();
 
+int _normalizeLyricsAiTitleParsingModeIndex(int? index) {
+  if (index == null || index == 1 || index < 0 || index > 3) {
+    return 0;
+  }
+  return index;
+}
+
 /// 设置备份数据
 class SettingsBackup {
   final int themeModeIndex;
@@ -451,6 +458,11 @@ class SettingsBackup {
   final int lyricsDisplayModeIndex;
   final String lyricsSourcePriority;
   final String disabledLyricsSources;
+  final int lyricsAiTitleParsingModeIndex;
+  final bool allowPlainLyricsAutoMatch;
+  final String lyricsAiEndpoint;
+  final String lyricsAiModel;
+  final int lyricsAiTimeoutSeconds;
   final bool useBilibiliAuthForPlay;
   final bool useYoutubeAuthForPlay;
   final bool useNeteaseAuthForPlay;
@@ -490,12 +502,19 @@ class SettingsBackup {
     this.lyricsDisplayModeIndex = 0,
     this.lyricsSourcePriority = 'netease,qqmusic,lrclib',
     this.disabledLyricsSources = 'lrclib',
+    int? lyricsAiTitleParsingModeIndex,
+    this.allowPlainLyricsAutoMatch = false,
+    this.lyricsAiEndpoint = '',
+    this.lyricsAiModel = '',
+    this.lyricsAiTimeoutSeconds = 10,
     this.useBilibiliAuthForPlay = false,
     this.useYoutubeAuthForPlay = false,
     this.useNeteaseAuthForPlay = true,
     this.rankingRefreshIntervalMinutes = 60,
     this.radioRefreshIntervalMinutes = 5,
-  }) : maxCacheSizeMB = maxCacheSizeMB ?? _defaultBackupCacheSizeMB();
+  })  : maxCacheSizeMB = maxCacheSizeMB ?? _defaultBackupCacheSizeMB(),
+        lyricsAiTitleParsingModeIndex = _normalizeLyricsAiTitleParsingModeIndex(
+            lyricsAiTitleParsingModeIndex);
 
   factory SettingsBackup.fromJson(Map<String, dynamic> json) {
     return SettingsBackup(
@@ -544,6 +563,13 @@ class SettingsBackup {
           json['lyricsSourcePriority'] as String? ?? 'netease,qqmusic,lrclib',
       disabledLyricsSources:
           json['disabledLyricsSources'] as String? ?? 'lrclib',
+      lyricsAiTitleParsingModeIndex:
+          json['lyricsAiTitleParsingModeIndex'] as int?,
+      allowPlainLyricsAutoMatch:
+          json['allowPlainLyricsAutoMatch'] as bool? ?? false,
+      lyricsAiEndpoint: json['lyricsAiEndpoint'] as String? ?? '',
+      lyricsAiModel: json['lyricsAiModel'] as String? ?? '',
+      lyricsAiTimeoutSeconds: json['lyricsAiTimeoutSeconds'] as int? ?? 10,
       useBilibiliAuthForPlay: json['useBilibiliAuthForPlay'] as bool? ?? false,
       useYoutubeAuthForPlay: json['useYoutubeAuthForPlay'] as bool? ?? false,
       useNeteaseAuthForPlay: json['useNeteaseAuthForPlay'] as bool? ?? true,
@@ -588,6 +614,11 @@ class SettingsBackup {
       'lyricsDisplayModeIndex': lyricsDisplayModeIndex,
       'lyricsSourcePriority': lyricsSourcePriority,
       'disabledLyricsSources': disabledLyricsSources,
+      'lyricsAiTitleParsingModeIndex': lyricsAiTitleParsingModeIndex,
+      'allowPlainLyricsAutoMatch': allowPlainLyricsAutoMatch,
+      'lyricsAiEndpoint': lyricsAiEndpoint,
+      'lyricsAiModel': lyricsAiModel,
+      'lyricsAiTimeoutSeconds': lyricsAiTimeoutSeconds,
       'useBilibiliAuthForPlay': useBilibiliAuthForPlay,
       'useYoutubeAuthForPlay': useYoutubeAuthForPlay,
       'useNeteaseAuthForPlay': useNeteaseAuthForPlay,
