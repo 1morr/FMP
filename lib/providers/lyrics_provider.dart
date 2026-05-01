@@ -113,8 +113,12 @@ final _currentLyricsSourceProvider = Provider.autoDispose<String?>((ref) {
 /// 注意：只在 externalId 变化时重新加载，offset 变化不会触发重新加载
 final currentLyricsContentProvider =
     FutureProvider.autoDispose<LyricsResult?>((ref) async {
+  var disposed = false;
+  ref.onDispose(() => disposed = true);
+
   final currentTrack = ref.watch(currentTrackProvider);
   if (currentTrack == null) return null;
+  final trackUniqueKey = currentTrack.uniqueKey;
 
   final externalId = ref.watch(_currentLyricsExternalIdProvider);
   if (externalId == null) return null;
@@ -123,8 +127,8 @@ final currentLyricsContentProvider =
   final cache = ref.watch(lyricsCacheServiceProvider);
 
   // 1. 尝试从缓存获取
-  final cached = await cache.get(currentTrack.uniqueKey);
-  if (cached != null) return cached;
+  final cached = await cache.get(trackUniqueKey);
+  if (cached != null || disposed) return cached;
 
   // 2. 根据歌词源从对应 API 获取
   LyricsResult? result;
@@ -139,9 +143,9 @@ final currentLyricsContentProvider =
     result = await lrclib.getById(externalId);
   }
 
-  if (result != null) {
+  if (result != null && !disposed) {
     // 3. 保存到缓存
-    await cache.put(currentTrack.uniqueKey, result);
+    await cache.put(trackUniqueKey, result);
   }
 
   return result;
