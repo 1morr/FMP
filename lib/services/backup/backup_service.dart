@@ -219,6 +219,11 @@ class BackupService {
         lyricsDisplayModeIndex: settings.lyricsDisplayModeIndex,
         lyricsSourcePriority: settings.lyricsSourcePriority,
         disabledLyricsSources: settings.disabledLyricsSources,
+        lyricsAiTitleParsingModeIndex: settings.lyricsAiTitleParsingModeIndex,
+        allowPlainLyricsAutoMatch: settings.allowPlainLyricsAutoMatch,
+        lyricsAiEndpoint: settings.lyricsAiEndpoint,
+        lyricsAiModel: settings.lyricsAiModel,
+        lyricsAiTimeoutSeconds: settings.lyricsAiTimeoutSeconds,
         useBilibiliAuthForPlay: settings.useBilibiliAuthForPlay,
         useYoutubeAuthForPlay: settings.useYoutubeAuthForPlay,
         useNeteaseAuthForPlay: settings.useNeteaseAuthForPlay,
@@ -629,6 +634,12 @@ class BackupService {
           ..lyricsDisplayModeIndex = settingsBackup.lyricsDisplayModeIndex
           ..lyricsSourcePriority = settingsBackup.lyricsSourcePriority
           ..disabledLyricsSources = settingsBackup.disabledLyricsSources
+          ..lyricsAiTitleParsingModeIndex =
+              settingsBackup.lyricsAiTitleParsingModeIndex
+          ..allowPlainLyricsAutoMatch = settingsBackup.allowPlainLyricsAutoMatch
+          ..lyricsAiEndpoint = settingsBackup.lyricsAiEndpoint
+          ..lyricsAiModel = settingsBackup.lyricsAiModel
+          ..lyricsAiTimeoutSeconds = settingsBackup.lyricsAiTimeoutSeconds
           // 设备相关设置 - 保留当前值
           ..customDownloadDir = currentSettings?.customDownloadDir
           ..preferredAudioDeviceId = currentSettings?.preferredAudioDeviceId
