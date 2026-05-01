@@ -10,6 +10,7 @@ import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/lyrics_repository.dart';
 import 'package:fmp/data/repositories/lyrics_title_parse_cache_repository.dart';
+import 'package:fmp/services/lyrics/ai_lyrics_selector.dart';
 import 'package:fmp/services/lyrics/ai_title_parser.dart';
 import 'package:fmp/services/lyrics/lrclib_source.dart';
 import 'package:fmp/services/lyrics/lyrics_ai_config_service.dart';
@@ -30,6 +31,7 @@ void main() {
     late _RecordingLyricsCacheService cache;
     late _FakeTitleParser parser;
     late _FakeAiTitleParser aiParser;
+    late _FakeAiLyricsSelector aiLyricsSelector;
     late _FakeNeteaseSource netease;
     late _FakeQQMusicSource qqmusic;
     late _FakeLrclibSource lrclib;
@@ -55,6 +57,7 @@ void main() {
       cache = _RecordingLyricsCacheService();
       parser = _FakeTitleParser();
       aiParser = _FakeAiTitleParser();
+      aiLyricsSelector = _FakeAiLyricsSelector();
       netease = _FakeNeteaseSource();
       qqmusic = _FakeQQMusicSource();
       lrclib = _FakeLrclibSource();
@@ -79,8 +82,10 @@ void main() {
         cache: cache,
         parser: parser,
         aiTitleParser: aiParser,
+        aiLyricsSelector: aiLyricsSelector,
         aiConfigLoader: () async => config,
         titleParseCacheRepo: titleParseCacheRepo,
+        allowPlainLyricsAutoMatch: false,
       );
     }
 
@@ -431,6 +436,136 @@ void main() {
       expect(matched, isFalse);
       expect(netease.searchCalls, ['AI Song']);
     });
+
+    test('advanced mode saves AI selected high-confidence synced candidate',
+        () async {
+      config = _config(mode: LyricsAiTitleParsingMode.advancedAiSelect);
+      aiParser.result =
+          _aiParsed(trackName: 'AI Song', artistName: 'AI Artist');
+      netease.searchResultsByQuery['AI Song AI Artist'] = [
+        _lyricsResult(
+          id: 'chosen',
+          source: 'netease',
+          trackName: 'AI Song',
+          artistName: 'AI Artist',
+        ),
+      ];
+      aiLyricsSelector.result = const AiLyricsSelection(
+        selectedCandidateId: 'netease:chosen',
+        confidence: 0.91,
+        reason: 'best synced match',
+      );
+
+      final matched = await buildService().tryAutoMatch(
+        _track('advanced-selected'),
+        enabledSources: const ['netease'],
+      );
+
+      expect(matched, isTrue);
+      expect(aiLyricsSelector.calls, hasLength(1));
+      final call = aiLyricsSelector.calls.single;
+      expect(call.candidates.single.candidateId, 'netease:chosen');
+      expect(call.candidates.single.hasSyncedLyrics, isTrue);
+      expect(call.candidates.single.videoDurationSeconds, 180);
+      expect(call.sourcePriority, ['netease']);
+      expect(call.allowPlainLyricsAutoMatch, isFalse);
+      final saved = await repo.getByTrackKey('youtube:advanced-selected');
+      expect(saved?.externalId, 'chosen');
+    });
+
+    test('advanced mode filters plain candidates before AI when disabled',
+        () async {
+      config = _config(mode: LyricsAiTitleParsingMode.advancedAiSelect);
+      aiParser.result =
+          _aiParsed(trackName: 'AI Song', artistName: 'AI Artist');
+      netease.searchResultsByQuery['AI Song AI Artist'] = [
+        _lyricsResult(
+          id: 'plain',
+          source: 'netease',
+          trackName: 'AI Song',
+          artistName: 'AI Artist',
+          syncedLyrics: null,
+          plainLyrics: 'plain',
+        ),
+      ];
+
+      final matched = await buildService().tryAutoMatch(
+        _track('advanced-filter-plain'),
+        enabledSources: const ['netease'],
+      );
+
+      expect(matched, isFalse);
+      expect(aiLyricsSelector.calls, isEmpty);
+    });
+
+    test(
+        'advanced mode does not fall back to regex after low confidence selection',
+        () async {
+      config = _config(mode: LyricsAiTitleParsingMode.advancedAiSelect);
+      aiParser.result =
+          _aiParsed(trackName: 'AI Song', artistName: 'AI Artist');
+      netease.searchResultsByQuery['AI Song AI Artist'] = [
+        _lyricsResult(
+          id: 'candidate',
+          source: 'netease',
+          trackName: 'AI Song',
+          artistName: 'AI Artist',
+        ),
+      ];
+      netease.searchResultsByQuery['Regex Song Regex Artist'] = [
+        _lyricsResult(id: 'regex-should-not-run', source: 'netease'),
+      ];
+      aiLyricsSelector.result = const AiLyricsSelection(
+        selectedCandidateId: 'netease:candidate',
+        confidence: 0.8,
+        reason: 'not enough',
+      );
+
+      final matched = await buildService().tryAutoMatch(
+        _track('advanced-low-confidence'),
+        enabledSources: const ['netease'],
+      );
+
+      expect(matched, isFalse);
+      expect(netease.searchCalls, isNot(contains('Regex Song Regex Artist')));
+      expect(
+        await repo.getByTrackKey('youtube:advanced-low-confidence'),
+        isNull,
+      );
+    });
+
+    test('advanced mode falls back to regex when selector returns null',
+        () async {
+      config = _config(mode: LyricsAiTitleParsingMode.advancedAiSelect);
+      aiParser.result =
+          _aiParsed(trackName: 'AI Song', artistName: 'AI Artist');
+      netease.searchResultsByQuery['AI Song AI Artist'] = [
+        _lyricsResult(
+          id: 'candidate',
+          source: 'netease',
+          trackName: 'AI Song',
+          artistName: 'AI Artist',
+        ),
+      ];
+      netease.searchResultsByQuery['Regex Song Regex Artist'] = [
+        _lyricsResult(id: 'regex-fallback', source: 'netease'),
+      ];
+      aiLyricsSelector.result = null;
+
+      final matched = await buildService().tryAutoMatch(
+        _track('advanced-selector-null'),
+        enabledSources: const ['netease'],
+      );
+
+      expect(matched, isTrue);
+      expect(netease.searchCalls, [
+        'AI Song AI Artist',
+        'AI Song',
+        'Regex Song Regex Artist',
+      ]);
+      final saved = await repo.getByTrackKey('youtube:advanced-selector-null');
+      expect(saved?.externalId, 'regex-fallback');
+    });
   });
 }
 
@@ -458,15 +593,19 @@ LyricsResult _lyricsResult({
   required String source,
   String trackName = 'Regex Song',
   String artistName = 'Regex Artist',
+  int duration = 180,
+  String? syncedLyrics = '[00:01.00]line',
+  String? plainLyrics,
 }) {
   return LyricsResult(
     id: id,
     trackName: trackName,
     artistName: artistName,
     albumName: 'Album',
-    duration: 180,
+    duration: duration,
     instrumental: false,
-    syncedLyrics: '[00:01.00]line',
+    syncedLyrics: syncedLyrics,
+    plainLyrics: plainLyrics,
     source: source,
   );
 }
@@ -521,6 +660,51 @@ class _FakeAiTitleParser extends AiTitleParser {
     required int timeoutSeconds,
   }) async {
     calls.add((title: title, uploader: uploader));
+    return result;
+  }
+}
+
+class _FakeAiLyricsSelector extends AiLyricsSelector {
+  final List<
+      ({
+        String endpoint,
+        String apiKey,
+        String model,
+        String title,
+        String? uploader,
+        int durationSeconds,
+        List<String> sourcePriority,
+        bool allowPlainLyricsAutoMatch,
+        List<AiLyricsCandidate> candidates,
+        int timeoutSeconds,
+      })> calls = [];
+  AiLyricsSelection? result;
+
+  @override
+  Future<AiLyricsSelection?> select({
+    required String endpoint,
+    required String apiKey,
+    required String model,
+    required String title,
+    String? uploader,
+    required int durationSeconds,
+    required List<String> sourcePriority,
+    required bool allowPlainLyricsAutoMatch,
+    required List<AiLyricsCandidate> candidates,
+    required int timeoutSeconds,
+  }) async {
+    calls.add((
+      endpoint: endpoint,
+      apiKey: apiKey,
+      model: model,
+      title: title,
+      uploader: uploader,
+      durationSeconds: durationSeconds,
+      sourcePriority: sourcePriority,
+      allowPlainLyricsAutoMatch: allowPlainLyricsAutoMatch,
+      candidates: candidates,
+      timeoutSeconds: timeoutSeconds,
+    ));
     return result;
   }
 }

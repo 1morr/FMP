@@ -5,6 +5,7 @@ import '../data/models/settings.dart';
 import '../data/repositories/lyrics_repository.dart';
 import '../data/repositories/settings_repository.dart';
 import '../services/audio/audio_provider.dart';
+import '../services/lyrics/ai_lyrics_selector.dart';
 import '../services/lyrics/ai_title_parser.dart';
 import '../services/lyrics/lrc_parser.dart';
 import '../services/lyrics/lrclib_source.dart';
@@ -40,6 +41,10 @@ final titleParserProvider = Provider<TitleParser>((ref) => RegexTitleParser());
 /// AI TitleParser 单例
 final aiTitleParserProvider = Provider<AiTitleParser>((ref) => AiTitleParser());
 
+/// AI lyrics selector 单例
+final aiLyricsSelectorProvider =
+    Provider<AiLyricsSelector>((ref) => AiLyricsSelector());
+
 /// Lyrics AI config service 单例
 final lyricsAiConfigServiceProvider = Provider<LyricsAiConfigService>((ref) {
   final settingsRepo = ref.watch(settingsRepositoryProvider);
@@ -62,6 +67,7 @@ final lyricsCacheServiceProvider = Provider<LyricsCacheService>((ref) {
 /// LyricsAutoMatchService 单例
 final lyricsAutoMatchServiceProvider = Provider<LyricsAutoMatchService>((ref) {
   final aiConfigService = ref.watch(lyricsAiConfigServiceProvider);
+  final audioSettings = ref.watch(audioSettingsProvider);
   return LyricsAutoMatchService(
     lrclib: ref.watch(lrclibSourceProvider),
     netease: ref.watch(neteaseSourceProvider),
@@ -70,8 +76,10 @@ final lyricsAutoMatchServiceProvider = Provider<LyricsAutoMatchService>((ref) {
     cache: ref.watch(lyricsCacheServiceProvider),
     parser: ref.watch(titleParserProvider),
     aiTitleParser: ref.watch(aiTitleParserProvider),
+    aiLyricsSelector: ref.watch(aiLyricsSelectorProvider),
     aiConfigLoader: aiConfigService.loadConfig,
     titleParseCacheRepo: ref.watch(lyricsTitleParseCacheRepositoryProvider),
+    allowPlainLyricsAutoMatch: audioSettings.allowPlainLyricsAutoMatch,
   );
 });
 

@@ -6,6 +6,7 @@ import '../../data/models/settings.dart';
 import '../../data/models/track.dart';
 import '../../data/repositories/lyrics_repository.dart';
 import '../../data/repositories/lyrics_title_parse_cache_repository.dart';
+import 'ai_lyrics_selector.dart';
 import 'ai_title_parser.dart';
 import 'lrclib_source.dart';
 import 'lyrics_ai_config_service.dart';
@@ -29,6 +30,7 @@ class LyricsAutoMatchService with Logging {
   final LyricsCacheService _cache;
   final TitleParser _parser;
   final AiTitleParser? _aiTitleParser;
+  final AiLyricsSelector? _aiLyricsSelector;
   final Future<LyricsAiConfig> Function()? _aiConfigLoader;
   final LyricsTitleParseCacheRepository? _titleParseCacheRepo;
   final bool _allowPlainLyricsAutoMatch;
@@ -41,6 +43,7 @@ class LyricsAutoMatchService with Logging {
     required LyricsCacheService cache,
     required TitleParser parser,
     AiTitleParser? aiTitleParser,
+    AiLyricsSelector? aiLyricsSelector,
     Future<LyricsAiConfig> Function()? aiConfigLoader,
     LyricsTitleParseCacheRepository? titleParseCacheRepo,
     bool allowPlainLyricsAutoMatch = false,
@@ -51,6 +54,7 @@ class LyricsAutoMatchService with Logging {
         _cache = cache,
         _parser = parser,
         _aiTitleParser = aiTitleParser,
+        _aiLyricsSelector = aiLyricsSelector,
         _aiConfigLoader = aiConfigLoader,
         _titleParseCacheRepo = titleParseCacheRepo,
         _allowPlainLyricsAutoMatch = allowPlainLyricsAutoMatch;
@@ -152,7 +156,13 @@ class LyricsAutoMatchService with Logging {
           aiConfig!.mode == LyricsAiTitleParsingMode.advancedAiSelect) {
         final aiParsed = await _loadOrParseAiTitle(track, aiConfig);
         if (aiParsed != null) {
-          return false;
+          return await _matchAdvancedAi(
+            track,
+            aiParsed,
+            aiConfig,
+            sources,
+            effectiveAllowPlainLyricsAutoMatch,
+          );
         }
         return await _matchRegexParsedTitle(
           track,
@@ -293,6 +303,168 @@ class LyricsAutoMatchService with Logging {
       ];
     }
     return [(trackName: trackName, artistName: '')];
+  }
+
+  Future<bool> _matchAdvancedAi(
+    Track track,
+    AiParsedTitle parsed,
+    LyricsAiConfig config,
+    List<String> sources,
+    bool allowPlainLyricsAutoMatch,
+  ) async {
+    final selector = _aiLyricsSelector;
+    if (selector == null) {
+      logDebug('AI advanced matching selector missing; falling back to regex');
+      return await _matchRegexParsedTitle(
+        track,
+        sources,
+        allowPlainLyricsAutoMatch,
+      );
+    }
+
+    final trackDurationSec = (track.durationMs ?? 0) ~/ 1000;
+    final queryPairs = _buildAiQueryPairs(parsed);
+    final candidatesById = <String, LyricsResult>{};
+    final aiCandidates = <AiLyricsCandidate>[];
+    logDebug('AI advanced matching query pairs: $queryPairs');
+
+    for (var sourceIndex = 0; sourceIndex < sources.length; sourceIndex++) {
+      final source = sources[sourceIndex];
+      for (final query in queryPairs) {
+        final results = await _searchSource(
+          source,
+          query.trackName,
+          query.artistName,
+        );
+        for (final result in results) {
+          if (!_passesDuration(result, trackDurationSec)) continue;
+          if (!_isAllowedLyricsResult(result, allowPlainLyricsAutoMatch)) {
+            continue;
+          }
+          final candidateId = '${result.source}:${result.id}';
+          if (candidatesById.containsKey(candidateId)) continue;
+          candidatesById[candidateId] = result;
+          aiCandidates.add(
+            _toAiCandidate(
+              result,
+              candidateId,
+              sourceIndex,
+              trackDurationSec,
+            ),
+          );
+        }
+      }
+    }
+
+    if (aiCandidates.isEmpty) {
+      logDebug('AI advanced matching has no candidates after filtering');
+      return false;
+    }
+
+    final selection = await selector.select(
+      endpoint: config.endpoint,
+      apiKey: config.apiKey,
+      model: config.model,
+      title: track.title,
+      uploader: track.artist,
+      durationSeconds: trackDurationSec,
+      sourcePriority: sources,
+      allowPlainLyricsAutoMatch: allowPlainLyricsAutoMatch,
+      candidates: aiCandidates,
+      timeoutSeconds: config.timeoutSeconds,
+    );
+
+    if (selection == null) {
+      logDebug(
+          'AI advanced matching selector unavailable; falling back to regex');
+      return await _matchRegexParsedTitle(
+        track,
+        sources,
+        allowPlainLyricsAutoMatch,
+      );
+    }
+
+    final selectedId = selection.selectedCandidateId;
+    if (selectedId == null || selection.confidence <= 0.8) {
+      logDebug(
+        'AI advanced matching made no confident selection: '
+        'selected=$selectedId confidence=${selection.confidence}',
+      );
+      return false;
+    }
+
+    final selected = candidatesById[selectedId];
+    if (selected == null) {
+      logDebug('AI advanced matching selected unknown candidate: $selectedId');
+      return false;
+    }
+    if (!_isAllowedLyricsResult(selected, allowPlainLyricsAutoMatch)) {
+      return false;
+    }
+
+    await _saveMatch(track, selected, selected.source, selected.id);
+    logInfo(
+      'AI advanced matched lyrics: ${track.title} → '
+      '${selected.source}:${selected.id} confidence=${selection.confidence}',
+    );
+    return true;
+  }
+
+  Future<List<LyricsResult>> _searchSource(
+    String source,
+    String trackName,
+    String artistName,
+  ) async {
+    switch (source) {
+      case 'netease':
+        return _netease.searchLyrics(
+          query: [trackName, artistName].where((s) => s.isNotEmpty).join(' '),
+          limit: 5,
+        );
+      case 'qqmusic':
+        return _qqmusic.searchLyrics(
+          query: [trackName, artistName].where((s) => s.isNotEmpty).join(' '),
+          limit: 5,
+        );
+      case 'lrclib':
+        return _lrclib.search(
+          trackName: trackName,
+          artistName: artistName.isNotEmpty ? artistName : null,
+        );
+    }
+    return const [];
+  }
+
+  bool _passesDuration(LyricsResult result, int trackDurationSec) {
+    if (result.duration == 0) return true;
+    return (result.duration - trackDurationSec).abs() <=
+        AppConstants.lyricsDurationToleranceSec;
+  }
+
+  AiLyricsCandidate _toAiCandidate(
+    LyricsResult result,
+    String candidateId,
+    int sourcePriorityRank,
+    int videoDurationSeconds,
+  ) {
+    final durationDiff = result.duration == 0
+        ? 0
+        : (result.duration - videoDurationSeconds).abs();
+    return AiLyricsCandidate(
+      candidateId: candidateId,
+      source: result.source,
+      sourcePriorityRank: sourcePriorityRank,
+      trackName: result.trackName,
+      artistName: result.artistName,
+      albumName: result.albumName,
+      durationSeconds: result.duration,
+      videoDurationSeconds: videoDurationSeconds,
+      durationDiffSeconds: durationDiff,
+      hasSyncedLyrics: result.hasSyncedLyrics,
+      hasPlainLyrics: result.hasPlainLyrics,
+      hasTranslatedLyrics: result.hasTranslatedLyrics,
+      hasRomajiLyrics: result.hasRomajiLyrics,
+    );
   }
 
   Future<AiParsedTitle?> _loadOrParseAiTitle(
