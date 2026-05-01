@@ -42,6 +42,5 @@
   "importOrigin": "Import Origin",
   "lyricsSettings": "Lyrics Settings",
   "uiSettings": "UI Settings",
-  "audioDeviceSettings": "Audio Output Device",
-  "startupSettings": "Startup Settings"
+  "audioDeviceSettings": "Audio Output Device"
 }

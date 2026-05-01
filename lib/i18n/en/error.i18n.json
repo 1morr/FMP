@@ -26,6 +26,5 @@
   "genericSubtitle": "Please try again later",
   "rateLimited": "Too many requests, please try again later",
   "retry": "Retry",
-  "operationCancelled": "Operation cancelled",
   "sourceUnavailable": "Source $source is unavailable"
 }

@@ -74,14 +74,12 @@
   },
   "lyricsSourceSettings": {
     "title": "歌词匹配源",
-    "subtitle": "调整歌词源的优先级和启用状态",
     "hint": "拖动调整搜索优先级，排在前面的源优先匹配。原平台ID直取始终优先执行，不受此设置影响。",
     "sourceNetease": "网易云音乐",
     "sourceQQMusic": "QQ音乐",
     "sourceLrclib": "lrclib",
     "enabled": "已启用",
     "disabled": "已禁用",
-    "sourceDisabledToast": "该歌词源已禁用",
     "aiSectionTitle": "AI 标题解析",
     "aiMode": "模式",
     "aiModeOff": "关闭",
@@ -101,9 +99,7 @@
     "aiTestMissingConfig": "请先配置 API 端点、API Key 和模型",
     "aiTestSuccess": "AI 测试成功：$track",
     "aiTestSuccessWithArtist": "AI 测试成功：$track - $artist",
-    "aiTestFailed": "AI 测试失败，请检查端点、API Key 和模型",
-    "aiClearCache": "清除 AI 解析缓存",
-    "aiClearCacheDone": "已清除 AI 解析缓存"
+    "aiTestFailed": "AI 测试失败，请检查端点、API Key 和模型"
   },
   "version": {
     "title": "版本",
@@ -138,7 +134,6 @@
     "ytStreamTest": "YouTube 流测试",
     "ytStreamTestSubtitle": "测试 Audio-only / Muxed / HLS 流播放",
     "dataManagement": "数据管理",
-    "experimentalFeatures": "实验性功能",
     "devInfo": "开发信息",
     "debugMode": "调试模式",
     "dbInfo": "数据库信息",
@@ -150,8 +145,6 @@
     "processMemory": "进程总内存 (RSS): $size",
     "flutterImageCache": "Flutter 图片内存缓存",
     "flutterImageCacheDetail": "$count 张 / $maxCount 张上限，$size / $maxSize MB",
-    "dartHeap": "Dart 堆内存",
-    "dartHeapDetail": "已用 $used，已分配 $allocated",
     "nativeMemory": "Native 内存",
     "nativeMemoryDetail": "约 $size（RSS - Dart堆）",
     "dataCaches": "数据缓存",
@@ -167,9 +160,7 @@
     "resetWarning": "此操作将删除所有数据，包括：\n• 所有歌单\n• 播放队列\n• 搜索历史\n• 应用设置\n\n此操作不可恢复！",
     "resetting": "正在重置数据...",
     "resetDone": "数据已重置，请重启应用",
-    "resetFailed": "重置失败: $error",
-    "autoScrollToPlaying": "切歌时自动定位",
-    "autoScrollSubtitle": "切换歌曲时自动跳转到队列页面并定位当前播放"
+    "resetFailed": "重置失败: $error"
   },
   "downloadManager": {
     "title": "下载管理",
@@ -235,7 +226,6 @@
     "cacheCleared": "歌词缓存已清除"
   },
   "refreshInterval": {
-    "title": "刷新间隔",
     "rankingTitle": "排行榜刷新间隔",
     "rankingSubtitle": "$interval",
     "radioTitle": "电台状态刷新间隔",
@@ -283,8 +273,7 @@
       "title": "导出数据",
       "subtitle": "将所有数据导出为 JSON 文件",
       "success": "数据已导出到: $path",
-      "failed": "导出失败: $error",
-      "cancelled": "导出已取消"
+      "failed": "导出失败: $error"
     },
     "import": {
       "title": "导入数据",
@@ -292,20 +281,14 @@
       "preview": "导入预览",
       "previewSubtitle": "以下数据将被导入（已存在的数据将被跳过）",
       "playlists": "歌单",
-      "tracks": "歌曲",
       "playHistory": "播放历史",
       "searchHistory": "搜索历史",
       "radioStations": "电台收藏",
       "lyricsMatches": "歌词匹配",
-      "settings": "设置",
       "importSettings": "导入设置",
-      "importSettingsSubtitle": "覆盖当前设置",
       "confirm": "确认导入",
       "success": "导入完成",
       "failed": "导入失败: $error",
-      "cancelled": "导入已取消",
-      "invalidFile": "无效的备份文件",
-      "versionMismatch": "备份文件版本不兼容",
       "result": {
         "playlistsImported": "歌单: 导入 $imported 个，跳过 $skipped 个",
         "tracksImported": "歌曲: 导入 $imported 个，跳过 $skipped 个",

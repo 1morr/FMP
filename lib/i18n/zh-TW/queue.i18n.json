@@ -1,6 +1,5 @@
 {
   "title": "播放佇列",
-  "titleWithCount": "播放佇列 ($count)",
   "shuffle": "隨機打亂",
   "shuffled": "佇列已打亂",
   "clear": "清空佇列",

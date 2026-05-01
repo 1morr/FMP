@@ -42,6 +42,5 @@
   "importOrigin": "导入来源",
   "lyricsSettings": "歌词设置",
   "uiSettings": "界面设置",
-  "audioDeviceSettings": "音频输出设备",
-  "startupSettings": "启动设置"
+  "audioDeviceSettings": "音频输出设备"
 }

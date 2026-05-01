@@ -74,14 +74,12 @@
   },
   "lyricsSourceSettings": {
     "title": "Lyrics Sources",
-    "subtitle": "Adjust lyrics source priority and enable/disable sources",
     "hint": "Drag to adjust search priority. Sources at the top are tried first. Direct ID fetch from original platform always takes priority and is not affected by this setting.",
     "sourceNetease": "Netease Cloud Music",
     "sourceQQMusic": "QQ Music",
     "sourceLrclib": "lrclib",
     "enabled": "Enabled",
     "disabled": "Disabled",
-    "sourceDisabledToast": "This lyrics source is disabled",
     "aiSectionTitle": "AI title parsing",
     "aiMode": "Mode",
     "aiModeOff": "Off",
@@ -101,9 +99,7 @@
     "aiTestMissingConfig": "Configure API endpoint, API key, and model first",
     "aiTestSuccess": "AI test succeeded: $track",
     "aiTestSuccessWithArtist": "AI test succeeded: $track - $artist",
-    "aiTestFailed": "AI test failed. Check the endpoint, API key, and model.",
-    "aiClearCache": "Clear AI parse cache",
-    "aiClearCacheDone": "AI parse cache cleared"
+    "aiTestFailed": "AI test failed. Check the endpoint, API key, and model."
   },
   "version": {
     "title": "Version",
@@ -138,7 +134,6 @@
     "ytStreamTest": "YouTube Stream Test",
     "ytStreamTestSubtitle": "Test Audio-only / Muxed / HLS stream playback",
     "dataManagement": "Data Management",
-    "experimentalFeatures": "Experimental Features",
     "devInfo": "Dev Info",
     "debugMode": "Debug Mode",
     "dbInfo": "Database Info",
@@ -150,8 +145,6 @@
     "processMemory": "Process memory (RSS): $size",
     "flutterImageCache": "Flutter Image Memory Cache",
     "flutterImageCacheDetail": "$count / $maxCount items, $size / $maxSize MB",
-    "dartHeap": "Dart Heap",
-    "dartHeapDetail": "Used $used, allocated $allocated",
     "nativeMemory": "Native Memory",
     "nativeMemoryDetail": "~$size (RSS - Dart heap)",
     "dataCaches": "Data Caches",
@@ -167,9 +160,7 @@
     "resetWarning": "This will delete all data, including:\n• All playlists\n• Play queue\n• Search history\n• App settings\n\nThis action is irreversible!",
     "resetting": "Resetting data...",
     "resetDone": "Data reset, please restart the app",
-    "resetFailed": "Reset failed: $error",
-    "autoScrollToPlaying": "Auto-scroll on track change",
-    "autoScrollSubtitle": "Automatically scroll to current track in queue when switching songs"
+    "resetFailed": "Reset failed: $error"
   },
   "downloadManager": {
     "title": "Download Manager",
@@ -235,7 +226,6 @@
     "cacheCleared": "Lyrics cache cleared"
   },
   "refreshInterval": {
-    "title": "Refresh Interval",
     "rankingTitle": "Ranking refresh interval",
     "rankingSubtitle": "$interval",
     "radioTitle": "Radio status refresh interval",
@@ -283,8 +273,7 @@
       "title": "Export Data",
       "subtitle": "Export all data to a JSON file",
       "success": "Data exported to: $path",
-      "failed": "Export failed: $error",
-      "cancelled": "Export cancelled"
+      "failed": "Export failed: $error"
     },
     "import": {
       "title": "Import Data",
@@ -292,20 +281,14 @@
       "preview": "Import Preview",
       "previewSubtitle": "The following data will be imported (existing data will be skipped)",
       "playlists": "Playlists",
-      "tracks": "Tracks",
       "playHistory": "Play History",
       "searchHistory": "Search History",
       "radioStations": "Radio Stations",
       "lyricsMatches": "Lyrics Matches",
-      "settings": "Settings",
       "importSettings": "Import Settings",
-      "importSettingsSubtitle": "Overwrite current settings",
       "confirm": "Confirm Import",
       "success": "Import completed",
       "failed": "Import failed: $error",
-      "cancelled": "Import cancelled",
-      "invalidFile": "Invalid backup file",
-      "versionMismatch": "Backup file version incompatible",
       "result": {
         "playlistsImported": "Playlists: imported $imported, skipped $skipped",
         "tracksImported": "Tracks: imported $imported, skipped $skipped",
