@@ -134,14 +134,14 @@ class LyricsAutoMatchService with Logging {
       if (shouldTryAi && aiConfig!.mode == LyricsAiTitleParsingMode.alwaysAi) {
         final aiParsed = await _loadOrParseAiTitle(track, aiConfig);
         if (aiParsed != null) {
-          return _matchAiParsedTitle(
+          return await _matchAiParsedTitle(
             track,
             aiParsed,
             sources,
             effectiveAllowPlainLyricsAutoMatch,
           );
         }
-        return _matchRegexParsedTitle(
+        return await _matchRegexParsedTitle(
           track,
           sources,
           effectiveAllowPlainLyricsAutoMatch,
@@ -154,14 +154,14 @@ class LyricsAutoMatchService with Logging {
         if (aiParsed != null) {
           return false;
         }
-        return _matchRegexParsedTitle(
+        return await _matchRegexParsedTitle(
           track,
           sources,
           effectiveAllowPlainLyricsAutoMatch,
         );
       }
 
-      return _matchRegexParsedTitle(
+      return await _matchRegexParsedTitle(
         track,
         sources,
         effectiveAllowPlainLyricsAutoMatch,
