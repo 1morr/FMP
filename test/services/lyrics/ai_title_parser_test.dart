@@ -73,10 +73,18 @@ void main() {
         'title': 'Song - Artist',
         'uploader': 'Uploader Channel',
       });
+      final logMessages = AppLogger.logs.map((entry) => entry.message).toList();
       expect(
-        AppLogger.logs.map((entry) => entry.message),
+        logMessages,
         contains('Calling AI title parser: Song - Artist'),
       );
+      expect(logMessages,
+          contains(contains('AI title parser request payload')));
+      expect(logMessages,
+          contains(contains('AI title parser raw response content')));
+      expect(logMessages,
+          contains(contains('AI title parser parsed result')));
+      expect(logMessages.join('\n'), isNot(contains('secret-key')));
     });
 
     test('logs Dio failures from direct AI parser calls', () async {
