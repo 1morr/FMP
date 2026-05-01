@@ -134,25 +134,38 @@ class LyricsAutoMatchService with Logging {
       if (shouldTryAi && aiConfig!.mode == LyricsAiTitleParsingMode.alwaysAi) {
         final aiParsed = await _loadOrParseAiTitle(track, aiConfig);
         if (aiParsed != null) {
-          final aiMatched = await _matchAiParsedTitle(
+          return _matchAiParsedTitle(
             track,
             aiParsed,
             sources,
             effectiveAllowPlainLyricsAutoMatch,
           );
-          if (aiMatched) return true;
         }
+        return _matchRegexParsedTitle(
+          track,
+          sources,
+          effectiveAllowPlainLyricsAutoMatch,
+        );
       }
 
-      final regexMatched = await _matchRegexParsedTitle(
+      if (shouldTryAi &&
+          aiConfig!.mode == LyricsAiTitleParsingMode.advancedAiSelect) {
+        final aiParsed = await _loadOrParseAiTitle(track, aiConfig);
+        if (aiParsed != null) {
+          return false;
+        }
+        return _matchRegexParsedTitle(
+          track,
+          sources,
+          effectiveAllowPlainLyricsAutoMatch,
+        );
+      }
+
+      return _matchRegexParsedTitle(
         track,
         sources,
         effectiveAllowPlainLyricsAutoMatch,
       );
-      if (regexMatched) return true;
-
-      logDebug('No lyrics matched for: ${track.title}');
-      return false;
     } catch (e) {
       logError('Auto-match failed for ${track.uniqueKey}: $e');
       return false;

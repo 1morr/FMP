@@ -99,7 +99,7 @@ void main() {
       expect(await _cachedCount(isar), 0);
     });
 
-    test('alwaysAi calls AI after regex failure, caches parse, and saves match',
+    test('alwaysAi calls AI before regex, caches parse, and saves match',
         () async {
       aiParser.result = _aiParsed(
         trackName: 'AI Song',
@@ -277,6 +277,29 @@ void main() {
       expect(await repo.getByTrackKey('youtube:cache-without-match'), isNull);
     });
 
+    test(
+        'alwaysAi does not fall back to regex when AI parse succeeds but matching fails',
+        () async {
+      config = _config(mode: LyricsAiTitleParsingMode.alwaysAi);
+      aiParser.result =
+          _aiParsed(trackName: 'AI No Match', artistName: 'AI Artist');
+      netease.searchResultsByQuery['Regex Song Regex Artist'] = [
+        _lyricsResult(id: 'regex-should-not-run', source: 'netease'),
+      ];
+
+      final matched = await buildService().tryAutoMatch(
+        _track('no-regex-after-ai-match-fail'),
+        enabledSources: const ['netease'],
+      );
+
+      expect(matched, isFalse);
+      expect(netease.searchCalls, ['AI No Match AI Artist', 'AI No Match']);
+      expect(
+        await repo.getByTrackKey('youtube:no-regex-after-ai-match-fail'),
+        isNull,
+      );
+    });
+
     test('AI unavailable or null falls back without throwing', () async {
       config = _config(mode: LyricsAiTitleParsingMode.alwaysAi);
       aiParser.result = null;
@@ -406,10 +429,7 @@ void main() {
       );
 
       expect(matched, isFalse);
-      expect(netease.searchCalls, [
-        'AI Song',
-        'Regex Song Regex Artist',
-      ]);
+      expect(netease.searchCalls, ['AI Song']);
     });
   });
 }
