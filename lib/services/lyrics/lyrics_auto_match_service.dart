@@ -63,7 +63,14 @@ class LyricsAutoMatchService with Logging {
   /// [enabledSources] 按优先级排序的启用歌词源列表（如 ['netease', 'qqmusic', 'lrclib']）。
   /// 如果为 null，使用默认顺序。
   /// 返回 true 表示成功匹配，false 表示未匹配（已有匹配、无结果、多个结果等）
-  Future<bool> tryAutoMatch(Track track, {List<String>? enabledSources}) async {
+  Future<bool> tryAutoMatch(
+    Track track, {
+    List<String>? enabledSources,
+    bool? allowPlainLyricsAutoMatch,
+  }) async {
+    final effectiveAllowPlainLyricsAutoMatch =
+        allowPlainLyricsAutoMatch ?? _allowPlainLyricsAutoMatch;
+
     // 防止同一首歌并发匹配
     final key = track.uniqueKey;
     if (_matchingKeys.contains(key)) {
@@ -86,7 +93,11 @@ class LyricsAutoMatchService with Logging {
           final result = await _netease
               .getLyricsResult(track.sourceId)
               .timeout(AppConstants.networkReceiveTimeout);
-          if (result != null && _isAllowedLyricsResult(result)) {
+          if (result != null &&
+              _isAllowedLyricsResult(
+                result,
+                effectiveAllowPlainLyricsAutoMatch,
+              )) {
             await _saveMatch(track, result, 'netease', track.sourceId);
             logInfo(
                 'Auto-matched lyrics via netease sourceId: ${track.sourceId}');
@@ -101,8 +112,11 @@ class LyricsAutoMatchService with Logging {
 
       // 1.5b. 如果有原平台 ID，直接获取歌词（跳过搜索）
       if (track.originalSongId != null && track.originalSource != null) {
-        final result =
-            await _tryDirectFetch(track.originalSongId!, track.originalSource!);
+        final result = await _tryDirectFetch(
+          track.originalSongId!,
+          track.originalSource!,
+          effectiveAllowPlainLyricsAutoMatch,
+        );
         if (result != null) {
           await _saveMatch(
               track, result, track.originalSource!, track.originalSongId!);
@@ -120,12 +134,21 @@ class LyricsAutoMatchService with Logging {
       if (shouldTryAi && aiConfig!.mode == LyricsAiTitleParsingMode.alwaysAi) {
         final aiParsed = await _loadOrParseAiTitle(track, aiConfig);
         if (aiParsed != null) {
-          final aiMatched = await _matchAiParsedTitle(track, aiParsed, sources);
+          final aiMatched = await _matchAiParsedTitle(
+            track,
+            aiParsed,
+            sources,
+            effectiveAllowPlainLyricsAutoMatch,
+          );
           if (aiMatched) return true;
         }
       }
 
-      final regexMatched = await _matchRegexParsedTitle(track, sources);
+      final regexMatched = await _matchRegexParsedTitle(
+        track,
+        sources,
+        effectiveAllowPlainLyricsAutoMatch,
+      );
       if (regexMatched) return true;
 
       logDebug('No lyrics matched for: ${track.title}');
@@ -156,12 +179,19 @@ class LyricsAutoMatchService with Logging {
         config.isAvailable;
   }
 
-  bool _isAllowedLyricsResult(LyricsResult result) {
+  bool _isAllowedLyricsResult(
+    LyricsResult result,
+    bool allowPlainLyricsAutoMatch,
+  ) {
     if (result.hasSyncedLyrics) return true;
-    return _allowPlainLyricsAutoMatch && result.hasPlainLyrics;
+    return allowPlainLyricsAutoMatch && result.hasPlainLyrics;
   }
 
-  Future<bool> _matchRegexParsedTitle(Track track, List<String> sources) async {
+  Future<bool> _matchRegexParsedTitle(
+    Track track,
+    List<String> sources,
+    bool allowPlainLyricsAutoMatch,
+  ) async {
     final parsed = _parser.parse(track.title);
     final trackName = parsed.trackName;
     final artistName = parsed.artistName ?? track.artist ?? '';
@@ -176,6 +206,7 @@ class LyricsAutoMatchService with Logging {
       track,
       [(trackName: trackName, artistName: artistName)],
       sources,
+      allowPlainLyricsAutoMatch,
     );
   }
 
@@ -183,14 +214,21 @@ class LyricsAutoMatchService with Logging {
     Track track,
     AiParsedTitle parsed,
     List<String> sources,
+    bool allowPlainLyricsAutoMatch,
   ) {
-    return _matchQueryPairs(track, _buildAiQueryPairs(parsed), sources);
+    return _matchQueryPairs(
+      track,
+      _buildAiQueryPairs(parsed),
+      sources,
+      allowPlainLyricsAutoMatch,
+    );
   }
 
   Future<bool> _matchQueryPairs(
     Track track,
     List<({String trackName, String artistName})> queryPairs,
     List<String> sources,
+    bool allowPlainLyricsAutoMatch,
   ) async {
     final trackDurationSec = (track.durationMs ?? 0) ~/ 1000;
     for (final source in sources) {
@@ -202,18 +240,21 @@ class LyricsAutoMatchService with Logging {
               query.trackName,
               query.artistName,
               trackDurationSec,
+              allowPlainLyricsAutoMatch,
             );
           case 'qqmusic':
             result = await _tryQQMusicMatch(
               query.trackName,
               query.artistName,
               trackDurationSec,
+              allowPlainLyricsAutoMatch,
             );
           case 'lrclib':
             result = await _tryLrclibMatch(
               query.trackName,
               query.artistName,
               trackDurationSec,
+              allowPlainLyricsAutoMatch,
             );
         }
         if (result != null) {
@@ -326,7 +367,11 @@ class LyricsAutoMatchService with Logging {
   /// 通过原平台 ID 直接获取歌词（不需要搜索）
   ///
   /// 仅支持网易云和 QQ 音乐（Spotify 无歌词 API）
-  Future<LyricsResult?> _tryDirectFetch(String songId, String source) async {
+  Future<LyricsResult?> _tryDirectFetch(
+    String songId,
+    String source,
+    bool allowPlainLyricsAutoMatch,
+  ) async {
     try {
       LyricsResult? result;
       if (source == 'netease') {
@@ -342,7 +387,8 @@ class LyricsAutoMatchService with Logging {
       }
 
       // 只返回自动匹配允许的歌词结果（同步歌词，或已开启的纯文本歌词）
-      if (result != null && _isAllowedLyricsResult(result)) {
+      if (result != null &&
+          _isAllowedLyricsResult(result, allowPlainLyricsAutoMatch)) {
         return result;
       }
       return null;
@@ -359,6 +405,7 @@ class LyricsAutoMatchService with Logging {
     String trackName,
     String artistName,
     int trackDurationSec,
+    bool allowPlainLyricsAutoMatch,
   ) async {
     try {
       final results = await _netease.searchLyrics(
@@ -382,7 +429,8 @@ class LyricsAutoMatchService with Logging {
           ? matching.first
           : _selectBestMatch(matching, trackName, artistName, trackDurationSec);
 
-      if (best != null && _isAllowedLyricsResult(best)) {
+      if (best != null &&
+          _isAllowedLyricsResult(best, allowPlainLyricsAutoMatch)) {
         return best;
       }
 
@@ -400,6 +448,7 @@ class LyricsAutoMatchService with Logging {
     String trackName,
     String artistName,
     int trackDurationSec,
+    bool allowPlainLyricsAutoMatch,
   ) async {
     try {
       final results = await _qqmusic.searchLyrics(
@@ -423,7 +472,8 @@ class LyricsAutoMatchService with Logging {
           ? matching.first
           : _selectBestMatch(matching, trackName, artistName, trackDurationSec);
 
-      if (best != null && _isAllowedLyricsResult(best)) {
+      if (best != null &&
+          _isAllowedLyricsResult(best, allowPlainLyricsAutoMatch)) {
         return best;
       }
 
@@ -441,6 +491,7 @@ class LyricsAutoMatchService with Logging {
     String trackName,
     String artistName,
     int trackDurationSec,
+    bool allowPlainLyricsAutoMatch,
   ) async {
     try {
       final results = await _lrclib.search(
@@ -467,7 +518,9 @@ class LyricsAutoMatchService with Logging {
       if (result == null) return null;
 
       // 与 netease/qqmusic 一致，只返回自动匹配允许的歌词结果
-      if (!_isAllowedLyricsResult(result)) return null;
+      if (!_isAllowedLyricsResult(result, allowPlainLyricsAutoMatch)) {
+        return null;
+      }
 
       logDebug(
           'Selected best lrclib match: "${result.trackName}" by "${result.artistName}" (score: ${_calculateScore(result, trackName, artistName, trackDurationSec).toStringAsFixed(2)})');
