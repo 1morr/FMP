@@ -10,6 +10,19 @@ import '../../../i18n/strings.g.dart';
 import '../../../providers/audio_settings_provider.dart';
 import '../../../providers/lyrics_provider.dart';
 
+@visibleForTesting
+LyricsAiTitleParsingMode sanitizeInterimLyricsAiTitleParsingMode(
+  LyricsAiTitleParsingMode mode,
+) {
+  switch (mode) {
+    case LyricsAiTitleParsingMode.off:
+    case LyricsAiTitleParsingMode.alwaysAi:
+      return mode;
+    case LyricsAiTitleParsingMode.advancedAiSelect:
+      return LyricsAiTitleParsingMode.off;
+  }
+}
+
 /// 歌词匹配源设置页面
 ///
 /// 支持拖动排序歌词源优先级，以及启用/禁用单个歌词源。
@@ -486,7 +499,9 @@ class _AiTitleParsingSettingsDialogState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               DropdownButtonFormField<LyricsAiTitleParsingMode>(
-                initialValue: widget.audioSettings.lyricsAiTitleParsingMode,
+                initialValue: sanitizeInterimLyricsAiTitleParsingMode(
+                  widget.audioSettings.lyricsAiTitleParsingMode,
+                ),
                 isExpanded: true,
                 decoration: InputDecoration(
                   labelText: t.settings.lyricsSourceSettings.aiMode,

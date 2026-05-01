@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/providers/audio_settings_provider.dart';
+import 'package:fmp/ui/pages/settings/lyrics_source_settings_page.dart';
 import 'package:isar/isar.dart';
 
 void main() {
@@ -43,6 +44,21 @@ void main() {
       expect(updated.lyricsAiApiKeyConfigured, isFalse);
       expect(updated.lyricsAiEndpoint, state.lyricsAiEndpoint);
       expect(updated.lyricsAiTimeoutSeconds, state.lyricsAiTimeoutSeconds);
+    });
+
+    test('sanitizes hidden dropdown mode to off', () {
+      expect(
+        sanitizeInterimLyricsAiTitleParsingMode(
+          LyricsAiTitleParsingMode.advancedAiSelect,
+        ),
+        LyricsAiTitleParsingMode.off,
+      );
+      expect(
+        sanitizeInterimLyricsAiTitleParsingMode(
+          LyricsAiTitleParsingMode.alwaysAi,
+        ),
+        LyricsAiTitleParsingMode.alwaysAi,
+      );
     });
   });
 
