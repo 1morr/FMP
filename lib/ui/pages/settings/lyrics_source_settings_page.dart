@@ -14,13 +14,7 @@ import '../../../providers/lyrics_provider.dart';
 LyricsAiTitleParsingMode sanitizeInterimLyricsAiTitleParsingMode(
   LyricsAiTitleParsingMode mode,
 ) {
-  switch (mode) {
-    case LyricsAiTitleParsingMode.off:
-    case LyricsAiTitleParsingMode.alwaysAi:
-      return mode;
-    case LyricsAiTitleParsingMode.advancedAiSelect:
-      return LyricsAiTitleParsingMode.off;
-  }
+  return mode;
 }
 
 /// 歌词匹配源设置页面
@@ -138,7 +132,7 @@ class _LyricsSourceSettingsPageState
       case LyricsAiTitleParsingMode.alwaysAi:
         return t.settings.lyricsSourceSettings.aiModeAlways;
       case LyricsAiTitleParsingMode.advancedAiSelect:
-        return t.settings.lyricsSourceSettings.aiModeAlways;
+        return t.settings.lyricsSourceSettings.aiModeAdvanced;
     }
   }
 
@@ -255,6 +249,9 @@ class _LyricsSourceSettingsPageState
             onModelSubmitted: _saveLyricsAiModel,
             onTimeoutChanged: _saveLyricsAiTimeoutSeconds,
             onTestAi: _testLyricsAiConnection,
+            onAllowPlainLyricsAutoMatchChanged: (enabled) => ref
+                .read(audioSettingsProvider.notifier)
+                .setAllowPlainLyricsAutoMatch(enabled),
           );
         },
       ),
@@ -436,6 +433,7 @@ class _AiTitleParsingSettingsDialog extends StatefulWidget {
   final Future<void> Function(String value) onModelSubmitted;
   final Future<void> Function(int seconds) onTimeoutChanged;
   final Future<void> Function() onTestAi;
+  final ValueChanged<bool> onAllowPlainLyricsAutoMatchChanged;
 
   const _AiTitleParsingSettingsDialog({
     required this.audioSettings,
@@ -451,6 +449,7 @@ class _AiTitleParsingSettingsDialog extends StatefulWidget {
     required this.onModelSubmitted,
     required this.onTimeoutChanged,
     required this.onTestAi,
+    required this.onAllowPlainLyricsAutoMatchChanged,
   });
 
   @override
@@ -511,6 +510,7 @@ class _AiTitleParsingSettingsDialogState
                 items: const [
                   LyricsAiTitleParsingMode.off,
                   LyricsAiTitleParsingMode.alwaysAi,
+                  LyricsAiTitleParsingMode.advancedAiSelect,
                 ]
                     .map(
                       (mode) => DropdownMenuItem(
@@ -522,6 +522,35 @@ class _AiTitleParsingSettingsDialogState
                 onChanged: (mode) {
                   if (mode != null) widget.onModeChanged(mode);
                 },
+              ),
+              if (switch (widget.audioSettings.lyricsAiTitleParsingMode) {
+                LyricsAiTitleParsingMode.alwaysAi =>
+                  t.settings.lyricsSourceSettings.aiModeAlwaysDescription,
+                LyricsAiTitleParsingMode.advancedAiSelect =>
+                  t.settings.lyricsSourceSettings.aiModeAdvancedDescription,
+                LyricsAiTitleParsingMode.off => '',
+              }
+                  case final description when description.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  description,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  t.settings.lyricsSourceSettings.allowPlainLyricsAutoMatch,
+                ),
+                subtitle: Text(
+                  t.settings.lyricsSourceSettings
+                      .allowPlainLyricsAutoMatchDescription,
+                ),
+                value: widget.audioSettings.allowPlainLyricsAutoMatch,
+                onChanged: widget.onAllowPlainLyricsAutoMatchChanged,
               ),
               const SizedBox(height: 12),
               TextField(
