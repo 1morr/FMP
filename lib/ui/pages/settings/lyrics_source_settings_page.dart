@@ -493,7 +493,10 @@ class _AiTitleParsingSettingsDialogState
                   prefixIcon: const Icon(Icons.tune_outlined),
                   border: const OutlineInputBorder(),
                 ),
-                items: LyricsAiTitleParsingMode.values
+                items: const [
+                  LyricsAiTitleParsingMode.off,
+                  LyricsAiTitleParsingMode.alwaysAi,
+                ]
                     .map(
                       (mode) => DropdownMenuItem(
                         value: mode,

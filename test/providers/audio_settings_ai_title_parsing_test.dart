@@ -12,7 +12,7 @@ void main() {
 
       expect(
         state.lyricsAiTitleParsingMode,
-        LyricsAiTitleParsingMode.fallbackAfterRules,
+        LyricsAiTitleParsingMode.off,
       );
       expect(state.lyricsAiEndpoint, '');
       expect(state.lyricsAiModel, '');
@@ -22,7 +22,7 @@ void main() {
 
     test('copyWith updates AI settings and preserves unchanged values', () {
       const state = AudioSettingsState(
-        lyricsAiTitleParsingMode: LyricsAiTitleParsingMode.fallbackAfterRules,
+        lyricsAiTitleParsingMode: LyricsAiTitleParsingMode.off,
         lyricsAiEndpoint: 'https://example.com/v1/chat/completions',
         lyricsAiModel: 'gpt-4o-mini',
         lyricsAiTimeoutSeconds: 15,

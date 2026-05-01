@@ -23,11 +23,12 @@ void main() {
 
     test('returns available when all fields are present', () async {
       final settings = Settings()
-        ..lyricsAiTitleParsingMode = LyricsAiTitleParsingMode.fallbackAfterRules
+        ..lyricsAiTitleParsingMode = LyricsAiTitleParsingMode.alwaysAi
         ..lyricsAiEndpoint = ' https://api.example.com/v1 '
         ..lyricsAiModel = ' gpt-test '
         ..lyricsAiTimeoutSeconds = 15;
-      final storage = _MemorySecureKeyValueStore({'lyrics_ai_api_key': ' key '});
+      final storage =
+          _MemorySecureKeyValueStore({'lyrics_ai_api_key': ' key '});
       final service = LyricsAiConfigService(
         loadSettings: () async => settings,
         secureStorage: storage,
@@ -44,7 +45,7 @@ void main() {
 
     test('clamps invalid timeout to 10 seconds', () async {
       final settings = Settings()
-        ..lyricsAiTitleParsingMode = LyricsAiTitleParsingMode.fallbackAfterRules
+        ..lyricsAiTitleParsingMode = LyricsAiTitleParsingMode.alwaysAi
         ..lyricsAiEndpoint = 'https://api.example.com/v1'
         ..lyricsAiModel = 'gpt-test'
         ..lyricsAiTimeoutSeconds = 0;
