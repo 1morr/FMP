@@ -331,11 +331,20 @@ class LyricsAutoMatchService with Logging {
     for (var sourceIndex = 0; sourceIndex < sources.length; sourceIndex++) {
       final source = sources[sourceIndex];
       for (final query in queryPairs) {
-        final results = await _searchSource(
-          source,
-          query.trackName,
-          query.artistName,
-        );
+        final List<LyricsResult> results;
+        try {
+          results = await _searchSource(
+            source,
+            query.trackName,
+            query.artistName,
+          );
+        } catch (e) {
+          logWarning(
+            'AI advanced matching search failed for $source '
+            '"${query.trackName}" by "${query.artistName}": $e',
+          );
+          continue;
+        }
         for (final result in results) {
           if (!_passesDuration(result, trackDurationSec)) continue;
           if (!_isAllowedLyricsResult(result, allowPlainLyricsAutoMatch)) {
