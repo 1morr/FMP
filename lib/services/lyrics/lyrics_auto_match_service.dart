@@ -297,10 +297,7 @@ class LyricsAutoMatchService with Logging {
     if (trackName.isEmpty) return const [];
     final artistName = parsed.artistName?.trim();
     if (artistName != null && artistName.isNotEmpty) {
-      return [
-        (trackName: trackName, artistName: artistName),
-        (trackName: trackName, artistName: ''),
-      ];
+      return [(trackName: trackName, artistName: artistName)];
     }
     return [(trackName: trackName, artistName: '')];
   }
@@ -346,7 +343,6 @@ class LyricsAutoMatchService with Logging {
           continue;
         }
         for (final result in results) {
-          if (!_passesDuration(result, trackDurationSec)) continue;
           if (!_isAllowedLyricsResult(result, allowPlainLyricsAutoMatch)) {
             continue;
           }
@@ -394,10 +390,10 @@ class LyricsAutoMatchService with Logging {
     }
 
     final selectedId = selection.selectedCandidateId;
-    if (selectedId == null || selection.confidence <= 0.8) {
+    if (selectedId == null) {
       logDebug(
-        'AI advanced matching made no confident selection: '
-        'selected=$selectedId confidence=${selection.confidence}',
+        'AI advanced matching made no selection: '
+        'confidence=${selection.confidence}',
       );
       return false;
     }
@@ -428,12 +424,12 @@ class LyricsAutoMatchService with Logging {
       case 'netease':
         return _netease.searchLyrics(
           query: [trackName, artistName].where((s) => s.isNotEmpty).join(' '),
-          limit: 5,
+          limit: 10,
         );
       case 'qqmusic':
         return _qqmusic.searchLyrics(
           query: [trackName, artistName].where((s) => s.isNotEmpty).join(' '),
-          limit: 5,
+          limit: 10,
         );
       case 'lrclib':
         return _lrclib.search(
@@ -442,12 +438,6 @@ class LyricsAutoMatchService with Logging {
         );
     }
     return const [];
-  }
-
-  bool _passesDuration(LyricsResult result, int trackDurationSec) {
-    if (result.duration == 0) return true;
-    return (result.duration - trackDurationSec).abs() <=
-        AppConstants.lyricsDurationToleranceSec;
   }
 
   AiLyricsCandidate _toAiCandidate(

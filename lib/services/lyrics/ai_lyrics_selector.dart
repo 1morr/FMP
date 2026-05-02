@@ -122,14 +122,17 @@ class AiLyricsSelector with Logging {
           'messages': [
             {
               'role': 'system',
-              'content': 'Choose the most accurate lyrics candidate for the '
-                  'provided video. The uploader is context and is not '
-                  'necessarily the artist. Respect sourcePriority when '
-                  'candidates are otherwise similarly accurate. Always prefer '
-                  'synced lyrics over plain lyrics. Return strict JSON only '
-                  'with exactly these fields: selectedCandidateId, confidence, '
-                  'reason. Use selectedCandidateId null when no candidate is '
-                  'reliable enough.',
+              'content': 'Choose the best lyrics candidate for the provided '
+                  'video. The uploader is context and is not necessarily the '
+                  'artist. Always choose the closest acceptable candidate, '
+                  'including a cover, remix, live version, or alternate '
+                  'performance when that is the best available match for the '
+                  'same song. Use selectedCandidateId null only when every '
+                  'candidate is a completely different song. Respect '
+                  'sourcePriority when candidates are otherwise similarly '
+                  'accurate. Always prefer synced lyrics over plain lyrics. '
+                  'Return strict JSON only with exactly these fields: '
+                  'selectedCandidateId, confidence, reason.',
             },
             {'role': 'user', 'content': jsonEncode(userPayload)},
           ],

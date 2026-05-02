@@ -152,8 +152,7 @@ class AiTitleParser with Logging {
 
       final artistName =
           artistNameValue is String ? artistNameValue.trim() : '';
-      final artistConfidence =
-          artistConfidenceValue is num ? artistConfidenceValue.toDouble() : 0.0;
+      final artistConfidence = _parseArtistConfidence(artistConfidenceValue);
       return AiParsedTitle(
         trackName: trackName,
         artistName:
@@ -165,6 +164,19 @@ class AiTitleParser with Logging {
     } catch (_) {
       return null;
     }
+  }
+
+  static double _parseArtistConfidence(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is! String) return 0.0;
+
+    final normalized = value.trim().toLowerCase();
+    return switch (normalized) {
+      'high' => 1.0,
+      'medium' => 0.6,
+      'low' => 0.3,
+      _ => double.tryParse(normalized) ?? 0.0,
+    };
   }
 
   static String _stripCodeFence(String content) {

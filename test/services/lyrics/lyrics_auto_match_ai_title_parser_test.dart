@@ -272,6 +272,7 @@ void main() {
 
       expect(matched, isFalse);
       expect(aiParser.calls, hasLength(1));
+      expect(netease.searchCalls, ['No Match Song Nobody']);
       final cached = await titleParseCacheRepo.getReusable(
         trackUniqueKey: 'youtube:cache-without-match',
       );
@@ -297,7 +298,7 @@ void main() {
       );
 
       expect(matched, isFalse);
-      expect(netease.searchCalls, ['AI No Match AI Artist', 'AI No Match']);
+      expect(netease.searchCalls, ['AI No Match AI Artist']);
       expect(
         await repo.getByTrackKey('youtube:no-regex-after-ai-match-fail'),
         isNull,
@@ -382,7 +383,8 @@ void main() {
       expect(saved?.externalId, 'fresh-ai-match');
     });
 
-    test('source priority dominates AI query order', () async {
+    test('source priority tries next source when artist-qualified query fails',
+        () async {
       aiParser.result = _aiParsed(
         trackName: 'AI Song',
         artistName: 'AI Artist',
@@ -397,7 +399,7 @@ void main() {
       ];
       netease.searchResultsByQuery['AI Song'] = [
         _lyricsResult(
-          id: 'netease-no-artist-match',
+          id: 'netease-title-only-should-not-run',
           source: 'netease',
           trackName: 'AI Song',
           artistName: 'Different Artist',
@@ -410,14 +412,11 @@ void main() {
       );
 
       expect(matched, isTrue);
-      expect(netease.searchCalls, [
-        'AI Song AI Artist',
-        'AI Song',
-      ]);
-      expect(qqmusic.searchCalls, isEmpty);
+      expect(netease.searchCalls, ['AI Song AI Artist']);
+      expect(qqmusic.searchCalls, ['AI Song AI Artist']);
       final saved = await repo.getByTrackKey('youtube:source-priority');
-      expect(saved?.lyricsSource, 'netease');
-      expect(saved?.externalId, 'netease-no-artist-match');
+      expect(saved?.lyricsSource, 'qqmusic');
+      expect(saved?.externalId, 'qq-first-query-match');
     });
 
     test('low-confidence AI artist is ignored for search', () async {
@@ -497,8 +496,40 @@ void main() {
       expect(aiLyricsSelector.calls, isEmpty);
     });
 
-    test(
-        'advanced mode does not fall back to regex after low confidence selection',
+    test('advanced mode lets AI judge duration-mismatched candidates',
+        () async {
+      config = _config(mode: LyricsAiTitleParsingMode.advancedAiSelect);
+      aiParser.result =
+          _aiParsed(trackName: 'Poker Face', artistName: 'Lady Gaga');
+      netease.searchResultsByQuery['Poker Face Lady Gaga'] = [
+        _lyricsResult(
+          id: 'longer-official-audio',
+          source: 'netease',
+          trackName: 'Poker Face',
+          artistName: 'Lady Gaga',
+          duration: 239,
+        ),
+      ];
+      aiLyricsSelector.result = const AiLyricsSelection(
+        selectedCandidateId: 'netease:longer-official-audio',
+        confidence: 0.6,
+        reason: 'same official song despite music-video duration mismatch',
+      );
+
+      final matched = await buildService().tryAutoMatch(
+        _track('advanced-duration-mismatch'),
+        enabledSources: const ['netease'],
+      );
+
+      expect(matched, isTrue);
+      expect(
+          aiLyricsSelector.calls.single.candidates.single.durationSeconds, 239);
+      final saved =
+          await repo.getByTrackKey('youtube:advanced-duration-mismatch');
+      expect(saved?.externalId, 'longer-official-audio');
+    });
+
+    test('advanced mode accepts AI selected candidate regardless of confidence',
         () async {
       config = _config(mode: LyricsAiTitleParsingMode.advancedAiSelect);
       aiParser.result =
@@ -516,8 +547,8 @@ void main() {
       ];
       aiLyricsSelector.result = const AiLyricsSelection(
         selectedCandidateId: 'netease:candidate',
-        confidence: 0.8,
-        reason: 'not enough',
+        confidence: 0.2,
+        reason: 'best available candidate',
       );
 
       final matched = await buildService().tryAutoMatch(
@@ -525,12 +556,61 @@ void main() {
         enabledSources: const ['netease'],
       );
 
-      expect(matched, isFalse);
+      expect(matched, isTrue);
       expect(netease.searchCalls, isNot(contains('Regex Song Regex Artist')));
-      expect(
-        await repo.getByTrackKey('youtube:advanced-low-confidence'),
-        isNull,
+      final saved = await repo.getByTrackKey('youtube:advanced-low-confidence');
+      expect(saved?.externalId, 'candidate');
+    });
+
+    test('advanced mode sends more source candidates to AI selection',
+        () async {
+      config = _config(mode: LyricsAiTitleParsingMode.advancedAiSelect);
+      aiParser.result = _aiParsed(trackName: 'Poker Face', artistName: null);
+      netease.searchResultsByQuery['Poker Face'] = List.generate(
+        5,
+        (index) => _lyricsResult(
+          id: 'netease-$index',
+          source: 'netease',
+          trackName: 'Poker Face',
+          artistName: 'Lady Gaga',
+        ),
       );
+      lrclib.searchResultsByQuery['Poker Face'] = List.generate(
+        8,
+        (index) => _lyricsResult(
+          id: 'lrclib-$index',
+          source: 'lrclib',
+          trackName: 'Poker Face',
+          artistName: 'Lady Gaga',
+          duration: 225,
+        ),
+      );
+      aiLyricsSelector.result = const AiLyricsSelection(
+        selectedCandidateId: 'lrclib:lrclib-7',
+        confidence: 0.5,
+        reason: 'best candidate',
+      );
+
+      final matched = await buildService().tryAutoMatch(
+        _track('advanced-more-candidates'),
+        enabledSources: const ['netease', 'lrclib'],
+      );
+
+      expect(matched, isTrue);
+      final candidates = aiLyricsSelector.calls.single.candidates;
+      expect(
+        candidates
+            .where((candidate) => candidate.candidateId.startsWith('netease:')),
+        hasLength(5),
+      );
+      expect(
+        candidates
+            .where((candidate) => candidate.candidateId.startsWith('lrclib:')),
+        hasLength(8),
+      );
+      final saved =
+          await repo.getByTrackKey('youtube:advanced-more-candidates');
+      expect(saved?.externalId, 'lrclib-7');
     });
 
     test('advanced mode falls back to regex when selector returns null',
@@ -559,7 +639,6 @@ void main() {
       expect(matched, isTrue);
       expect(netease.searchCalls, [
         'AI Song AI Artist',
-        'AI Song',
         'Regex Song Regex Artist',
       ]);
       final saved = await repo.getByTrackKey('youtube:advanced-selector-null');
@@ -593,8 +672,8 @@ void main() {
       );
 
       expect(matched, isTrue);
-      expect(netease.searchCalls, ['AI Song AI Artist', 'AI Song']);
-      expect(qqmusic.searchCalls, ['AI Song AI Artist', 'AI Song']);
+      expect(netease.searchCalls, ['AI Song AI Artist']);
+      expect(qqmusic.searchCalls, ['AI Song AI Artist']);
       expect(aiLyricsSelector.calls, hasLength(1));
       expect(
         aiLyricsSelector.calls.single.candidates.single.candidateId,
