@@ -79,6 +79,16 @@ class ImportResult {
   });
 }
 
+class _TrackExpansionResult {
+  final List<Track> tracks;
+  final bool isComplete;
+
+  const _TrackExpansionResult({
+    required this.tracks,
+    required this.isComplete,
+  });
+}
+
 abstract class ImportServiceFacade {
   Stream<ImportProgress> get progressStream;
 
@@ -208,7 +218,7 @@ class ImportService with Logging implements ImportServiceFacade {
       // 获取分P信息并展开（仅Bilibili）
       final List<Track> expandedTracks;
       if (source is BilibiliSource) {
-        expandedTracks = await _expandMultiPageVideos(
+        final expansion = await _expandMultiPageVideos(
           source,
           result.tracks,
           (current, total, item) {
@@ -221,6 +231,7 @@ class ImportService with Logging implements ImportServiceFacade {
             );
           },
         );
+        expandedTracks = expansion.tracks;
       } else {
         expandedTracks = result.tracks;
       }
@@ -474,8 +485,9 @@ class ImportService with Logging implements ImportServiceFacade {
 
       // 获取分P信息并展开（仅Bilibili）
       final List<Track> expandedTracks;
+      final bool expansionComplete;
       if (source is BilibiliSource) {
-        expandedTracks = await _expandMultiPageVideos(
+        final expansion = await _expandMultiPageVideos(
           source,
           result.tracks,
           (current, total, item) {
@@ -489,13 +501,17 @@ class ImportService with Logging implements ImportServiceFacade {
             );
           },
         );
+        expandedTracks = expansion.tracks;
+        expansionComplete = expansion.isComplete;
       } else {
         expandedTracks = result.tracks;
+        expansionComplete = true;
       }
       _throwIfCancelled();
 
-      final sourceDataComplete =
-          result.totalCount <= 0 || expandedTracks.length >= result.totalCount;
+      final sourceDataComplete = expansionComplete &&
+          (result.totalCount <= 0 ||
+              expandedTracks.length >= result.totalCount);
 
       _updateProgress(
         status: ImportStatus.importing,
@@ -653,12 +669,13 @@ class ImportService with Logging implements ImportServiceFacade {
   }
 
   /// 展开多分P视频为独立Track
-  Future<List<Track>> _expandMultiPageVideos(
+  Future<_TrackExpansionResult> _expandMultiPageVideos(
     BilibiliSource source,
     List<Track> tracks,
     void Function(int current, int total, String item) onProgress,
   ) async {
     final expandedTracks = <Track>[];
+    var isComplete = true;
 
     // 统计多P视频数量用于进度显示
     final multiPageCount = tracks.where((t) => (t.pageCount ?? 0) > 1).length;
@@ -698,11 +715,15 @@ class ImportService with Logging implements ImportServiceFacade {
         await Future.delayed(const Duration(milliseconds: 100));
       } catch (e) {
         // 获取分P失败，直接添加原始track
+        isComplete = false;
         expandedTracks.add(track);
       }
     }
 
-    return expandedTracks;
+    return _TrackExpansionResult(
+      tracks: expandedTracks,
+      isComplete: isComplete,
+    );
   }
 
   List<int> _mergePreservingExistingTrackOrder(
