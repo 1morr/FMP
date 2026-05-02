@@ -11,9 +11,8 @@ import 'lyrics_result.dart';
 // API 端点：
 //   搜索: POST https://u.y.qq.com/cgi-bin/musicu.fcg
 //         body: JSON (music.search.SearchCgiService / DoSearchForQQMusicDesktop)
-//   歌词: POST https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_yqq.fcg
-//         body: format=json&nobase64=1&g_tk=5381&songmid=xxx
-//         headers: Referer: https://y.qq.com
+//   歌词: POST https://u.y.qq.com/cgi-bin/musicu.fcg
+//         body: JSON (music.musichallSong.PlayLyricInfo / GetPlayLyricInfo)
 //
 // 注意：这些是 QQ 音乐的非官方 API，可能随时变更。
 // 仅供学习研究使用。
@@ -157,10 +156,8 @@ class QQMusicSource with Logging {
           data['req']?['data']?['body']?['song'] as Map<String, dynamic>?;
       final list = (songBody?['list'] as List<dynamic>?) ?? [];
 
-      final results = list
-          .cast<Map<String, dynamic>>()
-          .map(QQMusicSong.fromJson)
-          .toList();
+      final results =
+          list.cast<Map<String, dynamic>>().map(QQMusicSong.fromJson).toList();
 
       logDebug('Found ${results.length} songs');
       return results;
@@ -176,68 +173,38 @@ class QQMusicSource with Logging {
     logDebug('Fetching QQMusic lyrics for $songmid');
 
     try {
-      final resp = await _dio.post(
-        'https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_yqq.fcg',
-        data: 'format=json&nobase64=1&g_tk=5381&songmid=$songmid',
-        options: Options(
-          contentType: Headers.formUrlEncodedContentType,
-          responseType: ResponseType.plain,
-          headers: {
-            'Referer': 'https://y.qq.com',
+      final body = jsonEncode({
+        'comm': {'ct': '19', 'cv': '1859', 'uin': '0'},
+        'req': {
+          'method': 'GetPlayLyricInfo',
+          'module': 'music.musichallSong.PlayLyricInfo',
+          'param': {
+            'songMID': songmid,
+            'songID': 0,
           },
+        },
+      });
+
+      final resp = await _dio.post(
+        'https://u.y.qq.com/cgi-bin/musicu.fcg',
+        data: body,
+        options: Options(
+          contentType: 'application/json;charset=utf-8',
+          responseType: ResponseType.plain,
         ),
       );
 
       final data = _ensureMap(resp.data);
-      final retcode = data['retcode'] as int?;
-
-      if (retcode != 0) {
-        // nobase64=1 失败时，尝试 base64 模式
-        logDebug('nobase64 mode failed (retcode=$retcode), trying base64...');
-        return _getLyricsBase64(songmid);
-      }
-
-      return QQMusicLyrics(
-        songmid: songmid,
-        lyric: data['lyric'] != null
-            ? _decodeHtmlEntities(data['lyric'] as String)
-            : null,
-        trans: data['trans'] != null
-            ? _decodeHtmlEntities(data['trans'] as String)
-            : null,
-      );
-    } on DioException catch (e) {
-      throw _handleDioError(e);
-    }
-  }
-
-  /// 获取歌词（base64 模式，作为 fallback）
-  Future<QQMusicLyrics> _getLyricsBase64(String songmid) async {
-    try {
-      final resp = await _dio.post(
-        'https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_yqq.fcg',
-        data: 'format=json&g_tk=5381&songmid=$songmid',
-        options: Options(
-          contentType: Headers.formUrlEncodedContentType,
-          responseType: ResponseType.plain,
-          headers: {
-            'Referer': 'https://y.qq.com',
-          },
-        ),
-      );
-
-      final data = _ensureMap(resp.data);
-      final retcode = data['retcode'] as int?;
-
-      if (retcode != 0) {
-        logWarning('QQMusic lyrics API failed: retcode=$retcode');
+      final lyricData = data['req']?['data'] as Map<String, dynamic>?;
+      if (lyricData == null) {
+        logWarning('QQMusic lyrics API returned no lyric data');
         return QQMusicLyrics(songmid: songmid);
       }
 
       return QQMusicLyrics(
         songmid: songmid,
-        lyric: _decodeField(_tryDecodeBase64(data['lyric'])),
-        trans: _decodeField(_tryDecodeBase64(data['trans'])),
+        lyric: _decodeField(_tryDecodeBase64(lyricData['lyric'])),
+        trans: _decodeField(_tryDecodeBase64(lyricData['trans'])),
       );
     } on DioException catch (e) {
       throw _handleDioError(e);
