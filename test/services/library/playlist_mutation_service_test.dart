@@ -69,6 +69,64 @@ void main() {
       );
     });
 
+    test('addTracks preserves download path from duplicate playlistInfo',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final playlist = await _createPlaylist(harness, 'Duplicate Info');
+      final track = _track('duplicate-info', 'Duplicate Info')
+        ..playlistInfo = [
+          PlaylistDownloadInfo()
+            ..playlistId = playlist.id
+            ..playlistName = playlist.name,
+          PlaylistDownloadInfo()
+            ..playlistId = playlist.id
+            ..playlistName = playlist.name
+            ..downloadPath = '/downloads/duplicate-info.mp3',
+        ];
+      final savedTrack = await harness.tracks.save(track);
+      playlist.trackIds = [savedTrack.id];
+      await harness.playlists.save(playlist);
+
+      await harness.mutations.addTracks(playlist.id, [savedTrack]);
+
+      final repairedTrack = await harness.tracks.getById(savedTrack.id);
+      final matchingInfos = repairedTrack!.playlistInfo
+          .where((info) => info.playlistId == playlist.id)
+          .toList();
+      expect(matchingInfos, hasLength(1));
+      expect(
+          matchingInfos.single.downloadPath, '/downloads/duplicate-info.mp3');
+    });
+
+    test('addTracks keeps null-cid tracks distinct from cid tracks', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final playlist = await _createPlaylist(harness, 'Cid Distinct');
+      final cidTrack = await harness.tracks.save(
+        _track('same-source', 'CID Track')..cid = 123,
+      );
+
+      await harness.mutations.addTracks(
+        playlist.id,
+        [_track('same-source', 'Null CID Track')],
+      );
+
+      final savedPlaylist = await harness.playlists.getById(playlist.id);
+      final savedTracks = await harness.tracks.getBySourceIds(['same-source']);
+      final nullCidTrack =
+          savedTracks.singleWhere((track) => track.cid == null);
+      expect(savedTracks, hasLength(2));
+      expect(savedPlaylist!.trackIds, [nullCidTrack.id]);
+      expect(nullCidTrack.belongsToPlaylist(playlist.id), isTrue);
+      expect(
+        (await harness.tracks.getById(cidTrack.id))!.belongsToPlaylist(
+          playlist.id,
+        ),
+        isFalse,
+      );
+    });
+
     test('addTracks repairs missing playlist or track side without duplicates',
         () async {
       final harness = await _createHarness();

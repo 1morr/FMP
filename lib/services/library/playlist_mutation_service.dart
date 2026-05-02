@@ -179,6 +179,8 @@ class PlaylistMutationService with Logging {
           .sourceIdEqualTo(track.sourceId)
           .filter()
           .sourceTypeEqualTo(track.sourceType)
+          .and()
+          .cidIsNull()
           .findFirst();
     }
 
@@ -263,6 +265,9 @@ class PlaylistMutationService with Logging {
         .where((info) => info.playlistId == playlistId)
         .toList();
     final existingInfo = matchingInfos.firstOrNull;
+    final downloadPath = matchingInfos
+        .map((info) => info.downloadPath)
+        .firstWhere((path) => path.isNotEmpty, orElse: () => '');
     final matchingInfoAlreadyCorrect = matchingInfos.length == 1 &&
         existingInfo != null &&
         existingInfo.playlistName == playlistName;
@@ -279,7 +284,7 @@ class PlaylistMutationService with Logging {
       PlaylistDownloadInfo()
         ..playlistId = playlistId
         ..playlistName = playlistName
-        ..downloadPath = existingInfo?.downloadPath ?? '',
+        ..downloadPath = downloadPath,
     );
     track.playlistInfo = newInfos;
     return true;
