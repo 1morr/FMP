@@ -1,0 +1,436 @@
+import 'dart:convert';
+import 'dart:ffi';
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/data/models/playlist.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/models/video_detail.dart';
+import 'package:fmp/data/repositories/playlist_repository.dart';
+import 'package:fmp/data/repositories/track_repository.dart';
+import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/bilibili_source.dart';
+import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/services/import/import_service.dart';
+import 'package:isar/isar.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  group('ImportService refresh partial pruning policy', () {
+    late Directory tempDir;
+    late Isar isar;
+    late PlaylistRepository playlistRepository;
+    late _FakeRefreshSource source;
+    late _FakeSourceManager sourceManager;
+
+    setUpAll(() async {
+      await Isar.initializeIsarCore(
+        libraries: {Abi.current(): await _resolveIsarLibraryPath()},
+      );
+    });
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp(
+        'import_service_refresh_partial_',
+      );
+      isar = await Isar.open(
+        [PlaylistSchema, TrackSchema],
+        directory: tempDir.path,
+        name: 'import_service_refresh_partial_test',
+      );
+      playlistRepository = PlaylistRepository(isar);
+      source = _FakeRefreshSource();
+      sourceManager = _FakeSourceManager(source);
+    });
+
+    tearDown(() async {
+      await isar.close(deleteFromDisk: true);
+      if (await tempDir.exists()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    test('skips pruning when a refreshed track fails to save', () async {
+      final trackRepository = _FailingSaveTrackRepository(isar);
+      final playlist = await _createImportedPlaylist(
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        tracks: [
+          _track('keep', 'Keep'),
+          _track('stale', 'Stale'),
+        ],
+      );
+      source.result = PlaylistParseResult(
+        title: 'Remote playlist',
+        tracks: [_track('keep', 'Keep'), _track('broken', 'Broken')],
+        totalCount: 2,
+        sourceUrl: playlist.sourceUrl!,
+      );
+      final service = ImportService(
+        sourceManager: sourceManager,
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        isar: isar,
+      );
+
+      final result = await service.refreshPlaylist(playlist.id);
+
+      expect(result.pruningSkipped, isTrue);
+      expect(result.removedCount, 0);
+      expect(result.errors, isNotEmpty);
+      final refreshed = await playlistRepository.getById(playlist.id);
+      expect(refreshed!.trackIds, playlist.trackIds);
+      expect(await trackRepository.getBySourceId('stale', SourceType.youtube),
+          isNotNull);
+    });
+
+    test('does not append existing track when association save fails',
+        () async {
+      final trackRepository = _FailingSaveTrackRepository(
+        isar,
+        failSourceIds: {'existing'},
+      );
+      final playlist = await _createImportedPlaylist(
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        tracks: [
+          _track('keep', 'Keep'),
+        ],
+      );
+      final existingTrack = await TrackRepository(isar).save(
+        _track('existing', 'Existing'),
+      );
+      source.result = PlaylistParseResult(
+        title: 'Remote playlist',
+        tracks: [
+          _track('keep', 'Keep'),
+          _track('existing', 'Existing'),
+        ],
+        totalCount: 2,
+        sourceUrl: playlist.sourceUrl!,
+      );
+      final service = ImportService(
+        sourceManager: sourceManager,
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        isar: isar,
+      );
+
+      final result = await service.refreshPlaylist(playlist.id);
+
+      expect(result.pruningSkipped, isTrue);
+      expect(result.removedCount, 0);
+      expect(result.errors, isNotEmpty);
+      final refreshed = await playlistRepository.getById(playlist.id);
+      expect(refreshed!.trackIds, isNot(contains(existingTrack.id)));
+      expect(refreshed.trackIds, playlist.trackIds);
+    });
+
+    test('skips pruning when source result is smaller than reported total',
+        () async {
+      final trackRepository = TrackRepository(isar);
+      final playlist = await _createImportedPlaylist(
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        tracks: [
+          _track('keep', 'Keep'),
+          _track('stale', 'Stale'),
+        ],
+      );
+      source.result = PlaylistParseResult(
+        title: 'Remote playlist',
+        tracks: [_track('keep', 'Keep')],
+        totalCount: 2,
+        sourceUrl: playlist.sourceUrl!,
+      );
+      final service = ImportService(
+        sourceManager: sourceManager,
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        isar: isar,
+      );
+
+      final result = await service.refreshPlaylist(playlist.id);
+
+      expect(result.pruningSkipped, isTrue);
+      expect(result.removedCount, 0);
+      expect(result.errors, isEmpty);
+      final refreshed = await playlistRepository.getById(playlist.id);
+      expect(refreshed!.trackIds, playlist.trackIds);
+      expect(await trackRepository.getBySourceId('stale', SourceType.youtube),
+          isNotNull);
+    });
+
+    test('skips pruning when Bilibili parsed item count is partial', () async {
+      final trackRepository = TrackRepository(isar);
+      final bilibiliSource = _FakeBilibiliRefreshSource(
+        tracks: [_track('BV1234567890', 'Multi-page', SourceType.bilibili, 2)],
+        totalCount: 2,
+      );
+      sourceManager = _FakeSourceManager(bilibiliSource);
+      final playlist = await _createImportedPlaylist(
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        sourceType: SourceType.bilibili,
+        tracks: [
+          _track('BV1234567890', 'Page 1', SourceType.bilibili)
+            ..cid = 101
+            ..pageNum = 1,
+          _track('BVstale0000', 'Stale', SourceType.bilibili),
+        ],
+      );
+      final service = ImportService(
+        sourceManager: sourceManager,
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        isar: isar,
+      );
+
+      final result = await service.refreshPlaylist(playlist.id);
+
+      expect(result.pruningSkipped, isTrue);
+      expect(result.removedCount, 0);
+      expect(result.errors, isEmpty);
+      final refreshed = await playlistRepository.getById(playlist.id);
+      expect(refreshed!.trackIds, containsAll(playlist.trackIds));
+      expect(
+          await trackRepository.getBySourceId(
+              'BVstale0000', SourceType.bilibili),
+          isNotNull);
+    });
+
+    test('skips pruning when Bilibili multipage expansion falls back',
+        () async {
+      final trackRepository = TrackRepository(isar);
+      final bilibiliSource = _FakeBilibiliRefreshSource(
+        failVideoPages: true,
+        tracks: [_track('BV1234567890', 'Multi-page', SourceType.bilibili, 2)],
+        totalCount: 1,
+      );
+      sourceManager = _FakeSourceManager(bilibiliSource);
+      final playlist = await _createImportedPlaylist(
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        sourceType: SourceType.bilibili,
+        tracks: [
+          _track('BV1234567890', 'Multi-page', SourceType.bilibili, 2),
+          _track('BVstale0000', 'Stale', SourceType.bilibili),
+        ],
+      );
+      final service = ImportService(
+        sourceManager: sourceManager,
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        isar: isar,
+      );
+
+      final result = await service.refreshPlaylist(playlist.id);
+
+      expect(result.pruningSkipped, isTrue);
+      expect(result.removedCount, 0);
+      expect(result.errors, isEmpty);
+      final refreshed = await playlistRepository.getById(playlist.id);
+      expect(refreshed!.trackIds, playlist.trackIds);
+      expect(
+          await trackRepository.getBySourceId(
+              'BVstale0000', SourceType.bilibili),
+          isNotNull);
+    });
+  });
+}
+
+class _FailingSaveTrackRepository extends TrackRepository {
+  _FailingSaveTrackRepository(
+    super.isar, {
+    this.failSourceIds = const {'broken'},
+  });
+
+  final Set<String> failSourceIds;
+
+  @override
+  Future<Track> save(Track track) {
+    if (failSourceIds.contains(track.sourceId)) {
+      throw StateError('simulated save failure');
+    }
+    return super.save(track);
+  }
+}
+
+class _FakeSourceManager extends SourceManager {
+  _FakeSourceManager(this.source) : super();
+
+  final BaseSource source;
+
+  @override
+  BaseSource? detectSource(String url) => source;
+
+  @override
+  BaseSource? getSourceForUrl(String url) => source;
+
+  @override
+  BaseSource? getSource(SourceType type) =>
+      source.sourceType == type ? source : null;
+
+  @override
+  void dispose() {}
+}
+
+class _FakeRefreshSource extends BaseSource {
+  PlaylistParseResult? result;
+
+  @override
+  SourceType get sourceType => SourceType.youtube;
+
+  @override
+  Future<bool> checkAvailability(String sourceId) async => true;
+
+  @override
+  Future<AudioStreamResult> getAudioStream(String sourceId,
+      {AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+      Map<String, String>? authHeaders}) async {
+    return const AudioStreamResult(
+      url: 'https://example.test/audio.m4a',
+      streamType: StreamType.audioOnly,
+    );
+  }
+
+  @override
+  Future<Track> getTrackInfo(String sourceId,
+          {Map<String, String>? authHeaders}) async =>
+      _track(sourceId, sourceId);
+
+  @override
+  bool isPlaylistUrl(String url) => true;
+
+  @override
+  bool isValidId(String id) => id.isNotEmpty;
+
+  @override
+  String? parseId(String url) => 'playlist';
+
+  @override
+  Future<PlaylistParseResult> parsePlaylist(String playlistUrl,
+      {int page = 1,
+      int pageSize = 20,
+      Map<String, String>? authHeaders}) async {
+    final current = result;
+    if (current == null) throw StateError('No fake playlist result configured');
+    return current;
+  }
+
+  @override
+  Future<Track> refreshAudioUrl(Track track,
+          {Map<String, String>? authHeaders}) async =>
+      track;
+
+  @override
+  Future<SearchResult> search(String query,
+      {int page = 1,
+      int pageSize = 20,
+      SearchOrder order = SearchOrder.relevance}) async {
+    return SearchResult.empty();
+  }
+}
+
+class _FakeBilibiliRefreshSource extends BilibiliSource {
+  _FakeBilibiliRefreshSource({
+    required this.tracks,
+    required this.totalCount,
+    this.failVideoPages = false,
+  });
+
+  final List<Track> tracks;
+  final int totalCount;
+  final bool failVideoPages;
+
+  @override
+  SourceType get sourceType => SourceType.bilibili;
+
+  @override
+  Future<PlaylistParseResult> parsePlaylist(String playlistUrl,
+      {int page = 1,
+      int pageSize = 20,
+      Map<String, String>? authHeaders}) async {
+    return PlaylistParseResult(
+      title: 'Remote Bilibili playlist',
+      tracks: tracks,
+      totalCount: totalCount,
+      sourceUrl: playlistUrl,
+    );
+  }
+
+  @override
+  Future<List<VideoPage>> getVideoPages(String bvid,
+      {Map<String, String>? authHeaders}) async {
+    if (failVideoPages) {
+      throw StateError('simulated page expansion failure');
+    }
+    return const [
+      VideoPage(cid: 101, page: 1, part: 'Page 1', duration: 60),
+      VideoPage(cid: 102, page: 2, part: 'Page 2', duration: 70),
+    ];
+  }
+}
+
+Future<Playlist> _createImportedPlaylist({
+  required PlaylistRepository playlistRepository,
+  required TrackRepository trackRepository,
+  required List<Track> tracks,
+  SourceType sourceType = SourceType.youtube,
+}) async {
+  final playlist = Playlist()
+    ..name = 'Imported playlist'
+    ..sourceUrl = 'https://example.test/playlist'
+    ..importSourceType = sourceType
+    ..createdAt = DateTime.now();
+  playlist.id = await playlistRepository.save(playlist);
+
+  final trackIds = <int>[];
+  for (final track in tracks) {
+    track.addToPlaylist(playlist.id, playlistName: playlist.name);
+    final saved = await trackRepository.save(track);
+    trackIds.add(saved.id);
+  }
+  playlist.trackIds = trackIds;
+  await playlistRepository.save(playlist);
+  return playlist;
+}
+
+Track _track(
+  String sourceId,
+  String title, [
+  SourceType sourceType = SourceType.youtube,
+  int? pageCount,
+]) =>
+    Track()
+      ..sourceId = sourceId
+      ..sourceType = sourceType
+      ..title = title
+      ..artist = 'Artist'
+      ..pageCount = pageCount;
+
+Future<String> _resolveIsarLibraryPath() async {
+  final packageConfigFile =
+      File('${Directory.current.path}/.dart_tool/package_config.json');
+  final packageConfig = jsonDecode(await packageConfigFile.readAsString())
+      as Map<String, dynamic>;
+  final packages = packageConfig['packages'] as List<dynamic>;
+  final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
+
+  for (final package in packages) {
+    if (package is! Map<String, dynamic> ||
+        package['name'] != 'isar_flutter_libs') {
+      continue;
+    }
+    final packageDir = Directory(
+      packageConfigDir.uri.resolve(package['rootUri'] as String).toFilePath(),
+    );
+    if (Platform.isWindows) return '${packageDir.path}/windows/isar.dll';
+    if (Platform.isLinux) return '${packageDir.path}/linux/libisar.so';
+    if (Platform.isMacOS) return '${packageDir.path}/macos/libisar.dylib';
+  }
+
+  throw StateError('Unsupported platform for Isar test setup');
+}
