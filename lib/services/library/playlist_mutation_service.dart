@@ -80,31 +80,34 @@ class PlaylistMutationService with Logging {
 
       final requestedIds = trackIds.toSet();
       final originalTrackIds = List<int>.from(playlist.trackIds);
-      final removedTrackIds = originalTrackIds
+      final playlistRemovedTrackIds = originalTrackIds
           .where((trackId) => requestedIds.contains(trackId))
           .toList();
-      if (removedTrackIds.isEmpty) {
-        return PlaylistMutationResult(
-          playlistId: playlistId,
-          affectedPlaylistIds: [playlistId],
-        );
-      }
-
+      final playlistChanged = playlistRemovedTrackIds.isNotEmpty;
       final originalCoverUrl = playlist.coverUrl;
       final now = DateTime.now();
-      playlist.trackIds = originalTrackIds
-          .where((trackId) => !requestedIds.contains(trackId))
-          .toList();
-      final coverChanged = await _updateDefaultCover(playlist);
-      playlist.updatedAt = now;
-      await _isar.playlists.put(playlist);
+      var coverChanged = false;
+      if (playlistChanged) {
+        playlist.trackIds = originalTrackIds
+            .where((trackId) => !requestedIds.contains(trackId))
+            .toList();
+        coverChanged = await _updateDefaultCover(playlist);
+        playlist.updatedAt = now;
+        await _isar.playlists.put(playlist);
+      }
 
       final tracks =
-          (await _isar.tracks.getAll(removedTrackIds)).whereType<Track>();
+          (await _isar.tracks.getAll(requestedIds.toList())).whereType<Track>();
+      final removedTrackIds = {...playlistRemovedTrackIds};
       final deletedTrackIds = <int>[];
       final updatedTrackIds = <int>[];
       final tracksToUpdate = <Track>[];
       for (final track in tracks) {
+        if (!track.belongsToPlaylist(playlistId)) {
+          continue;
+        }
+
+        removedTrackIds.add(track.id);
         track.removeFromPlaylist(playlistId);
         if (track.playlistInfo.isEmpty) {
           deletedTrackIds.add(track.id);
@@ -113,6 +116,13 @@ class PlaylistMutationService with Logging {
           updatedTrackIds.add(track.id);
           tracksToUpdate.add(track);
         }
+      }
+
+      if (!playlistChanged && removedTrackIds.isEmpty) {
+        return PlaylistMutationResult(
+          playlistId: playlistId,
+          affectedPlaylistIds: [playlistId],
+        );
       }
 
       if (deletedTrackIds.isNotEmpty) {
@@ -126,10 +136,10 @@ class PlaylistMutationService with Logging {
       return PlaylistMutationResult(
         playlistId: playlistId,
         affectedPlaylistIds: [playlistId],
-        removedTrackIds: removedTrackIds,
+        removedTrackIds: removedTrackIds.toList(),
         deletedTrackIds: deletedTrackIds,
         updatedTrackIds: updatedTrackIds,
-        playlistChanged: true,
+        playlistChanged: playlistChanged,
         coverChanged: coverChanged || playlist.coverUrl != originalCoverUrl,
       );
     });
