@@ -95,6 +95,7 @@ class DataIntegrityService {
           _mergeTrackMetadata(keep, track);
           trackIdRemap[track.id] = keep.id;
         }
+        _mutationService.mergeDuplicateTrackMembershipsInTxn(keep, remove);
         await _isar.tracks.put(keep);
         removedTrackIds.addAll(remove.map((track) => track.id));
       }
@@ -246,11 +247,7 @@ class DataIntegrityService {
       ..originalSource =
           _preferNullableString(keep.originalSource, remove.originalSource)
       ..createdAt = _earliestDateTime(keep.createdAt, remove.createdAt)
-      ..updatedAt = _latestNullableDateTime(keep.updatedAt, remove.updatedAt)
-      ..playlistInfo = _mergePlaylistInfo(
-        keep.playlistInfo,
-        remove.playlistInfo,
-      );
+      ..updatedAt = _latestNullableDateTime(keep.updatedAt, remove.updatedAt);
   }
 
   static void _mergeAccountMetadata(Account keep, Account remove) {
@@ -286,35 +283,6 @@ class DataIntegrityService {
     if (a == null) return b;
     if (b == null) return a;
     return a.isAfter(b) ? a : b;
-  }
-
-  static List<PlaylistDownloadInfo> _mergePlaylistInfo(
-    List<PlaylistDownloadInfo> keepInfos,
-    List<PlaylistDownloadInfo> removeInfos,
-  ) {
-    final merged = keepInfos.map((info) => info.copy()).toList();
-    for (final removeInfo in removeInfos) {
-      final existingIndex = merged.indexWhere(
-        (info) =>
-            info.playlistId == removeInfo.playlistId &&
-            info.playlistName == removeInfo.playlistName,
-      );
-      if (existingIndex < 0) {
-        merged.add(removeInfo.copy());
-        continue;
-      }
-
-      final existing = merged[existingIndex];
-      merged[existingIndex] = PlaylistDownloadInfo()
-        ..playlistId = existing.playlistId
-        ..playlistName = existing.playlistName.isNotEmpty
-            ? existing.playlistName
-            : removeInfo.playlistName
-        ..downloadPath = existing.downloadPath.isNotEmpty
-            ? existing.downloadPath
-            : removeInfo.downloadPath;
-    }
-    return merged;
   }
 
   static List<K> _duplicateKeys<T, K>(

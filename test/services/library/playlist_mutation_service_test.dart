@@ -460,6 +460,48 @@ void main() {
       expect(result.coverChanged, isFalse);
     });
 
+    test('mergeDuplicateTrackMembershipsInTxn preserves unique download info',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final first = await _createPlaylist(harness, 'Merge First');
+      final second = await _createPlaylist(harness, 'Merge Second');
+      final keep = await harness.tracks.save(_track('membership-keep', 'Keep')
+        ..playlistInfo = [
+          PlaylistDownloadInfo()
+            ..playlistId = first.id
+            ..playlistName = first.name,
+        ]);
+      final duplicate = _track('membership-duplicate', 'Duplicate')
+        ..playlistInfo = [
+          PlaylistDownloadInfo()
+            ..playlistId = first.id
+            ..playlistName = first.name
+            ..downloadPath = '/downloads/merge-first.mp3',
+          PlaylistDownloadInfo()
+            ..playlistId = second.id
+            ..playlistName = second.name
+            ..downloadPath = '/downloads/merge-second.mp3',
+        ];
+
+      await harness.isar.writeTxn(() async {
+        harness.mutations
+            .mergeDuplicateTrackMembershipsInTxn(keep, [duplicate]);
+        await harness.isar.tracks.put(keep);
+      });
+
+      final savedTrack = await harness.tracks.getById(keep.id);
+      expect(savedTrack!.playlistInfo, hasLength(2));
+      expect(
+        savedTrack.getDownloadPath(first.id, playlistName: first.name),
+        '/downloads/merge-first.mp3',
+      );
+      expect(
+        savedTrack.getDownloadPath(second.id, playlistName: second.name),
+        '/downloads/merge-second.mp3',
+      );
+    });
+
     test('duplicatePlaylist creates new playlist and reverse membership',
         () async {
       final harness = await _createHarness();

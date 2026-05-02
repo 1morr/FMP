@@ -535,6 +535,37 @@ class PlaylistMutationService with Logging {
     });
   }
 
+  void mergeDuplicateTrackMembershipsInTxn(
+    Track keep,
+    Iterable<Track> removedDuplicates,
+  ) {
+    final merged = keep.playlistInfo.map((info) => info.copy()).toList();
+    for (final duplicate in removedDuplicates) {
+      for (final duplicateInfo in duplicate.playlistInfo) {
+        final existingIndex = merged.indexWhere(
+          (info) =>
+              info.playlistId == duplicateInfo.playlistId &&
+              info.playlistName == duplicateInfo.playlistName,
+        );
+        if (existingIndex < 0) {
+          merged.add(duplicateInfo.copy());
+          continue;
+        }
+
+        final existing = merged[existingIndex];
+        merged[existingIndex] = PlaylistDownloadInfo()
+          ..playlistId = existing.playlistId
+          ..playlistName = existing.playlistName.isNotEmpty
+              ? existing.playlistName
+              : duplicateInfo.playlistName
+          ..downloadPath = existing.downloadPath.isNotEmpty
+              ? existing.downloadPath
+              : duplicateInfo.downloadPath;
+      }
+    }
+    keep.playlistInfo = merged;
+  }
+
   Future<void> remapPlaylistTrackReferencesInTxn(Map<int, int> remap) async {
     if (remap.isEmpty) return;
 
