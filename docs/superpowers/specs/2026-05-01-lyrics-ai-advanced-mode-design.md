@@ -13,11 +13,11 @@ This design adds an AI advanced matching mode that lets AI select from actual ly
 
 - Add an AI advanced matching mode that selects the best lyrics candidate from search results.
 - Provide video title, uploader, video duration, lyrics source priority, and each candidate's synced/plain status to AI.
-- Adopt AI-selected matches only when confidence is greater than `0.8`.
+- Adopt AI-selected matches when the selected candidate is known, valid, and allowed by the synced/plain setting.
 - Add a setting to control whether automatic matching may save non-synced lyrics.
 - Default AI title parsing to off for new installs and migrate legacy fallback mode to off.
 - Log all AI request payloads and responses for both existing title parsing and new advanced matching, without logging API keys.
-- Avoid extra Netease/QQ Music searches after an AI mode gives a low-confidence or no-match result.
+- Avoid regex fallback after an AI mode returns a valid no-selection or unknown-candidate result.
 
 ## Non-goals
 
@@ -48,8 +48,8 @@ The settings UI will expose three modes:
    - The app searches candidates in the configured lyrics source priority order.
    - The app sends filtered candidates to AI for selection.
    - AI must return a selected candidate and confidence.
-   - The app saves the match only if confidence is greater than `0.8` and the selected candidate is valid.
-   - If AI explicitly returns no selection, low confidence, or an unknown candidate, matching ends without falling back to regex.
+   - The app saves the match only if the selected candidate is valid, known, and allowed by the synced/plain setting.
+   - If AI explicitly returns no selection or an unknown candidate, matching ends without falling back to regex.
    - If AI configuration, connection, timeout, or response parsing fails, matching falls back to regex.
 
 Direct ID fetches remain before all AI modes because they are precise and avoid broad search:
@@ -81,10 +81,10 @@ The Isar default for a new bool field is `false`, which matches the desired defa
 
 After AI title parsing succeeds, the service builds query pairs:
 
-- `trackName + artistName` if AI returns an artist with confidence at least `0.8`.
-- `trackName` alone as a fallback query.
+- `trackName + artistName` if AI returns an accepted artist.
+- `trackName` alone only when AI does not return an accepted artist.
 
-For each query pair, the service searches enabled lyrics sources in the user's configured priority order. Each source keeps the existing per-source limit of 5 results.
+For each query pair, the service searches enabled lyrics sources in the user's configured priority order. Netease and QQ Music advanced candidate searches request up to 10 results, matching manual search defaults.
 
 Each candidate sent to AI includes:
 
@@ -111,6 +111,8 @@ The prompt must tell AI:
 
 - Use video title, uploader, video duration, and source priority to choose.
 - Uploader is context and is not necessarily the artist.
+- Always choose the closest acceptable candidate, including covers, remixes, live versions, or alternate performances when they are the best available match for the same song.
+- Return `selectedCandidateId: null` only when every candidate is a completely different song.
 - Respect lyrics source priority when candidates otherwise look similarly accurate.
 - Always prefer synced lyrics over plain lyrics.
 - Return strict JSON only.
@@ -138,8 +140,9 @@ No-match shape:
 The app saves a match only when:
 
 - `selectedCandidateId` matches a candidate sent to AI.
-- `confidence > 0.8`.
 - The candidate is allowed by the non-synced lyrics setting.
+
+Confidence is logged for diagnostics, but there is no hard confidence threshold. The model should express completely different-song cases by returning `selectedCandidateId: null`.
 
 ## Logging
 
@@ -180,7 +183,7 @@ The lyrics source settings AI dialog will:
 - Display old `alwaysAi` as **AI title parsing**.
 - Add **AI advanced matching**.
 - Explain that AI title parsing only changes the search query, while AI advanced matching lets AI choose from candidates.
-- Add a switch for **Allow automatic matching of non-synced lyrics**, default off.
+- Keep **Allow automatic matching of non-synced lyrics** on the lyrics source settings page, default off.
 
 ## Data Migration and Compatibility
 
@@ -203,6 +206,6 @@ Add or update tests for:
 - Legacy fallback index resolving to off.
 - `allowPlainLyricsAutoMatch=false` filtering non-synced automatic matches.
 - Advanced mode sending only synced candidates when plain matching is disabled.
-- Advanced mode saving only when confidence is greater than `0.8`.
-- Advanced mode not falling back to regex after valid low-confidence/no-selection AI responses.
+- Advanced mode saving known selected candidates regardless of confidence.
+- Advanced mode not falling back to regex after valid no-selection or unknown-candidate AI responses.
 - AI title parsing and advanced matching falling back to regex only for AI configuration, connection, timeout, or response parsing failures.
