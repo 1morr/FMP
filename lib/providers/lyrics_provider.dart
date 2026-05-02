@@ -67,6 +67,9 @@ final lyricsCacheServiceProvider = Provider<LyricsCacheService>((ref) {
 /// LyricsAutoMatchService 单例
 final lyricsAutoMatchServiceProvider = Provider<LyricsAutoMatchService>((ref) {
   final aiConfigService = ref.watch(lyricsAiConfigServiceProvider);
+  final allowPlainLyricsAutoMatch = ref.watch(
+    audioSettingsProvider.select((state) => state.allowPlainLyricsAutoMatch),
+  );
   return LyricsAutoMatchService(
     lrclib: ref.watch(lrclibSourceProvider),
     netease: ref.watch(neteaseSourceProvider),
@@ -78,6 +81,7 @@ final lyricsAutoMatchServiceProvider = Provider<LyricsAutoMatchService>((ref) {
     aiLyricsSelector: ref.watch(aiLyricsSelectorProvider),
     aiConfigLoader: aiConfigService.loadConfig,
     titleParseCacheRepo: ref.watch(lyricsTitleParseCacheRepositoryProvider),
+    allowPlainLyricsAutoMatch: allowPlainLyricsAutoMatch,
   );
 });
 
