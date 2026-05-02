@@ -14,6 +14,7 @@ import '../../data/sources/youtube_source.dart';
 import '../account/bilibili_account_service.dart';
 import '../account/netease_account_service.dart';
 import '../account/youtube_account_service.dart';
+import '../library/playlist_mutation_service.dart';
 import 'youtube_mix_shorthand.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
@@ -113,6 +114,7 @@ class ImportService with Logging implements ImportServiceFacade {
   final PlaylistRepository _playlistRepository;
   final TrackRepository _trackRepository;
   final Isar _isar;
+  final PlaylistMutationService _mutationService;
   final BilibiliAccountService? _bilibiliAccountService;
   final YouTubeAccountService? _youtubeAccountService;
   final NeteaseAccountService? _neteaseAccountService;
@@ -155,6 +157,7 @@ class ImportService with Logging implements ImportServiceFacade {
     required PlaylistRepository playlistRepository,
     required TrackRepository trackRepository,
     required Isar isar,
+    PlaylistMutationService? mutationService,
     BilibiliAccountService? bilibiliAccountService,
     YouTubeAccountService? youtubeAccountService,
     NeteaseAccountService? neteaseAccountService,
@@ -162,6 +165,10 @@ class ImportService with Logging implements ImportServiceFacade {
         _playlistRepository = playlistRepository,
         _trackRepository = trackRepository,
         _isar = isar,
+        _mutationService = mutationService ??
+            PlaylistMutationService(
+              isar: isar,
+            ),
         _bilibiliAccountService = bilibiliAccountService,
         _youtubeAccountService = youtubeAccountService,
         _neteaseAccountService = neteaseAccountService;
@@ -278,6 +285,7 @@ class ImportService with Logging implements ImportServiceFacade {
       int skippedCount = 0;
       final errors = <String>[];
       final isNewPlaylist = existingPlaylist == null;
+      final tracksToImport = <Track>[];
 
       for (int i = 0; i < expandedTracks.length; i++) {
         if (_isCancelled) {
@@ -290,51 +298,21 @@ class ImportService with Logging implements ImportServiceFacade {
         }
 
         final track = expandedTracks[i];
-
         _updateProgress(
           current: i + 1,
           currentItem: track.title,
         );
-
-        try {
-          // 检查是否已存在（支持分P唯一性）
-          final existing = await _trackRepository.getBySourceIdAndCid(
-            track.sourceId,
-            track.sourceType,
-            cid: track.cid,
-          );
-
-          if (existing != null) {
-            // 歌曲已存在，添加到歌单（如果不在）
-            if (!playlist.trackIds.contains(existing.id)) {
-              // 只添加歌单关联，不预计算下载路径（路径在下载完成时设置）
-              existing.addToPlaylist(playlist.id, playlistName: playlist.name);
-              await _trackRepository.save(existing);
-
-              // 创建可变列表副本，避免 fixed-length list 错误
-              final newTrackIds = List<int>.from(playlist.trackIds);
-              newTrackIds.add(existing.id);
-              playlist.trackIds = newTrackIds;
-              addedCount++;
-            } else {
-              skippedCount++;
-            }
-          } else {
-            // 只添加歌单关联，不预计算下载路径（路径在下载完成时设置）
-            track.addToPlaylist(playlist.id, playlistName: playlist.name);
-
-            // 保存新歌曲
-            final savedTrack = await _trackRepository.save(track);
-            // 创建可变列表副本，避免 fixed-length list 错误
-            final newTrackIds = List<int>.from(playlist.trackIds);
-            newTrackIds.add(savedTrack.id);
-            playlist.trackIds = newTrackIds;
-            addedCount++;
-          }
-        } catch (e) {
-          errors.add('${track.title}: ${e.toString()}');
-        }
+        tracksToImport.add(track);
       }
+
+      final mutationResult = await _mutationService.addTracks(
+        playlist.id,
+        tracksToImport,
+      );
+      addedCount = mutationResult.addedCount + mutationResult.repairedCount;
+      skippedCount = mutationResult.skippedCount;
+      errors.addAll(mutationResult.errors.map((error) => error.toString()));
+      playlist = (await _playlistRepository.getById(playlist.id)) ?? playlist;
 
       // 更新歌单封面（平台封面优先，回退到第一首歌封面）
       await _updatePlaylistCover(playlist, result.coverUrl, playlist.trackIds);

@@ -150,6 +150,23 @@ void main() {
       );
     });
 
+    test('addTracks returns skipped count for already fully linked tracks',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final playlist = await _createPlaylist(harness, 'Skip Existing');
+      final track = _track('skip-me', 'Skip Me');
+
+      final first = await harness.mutations.addTracks(playlist.id, [track]);
+      final second = await harness.mutations.addTracks(playlist.id, [track]);
+
+      final savedPlaylist = await harness.playlists.getById(playlist.id);
+      expect(first.addedCount, 1);
+      expect(second.addedCount, 0);
+      expect(second.skippedCount, 1);
+      expect(savedPlaylist!.trackIds, hasLength(1));
+    });
+
     test('removeTracks removes playlist side and deletes only orphan tracks',
         () async {
       final harness = await _createHarness();
