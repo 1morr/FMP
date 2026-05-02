@@ -122,10 +122,10 @@ class _LyricsSourceSettingsPageState
     switch (mode) {
       case LyricsAiTitleParsingMode.off:
         return t.settings.lyricsSourceSettings.aiModeOff;
-      case LyricsAiTitleParsingMode.fallbackAfterRules:
-        return t.settings.lyricsSourceSettings.aiModeFallback;
       case LyricsAiTitleParsingMode.alwaysAi:
         return t.settings.lyricsSourceSettings.aiModeAlways;
+      case LyricsAiTitleParsingMode.advancedAiSelect:
+        return t.settings.lyricsSourceSettings.aiModeAdvanced;
     }
   }
 
@@ -250,8 +250,6 @@ class _LyricsSourceSettingsPageState
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final audioSettings = ref.watch(audioSettingsProvider);
     _syncControllers(audioSettings);
 
@@ -269,30 +267,21 @@ class _LyricsSourceSettingsPageState
       ),
       body: Column(
         children: [
-          // 提示信息
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  Icons.info_outline,
-                  size: 18,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    t.settings.lyricsSourceSettings.hint,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ],
+          SwitchListTile(
+            contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            title: Text(
+              t.settings.lyricsSourceSettings.allowPlainLyricsAutoMatch,
             ),
+            subtitle: Text(
+              t.settings.lyricsSourceSettings
+                  .allowPlainLyricsAutoMatchDescription,
+            ),
+            value: audioSettings.allowPlainLyricsAutoMatch,
+            onChanged: (enabled) => ref
+                .read(audioSettingsProvider.notifier)
+                .setAllowPlainLyricsAutoMatch(enabled),
           ),
-          const Divider(),
+          const Divider(height: 1),
           Expanded(
             child: CustomScrollView(
               slivers: [
@@ -493,7 +482,11 @@ class _AiTitleParsingSettingsDialogState
                   prefixIcon: const Icon(Icons.tune_outlined),
                   border: const OutlineInputBorder(),
                 ),
-                items: LyricsAiTitleParsingMode.values
+                items: const [
+                  LyricsAiTitleParsingMode.off,
+                  LyricsAiTitleParsingMode.alwaysAi,
+                  LyricsAiTitleParsingMode.advancedAiSelect,
+                ]
                     .map(
                       (mode) => DropdownMenuItem(
                         value: mode,
@@ -505,6 +498,22 @@ class _AiTitleParsingSettingsDialogState
                   if (mode != null) widget.onModeChanged(mode);
                 },
               ),
+              if (switch (widget.audioSettings.lyricsAiTitleParsingMode) {
+                LyricsAiTitleParsingMode.alwaysAi =>
+                  t.settings.lyricsSourceSettings.aiModeAlwaysDescription,
+                LyricsAiTitleParsingMode.advancedAiSelect =>
+                  t.settings.lyricsSourceSettings.aiModeAdvancedDescription,
+                LyricsAiTitleParsingMode.off => '',
+              }
+                  case final description when description.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  description,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                ),
+              ],
               const SizedBox(height: 12),
               TextField(
                 controller: widget.endpointController,

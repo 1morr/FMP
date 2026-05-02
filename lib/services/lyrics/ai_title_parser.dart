@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import '../../core/logger.dart';
+import 'openai_chat_endpoint.dart';
 
 class AiParsedTitle {
   const AiParsedTitle({
@@ -31,7 +32,7 @@ class AiTitleParser with Logging {
     String? uploader,
     required int timeoutSeconds,
   }) async {
-    final trimmedEndpoint = endpoint.trim().replaceAll(RegExp(r'/+$'), '');
+    final trimmedEndpoint = normalizeOpenAiChatCompletionsEndpoint(endpoint);
     final trimmedApiKey = apiKey.trim();
     final trimmedModel = model.trim();
     final trimmedUploader = uploader?.trim();
@@ -42,11 +43,19 @@ class AiTitleParser with Logging {
     }
 
     final timeout = Duration(seconds: timeoutSeconds < 1 ? 10 : timeoutSeconds);
+    final userPayload = {
+      'title': title,
+      if (trimmedUploader != null && trimmedUploader.isNotEmpty)
+        'uploader': trimmedUploader,
+    };
 
     try {
       logInfo('Calling AI title parser: $title');
+      logDebug(
+          'AI title parser config: endpoint=$trimmedEndpoint, model=$trimmedModel, timeoutSeconds=${timeout.inSeconds}');
+      logDebug('AI title parser request payload: ${jsonEncode(userPayload)}');
       final response = await _dio.post<dynamic>(
-        '$trimmedEndpoint/chat/completions',
+        trimmedEndpoint,
         options: Options(
           headers: {
             Headers.contentTypeHeader: Headers.jsonContentType,
@@ -67,11 +76,7 @@ class AiTitleParser with Logging {
             },
             {
               'role': 'user',
-              'content': jsonEncode({
-                'title': title,
-                if (trimmedUploader != null && trimmedUploader.isNotEmpty)
-                  'uploader': trimmedUploader,
-              }),
+              'content': jsonEncode(userPayload),
             },
           ],
         },
@@ -107,7 +112,10 @@ class AiTitleParser with Logging {
             'AI title parser response content is invalid for title "$title"');
         return null;
       }
+      logDebug('AI title parser raw response content: $content');
       final parsed = parseContent(content);
+      logDebug(
+          'AI title parser parsed result: track=${parsed?.trackName}, artist=${parsed?.artistName}, artistConfidence=${parsed?.artistConfidence}');
       if (parsed == null) {
         logWarning(
             'AI title parser returned invalid content for title "$title"');
@@ -145,8 +153,7 @@ class AiTitleParser with Logging {
 
       final artistName =
           artistNameValue is String ? artistNameValue.trim() : '';
-      final artistConfidence =
-          artistConfidenceValue is num ? artistConfidenceValue.toDouble() : 0.0;
+      final artistConfidence = _parseArtistConfidence(artistConfidenceValue);
       return AiParsedTitle(
         trackName: trackName,
         artistName:
@@ -158,6 +165,19 @@ class AiTitleParser with Logging {
     } catch (_) {
       return null;
     }
+  }
+
+  static double _parseArtistConfidence(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is! String) return 0.0;
+
+    final normalized = value.trim().toLowerCase();
+    return switch (normalized) {
+      'high' => 1.0,
+      'medium' => 0.6,
+      'low' => 0.3,
+      _ => double.tryParse(normalized) ?? 0.0,
+    };
   }
 
   static String _stripCodeFence(String content) {

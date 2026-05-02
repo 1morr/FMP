@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 
 import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/image_loading_service.dart';
@@ -32,7 +33,7 @@ Future<void> _deleteTrackFilesInIsolate(List<String> paths) async {
       if (!await file.exists()) continue;
 
       final parentDir = file.parent;
-      final audioFileName = file.path.split('/').last.split('\\').last;
+      final audioFileName = p.basename(file.path);
 
       // 删除音频文件
       await file.delete();
@@ -42,10 +43,10 @@ Future<void> _deleteTrackFilesInIsolate(List<String> paths) async {
         final pageNumStr =
             audioFileName.substring(1, audioFileName.indexOf('.'));
         final metadataFile =
-            File('${parentDir.path}/metadata_P$pageNumStr.json');
+            File(p.join(parentDir.path, 'metadata_P$pageNumStr.json'));
         if (await metadataFile.exists()) await metadataFile.delete();
       } else {
-        final metadataFile = File('${parentDir.path}/metadata.json');
+        final metadataFile = File(p.join(parentDir.path, 'metadata.json'));
         if (await metadataFile.exists()) await metadataFile.delete();
       }
 
@@ -53,7 +54,7 @@ Future<void> _deleteTrackFilesInIsolate(List<String> paths) async {
       if (await parentDir.exists()) {
         final remainingAudio = await parentDir.list().where((entity) {
           if (entity is! File) return false;
-          final name = entity.path.split('/').last.split('\\').last;
+          final name = p.basename(entity.path);
           return name.endsWith('.m4a') ||
               name.endsWith('.mp3') ||
               name.endsWith('.aac') ||

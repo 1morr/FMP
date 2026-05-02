@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
 import '../../data/models/track.dart';
 import '../../providers/download/file_exists_cache.dart';
 import '../utils/duration_formatter.dart';
@@ -56,9 +58,9 @@ extension TrackExtensions on Track {
   String? getLocalCoverPath(FileExistsCache cache) {
     if (!hasAnyDownload) return null;
 
-    final coverPaths = allDownloadPaths.map((p) {
-      final dir = Directory(p).parent;
-      return '${dir.path}/cover.jpg';
+    final coverPaths = allDownloadPaths.map((downloadPath) {
+      final dir = Directory(downloadPath).parent;
+      return p.join(dir.path, 'cover.jpg');
     }).toList();
 
     return cache.getFirstExisting(coverPaths);
@@ -72,9 +74,9 @@ extension TrackExtensions on Track {
   /// [baseDir] 下載基礎目錄（已廢棄，保留參數以兼容現有調用）
   String? getLocalAvatarPath(FileExistsCache cache, {String? baseDir}) {
     // 從所有下載路徑中查找頭像
-    final avatarPaths = allDownloadPaths.map((p) {
-      final dir = Directory(p).parent;
-      return '${dir.path}/avatar.jpg';
+    final avatarPaths = allDownloadPaths.map((downloadPath) {
+      final dir = Directory(downloadPath).parent;
+      return p.join(dir.path, 'avatar.jpg');
     }).toList();
 
     return cache.getFirstExisting(avatarPaths);

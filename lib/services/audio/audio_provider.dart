@@ -232,6 +232,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   // 导航请求ID - 防止快速点击 next/previous 时的竞态条件
   int _navRequestId = 0;
 
+  // 歌词自动匹配请求ID - 防止旧匹配任务覆盖新匹配任务的 UI 状态
+  int _lyricsAutoMatchRequestId = 0;
+
   // 統一的播放上下文（管理所有播放狀態，包括臨時播放、加載狀態等）
   _PlaybackContext _context = const _PlaybackContext();
 
@@ -271,6 +274,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 网络恢复后需要恢复到的播放位置
   Duration? _positionToRecoverAfterReconnect;
+
+  /// 重试/恢复代数，用于取消已过期的延迟重试和网络恢复任务
+  int _retryGeneration = 0;
 
   /// 网络恢复监听订阅
   StreamSubscription<void>? _networkRecoverySubscription;
@@ -483,6 +489,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   void dispose() {
     if (_isDisposed) return;
     _isDisposed = true;
+    _lyricsAutoMatchRequestId++;
+    onLyricsAutoMatchStateChanged = null;
     _stopPositionCheckTimer();
     _cancelRetryTimer();
     _networkRecoverySubscription?.cancel();
@@ -1512,6 +1520,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 尝试自动匹配歌词（异步，不阻塞播放）
   Future<void> _tryAutoMatchLyrics(Track track) async {
+    final requestId = ++_lyricsAutoMatchRequestId;
     final autoMatchService = _lyricsAutoMatchService;
     final settingsRepo = _settingsRepository;
 
@@ -1520,6 +1529,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     try {
       // 检查设置是否启用自动匹配
       final settings = await settingsRepo.get();
+      if (requestId != _lyricsAutoMatchRequestId || _isDisposed) return;
       if (!settings.autoMatchLyrics) {
         logDebug('Auto-match lyrics disabled in settings');
         return;
@@ -1535,14 +1545,20 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       final matched = await autoMatchService.tryAutoMatch(
         track,
         enabledSources: enabledSources.isNotEmpty ? enabledSources : null,
+        allowPlainLyricsAutoMatch: settings.allowPlainLyricsAutoMatch,
       );
+      if (requestId != _lyricsAutoMatchRequestId || _isDisposed) return;
       if (matched) {
         logInfo('Auto-matched lyrics for: ${track.title}');
       }
     } catch (e) {
-      logWarning('Auto-match lyrics failed for ${track.title}: $e');
+      if (requestId == _lyricsAutoMatchRequestId && !_isDisposed) {
+        logWarning('Auto-match lyrics failed for ${track.title}: $e');
+      }
     } finally {
-      onLyricsAutoMatchStateChanged?.call(false);
+      if (requestId == _lyricsAutoMatchRequestId && !_isDisposed) {
+        onLyricsAutoMatchStateChanged?.call(false);
+      }
     }
   }
 
@@ -1986,6 +2002,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 安排重试（漸進式延遲）
   void _scheduleRetry(Track track, Duration? position) {
+    final generation = ++_retryGeneration;
     // 立即保存需要恢复的歌曲和位置（无论是否达到最大重试次数）
     // 这样当网络恢复时，无论重试进行到哪一步，都能自动恢复播放
     _trackToRecoverAfterReconnect = track;
@@ -2022,14 +2039,30 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
     _retryTimer?.cancel();
     _retryTimer = Timer(delay, () {
+      if (!_isRetryGenerationCurrent(generation, track)) return;
       // 使用已保存的恢复位置，而非本地 position 参数
       // （重试链中 _executePlayRequest 传入的 position 可能是零）
-      _retryPlayback(track, _positionToRecoverAfterReconnect);
+      _retryPlayback(track, _positionToRecoverAfterReconnect, generation);
     });
   }
 
+  bool _isRetryGenerationCurrent(int generation, Track track) {
+    return !_isDisposed &&
+        generation == _retryGeneration &&
+        _trackToRecoverAfterReconnect?.uniqueKey == track.uniqueKey;
+  }
+
+  bool _isRetryTrackCurrent(Track track) {
+    return !_isDisposed && state.currentTrack?.uniqueKey == track.uniqueKey;
+  }
+
   /// 执行重试
-  Future<void> _retryPlayback(Track track, Duration? position) async {
+  Future<void> _retryPlayback(
+    Track track,
+    Duration? position,
+    int generation,
+  ) async {
+    if (!_isRetryGenerationCurrent(generation, track)) return;
     _retryAttempt++;
     logInfo(
         'Retrying playback ($_retryAttempt/${NetworkRetryConfig.maxRetries}) for: ${track.title}, savedPosition: $position');
@@ -2043,6 +2076,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         error: null,
       );
 
+      if (!_isRetryGenerationCurrent(generation, track)) return;
+
       // 保持当前模式
       final currentMode = _context.isMix ? PlayMode.mix : PlayMode.queue;
       await _executePlayRequest(
@@ -2053,13 +2088,17 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         prefetchNext: true,
       );
 
+      if (!_isRetryGenerationCurrent(generation, track)) return;
+
       // 重试成功，重置状态
       _resetRetryState();
 
       // 如果有保存的位置，尝试恢复
       if (position != null && position > Duration.zero) {
         await Future.delayed(AppConstants.seekStabilizationDelay);
-        await seekTo(position);
+        if (_isRetryTrackCurrent(track)) {
+          await seekTo(position);
+        }
       }
 
       logInfo('Retry playback succeeded for: ${track.title}');
@@ -2091,16 +2130,16 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
     final track = _trackToRecoverAfterReconnect!;
     final position = _positionToRecoverAfterReconnect;
+    final generation = ++_retryGeneration;
 
     logInfo(
         'Network recovered, attempting to resume playback for: ${track.title}');
 
-    _trackToRecoverAfterReconnect = null;
-    _positionToRecoverAfterReconnect = null;
     _retryAttempt = 0; // 重置重试计数
 
     // 延迟一下确保网络稳定
     await Future.delayed(AppConstants.seekStabilizationDelay);
+    if (!_isRetryGenerationCurrent(generation, track)) return;
 
     try {
       final currentMode = _context.isMix ? PlayMode.mix : PlayMode.queue;
@@ -2112,12 +2151,15 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         prefetchNext: true,
       );
 
+      if (!_isRetryGenerationCurrent(generation, track)) return;
       _resetRetryState();
 
       // 恢复播放位置
       if (position != null && position > Duration.zero) {
         await Future.delayed(AppConstants.seekStabilizationDelay);
-        await seekTo(position);
+        if (_isRetryTrackCurrent(track)) {
+          await seekTo(position);
+        }
       }
 
       logInfo('Network recovery playback succeeded for: ${track.title}');
@@ -2126,6 +2168,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       logDebug('Retry scheduled after network recovery attempt');
     } catch (e) {
       logError('Network recovery playback failed for: ${track.title}', e);
+      if (!_isRetryGenerationCurrent(generation, track)) return;
       if (_isNetworkError(e)) {
         _scheduleRetry(track, position);
       } else {
@@ -2139,6 +2182,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 重置重试状态
   void _resetRetryState() {
+    _retryGeneration++;
     _cancelRetryTimer();
     _retryAttempt = 0;
     _trackToRecoverAfterReconnect = null;
@@ -2173,12 +2217,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     final track = _trackToRecoverAfterReconnect ?? state.playingTrack;
     if (track == null) return;
 
+    final generation = ++_retryGeneration;
+    _trackToRecoverAfterReconnect = track;
     _retryAttempt = 0; // 重置重试计数
     _cancelRetryTimer();
 
     final position = _positionToRecoverAfterReconnect ?? state.position;
-    _trackToRecoverAfterReconnect = null;
-    _positionToRecoverAfterReconnect = null;
 
     try {
       final currentMode = _context.isMix ? PlayMode.mix : PlayMode.queue;
@@ -2190,11 +2234,14 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         prefetchNext: true,
       );
 
+      if (!_isRetryGenerationCurrent(generation, track)) return;
       _resetRetryState();
 
       if (position.inSeconds > 0) {
         await Future.delayed(AppConstants.seekStabilizationDelay);
-        await seekTo(position);
+        if (_isRetryTrackCurrent(track)) {
+          await seekTo(position);
+        }
       }
 
       logInfo('Manual retry succeeded for: ${track.title}');
@@ -2202,6 +2249,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // 重试已在 _executePlayRequest 中安排
       logDebug('Retry scheduled after manual retry attempt');
     } catch (e) {
+      if (!_isRetryGenerationCurrent(generation, track)) return;
       if (_isNetworkError(e)) {
         _scheduleRetry(track, position);
       } else {

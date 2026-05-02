@@ -79,6 +79,7 @@ class FileExistsCache extends StateNotifier<Set<String>> {
           }
         }),
       );
+      if (!mounted) return;
 
       for (final result in results) {
         if (result.exists) {
@@ -141,12 +142,14 @@ class FileExistsCache extends StateNotifier<Set<String>> {
   }
 
   void _updateState(Set<String> newState) {
+    if (!mounted) return;
     _cacheEpoch++;
     _onEpochChanged(_cacheEpoch);
     state = _trimToMaxSize(newState);
   }
 
   void _markAsMissing(String path) {
+    if (!mounted) return;
     if (_missingPaths.contains(path)) return;
     _missingPaths.add(path);
     if (_missingPaths.length <= _maxMissingCacheSize) return;
@@ -167,6 +170,7 @@ class FileExistsCache extends StateNotifier<Set<String>> {
     Future.microtask(() async {
       try {
         if (await File(path).exists()) {
+          if (!mounted) return;
           _missingPaths.remove(path);
           _updateState({...state, path});
         } else {
@@ -202,6 +206,7 @@ class FileExistsCache extends StateNotifier<Set<String>> {
             } else {
               missing.add(path);
             }
+            if (!mounted) return;
           } catch (_) {
             missing.add(path);
           }
@@ -217,6 +222,13 @@ class FileExistsCache extends StateNotifier<Set<String>> {
         _pendingRefreshPaths.removeAll(pending);
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _pendingRefreshPaths.clear();
+    _missingPaths.clear();
+    super.dispose();
   }
 }
 

@@ -1,13 +1,22 @@
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/data/models/lyrics_match.dart';
+import 'package:fmp/data/models/play_history.dart';
+import 'package:fmp/data/models/playlist.dart';
+import 'package:fmp/data/models/radio_station.dart';
+import 'package:fmp/data/models/search_history.dart';
 import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/models/track.dart';
 import 'package:fmp/providers/database_provider.dart';
 import 'package:fmp/services/backup/backup_data.dart';
 import 'package:fmp/services/backup/backup_service.dart';
 import 'package:isar/isar.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -26,11 +35,26 @@ void main() {
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp('backup_service_test_');
       isar = await Isar.open(
-        [SettingsSchema],
+        [
+          SettingsSchema,
+          PlaylistSchema,
+          TrackSchema,
+          PlayHistorySchema,
+          SearchHistorySchema,
+          RadioStationSchema,
+          LyricsMatchSchema,
+        ],
         directory: tempDir.path,
         name: 'backup_service_test',
       );
       backupService = BackupService(isar);
+      PackageInfo.setMockInitialValues(
+        appName: 'FMP',
+        packageName: 'com.example.fmp',
+        version: 'test-version',
+        buildNumber: '1',
+        buildSignature: '',
+      );
     });
 
     tearDown(() async {
@@ -48,6 +72,11 @@ void main() {
       expect(settingsBackup.rememberPlaybackPosition, isTrue);
       expect(settingsBackup.tempPlayRewindSeconds, 10);
       expect(settingsBackup.autoMatchLyrics, isFalse);
+      expect(settingsBackup.lyricsAiTitleParsingModeIndex, 0);
+      expect(settingsBackup.allowPlainLyricsAutoMatch, isFalse);
+      expect(settingsBackup.lyricsAiEndpoint, isEmpty);
+      expect(settingsBackup.lyricsAiModel, isEmpty);
+      expect(settingsBackup.lyricsAiTimeoutSeconds, 10);
       expect(settingsBackup.disabledLyricsSources, 'lrclib');
       expect(settingsBackup.neteaseStreamPriority, 'audioOnly');
       expect(settingsBackup.useBilibiliAuthForPlay, isFalse);
@@ -59,6 +88,39 @@ void main() {
           Settings().minimizeToTrayOnClose);
       expect(
           settingsBackup.enableGlobalHotkeys, Settings().enableGlobalHotkeys);
+    });
+
+    test('SettingsBackup defaults lyrics AI timeout to ten seconds', () {
+      expect(SettingsBackup().lyricsAiTimeoutSeconds, 10);
+    });
+
+    test('importData normalizes invalid lyrics AI timeout', () async {
+      final backupData = BackupData(
+        version: kBackupVersion,
+        exportedAt: DateTime(2026, 4, 20),
+        appVersion: 'test',
+        playlists: const [],
+        tracks: const [],
+        playHistory: const [],
+        searchHistory: const [],
+        radioStations: const [],
+        settings: SettingsBackup(lyricsAiTimeoutSeconds: 0),
+      );
+
+      final result = await backupService.importData(
+        backupData,
+        importPlaylists: false,
+        importPlayHistory: false,
+        importSearchHistory: false,
+        importRadioStations: false,
+        importLyricsMatches: false,
+        importSettings: true,
+      );
+
+      final restoredSettings = await isar.settings.get(0);
+      expect(result.settingsImported, isTrue);
+      expect(result.errors, isEmpty);
+      expect(restoredSettings!.lyricsAiTimeoutSeconds, 10);
     });
 
     test(
@@ -94,6 +156,11 @@ void main() {
           tempPlayRewindSeconds: 7,
           neteaseStreamPriority: 'audioOnly',
           autoMatchLyrics: true,
+          lyricsAiTitleParsingModeIndex: 3,
+          allowPlainLyricsAutoMatch: true,
+          lyricsAiEndpoint: 'https://example.test/v1',
+          lyricsAiModel: 'test-model',
+          lyricsAiTimeoutSeconds: 12,
           disabledLyricsSources: 'qqmusic',
           useBilibiliAuthForPlay: true,
           useYoutubeAuthForPlay: true,
@@ -130,6 +197,13 @@ void main() {
       expect(restoredSettings.tempPlayRewindSeconds, 7);
       expect(restoredSettings.neteaseStreamPriority, 'audioOnly');
       expect(restoredSettings.autoMatchLyrics, isTrue);
+      expect(restoredSettings.lyricsAiTitleParsingModeIndex, 3);
+      expect(restoredSettings.lyricsAiTitleParsingMode,
+          LyricsAiTitleParsingMode.advancedAiSelect);
+      expect(restoredSettings.allowPlainLyricsAutoMatch, isTrue);
+      expect(restoredSettings.lyricsAiEndpoint, 'https://example.test/v1');
+      expect(restoredSettings.lyricsAiModel, 'test-model');
+      expect(restoredSettings.lyricsAiTimeoutSeconds, 12);
       expect(restoredSettings.disabledLyricsSources, 'qqmusic');
       expect(restoredSettings.useBilibiliAuthForPlay, isTrue);
       expect(restoredSettings.useYoutubeAuthForPlay, isTrue);
@@ -156,7 +230,55 @@ void main() {
             jsonEncode({'playPause': 'Ctrl+Alt+P'}));
       }
     });
+
+    test('exportData includes lyrics AI settings without secure API key',
+        () async {
+      final outputPath = '${tempDir.path}/export.json';
+      FilePicker.platform = _FakeFilePicker(saveFilePath: outputPath);
+      final settings = Settings()
+        ..lyricsAiTitleParsingMode = LyricsAiTitleParsingMode.advancedAiSelect
+        ..allowPlainLyricsAutoMatch = true
+        ..lyricsAiEndpoint = 'https://example.test/v1'
+        ..lyricsAiModel = 'test-model'
+        ..lyricsAiTimeoutSeconds = 15;
+      await isar.writeTxn(() async {
+        await isar.settings.put(settings);
+      });
+
+      final exportedPath = await backupService.exportData();
+
+      expect(exportedPath, outputPath);
+      final json = jsonDecode(await File(outputPath).readAsString())
+          as Map<String, dynamic>;
+      final settingsJson = json['settings'] as Map<String, dynamic>;
+      expect(settingsJson['lyricsAiTitleParsingModeIndex'], 3);
+      expect(settingsJson['allowPlainLyricsAutoMatch'], isTrue);
+      expect(settingsJson['lyricsAiEndpoint'], 'https://example.test/v1');
+      expect(settingsJson['lyricsAiModel'], 'test-model');
+      expect(settingsJson['lyricsAiTimeoutSeconds'], 15);
+      expect(settingsJson.containsKey('lyricsAiApiKey'), isFalse);
+      expect(jsonEncode(json).contains('secret'), isFalse);
+    });
   });
+}
+
+class _FakeFilePicker extends FilePicker {
+  _FakeFilePicker({required this.saveFilePath});
+
+  final String saveFilePath;
+
+  @override
+  Future<String?> saveFile({
+    String? dialogTitle,
+    String? fileName,
+    String? initialDirectory,
+    FileType type = FileType.any,
+    List<String>? allowedExtensions,
+    Uint8List? bytes,
+    bool lockParentWindow = false,
+  }) async {
+    return saveFilePath;
+  }
 }
 
 Future<String> _resolveIsarLibraryPath() async {
