@@ -14,6 +14,7 @@ import '../../data/sources/youtube_source.dart';
 import '../account/bilibili_account_service.dart';
 import '../account/netease_account_service.dart';
 import '../account/youtube_account_service.dart';
+import 'youtube_mix_shorthand.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
 /// 导入进度
@@ -175,16 +176,19 @@ class ImportService with Logging implements ImportServiceFacade {
         status: ImportStatus.parsing, currentItem: t.importSource.parsingUrl);
 
     try {
+      final normalizedUrl = normalizeYouTubeMixShorthandUrl(url) ?? url.trim();
+
       // 识别音源类型
-      final source = _sourceManager.detectSource(url);
+      final source = _sourceManager.detectSource(normalizedUrl);
       if (source == null) {
         throw ImportException(t.importSource.unrecognizedUrlFormat);
       }
 
       // 檢測是否為 YouTube Mix 播放列表（RD 開頭）
-      if (source is YouTubeSource && YouTubeSource.isMixPlaylistUrl(url)) {
+      if (source is YouTubeSource &&
+          YouTubeSource.isMixPlaylistUrl(normalizedUrl)) {
         return _importMixPlaylist(
-          url: url,
+          url: normalizedUrl,
           customName: customName,
           refreshIntervalHours: refreshIntervalHours,
           notifyOnUpdate: notifyOnUpdate,
@@ -196,7 +200,8 @@ class ImportService with Logging implements ImportServiceFacade {
       if (useAuth) {
         authHeaders = await _getAuthHeaders(source.sourceType);
       }
-      final result = await source.parsePlaylist(url, authHeaders: authHeaders);
+      final result =
+          await source.parsePlaylist(normalizedUrl, authHeaders: authHeaders);
 
       // 获取分P信息并展开（仅Bilibili）
       final List<Track> expandedTracks;
@@ -227,7 +232,8 @@ class ImportService with Logging implements ImportServiceFacade {
 
       // 创建歌单
       final playlistName = customName ?? result.title;
-      final existingPlaylist = await _playlistRepository.getBySourceUrl(url);
+      final existingPlaylist =
+          await _playlistRepository.getBySourceUrl(normalizedUrl);
 
       Playlist playlist;
       if (existingPlaylist != null) {
@@ -241,7 +247,7 @@ class ImportService with Logging implements ImportServiceFacade {
         playlist = Playlist()
           ..name = uniqueName
           ..description = result.description
-          ..sourceUrl = url
+          ..sourceUrl = normalizedUrl
           ..importSourceType = source.sourceType
           ..ownerName = result.ownerName
           ..ownerUserId = result.ownerUserId
