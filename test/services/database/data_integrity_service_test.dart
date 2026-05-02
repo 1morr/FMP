@@ -115,9 +115,14 @@ void main() {
       expect(keptTrack.thumbnailUrl, 'https://img.example/rich.jpg');
       expect(keptTrack.durationMs, 240000);
       expect(keptTrack.artist, 'Recovered Artist');
+      expect(keptTrack.playlistInfo, hasLength(2));
       expect(
         keptTrack.getDownloadPath(42, playlistName: 'Downloaded Playlist'),
         '/downloads/Downloaded Playlist/Rich Track/audio.m4a',
+      );
+      expect(
+        keptTrack.getDownloadPath(84, playlistName: 'Kept Playlist'),
+        '/downloads/Kept Playlist/Rich Track/audio.m4a',
       );
     });
 
@@ -331,6 +336,12 @@ class _Harness {
           ..title = 'Kept Rich Track'
           ..thumbnailUrl = 'https://img.example/rich.jpg'
           ..durationMs = 240000
+          ..playlistInfo = [
+            PlaylistDownloadInfo()
+              ..playlistId = 84
+              ..playlistName = 'Kept Playlist'
+              ..downloadPath = '/downloads/Kept Playlist/Rich Track/audio.m4a',
+          ]
           ..createdAt = DateTime(2026, 4, 25),
       ]);
     });
