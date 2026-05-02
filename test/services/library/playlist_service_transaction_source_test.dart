@@ -22,11 +22,25 @@ void main() {
       expect(body, isNot(contains('_isar.writeTxn')));
       expect(body, isNot(contains('_playlistRepository.removeTracks(')));
     });
+
+    test('reorderPlaylistTracks delegates to mutation service', () {
+      final body = _methodBody(source, 'reorderPlaylistTracks');
+
+      expect(body, contains('_mutationService.reorderTracks('));
+      expect(body, isNot(contains('_isar.writeTxn')));
+    });
+
+    test('duplicatePlaylist delegates to mutation service', () {
+      final body = _methodBody(source, 'duplicatePlaylist');
+
+      expect(body, contains('_mutationService.duplicatePlaylist('));
+      expect(body, isNot(contains('_isar.writeTxn')));
+    });
   });
 }
 
 String _methodBody(String source, String name) {
-  final start = source.indexOf('Future<void> $name');
+  final start = source.indexOf(RegExp('Future<[^>]+> $name'));
   expect(start, isNonNegative, reason: 'method $name should exist');
   final firstBrace = source.indexOf('{', start);
   var depth = 0;
