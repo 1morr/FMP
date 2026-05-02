@@ -254,6 +254,24 @@ void main() {
       expect(result.playlistChanged, isTrue);
     });
 
+    test('deletePlaylist cleans stale reverse-only membership', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final playlist = await _createPlaylist(harness, 'Delete Stale Reverse');
+      final track = _track('delete-stale-reverse', 'Delete Stale Reverse')
+        ..addToPlaylist(playlist.id, playlistName: playlist.name);
+      final savedTrack = await harness.tracks.save(track);
+
+      final result = await harness.mutations.deletePlaylist(playlist.id);
+
+      expect(await harness.playlists.getById(playlist.id), isNull);
+      expect(await harness.tracks.getById(savedTrack.id), isNull);
+      expect(result.removedTrackIds, [savedTrack.id]);
+      expect(result.deletedTrackIds, [savedTrack.id]);
+      expect(result.updatedTrackIds, isEmpty);
+      expect(result.playlistChanged, isTrue);
+    });
+
     test('duplicatePlaylist creates new playlist and reverse membership',
         () async {
       final harness = await _createHarness();
