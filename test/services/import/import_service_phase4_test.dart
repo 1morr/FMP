@@ -234,6 +234,45 @@ void main() {
       expect(await trackRepository.getAll(), isEmpty);
     });
 
+    test('importFromUrl reports cancellation after final save without success',
+        () async {
+      final source = _PlaylistSource(
+        title: 'Final Save Cancellation Playlist',
+        tracks: [_track('final-save-cancel-track', 'Final Save Cancel Track')],
+      );
+      sourceManager.detectedSource = source;
+      late ImportService service;
+      final cancellingPlaylistRepository = _CancellingPlaylistRepository(
+        isar,
+        onAfterFinalSave: () => service.cancelImport(),
+      );
+      service = ImportService(
+        sourceManager: sourceManager,
+        playlistRepository: cancellingPlaylistRepository,
+        trackRepository: trackRepository,
+        isar: isar,
+      );
+      final progressStatuses = <ImportStatus>[];
+      final progressSubscription = service.progressStream.listen(
+        (progress) => progressStatuses.add(progress.status),
+      );
+      addTearDown(() async {
+        await progressSubscription.cancel();
+        service.dispose();
+      });
+
+      await expectLater(
+        () => service.importFromUrl('https://example.com/playlist/final-save'),
+        throwsA(isA<ImportException>()),
+      );
+      await Future<void>.delayed(Duration.zero);
+      await service.cleanupCancelledImport();
+
+      expect(progressStatuses, isNot(contains(ImportStatus.completed)));
+      expect(await cancellingPlaylistRepository.getAll(), isEmpty);
+      expect(await trackRepository.getAll(), isEmpty);
+    });
+
     test('importFromUrl counts metadata-only existing tracks as skipped',
         () async {
       String? audioUrl;
@@ -543,6 +582,26 @@ class _BlockingTrackRepository extends TrackRepository {
       await _coverLookupCompleter.future;
     }
     return super.getById(id);
+  }
+}
+
+class _CancellingPlaylistRepository extends PlaylistRepository {
+  _CancellingPlaylistRepository(
+    super.isar, {
+    required this.onAfterFinalSave,
+  });
+
+  final void Function() onAfterFinalSave;
+  var _saveCount = 0;
+
+  @override
+  Future<int> save(Playlist playlist) async {
+    final id = await super.save(playlist);
+    _saveCount++;
+    if (_saveCount == 2) {
+      onAfterFinalSave();
+    }
+    return id;
   }
 }
 
