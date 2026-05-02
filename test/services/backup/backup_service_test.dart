@@ -231,6 +231,56 @@ void main() {
       }
     });
 
+    test('importData restores playlist memberships through mutation service',
+        () async {
+      final backupData = BackupData(
+        version: kBackupVersion,
+        exportedAt: DateTime(2026, 5, 3),
+        appVersion: 'test',
+        playlists: [
+          PlaylistBackup(
+            name: 'Restored Playlist',
+            coverUrl: 'https://img.example/restored-cover.jpg',
+            hasCustomCover: true,
+            trackKeys: const ['youtube:restored'],
+            createdAt: DateTime(2026, 5, 3),
+          ),
+        ],
+        tracks: [
+          TrackBackup(
+            sourceId: 'restored',
+            sourceType: SourceType.youtube.name,
+            title: 'Restored Track',
+            thumbnailUrl: 'https://img.example/track-cover.jpg',
+            createdAt: DateTime(2026, 5, 3),
+          ),
+        ],
+        playHistory: const [],
+        searchHistory: const [],
+        radioStations: const [],
+      );
+
+      final result = await backupService.importData(
+        backupData,
+        importPlaylists: true,
+        importPlayHistory: false,
+        importSearchHistory: false,
+        importRadioStations: false,
+        importLyricsMatches: false,
+        importSettings: false,
+      );
+
+      final playlist = (await isar.playlists.where().findAll()).single;
+      final track = (await isar.tracks.where().findAll()).single;
+      expect(result.playlistsImported, 1);
+      expect(result.errors, isEmpty);
+      expect(playlist.trackIds, [track.id]);
+      expect(playlist.coverUrl, 'https://img.example/restored-cover.jpg');
+      expect(playlist.hasCustomCover, isTrue);
+      expect(track.belongsToPlaylist(playlist.id), isTrue);
+      expect(track.playlistInfo.single.playlistName, 'Restored Playlist');
+    });
+
     test('exportData includes lyrics AI settings without secure API key',
         () async {
       final outputPath = '${tempDir.path}/export.json';

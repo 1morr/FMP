@@ -15,6 +15,7 @@ import '../../data/models/search_history.dart';
 import '../../data/models/settings.dart';
 import '../../data/models/track.dart';
 import '../../providers/database_provider.dart';
+import '../library/playlist_mutation_service.dart';
 import 'backup_data.dart';
 
 /// 当前备份数据格式版本
@@ -25,8 +26,14 @@ const int kBackupVersion = 1;
 /// 提供数据导出和导入功能
 class BackupService {
   final Isar _isar;
+  final PlaylistMutationService _mutationService;
 
-  BackupService(this._isar);
+  BackupService(
+    Isar isar, {
+    PlaylistMutationService? mutationService,
+  })  : _isar = isar,
+        _mutationService =
+            mutationService ?? PlaylistMutationService(isar: isar);
 
   // ==================== 导出功能 ====================
 
@@ -404,22 +411,28 @@ class BackupService {
             ..isMix = playlistBackup.isMix
             ..mixPlaylistId = playlistBackup.mixPlaylistId
             ..mixSeedVideoId = playlistBackup.mixSeedVideoId
-            ..trackIds = trackIds
             ..createdAt = playlistBackup.createdAt
             ..sortOrder = playlistBackup.sortOrder;
 
           await _isar.writeTxn(() async {
-            final playlistId = await _isar.playlists.put(playlist);
-
-            // 更新歌曲的歌单关联
-            for (final trackId in trackIds) {
-              final track = await _isar.tracks.get(trackId);
-              if (track != null) {
-                track.addToPlaylist(playlistId, playlistName: playlist.name);
-                await _isar.tracks.put(track);
-              }
-            }
+            await _isar.playlists.put(playlist);
           });
+          final playlistTracks =
+              (await _isar.tracks.getAll(trackIds)).whereType<Track>().toList();
+          await _mutationService.addTracks(playlist.id, playlistTracks);
+
+          final savedPlaylist = await _isar.playlists.get(playlist.id);
+          if (savedPlaylist != null &&
+              (savedPlaylist.coverUrl != playlistBackup.coverUrl ||
+                  savedPlaylist.hasCustomCover !=
+                      playlistBackup.hasCustomCover)) {
+            savedPlaylist
+              ..coverUrl = playlistBackup.coverUrl
+              ..hasCustomCover = playlistBackup.hasCustomCover;
+            await _isar.writeTxn(() async {
+              await _isar.playlists.put(savedPlaylist);
+            });
+          }
           playlistsImported++;
           existingPlaylistNames.add(playlistBackup.name);
         } catch (e) {

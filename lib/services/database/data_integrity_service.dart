@@ -3,8 +3,8 @@ import 'package:isar/isar.dart';
 import '../../data/models/account.dart';
 import '../../data/models/download_task.dart';
 import '../../data/models/play_queue.dart';
-import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
+import '../library/playlist_mutation_service.dart';
 
 class DataIntegrityReport {
   const DataIntegrityReport({
@@ -41,9 +41,15 @@ class DataIntegrityRepairResult {
 }
 
 class DataIntegrityService {
-  DataIntegrityService(this._isar);
+  DataIntegrityService(
+    Isar isar, {
+    PlaylistMutationService? mutationService,
+  })  : _isar = isar,
+        _mutationService =
+            mutationService ?? PlaylistMutationService(isar: isar);
 
   final Isar _isar;
+  final PlaylistMutationService _mutationService;
 
   Future<DataIntegrityReport> scan() async {
     final tracks = await _isar.tracks.where().findAll();
@@ -151,11 +157,7 @@ class DataIntegrityService {
   Future<void> _remapTrackReferences(Map<int, int> remap) async {
     if (remap.isEmpty) return;
 
-    final playlists = await _isar.playlists.where().findAll();
-    for (final playlist in playlists) {
-      playlist.trackIds = _remapAndDedupeIds(playlist.trackIds, remap);
-    }
-    await _isar.playlists.putAll(playlists);
+    await _mutationService.remapPlaylistTrackReferencesInTxn(remap);
 
     final tasks = await _isar.downloadTasks.where().findAll();
     for (final task in tasks) {
