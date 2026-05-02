@@ -149,6 +149,132 @@ void main() {
         hasLength(1),
       );
     });
+
+    test('removeTracks removes playlist side and deletes only orphan tracks',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final first = await _createPlaylist(harness, 'Remove First');
+      final second = await _createPlaylist(harness, 'Remove Second');
+      final orphan =
+          await harness.tracks.save(_track('remove-orphan', 'Orphan'));
+      final shared =
+          await harness.tracks.save(_track('remove-shared', 'Shared'));
+      final kept = await harness.tracks.save(_track('remove-kept', 'Kept'));
+      await harness.mutations.addTracks(first.id, [orphan, shared, kept]);
+      await harness.mutations.addTrack(second.id, shared);
+
+      final result = await harness.mutations.removeTracks(
+        first.id,
+        [orphan.id, shared.id],
+      );
+
+      final savedFirst = await harness.playlists.getById(first.id);
+      final savedShared = await harness.tracks.getById(shared.id);
+      expect(savedFirst!.trackIds, [kept.id]);
+      expect(savedFirst.coverUrl, 'https://example.com/remove-kept.jpg');
+      expect(await harness.tracks.getById(orphan.id), isNull);
+      expect(savedShared!.belongsToPlaylist(first.id), isFalse);
+      expect(savedShared.belongsToPlaylist(second.id), isTrue);
+      expect(result.removedTrackIds, unorderedEquals([orphan.id, shared.id]));
+      expect(result.deletedTrackIds, [orphan.id]);
+      expect(result.updatedTrackIds, [shared.id]);
+      expect(result.playlistChanged, isTrue);
+      expect(result.coverChanged, isTrue);
+    });
+
+    test('reorderTracks stores requested order and reports cover changes',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final playlist = await _createPlaylist(harness, 'Reorder');
+      final first = await harness.tracks.save(_track('reorder-first', 'First'));
+      final second =
+          await harness.tracks.save(_track('reorder-second', 'Second'));
+      final third = await harness.tracks.save(_track('reorder-third', 'Third'));
+      await harness.mutations.addTracks(playlist.id, [first, second, third]);
+
+      final result = await harness.mutations.reorderTracks(
+        playlist.id,
+        [third.id, first.id, second.id],
+      );
+
+      final savedPlaylist = await harness.playlists.getById(playlist.id);
+      expect(savedPlaylist!.trackIds, [third.id, first.id, second.id]);
+      expect(savedPlaylist.coverUrl, 'https://example.com/reorder-third.jpg');
+      expect(result.playlistChanged, isTrue);
+      expect(result.coverChanged, isTrue);
+    });
+
+    test('deletePlaylist removes playlist and cleans reverse associations',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final first = await _createPlaylist(harness, 'Delete First');
+      final second = await _createPlaylist(harness, 'Delete Second');
+      final orphan =
+          await harness.tracks.save(_track('delete-orphan', 'Orphan'));
+      final shared =
+          await harness.tracks.save(_track('delete-shared', 'Shared'));
+      await harness.mutations.addTracks(first.id, [orphan, shared]);
+      await harness.mutations.addTrack(second.id, shared);
+
+      final result = await harness.mutations.deletePlaylist(first.id);
+
+      final savedShared = await harness.tracks.getById(shared.id);
+      expect(await harness.playlists.getById(first.id), isNull);
+      expect(await harness.tracks.getById(orphan.id), isNull);
+      expect(savedShared!.belongsToPlaylist(first.id), isFalse);
+      expect(savedShared.belongsToPlaylist(second.id), isTrue);
+      expect(result.deletedTrackIds, [orphan.id]);
+      expect(result.updatedTrackIds, [shared.id]);
+      expect(result.playlistChanged, isTrue);
+    });
+
+    test('duplicatePlaylist creates new playlist and reverse membership',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final original = await _createPlaylist(harness, 'Original Duplicate');
+      original
+        ..description = 'Original description'
+        ..coverUrl = 'https://example.com/custom-cover.jpg'
+        ..hasCustomCover = true;
+      await harness.playlists.save(original);
+      final first =
+          await harness.tracks.save(_track('duplicate-first', 'First'));
+      final second =
+          await harness.tracks.save(_track('duplicate-second', 'Second'));
+      await harness.mutations.addTracks(original.id, [first, second]);
+      final copy = Playlist()
+        ..name = 'Duplicate Copy'
+        ..sortOrder = 42
+        ..createdAt = DateTime.now();
+
+      final result = await harness.mutations.duplicatePlaylist(
+        original.id,
+        copy,
+      );
+
+      final savedCopy = await harness.playlists.getById(result.id);
+      final copiedFirst = await harness.tracks.getById(first.id);
+      final copiedSecond = await harness.tracks.getById(second.id);
+      expect(savedCopy, isNotNull);
+      expect(savedCopy!.id, isNot(original.id));
+      expect(savedCopy.name, 'Duplicate Copy');
+      expect(savedCopy.description, 'Original description');
+      expect(savedCopy.coverUrl, 'https://example.com/custom-cover.jpg');
+      expect(savedCopy.hasCustomCover, isTrue);
+      expect(savedCopy.trackIds, [first.id, second.id]);
+      expect(copiedFirst!.belongsToPlaylist(result.id), isTrue);
+      expect(copiedSecond!.belongsToPlaylist(result.id), isTrue);
+      expect(
+        copiedFirst.playlistInfo
+            .singleWhere((info) => info.playlistId == result.id)
+            .playlistName,
+        'Duplicate Copy',
+      );
+    });
   });
 }
 

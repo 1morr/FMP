@@ -60,6 +60,188 @@ class PlaylistMutationService with Logging {
     return addTracks(playlistId, [track]);
   }
 
+  Future<PlaylistMutationResult> removeTrack(int playlistId, int trackId) {
+    return removeTracks(playlistId, [trackId]);
+  }
+
+  Future<PlaylistMutationResult> removeTracks(
+    int playlistId,
+    List<int> trackIds,
+  ) async {
+    if (trackIds.isEmpty) {
+      return PlaylistMutationResult(playlistId: playlistId);
+    }
+
+    return _isar.writeTxn(() async {
+      final playlist = await _isar.playlists.get(playlistId);
+      if (playlist == null) {
+        return PlaylistMutationResult(playlistId: playlistId);
+      }
+
+      final requestedIds = trackIds.toSet();
+      final originalTrackIds = List<int>.from(playlist.trackIds);
+      final removedTrackIds = originalTrackIds
+          .where((trackId) => requestedIds.contains(trackId))
+          .toList();
+      if (removedTrackIds.isEmpty) {
+        return PlaylistMutationResult(
+          playlistId: playlistId,
+          affectedPlaylistIds: [playlistId],
+        );
+      }
+
+      final originalCoverUrl = playlist.coverUrl;
+      final now = DateTime.now();
+      playlist.trackIds = originalTrackIds
+          .where((trackId) => !requestedIds.contains(trackId))
+          .toList();
+      final coverChanged = await _updateDefaultCover(playlist);
+      playlist.updatedAt = now;
+      await _isar.playlists.put(playlist);
+
+      final tracks =
+          (await _isar.tracks.getAll(removedTrackIds)).whereType<Track>();
+      final deletedTrackIds = <int>[];
+      final updatedTrackIds = <int>[];
+      final tracksToUpdate = <Track>[];
+      for (final track in tracks) {
+        track.removeFromPlaylist(playlistId);
+        if (track.playlistInfo.isEmpty) {
+          deletedTrackIds.add(track.id);
+        } else {
+          track.updatedAt = now;
+          updatedTrackIds.add(track.id);
+          tracksToUpdate.add(track);
+        }
+      }
+
+      if (deletedTrackIds.isNotEmpty) {
+        await _isar.tracks.deleteAll(deletedTrackIds);
+        logDebug('Deleted ${deletedTrackIds.length} orphan tracks');
+      }
+      if (tracksToUpdate.isNotEmpty) {
+        await _isar.tracks.putAll(tracksToUpdate);
+      }
+
+      return PlaylistMutationResult(
+        playlistId: playlistId,
+        affectedPlaylistIds: [playlistId],
+        removedTrackIds: removedTrackIds,
+        deletedTrackIds: deletedTrackIds,
+        updatedTrackIds: updatedTrackIds,
+        playlistChanged: true,
+        coverChanged: coverChanged || playlist.coverUrl != originalCoverUrl,
+      );
+    });
+  }
+
+  Future<PlaylistMutationResult> reorderTracks(
+    int playlistId,
+    List<int> orderedTrackIds,
+  ) async {
+    return _isar.writeTxn(() async {
+      final playlist = await _isar.playlists.get(playlistId);
+      if (playlist == null) {
+        return PlaylistMutationResult(playlistId: playlistId);
+      }
+
+      final originalCoverUrl = playlist.coverUrl;
+      final originalTrackIds = List<int>.from(playlist.trackIds);
+      playlist.trackIds = List<int>.from(orderedTrackIds);
+      final coverChanged = await _updateDefaultCover(playlist);
+      final playlistChanged =
+          !_listEquals(originalTrackIds, playlist.trackIds) ||
+              coverChanged ||
+              playlist.coverUrl != originalCoverUrl;
+      if (playlistChanged) {
+        playlist.updatedAt = DateTime.now();
+        await _isar.playlists.put(playlist);
+      }
+
+      return PlaylistMutationResult(
+        playlistId: playlistId,
+        affectedPlaylistIds: [playlistId],
+        playlistChanged: playlistChanged,
+        coverChanged: coverChanged || playlist.coverUrl != originalCoverUrl,
+      );
+    });
+  }
+
+  Future<PlaylistMutationResult> deletePlaylist(int playlistId) async {
+    return _isar.writeTxn(() async {
+      final playlist = await _isar.playlists.get(playlistId);
+      if (playlist == null) {
+        return PlaylistMutationResult(playlistId: playlistId);
+      }
+
+      final trackIds = List<int>.from(playlist.trackIds);
+      await _isar.playlists.delete(playlistId);
+
+      final tracks = (await _isar.tracks.getAll(trackIds)).whereType<Track>();
+      final deletedTrackIds = <int>[];
+      final updatedTrackIds = <int>[];
+      final tracksToUpdate = <Track>[];
+      final now = DateTime.now();
+      for (final track in tracks) {
+        track.removeFromPlaylist(playlistId);
+        if (track.playlistInfo.isEmpty) {
+          deletedTrackIds.add(track.id);
+        } else {
+          track.updatedAt = now;
+          updatedTrackIds.add(track.id);
+          tracksToUpdate.add(track);
+        }
+      }
+
+      if (deletedTrackIds.isNotEmpty) {
+        await _isar.tracks.deleteAll(deletedTrackIds);
+        logDebug('Deleted ${deletedTrackIds.length} orphan tracks');
+      }
+      if (tracksToUpdate.isNotEmpty) {
+        await _isar.tracks.putAll(tracksToUpdate);
+      }
+
+      return PlaylistMutationResult(
+        playlistId: playlistId,
+        affectedPlaylistIds: [playlistId],
+        removedTrackIds: trackIds,
+        deletedTrackIds: deletedTrackIds,
+        updatedTrackIds: updatedTrackIds,
+        playlistChanged: true,
+      );
+    });
+  }
+
+  Future<Playlist> duplicatePlaylist(int originalPlaylistId, Playlist copy) {
+    return _isar.writeTxn(() async {
+      final original = await _isar.playlists.get(originalPlaylistId);
+      if (original == null) {
+        throw PlaylistNotFoundException(originalPlaylistId);
+      }
+
+      copy
+        ..description = original.description
+        ..coverUrl = original.coverUrl
+        ..hasCustomCover = original.hasCustomCover
+        ..trackIds = List<int>.from(original.trackIds)
+        ..updatedAt = DateTime.now();
+      copy.id = await _isar.playlists.put(copy);
+
+      final copiedTracks = (await _isar.tracks.getAll(copy.trackIds))
+          .whereType<Track>()
+          .toList();
+      for (final track in copiedTracks) {
+        track.addToPlaylist(copy.id, playlistName: copy.name);
+        track.updatedAt = copy.updatedAt;
+      }
+      if (copiedTracks.isNotEmpty) {
+        await _isar.tracks.putAll(copiedTracks);
+      }
+
+      return copy;
+    });
+  }
+
   Future<PlaylistMutationResult> addTracks(
     int playlistId,
     List<Track> tracks,
@@ -287,6 +469,34 @@ class PlaylistMutationService with Logging {
         ..downloadPath = downloadPath,
     );
     track.playlistInfo = newInfos;
+    return true;
+  }
+
+  Future<bool> _updateDefaultCover(Playlist playlist) async {
+    if (playlist.hasCustomCover) {
+      return false;
+    }
+
+    final oldCoverUrl = playlist.coverUrl;
+    String? newCoverUrl;
+    if (playlist.trackIds.isNotEmpty) {
+      final firstTrack = await _isar.tracks.get(playlist.trackIds.first);
+      newCoverUrl = firstTrack?.thumbnailUrl;
+    }
+
+    if (oldCoverUrl == newCoverUrl) {
+      return false;
+    }
+
+    playlist.coverUrl = newCoverUrl;
+    return true;
+  }
+
+  bool _listEquals(List<int> a, List<int> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
     return true;
   }
 }
