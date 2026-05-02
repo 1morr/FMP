@@ -122,7 +122,7 @@ void main() {
 }
 
 class _FailingSaveTrackRepository extends TrackRepository {
-  _FailingSaveTrackRepository(Isar isar) : super(isar);
+  _FailingSaveTrackRepository(super.isar);
 
   @override
   Future<Track> save(Track track) {
@@ -165,7 +165,7 @@ class _FakeRefreshSource extends BaseSource {
   Future<AudioStreamResult> getAudioStream(String sourceId,
       {AudioStreamConfig config = AudioStreamConfig.defaultConfig,
       Map<String, String>? authHeaders}) async {
-    return AudioStreamResult(
+    return const AudioStreamResult(
       url: 'https://example.test/audio.m4a',
       streamType: StreamType.audioOnly,
     );
@@ -241,14 +241,16 @@ Track _track(String sourceId, String title) => Track()
 Future<String> _resolveIsarLibraryPath() async {
   final packageConfigFile =
       File('${Directory.current.path}/.dart_tool/package_config.json');
-  final packageConfig =
-      jsonDecode(await packageConfigFile.readAsString()) as Map<String, dynamic>;
+  final packageConfig = jsonDecode(await packageConfigFile.readAsString())
+      as Map<String, dynamic>;
   final packages = packageConfig['packages'] as List<dynamic>;
   final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
 
   for (final package in packages) {
     if (package is! Map<String, dynamic> ||
-        package['name'] != 'isar_flutter_libs') continue;
+        package['name'] != 'isar_flutter_libs') {
+      continue;
+    }
     final packageDir = Directory(
       packageConfigDir.uri.resolve(package['rootUri'] as String).toFilePath(),
     );
