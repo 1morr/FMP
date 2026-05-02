@@ -48,6 +48,27 @@ void main() {
       }
     });
 
+    test('addTracks counts existing unlinked library track as added', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final playlist = await _createPlaylist(harness, 'Existing Library Add');
+      final track =
+          await harness.tracks.save(_track('existing-unlinked', 'Existing'));
+
+      final result = await harness.mutations.addTracks(playlist.id, [track]);
+
+      final savedPlaylist = await harness.playlists.getById(playlist.id);
+      final savedTrack = await harness.tracks.getById(track.id);
+      expect(result.addedCount, 1);
+      expect(result.repairedCount, 0);
+      expect(savedPlaylist!.trackIds, [track.id]);
+      expect(
+        savedTrack!.playlistInfo
+            .where((info) => info.playlistId == playlist.id),
+        hasLength(1),
+      );
+    });
+
     test('addTracks repairs missing playlist or track side without duplicates',
         () async {
       final harness = await _createHarness();

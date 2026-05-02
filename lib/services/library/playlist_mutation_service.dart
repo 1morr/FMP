@@ -96,6 +96,9 @@ class PlaylistMutationService with Logging {
         final trackToSave = existingTrack ?? inputTrack;
         final metadataChanged = existingTrack != null &&
             _mergeTrackMetadataIfNeeded(existingTrack, inputTrack);
+        final trackLinked = trackToSave.belongsToPlaylist(playlistId);
+        final playlistLinked =
+            existingTrack != null && trackIdSet.contains(trackToSave.id);
 
         final trackMembershipChanged = _ensureSinglePlaylistInfo(
           trackToSave,
@@ -116,8 +119,6 @@ class PlaylistMutationService with Logging {
             updatedTrackIds.add(trackToSave.id);
           }
         }
-
-        final playlistLinked = trackIdSet.contains(trackToSave.id);
         if (!playlistLinked && trackIdSet.add(trackToSave.id)) {
           trackIds.add(trackToSave.id);
           firstNewPlaylistTrack ??= trackToSave;
@@ -125,7 +126,9 @@ class PlaylistMutationService with Logging {
         }
 
         if (existingTrack != null) {
-          if (trackMembershipChanged || !playlistLinked) {
+          if (!trackLinked && !playlistLinked) {
+            addedTrackIds.add(trackToSave.id);
+          } else if (trackMembershipChanged || !playlistLinked) {
             repairedTrackIds.add(trackToSave.id);
           } else if (!metadataChanged) {
             skippedTrackIds.add(trackToSave.id);
