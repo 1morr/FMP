@@ -7,22 +7,20 @@ void main() {
     final source =
         File('lib/services/library/playlist_service.dart').readAsStringSync();
 
-    test('removeTrackFromPlaylist uses service-level Isar transaction', () {
+    test('removeTrackFromPlaylist delegates to mutation service', () {
       final body = _methodBody(source, 'removeTrackFromPlaylist');
 
-      expect(body, contains('_isar.writeTxn'));
+      expect(body, contains('_mutationService.removeTrack('));
+      expect(body, isNot(contains('_isar.writeTxn')));
       expect(body, isNot(contains('_playlistRepository.removeTrack(')));
-      expect(body, isNot(contains('_trackRepository.delete(')));
-      expect(body, isNot(contains('_trackRepository.save(')));
     });
 
-    test('removeTracksFromPlaylist uses service-level Isar transaction', () {
+    test('removeTracksFromPlaylist delegates to mutation service', () {
       final body = _methodBody(source, 'removeTracksFromPlaylist');
 
-      expect(body, contains('_isar.writeTxn'));
+      expect(body, contains('_mutationService.removeTracks('));
+      expect(body, isNot(contains('_isar.writeTxn')));
       expect(body, isNot(contains('_playlistRepository.removeTracks(')));
-      expect(body, isNot(contains('_trackRepository.deleteAll(')));
-      expect(body, isNot(contains('_trackRepository.saveAll(')));
     });
   });
 }
