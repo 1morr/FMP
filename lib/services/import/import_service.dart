@@ -421,6 +421,7 @@ class ImportService with Logging implements ImportServiceFacade {
 
   /// 刷新导入的歌单
   Future<ImportResult> refreshPlaylist(int playlistId) async {
+    _isCancelled = false;
     final playlist = await _playlistRepository.getById(playlistId);
     if (playlist == null) {
       throw ImportException(t.importSource.playlistNotFound);
@@ -457,6 +458,7 @@ class ImportService with Logging implements ImportServiceFacade {
       }
       final result = await source.parsePlaylist(playlist.sourceUrl!,
           authHeaders: authHeaders);
+      _throwIfCancelled();
 
       // 更新所有者信息（刷新時可能變更）
       playlist.ownerName = result.ownerName;
@@ -469,6 +471,7 @@ class ImportService with Logging implements ImportServiceFacade {
           source,
           result.tracks,
           (current, total, item) {
+            _throwIfCancelled();
             _updateProgress(
               status: ImportStatus.importing,
               current: current,
@@ -481,6 +484,7 @@ class ImportService with Logging implements ImportServiceFacade {
       } else {
         expandedTracks = result.tracks;
       }
+      _throwIfCancelled();
 
       _updateProgress(
         status: ImportStatus.importing,
@@ -497,6 +501,7 @@ class ImportService with Logging implements ImportServiceFacade {
       final newTrackIds = <int>[];
 
       for (int i = 0; i < expandedTracks.length; i++) {
+        _throwIfCancelled();
         final track = expandedTracks[i];
 
         _updateProgress(
@@ -537,9 +542,12 @@ class ImportService with Logging implements ImportServiceFacade {
             addedCount++;
           }
         } catch (e) {
+          if (_isCancelled) rethrow;
           errors.add('${track.title}: ${e.toString()}');
         }
       }
+
+      _throwIfCancelled();
 
       // 计算被移除的歌曲（在原来列表中但不在新列表中的）
       final newTrackIdSet = Set<int>.from(newTrackIds);
@@ -576,6 +584,8 @@ class ImportService with Logging implements ImportServiceFacade {
               'Updated ${tracksToUpdate.length} tracks after playlist refresh');
         }
       }
+
+      _throwIfCancelled();
 
       // 更新歌单
       playlist.trackIds = newTrackIds;
@@ -711,6 +721,12 @@ class ImportService with Logging implements ImportServiceFacade {
     }
     // 极端情况：用时间戳
     return '$baseName (${DateTime.now().millisecondsSinceEpoch})';
+  }
+
+  void _throwIfCancelled() {
+    if (_isCancelled) {
+      throw const ImportException('Import cancelled');
+    }
   }
 
   void _updateProgress({

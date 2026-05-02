@@ -5,6 +5,7 @@ import '../data/models/settings.dart';
 import '../data/repositories/lyrics_repository.dart';
 import '../data/repositories/settings_repository.dart';
 import '../services/audio/audio_provider.dart';
+import '../services/lyrics/ai_lyrics_selector.dart';
 import '../services/lyrics/ai_title_parser.dart';
 import '../services/lyrics/lrc_parser.dart';
 import '../services/lyrics/lrclib_source.dart';
@@ -40,6 +41,10 @@ final titleParserProvider = Provider<TitleParser>((ref) => RegexTitleParser());
 /// AI TitleParser 单例
 final aiTitleParserProvider = Provider<AiTitleParser>((ref) => AiTitleParser());
 
+/// AI lyrics selector 单例
+final aiLyricsSelectorProvider =
+    Provider<AiLyricsSelector>((ref) => AiLyricsSelector());
+
 /// Lyrics AI config service 单例
 final lyricsAiConfigServiceProvider = Provider<LyricsAiConfigService>((ref) {
   final settingsRepo = ref.watch(settingsRepositoryProvider);
@@ -62,6 +67,9 @@ final lyricsCacheServiceProvider = Provider<LyricsCacheService>((ref) {
 /// LyricsAutoMatchService 单例
 final lyricsAutoMatchServiceProvider = Provider<LyricsAutoMatchService>((ref) {
   final aiConfigService = ref.watch(lyricsAiConfigServiceProvider);
+  final allowPlainLyricsAutoMatch = ref.watch(
+    audioSettingsProvider.select((state) => state.allowPlainLyricsAutoMatch),
+  );
   return LyricsAutoMatchService(
     lrclib: ref.watch(lrclibSourceProvider),
     netease: ref.watch(neteaseSourceProvider),
@@ -70,8 +78,10 @@ final lyricsAutoMatchServiceProvider = Provider<LyricsAutoMatchService>((ref) {
     cache: ref.watch(lyricsCacheServiceProvider),
     parser: ref.watch(titleParserProvider),
     aiTitleParser: ref.watch(aiTitleParserProvider),
+    aiLyricsSelector: ref.watch(aiLyricsSelectorProvider),
     aiConfigLoader: aiConfigService.loadConfig,
     titleParseCacheRepo: ref.watch(lyricsTitleParseCacheRepositoryProvider),
+    allowPlainLyricsAutoMatch: allowPlainLyricsAutoMatch,
   );
 });
 
@@ -107,8 +117,12 @@ final _currentLyricsSourceProvider = Provider.autoDispose<String?>((ref) {
 /// 注意：只在 externalId 变化时重新加载，offset 变化不会触发重新加载
 final currentLyricsContentProvider =
     FutureProvider.autoDispose<LyricsResult?>((ref) async {
+  var disposed = false;
+  ref.onDispose(() => disposed = true);
+
   final currentTrack = ref.watch(currentTrackProvider);
   if (currentTrack == null) return null;
+  final trackUniqueKey = currentTrack.uniqueKey;
 
   final externalId = ref.watch(_currentLyricsExternalIdProvider);
   if (externalId == null) return null;
@@ -117,8 +131,8 @@ final currentLyricsContentProvider =
   final cache = ref.watch(lyricsCacheServiceProvider);
 
   // 1. 尝试从缓存获取
-  final cached = await cache.get(currentTrack.uniqueKey);
-  if (cached != null) return cached;
+  final cached = await cache.get(trackUniqueKey);
+  if (cached != null || disposed) return cached;
 
   // 2. 根据歌词源从对应 API 获取
   LyricsResult? result;
@@ -133,9 +147,9 @@ final currentLyricsContentProvider =
     result = await lrclib.getById(externalId);
   }
 
-  if (result != null) {
+  if (result != null && !disposed) {
     // 3. 保存到缓存
-    await cache.put(currentTrack.uniqueKey, result);
+    await cache.put(trackUniqueKey, result);
   }
 
   return result;

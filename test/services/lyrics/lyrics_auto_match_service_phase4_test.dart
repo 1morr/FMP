@@ -119,6 +119,94 @@ void main() {
       expect(cache.savedKeys, ['netease:netease-song-1']);
     });
 
+    test('rejects netease source direct plain-only lyrics by default',
+        () async {
+      netease.directResults['netease-plain-default'] = _lyricsResult(
+        id: 'netease-plain-default',
+        source: 'netease',
+        syncedLyrics: null,
+        plainLyrics: 'plain line',
+      );
+      final track = _track('netease-plain-default')
+        ..sourceType = SourceType.netease;
+
+      final matched = await service.tryAutoMatch(
+        track,
+        enabledSources: const [],
+      );
+
+      expect(matched, isFalse);
+      expect(netease.directFetchCalls, ['netease-plain-default']);
+      expect(await repo.getByTrackKey('netease:netease-plain-default'), isNull);
+      expect(cache.savedKeys, isEmpty);
+    });
+
+    test(
+        'accepts netease source direct plain-only lyrics when setting allows it',
+        () async {
+      service = LyricsAutoMatchService(
+        lrclib: lrclib,
+        netease: netease,
+        qqmusic: qqmusic,
+        repo: repo,
+        cache: cache,
+        parser: parser,
+        allowPlainLyricsAutoMatch: true,
+      );
+      netease.directResults['netease-plain-allowed'] = _lyricsResult(
+        id: 'netease-plain-allowed',
+        source: 'netease',
+        syncedLyrics: null,
+        plainLyrics: 'plain line',
+      );
+      final track = _track('netease-plain-allowed')
+        ..sourceType = SourceType.netease;
+
+      final matched = await service.tryAutoMatch(
+        track,
+        enabledSources: const [],
+      );
+
+      expect(matched, isTrue);
+      final saved = await repo.getByTrackKey('netease:netease-plain-allowed');
+      expect(saved, isNotNull);
+      expect(saved!.lyricsSource, 'netease');
+      expect(saved.externalId, 'netease-plain-allowed');
+      expect(cache.savedKeys, ['netease:netease-plain-allowed']);
+    });
+
+    test(
+        'rejects netease source direct empty plain lyrics when setting allows it',
+        () async {
+      service = LyricsAutoMatchService(
+        lrclib: lrclib,
+        netease: netease,
+        qqmusic: qqmusic,
+        repo: repo,
+        cache: cache,
+        parser: parser,
+        allowPlainLyricsAutoMatch: true,
+      );
+      netease.directResults['netease-empty-plain'] = _lyricsResult(
+        id: 'netease-empty-plain',
+        source: 'netease',
+        syncedLyrics: null,
+        plainLyrics: '',
+      );
+      final track = _track('netease-empty-plain')
+        ..sourceType = SourceType.netease;
+
+      final matched = await service.tryAutoMatch(
+        track,
+        enabledSources: const [],
+      );
+
+      expect(matched, isFalse);
+      expect(netease.directFetchCalls, ['netease-empty-plain']);
+      expect(await repo.getByTrackKey('netease:netease-empty-plain'), isNull);
+      expect(cache.savedKeys, isEmpty);
+    });
+
     test('tryAutoMatch fetches imported qqmusic lyrics directly by original ID',
         () async {
       qqmusic.directResults['qq-songmid-1'] = _lyricsResult(
@@ -228,6 +316,70 @@ void main() {
       expect(await repo.getByTrackKey('youtube:duration-21s'), isNull);
     });
 
+    test('rejects plain-only lyrics by default', () async {
+      netease.searchResults = [
+        _lyricsResult(
+          id: 'plain-only',
+          source: 'netease',
+          syncedLyrics: null,
+          plainLyrics: 'plain line',
+        ),
+      ];
+      final matched = await service.tryAutoMatch(
+        _track('plain-default'),
+        enabledSources: const ['netease'],
+      );
+      expect(matched, isFalse);
+      expect(await repo.getByTrackKey('youtube:plain-default'), isNull);
+    });
+
+    test('accepts plain-only lyrics when setting allows it', () async {
+      service = LyricsAutoMatchService(
+        lrclib: lrclib,
+        netease: netease,
+        qqmusic: qqmusic,
+        repo: repo,
+        cache: cache,
+        parser: parser,
+        allowPlainLyricsAutoMatch: true,
+      );
+      netease.searchResults = [
+        _lyricsResult(
+          id: 'plain-allowed',
+          source: 'netease',
+          syncedLyrics: null,
+          plainLyrics: 'plain line',
+        ),
+      ];
+      final matched = await service.tryAutoMatch(
+        _track('plain-allowed'),
+        enabledSources: const ['netease'],
+      );
+      expect(matched, isTrue);
+      final saved = await repo.getByTrackKey('youtube:plain-allowed');
+      expect(saved?.externalId, 'plain-allowed');
+    });
+
+    test('accepts plain-only lyrics when call-time setting allows it',
+        () async {
+      netease.searchResults = [
+        _lyricsResult(
+          id: 'plain-call-time-allowed',
+          source: 'netease',
+          syncedLyrics: null,
+          plainLyrics: 'plain line',
+        ),
+      ];
+      final matched = await service.tryAutoMatch(
+        _track('plain-call-time-allowed'),
+        enabledSources: const ['netease'],
+        allowPlainLyricsAutoMatch: true,
+      );
+      expect(matched, isTrue);
+      final saved = await repo.getByTrackKey('youtube:plain-call-time-allowed');
+      expect(saved?.externalId, 'plain-call-time-allowed');
+    });
+
     test('tryAutoMatch clears in-flight state after completion', () async {
       final gate = _Gate();
       netease.onSearch = () async {
@@ -291,6 +443,8 @@ LyricsResult _lyricsResult({
   required String id,
   required String source,
   int duration = 180,
+  String? syncedLyrics = '[00:01.00]line',
+  String? plainLyrics,
 }) {
   return LyricsResult(
     id: id,
@@ -299,7 +453,8 @@ LyricsResult _lyricsResult({
     albumName: 'Album',
     duration: duration,
     instrumental: false,
-    syncedLyrics: '[00:01.00]line',
+    syncedLyrics: syncedLyrics,
+    plainLyrics: plainLyrics,
     source: source,
   );
 }

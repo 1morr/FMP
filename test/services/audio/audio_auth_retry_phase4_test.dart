@@ -161,6 +161,42 @@ void main() {
       expect(controller.state.error, isNull);
     });
 
+    test('network recovery does not restart old track after switch during stabilization',
+        () async {
+      final oldTrack = _track('old-network-track');
+      final newTrack = _track('new-user-track');
+
+      await controller.playTrack(oldTrack);
+      await pumpEventQueue(times: 10);
+
+      audioService.emitPosition(const Duration(seconds: 19));
+      audioService.emitError('network timeout during playback');
+      await pumpEventQueue(times: 10);
+
+      expect(controller.state.isRetrying, isTrue);
+      expect(controller.state.currentTrack?.sourceId, 'old-network-track');
+
+      audioService.playUrlCalls.clear();
+      audioService.seekCalls.clear();
+
+      networkRecoveryController.add(null);
+      await pumpEventQueue(times: 2);
+
+      await controller.playTrack(newTrack);
+      await pumpEventQueue(times: 10);
+      expect(controller.state.currentTrack?.sourceId, 'new-user-track');
+
+      audioService.playUrlCalls.clear();
+      audioService.seekCalls.clear();
+
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      await pumpEventQueue(times: 20);
+
+      expect(audioService.playUrlCalls, isEmpty);
+      expect(audioService.seekCalls, isEmpty);
+      expect(controller.state.currentTrack?.sourceId, 'new-user-track');
+    });
+
     test('shared auth header builder keeps netease desktop playback headers',
         () async {
       final headers = await buildAuthHeaders(

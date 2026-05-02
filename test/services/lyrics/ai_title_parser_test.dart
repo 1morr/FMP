@@ -73,10 +73,81 @@ void main() {
         'title': 'Song - Artist',
         'uploader': 'Uploader Channel',
       });
+      final logMessages = AppLogger.logs.map((entry) => entry.message).toList();
       expect(
-        AppLogger.logs.map((entry) => entry.message),
+        logMessages,
         contains('Calling AI title parser: Song - Artist'),
       );
+      expect(
+          logMessages, contains(contains('AI title parser request payload')));
+      expect(logMessages,
+          contains(contains('AI title parser raw response content')));
+      expect(logMessages, contains(contains('AI title parser parsed result')));
+      expect(logMessages.join('\n'), isNot(contains('secret-key')));
+    });
+
+    test('does not append chat completions path twice', () async {
+      final dio = Dio();
+      RequestOptions? capturedOptions;
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        capturedOptions = options;
+        return _jsonResponse({
+          'choices': [
+            {
+              'message': {
+                'content': jsonEncode({
+                  'trackName': 'Song',
+                  'artistName': 'Artist',
+                  'artistConfidence': 0.9,
+                }),
+              },
+            },
+          ],
+        });
+      });
+
+      await AiTitleParser(dio: dio).parse(
+        endpoint: ' https://api.example.com/v1/chat/completions/ ',
+        apiKey: 'secret-key',
+        model: 'gpt-test',
+        title: 'Song - Artist',
+        timeoutSeconds: 7,
+      );
+
+      expect(capturedOptions?.uri.toString(),
+          'https://api.example.com/v1/chat/completions');
+    });
+
+    test('blank endpoint skips request as incomplete configuration', () async {
+      final dio = Dio();
+      var requestSent = false;
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        requestSent = true;
+        return _jsonResponse({
+          'choices': [
+            {
+              'message': {
+                'content': jsonEncode({
+                  'trackName': 'Song',
+                  'artistName': 'Artist',
+                  'artistConfidence': 0.9,
+                }),
+              },
+            },
+          ],
+        });
+      });
+
+      final result = await AiTitleParser(dio: dio).parse(
+        endpoint: '   ',
+        apiKey: 'secret-key',
+        model: 'gpt-test',
+        title: 'Song - Artist',
+        timeoutSeconds: 7,
+      );
+
+      expect(result, isNull);
+      expect(requestSent, isFalse);
     });
 
     test('logs Dio failures from direct AI parser calls', () async {
@@ -141,6 +212,18 @@ void main() {
       expect(result?.trackName, 'Song');
       expect(result?.artistName, 'Artist');
       expect(result?.artistConfidence, 0.8);
+    });
+
+    test('string artistConfidence high keeps artist name', () {
+      final result = AiTitleParser.parseContent(jsonEncode({
+        'trackName': 'Poker Face',
+        'artistName': 'Lady Gaga',
+        'artistConfidence': 'high',
+      }));
+
+      expect(result?.trackName, 'Poker Face');
+      expect(result?.artistName, 'Lady Gaga');
+      expect(result?.artistConfidence, greaterThanOrEqualTo(0.8));
     });
 
     test('missing trackName returns null', () {

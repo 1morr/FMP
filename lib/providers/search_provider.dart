@@ -5,11 +5,13 @@ import '../data/models/live_room.dart';
 import '../data/models/track.dart';
 import '../data/models/video_detail.dart';
 export '../data/models/track.dart' show SourceType;
-export '../data/models/live_room.dart' show LiveRoomFilter, LiveRoom, LiveSearchResult;
+export '../data/models/live_room.dart'
+    show LiveRoomFilter, LiveRoom, LiveSearchResult;
 import '../data/models/search_history.dart';
 import '../data/sources/base_source.dart';
 import '../data/sources/bilibili_source.dart';
-import '../data/sources/source_provider.dart' show sourceManagerProvider, bilibiliSourceProvider;
+import '../data/sources/source_provider.dart'
+    show sourceManagerProvider, bilibiliSourceProvider;
 import '../services/search/search_service.dart';
 import 'account_provider.dart';
 import 'database_provider.dart';
@@ -131,7 +133,10 @@ class SearchState extends Equatable {
   }
 
   /// 是否有结果
-  bool get hasResults => localResults.isNotEmpty || allOnlineTracks.isNotEmpty || (liveRoomResults?.rooms.isNotEmpty ?? false);
+  bool get hasResults =>
+      localResults.isNotEmpty ||
+      allOnlineTracks.isNotEmpty ||
+      (liveRoomResults?.rooms.isNotEmpty ?? false);
 
   /// 是否有更多直播间结果
   bool get hasMoreLiveRooms => liveRoomResults?.hasMore ?? false;
@@ -163,11 +168,15 @@ class SearchState extends Equatable {
       onlineResults: onlineResults ?? this.onlineResults,
       isLoading: isLoading ?? this.isLoading,
       error: error,
-      selectedSource: clearSelectedSource ? null : (selectedSource ?? this.selectedSource),
+      selectedSource:
+          clearSelectedSource ? null : (selectedSource ?? this.selectedSource),
       currentPages: currentPages ?? this.currentPages,
       searchOrder: searchOrder ?? this.searchOrder,
-      liveRoomFilter: clearLiveRoomFilter ? null : (liveRoomFilter ?? this.liveRoomFilter),
-      liveRoomResults: clearLiveRoomResults ? null : (liveRoomResults ?? this.liveRoomResults),
+      liveRoomFilter:
+          clearLiveRoomFilter ? null : (liveRoomFilter ?? this.liveRoomFilter),
+      liveRoomResults: clearLiveRoomResults
+          ? null
+          : (liveRoomResults ?? this.liveRoomResults),
       liveRoomPage: liveRoomPage ?? this.liveRoomPage,
     );
   }
@@ -195,7 +204,8 @@ class SearchNotifier extends StateNotifier<SearchState> {
 
   int _searchRequestId = 0;
 
-  SearchNotifier(this._service, this._bilibiliSource) : super(const SearchState());
+  SearchNotifier(this._service, this._bilibiliSource)
+      : super(const SearchState());
 
   Future<List<VideoPage>> loadVideoPagesForTrack(Track track) {
     return _service.loadVideoPagesForTrack(track);
@@ -235,10 +245,10 @@ class SearchNotifier extends StateNotifier<SearchState> {
       );
 
       final results = await Future.wait([localFuture, onlineFuture]);
-      
+
       // 检查是否被新的搜索取代
       if (!mounted || requestId != _searchRequestId) return;
-      
+
       final localTracks = results[0] as List<Track>;
       final onlineResult = results[1] as MultiSourceSearchResult;
 
@@ -258,7 +268,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
     } catch (e) {
       // 检查是否被新的搜索取代
       if (!mounted || requestId != _searchRequestId) return;
-      
+
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),
@@ -270,6 +280,11 @@ class SearchNotifier extends StateNotifier<SearchState> {
   Future<void> loadMore(SourceType sourceType) async {
     if (!state.hasMoreFor(sourceType) || state.isLoading) return;
 
+    final requestId = _searchRequestId;
+    final query = state.query;
+    final searchOrder = state.searchOrder;
+    final selectedSource = state.selectedSource;
+    final liveRoomFilter = state.liveRoomFilter;
     final currentPage = state.currentPages[sourceType] ?? 1;
     final nextPage = currentPage + 1;
 
@@ -278,10 +293,21 @@ class SearchNotifier extends StateNotifier<SearchState> {
     try {
       final result = await _service.searchSource(
         sourceType,
-        state.query,
+        query,
         page: nextPage,
-        order: state.searchOrder,
+        order: searchOrder,
       );
+
+      if (!_isSearchStateCurrent(
+            requestId: requestId,
+            query: query,
+            selectedSource: selectedSource,
+            searchOrder: searchOrder,
+            liveRoomFilter: liveRoomFilter,
+          ) ||
+          state.currentPages[sourceType] != currentPage) {
+        return;
+      }
 
       // 合并结果
       final existingResult = state.onlineResults[sourceType];
@@ -311,6 +337,15 @@ class SearchNotifier extends StateNotifier<SearchState> {
         isLoading: false,
       );
     } catch (e) {
+      if (!_isSearchStateCurrent(
+        requestId: requestId,
+        query: query,
+        selectedSource: selectedSource,
+        searchOrder: searchOrder,
+        liveRoomFilter: liveRoomFilter,
+      )) {
+        return;
+      }
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),
@@ -318,9 +353,31 @@ class SearchNotifier extends StateNotifier<SearchState> {
     }
   }
 
+  bool _isSearchStateCurrent({
+    required int requestId,
+    required String query,
+    required SourceType? selectedSource,
+    required SearchOrder searchOrder,
+    required LiveRoomFilter? liveRoomFilter,
+  }) {
+    return mounted &&
+        requestId == _searchRequestId &&
+        state.query == query &&
+        state.selectedSource == selectedSource &&
+        state.searchOrder == searchOrder &&
+        state.liveRoomFilter == liveRoomFilter;
+  }
+
   /// 加载更多（所有有更多结果的音源同时加载）
   Future<void> loadMoreAll() async {
     if (state.isLoading) return;
+
+    final requestId = _searchRequestId;
+    final query = state.query;
+    final searchOrder = state.searchOrder;
+    final selectedSource = state.selectedSource;
+    final liveRoomFilter = state.liveRoomFilter;
+    final currentPages = Map<SourceType, int>.from(state.currentPages);
 
     // 找出所有有更多结果的音源
     final sourcesToLoad = <SourceType>[];
@@ -338,21 +395,37 @@ class SearchNotifier extends StateNotifier<SearchState> {
       // 并行加载所有音源的下一页
       final futures = <Future<(SourceType, SearchResult)>>[];
       for (final sourceType in sourcesToLoad) {
-        final currentPage = state.currentPages[sourceType] ?? 1;
+        final currentPage = currentPages[sourceType] ?? 1;
         final nextPage = currentPage + 1;
         futures.add(
           _service
               .searchSource(
                 sourceType,
-                state.query,
+                query,
                 page: nextPage,
-                order: state.searchOrder,
+                order: searchOrder,
               )
               .then((result) => (sourceType, result)),
         );
       }
 
       final results = await Future.wait(futures);
+
+      if (!_isSearchStateCurrent(
+        requestId: requestId,
+        query: query,
+        selectedSource: selectedSource,
+        searchOrder: searchOrder,
+        liveRoomFilter: liveRoomFilter,
+      )) {
+        return;
+      }
+
+      for (final sourceType in sourcesToLoad) {
+        if (state.currentPages[sourceType] != currentPages[sourceType]) {
+          return;
+        }
+      }
 
       // 合并结果
       final updatedResults =
@@ -383,6 +456,15 @@ class SearchNotifier extends StateNotifier<SearchState> {
         isLoading: false,
       );
     } catch (e) {
+      if (!_isSearchStateCurrent(
+        requestId: requestId,
+        query: query,
+        selectedSource: selectedSource,
+        searchOrder: searchOrder,
+        liveRoomFilter: liveRoomFilter,
+      )) {
+        return;
+      }
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),
@@ -394,7 +476,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
   /// [autoSearch] 是否自动触发搜索，默认为 true
   void setSource(SourceType? sourceType, {bool autoSearch = true}) {
     final hasQuery = state.query.isNotEmpty;
-    
+
     state = state.copyWith(
       selectedSource: sourceType,
       clearSelectedSource: sourceType == null,
@@ -412,16 +494,16 @@ class SearchNotifier extends StateNotifier<SearchState> {
   /// 设置排序方式
   void setSearchOrder(SearchOrder order) {
     if (state.searchOrder == order) return;
-    
+
     final hasQuery = state.query.isNotEmpty;
-    
+
     state = state.copyWith(
       searchOrder: order,
       // 有查询时清空旧结果并显示加载状态
       onlineResults: hasQuery ? {} : state.onlineResults,
       isLoading: hasQuery,
     );
-    
+
     // 如果有查询，重新搜索
     if (hasQuery) {
       search(state.query);
@@ -444,7 +526,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
   void setLiveRoomFilter(LiveRoomFilter? filter, {bool autoSearch = true}) {
     final hasQuery = state.query.isNotEmpty;
     final isExitingLiveMode = filter == null;
-    
+
     state = state.copyWith(
       liveRoomFilter: filter,
       clearLiveRoomFilter: isExitingLiveMode,
@@ -452,7 +534,9 @@ class SearchNotifier extends StateNotifier<SearchState> {
       clearLiveRoomResults: true,
       liveRoomPage: 1,
       // 退出直播间模式时清空视频结果
-      onlineResults: (isExitingLiveMode && autoSearch && hasQuery) ? {} : state.onlineResults,
+      onlineResults: (isExitingLiveMode && autoSearch && hasQuery)
+          ? {}
+          : state.onlineResults,
       // 有查询时显示加载状态
       isLoading: autoSearch && hasQuery,
     );
@@ -477,7 +561,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
     final isExitingLiveMode = clearLiveRoomFilter;
     // 需要清空直播间结果的情况
     final shouldClearLiveResults = isEnteringLiveMode || isExitingLiveMode;
-    
+
     state = state.copyWith(
       selectedSource: sourceType,
       clearSelectedSource: clearSource,
@@ -538,7 +622,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
     } catch (e) {
       // 检查是否被新的搜索取代
       if (!mounted || requestId != _searchRequestId) return;
-      
+
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),
@@ -550,16 +634,33 @@ class SearchNotifier extends StateNotifier<SearchState> {
   Future<void> loadMoreLiveRooms() async {
     if (!state.hasMoreLiveRooms || state.isLoading) return;
 
-    final nextPage = state.liveRoomPage + 1;
+    final requestId = _searchRequestId;
+    final query = state.query;
+    final selectedSource = state.selectedSource;
+    final searchOrder = state.searchOrder;
+    final filter = state.liveRoomFilter;
+    final currentPage = state.liveRoomPage;
+    final nextPage = currentPage + 1;
 
     state = state.copyWith(isLoading: true);
 
     try {
       final result = await _bilibiliSource.searchLiveRooms(
-        state.query,
+        query,
         page: nextPage,
-        filter: state.liveRoomFilter ?? LiveRoomFilter.all,
+        filter: filter ?? LiveRoomFilter.all,
       );
+
+      if (!_isSearchStateCurrent(
+            requestId: requestId,
+            query: query,
+            selectedSource: selectedSource,
+            searchOrder: searchOrder,
+            liveRoomFilter: filter,
+          ) ||
+          state.liveRoomPage != currentPage) {
+        return;
+      }
 
       // 合并结果
       final existingRooms = state.liveRoomResults?.rooms ?? [];
@@ -577,6 +678,15 @@ class SearchNotifier extends StateNotifier<SearchState> {
         isLoading: false,
       );
     } catch (e) {
+      if (!_isSearchStateCurrent(
+        requestId: requestId,
+        query: query,
+        selectedSource: selectedSource,
+        searchOrder: searchOrder,
+        liveRoomFilter: filter,
+      )) {
+        return;
+      }
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),

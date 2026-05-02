@@ -12,17 +12,18 @@ void main() {
 
       expect(
         state.lyricsAiTitleParsingMode,
-        LyricsAiTitleParsingMode.fallbackAfterRules,
+        LyricsAiTitleParsingMode.off,
       );
       expect(state.lyricsAiEndpoint, '');
       expect(state.lyricsAiModel, '');
       expect(state.lyricsAiTimeoutSeconds, 10);
       expect(state.lyricsAiApiKeyConfigured, isFalse);
+      expect(state.allowPlainLyricsAutoMatch, isFalse);
     });
 
     test('copyWith updates AI settings and preserves unchanged values', () {
       const state = AudioSettingsState(
-        lyricsAiTitleParsingMode: LyricsAiTitleParsingMode.fallbackAfterRules,
+        lyricsAiTitleParsingMode: LyricsAiTitleParsingMode.off,
         lyricsAiEndpoint: 'https://example.com/v1/chat/completions',
         lyricsAiModel: 'gpt-4o-mini',
         lyricsAiTimeoutSeconds: 15,
@@ -62,6 +63,18 @@ void main() {
 
       await notifier.setLyricsAiApiKey('');
       expect(notifier.state.lyricsAiApiKeyConfigured, isFalse);
+    });
+
+    test('updates plain lyrics automatic matching setting', () async {
+      FlutterSecureStorage.setMockInitialValues(<String, String>{});
+      final repository = _FakeSettingsRepository(Settings());
+      final notifier = AudioSettingsNotifier(repository);
+      await Future<void>.delayed(Duration.zero);
+
+      await notifier.setAllowPlainLyricsAutoMatch(true);
+
+      expect(notifier.state.allowPlainLyricsAutoMatch, isTrue);
+      expect(repository.settings.allowPlainLyricsAutoMatch, isTrue);
     });
   });
 }
