@@ -56,7 +56,6 @@ class PlaylistService with Logging {
   final PlaylistRepository _playlistRepository;
   final TrackRepository _trackRepository;
   final SettingsRepository _settingsRepository;
-  final Isar _isar;
   final PlaylistMutationService _mutationService;
 
   PlaylistService({
@@ -68,7 +67,6 @@ class PlaylistService with Logging {
   })  : _playlistRepository = playlistRepository,
         _trackRepository = trackRepository,
         _settingsRepository = settingsRepository,
-        _isar = isar,
         _mutationService =
             mutationService ?? PlaylistMutationService(isar: isar);
 
