@@ -7,7 +7,7 @@ import '../../../../core/constants/ui_constants.dart';
 import '../../../../core/services/image_loading_service.dart';
 import '../../../../core/services/toast_service.dart';
 import '../../../../data/models/track.dart';
-import '../../../../data/sources/bilibili_source.dart';
+import '../../../../services/library/remote_playlist_id_parser.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../../../providers/account_provider.dart';
 import '../../../../providers/import_playlist_provider.dart';
@@ -45,8 +45,7 @@ class AccountPlaylistsSheet extends ConsumerStatefulWidget {
       _AccountPlaylistsSheetState();
 }
 
-class _AccountPlaylistsSheetState
-    extends ConsumerState<AccountPlaylistsSheet> {
+class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
   final Object _importScopeToken = Object();
   List<_PlaylistItem>? _playlists;
   final Set<String> _selectedIds = {};
@@ -106,14 +105,16 @@ class _AccountPlaylistsSheetState
       setState(() {
         _playlists = items.map((item) {
           final imported = importedIds.contains(item.id);
-          return imported ? _PlaylistItem(
-            id: item.id,
-            title: item.title,
-            trackCount: item.trackCount,
-            thumbnailUrl: item.thumbnailUrl,
-            importUrl: item.importUrl,
-            isImported: true,
-          ) : item;
+          return imported
+              ? _PlaylistItem(
+                  id: item.id,
+                  title: item.title,
+                  trackCount: item.trackCount,
+                  thumbnailUrl: item.thumbnailUrl,
+                  importUrl: item.importUrl,
+                  isImported: true,
+                )
+              : item;
         }).toList();
         _isLoading = false;
       });
@@ -131,34 +132,41 @@ class _AccountPlaylistsSheetState
       case SourceType.bilibili:
         final service = ref.read(bilibiliFavoritesServiceProvider);
         final folders = await service.getFavFolders();
-        return folders.map((f) => _PlaylistItem(
-          id: f.id.toString(),
-          title: f.title,
-          trackCount: f.mediaCount,
-          thumbnailUrl: f.coverUrl,
-          importUrl: 'https://space.bilibili.com/0/favlist?fid=${f.id}',
-        )).toList();
+        return folders
+            .map((f) => _PlaylistItem(
+                  id: f.id.toString(),
+                  title: f.title,
+                  trackCount: f.mediaCount,
+                  thumbnailUrl: f.coverUrl,
+                  importUrl: 'https://space.bilibili.com/0/favlist?fid=${f.id}',
+                ))
+            .toList();
       case SourceType.youtube:
         final service = ref.read(youtubePlaylistServiceProvider);
         final playlists = await service.getPlaylists();
-        return playlists.map((p) => _PlaylistItem(
-          id: p.playlistId,
-          title: p.title,
-          trackCount: p.videoCount,
-          thumbnailUrl: p.thumbnailUrl,
-          importUrl:
-              'https://www.youtube.com/playlist?list=${p.playlistId}',
-        )).toList();
+        return playlists
+            .map((p) => _PlaylistItem(
+                  id: p.playlistId,
+                  title: p.title,
+                  trackCount: p.videoCount,
+                  thumbnailUrl: p.thumbnailUrl,
+                  importUrl:
+                      'https://www.youtube.com/playlist?list=${p.playlistId}',
+                ))
+            .toList();
       case SourceType.netease:
         final service = ref.read(neteasePlaylistServiceProvider);
         final playlists = await service.getPlaylists();
-        return playlists.map((p) => _PlaylistItem(
-          id: p.playlistId,
-          title: p.title,
-          trackCount: p.trackCount,
-          thumbnailUrl: p.thumbnailUrl,
-          importUrl: 'https://music.163.com/playlist?id=${p.playlistId}',
-        )).toList();
+        return playlists
+            .map((p) => _PlaylistItem(
+                  id: p.playlistId,
+                  title: p.title,
+                  trackCount: p.trackCount,
+                  thumbnailUrl: p.thumbnailUrl,
+                  importUrl:
+                      'https://music.163.com/playlist?id=${p.playlistId}',
+                ))
+            .toList();
     }
   }
 
@@ -170,21 +178,8 @@ class _AccountPlaylistsSheetState
     for (final p in imported) {
       final url = p.sourceUrl;
       if (url == null) continue;
-      switch (widget.platform) {
-        case SourceType.bilibili:
-          final fid = BilibiliSource.parseFavoritesId(url);
-          if (fid != null) ids.add(fid);
-        case SourceType.youtube:
-          // YouTube playlist URL 中的 list= 參數
-          final uri = Uri.tryParse(url);
-          final listId = uri?.queryParameters['list'];
-          if (listId != null) ids.add(listId);
-        case SourceType.netease:
-          // 網易雲歌單 URL 中的 id= 參數
-          final uri = Uri.tryParse(url);
-          final id = uri?.queryParameters['id'];
-          if (id != null) ids.add(id);
-      }
+      final remoteId = RemotePlaylistIdParser.parse(widget.platform, url);
+      if (remoteId != null) ids.add(remoteId);
     }
     return ids;
   }
@@ -241,7 +236,8 @@ class _AccountPlaylistsSheetState
     for (final item in selected) {
       if (!mounted || _isCancelled) break;
 
-      final scopeId = 'account-import-${widget.platform.name}-${item.id}-${identityHashCode(_importScopeToken)}';
+      final scopeId =
+          'account-import-${widget.platform.name}-${item.id}-${identityHashCode(_importScopeToken)}';
       final provider = importPlaylistProvider(scopeId);
       final notifier = ref.read(provider.notifier);
 
@@ -259,9 +255,10 @@ class _AccountPlaylistsSheetState
           (_, next) {
             if (!mounted) return;
             setState(() {
-              _trackProgress = next.progress.total > 0 || next.progress.currentItem != null
-                  ? next.progress
-                  : null;
+              _trackProgress =
+                  next.progress.total > 0 || next.progress.currentItem != null
+                      ? next.progress
+                      : null;
             });
           },
           fireImmediately: true,
@@ -312,7 +309,10 @@ class _AccountPlaylistsSheetState
     final colorScheme = Theme.of(context).colorScheme;
     final importedIds = _playlists == null
         ? <String>{}
-        : {for (final p in _playlists!) if (p.isImported) p.id};
+        : {
+            for (final p in _playlists!)
+              if (p.isImported) p.id
+          };
     final selectedCount =
         _selectedIds.where((id) => !importedIds.contains(id)).length;
 
@@ -361,7 +361,9 @@ class _AccountPlaylistsSheetState
             ),
           ),
           // Bottom action bar
-          if (!_isLoading && _error == null && (_playlists?.isNotEmpty ?? false))
+          if (!_isLoading &&
+              _error == null &&
+              (_playlists?.isNotEmpty ?? false))
             _buildBottomBar(selectedCount),
         ],
       ),
@@ -411,8 +413,8 @@ class _AccountPlaylistsSheetState
         child: item.thumbnailUrl != null
             ? ImageLoadingService.loadImage(
                 networkUrl: item.thumbnailUrl,
-                placeholder: Icon(Icons.playlist_play,
-                    color: colorScheme.outline),
+                placeholder:
+                    Icon(Icons.playlist_play, color: colorScheme.outline),
                 width: 40,
                 height: 40,
                 fit: BoxFit.cover,
@@ -428,10 +430,8 @@ class _AccountPlaylistsSheetState
               ? Icon(Icons.check_circle, color: colorScheme.primary)
               : Icon(Icons.circle_outlined, color: colorScheme.outline),
       selected: isSelected,
-      selectedTileColor:
-          colorScheme.primaryContainer.withValues(alpha: 0.3),
-      shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.borderRadiusLg),
+      selectedTileColor: colorScheme.primaryContainer.withValues(alpha: 0.3),
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
       onTap: item.isImported || _isImporting
           ? null
           : () => _toggleSelection(item.id),
@@ -474,8 +474,8 @@ class _AccountPlaylistsSheetState
                     Expanded(
                       child: Text(
                         // 分P階段 currentItem 自帶進度數字，提取純文字部分
-                        _trackProgress!.currentItem
-                                ?.replaceFirst(RegExp(r'\s*\(\d+/\d+\)$'), '') ??
+                        _trackProgress!.currentItem?.replaceFirst(
+                                RegExp(r'\s*\(\d+/\d+\)$'), '') ??
                             t.account.importing,
                         style: textStyle,
                         maxLines: 1,
@@ -515,11 +515,10 @@ class _AccountPlaylistsSheetState
                       child: Text(t.general.cancel),
                     )
                   : FilledButton(
-                      onPressed:
-                          selectedCount > 0 ? _importSelected : null,
+                      onPressed: selectedCount > 0 ? _importSelected : null,
                       child: Text(
-                        t.account.importSelected(
-                            count: selectedCount.toString()),
+                        t.account
+                            .importSelected(count: selectedCount.toString()),
                       ),
                     ),
             ),

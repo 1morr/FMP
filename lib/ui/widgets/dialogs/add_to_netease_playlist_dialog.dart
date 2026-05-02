@@ -9,6 +9,7 @@ import '../../../i18n/strings.g.dart';
 import '../../../providers/account_provider.dart';
 import '../../../providers/remote_playlist_sync_provider.dart';
 import '../../../services/account/netease_playlist_service.dart';
+import '../../../services/library/remote_playlist_selection_changes.dart';
 import '../track_thumbnail.dart';
 
 Future<bool> showAddToNeteasePlaylistDialog({
@@ -40,6 +41,7 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
   final Set<String> _originalIds = {};
   final Set<String> _partialIds = {};
   final Set<String> _deselectedPartialIds = {};
+  final Map<String, Set<String>> _existingTrackIdsByPlaylist = {};
   bool _isLoading = true;
   bool _isCheckingMulti = false;
   bool _isSubmitting = false;
@@ -112,6 +114,7 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
             if (existingTrackIds.isEmpty) {
               return null;
             }
+            _existingTrackIdsByPlaylist[playlist.playlistId] = existingTrackIds;
             return MapEntry(playlist.playlistId, existingTrackIds.length);
           } catch (_) {
             return null;
@@ -240,13 +243,11 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
   }
 
   ({List<String> toAdd, List<String> toRemove}) _computeChanges() {
-    final toAdd =
-        _selectedIds.difference(_originalIds).difference(_partialIds).toList();
-    final toRemove = [
-      ..._originalIds.difference(_selectedIds),
-      ..._deselectedPartialIds,
-    ];
-    return (toAdd: toAdd, toRemove: toRemove);
+    return computeRemotePlaylistSelectionChanges(
+      selectedIds: _selectedIds,
+      originalIds: _originalIds,
+      deselectedPartialIds: _deselectedPartialIds,
+    );
   }
 
   Future<void> _submit() async {
@@ -268,7 +269,13 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
         if (toAdd.length > 1) {
           setState(() => _submitProgress = '${i + 1}/${toAdd.length}');
         }
-        await service.addTracksToPlaylist(toAdd[i], trackIds);
+        final playlistId = toAdd[i];
+        final missingTrackIds = missingRemoteTrackIds<String>(
+          allTrackIds: trackIds,
+          existingTrackIds:
+              _existingTrackIdsByPlaylist[playlistId] ?? const <String>{},
+        );
+        await service.addTracksToPlaylist(playlistId, missingTrackIds);
       }
 
       for (var i = 0; i < toRemove.length; i++) {
@@ -284,9 +291,9 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
         await ref
             .read(remotePlaylistSyncServiceProvider)
             .refreshMatchingImportedPlaylists(
-              sourceType: SourceType.netease,
-              remotePlaylistIds: [...toAdd, ...toRemove],
-            );
+          sourceType: SourceType.netease,
+          remotePlaylistIds: [...toAdd, ...toRemove],
+        );
       } catch (_) {
         // Local refresh trigger is best-effort; remote playlist update already succeeded.
       }

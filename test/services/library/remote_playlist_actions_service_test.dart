@@ -45,15 +45,14 @@ void main() {
       },
     );
 
-    test('single Bilibili removal uses update callback with parsed folder id',
-        () async {
-      int? removedVideoAid;
+    test('single Bilibili removal delegates to batch removal', () async {
       int? removedFolderId;
+      List<int>? removedAids;
       final service = _service(
         getBilibiliAid: (_) async => 303,
-        removeBilibiliTrack: ({required videoAid, required folderId}) async {
-          removedVideoAid = videoAid;
+        removeBilibiliTracks: ({required folderId, required videoAids}) async {
           removedFolderId = folderId;
+          removedAids = videoAids;
         },
       );
 
@@ -64,8 +63,8 @@ void main() {
       );
 
       expect(removed, isTrue);
-      expect(removedVideoAid, 303);
       expect(removedFolderId, 98765);
+      expect(removedAids, [303]);
     });
 
     test(
@@ -184,8 +183,6 @@ RemotePlaylistActionsService _service({
   Future<int> Function(Track track)? getBilibiliAid,
   Future<void> Function({required int folderId, required List<int> videoAids})?
       removeBilibiliTracks,
-  Future<void> Function({required int videoAid, required int folderId})?
-      removeBilibiliTrack,
   Future<String?> Function(String playlistId, String videoId)?
       getYoutubeSetVideoId,
   Future<void> Function(String playlistId, String videoId, String setVideoId)?
@@ -199,9 +196,6 @@ RemotePlaylistActionsService _service({
     removeBilibiliTracks: removeBilibiliTracks ??
         ({required folderId, required videoAids}) =>
             throw UnimplementedError('removeBilibiliTracks'),
-    removeBilibiliTrack: removeBilibiliTrack ??
-        ({required videoAid, required folderId}) =>
-            throw UnimplementedError('removeBilibiliTrack'),
     getYoutubeSetVideoId: getYoutubeSetVideoId ??
         (playlistId, videoId) =>
             throw UnimplementedError('getYoutubeSetVideoId'),

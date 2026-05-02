@@ -7,6 +7,7 @@ import '../../core/logger.dart';
 import '../../core/utils/http_client_factory.dart';
 import '../../core/utils/netease_crypto.dart';
 import '../../services/account/netease_account_service.dart';
+import '../../services/library/remote_playlist_id_parser.dart';
 import '../models/settings.dart';
 import '../models/track.dart';
 import '../models/video_detail.dart';
@@ -118,8 +119,8 @@ class NeteaseSource extends BaseSource with Logging {
         'encodeType': 'flac',
       };
 
-      final eapiParams = NeteaseCrypto.eapi(
-          '/api/song/enhance/player/url/v1', payload);
+      final eapiParams =
+          NeteaseCrypto.eapi('/api/song/enhance/player/url/v1', payload);
 
       final response = await _dio.post(
         '$_interfaceBase/eapi/song/enhance/player/url/v1',
@@ -170,7 +171,6 @@ class NeteaseSource extends BaseSource with Logging {
         streamType: StreamType.audioOnly,
         expiry: _audioUrlExpiry,
       );
-
     } on DioException catch (e) {
       throw _handleDioError(e);
     } catch (e) {
@@ -266,8 +266,7 @@ class NeteaseSource extends BaseSource with Logging {
       final playlistId = await _extractPlaylistId(playlistUrl);
       if (playlistId == null) {
         throw NeteaseApiException(
-            numericCode: -3,
-            message: 'Invalid playlist URL: $playlistUrl');
+            numericCode: -3, message: 'Invalid playlist URL: $playlistUrl');
       }
 
       final response = await _dio.post(
@@ -347,8 +346,7 @@ class NeteaseSource extends BaseSource with Logging {
       {Map<String, String>? authHeaders}) async {
     if (track.sourceType != SourceType.netease) {
       throw const NeteaseApiException(
-          numericCode: -3,
-          message: 'Invalid source type for NeteaseSource');
+          numericCode: -3, message: 'Invalid source type for NeteaseSource');
     }
 
     final result =
@@ -633,8 +631,8 @@ class NeteaseSource extends BaseSource with Logging {
     final st = privilege?['st'] as int? ?? 0;
     // cloudsearch API 的 privilege.fee 可能不準確（VIP 歌曲返回 0），
     // 而 song.fee 是準確的；兩者任一標記為 VIP 即視為 VIP
-    final isVip = (privFee == 1 || privFee == 4 ||
-        songFee == 1 || songFee == 4);
+    final isVip =
+        (privFee == 1 || privFee == 4 || songFee == 1 || songFee == 4);
 
     return Track()
       ..sourceId = songId.toString()
@@ -657,13 +655,7 @@ class NeteaseSource extends BaseSource with Logging {
   }
 
   String? _parsePlaylistIdFromUrl(String url) {
-    final idMatch = RegExp(r'[?&]id=(\d+)').firstMatch(url);
-    if (idMatch != null) return idMatch.group(1);
-
-    final pathMatch = RegExp(r'/playlist[?/].*?(\d{5,})').firstMatch(url);
-    if (pathMatch != null) return pathMatch.group(1);
-
-    return null;
+    return RemotePlaylistIdParser.parseNeteasePlaylistId(url);
   }
 
   Future<String> _resolveShortUrl(String url) async {
@@ -744,8 +736,9 @@ class NeteaseSource extends BaseSource with Logging {
     if (code == null) return;
 
     if (code != 200 && code != 0) {
-      final message =
-          data['message'] as String? ?? data['msg'] as String? ?? 'Unknown error';
+      final message = data['message'] as String? ??
+          data['msg'] as String? ??
+          'Unknown error';
       logWarning('Netease API error: code=$code, message=$message');
       throw NeteaseApiException(numericCode: code, message: message);
     }

@@ -7,10 +7,6 @@ class RemotePlaylistActionsService {
     required int folderId,
     required List<int> videoAids,
   }) removeBilibiliTracks;
-  final Future<void> Function({
-    required int videoAid,
-    required int folderId,
-  }) removeBilibiliTrack;
   final Future<String?> Function(String playlistId, String videoId)
       getYoutubeSetVideoId;
   final Future<void> Function(
@@ -24,7 +20,6 @@ class RemotePlaylistActionsService {
   const RemotePlaylistActionsService({
     required this.getBilibiliAid,
     required this.removeBilibiliTracks,
-    required this.removeBilibiliTrack,
     required this.getYoutubeSetVideoId,
     required this.removeYoutubeTrack,
     required this.removeNeteaseTracks,
@@ -34,33 +29,12 @@ class RemotePlaylistActionsService {
     required String sourceUrl,
     required SourceType importSourceType,
     required Track track,
-  }) async {
-    if (track.sourceType != importSourceType) return false;
-
-    switch (importSourceType) {
-      case SourceType.bilibili:
-        final folderId =
-            RemotePlaylistIdParser.parseBilibiliFolderId(sourceUrl);
-        if (folderId == null) return false;
-        final videoAid = await getBilibiliAid(track);
-        await removeBilibiliTrack(videoAid: videoAid, folderId: folderId);
-        return true;
-      case SourceType.youtube:
-        final playlistId =
-            RemotePlaylistIdParser.parseYoutubePlaylistId(sourceUrl);
-        if (playlistId == null) return false;
-        final setVideoId =
-            await getYoutubeSetVideoId(playlistId, track.sourceId);
-        if (setVideoId == null) return false;
-        await removeYoutubeTrack(playlistId, track.sourceId, setVideoId);
-        return true;
-      case SourceType.netease:
-        final playlistId =
-            RemotePlaylistIdParser.parseNeteasePlaylistId(sourceUrl);
-        if (playlistId == null) return false;
-        await removeNeteaseTracks(playlistId, [track.sourceId]);
-        return true;
-    }
+  }) {
+    return removeTracksFromRemote(
+      sourceUrl: sourceUrl,
+      importSourceType: importSourceType,
+      tracks: [track],
+    );
   }
 
   Future<bool> removeTracksFromRemote({
