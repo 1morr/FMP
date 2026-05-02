@@ -320,6 +320,35 @@ void main() {
     });
 
     test(
+        'replaceTracksFromRemoteRefresh prunes missing original ids from the playlist and reports them as removed',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final playlist = await _createPlaylist(harness, 'Refresh Dangling');
+      await harness.mutations.addTracks(
+        playlist.id,
+        [_track('keep', 'Keep')],
+      );
+      playlist.trackIds = [999999, ...playlist.trackIds];
+      await harness.playlists.save(playlist);
+
+      final result = await harness.mutations.replaceTracksFromRemoteRefresh(
+        playlist.id,
+        [_track('keep', 'Keep')],
+        const RemoteRefreshMutationPolicy(sourceDataComplete: true),
+      );
+
+      final keepTrack = await harness.tracks.getBySourceId(
+        'keep',
+        SourceType.youtube,
+      );
+      final savedPlaylist = await harness.playlists.getById(playlist.id);
+      expect(savedPlaylist!.trackIds, [keepTrack!.id]);
+      expect(result.removedTrackIds, [999999]);
+      expect(result.deletedTrackIds, isEmpty);
+    });
+
+    test(
         'replaceTracksFromRemoteRefresh preserves stale tracks on partial refresh',
         () async {
       final harness = await _createHarness();

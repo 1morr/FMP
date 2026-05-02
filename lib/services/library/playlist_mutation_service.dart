@@ -461,7 +461,7 @@ class PlaylistMutationService with Logging {
               refreshedTrackIds,
             );
       final finalTrackIdSet = finalTrackIds.toSet();
-      final removedTrackIds = <int>[];
+      final removedTrackIdSet = <int>{};
       final deletedTrackIds = <int>[];
       final tracksToUpdate = <Track>[];
       final updatedTrackIdSet = updatedTrackIds.toSet();
@@ -470,6 +470,7 @@ class PlaylistMutationService with Logging {
         final removalCandidates = originalTrackIds
             .where((trackId) => !finalTrackIdSet.contains(trackId))
             .toSet();
+        removedTrackIdSet.addAll(removalCandidates);
         final reverseLinkedTracks = await _isar.tracks
             .filter()
             .playlistInfoElement((q) => q.playlistIdEqualTo(playlistId))
@@ -487,7 +488,7 @@ class PlaylistMutationService with Logging {
             continue;
           }
 
-          removedTrackIds.add(track.id);
+          removedTrackIdSet.add(track.id);
           track.removeFromPlaylist(playlistId);
           if (track.playlistInfo.isEmpty) {
             deletedTrackIds.add(track.id);
@@ -523,7 +524,7 @@ class PlaylistMutationService with Logging {
         addedTrackIds: addedTrackIds,
         repairedTrackIds: repairedTrackIds,
         skippedTrackIds: skippedTrackIds,
-        removedTrackIds: removedTrackIds,
+        removedTrackIds: removedTrackIdSet.toList(),
         deletedTrackIds: deletedTrackIds,
         updatedTrackIds: updatedTrackIdSet.toList(),
         errors: errors,
