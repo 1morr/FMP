@@ -7,6 +7,7 @@ import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/account_provider.dart';
+import '../../../providers/remote_playlist_sync_provider.dart';
 import '../../../services/account/youtube_playlist_service.dart';
 import '../track_thumbnail.dart';
 
@@ -325,6 +326,15 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
             );
           }
         }
+      }
+
+      try {
+        await ref.read(remotePlaylistSyncServiceProvider).refreshMatchingImportedPlaylists(
+              sourceType: SourceType.youtube,
+              remotePlaylistIds: [...toAdd, ...toRemove],
+            );
+      } catch (_) {
+        // Local refresh trigger is best-effort; remote playlist update already succeeded.
       }
 
       if (!mounted) return;

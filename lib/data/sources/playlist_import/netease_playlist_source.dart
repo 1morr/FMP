@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
+import '../../../services/library/remote_playlist_id_parser.dart';
 import 'playlist_import_source.dart';
 
 /// 网易云音乐歌单导入源
@@ -22,20 +23,7 @@ class NeteasePlaylistSource implements PlaylistImportSource {
 
   @override
   String? extractPlaylistId(String url) {
-    // 标准链接: https://music.163.com/#/playlist?id=2829896389
-    // 或: https://music.163.com/playlist?id=2829896389
-    final idMatch = RegExp(r'[?&]id=(\d+)').firstMatch(url);
-    if (idMatch != null) {
-      return idMatch.group(1);
-    }
-
-    // 移动端链接: https://y.music.163.com/m/playlist?id=xxx
-    final mobileMatch = RegExp(r'/playlist[?/].*?(\d{5,})').firstMatch(url);
-    if (mobileMatch != null) {
-      return mobileMatch.group(1);
-    }
-
-    return null;
+    return RemotePlaylistIdParser.parseNeteasePlaylistId(url);
   }
 
   @override
@@ -50,7 +38,8 @@ class NeteasePlaylistSource implements PlaylistImportSource {
 
     // 1. 获取歌单基本信息
     final playlistInfo = await _fetchPlaylistInfo(playlistId);
-    final name = playlistInfo['name'] as String? ?? t.importSource.unknownPlaylist;
+    final name =
+        playlistInfo['name'] as String? ?? t.importSource.unknownPlaylist;
     final trackIds = _extractTrackIds(playlistInfo);
 
     if (trackIds.isEmpty) {
@@ -135,7 +124,8 @@ class NeteasePlaylistSource implements PlaylistImportSource {
         contentType: 'application/x-www-form-urlencoded',
         responseType: ResponseType.json,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
           'Referer': 'https://music.163.com/',
         },
       ),
@@ -145,7 +135,8 @@ class NeteasePlaylistSource implements PlaylistImportSource {
 
     final code = data['code'];
     if (code != 200) {
-      throw Exception('${t.importSource.fetchPlaylistFailed}: ${data['message'] ?? t.error.unknownError}');
+      throw Exception(
+          '${t.importSource.fetchPlaylistFailed}: ${data['message'] ?? t.error.unknownError}');
     }
 
     final playlist = data['playlist'];
@@ -183,7 +174,8 @@ class NeteasePlaylistSource implements PlaylistImportSource {
         contentType: 'application/x-www-form-urlencoded',
         responseType: ResponseType.json,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
           'Referer': 'https://music.163.com/',
         },
       ),
@@ -196,26 +188,30 @@ class NeteasePlaylistSource implements PlaylistImportSource {
       return [];
     }
 
-    return songs.map((song) {
-      if (song is! Map<String, dynamic>) {
-        return null;
-      }
+    return songs
+        .map((song) {
+          if (song is! Map<String, dynamic>) {
+            return null;
+          }
 
-      final name = song['name'] as String? ?? '';
-      final artists = _extractArtists(song['ar']);
-      final album = _extractAlbumName(song['al']);
-      final duration = song['dt'] as int?;
-      final songId = song['id'];
+          final name = song['name'] as String? ?? '';
+          final artists = _extractArtists(song['ar']);
+          final album = _extractAlbumName(song['al']);
+          final duration = song['dt'] as int?;
+          final songId = song['id'];
 
-      return ImportedTrack(
-        title: name,
-        artists: artists,
-        album: album,
-        duration: duration != null ? Duration(milliseconds: duration) : null,
-        sourceId: songId?.toString(),
-        source: PlaylistSource.netease,
-      );
-    }).whereType<ImportedTrack>().toList();
+          return ImportedTrack(
+            title: name,
+            artists: artists,
+            album: album,
+            duration:
+                duration != null ? Duration(milliseconds: duration) : null,
+            sourceId: songId?.toString(),
+            source: PlaylistSource.netease,
+          );
+        })
+        .whereType<ImportedTrack>()
+        .toList();
   }
 
   List<String> _extractArtists(dynamic ar) {

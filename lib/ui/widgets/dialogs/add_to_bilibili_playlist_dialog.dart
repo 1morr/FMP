@@ -2,16 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/ui_constants.dart';
+import '../../../core/logger.dart';
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/account_provider.dart';
+import '../../../providers/playlist_provider.dart';
 import '../../../providers/remote_playlist_sync_provider.dart';
-import '../../../services/account/netease_playlist_service.dart';
+import '../../../providers/repository_providers.dart';
+import '../../../services/account/bilibili_favorites_service.dart';
 import '../track_thumbnail.dart';
 
-Future<bool> showAddToNeteasePlaylistDialog({
+Future<bool> showAddToBilibiliPlaylistDialog({
   required BuildContext context,
   required List<Track> tracks,
 }) async {
@@ -20,32 +23,33 @@ Future<bool> showAddToNeteasePlaylistDialog({
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    builder: (context) => _NeteasePlaylistSheet(tracks: tracks),
+    builder: (context) => _BilibiliRemoteFavSheet(tracks: tracks),
   );
   return result ?? false;
 }
 
-class _NeteasePlaylistSheet extends ConsumerStatefulWidget {
+class _BilibiliRemoteFavSheet extends ConsumerStatefulWidget {
   final List<Track> tracks;
-  const _NeteasePlaylistSheet({required this.tracks});
+  const _BilibiliRemoteFavSheet({required this.tracks});
 
   @override
-  ConsumerState<_NeteasePlaylistSheet> createState() =>
-      _NeteasePlaylistSheetState();
+  ConsumerState<_BilibiliRemoteFavSheet> createState() =>
+      _BilibiliRemoteFavSheetState();
 }
 
-class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
-  List<NeteasePlaylistInfo>? _playlists;
-  final Set<String> _selectedIds = {};
-  final Set<String> _originalIds = {};
-  final Set<String> _partialIds = {};
-  final Set<String> _deselectedPartialIds = {};
+class _BilibiliRemoteFavSheetState
+    extends ConsumerState<_BilibiliRemoteFavSheet> {
+  List<BilibiliFavFolder>? _folders;
+  Set<int> _selectedIds = {};
+  Set<int> _originalIds = {};
+  Set<int> _partialIds = {};
+  final Set<int> _deselectedPartialIds = {};
   bool _isLoading = true;
   bool _isCheckingMulti = false;
   bool _isSubmitting = false;
   String? _errorMessage;
   String? _submitProgress;
-  final _newPlaylistController = TextEditingController();
+  final _newFolderController = TextEditingController();
 
   List<Track> get _tracks => widget.tracks;
   bool get _isMulti => _tracks.length > 1;
@@ -53,109 +57,30 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
   @override
   void initState() {
     super.initState();
-    _loadPlaylists();
+    _loadFolders();
   }
 
   @override
   void dispose() {
-    _newPlaylistController.dispose();
+    _newFolderController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadPlaylists() async {
-    try {
-      final service = ref.read(neteasePlaylistServiceProvider);
-      final playlists = await service.getWritablePlaylists();
-
-      if (!mounted) return;
-      setState(() {
-        _playlists = playlists;
-        _isLoading = false;
-      });
-
-      if (playlists.isNotEmpty) {
-        setState(() => _isCheckingMulti = true);
-        _checkMembershipAsync(playlists);
-      }
-    } on NeteasePlaylistException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = e.message;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = t.remote.error.unknown(code: 'LOAD');
-      });
-    }
-  }
-
-  Future<void> _checkMembershipAsync(
-    List<NeteasePlaylistInfo> playlists,
-  ) async {
-    final service = ref.read(neteasePlaylistServiceProvider);
-    final trackIds = _tracks.map((track) => track.sourceId).toSet();
-    final membershipCounts = <String, int>{};
-    const batchSize = 4;
-
-    for (var start = 0; start < playlists.length; start += batchSize) {
-      final batch = playlists.skip(start).take(batchSize).toList();
-      final membershipEntries = await Future.wait(
-        batch.map((playlist) async {
-          try {
-            final existingTrackIds = await service.getTrackIdsInPlaylist(
-              playlist.playlistId,
-              targetTrackIds: trackIds,
-            );
-            if (existingTrackIds.isEmpty) {
-              return null;
-            }
-            return MapEntry(playlist.playlistId, existingTrackIds.length);
-          } catch (_) {
-            return null;
-          }
-        }),
-      );
-      if (!mounted) return;
-
-      for (final entry
-          in membershipEntries.whereType<MapEntry<String, int>>()) {
-        membershipCounts[entry.key] = entry.value;
-      }
-    }
-
-    if (!mounted) return;
-    final totalTracks = trackIds.length;
-    setState(() {
-      for (final entry in membershipCounts.entries) {
-        if (entry.value >= totalTracks) {
-          _originalIds.add(entry.key);
-          _selectedIds.add(entry.key);
-        } else if (entry.value > 0) {
-          _partialIds.add(entry.key);
-        }
-      }
-      _isCheckingMulti = false;
-    });
-  }
-
-  Future<void> _showCreatePlaylistDialog() async {
+  Future<void> _showCreateFolderDialog() async {
     bool isPrivate = false;
     final result = await showDialog<({String name, bool isPrivate})>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text(t.remote.createPlaylist),
+          title: Text(t.remote.createFolder),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                controller: _newPlaylistController,
+                controller: _newFolderController,
                 autofocus: true,
                 decoration: InputDecoration(
-                  hintText: t.remote.playlistNameHint,
+                  hintText: t.remote.folderNameHint,
                 ),
                 onSubmitted: (value) {
                   if (value.trim().isNotEmpty) {
@@ -181,9 +106,8 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
                   ),
                 ],
                 selected: {isPrivate},
-                onSelectionChanged: (values) {
-                  setDialogState(() => isPrivate = values.first);
-                },
+                onSelectionChanged: (v) =>
+                    setDialogState(() => isPrivate = v.first),
               ),
             ],
           ),
@@ -194,12 +118,9 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
             ),
             FilledButton(
               onPressed: () {
-                final name = _newPlaylistController.text.trim();
+                final name = _newFolderController.text.trim();
                 if (name.isNotEmpty) {
-                  Navigator.pop(
-                    context,
-                    (name: name, isPrivate: isPrivate),
-                  );
+                  Navigator.pop(context, (name: name, isPrivate: isPrivate));
                 }
               },
               child: Text(t.general.confirm),
@@ -209,27 +130,21 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
       ),
     );
 
-    _newPlaylistController.clear();
+    _newFolderController.clear();
 
     if (result != null && mounted) {
       try {
-        final service = ref.read(neteasePlaylistServiceProvider);
-        final playlistId = await service.createPlaylist(
+        final favService = ref.read(bilibiliFavoritesServiceProvider);
+        final folder = await favService.createFavFolder(
           title: result.name,
           isPrivate: result.isPrivate,
         );
         if (!mounted) return;
         setState(() {
-          final newPlaylist = NeteasePlaylistInfo(
-            playlistId: playlistId,
-            title: result.name,
-            trackCount: 0,
-            isMine: true,
-          );
-          _playlists?.insert(0, newPlaylist);
-          _selectedIds.add(playlistId);
+          _folders?.insert(0, folder);
+          _selectedIds.add(folder.id);
         });
-      } on NeteasePlaylistException catch (e) {
+      } on BilibiliFavoritesException catch (e) {
         if (!mounted) return;
         ToastService.error(context, e.message);
       } catch (_) {
@@ -239,7 +154,102 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
     }
   }
 
-  ({List<String> toAdd, List<String> toRemove}) _computeChanges() {
+  Future<void> _loadFolders() async {
+    try {
+      final favService = ref.read(bilibiliFavoritesServiceProvider);
+
+      if (_isMulti) {
+        final folders = await favService.getFavFolders();
+        if (!mounted) return;
+        setState(() {
+          _folders = folders;
+          _isLoading = false;
+          _isCheckingMulti = true;
+        });
+        _checkMultiFavStatusAsync(folders);
+      } else {
+        final aid = await favService.getVideoAid(_tracks.first);
+        final folders = await favService.getFavFolders(videoAid: aid);
+        if (!mounted) return;
+        final original = <int>{};
+        for (final folder in folders) {
+          if (folder.isFavorited) original.add(folder.id);
+        }
+        setState(() {
+          _folders = folders;
+          _originalIds = original;
+          _selectedIds = Set.from(original);
+          _isLoading = false;
+        });
+      }
+    } on BilibiliFavoritesException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = t.remote.error.unknown(code: 'LOAD');
+      });
+    }
+  }
+
+  Future<void> _checkMultiFavStatusAsync(
+    List<BilibiliFavFolder> folders,
+  ) async {
+    final favService = ref.read(bilibiliFavoritesServiceProvider);
+    final folderIds = folders.map((folder) => folder.id).toSet();
+    final favCounts = <int, int>{};
+
+    final aids = await Future.wait(
+      _tracks.map((track) async {
+        try {
+          return await favService.getVideoAid(track);
+        } catch (_) {
+          return null;
+        }
+      }),
+    );
+    if (!mounted) return;
+
+    for (final aid in aids) {
+      if (aid == null) continue;
+      try {
+        final trackFolders = await favService.getFavFolders(videoAid: aid);
+        if (!mounted) return;
+        for (final folder in trackFolders) {
+          if (folder.isFavorited && folderIds.contains(folder.id)) {
+            favCounts[folder.id] = (favCounts[folder.id] ?? 0) + 1;
+          }
+        }
+      } catch (_) {
+        // A single folder status lookup failure should not block the dialog.
+      }
+    }
+
+    if (!mounted) return;
+    final trackCount = _tracks.length;
+    final original = <int>{};
+    final partial = <int>{};
+    for (final entry in favCounts.entries) {
+      if (entry.value >= trackCount) {
+        original.add(entry.key);
+      } else if (entry.value > 0) {
+        partial.add(entry.key);
+      }
+    }
+    setState(() {
+      _originalIds = original;
+      _partialIds = partial;
+      _selectedIds = Set.from(original);
+      _isCheckingMulti = false;
+    });
+  }
+
+  ({List<int> toAdd, List<int> toRemove}) _computeChanges() {
     final toAdd =
         _selectedIds.difference(_originalIds).difference(_partialIds).toList();
     final toRemove = [
@@ -260,41 +270,28 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
 
     setState(() => _isSubmitting = true);
     try {
-      final service = ref.read(neteasePlaylistServiceProvider);
-      final trackIds = _tracks.map((track) => track.sourceId).toList();
+      final favService = ref.read(bilibiliFavoritesServiceProvider);
 
-      for (var i = 0; i < toAdd.length; i++) {
+      for (var i = 0; i < _tracks.length; i++) {
         if (!mounted) return;
-        if (toAdd.length > 1) {
-          setState(() => _submitProgress = '${i + 1}/${toAdd.length}');
+        final track = _tracks[i];
+        if (_isMulti) {
+          setState(() => _submitProgress = '${i + 1}/${_tracks.length}');
         }
-        await service.addTracksToPlaylist(toAdd[i], trackIds);
+        final aid = await favService.getVideoAid(track);
+        await favService.updateVideoFavorites(
+          videoAid: aid,
+          addFolderIds: toAdd,
+          removeFolderIds: toRemove,
+        );
       }
 
-      for (var i = 0; i < toRemove.length; i++) {
-        if (!mounted) return;
-        if (toRemove.length > 1 || toAdd.isNotEmpty) {
-          setState(() => _submitProgress =
-              '${toAdd.length + i + 1}/${toAdd.length + toRemove.length}');
-        }
-        await service.removeTracksFromPlaylist(toRemove[i], trackIds);
-      }
-
-      try {
-        await ref
-            .read(remotePlaylistSyncServiceProvider)
-            .refreshMatchingImportedPlaylists(
-              sourceType: SourceType.netease,
-              remotePlaylistIds: [...toAdd, ...toRemove],
-            );
-      } catch (_) {
-        // Local refresh trigger is best-effort; remote playlist update already succeeded.
-      }
+      await _syncLocalPlaylists(toAdd, toRemove);
 
       if (!mounted) return;
       ToastService.success(context, t.remote.updated);
       Navigator.pop(context, true);
-    } on NeteasePlaylistException catch (e) {
+    } on BilibiliFavoritesException catch (e) {
       if (!mounted) return;
       ToastService.error(context, e.message);
       setState(() {
@@ -309,6 +306,58 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
         _submitProgress = null;
       });
     }
+  }
+
+  Future<void> _syncLocalPlaylists(List<int> toAdd, List<int> toRemove) async {
+    final changedFolderIds = {...toAdd, ...toRemove};
+    final syncService = ref.read(remotePlaylistSyncServiceProvider);
+    final matchingPlaylists = await syncService.findMatchingImportedPlaylists(
+      sourceType: SourceType.bilibili,
+      remotePlaylistIds: changedFolderIds.map((id) => id.toString()),
+    );
+
+    AppLogger.info(
+      'Syncing local playlists: toAdd=$toAdd, toRemove=$toRemove, '
+          'tracks=${_tracks.length}, matched playlists=${matchingPlaylists.length}',
+      'RemoteFav',
+    );
+
+    if (toRemove.isNotEmpty) {
+      final sourceIds = _tracks.map((track) => track.sourceId).toList();
+      final trackRepo = ref.read(trackRepositoryProvider);
+      final localTracks = await trackRepo.getBySourceIds(sourceIds);
+      final playlistSvc = ref.read(playlistServiceProvider);
+
+      for (final playlist in matchingPlaylists) {
+        try {
+          final matchingIds = localTracks
+              .where(
+                (track) =>
+                    track.sourceType == SourceType.bilibili &&
+                    track.belongsToPlaylist(playlist.id),
+              )
+              .map((track) => track.id)
+              .toList();
+          if (matchingIds.isEmpty) continue;
+          await playlistSvc.removeTracksFromPlaylist(playlist.id, matchingIds);
+          AppLogger.info(
+            'Removed ${matchingIds.length} tracks from local playlist',
+            'RemoteFav',
+          );
+        } catch (e) {
+          AppLogger.error(
+            'Failed to remove from local playlist: $e',
+            'RemoteFav',
+          );
+        }
+      }
+    }
+
+    await syncService.refreshMatchingImportedPlaylists(
+      sourceType: SourceType.bilibili,
+      remotePlaylistIds: changedFolderIds.map((id) => id.toString()),
+      playlists: matchingPlaylists,
+    );
   }
 
   @override
@@ -337,7 +386,7 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
               child: Row(
                 children: [
                   Text(
-                    t.remote.dialogTitleNetease,
+                    t.remote.dialogTitle,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const Spacer(),
@@ -425,11 +474,11 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
                     color: colorScheme.onPrimaryContainer,
                   ),
                 ),
-                title: Text(t.remote.createPlaylist),
+                title: Text(t.remote.createFolder),
                 shape: RoundedRectangleBorder(
                   borderRadius: AppRadius.borderRadiusLg,
                 ),
-                onTap: _isSubmitting ? null : _showCreatePlaylistDialog,
+                onTap: _isSubmitting ? null : _showCreateFolderDialog,
               ),
             ),
             const Divider(),
@@ -437,7 +486,7 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
               child: Material(
                 type: MaterialType.transparency,
                 clipBehavior: Clip.hardEdge,
-                child: _buildPlaylistList(colorScheme, scrollController),
+                child: _buildFolderList(colorScheme, scrollController),
               ),
             ),
             SafeArea(
@@ -474,7 +523,7 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
     );
   }
 
-  Widget _buildPlaylistList(
+  Widget _buildFolderList(
     ColorScheme colorScheme,
     ScrollController scrollController,
   ) {
@@ -493,21 +542,21 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
         ),
       );
     }
-    final playlists = _playlists;
-    if (playlists == null || playlists.isEmpty) {
+    final folders = _folders;
+    if (folders == null || folders.isEmpty) {
       return Center(child: Text(t.remote.loading));
     }
 
     return ListView.builder(
       controller: scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: playlists.length,
+      itemCount: folders.length,
       itemBuilder: (context, index) {
-        final playlist = playlists[index];
-        final isSelected = _selectedIds.contains(playlist.playlistId);
+        final folder = folders[index];
+        final isSelected = _selectedIds.contains(folder.id);
         final isPartial = !isSelected &&
-            _partialIds.contains(playlist.playlistId) &&
-            !_deselectedPartialIds.contains(playlist.playlistId);
+            _partialIds.contains(folder.id) &&
+            !_deselectedPartialIds.contains(folder.id);
 
         return ListTile(
           leading: Container(
@@ -518,11 +567,11 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
               color: colorScheme.surfaceContainerHighest,
             ),
             clipBehavior: Clip.antiAlias,
-            child: playlist.thumbnailUrl != null
+            child: folder.coverUrl != null
                 ? ImageLoadingService.loadImage(
-                    networkUrl: playlist.thumbnailUrl,
+                    networkUrl: folder.coverUrl,
                     placeholder: Icon(
-                      Icons.playlist_play,
+                      folder.isDefault ? Icons.star : Icons.folder_outlined,
                       color: colorScheme.outline,
                     ),
                     width: 40,
@@ -530,10 +579,13 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
                     fit: BoxFit.cover,
                     targetDisplaySize: 40,
                   )
-                : Icon(Icons.playlist_play, color: colorScheme.outline),
+                : Icon(
+                    folder.isDefault ? Icons.star : Icons.folder_outlined,
+                    color: colorScheme.outline,
+                  ),
           ),
-          title: Text(playlist.title),
-          subtitle: Text('${playlist.trackCount}'),
+          title: Text(folder.title),
+          subtitle: Text('${folder.mediaCount}'),
           trailing: _isCheckingMulti
               ? const SizedBox(
                   width: 20,
@@ -557,16 +609,16 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
           onTap: () {
             setState(() {
               if (isSelected) {
-                _selectedIds.remove(playlist.playlistId);
-                if (_partialIds.contains(playlist.playlistId)) {
-                  _deselectedPartialIds.add(playlist.playlistId);
+                _selectedIds.remove(folder.id);
+                if (_partialIds.contains(folder.id)) {
+                  _deselectedPartialIds.add(folder.id);
                 }
               } else if (isPartial) {
-                _selectedIds.add(playlist.playlistId);
-              } else if (_deselectedPartialIds.contains(playlist.playlistId)) {
-                _deselectedPartialIds.remove(playlist.playlistId);
+                _selectedIds.add(folder.id);
+              } else if (_deselectedPartialIds.contains(folder.id)) {
+                _deselectedPartialIds.remove(folder.id);
               } else {
-                _selectedIds.add(playlist.playlistId);
+                _selectedIds.add(folder.id);
               }
             });
           },
