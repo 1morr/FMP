@@ -494,6 +494,9 @@ class ImportService with Logging implements ImportServiceFacade {
       }
       _throwIfCancelled();
 
+      final sourceDataComplete =
+          result.totalCount <= 0 || expandedTracks.length >= result.totalCount;
+
       _updateProgress(
         status: ImportStatus.importing,
         total: expandedTracks.length,
@@ -557,9 +560,15 @@ class ImportService with Logging implements ImportServiceFacade {
 
       _throwIfCancelled();
 
+      final persistenceComplete = errors.isEmpty;
+      final canPruneRemovedTracks = sourceDataComplete && persistenceComplete;
+      final pruningSkipped = !canPruneRemovedTracks;
+
       // 计算被移除的歌曲（在原来列表中但不在新列表中的）
       final newTrackIdSet = Set<int>.from(newTrackIds);
-      final removedTrackIds = originalTrackIds.difference(newTrackIdSet);
+      final removedTrackIds = canPruneRemovedTracks
+          ? originalTrackIds.difference(newTrackIdSet)
+          : <int>{};
       final removedCount = removedTrackIds.length;
 
       // 清理被移除的 tracks 的 playlistIds 和 downloadPaths
@@ -596,11 +605,13 @@ class ImportService with Logging implements ImportServiceFacade {
       _throwIfCancelled();
 
       // 更新歌单
-      playlist.trackIds = newTrackIds;
+      playlist.trackIds = pruningSkipped
+          ? _mergePreservingExistingTrackOrder(playlist.trackIds, newTrackIds)
+          : newTrackIds;
       playlist.lastRefreshed = DateTime.now();
 
       // 更新封面（平台封面优先，回退到第一首歌封面）
-      await _updatePlaylistCover(playlist, result.coverUrl, newTrackIds);
+      await _updatePlaylistCover(playlist, result.coverUrl, playlist.trackIds);
       await _playlistRepository.save(playlist);
 
       _updateProgress(status: ImportStatus.completed);
@@ -610,6 +621,7 @@ class ImportService with Logging implements ImportServiceFacade {
         addedCount: addedCount,
         skippedCount: skippedCount,
         removedCount: removedCount,
+        pruningSkipped: pruningSkipped,
         errors: errors,
       );
     } catch (e) {
@@ -691,6 +703,20 @@ class ImportService with Logging implements ImportServiceFacade {
     }
 
     return expandedTracks;
+  }
+
+  List<int> _mergePreservingExistingTrackOrder(
+    List<int> existingTrackIds,
+    List<int> refreshedTrackIds,
+  ) {
+    final merged = List<int>.from(existingTrackIds);
+    final seen = merged.toSet();
+    for (final trackId in refreshedTrackIds) {
+      if (seen.add(trackId)) {
+        merged.add(trackId);
+      }
+    }
+    return merged;
   }
 
   /// 更新歌单封面：自定义封面不覆盖，优先平台封面，回退到第一首歌缩略图
