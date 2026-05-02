@@ -7,7 +7,9 @@ import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/account_provider.dart';
+import '../../../providers/remote_playlist_sync_provider.dart';
 import '../../../services/account/youtube_playlist_service.dart';
+import '../../../services/library/remote_playlist_selection_changes.dart';
 import '../track_thumbnail.dart';
 
 /// 顯示添加到 YouTube 播放列表對話框
@@ -38,12 +40,13 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
   List<YouTubePlaylistInfo>? _playlists;
   final Set<String> _selectedIds = {};
   final Set<String> _originalIds = {};
-  final Set<String> _partialIds = {};              // 部分 tracks 在的播放列表（不可變）
-  final Set<String> _deselectedPartialIds = {};    // 用戶明確取消的半選播放列表
+  final Set<String> _partialIds = {}; // 部分 tracks 在的播放列表（不可變）
+  final Set<String> _deselectedPartialIds = {}; // 用戶明確取消的半選播放列表
+  final Map<String, Set<String>> _existingTrackIdsByPlaylist = {};
   // 每個 playlist 的 containsVideo 檢查狀態
   final Map<String, bool?> _containsStatus = {}; // null = loading
   bool _isLoading = true;
-  bool _isCheckingMulti = false;         // 多選時異步檢查狀態
+  bool _isCheckingMulti = false; // 多選時異步檢查狀態
   bool _isSubmitting = false;
   String? _errorMessage;
   String? _submitProgress;
@@ -101,7 +104,8 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
   }
 
   /// 並行檢查每個播放列表是否包含當前視頻
-  Future<void> _checkContainsVideoAsync(List<YouTubePlaylistInfo> playlists) async {
+  Future<void> _checkContainsVideoAsync(
+      List<YouTubePlaylistInfo> playlists) async {
     final service = ref.read(youtubePlaylistServiceProvider);
     final videoId = _tracks.first.sourceId;
 
@@ -139,7 +143,8 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
   /// 多選時異步檢查每首歌在各播放列表的收藏狀態
   ///
   /// 優化：每個播放列表只 browse 一次，收集所有 videoId，再批量比對
-  Future<void> _checkMultiContainsAsync(List<YouTubePlaylistInfo> playlists) async {
+  Future<void> _checkMultiContainsAsync(
+      List<YouTubePlaylistInfo> playlists) async {
     final service = ref.read(youtubePlaylistServiceProvider);
     final trackVideoIds = _tracks.map((t) => t.sourceId).toSet();
     // playlistId → 已包含的 track 數量
@@ -152,9 +157,10 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
           targetVideoIds: trackVideoIds,
         );
         if (!mounted) return;
-        final matchCount = trackVideoIds.intersection(videoIds).length;
-        if (matchCount > 0) {
-          containsCounts[playlist.playlistId] = matchCount;
+        final matchingVideoIds = trackVideoIds.intersection(videoIds);
+        if (matchingVideoIds.isNotEmpty) {
+          containsCounts[playlist.playlistId] = matchingVideoIds.length;
+          _existingTrackIdsByPlaylist[playlist.playlistId] = matchingVideoIds;
         }
       } catch (_) {
         // 單個播放列表查詢失敗不影響整體
@@ -233,8 +239,8 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
               onPressed: () {
                 final name = _newPlaylistController.text.trim();
                 if (name.isNotEmpty) {
-                  Navigator.pop(context,
-                      (name: name, privacyStatus: privacyStatus));
+                  Navigator.pop(
+                      context, (name: name, privacyStatus: privacyStatus));
                 }
               },
               child: Text(t.general.confirm),
@@ -274,14 +280,12 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
     }
   }
 
-  /// 計算需要添加和移除的播放列表
   ({List<String> toAdd, List<String> toRemove}) _computeChanges() {
-    final toAdd = _selectedIds.difference(_originalIds).difference(_partialIds).toList();
-    final toRemove = [
-      ..._originalIds.difference(_selectedIds),
-      ..._deselectedPartialIds,
-    ];
-    return (toAdd: toAdd, toRemove: toRemove);
+    return computeRemotePlaylistSelectionChanges(
+      selectedIds: _selectedIds,
+      originalIds: _originalIds,
+      deselectedPartialIds: _deselectedPartialIds,
+    );
   }
 
   Future<void> _submit() async {
@@ -306,8 +310,9 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
           });
         }
 
-        // 添加到選中的播放列表
         for (final playlistId in toAdd) {
+          final existingTrackIds = _existingTrackIdsByPlaylist[playlistId];
+          if (existingTrackIds?.contains(track.sourceId) ?? false) continue;
           await service.addToPlaylist(playlistId, track.sourceId);
         }
 
@@ -325,6 +330,17 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
             );
           }
         }
+      }
+
+      try {
+        await ref
+            .read(remotePlaylistSyncServiceProvider)
+            .refreshMatchingImportedPlaylists(
+          sourceType: SourceType.youtube,
+          remotePlaylistIds: [...toAdd, ...toRemove],
+        );
+      } catch (_) {
+        // Local refresh trigger is best-effort; remote playlist update already succeeded.
       }
 
       if (!mounted) return;
@@ -379,7 +395,8 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.close),
-                    tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                    tooltip:
+                        MaterialLocalizations.of(context).closeButtonTooltip,
                     onPressed: () => Navigator.pop(context, false),
                   ),
                 ],
@@ -492,8 +509,8 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
                               const SizedBox(
                                 width: 16,
                                 height: 16,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2),
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
                               ),
                               if (_submitProgress != null) ...[
                                 const SizedBox(width: 8),
@@ -556,8 +573,8 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
             child: playlist.thumbnailUrl != null
                 ? ImageLoadingService.loadImage(
                     networkUrl: playlist.thumbnailUrl,
-                    placeholder: Icon(Icons.playlist_play,
-                        color: colorScheme.outline),
+                    placeholder:
+                        Icon(Icons.playlist_play, color: colorScheme.outline),
                     width: 40,
                     height: 40,
                     fit: BoxFit.cover,
@@ -576,8 +593,7 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
           selected: isSelected || isPartial,
           selectedTileColor:
               colorScheme.primaryContainer.withValues(alpha: 0.3),
-          shape: RoundedRectangleBorder(
-              borderRadius: AppRadius.borderRadiusLg),
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
           onTap: () {
             setState(() {
               if (isSelected) {

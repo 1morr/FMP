@@ -1,5 +1,5 @@
 import '../../data/models/track.dart';
-import '../../data/sources/bilibili_source.dart';
+import 'remote_playlist_id_parser.dart';
 
 class RemotePlaylistActionsService {
   final Future<int> Function(Track track) getBilibiliAid;
@@ -7,10 +7,6 @@ class RemotePlaylistActionsService {
     required int folderId,
     required List<int> videoAids,
   }) removeBilibiliTracks;
-  final Future<void> Function({
-    required int videoAid,
-    required int folderId,
-  }) removeBilibiliTrack;
   final Future<String?> Function(String playlistId, String videoId)
       getYoutubeSetVideoId;
   final Future<void> Function(
@@ -24,7 +20,6 @@ class RemotePlaylistActionsService {
   const RemotePlaylistActionsService({
     required this.getBilibiliAid,
     required this.removeBilibiliTracks,
-    required this.removeBilibiliTrack,
     required this.getYoutubeSetVideoId,
     required this.removeYoutubeTrack,
     required this.removeNeteaseTracks,
@@ -34,30 +29,12 @@ class RemotePlaylistActionsService {
     required String sourceUrl,
     required SourceType importSourceType,
     required Track track,
-  }) async {
-    if (track.sourceType != importSourceType) return false;
-
-    switch (importSourceType) {
-      case SourceType.bilibili:
-        final folderId = _parseBilibiliFolderId(sourceUrl);
-        if (folderId == null) return false;
-        final videoAid = await getBilibiliAid(track);
-        await removeBilibiliTrack(videoAid: videoAid, folderId: folderId);
-        return true;
-      case SourceType.youtube:
-        final playlistId = _parseYoutubePlaylistId(sourceUrl);
-        if (playlistId == null) return false;
-        final setVideoId =
-            await getYoutubeSetVideoId(playlistId, track.sourceId);
-        if (setVideoId == null) return false;
-        await removeYoutubeTrack(playlistId, track.sourceId, setVideoId);
-        return true;
-      case SourceType.netease:
-        final playlistId = _parseNeteasePlaylistId(sourceUrl);
-        if (playlistId == null) return false;
-        await removeNeteaseTracks(playlistId, [track.sourceId]);
-        return true;
-    }
+  }) {
+    return removeTracksFromRemote(
+      sourceUrl: sourceUrl,
+      importSourceType: importSourceType,
+      tracks: [track],
+    );
   }
 
   Future<bool> removeTracksFromRemote({
@@ -71,7 +48,8 @@ class RemotePlaylistActionsService {
 
     switch (importSourceType) {
       case SourceType.bilibili:
-        final folderId = _parseBilibiliFolderId(sourceUrl);
+        final folderId =
+            RemotePlaylistIdParser.parseBilibiliFolderId(sourceUrl);
         if (folderId == null) return false;
         final videoAids = <int>[];
         for (final track in matchingTracks) {
@@ -80,7 +58,8 @@ class RemotePlaylistActionsService {
         await removeBilibiliTracks(folderId: folderId, videoAids: videoAids);
         return true;
       case SourceType.youtube:
-        final playlistId = _parseYoutubePlaylistId(sourceUrl);
+        final playlistId =
+            RemotePlaylistIdParser.parseYoutubePlaylistId(sourceUrl);
         if (playlistId == null) return false;
         var removedAny = false;
         for (final track in matchingTracks) {
@@ -94,7 +73,8 @@ class RemotePlaylistActionsService {
         }
         return removedAny;
       case SourceType.netease:
-        final playlistId = _parseNeteasePlaylistId(sourceUrl);
+        final playlistId =
+            RemotePlaylistIdParser.parseNeteasePlaylistId(sourceUrl);
         if (playlistId == null) return false;
         await removeNeteaseTracks(
           playlistId,
@@ -102,23 +82,5 @@ class RemotePlaylistActionsService {
         );
         return true;
     }
-  }
-
-  int? _parseBilibiliFolderId(String url) {
-    final fid = BilibiliSource.parseFavoritesId(url);
-    return fid == null ? null : int.tryParse(fid);
-  }
-
-  String? _parseYoutubePlaylistId(String url) {
-    final uri = Uri.tryParse(url);
-    return uri?.queryParameters['list'];
-  }
-
-  String? _parseNeteasePlaylistId(String url) {
-    final uri = Uri.tryParse(url);
-    final id = uri?.queryParameters['id'];
-    if (id != null) return id;
-    final match = RegExp(r'/playlist[?/].*?(\d{5,})').firstMatch(url);
-    return match?.group(1);
   }
 }

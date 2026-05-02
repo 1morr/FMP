@@ -29,10 +29,10 @@ class TrackRepository with Logging {
     final tracks = await _isar.tracks.getAll(ids);
     // 过滤null并保持顺序
     final result = <Track>[];
-    for (final id in ids) {
-      final index = ids.indexOf(id);
-      if (index < tracks.length && tracks[index] != null) {
-        result.add(tracks[index]!);
+    for (var index = 0; index < tracks.length; index++) {
+      final track = tracks[index];
+      if (track != null) {
+        result.add(track);
       }
     }
     logDebug('Found ${result.length}/${ids.length} tracks');
@@ -68,7 +68,7 @@ class TrackRepository with Logging {
       // 没有cid，使用传统方式查找
       return getBySourceId(sourceId, sourceType);
     }
-    
+
     // 有cid，精确匹配分P
     return _isar.tracks
         .where()
@@ -174,7 +174,8 @@ class TrackRepository with Logging {
   /// [playlistId] 歌单 ID，null 表示添加到通用列表 (playlistId = 0)
   /// [playlistName] 歌单名称（用于下载路径匹配）
   /// [path] 下载路径
-  Future<void> addDownloadPath(int trackId, int? playlistId, String? playlistName, String path) async {
+  Future<void> addDownloadPath(
+      int trackId, int? playlistId, String? playlistName, String path) async {
     final track = await getById(trackId);
     if (track == null) {
       logWarning('addDownloadPath: track $trackId not found!');
@@ -182,9 +183,12 @@ class TrackRepository with Logging {
     }
 
     final effectivePlaylistId = playlistId ?? 0;
-    logDebug('addDownloadPath: BEFORE setDownloadPath - playlistInfo: ${track.playlistInfo.map((i) => "playlist=${i.playlistId}(${i.playlistName}):path=${i.downloadPath.isNotEmpty}").join(", ")}');
-    track.setDownloadPath(effectivePlaylistId, path, playlistName: playlistName);
-    logDebug('addDownloadPath: AFTER setDownloadPath - playlistInfo: ${track.playlistInfo.map((i) => "playlist=${i.playlistId}(${i.playlistName}):path=${i.downloadPath.isNotEmpty}").join(", ")}');
+    logDebug(
+        'addDownloadPath: BEFORE setDownloadPath - playlistInfo: ${track.playlistInfo.map((i) => "playlist=${i.playlistId}(${i.playlistName}):path=${i.downloadPath.isNotEmpty}").join(", ")}');
+    track.setDownloadPath(effectivePlaylistId, path,
+        playlistName: playlistName);
+    logDebug(
+        'addDownloadPath: AFTER setDownloadPath - playlistInfo: ${track.playlistInfo.map((i) => "playlist=${i.playlistId}(${i.playlistName}):path=${i.downloadPath.isNotEmpty}").join(", ")}');
     await save(track);
     logDebug('Added download path for track $trackId: $path');
   }
@@ -199,17 +203,18 @@ class TrackRepository with Logging {
             .filter()
             .playlistInfoElement((q) => q.downloadPathIsNotEmpty())
             .findAll();
-        logDebug('clearAllDownloadPaths: Found ${tracks.length} tracks with download paths');
-        
+        logDebug(
+            'clearAllDownloadPaths: Found ${tracks.length} tracks with download paths');
+
         if (tracks.isEmpty) {
           logDebug('clearAllDownloadPaths: No tracks to clear');
           return;
         }
-        
+
         for (final track in tracks) {
           track.clearAllDownloadPaths();
         }
-        
+
         logDebug('clearAllDownloadPaths: Saving ${tracks.length} tracks');
         await _isar.tracks.putAll(tracks);
         logDebug('clearAllDownloadPaths: Done');
@@ -304,7 +309,7 @@ class TrackRepository with Logging {
         existing.artist = track.artist;
         needsUpdate = true;
       }
-      
+
       if (needsUpdate) {
         logDebug('Updating existing track with new data');
         return save(existing);
@@ -349,7 +354,7 @@ class TrackRepository with Logging {
     // 批量查询已存在的 tracks
     final sourceIds = uniqueTracks.map((t) => t.sourceId).toSet().toList();
     final existingTracks = await getBySourceIds(sourceIds);
-    
+
     // 建立 uniqueKey -> existing track 的映射
     final existingMap = <String, Track>{};
     for (final existing in existingTracks) {
@@ -359,7 +364,7 @@ class TrackRepository with Logging {
     // 分类处理
     final toSave = <Track>[];
     final results = <Track>[];
-    
+
     for (final track in uniqueTracks) {
       final existing = existingMap[track.uniqueKey];
       if (existing != null) {
@@ -410,7 +415,8 @@ class TrackRepository with Logging {
       finalResults.add(results[index]);
     }
 
-    logDebug('getOrCreateAll: returned ${finalResults.length} tracks (${results.length} unique)');
+    logDebug(
+        'getOrCreateAll: returned ${finalResults.length} tracks (${results.length} unique)');
     return finalResults;
   }
 
@@ -460,9 +466,9 @@ class TrackRepository with Logging {
           .filter()
           .playlistInfoElement((q) => q.downloadPathIsNotEmpty())
           .findAll();
-      
+
       final toUpdate = <Track>[];
-      
+
       for (final track in tracks) {
         bool hasChanges = false;
 
@@ -483,35 +489,34 @@ class TrackRepository with Logging {
 
         if (hasChanges) {
           // 创建新的列表，确保 Isar 检测到变更
-          track.playlistInfo = track.playlistInfo
-              .map((info) {
-                if (info.downloadPath.isEmpty) {
-                  return PlaylistDownloadInfo()
-                    ..playlistId = info.playlistId
-                    ..downloadPath = '';
-                }
-                try {
-                  if (File(info.downloadPath).existsSync()) {
-                    return PlaylistDownloadInfo()
-                      ..playlistId = info.playlistId
-                      ..downloadPath = info.downloadPath;
-                  }
-                } catch (_) {}
+          track.playlistInfo = track.playlistInfo.map((info) {
+            if (info.downloadPath.isEmpty) {
+              return PlaylistDownloadInfo()
+                ..playlistId = info.playlistId
+                ..downloadPath = '';
+            }
+            try {
+              if (File(info.downloadPath).existsSync()) {
                 return PlaylistDownloadInfo()
                   ..playlistId = info.playlistId
-                  ..downloadPath = '';
-              })
-              .toList();
+                  ..downloadPath = info.downloadPath;
+              }
+            } catch (_) {}
+            return PlaylistDownloadInfo()
+              ..playlistId = info.playlistId
+              ..downloadPath = '';
+          }).toList();
           toUpdate.add(track);
         }
       }
-      
+
       // 批量更新
       if (toUpdate.isNotEmpty) {
         await _isar.tracks.putAll(toUpdate);
       }
-      
-      logDebug('Cleaned up invalid download paths for ${toUpdate.length} tracks');
+
+      logDebug(
+          'Cleaned up invalid download paths for ${toUpdate.length} tracks');
       return toUpdate.length;
     });
   }
@@ -528,7 +533,8 @@ class TrackRepository with Logging {
   ///
   /// 返回删除的 Track 数量
   Future<int> deleteOrphanTracks({List<int> excludeTrackIds = const []}) async {
-    logDebug('Deleting orphan tracks (excluding ${excludeTrackIds.length} queue tracks)...');
+    logDebug(
+        'Deleting orphan tracks (excluding ${excludeTrackIds.length} queue tracks)...');
 
     final excludeSet = excludeTrackIds.toSet();
     final toDelete = <int>[];
@@ -567,14 +573,12 @@ class TrackRepository with Logging {
 
       // 清理孤儿 track 对应的 LyricsMatch 记录
       for (final key in orphanUniqueKeys) {
-        await _isar.lyricsMatchs
-            .where()
-            .trackUniqueKeyEqualTo(key)
-            .deleteAll();
+        await _isar.lyricsMatchs.where().trackUniqueKeyEqualTo(key).deleteAll();
       }
     });
 
-    logInfo('Deleted ${toDelete.length} orphan tracks and their lyrics matches');
+    logInfo(
+        'Deleted ${toDelete.length} orphan tracks and their lyrics matches');
     return toDelete.length;
   }
 }
