@@ -454,10 +454,6 @@ class ImportService with Logging implements ImportServiceFacade {
           authHeaders: authHeaders);
       _throwIfCancelled();
 
-      // 更新所有者信息（刷新時可能變更）
-      playlist.ownerName = result.ownerName;
-      playlist.ownerUserId = result.ownerUserId;
-
       // 获取分P信息并展开（仅Bilibili）
       final List<Track> expandedTracks;
       final bool expansionComplete;
@@ -515,10 +511,16 @@ class ImportService with Logging implements ImportServiceFacade {
 
       final refreshedPlaylist =
           await _playlistRepository.getById(playlist.id) ?? playlist;
+      refreshedPlaylist.ownerName = result.ownerName;
+      refreshedPlaylist.ownerUserId = result.ownerUserId;
+      await _playlistRepository.save(refreshedPlaylist);
+      _throwIfCancelled();
+      final savedPlaylist =
+          await _playlistRepository.getById(playlist.id) ?? refreshedPlaylist;
       _updateProgress(status: ImportStatus.completed);
 
       return ImportResult(
-        playlist: refreshedPlaylist,
+        playlist: savedPlaylist,
         addedCount: mutationResult.addedCount + mutationResult.repairedCount,
         skippedCount: mutationResult.skippedCount,
         removedCount: mutationResult.removedCount,
