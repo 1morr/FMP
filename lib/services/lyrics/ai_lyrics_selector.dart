@@ -19,6 +19,7 @@ class AiLyricsCandidate {
     required this.hasPlainLyrics,
     required this.hasTranslatedLyrics,
     required this.hasRomajiLyrics,
+    this.lyricsPreview = '',
   });
 
   final String candidateId;
@@ -34,6 +35,7 @@ class AiLyricsCandidate {
   final bool hasPlainLyrics;
   final bool hasTranslatedLyrics;
   final bool hasRomajiLyrics;
+  final String lyricsPreview;
 
   Map<String, dynamic> toJson() => {
         'candidateId': candidateId,
@@ -49,6 +51,7 @@ class AiLyricsCandidate {
         'hasPlainLyrics': hasPlainLyrics,
         'hasTranslatedLyrics': hasTranslatedLyrics,
         'hasRomajiLyrics': hasRomajiLyrics,
+        'lyricsPreview': lyricsPreview,
       };
 }
 
@@ -75,6 +78,7 @@ class AiLyricsSelector with Logging {
     required String model,
     required String title,
     String? uploader,
+    String? videoDescription,
     required int durationSeconds,
     required List<String> sourcePriority,
     required bool allowPlainLyricsAutoMatch,
@@ -85,6 +89,8 @@ class AiLyricsSelector with Logging {
     final trimmedApiKey = apiKey.trim();
     final trimmedModel = model.trim();
     final timeout = Duration(seconds: timeoutSeconds < 1 ? 10 : timeoutSeconds);
+    final normalizedVideoDescription =
+        _normalizeOptionalText(videoDescription, maxChars: 500);
     if (trimmedEndpoint.isEmpty ||
         trimmedApiKey.isEmpty ||
         trimmedModel.isEmpty) {
@@ -97,6 +103,8 @@ class AiLyricsSelector with Logging {
       'title': title,
       if (uploader != null && uploader.trim().isNotEmpty)
         'uploader': uploader.trim(),
+      if (normalizedVideoDescription != null)
+        'videoDescription': normalizedVideoDescription,
       'durationSeconds': durationSeconds,
       'sourcePriority': sourcePriority,
       'allowPlainLyricsAutoMatch': allowPlainLyricsAutoMatch,
@@ -123,16 +131,19 @@ class AiLyricsSelector with Logging {
             {
               'role': 'system',
               'content': 'Choose the best lyrics candidate for the provided '
-                  'video. The uploader is context and is not necessarily the '
-                  'artist. Always choose the closest acceptable candidate, '
-                  'including a cover, remix, live version, or alternate '
-                  'performance when that is the best available match for the '
-                  'same song. Use selectedCandidateId null only when every '
-                  'candidate is a completely different song. Respect '
-                  'sourcePriority when candidates are otherwise similarly '
-                  'accurate. Always prefer synced lyrics over plain lyrics. '
-                  'Return strict JSON only with exactly these fields: '
-                  'selectedCandidateId, confidence, reason.',
+                  'video. You may use videoDescription as extra context when '
+                  'present. The uploader is context and is not necessarily the '
+                  'artist. Use lyricsPreview to compare candidate content '
+                  'against the title, uploader, and videoDescription. Always '
+                  'choose the closest acceptable candidate, including a cover, '
+                  'remix, live version, or alternate performance when that is '
+                  'the best available match for the same song. Use '
+                  'selectedCandidateId null only when every candidate is a '
+                  'completely different song. Respect sourcePriority when '
+                  'candidates are otherwise similarly accurate. Always prefer '
+                  'synced lyrics over plain lyrics. Return strict JSON only '
+                  'with exactly these fields: selectedCandidateId, confidence, '
+                  'reason.',
             },
             {'role': 'user', 'content': jsonEncode(userPayload)},
           ],
@@ -161,6 +172,14 @@ class AiLyricsSelector with Logging {
       logWarning('AI lyrics selector failed: $e');
       return null;
     }
+  }
+
+  static String? _normalizeOptionalText(String? text, {required int maxChars}) {
+    if (text == null) return null;
+    final normalized = text.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (normalized.isEmpty) return null;
+    if (normalized.length <= maxChars) return normalized;
+    return normalized.substring(0, maxChars);
   }
 
   static AiLyricsSelection? parseContent(String content) {

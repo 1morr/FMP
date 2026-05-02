@@ -88,7 +88,7 @@
     "aiModeAlways": "AI 标题解析",
     "aiModeAdvanced": "AI 高级匹配",
     "aiModeAlwaysDescription": "AI 解析视频标题，歌词结果仍由本地规则选择。",
-    "aiModeAdvancedDescription": "AI 从搜索到的候选歌词中选择，仅在 confidence > 0.8 时保存。",
+    "aiModeAdvancedDescription": "AI 从搜索到的候选歌词中选择，并保存已知的选中候选。",
     "allowPlainLyricsAutoMatch": "允许自动匹配非同步歌词",
     "allowPlainLyricsAutoMatchDescription": "关闭时，自动匹配只接受同步歌词。",
     "aiEndpoint": "API 端点",

@@ -88,7 +88,7 @@
     "aiModeAlways": "AI 標題解析",
     "aiModeAdvanced": "AI 高級匹配",
     "aiModeAlwaysDescription": "AI 解析影片標題，歌詞結果仍由本地規則選擇。",
-    "aiModeAdvancedDescription": "AI 從搜尋到的候選歌詞中選擇，僅在 confidence > 0.8 時保存。",
+    "aiModeAdvancedDescription": "AI 從搜尋到的候選歌詞中選擇，並保存已知的選中候選。",
     "allowPlainLyricsAutoMatch": "允許自動匹配非同步歌詞",
     "allowPlainLyricsAutoMatchDescription": "關閉時，自動匹配只接受同步歌詞。",
     "aiEndpoint": "API 端點",

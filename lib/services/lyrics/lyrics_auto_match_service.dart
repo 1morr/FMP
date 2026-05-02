@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/lyrics_match.dart';
@@ -355,6 +357,7 @@ class LyricsAutoMatchService with Logging {
               candidateId,
               sourceIndex,
               trackDurationSec,
+              allowPlainLyricsAutoMatch,
             ),
           );
         }
@@ -372,6 +375,7 @@ class LyricsAutoMatchService with Logging {
       model: config.model,
       title: track.title,
       uploader: track.artist,
+      videoDescription: null,
       durationSeconds: trackDurationSec,
       sourcePriority: sources,
       allowPlainLyricsAutoMatch: allowPlainLyricsAutoMatch,
@@ -445,6 +449,7 @@ class LyricsAutoMatchService with Logging {
     String candidateId,
     int sourcePriorityRank,
     int videoDurationSeconds,
+    bool allowPlainLyricsAutoMatch,
   ) {
     final durationDiff = result.duration == 0
         ? 0
@@ -463,7 +468,67 @@ class LyricsAutoMatchService with Logging {
       hasPlainLyrics: result.hasPlainLyrics,
       hasTranslatedLyrics: result.hasTranslatedLyrics,
       hasRomajiLyrics: result.hasRomajiLyrics,
+      lyricsPreview: _buildLyricsPreview(result, allowPlainLyricsAutoMatch),
     );
+  }
+
+  String _buildLyricsPreview(
+    LyricsResult result,
+    bool allowPlainLyricsAutoMatch,
+  ) {
+    final sourceText = result.hasSyncedLyrics
+        ? result.syncedLyrics
+        : allowPlainLyricsAutoMatch
+            ? result.plainLyrics
+            : null;
+    if (sourceText == null || sourceText.isEmpty) return '';
+
+    final lines = _normalizePreviewLines(sourceText);
+    if (lines.isEmpty) return '';
+
+    final previewLines = <String>[];
+    final seen = <String>{};
+    void addLine(String line) {
+      if (previewLines.length >= 8 || !seen.add(line)) return;
+      previewLines.add(line);
+    }
+
+    for (final line in lines.take(4)) {
+      addLine(line);
+    }
+
+    final middleThirdStart = lines.length ~/ 3;
+    final middleThirdEnd = (lines.length * 2) ~/ 3;
+    for (final line in lines.skip(middleThirdStart).take(
+          middleThirdEnd - middleThirdStart,
+        )) {
+      addLine(line);
+      if (previewLines.length >= 8) break;
+    }
+
+    var preview = previewLines.take(8).join('\n');
+    if (preview.length <= 500) return preview;
+    preview = preview.substring(0, 500);
+    return preview.trimRight();
+  }
+
+  List<String> _normalizePreviewLines(String text) {
+    final lines = <String>[];
+    final seen = <String>{};
+    final timestampPattern = RegExp(
+      r'\[\d+:\d{2}(?:[.:]\d{1,3})?\]|<\d+:\d{2}(?:[.:]\d{1,3})?>',
+    );
+    final metadataPattern = RegExp(
+      r'^\[(?:ar|ti|al|by|offset|length|re|ve):.*\]$',
+      caseSensitive: false,
+    );
+
+    for (final rawLine in const LineSplitter().convert(text)) {
+      final line = rawLine.replaceAll(timestampPattern, '').trim();
+      if (line.isEmpty || metadataPattern.hasMatch(line)) continue;
+      if (seen.add(line)) lines.add(line);
+    }
+    return lines;
   }
 
   Future<AiParsedTitle?> _loadOrParseAiTitle(

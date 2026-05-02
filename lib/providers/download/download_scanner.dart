@@ -310,8 +310,11 @@ class DownloadScanner {
           }
 
           DownloadedTrackDto? track;
-          final audioPath =
-              '$folderPath/${p.basename(entity.path)}/${p.basename(audioEntity.path)}';
+          final audioPath = p.join(
+            folderPath,
+            p.basename(entity.path),
+            p.basename(audioEntity.path),
+          );
           final fileName = p.basenameWithoutExtension(audioEntity.path);
           final newPageMatch = RegExp(r'^P(\d+)$').firstMatch(fileName);
           final oldPageMatch =

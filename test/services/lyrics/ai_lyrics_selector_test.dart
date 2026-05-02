@@ -33,7 +33,8 @@ void main() {
       expect(AiLyricsSelector.parseContent('not json'), isNull);
     });
 
-    test('sends candidate selection payload without API key leakage', () async {
+    test('sends enriched candidate selection payload without API key leakage',
+        () async {
       final dio = Dio();
       Map<String, dynamic>? capturedBody;
       dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
@@ -61,6 +62,8 @@ void main() {
         model: 'gpt-test',
         title: 'Video Title',
         uploader: 'Uploader',
+        videoDescription:
+            '  Official music video\nwith  lyrics in description.  ',
         durationSeconds: 180,
         sourcePriority: const ['netease', 'qqmusic'],
         allowPlainLyricsAutoMatch: false,
@@ -79,6 +82,7 @@ void main() {
             hasPlainLyrics: true,
             hasTranslatedLyrics: false,
             hasRomajiLyrics: false,
+            lyricsPreview: 'first line\nchorus line',
           ),
         ],
         timeoutSeconds: 5,
@@ -86,11 +90,150 @@ void main() {
 
       expect(result?.selectedCandidateId, 'netease:123');
       expect(capturedBody?['model'], 'gpt-test');
+      final messages = capturedBody?['messages'] as List<dynamic>;
+      final userMessage = messages.firstWhere(
+        (message) => (message as Map<String, dynamic>)['role'] == 'user',
+      ) as Map<String, dynamic>;
+      final userPayload =
+          jsonDecode(userMessage['content'] as String) as Map<String, dynamic>;
+      expect(
+        userPayload['videoDescription'],
+        'Official music video with lyrics in description.',
+      );
+      final candidates = userPayload['candidates'] as List<dynamic>;
+      final candidate = candidates.single as Map<String, dynamic>;
+      expect(candidate['lyricsPreview'], 'first line\nchorus line');
       final bodyText = jsonEncode(capturedBody);
       expect(bodyText, contains('Video Title'));
       expect(bodyText, contains('Uploader'));
       expect(bodyText, contains('netease:123'));
       expect(bodyText, isNot(contains('secret-key')));
+    });
+
+    test('omits blank video description and preserves empty lyrics preview',
+        () async {
+      final dio = Dio();
+      Map<String, dynamic>? capturedBody;
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        capturedBody =
+            jsonDecode(requestBody as String) as Map<String, dynamic>;
+        return _jsonResponse({
+          'choices': [
+            {
+              'message': {
+                'content': jsonEncode({
+                  'selectedCandidateId': null,
+                  'confidence': 0.1,
+                  'reason': 'no reliable match',
+                }),
+              },
+            },
+          ],
+        });
+      });
+
+      await AiLyricsSelector(dio: dio).select(
+        endpoint: 'https://api.example.com/v1',
+        apiKey: 'secret-key',
+        model: 'gpt-test',
+        title: 'Video Title',
+        uploader: 'Uploader',
+        videoDescription: '  \n\t  ',
+        durationSeconds: 180,
+        sourcePriority: const ['netease'],
+        allowPlainLyricsAutoMatch: false,
+        candidates: const [
+          AiLyricsCandidate(
+            candidateId: 'netease:123',
+            source: 'netease',
+            sourcePriorityRank: 0,
+            trackName: 'Song',
+            artistName: 'Artist',
+            albumName: 'Album',
+            durationSeconds: 181,
+            videoDurationSeconds: 180,
+            durationDiffSeconds: 1,
+            hasSyncedLyrics: true,
+            hasPlainLyrics: true,
+            hasTranslatedLyrics: false,
+            hasRomajiLyrics: false,
+            lyricsPreview: '',
+          ),
+        ],
+        timeoutSeconds: 5,
+      );
+
+      final messages = capturedBody?['messages'] as List<dynamic>;
+      final userMessage = messages.firstWhere(
+        (message) => (message as Map<String, dynamic>)['role'] == 'user',
+      ) as Map<String, dynamic>;
+      final userPayload =
+          jsonDecode(userMessage['content'] as String) as Map<String, dynamic>;
+      expect(userPayload.containsKey('videoDescription'), isFalse);
+      final candidates = userPayload['candidates'] as List<dynamic>;
+      final candidate = candidates.single as Map<String, dynamic>;
+      expect(candidate['lyricsPreview'], '');
+    });
+
+    test('caps video description to 500 characters', () async {
+      final dio = Dio();
+      Map<String, dynamic>? capturedBody;
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        capturedBody =
+            jsonDecode(requestBody as String) as Map<String, dynamic>;
+        return _jsonResponse({
+          'choices': [
+            {
+              'message': {
+                'content': jsonEncode({
+                  'selectedCandidateId': null,
+                  'confidence': 0.1,
+                  'reason': 'no reliable match',
+                }),
+              },
+            },
+          ],
+        });
+      });
+
+      await AiLyricsSelector(dio: dio).select(
+        endpoint: 'https://api.example.com/v1',
+        apiKey: 'secret-key',
+        model: 'gpt-test',
+        title: 'Video Title',
+        uploader: 'Uploader',
+        videoDescription: List.filled(520, 'a').join(),
+        durationSeconds: 180,
+        sourcePriority: const ['netease'],
+        allowPlainLyricsAutoMatch: false,
+        candidates: const [
+          AiLyricsCandidate(
+            candidateId: 'netease:123',
+            source: 'netease',
+            sourcePriorityRank: 0,
+            trackName: 'Song',
+            artistName: 'Artist',
+            albumName: 'Album',
+            durationSeconds: 181,
+            videoDurationSeconds: 180,
+            durationDiffSeconds: 1,
+            hasSyncedLyrics: true,
+            hasPlainLyrics: true,
+            hasTranslatedLyrics: false,
+            hasRomajiLyrics: false,
+            lyricsPreview: 'preview',
+          ),
+        ],
+        timeoutSeconds: 5,
+      );
+
+      final messages = capturedBody?['messages'] as List<dynamic>;
+      final userMessage = messages.firstWhere(
+        (message) => (message as Map<String, dynamic>)['role'] == 'user',
+      ) as Map<String, dynamic>;
+      final userPayload =
+          jsonDecode(userMessage['content'] as String) as Map<String, dynamic>;
+      expect(userPayload['videoDescription'], List.filled(500, 'a').join());
     });
 
     test('prompt asks AI to pick closest acceptable candidate', () async {
@@ -138,6 +281,7 @@ void main() {
             hasPlainLyrics: true,
             hasTranslatedLyrics: false,
             hasRomajiLyrics: false,
+            lyricsPreview: 'poker face chorus preview',
           ),
         ],
         timeoutSeconds: 5,
@@ -153,6 +297,9 @@ void main() {
       expect(prompt, contains('cover'));
       expect(prompt, contains('remix'));
       expect(prompt, contains('completely different song'));
+      expect(prompt, contains('videoDescription'));
+      expect(prompt, contains('lyricsPreview'));
+      expect(prompt, contains('compare candidate content'));
     });
   });
 }

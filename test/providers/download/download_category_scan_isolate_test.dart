@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/providers/download/download_scanner.dart';
+import 'package:path/path.dart' as p;
 
 void main() {
   group('downloaded category detail scan isolate support', () {
@@ -18,10 +19,10 @@ void main() {
         }
       });
 
-      final videoDir = Directory('${tempDir.path}/yt-1_Test Video');
+      final videoDir = Directory(p.join(tempDir.path, 'yt-1_Test Video'));
       await videoDir.create(recursive: true);
-      await File('${videoDir.path}/audio.m4a').writeAsBytes([1, 2, 3]);
-      await File('${videoDir.path}/metadata.json').writeAsString(
+      await File(p.join(videoDir.path, 'audio.m4a')).writeAsBytes([1, 2, 3]);
+      await File(p.join(videoDir.path, 'metadata.json')).writeAsString(
         jsonEncode({
           'sourceId': 'yt-1',
           'sourceType': 'youtube',
@@ -45,7 +46,7 @@ void main() {
       expect(track.artist, 'Tester');
       expect(
         track.playlistInfo.single.downloadPath,
-        '${videoDir.path}/audio.m4a',
+        p.join(videoDir.path, 'audio.m4a'),
       );
     });
 
