@@ -66,6 +66,7 @@ class ImportResult {
   final int addedCount;
   final int skippedCount;
   final int removedCount;
+  final bool pruningSkipped;
   final List<String> errors;
 
   const ImportResult({
@@ -73,7 +74,18 @@ class ImportResult {
     required this.addedCount,
     required this.skippedCount,
     this.removedCount = 0,
+    this.pruningSkipped = false,
     required this.errors,
+  });
+}
+
+class _TrackExpansionResult {
+  final List<Track> tracks;
+  final bool isComplete;
+
+  const _TrackExpansionResult({
+    required this.tracks,
+    required this.isComplete,
   });
 }
 
@@ -206,7 +218,7 @@ class ImportService with Logging implements ImportServiceFacade {
       // 获取分P信息并展开（仅Bilibili）
       final List<Track> expandedTracks;
       if (source is BilibiliSource) {
-        expandedTracks = await _expandMultiPageVideos(
+        final expansion = await _expandMultiPageVideos(
           source,
           result.tracks,
           (current, total, item) {
@@ -219,6 +231,7 @@ class ImportService with Logging implements ImportServiceFacade {
             );
           },
         );
+        expandedTracks = expansion.tracks;
       } else {
         expandedTracks = result.tracks;
       }
@@ -472,8 +485,9 @@ class ImportService with Logging implements ImportServiceFacade {
 
       // 获取分P信息并展开（仅Bilibili）
       final List<Track> expandedTracks;
+      final bool expansionComplete;
       if (source is BilibiliSource) {
-        expandedTracks = await _expandMultiPageVideos(
+        final expansion = await _expandMultiPageVideos(
           source,
           result.tracks,
           (current, total, item) {
@@ -487,10 +501,16 @@ class ImportService with Logging implements ImportServiceFacade {
             );
           },
         );
+        expandedTracks = expansion.tracks;
+        expansionComplete = expansion.isComplete;
       } else {
         expandedTracks = result.tracks;
+        expansionComplete = true;
       }
       _throwIfCancelled();
+
+      final sourceDataComplete = expansionComplete &&
+          (result.totalCount <= 0 || result.tracks.length >= result.totalCount);
 
       _updateProgress(
         status: ImportStatus.importing,
@@ -524,11 +544,11 @@ class ImportService with Logging implements ImportServiceFacade {
           );
 
           if (existing != null) {
-            newTrackIds.add(existing.id);
             if (!playlist.trackIds.contains(existing.id)) {
               // 新添加到歌单的 Track，只添加歌单关联（路径在下载完成时设置）
               existing.addToPlaylist(playlist.id, playlistName: playlist.name);
               await _trackRepository.save(existing);
+              newTrackIds.add(existing.id);
               addedCount++;
             } else {
               // 已在歌单中，确保有歌单关联
@@ -537,6 +557,7 @@ class ImportService with Logging implements ImportServiceFacade {
                     playlistName: playlist.name);
                 await _trackRepository.save(existing);
               }
+              newTrackIds.add(existing.id);
               skippedCount++;
             }
           } else {
@@ -555,9 +576,15 @@ class ImportService with Logging implements ImportServiceFacade {
 
       _throwIfCancelled();
 
+      final persistenceComplete = errors.isEmpty;
+      final canPruneRemovedTracks = sourceDataComplete && persistenceComplete;
+      final pruningSkipped = !canPruneRemovedTracks;
+
       // 计算被移除的歌曲（在原来列表中但不在新列表中的）
       final newTrackIdSet = Set<int>.from(newTrackIds);
-      final removedTrackIds = originalTrackIds.difference(newTrackIdSet);
+      final removedTrackIds = canPruneRemovedTracks
+          ? originalTrackIds.difference(newTrackIdSet)
+          : <int>{};
       final removedCount = removedTrackIds.length;
 
       // 清理被移除的 tracks 的 playlistIds 和 downloadPaths
@@ -594,11 +621,13 @@ class ImportService with Logging implements ImportServiceFacade {
       _throwIfCancelled();
 
       // 更新歌单
-      playlist.trackIds = newTrackIds;
+      playlist.trackIds = pruningSkipped
+          ? _mergePreservingExistingTrackOrder(playlist.trackIds, newTrackIds)
+          : newTrackIds;
       playlist.lastRefreshed = DateTime.now();
 
       // 更新封面（平台封面优先，回退到第一首歌封面）
-      await _updatePlaylistCover(playlist, result.coverUrl, newTrackIds);
+      await _updatePlaylistCover(playlist, result.coverUrl, playlist.trackIds);
       await _playlistRepository.save(playlist);
 
       _updateProgress(status: ImportStatus.completed);
@@ -608,6 +637,7 @@ class ImportService with Logging implements ImportServiceFacade {
         addedCount: addedCount,
         skippedCount: skippedCount,
         removedCount: removedCount,
+        pruningSkipped: pruningSkipped,
         errors: errors,
       );
     } catch (e) {
@@ -639,12 +669,13 @@ class ImportService with Logging implements ImportServiceFacade {
   }
 
   /// 展开多分P视频为独立Track
-  Future<List<Track>> _expandMultiPageVideos(
+  Future<_TrackExpansionResult> _expandMultiPageVideos(
     BilibiliSource source,
     List<Track> tracks,
     void Function(int current, int total, String item) onProgress,
   ) async {
     final expandedTracks = <Track>[];
+    var isComplete = true;
 
     // 统计多P视频数量用于进度显示
     final multiPageCount = tracks.where((t) => (t.pageCount ?? 0) > 1).length;
@@ -684,11 +715,29 @@ class ImportService with Logging implements ImportServiceFacade {
         await Future.delayed(const Duration(milliseconds: 100));
       } catch (e) {
         // 获取分P失败，直接添加原始track
+        isComplete = false;
         expandedTracks.add(track);
       }
     }
 
-    return expandedTracks;
+    return _TrackExpansionResult(
+      tracks: expandedTracks,
+      isComplete: isComplete,
+    );
+  }
+
+  List<int> _mergePreservingExistingTrackOrder(
+    List<int> existingTrackIds,
+    List<int> refreshedTrackIds,
+  ) {
+    final merged = List<int>.from(existingTrackIds);
+    final seen = merged.toSet();
+    for (final trackId in refreshedTrackIds) {
+      if (seen.add(trackId)) {
+        merged.add(trackId);
+      }
+    }
+    return merged;
   }
 
   /// 更新歌单封面：自定义封面不覆盖，优先平台封面，回退到第一首歌缩略图
