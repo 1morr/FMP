@@ -145,7 +145,7 @@ class ImportService with Logging implements ImportServiceFacade {
     _cancelledPlaylistId = null;
     if (playlistId != null) {
       try {
-        await _playlistRepository.delete(playlistId);
+        await _mutationService.deletePlaylist(playlistId);
       } catch (_) {
         // 清理失败不影响功能
       }
@@ -288,14 +288,7 @@ class ImportService with Logging implements ImportServiceFacade {
       final tracksToImport = <Track>[];
 
       for (int i = 0; i < expandedTracks.length; i++) {
-        if (_isCancelled) {
-          // 记录需要清理的歌单 ID，不在此处直接删除
-          // （在 Isar 写入事务进行中删除会导致崩溃）
-          if (isNewPlaylist) {
-            _cancelledPlaylistId = playlist.id;
-          }
-          throw ImportException(t.importSource.cancelled);
-        }
+        _throwIfCancelledForImportCreation(isNewPlaylist, playlist.id);
 
         final track = expandedTracks[i];
         _updateProgress(
@@ -305,12 +298,14 @@ class ImportService with Logging implements ImportServiceFacade {
         tracksToImport.add(track);
       }
 
+      _throwIfCancelledForImportCreation(isNewPlaylist, playlist.id);
       final mutationResult = await _mutationService.addTracks(
         playlist.id,
         tracksToImport,
       );
+      _throwIfCancelledForImportCreation(isNewPlaylist, playlist.id);
       addedCount = mutationResult.addedCount + mutationResult.repairedCount;
-      skippedCount = mutationResult.skippedCount;
+      skippedCount = tracksToImport.length - addedCount;
       errors.addAll(mutationResult.errors.map((error) => error.toString()));
       playlist = (await _playlistRepository.getById(playlist.id)) ?? playlist;
 
@@ -759,6 +754,15 @@ class ImportService with Logging implements ImportServiceFacade {
   void _throwIfCancelled() {
     if (_isCancelled) {
       throw const ImportException('Import cancelled');
+    }
+  }
+
+  void _throwIfCancelledForImportCreation(bool isNewPlaylist, int playlistId) {
+    if (_isCancelled) {
+      if (isNewPlaylist) {
+        _cancelledPlaylistId = playlistId;
+      }
+      throw ImportException(t.importSource.cancelled);
     }
   }
 

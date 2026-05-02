@@ -13,6 +13,7 @@ import 'package:fmp/data/sources/youtube_source.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/services/account/youtube_account_service.dart';
 import 'package:fmp/services/import/import_service.dart';
+import 'package:fmp/services/library/playlist_mutation_service.dart';
 import 'package:isar/isar.dart';
 
 void main() {
@@ -171,6 +172,73 @@ void main() {
           'https://www.youtube.com/watch?v=dvgZkm1xWPE&list=RDdvgZkm1xWPE');
       expect(result.addedCount, 0);
     });
+
+    test('importFromUrl reports cancellation after mutation instead of success',
+        () async {
+      final source = _PlaylistSource(
+        title: 'Cancellation Playlist',
+        tracks: [_track('cancel-track', 'Cancel Track')],
+      );
+      sourceManager.detectedSource = source;
+      late ImportService service;
+      final mutationService = _CancellingMutationService(
+        isar: isar,
+        onAfterMutation: () => service.cancelImport(),
+      );
+      service = ImportService(
+        sourceManager: sourceManager,
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        isar: isar,
+        mutationService: mutationService,
+      );
+
+      await expectLater(
+        () => service.importFromUrl('https://example.com/playlist/cancel'),
+        throwsA(isA<ImportException>()),
+      );
+      await service.cleanupCancelledImport();
+
+      expect(await playlistRepository.getAll(), isEmpty);
+      expect(await trackRepository.getAll(), isEmpty);
+    });
+
+    test('importFromUrl counts metadata-only existing tracks as skipped',
+        () async {
+      String? audioUrl;
+      final source = _DynamicPlaylistSource(
+        title: 'Metadata Playlist',
+        buildTracks: () => [
+          _track('metadata-track', 'Metadata Track')..audioUrl = audioUrl,
+        ],
+      );
+      sourceManager.detectedSource = source;
+      final service = ImportService(
+        sourceManager: sourceManager,
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        isar: isar,
+      );
+
+      final first = await service.importFromUrl(
+        'https://example.com/playlist/metadata',
+      );
+      audioUrl = 'https://audio.example/metadata.m4a';
+      final second = await service.importFromUrl(
+        'https://example.com/playlist/metadata',
+      );
+      final savedTrack = await trackRepository.getBySourceId(
+        'metadata-track',
+        SourceType.youtube,
+      );
+
+      expect(first.addedCount, 1);
+      expect(first.skippedCount, 0);
+      expect(second.addedCount, 0);
+      expect(second.skippedCount, 1);
+      expect(second.playlist.trackIds, hasLength(1));
+      expect(savedTrack!.audioUrl, audioUrl);
+    });
   });
 }
 
@@ -302,6 +370,155 @@ class _FakeNeteaseAccountService extends NeteaseAccountService {
   Future<String?> getAuthCookieString() async => 'MUSIC_U=music-u; __csrf=csrf';
 }
 
+class _PlaylistSource extends BaseSource {
+  _PlaylistSource({
+    required this.title,
+    required List<Track> tracks,
+  }) : _tracks = tracks;
+
+  final String title;
+  final List<Track> _tracks;
+  @override
+  SourceType get sourceType => SourceType.youtube;
+
+  @override
+  Future<bool> checkAvailability(String sourceId) async => true;
+
+  @override
+  Future<AudioStreamResult> getAudioStream(String sourceId,
+          {AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+          Map<String, String>? authHeaders}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Track> getTrackInfo(String sourceId,
+          {Map<String, String>? authHeaders}) =>
+      throw UnimplementedError();
+
+  @override
+  bool isPlaylistUrl(String url) => true;
+
+  @override
+  bool isValidId(String id) => true;
+
+  @override
+  String? parseId(String url) => 'id';
+
+  @override
+  Future<PlaylistParseResult> parsePlaylist(String playlistUrl,
+      {int page = 1,
+      int pageSize = 20,
+      Map<String, String>? authHeaders}) async {
+    return PlaylistParseResult(
+      title: title,
+      tracks: _tracks,
+      totalCount: _tracks.length,
+      sourceUrl: playlistUrl,
+    );
+  }
+
+  @override
+  Future<Track> refreshAudioUrl(Track track,
+          {Map<String, String>? authHeaders}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<SearchResult> search(String query,
+      {int page = 1,
+      int pageSize = 20,
+      SearchOrder order = SearchOrder.relevance}) async {
+    return SearchResult.empty();
+  }
+}
+
+class _DynamicPlaylistSource extends BaseSource {
+  _DynamicPlaylistSource({
+    required this.title,
+    required this.buildTracks,
+  });
+
+  final String title;
+  final List<Track> Function() buildTracks;
+  @override
+  SourceType get sourceType => SourceType.youtube;
+
+  @override
+  Future<bool> checkAvailability(String sourceId) async => true;
+
+  @override
+  Future<AudioStreamResult> getAudioStream(String sourceId,
+          {AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+          Map<String, String>? authHeaders}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Track> getTrackInfo(String sourceId,
+          {Map<String, String>? authHeaders}) =>
+      throw UnimplementedError();
+
+  @override
+  bool isPlaylistUrl(String url) => true;
+
+  @override
+  bool isValidId(String id) => true;
+
+  @override
+  String? parseId(String url) => 'id';
+
+  @override
+  Future<PlaylistParseResult> parsePlaylist(String playlistUrl,
+      {int page = 1,
+      int pageSize = 20,
+      Map<String, String>? authHeaders}) async {
+    final tracks = buildTracks();
+    return PlaylistParseResult(
+      title: title,
+      tracks: tracks,
+      totalCount: tracks.length,
+      sourceUrl: playlistUrl,
+    );
+  }
+
+  @override
+  Future<Track> refreshAudioUrl(Track track,
+          {Map<String, String>? authHeaders}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<SearchResult> search(String query,
+      {int page = 1,
+      int pageSize = 20,
+      SearchOrder order = SearchOrder.relevance}) async {
+    return SearchResult.empty();
+  }
+}
+
+class _CancellingMutationService extends PlaylistMutationService {
+  _CancellingMutationService({
+    required super.isar,
+    required this.onAfterMutation,
+  });
+
+  final void Function() onAfterMutation;
+
+  @override
+  Future<PlaylistMutationResult> addTracks(
+      int playlistId, List<Track> tracks) async {
+    final result = await super.addTracks(playlistId, tracks);
+    onAfterMutation();
+    return result;
+  }
+}
+
+Track _track(String sourceId, String title) {
+  return Track()
+    ..sourceId = sourceId
+    ..sourceType = SourceType.youtube
+    ..title = title
+    ..thumbnailUrl = 'https://example.com/$sourceId.jpg'
+    ..createdAt = DateTime.now();
+}
+
 class _MixImportSentinel implements Exception {}
 
 class _ParseSentinel implements Exception {}
@@ -316,7 +533,9 @@ Future<String> _resolveIsarLibraryPath() async {
 
   for (final package in packages) {
     if (package is! Map<String, dynamic> ||
-        package['name'] != 'isar_flutter_libs') continue;
+        package['name'] != 'isar_flutter_libs') {
+      continue;
+    }
     final packageDir = Directory(
       packageConfigDir.uri.resolve(package['rootUri'] as String).toFilePath(),
     );
