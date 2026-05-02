@@ -183,6 +183,29 @@ void main() {
       expect(result.coverChanged, isTrue);
     });
 
+    test('removeTracks cleans stale reverse-only membership', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final playlist = await _createPlaylist(harness, 'Stale Reverse');
+      final track = _track('stale-reverse', 'Stale Reverse')
+        ..addToPlaylist(playlist.id, playlistName: playlist.name);
+      final savedTrack = await harness.tracks.save(track);
+
+      final result = await harness.mutations.removeTracks(
+        playlist.id,
+        [savedTrack.id],
+      );
+
+      final savedPlaylist = await harness.playlists.getById(playlist.id);
+      expect(savedPlaylist!.trackIds, isEmpty);
+      expect(await harness.tracks.getById(savedTrack.id), isNull);
+      expect(result.removedTrackIds, [savedTrack.id]);
+      expect(result.deletedTrackIds, [savedTrack.id]);
+      expect(result.updatedTrackIds, isEmpty);
+      expect(result.playlistChanged, isFalse);
+      expect(result.coverChanged, isFalse);
+    });
+
     test('reorderTracks stores requested order and reports cover changes',
         () async {
       final harness = await _createHarness();
