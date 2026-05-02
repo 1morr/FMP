@@ -32,7 +32,8 @@ import '../../../providers/account_provider.dart';
 import '../../../services/account/bilibili_favorites_service.dart';
 import '../../../services/account/youtube_playlist_service.dart';
 import '../../../services/account/netease_playlist_service.dart';
-import '../../../providers/refresh_provider.dart';
+import '../../../services/library/remote_playlist_track_filter.dart';
+import '../../../providers/remote_playlist_sync_provider.dart';
 import '../../handlers/track_action_handler.dart';
 
 /// 歌单详情页
@@ -604,21 +605,18 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         }
         break;
       case 'add_to_remote':
-        // 檢查第一首歌的平台登錄狀態
-        final isLoggedIn =
-            ref.read(isLoggedInProvider(tracks.first.sourceType));
-        if (!isLoggedIn) {
+        final remoteTracks = filterLoggedInRemoteTracks(
+          tracks,
+          isLoggedIn: (sourceType) => ref.read(isLoggedInProvider(sourceType)),
+        );
+        if (remoteTracks.isEmpty) {
           if (mounted) {
             ToastService.show(context, t.remote.pleaseLogin);
           }
           return;
         }
         notifier.exitSelectionMode();
-        // 按平台過濾（多選可能混合平台）
-        final remoteTracks = tracks
-            .where((t) => ref.read(isLoggedInProvider(t.sourceType)))
-            .toList();
-        if (remoteTracks.isNotEmpty && mounted) {
+        if (mounted) {
           showAddToRemotePlaylistDialogMulti(
               context: context, tracks: remoteTracks);
         }
@@ -693,9 +691,10 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
 
     try {
       final state = ref.read(playlistDetailProvider(widget.playlistId));
-      final sourceUrl = state.playlist?.sourceUrl;
-      final sourceType = state.playlist?.importSourceType;
-      if (sourceUrl == null || sourceType == null) return;
+      final playlist = state.playlist;
+      final sourceUrl = playlist?.sourceUrl;
+      final sourceType = playlist?.importSourceType;
+      if (sourceUrl == null || sourceType == null || playlist == null) return;
 
       final removedFromRemote = await ref
           .read(remotePlaylistActionsServiceProvider)
@@ -706,20 +705,10 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           );
       if (!removedFromRemote) return;
 
-      // 在移除前先取得 playlist 和 refreshManager
-      final playlist =
-          ref.read(playlistDetailProvider(widget.playlistId)).playlist;
-      final refreshManager = ref.read(refreshManagerProvider.notifier);
-
-      // 同時從本地歌單移除
-      final detailNotifier =
-          ref.read(playlistDetailProvider(widget.playlistId).notifier);
-      await detailNotifier.removeTracks(tracks.map((t) => t.id).toList());
-
-      // 觸發歌單重新整理
-      if (playlist != null) {
-        refreshManager.refreshPlaylist(playlist);
-      }
+      await ref.read(remotePlaylistRemovalSyncServiceProvider).syncAfterRemoval(
+            playlist: playlist,
+            removedTrackIds: tracks.map((track) => track.id).toList(),
+          );
 
       notifier.exitSelectionMode();
       if (mounted) {
@@ -1358,17 +1347,19 @@ class _GroupHeader extends ConsumerWidget {
         onAddAllToQueue();
         break;
       case 'add_to_remote':
-        final isLoggedIn =
-            ref.read(isLoggedInProvider(group.tracks.first.sourceType));
-        if (!isLoggedIn) {
+        final remoteTracks = filterLoggedInRemoteTracks(
+          group.tracks,
+          isLoggedIn: (sourceType) => ref.read(isLoggedInProvider(sourceType)),
+        );
+        if (remoteTracks.isEmpty) {
           if (context.mounted) {
             ToastService.show(context, t.remote.pleaseLogin);
           }
           return;
         }
         if (context.mounted) {
-          showAddToRemotePlaylistDialog(
-              context: context, track: group.tracks.first);
+          showAddToRemotePlaylistDialogMulti(
+              context: context, tracks: remoteTracks);
         }
         break;
       case 'download_all':
@@ -1805,9 +1796,10 @@ class _TrackListTile extends ConsumerWidget {
 
     try {
       final state = ref.read(playlistDetailProvider(playlistId));
-      final sourceUrl = state.playlist?.sourceUrl;
-      final sourceType = state.playlist?.importSourceType;
-      if (sourceUrl == null || sourceType == null) return;
+      final playlist = state.playlist;
+      final sourceUrl = playlist?.sourceUrl;
+      final sourceType = playlist?.importSourceType;
+      if (sourceUrl == null || sourceType == null || playlist == null) return;
 
       final removedFromRemote = await ref
           .read(remotePlaylistActionsServiceProvider)
@@ -1818,19 +1810,10 @@ class _TrackListTile extends ConsumerWidget {
           );
       if (!removedFromRemote) return;
 
-      // 在移除前先取得 playlist 和 refreshManager（移除後 ref 可能失效）
-      final playlist = ref.read(playlistDetailProvider(playlistId)).playlist;
-      final refreshManager = ref.read(refreshManagerProvider.notifier);
-
-      // 同時從本地歌單移除
-      await ref
-          .read(playlistDetailProvider(playlistId).notifier)
-          .removeTrack(track.id);
-
-      // 觸發歌單重新整理
-      if (playlist != null) {
-        refreshManager.refreshPlaylist(playlist);
-      }
+      await ref.read(remotePlaylistRemovalSyncServiceProvider).syncAfterRemoval(
+        playlist: playlist,
+        removedTrackIds: [track.id],
+      );
 
       if (context.mounted) {
         ToastService.success(context, t.remote.removedAndLocal);

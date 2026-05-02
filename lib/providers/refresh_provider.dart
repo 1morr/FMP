@@ -171,15 +171,6 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
 
       if (!_isRefreshGenerationCurrent(playlistId, generation)) return result;
 
-      // 更新 lastRefreshed 时间戳
-      final updatedPlaylist = await playlistRepo.getById(playlistId);
-      if (!_isRefreshGenerationCurrent(playlistId, generation)) return result;
-      if (updatedPlaylist != null) {
-        updatedPlaylist.lastRefreshed = DateTime.now();
-        await playlistRepo.save(updatedPlaylist);
-      }
-      if (!_isRefreshGenerationCurrent(playlistId, generation)) return result;
-
       // 刷新成功
       final refreshState = state.getRefreshState(playlistId);
       if (refreshState == null) return result;

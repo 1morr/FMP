@@ -123,11 +123,6 @@ final remotePlaylistActionsServiceProvider =
   return RemotePlaylistActionsService(
     getBilibiliAid: bilibiliService.getVideoAid,
     removeBilibiliTracks: bilibiliService.batchRemoveFromFolder,
-    removeBilibiliTrack: ({required videoAid, required folderId}) =>
-        bilibiliService.updateVideoFavorites(
-      videoAid: videoAid,
-      removeFolderIds: [folderId],
-    ),
     getYoutubeSetVideoId: youtubeService.getSetVideoId,
     removeYoutubeTrack: youtubeService.removeFromPlaylist,
     removeNeteaseTracks: neteaseService.removeTracksFromPlaylist,
