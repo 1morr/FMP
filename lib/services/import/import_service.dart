@@ -66,6 +66,7 @@ class ImportResult {
   final int addedCount;
   final int skippedCount;
   final int removedCount;
+  final bool pruningSkipped;
   final List<String> errors;
 
   const ImportResult({
@@ -73,6 +74,7 @@ class ImportResult {
     required this.addedCount,
     required this.skippedCount,
     this.removedCount = 0,
+    this.pruningSkipped = false,
     required this.errors,
   });
 }
