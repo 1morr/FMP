@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/data/models/playlist.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/playlist_import/playlist_import_source.dart';
@@ -169,13 +170,124 @@ void main() {
         expect(fakeService.importCalls, 0);
         expect(fakeService.cancelCalls, 1);
         expect(fakeService.cleanupCalls, 1);
+        expect(fakeService.disposeCalls, 1);
         expect(
           container.read(importPlaylistProvider('async-cancel')).wasCancelled,
           isTrue,
         );
       },
     );
+
+    test('reset prevents a late import result from rewriting idle state',
+        () async {
+      final fakeService = FakeImportService();
+      final container = ProviderContainer(
+        overrides: [
+          importServiceFactoryProvider.overrideWithValue(() => fakeService),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final subscription = container.listen<ImportPlaylistState>(
+        importPlaylistProvider('reset-stale'),
+        (_, __) {},
+        fireImmediately: true,
+      );
+      addTearDown(subscription.close);
+
+      final notifier =
+          container.read(importPlaylistProvider('reset-stale').notifier);
+      final importFuture = notifier.importFromUrl(
+        'https://example.com/playlist?list=reset-stale',
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      notifier.reset();
+      fakeService.complete(_result('late result'));
+      await importFuture;
+
+      final state = container.read(importPlaylistProvider('reset-stale'));
+      expect(state.isImporting, isFalse);
+      expect(state.result, isNull);
+      expect(state.errorMessage, isNull);
+      expect(state.wasCancelled, isFalse);
+    });
+
+    test('new import ignores late progress and result from previous service',
+        () async {
+      final oldService = FakeImportService();
+      final newService = FakeImportService();
+      var createCount = 0;
+      final container = ProviderContainer(
+        overrides: [
+          importServiceFactoryProvider.overrideWithValue(() {
+            createCount++;
+            return createCount == 1 ? oldService : newService;
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final subscription = container.listen<ImportPlaylistState>(
+        importPlaylistProvider('overlap-stale'),
+        (_, __) {},
+        fireImmediately: true,
+      );
+      addTearDown(subscription.close);
+
+      final notifier =
+          container.read(importPlaylistProvider('overlap-stale').notifier);
+      final oldFuture = notifier.importFromUrl(
+        'https://example.com/playlist?list=old',
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(oldService.importCalls, 1);
+
+      notifier.cancelImport();
+      final newFuture = notifier.importFromUrl(
+        'https://example.com/playlist?list=new',
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(newService.importCalls, 1);
+
+      oldService.emit(
+        const ImportProgress(
+          status: ImportStatus.importing,
+          current: 1,
+          total: 1,
+          currentItem: 'old progress',
+        ),
+      );
+      oldService.complete(_result('old result'));
+      await oldFuture;
+      await Future<void>.delayed(Duration.zero);
+
+      var state = container.read(importPlaylistProvider('overlap-stale'));
+      expect(state.isImporting, isTrue);
+      expect(state.progress.currentItem, isNull);
+      expect(state.result, isNull);
+      expect(state.wasCancelled, isFalse);
+
+      newService.complete(_result('new result'));
+      await newFuture;
+
+      state = container.read(importPlaylistProvider('overlap-stale'));
+      expect(state.isImporting, isFalse);
+      expect(state.result!.playlist.name, 'new result');
+      expect(state.wasCancelled, isFalse);
+    });
   });
+}
+
+ImportResult _result(String name) {
+  return ImportResult(
+    playlist: Playlist()
+      ..id = name.hashCode
+      ..name = name,
+    addedCount: 1,
+    skippedCount: 0,
+    errors: const [],
+  );
 }
 
 class FakeImportService implements ImportServiceFacade {
@@ -197,6 +309,12 @@ class FakeImportService implements ImportServiceFacade {
   void fail(Object error) {
     if (!_completer.isCompleted) {
       _completer.completeError(error);
+    }
+  }
+
+  void complete(ImportResult result) {
+    if (!_completer.isCompleted) {
+      _completer.complete(result);
     }
   }
 

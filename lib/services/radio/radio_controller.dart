@@ -822,13 +822,14 @@ class RadioController extends StateNotifier<RadioState> with Logging {
 
   /// 刷新電台資訊（使用高能用戶數作為觀眾數）
   Future<void> refreshStationInfo() async {
-    if (state.currentStation == null) return;
+    final station = state.currentStation;
+    if (station == null) return;
+    final stationId = station.id;
 
     try {
       // 使用高能用戶數 API（更準確的觀眾數據）
-      final count =
-          await _radioSource.getHighEnergyUserCount(state.currentStation!);
-      if (count != null) {
+      final count = await _radioSource.getHighEnergyUserCount(station);
+      if (count != null && state.currentStation?.id == stationId) {
         state = state.copyWith(viewerCount: count);
       }
     } catch (e) {

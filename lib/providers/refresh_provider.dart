@@ -100,6 +100,8 @@ class RefreshManagerState extends Equatable {
 class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
   final Ref _ref;
   final Map<int, StreamSubscription<ImportProgress>> _subscriptions = {};
+  final Map<int, int> _refreshGenerations = {};
+  int _refreshOperationId = 0;
 
   RefreshManagerNotifier(this._ref) : super(const RefreshManagerState());
 
@@ -111,6 +113,7 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
     if (state.isRefreshing(playlistId)) {
       return null;
     }
+    final generation = _nextRefreshGeneration(playlistId);
 
     // 创建新的 ImportService 实例（每个刷新任务独立）
     final sourceManager = _ref.read(sourceManagerProvider);
@@ -118,7 +121,7 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
     final trackRepo = _ref.read(trackRepositoryProvider);
 
     final isar = await _ref.read(databaseProvider.future);
-    
+
     final importService = ImportService(
       sourceManager: sourceManager,
       playlistRepository: playlistRepo,
@@ -142,36 +145,45 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
 
     // 监听进度
     _subscriptions[playlistId]?.cancel();
-    _subscriptions[playlistId] =
-        importService.progressStream.listen((progress) {
+    final subscription = importService.progressStream.listen((progress) {
+      if (!_isRefreshGenerationCurrent(playlistId, generation)) return;
+      final refreshState = state.getRefreshState(playlistId);
+      if (refreshState == null) return;
       _updatePlaylistState(
         playlistId,
-        state.getRefreshState(playlistId)!.copyWith(
-              status: progress.status,
-              current: progress.current,
-              total: progress.total,
-              currentItem: progress.currentItem,
-              error: progress.error,
-            ),
+        refreshState.copyWith(
+          status: progress.status,
+          current: progress.current,
+          total: progress.total,
+          currentItem: progress.currentItem,
+          error: progress.error,
+        ),
       );
     });
+    _subscriptions[playlistId] = subscription;
 
     try {
       final result = await importService.refreshPlaylist(playlistId);
 
+      if (!_isRefreshGenerationCurrent(playlistId, generation)) return result;
+
       // 更新 lastRefreshed 时间戳
       final updatedPlaylist = await playlistRepo.getById(playlistId);
+      if (!_isRefreshGenerationCurrent(playlistId, generation)) return result;
       if (updatedPlaylist != null) {
         updatedPlaylist.lastRefreshed = DateTime.now();
         await playlistRepo.save(updatedPlaylist);
       }
+      if (!_isRefreshGenerationCurrent(playlistId, generation)) return result;
 
       // 刷新成功
+      final refreshState = state.getRefreshState(playlistId);
+      if (refreshState == null) return result;
       _updatePlaylistState(
         playlistId,
-        state.getRefreshState(playlistId)!.copyWith(
-              status: ImportStatus.completed,
-            ),
+        refreshState.copyWith(
+          status: ImportStatus.completed,
+        ),
       );
 
       // watch 自动更新歌单列表，只需刷新详情和封面
@@ -182,47 +194,62 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
       // 使用 ToastService 显示成功提示（不依赖 context）
       final toastService = _ref.read(toastServiceProvider);
       final parts = <String>[];
-      if (result.addedCount > 0) parts.add(t.refreshProvider.added(count: result.addedCount));
-      if (result.removedCount > 0) parts.add(t.refreshProvider.removed(count: result.removedCount));
-      if (result.skippedCount > 0) parts.add(t.refreshProvider.unchanged(count: result.skippedCount));
+      if (result.addedCount > 0) {
+        parts.add(t.refreshProvider.added(count: result.addedCount));
+      }
+      if (result.removedCount > 0) {
+        parts.add(t.refreshProvider.removed(count: result.removedCount));
+      }
+      if (result.skippedCount > 0) {
+        parts.add(t.refreshProvider.unchanged(count: result.skippedCount));
+      }
       final message = t.refreshProvider.completed(name: playlist.name) +
           (parts.isEmpty ? t.refreshProvider.noChanges : parts.join('，'));
       toastService.showSuccess(message);
 
-      // 延迟移除已完成的状态
-      Future.delayed(const Duration(seconds: 3), () {
-        _removePlaylistState(playlistId);
-      });
+      _schedulePlaylistStateRemoval(
+        playlistId,
+        generation,
+        const Duration(seconds: 3),
+      );
 
       return result;
     } catch (e) {
+      if (!_isRefreshGenerationCurrent(playlistId, generation)) return null;
+      final refreshState = state.getRefreshState(playlistId);
+      if (refreshState == null) return null;
       _updatePlaylistState(
         playlistId,
-        state.getRefreshState(playlistId)!.copyWith(
-              status: ImportStatus.failed,
-              error: e.toString(),
-            ),
+        refreshState.copyWith(
+          status: ImportStatus.failed,
+          error: e.toString(),
+        ),
       );
 
       // 使用 ToastService 显示错误提示
       final toastService = _ref.read(toastServiceProvider);
-      toastService.showError(t.refreshProvider.failed(name: playlist.name, error: e.toString()));
+      toastService.showError(
+          t.refreshProvider.failed(name: playlist.name, error: e.toString()));
 
-      // 延迟移除失败的状态
-      Future.delayed(const Duration(seconds: 5), () {
-        _removePlaylistState(playlistId);
-      });
+      _schedulePlaylistStateRemoval(
+        playlistId,
+        generation,
+        const Duration(seconds: 5),
+      );
 
       rethrow;
     } finally {
-      _subscriptions[playlistId]?.cancel();
-      _subscriptions.remove(playlistId);
+      await subscription.cancel();
+      if (identical(_subscriptions[playlistId], subscription)) {
+        _subscriptions.remove(playlistId);
+      }
       importService.dispose();
     }
   }
 
   /// 取消刷新（如果需要）
   void cancelRefresh(int playlistId) {
+    _nextRefreshGeneration(playlistId);
     _subscriptions[playlistId]?.cancel();
     _subscriptions.remove(playlistId);
     _removePlaylistState(playlistId);
@@ -230,22 +257,52 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
 
   /// 清除已完成或失败的状态
   void clearCompletedStates() {
-    final newMap = Map<int, PlaylistRefreshState>.from(state.refreshingPlaylists);
-    newMap.removeWhere(
-        (_, s) => s.status == ImportStatus.completed || s.status == ImportStatus.failed);
+    final newMap =
+        Map<int, PlaylistRefreshState>.from(state.refreshingPlaylists);
+    newMap.removeWhere((_, s) =>
+        s.status == ImportStatus.completed || s.status == ImportStatus.failed);
     state = state.copyWith(refreshingPlaylists: newMap);
   }
 
+  int _nextRefreshGeneration(int playlistId) {
+    final generation = ++_refreshOperationId;
+    _refreshGenerations[playlistId] = generation;
+    return generation;
+  }
+
+  bool _isRefreshGenerationCurrent(int playlistId, int generation) {
+    return mounted && _refreshGenerations[playlistId] == generation;
+  }
+
   void _updatePlaylistState(int playlistId, PlaylistRefreshState refreshState) {
-    final newMap = Map<int, PlaylistRefreshState>.from(state.refreshingPlaylists);
+    final newMap =
+        Map<int, PlaylistRefreshState>.from(state.refreshingPlaylists);
     newMap[playlistId] = refreshState;
     state = state.copyWith(refreshingPlaylists: newMap);
   }
 
+  void _schedulePlaylistStateRemoval(
+    int playlistId,
+    int generation,
+    Duration delay,
+  ) {
+    Future.delayed(delay, () {
+      _removePlaylistStateIfCurrent(playlistId, generation);
+    });
+  }
+
+  void _removePlaylistStateIfCurrent(int playlistId, int generation) {
+    if (_isRefreshGenerationCurrent(playlistId, generation)) {
+      _removePlaylistState(playlistId);
+    }
+  }
+
   void _removePlaylistState(int playlistId) {
     if (!mounted) return;
-    final newMap = Map<int, PlaylistRefreshState>.from(state.refreshingPlaylists);
+    final newMap =
+        Map<int, PlaylistRefreshState>.from(state.refreshingPlaylists);
     newMap.remove(playlistId);
+    _refreshGenerations.remove(playlistId);
     state = state.copyWith(refreshingPlaylists: newMap);
   }
 
@@ -255,6 +312,7 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
       sub.cancel();
     }
     _subscriptions.clear();
+    _refreshGenerations.clear();
     super.dispose();
   }
 }
@@ -266,7 +324,8 @@ final refreshManagerProvider =
 });
 
 /// 检查特定歌单是否正在刷新
-final isPlaylistRefreshingProvider = Provider.family<bool, int>((ref, playlistId) {
+final isPlaylistRefreshingProvider =
+    Provider.family<bool, int>((ref, playlistId) {
   final state = ref.watch(refreshManagerProvider);
   return state.isRefreshing(playlistId);
 });

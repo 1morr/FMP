@@ -315,5 +315,75 @@ void main() {
 
       expect(cache.debugMissingPathCount, 5000);
     });
+
+    test('single-path async check does not mutate epoch after disposal',
+        () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'file_exists_cache_phase4_dispose_single_',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+      final path = '${tempDir.path}/exists_after_dispose.jpg';
+      await File(path).writeAsString('exists');
+
+      final container = ProviderContainer();
+      final cache = container.read(fileExistsCacheProvider.notifier);
+
+      expect(cache.exists(path), isFalse);
+      container.dispose();
+      await pumpEventQueue(times: 5);
+
+      expect(cache.cacheEpoch, 0);
+    });
+
+    test('scheduled multi-path refresh does not mutate epoch after disposal',
+        () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'file_exists_cache_phase4_dispose_batch_',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+      final path = '${tempDir.path}/exists_after_dispose.jpg';
+      await File(path).writeAsString('exists');
+
+      final container = ProviderContainer();
+      final cache = container.read(fileExistsCacheProvider.notifier);
+
+      expect(cache.getFirstExisting([path]), isNull);
+      expect(cache.pendingRefreshCount, 1);
+      container.dispose();
+      await pumpEventQueue(times: 5);
+
+      expect(cache.cacheEpoch, 0);
+      expect(cache.pendingRefreshCount, 0);
+    });
+
+    test('preloadPaths does not mutate epoch after disposal', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'file_exists_cache_phase4_dispose_preload_',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+      final path = '${tempDir.path}/exists_after_dispose.jpg';
+      await File(path).writeAsString('exists');
+
+      final container = ProviderContainer();
+      final cache = container.read(fileExistsCacheProvider.notifier);
+
+      final preloadFuture = cache.preloadPaths([path]);
+      container.dispose();
+      await preloadFuture;
+
+      expect(cache.cacheEpoch, 0);
+    });
   });
 }
