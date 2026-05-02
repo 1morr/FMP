@@ -311,10 +311,12 @@ class ImportService with Logging implements ImportServiceFacade {
 
       // 更新歌单封面（平台封面优先，回退到第一首歌封面）
       await _updatePlaylistCover(playlist, result.coverUrl, playlist.trackIds);
+      _throwIfCancelledForImportCreation(isNewPlaylist, playlist.id);
 
       // 更新歌单
       playlist.lastRefreshed = DateTime.now();
       await _playlistRepository.save(playlist);
+      _throwIfCancelledForImportCreation(isNewPlaylist, playlist.id);
 
       _updateProgress(status: ImportStatus.completed);
 

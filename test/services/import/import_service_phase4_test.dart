@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
@@ -197,6 +198,36 @@ void main() {
         () => service.importFromUrl('https://example.com/playlist/cancel'),
         throwsA(isA<ImportException>()),
       );
+      await service.cleanupCancelledImport();
+
+      expect(await playlistRepository.getAll(), isEmpty);
+      expect(await trackRepository.getAll(), isEmpty);
+    });
+
+    test(
+        'importFromUrl reports cancellation after cover update instead of success',
+        () async {
+      final source = _PlaylistSource(
+        title: 'Cover Cancellation Playlist',
+        tracks: [_track('cover-cancel-track', 'Cover Cancel Track')],
+      );
+      sourceManager.detectedSource = source;
+      final blockingTrackRepository = _BlockingTrackRepository(isar);
+      final service = ImportService(
+        sourceManager: sourceManager,
+        playlistRepository: playlistRepository,
+        trackRepository: blockingTrackRepository,
+        isar: isar,
+      );
+
+      final importFuture = service.importFromUrl(
+        'https://example.com/playlist/cover-cancel',
+      );
+      await blockingTrackRepository.coverLookupStarted.future;
+      service.cancelImport();
+      blockingTrackRepository.completeCoverLookup();
+
+      await expectLater(importFuture, throwsA(isA<ImportException>()));
       await service.cleanupCancelledImport();
 
       expect(await playlistRepository.getAll(), isEmpty);
@@ -490,6 +521,28 @@ class _DynamicPlaylistSource extends BaseSource {
       int pageSize = 20,
       SearchOrder order = SearchOrder.relevance}) async {
     return SearchResult.empty();
+  }
+}
+
+class _BlockingTrackRepository extends TrackRepository {
+  _BlockingTrackRepository(super.isar);
+
+  final coverLookupStarted = Completer<void>();
+  final _coverLookupCompleter = Completer<void>();
+
+  void completeCoverLookup() {
+    if (!_coverLookupCompleter.isCompleted) {
+      _coverLookupCompleter.complete();
+    }
+  }
+
+  @override
+  Future<Track?> getById(int id) async {
+    if (!coverLookupStarted.isCompleted) {
+      coverLookupStarted.complete();
+      await _coverLookupCompleter.future;
+    }
+    return super.getById(id);
   }
 }
 
