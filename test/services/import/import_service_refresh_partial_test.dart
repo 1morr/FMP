@@ -86,6 +86,48 @@ void main() {
           isNotNull);
     });
 
+    test('does not append existing track when association save fails',
+        () async {
+      final trackRepository = _FailingSaveTrackRepository(
+        isar,
+        failSourceIds: {'existing'},
+      );
+      final playlist = await _createImportedPlaylist(
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        tracks: [
+          _track('keep', 'Keep'),
+        ],
+      );
+      final existingTrack = await TrackRepository(isar).save(
+        _track('existing', 'Existing'),
+      );
+      source.result = PlaylistParseResult(
+        title: 'Remote playlist',
+        tracks: [
+          _track('keep', 'Keep'),
+          _track('existing', 'Existing'),
+        ],
+        totalCount: 2,
+        sourceUrl: playlist.sourceUrl!,
+      );
+      final service = ImportService(
+        sourceManager: sourceManager,
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        isar: isar,
+      );
+
+      final result = await service.refreshPlaylist(playlist.id);
+
+      expect(result.pruningSkipped, isTrue);
+      expect(result.removedCount, 0);
+      expect(result.errors, isNotEmpty);
+      final refreshed = await playlistRepository.getById(playlist.id);
+      expect(refreshed!.trackIds, isNot(contains(existingTrack.id)));
+      expect(refreshed.trackIds, playlist.trackIds);
+    });
+
     test('skips pruning when source result is smaller than reported total',
         () async {
       final trackRepository = TrackRepository(isar);
@@ -118,6 +160,44 @@ void main() {
       final refreshed = await playlistRepository.getById(playlist.id);
       expect(refreshed!.trackIds, playlist.trackIds);
       expect(await trackRepository.getBySourceId('stale', SourceType.youtube),
+          isNotNull);
+    });
+
+    test('skips pruning when Bilibili parsed item count is partial', () async {
+      final trackRepository = TrackRepository(isar);
+      final bilibiliSource = _FakeBilibiliRefreshSource(
+        tracks: [_track('BV1234567890', 'Multi-page', SourceType.bilibili, 2)],
+        totalCount: 2,
+      );
+      sourceManager = _FakeSourceManager(bilibiliSource);
+      final playlist = await _createImportedPlaylist(
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        sourceType: SourceType.bilibili,
+        tracks: [
+          _track('BV1234567890', 'Page 1', SourceType.bilibili)
+            ..cid = 101
+            ..pageNum = 1,
+          _track('BVstale0000', 'Stale', SourceType.bilibili),
+        ],
+      );
+      final service = ImportService(
+        sourceManager: sourceManager,
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        isar: isar,
+      );
+
+      final result = await service.refreshPlaylist(playlist.id);
+
+      expect(result.pruningSkipped, isTrue);
+      expect(result.removedCount, 0);
+      expect(result.errors, isEmpty);
+      final refreshed = await playlistRepository.getById(playlist.id);
+      expect(refreshed!.trackIds, containsAll(playlist.trackIds));
+      expect(
+          await trackRepository.getBySourceId(
+              'BVstale0000', SourceType.bilibili),
           isNotNull);
     });
 
@@ -162,11 +242,16 @@ void main() {
 }
 
 class _FailingSaveTrackRepository extends TrackRepository {
-  _FailingSaveTrackRepository(super.isar);
+  _FailingSaveTrackRepository(
+    super.isar, {
+    this.failSourceIds = const {'broken'},
+  });
+
+  final Set<String> failSourceIds;
 
   @override
   Future<Track> save(Track track) {
-    if (track.sourceId == 'broken') {
+    if (failSourceIds.contains(track.sourceId)) {
       throw StateError('simulated save failure');
     }
     return super.save(track);

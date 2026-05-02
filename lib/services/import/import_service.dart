@@ -510,8 +510,7 @@ class ImportService with Logging implements ImportServiceFacade {
       _throwIfCancelled();
 
       final sourceDataComplete = expansionComplete &&
-          (result.totalCount <= 0 ||
-              expandedTracks.length >= result.totalCount);
+          (result.totalCount <= 0 || result.tracks.length >= result.totalCount);
 
       _updateProgress(
         status: ImportStatus.importing,
@@ -545,11 +544,11 @@ class ImportService with Logging implements ImportServiceFacade {
           );
 
           if (existing != null) {
-            newTrackIds.add(existing.id);
             if (!playlist.trackIds.contains(existing.id)) {
               // 新添加到歌单的 Track，只添加歌单关联（路径在下载完成时设置）
               existing.addToPlaylist(playlist.id, playlistName: playlist.name);
               await _trackRepository.save(existing);
+              newTrackIds.add(existing.id);
               addedCount++;
             } else {
               // 已在歌单中，确保有歌单关联
@@ -558,6 +557,7 @@ class ImportService with Logging implements ImportServiceFacade {
                     playlistName: playlist.name);
                 await _trackRepository.save(existing);
               }
+              newTrackIds.add(existing.id);
               skippedCount++;
             }
           } else {
