@@ -15,6 +15,39 @@ import 'package:fmp/services/account/youtube_account_service.dart';
 import 'package:isar/isar.dart';
 
 void main() {
+  test('loadDetail treats same-source multi-page tracks as different tracks',
+      () async {
+    final bilibili = _CompletingBilibiliSource();
+    final notifier = TrackDetailNotifier(
+      bilibili,
+      _CompletingYouTubeSource(),
+      _CompletingNeteaseSource(),
+      _FakeRef(),
+    );
+
+    final pageOne = _track('BV-SAME', SourceType.bilibili)
+      ..cid = 101
+      ..pageNum = 1;
+    final pageTwo = _track('BV-SAME', SourceType.bilibili)
+      ..cid = 202
+      ..pageNum = 2;
+
+    final firstLoad = notifier.loadDetail(pageOne);
+    await pumpEventQueue(times: 2);
+    bilibili.complete('BV-SAME', _detail('BV-SAME', 'Page One'));
+    await firstLoad;
+
+    final secondLoad = notifier.loadDetail(pageTwo);
+    await pumpEventQueue(times: 2);
+
+    expect(bilibili.calls, ['BV-SAME', 'BV-SAME']);
+
+    bilibili.complete('BV-SAME', _detail('BV-SAME', 'Page Two'));
+    await secondLoad;
+
+    expect(notifier.state.detail!.title, 'Page Two');
+  });
+
   test('refresh ignores stale detail after current track changes', () async {
     final bilibili = _CompletingBilibiliSource();
     final youtube = _CompletingYouTubeSource();

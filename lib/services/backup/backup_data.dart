@@ -424,6 +424,11 @@ int _normalizeLyricsAiTitleParsingModeIndex(int? index) {
   return index;
 }
 
+int _normalizeLyricsAiTimeoutSeconds(int? timeoutSeconds) {
+  final value = timeoutSeconds ?? 10;
+  return value < 1 ? 10 : value;
+}
+
 /// 设置备份数据
 class SettingsBackup {
   final int themeModeIndex;
@@ -506,7 +511,7 @@ class SettingsBackup {
     this.allowPlainLyricsAutoMatch = false,
     this.lyricsAiEndpoint = '',
     this.lyricsAiModel = '',
-    this.lyricsAiTimeoutSeconds = 10,
+    int? lyricsAiTimeoutSeconds,
     this.useBilibiliAuthForPlay = false,
     this.useYoutubeAuthForPlay = false,
     this.useNeteaseAuthForPlay = true,
@@ -514,7 +519,10 @@ class SettingsBackup {
     this.radioRefreshIntervalMinutes = 5,
   })  : maxCacheSizeMB = maxCacheSizeMB ?? _defaultBackupCacheSizeMB(),
         lyricsAiTitleParsingModeIndex = _normalizeLyricsAiTitleParsingModeIndex(
-            lyricsAiTitleParsingModeIndex);
+            lyricsAiTitleParsingModeIndex),
+        lyricsAiTimeoutSeconds = _normalizeLyricsAiTimeoutSeconds(
+          lyricsAiTimeoutSeconds,
+        );
 
   factory SettingsBackup.fromJson(Map<String, dynamic> json) {
     return SettingsBackup(

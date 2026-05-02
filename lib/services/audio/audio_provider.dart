@@ -232,6 +232,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   // 导航请求ID - 防止快速点击 next/previous 时的竞态条件
   int _navRequestId = 0;
 
+  // 歌词自动匹配请求ID - 防止旧匹配任务覆盖新匹配任务的 UI 状态
+  int _lyricsAutoMatchRequestId = 0;
+
   // 統一的播放上下文（管理所有播放狀態，包括臨時播放、加載狀態等）
   _PlaybackContext _context = const _PlaybackContext();
 
@@ -486,6 +489,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   void dispose() {
     if (_isDisposed) return;
     _isDisposed = true;
+    _lyricsAutoMatchRequestId++;
+    onLyricsAutoMatchStateChanged = null;
     _stopPositionCheckTimer();
     _cancelRetryTimer();
     _networkRecoverySubscription?.cancel();
@@ -1515,6 +1520,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 尝试自动匹配歌词（异步，不阻塞播放）
   Future<void> _tryAutoMatchLyrics(Track track) async {
+    final requestId = ++_lyricsAutoMatchRequestId;
     final autoMatchService = _lyricsAutoMatchService;
     final settingsRepo = _settingsRepository;
 
@@ -1523,6 +1529,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     try {
       // 检查设置是否启用自动匹配
       final settings = await settingsRepo.get();
+      if (requestId != _lyricsAutoMatchRequestId || _isDisposed) return;
       if (!settings.autoMatchLyrics) {
         logDebug('Auto-match lyrics disabled in settings');
         return;
@@ -1540,13 +1547,18 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         enabledSources: enabledSources.isNotEmpty ? enabledSources : null,
         allowPlainLyricsAutoMatch: settings.allowPlainLyricsAutoMatch,
       );
+      if (requestId != _lyricsAutoMatchRequestId || _isDisposed) return;
       if (matched) {
         logInfo('Auto-matched lyrics for: ${track.title}');
       }
     } catch (e) {
-      logWarning('Auto-match lyrics failed for ${track.title}: $e');
+      if (requestId == _lyricsAutoMatchRequestId && !_isDisposed) {
+        logWarning('Auto-match lyrics failed for ${track.title}: $e');
+      }
     } finally {
-      onLyricsAutoMatchStateChanged?.call(false);
+      if (requestId == _lyricsAutoMatchRequestId && !_isDisposed) {
+        onLyricsAutoMatchStateChanged?.call(false);
+      }
     }
   }
 

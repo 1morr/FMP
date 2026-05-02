@@ -110,6 +110,78 @@ void main() {
       expect(bodyText, isNot(contains('secret-key')));
     });
 
+    test('does not append chat completions path twice', () async {
+      final dio = Dio();
+      RequestOptions? capturedOptions;
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        capturedOptions = options;
+        return _jsonResponse({
+          'choices': [
+            {
+              'message': {
+                'content': jsonEncode({
+                  'selectedCandidateId': null,
+                  'confidence': 0.1,
+                  'reason': 'no reliable match',
+                }),
+              },
+            },
+          ],
+        });
+      });
+
+      await AiLyricsSelector(dio: dio).select(
+        endpoint: ' https://api.example.com/v1/chat/completions/ ',
+        apiKey: 'secret-key',
+        model: 'gpt-test',
+        title: 'Video Title',
+        durationSeconds: 180,
+        sourcePriority: const ['netease'],
+        allowPlainLyricsAutoMatch: false,
+        candidates: const [],
+        timeoutSeconds: 5,
+      );
+
+      expect(capturedOptions?.uri.toString(),
+          'https://api.example.com/v1/chat/completions');
+    });
+
+    test('blank endpoint skips request as incomplete configuration', () async {
+      final dio = Dio();
+      var requestSent = false;
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        requestSent = true;
+        return _jsonResponse({
+          'choices': [
+            {
+              'message': {
+                'content': jsonEncode({
+                  'selectedCandidateId': 'netease:123',
+                  'confidence': 0.9,
+                  'reason': 'should not be used',
+                }),
+              },
+            },
+          ],
+        });
+      });
+
+      final result = await AiLyricsSelector(dio: dio).select(
+        endpoint: '   ',
+        apiKey: 'secret-key',
+        model: 'gpt-test',
+        title: 'Video Title',
+        durationSeconds: 180,
+        sourcePriority: const ['netease'],
+        allowPlainLyricsAutoMatch: false,
+        candidates: const [],
+        timeoutSeconds: 5,
+      );
+
+      expect(result, isNull);
+      expect(requestSent, isFalse);
+    });
+
     test('omits blank video description and preserves empty lyrics preview',
         () async {
       final dio = Dio();

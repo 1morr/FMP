@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import '../../core/logger.dart';
+import 'openai_chat_endpoint.dart';
 
 class AiLyricsCandidate {
   const AiLyricsCandidate({
@@ -85,7 +86,7 @@ class AiLyricsSelector with Logging {
     required List<AiLyricsCandidate> candidates,
     required int timeoutSeconds,
   }) async {
-    final trimmedEndpoint = endpoint.trim().replaceAll(RegExp(r'/+$'), '');
+    final trimmedEndpoint = normalizeOpenAiChatCompletionsEndpoint(endpoint);
     final trimmedApiKey = apiKey.trim();
     final trimmedModel = model.trim();
     final timeout = Duration(seconds: timeoutSeconds < 1 ? 10 : timeoutSeconds);
@@ -114,7 +115,7 @@ class AiLyricsSelector with Logging {
 
     try {
       final response = await _dio.post<dynamic>(
-        '$trimmedEndpoint/chat/completions',
+        trimmedEndpoint,
         options: Options(
           headers: {
             Headers.contentTypeHeader: Headers.jsonContentType,

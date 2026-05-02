@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 
 import '../core/utils/auth_headers_utils.dart';
 import '../data/models/track.dart';
@@ -45,10 +46,10 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
   final YouTubeSource _youtubeSource;
   final NeteaseSource _neteaseSource;
   final Ref _ref;
-  String? _currentSourceId;
-  SourceType? _currentSourceType;
+  Track? _currentTrack;
 
-  TrackDetailNotifier(this._bilibiliSource, this._youtubeSource, this._neteaseSource, this._ref)
+  TrackDetailNotifier(
+      this._bilibiliSource, this._youtubeSource, this._neteaseSource, this._ref)
       : super(const TrackDetailState());
 
   /// 加载歌曲详情
@@ -58,20 +59,18 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
       if (state.detail != null) {
         state = const TrackDetailState();
       }
-      _currentSourceId = null;
-      _currentSourceType = null;
+      _currentTrack = null;
       return;
     }
+
+    final trackKey = track.uniqueKey;
 
     // 如果是同一首歌曲，不重复加载
-    if (_currentSourceId == track.sourceId &&
-        _currentSourceType == track.sourceType &&
-        state.detail != null) {
+    if (_currentTrack?.uniqueKey == trackKey && state.detail != null) {
       return;
     }
 
-    _currentSourceId = track.sourceId;
-    _currentSourceType = track.sourceType;
+    _currentTrack = track;
     state = state.copyWith(isLoading: true, clearError: true);
 
     try {
@@ -80,14 +79,20 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
       // 优先从网络获取最新数据
       try {
         if (track.sourceType == SourceType.bilibili) {
-          final authHeaders = await getAuthHeadersForPlatform(SourceType.bilibili, _ref);
-          detail = await _bilibiliSource.getVideoDetail(track.sourceId, authHeaders: authHeaders);
+          final authHeaders =
+              await getAuthHeadersForPlatform(SourceType.bilibili, _ref);
+          detail = await _bilibiliSource.getVideoDetail(track.sourceId,
+              authHeaders: authHeaders);
         } else if (track.sourceType == SourceType.youtube) {
-          final authHeaders = await getAuthHeadersForPlatform(SourceType.youtube, _ref);
-          detail = await _youtubeSource.getVideoDetail(track.sourceId, authHeaders: authHeaders);
+          final authHeaders =
+              await getAuthHeadersForPlatform(SourceType.youtube, _ref);
+          detail = await _youtubeSource.getVideoDetail(track.sourceId,
+              authHeaders: authHeaders);
         } else if (track.sourceType == SourceType.netease) {
-          final authHeaders = await getAuthHeadersForPlatform(SourceType.netease, _ref);
-          detail = await _neteaseSource.getVideoDetail(track.sourceId, authHeaders: authHeaders);
+          final authHeaders =
+              await getAuthHeadersForPlatform(SourceType.netease, _ref);
+          detail = await _neteaseSource.getVideoDetail(track.sourceId,
+              authHeaders: authHeaders);
         }
       } catch (_) {
         // 网络获取失败，已下载歌曲回退到本地 metadata（Bilibili/YouTube）
@@ -99,13 +104,11 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
       }
 
       // 确保加载的还是当前歌曲
-      if (_currentSourceId == track.sourceId &&
-          _currentSourceType == track.sourceType) {
+      if (_currentTrack?.uniqueKey == trackKey) {
         state = TrackDetailState(detail: detail);
       }
     } catch (e) {
-      if (_currentSourceId == track.sourceId &&
-          _currentSourceType == track.sourceType) {
+      if (_currentTrack?.uniqueKey == trackKey) {
         state = state.copyWith(
           isLoading: false,
           error: e.toString(),
@@ -122,10 +125,11 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
     for (final downloadPath in track.allDownloadPaths) {
       try {
         final dir = Directory(downloadPath).parent;
-        final metadataFile = File('${dir.path}/metadata.json');
+        final metadataFile = File(p.join(dir.path, 'metadata.json'));
         if (!await metadataFile.exists()) continue;
 
-        final json = jsonDecode(await metadataFile.readAsString()) as Map<String, dynamic>;
+        final json = jsonDecode(await metadataFile.readAsString())
+            as Map<String, dynamic>;
 
         // 检查是否有完整的元数据
         if (json['viewCount'] == null) continue;
@@ -142,29 +146,35 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
 
   /// 刷新当前歌曲详情
   Future<void> refresh() async {
-    final sourceId = _currentSourceId;
-    final sourceType = _currentSourceType;
-    if (state.detail == null || sourceId == null || sourceType == null) return;
+    final track = _currentTrack;
+    if (state.detail == null || track == null) return;
 
+    final trackKey = track.uniqueKey;
     state = state.copyWith(isLoading: true, clearError: true);
 
     try {
       VideoDetail detail;
-      if (sourceType == SourceType.bilibili) {
-        final authHeaders = await getAuthHeadersForPlatform(SourceType.bilibili, _ref);
-        detail = await _bilibiliSource.getVideoDetail(sourceId, authHeaders: authHeaders);
-      } else if (sourceType == SourceType.netease) {
-        final authHeaders = await getAuthHeadersForPlatform(SourceType.netease, _ref);
-        detail = await _neteaseSource.getVideoDetail(sourceId, authHeaders: authHeaders);
+      if (track.sourceType == SourceType.bilibili) {
+        final authHeaders =
+            await getAuthHeadersForPlatform(SourceType.bilibili, _ref);
+        detail = await _bilibiliSource.getVideoDetail(track.sourceId,
+            authHeaders: authHeaders);
+      } else if (track.sourceType == SourceType.netease) {
+        final authHeaders =
+            await getAuthHeadersForPlatform(SourceType.netease, _ref);
+        detail = await _neteaseSource.getVideoDetail(track.sourceId,
+            authHeaders: authHeaders);
       } else {
-        final authHeaders = await getAuthHeadersForPlatform(SourceType.youtube, _ref);
-        detail = await _youtubeSource.getVideoDetail(sourceId, authHeaders: authHeaders);
+        final authHeaders =
+            await getAuthHeadersForPlatform(SourceType.youtube, _ref);
+        detail = await _youtubeSource.getVideoDetail(track.sourceId,
+            authHeaders: authHeaders);
       }
-      if (_currentSourceId == sourceId && _currentSourceType == sourceType) {
+      if (_currentTrack?.uniqueKey == trackKey) {
         state = TrackDetailState(detail: detail);
       }
     } catch (e) {
-      if (_currentSourceId == sourceId && _currentSourceType == sourceType) {
+      if (_currentTrack?.uniqueKey == trackKey) {
         state = state.copyWith(
           isLoading: false,
           error: e.toString(),
@@ -175,8 +185,7 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
 
   /// 清空详情
   void clear() {
-    _currentSourceId = null;
-    _currentSourceType = null;
+    _currentTrack = null;
     state = const TrackDetailState();
   }
 }
@@ -187,11 +196,12 @@ final trackDetailProvider =
   final bilibiliSource = ref.watch(bilibiliSourceProvider);
   final youtubeSource = ref.watch(youtubeSourceProvider);
   final neteaseSource = ref.watch(neteaseAudioSourceProvider);
-  final notifier = TrackDetailNotifier(bilibiliSource, youtubeSource, neteaseSource, ref);
+  final notifier =
+      TrackDetailNotifier(bilibiliSource, youtubeSource, neteaseSource, ref);
 
   // 监听当前播放的歌曲变化
   ref.listen<Track?>(currentTrackProvider, (previous, next) {
-    if (previous?.sourceId != next?.sourceId) {
+    if (previous?.uniqueKey != next?.uniqueKey) {
       notifier.loadDetail(next);
     }
   });

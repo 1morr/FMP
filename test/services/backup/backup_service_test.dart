@@ -90,6 +90,39 @@ void main() {
           settingsBackup.enableGlobalHotkeys, Settings().enableGlobalHotkeys);
     });
 
+    test('SettingsBackup defaults lyrics AI timeout to ten seconds', () {
+      expect(SettingsBackup().lyricsAiTimeoutSeconds, 10);
+    });
+
+    test('importData normalizes invalid lyrics AI timeout', () async {
+      final backupData = BackupData(
+        version: kBackupVersion,
+        exportedAt: DateTime(2026, 4, 20),
+        appVersion: 'test',
+        playlists: const [],
+        tracks: const [],
+        playHistory: const [],
+        searchHistory: const [],
+        radioStations: const [],
+        settings: SettingsBackup(lyricsAiTimeoutSeconds: 0),
+      );
+
+      final result = await backupService.importData(
+        backupData,
+        importPlaylists: false,
+        importPlayHistory: false,
+        importSearchHistory: false,
+        importRadioStations: false,
+        importLyricsMatches: false,
+        importSettings: true,
+      );
+
+      final restoredSettings = await isar.settings.get(0);
+      expect(result.settingsImported, isTrue);
+      expect(result.errors, isEmpty);
+      expect(restoredSettings!.lyricsAiTimeoutSeconds, 10);
+    });
+
     test(
         'importData restores new settings fields and preserves device-specific ones',
         () async {
