@@ -52,7 +52,8 @@ void main() {
       }
     });
 
-    test('importFromUrl routes regular youtube playlist URLs through parser path for YouTubeSource instances',
+    test(
+        'importFromUrl routes regular youtube playlist URLs through parser path for YouTubeSource instances',
         () async {
       final source = _FakeYouTubeSource();
       sourceManager.detectedSource = source;
@@ -119,6 +120,57 @@ void main() {
 
       expect(source.lastParseAuthHeaders, isNull);
     });
+
+    test('importFromUrl normalizes mix shorthand before YouTube Mix import',
+        () async {
+      final source = _FakeYouTubeSource();
+      sourceManager.detectedSource = source;
+      sourceManager.youtubeSource = source;
+      final service = ImportService(
+        sourceManager: sourceManager,
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        isar: isar,
+      );
+
+      await expectLater(
+        () => service.importFromUrl(' MIX:dvgZkm1xWPE '),
+        throwsA(isA<_MixImportSentinel>()),
+      );
+
+      expect(sourceManager.lastDetectedUrl,
+          'https://www.youtube.com/watch?v=dvgZkm1xWPE&list=RDdvgZkm1xWPE');
+      expect(source.lastMixInfoUrl,
+          'https://www.youtube.com/watch?v=dvgZkm1xWPE&list=RDdvgZkm1xWPE');
+    });
+
+    test('importFromUrl stores normalized sourceUrl for shorthand Mix playlist',
+        () async {
+      final source = _FakeYouTubeSource()
+        ..mixInfo = const MixPlaylistInfo(
+          title: 'Mix',
+          playlistId: 'RDdvgZkm1xWPE',
+          seedVideoId: 'dvgZkm1xWPE',
+          coverUrl: 'https://img.example/cover.jpg',
+        );
+      sourceManager.detectedSource = source;
+      sourceManager.youtubeSource = source;
+      final service = ImportService(
+        sourceManager: sourceManager,
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        isar: isar,
+      );
+
+      final result = await service.importFromUrl('mix:dvgZkm1xWPE');
+
+      expect(result.playlist.isMix, isTrue);
+      expect(result.playlist.mixPlaylistId, 'RDdvgZkm1xWPE');
+      expect(result.playlist.mixSeedVideoId, 'dvgZkm1xWPE');
+      expect(result.playlist.sourceUrl,
+          'https://www.youtube.com/watch?v=dvgZkm1xWPE&list=RDdvgZkm1xWPE');
+      expect(result.addedCount, 0);
+    });
   });
 }
 
@@ -126,12 +178,26 @@ class _FakeSourceManager extends SourceManager {
   _FakeSourceManager() : super();
 
   BaseSource? detectedSource;
+  BaseSource? youtubeSource;
+  String? lastDetectedUrl;
 
   @override
-  BaseSource? detectSource(String url) => detectedSource;
+  BaseSource? detectSource(String url) {
+    lastDetectedUrl = url;
+    return detectedSource;
+  }
 
   @override
-  BaseSource? getSourceForUrl(String url) => detectedSource;
+  BaseSource? getSourceForUrl(String url) {
+    lastDetectedUrl = url;
+    return detectedSource;
+  }
+
+  @override
+  BaseSource? getSource(SourceType type) {
+    if (type == SourceType.youtube) return youtubeSource ?? detectedSource;
+    return detectedSource?.sourceType == type ? detectedSource : null;
+  }
 
   @override
   void dispose() {}
@@ -151,12 +217,14 @@ class _FakeGenericSource extends BaseSource {
 
   @override
   Future<AudioStreamResult> getAudioStream(String sourceId,
-      {AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-      Map<String, String>? authHeaders}) => throw UnimplementedError();
+          {AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+          Map<String, String>? authHeaders}) =>
+      throw UnimplementedError();
 
   @override
   Future<Track> getTrackInfo(String sourceId,
-      {Map<String, String>? authHeaders}) => throw UnimplementedError();
+          {Map<String, String>? authHeaders}) =>
+      throw UnimplementedError();
 
   @override
   bool isPlaylistUrl(String url) => true;
@@ -178,7 +246,8 @@ class _FakeGenericSource extends BaseSource {
 
   @override
   Future<Track> refreshAudioUrl(Track track,
-      {Map<String, String>? authHeaders}) => throw UnimplementedError();
+          {Map<String, String>? authHeaders}) =>
+      throw UnimplementedError();
 
   @override
   Future<SearchResult> search(String query,
@@ -194,6 +263,8 @@ class _FakeYouTubeSource extends YouTubeSource {
 
   int parsePlaylistCallCount = 0;
   Map<String, String>? lastParseAuthHeaders;
+  String? lastMixInfoUrl;
+  MixPlaylistInfo? mixInfo;
 
   @override
   Future<PlaylistParseResult> parsePlaylist(String playlistUrl,
@@ -203,6 +274,14 @@ class _FakeYouTubeSource extends YouTubeSource {
     parsePlaylistCallCount++;
     lastParseAuthHeaders = authHeaders;
     throw _ParseSentinel();
+  }
+
+  @override
+  Future<MixPlaylistInfo> getMixPlaylistInfo(String url) async {
+    lastMixInfoUrl = url;
+    final info = mixInfo;
+    if (info == null) throw _MixImportSentinel();
+    return info;
   }
 }
 
