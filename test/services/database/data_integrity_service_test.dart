@@ -176,6 +176,30 @@ void main() {
       expect(track.updatedAt, DateTime(2026, 4, 26));
     });
 
+    test('repair does not rewrite unaffected playlist memberships', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+
+      await harness.seedDuplicateWithUnaffectedPlaylist();
+
+      await harness.service.repair();
+
+      final playlists = await harness.isar.playlists.where().findAll();
+      final unaffected = playlists.singleWhere(
+        (playlist) => playlist.name == 'Unaffected Playlist',
+      );
+      final affected = playlists.singleWhere(
+        (playlist) => playlist.name == 'Affected Playlist',
+      );
+      final unaffectedTrack = (await harness.isar.tracks.where().findAll())
+          .singleWhere((track) => track.sourceId == 'unaffected');
+      final keptDuplicate = (await harness.isar.tracks.where().findAll())
+          .singleWhere((track) => track.sourceId == 'repair-only-affected');
+
+      expect(unaffected.trackIds, [unaffectedTrack.id]);
+      expect(affected.trackIds, [keptDuplicate.id]);
+    });
+
     test('repair preserves duplicate account profile metadata', () async {
       final harness = await _createHarness();
       addTearDown(harness.dispose);
@@ -389,6 +413,39 @@ class _Harness {
           ..thumbnailUrl = 'https://img.example/state.jpg'
           ..createdAt = DateTime(2026, 4, 25)
           ..updatedAt = DateTime(2026, 4, 25),
+      ]);
+    });
+  }
+
+  Future<void> seedDuplicateWithUnaffectedPlaylist() async {
+    await isar.writeTxn(() async {
+      final trackIds = await isar.tracks.putAll([
+        Track()
+          ..sourceId = 'repair-only-affected'
+          ..sourceType = SourceType.youtube
+          ..title = 'Removed Duplicate'
+          ..createdAt = DateTime(2026, 4, 24),
+        Track()
+          ..sourceId = 'repair-only-affected'
+          ..sourceType = SourceType.youtube
+          ..title = 'Kept Duplicate'
+          ..thumbnailUrl = 'https://img.example/kept.jpg'
+          ..createdAt = DateTime(2026, 4, 25),
+        Track()
+          ..sourceId = 'unaffected'
+          ..sourceType = SourceType.youtube
+          ..title = 'Unaffected Track'
+          ..createdAt = DateTime(2026, 4, 25),
+      ]);
+      await isar.playlists.putAll([
+        Playlist()
+          ..name = 'Affected Playlist'
+          ..trackIds = [trackIds[0], trackIds[1]]
+          ..createdAt = DateTime(2026, 4, 25),
+        Playlist()
+          ..name = 'Unaffected Playlist'
+          ..trackIds = [trackIds[2]]
+          ..createdAt = DateTime(2026, 4, 25),
       ]);
     });
   }

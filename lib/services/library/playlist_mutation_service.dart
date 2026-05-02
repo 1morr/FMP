@@ -535,6 +535,28 @@ class PlaylistMutationService with Logging {
     });
   }
 
+  Future<void> remapPlaylistTrackReferencesInTxn(Map<int, int> remap) async {
+    if (remap.isEmpty) return;
+
+    final now = DateTime.now();
+    final playlists = await _isar.playlists.where().findAll();
+    final changedPlaylists = <Playlist>[];
+    for (final playlist in playlists) {
+      final remappedTrackIds = _remapAndDedupeIds(playlist.trackIds, remap);
+      if (_listEquals(playlist.trackIds, remappedTrackIds)) {
+        continue;
+      }
+      playlist
+        ..trackIds = remappedTrackIds
+        ..updatedAt = now;
+      changedPlaylists.add(playlist);
+    }
+
+    if (changedPlaylists.isNotEmpty) {
+      await _isar.playlists.putAll(changedPlaylists);
+    }
+  }
+
   Future<Track?> _findTrackByIdentity(Track track) {
     if (track.cid == null) {
       return _isar.tracks
@@ -708,6 +730,18 @@ class PlaylistMutationService with Logging {
       }
     }
     return merged;
+  }
+
+  List<int> _remapAndDedupeIds(List<int> ids, Map<int, int> remap) {
+    final result = <int>[];
+    final seen = <int>{};
+    for (final id in ids) {
+      final mapped = remap[id] ?? id;
+      if (seen.add(mapped)) {
+        result.add(mapped);
+      }
+    }
+    return result;
   }
 
   bool _listEquals(List<int> a, List<int> b) {
