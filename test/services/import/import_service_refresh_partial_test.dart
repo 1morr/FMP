@@ -6,9 +6,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/playlist.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/models/video_detail.dart';
 import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/bilibili_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/services/import/import_service.dart';
 import 'package:isar/isar.dart';
@@ -118,6 +120,44 @@ void main() {
       expect(await trackRepository.getBySourceId('stale', SourceType.youtube),
           isNotNull);
     });
+
+    test('skips pruning when Bilibili multipage expansion falls back',
+        () async {
+      final trackRepository = TrackRepository(isar);
+      final bilibiliSource = _FakeBilibiliRefreshSource(
+        failVideoPages: true,
+        tracks: [_track('BV1234567890', 'Multi-page', SourceType.bilibili, 2)],
+        totalCount: 1,
+      );
+      sourceManager = _FakeSourceManager(bilibiliSource);
+      final playlist = await _createImportedPlaylist(
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        sourceType: SourceType.bilibili,
+        tracks: [
+          _track('BV1234567890', 'Multi-page', SourceType.bilibili, 2),
+          _track('BVstale0000', 'Stale', SourceType.bilibili),
+        ],
+      );
+      final service = ImportService(
+        sourceManager: sourceManager,
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        isar: isar,
+      );
+
+      final result = await service.refreshPlaylist(playlist.id);
+
+      expect(result.pruningSkipped, isTrue);
+      expect(result.removedCount, 0);
+      expect(result.errors, isEmpty);
+      final refreshed = await playlistRepository.getById(playlist.id);
+      expect(refreshed!.trackIds, playlist.trackIds);
+      expect(
+          await trackRepository.getBySourceId(
+              'BVstale0000', SourceType.bilibili),
+          isNotNull);
+    });
   });
 }
 
@@ -209,15 +249,56 @@ class _FakeRefreshSource extends BaseSource {
   }
 }
 
+class _FakeBilibiliRefreshSource extends BilibiliSource {
+  _FakeBilibiliRefreshSource({
+    required this.tracks,
+    required this.totalCount,
+    this.failVideoPages = false,
+  });
+
+  final List<Track> tracks;
+  final int totalCount;
+  final bool failVideoPages;
+
+  @override
+  SourceType get sourceType => SourceType.bilibili;
+
+  @override
+  Future<PlaylistParseResult> parsePlaylist(String playlistUrl,
+      {int page = 1,
+      int pageSize = 20,
+      Map<String, String>? authHeaders}) async {
+    return PlaylistParseResult(
+      title: 'Remote Bilibili playlist',
+      tracks: tracks,
+      totalCount: totalCount,
+      sourceUrl: playlistUrl,
+    );
+  }
+
+  @override
+  Future<List<VideoPage>> getVideoPages(String bvid,
+      {Map<String, String>? authHeaders}) async {
+    if (failVideoPages) {
+      throw StateError('simulated page expansion failure');
+    }
+    return const [
+      VideoPage(cid: 101, page: 1, part: 'Page 1', duration: 60),
+      VideoPage(cid: 102, page: 2, part: 'Page 2', duration: 70),
+    ];
+  }
+}
+
 Future<Playlist> _createImportedPlaylist({
   required PlaylistRepository playlistRepository,
   required TrackRepository trackRepository,
   required List<Track> tracks,
+  SourceType sourceType = SourceType.youtube,
 }) async {
   final playlist = Playlist()
     ..name = 'Imported playlist'
     ..sourceUrl = 'https://example.test/playlist'
-    ..importSourceType = SourceType.youtube
+    ..importSourceType = sourceType
     ..createdAt = DateTime.now();
   playlist.id = await playlistRepository.save(playlist);
 
@@ -232,11 +313,18 @@ Future<Playlist> _createImportedPlaylist({
   return playlist;
 }
 
-Track _track(String sourceId, String title) => Track()
-  ..sourceId = sourceId
-  ..sourceType = SourceType.youtube
-  ..title = title
-  ..artist = 'Artist';
+Track _track(
+  String sourceId,
+  String title, [
+  SourceType sourceType = SourceType.youtube,
+  int? pageCount,
+]) =>
+    Track()
+      ..sourceId = sourceId
+      ..sourceType = sourceType
+      ..title = title
+      ..artist = 'Artist'
+      ..pageCount = pageCount;
 
 Future<String> _resolveIsarLibraryPath() async {
   final packageConfigFile =
