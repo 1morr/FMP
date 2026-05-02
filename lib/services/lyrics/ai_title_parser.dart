@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import '../../core/logger.dart';
+import 'openai_chat_endpoint.dart';
 
 class AiParsedTitle {
   const AiParsedTitle({
@@ -31,7 +32,7 @@ class AiTitleParser with Logging {
     String? uploader,
     required int timeoutSeconds,
   }) async {
-    final trimmedEndpoint = endpoint.trim().replaceAll(RegExp(r'/+$'), '');
+    final trimmedEndpoint = normalizeOpenAiChatCompletionsEndpoint(endpoint);
     final trimmedApiKey = apiKey.trim();
     final trimmedModel = model.trim();
     final trimmedUploader = uploader?.trim();
@@ -54,7 +55,7 @@ class AiTitleParser with Logging {
           'AI title parser config: endpoint=$trimmedEndpoint, model=$trimmedModel, timeoutSeconds=${timeout.inSeconds}');
       logDebug('AI title parser request payload: ${jsonEncode(userPayload)}');
       final response = await _dio.post<dynamic>(
-        '$trimmedEndpoint/chat/completions',
+        trimmedEndpoint,
         options: Options(
           headers: {
             Headers.contentTypeHeader: Headers.jsonContentType,

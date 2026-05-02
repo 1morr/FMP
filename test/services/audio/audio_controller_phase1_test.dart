@@ -5,6 +5,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/services/toast_service.dart';
+import 'package:fmp/data/models/lyrics_match.dart';
+import 'package:fmp/data/repositories/lyrics_repository.dart';
 import 'package:fmp/data/models/play_queue.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
@@ -21,6 +23,13 @@ import 'package:fmp/services/audio/audio_provider.dart'
     hide MixTracksFetcher, PlayMode;
 import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/mix_playlist_types.dart';
+import 'package:fmp/services/lyrics/lrclib_source.dart';
+import 'package:fmp/services/lyrics/lyrics_auto_match_service.dart';
+import 'package:fmp/services/lyrics/lyrics_cache_service.dart';
+import 'package:fmp/services/lyrics/lyrics_result.dart';
+import 'package:fmp/services/lyrics/netease_source.dart';
+import 'package:fmp/services/lyrics/qqmusic_source.dart';
+import 'package:fmp/services/lyrics/title_parser.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
 import 'package:fmp/services/audio/windows_smtc_handler.dart';
@@ -57,7 +66,7 @@ void main() {
       tempDir =
           await Directory.systemTemp.createTemp('audio_controller_phase1_');
       isar = await Isar.open(
-        [TrackSchema, PlayQueueSchema, SettingsSchema],
+        [TrackSchema, PlayQueueSchema, SettingsSchema, LyricsMatchSchema],
         directory: tempDir.path,
         name: 'audio_controller_phase1_test',
       );
@@ -103,6 +112,66 @@ void main() {
       await controller.initialize();
     });
 
+    test('stale lyrics auto-match cannot clear newer loading state', () async {
+      final lyricsService = _GateableLyricsAutoMatchService(isar);
+      controller.dispose();
+
+      final settingsRepository = SettingsRepository(isar);
+      final trackRepository = TrackRepository(isar);
+      final queuePersistenceManager = QueuePersistenceManager(
+        queueRepository: queueRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+      );
+      final audioStreamManager = AudioStreamManager(
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: sourceManager,
+      );
+      queueManager = QueueManager(
+        queueRepository: queueRepository,
+        trackRepository: trackRepository,
+        queuePersistenceManager: queuePersistenceManager,
+      );
+      audioService = FakeAudioService();
+      controller = AudioController(
+        audioService: audioService,
+        queueManager: queueManager,
+        audioStreamManager: audioStreamManager,
+        toastService: ToastService(),
+        audioHandler: FmpAudioHandler(),
+        windowsSmtcHandler: WindowsSmtcHandler(),
+        settingsRepository: settingsRepository,
+        lyricsAutoMatchService: lyricsService,
+        mixTracksFetcher: mixTracksFetcher.call,
+      );
+
+      final states = <bool>[];
+      controller.onLyricsAutoMatchStateChanged = states.add;
+      final settings = await settingsRepository.get();
+      settings.autoMatchLyrics = true;
+      await settingsRepository.save(settings);
+      await controller.initialize();
+
+      final firstGate = lyricsService.enqueuePendingResult(false);
+      final secondGate = lyricsService.enqueuePendingResult(false);
+
+      await controller.playTrack(_track('lyrics-a', title: 'Lyrics A'));
+      await lyricsService.waitForCallCount(1);
+      await controller.playTrack(_track('lyrics-b', title: 'Lyrics B'));
+      await lyricsService.waitForCallCount(2);
+
+      firstGate.complete();
+      await pumpEventQueue(times: 10);
+
+      expect(states, [true, true]);
+
+      secondGate.complete();
+      await pumpEventQueue(times: 10);
+
+      expect(states, [true, true, false]);
+    });
+
     tearDown(() async {
       controller.dispose();
       await isar.close(deleteFromDisk: true);
@@ -145,8 +214,8 @@ void main() {
 
       expect(controller.state.playingTrack?.sourceId, 'queue-b');
       expect(controller.state.currentTrack?.sourceId, 'queue-b');
-      expect(
-          audioService.setUrlCalls.single.url, 'https://example.com/queue-b.m4a');
+      expect(audioService.setUrlCalls.single.url,
+          'https://example.com/queue-b.m4a');
       expect(audioService.seekCalls.single, const Duration(seconds: 32));
     });
 
@@ -424,7 +493,8 @@ void main() {
       expect(controller.state.isPlaying, isTrue);
     });
 
-    test('return from radio restores queue through the shared transition handoff',
+    test(
+        'return from radio restores queue through the shared transition handoff',
         () async {
       final queueTracks = [
         _track('radio-a', title: 'Radio A'),
@@ -448,7 +518,8 @@ void main() {
 
       expect(controller.state.currentTrack?.sourceId, 'radio-b');
       expect(controller.state.playingTrack?.sourceId, 'radio-b');
-      expect(audioService.setUrlCalls.single.url, 'https://example.com/radio-b.m4a');
+      expect(audioService.setUrlCalls.single.url,
+          'https://example.com/radio-b.m4a');
       expect(audioService.seekCalls.single, const Duration(seconds: 18));
       expect(controller.state.isPlaying, isTrue);
     });
@@ -578,14 +649,13 @@ void main() {
       expect(controller.state.isLoadingMoreMix, isFalse);
     });
 
-    test(
-        'playback prefetch uses a detached next-track copy',
-        () async {
+    test('playback prefetch uses a detached next-track copy', () async {
       final tracks = [
         _track('prefetch-play-current', title: 'Prefetch Play Current'),
         _track('prefetch-play-next', title: 'Prefetch Play Next')
           ..audioUrl = 'https://stale.example/prefetch-play-next.m4a'
-          ..audioUrlExpiry = DateTime.now().subtract(const Duration(minutes: 1)),
+          ..audioUrlExpiry =
+              DateTime.now().subtract(const Duration(minutes: 1)),
       ];
 
       await controller.playAll(tracks, startIndex: 0);
@@ -594,7 +664,8 @@ void main() {
       expect(controller.state.queue.length, 2);
       final nextQueueTrack = controller.state.queue[1];
       expect(nextQueueTrack.sourceId, 'prefetch-play-next');
-      expect(nextQueueTrack.audioUrl, 'https://stale.example/prefetch-play-next.m4a');
+      expect(nextQueueTrack.audioUrl,
+          'https://stale.example/prefetch-play-next.m4a');
     });
 
     test(
@@ -604,14 +675,16 @@ void main() {
         _track('prefetch-current', title: 'Prefetch Current'),
         _track('prefetch-next', title: 'Prefetch Next')
           ..audioUrl = 'https://stale.example/prefetch-next.m4a'
-          ..audioUrlExpiry = DateTime.now().subtract(const Duration(minutes: 1)),
+          ..audioUrlExpiry =
+              DateTime.now().subtract(const Duration(minutes: 1)),
       ];
 
       await controller.playAll(tracks, startIndex: 0);
       await pumpEventQueue(times: 20);
 
       final nextTrackBeforePrepare = controller.state.queue[1];
-      expect(nextTrackBeforePrepare.audioUrl, 'https://stale.example/prefetch-next.m4a');
+      expect(nextTrackBeforePrepare.audioUrl,
+          'https://stale.example/prefetch-next.m4a');
 
       controller.dispose();
 
@@ -649,9 +722,11 @@ void main() {
       expect(controller.state.queue.length, 2);
       final nextTrackAfterPrepare = controller.state.queue[1];
       expect(nextTrackAfterPrepare.id, nextTrackBeforePrepare.id);
-      expect(nextTrackAfterPrepare.audioUrl, 'https://stale.example/prefetch-next.m4a');
+      expect(nextTrackAfterPrepare.audioUrl,
+          'https://stale.example/prefetch-next.m4a');
 
-      final persistedNextTrack = await trackRepository.getById(nextTrackAfterPrepare.id);
+      final persistedNextTrack =
+          await trackRepository.getById(nextTrackAfterPrepare.id);
       expect(persistedNextTrack, isNotNull);
       expect(persistedNextTrack!.audioUrl,
           'https://stale.example/prefetch-next.m4a');
@@ -673,7 +748,8 @@ void main() {
       expect(queueTrackAfterPlay!.id, playingTrackAfterPlay!.id);
       expect(queueTrackAfterPlay.audioUrl,
           'https://example.com/runtime-boundary.m4a');
-      expect(playingTrackAfterPlay.audioUrl, 'https://example.com/runtime-boundary.m4a');
+      expect(playingTrackAfterPlay.audioUrl,
+          'https://example.com/runtime-boundary.m4a');
       expect(queueTrackAfterPlay, isNot(same(playingTrackAfterPlay)));
 
       final replacementNotified = Completer<void>();
@@ -702,7 +778,8 @@ void main() {
           'https://example.com/runtime-boundary.m4a');
       expect(controller.state.queueVersion, greaterThan(queueVersionAfterPlay));
       expect(audioService.playUrlCalls.single.track, isNotNull);
-      expect(audioService.playUrlCalls.single.track, isNot(same(queueTrackAfterPlay)));
+      expect(audioService.playUrlCalls.single.track,
+          isNot(same(queueTrackAfterPlay)));
       expect(audioService.playUrlCalls.single.track!.audioUrl,
           'https://example.com/runtime-boundary.m4a');
     });
@@ -806,6 +883,79 @@ class _FakeSourceManager extends SourceManager {
 
   @override
   void dispose() {}
+}
+
+class _GateableLyricsAutoMatchService extends LyricsAutoMatchService {
+  _GateableLyricsAutoMatchService(Isar isar)
+      : super(
+          lrclib: LrclibSource(),
+          netease: NeteaseSource(),
+          qqmusic: QQMusicSource(),
+          repo: LyricsRepository(isar),
+          cache: LyricsCacheService(),
+          parser: _PassThroughTitleParser(),
+        );
+
+  final List<_PendingLyricsMatch> _pending = [];
+  final List<Track> calls = [];
+  final List<_CountWaiter> _waiters = [];
+
+  Completer<void> enqueuePendingResult(bool result) {
+    final completer = Completer<void>();
+    _pending.add(_PendingLyricsMatch(completer, result));
+    return completer;
+  }
+
+  Future<void> waitForCallCount(int count) {
+    if (calls.length >= count) return Future.value();
+    final completer = Completer<void>();
+    _waiters.add(_CountWaiter(count, completer));
+    return completer.future;
+  }
+
+  @override
+  Future<bool> tryAutoMatch(
+    Track track, {
+    List<String>? enabledSources,
+    bool? allowPlainLyricsAutoMatch,
+  }) async {
+    calls.add(track);
+    for (final waiter in List<_CountWaiter>.from(_waiters)) {
+      if (calls.length >= waiter.target && !waiter.completer.isCompleted) {
+        waiter.completer.complete();
+        _waiters.remove(waiter);
+      }
+    }
+    if (_pending.isEmpty) return false;
+    final pending = _pending.removeAt(0);
+    await pending.completer.future;
+    return pending.result;
+  }
+}
+
+class _PendingLyricsMatch {
+  _PendingLyricsMatch(this.completer, this.result);
+
+  final Completer<void> completer;
+  final bool result;
+}
+
+class _PassThroughTitleParser implements TitleParser {
+  @override
+  ParsedTitle parse(String title, {String? uploader}) {
+    return ParsedTitle(
+      trackName: title,
+      artistName: uploader,
+      cleanedTitle: title,
+    );
+  }
+}
+
+class _CountWaiter {
+  _CountWaiter(this.target, this.completer);
+
+  final int target;
+  final Completer<void> completer;
 }
 
 class _TestMixTracksFetcher {

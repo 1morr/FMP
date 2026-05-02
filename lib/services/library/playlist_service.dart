@@ -659,7 +659,7 @@ class PlaylistService with Logging {
         // 异步检查第一首歌的本地封面
         for (final downloadPath in firstTrack.allDownloadPaths) {
           final dir = Directory(downloadPath).parent;
-          final coverPath = '${dir.path}/cover.jpg';
+          final coverPath = p.join(dir.path, 'cover.jpg');
           if (await File(coverPath).exists()) {
             localPath = coverPath;
             break;

@@ -86,6 +86,70 @@ void main() {
       expect(logMessages.join('\n'), isNot(contains('secret-key')));
     });
 
+    test('does not append chat completions path twice', () async {
+      final dio = Dio();
+      RequestOptions? capturedOptions;
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        capturedOptions = options;
+        return _jsonResponse({
+          'choices': [
+            {
+              'message': {
+                'content': jsonEncode({
+                  'trackName': 'Song',
+                  'artistName': 'Artist',
+                  'artistConfidence': 0.9,
+                }),
+              },
+            },
+          ],
+        });
+      });
+
+      await AiTitleParser(dio: dio).parse(
+        endpoint: ' https://api.example.com/v1/chat/completions/ ',
+        apiKey: 'secret-key',
+        model: 'gpt-test',
+        title: 'Song - Artist',
+        timeoutSeconds: 7,
+      );
+
+      expect(capturedOptions?.uri.toString(),
+          'https://api.example.com/v1/chat/completions');
+    });
+
+    test('blank endpoint skips request as incomplete configuration', () async {
+      final dio = Dio();
+      var requestSent = false;
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        requestSent = true;
+        return _jsonResponse({
+          'choices': [
+            {
+              'message': {
+                'content': jsonEncode({
+                  'trackName': 'Song',
+                  'artistName': 'Artist',
+                  'artistConfidence': 0.9,
+                }),
+              },
+            },
+          ],
+        });
+      });
+
+      final result = await AiTitleParser(dio: dio).parse(
+        endpoint: '   ',
+        apiKey: 'secret-key',
+        model: 'gpt-test',
+        title: 'Song - Artist',
+        timeoutSeconds: 7,
+      );
+
+      expect(result, isNull);
+      expect(requestSent, isFalse);
+    });
+
     test('logs Dio failures from direct AI parser calls', () async {
       final dio = Dio();
       dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {

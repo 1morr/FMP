@@ -99,7 +99,9 @@ class RefreshManagerState extends Equatable {
 /// 刷新管理器控制器
 class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
   final Ref _ref;
+  final Set<int> _refreshingPlaylistIds = {};
   final Map<int, StreamSubscription<ImportProgress>> _subscriptions = {};
+  final Map<int, ImportService> _activeImportServices = {};
   final Map<int, int> _refreshGenerations = {};
   int _refreshOperationId = 0;
 
@@ -109,10 +111,11 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
   Future<ImportResult?> refreshPlaylist(Playlist playlist) async {
     final playlistId = playlist.id;
 
-    // 如果已经在刷新，直接返回
-    if (state.isRefreshing(playlistId)) {
+    if (_refreshingPlaylistIds.contains(playlistId) ||
+        state.isRefreshing(playlistId)) {
       return null;
     }
+    _refreshingPlaylistIds.add(playlistId);
     final generation = _nextRefreshGeneration(playlistId);
 
     // 创建新的 ImportService 实例（每个刷新任务独立）
@@ -131,6 +134,7 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
       youtubeAccountService: _ref.read(youtubeAccountServiceProvider),
       neteaseAccountService: _ref.read(neteaseAccountServiceProvider),
     );
+    _activeImportServices[playlistId] = importService;
 
     // 初始化刷新状态
     _updatePlaylistState(
@@ -243,6 +247,10 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
       if (identical(_subscriptions[playlistId], subscription)) {
         _subscriptions.remove(playlistId);
       }
+      if (identical(_activeImportServices[playlistId], importService)) {
+        _activeImportServices.remove(playlistId);
+      }
+      _refreshingPlaylistIds.remove(playlistId);
       importService.dispose();
     }
   }
@@ -250,8 +258,10 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
   /// 取消刷新（如果需要）
   void cancelRefresh(int playlistId) {
     _nextRefreshGeneration(playlistId);
+    _activeImportServices[playlistId]?.cancelImport();
     _subscriptions[playlistId]?.cancel();
     _subscriptions.remove(playlistId);
+    _refreshingPlaylistIds.remove(playlistId);
     _removePlaylistState(playlistId);
   }
 
@@ -312,6 +322,7 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
       sub.cancel();
     }
     _subscriptions.clear();
+    _refreshingPlaylistIds.clear();
     _refreshGenerations.clear();
     super.dispose();
   }
