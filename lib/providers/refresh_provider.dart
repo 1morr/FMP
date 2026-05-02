@@ -118,7 +118,7 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
     final trackRepo = _ref.read(trackRepositoryProvider);
 
     final isar = await _ref.read(databaseProvider.future);
-    
+
     final importService = ImportService(
       sourceManager: sourceManager,
       playlistRepository: playlistRepo,
@@ -159,13 +159,6 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
     try {
       final result = await importService.refreshPlaylist(playlistId);
 
-      // 更新 lastRefreshed 时间戳
-      final updatedPlaylist = await playlistRepo.getById(playlistId);
-      if (updatedPlaylist != null) {
-        updatedPlaylist.lastRefreshed = DateTime.now();
-        await playlistRepo.save(updatedPlaylist);
-      }
-
       // 刷新成功
       _updatePlaylistState(
         playlistId,
@@ -182,9 +175,15 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
       // 使用 ToastService 显示成功提示（不依赖 context）
       final toastService = _ref.read(toastServiceProvider);
       final parts = <String>[];
-      if (result.addedCount > 0) parts.add(t.refreshProvider.added(count: result.addedCount));
-      if (result.removedCount > 0) parts.add(t.refreshProvider.removed(count: result.removedCount));
-      if (result.skippedCount > 0) parts.add(t.refreshProvider.unchanged(count: result.skippedCount));
+      if (result.addedCount > 0) {
+        parts.add(t.refreshProvider.added(count: result.addedCount));
+      }
+      if (result.removedCount > 0) {
+        parts.add(t.refreshProvider.removed(count: result.removedCount));
+      }
+      if (result.skippedCount > 0) {
+        parts.add(t.refreshProvider.unchanged(count: result.skippedCount));
+      }
       final message = t.refreshProvider.completed(name: playlist.name) +
           (parts.isEmpty ? t.refreshProvider.noChanges : parts.join('，'));
       toastService.showSuccess(message);
@@ -206,7 +205,8 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
 
       // 使用 ToastService 显示错误提示
       final toastService = _ref.read(toastServiceProvider);
-      toastService.showError(t.refreshProvider.failed(name: playlist.name, error: e.toString()));
+      toastService.showError(
+          t.refreshProvider.failed(name: playlist.name, error: e.toString()));
 
       // 延迟移除失败的状态
       Future.delayed(const Duration(seconds: 5), () {
@@ -230,21 +230,24 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
 
   /// 清除已完成或失败的状态
   void clearCompletedStates() {
-    final newMap = Map<int, PlaylistRefreshState>.from(state.refreshingPlaylists);
-    newMap.removeWhere(
-        (_, s) => s.status == ImportStatus.completed || s.status == ImportStatus.failed);
+    final newMap =
+        Map<int, PlaylistRefreshState>.from(state.refreshingPlaylists);
+    newMap.removeWhere((_, s) =>
+        s.status == ImportStatus.completed || s.status == ImportStatus.failed);
     state = state.copyWith(refreshingPlaylists: newMap);
   }
 
   void _updatePlaylistState(int playlistId, PlaylistRefreshState refreshState) {
-    final newMap = Map<int, PlaylistRefreshState>.from(state.refreshingPlaylists);
+    final newMap =
+        Map<int, PlaylistRefreshState>.from(state.refreshingPlaylists);
     newMap[playlistId] = refreshState;
     state = state.copyWith(refreshingPlaylists: newMap);
   }
 
   void _removePlaylistState(int playlistId) {
     if (!mounted) return;
-    final newMap = Map<int, PlaylistRefreshState>.from(state.refreshingPlaylists);
+    final newMap =
+        Map<int, PlaylistRefreshState>.from(state.refreshingPlaylists);
     newMap.remove(playlistId);
     state = state.copyWith(refreshingPlaylists: newMap);
   }
@@ -266,7 +269,8 @@ final refreshManagerProvider =
 });
 
 /// 检查特定歌单是否正在刷新
-final isPlaylistRefreshingProvider = Provider.family<bool, int>((ref, playlistId) {
+final isPlaylistRefreshingProvider =
+    Provider.family<bool, int>((ref, playlistId) {
   final state = ref.watch(refreshManagerProvider);
   return state.isRefreshing(playlistId);
 });

@@ -32,6 +32,7 @@ import '../../../providers/account_provider.dart';
 import '../../../services/account/bilibili_favorites_service.dart';
 import '../../../services/account/youtube_playlist_service.dart';
 import '../../../services/account/netease_playlist_service.dart';
+import '../../../services/library/remote_playlist_track_filter.dart';
 import '../../../providers/remote_playlist_sync_provider.dart';
 import '../../handlers/track_action_handler.dart';
 
@@ -604,21 +605,18 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         }
         break;
       case 'add_to_remote':
-        // 檢查第一首歌的平台登錄狀態
-        final isLoggedIn =
-            ref.read(isLoggedInProvider(tracks.first.sourceType));
-        if (!isLoggedIn) {
+        final remoteTracks = filterLoggedInRemoteTracks(
+          tracks,
+          isLoggedIn: (sourceType) => ref.read(isLoggedInProvider(sourceType)),
+        );
+        if (remoteTracks.isEmpty) {
           if (mounted) {
             ToastService.show(context, t.remote.pleaseLogin);
           }
           return;
         }
         notifier.exitSelectionMode();
-        // 按平台過濾（多選可能混合平台）
-        final remoteTracks = tracks
-            .where((t) => ref.read(isLoggedInProvider(t.sourceType)))
-            .toList();
-        if (remoteTracks.isNotEmpty && mounted) {
+        if (mounted) {
           showAddToRemotePlaylistDialogMulti(
               context: context, tracks: remoteTracks);
         }
@@ -1349,17 +1347,19 @@ class _GroupHeader extends ConsumerWidget {
         onAddAllToQueue();
         break;
       case 'add_to_remote':
-        final isLoggedIn =
-            ref.read(isLoggedInProvider(group.tracks.first.sourceType));
-        if (!isLoggedIn) {
+        final remoteTracks = filterLoggedInRemoteTracks(
+          group.tracks,
+          isLoggedIn: (sourceType) => ref.read(isLoggedInProvider(sourceType)),
+        );
+        if (remoteTracks.isEmpty) {
           if (context.mounted) {
             ToastService.show(context, t.remote.pleaseLogin);
           }
           return;
         }
         if (context.mounted) {
-          showAddToRemotePlaylistDialog(
-              context: context, track: group.tracks.first);
+          showAddToRemotePlaylistDialogMulti(
+              context: context, tracks: remoteTracks);
         }
         break;
       case 'download_all':

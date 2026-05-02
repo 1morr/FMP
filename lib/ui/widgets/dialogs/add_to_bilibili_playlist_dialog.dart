@@ -12,6 +12,7 @@ import '../../../providers/playlist_provider.dart';
 import '../../../providers/remote_playlist_sync_provider.dart';
 import '../../../providers/repository_providers.dart';
 import '../../../services/account/bilibili_favorites_service.dart';
+import '../../../services/library/remote_playlist_selection_changes.dart';
 import '../track_thumbnail.dart';
 
 Future<bool> showAddToBilibiliPlaylistDialog({
@@ -44,6 +45,7 @@ class _BilibiliRemoteFavSheetState
   Set<int> _originalIds = {};
   Set<int> _partialIds = {};
   final Set<int> _deselectedPartialIds = {};
+  final Map<int, Set<String>> _existingTrackIdsByFolder = {};
   bool _isLoading = true;
   bool _isCheckingMulti = false;
   bool _isSubmitting = false;
@@ -204,10 +206,10 @@ class _BilibiliRemoteFavSheetState
     final folderIds = folders.map((folder) => folder.id).toSet();
     final favCounts = <int, int>{};
 
-    final aids = await Future.wait(
+    final aidEntries = await Future.wait(
       _tracks.map((track) async {
         try {
-          return await favService.getVideoAid(track);
+          return (track.sourceId, await favService.getVideoAid(track));
         } catch (_) {
           return null;
         }
@@ -215,14 +217,16 @@ class _BilibiliRemoteFavSheetState
     );
     if (!mounted) return;
 
-    for (final aid in aids) {
-      if (aid == null) continue;
+    for (final aidEntry in aidEntries) {
+      if (aidEntry == null) continue;
+      final (sourceId, aid) = aidEntry;
       try {
         final trackFolders = await favService.getFavFolders(videoAid: aid);
         if (!mounted) return;
         for (final folder in trackFolders) {
           if (folder.isFavorited && folderIds.contains(folder.id)) {
             favCounts[folder.id] = (favCounts[folder.id] ?? 0) + 1;
+            (_existingTrackIdsByFolder[folder.id] ??= {}).add(sourceId);
           }
         }
       } catch (_) {
@@ -250,13 +254,11 @@ class _BilibiliRemoteFavSheetState
   }
 
   ({List<int> toAdd, List<int> toRemove}) _computeChanges() {
-    final toAdd =
-        _selectedIds.difference(_originalIds).difference(_partialIds).toList();
-    final toRemove = [
-      ..._originalIds.difference(_selectedIds),
-      ..._deselectedPartialIds,
-    ];
-    return (toAdd: toAdd, toRemove: toRemove);
+    return computeRemotePlaylistSelectionChanges(
+      selectedIds: _selectedIds,
+      originalIds: _originalIds,
+      deselectedPartialIds: _deselectedPartialIds,
+    );
   }
 
   Future<void> _submit() async {
@@ -279,9 +281,14 @@ class _BilibiliRemoteFavSheetState
           setState(() => _submitProgress = '${i + 1}/${_tracks.length}');
         }
         final aid = await favService.getVideoAid(track);
+        final foldersToAdd = toAdd
+            .where((folderId) => !(_existingTrackIdsByFolder[folderId]
+                    ?.contains(track.sourceId) ??
+                false))
+            .toList();
         await favService.updateVideoFavorites(
           videoAid: aid,
-          addFolderIds: toAdd,
+          addFolderIds: foldersToAdd,
           removeFolderIds: toRemove,
         );
       }
