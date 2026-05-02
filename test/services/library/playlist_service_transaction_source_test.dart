@@ -36,6 +36,18 @@ void main() {
       expect(body, contains('_mutationService.duplicatePlaylist('));
       expect(body, isNot(contains('_isar.writeTxn')));
     });
+
+    test('PlaylistRepository no longer exposes direct membership mutators', () {
+      final repositorySource =
+          File('lib/data/repositories/playlist_repository.dart')
+              .readAsStringSync();
+
+      expect(repositorySource, isNot(contains('Future<void> addTrack(')));
+      expect(repositorySource, isNot(contains('Future<void> addTracks(')));
+      expect(repositorySource, isNot(contains('Future<void> removeTrack(')));
+      expect(repositorySource, isNot(contains('Future<void> removeTracks(')));
+      expect(repositorySource, isNot(contains('Future<void> reorderTracks(')));
+    });
   });
 }
 
