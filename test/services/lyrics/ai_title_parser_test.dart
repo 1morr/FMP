@@ -78,12 +78,11 @@ void main() {
         logMessages,
         contains('Calling AI title parser: Song - Artist'),
       );
-      expect(logMessages,
-          contains(contains('AI title parser request payload')));
+      expect(
+          logMessages, contains(contains('AI title parser request payload')));
       expect(logMessages,
           contains(contains('AI title parser raw response content')));
-      expect(logMessages,
-          contains(contains('AI title parser parsed result')));
+      expect(logMessages, contains(contains('AI title parser parsed result')));
       expect(logMessages.join('\n'), isNot(contains('secret-key')));
     });
 
@@ -149,6 +148,18 @@ void main() {
       expect(result?.trackName, 'Song');
       expect(result?.artistName, 'Artist');
       expect(result?.artistConfidence, 0.8);
+    });
+
+    test('string artistConfidence high keeps artist name', () {
+      final result = AiTitleParser.parseContent(jsonEncode({
+        'trackName': 'Poker Face',
+        'artistName': 'Lady Gaga',
+        'artistConfidence': 'high',
+      }));
+
+      expect(result?.trackName, 'Poker Face');
+      expect(result?.artistName, 'Lady Gaga');
+      expect(result?.artistConfidence, greaterThanOrEqualTo(0.8));
     });
 
     test('missing trackName returns null', () {

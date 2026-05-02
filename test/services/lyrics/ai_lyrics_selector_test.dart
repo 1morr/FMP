@@ -92,6 +92,68 @@ void main() {
       expect(bodyText, contains('netease:123'));
       expect(bodyText, isNot(contains('secret-key')));
     });
+
+    test('prompt asks AI to pick closest acceptable candidate', () async {
+      final dio = Dio();
+      Map<String, dynamic>? capturedBody;
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        capturedBody =
+            jsonDecode(requestBody as String) as Map<String, dynamic>;
+        return _jsonResponse({
+          'choices': [
+            {
+              'message': {
+                'content': jsonEncode({
+                  'selectedCandidateId': 'lrclib:50332',
+                  'confidence': 0.45,
+                  'reason': 'closest available version',
+                }),
+              },
+            },
+          ],
+        });
+      });
+
+      await AiLyricsSelector(dio: dio).select(
+        endpoint: 'https://api.example.com/v1',
+        apiKey: 'secret-key',
+        model: 'gpt-test',
+        title: 'Lady Gaga - Poker Face (Official Music Video)',
+        uploader: 'Lady Gaga',
+        durationSeconds: 214,
+        sourcePriority: const ['netease', 'qqmusic', 'lrclib'],
+        allowPlainLyricsAutoMatch: true,
+        candidates: const [
+          AiLyricsCandidate(
+            candidateId: 'lrclib:50332',
+            source: 'lrclib',
+            sourcePriorityRank: 2,
+            trackName: 'Poker Face (Piano & Voice Version) [Live]',
+            artistName: 'Lady Gaga',
+            albumName: 'The Cherrytree Sessions (Live)',
+            durationSeconds: 218,
+            videoDurationSeconds: 214,
+            durationDiffSeconds: 4,
+            hasSyncedLyrics: true,
+            hasPlainLyrics: true,
+            hasTranslatedLyrics: false,
+            hasRomajiLyrics: false,
+          ),
+        ],
+        timeoutSeconds: 5,
+      );
+
+      final messages = capturedBody?['messages'] as List<dynamic>;
+      final systemMessage = messages.firstWhere(
+        (message) => (message as Map<String, dynamic>)['role'] == 'system',
+      ) as Map<String, dynamic>;
+      final prompt = systemMessage['content'] as String;
+      expect(prompt, contains('Always choose'));
+      expect(prompt, contains('closest acceptable'));
+      expect(prompt, contains('cover'));
+      expect(prompt, contains('remix'));
+      expect(prompt, contains('completely different song'));
+    });
   });
 }
 
