@@ -493,127 +493,37 @@ class ImportService with Logging implements ImportServiceFacade {
         current: 0,
       );
 
-      // 保存原来的 trackIds 用于计算移除数量
-      final originalTrackIds = Set<int>.from(playlist.trackIds);
-
-      int addedCount = 0;
-      int skippedCount = 0;
-      final errors = <String>[];
-      final newTrackIds = <int>[];
-
       for (int i = 0; i < expandedTracks.length; i++) {
         _throwIfCancelled();
-        final track = expandedTracks[i];
-
         _updateProgress(
           current: i + 1,
-          currentItem: track.title,
+          currentItem: expandedTracks[i].title,
         );
-
-        try {
-          // 查找已存在的 Track（使用简单的 sourceId + cid 匹配）
-          final existing = await _trackRepository.getBySourceIdAndCid(
-            track.sourceId,
-            track.sourceType,
-            cid: track.cid,
-          );
-
-          if (existing != null) {
-            if (!playlist.trackIds.contains(existing.id)) {
-              // 新添加到歌单的 Track，只添加歌单关联（路径在下载完成时设置）
-              existing.addToPlaylist(playlist.id, playlistName: playlist.name);
-              await _trackRepository.save(existing);
-              newTrackIds.add(existing.id);
-              addedCount++;
-            } else {
-              // 已在歌单中，确保有歌单关联
-              if (!existing.belongsToPlaylist(playlist.id)) {
-                existing.addToPlaylist(playlist.id,
-                    playlistName: playlist.name);
-                await _trackRepository.save(existing);
-              }
-              newTrackIds.add(existing.id);
-              skippedCount++;
-            }
-          } else {
-            // 只添加歌单关联，不预计算下载路径（路径在下载完成时设置）
-            track.addToPlaylist(playlist.id, playlistName: playlist.name);
-
-            final savedTrack = await _trackRepository.save(track);
-            newTrackIds.add(savedTrack.id);
-            addedCount++;
-          }
-        } catch (e) {
-          if (_isCancelled) rethrow;
-          errors.add('${track.title}: ${e.toString()}');
-        }
       }
 
       _throwIfCancelled();
-
-      final persistenceComplete = errors.isEmpty;
-      final canPruneRemovedTracks = sourceDataComplete && persistenceComplete;
-      final pruningSkipped = !canPruneRemovedTracks;
-
-      // 计算被移除的歌曲（在原来列表中但不在新列表中的）
-      final newTrackIdSet = Set<int>.from(newTrackIds);
-      final removedTrackIds = canPruneRemovedTracks
-          ? originalTrackIds.difference(newTrackIdSet)
-          : <int>{};
-      final removedCount = removedTrackIds.length;
-
-      // 清理被移除的 tracks 的 playlistIds 和 downloadPaths
-      if (removedTrackIds.isNotEmpty) {
-        final removedTracks =
-            await _trackRepository.getByIds(removedTrackIds.toList());
-        final tracksToDelete = <int>[];
-        final tracksToUpdate = <Track>[];
-
-        for (final track in removedTracks) {
-          track.removeFromPlaylist(playlist.id);
-          if (track.playlistInfo.isEmpty) {
-            tracksToDelete.add(track.id);
-          } else {
-            tracksToUpdate.add(track);
-          }
-        }
-
-        // 批量删除孤儿 tracks
-        if (tracksToDelete.isNotEmpty) {
-          await _isar.writeTxn(() => _isar.tracks.deleteAll(tracksToDelete));
-          logDebug(
-              'Deleted ${tracksToDelete.length} orphan tracks after playlist refresh');
-        }
-
-        // 批量更新其他 tracks
-        if (tracksToUpdate.isNotEmpty) {
-          await _trackRepository.saveAll(tracksToUpdate);
-          logDebug(
-              'Updated ${tracksToUpdate.length} tracks after playlist refresh');
-        }
-      }
-
+      final mutationResult =
+          await _mutationService.replaceTracksFromRemoteRefresh(
+        playlist.id,
+        expandedTracks,
+        RemoteRefreshMutationPolicy(
+          sourceDataComplete: sourceDataComplete,
+          platformCoverUrl: result.coverUrl,
+        ),
+      );
       _throwIfCancelled();
 
-      // 更新歌单
-      playlist.trackIds = pruningSkipped
-          ? _mergePreservingExistingTrackOrder(playlist.trackIds, newTrackIds)
-          : newTrackIds;
-      playlist.lastRefreshed = DateTime.now();
-
-      // 更新封面（平台封面优先，回退到第一首歌封面）
-      await _updatePlaylistCover(playlist, result.coverUrl, playlist.trackIds);
-      await _playlistRepository.save(playlist);
-
+      final refreshedPlaylist =
+          await _playlistRepository.getById(playlist.id) ?? playlist;
       _updateProgress(status: ImportStatus.completed);
 
       return ImportResult(
-        playlist: playlist,
-        addedCount: addedCount,
-        skippedCount: skippedCount,
-        removedCount: removedCount,
-        pruningSkipped: pruningSkipped,
-        errors: errors,
+        playlist: refreshedPlaylist,
+        addedCount: mutationResult.addedCount + mutationResult.repairedCount,
+        skippedCount: mutationResult.skippedCount,
+        removedCount: mutationResult.removedCount,
+        pruningSkipped: mutationResult.pruningSkipped,
+        errors: mutationResult.errors.map((error) => error.toString()).toList(),
       );
     } catch (e) {
       _updateProgress(status: ImportStatus.failed, error: e.toString());
@@ -699,20 +609,6 @@ class ImportService with Logging implements ImportServiceFacade {
       tracks: expandedTracks,
       isComplete: isComplete,
     );
-  }
-
-  List<int> _mergePreservingExistingTrackOrder(
-    List<int> existingTrackIds,
-    List<int> refreshedTrackIds,
-  ) {
-    final merged = List<int>.from(existingTrackIds);
-    final seen = merged.toSet();
-    for (final trackId in refreshedTrackIds) {
-      if (seen.add(trackId)) {
-        merged.add(trackId);
-      }
-    }
-    return merged;
   }
 
   /// 更新歌单封面：自定义封面不覆盖，优先平台封面，回退到第一首歌缩略图

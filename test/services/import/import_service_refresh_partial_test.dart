@@ -13,6 +13,7 @@ import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/bilibili_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/services/import/import_service.dart';
+import 'package:fmp/services/library/playlist_mutation_service.dart';
 import 'package:isar/isar.dart';
 
 void main() {
@@ -52,8 +53,9 @@ void main() {
       }
     });
 
-    test('skips pruning when a refreshed track fails to save', () async {
-      final trackRepository = _FailingSaveTrackRepository(isar);
+    test('reports pruning skipped when mutation reports a persistence error',
+        () async {
+      final trackRepository = TrackRepository(isar);
       final playlist = await _createImportedPlaylist(
         playlistRepository: playlistRepository,
         trackRepository: trackRepository,
@@ -73,6 +75,7 @@ void main() {
         playlistRepository: playlistRepository,
         trackRepository: trackRepository,
         isar: isar,
+        mutationService: _ReportingRefreshFailureMutationService(isar: isar),
       );
 
       final result = await service.refreshPlaylist(playlist.id);
@@ -82,16 +85,15 @@ void main() {
       expect(result.errors, isNotEmpty);
       final refreshed = await playlistRepository.getById(playlist.id);
       expect(refreshed!.trackIds, playlist.trackIds);
-      expect(await trackRepository.getBySourceId('stale', SourceType.youtube),
-          isNotNull);
+      expect(
+        await trackRepository.getBySourceId('stale', SourceType.youtube),
+        isNotNull,
+      );
     });
 
-    test('does not append existing track when association save fails',
+    test('does not append tracks when mutation reports a persistence error',
         () async {
-      final trackRepository = _FailingSaveTrackRepository(
-        isar,
-        failSourceIds: {'existing'},
-      );
+      final trackRepository = TrackRepository(isar);
       final playlist = await _createImportedPlaylist(
         playlistRepository: playlistRepository,
         trackRepository: trackRepository,
@@ -116,6 +118,7 @@ void main() {
         playlistRepository: playlistRepository,
         trackRepository: trackRepository,
         isar: isar,
+        mutationService: _ReportingRefreshFailureMutationService(isar: isar),
       );
 
       final result = await service.refreshPlaylist(playlist.id);
@@ -241,20 +244,21 @@ void main() {
   });
 }
 
-class _FailingSaveTrackRepository extends TrackRepository {
-  _FailingSaveTrackRepository(
-    super.isar, {
-    this.failSourceIds = const {'broken'},
-  });
-
-  final Set<String> failSourceIds;
+class _ReportingRefreshFailureMutationService extends PlaylistMutationService {
+  _ReportingRefreshFailureMutationService({required super.isar});
 
   @override
-  Future<Track> save(Track track) {
-    if (failSourceIds.contains(track.sourceId)) {
-      throw StateError('simulated save failure');
-    }
-    return super.save(track);
+  Future<PlaylistMutationResult> replaceTracksFromRemoteRefresh(
+    int playlistId,
+    List<Track> refreshedTracks,
+    RemoteRefreshMutationPolicy policy,
+  ) async {
+    return PlaylistMutationResult(
+      playlistId: playlistId,
+      affectedPlaylistIds: [playlistId],
+      errors: [StateError('simulated save failure')],
+      pruningSkipped: true,
+    );
   }
 }
 

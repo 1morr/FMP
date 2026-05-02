@@ -289,6 +289,148 @@ void main() {
       expect(result.playlistChanged, isTrue);
     });
 
+    test(
+        'replaceTracksFromRemoteRefresh prunes stale tracks only on complete refresh',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final playlist = await _createPlaylist(harness, 'Refresh Complete');
+      await harness.mutations.addTracks(
+        playlist.id,
+        [_track('keep', 'Keep'), _track('stale', 'Stale')],
+      );
+
+      final result = await harness.mutations.replaceTracksFromRemoteRefresh(
+        playlist.id,
+        [_track('keep', 'Keep'), _track('new', 'New')],
+        const RemoteRefreshMutationPolicy(sourceDataComplete: true),
+      );
+
+      final savedPlaylist = await harness.playlists.getById(playlist.id);
+      expect(result.pruningSkipped, isFalse);
+      expect(result.addedCount, 1);
+      expect(result.removedCount, 1);
+      expect(
+        await harness.tracks.getBySourceId('stale', SourceType.youtube),
+        isNull,
+      );
+      final savedTracks =
+          await harness.tracks.getByIds(savedPlaylist!.trackIds);
+      expect(savedTracks.map((track) => track.sourceId), ['keep', 'new']);
+    });
+
+    test(
+        'replaceTracksFromRemoteRefresh preserves stale tracks on partial refresh',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final playlist = await _createPlaylist(harness, 'Refresh Partial');
+      await harness.mutations.addTracks(
+        playlist.id,
+        [_track('keep', 'Keep'), _track('stale', 'Stale')],
+      );
+
+      final result = await harness.mutations.replaceTracksFromRemoteRefresh(
+        playlist.id,
+        [_track('keep', 'Keep'), _track('new', 'New')],
+        const RemoteRefreshMutationPolicy(sourceDataComplete: false),
+      );
+
+      final savedPlaylist = await harness.playlists.getById(playlist.id);
+      final savedTracks =
+          await harness.tracks.getByIds(savedPlaylist!.trackIds);
+      expect(result.pruningSkipped, isTrue);
+      expect(result.removedCount, 0);
+      expect(
+          savedTracks.map((track) => track.sourceId), ['keep', 'stale', 'new']);
+    });
+
+    test(
+        'replaceTracksFromRemoteRefresh preserves stale tracks when one track fails to persist',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final playlist =
+          await _createPlaylist(harness, 'Refresh Persistence Error');
+      await harness.mutations.addTracks(
+        playlist.id,
+        [_track('keep', 'Keep'), _track('stale', 'Stale')],
+      );
+      final brokenTrack = Track()
+        ..sourceId = 'broken'
+        ..sourceType = SourceType.youtube;
+
+      final result = await harness.mutations.replaceTracksFromRemoteRefresh(
+        playlist.id,
+        [_track('keep', 'Keep'), _track('new', 'New'), brokenTrack],
+        const RemoteRefreshMutationPolicy(sourceDataComplete: true),
+      );
+
+      final savedPlaylist = await harness.playlists.getById(playlist.id);
+      final savedTracks =
+          await harness.tracks.getByIds(savedPlaylist!.trackIds);
+      expect(result.pruningSkipped, isTrue);
+      expect(result.errors, isNotEmpty);
+      expect(result.removedCount, 0);
+      expect(
+          savedTracks.map((track) => track.sourceId), ['keep', 'stale', 'new']);
+      expect(
+        await harness.tracks.getBySourceId('broken', SourceType.youtube),
+        isNull,
+      );
+    });
+
+    test('replaceTracksFromRemoteRefresh applies platform cover when provided',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final playlist = await _createPlaylist(harness, 'Refresh Cover');
+      await harness.mutations.addTracks(
+        playlist.id,
+        [_track('cover-old', 'Old Cover')],
+      );
+
+      final result = await harness.mutations.replaceTracksFromRemoteRefresh(
+        playlist.id,
+        [_track('cover-new', 'New Cover')],
+        const RemoteRefreshMutationPolicy(
+          sourceDataComplete: true,
+          platformCoverUrl: 'https://example.com/platform-cover.jpg',
+        ),
+      );
+
+      final savedPlaylist = await harness.playlists.getById(playlist.id);
+      expect(savedPlaylist!.coverUrl, 'https://example.com/platform-cover.jpg');
+      expect(result.coverChanged, isTrue);
+    });
+
+    test('replaceTracksFromRemoteRefresh does not override custom cover',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final playlist = await _createPlaylist(harness, 'Refresh Custom Cover')
+        ..coverUrl = 'https://example.com/custom-cover.jpg'
+        ..hasCustomCover = true;
+      await harness.playlists.save(playlist);
+      await harness.mutations.addTracks(
+        playlist.id,
+        [_track('custom-cover-old', 'Old Cover')],
+      );
+
+      final result = await harness.mutations.replaceTracksFromRemoteRefresh(
+        playlist.id,
+        [_track('custom-cover-new', 'New Cover')],
+        const RemoteRefreshMutationPolicy(
+          sourceDataComplete: true,
+          platformCoverUrl: 'https://example.com/platform-cover.jpg',
+        ),
+      );
+
+      final savedPlaylist = await harness.playlists.getById(playlist.id);
+      expect(savedPlaylist!.coverUrl, 'https://example.com/custom-cover.jpg');
+      expect(result.coverChanged, isFalse);
+    });
+
     test('duplicatePlaylist creates new playlist and reverse membership',
         () async {
       final harness = await _createHarness();
