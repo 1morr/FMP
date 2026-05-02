@@ -15,6 +15,7 @@ import '../../../../providers/import_playlist_provider.dart';
 import '../../../../providers/playlist_import_provider.dart';
 import '../../../../providers/playlist_provider.dart';
 import '../../../../services/import/playlist_import_service.dart';
+import '../../../../services/import/youtube_mix_shorthand.dart';
 import '../import_preview_page.dart';
 
 /// URL 导入类型
@@ -147,6 +148,20 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
       return;
     }
 
+    if (looksLikeYouTubeMixShorthand(trimmed)) {
+      final newDetected = parseYouTubeMixShorthandSeedId(trimmed) != null
+          ? const _DetectedUrl(
+              type: _UrlType.internal,
+              platform: _SourcePlatform.youtube,
+            )
+          : null;
+      if (_detected?.type != newDetected?.type ||
+          _detected?.platform != newDetected?.platform) {
+        setState(() => _detected = newDetected);
+      }
+      return;
+    }
+
     // 1. 先检查内部来源（B站/YouTube/网易云）
     //    内部来源直接导入，NeteaseSource 注册后网易云 URL 走内部流程
     final sourceManager = ref.read(sourceManagerProvider);
@@ -241,6 +256,11 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
                     return t.library.importPlaylist.urlRequired;
                   }
                   final trimmed = value.trim();
+                  if (looksLikeYouTubeMixShorthand(trimmed)) {
+                    return parseYouTubeMixShorthandSeedId(trimmed) == null
+                        ? t.library.importPlaylist.unsupportedFormat
+                        : null;
+                  }
                   // 检查是否能被任一来源识别（外部优先）
                   final notifier =
                       ref.read(playlistImportProvider.notifier);
