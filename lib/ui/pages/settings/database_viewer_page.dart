@@ -14,6 +14,8 @@ import '../../../data/models/download_task.dart';
 import '../../../data/models/play_history.dart';
 import '../../../data/models/radio_station.dart';
 import '../../../data/models/lyrics_match.dart';
+import '../../../data/models/account.dart';
+import '../../../data/models/lyrics_title_parse_cache.dart';
 import '../../../core/constants/ui_constants.dart';
 
 /// 数据库查看页面
@@ -37,6 +39,8 @@ class _DatabaseViewerPageState extends ConsumerState<DatabaseViewerPage> {
     'DownloadTask',
     'RadioStation',
     'LyricsMatch',
+    'LyricsTitleParseCache',
+    'Account',
   ];
 
   @override
@@ -108,7 +112,8 @@ class _DatabaseViewerPageState extends ConsumerState<DatabaseViewerPage> {
 
     return dbAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text(t.databaseViewer.loadFailed(error: e.toString()))),
+      error: (e, _) =>
+          Center(child: Text(t.databaseViewer.loadFailed(error: e.toString()))),
       data: (isar) => _buildCollectionData(isar),
     );
   }
@@ -124,6 +129,8 @@ class _DatabaseViewerPageState extends ConsumerState<DatabaseViewerPage> {
       'DownloadTask' => _DownloadTaskListView(isar: isar),
       'RadioStation' => _RadioStationListView(isar: isar),
       'LyricsMatch' => _LyricsMatchListView(isar: isar),
+      'LyricsTitleParseCache' => _LyricsTitleParseCacheListView(isar: isar),
+      'Account' => _AccountListView(isar: isar),
       _ => Center(child: Text(t.databaseViewer.unknownCollection)),
     };
   }
@@ -172,7 +179,8 @@ class _TrackListView extends StatelessWidget {
                   data: {
                     'thumbnailUrl': _truncate(track.thumbnailUrl, 60),
                     'audioUrl': _truncate(track.audioUrl, 60),
-                    'audioUrlExpiry': track.audioUrlExpiry?.toIso8601String() ?? 'null',
+                    'audioUrlExpiry':
+                        track.audioUrlExpiry?.toIso8601String() ?? 'null',
                     'hasValidAudioUrl': track.hasValidAudioUrl.toString(),
                   },
                 ),
@@ -187,17 +195,26 @@ class _TrackListView extends StatelessWidget {
                 _DataSection(
                   title: t.databaseViewer.cacheAndDownload,
                   data: {
-                    'playlistInfo (${track.playlistInfo.length})': track.playlistInfo.isEmpty
+                    'playlistInfo (${track.playlistInfo.length})': track
+                            .playlistInfo.isEmpty
                         ? '[]'
-                        : track.playlistInfo.asMap().entries.map((e) => 
-                            '[${e.key}] playlistId=${e.value.playlistId}, name="${e.value.playlistName}"\n    path: ${e.value.downloadPath}'
-                          ).join('\n\n'),
+                        : track.playlistInfo
+                            .asMap()
+                            .entries
+                            .map((e) =>
+                                '[${e.key}] playlistId=${e.value.playlistId}, name="${e.value.playlistName}"\n    path: ${e.value.downloadPath}')
+                            .join('\n\n'),
                     'allPlaylistIds': track.allPlaylistIds.isEmpty
                         ? '[]'
                         : track.allPlaylistIds.join(', '),
-                    'allDownloadPaths (${track.allDownloadPaths.length})': track.allDownloadPaths.isEmpty
-                        ? '[]'
-                        : track.allDownloadPaths.asMap().entries.map((e) => '[${e.key}] ${e.value}').join('\n'),
+                    'allDownloadPaths (${track.allDownloadPaths.length})':
+                        track.allDownloadPaths.isEmpty
+                            ? '[]'
+                            : track.allDownloadPaths
+                                .asMap()
+                                .entries
+                                .map((e) => '[${e.key}] ${e.value}')
+                                .join('\n'),
                     'hasAnyDownload': track.hasAnyDownload.toString(),
                   },
                 ),
@@ -205,6 +222,7 @@ class _TrackListView extends StatelessWidget {
                   title: t.databaseViewer.partInfo,
                   data: {
                     'cid': track.cid?.toString() ?? 'null',
+                    'bilibiliAid': track.bilibiliAid?.toString() ?? 'null',
                     'pageNum': track.pageNum?.toString() ?? 'null',
                     'pageCount': track.pageCount?.toString() ?? 'null',
                     'parentTitle': track.parentTitle ?? 'null',
@@ -223,6 +241,16 @@ class _TrackListView extends StatelessWidget {
                   data: {
                     'createdAt': track.createdAt.toIso8601String(),
                     'updatedAt': track.updatedAt?.toIso8601String() ?? 'null',
+                  },
+                ),
+                _DataSection(
+                  title: 'Computed',
+                  data: {
+                    'uniqueKey': track.uniqueKey,
+                    'groupKey': track.groupKey,
+                    'sourceKey': track.sourceKey,
+                    'sourcePageKey': track.sourcePageKey,
+                    'formattedDuration': track.formattedDuration,
                   },
                 ),
               ],
@@ -279,9 +307,12 @@ class _PlaylistListView extends StatelessWidget {
                   data: {
                     'isImported': playlist.isImported.toString(),
                     'sourceUrl': _truncate(playlist.sourceUrl, 60),
-                    'importSourceType': playlist.importSourceType?.name ?? 'null',
-                    'refreshIntervalHours': playlist.refreshIntervalHours?.toString() ?? 'null',
-                    'lastRefreshed': playlist.lastRefreshed?.toIso8601String() ?? 'null',
+                    'importSourceType':
+                        playlist.importSourceType?.name ?? 'null',
+                    'refreshIntervalHours':
+                        playlist.refreshIntervalHours?.toString() ?? 'null',
+                    'lastRefreshed':
+                        playlist.lastRefreshed?.toIso8601String() ?? 'null',
                     'notifyOnUpdate': playlist.notifyOnUpdate.toString(),
                     'needsRefresh': playlist.needsRefresh.toString(),
                     'ownerName': playlist.ownerName ?? 'null',
@@ -300,7 +331,7 @@ class _PlaylistListView extends StatelessWidget {
                 _DataSection(
                   title: t.databaseViewer.trackList,
                   data: {
-                    'trackCount': playlist.trackIds.length.toString(),
+                    'trackCount': playlist.trackCount.toString(),
                     'trackIds': playlist.trackIds.isEmpty
                         ? '[]'
                         : '${playlist.trackIds.take(10).join(', ')}${playlist.trackIds.length > 10 ? '... (${playlist.trackIds.length} total)' : ''}',
@@ -311,7 +342,8 @@ class _PlaylistListView extends StatelessWidget {
                   data: {
                     'sortOrder': playlist.sortOrder.toString(),
                     'createdAt': playlist.createdAt.toIso8601String(),
-                    'updatedAt': playlist.updatedAt?.toIso8601String() ?? 'null',
+                    'updatedAt':
+                        playlist.updatedAt?.toIso8601String() ?? 'null',
                   },
                 ),
               ],
@@ -360,7 +392,8 @@ class _PlayQueueListView extends StatelessWidget {
                   title: t.databaseViewer.playbackState,
                   data: {
                     'currentIndex': queue.currentIndex.toString(),
-                    'currentTrackId': queue.currentTrackId?.toString() ?? 'null',
+                    'currentTrackId':
+                        queue.currentTrackId?.toString() ?? 'null',
                     'lastPositionMs': queue.lastPositionMs.toString(),
                     'lastVolume': queue.lastVolume.toStringAsFixed(2),
                     'hasNext': queue.hasNext.toString(),
@@ -397,7 +430,8 @@ class _PlayQueueListView extends StatelessWidget {
                 _DataSection(
                   title: t.databaseViewer.timestamps,
                   data: {
-                    'lastUpdated': queue.lastUpdated?.toIso8601String() ?? 'null',
+                    'lastUpdated':
+                        queue.lastUpdated?.toIso8601String() ?? 'null',
                   },
                 ),
               ],
@@ -475,44 +509,79 @@ class _SettingsListView extends StatelessWidget {
                 _DataSection(
                   title: t.databaseViewer.downloadSettings,
                   data: {
-                    'maxConcurrentDownloads': setting.maxConcurrentDownloads.toString(),
-                    'downloadImageOptionIndex': setting.downloadImageOptionIndex.toString(),
+                    'maxConcurrentDownloads':
+                        setting.maxConcurrentDownloads.toString(),
+                    'downloadImageOptionIndex':
+                        setting.downloadImageOptionIndex.toString(),
                     'downloadImageOption': setting.downloadImageOption.name,
                   },
                 ),
                 _DataSection(
                   title: t.databaseViewer.playbackSettings,
                   data: {
-                    'autoScrollToCurrentTrack': setting.autoScrollToCurrentTrack.toString(),
-                    'rememberPlaybackPosition': setting.rememberPlaybackPosition.toString(),
+                    'autoScrollToCurrentTrack':
+                        setting.autoScrollToCurrentTrack.toString(),
+                    'rememberPlaybackPosition':
+                        setting.rememberPlaybackPosition.toString(),
                     'restartRewindSeconds': '${setting.restartRewindSeconds}s',
-                    'tempPlayRewindSeconds': '${setting.tempPlayRewindSeconds}s',
+                    'tempPlayRewindSeconds':
+                        '${setting.tempPlayRewindSeconds}s',
                   },
                 ),
                 _DataSection(
                   title: t.databaseViewer.audioQualitySettings,
                   data: {
-                    'audioQualityLevelIndex': setting.audioQualityLevelIndex.toString(),
+                    'audioQualityLevelIndex':
+                        setting.audioQualityLevelIndex.toString(),
                     'audioQualityLevel': setting.audioQualityLevel.name,
                     'audioFormatPriority': setting.audioFormatPriority,
+                    'audioFormatPriorityList': setting.audioFormatPriorityList
+                        .map((e) => e.name)
+                        .join(', '),
                     'youtubeStreamPriority': setting.youtubeStreamPriority,
+                    'youtubeStreamPriorityList': setting
+                        .youtubeStreamPriorityList
+                        .map((e) => e.name)
+                        .join(', '),
                     'bilibiliStreamPriority': setting.bilibiliStreamPriority,
+                    'bilibiliStreamPriorityList': setting
+                        .bilibiliStreamPriorityList
+                        .map((e) => e.name)
+                        .join(', '),
                     'neteaseStreamPriority': setting.neteaseStreamPriority,
+                    'neteaseStreamPriorityList': setting
+                        .neteaseStreamPriorityList
+                        .map((e) => e.name)
+                        .join(', '),
                   },
                 ),
                 _DataSection(
                   title: 'Auth Settings',
                   data: {
-                    'useBilibiliAuthForPlay': setting.useBilibiliAuthForPlay.toString(),
-                    'useYoutubeAuthForPlay': setting.useYoutubeAuthForPlay.toString(),
-                    'useNeteaseAuthForPlay': setting.useNeteaseAuthForPlay.toString(),
+                    'useBilibiliAuthForPlay':
+                        setting.useBilibiliAuthForPlay.toString(),
+                    'useYoutubeAuthForPlay':
+                        setting.useYoutubeAuthForPlay.toString(),
+                    'useNeteaseAuthForPlay':
+                        setting.useNeteaseAuthForPlay.toString(),
+                  },
+                ),
+                _DataSection(
+                  title: 'Refresh Settings',
+                  data: {
+                    'rankingRefreshIntervalMinutes':
+                        '${setting.rankingRefreshIntervalMinutes} min',
+                    'radioRefreshIntervalMinutes':
+                        '${setting.radioRefreshIntervalMinutes} min',
                   },
                 ),
                 _DataSection(
                   title: t.databaseViewer.desktopSettings,
                   data: {
-                    'minimizeToTrayOnClose': setting.minimizeToTrayOnClose.toString(),
-                    'enableGlobalHotkeys': setting.enableGlobalHotkeys.toString(),
+                    'minimizeToTrayOnClose':
+                        setting.minimizeToTrayOnClose.toString(),
+                    'enableGlobalHotkeys':
+                        setting.enableGlobalHotkeys.toString(),
                     'launchAtStartup': setting.launchAtStartup.toString(),
                     'launchMinimized': setting.launchMinimized.toString(),
                     'hotkeyConfig': setting.hotkeyConfig ?? 'null',
@@ -521,15 +590,35 @@ class _SettingsListView extends StatelessWidget {
                 _DataSection(
                   title: t.databaseViewer.audioDeviceSettings,
                   data: {
-                    'preferredAudioDeviceId': setting.preferredAudioDeviceId ?? 'null',
-                    'preferredAudioDeviceName': setting.preferredAudioDeviceName ?? 'null',
+                    'preferredAudioDeviceId':
+                        setting.preferredAudioDeviceId ?? 'null',
+                    'preferredAudioDeviceName':
+                        setting.preferredAudioDeviceName ?? 'null',
                   },
                 ),
                 _DataSection(
                   title: t.databaseViewer.lyricsSettings,
                   data: {
                     'autoMatchLyrics': setting.autoMatchLyrics.toString(),
-                    'maxLyricsCacheFiles': setting.maxLyricsCacheFiles.toString(),
+                    'maxLyricsCacheFiles':
+                        setting.maxLyricsCacheFiles.toString(),
+                    'lyricsDisplayModeIndex':
+                        setting.lyricsDisplayModeIndex.toString(),
+                    'lyricsDisplayMode': setting.lyricsDisplayMode.name,
+                    'lyricsSourcePriority': setting.lyricsSourcePriority,
+                    'lyricsSourcePriorityList':
+                        setting.lyricsSourcePriorityList.join(', '),
+                    'disabledLyricsSources': setting.disabledLyricsSources,
+                    'disabledLyricsSourcesSet':
+                        setting.disabledLyricsSourcesSet.join(', '),
+                    'lyricsAiTitleParsingModeIndex':
+                        setting.lyricsAiTitleParsingModeIndex.toString(),
+                    'lyricsAiTitleParsingMode':
+                        setting.lyricsAiTitleParsingMode.name,
+                    'lyricsAiEndpoint': setting.lyricsAiEndpoint,
+                    'lyricsAiModel': setting.lyricsAiModel,
+                    'lyricsAiTimeoutSeconds':
+                        '${setting.lyricsAiTimeoutSeconds}s',
                   },
                 ),
                 _DataSection(
@@ -577,7 +666,8 @@ class _PlayHistoryListView extends StatelessWidget {
             final history = histories[index];
             return _DataCard(
               title: history.title,
-              subtitle: 'ID: ${history.id} | ${_formatDateTime(history.playedAt)}',
+              subtitle:
+                  'ID: ${history.id} | ${_formatDateTime(history.playedAt)}',
               sections: [
                 _DataSection(
                   title: t.databaseViewer.basicInfo,
@@ -701,8 +791,16 @@ class _DownloadTaskListView extends StatelessWidget {
                   data: {
                     'status': task.status.name,
                     'progress': '${(task.progress * 100).toStringAsFixed(1)}%',
+                    'formattedProgress': task.formattedProgress,
+                    'isDownloading': task.isDownloading.toString(),
+                    'isCompleted': task.isCompleted.toString(),
+                    'isFailed': task.isFailed.toString(),
+                    'isPending': task.isPending.toString(),
+                    'isPaused': task.isPaused.toString(),
                     'downloadedBytes': _formatBytes(task.downloadedBytes),
-                    'totalBytes': task.totalBytes != null ? _formatBytes(task.totalBytes!) : 'null',
+                    'totalBytes': task.totalBytes != null
+                        ? _formatBytes(task.totalBytes!)
+                        : 'null',
                   },
                 ),
                 _DataSection(
@@ -711,6 +809,7 @@ class _DownloadTaskListView extends StatelessWidget {
                     'savePath': _truncate(task.savePath, 80),
                     'tempFilePath': _truncate(task.tempFilePath, 80),
                     'canResume': task.canResume.toString(),
+                    'isPartOfPlaylist': task.isPartOfPlaylist.toString(),
                   },
                 ),
                 _DataSection(
@@ -723,7 +822,8 @@ class _DownloadTaskListView extends StatelessWidget {
                   title: t.databaseViewer.timestamps,
                   data: {
                     'createdAt': task.createdAt.toIso8601String(),
-                    'completedAt': task.completedAt?.toIso8601String() ?? 'null',
+                    'completedAt':
+                        task.completedAt?.toIso8601String() ?? 'null',
                   },
                 ),
               ],
@@ -764,6 +864,7 @@ class _RadioStationListView extends StatelessWidget {
                   title: t.databaseViewer.basicInfo,
                   data: {
                     'id': station.id.toString(),
+                    'uniqueKey': station.uniqueKey,
                     'url': _truncate(station.url, 60),
                     'title': station.title,
                     'sourceType': station.sourceType.name,
@@ -796,7 +897,8 @@ class _RadioStationListView extends StatelessWidget {
                   title: t.databaseViewer.timestamps,
                   data: {
                     'createdAt': station.createdAt.toIso8601String(),
-                    'lastPlayedAt': station.lastPlayedAt?.toIso8601String() ?? 'null',
+                    'lastPlayedAt':
+                        station.lastPlayedAt?.toIso8601String() ?? 'null',
                   },
                 ),
               ],
@@ -863,6 +965,117 @@ class _LyricsMatchListView extends StatelessWidget {
   }
 }
 
+class _LyricsTitleParseCacheListView extends StatelessWidget {
+  final Isar isar;
+
+  const _LyricsTitleParseCacheListView({required this.isar});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<LyricsTitleParseCache>>(
+      future: isar.lyricsTitleParseCaches.where().findAll(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final caches = snapshot.data ?? [];
+        return _buildList(
+          context,
+          itemCount: caches.length,
+          headerText: t.databaseViewer.recordCount(count: caches.length),
+          itemBuilder: (index) {
+            final cache = caches[index];
+            return _DataCard(
+              title: cache.parsedTrackName,
+              subtitle: 'ID: ${cache.id} | ${cache.trackUniqueKey}',
+              sections: [
+                _DataSection(
+                  title: t.databaseViewer.basicInfo,
+                  data: {
+                    'id': cache.id.toString(),
+                    'trackUniqueKey': cache.trackUniqueKey,
+                    'sourceType': cache.sourceType,
+                  },
+                ),
+                _DataSection(
+                  title: 'Parsed Result',
+                  data: {
+                    'parsedTrackName': cache.parsedTrackName,
+                    'parsedArtistName': cache.parsedArtistName ?? 'null',
+                    'confidence': cache.confidence.toStringAsFixed(3),
+                    'provider': cache.provider,
+                    'model': cache.model,
+                  },
+                ),
+                _DataSection(
+                  title: t.databaseViewer.timestamps,
+                  data: {
+                    'createdAt': cache.createdAt.toIso8601String(),
+                    'updatedAt': cache.updatedAt.toIso8601String(),
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _AccountListView extends StatelessWidget {
+  final Isar isar;
+
+  const _AccountListView({required this.isar});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<Account>>(
+      future: isar.accounts.where().findAll(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final accounts = snapshot.data ?? [];
+        return _buildList(
+          context,
+          itemCount: accounts.length,
+          headerText: t.databaseViewer.recordCount(count: accounts.length),
+          itemBuilder: (index) {
+            final account = accounts[index];
+            return _DataCard(
+              title: account.userName ?? account.platform.name,
+              subtitle: 'ID: ${account.id} | ${account.platform.name}',
+              sections: [
+                _DataSection(
+                  title: t.databaseViewer.basicInfo,
+                  data: {
+                    'id': account.id.toString(),
+                    'platform': account.platform.name,
+                    'userId': account.userId ?? 'null',
+                    'userName': account.userName ?? 'null',
+                    'avatarUrl': _truncate(account.avatarUrl, 60),
+                  },
+                ),
+                _DataSection(
+                  title: 'Login State',
+                  data: {
+                    'isLoggedIn': account.isLoggedIn.toString(),
+                    'isVip': account.isVip.toString(),
+                    'lastRefreshed':
+                        account.lastRefreshed?.toIso8601String() ?? 'null',
+                    'loginAt': account.loginAt?.toIso8601String() ?? 'null',
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
 /// 截断字符串
 String _truncate(String? value, int maxLength) {
   if (value == null) return 'null';
@@ -874,7 +1087,9 @@ String _truncate(String? value, int maxLength) {
 String _formatBytes(int bytes) {
   if (bytes < 1024) return '$bytes B';
   if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-  if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  if (bytes < 1024 * 1024 * 1024) {
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
   return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
 }
 
@@ -980,7 +1195,8 @@ class _DataCard extends StatelessWidget {
                     // Section 标题
                     Container(
                       margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: colorScheme.primaryContainer,
                         borderRadius: AppRadius.borderRadiusSm,
