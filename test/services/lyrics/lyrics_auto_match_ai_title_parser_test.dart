@@ -435,7 +435,7 @@ void main() {
       expect(netease.searchCalls, ['AI Song']);
     });
 
-    test('advanced mode saves AI selected high-confidence synced candidate',
+    test('advanced mode sends normalized lyrics preview to AI selection',
         () async {
       config = _config(mode: LyricsAiTitleParsingMode.advancedAiSelect);
       aiParser.result =
@@ -446,6 +446,25 @@ void main() {
           source: 'netease',
           trackName: 'AI Song',
           artistName: 'AI Artist',
+          syncedLyrics: '''
+[ar:AI Artist]
+[ti:AI Song]
+[00:01.00] first line
+[00:02.00] second line
+[00:03.00] second line
+[00:04.00] third line
+[00:05.00] fourth line
+[00:06.00] fifth line
+[00:07.00] sixth line
+[00:08.00] chorus line
+[00:09.00] bridge line
+[00:10.00] seventh line
+[00:11.00] eighth line
+[00:12.00] ninth line
+[00:13.00] tenth line
+[by:tester]
+[00:14.00] chorus line
+''',
         ),
       ];
       aiLyricsSelector.result = const AiLyricsSelection(
@@ -462,13 +481,238 @@ void main() {
       expect(matched, isTrue);
       expect(aiLyricsSelector.calls, hasLength(1));
       final call = aiLyricsSelector.calls.single;
+      expect(call.videoDescription, isNull);
       expect(call.candidates.single.candidateId, 'netease:chosen');
       expect(call.candidates.single.hasSyncedLyrics, isTrue);
       expect(call.candidates.single.videoDurationSeconds, 180);
+      expect(
+        call.candidates.single.lyricsPreview,
+        'first line\n'
+        'second line\n'
+        'third line\n'
+        'fourth line\n'
+        'fifth line\n'
+        'sixth line\n'
+        'chorus line\n'
+        'bridge line',
+      );
       expect(call.sourcePriority, ['netease']);
       expect(call.allowPlainLyricsAutoMatch, isFalse);
       final saved = await repo.getByTrackKey('youtube:advanced-selected');
       expect(saved?.externalId, 'chosen');
+    });
+
+    test(
+        'advanced mode strips angle-bracket word timestamps from lyrics preview',
+        () async {
+      config = _config(mode: LyricsAiTitleParsingMode.advancedAiSelect);
+      aiParser.result =
+          _aiParsed(trackName: 'AI Song', artistName: 'AI Artist');
+      netease.searchResultsByQuery['AI Song AI Artist'] = [
+        _lyricsResult(
+          id: 'angle-timestamps',
+          source: 'netease',
+          trackName: 'AI Song',
+          artistName: 'AI Artist',
+          syncedLyrics: '''
+[00:01.00]<00:01.23>first <00:01.50>line
+[00:02.00]<00:02.23>second line
+[00:03.00]third line
+[00:04.00]fourth line
+[00:05.00]fifth line
+[00:06.00]sixth line
+[00:07.00]chorus line
+[00:08.00]bridge line
+[00:09.00]ninth line
+[00:10.00]tenth line
+[00:11.00]eleventh line
+[00:12.00]twelfth line
+''',
+        ),
+      ];
+      aiLyricsSelector.result = const AiLyricsSelection(
+        selectedCandidateId: 'netease:angle-timestamps',
+        confidence: 0.91,
+        reason: 'best synced match',
+      );
+
+      final matched = await buildService().tryAutoMatch(
+        _track('advanced-angle-timestamps'),
+        enabledSources: const ['netease'],
+      );
+
+      expect(matched, isTrue);
+      expect(
+        aiLyricsSelector.calls.single.candidates.single.lyricsPreview,
+        'first line\n'
+        'second line\n'
+        'third line\n'
+        'fourth line\n'
+        'fifth line\n'
+        'sixth line\n'
+        'chorus line\n'
+        'bridge line',
+      );
+    });
+
+    test(
+        'advanced mode preserves bracketed lyric section lines while stripping known metadata',
+        () async {
+      config = _config(mode: LyricsAiTitleParsingMode.advancedAiSelect);
+      aiParser.result =
+          _aiParsed(trackName: 'AI Song', artistName: 'AI Artist');
+      netease.searchResultsByQuery['AI Song AI Artist'] = [
+        _lyricsResult(
+          id: 'section-line',
+          source: 'netease',
+          trackName: 'AI Song',
+          artistName: 'AI Artist',
+          syncedLyrics: '''
+[ar:AI Artist]
+[length:03:00]
+[00:01.00][Chorus: Vocalist]
+[00:02.00]first line
+[00:03.00]second line
+[00:04.00]third line
+[00:05.00]fourth line
+[00:06.00]fifth line
+[00:07.00]sixth line
+[00:08.00]bridge line
+[re:tool]
+[ve:1.0]
+[00:09.00]seventh line
+[00:10.00]eighth line
+[00:11.00]ninth line
+[00:12.00]tenth line
+[offset:0]
+[by:tester]
+''',
+        ),
+      ];
+      aiLyricsSelector.result = const AiLyricsSelection(
+        selectedCandidateId: 'netease:section-line',
+        confidence: 0.91,
+        reason: 'best synced match',
+      );
+
+      final matched = await buildService().tryAutoMatch(
+        _track('advanced-bracket-section'),
+        enabledSources: const ['netease'],
+      );
+
+      expect(matched, isTrue);
+      expect(
+        aiLyricsSelector.calls.single.candidates.single.lyricsPreview,
+        '[Chorus: Vocalist]\n'
+        'first line\n'
+        'second line\n'
+        'third line\n'
+        'fourth line\n'
+        'fifth line\n'
+        'sixth line\n'
+        'bridge line',
+      );
+    });
+
+    test('advanced mode caps lyrics preview to 8 lines and 500 characters',
+        () async {
+      config = _config(mode: LyricsAiTitleParsingMode.advancedAiSelect);
+      aiParser.result =
+          _aiParsed(trackName: 'AI Song', artistName: 'AI Artist');
+      final longLine = 'x' * 120;
+      netease.searchResultsByQuery['AI Song AI Artist'] = [
+        _lyricsResult(
+          id: 'long-preview',
+          source: 'netease',
+          trackName: 'AI Song',
+          artistName: 'AI Artist',
+          syncedLyrics: List.generate(
+            30,
+            (index) => '[00:${index.toString().padLeft(2, '0')}.00] '
+                'line ${index + 1} $longLine',
+          ).join('\n'),
+        ),
+      ];
+      aiLyricsSelector.result = const AiLyricsSelection(
+        selectedCandidateId: 'netease:long-preview',
+        confidence: 0.91,
+        reason: 'best synced match',
+      );
+
+      final matched = await buildService().tryAutoMatch(
+        _track('advanced-preview-cap'),
+        enabledSources: const ['netease'],
+      );
+
+      expect(matched, isTrue);
+      final preview =
+          aiLyricsSelector.calls.single.candidates.single.lyricsPreview;
+      expect(const LineSplitter().convert(preview),
+          hasLength(lessThanOrEqualTo(8)));
+      expect(preview.length, lessThanOrEqualTo(500));
+    });
+
+    test(
+        'advanced mode uses plain lyrics preview only when plain matching is allowed',
+        () async {
+      config = _config(mode: LyricsAiTitleParsingMode.advancedAiSelect);
+      aiParser.result =
+          _aiParsed(trackName: 'AI Song', artistName: 'AI Artist');
+      netease.searchResultsByQuery['AI Song AI Artist'] = [
+        _lyricsResult(
+          id: 'plain',
+          source: 'netease',
+          trackName: 'AI Song',
+          artistName: 'AI Artist',
+          syncedLyrics: null,
+          plainLyrics: '''
+plain first
+plain second
+plain third
+plain fourth
+plain fifth
+plain sixth
+plain chorus
+plain bridge
+plain ninth
+plain tenth
+plain eleventh
+plain twelfth
+''',
+        ),
+      ];
+
+      final disabledMatched = await buildService().tryAutoMatch(
+        _track('advanced-plain-preview-disabled'),
+        enabledSources: const ['netease'],
+      );
+
+      expect(disabledMatched, isFalse);
+      expect(aiLyricsSelector.calls, isEmpty);
+
+      aiLyricsSelector.result = const AiLyricsSelection(
+        selectedCandidateId: 'netease:plain',
+        confidence: 0.91,
+        reason: 'best plain match',
+      );
+      final enabledMatched = await buildService().tryAutoMatch(
+        _track('advanced-plain-preview-enabled'),
+        enabledSources: const ['netease'],
+        allowPlainLyricsAutoMatch: true,
+      );
+
+      expect(enabledMatched, isTrue);
+      expect(
+        aiLyricsSelector.calls.single.candidates.single.lyricsPreview,
+        'plain first\n'
+        'plain second\n'
+        'plain third\n'
+        'plain fourth\n'
+        'plain fifth\n'
+        'plain sixth\n'
+        'plain chorus\n'
+        'plain bridge',
+      );
     });
 
     test('advanced mode filters plain candidates before AI when disabled',
@@ -789,6 +1033,7 @@ class _FakeAiLyricsSelector extends AiLyricsSelector {
         String model,
         String title,
         String? uploader,
+        String? videoDescription,
         int durationSeconds,
         List<String> sourcePriority,
         bool allowPlainLyricsAutoMatch,
@@ -804,6 +1049,7 @@ class _FakeAiLyricsSelector extends AiLyricsSelector {
     required String model,
     required String title,
     String? uploader,
+    String? videoDescription,
     required int durationSeconds,
     required List<String> sourcePriority,
     required bool allowPlainLyricsAutoMatch,
@@ -816,6 +1062,7 @@ class _FakeAiLyricsSelector extends AiLyricsSelector {
       model: model,
       title: title,
       uploader: uploader,
+      videoDescription: videoDescription,
       durationSeconds: durationSeconds,
       sourcePriority: sourcePriority,
       allowPlainLyricsAutoMatch: allowPlainLyricsAutoMatch,

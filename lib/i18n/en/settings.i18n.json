@@ -88,7 +88,7 @@
     "aiModeAlways": "AI title parsing",
     "aiModeAdvanced": "AI advanced matching",
     "aiModeAlwaysDescription": "AI parses the video title; local rules still choose the lyrics result.",
-    "aiModeAdvancedDescription": "AI selects from searched lyrics candidates and saves only confidence > 0.8.",
+    "aiModeAdvancedDescription": "AI selects from searched lyrics candidates and saves known selected candidates.",
     "allowPlainLyricsAutoMatch": "Allow auto-matching non-synced lyrics",
     "allowPlainLyricsAutoMatchDescription": "When off, automatic matching only accepts synced lyrics.",
     "aiEndpoint": "API endpoint",

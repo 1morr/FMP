@@ -266,7 +266,7 @@ class AiLyricsCandidate {
     required this.hasPlainLyrics,
     required this.hasTranslatedLyrics,
     required this.hasRomajiLyrics,
-    required this.lyricsPreview,
+    this.lyricsPreview = '',
   });
 
   final String candidateId;
