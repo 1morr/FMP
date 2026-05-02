@@ -23,6 +23,8 @@ class RadioRefreshService {
   Duration _refreshInterval;
 
   Timer? _refreshTimer;
+  Future<void>? _activeRefreshAll;
+  int _refreshAllGeneration = 0;
 
   // 緩存數據
   // ignore: prefer_final_fields
@@ -76,7 +78,22 @@ class RadioRefreshService {
   }
 
   /// 刷新所有電台的直播狀態
-  Future<void> refreshAll() async {
+  Future<void> refreshAll() {
+    final activeRefresh = _activeRefreshAll;
+    if (activeRefresh != null) return activeRefresh;
+
+    final generation = ++_refreshAllGeneration;
+    final refresh = _refreshAll(generation);
+    _activeRefreshAll = refresh;
+    refresh.whenComplete(() {
+      if (identical(_activeRefreshAll, refresh)) {
+        _activeRefreshAll = null;
+      }
+    });
+    return refresh;
+  }
+
+  Future<void> _refreshAll(int generation) async {
     final repository = _repository;
     if (repository == null) {
       debugPrint('[RadioRefresh] Repository not set, skipping refresh');
@@ -84,17 +101,19 @@ class RadioRefreshService {
     }
 
     final stations = await repository.getAll();
-    if (stations.isEmpty) return;
+    if (!_isCurrentRefreshAll(generation) || stations.isEmpty) return;
 
     for (final station in stations) {
       try {
         // 獲取完整直播間資訊
         final info = await _radioSource.getLiveInfo(station);
+        if (!_isCurrentRefreshAll(generation)) return;
         _liveStatus[station.id] = info.isLive;
 
         // 更新電台資訊（封面、標題、主播名）
         bool needsUpdate = false;
-        if (info.thumbnailUrl != null && info.thumbnailUrl != station.thumbnailUrl) {
+        if (info.thumbnailUrl != null &&
+            info.thumbnailUrl != station.thumbnailUrl) {
           station.thumbnailUrl = info.thumbnailUrl;
           needsUpdate = true;
         }
@@ -109,14 +128,18 @@ class RadioRefreshService {
 
         // 保存到數據庫
         if (needsUpdate) {
-          repository.save(station);
+          await repository.save(station);
+          if (!_isCurrentRefreshAll(generation)) return;
         }
       } catch (e) {
-        debugPrint('[RadioRefresh] Failed to check live status for ${station.title}: $e');
+        if (!_isCurrentRefreshAll(generation)) return;
+        debugPrint(
+            '[RadioRefresh] Failed to check live status for ${station.title}: $e');
         _liveStatus[station.id] = false;
       }
     }
 
+    if (!_isCurrentRefreshAll(generation)) return;
     _notifyStateChange();
     debugPrint('[RadioRefresh] 電台直播狀態已刷新: ${_liveStatus.length} 個電台');
   }
@@ -129,7 +152,8 @@ class RadioRefreshService {
       _notifyStateChange();
       return isLive;
     } catch (e) {
-      debugPrint('[RadioRefresh] Failed to refresh station ${station.title}: $e');
+      debugPrint(
+          '[RadioRefresh] Failed to refresh station ${station.title}: $e');
       _liveStatus[station.id] = false;
       return false;
     }
@@ -147,6 +171,10 @@ class RadioRefreshService {
     _notifyStateChange();
   }
 
+  bool _isCurrentRefreshAll(int generation) {
+    return generation == _refreshAllGeneration && !_stateController.isClosed;
+  }
+
   void _notifyStateChange() {
     if (!_stateController.isClosed) {
       _stateController.add(null);
@@ -155,13 +183,14 @@ class RadioRefreshService {
 
   /// 釋放資源
   void dispose() {
+    _refreshAllGeneration++;
     _refreshTimer?.cancel();
     _stateController.close();
   }
 }
 
 /// RadioRefreshService Provider（用於訪問單例）
-/// 
+///
 /// 注意：此 Provider 不需要 dispose，因為：
 /// 1. RadioRefreshService.instance 是全局單例，生命週期與應用相同
 /// 2. 單例的 dispose() 由應用退出時統一處理

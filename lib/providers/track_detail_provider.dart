@@ -142,29 +142,34 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
 
   /// 刷新当前歌曲详情
   Future<void> refresh() async {
-    if (state.detail == null || _currentSourceType == null) return;
+    final sourceId = _currentSourceId;
+    final sourceType = _currentSourceType;
+    if (state.detail == null || sourceId == null || sourceType == null) return;
 
-    final sourceId = state.detail!.bvid;
     state = state.copyWith(isLoading: true, clearError: true);
 
     try {
       VideoDetail detail;
-      if (_currentSourceType == SourceType.bilibili) {
+      if (sourceType == SourceType.bilibili) {
         final authHeaders = await getAuthHeadersForPlatform(SourceType.bilibili, _ref);
         detail = await _bilibiliSource.getVideoDetail(sourceId, authHeaders: authHeaders);
-      } else if (_currentSourceType == SourceType.netease) {
+      } else if (sourceType == SourceType.netease) {
         final authHeaders = await getAuthHeadersForPlatform(SourceType.netease, _ref);
         detail = await _neteaseSource.getVideoDetail(sourceId, authHeaders: authHeaders);
       } else {
         final authHeaders = await getAuthHeadersForPlatform(SourceType.youtube, _ref);
         detail = await _youtubeSource.getVideoDetail(sourceId, authHeaders: authHeaders);
       }
-      state = TrackDetailState(detail: detail);
+      if (_currentSourceId == sourceId && _currentSourceType == sourceType) {
+        state = TrackDetailState(detail: detail);
+      }
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      );
+      if (_currentSourceId == sourceId && _currentSourceType == sourceType) {
+        state = state.copyWith(
+          isLoading: false,
+          error: e.toString(),
+        );
+      }
     }
   }
 
