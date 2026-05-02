@@ -379,6 +379,161 @@ class PlaylistMutationService with Logging {
     });
   }
 
+  Future<PlaylistMutationResult> replaceTracksFromRemoteRefresh(
+    int playlistId,
+    List<Track> refreshedTracks,
+    RemoteRefreshMutationPolicy policy,
+  ) async {
+    final candidateTracks = _dedupeTracksByUniqueKey(refreshedTracks);
+
+    return _isar.writeTxn(() async {
+      final playlist = await _isar.playlists.get(playlistId);
+      if (playlist == null) {
+        throw PlaylistNotFoundException(playlistId);
+      }
+
+      final now = DateTime.now();
+      final originalTrackIds = List<int>.from(playlist.trackIds);
+      final originalTrackIdSet = originalTrackIds.toSet();
+      final originalCoverUrl = playlist.coverUrl;
+      final refreshedTrackIds = <int>[];
+      final refreshedTrackIdSet = <int>{};
+      final addedTrackIds = <int>[];
+      final repairedTrackIds = <int>[];
+      final skippedTrackIds = <int>[];
+      final updatedTrackIds = <int>[];
+      final errors = <Object>[];
+
+      for (final inputTrack in candidateTracks) {
+        try {
+          final existingTrack = await _findTrackByIdentity(inputTrack);
+          final trackToSave = existingTrack ?? inputTrack;
+          final metadataChanged = existingTrack != null &&
+              _mergeTrackMetadataIfNeeded(existingTrack, inputTrack);
+          final trackLinked = trackToSave.belongsToPlaylist(playlistId);
+          final playlistLinked = existingTrack != null &&
+              originalTrackIdSet.contains(trackToSave.id);
+
+          final trackMembershipChanged = _ensureSinglePlaylistInfo(
+            trackToSave,
+            playlistId,
+            playlist.name,
+          );
+          final needsSave = existingTrack == null ||
+              metadataChanged ||
+              trackMembershipChanged;
+
+          if (needsSave) {
+            trackToSave.updatedAt = now;
+            trackToSave.id = await _isar.tracks.put(trackToSave);
+          }
+
+          if (refreshedTrackIdSet.add(trackToSave.id)) {
+            refreshedTrackIds.add(trackToSave.id);
+          }
+
+          if (existingTrack == null) {
+            addedTrackIds.add(trackToSave.id);
+          } else {
+            if (metadataChanged) {
+              updatedTrackIds.add(trackToSave.id);
+            }
+            if (!trackLinked && !playlistLinked) {
+              addedTrackIds.add(trackToSave.id);
+            } else if (trackMembershipChanged || !playlistLinked) {
+              repairedTrackIds.add(trackToSave.id);
+            } else if (!metadataChanged) {
+              skippedTrackIds.add(trackToSave.id);
+            }
+          }
+        } catch (error) {
+          errors.add(error);
+          logWarning('Failed to persist refreshed track: $error');
+        }
+      }
+
+      final canPruneRemovedTracks = policy.sourceDataComplete && errors.isEmpty;
+      final pruningSkipped = !canPruneRemovedTracks;
+      final finalTrackIds = canPruneRemovedTracks
+          ? refreshedTrackIds
+          : _mergePreservingExistingTrackOrder(
+              originalTrackIds,
+              refreshedTrackIds,
+            );
+      final finalTrackIdSet = finalTrackIds.toSet();
+      final removedTrackIds = <int>[];
+      final deletedTrackIds = <int>[];
+      final tracksToUpdate = <Track>[];
+      final updatedTrackIdSet = updatedTrackIds.toSet();
+
+      if (canPruneRemovedTracks) {
+        final removalCandidates = originalTrackIds
+            .where((trackId) => !finalTrackIdSet.contains(trackId))
+            .toSet();
+        final reverseLinkedTracks = await _isar.tracks
+            .filter()
+            .playlistInfoElement((q) => q.playlistIdEqualTo(playlistId))
+            .findAll();
+        for (final track in reverseLinkedTracks) {
+          if (!finalTrackIdSet.contains(track.id)) {
+            removalCandidates.add(track.id);
+          }
+        }
+
+        final tracks = (await _isar.tracks.getAll(removalCandidates.toList()))
+            .whereType<Track>();
+        for (final track in tracks) {
+          if (!track.belongsToPlaylist(playlistId)) {
+            continue;
+          }
+
+          removedTrackIds.add(track.id);
+          track.removeFromPlaylist(playlistId);
+          if (track.playlistInfo.isEmpty) {
+            deletedTrackIds.add(track.id);
+            updatedTrackIdSet.remove(track.id);
+          } else {
+            track.updatedAt = now;
+            updatedTrackIdSet.add(track.id);
+            tracksToUpdate.add(track);
+          }
+        }
+
+        if (deletedTrackIds.isNotEmpty) {
+          await _isar.tracks.deleteAll(deletedTrackIds);
+          logDebug('Deleted ${deletedTrackIds.length} orphan tracks');
+        }
+        if (tracksToUpdate.isNotEmpty) {
+          await _isar.tracks.putAll(tracksToUpdate);
+        }
+      }
+
+      playlist.trackIds = finalTrackIds;
+      playlist.lastRefreshed = now;
+      final coverChanged = await _updateRefreshCover(
+        playlist,
+        policy.platformCoverUrl,
+      );
+      playlist.updatedAt = now;
+      await _isar.playlists.put(playlist);
+
+      return PlaylistMutationResult(
+        playlistId: playlistId,
+        affectedPlaylistIds: [playlistId],
+        addedTrackIds: addedTrackIds,
+        repairedTrackIds: repairedTrackIds,
+        skippedTrackIds: skippedTrackIds,
+        removedTrackIds: removedTrackIds,
+        deletedTrackIds: deletedTrackIds,
+        updatedTrackIds: updatedTrackIdSet.toList(),
+        errors: errors,
+        playlistChanged: true,
+        coverChanged: coverChanged || playlist.coverUrl != originalCoverUrl,
+        pruningSkipped: pruningSkipped,
+      );
+    });
+  }
+
   Future<Track?> _findTrackByIdentity(Track track) {
     if (track.cid == null) {
       return _isar.tracks
@@ -515,6 +670,43 @@ class PlaylistMutationService with Logging {
 
     playlist.coverUrl = newCoverUrl;
     return true;
+  }
+
+  Future<bool> _updateRefreshCover(
+    Playlist playlist,
+    String? platformCoverUrl,
+  ) async {
+    if (playlist.hasCustomCover) {
+      return false;
+    }
+
+    final oldCoverUrl = playlist.coverUrl;
+    String? newCoverUrl = platformCoverUrl;
+    if (newCoverUrl == null && playlist.trackIds.isNotEmpty) {
+      final firstTrack = await _isar.tracks.get(playlist.trackIds.first);
+      newCoverUrl = firstTrack?.thumbnailUrl;
+    }
+
+    if (oldCoverUrl == newCoverUrl) {
+      return false;
+    }
+
+    playlist.coverUrl = newCoverUrl;
+    return true;
+  }
+
+  List<int> _mergePreservingExistingTrackOrder(
+    List<int> existingTrackIds,
+    List<int> refreshedTrackIds,
+  ) {
+    final merged = List<int>.from(existingTrackIds);
+    final seen = merged.toSet();
+    for (final trackId in refreshedTrackIds) {
+      if (seen.add(trackId)) {
+        merged.add(trackId);
+      }
+    }
+    return merged;
   }
 
   bool _listEquals(List<int> a, List<int> b) {

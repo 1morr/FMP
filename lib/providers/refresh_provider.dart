@@ -5,6 +5,7 @@ import 'package:fmp/i18n/strings.g.dart';
 
 import '../data/models/playlist.dart';
 import '../services/import/import_service.dart';
+import '../services/library/playlist_mutation_service.dart';
 import '../core/services/toast_service.dart';
 import '../data/sources/source_provider.dart';
 import 'account_provider.dart';
@@ -124,12 +125,14 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
     final trackRepo = _ref.read(trackRepositoryProvider);
 
     final isar = await _ref.read(databaseProvider.future);
+    final mutationService = PlaylistMutationService(isar: isar);
 
     final importService = ImportService(
       sourceManager: sourceManager,
       playlistRepository: playlistRepo,
       trackRepository: trackRepo,
       isar: isar,
+      mutationService: mutationService,
       bilibiliAccountService: _ref.read(bilibiliAccountServiceProvider),
       youtubeAccountService: _ref.read(youtubeAccountServiceProvider),
       neteaseAccountService: _ref.read(neteaseAccountServiceProvider),
