@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'account_provider.dart';
 import '../data/sources/source_provider.dart';
 import '../services/import/import_service.dart';
+import '../services/library/playlist_mutation_service.dart';
 import 'database_provider.dart';
 import 'repository_providers.dart';
 
@@ -205,12 +206,14 @@ final importServiceFactoryProvider = Provider<ImportServiceFactory>((ref) {
     final playlistRepository = ref.read(playlistRepositoryProvider);
     final trackRepository = ref.read(trackRepositoryProvider);
     final isar = await ref.read(databaseProvider.future);
+    final mutationService = PlaylistMutationService(isar: isar);
 
     return ImportService(
       sourceManager: sourceManager,
       playlistRepository: playlistRepository,
       trackRepository: trackRepository,
       isar: isar,
+      mutationService: mutationService,
       bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
       youtubeAccountService: ref.read(youtubeAccountServiceProvider),
       neteaseAccountService: ref.read(neteaseAccountServiceProvider),
