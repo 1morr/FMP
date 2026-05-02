@@ -32,7 +32,7 @@ import '../../../providers/account_provider.dart';
 import '../../../services/account/bilibili_favorites_service.dart';
 import '../../../services/account/youtube_playlist_service.dart';
 import '../../../services/account/netease_playlist_service.dart';
-import '../../../providers/refresh_provider.dart';
+import '../../../providers/remote_playlist_sync_provider.dart';
 import '../../handlers/track_action_handler.dart';
 
 /// 歌单详情页
@@ -693,9 +693,10 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
 
     try {
       final state = ref.read(playlistDetailProvider(widget.playlistId));
-      final sourceUrl = state.playlist?.sourceUrl;
-      final sourceType = state.playlist?.importSourceType;
-      if (sourceUrl == null || sourceType == null) return;
+      final playlist = state.playlist;
+      final sourceUrl = playlist?.sourceUrl;
+      final sourceType = playlist?.importSourceType;
+      if (sourceUrl == null || sourceType == null || playlist == null) return;
 
       final removedFromRemote = await ref
           .read(remotePlaylistActionsServiceProvider)
@@ -706,20 +707,10 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           );
       if (!removedFromRemote) return;
 
-      // 在移除前先取得 playlist 和 refreshManager
-      final playlist =
-          ref.read(playlistDetailProvider(widget.playlistId)).playlist;
-      final refreshManager = ref.read(refreshManagerProvider.notifier);
-
-      // 同時從本地歌單移除
-      final detailNotifier =
-          ref.read(playlistDetailProvider(widget.playlistId).notifier);
-      await detailNotifier.removeTracks(tracks.map((t) => t.id).toList());
-
-      // 觸發歌單重新整理
-      if (playlist != null) {
-        refreshManager.refreshPlaylist(playlist);
-      }
+      await ref.read(remotePlaylistRemovalSyncServiceProvider).syncAfterRemoval(
+            playlist: playlist,
+            removedTrackIds: tracks.map((track) => track.id).toList(),
+          );
 
       notifier.exitSelectionMode();
       if (mounted) {
@@ -1805,9 +1796,10 @@ class _TrackListTile extends ConsumerWidget {
 
     try {
       final state = ref.read(playlistDetailProvider(playlistId));
-      final sourceUrl = state.playlist?.sourceUrl;
-      final sourceType = state.playlist?.importSourceType;
-      if (sourceUrl == null || sourceType == null) return;
+      final playlist = state.playlist;
+      final sourceUrl = playlist?.sourceUrl;
+      final sourceType = playlist?.importSourceType;
+      if (sourceUrl == null || sourceType == null || playlist == null) return;
 
       final removedFromRemote = await ref
           .read(remotePlaylistActionsServiceProvider)
@@ -1818,19 +1810,10 @@ class _TrackListTile extends ConsumerWidget {
           );
       if (!removedFromRemote) return;
 
-      // 在移除前先取得 playlist 和 refreshManager（移除後 ref 可能失效）
-      final playlist = ref.read(playlistDetailProvider(playlistId)).playlist;
-      final refreshManager = ref.read(refreshManagerProvider.notifier);
-
-      // 同時從本地歌單移除
-      await ref
-          .read(playlistDetailProvider(playlistId).notifier)
-          .removeTrack(track.id);
-
-      // 觸發歌單重新整理
-      if (playlist != null) {
-        refreshManager.refreshPlaylist(playlist);
-      }
+      await ref.read(remotePlaylistRemovalSyncServiceProvider).syncAfterRemoval(
+        playlist: playlist,
+        removedTrackIds: [track.id],
+      );
 
       if (context.mounted) {
         ToastService.success(context, t.remote.removedAndLocal);
