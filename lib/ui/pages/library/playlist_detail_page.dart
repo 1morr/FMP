@@ -708,7 +708,18 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             playlist: playlist,
             tracks: remoteTracks,
           );
-      if (!result.changedRemote) return;
+      if (result.hasFailures) {
+        if (mounted) {
+          ToastService.error(context, result.failures.first.error.toString());
+        }
+        return;
+      }
+      if (!result.changedRemote) {
+        if (mounted) {
+          ToastService.show(context, t.remote.noChanges);
+        }
+        return;
+      }
 
       notifier.exitSelectionMode();
       if (mounted) {
@@ -1805,7 +1816,18 @@ class _TrackListTile extends ConsumerWidget {
         playlist: playlist,
         tracks: [track],
       );
-      if (!result.changedRemote) return;
+      if (result.hasFailures) {
+        if (context.mounted) {
+          ToastService.error(context, result.failures.first.error.toString());
+        }
+        return;
+      }
+      if (!result.changedRemote) {
+        if (context.mounted) {
+          ToastService.show(context, t.remote.noChanges);
+        }
+        return;
+      }
 
       if (context.mounted) {
         ToastService.success(context, t.remote.removedAndLocal);
