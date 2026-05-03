@@ -5,34 +5,33 @@ import 'package:fmp/i18n/strings.g.dart';
 import '../../core/services/toast_service.dart';
 import '../../data/models/track.dart';
 import '../../providers/selection_provider.dart';
-import '../../providers/account_provider.dart';
-import '../../services/audio/audio_provider.dart';
-import 'dialogs/add_to_playlist_dialog.dart';
-import 'dialogs/add_to_remote_playlist_dialog.dart';
+import '../handlers/track_action_coordinator.dart';
+import '../handlers/track_action_handler.dart';
+import '../handlers/track_action_menu.dart';
 
 /// 多選模式下可用的操作類型
-enum SelectionAction {
-  addToQueue,
-  playNext,
-  addToPlaylist,
-  addToRemotePlaylist,
-  removeFromRemotePlaylist,
-  download,
-  delete,
-}
+const selectionActionAddToQueue = addToQueueTrackActionId;
+const selectionActionPlayNext = playNextTrackActionId;
+const selectionActionAddToPlaylist = addToPlaylistTrackActionId;
+const selectionActionAddToRemotePlaylist = addToRemoteTrackActionId;
+const selectionActionRemoveFromRemotePlaylist = 'remove_from_remote';
+const selectionActionDownload = 'download';
+const selectionActionDelete = 'delete';
 
 /// 多選模式 AppBar
-/// 
+///
 /// 用於歌單詳情頁、探索頁、搜索頁的多選模式
-class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget {
+class SelectionModeAppBar extends ConsumerWidget
+    implements PreferredSizeWidget {
   /// 選擇狀態 Provider
-  final AutoDisposeStateNotifierProvider<SelectionNotifier, SelectionState> selectionProvider;
+  final AutoDisposeStateNotifierProvider<SelectionNotifier, SelectionState>
+      selectionProvider;
 
   /// 所有可選擇的 tracks（用於全選功能）
   final List<Track> allTracks;
 
   /// 可用的操作列表
-  final Set<SelectionAction> availableActions;
+  final Set<String> availableActions;
 
   /// 刪除操作回調（僅歌單詳情頁需要）
   final Future<void> Function(List<Track> tracks)? onDelete;
@@ -71,7 +70,8 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
     final selectedCount = selectionState.selectedCount;
     final hasSelection = selectionState.hasSelection;
 
-    final isAllSelected = selectionState.selectedCount == allTracks.length && allTracks.isNotEmpty;
+    final isAllSelected = selectionState.selectedCount == allTracks.length &&
+        allTracks.isNotEmpty;
 
     return AppBar(
       leading: IconButton(
@@ -85,7 +85,9 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
         // 全選按鈕（圖標）
         IconButton(
           icon: Icon(isAllSelected ? Icons.deselect : Icons.select_all),
-          tooltip: isAllSelected ? t.selectionMode.deselectAll : t.selectionMode.selectAll,
+          tooltip: isAllSelected
+              ? t.selectionMode.deselectAll
+              : t.selectionMode.selectAll,
           onPressed: () {
             if (isAllSelected) {
               notifier.deselectAll();
@@ -99,90 +101,68 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert),
           enabled: hasSelection,
-          onSelected: (value) => _handleMenuAction(context, ref, value, selectionState.selectedTracks),
-          itemBuilder: (context) => [
-            // 添加到隊列
-            if (availableActions.contains(SelectionAction.addToQueue))
-              PopupMenuItem(
-                value: 'add_to_queue',
-                child: ListTile(
-                  leading: const Icon(Icons.add_to_queue),
-                  title: Text(t.selectionMode.addToQueue),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-
-            // 下一首播放
-            if (availableActions.contains(SelectionAction.playNext))
-              PopupMenuItem(
-                value: 'play_next',
-                child: ListTile(
-                  leading: const Icon(Icons.queue_play_next),
-                  title: Text(t.selectionMode.playNext),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-
-            // 添加到歌單
-            if (availableActions.contains(SelectionAction.addToPlaylist))
-              PopupMenuItem(
-                value: 'add_to_playlist',
-                child: ListTile(
-                  leading: const Icon(Icons.playlist_add),
-                  title: Text(t.selectionMode.addToPlaylist),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-
-            // 添加到遠程收藏夾
-            if (availableActions.contains(SelectionAction.addToRemotePlaylist))
-              PopupMenuItem(
-                value: 'add_to_remote',
-                child: ListTile(
-                  leading: const Icon(Icons.cloud_upload_outlined),
-                  title: Text(t.remote.addToFavorites),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-
-            // 從遠程收藏夾移除
-            if (availableActions.contains(SelectionAction.removeFromRemotePlaylist))
-              PopupMenuItem(
-                value: 'remove_from_remote',
-                child: ListTile(
-                  leading: Icon(Icons.cloud_off_outlined, color: colorScheme.error),
-                  title: Text(t.remote.removeFromFavorites, style: TextStyle(color: colorScheme.error)),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-
-            // 下載
-            if (availableActions.contains(SelectionAction.download))
-              PopupMenuItem(
-                value: 'download',
-                child: ListTile(
-                  leading: const Icon(Icons.download),
-                  title: Text(t.selectionMode.download),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-
-            // 刪除
-            if (availableActions.contains(SelectionAction.delete))
-              PopupMenuItem(
-                value: 'delete',
-                child: ListTile(
-                  leading: Icon(Icons.delete_outline, color: colorScheme.error),
-                  title: Text(t.selectionMode.removeFromPlaylist, style: TextStyle(color: colorScheme.error)),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-          ],
+          onSelected: (value) => _handleMenuAction(
+              context, ref, value, selectionState.selectedTracks),
+          itemBuilder: (context) => _buildSelectionMenuEntries(colorScheme),
         ),
 
         const SizedBox(width: 8),
       ],
     );
+  }
+
+  List<PopupMenuEntry<String>> _buildSelectionMenuEntries(
+    ColorScheme colorScheme,
+  ) {
+    final commonItems = buildCommonTrackActionMenuItems(
+      translations: t,
+      scope: TrackActionMenuScope.multi,
+      options: TrackActionMenuOptions(
+        includePlayNext: availableActions.contains(selectionActionPlayNext),
+        includeAddToQueue: availableActions.contains(selectionActionAddToQueue),
+        includeAddToPlaylist:
+            availableActions.contains(selectionActionAddToPlaylist),
+        includeAddToRemote:
+            availableActions.contains(selectionActionAddToRemotePlaylist),
+      ),
+    );
+
+    return [
+      ...buildTrackActionPopupMenuEntries(commonItems),
+      if (availableActions.contains(selectionActionRemoveFromRemotePlaylist))
+        PopupMenuItem(
+          value: selectionActionRemoveFromRemotePlaylist,
+          child: ListTile(
+            leading: Icon(Icons.cloud_off_outlined, color: colorScheme.error),
+            title: Text(
+              t.remote.removeFromFavorites,
+              style: TextStyle(color: colorScheme.error),
+            ),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      if (availableActions.contains(selectionActionDownload))
+        PopupMenuItem(
+          value: selectionActionDownload,
+          child: ListTile(
+            leading: const Icon(Icons.download),
+            title: Text(t.selectionMode.download),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      if (availableActions.contains(selectionActionDelete))
+        PopupMenuItem(
+          value: selectionActionDelete,
+          child: ListTile(
+            leading: Icon(Icons.delete_outline, color: colorScheme.error),
+            title: Text(
+              t.selectionMode.removeFromPlaylist,
+              style: TextStyle(color: colorScheme.error),
+            ),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+    ];
   }
 
   void _handleMenuAction(
@@ -191,88 +171,38 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
     String action,
     List<Track> tracks,
   ) {
+    if (tryParseTrackAction(action) != null) {
+      _handleCommonAction(context, ref, action, tracks);
+      return;
+    }
+
     switch (action) {
-      case 'add_to_queue':
-        _addToQueue(context, ref, tracks);
-        break;
-      case 'play_next':
-        _playNext(context, ref, tracks);
-        break;
-      case 'add_to_playlist':
-        _addToPlaylist(context, ref, tracks);
-        break;
-      case 'add_to_remote':
-        _addToRemotePlaylist(context, ref, tracks);
-        break;
-      case 'remove_from_remote':
+      case selectionActionRemoveFromRemotePlaylist:
         _removeFromRemotePlaylist(context, ref, tracks);
         break;
-      case 'download':
+      case selectionActionDownload:
         _download(context, ref, tracks);
         break;
-      case 'delete':
+      case selectionActionDelete:
         _delete(context, ref, tracks);
         break;
     }
   }
 
-  Future<void> _addToQueue(
+  Future<void> _handleCommonAction(
     BuildContext context,
     WidgetRef ref,
-    List<Track> tracks,
-  ) async {
-    final controller = ref.read(audioControllerProvider.notifier);
-    final notifier = ref.read(selectionProvider.notifier);
-
-    int addedCount = 0;
-    for (final track in tracks) {
-      final added = await controller.addToQueue(track);
-      if (added) addedCount++;
-    }
-
-    notifier.exitSelectionMode();
-
-    if (context.mounted) {
-      ToastService.success(context, t.selectionMode.addedToQueue(count: addedCount));
-    }
-  }
-
-  Future<void> _playNext(
-    BuildContext context,
-    WidgetRef ref,
-    List<Track> tracks,
-  ) async {
-    final controller = ref.read(audioControllerProvider.notifier);
-    final notifier = ref.read(selectionProvider.notifier);
-
-    // 反向添加，保持順序
-    int addedCount = 0;
-    for (final track in tracks.reversed) {
-      final added = await controller.addNext(track);
-      if (added) addedCount++;
-    }
-
-    notifier.exitSelectionMode();
-
-    if (context.mounted) {
-      ToastService.success(context, t.selectionMode.addedToNext(count: addedCount));
-    }
-  }
-
-  Future<void> _addToPlaylist(
-    BuildContext context,
-    WidgetRef ref,
+    String action,
     List<Track> tracks,
   ) async {
     final notifier = ref.read(selectionProvider.notifier);
-
     notifier.exitSelectionMode();
-
-    if (tracks.length == 1) {
-      showAddToPlaylistDialog(context: context, track: tracks.first);
-    } else {
-      showAddToPlaylistDialog(context: context, tracks: tracks);
-    }
+    await TrackActionCoordinator.handleMulti(
+      context: context,
+      ref: ref,
+      tracks: tracks,
+      actionId: action,
+    );
   }
 
   Future<void> _download(
@@ -301,7 +231,8 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
       context: context,
       builder: (context) => AlertDialog(
         title: Text(t.selectionMode.confirmRemove),
-        content: Text(t.selectionMode.confirmRemoveContent(count: tracks.length)),
+        content:
+            Text(t.selectionMode.confirmRemoveContent(count: tracks.length)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -320,41 +251,9 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
       notifier.exitSelectionMode();
 
       if (context.mounted) {
-        ToastService.success(context, t.selectionMode.removedTracks(count: tracks.length));
+        ToastService.success(
+            context, t.selectionMode.removedTracks(count: tracks.length));
       }
-    }
-  }
-
-  Future<void> _addToRemotePlaylist(
-    BuildContext context,
-    WidgetRef ref,
-    List<Track> tracks,
-  ) async {
-    final notifier = ref.read(selectionProvider.notifier);
-
-    // 過濾出已登錄平台的 tracks
-    final remoteTracks = tracks.where((t) =>
-        ref.read(isLoggedInProvider(t.sourceType))).toList();
-    if (remoteTracks.isEmpty) {
-      if (context.mounted) {
-        ToastService.show(context, t.remote.pleaseLogin);
-      }
-      return;
-    }
-
-    // 收集未登錄的平台名稱
-    final skippedPlatforms = tracks
-        .where((t) => !ref.read(isLoggedInProvider(t.sourceType)))
-        .map((t) => t.sourceType.displayName)
-        .toSet();
-
-    notifier.exitSelectionMode();
-
-    if (context.mounted) {
-      if (skippedPlatforms.isNotEmpty) {
-        ToastService.show(context, t.remote.skippedNotLoggedIn(platforms: skippedPlatforms.join('、')));
-      }
-      showAddToRemotePlaylistDialogMulti(context: context, tracks: remoteTracks);
     }
   }
 
@@ -375,7 +274,8 @@ class SelectionModeAppBar extends ConsumerWidget implements PreferredSizeWidget 
 
 /// 多選模式下的 Checkbox 組件
 class SelectionCheckbox extends ConsumerWidget {
-  final AutoDisposeStateNotifierProvider<SelectionNotifier, SelectionState> selectionProvider;
+  final AutoDisposeStateNotifierProvider<SelectionNotifier, SelectionState>
+      selectionProvider;
   final Track track;
 
   const SelectionCheckbox({
@@ -402,7 +302,8 @@ class SelectionCheckbox extends ConsumerWidget {
 
 /// 多選模式下的組 Checkbox 組件（用於多P視頻組）
 class SelectionGroupCheckbox extends ConsumerWidget {
-  final AutoDisposeStateNotifierProvider<SelectionNotifier, SelectionState> selectionProvider;
+  final AutoDisposeStateNotifierProvider<SelectionNotifier, SelectionState>
+      selectionProvider;
   final List<Track> tracks;
 
   const SelectionGroupCheckbox({

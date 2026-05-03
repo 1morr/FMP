@@ -200,14 +200,14 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final groupedTracks = _getGroupedTracks(tracks);
 
     // 多選模式下的可用操作
-    final availableActions = <SelectionAction>{
-      SelectionAction.addToQueue,
-      SelectionAction.playNext,
-      SelectionAction.addToPlaylist,
-      SelectionAction.addToRemotePlaylist,
-      if (isImported && !isMix) SelectionAction.removeFromRemotePlaylist,
-      if (!isMix) SelectionAction.download,
-      if (!isImported && !isMix) SelectionAction.delete,
+    final availableActions = <String>{
+      selectionActionAddToQueue,
+      selectionActionPlayNext,
+      selectionActionAddToPlaylist,
+      selectionActionAddToRemotePlaylist,
+      if (isImported && !isMix) selectionActionRemoveFromRemotePlaylist,
+      if (!isMix) selectionActionDownload,
+      if (!isImported && !isMix) selectionActionDelete,
     };
 
     // 處理返回鍵退出多選模式
@@ -462,7 +462,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     bool isAllSelected,
     bool hasSelection,
     List<Track> allTracks,
-    Set<SelectionAction> availableActions,
+    Set<String> availableActions,
     SelectionNotifier notifier,
     List<Track> selectedTracks,
   ) {
@@ -495,10 +495,10 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
 
   /// 構建多選菜單項目
   List<PopupMenuEntry<String>> _buildSelectionMenuItems(
-      Set<SelectionAction> availableActions) {
+      Set<String> availableActions) {
     final colorScheme = Theme.of(context).colorScheme;
     return [
-      if (availableActions.contains(SelectionAction.addToQueue))
+      if (availableActions.contains(selectionActionAddToQueue))
         PopupMenuItem(
           value: 'add_to_queue',
           child: ListTile(
@@ -507,7 +507,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             contentPadding: EdgeInsets.zero,
           ),
         ),
-      if (availableActions.contains(SelectionAction.playNext))
+      if (availableActions.contains(selectionActionPlayNext))
         PopupMenuItem(
           value: 'play_next',
           child: ListTile(
@@ -516,7 +516,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             contentPadding: EdgeInsets.zero,
           ),
         ),
-      if (availableActions.contains(SelectionAction.addToPlaylist))
+      if (availableActions.contains(selectionActionAddToPlaylist))
         PopupMenuItem(
           value: 'add_to_playlist',
           child: ListTile(
@@ -525,7 +525,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             contentPadding: EdgeInsets.zero,
           ),
         ),
-      if (availableActions.contains(SelectionAction.addToRemotePlaylist))
+      if (availableActions.contains(selectionActionAddToRemotePlaylist))
         PopupMenuItem(
           value: 'add_to_remote',
           child: ListTile(
@@ -534,7 +534,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             contentPadding: EdgeInsets.zero,
           ),
         ),
-      if (availableActions.contains(SelectionAction.removeFromRemotePlaylist))
+      if (availableActions.contains(selectionActionRemoveFromRemotePlaylist))
         PopupMenuItem(
           value: 'remove_from_remote',
           child: ListTile(
@@ -544,7 +544,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             contentPadding: EdgeInsets.zero,
           ),
         ),
-      if (availableActions.contains(SelectionAction.download))
+      if (availableActions.contains(selectionActionDownload))
         PopupMenuItem(
           value: 'download',
           child: ListTile(
@@ -553,7 +553,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             contentPadding: EdgeInsets.zero,
           ),
         ),
-      if (availableActions.contains(SelectionAction.delete))
+      if (availableActions.contains(selectionActionDelete))
         PopupMenuItem(
           value: 'delete',
           child: ListTile(
@@ -751,7 +751,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     PlaylistDetailState state,
     bool isSelectionMode,
     List<Track> allTracks,
-    Set<SelectionAction> availableActions,
+    Set<String> availableActions,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
     final coverAsync = ref.watch(playlistCoverProvider(widget.playlistId));
