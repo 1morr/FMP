@@ -14,6 +14,7 @@ import 'package:fmp/providers/database_provider.dart';
 import 'package:fmp/providers/download/download_providers.dart'
     show downloadedCategoriesProvider;
 import 'package:fmp/providers/download/file_exists_cache.dart';
+import 'package:fmp/providers/library_invalidation_coordinator.dart';
 import 'package:fmp/providers/startup_download_sync_provider.dart';
 import 'package:isar/isar.dart';
 import 'package:path/path.dart' as p;
@@ -52,11 +53,15 @@ void main() {
       expect(source, contains('FutureProvider<void>'));
       expect(source, contains('downloadPathSyncServiceProvider'));
       expect(source, contains('syncLocalFiles('));
-      expect(source, contains('ref.invalidate(downloadedCategoriesProvider)'));
-      expect(source, contains('if (added > 0 || removed > 0)'));
-      expect(source, contains('ref.invalidate(fileExistsCacheProvider)'));
+      expect(source, contains('libraryInvalidationCoordinatorProvider'));
+      expect(source, contains('downloadStateChanged('));
+      expect(source,
+          isNot(contains('ref.invalidate(downloadedCategoriesProvider)')));
+      expect(
+          source, isNot(contains('ref.invalidate(fileExistsCacheProvider)')));
+      expect(source, isNot(contains('playlistListProvider.notifier')));
       expect(source, contains('allPlaylistsProvider.future'));
-      expect(source, contains('playlistListProvider.notifier'));
+      expect(source, contains('affectedPlaylistIds:'));
       expect(source, contains('AppLogger.error'));
     });
 
@@ -78,7 +83,11 @@ void main() {
 
     test('successful startup sync updates persisted download path and cache',
         () async {
-      final harness = await _createHarness('startup_download_sync_success');
+      final downloadStateChanges = <_DownloadStateChange>[];
+      final harness = await _createHarness(
+        'startup_download_sync_success',
+        downloadStateChanges: downloadStateChanges,
+      );
       addTearDown(harness.dispose);
 
       final downloadsDir = Directory(p.join(harness.tempDir.path, 'downloads'));
@@ -103,6 +112,8 @@ void main() {
       });
 
       final trackRepo = TrackRepository(harness.isar);
+      final playlist = Playlist()..name = 'Playlist A';
+      await harness.isar.writeTxn(() => harness.isar.playlists.put(playlist));
       final savedTrack = await trackRepo.save(
         Track()
           ..sourceId = 'video-a'
@@ -120,6 +131,9 @@ void main() {
 
       final refreshedTrack = await trackRepo.getById(savedTrack.id);
       expect(refreshedTrack?.allDownloadPaths, [audioPath]);
+      expect(downloadStateChanges, hasLength(1));
+      expect(downloadStateChanges.single.fileExistsChanged, isTrue);
+      expect(downloadStateChanges.single.affectedPlaylistIds, [playlist.id]);
       expect(harness.container.read(fileExistsCacheProvider), isEmpty);
       final categories = await harness.container.read(
         downloadedCategoriesProvider.future,
@@ -149,7 +163,67 @@ class _Harness {
   }
 }
 
-Future<_Harness> _createHarness(String name) async {
+class _DownloadStateChange {
+  const _DownloadStateChange({
+    required this.affectedPlaylistIds,
+    required this.fileExistsChanged,
+  });
+
+  final List<int> affectedPlaylistIds;
+  final bool fileExistsChanged;
+}
+
+class _RecordingLibraryInvalidationCoordinator
+    extends LibraryInvalidationCoordinator {
+  _RecordingLibraryInvalidationCoordinator({
+    required Ref ref,
+    required this.changes,
+  }) : super(
+          invalidateAllPlaylists: () {},
+          invalidatePlaylistDetail: (_) {},
+          invalidatePlaylistCover: (_) {},
+          invalidateDownloadedCategories: () {
+            ref.invalidate(downloadedCategoriesProvider);
+          },
+          invalidateDownloadedCategoryTracks: (_) {},
+          invalidateFileExistsCache: () {
+            ref.invalidate(fileExistsCacheProvider);
+          },
+          refreshLoadedPlaylistDetail: (_) async {},
+          startRefreshLoadedPlaylistDetail: (_) {},
+          logBackgroundError: (_, __, ___) {},
+        );
+
+  final List<_DownloadStateChange> changes;
+
+  @override
+  void downloadStateChanged({
+    Iterable<String> savePaths = const [],
+    Iterable<String> categoryPaths = const [],
+    Iterable<int> affectedPlaylistIds = const [],
+    bool includeDownloadedCategories = true,
+    bool fileExistsChanged = true,
+  }) {
+    changes.add(
+      _DownloadStateChange(
+        affectedPlaylistIds: affectedPlaylistIds.toList(),
+        fileExistsChanged: fileExistsChanged,
+      ),
+    );
+    super.downloadStateChanged(
+      savePaths: savePaths,
+      categoryPaths: categoryPaths,
+      affectedPlaylistIds: affectedPlaylistIds,
+      includeDownloadedCategories: includeDownloadedCategories,
+      fileExistsChanged: fileExistsChanged,
+    );
+  }
+}
+
+Future<_Harness> _createHarness(
+  String name, {
+  List<_DownloadStateChange>? downloadStateChanges,
+}) async {
   final tempDir = await Directory.systemTemp.createTemp('${name}_');
   final isar = await Isar.open(
     [
@@ -164,6 +238,13 @@ Future<_Harness> _createHarness(String name) async {
   final container = ProviderContainer(
     overrides: [
       databaseProvider.overrideWith((ref) => isar),
+      if (downloadStateChanges != null)
+        libraryInvalidationCoordinatorProvider.overrideWith((ref) {
+          return _RecordingLibraryInvalidationCoordinator(
+            ref: ref,
+            changes: downloadStateChanges,
+          );
+        }),
     ],
   );
 
