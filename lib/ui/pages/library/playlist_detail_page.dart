@@ -21,7 +21,6 @@ import '../../../services/audio/audio_provider.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/dialogs/add_to_remote_playlist_dialog.dart';
 import '../../widgets/error_display.dart';
-import '../lyrics/lyrics_search_sheet.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/selection_mode_app_bar.dart';
 import '../../widgets/context_menu_region.dart';
@@ -35,7 +34,9 @@ import '../../../services/account/youtube_playlist_service.dart';
 import '../../../services/account/netease_playlist_service.dart';
 import '../../../services/library/remote_playlist_track_filter.dart';
 import '../../../providers/remote_playlist_sync_provider.dart';
+import '../../handlers/track_action_coordinator.dart';
 import '../../handlers/track_action_handler.dart';
+import '../../handlers/track_action_menu.dart';
 
 /// 歌单详情页
 class PlaylistDetailPage extends ConsumerStatefulWidget {
@@ -497,46 +498,24 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   List<PopupMenuEntry<String>> _buildSelectionMenuItems(
       Set<String> availableActions) {
     final colorScheme = Theme.of(context).colorScheme;
+    final commonItems = buildCommonTrackActionMenuItems(
+      translations: t,
+      scope: TrackActionMenuScope.multi,
+      options: TrackActionMenuOptions(
+        includeAddToQueue: availableActions.contains(selectionActionAddToQueue),
+        includePlayNext: availableActions.contains(selectionActionPlayNext),
+        includeAddToPlaylist:
+            availableActions.contains(selectionActionAddToPlaylist),
+        includeAddToRemote:
+            availableActions.contains(selectionActionAddToRemotePlaylist),
+      ),
+    );
+
     return [
-      if (availableActions.contains(selectionActionAddToQueue))
-        PopupMenuItem(
-          value: 'add_to_queue',
-          child: ListTile(
-            leading: const Icon(Icons.add_to_queue),
-            title: Text(t.general.addToQueue),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-      if (availableActions.contains(selectionActionPlayNext))
-        PopupMenuItem(
-          value: 'play_next',
-          child: ListTile(
-            leading: const Icon(Icons.queue_play_next),
-            title: Text(t.general.playNext),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-      if (availableActions.contains(selectionActionAddToPlaylist))
-        PopupMenuItem(
-          value: 'add_to_playlist',
-          child: ListTile(
-            leading: const Icon(Icons.playlist_add),
-            title: Text(t.general.addToPlaylist),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-      if (availableActions.contains(selectionActionAddToRemotePlaylist))
-        PopupMenuItem(
-          value: 'add_to_remote',
-          child: ListTile(
-            leading: const Icon(Icons.cloud_upload_outlined),
-            title: Text(t.remote.addToFavorites),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
+      ...buildTrackActionPopupMenuEntries(commonItems),
       if (availableActions.contains(selectionActionRemoveFromRemotePlaylist))
         PopupMenuItem(
-          value: 'remove_from_remote',
+          value: selectionActionRemoveFromRemotePlaylist,
           child: ListTile(
             leading: Icon(Icons.cloud_off_outlined, color: colorScheme.error),
             title: Text(t.remote.removeFromFavorites,
@@ -546,7 +525,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         ),
       if (availableActions.contains(selectionActionDownload))
         PopupMenuItem(
-          value: 'download',
+          value: selectionActionDownload,
           child: ListTile(
             leading: const Icon(Icons.download),
             title: Text(t.library.detail.download),
@@ -555,7 +534,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         ),
       if (availableActions.contains(selectionActionDelete))
         PopupMenuItem(
-          value: 'delete',
+          value: selectionActionDelete,
           child: ListTile(
             leading: Icon(Icons.delete_outline, color: colorScheme.error),
             title: Text(t.library.detail.removeFromPlaylist,
@@ -570,66 +549,27 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   Future<void> _handleSelectionMenuAction(
       String action, List<Track> tracks) async {
     final notifier = ref.read(playlistDetailSelectionProvider.notifier);
-    final controller = ref.read(audioControllerProvider.notifier);
+
+    if (tryParseTrackAction(action) != null) {
+      notifier.exitSelectionMode();
+      await TrackActionCoordinator.handleMulti(
+        context: context,
+        ref: ref,
+        tracks: tracks,
+        actionId: action,
+      );
+      return;
+    }
 
     switch (action) {
-      case 'add_to_queue':
-        int addedCount = 0;
-        for (final track in tracks) {
-          final added = await controller.addToQueue(track);
-          if (added) addedCount++;
-        }
-        notifier.exitSelectionMode();
-        if (mounted) {
-          ToastService.success(
-              context, t.library.detail.addedQueueCount(n: addedCount));
-        }
-        break;
-      case 'play_next':
-        int addedCount = 0;
-        for (final track in tracks.reversed) {
-          final added = await controller.addNext(track);
-          if (added) addedCount++;
-        }
-        notifier.exitSelectionMode();
-        if (mounted) {
-          ToastService.success(
-              context, t.library.detail.addedNextCount(n: addedCount));
-        }
-        break;
-      case 'add_to_playlist':
-        notifier.exitSelectionMode();
-        if (tracks.length == 1) {
-          showAddToPlaylistDialog(context: context, track: tracks.first);
-        } else {
-          showAddToPlaylistDialog(context: context, tracks: tracks);
-        }
-        break;
-      case 'add_to_remote':
-        final remoteTracks = filterLoggedInRemoteTracks(
-          tracks,
-          isLoggedIn: (sourceType) => ref.read(isLoggedInProvider(sourceType)),
-        );
-        if (remoteTracks.isEmpty) {
-          if (mounted) {
-            ToastService.show(context, t.remote.pleaseLogin);
-          }
-          return;
-        }
-        notifier.exitSelectionMode();
-        if (mounted) {
-          showAddToRemotePlaylistDialogMulti(
-              context: context, tracks: remoteTracks);
-        }
-        break;
-      case 'remove_from_remote':
+      case selectionActionRemoveFromRemotePlaylist:
         await _confirmAndBatchRemoveFromRemote(tracks);
         break;
-      case 'download':
+      case selectionActionDownload:
         await _downloadSelectedTracks(context, tracks);
         notifier.exitSelectionMode();
         break;
-      case 'delete':
+      case selectionActionDelete:
         await _confirmAndDeleteTracks(tracks);
         break;
     }
@@ -1334,13 +1274,13 @@ class _GroupHeader extends ConsumerWidget {
                   title: Text(t.library.detail.downloadAllParts),
                   contentPadding: EdgeInsets.zero)),
         PopupMenuItem(
-            value: 'add_to_playlist',
+            value: addToPlaylistTrackActionId,
             child: ListTile(
                 leading: const Icon(Icons.playlist_add),
                 title: Text(t.library.detail.addToOtherPlaylist),
                 contentPadding: EdgeInsets.zero)),
         PopupMenuItem(
-            value: 'add_to_remote',
+            value: addToRemoteTrackActionId,
             child: ListTile(
                 leading: const Icon(Icons.cloud_upload_outlined),
                 title: Text(t.remote.addToFavorites),
@@ -1363,7 +1303,7 @@ class _GroupHeader extends ConsumerWidget {
       case 'add_all_to_queue':
         onAddAllToQueue();
         break;
-      case 'add_to_remote':
+      case addToRemoteTrackActionId:
         final remoteTracks = filterLoggedInRemoteTracks(
           group.tracks,
           isLoggedIn: (sourceType) => ref.read(isLoggedInProvider(sourceType)),
@@ -1451,7 +1391,7 @@ class _GroupHeader extends ConsumerWidget {
           }
         }
         break;
-      case 'add_to_playlist':
+      case addToPlaylistTrackActionId:
         // 添加所有分P到其他歌单
         showAddToPlaylistDialog(context: context, tracks: group.tracks);
         break;
@@ -1629,68 +1569,55 @@ class _TrackListTile extends ConsumerWidget {
     );
   }
 
-  List<PopupMenuEntry<String>> _buildMenuItems(BuildContext context) => [
+  List<PopupMenuEntry<String>> _buildMenuItems(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return [
+      ...buildTrackActionPopupMenuEntries(
+        buildCommonTrackActionMenuItems(
+          translations: t,
+          options: TrackActionMenuOptions(
+            includePlay: false,
+            includeAddToPlaylist: !isPartOfMultiPage,
+          ),
+        ),
+      ),
+      if (!isMix)
         PopupMenuItem(
-            value: 'play_next',
-            child: ListTile(
-                leading: const Icon(Icons.queue_play_next),
-                title: Text(t.general.playNext),
-                contentPadding: EdgeInsets.zero)),
+          value: selectionActionDownload,
+          child: ListTile(
+            leading: const Icon(Icons.download_outlined),
+            title: Text(t.library.detail.download),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      if (isImported && !isMix)
         PopupMenuItem(
-            value: 'add_to_queue',
-            child: ListTile(
-                leading: const Icon(Icons.add_to_queue),
-                title: Text(t.general.addToQueue),
-                contentPadding: EdgeInsets.zero)),
-        if (!isMix)
-          PopupMenuItem(
-              value: 'download',
-              child: ListTile(
-                  leading: const Icon(Icons.download_outlined),
-                  title: Text(t.library.detail.download),
-                  contentPadding: EdgeInsets.zero)),
-        if (!isPartOfMultiPage)
-          PopupMenuItem(
-              value: 'add_to_playlist',
-              child: ListTile(
-                  leading: const Icon(Icons.playlist_add),
-                  title: Text(t.general.addToPlaylist),
-                  contentPadding: EdgeInsets.zero)),
+          value: selectionActionRemoveFromRemotePlaylist,
+          child: ListTile(
+            leading: Icon(Icons.cloud_off_outlined, color: colorScheme.error),
+            title: Text(
+              t.remote.removeFromFavorites,
+              style: TextStyle(color: colorScheme.error),
+            ),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      if (!isImported)
         PopupMenuItem(
-            value: 'add_to_remote',
-            child: ListTile(
-                leading: const Icon(Icons.cloud_upload_outlined),
-                title: Text(t.remote.addToFavorites),
-                contentPadding: EdgeInsets.zero)),
-        if (isImported && !isMix)
-          PopupMenuItem(
-              value: 'remove_from_remote',
-              child: ListTile(
-                  leading: Icon(Icons.cloud_off_outlined,
-                      color: Theme.of(context).colorScheme.error),
-                  title: Text(t.remote.removeFromFavorites,
-                      style: TextStyle(
-                          color: Theme.of(context).colorScheme.error)),
-                  contentPadding: EdgeInsets.zero)),
-        if (!isImported)
-          PopupMenuItem(
-              value: 'remove',
-              child: ListTile(
-                  leading: const Icon(Icons.remove_circle_outline),
-                  title: Text(t.library.detail.removeFromPlaylist),
-                  contentPadding: EdgeInsets.zero)),
-        PopupMenuItem(
-            value: 'matchLyrics',
-            child: ListTile(
-                leading: const Icon(Icons.lyrics_outlined),
-                title: Text(t.lyrics.matchLyrics),
-                contentPadding: EdgeInsets.zero)),
-      ];
+          value: 'remove',
+          child: ListTile(
+            leading: const Icon(Icons.remove_circle_outline),
+            title: Text(t.library.detail.removeFromPlaylist),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+    ];
+  }
 
   void _handleMenuAction(
       BuildContext context, WidgetRef ref, String action) async {
     switch (action) {
-      case 'download':
+      case selectionActionDownload:
         // 检查路径配置
         final pathManager = ref.read(downloadPathManagerProvider);
         if (!await pathManager.hasConfiguredPath()) {
@@ -1730,7 +1657,7 @@ class _TrackListTile extends ConsumerWidget {
           }
         }
         return;
-      case 'remove_from_remote':
+      case selectionActionRemoveFromRemotePlaylist:
         if (context.mounted) {
           _confirmAndRemoveFromRemote(context, ref, track);
         }
@@ -1745,48 +1672,12 @@ class _TrackListTile extends ConsumerWidget {
         return;
     }
 
-    final handler = TrackActionHandler(
-      audioController: AudioControllerTrackActionAdapter(
-        ref.read(audioControllerProvider.notifier),
-      ),
-      feedbackSink: CallbackTrackActionFeedbackSink(
-        onAddedToNext: () {
-          if (context.mounted) {
-            ToastService.success(context, t.general.addedToNext);
-          }
-        },
-        onAddedToQueue: () {
-          if (context.mounted) {
-            ToastService.success(context, t.general.addedToQueue);
-          }
-        },
-        onPleaseLogin: () {
-          if (context.mounted) {
-            ToastService.show(context, t.remote.pleaseLogin);
-          }
-        },
-      ),
-    );
-
-    await handler.handle(
-      parseTrackAction(action),
+    if (!context.mounted) return;
+    await TrackActionCoordinator.handleSingle(
+      context: context,
+      ref: ref,
       track: track,
-      isLoggedIn: ref.read(isLoggedInProvider(track.sourceType)),
-      onAddToPlaylist: () async {
-        if (context.mounted) {
-          showAddToPlaylistDialog(context: context, track: track);
-        }
-      },
-      onMatchLyrics: () async {
-        if (context.mounted) {
-          showLyricsSearchSheet(context: context, track: track);
-        }
-      },
-      onAddToRemote: () async {
-        if (context.mounted) {
-          showAddToRemotePlaylistDialog(context: context, track: track);
-        }
-      },
+      actionId: action,
     );
   }
 

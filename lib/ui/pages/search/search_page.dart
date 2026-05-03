@@ -26,7 +26,9 @@ import '../../widgets/vip_badge.dart';
 import '../../../providers/selection_provider.dart';
 import '../../widgets/context_menu_region.dart';
 import '../../widgets/selection_mode_app_bar.dart';
+import '../../handlers/track_action_coordinator.dart';
 import '../../handlers/track_action_handler.dart';
+import '../../handlers/track_action_menu.dart';
 
 /// 搜索页
 class SearchPage extends ConsumerStatefulWidget {
@@ -876,10 +878,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       final controller = ref.read(audioControllerProvider.notifier);
 
       switch (action) {
-        case 'play':
+        case playTrackActionId:
           _playVideo(track);
           return;
-        case 'play_next':
+        case playNextTrackActionId:
           bool anyAdded = false;
           for (final page in pages) {
             final added = await controller.addNext(page.toTrack(track));
@@ -889,7 +891,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             ToastService.success(context, t.searchPage.toast.addedPartsToNext(count: pages.length));
           }
           return;
-        case 'add_to_queue':
+        case addToQueueTrackActionId:
           bool anyAdded = false;
           for (final page in pages) {
             final added = await controller.addToQueue(page.toTrack(track));
@@ -899,18 +901,18 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             ToastService.success(context, t.searchPage.toast.addedPartsToQueue(count: pages.length));
           }
           return;
-        case 'add_to_playlist':
+        case addToPlaylistTrackActionId:
           final pageTracks = pages.map((p) => p.toTrack(track)).toList();
           if (mounted) {
             showAddToPlaylistDialog(context: context, tracks: pageTracks);
           }
           return;
-        case 'matchLyrics':
+        case matchLyricsTrackActionId:
           if (mounted) {
             showLyricsSearchSheet(context: context, track: track);
           }
           return;
-        case 'add_to_remote':
+        case addToRemoteTrackActionId:
           final isLoggedIn = ref.read(isLoggedInProvider(track.sourceType));
           if (!isLoggedIn) {
             if (mounted) {
@@ -925,48 +927,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       }
     }
 
-    final handler = TrackActionHandler(
-      audioController: AudioControllerTrackActionAdapter(
-        ref.read(audioControllerProvider.notifier),
-      ),
-      feedbackSink: CallbackTrackActionFeedbackSink(
-        onAddedToNext: () {
-          if (mounted) {
-            ToastService.success(context, t.general.addedToNext);
-          }
-        },
-        onAddedToQueue: () {
-          if (mounted) {
-            ToastService.success(context, t.general.addedToQueue);
-          }
-        },
-        onPleaseLogin: () {
-          if (mounted) {
-            ToastService.show(context, t.remote.pleaseLogin);
-          }
-        },
-      ),
-    );
-
-    await handler.handle(
-      parseTrackAction(action),
+    if (!mounted) return;
+    await TrackActionCoordinator.handleSingle(
+      context: context,
+      ref: ref,
       track: track,
-      isLoggedIn: ref.read(isLoggedInProvider(track.sourceType)),
-      onAddToPlaylist: () async {
-        if (mounted) {
-          showAddToPlaylistDialog(context: context, track: track);
-        }
-      },
-      onMatchLyrics: () async {
-        if (mounted) {
-          showLyricsSearchSheet(context: context, track: track);
-        }
-      },
-      onAddToRemote: () async {
-        if (mounted) {
-          showAddToRemotePlaylistDialog(context: context, track: track);
-        }
-      },
+      actionId: action,
     );
   }
   void _handlePageMenuAction(Track parentTrack, VideoPage page, String action) async {
@@ -974,16 +940,16 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     final pageTrack = page.toTrack(parentTrack);
 
     switch (action) {
-      case 'play':
+      case playTrackActionId:
         controller.playTemporary(pageTrack);
         break;
-      case 'play_next':
+      case playNextTrackActionId:
         final added = await controller.addNext(pageTrack);
         if (added && mounted) {
           ToastService.success(context, t.general.addedToNext);
         }
         break;
-      case 'add_to_queue':
+      case addToQueueTrackActionId:
         final added = await controller.addToQueue(pageTrack);
         if (added && mounted) {
           ToastService.success(context, t.general.addedToQueue);
@@ -1186,14 +1152,11 @@ class _SearchResultTile extends ConsumerWidget {
     );
   }
 
-  List<PopupMenuEntry<String>> _buildMenuItems() => [
-    PopupMenuItem(value: 'play', child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.general.play), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.general.playNext), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.general.addToQueue), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.general.addToPlaylist), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'matchLyrics', child: ListTile(leading: const Icon(Icons.lyrics_outlined), title: Text(t.lyrics.matchLyrics), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_remote', child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero)),
-  ];
+  List<PopupMenuEntry<String>> _buildMenuItems() {
+    return buildTrackActionPopupMenuEntries(
+      buildCommonTrackActionMenuItems(translations: t),
+    );
+  }
 
 }
 
@@ -1277,12 +1240,18 @@ class _PageTile extends ConsumerWidget {
     );
   }
 
-  List<PopupMenuEntry<String>> _buildMenuItems() => [
-    PopupMenuItem(value: 'play', child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.general.play), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.general.playNext), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.general.addToQueue), contentPadding: EdgeInsets.zero)),
-    // 注意：分P没有"添加到歌单"选项
-  ];
+  List<PopupMenuEntry<String>> _buildMenuItems() {
+    return buildTrackActionPopupMenuEntries(
+      buildCommonTrackActionMenuItems(
+        translations: t,
+        options: const TrackActionMenuOptions(
+          includeAddToPlaylist: false,
+          includeMatchLyrics: false,
+          includeAddToRemote: false,
+        ),
+      ),
+    );
+  }
 }
 
 /// 本地搜索结果分组组件
@@ -1430,21 +1399,21 @@ class _LocalGroupTile extends ConsumerWidget {
   }
 
   List<PopupMenuEntry<String>> _buildMenuItems() => [
-    PopupMenuItem(value: 'play', child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.general.play), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.general.playNext), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.general.addToQueue), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.general.addToPlaylist), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_remote', child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: playTrackActionId, child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.general.play), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: playNextTrackActionId, child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.general.playNext), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: addToQueueTrackActionId, child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.general.addToQueue), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: addToPlaylistTrackActionId, child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.general.addToPlaylist), contentPadding: EdgeInsets.zero)),
+    PopupMenuItem(value: addToRemoteTrackActionId, child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero)),
   ];
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
     final controller = ref.read(audioControllerProvider.notifier);
 
     switch (action) {
-      case 'play':
+      case playTrackActionId:
         onPlayTrack(group.firstTrack);
         break;
-      case 'play_next':
+      case playNextTrackActionId:
         bool anyAdded = false;
         for (final track in group.tracks) {
           final added = await controller.addNext(track);
@@ -1458,7 +1427,7 @@ class _LocalGroupTile extends ConsumerWidget {
           );
         }
         break;
-      case 'add_to_queue':
+      case addToQueueTrackActionId:
         bool anyAdded = false;
         for (final track in group.tracks) {
           final added = await controller.addToQueue(track);
@@ -1473,10 +1442,10 @@ class _LocalGroupTile extends ConsumerWidget {
         }
         break;
 
-      case 'add_to_playlist':
+      case addToPlaylistTrackActionId:
         showAddToPlaylistDialog(context: context, tracks: group.tracks);
         break;
-      case 'add_to_remote':
+      case addToRemoteTrackActionId:
         final isLoggedIn = ref.read(isLoggedInProvider(group.firstTrack.sourceType));
         if (!isLoggedIn) {
           if (context.mounted) {
@@ -1588,14 +1557,11 @@ class _LocalTrackTile extends ConsumerWidget {
     );
   }
 
-  List<PopupMenuEntry<String>> _buildMenuItems() => [
-    PopupMenuItem(value: 'play', child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.general.play), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'play_next', child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.general.playNext), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_queue', child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.general.addToQueue), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_playlist', child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.general.addToPlaylist), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'matchLyrics', child: ListTile(leading: const Icon(Icons.lyrics_outlined), title: Text(t.lyrics.matchLyrics), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: 'add_to_remote', child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero)),
-  ];
+  List<PopupMenuEntry<String>> _buildMenuItems() {
+    return buildTrackActionPopupMenuEntries(
+      buildCommonTrackActionMenuItems(translations: t),
+    );
+  }
 }
 
 /// 音源标识徽章
