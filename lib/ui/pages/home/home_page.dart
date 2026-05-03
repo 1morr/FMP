@@ -17,9 +17,6 @@ import '../../../data/models/radio_station.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../router.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
-import '../../widgets/dialogs/add_to_remote_playlist_dialog.dart';
-import '../lyrics/lyrics_search_sheet.dart';
-import '../../../providers/account_provider.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/horizontal_scroll_section.dart';
 import '../../widgets/context_menu_region.dart';
@@ -32,7 +29,8 @@ import '../../../data/models/playlist.dart';
 import '../../../providers/refresh_provider.dart';
 import '../library/widgets/create_playlist_dialog.dart';
 import '../../../core/constants/app_constants.dart';
-import '../../handlers/track_action_handler.dart';
+import '../../handlers/track_action_coordinator.dart';
+import '../../handlers/track_action_menu.dart';
 
 /// 首页
 class HomePage extends ConsumerStatefulWidget {
@@ -936,95 +934,22 @@ class _RankingTrackTile extends ConsumerWidget {
     );
   }
 
-  List<PopupMenuEntry<String>> _buildMenuItems() => [
-        PopupMenuItem(
-          value: 'play',
-          child: ListTile(
-              leading: const Icon(Icons.play_arrow),
-              title: Text(t.general.play),
-              contentPadding: EdgeInsets.zero),
-        ),
-        PopupMenuItem(
-          value: 'play_next',
-          child: ListTile(
-              leading: const Icon(Icons.queue_play_next),
-              title: Text(t.general.playNext),
-              contentPadding: EdgeInsets.zero),
-        ),
-        PopupMenuItem(
-          value: 'add_to_queue',
-          child: ListTile(
-              leading: const Icon(Icons.add_to_queue),
-              title: Text(t.general.addToQueue),
-              contentPadding: EdgeInsets.zero),
-        ),
-        PopupMenuItem(
-          value: 'add_to_playlist',
-          child: ListTile(
-              leading: const Icon(Icons.playlist_add),
-              title: Text(t.general.addToPlaylist),
-              contentPadding: EdgeInsets.zero),
-        ),
-        PopupMenuItem(
-          value: 'matchLyrics',
-          child: ListTile(
-              leading: const Icon(Icons.lyrics_outlined),
-              title: Text(t.lyrics.matchLyrics),
-              contentPadding: EdgeInsets.zero),
-        ),
-        PopupMenuItem(
-          value: 'add_to_remote',
-          child: ListTile(
-              leading: const Icon(Icons.cloud_upload_outlined),
-              title: Text(t.remote.addToFavorites),
-              contentPadding: EdgeInsets.zero),
-        ),
-      ];
-
-  void _handleMenuAction(
-      BuildContext context, WidgetRef ref, String action) async {
-    final handler = TrackActionHandler(
-      audioController: AudioControllerTrackActionAdapter(
-        ref.read(audioControllerProvider.notifier),
-      ),
-      feedbackSink: CallbackTrackActionFeedbackSink(
-        onAddedToNext: () {
-          if (context.mounted) {
-            ToastService.success(context, t.general.addedToNext);
-          }
-        },
-        onAddedToQueue: () {
-          if (context.mounted) {
-            ToastService.success(context, t.general.addedToQueue);
-          }
-        },
-        onPleaseLogin: () {
-          if (context.mounted) {
-            ToastService.show(context, t.remote.pleaseLogin);
-          }
-        },
-      ),
+  List<PopupMenuEntry<String>> _buildMenuItems() {
+    return buildTrackActionPopupMenuEntries(
+      buildCommonTrackActionMenuItems(translations: t),
     );
+  }
 
-    await handler.handle(
-      parseTrackAction(action),
+  Future<void> _handleMenuAction(
+    BuildContext context,
+    WidgetRef ref,
+    String action,
+  ) async {
+    await TrackActionCoordinator.handleSingle(
+      context: context,
+      ref: ref,
       track: track,
-      isLoggedIn: ref.read(isLoggedInProvider(track.sourceType)),
-      onAddToPlaylist: () async {
-        if (context.mounted) {
-          showAddToPlaylistDialog(context: context, track: track);
-        }
-      },
-      onMatchLyrics: () async {
-        if (context.mounted) {
-          showLyricsSearchSheet(context: context, track: track);
-        }
-      },
-      onAddToRemote: () async {
-        if (context.mounted) {
-          showAddToRemotePlaylistDialog(context: context, track: track);
-        }
-      },
+      actionId: action,
     );
   }
 }

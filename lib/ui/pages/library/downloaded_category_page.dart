@@ -14,15 +14,14 @@ import '../../../providers/download_provider.dart';
 import '../../../providers/download_path_provider.dart';
 import '../../../providers/library_invalidation_coordinator.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../handlers/track_action_coordinator.dart';
+import '../../handlers/track_action_menu.dart';
 import '../../widgets/error_display.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/track_group/track_group.dart';
 import '../../widgets/track_thumbnail.dart';
 import '../../../i18n/strings.g.dart';
-import '../../widgets/dialogs/add_to_playlist_dialog.dart';
-import '../lyrics/lyrics_search_sheet.dart';
 import '../../widgets/context_menu_region.dart';
-import '../../handlers/track_action_handler.dart';
 
 /// 在 Isolate 中删除单首歌曲的文件（含 metadata 清理和空文件夹检测）
 Future<void> _deleteTrackFilesInIsolate(List<String> paths) async {
@@ -838,49 +837,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert, size: 20),
                 onSelected: (value) => _handleMenuAction(context, ref, value),
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    value: 'play_next',
-                    child: ListTile(
-                      leading: const Icon(Icons.queue_play_next),
-                      title: Text(t.general.playNext),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'add_to_queue',
-                    child: ListTile(
-                      leading: const Icon(Icons.add_to_queue),
-                      title: Text(t.general.addToQueue),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'add_to_playlist',
-                    child: ListTile(
-                      leading: const Icon(Icons.playlist_add),
-                      title: Text(t.general.addToPlaylist),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'matchLyrics',
-                    child: ListTile(
-                      leading: const Icon(Icons.lyrics_outlined),
-                      title: Text(t.lyrics.matchLyrics),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  PopupMenuItem(
-                    value: 'delete',
-                    child: ListTile(
-                      leading: const Icon(Icons.delete_outline),
-                      title: Text(t.library.deleteDownload),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                ],
+                itemBuilder: (_) => _buildMenuItems(),
               ),
             ],
           ),
@@ -890,49 +847,28 @@ class _DownloadedTrackTile extends ConsumerWidget {
     );
   }
 
-  List<PopupMenuEntry<String>> _buildMenuItems() => [
-        PopupMenuItem(
-          value: 'play_next',
-          child: ListTile(
-            leading: const Icon(Icons.queue_play_next),
-            title: Text(t.general.playNext),
-            contentPadding: EdgeInsets.zero,
+  List<PopupMenuEntry<String>> _buildMenuItems() {
+    return [
+      ...buildTrackActionPopupMenuEntries(
+        buildCommonTrackActionMenuItems(
+          translations: t,
+          options: const TrackActionMenuOptions(
+            includePlay: false,
+            includeAddToRemote: false,
           ),
         ),
-        PopupMenuItem(
-          value: 'add_to_queue',
-          child: ListTile(
-            leading: const Icon(Icons.add_to_queue),
-            title: Text(t.general.addToQueue),
-            contentPadding: EdgeInsets.zero,
-          ),
+      ),
+      const PopupMenuDivider(),
+      PopupMenuItem(
+        value: 'delete',
+        child: ListTile(
+          leading: const Icon(Icons.delete_outline),
+          title: Text(t.library.deleteDownload),
+          contentPadding: EdgeInsets.zero,
         ),
-        PopupMenuItem(
-          value: 'add_to_playlist',
-          child: ListTile(
-            leading: const Icon(Icons.playlist_add),
-            title: Text(t.general.addToPlaylist),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        PopupMenuItem(
-          value: 'matchLyrics',
-          child: ListTile(
-            leading: const Icon(Icons.lyrics_outlined),
-            title: Text(t.lyrics.matchLyrics),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        const PopupMenuDivider(),
-        PopupMenuItem(
-          value: 'delete',
-          child: ListTile(
-            leading: const Icon(Icons.delete_outline),
-            title: Text(t.library.deleteDownload),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-      ];
+      ),
+    ];
+  }
 
   void _handleMenuAction(
       BuildContext context, WidgetRef ref, String action) async {
@@ -963,40 +899,11 @@ class _DownloadedTrackTile extends ConsumerWidget {
       return;
     }
 
-    final handler = TrackActionHandler(
-      audioController: AudioControllerTrackActionAdapter(
-        ref.read(audioControllerProvider.notifier),
-      ),
-      feedbackSink: CallbackTrackActionFeedbackSink(
-        onAddedToNext: () {
-          if (context.mounted) {
-            ToastService.success(context, t.general.addedToNext);
-          }
-        },
-        onAddedToQueue: () {
-          if (context.mounted) {
-            ToastService.success(context, t.general.addedToQueue);
-          }
-        },
-        onPleaseLogin: () {},
-      ),
-    );
-
-    await handler.handle(
-      parseTrackAction(action),
+    await TrackActionCoordinator.handleSingle(
+      context: context,
+      ref: ref,
       track: track,
-      isLoggedIn: true,
-      onAddToPlaylist: () async {
-        if (context.mounted) {
-          showAddToPlaylistDialog(context: context, track: track);
-        }
-      },
-      onMatchLyrics: () async {
-        if (context.mounted) {
-          showLyricsSearchSheet(context: context, track: track);
-        }
-      },
-      onAddToRemote: () async {},
+      actionId: action,
     );
   }
 

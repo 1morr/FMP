@@ -3,24 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/ui_constants.dart';
-import '../../../core/services/toast_service.dart';
 import '../../../core/utils/number_format_utils.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
-import '../../../providers/account_provider.dart';
 import '../../../providers/popular_provider.dart';
 import '../../../providers/selection_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/cache/ranking_cache_service.dart';
-import '../../handlers/track_action_handler.dart';
+import '../../handlers/track_action_coordinator.dart';
+import '../../handlers/track_action_menu.dart';
 import '../../widgets/context_menu_region.dart';
-import '../../widgets/dialogs/add_to_playlist_dialog.dart';
-import '../../widgets/dialogs/add_to_remote_playlist_dialog.dart';
 import '../../widgets/error_display.dart';
 import '../../widgets/selection_mode_app_bar.dart';
 import '../../widgets/track_thumbnail.dart';
 import '../../widgets/vip_badge.dart';
-import '../lyrics/lyrics_search_sheet.dart';
 
 /// 探索页面 - 显示音乐排行榜
 class ExplorePage extends ConsumerStatefulWidget {
@@ -50,11 +46,14 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
   @override
   Widget build(BuildContext context) {
     final selectionState = ref.watch(exploreSelectionProvider);
-    
+
     // 獲取當前 tab 的 tracks 用於全選
-    final bilibiliTracks = ref.watch(cachedBilibiliRankingProvider).valueOrNull ?? [];
-    final youtubeTracks = ref.watch(cachedYouTubeRankingProvider).valueOrNull ?? [];
-    final currentTracks = _tabController.index == 0 ? bilibiliTracks : youtubeTracks;
+    final bilibiliTracks =
+        ref.watch(cachedBilibiliRankingProvider).valueOrNull ?? [];
+    final youtubeTracks =
+        ref.watch(cachedYouTubeRankingProvider).valueOrNull ?? [];
+    final currentTracks =
+        _tabController.index == 0 ? bilibiliTracks : youtubeTracks;
 
     // 多選模式下的可用操作（探索頁不支持下載和刪除）
     const availableActions = <String>{
@@ -263,9 +262,10 @@ class _ExploreTrackTile extends ConsumerWidget {
       menuBuilder: (_) => _buildMenuItems(),
       onSelected: (value) => _handleMenuAction(context, ref, value),
       child: InkWell(
-        onTap: onTap ?? () {
-          ref.read(audioControllerProvider.notifier).playTemporary(track);
-        },
+        onTap: onTap ??
+            () {
+              ref.read(audioControllerProvider.notifier).playTemporary(track);
+            },
         onLongPress: onLongPress,
         borderRadius: AppRadius.borderRadiusMd,
         child: Padding(
@@ -305,9 +305,13 @@ class _ExploreTrackTile extends ConsumerWidget {
                             track.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyLarge
+                                ?.copyWith(
                                   color: isPlaying ? colorScheme.primary : null,
-                                  fontWeight: isPlaying ? FontWeight.w600 : null,
+                                  fontWeight:
+                                      isPlaying ? FontWeight.w600 : null,
                                 ),
                           ),
                         ),
@@ -325,7 +329,10 @@ class _ExploreTrackTile extends ConsumerWidget {
                             track.artist ?? t.general.unknownArtist,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
                                   color: colorScheme.onSurfaceVariant,
                                 ),
                           ),
@@ -340,9 +347,10 @@ class _ExploreTrackTile extends ConsumerWidget {
                           const SizedBox(width: 2),
                           Text(
                             formatCount(track.viewCount!),
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.outline,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.outline,
+                                    ),
                           ),
                         ],
                       ],
@@ -368,79 +376,24 @@ class _ExploreTrackTile extends ConsumerWidget {
     );
   }
 
-  List<PopupMenuEntry<String>> _buildMenuItems() => [
-    PopupMenuItem(
-      value: 'play',
-      child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.general.play), contentPadding: EdgeInsets.zero),
-    ),
-    PopupMenuItem(
-      value: 'play_next',
-      child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.general.playNext), contentPadding: EdgeInsets.zero),
-    ),
-    PopupMenuItem(
-      value: 'add_to_queue',
-      child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.general.addToQueue), contentPadding: EdgeInsets.zero),
-    ),
-    PopupMenuItem(
-      value: 'add_to_playlist',
-      child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.general.addToPlaylist), contentPadding: EdgeInsets.zero),
-    ),
-    PopupMenuItem(
-      value: 'matchLyrics',
-      child: ListTile(leading: const Icon(Icons.lyrics_outlined), title: Text(t.lyrics.matchLyrics), contentPadding: EdgeInsets.zero),
-    ),
-    PopupMenuItem(
-      value: 'add_to_remote',
-      child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero),
-    ),
-  ];
-
-  void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
-    final handler = TrackActionHandler(
-      audioController: AudioControllerTrackActionAdapter(
-        ref.read(audioControllerProvider.notifier),
-      ),
-      feedbackSink: CallbackTrackActionFeedbackSink(
-        onAddedToNext: () {
-          if (context.mounted) {
-            ToastService.success(context, t.general.addedToNext);
-          }
-        },
-        onAddedToQueue: () {
-          if (context.mounted) {
-            ToastService.success(context, t.general.addedToQueue);
-          }
-        },
-        onPleaseLogin: () {
-          if (context.mounted) {
-            ToastService.show(context, t.remote.pleaseLogin);
-          }
-        },
-      ),
-    );
-
-    await handler.handle(
-      parseTrackAction(action),
-      track: track,
-      isLoggedIn: ref.read(isLoggedInProvider(track.sourceType)),
-      onAddToPlaylist: () async {
-        if (context.mounted) {
-          showAddToPlaylistDialog(context: context, track: track);
-        }
-      },
-      onMatchLyrics: () async {
-        if (context.mounted) {
-          showLyricsSearchSheet(context: context, track: track);
-        }
-      },
-      onAddToRemote: () async {
-        if (context.mounted) {
-          showAddToRemotePlaylistDialog(context: context, track: track);
-        }
-      },
+  List<PopupMenuEntry<String>> _buildMenuItems() {
+    return buildTrackActionPopupMenuEntries(
+      buildCommonTrackActionMenuItems(translations: t),
     );
   }
 
+  Future<void> _handleMenuAction(
+    BuildContext context,
+    WidgetRef ref,
+    String action,
+  ) async {
+    await TrackActionCoordinator.handleSingle(
+      context: context,
+      ref: ref,
+      track: track,
+      actionId: action,
+    );
+  }
 }
 
 /// 圓形選擇勾選框
