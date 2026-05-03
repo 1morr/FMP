@@ -83,77 +83,44 @@ void main() {
       },
     );
 
-    test('playlist detail refreshes only after explicit invalidation',
-        () async {
+    test('playlist detail refreshes after playlist metadata update', () async {
       final harness = await createPlaylistPhase2Harness();
       addTearDown(harness.dispose);
 
       final notifier = harness.container.read(playlistListProvider.notifier);
-      final createdPlaylist =
-          await notifier.createPlaylist(name: 'Detail Refresh Playlist');
+      final createdPlaylist = await notifier.createPlaylist(
+        name: 'Original Playlist',
+        description: 'Original description',
+      );
       expect(createdPlaylist, isNotNull);
       final playlist = createdPlaylist!;
-
-      await harness.pumpUntil(
-        () =>
-            harness.container.read(playlistListProvider).playlists.length == 1,
-        reason: 'playlistListProvider should expose the created playlist',
-      );
 
       await harness.pumpUntil(
         () {
           final detail =
               harness.container.read(playlistDetailProvider(playlist.id));
-          return !detail.isLoading && detail.playlist != null;
+          return !detail.isLoading &&
+              detail.playlist?.name == 'Original Playlist';
         },
         reason: 'playlistDetailProvider should finish its initial load',
       );
 
-      expect(
-        harness.container.read(playlistDetailProvider(playlist.id)).tracks,
-        isEmpty,
+      final result = await notifier.updatePlaylist(
+        playlistId: playlist.id,
+        description: 'Updated description',
       );
-
-      await harness.container.read(playlistServiceProvider).addTracksToPlaylist(
-        playlist.id,
-        [_buildTrack(sourceId: 'detail-track', title: 'Detail Track')],
-      );
+      expect(result, isNotNull);
 
       await harness.pumpUntil(
-        () =>
-            harness.container
-                .read(playlistListProvider)
-                .playlists
-                .single
-                .trackCount ==
-            1,
-        reason:
-            'playlist list should update before the detail snapshot is refreshed',
+        () {
+          final detail =
+              harness.container.read(playlistDetailProvider(playlist.id));
+          return !detail.isLoading &&
+              detail.playlist?.name == 'Original Playlist' &&
+              detail.playlist?.description == 'Updated description';
+        },
+        reason: 'playlistDetailProvider should reload after metadata update',
       );
-
-      expect(
-        harness.container.read(playlistDetailProvider(playlist.id)).tracks,
-        isEmpty,
-        reason: 'playlistDetailProvider is not watch-driven',
-      );
-
-      harness.container
-          .read(libraryInvalidationCoordinatorProvider)
-          .playlistChanged(playlist.id, includeAll: false);
-
-      await harness.pumpUntil(
-        () => harness.container
-            .read(playlistDetailProvider(playlist.id))
-            .tracks
-            .any((track) => track.sourceId == 'detail-track'),
-        reason:
-            'playlistDetailProvider should reload after explicit invalidation',
-      );
-
-      final detail =
-          harness.container.read(playlistDetailProvider(playlist.id));
-      expect(detail.playlist?.id, playlist.id);
-      expect(detail.tracks.map((track) => track.sourceId), ['detail-track']);
     });
   });
 }

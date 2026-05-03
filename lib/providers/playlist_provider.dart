@@ -138,7 +138,6 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
       // watch 自动更新列表
       _ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
             playlistId,
-            tracksChanged: false,
             coverChanged: true,
           );
       _ref.read(fileExistsCacheProvider.notifier).clearAll();
