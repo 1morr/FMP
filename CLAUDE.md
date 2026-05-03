@@ -395,7 +395,9 @@ Imported tracks save original platform song ID for direct lyrics fetch:
 
 4. **Menu actions:** Reference `ExplorePage` or `HomePage` `_handleMenuAction`
 
-5. **Refresh:** Use `RefreshIndicator` + `ref.invalidate()` or cache service
+5. **Track action menus:** Common track actions must use `buildCommonTrackActionMenuItems()` / `buildTrackActionPopupMenuEntries()` and dispatch through `TrackActionCoordinator`. Page-specific actions (download, delete, remove-from-playlist, remove-from-remote, group actions) should be appended/injected locally instead of duplicating common queue/playlist/lyrics/remote action definitions.
+
+6. **Refresh:** Use `RefreshIndicator` + `ref.invalidate()` or cache service
 
 ### AppBar Actions Trailing Spacing
 All `AppBar` actions lists must end with `const SizedBox(width: 8)` when last action is `IconButton`. Not needed for `PopupMenuButton` (has built-in padding).
