@@ -297,55 +297,37 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
       return;
     }
 
-    setState(() => _isSubmitting = true);
+    setState(() {
+      _isSubmitting = true;
+      if (_isMulti) {
+        _submitProgress = '${_tracks.length}/${_tracks.length}';
+      }
+    });
     try {
-      final service = ref.read(youtubePlaylistServiceProvider);
-
-      for (var i = 0; i < _tracks.length; i++) {
-        if (!mounted) return;
-        final track = _tracks[i];
-        if (_isMulti) {
-          setState(() {
-            _submitProgress = '${i + 1}/${_tracks.length}';
-          });
-        }
-
-        for (final playlistId in toAdd) {
-          final existingTrackIds = _existingTrackIdsByPlaylist[playlistId];
-          if (existingTrackIds?.contains(track.sourceId) ?? false) continue;
-          await service.addToPlaylist(playlistId, track.sourceId);
-        }
-
-        // 從取消選中的播放列表移除
-        for (final playlistId in toRemove) {
-          final setVideoId = await service.getSetVideoId(
-            playlistId,
-            track.sourceId,
+      final result = await ref
+          .read(remotePlaylistEditControllerProvider)
+          .submitSelectionEdit(
+            sourceType: SourceType.youtube,
+            tracks: _tracks,
+            selectedPlaylistIds: _selectedIds,
+            originalPlaylistIds: _originalIds,
+            deselectedPartialPlaylistIds: _deselectedPartialIds,
+            existingTrackSourceIdsByPlaylist: _existingTrackIdsByPlaylist,
           );
-          if (setVideoId != null) {
-            await service.removeFromPlaylist(
-              playlistId,
-              track.sourceId,
-              setVideoId,
-            );
-          }
-        }
-      }
-
-      try {
-        await ref
-            .read(remotePlaylistSyncServiceProvider)
-            .refreshMatchingImportedPlaylists(
-          sourceType: SourceType.youtube,
-          remotePlaylistIds: [...toAdd, ...toRemove],
-        );
-      } catch (_) {
-        // Local refresh trigger is best-effort; remote playlist update already succeeded.
-      }
 
       if (!mounted) return;
-      ToastService.success(context, t.remote.updated);
-      Navigator.pop(context, true);
+      if (result.changedRemote) {
+        ToastService.success(context, t.remote.updated);
+        Navigator.pop(context, true);
+        return;
+      }
+      if (result.hasFailures) {
+        ToastService.error(context, result.failures.first.error.toString());
+        setState(() {
+          _isSubmitting = false;
+          _submitProgress = null;
+        });
+      }
     } on YouTubePlaylistException catch (e) {
       if (!mounted) return;
       ToastService.error(context, e.message);
