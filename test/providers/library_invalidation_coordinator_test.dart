@@ -1,5 +1,7 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/providers/library_invalidation_coordinator.dart';
+import 'package:fmp/providers/playlist_provider.dart';
 import 'package:fmp/services/library/playlist_mutation_service.dart';
 
 void main() {
@@ -72,6 +74,19 @@ void main() {
       expect(recorder.refreshIds, [5]);
       expect(recorder.loggedErrors.single.$1, contains('test'));
       expect(recorder.loggedErrors.single.$2, isA<StateError>());
+    });
+
+    test('provider skips unloaded playlist details during download refresh',
+        () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final coordinator =
+          container.read(libraryInvalidationCoordinatorProvider);
+
+      coordinator.downloadStateChanged(affectedPlaylistIds: [12]);
+
+      expect(container.exists(playlistDetailProvider(12)), isFalse);
     });
   });
 }
