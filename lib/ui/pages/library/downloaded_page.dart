@@ -9,6 +9,7 @@ import '../../../data/models/track.dart';
 import '../../../providers/download_provider.dart';
 import '../../../providers/download_path_provider.dart';
 import '../../../providers/library_invalidation_coordinator.dart';
+import '../../../providers/playlist_provider.dart' show allPlaylistsProvider;
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/download/download_path_sync_service.dart';
 import '../../../i18n/strings.g.dart';
@@ -40,9 +41,15 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
 
     if (result != null && mounted) {
       final (added, removed) = result;
-      ref.read(libraryInvalidationCoordinatorProvider).downloadStateChanged(
-            fileExistsChanged: added > 0 || removed > 0,
-          );
+      final coordinator = ref.read(libraryInvalidationCoordinatorProvider);
+      if (added > 0 || removed > 0) {
+        final playlists = await ref.read(allPlaylistsProvider.future);
+        coordinator.downloadStateChanged(
+          affectedPlaylistIds: playlists.map((playlist) => playlist.id),
+        );
+      } else {
+        coordinator.downloadStateChanged(fileExistsChanged: false);
+      }
 
       if (!mounted) return;
 
