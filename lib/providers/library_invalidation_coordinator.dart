@@ -162,12 +162,29 @@ final libraryInvalidationCoordinatorProvider =
     },
     invalidateFileExistsCache: () => ref.invalidate(fileExistsCacheProvider),
     refreshLoadedPlaylistDetail: (playlistId) {
-      return ref
-          .read(playlistDetailProvider(playlistId).notifier)
-          .refreshTracks();
+      final provider = playlistDetailProvider(playlistId);
+      if (!ref.exists(provider)) {
+        return Future.value();
+      }
+      return ref.read(provider.notifier).refreshTracks();
     },
     startRefreshLoadedPlaylistDetail: (playlistId) {
-      ref.read(playlistDetailProvider(playlistId).notifier).refreshTracks();
+      final provider = playlistDetailProvider(playlistId);
+      if (!ref.exists(provider)) {
+        return;
+      }
+      unawaited(
+        ref.read(provider.notifier).refreshTracks().catchError(
+          (Object error, StackTrace stackTrace) {
+            AppLogger.error(
+              'Failed to refresh loaded playlist detail in background: $playlistId',
+              error,
+              stackTrace,
+              'LibraryInvalidation',
+            );
+          },
+        ),
+      );
     },
     logBackgroundError: (message, error, stackTrace) {
       AppLogger.error(message, error, stackTrace, 'LibraryInvalidation');
