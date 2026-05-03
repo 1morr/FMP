@@ -732,37 +732,22 @@ class _RecentHistorySection extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ListTile(
-                  leading: const Icon(Icons.play_arrow),
-                  title: Text(t.playHistoryPage.play),
+              ...buildCommonTrackActionMenuItems(
+                translations: t,
+                options: const TrackActionMenuOptions(
+                  includeMatchLyrics: false,
+                  includeAddToRemote: false,
+                ),
+              ).map(
+                (item) => ListTile(
+                  leading: Icon(item.icon),
+                  title: Text(item.label),
                   onTap: () {
                     Navigator.pop(context);
-                    _handleHistoryMenuAction(context, ref, history, 'play');
-                  }),
-              ListTile(
-                  leading: const Icon(Icons.queue_play_next),
-                  title: Text(t.playHistoryPage.playNext),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _handleHistoryMenuAction(
-                        context, ref, history, 'play_next');
-                  }),
-              ListTile(
-                  leading: const Icon(Icons.add_to_queue),
-                  title: Text(t.playHistoryPage.addToQueue),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _handleHistoryMenuAction(
-                        context, ref, history, 'add_to_queue');
-                  }),
-              ListTile(
-                  leading: const Icon(Icons.playlist_add),
-                  title: Text(t.playHistoryPage.addToPlaylist),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _handleHistoryMenuAction(
-                        context, ref, history, 'add_to_playlist');
-                  }),
+                    _handleHistoryMenuAction(context, ref, history, item.id);
+                  },
+                ),
+              ),
               const Divider(),
               ListTile(
                   leading: Icon(Icons.delete_outline, color: colorScheme.error),
