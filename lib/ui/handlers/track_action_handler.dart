@@ -1,12 +1,12 @@
 import '../../data/models/track.dart';
 import '../../services/audio/audio_provider.dart';
 
-const _playMenuAction = 'play';
-const _playNextMenuAction = 'play_next';
-const _addToQueueMenuAction = 'add_to_queue';
-const _addToPlaylistMenuAction = 'add_to_playlist';
-const _matchLyricsMenuAction = 'matchLyrics';
-const _addToRemoteMenuAction = 'add_to_remote';
+const playTrackActionId = 'play';
+const playNextTrackActionId = 'play_next';
+const addToQueueTrackActionId = 'add_to_queue';
+const addToPlaylistTrackActionId = 'add_to_playlist';
+const matchLyricsTrackActionId = 'matchLyrics';
+const addToRemoteTrackActionId = 'add_to_remote';
 
 enum TrackAction {
   play,
@@ -17,19 +17,38 @@ enum TrackAction {
   addToRemote,
 }
 
+extension TrackActionMenuId on TrackAction {
+  String get menuId {
+    switch (this) {
+      case TrackAction.play:
+        return playTrackActionId;
+      case TrackAction.playNext:
+        return playNextTrackActionId;
+      case TrackAction.addToQueue:
+        return addToQueueTrackActionId;
+      case TrackAction.addToPlaylist:
+        return addToPlaylistTrackActionId;
+      case TrackAction.matchLyrics:
+        return matchLyricsTrackActionId;
+      case TrackAction.addToRemote:
+        return addToRemoteTrackActionId;
+    }
+  }
+}
+
 TrackAction? tryParseTrackAction(String action) {
   switch (action) {
-    case _playMenuAction:
+    case playTrackActionId:
       return TrackAction.play;
-    case _playNextMenuAction:
+    case playNextTrackActionId:
       return TrackAction.playNext;
-    case _addToQueueMenuAction:
+    case addToQueueTrackActionId:
       return TrackAction.addToQueue;
-    case _addToPlaylistMenuAction:
+    case addToPlaylistTrackActionId:
       return TrackAction.addToPlaylist;
-    case _matchLyricsMenuAction:
+    case matchLyricsTrackActionId:
       return TrackAction.matchLyrics;
-    case _addToRemoteMenuAction:
+    case addToRemoteTrackActionId:
       return TrackAction.addToRemote;
   }
 
