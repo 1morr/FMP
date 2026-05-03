@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:path/path.dart' as p;
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // AudioDevice replaced by FmpAudioDevice from audio_types.dart
@@ -21,9 +20,8 @@ import '../../providers/database_provider.dart';
 import '../../providers/repository_providers.dart';
 import '../../providers/lyrics_provider.dart';
 import '../../providers/account_provider.dart';
-import '../../providers/download/download_providers.dart';
 import '../../providers/download/file_exists_cache.dart';
-import '../../providers/playlist_provider.dart';
+import '../../providers/library_invalidation_coordinator.dart';
 import '../lyrics/lyrics_auto_match_service.dart';
 import '../../core/services/toast_service.dart';
 import '../../main.dart' show audioHandler, windowsSmtcHandler;
@@ -2797,27 +2795,20 @@ final audioControllerProvider =
   final downloadPathSubscription =
       ref.watch(audioStreamManagerProvider).downloadPathsChangedStream.listen(
     (event) {
-      final categories = <String>{};
-      for (final path in event.removedPaths) {
-        ref.read(fileExistsCacheProvider.notifier).remove(path);
-        categories.add(p.dirname(p.dirname(path)));
-      }
-      if (categories.isNotEmpty) {
-        ref.invalidate(downloadedCategoriesProvider);
-      }
-      for (final categoryPath in categories) {
-        ref.invalidate(downloadedCategoryTracksProvider(categoryPath));
-      }
-
       final playlistIds = <int>{};
       for (final info in event.track.playlistInfo) {
         if (info.playlistId > 0) {
           playlistIds.add(info.playlistId);
         }
       }
-      for (final playlistId in playlistIds) {
-        ref.invalidate(playlistDetailProvider(playlistId));
-        ref.invalidate(playlistCoverProvider(playlistId));
+      ref.read(libraryInvalidationCoordinatorProvider).downloadStateChanged(
+            savePaths: event.removedPaths,
+            affectedPlaylistIds: playlistIds,
+            includeDownloadedCategories: event.removedPaths.isNotEmpty,
+            fileExistsChanged: false,
+          );
+      for (final path in event.removedPaths) {
+        ref.read(fileExistsCacheProvider.notifier).remove(path);
       }
     },
   );

@@ -93,6 +93,7 @@ UI (player_page, mini_player)
 **Key providers:**
 - `audioControllerProvider` - Main audio state (PlayerState)
 - `playlistProvider` / `playlistDetailProvider` - Playlist management
+- `libraryInvalidationCoordinatorProvider` - Central UI/provider-layer invalidation coordinator for playlist/detail/cover/download side effects
 - `searchProvider` - Search state (supports 3 sources)
 - `neteaseSourceProvider` - NeteaseSource singleton
 - `neteaseAccountProvider` / `neteaseAccountServiceProvider` - Netease account
@@ -112,6 +113,8 @@ UI (player_page, mini_player)
 **Rules:**
 - Pages using `isLoading` must guard: `isLoading && data.isEmpty`
 - FutureProvider: must `invalidate` after mutations
+- Mutation side effects that need playlist/detail/cover/download provider invalidation should go through `libraryInvalidationCoordinatorProvider`; UI widgets should not manually guess related provider families.
+- Fire-and-forget imported playlist refresh must use the named remote sync path and log background failures with `AppLogger`.
 - Optimistic updates: must rollback on failure
 - List/grid items: add `ValueKey(item.id)`
 
