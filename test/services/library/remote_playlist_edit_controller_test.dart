@@ -78,6 +78,51 @@ void main() {
   });
 
   group('source adapters', () {
+    test('Bilibili adapter removes tracks from parsed folder IDs', () async {
+      final aidLookups = <String>[];
+      final favoriteUpdates = <String>[];
+      final adapter = BilibiliRemotePlaylistEditAdapter(
+        getVideoAid: (track) async {
+          aidLookups.add(track.sourceId);
+          return switch (track.sourceId) {
+            'BV1' => 101,
+            'BV2' => 202,
+            _ => throw StateError('unexpected track ${track.sourceId}'),
+          };
+        },
+        updateVideoFavorites: ({
+          required videoAid,
+          List<int> addFolderIds = const [],
+          List<int> removeFolderIds = const [],
+        }) async {
+          favoriteUpdates.add(
+            '$videoAid:add=${addFolderIds.join(',')}:remove=${removeFolderIds.join(',')}',
+          );
+        },
+      );
+
+      final result = await adapter.submit(RemotePlaylistEditPlan(
+        sourceType: SourceType.bilibili,
+        editableTracks: [
+          _track(SourceType.bilibili, 1, 'BV1'),
+          _track(SourceType.bilibili, 2, 'BV2')
+        ],
+        skippedTrackIds: const [],
+        playlistIdsToAdd: const [],
+        playlistIdsToRemove: const ['12345', '67890'],
+        existingTrackSourceIdsByPlaylist: const {},
+      ));
+
+      expect(result.confirmedAddedTrackIds, isEmpty);
+      expect(result.confirmedRemovedTrackIds, [1, 2]);
+      expect(result.changedRemotePlaylistIds, ['12345', '67890']);
+      expect(aidLookups, ['BV1', 'BV2']);
+      expect(favoriteUpdates, [
+        '101:add=:remove=12345,67890',
+        '202:add=:remove=12345,67890',
+      ]);
+    });
+
     test('YouTube adapter skips removals when setVideoId is missing', () async {
       final removeCalls = <String>[];
       final adapter = YouTubeRemotePlaylistEditAdapter(
@@ -132,6 +177,33 @@ void main() {
       expect(result.confirmedAddedTrackIds, [2]);
       expect(result.changedRemotePlaylistIds, ['P']);
       expect(addCalls, ['P:22']);
+    });
+
+    test('Netease adapter removes editable tracks in a batch', () async {
+      final removeCalls = <String>[];
+      final adapter = NeteaseRemotePlaylistEditAdapter(
+        addTracksToPlaylist: (_, __) async {},
+        removeTracksFromPlaylist: (playlistId, trackIds) async =>
+            removeCalls.add('$playlistId:${trackIds.join(',')}'),
+      );
+
+      final result = await adapter.submit(RemotePlaylistEditPlan(
+        sourceType: SourceType.netease,
+        editableTracks: [
+          _track(SourceType.netease, 1, '11'),
+          _track(SourceType.netease, 2, '22')
+        ],
+        skippedTrackIds: const [99],
+        playlistIdsToAdd: const [],
+        playlistIdsToRemove: const ['P'],
+        existingTrackSourceIdsByPlaylist: const {},
+      ));
+
+      expect(result.confirmedAddedTrackIds, isEmpty);
+      expect(result.confirmedRemovedTrackIds, [1, 2]);
+      expect(result.skippedTrackIds, [99]);
+      expect(result.changedRemotePlaylistIds, ['P']);
+      expect(removeCalls, ['P:11,22']);
     });
   });
 }

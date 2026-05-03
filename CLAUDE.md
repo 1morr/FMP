@@ -447,8 +447,10 @@ lib/
 │   │   ├── import_service.dart          # URL import (useAuth parameter)
 │   │   └── playlist_import_service.dart # External playlist import (search-match)
 │   ├── library/
-│   │   ├── remote_playlist_actions_service.dart # Remote playlist remove actions
-│   │   └── remote_playlist_sync_service.dart    # Refresh local imported playlists after remote edits
+│   │   ├── remote_playlist_edit_controller.dart # Unified remote playlist add/remove orchestration
+│   │   ├── remote_playlist_edit_planner.dart     # Selection diff planner for remote edits
+│   │   ├── remote_playlist_edit_result.dart      # Remote edit result/failure summaries
+│   │   └── remote_playlist_sync_service.dart     # Refresh local imported playlists after remote edits
 │   ├── radio/                           # Live/radio control
 │   └── update/                          # In-app update (GitHub Releases, APK/Windows installer/ZIP)
 ├── data/
