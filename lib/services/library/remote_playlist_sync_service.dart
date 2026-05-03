@@ -4,11 +4,11 @@ import 'remote_playlist_id_parser.dart';
 
 class RemotePlaylistSyncService {
   final Future<List<Playlist>> Function() getImportedPlaylists;
-  final void Function(Playlist playlist) refreshPlaylist;
+  final void Function(Playlist playlist) startPlaylistRefresh;
 
   const RemotePlaylistSyncService({
     required this.getImportedPlaylists,
-    required this.refreshPlaylist,
+    required this.startPlaylistRefresh,
   });
 
   Future<List<Playlist>> refreshMatchingImportedPlaylists({
@@ -23,7 +23,7 @@ class RemotePlaylistSyncService {
     );
 
     for (final playlist in matches) {
-      refreshPlaylist(playlist);
+      startPlaylistRefresh(playlist);
     }
     return matches;
   }

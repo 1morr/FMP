@@ -11,7 +11,7 @@ import '../data/sources/source_provider.dart';
 import 'account_provider.dart';
 import 'database_provider.dart';
 import 'repository_providers.dart';
-import 'playlist_provider.dart';
+import 'library_invalidation_coordinator.dart';
 
 /// 单个歌单刷新状态
 class PlaylistRefreshState extends Equatable {
@@ -185,9 +185,9 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
       );
 
       // watch 自动更新歌单列表，只需刷新详情和封面
-      _ref.invalidate(playlistDetailProvider(playlistId));
-      _ref.invalidate(playlistCoverProvider(playlistId));
-      _ref.invalidate(allPlaylistsProvider);
+      _ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
+            playlistId,
+          );
 
       // 使用 ToastService 显示成功提示（不依赖 context）
       final toastService = _ref.read(toastServiceProvider);

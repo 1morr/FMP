@@ -5,8 +5,8 @@ import 'package:fmp/services/library/remote_playlist_sync_service.dart';
 
 void main() {
   group('RemotePlaylistSyncService', () {
-    test('refreshes matching YouTube imported playlists only', () async {
-      final refreshed = <int>[];
+    test('starts refresh for matching imported playlists only', () async {
+      final startedIds = <int>[];
       final service = RemotePlaylistSyncService(
         getImportedPlaylists: () async => [
           _playlist(1, SourceType.youtube,
@@ -16,7 +16,7 @@ void main() {
           _playlist(3, SourceType.bilibili,
               'https://space.bilibili.com/1/favlist?fid=123'),
         ],
-        refreshPlaylist: (playlist) => refreshed.add(playlist.id),
+        startPlaylistRefresh: (playlist) => startedIds.add(playlist.id),
       );
 
       final matched = await service.refreshMatchingImportedPlaylists(
@@ -25,17 +25,17 @@ void main() {
       );
 
       expect(matched.map((p) => p.id), [1]);
-      expect(refreshed, [1]);
+      expect(startedIds, [1]);
     });
 
     test('parses Netease hash playlist URL and refreshes match', () async {
-      final refreshed = <int>[];
+      final started = <int>[];
       final service = RemotePlaylistSyncService(
         getImportedPlaylists: () async => [
           _playlist(4, SourceType.netease,
               'https://music.163.com/#/playlist?id=24680'),
         ],
-        refreshPlaylist: (playlist) => refreshed.add(playlist.id),
+        startPlaylistRefresh: (playlist) => started.add(playlist.id),
       );
 
       final matched = await service.refreshMatchingImportedPlaylists(
@@ -44,11 +44,11 @@ void main() {
       );
 
       expect(matched.map((p) => p.id), [4]);
-      expect(refreshed, [4]);
+      expect(started, [4]);
     });
 
     test('parses Bilibili favorites URLs and skips mix playlists', () async {
-      final refreshed = <int>[];
+      final started = <int>[];
       final mix = _playlist(
           7, SourceType.youtube, 'https://www.youtube.com/playlist?list=PL_MIX')
         ..isMix = true;
@@ -60,7 +60,7 @@ void main() {
               'https://www.bilibili.com/medialist/detail/ml24680'),
           mix,
         ],
-        refreshPlaylist: (playlist) => refreshed.add(playlist.id),
+        startPlaylistRefresh: (playlist) => started.add(playlist.id),
       );
 
       final matched = await service.refreshMatchingImportedPlaylists(
@@ -69,7 +69,7 @@ void main() {
       );
 
       expect(matched.map((p) => p.id), [5, 6]);
-      expect(refreshed, [5, 6]);
+      expect(started, [5, 6]);
     });
 
     test('empty remote id set does not read or refresh playlists', () async {
@@ -80,7 +80,7 @@ void main() {
           readCalled = true;
           return const [];
         },
-        refreshPlaylist: (_) => refreshCalled = true,
+        startPlaylistRefresh: (_) => refreshCalled = true,
       );
 
       final matched = await service.refreshMatchingImportedPlaylists(

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/logger.dart';
 import '../services/library/remote_playlist_edit_controller.dart';
 import '../services/library/remote_playlist_sync_service.dart';
 import 'account_provider.dart';
@@ -14,12 +15,20 @@ final remotePlaylistSyncServiceProvider =
   final playlistRepository = ref.watch(playlistRepositoryProvider);
   return RemotePlaylistSyncService(
     getImportedPlaylists: playlistRepository.getImported,
-    refreshPlaylist: (playlist) {
+    startPlaylistRefresh: (playlist) {
       unawaited(
         ref
             .read(refreshManagerProvider.notifier)
             .refreshPlaylist(playlist)
-            .catchError((_) => null),
+            .catchError((error, stackTrace) {
+          AppLogger.error(
+            'Background imported playlist refresh failed: ${playlist.id}',
+            error,
+            stackTrace is StackTrace ? stackTrace : null,
+            'RemotePlaylistSync',
+          );
+          return null;
+        }),
       );
     },
   );
