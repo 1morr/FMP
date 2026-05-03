@@ -217,12 +217,10 @@ class _ChangeDownloadPathDialogState
       ref.invalidate(downloadedCategoriesProvider);
       ref.invalidate(downloadPathProvider);
 
-      ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
-            result.affectedPlaylistIds,
-            tracksChanged: false,
-            coverChanged: true,
-            includeAll: false,
-          );
+      final coordinator = ref.read(libraryInvalidationCoordinatorProvider);
+      for (final playlistId in result.affectedPlaylistIds) {
+        coordinator.playlistChanged(playlistId, includeAll: false);
+      }
 
       if (mounted) {
         final messenger = ScaffoldMessenger.maybeOf(context);

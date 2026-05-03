@@ -565,7 +565,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
           removeSuccessCount++;
           ref
               .read(libraryInvalidationCoordinatorProvider)
-              .playlistChanged(playlistId);
+              .playlistChanged(playlistId, includeAll: false);
         } catch (e) {
           // 继续处理其他歌单
         }
@@ -580,7 +580,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
           addSuccessCount++;
           ref
               .read(libraryInvalidationCoordinatorProvider)
-              .playlistChanged(playlistId);
+              .playlistChanged(playlistId, includeAll: false);
         } catch (e) {
           // 继续处理其他歌单
         }

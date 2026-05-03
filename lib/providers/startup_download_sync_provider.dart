@@ -27,12 +27,9 @@ final startupDownloadSyncProvider = FutureProvider<void>((ref) async {
       ref.invalidate(fileExistsCacheProvider);
       final coordinator = ref.read(libraryInvalidationCoordinatorProvider);
       final playlists = await ref.read(allPlaylistsProvider.future);
-      coordinator.playlistsChanged(
-        playlists.map((playlist) => playlist.id),
-        tracksChanged: false,
-        coverChanged: true,
-        includeAll: false,
-      );
+      for (final playlist in playlists) {
+        coordinator.playlistChanged(playlist.id, includeAll: false);
+      }
     }
 
     AppLogger.info(

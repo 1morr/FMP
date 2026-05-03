@@ -50,12 +50,9 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
         ref.invalidate(fileExistsCacheProvider);
         final coordinator = ref.read(libraryInvalidationCoordinatorProvider);
         final playlists = await ref.read(allPlaylistsProvider.future);
-        coordinator.playlistsChanged(
-          playlists.map((playlist) => playlist.id),
-          tracksChanged: false,
-          coverChanged: true,
-          includeAll: false,
-        );
+        for (final playlist in playlists) {
+          coordinator.playlistChanged(playlist.id, includeAll: false);
+        }
       }
 
       if (!mounted) return;
@@ -466,12 +463,10 @@ class _CategoryCard extends ConsumerWidget {
       ref.invalidate(downloadedCategoriesProvider);
       ref.invalidate(fileExistsCacheProvider);
 
-      ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
-            result.affectedPlaylistIds,
-            tracksChanged: false,
-            coverChanged: true,
-            includeAll: false,
-          );
+      final coordinator = ref.read(libraryInvalidationCoordinatorProvider);
+      for (final playlistId in result.affectedPlaylistIds) {
+        coordinator.playlistChanged(playlistId, includeAll: false);
+      }
 
       if (context.mounted) {
         ToastService.success(
