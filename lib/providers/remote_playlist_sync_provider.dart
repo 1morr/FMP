@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/library/remote_playlist_edit_controller.dart';
-import '../services/library/remote_playlist_removal_sync_service.dart';
 import '../services/library/remote_playlist_sync_service.dart';
 import 'account_provider.dart';
 import 'playlist_provider.dart';
@@ -23,19 +22,6 @@ final remotePlaylistSyncServiceProvider =
             .catchError((_) => null),
       );
     },
-  );
-});
-
-final remotePlaylistRemovalSyncServiceProvider =
-    Provider<RemotePlaylistRemovalSyncService>((ref) {
-  final syncService = ref.watch(remotePlaylistSyncServiceProvider);
-  return RemotePlaylistRemovalSyncService(
-    removeTracksFromLocalPlaylist: (playlistId, trackIds) {
-      return ref
-          .read(playlistDetailProvider(playlistId).notifier)
-          .removeTracks(trackIds);
-    },
-    refreshPlaylist: syncService.refreshPlaylist,
   );
 });
 
