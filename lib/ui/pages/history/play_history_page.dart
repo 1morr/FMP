@@ -10,9 +10,10 @@ import '../../../data/repositories/play_history_repository.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/play_history_provider.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../handlers/track_action_coordinator.dart';
 import '../../handlers/track_action_handler.dart';
+import '../../handlers/track_action_menu.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
-import '../lyrics/lyrics_search_sheet.dart';
 import '../../widgets/context_menu_region.dart';
 import '../../widgets/track_thumbnail.dart';
 import '../../../core/constants/ui_constants.dart';
@@ -31,23 +32,26 @@ Future<bool> handleHistorySharedTrackAction({
     return false;
   }
 
-  final handler = TrackActionHandler(
-    audioController: audioController,
-    feedbackSink: CallbackTrackActionFeedbackSink(
-      onAddedToNext: onAddedToNext,
-      onAddedToQueue: onAddedToQueue,
-      onPleaseLogin: () {},
-    ),
-  );
-
-  await handler.handle(
-    parsedAction,
-    track: track,
-    isLoggedIn: false,
-    onAddToPlaylist: onAddToPlaylist,
-    onMatchLyrics: onMatchLyrics,
-    onAddToRemote: () async {},
-  );
+  switch (parsedAction) {
+    case TrackAction.play:
+      await audioController.playTemporary(track);
+    case TrackAction.playNext:
+      final added = await audioController.addNext(track);
+      if (added) {
+        onAddedToNext();
+      }
+    case TrackAction.addToQueue:
+      final added = await audioController.addToQueue(track);
+      if (added) {
+        onAddedToQueue();
+      }
+    case TrackAction.addToPlaylist:
+      await onAddToPlaylist();
+    case TrackAction.matchLyrics:
+      await onMatchLyrics();
+    case TrackAction.addToRemote:
+      return false;
+  }
 
   return true;
 }
@@ -731,44 +735,10 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
   }
 
   List<PopupMenuEntry<String>> _buildHistoryItemMenuItems() => [
-        PopupMenuItem(
-          value: 'play',
-          child: ListTile(
-            leading: const Icon(Icons.play_arrow),
-            title: Text(t.playHistoryPage.play),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        PopupMenuItem(
-          value: 'play_next',
-          child: ListTile(
-            leading: const Icon(Icons.queue_play_next),
-            title: Text(t.playHistoryPage.playNext),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        PopupMenuItem(
-          value: 'add_to_queue',
-          child: ListTile(
-            leading: const Icon(Icons.add_to_queue),
-            title: Text(t.playHistoryPage.addToQueue),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        PopupMenuItem(
-          value: 'add_to_playlist',
-          child: ListTile(
-            leading: const Icon(Icons.playlist_add),
-            title: Text(t.playHistoryPage.addToPlaylist),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        PopupMenuItem(
-          value: 'matchLyrics',
-          child: ListTile(
-            leading: const Icon(Icons.lyrics_outlined),
-            title: Text(t.lyrics.matchLyrics),
-            contentPadding: EdgeInsets.zero,
+        ...buildTrackActionPopupMenuEntries(
+          buildCommonTrackActionMenuItems(
+            translations: t,
+            options: const TrackActionMenuOptions(includeAddToRemote: false),
           ),
         ),
         const PopupMenuDivider(),
@@ -996,30 +966,13 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     String action,
   ) async {
     final track = history.toTrack();
-    final handled = await handleHistorySharedTrackAction(
-      action: action,
-      track: track,
-      audioController: AudioControllerTrackActionAdapter(
-        ref.read(audioControllerProvider.notifier),
-      ),
-      onAddedToNext: () {
-        if (context.mounted) {
-          ToastService.success(context, t.playHistoryPage.toastAddedToNext);
-        }
-      },
-      onAddedToQueue: () {
-        if (context.mounted) {
-          ToastService.success(context, t.playHistoryPage.toastAddedToQueue);
-        }
-      },
-      onAddToPlaylist: () async {
-        showAddToPlaylistDialog(context: context, track: track);
-      },
-      onMatchLyrics: () async {
-        showLyricsSearchSheet(context: context, track: track);
-      },
-    );
-    if (handled) {
+    if (tryParseTrackAction(action) != null) {
+      await TrackActionCoordinator.handleSingle(
+        context: context,
+        ref: ref,
+        track: track,
+        actionId: action,
+      );
       return;
     }
 
