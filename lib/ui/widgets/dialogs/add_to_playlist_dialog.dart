@@ -6,6 +6,7 @@ import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../core/constants/ui_constants.dart';
+import '../../../providers/library_invalidation_coordinator.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../providers/repository_providers.dart';
 import '../track_thumbnail.dart';
@@ -18,7 +19,7 @@ Future<bool> showAddToPlaylistDialog({
 }) async {
   assert(track != null || (tracks != null && tracks.isNotEmpty),
       'Either track or tracks must be provided');
-  
+
   final trackList = tracks ?? [track!];
   final result = await showModalBottomSheet<bool>(
     context: context,
@@ -38,13 +39,14 @@ class _AddToPlaylistSheet extends ConsumerStatefulWidget {
   bool get isMultiple => tracks.length > 1;
 
   @override
-  ConsumerState<_AddToPlaylistSheet> createState() => _AddToPlaylistSheetState();
+  ConsumerState<_AddToPlaylistSheet> createState() =>
+      _AddToPlaylistSheetState();
 }
 
 class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
   final _newPlaylistController = TextEditingController();
   Set<int> _selectedPlaylistIds = {};
-  Set<int> _originalPlaylistIds = {};  // 原始状态：打开对话框时 track 已在的歌单
+  Set<int> _originalPlaylistIds = {}; // 原始状态：打开对话框时 track 已在的歌单
   bool _isAdding = false;
   bool _isInitialized = false;
 
@@ -55,7 +57,8 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
   }
 
   /// 初始化选中状态：预选已添加歌单中的歌单
-  Future<void> _initializeSelection(List<Track> tracks, List<dynamic> playlists) async {
+  Future<void> _initializeSelection(
+      List<Track> tracks, List<dynamic> playlists) async {
     if (_isInitialized) return;
 
     // 先从数据库获取最新的 track 数据（包含 playlistInfo）
@@ -79,7 +82,8 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
     for (final playlist in manualPlaylists) {
       final playlistId = playlist.id;
       // 检查是否所有 tracks 都在这个歌单中
-      final allInPlaylist = loadedTracks.every((track) => track.belongsToPlaylist(playlistId));
+      final allInPlaylist =
+          loadedTracks.every((track) => track.belongsToPlaylist(playlistId));
       if (allInPlaylist) {
         preselectedIds.add(playlistId);
       }
@@ -90,7 +94,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
     _isInitialized = true;
 
     if (mounted) {
-      setState(() {});  // 触发 UI 更新
+      setState(() {}); // 触发 UI 更新
     }
   }
 
@@ -165,21 +169,26 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                       children: [
                         Text(
                           widget.isMultiple
-                              ? t.library.trackCountSongs(n: widget.tracks.length)
+                              ? t.library
+                                  .trackCountSongs(n: widget.tracks.length)
                               : widget.firstTrack.title,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w500,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                  ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
                           widget.isMultiple
-                              ? widget.firstTrack.parentTitle ?? widget.firstTrack.title
-                              : widget.firstTrack.artist ?? t.general.unknownArtist,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
+                              ? widget.firstTrack.parentTitle ??
+                                  widget.firstTrack.title
+                              : widget.firstTrack.artist ??
+                                  t.general.unknownArtist,
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -228,7 +237,8 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                   if (_selectedPlaylistIds.isNotEmpty) ...[
                     const Spacer(),
                     Text(
-                      t.addToPlaylistDialog.selectedCount(count: _selectedPlaylistIds.length),
+                      t.addToPlaylistDialog
+                          .selectedCount(count: _selectedPlaylistIds.length),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: colorScheme.primary,
                             fontWeight: FontWeight.w500,
@@ -244,143 +254,156 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                 type: MaterialType.transparency,
                 clipBehavior: Clip.hardEdge,
                 child: playlists.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, _) => Center(
-                  child: Text(t.addToPlaylistDialog.loadFailed(error: error.toString())),
-                ),
-                data: (lists) {
-                  // 过滤掉导入的歌单，只显示手动创建的歌单
-                  final manualPlaylists = lists.where((p) => !p.isImported).toList();
-                  
-                  if (manualPlaylists.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.library_music,
-                            size: 48,
-                            color: colorScheme.outline,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            t.addToPlaylistDialog.noPlaylists,
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  color: colorScheme.outline,
-                                ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            t.addToPlaylistDialog.createHint,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: colorScheme.outline,
-                                ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (error, _) => Center(
+                    child: Text(t.addToPlaylistDialog
+                        .loadFailed(error: error.toString())),
+                  ),
+                  data: (lists) {
+                    // 过滤掉导入的歌单，只显示手动创建的歌单
+                    final manualPlaylists =
+                        lists.where((p) => !p.isImported).toList();
 
-                  return ListView.builder(
-                    controller: scrollController,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: manualPlaylists.length,
-                    itemBuilder: (context, index) {
-                      final playlist = manualPlaylists[index];
-                      final isSelected = _selectedPlaylistIds.contains(playlist.id);
-                      final coverAsync =
-                          ref.watch(playlistCoverProvider(playlist.id));
-
-                      return ListTile(
-                        leading: Stack(
+                    if (manualPlaylists.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                borderRadius: AppRadius.borderRadiusMd,
-                                color: colorScheme.surfaceContainerHighest,
-                                border: isSelected
-                                    ? Border.all(
-                                        color: colorScheme.primary,
-                                        width: 2,
-                                      )
-                                    : null,
-                              ),
-                              clipBehavior: Clip.antiAlias,
-                              child: coverAsync.when(
-                                data: (coverData) => coverData.hasCover
-                                    ? ImageLoadingService.loadImage(
-                                        localPath: coverData.localPath,
-                                        networkUrl: coverData.networkUrl,
-                                        placeholder: Icon(
+                            Icon(
+                              Icons.library_music,
+                              size: 48,
+                              color: colorScheme.outline,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              t.addToPlaylistDialog.noPlaylists,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyLarge
+                                  ?.copyWith(
+                                    color: colorScheme.outline,
+                                  ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              t.addToPlaylistDialog.createHint,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(
+                                    color: colorScheme.outline,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return ListView.builder(
+                      controller: scrollController,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: manualPlaylists.length,
+                      itemBuilder: (context, index) {
+                        final playlist = manualPlaylists[index];
+                        final isSelected =
+                            _selectedPlaylistIds.contains(playlist.id);
+                        final coverAsync =
+                            ref.watch(playlistCoverProvider(playlist.id));
+
+                        return ListTile(
+                          leading: Stack(
+                            children: [
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  borderRadius: AppRadius.borderRadiusMd,
+                                  color: colorScheme.surfaceContainerHighest,
+                                  border: isSelected
+                                      ? Border.all(
+                                          color: colorScheme.primary,
+                                          width: 2,
+                                        )
+                                      : null,
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: coverAsync.when(
+                                  data: (coverData) => coverData.hasCover
+                                      ? ImageLoadingService.loadImage(
+                                          localPath: coverData.localPath,
+                                          networkUrl: coverData.networkUrl,
+                                          placeholder: Icon(
+                                            Icons.album,
+                                            color: colorScheme.outline,
+                                          ),
+                                          fit: BoxFit.cover,
+                                          width: 48,
+                                          height: 48,
+                                        )
+                                      : Icon(
                                           Icons.album,
                                           color: colorScheme.outline,
                                         ),
-                                        fit: BoxFit.cover,
-                                        width: 48,
-                                        height: 48,
-                                      )
-                                    : Icon(
-                                        Icons.album,
-                                        color: colorScheme.outline,
-                                      ),
-                                loading: () => const Center(
-                                  child: SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  loading: () => const Center(
+                                    child: SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
+                                    ),
+                                  ),
+                                  error: (e, s) => Icon(
+                                    Icons.album,
+                                    color: colorScheme.outline,
                                   ),
                                 ),
-                                error: (e, s) => Icon(
-                                  Icons.album,
+                              ),
+                              if (isSelected)
+                                Positioned(
+                                  right: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    width: 18,
+                                    height: 18,
+                                    decoration: BoxDecoration(
+                                      color: colorScheme.primary,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.check,
+                                      size: 12,
+                                      color: colorScheme.onPrimary,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          title: Text(playlist.name),
+                          subtitle: Text(t.library
+                              .trackCountSongs(n: playlist.trackCount)),
+                          trailing: isSelected
+                              ? Icon(
+                                  Icons.check_circle,
+                                  color: colorScheme.primary,
+                                )
+                              : Icon(
+                                  Icons.circle_outlined,
                                   color: colorScheme.outline,
                                 ),
-                              ),
-                            ),
-                            if (isSelected)
-                              Positioned(
-                                right: 0,
-                                bottom: 0,
-                                child: Container(
-                                  width: 18,
-                                  height: 18,
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.primary,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Icons.check,
-                                    size: 12,
-                                    color: colorScheme.onPrimary,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        title: Text(playlist.name),
-                        subtitle: Text(t.library.trackCountSongs(n: playlist.trackCount)),
-                        trailing: isSelected
-                            ? Icon(
-                                Icons.check_circle,
-                                color: colorScheme.primary,
-                              )
-                            : Icon(
-                                Icons.circle_outlined,
-                                color: colorScheme.outline,
-                              ),
-                        selected: isSelected,
-                        selectedTileColor: colorScheme.primaryContainer.withValues(alpha: 0.3),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: AppRadius.borderRadiusLg,
-                        ),
-                        onTap: () => _togglePlaylistSelection(playlist.id),
-                      );
-                    },
-                  );
-                },
+                          selected: isSelected,
+                          selectedTileColor: colorScheme.primaryContainer
+                              .withValues(alpha: 0.3),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: AppRadius.borderRadiusLg,
+                          ),
+                          onTap: () => _togglePlaylistSelection(playlist.id),
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
-            ),
             ),
             // 确认按钮（始终显示，允许全部取消勾选来移出歌单）
             SafeArea(
@@ -474,7 +497,8 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
         }
       } catch (e) {
         if (mounted) {
-          ToastService.error(context, t.addToPlaylistDialog.createFailed(error: e.toString()));
+          ToastService.error(
+              context, t.addToPlaylistDialog.createFailed(error: e.toString()));
         }
       }
     }
@@ -503,7 +527,8 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
       return t.addToPlaylistDialog.removeFromCount(count: toRemove.length);
     } else {
       // 同时添加和移除
-      return t.addToPlaylistDialog.addAndRemoveCount(addCount: toAdd.length, removeCount: toRemove.length);
+      return t.addToPlaylistDialog.addAndRemoveCount(
+          addCount: toAdd.length, removeCount: toRemove.length);
     }
   }
 
@@ -533,11 +558,14 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
         try {
           for (final track in widget.tracks) {
             // 获取最新的 track ID（可能已经被保存到数据库）
-            final savedTrack = await ref.read(trackRepositoryProvider).getOrCreate(track);
+            final savedTrack =
+                await ref.read(trackRepositoryProvider).getOrCreate(track);
             await service.removeTrackFromPlaylist(playlistId, savedTrack.id);
           }
           removeSuccessCount++;
-          ref.read(playlistListProvider.notifier).invalidatePlaylistProviders(playlistId);
+          ref
+              .read(libraryInvalidationCoordinatorProvider)
+              .playlistChanged(playlistId);
         } catch (e) {
           // 继续处理其他歌单
         }
@@ -550,7 +578,9 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
             await service.addTrackToPlaylist(playlistId, track);
           }
           addSuccessCount++;
-          ref.read(playlistListProvider.notifier).invalidatePlaylistProviders(playlistId);
+          ref
+              .read(libraryInvalidationCoordinatorProvider)
+              .playlistChanged(playlistId);
         } catch (e) {
           // 继续处理其他歌单
         }
@@ -567,20 +597,32 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
 
         if (totalSuccess == totalChanged) {
           if (toAdd.isNotEmpty && toRemove.isNotEmpty) {
-            ToastService.success(context, t.addToPlaylistDialog.addedAndRemoved(addCount: addSuccessCount, removeCount: removeSuccessCount));
+            ToastService.success(
+                context,
+                t.addToPlaylistDialog.addedAndRemoved(
+                    addCount: addSuccessCount,
+                    removeCount: removeSuccessCount));
           } else if (toAdd.isNotEmpty) {
-            ToastService.success(context, t.addToPlaylistDialog.addedToPlaylists(count: addSuccessCount));
+            ToastService.success(context,
+                t.addToPlaylistDialog.addedToPlaylists(count: addSuccessCount));
           } else {
-            ToastService.success(context, t.addToPlaylistDialog.removedFromPlaylists(count: removeSuccessCount));
+            ToastService.success(
+                context,
+                t.addToPlaylistDialog
+                    .removedFromPlaylists(count: removeSuccessCount));
           }
         } else {
-          ToastService.warning(context, t.addToPlaylistDialog.partiallyCompleted(success: totalSuccess, total: totalChanged));
+          ToastService.warning(
+              context,
+              t.addToPlaylistDialog.partiallyCompleted(
+                  success: totalSuccess, total: totalChanged));
         }
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
-        ToastService.error(context, t.addToPlaylistDialog.operationFailed(error: e.toString()));
+        ToastService.error(context,
+            t.addToPlaylistDialog.operationFailed(error: e.toString()));
       }
     } finally {
       if (mounted) {

@@ -13,7 +13,7 @@ import '../../../data/models/track.dart';
 import '../../../providers/download_provider.dart';
 import '../../../providers/download_path_provider.dart';
 import '../../../providers/download/file_exists_cache.dart';
-import '../../../providers/playlist_provider.dart' show playlistListProvider;
+import '../../../providers/library_invalidation_coordinator.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/error_display.dart';
 import '../../widgets/now_playing_indicator.dart';
@@ -745,10 +745,12 @@ class _GroupHeader extends ConsumerWidget {
     ref.invalidate(downloadedCategoriesProvider);
     ref.invalidate(fileExistsCacheProvider);
 
-    final playlistNotifier = ref.read(playlistListProvider.notifier);
-    for (final playlistId in result.affectedPlaylistIds) {
-      playlistNotifier.invalidatePlaylistProviders(playlistId);
-    }
+    ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
+          result.affectedPlaylistIds,
+          tracksChanged: false,
+          coverChanged: true,
+          includeAll: false,
+        );
   }
 }
 

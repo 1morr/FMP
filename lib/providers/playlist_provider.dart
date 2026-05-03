@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:equatable/equatable.dart';
 
+import '../core/logger.dart';
 import '../data/models/playlist.dart';
 import '../data/models/track.dart';
 import '../data/sources/source_provider.dart';
@@ -15,6 +16,7 @@ import 'package:fmp/i18n/strings.g.dart';
 
 import 'database_provider.dart';
 import 'download/file_exists_cache.dart';
+import 'library_invalidation_coordinator.dart';
 import 'repository_providers.dart';
 
 /// PlaylistService Provider
@@ -100,7 +102,11 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
         coverUrl: coverUrl,
       );
       // watch 自动更新列表
-      _ref.invalidate(allPlaylistsProvider);
+      _ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
+        [playlist.id],
+        tracksChanged: false,
+        coverChanged: false,
+      );
       return playlist;
     } catch (e) {
       state = state.copyWith(error: e.toString());
@@ -130,8 +136,11 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
         useAuthForRefresh: useAuthForRefresh,
       );
       // watch 自动更新列表
-      _ref.invalidate(allPlaylistsProvider);
-      invalidatePlaylistProviders(playlistId);
+      _ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
+            playlistId,
+            tracksChanged: false,
+            coverChanged: true,
+          );
       _ref.read(fileExistsCacheProvider.notifier).clearAll();
       return result;
     } catch (e) {
@@ -145,7 +154,11 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
     try {
       await _service.deletePlaylist(playlistId);
       // watch 自动更新列表
-      _ref.invalidate(allPlaylistsProvider);
+      _ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
+        [playlistId],
+        tracksChanged: false,
+        coverChanged: false,
+      );
       return true;
     } catch (e) {
       state = state.copyWith(error: e.toString());
@@ -158,7 +171,11 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
     try {
       final playlist = await _service.duplicatePlaylist(playlistId, newName);
       // watch 自动更新列表
-      _ref.invalidate(allPlaylistsProvider);
+      _ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
+        [playlist.id],
+        tracksChanged: false,
+        coverChanged: true,
+      );
       return playlist;
     } catch (e) {
       state = state.copyWith(error: e.toString());
@@ -174,23 +191,6 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
   /// 直接更新歌單順序（用于拖拽排序的即时反馈，不触发 watch）
   void updatePlaylistsOrder(List<Playlist> orderedPlaylists) {
     state = state.copyWith(playlists: orderedPlaylists);
-  }
-
-  /// 刷新指定歌单的相关 Provider。
-  ///
-  /// `playlistDetailProvider` / `playlistCoverProvider` 不是 watch-driven，
-  /// 变更后需要显式刷新。`allPlaylistsProvider` 只有在调用方依赖它的
-  /// Future 快照时才需要一并刷新；watch-driven 的 `playlistListProvider`
-  /// 不需要靠这个方法驱动更新。
-  void invalidatePlaylistProviders(
-    int playlistId, {
-    bool includeAllPlaylists = false,
-  }) {
-    if (includeAllPlaylists) {
-      _ref.invalidate(allPlaylistsProvider);
-    }
-    _ref.invalidate(playlistDetailProvider(playlistId));
-    _ref.invalidate(playlistCoverProvider(playlistId));
   }
 
   @override
@@ -406,8 +406,13 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
           hasMore: result.hasMore,
         );
       }
-    } catch (_) {
-      // 静默刷新失败不影响 UI
+    } catch (error, stackTrace) {
+      AppLogger.error(
+        'Failed to refresh loaded playlist tracks: $playlistId',
+        error,
+        stackTrace,
+        'PlaylistDetail',
+      );
     }
   }
 
@@ -423,8 +428,11 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
       await _service.addTrackToPlaylist(playlistId, track);
       if (!mounted) return true;
       // 刷新相关 providers（封面可能已更新，歌单列表也需要更新）
-      _ref.invalidate(playlistCoverProvider(playlistId));
-      _ref.invalidate(allPlaylistsProvider);
+      _ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
+            playlistId,
+            tracksChanged: false,
+            coverChanged: true,
+          );
       return true;
     } catch (e) {
       if (!mounted) return false;
@@ -448,8 +456,11 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
       await _service.removeTrackFromPlaylist(playlistId, trackId);
       if (!mounted) return true;
       // 刷新相关 providers（封面可能已更新，歌单列表也需要更新）
-      _ref.invalidate(playlistCoverProvider(playlistId));
-      _ref.invalidate(allPlaylistsProvider);
+      _ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
+            playlistId,
+            tracksChanged: false,
+            coverChanged: true,
+          );
       return true;
     } catch (e) {
       if (!mounted) return false;
@@ -476,8 +487,11 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
 
       await _service.removeTracksFromPlaylist(playlistId, trackIds);
       if (!mounted) return true;
-      _ref.invalidate(playlistCoverProvider(playlistId));
-      _ref.invalidate(allPlaylistsProvider);
+      _ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
+            playlistId,
+            tracksChanged: false,
+            coverChanged: true,
+          );
       return true;
     } catch (e) {
       if (!mounted) return false;
@@ -501,7 +515,12 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
       await _service.reorderPlaylistTracks(playlistId, oldIndex, newIndex);
       if (!mounted) return true;
       // 刷新封面 provider（第一首歌可能已改变）
-      _ref.invalidate(playlistCoverProvider(playlistId));
+      _ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
+            playlistId,
+            tracksChanged: false,
+            coverChanged: true,
+            includeAll: false,
+          );
       return true;
     } catch (e) {
       if (!mounted) return false;
@@ -541,8 +560,8 @@ final addTrackToPlaylistProvider =
   final service = ref.watch(playlistServiceProvider);
   await service.addTrackToPlaylist(params.playlistId, params.track);
   // 刷新相关的 provider（封面可能已更新）
-  ref.invalidate(allPlaylistsProvider);
-  ref.invalidate(playlistDetailProvider(params.playlistId));
-  ref.invalidate(playlistCoverProvider(params.playlistId));
+  ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
+        params.playlistId,
+      );
   return true;
 });

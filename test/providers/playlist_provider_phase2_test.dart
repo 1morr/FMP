@@ -9,6 +9,7 @@ import 'package:fmp/data/models/playlist.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/providers/database_provider.dart';
+import 'package:fmp/providers/library_invalidation_coordinator.dart';
 import 'package:fmp/providers/playlist_provider.dart';
 import 'package:isar/isar.dart';
 
@@ -37,25 +38,33 @@ void main() {
         final playlist = createdPlaylist!;
 
         await harness.pumpUntil(
-          () => harness.container.read(playlistListProvider).playlists.length == 1,
-          reason: 'playlistListProvider should reflect playlist creation via Isar watch',
+          () =>
+              harness.container.read(playlistListProvider).playlists.length ==
+              1,
+          reason:
+              'playlistListProvider should reflect playlist creation via Isar watch',
         );
 
         final allPlaylistsBeforeAdd = await harness.readAllPlaylists();
         expect(allPlaylistsBeforeAdd.single.trackCount, 0);
 
-        await harness.container.read(playlistServiceProvider).addTracksToPlaylist(
+        await harness.container
+            .read(playlistServiceProvider)
+            .addTracksToPlaylist(
           playlist.id,
           [_buildTrack(sourceId: 'watch-track', title: 'Watch Track')],
         );
 
         await harness.pumpUntil(
-          () => harness.container
-              .read(playlistListProvider)
-              .playlists
-              .single
-              .trackCount == 1,
-          reason: 'playlistListProvider should update without manual invalidation',
+          () =>
+              harness.container
+                  .read(playlistListProvider)
+                  .playlists
+                  .single
+                  .trackCount ==
+              1,
+          reason:
+              'playlistListProvider should update without manual invalidation',
         );
 
         final staleAllPlaylists = await harness.readAllPlaylists();
@@ -65,17 +74,17 @@ void main() {
           reason: 'allPlaylistsProvider is a cached FutureProvider snapshot',
         );
 
-        notifier.invalidatePlaylistProviders(
-          playlist.id,
-          includeAllPlaylists: true,
-        );
+        harness.container
+            .read(libraryInvalidationCoordinatorProvider)
+            .playlistChanged(playlist.id);
 
         final refreshedAllPlaylists = await harness.readAllPlaylists();
         expect(refreshedAllPlaylists.single.trackCount, 1);
       },
     );
 
-    test('playlist detail refreshes only after explicit invalidation', () async {
+    test('playlist detail refreshes only after explicit invalidation',
+        () async {
       final harness = await createPlaylistPhase2Harness();
       addTearDown(harness.dispose);
 
@@ -86,13 +95,15 @@ void main() {
       final playlist = createdPlaylist!;
 
       await harness.pumpUntil(
-        () => harness.container.read(playlistListProvider).playlists.length == 1,
+        () =>
+            harness.container.read(playlistListProvider).playlists.length == 1,
         reason: 'playlistListProvider should expose the created playlist',
       );
 
       await harness.pumpUntil(
         () {
-          final detail = harness.container.read(playlistDetailProvider(playlist.id));
+          final detail =
+              harness.container.read(playlistDetailProvider(playlist.id));
           return !detail.isLoading && detail.playlist != null;
         },
         reason: 'playlistDetailProvider should finish its initial load',
@@ -109,12 +120,15 @@ void main() {
       );
 
       await harness.pumpUntil(
-        () => harness.container
-            .read(playlistListProvider)
-            .playlists
-            .single
-            .trackCount == 1,
-        reason: 'playlist list should update before the detail snapshot is refreshed',
+        () =>
+            harness.container
+                .read(playlistListProvider)
+                .playlists
+                .single
+                .trackCount ==
+            1,
+        reason:
+            'playlist list should update before the detail snapshot is refreshed',
       );
 
       expect(
@@ -123,18 +137,21 @@ void main() {
         reason: 'playlistDetailProvider is not watch-driven',
       );
 
-      notifier.invalidatePlaylistProviders(playlist.id);
+      harness.container
+          .read(libraryInvalidationCoordinatorProvider)
+          .playlistChanged(playlist.id, includeAll: false);
 
       await harness.pumpUntil(
-        () => harness
-            .container
+        () => harness.container
             .read(playlistDetailProvider(playlist.id))
             .tracks
             .any((track) => track.sourceId == 'detail-track'),
-        reason: 'playlistDetailProvider should reload after explicit invalidation',
+        reason:
+            'playlistDetailProvider should reload after explicit invalidation',
       );
 
-      final detail = harness.container.read(playlistDetailProvider(playlist.id));
+      final detail =
+          harness.container.read(playlistDetailProvider(playlist.id));
       expect(detail.playlist?.id, playlist.id);
       expect(detail.tracks.map((track) => track.sourceId), ['detail-track']);
     });
@@ -223,8 +240,8 @@ Future<String> _resolveIsarLibraryPath() async {
   final packageConfigFile = File(
     '${Directory.current.path}/.dart_tool/package_config.json',
   );
-  final packageConfig =
-      jsonDecode(await packageConfigFile.readAsString()) as Map<String, dynamic>;
+  final packageConfig = jsonDecode(await packageConfigFile.readAsString())
+      as Map<String, dynamic>;
   final packages = packageConfig['packages'] as List<dynamic>;
   final packageConfigDir = Directory('${Directory.current.path}/.dart_tool');
 
