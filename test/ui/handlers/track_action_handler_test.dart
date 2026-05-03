@@ -4,7 +4,8 @@ import 'package:fmp/ui/handlers/track_action_handler.dart';
 
 void main() {
   group('TrackActionHandler', () {
-    test('playNext delegates to audio controller and reports success', () async {
+    test('playNext delegates to audio controller and reports success',
+        () async {
       final audio = FakeTrackActionAudioController()..addNextResult = true;
       final sink = FakeTrackActionFeedbackSink();
       final handler = TrackActionHandler(
@@ -58,6 +59,94 @@ void main() {
       expect(TrackAction.addToPlaylist.menuId, addToPlaylistTrackActionId);
       expect(TrackAction.matchLyrics.menuId, matchLyricsTrackActionId);
       expect(TrackAction.addToRemote.menuId, addToRemoteTrackActionId);
+    });
+
+    test('multi addToQueue delegates each selected track and reports count',
+        () async {
+      final audio = FakeTrackActionAudioController()..addToQueueResult = true;
+      final sink = FakeMultiTrackActionFeedbackSink();
+      final handler = MultiTrackActionHandler(
+        audioController: audio,
+        feedbackSink: sink,
+      );
+      final tracks = [
+        buildTrack(sourceId: 'track-1', title: 'Track 1'),
+        buildTrack(sourceId: 'track-2', title: 'Track 2'),
+      ];
+
+      await handler.handle(
+        TrackAction.addToQueue,
+        tracks: tracks,
+        isLoggedIn: (_) => true,
+        onAddToPlaylist: () async {},
+        onAddToRemote: (_) async {},
+      );
+
+      expect(audio.addToQueueCalls.map((track) => track.sourceId), [
+        'track-1',
+        'track-2',
+      ]);
+      expect(sink.addedToQueueCounts, [2]);
+    });
+
+    test('multi playNext adds tracks in reverse to preserve visible order',
+        () async {
+      final audio = FakeTrackActionAudioController()..addNextResult = true;
+      final sink = FakeMultiTrackActionFeedbackSink();
+      final handler = MultiTrackActionHandler(
+        audioController: audio,
+        feedbackSink: sink,
+      );
+      final tracks = [
+        buildTrack(sourceId: 'track-1', title: 'Track 1'),
+        buildTrack(sourceId: 'track-2', title: 'Track 2'),
+      ];
+
+      await handler.handle(
+        TrackAction.playNext,
+        tracks: tracks,
+        isLoggedIn: (_) => true,
+        onAddToPlaylist: () async {},
+        onAddToRemote: (_) async {},
+      );
+
+      expect(audio.addNextCalls.map((track) => track.sourceId), [
+        'track-2',
+        'track-1',
+      ]);
+      expect(sink.addedToNextCounts, [2]);
+    });
+
+    test(
+        'multi addToRemote filters logged-out platforms and reports skipped platforms',
+        () async {
+      final audio = FakeTrackActionAudioController();
+      final sink = FakeMultiTrackActionFeedbackSink();
+      final handler = MultiTrackActionHandler(
+        audioController: audio,
+        feedbackSink: sink,
+      );
+      final bilibiliTrack = buildTrack(sourceId: 'track-1', title: 'Track 1')
+        ..sourceType = SourceType.bilibili;
+      final youtubeTrack = buildTrack(sourceId: 'track-2', title: 'Track 2')
+        ..sourceType = SourceType.youtube;
+      var remoteTracks = <Track>[];
+
+      await handler.handle(
+        TrackAction.addToRemote,
+        tracks: [bilibiliTrack, youtubeTrack],
+        isLoggedIn: (sourceType) => sourceType == SourceType.bilibili,
+        onAddToPlaylist: () async {},
+        onAddToRemote: (tracks) async {
+          remoteTracks = tracks;
+        },
+      );
+
+      expect(remoteTracks, [bilibiliTrack]);
+      expect(
+        sink.skippedPlatformMessages.single,
+        contains(SourceType.youtube.displayName),
+      );
     });
   });
 }
@@ -114,5 +203,32 @@ class FakeTrackActionFeedbackSink implements TrackActionFeedbackSink {
   @override
   void showPleaseLogin() {
     loginPrompts++;
+  }
+}
+
+class FakeMultiTrackActionFeedbackSink implements MultiTrackActionFeedbackSink {
+  final List<int> addedToNextCounts = [];
+  final List<int> addedToQueueCounts = [];
+  final List<String> skippedPlatformMessages = [];
+  int loginPrompts = 0;
+
+  @override
+  void showAddedToNext(int count) {
+    addedToNextCounts.add(count);
+  }
+
+  @override
+  void showAddedToQueue(int count) {
+    addedToQueueCounts.add(count);
+  }
+
+  @override
+  void showPleaseLogin() {
+    loginPrompts++;
+  }
+
+  @override
+  void showSkippedNotLoggedIn(Set<String> platforms) {
+    skippedPlatformMessages.add(platforms.join('、'));
   }
 }

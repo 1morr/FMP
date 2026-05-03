@@ -82,7 +82,8 @@ class AudioControllerTrackActionAdapter implements TrackActionAudioController {
   Future<bool> addToQueue(Track track) => _audioController.addToQueue(track);
 
   @override
-  Future<void> playTemporary(Track track) => _audioController.playTemporary(track);
+  Future<void> playTemporary(Track track) =>
+      _audioController.playTemporary(track);
 }
 
 abstract class TrackActionFeedbackSink {
@@ -110,6 +111,109 @@ class CallbackTrackActionFeedbackSink implements TrackActionFeedbackSink {
 
   @override
   void showPleaseLogin() => onPleaseLogin();
+}
+
+abstract class MultiTrackActionFeedbackSink {
+  void showAddedToNext(int count);
+  void showAddedToQueue(int count);
+  void showPleaseLogin();
+  void showSkippedNotLoggedIn(Set<String> platforms);
+}
+
+class CallbackMultiTrackActionFeedbackSink
+    implements MultiTrackActionFeedbackSink {
+  CallbackMultiTrackActionFeedbackSink({
+    required this.onAddedToNext,
+    required this.onAddedToQueue,
+    required this.onPleaseLogin,
+    required this.onSkippedNotLoggedIn,
+  });
+
+  final void Function(int count) onAddedToNext;
+  final void Function(int count) onAddedToQueue;
+  final void Function() onPleaseLogin;
+  final void Function(Set<String> platforms) onSkippedNotLoggedIn;
+
+  @override
+  void showAddedToNext(int count) => onAddedToNext(count);
+
+  @override
+  void showAddedToQueue(int count) => onAddedToQueue(count);
+
+  @override
+  void showPleaseLogin() => onPleaseLogin();
+
+  @override
+  void showSkippedNotLoggedIn(Set<String> platforms) {
+    onSkippedNotLoggedIn(platforms);
+  }
+}
+
+class MultiTrackActionHandler {
+  MultiTrackActionHandler({
+    required TrackActionAudioController audioController,
+    required MultiTrackActionFeedbackSink feedbackSink,
+  })  : _audioController = audioController,
+        _feedbackSink = feedbackSink;
+
+  final TrackActionAudioController _audioController;
+  final MultiTrackActionFeedbackSink _feedbackSink;
+
+  Future<void> handle(
+    TrackAction action, {
+    required List<Track> tracks,
+    required bool Function(SourceType sourceType) isLoggedIn,
+    required Future<void> Function() onAddToPlaylist,
+    required Future<void> Function(List<Track> tracks) onAddToRemote,
+  }) async {
+    switch (action) {
+      case TrackAction.play:
+      case TrackAction.matchLyrics:
+        throw ArgumentError('Unsupported multi-track action: $action');
+      case TrackAction.playNext:
+        var addedCount = 0;
+        for (final track in tracks.reversed) {
+          final added = await _audioController.addNext(track);
+          if (added) {
+            addedCount++;
+          }
+        }
+        _feedbackSink.showAddedToNext(addedCount);
+        return;
+      case TrackAction.addToQueue:
+        var addedCount = 0;
+        for (final track in tracks) {
+          final added = await _audioController.addToQueue(track);
+          if (added) {
+            addedCount++;
+          }
+        }
+        _feedbackSink.showAddedToQueue(addedCount);
+        return;
+      case TrackAction.addToPlaylist:
+        await onAddToPlaylist();
+        return;
+      case TrackAction.addToRemote:
+        final remoteTracks = tracks.where((track) {
+          return isLoggedIn(track.sourceType);
+        }).toList();
+        if (remoteTracks.isEmpty) {
+          _feedbackSink.showPleaseLogin();
+          return;
+        }
+
+        final skippedPlatforms = tracks
+            .where((track) => !isLoggedIn(track.sourceType))
+            .map((track) => track.sourceType.displayName)
+            .toSet();
+        if (skippedPlatforms.isNotEmpty) {
+          _feedbackSink.showSkippedNotLoggedIn(skippedPlatforms);
+        }
+
+        await onAddToRemote(remoteTracks);
+        return;
+    }
+  }
 }
 
 class TrackActionHandler {
