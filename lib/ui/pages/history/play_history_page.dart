@@ -32,26 +32,23 @@ Future<bool> handleHistorySharedTrackAction({
     return false;
   }
 
-  switch (parsedAction) {
-    case TrackAction.play:
-      await audioController.playTemporary(track);
-    case TrackAction.playNext:
-      final added = await audioController.addNext(track);
-      if (added) {
-        onAddedToNext();
-      }
-    case TrackAction.addToQueue:
-      final added = await audioController.addToQueue(track);
-      if (added) {
-        onAddedToQueue();
-      }
-    case TrackAction.addToPlaylist:
-      await onAddToPlaylist();
-    case TrackAction.matchLyrics:
-      await onMatchLyrics();
-    case TrackAction.addToRemote:
-      return false;
-  }
+  final handler = TrackActionHandler(
+    audioController: audioController,
+    feedbackSink: CallbackTrackActionFeedbackSink(
+      onAddedToNext: onAddedToNext,
+      onAddedToQueue: onAddedToQueue,
+      onPleaseLogin: () {},
+    ),
+  );
+
+  await handler.handle(
+    parsedAction,
+    track: track,
+    isLoggedIn: false,
+    onAddToPlaylist: onAddToPlaylist,
+    onMatchLyrics: onMatchLyrics,
+    onAddToRemote: () async {},
+  );
 
   return true;
 }
