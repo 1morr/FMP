@@ -692,23 +692,23 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     try {
       final state = ref.read(playlistDetailProvider(widget.playlistId));
       final playlist = state.playlist;
-      final sourceUrl = playlist?.sourceUrl;
-      final sourceType = playlist?.importSourceType;
-      if (sourceUrl == null || sourceType == null || playlist == null) return;
+      if (playlist == null) return;
 
-      final removedFromRemote = await ref
-          .read(remotePlaylistActionsServiceProvider)
-          .removeTracksFromRemote(
-            sourceUrl: sourceUrl,
-            importSourceType: sourceType,
-            tracks: tracks,
-          );
-      if (!removedFromRemote) return;
+      final sourceType = playlist.importSourceType;
+      final remoteTracks = sourceType == null
+          ? tracks
+          : tracks
+              .where((track) => track.sourceType == sourceType)
+              .toList(growable: false);
+      if (remoteTracks.isEmpty) return;
 
-      await ref.read(remotePlaylistRemovalSyncServiceProvider).syncAfterRemoval(
+      final result = await ref
+          .read(remotePlaylistEditControllerProvider)
+          .removeTracksFromImportedPlaylist(
             playlist: playlist,
-            removedTrackIds: tracks.map((track) => track.id).toList(),
+            tracks: remoteTracks,
           );
+      if (!result.changedRemote) return;
 
       notifier.exitSelectionMode();
       if (mounted) {
@@ -1797,23 +1797,15 @@ class _TrackListTile extends ConsumerWidget {
     try {
       final state = ref.read(playlistDetailProvider(playlistId));
       final playlist = state.playlist;
-      final sourceUrl = playlist?.sourceUrl;
-      final sourceType = playlist?.importSourceType;
-      if (sourceUrl == null || sourceType == null || playlist == null) return;
+      if (playlist == null) return;
 
-      final removedFromRemote = await ref
-          .read(remotePlaylistActionsServiceProvider)
-          .removeTrackFromRemote(
-            sourceUrl: sourceUrl,
-            importSourceType: sourceType,
-            track: track,
-          );
-      if (!removedFromRemote) return;
-
-      await ref.read(remotePlaylistRemovalSyncServiceProvider).syncAfterRemoval(
+      final result = await ref
+          .read(remotePlaylistEditControllerProvider)
+          .removeTracksFromImportedPlaylist(
         playlist: playlist,
-        removedTrackIds: [track.id],
+        tracks: [track],
       );
+      if (!result.changedRemote) return;
 
       if (context.mounted) {
         ToastService.success(context, t.remote.removedAndLocal);
