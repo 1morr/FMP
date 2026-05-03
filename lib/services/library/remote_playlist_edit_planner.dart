@@ -9,14 +9,25 @@ class RemotePlaylistEditPlan {
   final List<String> playlistIdsToRemove;
   final Map<String, Set<String>> existingTrackSourceIdsByPlaylist;
 
-  const RemotePlaylistEditPlan({
+  RemotePlaylistEditPlan({
     required this.sourceType,
-    required this.editableTracks,
-    required this.skippedTrackIds,
-    required this.playlistIdsToAdd,
-    required this.playlistIdsToRemove,
-    required this.existingTrackSourceIdsByPlaylist,
-  });
+    required List<Track> editableTracks,
+    required List<int> skippedTrackIds,
+    required List<String> playlistIdsToAdd,
+    required List<String> playlistIdsToRemove,
+    required Map<String, Set<String>> existingTrackSourceIdsByPlaylist,
+  })  : editableTracks = List.unmodifiable(editableTracks),
+        skippedTrackIds = List.unmodifiable(skippedTrackIds),
+        playlistIdsToAdd = List.unmodifiable(playlistIdsToAdd),
+        playlistIdsToRemove = List.unmodifiable(playlistIdsToRemove),
+        existingTrackSourceIdsByPlaylist = Map.unmodifiable(
+          existingTrackSourceIdsByPlaylist.map(
+            (playlistId, sourceIds) => MapEntry(
+              playlistId,
+              Set.unmodifiable(sourceIds),
+            ),
+          ),
+        );
 
   List<String> sourceIdsFor(Iterable<Track> tracks) {
     return tracks.map((track) => track.sourceId).toList(growable: false);
@@ -45,8 +56,9 @@ class RemotePlaylistEditPlanner {
   }) {
     final editable = <Track>[];
     final skipped = <int>[];
+    final sourceLoggedIn = isLoggedIn(sourceType);
     for (final track in tracks) {
-      if (track.sourceType == sourceType && isLoggedIn(track.sourceType)) {
+      if (track.sourceType == sourceType && sourceLoggedIn) {
         editable.add(track);
       } else {
         skipped.add(track.id);
