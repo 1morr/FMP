@@ -7,6 +7,7 @@ import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
 import '../../../data/sources/playlist_import/playlist_import_source.dart';
+import '../../../providers/library_invalidation_coordinator.dart';
 import '../../../providers/playlist_import_provider.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../services/audio/audio_provider.dart';
@@ -292,9 +293,8 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
 
       // playlistListProvider 会通过 Isar watch 自动更新；
       // 但 detail / cover 和 allPlaylistsProvider 快照消费者仍需显式刷新。
-      ref.read(playlistListProvider.notifier).invalidatePlaylistProviders(
+      ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
             playlist.id,
-            includeAllPlaylists: true,
           );
 
       if (mounted) {

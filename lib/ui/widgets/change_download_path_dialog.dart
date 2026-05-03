@@ -6,7 +6,7 @@ import '../../providers/download_path_provider.dart';
 import '../../providers/download/file_exists_cache.dart';
 import '../../providers/download/download_providers.dart'
     show downloadedCategoriesProvider;
-import '../../providers/playlist_provider.dart' show playlistListProvider;
+import '../../providers/library_invalidation_coordinator.dart';
 
 /// 更改下载路径对话框
 ///
@@ -217,10 +217,12 @@ class _ChangeDownloadPathDialogState
       ref.invalidate(downloadedCategoriesProvider);
       ref.invalidate(downloadPathProvider);
 
-      final playlistNotifier = ref.read(playlistListProvider.notifier);
-      for (final playlistId in result.affectedPlaylistIds) {
-        playlistNotifier.invalidatePlaylistProviders(playlistId);
-      }
+      ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
+            result.affectedPlaylistIds,
+            tracksChanged: false,
+            coverChanged: true,
+            includeAll: false,
+          );
 
       if (mounted) {
         final messenger = ScaffoldMessenger.maybeOf(context);

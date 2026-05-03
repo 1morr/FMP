@@ -4,7 +4,8 @@ import '../core/logger.dart';
 import 'download/download_providers.dart' show downloadedCategoriesProvider;
 import 'download/file_exists_cache.dart';
 import 'download_path_provider.dart';
-import 'playlist_provider.dart' show allPlaylistsProvider, playlistListProvider;
+import 'library_invalidation_coordinator.dart';
+import 'playlist_provider.dart' show allPlaylistsProvider;
 
 final startupDownloadSyncProvider = FutureProvider<void>((ref) async {
   try {
@@ -24,11 +25,14 @@ final startupDownloadSyncProvider = FutureProvider<void>((ref) async {
 
     if (added > 0 || removed > 0) {
       ref.invalidate(fileExistsCacheProvider);
-      final playlistNotifier = ref.read(playlistListProvider.notifier);
+      final coordinator = ref.read(libraryInvalidationCoordinatorProvider);
       final playlists = await ref.read(allPlaylistsProvider.future);
-      for (final playlist in playlists) {
-        playlistNotifier.invalidatePlaylistProviders(playlist.id);
-      }
+      coordinator.playlistsChanged(
+        playlists.map((playlist) => playlist.id),
+        tracksChanged: false,
+        coverChanged: true,
+        includeAll: false,
+      );
     }
 
     AppLogger.info(
