@@ -286,11 +286,13 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
       }
       if (result.hasFailures) {
         ToastService.error(context, result.failures.first.error.toString());
-        setState(() {
-          _isSubmitting = false;
-          _submitProgress = null;
-        });
+      } else {
+        ToastService.show(context, t.remote.noChanges);
       }
+      setState(() {
+        _isSubmitting = false;
+        _submitProgress = null;
+      });
     } on NeteasePlaylistException catch (e) {
       if (!mounted) return;
       ToastService.error(context, e.message);
