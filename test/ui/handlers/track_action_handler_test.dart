@@ -50,6 +50,15 @@ void main() {
       expect(remoteCalls, 0);
       expect(sink.loginPrompts, 1);
     });
+
+    test('track actions expose stable menu ids', () {
+      expect(TrackAction.play.menuId, playTrackActionId);
+      expect(TrackAction.playNext.menuId, playNextTrackActionId);
+      expect(TrackAction.addToQueue.menuId, addToQueueTrackActionId);
+      expect(TrackAction.addToPlaylist.menuId, addToPlaylistTrackActionId);
+      expect(TrackAction.matchLyrics.menuId, matchLyricsTrackActionId);
+      expect(TrackAction.addToRemote.menuId, addToRemoteTrackActionId);
+    });
   });
 }
 
