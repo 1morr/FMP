@@ -9,16 +9,21 @@ void main() {
       () async {
         final markedPaths = <String>[];
         final removedProgressTaskIds = <int>[];
-        var categoriesInvalidationCount = 0;
-        final invalidatedCategoryPaths = <String>[];
-        final refreshedPlaylistIds = <int>[];
+        final changedDownloads =
+            <({List<String> savePaths, List<int> playlistIds})>[];
         final shownFailures = <DownloadFailureEvent>[];
         final handler = DownloadEventHandler(
           markFileExisting: markedPaths.add,
           removeProgress: removedProgressTaskIds.add,
-          invalidateCategories: () => categoriesInvalidationCount++,
-          invalidateCategoryTracks: invalidatedCategoryPaths.add,
-          refreshPlaylist: refreshedPlaylistIds.add,
+          downloadStateChanged: ({
+            required savePaths,
+            required affectedPlaylistIds,
+          }) {
+            changedDownloads.add((
+              savePaths: savePaths.toList(),
+              playlistIds: affectedPlaylistIds.toList(),
+            ));
+          },
           showFailure: shownFailures.add,
           debounceDuration: const Duration(milliseconds: 1),
         );
@@ -37,9 +42,11 @@ void main() {
 
         expect(markedPaths, ['/downloads/Playlist A/Video 1/audio.m4a']);
         expect(removedProgressTaskIds, [7]);
-        expect(categoriesInvalidationCount, 1);
-        expect(invalidatedCategoryPaths, ['/downloads/Playlist A']);
-        expect(refreshedPlaylistIds, [11]);
+        expect(changedDownloads, hasLength(1));
+        expect(changedDownloads.single.savePaths, [
+          '/downloads/Playlist A/Video 1/audio.m4a',
+        ]);
+        expect(changedDownloads.single.playlistIds, [11]);
         expect(shownFailures, isEmpty);
       },
     );
@@ -49,16 +56,21 @@ void main() {
       () async {
         final markedPaths = <String>[];
         final removedProgressTaskIds = <int>[];
-        var categoriesInvalidationCount = 0;
-        final invalidatedCategoryPaths = <String>[];
-        final refreshedPlaylistIds = <int>[];
+        final changedDownloads =
+            <({List<String> savePaths, List<int> playlistIds})>[];
         final shownFailures = <DownloadFailureEvent>[];
         final handler = DownloadEventHandler(
           markFileExisting: markedPaths.add,
           removeProgress: removedProgressTaskIds.add,
-          invalidateCategories: () => categoriesInvalidationCount++,
-          invalidateCategoryTracks: invalidatedCategoryPaths.add,
-          refreshPlaylist: refreshedPlaylistIds.add,
+          downloadStateChanged: ({
+            required savePaths,
+            required affectedPlaylistIds,
+          }) {
+            changedDownloads.add((
+              savePaths: savePaths.toList(),
+              playlistIds: affectedPlaylistIds.toList(),
+            ));
+          },
           showFailure: shownFailures.add,
           debounceDuration: const Duration(milliseconds: 1),
         );
@@ -76,9 +88,7 @@ void main() {
         expect(shownFailures, [same(event)]);
         expect(markedPaths, isEmpty);
         expect(removedProgressTaskIds, isEmpty);
-        expect(categoriesInvalidationCount, 0);
-        expect(invalidatedCategoryPaths, isEmpty);
-        expect(refreshedPlaylistIds, isEmpty);
+        expect(changedDownloads, isEmpty);
       },
     );
   });

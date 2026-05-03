@@ -1,11 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/logger.dart';
-import 'download/download_providers.dart' show downloadedCategoriesProvider;
-import 'download/file_exists_cache.dart';
 import 'download_path_provider.dart';
 import 'library_invalidation_coordinator.dart';
-import 'playlist_provider.dart' show allPlaylistsProvider;
 
 final startupDownloadSyncProvider = FutureProvider<void>((ref) async {
   try {
@@ -21,16 +18,9 @@ final startupDownloadSyncProvider = FutureProvider<void>((ref) async {
     final syncService = ref.read(downloadPathSyncServiceProvider);
     final (added, removed) = await syncService.syncLocalFiles();
 
-    ref.invalidate(downloadedCategoriesProvider);
-
-    if (added > 0 || removed > 0) {
-      ref.invalidate(fileExistsCacheProvider);
-      final coordinator = ref.read(libraryInvalidationCoordinatorProvider);
-      final playlists = await ref.read(allPlaylistsProvider.future);
-      for (final playlist in playlists) {
-        coordinator.playlistChanged(playlist.id, includeAll: false);
-      }
-    }
+    final coordinator = ref.read(libraryInvalidationCoordinatorProvider);
+    coordinator.downloadStateChanged(
+        fileExistsChanged: added > 0 || removed > 0);
 
     AppLogger.info(
       'Startup download sync complete: added $added, removed $removed',

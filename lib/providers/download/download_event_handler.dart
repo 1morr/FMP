@@ -1,39 +1,34 @@
 import 'dart:async';
 
-import 'package:path/path.dart' as p;
-
 import '../../services/download/download_service.dart';
 
 class DownloadEventHandler {
   DownloadEventHandler({
     required this.markFileExisting,
     required this.removeProgress,
-    required this.invalidateCategories,
-    required this.invalidateCategoryTracks,
-    required this.refreshPlaylist,
+    required this.downloadStateChanged,
     required this.showFailure,
     required this.debounceDuration,
   });
 
   final void Function(String path) markFileExisting;
   final void Function(int taskId) removeProgress;
-  final void Function() invalidateCategories;
-  final void Function(String categoryPath) invalidateCategoryTracks;
-  final void Function(int playlistId) refreshPlaylist;
+  final void Function({
+    required Iterable<String> savePaths,
+    required Iterable<int> affectedPlaylistIds,
+  }) downloadStateChanged;
   final void Function(DownloadFailureEvent event) showFailure;
   final Duration debounceDuration;
 
   final Set<int> _pendingPlaylistIds = <int>{};
-  final Set<String> _pendingCategoryPaths = <String>{};
-  bool _categoriesNeedRefresh = false;
+  final List<String> _pendingSavePaths = <String>[];
   Timer? _debounceTimer;
 
   void handleCompletion(DownloadCompletionEvent event) {
     markFileExisting(event.savePath);
     removeProgress(event.taskId);
 
-    _categoriesNeedRefresh = true;
-    _pendingCategoryPaths.add(p.dirname(p.dirname(event.savePath)));
+    _pendingSavePaths.add(event.savePath);
     final playlistId = event.playlistId;
     if (playlistId != null) {
       _pendingPlaylistIds.add(playlistId);
@@ -50,19 +45,13 @@ class DownloadEventHandler {
   }
 
   void flushInvalidations() {
-    if (_categoriesNeedRefresh) {
-      invalidateCategories();
-      _categoriesNeedRefresh = false;
-    }
+    if (_pendingSavePaths.isEmpty && _pendingPlaylistIds.isEmpty) return;
 
-    for (final categoryPath in _pendingCategoryPaths) {
-      invalidateCategoryTracks(categoryPath);
-    }
-    _pendingCategoryPaths.clear();
-
-    for (final playlistId in _pendingPlaylistIds) {
-      refreshPlaylist(playlistId);
-    }
+    downloadStateChanged(
+      savePaths: List.unmodifiable(_pendingSavePaths),
+      affectedPlaylistIds: List.unmodifiable(_pendingPlaylistIds),
+    );
+    _pendingSavePaths.clear();
     _pendingPlaylistIds.clear();
   }
 

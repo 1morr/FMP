@@ -3,9 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import '../../core/constants/ui_constants.dart';
 import '../../providers/download_path_provider.dart';
-import '../../providers/download/file_exists_cache.dart';
-import '../../providers/download/download_providers.dart'
-    show downloadedCategoriesProvider;
 import '../../providers/library_invalidation_coordinator.dart';
 
 /// 更改下载路径对话框
@@ -213,14 +210,11 @@ class _ChangeDownloadPathDialogState
         newPath,
       );
 
-      ref.invalidate(fileExistsCacheProvider);
-      ref.invalidate(downloadedCategoriesProvider);
       ref.invalidate(downloadPathProvider);
 
-      final coordinator = ref.read(libraryInvalidationCoordinatorProvider);
-      for (final playlistId in result.affectedPlaylistIds) {
-        coordinator.playlistChanged(playlistId, includeAll: false);
-      }
+      ref.read(libraryInvalidationCoordinatorProvider).downloadStateChanged(
+            affectedPlaylistIds: result.affectedPlaylistIds,
+          );
 
       if (mounted) {
         final messenger = ScaffoldMessenger.maybeOf(context);
