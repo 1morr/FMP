@@ -24,10 +24,10 @@ import '../../../providers/playback_settings_provider.dart';
 import '../../../providers/refresh_settings_provider.dart';
 import '../../../providers/desktop_settings_provider.dart';
 import '../../../providers/hotkey_config_provider.dart';
+import '../../../providers/library_invalidation_coordinator.dart';
 import '../../../providers/download_path_provider.dart';
 import '../../../providers/update_provider.dart';
 import '../../../providers/backup_provider.dart';
-import '../../../providers/playlist_provider.dart';
 import '../../../services/backup/backup_service.dart';
 import '../../../services/backup/backup_data.dart';
 import '../../router.dart';
@@ -2155,7 +2155,11 @@ class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
 
       // 按勾选分类刷新对应的 Provider
       if (_importPlaylists) {
-        ref.invalidate(allPlaylistsProvider);
+        ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
+          const [],
+          tracksChanged: false,
+          coverChanged: false,
+        );
       }
 
       if (_importSettings && result.settingsImported) {

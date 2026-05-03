@@ -11,7 +11,7 @@ import '../../../../services/library/remote_playlist_id_parser.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../../../providers/account_provider.dart';
 import '../../../../providers/import_playlist_provider.dart';
-import '../../../../providers/playlist_provider.dart';
+import '../../../../providers/library_invalidation_coordinator.dart';
 import '../../../../providers/repository_providers.dart';
 import '../../../../services/import/import_service.dart';
 
@@ -231,6 +231,7 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
     });
 
     int successCount = 0;
+    final importedPlaylistIds = <int>[];
     String? importError;
 
     for (final item in selected) {
@@ -270,6 +271,7 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
         );
         if (result != null) {
           successCount++;
+          importedPlaylistIds.add(result.playlist.id);
         }
       } catch (e) {
         if (_isCancelled) break;
@@ -283,7 +285,11 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
     }
 
     if (!mounted) return;
-    ref.invalidate(allPlaylistsProvider);
+    ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
+          importedPlaylistIds,
+          tracksChanged: false,
+          coverChanged: false,
+        );
 
     if (importError != null) {
       setState(() {

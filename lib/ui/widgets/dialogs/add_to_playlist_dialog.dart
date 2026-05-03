@@ -487,8 +487,12 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
             .createPlaylist(name: result);
 
         if (playlist != null && mounted) {
-          // 刷新歌单列表以显示新创建的歌单（两个 provider 都要刷新）
-          ref.invalidate(allPlaylistsProvider);
+          // 刷新歌单列表以显示新创建的歌单
+          ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
+            [playlist.id],
+            tracksChanged: false,
+            coverChanged: false,
+          );
           // playlistListProvider 已在 createPlaylist 中自动刷新
           // 自动选中新创建的歌单
           setState(() {
@@ -586,8 +590,11 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
         }
       }
 
-      // 刷新歌单列表
-      ref.invalidate(allPlaylistsProvider);
+      // 刷新变更歌单的快照 provider
+      ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged([
+        ...toAdd,
+        ...toRemove,
+      ]);
       // watch 自动更新歌单列表，无需手动刷新
 
       if (mounted) {

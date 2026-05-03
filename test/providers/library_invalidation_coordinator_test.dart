@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/providers/library_invalidation_coordinator.dart';
@@ -88,7 +90,56 @@ void main() {
 
       expect(container.exists(playlistDetailProvider(12)), isFalse);
     });
+
+    test('Task 5 UI mutation sites use the library invalidation coordinator', () {
+      final sources = _task5SourceFiles();
+
+      for (final entry in sources.entries) {
+        final source = entry.value;
+        expect(
+          source,
+          contains('libraryInvalidationCoordinatorProvider'),
+          reason: '${entry.key} should route UI mutation refreshes through the coordinator',
+        );
+        expect(
+          source,
+          isNot(contains('ref.invalidate(allPlaylistsProvider)')),
+          reason: '${entry.key} should not directly invalidate allPlaylistsProvider',
+        );
+        expect(
+          source,
+          isNot(contains('ref.invalidate(playlistDetailProvider')),
+          reason: '${entry.key} should not directly invalidate playlistDetailProvider',
+        );
+        expect(
+          source,
+          isNot(contains('ref.invalidate(playlistCoverProvider')),
+          reason: '${entry.key} should not directly invalidate playlistCoverProvider',
+        );
+        expect(
+          source,
+          isNot(contains('invalidatePlaylistProviders')),
+          reason: '${entry.key} should not use legacy playlist invalidation helpers',
+        );
+      }
+    });
   });
+}
+
+Map<String, String> _task5SourceFiles() {
+  const paths = [
+    'lib/ui/pages/library/widgets/import_playlist_dialog.dart',
+    'lib/ui/widgets/dialogs/add_to_playlist_dialog.dart',
+    'lib/ui/pages/library/import_preview_page.dart',
+    'lib/ui/pages/library/playlist_detail_page.dart',
+    'lib/ui/pages/settings/widgets/account_playlists_sheet.dart',
+    'lib/ui/pages/settings/settings_page.dart',
+  ];
+
+  return {
+    for (final path in paths)
+      path: File('${Directory.current.path}/$path').readAsStringSync(),
+  };
 }
 
 class _InvalidationRecorder {
