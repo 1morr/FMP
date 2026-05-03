@@ -287,12 +287,15 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     if (_initialLoadDelay > Duration.zero) {
       await Future<void>.delayed(_initialLoadDelay);
     }
+    if (!mounted) return;
 
     // 載入電台列表
     await _loadStations();
+    if (!mounted) return;
 
     // 監聽電台列表變化
     _stationsSubscription = _repository.watchAll().listen((stations) {
+      if (!mounted) return;
       logInfo('watchAll 觸發: ${stations.length} 個電台');
       state = state.copyWith(stations: stations);
     });
@@ -407,6 +410,7 @@ class RadioController extends StateNotifier<RadioState> with Logging {
   /// 載入電台列表
   Future<void> _loadStations() async {
     final stations = await _repository.getAll();
+    if (!mounted) return;
     logInfo('載入 ${stations.length} 個電台');
     state = state.copyWith(stations: stations);
   }

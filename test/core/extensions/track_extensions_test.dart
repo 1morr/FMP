@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/core/extensions/track_extensions.dart';
 import 'package:fmp/providers/download/file_exists_cache.dart';
+import 'package:path/path.dart' as p;
 
 /// Test helper: FileExistsCache with pre-populated state
 class TestFileExistsCache extends FileExistsCache {
@@ -57,9 +58,9 @@ void main() {
           ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = '/some/path/audio.m4a'];
 
         final cache = TestFileExistsCache({
-          '/some/path/cover.jpg',
+          p.join('/some/path', 'cover.jpg'),
         });
-        expect(track.getLocalCoverPath(cache), equals('/some/path/cover.jpg'));
+        expect(track.getLocalCoverPath(cache), equals(p.join('/some/path', 'cover.jpg')));
       });
 
       test('returns first existing cover path from multiple download paths', () {
@@ -74,9 +75,9 @@ void main() {
 
         // Only /path2/cover.jpg exists
         final cache = TestFileExistsCache({
-          '/path2/cover.jpg',
+          p.join('/path2', 'cover.jpg'),
         });
-        expect(track.getLocalCoverPath(cache), equals('/path2/cover.jpg'));
+        expect(track.getLocalCoverPath(cache), equals(p.join('/path2', 'cover.jpg')));
       });
     });
 
@@ -135,11 +136,11 @@ void main() {
           ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = '/downloads/video/audio.m4a'];
 
         final cache = TestFileExistsCache({
-          '/downloads/video/avatar.jpg',
+          p.join('/downloads/video', 'avatar.jpg'),
         });
         expect(
           track.getLocalAvatarPath(cache, baseDir: '/downloads'),
-          equals('/downloads/video/avatar.jpg'),
+          equals(p.join('/downloads/video', 'avatar.jpg')),
         );
       });
 
@@ -152,11 +153,11 @@ void main() {
           ..playlistInfo = [PlaylistDownloadInfo()..playlistId = 0..downloadPath = '/downloads/video/audio.m4a'];
 
         final cache = TestFileExistsCache({
-          '/downloads/video/avatar.jpg',
+          p.join('/downloads/video', 'avatar.jpg'),
         });
         expect(
           track.getLocalAvatarPath(cache, baseDir: '/downloads'),
-          equals('/downloads/video/avatar.jpg'),
+          equals(p.join('/downloads/video', 'avatar.jpg')),
         );
       });
     });
