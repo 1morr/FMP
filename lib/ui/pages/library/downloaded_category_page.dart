@@ -12,7 +12,6 @@ import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/download_provider.dart';
 import '../../../providers/download_path_provider.dart';
-import '../../../providers/download/file_exists_cache.dart';
 import '../../../providers/library_invalidation_coordinator.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../widgets/error_display.dart';
@@ -741,14 +740,10 @@ class _GroupHeader extends ConsumerWidget {
     final result =
         await maintenanceService.deleteDownloadedTracks(group.tracks);
 
-    ref.invalidate(downloadedCategoryTracksProvider(folderPath));
-    ref.invalidate(downloadedCategoriesProvider);
-    ref.invalidate(fileExistsCacheProvider);
-
-    final coordinator = ref.read(libraryInvalidationCoordinatorProvider);
-    for (final playlistId in result.affectedPlaylistIds) {
-      coordinator.playlistChanged(playlistId, includeAll: false);
-    }
+    ref.read(libraryInvalidationCoordinatorProvider).downloadStateChanged(
+      categoryPaths: [folderPath],
+      affectedPlaylistIds: result.affectedPlaylistIds,
+    );
   }
 }
 
@@ -1014,8 +1009,11 @@ class _DownloadedTrackTile extends ConsumerWidget {
     // 清除数据库中的下载路径（必须在主线程）
     await trackRepo.clearDownloadPath(track.id);
 
-    // 刷新列表
-    ref.invalidate(downloadedCategoryTracksProvider(folderPath));
-    ref.invalidate(downloadedCategoriesProvider);
+    // Refresh scanned category providers. FileExistsCache is unchanged here
+    // because this flow only clears database download paths.
+    ref.read(libraryInvalidationCoordinatorProvider).downloadStateChanged(
+      categoryPaths: [folderPath],
+      fileExistsChanged: false,
+    );
   }
 }

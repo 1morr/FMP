@@ -8,9 +8,7 @@ import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/download_provider.dart';
 import '../../../providers/download_path_provider.dart';
-import '../../../providers/download/file_exists_cache.dart';
 import '../../../providers/library_invalidation_coordinator.dart';
-import '../../../providers/playlist_provider.dart' show allPlaylistsProvider;
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/download/download_path_sync_service.dart';
 import '../../../i18n/strings.g.dart';
@@ -42,18 +40,9 @@ class _DownloadedPageState extends ConsumerState<DownloadedPage> {
 
     if (result != null && mounted) {
       final (added, removed) = result;
-      // 刷新分类列表
-      ref.invalidate(downloadedCategoriesProvider);
-
-      if (added > 0 || removed > 0) {
-        // 刷新文件存在性缓存
-        ref.invalidate(fileExistsCacheProvider);
-        final coordinator = ref.read(libraryInvalidationCoordinatorProvider);
-        final playlists = await ref.read(allPlaylistsProvider.future);
-        for (final playlist in playlists) {
-          coordinator.playlistChanged(playlist.id, includeAll: false);
-        }
-      }
+      ref.read(libraryInvalidationCoordinatorProvider).downloadStateChanged(
+            fileExistsChanged: added > 0 || removed > 0,
+          );
 
       if (!mounted) return;
 
@@ -460,13 +449,10 @@ class _CategoryCard extends ConsumerWidget {
         category.folderPath,
       );
 
-      ref.invalidate(downloadedCategoriesProvider);
-      ref.invalidate(fileExistsCacheProvider);
-
-      final coordinator = ref.read(libraryInvalidationCoordinatorProvider);
-      for (final playlistId in result.affectedPlaylistIds) {
-        coordinator.playlistChanged(playlistId, includeAll: false);
-      }
+      ref.read(libraryInvalidationCoordinatorProvider).downloadStateChanged(
+        categoryPaths: [category.folderPath],
+        affectedPlaylistIds: result.affectedPlaylistIds,
+      );
 
       if (context.mounted) {
         ToastService.success(

@@ -16,7 +16,7 @@ import '../repository_providers.dart';
 import 'download_event_handler.dart';
 import 'download_scanner.dart';
 import 'file_exists_cache.dart';
-import '../playlist_provider.dart' show playlistDetailProvider;
+import '../library_invalidation_coordinator.dart';
 import '../../core/services/toast_service.dart';
 import '../../i18n/strings.g.dart';
 
@@ -58,14 +58,14 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
   final eventHandler = DownloadEventHandler(
     markFileExisting: ref.read(fileExistsCacheProvider.notifier).markAsExisting,
     removeProgress: progressState.remove,
-    invalidateCategories: () => ref.invalidate(downloadedCategoriesProvider),
-    invalidateCategoryTracks: (categoryPath) {
-      ref.invalidate(downloadedCategoryTracksProvider(categoryPath));
-    },
-    refreshPlaylist: (playlistId) {
-      // 使用静默刷新而不是 invalidate，避免页面闪烁
-      final notifier = ref.read(playlistDetailProvider(playlistId).notifier);
-      notifier.refreshTracks();
+    downloadStateChanged: ({
+      required savePaths,
+      required affectedPlaylistIds,
+    }) {
+      ref.read(libraryInvalidationCoordinatorProvider).downloadStateChanged(
+            savePaths: savePaths,
+            affectedPlaylistIds: affectedPlaylistIds,
+          );
     },
     showFailure: (event) {
       ref.read(toastServiceProvider).showError(
