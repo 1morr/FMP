@@ -2,15 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/ui_constants.dart';
-import '../../../core/logger.dart';
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/account_provider.dart';
-import '../../../providers/playlist_provider.dart';
 import '../../../providers/remote_playlist_sync_provider.dart';
-import '../../../providers/repository_providers.dart';
 import '../../../services/account/bilibili_favorites_service.dart';
 import '../../../services/library/remote_playlist_selection_changes.dart';
 import '../track_thumbnail.dart';
@@ -270,34 +267,43 @@ class _BilibiliRemoteFavSheetState
       return;
     }
 
-    setState(() => _isSubmitting = true);
-    try {
-      final favService = ref.read(bilibiliFavoritesServiceProvider);
-
-      for (var i = 0; i < _tracks.length; i++) {
-        if (!mounted) return;
-        final track = _tracks[i];
-        if (_isMulti) {
-          setState(() => _submitProgress = '${i + 1}/${_tracks.length}');
-        }
-        final aid = await favService.getVideoAid(track);
-        final foldersToAdd = toAdd
-            .where((folderId) => !(_existingTrackIdsByFolder[folderId]
-                    ?.contains(track.sourceId) ??
-                false))
-            .toList();
-        await favService.updateVideoFavorites(
-          videoAid: aid,
-          addFolderIds: foldersToAdd,
-          removeFolderIds: toRemove,
-        );
+    setState(() {
+      _isSubmitting = true;
+      if (_isMulti) {
+        _submitProgress = '${_tracks.length}/${_tracks.length}';
       }
-
-      await _syncLocalPlaylists(toAdd, toRemove);
+    });
+    try {
+      final result = await ref
+          .read(remotePlaylistEditControllerProvider)
+          .submitSelectionEdit(
+            sourceType: SourceType.bilibili,
+            tracks: _tracks,
+            selectedPlaylistIds:
+                _selectedIds.map((id) => id.toString()).toSet(),
+            originalPlaylistIds:
+                _originalIds.map((id) => id.toString()).toSet(),
+            deselectedPartialPlaylistIds:
+                _deselectedPartialIds.map((id) => id.toString()).toSet(),
+            existingTrackSourceIdsByPlaylist:
+                _existingTrackIdsByFolder.map((folderId, trackIds) {
+              return MapEntry(folderId.toString(), trackIds);
+            }),
+          );
 
       if (!mounted) return;
-      ToastService.success(context, t.remote.updated);
-      Navigator.pop(context, true);
+      if (result.changedRemote) {
+        ToastService.success(context, t.remote.updated);
+        Navigator.pop(context, true);
+        return;
+      }
+      if (result.hasFailures) {
+        ToastService.error(context, result.failures.first.error.toString());
+        setState(() {
+          _isSubmitting = false;
+          _submitProgress = null;
+        });
+      }
     } on BilibiliFavoritesException catch (e) {
       if (!mounted) return;
       ToastService.error(context, e.message);
@@ -313,58 +319,6 @@ class _BilibiliRemoteFavSheetState
         _submitProgress = null;
       });
     }
-  }
-
-  Future<void> _syncLocalPlaylists(List<int> toAdd, List<int> toRemove) async {
-    final changedFolderIds = {...toAdd, ...toRemove};
-    final syncService = ref.read(remotePlaylistSyncServiceProvider);
-    final matchingPlaylists = await syncService.findMatchingImportedPlaylists(
-      sourceType: SourceType.bilibili,
-      remotePlaylistIds: changedFolderIds.map((id) => id.toString()),
-    );
-
-    AppLogger.info(
-      'Syncing local playlists: toAdd=$toAdd, toRemove=$toRemove, '
-          'tracks=${_tracks.length}, matched playlists=${matchingPlaylists.length}',
-      'RemoteFav',
-    );
-
-    if (toRemove.isNotEmpty) {
-      final sourceIds = _tracks.map((track) => track.sourceId).toList();
-      final trackRepo = ref.read(trackRepositoryProvider);
-      final localTracks = await trackRepo.getBySourceIds(sourceIds);
-      final playlistSvc = ref.read(playlistServiceProvider);
-
-      for (final playlist in matchingPlaylists) {
-        try {
-          final matchingIds = localTracks
-              .where(
-                (track) =>
-                    track.sourceType == SourceType.bilibili &&
-                    track.belongsToPlaylist(playlist.id),
-              )
-              .map((track) => track.id)
-              .toList();
-          if (matchingIds.isEmpty) continue;
-          await playlistSvc.removeTracksFromPlaylist(playlist.id, matchingIds);
-          AppLogger.info(
-            'Removed ${matchingIds.length} tracks from local playlist',
-            'RemoteFav',
-          );
-        } catch (e) {
-          AppLogger.error(
-            'Failed to remove from local playlist: $e',
-            'RemoteFav',
-          );
-        }
-      }
-    }
-
-    await syncService.refreshMatchingImportedPlaylists(
-      sourceType: SourceType.bilibili,
-      remotePlaylistIds: changedFolderIds.map((id) => id.toString()),
-      playlists: matchingPlaylists,
-    );
   }
 
   @override

@@ -259,48 +259,38 @@ class _NeteasePlaylistSheetState extends ConsumerState<_NeteasePlaylistSheet> {
       return;
     }
 
-    setState(() => _isSubmitting = true);
+    setState(() {
+      _isSubmitting = true;
+      if (toAdd.length + toRemove.length > 1) {
+        final total = toAdd.length + toRemove.length;
+        _submitProgress = '$total/$total';
+      }
+    });
     try {
-      final service = ref.read(neteasePlaylistServiceProvider);
-      final trackIds = _tracks.map((track) => track.sourceId).toList();
-
-      for (var i = 0; i < toAdd.length; i++) {
-        if (!mounted) return;
-        if (toAdd.length > 1) {
-          setState(() => _submitProgress = '${i + 1}/${toAdd.length}');
-        }
-        final playlistId = toAdd[i];
-        final missingTrackIds = missingRemoteTrackIds<String>(
-          allTrackIds: trackIds,
-          existingTrackIds:
-              _existingTrackIdsByPlaylist[playlistId] ?? const <String>{},
-        );
-        await service.addTracksToPlaylist(playlistId, missingTrackIds);
-      }
-
-      for (var i = 0; i < toRemove.length; i++) {
-        if (!mounted) return;
-        if (toRemove.length > 1 || toAdd.isNotEmpty) {
-          setState(() => _submitProgress =
-              '${toAdd.length + i + 1}/${toAdd.length + toRemove.length}');
-        }
-        await service.removeTracksFromPlaylist(toRemove[i], trackIds);
-      }
-
-      try {
-        await ref
-            .read(remotePlaylistSyncServiceProvider)
-            .refreshMatchingImportedPlaylists(
-          sourceType: SourceType.netease,
-          remotePlaylistIds: [...toAdd, ...toRemove],
-        );
-      } catch (_) {
-        // Local refresh trigger is best-effort; remote playlist update already succeeded.
-      }
+      final result = await ref
+          .read(remotePlaylistEditControllerProvider)
+          .submitSelectionEdit(
+            sourceType: SourceType.netease,
+            tracks: _tracks,
+            selectedPlaylistIds: _selectedIds,
+            originalPlaylistIds: _originalIds,
+            deselectedPartialPlaylistIds: _deselectedPartialIds,
+            existingTrackSourceIdsByPlaylist: _existingTrackIdsByPlaylist,
+          );
 
       if (!mounted) return;
-      ToastService.success(context, t.remote.updated);
-      Navigator.pop(context, true);
+      if (result.changedRemote) {
+        ToastService.success(context, t.remote.updated);
+        Navigator.pop(context, true);
+        return;
+      }
+      if (result.hasFailures) {
+        ToastService.error(context, result.failures.first.error.toString());
+        setState(() {
+          _isSubmitting = false;
+          _submitProgress = null;
+        });
+      }
     } on NeteasePlaylistException catch (e) {
       if (!mounted) return;
       ToastService.error(context, e.message);
