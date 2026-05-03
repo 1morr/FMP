@@ -36,14 +36,18 @@ class RemotePlaylistEditResult {
   final List<RemotePlaylistEditFailure> failures;
   final List<String> changedRemotePlaylistIds;
 
-  const RemotePlaylistEditResult({
+  RemotePlaylistEditResult({
     required this.sourceType,
-    this.confirmedAddedTrackIds = const [],
-    this.confirmedRemovedTrackIds = const [],
-    this.skippedTrackIds = const [],
-    this.failures = const [],
-    this.changedRemotePlaylistIds = const [],
-  });
+    List<int> confirmedAddedTrackIds = const [],
+    List<int> confirmedRemovedTrackIds = const [],
+    List<int> skippedTrackIds = const [],
+    List<RemotePlaylistEditFailure> failures = const [],
+    List<String> changedRemotePlaylistIds = const [],
+  })  : confirmedAddedTrackIds = List.unmodifiable(confirmedAddedTrackIds),
+        confirmedRemovedTrackIds = List.unmodifiable(confirmedRemovedTrackIds),
+        skippedTrackIds = List.unmodifiable(skippedTrackIds),
+        failures = List.unmodifiable(failures),
+        changedRemotePlaylistIds = List.unmodifiable(changedRemotePlaylistIds);
 
   bool get changedRemote => changedRemotePlaylistIds.isNotEmpty;
 
@@ -63,23 +67,37 @@ class RemotePlaylistEditResult {
       );
 
   RemotePlaylistEditResult merge(RemotePlaylistEditResult other) {
-    assert(sourceType == other.sourceType);
+    if (sourceType != other.sourceType) {
+      throw ArgumentError.value(
+        other.sourceType,
+        'other.sourceType',
+        'Cannot merge remote playlist edit results for different source types',
+      );
+    }
+
     return RemotePlaylistEditResult(
       sourceType: sourceType,
-      confirmedAddedTrackIds: {
+      confirmedAddedTrackIds: _dedupeInOrder([
         ...confirmedAddedTrackIds,
         ...other.confirmedAddedTrackIds,
-      }.toList(),
-      confirmedRemovedTrackIds: {
+      ]),
+      confirmedRemovedTrackIds: _dedupeInOrder([
         ...confirmedRemovedTrackIds,
         ...other.confirmedRemovedTrackIds,
-      }.toList(),
-      skippedTrackIds: {...skippedTrackIds, ...other.skippedTrackIds}.toList(),
+      ]),
+      skippedTrackIds: _dedupeInOrder([
+        ...skippedTrackIds,
+        ...other.skippedTrackIds,
+      ]),
       failures: [...failures, ...other.failures],
-      changedRemotePlaylistIds: {
+      changedRemotePlaylistIds: _dedupeInOrder([
         ...changedRemotePlaylistIds,
         ...other.changedRemotePlaylistIds,
-      }.toList(),
+      ]),
     );
   }
+}
+
+List<T> _dedupeInOrder<T>(Iterable<T> values) {
+  return values.toSet().toList(growable: false);
 }
