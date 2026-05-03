@@ -29,6 +29,7 @@ import '../../widgets/track_group/track_group.dart';
 import '../../widgets/track_thumbnail.dart';
 import '../../widgets/vip_badge.dart';
 import '../../../providers/account_provider.dart';
+import '../../../providers/library_invalidation_coordinator.dart';
 import '../../../services/account/bilibili_favorites_service.dart';
 import '../../../services/account/youtube_playlist_service.dart';
 import '../../../services/account/netease_playlist_service.dart';
@@ -1160,7 +1161,12 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final addedCount = await downloadService.addPlaylistDownload(playlist);
 
     // 刷新 playlistCoverProvider 以便下载完成后使用第一首歌的本地封面
-    ref.invalidate(playlistCoverProvider(widget.playlistId));
+    ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
+          widget.playlistId,
+          tracksChanged: false,
+          coverChanged: true,
+          includeAll: false,
+        );
 
     if (context.mounted) {
       if (addedCount > 0) {

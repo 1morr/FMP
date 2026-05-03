@@ -12,8 +12,8 @@ import '../../../../data/sources/source_provider.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../../../providers/account_provider.dart';
 import '../../../../providers/import_playlist_provider.dart';
+import '../../../../providers/library_invalidation_coordinator.dart';
 import '../../../../providers/playlist_import_provider.dart';
-import '../../../../providers/playlist_provider.dart';
 import '../../../../services/import/playlist_import_service.dart';
 import '../../../../services/import/youtube_mix_shorthand.dart';
 import '../import_preview_page.dart';
@@ -512,9 +512,9 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
         return;
       }
 
-      ref.invalidate(allPlaylistsProvider);
-      ref.invalidate(playlistDetailProvider(result.playlist.id));
-      ref.invalidate(playlistCoverProvider(result.playlist.id));
+      ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
+            result.playlist.id,
+          );
 
       if (mounted) {
         Navigator.pop(context);
