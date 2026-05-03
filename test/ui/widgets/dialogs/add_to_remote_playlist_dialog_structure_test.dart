@@ -53,6 +53,33 @@ void main() {
       expect(submitBody, isNot(contains('removeTracksFromPlaylist(')));
     }
   });
+
+  test('legacy remote action services are removed from providers and UI', () {
+    final accountProvider =
+        File('lib/providers/account_provider.dart').readAsStringSync();
+    final syncProvider =
+        File('lib/providers/remote_playlist_sync_provider.dart').readAsStringSync();
+    final detailPage =
+        File('lib/ui/pages/library/playlist_detail_page.dart').readAsStringSync();
+
+    const actionsProvider = 'remotePlaylistActions' 'ServiceProvider';
+    const removalSyncProvider = 'remotePlaylistRemoval' 'SyncServiceProvider';
+
+    expect(accountProvider, isNot(contains(actionsProvider)));
+    expect(syncProvider, isNot(contains(removalSyncProvider)));
+    expect(detailPage, isNot(contains(actionsProvider)));
+    expect(detailPage, isNot(contains(removalSyncProvider)));
+    expect(
+      File('lib/services/library/remote_playlist_actions_service.dart')
+          .existsSync(),
+      isFalse,
+    );
+    expect(
+      File('lib/services/library/remote_playlist_removal_sync_service.dart')
+          .existsSync(),
+      isFalse,
+    );
+  });
 }
 
 String _methodBody(String source, String methodName) {
