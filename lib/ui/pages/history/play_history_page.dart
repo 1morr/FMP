@@ -13,45 +13,9 @@ import '../../../services/audio/audio_provider.dart';
 import '../../handlers/track_action_coordinator.dart';
 import '../../handlers/track_action_handler.dart';
 import '../../handlers/track_action_menu.dart';
-import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/context_menu_region.dart';
 import '../../widgets/track_thumbnail.dart';
 import '../../../core/constants/ui_constants.dart';
-
-Future<bool> handleHistorySharedTrackAction({
-  required String action,
-  required Track track,
-  required TrackActionAudioController audioController,
-  required void Function() onAddedToNext,
-  required void Function() onAddedToQueue,
-  required Future<void> Function() onAddToPlaylist,
-  required Future<void> Function() onMatchLyrics,
-}) async {
-  final parsedAction = tryParseTrackAction(action);
-  if (parsedAction == null || parsedAction == TrackAction.addToRemote) {
-    return false;
-  }
-
-  final handler = TrackActionHandler(
-    audioController: audioController,
-    feedbackSink: CallbackTrackActionFeedbackSink(
-      onAddedToNext: onAddedToNext,
-      onAddedToQueue: onAddedToQueue,
-      onPleaseLogin: () {},
-    ),
-  );
-
-  await handler.handle(
-    parsedAction,
-    track: track,
-    isLoggedIn: false,
-    onAddToPlaylist: onAddToPlaylist,
-    onMatchLyrics: onMatchLyrics,
-    onAddToRemote: () async {},
-  );
-
-  return true;
-}
 
 /// 播放历史页面
 class PlayHistoryPage extends ConsumerStatefulWidget {
@@ -152,28 +116,13 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
             enabled: hasSelection,
             onSelected: (value) => _handleMultiSelectMenuAction(context, value),
             itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'add_to_queue',
-                child: ListTile(
-                  leading: const Icon(Icons.add_to_queue),
-                  title: Text(t.playHistoryPage.addToQueue),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem(
-                value: 'play_next',
-                child: ListTile(
-                  leading: const Icon(Icons.queue_play_next),
-                  title: Text(t.playHistoryPage.playNext),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem(
-                value: 'add_to_playlist',
-                child: ListTile(
-                  leading: const Icon(Icons.playlist_add),
-                  title: Text(t.playHistoryPage.addToPlaylist),
-                  contentPadding: EdgeInsets.zero,
+              ...buildTrackActionPopupMenuEntries(
+                buildCommonTrackActionMenuItems(
+                  translations: t,
+                  scope: TrackActionMenuScope.multi,
+                  options: const TrackActionMenuOptions(
+                    includeAddToRemote: false,
+                  ),
                 ),
               ),
               const PopupMenuDivider(),
@@ -883,16 +832,20 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
   /// 處理多選菜單操作
   Future<void> _handleMultiSelectMenuAction(
       BuildContext context, String action) async {
+    if (tryParseTrackAction(action) != null) {
+      final tracks =
+          _selectedHistories().map((history) => history.toTrack()).toList();
+      ref.read(playHistoryPageProvider.notifier).exitMultiSelectMode();
+      await TrackActionCoordinator.handleMulti(
+        context: context,
+        ref: ref,
+        tracks: tracks,
+        actionId: action,
+      );
+      return;
+    }
+
     switch (action) {
-      case 'add_to_queue':
-        await _addSelectedToQueue(context);
-        break;
-      case 'play_next':
-        await _playNextSelected(context);
-        break;
-      case 'add_to_playlist':
-        await _addSelectedToPlaylist(context);
-        break;
       case 'delete':
         await _deleteSelected(
             context, ref.read(playHistoryPageProvider.notifier));
@@ -900,30 +853,17 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     }
   }
 
-  /// 下一首播放選中的歌曲
-  Future<void> _playNextSelected(BuildContext context) async {
+  List<PlayHistory> _selectedHistories() {
     final pageState = ref.read(playHistoryPageProvider);
     final grouped = ref.read(groupedPlayHistoryProvider).valueOrNull;
-    if (grouped == null) return;
+    if (grouped == null) {
+      return const [];
+    }
 
-    final allHistories = grouped.values.expand((e) => e).toList();
-    final selectedHistories = allHistories
-        .where((h) => pageState.selectedIds.contains(h.id))
+    return grouped.values
+        .expand((histories) => histories)
+        .where((history) => pageState.selectedIds.contains(history.id))
         .toList();
-
-    final controller = ref.read(audioControllerProvider.notifier);
-    int addedCount = 0;
-    for (final history in selectedHistories.reversed) {
-      final added = await controller.addNext(history.toTrack());
-      if (added) addedCount++;
-    }
-
-    ref.read(playHistoryPageProvider.notifier).exitMultiSelectMode();
-
-    if (context.mounted) {
-      ToastService.success(
-          context, t.playHistoryPage.toastAddedNextCount(n: addedCount));
-    }
   }
 
   void _handleAppBarMenuAction(BuildContext context, String action) async {
@@ -1023,52 +963,6 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     if (context.mounted) {
       ToastService.success(
           context, t.playHistoryPage.toastDeletedCount(n: count));
-    }
-  }
-
-  Future<void> _addSelectedToQueue(BuildContext context) async {
-    final pageState = ref.read(playHistoryPageProvider);
-    final grouped = ref.read(groupedPlayHistoryProvider).valueOrNull;
-    if (grouped == null) return;
-
-    final allHistories = grouped.values.expand((e) => e).toList();
-    final selectedHistories = allHistories
-        .where((h) => pageState.selectedIds.contains(h.id))
-        .toList();
-
-    final controller = ref.read(audioControllerProvider.notifier);
-    int addedCount = 0;
-    for (final history in selectedHistories) {
-      final added = await controller.addToQueue(history.toTrack());
-      if (added) addedCount++;
-    }
-
-    ref.read(playHistoryPageProvider.notifier).exitMultiSelectMode();
-
-    if (context.mounted) {
-      ToastService.success(
-          context, t.playHistoryPage.toastAddedQueueCount(n: addedCount));
-    }
-  }
-
-  Future<void> _addSelectedToPlaylist(BuildContext context) async {
-    final pageState = ref.read(playHistoryPageProvider);
-    final grouped = ref.read(groupedPlayHistoryProvider).valueOrNull;
-    if (grouped == null) return;
-
-    final allHistories = grouped.values.expand((e) => e).toList();
-    final selectedHistories = allHistories
-        .where((h) => pageState.selectedIds.contains(h.id))
-        .toList();
-
-    final tracks = selectedHistories.map((h) => h.toTrack()).toList();
-
-    ref.read(playHistoryPageProvider.notifier).exitMultiSelectMode();
-
-    if (tracks.length == 1) {
-      showAddToPlaylistDialog(context: context, track: tracks.first);
-    } else {
-      showAddToPlaylistDialog(context: context, tracks: tracks);
     }
   }
 }
