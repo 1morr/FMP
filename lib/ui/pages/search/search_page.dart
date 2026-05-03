@@ -79,11 +79,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     final allTracks = [...searchState.localResults, ...searchState.mixedOnlineTracks];
 
     // 多選模式下的可用操作（搜索頁不支持下載和刪除）
-    const availableActions = <SelectionAction>{
-      SelectionAction.addToQueue,
-      SelectionAction.playNext,
-      SelectionAction.addToPlaylist,
-      SelectionAction.addToRemotePlaylist,
+    const availableActions = <String>{
+      selectionActionAddToQueue,
+      selectionActionPlayNext,
+      selectionActionAddToPlaylist,
+      selectionActionAddToRemotePlaylist,
     };
 
     return PopScope(
@@ -771,7 +771,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     try {
       final url = 'https://live.bilibili.com/${room.roomId}';
       await ref.read(radioControllerProvider.notifier).addStation(url);
-      if (mounted) ToastService.success(context, t.searchPage.toast.addedToRadio);
+      if (mounted) {
+        ToastService.success(context, t.searchPage.toast.addedToRadio);
+      }
     } catch (e) {
       if (mounted) ToastService.error(context, e.toString());
     }

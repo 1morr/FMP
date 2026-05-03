@@ -57,11 +57,11 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     final currentTracks = _tabController.index == 0 ? bilibiliTracks : youtubeTracks;
 
     // 多選模式下的可用操作（探索頁不支持下載和刪除）
-    const availableActions = <SelectionAction>{
-      SelectionAction.addToQueue,
-      SelectionAction.playNext,
-      SelectionAction.addToPlaylist,
-      SelectionAction.addToRemotePlaylist,
+    const availableActions = <String>{
+      selectionActionAddToQueue,
+      selectionActionPlayNext,
+      selectionActionAddToPlaylist,
+      selectionActionAddToRemotePlaylist,
     };
 
     return PopScope(
