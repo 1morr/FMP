@@ -127,6 +127,25 @@ void main() {
       );
     });
 
+    test(
+        'addTracks uses identity semantics for mixed source and cid tracks in one batch',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final playlist = await _createPlaylist(harness, 'Batch Identity');
+      final existing =
+          await harness.tracks.save(_track('same', 'Existing')..cid = 1);
+      final incoming = [
+        _track('same', 'Null CID'),
+        _track('same', 'Existing Updated')..cid = 1,
+      ];
+      final result = await harness.mutations.addTracks(playlist.id, incoming);
+      final saved = await harness.playlists.getById(playlist.id);
+      expect(result.addedCount, 2);
+      expect(saved!.trackIds, contains(existing.id));
+      expect((await harness.tracks.getBySourceIds(['same'])), hasLength(2));
+    });
+
     test('addTracks repairs missing playlist or track side without duplicates',
         () async {
       final harness = await _createHarness();
