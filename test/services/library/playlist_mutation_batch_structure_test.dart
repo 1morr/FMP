@@ -20,11 +20,14 @@ void main() {
 }
 
 String _methodBody(String source, String methodName) {
-  final methodIndex = source.indexOf(' $methodName(');
-  if (methodIndex == -1) {
+  final methodPattern = RegExp(
+    'Future<PlaylistMutationResult>\\s+$methodName\\s*\\(',
+  );
+  final match = methodPattern.firstMatch(source);
+  if (match == null) {
     throw StateError('Method $methodName not found');
   }
-  final openBrace = source.indexOf('{', methodIndex);
+  final openBrace = source.indexOf('{', match.start);
   var depth = 0;
   for (var i = openBrace; i < source.length; i++) {
     if (source[i] == '{') depth++;
