@@ -195,14 +195,16 @@ class SelectionModeAppBar extends ConsumerWidget
     String action,
     List<Track> tracks,
   ) async {
-    final notifier = ref.read(selectionProvider.notifier);
-    notifier.exitSelectionMode();
-    await TrackActionCoordinator.handleMulti(
+    final result = await TrackActionCoordinator.handleMulti(
       context: context,
       ref: ref,
       tracks: tracks,
       actionId: action,
     );
+    if (!context.mounted) return;
+    if (result.shouldExitSelectionMode) {
+      ref.read(selectionProvider.notifier).exitSelectionMode();
+    }
   }
 
   Future<void> _download(

@@ -1,5 +1,6 @@
 import '../../data/models/track.dart';
 import '../../services/audio/audio_provider.dart';
+import '../../services/library/remote_playlist_track_filter.dart';
 
 const playTrackActionId = 'play';
 const playNextTrackActionId = 'play_next';
@@ -149,6 +150,18 @@ class CallbackMultiTrackActionFeedbackSink
   }
 }
 
+class MultiTrackActionResult {
+  const MultiTrackActionResult._({required this.shouldExitSelectionMode});
+
+  const MultiTrackActionResult.handled()
+      : this._(shouldExitSelectionMode: true);
+
+  const MultiTrackActionResult.retainSelectionMode()
+      : this._(shouldExitSelectionMode: false);
+
+  final bool shouldExitSelectionMode;
+}
+
 class MultiTrackActionHandler {
   MultiTrackActionHandler({
     required TrackActionAudioController audioController,
@@ -159,7 +172,7 @@ class MultiTrackActionHandler {
   final TrackActionAudioController _audioController;
   final MultiTrackActionFeedbackSink _feedbackSink;
 
-  Future<void> handle(
+  Future<MultiTrackActionResult> handle(
     TrackAction action, {
     required List<Track> tracks,
     required bool Function(SourceType sourceType) isLoggedIn,
@@ -179,7 +192,7 @@ class MultiTrackActionHandler {
           }
         }
         _feedbackSink.showAddedToNext(addedCount);
-        return;
+        return const MultiTrackActionResult.handled();
       case TrackAction.addToQueue:
         var addedCount = 0;
         for (final track in tracks) {
@@ -189,17 +202,18 @@ class MultiTrackActionHandler {
           }
         }
         _feedbackSink.showAddedToQueue(addedCount);
-        return;
+        return const MultiTrackActionResult.handled();
       case TrackAction.addToPlaylist:
         await onAddToPlaylist();
-        return;
+        return const MultiTrackActionResult.handled();
       case TrackAction.addToRemote:
-        final remoteTracks = tracks.where((track) {
-          return isLoggedIn(track.sourceType);
-        }).toList();
+        final remoteTracks = filterLoggedInRemoteTracks(
+          tracks,
+          isLoggedIn: isLoggedIn,
+        );
         if (remoteTracks.isEmpty) {
           _feedbackSink.showPleaseLogin();
-          return;
+          return const MultiTrackActionResult.retainSelectionMode();
         }
 
         final skippedPlatforms = tracks
@@ -211,7 +225,7 @@ class MultiTrackActionHandler {
         }
 
         await onAddToRemote(remoteTracks);
-        return;
+        return const MultiTrackActionResult.handled();
     }
   }
 }

@@ -228,8 +228,8 @@ class PlaylistService with Logging {
   /// 删除歌单
   ///
   /// 同时清理不被其他歌单引用的孤立歌曲。
-  Future<void> deletePlaylist(int playlistId) async {
-    await _mutationService.deletePlaylist(playlistId);
+  Future<PlaylistMutationResult> deletePlaylist(int playlistId) async {
+    return _mutationService.deletePlaylist(playlistId);
   }
 
   /// 添加歌曲到歌单
@@ -237,8 +237,11 @@ class PlaylistService with Logging {
   /// 在单个事务中解析或创建 Track，并同时写入 Playlist.trackIds 和
   /// Track.playlistInfo，避免关系事务前先写入孤立 Track。
   /// 注意：下载路径不再预计算，将在实际下载完成时由 DownloadService 设置。
-  Future<void> addTrackToPlaylist(int playlistId, Track track) async {
-    await _mutationService.addTrack(playlistId, track);
+  Future<PlaylistMutationResult> addTrackToPlaylist(
+    int playlistId,
+    Track track,
+  ) async {
+    return _mutationService.addTrack(playlistId, track);
   }
 
   /// 批量添加歌曲到歌单
@@ -246,7 +249,10 @@ class PlaylistService with Logging {
   /// 在单个事务中解析或创建 Track，并同时写入 Playlist.trackIds 和
   /// Track.playlistInfo，避免关系事务前先写入孤立 Track。
   /// 注意：下载路径不再预计算，将在实际下载完成时由 DownloadService 设置。
-  Future<void> addTracksToPlaylist(int playlistId, List<Track> tracks) async {
+  Future<PlaylistMutationResult> addTracksToPlaylist(
+    int playlistId,
+    List<Track> tracks,
+  ) async {
     final result = await _mutationService.addTracks(playlistId, tracks);
     if (result.addedCount == 0 && result.repairedCount == 0) {
       logDebug(
@@ -255,36 +261,44 @@ class PlaylistService with Logging {
       logDebug(
           'Added or repaired ${result.addedCount + result.repairedCount}/${tracks.length} tracks in playlist $playlistId');
     }
+    return result;
   }
 
   /// 从歌单移除歌曲
   ///
   /// 同时清理该歌单的下载路径，如果歌曲不属于任何歌单则删除
-  Future<void> removeTrackFromPlaylist(int playlistId, int trackId) async {
-    await _mutationService.removeTrack(playlistId, trackId);
+  Future<PlaylistMutationResult> removeTrackFromPlaylist(
+    int playlistId,
+    int trackId,
+  ) async {
+    return _mutationService.removeTrack(playlistId, trackId);
   }
 
   /// 批量从歌单移除歌曲
-  Future<void> removeTracksFromPlaylist(
-      int playlistId, List<int> trackIds) async {
-    await _mutationService.removeTracks(playlistId, trackIds);
+  Future<PlaylistMutationResult> removeTracksFromPlaylist(
+    int playlistId,
+    List<int> trackIds,
+  ) async {
+    return _mutationService.removeTracks(playlistId, trackIds);
   }
 
   /// 重新排序歌单中的歌曲
-  Future<void> reorderPlaylistTracks(
+  Future<PlaylistMutationResult> reorderPlaylistTracks(
     int playlistId,
     int oldIndex,
     int newIndex,
   ) async {
     final playlist = await _playlistRepository.getById(playlistId);
-    if (playlist == null) return;
+    if (playlist == null) {
+      return PlaylistMutationResult(playlistId: playlistId);
+    }
 
     final trackIds = List<int>.from(playlist.trackIds);
     final trackId = trackIds.removeAt(oldIndex);
     final insertIndex = newIndex > oldIndex ? newIndex - 1 : newIndex;
     trackIds.insert(insertIndex, trackId);
 
-    await _mutationService.reorderTracks(playlistId, trackIds);
+    return _mutationService.reorderTracks(playlistId, trackIds);
   }
 
   /// 获取歌单封面数据（包含本地路径和网络 URL）

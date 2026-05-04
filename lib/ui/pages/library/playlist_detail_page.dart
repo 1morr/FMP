@@ -551,13 +551,16 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final notifier = ref.read(playlistDetailSelectionProvider.notifier);
 
     if (tryParseTrackAction(action) != null) {
-      notifier.exitSelectionMode();
-      await TrackActionCoordinator.handleMulti(
+      final result = await TrackActionCoordinator.handleMulti(
         context: context,
         ref: ref,
         tracks: tracks,
         actionId: action,
       );
+      if (!mounted) return;
+      if (result.shouldExitSelectionMode) {
+        ref.read(playlistDetailSelectionProvider.notifier).exitSelectionMode();
+      }
       return;
     }
 

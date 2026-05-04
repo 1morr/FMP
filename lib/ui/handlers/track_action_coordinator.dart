@@ -65,7 +65,7 @@ class TrackActionCoordinator {
     );
   }
 
-  static Future<void> handleMulti({
+  static Future<MultiTrackActionResult> handleMulti({
     required BuildContext context,
     required WidgetRef ref,
     required List<Track> tracks,
@@ -108,7 +108,7 @@ class TrackActionCoordinator {
       ),
     );
 
-    await handler.handle(
+    return handler.handle(
       parseTrackAction(actionId),
       tracks: tracks,
       isLoggedIn: (sourceType) => ref.read(isLoggedInProvider(sourceType)),

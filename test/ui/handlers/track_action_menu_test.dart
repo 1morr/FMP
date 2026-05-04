@@ -45,21 +45,25 @@ void main() {
       expect(items.any((item) => item.id == matchLyricsTrackActionId), isFalse);
     });
 
-    test('options hide unsupported actions for page child rows', () {
+    test('options can hide lyrics while preserving other group actions', () {
       final items = buildCommonTrackActionMenuItems(
         translations: AppLocale.en.translations,
         options: const TrackActionMenuOptions(
-          includePlay: false,
-          includeAddToPlaylist: false,
           includeMatchLyrics: false,
-          includeAddToRemote: false,
         ),
       );
 
       expect(
         items.map((item) => item.id),
-        [playNextTrackActionId, addToQueueTrackActionId],
+        [
+          playTrackActionId,
+          playNextTrackActionId,
+          addToQueueTrackActionId,
+          addToPlaylistTrackActionId,
+          addToRemoteTrackActionId,
+        ],
       );
+      expect(items.any((item) => item.id == matchLyricsTrackActionId), isFalse);
     });
   });
 }

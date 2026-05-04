@@ -289,13 +289,14 @@ class _ImportPreviewDialogState extends ConsumerState<ImportPreviewDialog> {
 
       // 添加歌曲
       final service = ref.read(playlistServiceProvider);
-      await service.addTracksToPlaylist(playlist.id, tracks);
+      final mutationResult =
+          await service.addTracksToPlaylist(playlist.id, tracks);
 
       // playlistListProvider 会通过 Isar watch 自动更新；
       // 但 detail / cover 和 allPlaylistsProvider 快照消费者仍需显式刷新。
-      ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
-            playlist.id,
-          );
+      ref
+          .read(libraryInvalidationCoordinatorProvider)
+          .playlistMutationCompleted(mutationResult);
 
       if (mounted) {
         Navigator.pop(context);

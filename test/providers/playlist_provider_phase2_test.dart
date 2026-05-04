@@ -83,6 +83,53 @@ void main() {
       },
     );
 
+    test(
+      'playlist detail addTrack refreshes skipped duplicate back to canonical rows',
+      () async {
+        final harness = await createPlaylistPhase2Harness();
+        addTearDown(harness.dispose);
+
+        final playlist = await harness.container
+            .read(playlistListProvider.notifier)
+            .createPlaylist(name: 'Duplicate Add Playlist');
+        expect(playlist, isNotNull);
+
+        await harness.container
+            .read(playlistServiceProvider)
+            .addTrackToPlaylist(
+              playlist!.id,
+              _buildTrack(sourceId: 'duplicate-track', title: 'Original Track'),
+            );
+
+        await harness.pumpUntil(
+          () {
+            final detail =
+                harness.container.read(playlistDetailProvider(playlist.id));
+            return !detail.isLoading && detail.tracks.length == 1;
+          },
+          reason: 'playlistDetailProvider should load the canonical track row',
+        );
+
+        final success = await harness.container
+            .read(playlistDetailProvider(playlist.id).notifier)
+            .addTrack(
+              _buildTrack(
+                  sourceId: 'duplicate-track', title: 'Duplicate Track'),
+            );
+
+        expect(success, isTrue);
+        final detail =
+            harness.container.read(playlistDetailProvider(playlist.id));
+        expect(
+          detail.tracks.map((track) => track.sourceId),
+          ['duplicate-track'],
+          reason:
+              'skipped duplicate add should not leave optimistic duplicate row',
+        );
+        expect(detail.totalTrackCount, 1);
+      },
+    );
+
     test('playlist detail refreshes after playlist metadata update', () async {
       final harness = await createPlaylistPhase2Harness();
       addTearDown(harness.dispose);
