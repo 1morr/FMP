@@ -1076,6 +1076,63 @@ void main() {
       expect(service.debugHasProgressTimer, isFalse);
       expect(service.dispose, returnsNormally);
     });
+
+    test(
+        'addTracksDownload batches selected tracks and reports created skipped counts',
+        () async {
+      final settings = await settingsRepository.get();
+      settings.customDownloadDir = tempDir.path;
+      await settingsRepository.save(settings);
+      final playlist = Playlist()
+        ..id = 7
+        ..name = 'Batch Downloads';
+      final downloaded =
+          await trackRepository.save(_downloadTrack('downloaded'));
+      downloaded.setDownloadPath(
+        playlist.id,
+        p.join(tempDir.path, 'done.m4a'),
+        playlistName: playlist.name,
+      );
+      await trackRepository.save(downloaded);
+      final queued = await trackRepository.save(_downloadTrack('queued'));
+      final fresh = await trackRepository.save(_downloadTrack('fresh'));
+      final queuedPath = DownloadPathUtils.computeDownloadPath(
+        baseDir: tempDir.path,
+        playlistName: playlist.name,
+        track: queued,
+      );
+      await downloadRepository.saveTask(
+        DownloadTask()
+          ..trackId = queued.id
+          ..playlistId = playlist.id
+          ..playlistName = playlist.name
+          ..savePath = queuedPath
+          ..status = DownloadStatus.pending
+          ..priority = 9
+          ..createdAt = DateTime.now(),
+      );
+      final service = DownloadService(
+        downloadRepository: downloadRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: SourceManager(),
+      );
+
+      final summary = await service.addTracksDownload(
+        [downloaded, queued, fresh],
+        fromPlaylist: playlist,
+        skipSchedule: true,
+      );
+
+      expect(summary.createdCount, 1);
+      expect(summary.alreadyDownloadedCount, 1);
+      expect(summary.taskExistsCount, 1);
+      expect(
+        (await downloadRepository.getAllTasks()).map((task) => task.trackId),
+        contains(fresh.id),
+      );
+      service.dispose();
+    });
   });
 }
 
@@ -1083,6 +1140,15 @@ DownloadTask _task({required int trackId}) => DownloadTask()
   ..trackId = trackId
   ..status = DownloadStatus.downloading
   ..createdAt = DateTime.now();
+
+Track _downloadTrack(String sourceId) {
+  return Track()
+    ..sourceId = sourceId
+    ..sourceType = SourceType.youtube
+    ..title = sourceId
+    ..artist = 'Test Artist'
+    ..createdAt = DateTime.now();
+}
 
 Future<String> _resolveIsarLibraryPath() async {
   final packageConfigFile =

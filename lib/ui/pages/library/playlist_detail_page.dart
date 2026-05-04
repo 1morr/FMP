@@ -301,32 +301,17 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final playlist = state.playlist;
     if (playlist == null) return;
 
-    int addedCount = 0;
-    int alreadyDownloadedCount = 0;
-    int taskExistsCount = 0;
-
-    for (final track in tracks) {
-      final result = await downloadService.addTrackDownload(
-        track,
-        fromPlaylist: playlist,
-        skipSchedule: true,
-      );
-      switch (result) {
-        case DownloadResult.created:
-          addedCount++;
-          break;
-        case DownloadResult.alreadyDownloaded:
-          alreadyDownloadedCount++;
-          break;
-        case DownloadResult.taskExists:
-          taskExistsCount++;
-          break;
-      }
-    }
-
-    if (addedCount > 0) {
+    final summary = await downloadService.addTracksDownload(
+      tracks,
+      fromPlaylist: playlist,
+      skipSchedule: true,
+    );
+    if (summary.createdCount > 0) {
       downloadService.triggerSchedule();
     }
+    final addedCount = summary.createdCount;
+    final alreadyDownloadedCount = summary.alreadyDownloadedCount;
+    final taskExistsCount = summary.taskExistsCount;
 
     // 显示结果提示
     if (context.mounted) {
