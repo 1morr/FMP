@@ -3,6 +3,7 @@ import 'package:isar/isar.dart';
 import '../../core/logger.dart';
 import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
+import '../../data/repositories/track_repository.dart';
 import 'playlist_exceptions.dart';
 
 class PlaylistMutationResult {
@@ -41,6 +42,24 @@ class PlaylistMutationResult {
   bool get hasErrors => errors.isNotEmpty;
 }
 
+class _PreparedPlaylistTrackMutation {
+  final Track track;
+  final Track? existingTrack;
+  final bool metadataChanged;
+  final bool trackLinked;
+  final bool playlistLinked;
+  final bool trackMembershipChanged;
+
+  const _PreparedPlaylistTrackMutation({
+    required this.track,
+    required this.existingTrack,
+    required this.metadataChanged,
+    required this.trackLinked,
+    required this.playlistLinked,
+    required this.trackMembershipChanged,
+  });
+}
+
 class RemoteRefreshMutationPolicy {
   final bool sourceDataComplete;
   final String? platformCoverUrl;
@@ -57,7 +76,7 @@ class PlaylistMutationService with Logging {
   PlaylistMutationService({required Isar isar}) : _isar = isar;
 
   Future<PlaylistMutationResult> addTrack(int playlistId, Track track) {
-    return addTracks(playlistId, [track]);
+    return this.addTracks(playlistId, [track]);
   }
 
   Future<PlaylistMutationResult> removeTrack(int playlistId, int trackId) {
@@ -298,8 +317,14 @@ class PlaylistMutationService with Logging {
       var playlistChanged = false;
       var coverChanged = false;
 
+      final existingByIdentity = await _findTracksByIdentity(candidateTracks);
+      final tracksToSave = <Track>[];
+      final playlistLinksToAppend = <Track>[];
+      final addedTrackRefs = <Track>[];
+
       for (final inputTrack in candidateTracks) {
-        final existingTrack = await _findTrackByIdentity(inputTrack);
+        final existingTrack =
+            existingByIdentity[TrackSourceIdentity.fromTrack(inputTrack)];
         final trackToSave = existingTrack ?? inputTrack;
         final metadataChanged = existingTrack != null &&
             _mergeTrackMetadataIfNeeded(existingTrack, inputTrack);
@@ -312,29 +337,26 @@ class PlaylistMutationService with Logging {
           playlistId,
           playlist.name,
         );
-        var trackChanged = metadataChanged || trackMembershipChanged;
+        final trackChanged = metadataChanged || trackMembershipChanged;
 
         if (existingTrack == null) {
           trackToSave.updatedAt = now;
-          trackToSave.id = await _isar.tracks.put(trackToSave);
-          addedTrackIds.add(trackToSave.id);
-          trackChanged = false;
+          tracksToSave.add(trackToSave);
+          addedTrackRefs.add(trackToSave);
         } else if (trackChanged) {
           trackToSave.updatedAt = now;
-          trackToSave.id = await _isar.tracks.put(trackToSave);
+          tracksToSave.add(trackToSave);
           if (metadataChanged) {
             updatedTrackIds.add(trackToSave.id);
           }
         }
-        if (!playlistLinked && trackIdSet.add(trackToSave.id)) {
-          trackIds.add(trackToSave.id);
-          firstNewPlaylistTrack ??= trackToSave;
-          playlistChanged = true;
+        if (!playlistLinked) {
+          playlistLinksToAppend.add(trackToSave);
         }
 
         if (existingTrack != null) {
           if (!trackLinked && !playlistLinked) {
-            addedTrackIds.add(trackToSave.id);
+            addedTrackRefs.add(trackToSave);
           } else if (trackMembershipChanged || !playlistLinked) {
             repairedTrackIds.add(trackToSave.id);
           } else if (!metadataChanged) {
@@ -342,6 +364,21 @@ class PlaylistMutationService with Logging {
           }
         }
       }
+
+      if (tracksToSave.isNotEmpty) {
+        final savedIds = await _isar.tracks.putAll(tracksToSave);
+        for (var i = 0; i < savedIds.length; i++) {
+          tracksToSave[i].id = savedIds[i];
+        }
+      }
+      for (final track in playlistLinksToAppend) {
+        if (trackIdSet.add(track.id)) {
+          trackIds.add(track.id);
+          firstNewPlaylistTrack ??= track;
+          playlistChanged = true;
+        }
+      }
+      addedTrackIds.addAll(addedTrackRefs.map((track) => track.id));
 
       if (playlistChanged) {
         playlist.trackIds = trackIds;
@@ -404,9 +441,14 @@ class PlaylistMutationService with Logging {
       final updatedTrackIds = <int>[];
       final errors = <Object>[];
 
+      final existingByIdentity = await _findTracksByIdentity(candidateTracks);
+      final pendingMutations = <_PreparedPlaylistTrackMutation>[];
+      final tracksToSave = <Track>[];
+
       for (final inputTrack in candidateTracks) {
         try {
-          final existingTrack = await _findTrackByIdentity(inputTrack);
+          final existingTrack =
+              existingByIdentity[TrackSourceIdentity.fromTrack(inputTrack)];
           final trackToSave = existingTrack ?? inputTrack;
           final metadataChanged = existingTrack != null &&
               _mergeTrackMetadataIfNeeded(existingTrack, inputTrack);
@@ -425,30 +467,68 @@ class PlaylistMutationService with Logging {
 
           if (needsSave) {
             trackToSave.updatedAt = now;
-            trackToSave.id = await _isar.tracks.put(trackToSave);
+            tracksToSave.add(trackToSave);
           }
 
-          if (refreshedTrackIdSet.add(trackToSave.id)) {
-            refreshedTrackIds.add(trackToSave.id);
-          }
-
-          if (existingTrack == null) {
-            addedTrackIds.add(trackToSave.id);
-          } else {
-            if (metadataChanged) {
-              updatedTrackIds.add(trackToSave.id);
-            }
-            if (!trackLinked && !playlistLinked) {
-              addedTrackIds.add(trackToSave.id);
-            } else if (trackMembershipChanged || !playlistLinked) {
-              repairedTrackIds.add(trackToSave.id);
-            } else if (!metadataChanged) {
-              skippedTrackIds.add(trackToSave.id);
-            }
-          }
+          pendingMutations.add(
+            _PreparedPlaylistTrackMutation(
+              track: trackToSave,
+              existingTrack: existingTrack,
+              metadataChanged: metadataChanged,
+              trackLinked: trackLinked,
+              playlistLinked: playlistLinked,
+              trackMembershipChanged: trackMembershipChanged,
+            ),
+          );
         } catch (error) {
           errors.add(error);
           logWarning('Failed to persist refreshed track: $error');
+        }
+      }
+
+      final failedTracks = <Track>{};
+      if (tracksToSave.isNotEmpty) {
+        try {
+          final savedIds = await _isar.tracks.putAll(tracksToSave);
+          for (var i = 0; i < savedIds.length; i++) {
+            tracksToSave[i].id = savedIds[i];
+          }
+        } catch (error) {
+          for (final track in tracksToSave) {
+            try {
+              track.id = await _isar.tracks.put(track);
+            } catch (trackError) {
+              failedTracks.add(track);
+              errors.add(trackError);
+              logWarning('Failed to persist refreshed track: $trackError');
+            }
+          }
+        }
+      }
+
+      for (final mutation in pendingMutations) {
+        if (failedTracks.contains(mutation.track)) {
+          continue;
+        }
+        final trackToSave = mutation.track;
+        if (refreshedTrackIdSet.add(trackToSave.id)) {
+          refreshedTrackIds.add(trackToSave.id);
+        }
+
+        if (mutation.existingTrack == null) {
+          addedTrackIds.add(trackToSave.id);
+        } else {
+          if (mutation.metadataChanged) {
+            updatedTrackIds.add(trackToSave.id);
+          }
+          if (!mutation.trackLinked && !mutation.playlistLinked) {
+            addedTrackIds.add(trackToSave.id);
+          } else if (mutation.trackMembershipChanged ||
+              !mutation.playlistLinked) {
+            repairedTrackIds.add(trackToSave.id);
+          } else if (!mutation.metadataChanged) {
+            skippedTrackIds.add(trackToSave.id);
+          }
         }
       }
 
@@ -588,26 +668,12 @@ class PlaylistMutationService with Logging {
     }
   }
 
-  Future<Track?> _findTrackByIdentity(Track track) {
-    if (track.cid == null) {
-      return _isar.tracks
-          .where()
-          .sourceIdEqualTo(track.sourceId)
-          .filter()
-          .sourceTypeEqualTo(track.sourceType)
-          .and()
-          .cidIsNull()
-          .findFirst();
-    }
-
-    return _isar.tracks
-        .where()
-        .sourceIdEqualTo(track.sourceId)
-        .filter()
-        .sourceTypeEqualTo(track.sourceType)
-        .and()
-        .cidEqualTo(track.cid)
-        .findFirst();
+  Future<Map<TrackSourceIdentity, Track>> _findTracksByIdentity(
+    Iterable<Track> tracks,
+  ) {
+    return TrackRepository(_isar).getBySourceIdentities(
+      tracks.map(TrackSourceIdentity.fromTrack),
+    );
   }
 
   List<Track> _dedupeTracksByUniqueKey(List<Track> tracks) {
