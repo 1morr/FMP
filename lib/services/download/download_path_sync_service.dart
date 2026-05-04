@@ -74,23 +74,44 @@ class DownloadPathSyncService with Logging {
             download.scannedTrack,
           )),
     );
+    final existingTracksById = <int, Track>{
+      for (final track in existingTracks.values) track.id: track,
+    };
+    final nullCidFallbackTracks = await _trackRepo.getBySourceIds(
+      scannedDownloads
+          .where((download) => download.scannedTrack.cid == null)
+          .map((download) => download.scannedTrack.sourceId)
+          .toSet()
+          .toList(),
+    );
+    final fallbackRequestedKeys = scannedDownloads
+        .where((download) => download.scannedTrack.cid == null)
+        .map((download) => _sourceKey(
+              download.scannedTrack.sourceType,
+              download.scannedTrack.sourceId,
+            ))
+        .toSet();
+    final nullCidFallbackTracksBySourceKey = <String, List<Track>>{};
+    for (final track in nullCidFallbackTracks) {
+      final key = _sourceKey(track.sourceType, track.sourceId);
+      if (!fallbackRequestedKeys.contains(key)) continue;
+      nullCidFallbackTracksBySourceKey.putIfAbsent(key, () => []).add(track);
+    }
 
     for (final scannedDownload in scannedDownloads) {
-      final existingTrack = existingTracks[
-          TrackSourceIdentity.fromTrack(scannedDownload.scannedTrack)];
+      final existingTrack = _matchScannedDownload(
+        scannedDownload,
+        existingTracks,
+        nullCidFallbackTracksBySourceKey,
+      );
       if (existingTrack == null) continue;
-      if (scannedDownload.scannedTrack.cid == null &&
-          scannedDownload.scannedTrack.pageNum != null &&
-          existingTrack.pageNum != null &&
-          scannedDownload.scannedTrack.pageNum != existingTrack.pageNum) {
-        continue;
-      }
 
       final trackId = existingTrack.id;
       matchedTrackIds.add(trackId);
 
       if (!trackPathsMap.containsKey(trackId)) {
         trackPathsMap[trackId] = [];
+        existingTracksById[trackId] = existingTrack;
         if (existingTrack.hasAnyDownload) {
           tracksWithExistingPaths.add(trackId);
         }
@@ -124,9 +145,7 @@ class DownloadPathSyncService with Logging {
       final trackId = entry.key;
       final pathInfos = entry.value;
 
-      final track = existingTracks.values
-          .where((existingTrack) => existingTrack.id == trackId)
-          .firstOrNull;
+      final track = existingTracksById[trackId];
       if (track == null) continue;
 
       final hadExistingPaths = tracksWithExistingPaths.contains(trackId);
@@ -203,6 +222,46 @@ class DownloadPathSyncService with Logging {
     logDebug('Sync complete: added $added, removed $removed');
     return (added, removed);
   }
+
+  Track? _matchScannedDownload(
+    _ScannedDownload scannedDownload,
+    Map<TrackSourceIdentity, Track> existingTracks,
+    Map<String, List<Track>> nullCidFallbackTracksBySourceKey,
+  ) {
+    final scannedTrack = scannedDownload.scannedTrack;
+    final directMatch =
+        existingTracks[TrackSourceIdentity.fromTrack(scannedTrack)];
+    if (directMatch != null && _matchesScannedPage(scannedTrack, directMatch)) {
+      return directMatch;
+    }
+
+    if (scannedTrack.cid != null) return null;
+
+    final candidates = nullCidFallbackTracksBySourceKey[
+            _sourceKey(scannedTrack.sourceType, scannedTrack.sourceId)] ??
+        const <Track>[];
+    for (final candidate in candidates) {
+      if (_matchesScannedPage(scannedTrack, candidate)) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  bool _matchesScannedPage(Track scannedTrack, Track candidate) {
+    if (scannedTrack.cid != null) {
+      return candidate.cid == scannedTrack.cid;
+    }
+
+    if (scannedTrack.pageNum != null && candidate.pageNum != null) {
+      return scannedTrack.pageNum == candidate.pageNum;
+    }
+
+    return true;
+  }
+
+  String _sourceKey(SourceType sourceType, String sourceId) =>
+      '${sourceType.name}:$sourceId';
 
   /// 扫描单个文件夹
   Future<_ScanResult> _scanAndMatchFolder(Directory folder) async {

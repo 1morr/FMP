@@ -1133,6 +1133,43 @@ void main() {
       );
       service.dispose();
     });
+
+    test(
+        'addTracksDownload counts duplicate batch save paths as existing tasks',
+        () async {
+      final settings = await settingsRepository.get();
+      settings.customDownloadDir = tempDir.path;
+      await settingsRepository.save(settings);
+      final playlist = Playlist()
+        ..id = 8
+        ..name = 'Duplicate Paths';
+      final track = await trackRepository.save(_downloadTrack('duplicate'));
+      final service = DownloadService(
+        downloadRepository: downloadRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: SourceManager(),
+      );
+
+      final summary = await service.addTracksDownload(
+        [track, track],
+        fromPlaylist: playlist,
+        skipSchedule: true,
+      );
+
+      final downloadPath = DownloadPathUtils.computeDownloadPath(
+        baseDir: tempDir.path,
+        playlistName: playlist.name,
+        track: track,
+      );
+      final tasks = await downloadRepository.getAllTasks();
+      expect(summary.createdCount, 1);
+      expect(summary.alreadyDownloadedCount, 0);
+      expect(summary.taskExistsCount, 1);
+      expect(
+          tasks.where((task) => task.savePath == downloadPath), hasLength(1));
+      service.dispose();
+    });
   });
 }
 
