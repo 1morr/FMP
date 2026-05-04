@@ -59,44 +59,78 @@ class DownloadPathSyncService with Logging {
 
     logDebug('Starting sync: found $total folders to scan');
 
-    // 第一步：扫描所有本地文件，收集匹配结果
+    // 第一步：扫描所有本地文件，收集可用于批量匹配的结果
+    final scannedDownloads = <_ScannedDownload>[];
     for (final folder in folders) {
       final results = await _scanAndMatchFolder(folder);
-
-      for (final result in results.matched) {
-        final trackId = result.track.id;
-        matchedTrackIds.add(trackId);
-        
-        // 收集路径信息
-        if (!trackPathsMap.containsKey(trackId)) {
-          trackPathsMap[trackId] = [];
-          if (result.hadExistingPaths) {
-            tracksWithExistingPaths.add(trackId);
-          }
-        }
-        
-        trackPathsMap[trackId]!.add(_PathInfo(
-          playlistId: result.playlistId,
-          playlistName: result.playlistName,
-          downloadPath: result.localPath,
-        ));
-      }
+      scannedDownloads.addAll(results.scanned);
 
       processed++;
       onProgress?.call(processed, total);
     }
 
+    final existingTracks = await _trackRepo.getBySourceIdentities(
+      scannedDownloads.map((download) => TrackSourceIdentity.fromTrack(
+            download.scannedTrack,
+          )),
+    );
+
+    for (final scannedDownload in scannedDownloads) {
+      final existingTrack = existingTracks[
+          TrackSourceIdentity.fromTrack(scannedDownload.scannedTrack)];
+      if (existingTrack == null) continue;
+      if (scannedDownload.scannedTrack.cid == null &&
+          scannedDownload.scannedTrack.pageNum != null &&
+          existingTrack.pageNum != null &&
+          scannedDownload.scannedTrack.pageNum != existingTrack.pageNum) {
+        continue;
+      }
+
+      final trackId = existingTrack.id;
+      matchedTrackIds.add(trackId);
+
+      if (!trackPathsMap.containsKey(trackId)) {
+        trackPathsMap[trackId] = [];
+        if (existingTrack.hasAnyDownload) {
+          tracksWithExistingPaths.add(trackId);
+        }
+      }
+
+      final folderName = scannedDownload.folderName;
+      var playlistId = 0;
+      var playlistName = folderName;
+
+      if (existingTrack.playlistInfo.isNotEmpty) {
+        final matchingInfo = existingTrack.playlistInfo
+            .where((info) => info.playlistName == folderName)
+            .firstOrNull;
+        if (matchingInfo != null) {
+          playlistId = matchingInfo.playlistId;
+          playlistName = matchingInfo.playlistName;
+        }
+      }
+
+      trackPathsMap[trackId]!.add(_PathInfo(
+        playlistId: playlistId,
+        playlistName: playlistName,
+        downloadPath: scannedDownload.localPath,
+      ));
+    }
+
+    final tracksToSave = <Track>[];
+
     // 第二步：批量更新 Track，合并所有路径
     for (final entry in trackPathsMap.entries) {
       final trackId = entry.key;
       final pathInfos = entry.value;
-      
-      // 从数据库重新获取 Track（避免使用扫描的临时对象）
-      final track = await _trackRepo.getById(trackId);
+
+      final track = existingTracks.values
+          .where((existingTrack) => existingTrack.id == trackId)
+          .firstOrNull;
       if (track == null) continue;
-      
+
       final hadExistingPaths = tracksWithExistingPaths.contains(trackId);
-      
+
       // 合并策略：
       // - 歌单归属（playlistId）以 DB 为权威来源，同步不改变
       // - 下载路径以本地文件为权威来源
@@ -109,7 +143,9 @@ class DownloadPathSyncService with Logging {
         for (final info in track.playlistInfo) {
           // 精确匹配 playlistName
           final matchIdx = pathInfos.indexWhere(
-            (p) => p.playlistName == info.playlistName && !usedPathIndices.contains(pathInfos.indexOf(p)),
+            (p) =>
+                p.playlistName == info.playlistName &&
+                !usedPathIndices.contains(pathInfos.indexOf(p)),
           );
           if (matchIdx >= 0) {
             usedPathIndices.add(matchIdx);
@@ -129,21 +165,22 @@ class DownloadPathSyncService with Logging {
         if (!usedPathIndices.contains(i)) {
           final pathInfo = pathInfos[i];
           newPlaylistInfo.add(PlaylistDownloadInfo()
-            ..playlistId = 0  // 新发现的文件夹统一标记为未分类
+            ..playlistId = 0 // 新发现的文件夹统一标记为未分类
             ..playlistName = pathInfo.playlistName
             ..downloadPath = pathInfo.downloadPath);
         }
       }
 
       track.playlistInfo = newPlaylistInfo;
-      
-      await _trackRepo.save(track);
-      
+      tracksToSave.add(track);
+
       if (!hadExistingPaths) {
         added++;
-        logDebug('Added ${pathInfos.length} download path(s) for: ${track.title}');
+        logDebug(
+            'Added ${pathInfos.length} download path(s) for: ${track.title}');
       } else {
-        logDebug('Updated ${pathInfos.length} download path(s) for: ${track.title}');
+        logDebug(
+            'Updated ${pathInfos.length} download path(s) for: ${track.title}');
       }
     }
 
@@ -153,22 +190,27 @@ class DownloadPathSyncService with Logging {
       if (!matchedTrackIds.contains(track.id)) {
         // 这个 Track 没有在本地找到匹配文件，清除其路径
         track.clearAllDownloadPaths();
-        await _trackRepo.save(track);
+        tracksToSave.add(track);
         removed++;
         logDebug('Cleared paths for track not found locally: ${track.title}');
       }
+    }
+
+    if (tracksToSave.isNotEmpty) {
+      await _trackRepo.saveAll(tracksToSave);
     }
 
     logDebug('Sync complete: added $added, removed $removed');
     return (added, removed);
   }
 
-  /// 扫描并匹配单个文件夹
+  /// 扫描单个文件夹
   Future<_ScanResult> _scanAndMatchFolder(Directory folder) async {
-    final matched = <_MatchedTrack>[];
+    final scanned = <_ScannedDownload>[];
 
     try {
       final tracks = await DownloadScanner.scanFolderForTracks(folder.path);
+      final folderName = folder.path.split(RegExp(r'[/\\]')).last;
 
       for (final scannedTrack in tracks) {
         // C1: 跳过没有有效 metadata 的文件
@@ -182,77 +224,17 @@ class DownloadPathSyncService with Logging {
           continue;
         }
 
-        final existingTrack = await _findMatchingTrack(scannedTrack);
-
-        if (existingTrack != null) {
-          // 记录同步前是否已有下载路径
-          final hadExistingPaths = existingTrack.hasAnyDownload;
-
-          // 从文件夹名提取歌单信息
-          final folderName = folder.path.split(RegExp(r'[/\\]')).last;
-
-          // 尝试从现有的 playlistInfo 中找到匹配的歌单
-          int playlistId = 0;
-          String playlistName = folderName;
-
-          // 如果 Track 已经有歌单关联，尝试根据文件夹名匹配
-          if (existingTrack.playlistInfo.isNotEmpty) {
-            final matchingInfo = existingTrack.playlistInfo
-                .where((info) => info.playlistName == folderName)
-                .firstOrNull;
-            if (matchingInfo != null) {
-              playlistId = matchingInfo.playlistId;
-              playlistName = matchingInfo.playlistName;
-            }
-            // 不匹配时保持 playlistId=0, playlistName=folderName
-          }
-
-          matched.add(_MatchedTrack(
-            track: existingTrack,
-            localPath: localPath,
-            hadExistingPaths: hadExistingPaths,
-            playlistId: playlistId,
-            playlistName: playlistName,
-          ));
-        }
+        scanned.add(_ScannedDownload(
+          scannedTrack: scannedTrack,
+          localPath: localPath,
+          folderName: folderName,
+        ));
       }
     } catch (e) {
       logDebug('Error scanning folder ${folder.path}: $e');
     }
 
-    return _ScanResult(matched: matched);
-  }
-
-  /// 查找匹配的 Track
-  ///
-  /// 匹配规则：sourceId + sourceType + cid (+ pageNum for multi-part videos)
-  Future<Track?> _findMatchingTrack(Track scannedTrack) async {
-    // 使用精确匹配：sourceId + sourceType + cid
-    final track = await _trackRepo.getBySourceIdAndCid(
-      scannedTrack.sourceId,
-      scannedTrack.sourceType,
-      cid: scannedTrack.cid,
-    );
-
-    if (track != null) {
-      // 如果有 cid 匹配，直接返回
-      if (scannedTrack.cid != null) {
-        return track;
-      }
-
-      // 如果没有 cid，检查 pageNum 是否匹配（多P视频兼容）
-      if (scannedTrack.pageNum != null && track.pageNum != null) {
-        if (scannedTrack.pageNum == track.pageNum) {
-          return track;
-        }
-        // pageNum 不匹配，尝试查找其他 Track
-        return null;
-      }
-
-      return track;
-    }
-
-    return null;
+    return _ScanResult(scanned: scanned);
   }
 
   /// 清理无效的下载路径
@@ -266,25 +248,21 @@ class DownloadPathSyncService with Logging {
 
 /// 扫描结果
 class _ScanResult {
-  final List<_MatchedTrack> matched;
+  final List<_ScannedDownload> scanned;
 
-  _ScanResult({required this.matched});
+  _ScanResult({required this.scanned});
 }
 
-/// 匹配的 Track 和本地路径
-class _MatchedTrack {
-  final Track track;
+/// 扫描到的本地下载路径
+class _ScannedDownload {
+  final Track scannedTrack;
   final String localPath;
-  final bool hadExistingPaths;
-  final int playlistId;
-  final String playlistName;
+  final String folderName;
 
-  _MatchedTrack({
-    required this.track,
+  _ScannedDownload({
+    required this.scannedTrack,
     required this.localPath,
-    required this.hadExistingPaths,
-    required this.playlistId,
-    required this.playlistName,
+    required this.folderName,
   });
 }
 
