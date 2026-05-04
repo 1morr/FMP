@@ -140,6 +140,50 @@ void main() {
       );
       expect(categories.single.folderName, 'Playlist A');
     });
+
+    test('startup sync matches null-cid metadata to DB track by page number',
+        () async {
+      final harness = await _createHarness('startup_download_sync_null_cid');
+      addTearDown(harness.dispose);
+
+      final downloadsDir = Directory(p.join(harness.tempDir.path, 'downloads'));
+      final playlistDir = Directory(
+        p.join(downloadsDir.path, 'Playlist B', 'video-b'),
+      );
+      await playlistDir.create(recursive: true);
+      final audioPath = p.join(playlistDir.path, 'P02.m4a');
+      await File(audioPath).writeAsString('audio');
+      await File(p.join(playlistDir.path, 'metadata.json')).writeAsString(
+        jsonEncode({
+          'sourceId': 'video-b',
+          'sourceType': 'bilibili',
+          'title': 'Video B',
+          'artist': 'Artist',
+          'pageNum': 1,
+        }),
+      );
+
+      final settingsRepo = SettingsRepository(harness.isar);
+      await settingsRepo.update((settings) {
+        settings.customDownloadDir = downloadsDir.path;
+      });
+
+      final trackRepo = TrackRepository(harness.isar);
+      final savedTrack = await trackRepo.save(
+        Track()
+          ..sourceId = 'video-b'
+          ..sourceType = SourceType.bilibili
+          ..title = 'Video B P2'
+          ..artist = 'Artist'
+          ..cid = 2002
+          ..pageNum = 2,
+      );
+
+      await harness.container.read(startupDownloadSyncProvider.future);
+
+      final refreshedTrack = await trackRepo.getById(savedTrack.id);
+      expect(refreshedTrack?.allDownloadPaths, [audioPath]);
+    });
   });
 }
 

@@ -433,35 +433,47 @@ class DownloadService with Logging {
     // 2. 批量计算下载路径
     final baseDir =
         await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
-    final trackPaths = <Track, String>{};
+    final trackPaths = <({Track track, String downloadPath})>[];
     for (final track in tracksNeedDownload) {
-      trackPaths[track] = DownloadPathUtils.computeDownloadPath(
-        baseDir: baseDir,
-        playlistName: playlistName,
+      trackPaths.add((
         track: track,
-      );
+        downloadPath: DownloadPathUtils.computeDownloadPath(
+          baseDir: baseDir,
+          playlistName: playlistName,
+          track: track,
+        ),
+      ));
     }
 
     // 3. 批量查询已有任务（按 savePath 去重）
-    final existingTasks = await _downloadRepository
-        .getTasksBySavePaths(trackPaths.values.toList());
+    final existingTasks = await _downloadRepository.getTasksBySavePaths(
+      trackPaths.map((entry) => entry.downloadPath).toSet().toList(),
+    );
 
     // 4. 过滤掉已有任务的 track，创建新任务
     final newTasks = <DownloadTask>[];
+    final acceptedSavePaths = <String>{};
     final basePriority = await _downloadRepository.getNextPriority();
 
-    for (final entry in trackPaths.entries) {
-      final track = entry.key;
-      final downloadPath = entry.value;
+    for (final entry in trackPaths) {
+      final track = entry.track;
+      final downloadPath = entry.downloadPath;
       final existingTask = existingTasks[downloadPath];
 
-      // 有下载任务 → 跳过（不管状态，不自动 resume）
-      if (existingTask != null) {
+      // 有下载任务或本批次已有相同路径 → 跳过（不管状态，不自动 resume）
+      if (existingTask != null || acceptedSavePaths.contains(downloadPath)) {
         taskExistsCount++;
-        logDebug(
-            'Download task already exists for path: $downloadPath (status: ${existingTask.status})');
+        if (existingTask != null) {
+          logDebug(
+              'Download task already exists for path: $downloadPath (status: ${existingTask.status})');
+        } else {
+          logDebug(
+              'Download task already queued in batch for path: $downloadPath');
+        }
         continue;
       }
+
+      acceptedSavePaths.add(downloadPath);
 
       // 创建新任务
       newTasks.add(DownloadTask()
