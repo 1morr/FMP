@@ -13,6 +13,7 @@ import '../../../providers/download_provider.dart';
 import '../../../data/models/playlist.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../providers/refresh_provider.dart';
+import '../../../services/library/playlist_service.dart';
 import '../../router.dart';
 import '../../widgets/context_menu_region.dart';
 import '../../widgets/error_display.dart';
@@ -49,6 +50,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     }
 
     final displayPlaylists = _localPlaylists ?? state.playlists;
+    final coverMapAsync = ref.watch(playlistCoverMapProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -116,8 +118,18 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
               : displayPlaylists.isEmpty
                   ? _buildEmptyState(context, ref)
                   : _isReorderMode
-                      ? _buildReorderableGrid(context, ref, displayPlaylists)
-                      : _buildPlaylistGrid(context, ref, displayPlaylists),
+                      ? _buildReorderableGrid(
+                          context,
+                          ref,
+                          displayPlaylists,
+                          coverMapAsync,
+                        )
+                      : _buildPlaylistGrid(
+                          context,
+                          ref,
+                          displayPlaylists,
+                          coverMapAsync,
+                        ),
           // 刷新进度指示器固定在底部
           const Positioned(
             left: 0,
@@ -159,6 +171,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     BuildContext context,
     WidgetRef ref,
     List<Playlist> playlists,
+    AsyncValue<Map<int, PlaylistCoverData>> coverMapAsync,
   ) {
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
@@ -172,9 +185,11 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
       ),
       itemCount: playlists.length,
       itemBuilder: (context, index) {
+        final playlist = playlists[index];
         return _PlaylistCard(
-          key: ValueKey(playlists[index].id),
-          playlist: playlists[index],
+          key: ValueKey(playlist.id),
+          playlist: playlist,
+          coverAsync: _coverForPlaylist(coverMapAsync, playlist.id),
         );
       },
     );
@@ -184,6 +199,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     BuildContext context,
     WidgetRef ref,
     List<Playlist> playlists,
+    AsyncValue<Map<int, PlaylistCoverData>> coverMapAsync,
   ) {
     return ReorderableGridView.builder(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
@@ -200,6 +216,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
         return _ReorderablePlaylistCard(
           key: ValueKey(playlist.id),
           playlist: playlist,
+          coverAsync: _coverForPlaylist(coverMapAsync, playlist.id),
         );
       },
       onReorder: (oldIndex, newIndex) async {
@@ -246,16 +263,37 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
   }
 }
 
+AsyncValue<PlaylistCoverData> _coverForPlaylist(
+  AsyncValue<Map<int, PlaylistCoverData>> coverMapAsync,
+  int playlistId,
+) {
+  return coverMapAsync.when(
+    skipLoadingOnReload: true,
+    data: (coverMap) => AsyncData<PlaylistCoverData>(
+      coverMap[playlistId] ?? const PlaylistCoverData(),
+    ),
+    loading: () => const AsyncLoading<PlaylistCoverData>(),
+    error: (error, stackTrace) => AsyncError<PlaylistCoverData>(
+      error,
+      stackTrace,
+    ),
+  );
+}
+
 /// 可拖拽的歌單卡片（排序模式下使用）
 class _ReorderablePlaylistCard extends ConsumerWidget {
   final Playlist playlist;
+  final AsyncValue<PlaylistCoverData> coverAsync;
 
-  const _ReorderablePlaylistCard({super.key, required this.playlist});
+  const _ReorderablePlaylistCard({
+    super.key,
+    required this.playlist,
+    required this.coverAsync,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    final coverAsync = ref.watch(playlistCoverProvider(playlist.id));
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -307,9 +345,10 @@ class _ReorderablePlaylistCard extends ConsumerWidget {
                           const SizedBox(width: 4),
                           Text(
                             'Mix',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.tertiary,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.tertiary,
+                                    ),
                           ),
                         ] else ...[
                           if (playlist.isImported) ...[
@@ -322,9 +361,10 @@ class _ReorderablePlaylistCard extends ConsumerWidget {
                           ],
                           Text(
                             t.library.trackCount(n: playlist.trackCount),
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.outline,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.outline,
+                                    ),
                           ),
                         ],
                       ],
@@ -360,13 +400,17 @@ class _ReorderablePlaylistCard extends ConsumerWidget {
 /// 歌单卡片
 class _PlaylistCard extends ConsumerWidget {
   final Playlist playlist;
+  final AsyncValue<PlaylistCoverData> coverAsync;
 
-  const _PlaylistCard({super.key, required this.playlist});
+  const _PlaylistCard({
+    super.key,
+    required this.playlist,
+    required this.coverAsync,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    final coverAsync = ref.watch(playlistCoverProvider(playlist.id));
     final isRefreshing = ref.watch(isPlaylistRefreshingProvider(playlist.id));
 
     return ContextMenuRegion(
@@ -375,113 +419,116 @@ class _PlaylistCard extends ConsumerWidget {
       child: Card(
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-        onTap: () {
-          // 使用 Future.microtask 延迟导航，避免在 LayoutBuilder 布局期间触发导航
-          final id = playlist.id;
-          Future.microtask(() {
-            if (context.mounted) {
-              context.push('${RoutePaths.library}/$id');
-            }
-          });
-        },
-        onLongPress: () => _showOptionsMenu(context, ref),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 封面 - 使用 Expanded 填充剩余空间
-            Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  coverAsync.when(
-                    skipLoadingOnReload: true,
-                    data: (coverData) => coverData.hasCover
-                        ? ImageLoadingService.loadImage(
-                            localPath: coverData.localPath,
-                            networkUrl: coverData.networkUrl,
-                            placeholder: const ImagePlaceholder.track(),
-                            fit: BoxFit.cover,
-                            width: 200,
-                            targetDisplaySize: 200,
-                          )
-                        : const ImagePlaceholder.track(),
-                    loading: () => const ImagePlaceholder.track(),
-                    error: (error, stack) => const ImagePlaceholder.track(),
-                  ),
-                  // 刷新指示器覆盖层
-                  if (isRefreshing)
-                    Container(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      child: const Center(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 3,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
+          onTap: () {
+            // 使用 Future.microtask 延迟导航，避免在 LayoutBuilder 布局期间触发导航
+            final id = playlist.id;
+            Future.microtask(() {
+              if (context.mounted) {
+                context.push('${RoutePaths.library}/$id');
+              }
+            });
+          },
+          onLongPress: () => _showOptionsMenu(context, ref),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 封面 - 使用 Expanded 填充剩余空间
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    coverAsync.when(
+                      skipLoadingOnReload: true,
+                      data: (coverData) => coverData.hasCover
+                          ? ImageLoadingService.loadImage(
+                              localPath: coverData.localPath,
+                              networkUrl: coverData.networkUrl,
+                              placeholder: const ImagePlaceholder.track(),
+                              fit: BoxFit.cover,
+                              width: 200,
+                              targetDisplaySize: 200,
+                            )
+                          : const ImagePlaceholder.track(),
+                      loading: () => const ImagePlaceholder.track(),
+                      error: (error, stack) => const ImagePlaceholder.track(),
+                    ),
+                    // 刷新指示器覆盖层
+                    if (isRefreshing)
+                      Container(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
-            // 信息
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    playlist.name,
-                    style: Theme.of(context).textTheme.titleSmall,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      if (playlist.isMix) ...[
-                        Icon(
-                          Icons.radio,
-                          size: 12,
-                          color: colorScheme.tertiary,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Mix',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: colorScheme.tertiary,
-                              ),
-                        ),
-                      ] else ...[
-                        if (playlist.isImported) ...[
+              // 信息
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      playlist.name,
+                      style: Theme.of(context).textTheme.titleSmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        if (playlist.isMix) ...[
                           Icon(
-                            getImportSourceIcon(playlist.importSourceType),
+                            Icons.radio,
                             size: 12,
-                            color: colorScheme.primary,
+                            color: colorScheme.tertiary,
                           ),
                           const SizedBox(width: 4),
+                          Text(
+                            'Mix',
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.tertiary,
+                                    ),
+                          ),
+                        ] else ...[
+                          if (playlist.isImported) ...[
+                            Icon(
+                              getImportSourceIcon(playlist.importSourceType),
+                              size: 12,
+                              color: colorScheme.primary,
+                            ),
+                            const SizedBox(width: 4),
+                          ],
+                          Text(
+                            t.library.trackCount(n: playlist.trackCount),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.outline,
+                                    ),
+                          ),
                         ],
-                        Text(
-                          t.library.trackCount(n: playlist.trackCount),
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: colorScheme.outline,
-                              ),
-                        ),
                       ],
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  List<PopupMenuEntry<String>> _buildContextMenuItems(BuildContext context, WidgetRef ref) {
+  List<PopupMenuEntry<String>> _buildContextMenuItems(
+      BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final isRefreshing = ref.read(isPlaylistRefreshingProvider(playlist.id));
 
@@ -527,7 +574,9 @@ class _PlaylistCard extends ConsumerWidget {
           enabled: !isRefreshing,
           child: ListTile(
             leading: Icon(isRefreshing ? Icons.hourglass_empty : Icons.refresh),
-            title: Text(isRefreshing ? t.library.main.refreshing : t.library.main.refreshPlaylist),
+            title: Text(isRefreshing
+                ? t.library.main.refreshing
+                : t.library.main.refreshPlaylist),
             contentPadding: EdgeInsets.zero,
           ),
         ),
@@ -535,14 +584,16 @@ class _PlaylistCard extends ConsumerWidget {
         value: 'delete',
         child: ListTile(
           leading: Icon(Icons.delete, color: colorScheme.error),
-          title: Text(t.library.main.deletePlaylist, style: TextStyle(color: colorScheme.error)),
+          title: Text(t.library.main.deletePlaylist,
+              style: TextStyle(color: colorScheme.error)),
           contentPadding: EdgeInsets.zero,
         ),
       ),
     ];
   }
 
-  void _handleContextMenuAction(BuildContext context, WidgetRef ref, String value) {
+  void _handleContextMenuAction(
+      BuildContext context, WidgetRef ref, String value) {
     switch (value) {
       case 'play_mix':
         _playMix(context, ref);
@@ -616,12 +667,14 @@ class _PlaylistCard extends ConsumerWidget {
                           height: 24,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                colorScheme.primary),
                           ),
                         )
                       : const Icon(Icons.refresh),
-                  title: Text(isRefreshing ? t.library.main.refreshing : t.library.main.refreshPlaylist),
+                  title: Text(isRefreshing
+                      ? t.library.main.refreshing
+                      : t.library.main.refreshPlaylist),
                   enabled: !isRefreshing,
                   onTap: isRefreshing
                       ? null
@@ -632,7 +685,8 @@ class _PlaylistCard extends ConsumerWidget {
                 ),
               ListTile(
                 leading: Icon(Icons.delete, color: colorScheme.error),
-                title: Text(t.library.main.deletePlaylist, style: TextStyle(color: colorScheme.error)),
+                title: Text(t.library.main.deletePlaylist,
+                    style: TextStyle(color: colorScheme.error)),
                 onTap: () {
                   Navigator.pop(context);
                   _showDeleteConfirm(context, ref);
@@ -675,7 +729,8 @@ class _PlaylistCard extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(t.library.main.deletePlaylist),
-        content: Text(t.library.main.deletePlaylistConfirm(name: playlist.name)),
+        content:
+            Text(t.library.main.deletePlaylistConfirm(name: playlist.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),

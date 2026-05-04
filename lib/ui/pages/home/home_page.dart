@@ -29,6 +29,7 @@ import '../../widgets/track_thumbnail.dart';
 import '../../widgets/vip_badge.dart';
 import '../../../data/models/playlist.dart';
 import '../../../providers/refresh_provider.dart';
+import '../../../services/library/playlist_service.dart';
 import '../library/widgets/create_playlist_dialog.dart';
 import '../../../core/constants/app_constants.dart';
 
@@ -254,6 +255,7 @@ class _RecentPlaylistsSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final playlists = ref.watch(allPlaylistsProvider);
+    final coverMapAsync = ref.watch(playlistCoverMapProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
     return playlists.when(
@@ -295,7 +297,13 @@ class _RecentPlaylistsSection extends ConsumerWidget {
                   final playlistCards = recentLists.map((playlist) {
                     return SizedBox(
                       width: cardWidth,
-                      child: _HomePlaylistCard(playlist: playlist),
+                      child: _HomePlaylistCard(
+                        playlist: playlist,
+                        coverAsync: _coverForPlaylist(
+                          coverMapAsync,
+                          playlist.id,
+                        ),
+                      ),
                     );
                   }).toList();
 
@@ -362,6 +370,23 @@ class _RecentPlaylistsSection extends ConsumerWidget {
       },
     );
   }
+}
+
+AsyncValue<PlaylistCoverData> _coverForPlaylist(
+  AsyncValue<Map<int, PlaylistCoverData>> coverMapAsync,
+  int playlistId,
+) {
+  return coverMapAsync.when(
+    skipLoadingOnReload: true,
+    data: (coverMap) => AsyncData<PlaylistCoverData>(
+      coverMap[playlistId] ?? const PlaylistCoverData(),
+    ),
+    loading: () => const AsyncLoading<PlaylistCoverData>(),
+    error: (error, stackTrace) => AsyncError<PlaylistCoverData>(
+      error,
+      stackTrace,
+    ),
+  );
 }
 
 /// 电台区域（独立 ConsumerWidget）
@@ -1092,13 +1117,15 @@ class _HomeRadioStationCard extends StatelessWidget {
 /// 首頁歌單卡片（帶右鍵/長按菜單）
 class _HomePlaylistCard extends ConsumerWidget {
   final Playlist playlist;
+  final AsyncValue<PlaylistCoverData> coverAsync;
 
-  const _HomePlaylistCard({required this.playlist});
+  const _HomePlaylistCard({
+    required this.playlist,
+    required this.coverAsync,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final coverAsync = ref.watch(playlistCoverProvider(playlist.id));
-
     return ContextMenuRegion(
       menuBuilder: (_) => _buildContextMenuItems(context, ref),
       onSelected: (value) => _handleContextMenuAction(context, ref, value),

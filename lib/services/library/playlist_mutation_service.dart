@@ -76,7 +76,7 @@ class PlaylistMutationService with Logging {
   PlaylistMutationService({required Isar isar}) : _isar = isar;
 
   Future<PlaylistMutationResult> addTrack(int playlistId, Track track) {
-    return this.addTracks(playlistId, [track]);
+    return addTracks(playlistId, [track]);
   }
 
   Future<PlaylistMutationResult> removeTrack(int playlistId, int trackId) {

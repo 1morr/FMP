@@ -153,6 +153,7 @@ final libraryInvalidationCoordinatorProvider =
     },
     invalidatePlaylistCover: (playlistId) {
       ref.invalidate(playlistCoverProvider(playlistId));
+      ref.invalidate(playlistCoverMapProvider);
     },
     invalidateDownloadedCategories: () {
       ref.invalidate(downloadedCategoriesProvider);

@@ -301,6 +301,28 @@ class PlaylistService with Logging {
     return _mutationService.reorderTracks(playlistId, trackIds);
   }
 
+  /// 获取多个歌单封面数据（包含本地路径和网络 URL）
+  Future<Map<int, PlaylistCoverData>> getPlaylistCoverDataForPlaylists(
+    List<Playlist> playlists,
+  ) async {
+    final firstTrackIds = playlists
+        .where((playlist) => playlist.trackIds.isNotEmpty)
+        .map((playlist) => playlist.trackIds.first)
+        .toSet()
+        .toList();
+    final firstTracks = await _trackRepository.getByIds(firstTrackIds);
+    final firstTrackById = {for (final track in firstTracks) track.id: track};
+    return {
+      for (final playlist in playlists)
+        playlist.id: await _coverDataFromPlaylistAndFirstTrack(
+          playlist,
+          playlist.trackIds.isEmpty
+              ? null
+              : firstTrackById[playlist.trackIds.first],
+        ),
+    };
+  }
+
   /// 获取歌单封面数据（包含本地路径和网络 URL）
   ///
   /// 优先级：
@@ -311,30 +333,35 @@ class PlaylistService with Logging {
     final playlist = await _playlistRepository.getById(playlistId);
     if (playlist == null) return const PlaylistCoverData();
 
+    final firstTrack = playlist.trackIds.isEmpty
+        ? null
+        : await _trackRepository.getById(playlist.trackIds.first);
+    return _coverDataFromPlaylistAndFirstTrack(playlist, firstTrack);
+  }
+
+  Future<PlaylistCoverData> _coverDataFromPlaylistAndFirstTrack(
+    Playlist playlist,
+    Track? firstTrack,
+  ) async {
     String? localPath;
     String? networkUrl;
 
     // 设置网络封面 URL
     networkUrl = playlist.coverUrl;
 
-    // 如果没有网络封面或需要本地封面，尝试使用第一首歌的封面
-    if (playlist.trackIds.isNotEmpty) {
-      final firstTrack =
-          await _trackRepository.getById(playlist.trackIds.first);
-      if (firstTrack != null) {
-        // 异步检查第一首歌的本地封面
-        for (final downloadPath in firstTrack.allDownloadPaths) {
-          final dir = Directory(downloadPath).parent;
-          final coverPath = p.join(dir.path, 'cover.jpg');
-          if (await File(coverPath).exists()) {
-            localPath = coverPath;
-            break;
-          }
+    if (firstTrack != null) {
+      // 异步检查第一首歌的本地封面
+      for (final downloadPath in firstTrack.allDownloadPaths) {
+        final dir = Directory(downloadPath).parent;
+        final coverPath = p.join(dir.path, 'cover.jpg');
+        if (await File(coverPath).exists()) {
+          localPath = coverPath;
+          break;
         }
-        // 如果没有网络封面，使用第一首歌的网络封面
-        if (networkUrl == null && firstTrack.thumbnailUrl != null) {
-          networkUrl = firstTrack.thumbnailUrl;
-        }
+      }
+      // 如果没有网络封面，使用第一首歌的网络封面
+      if (networkUrl == null && firstTrack.thumbnailUrl != null) {
+        networkUrl = firstTrack.thumbnailUrl;
       }
     }
 
