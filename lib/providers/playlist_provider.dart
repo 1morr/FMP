@@ -543,6 +543,14 @@ final playlistCoverProvider =
   return service.getPlaylistCoverData(playlistId);
 });
 
+/// 歌单封面批量 Provider
+final playlistCoverMapProvider =
+    FutureProvider<Map<int, PlaylistCoverData>>((ref) async {
+  final service = ref.watch(playlistServiceProvider);
+  final playlists = ref.watch(playlistListProvider).playlists;
+  return service.getPlaylistCoverDataForPlaylists(playlists);
+});
+
 /// 所有歌单列表 Provider (简化版)
 final allPlaylistsProvider = FutureProvider<List<Playlist>>((ref) async {
   final service = ref.watch(playlistServiceProvider);
