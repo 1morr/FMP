@@ -151,13 +151,11 @@ class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
   /// 删除歌单
   Future<bool> deletePlaylist(int playlistId) async {
     try {
-      await _service.deletePlaylist(playlistId);
+      final result = await _service.deletePlaylist(playlistId);
       // watch 自动更新列表
-      _ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
-        [playlistId],
-        tracksChanged: false,
-        coverChanged: false,
-      );
+      _ref
+          .read(libraryInvalidationCoordinatorProvider)
+          .playlistMutationCompleted(result);
       return true;
     } catch (e) {
       state = state.copyWith(error: e.toString());
@@ -424,14 +422,13 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
         totalTrackCount: state.totalTrackCount + 1,
       );
 
-      await _service.addTrackToPlaylist(playlistId, track);
+      final result = await _service.addTrackToPlaylist(playlistId, track);
       if (!mounted) return true;
-      // 刷新相关 providers（封面可能已更新，歌单列表也需要更新）
-      _ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
-            playlistId,
-            tracksChanged: false,
-            coverChanged: true,
-          );
+      await refreshTracks();
+      if (!mounted) return true;
+      _ref
+          .read(libraryInvalidationCoordinatorProvider)
+          .playlistMutationCompleted(result);
       return true;
     } catch (e) {
       if (!mounted) return false;
@@ -452,14 +449,14 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
         totalTrackCount: state.totalTrackCount - 1,
       );
 
-      await _service.removeTrackFromPlaylist(playlistId, trackId);
+      final result =
+          await _service.removeTrackFromPlaylist(playlistId, trackId);
       if (!mounted) return true;
-      // 刷新相关 providers（封面可能已更新，歌单列表也需要更新）
-      _ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
-            playlistId,
-            tracksChanged: false,
-            coverChanged: true,
-          );
+      await refreshTracks();
+      if (!mounted) return true;
+      _ref
+          .read(libraryInvalidationCoordinatorProvider)
+          .playlistMutationCompleted(result);
       return true;
     } catch (e) {
       if (!mounted) return false;
@@ -484,13 +481,14 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
         totalTrackCount: state.totalTrackCount - removedCount,
       );
 
-      await _service.removeTracksFromPlaylist(playlistId, trackIds);
+      final result =
+          await _service.removeTracksFromPlaylist(playlistId, trackIds);
       if (!mounted) return true;
-      _ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
-            playlistId,
-            tracksChanged: false,
-            coverChanged: true,
-          );
+      await refreshTracks();
+      if (!mounted) return true;
+      _ref
+          .read(libraryInvalidationCoordinatorProvider)
+          .playlistMutationCompleted(result);
       return true;
     } catch (e) {
       if (!mounted) return false;
@@ -511,15 +509,14 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
       tracks.insert(insertIndex, track);
       state = state.copyWith(tracks: tracks);
 
-      await _service.reorderPlaylistTracks(playlistId, oldIndex, newIndex);
+      final result =
+          await _service.reorderPlaylistTracks(playlistId, oldIndex, newIndex);
       if (!mounted) return true;
-      // 刷新封面 provider（第一首歌可能已改变）
-      _ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
-            playlistId,
-            tracksChanged: false,
-            coverChanged: true,
-            includeAll: false,
-          );
+      await refreshTracks();
+      if (!mounted) return true;
+      _ref
+          .read(libraryInvalidationCoordinatorProvider)
+          .playlistMutationCompleted(result);
       return true;
     } catch (e) {
       if (!mounted) return false;
@@ -557,10 +554,10 @@ final addTrackToPlaylistProvider =
     FutureProvider.family<bool, ({int playlistId, Track track})>(
         (ref, params) async {
   final service = ref.watch(playlistServiceProvider);
-  await service.addTrackToPlaylist(params.playlistId, params.track);
-  // 刷新相关的 provider（封面可能已更新）
-  ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
-        params.playlistId,
-      );
+  final result =
+      await service.addTrackToPlaylist(params.playlistId, params.track);
+  ref
+      .read(libraryInvalidationCoordinatorProvider)
+      .playlistMutationCompleted(result);
   return true;
 });

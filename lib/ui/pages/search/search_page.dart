@@ -1398,13 +1398,16 @@ class _LocalGroupTile extends ConsumerWidget {
     );
   }
 
-  List<PopupMenuEntry<String>> _buildMenuItems() => [
-    PopupMenuItem(value: playTrackActionId, child: ListTile(leading: const Icon(Icons.play_arrow), title: Text(t.general.play), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: playNextTrackActionId, child: ListTile(leading: const Icon(Icons.queue_play_next), title: Text(t.general.playNext), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: addToQueueTrackActionId, child: ListTile(leading: const Icon(Icons.add_to_queue), title: Text(t.general.addToQueue), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: addToPlaylistTrackActionId, child: ListTile(leading: const Icon(Icons.playlist_add), title: Text(t.general.addToPlaylist), contentPadding: EdgeInsets.zero)),
-    PopupMenuItem(value: addToRemoteTrackActionId, child: ListTile(leading: const Icon(Icons.cloud_upload_outlined), title: Text(t.remote.addToFavorites), contentPadding: EdgeInsets.zero)),
-  ];
+  List<PopupMenuEntry<String>> _buildMenuItems() {
+    return buildTrackActionPopupMenuEntries(
+      buildCommonTrackActionMenuItems(
+        translations: t,
+        options: const TrackActionMenuOptions(
+          includeMatchLyrics: false,
+        ),
+      ),
+    );
+  }
 
   void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
     final controller = ref.read(audioControllerProvider.notifier);

@@ -132,7 +132,7 @@ void main() {
         ..sourceType = SourceType.youtube;
       var remoteTracks = <Track>[];
 
-      await handler.handle(
+      final result = await handler.handle(
         TrackAction.addToRemote,
         tracks: [bilibiliTrack, youtubeTrack],
         isLoggedIn: (sourceType) => sourceType == SourceType.bilibili,
@@ -142,11 +142,42 @@ void main() {
         },
       );
 
+      expect(result.shouldExitSelectionMode, isTrue);
       expect(remoteTracks, [bilibiliTrack]);
       expect(
         sink.skippedPlatformMessages.single,
         contains(SourceType.youtube.displayName),
       );
+    });
+
+    test(
+        'multi addToRemote keeps selection active when every selected track needs login',
+        () async {
+      final audio = FakeTrackActionAudioController();
+      final sink = FakeMultiTrackActionFeedbackSink();
+      final handler = MultiTrackActionHandler(
+        audioController: audio,
+        feedbackSink: sink,
+      );
+      final bilibiliTrack = buildTrack(sourceId: 'track-1', title: 'Track 1')
+        ..sourceType = SourceType.bilibili;
+      final youtubeTrack = buildTrack(sourceId: 'track-2', title: 'Track 2')
+        ..sourceType = SourceType.youtube;
+      var remoteCalls = 0;
+
+      final result = await handler.handle(
+        TrackAction.addToRemote,
+        tracks: [bilibiliTrack, youtubeTrack],
+        isLoggedIn: (_) => false,
+        onAddToPlaylist: () async {},
+        onAddToRemote: (_) async {
+          remoteCalls++;
+        },
+      );
+
+      expect(result.shouldExitSelectionMode, isFalse);
+      expect(remoteCalls, 0);
+      expect(sink.loginPrompts, 1);
     });
   });
 }

@@ -60,6 +60,37 @@ void main() {
       expect(refreshedIds, ['PL']);
     });
 
+    test(
+        'keeps remote removal success and local removal when imported refresh fails',
+        () async {
+      final playlist = Playlist()
+        ..id = 9
+        ..name = 'Imported'
+        ..sourceUrl = 'https://www.youtube.com/playlist?list=PL'
+        ..importSourceType = SourceType.youtube;
+      final syncedLocalIds = <int>[];
+      final refreshedIds = <String>[];
+      final controller = _controller(
+        adapter: _FakeAdapter(removeConfirmedIds: [1], changedIds: ['PL']),
+        removeLocalTracks: (_, trackIds) async =>
+            syncedLocalIds.addAll(trackIds),
+        refreshRemoteIds: (sourceType, remoteIds) async {
+          refreshedIds.addAll(remoteIds);
+          throw StateError('refresh failed');
+        },
+      );
+
+      final result = await controller.removeTracksFromImportedPlaylist(
+        playlist: playlist,
+        tracks: [_track(SourceType.youtube, 1, 'ok')],
+      );
+
+      expect(result.confirmedRemovedTrackIds, [1]);
+      expect(result.hasFailures, isFalse);
+      expect(syncedLocalIds, [1]);
+      expect(refreshedIds, ['PL']);
+    });
+
     test('removeTracksFromImportedPlaylist skips invalid remote playlist URLs',
         () async {
       final controller = _controller(adapter: _FakeAdapter());

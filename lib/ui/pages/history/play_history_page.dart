@@ -835,13 +835,16 @@ class _PlayHistoryPageState extends ConsumerState<PlayHistoryPage> {
     if (tryParseTrackAction(action) != null) {
       final tracks =
           _selectedHistories().map((history) => history.toTrack()).toList();
-      ref.read(playHistoryPageProvider.notifier).exitMultiSelectMode();
-      await TrackActionCoordinator.handleMulti(
+      final result = await TrackActionCoordinator.handleMulti(
         context: context,
         ref: ref,
         tracks: tracks,
         actionId: action,
       );
+      if (!context.mounted) return;
+      if (result.shouldExitSelectionMode) {
+        ref.read(playHistoryPageProvider.notifier).exitMultiSelectMode();
+      }
       return;
     }
 

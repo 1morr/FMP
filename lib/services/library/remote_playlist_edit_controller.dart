@@ -1,3 +1,4 @@
+import '../../core/logger.dart';
 import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
 import 'remote_playlist_edit_planner.dart';
@@ -97,18 +98,27 @@ class RemotePlaylistEditController {
     int? localRemovalPlaylistId,
   }) async {
     final result = await _adapterFor(plan.sourceType).submit(plan);
-    if (result.changedRemote) {
-      await refreshMatchingImportedPlaylists(
-        sourceType: plan.sourceType,
-        remotePlaylistIds: result.changedRemotePlaylistIds,
-      );
-    }
     if (localRemovalPlaylistId != null &&
         result.confirmedRemovedTrackIds.isNotEmpty) {
       await removeTracksFromLocalPlaylist(
         localRemovalPlaylistId,
         result.confirmedRemovedTrackIds,
       );
+    }
+    if (result.changedRemote) {
+      try {
+        await refreshMatchingImportedPlaylists(
+          sourceType: plan.sourceType,
+          remotePlaylistIds: result.changedRemotePlaylistIds,
+        );
+      } catch (error, stackTrace) {
+        AppLogger.error(
+          'Failed to refresh imported playlists after remote edit',
+          error,
+          stackTrace,
+          'RemotePlaylistEditController',
+        );
+      }
     }
     return result;
   }
