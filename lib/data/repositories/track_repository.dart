@@ -7,6 +7,39 @@ import '../models/play_queue.dart';
 import '../models/lyrics_match.dart';
 import '../../core/logger.dart';
 
+class TrackSourceIdentity {
+  final SourceType sourceType;
+  final String sourceId;
+  final int? cid;
+
+  const TrackSourceIdentity({
+    required this.sourceType,
+    required this.sourceId,
+    this.cid,
+  });
+
+  factory TrackSourceIdentity.fromTrack(Track track) => TrackSourceIdentity(
+        sourceType: track.sourceType,
+        sourceId: track.sourceId,
+        cid: track.cid,
+      );
+
+  String get sourcePageKey => cid != null
+      ? '${sourceType.name}:$sourceId:$cid'
+      : '${sourceType.name}:$sourceId';
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TrackSourceIdentity &&
+          other.sourceType == sourceType &&
+          other.sourceId == sourceId &&
+          other.cid == cid;
+
+  @override
+  int get hashCode => Object.hash(sourceType, sourceId, cid);
+}
+
 /// Track 数据仓库
 class TrackRepository with Logging {
   final Isar _isar;
@@ -56,6 +89,26 @@ class TrackRepository with Logging {
         .where()
         .anyOf(sourceIds, (q, sourceId) => q.sourceIdEqualTo(sourceId))
         .findAll();
+  }
+
+  Future<Map<TrackSourceIdentity, Track>> getBySourceIdentities(
+    Iterable<TrackSourceIdentity> identities,
+  ) async {
+    final requested = identities.toSet();
+    if (requested.isEmpty) return {};
+    final keys = requested.map((identity) => identity.sourcePageKey).toSet();
+    final tracks = await _isar.tracks
+        .where()
+        .anyOf(keys, (q, key) => q.sourcePageKeyEqualToAnyCid(key))
+        .findAll();
+    final result = <TrackSourceIdentity, Track>{};
+    for (final track in tracks) {
+      final identity = TrackSourceIdentity.fromTrack(track);
+      if (requested.contains(identity)) {
+        result.putIfAbsent(identity, () => track);
+      }
+    }
+    return result;
   }
 
   /// 根据源ID、类型和cid获取歌曲（支持分P唯一性检查）
@@ -332,13 +385,13 @@ class TrackRepository with Logging {
 
     logDebug('getOrCreateAll: processing ${tracks.length} tracks');
 
-    // 使用 Map 按 uniqueKey 去重，保持顺序
-    final Map<String, int> keyToIndex = {};
+    // 使用 Map 按来源身份去重，保持顺序
+    final Map<TrackSourceIdentity, int> keyToIndex = {};
     final List<Track> uniqueTracks = [];
 
     for (var i = 0; i < tracks.length; i++) {
       final track = tracks[i];
-      final key = track.uniqueKey;
+      final key = TrackSourceIdentity.fromTrack(track);
 
       if (!keyToIndex.containsKey(key)) {
         keyToIndex[key] = uniqueTracks.length;
@@ -352,21 +405,17 @@ class TrackRepository with Logging {
     }
 
     // 批量查询已存在的 tracks
-    final sourceIds = uniqueTracks.map((t) => t.sourceId).toSet().toList();
-    final existingTracks = await getBySourceIds(sourceIds);
-
-    // 建立 uniqueKey -> existing track 的映射
-    final existingMap = <String, Track>{};
-    for (final existing in existingTracks) {
-      existingMap[existing.uniqueKey] = existing;
-    }
+    final existingMap = await getBySourceIdentities(
+      uniqueTracks.map(TrackSourceIdentity.fromTrack),
+    );
 
     // 分类处理
     final toSave = <Track>[];
     final results = <Track>[];
 
     for (final track in uniqueTracks) {
-      final existing = existingMap[track.uniqueKey];
+      final identity = TrackSourceIdentity.fromTrack(track);
+      final existing = existingMap[identity];
       if (existing != null) {
         // 更新已存在的 track
         bool needsUpdate = false;
@@ -410,7 +459,7 @@ class TrackRepository with Logging {
     // 重建原始顺序的结果列表
     final finalResults = <Track>[];
     for (final track in tracks) {
-      final key = track.uniqueKey;
+      final key = TrackSourceIdentity.fromTrack(track);
       final index = keyToIndex[key]!;
       finalResults.add(results[index]);
     }
