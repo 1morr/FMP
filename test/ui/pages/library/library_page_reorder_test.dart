@@ -161,6 +161,9 @@ class _LibraryPageHarness {
         playlistCoverProvider.overrideWith(
           (ref, playlistId) => const PlaylistCoverData(),
         ),
+        playlistCoverMapProvider.overrideWith(
+          (ref) => const <int, PlaylistCoverData>{},
+        ),
       ],
     );
 
