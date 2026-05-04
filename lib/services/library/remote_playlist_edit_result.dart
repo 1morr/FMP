@@ -60,9 +60,9 @@ class RemotePlaylistEditResult {
 
   RemotePlaylistEditSummary get summary => RemotePlaylistEditSummary(
         changedPlaylistCount: changedRemotePlaylistIds.toSet().length,
-        addedTrackCount: confirmedAddedTrackIds.toSet().length,
-        removedTrackCount: confirmedRemovedTrackIds.toSet().length,
-        skippedTrackCount: skippedTrackIds.toSet().length,
+        addedTrackCount: _dedupeInOrder(confirmedAddedTrackIds).length,
+        removedTrackCount: _dedupeInOrder(confirmedRemovedTrackIds).length,
+        skippedTrackCount: _dedupeInOrder(skippedTrackIds).length,
         failedTrackCount: failedTrackIds.length,
       );
 

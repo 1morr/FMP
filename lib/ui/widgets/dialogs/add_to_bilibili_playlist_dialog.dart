@@ -292,6 +292,20 @@ class _BilibiliRemoteFavSheetState
           );
 
       if (!mounted) return;
+      if (result.changedRemote && result.hasFailures) {
+        final summary = result.summary;
+        final successCount = summary.addedTrackCount + summary.removedTrackCount;
+        final totalCount = successCount + summary.failedTrackCount;
+        ToastService.warning(
+          context,
+          t.addToPlaylistDialog.partiallyCompleted(
+            success: successCount,
+            total: totalCount,
+          ),
+        );
+        Navigator.pop(context, true);
+        return;
+      }
       if (result.changedRemote) {
         ToastService.success(context, t.remote.updated);
         Navigator.pop(context, true);
