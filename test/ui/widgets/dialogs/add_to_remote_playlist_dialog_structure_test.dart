@@ -54,6 +54,26 @@ void main() {
     }
   });
 
+  test(
+      'source remote playlist dialogs surface partial success before success',
+      () {
+    for (final path in [
+      'lib/ui/widgets/dialogs/add_to_bilibili_playlist_dialog.dart',
+      'lib/ui/widgets/dialogs/add_to_youtube_playlist_dialog.dart',
+      'lib/ui/widgets/dialogs/add_to_netease_playlist_dialog.dart',
+    ]) {
+      final submitBody = _methodBody(File(path).readAsStringSync(), '_submit');
+      final partialIndex = submitBody.indexOf('result.changedRemote && result.hasFailures');
+      final successIndex = submitBody.indexOf('result.changedRemote)');
+
+      expect(partialIndex, isNot(-1), reason: path);
+      expect(successIndex, isNot(-1), reason: path);
+      expect(partialIndex, lessThan(successIndex), reason: path);
+      expect(submitBody, contains('ToastService.warning'));
+      expect(submitBody, contains('partiallyCompleted'));
+    }
+  });
+
   test('legacy remote action services are removed from providers and UI', () {
     final accountProvider =
         File('lib/providers/account_provider.dart').readAsStringSync();
