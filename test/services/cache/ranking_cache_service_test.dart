@@ -7,6 +7,7 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/bilibili_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/youtube_source.dart';
+import 'package:fmp/providers/popular_provider.dart';
 import 'package:fmp/services/cache/ranking_cache_service.dart';
 import 'package:fmp/services/network/connectivity_service.dart';
 
@@ -14,6 +15,63 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('RankingCacheService lifecycle hardening', () {
+    test('provider exposes immutable ranking state after refresh', () async {
+      final bilibiliTrack = _track('bv-1', SourceType.bilibili);
+      final youtubeTrack = _track('yt-1', SourceType.youtube, viewCount: 20);
+      final bilibiliSource = _FakeBilibiliSource()..tracks = [bilibiliTrack];
+      final youtubeSource = _FakeYouTubeSource()..tracks = [youtubeTrack];
+      final notifier = _TestConnectivityNotifier();
+      final container = ProviderContainer(
+        overrides: [
+          bilibiliSourceProvider.overrideWith((ref) => bilibiliSource),
+          youtubeSourceProvider.overrideWith((ref) => youtubeSource),
+          connectivityProvider.overrideWith((ref) => notifier),
+        ],
+      );
+
+      expect(
+          container.read(rankingCacheServiceProvider).isInitialLoading, isTrue);
+
+      await pumpEventQueue(times: 5);
+      final state = container.read(rankingCacheServiceProvider);
+
+      expect(state.isInitialLoading, isFalse);
+      expect(state.bilibiliTracks, [bilibiliTrack]);
+      expect(state.youtubeTracks, [youtubeTrack]);
+      expect(state.bilibiliLoaded, isTrue);
+      expect(state.youtubeLoaded, isTrue);
+
+      expect(
+        () => state.bilibiliTracks.add(_track('mutate', SourceType.bilibili)),
+        throwsUnsupportedError,
+      );
+
+      container.dispose();
+      await notifier.closeStream();
+    });
+
+    test('refresh failure keeps old tracks and records source error', () async {
+      final oldTrack = _track('old-bv', SourceType.bilibili);
+      final bilibiliSource = _FakeBilibiliSource()..tracks = [oldTrack];
+      final youtubeSource = _FakeYouTubeSource();
+      final service = RankingCacheService(
+        bilibiliSource: bilibiliSource,
+        youtubeSource: youtubeSource,
+      );
+
+      await service.refreshBilibili();
+      expect(service.state.bilibiliTracks, [oldTrack]);
+      expect(service.state.bilibiliError, isNull);
+
+      bilibiliSource.nextError = Exception('network down');
+      await service.refreshBilibili();
+
+      expect(service.state.bilibiliTracks, [oldTrack]);
+      expect(service.state.bilibiliError, contains('network down'));
+
+      service.dispose();
+    });
+
     test('setupNetworkMonitoring rebinds to the latest connectivity notifier',
         () async {
       final bilibiliSource = _FakeBilibiliSource();
@@ -68,7 +126,8 @@ void main() {
           connectivityProvider.overrideWith((ref) => firstNotifier),
         ],
       );
-      final firstService = firstContainer.read(rankingCacheServiceProvider);
+      final firstService =
+          firstContainer.read(rankingCacheServiceProvider.notifier);
       await pumpEventQueue(times: 5);
       expect(firstBilibiliSource.fetchCount, 1);
       expect(firstYouTubeSource.fetchCount, 1);
@@ -90,7 +149,8 @@ void main() {
           connectivityProvider.overrideWith((ref) => secondNotifier),
         ],
       );
-      final secondService = secondContainer.read(rankingCacheServiceProvider);
+      final secondService =
+          secondContainer.read(rankingCacheServiceProvider.notifier);
 
       expect(identical(firstService, secondService), isFalse);
 
@@ -170,6 +230,8 @@ void main() {
 class _FakeBilibiliSource extends BilibiliSource {
   int fetchCount = 0;
   Completer<void>? nextFetchCompleter;
+  Object? nextError;
+  List<Track> tracks = const [];
 
   @override
   Future<List<Track>> getRankingVideos({int rid = 0}) async {
@@ -179,13 +241,20 @@ class _FakeBilibiliSource extends BilibiliSource {
       nextFetchCompleter = null;
       await completer.future;
     }
-    return [];
+    final error = nextError;
+    if (error != null) {
+      nextError = null;
+      throw error;
+    }
+    return List<Track>.of(tracks);
   }
 }
 
 class _FakeYouTubeSource extends YouTubeSource {
   int fetchCount = 0;
   Completer<void>? nextFetchCompleter;
+  Object? nextError;
+  List<Track> tracks = const [];
 
   @override
   Future<List<Track>> getTrendingVideos({String category = 'music'}) async {
@@ -195,8 +264,22 @@ class _FakeYouTubeSource extends YouTubeSource {
       nextFetchCompleter = null;
       await completer.future;
     }
-    return [];
+    final error = nextError;
+    if (error != null) {
+      nextError = null;
+      throw error;
+    }
+    return List<Track>.of(tracks);
   }
+}
+
+Track _track(String id, SourceType sourceType, {int? viewCount}) {
+  return Track()
+    ..sourceId = id
+    ..sourceType = sourceType
+    ..title = id
+    ..artist = 'Tester'
+    ..viewCount = viewCount;
 }
 
 class _TestConnectivityNotifier extends StateNotifier<ConnectivityState>
