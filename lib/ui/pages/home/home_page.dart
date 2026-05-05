@@ -90,11 +90,12 @@ class _MusicRankingsSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final bilibiliTracks = ref.watch(homeBilibiliMusicRankingProvider);
     final youtubeTracks = ref.watch(homeYouTubeMusicRankingProvider);
-    final rankingState = ref.watch(rankingCacheServiceProvider);
+    final isLoading = ref.watch(
+      rankingCacheServiceProvider.select((state) => state.isInitialLoading),
+    );
 
     final hasBilibiliData = bilibiliTracks.isNotEmpty;
     final hasYoutubeData = youtubeTracks.isNotEmpty;
-    final isLoading = rankingState.isInitialLoading;
 
     if (!isLoading && !hasBilibiliData && !hasYoutubeData) {
       return const SizedBox.shrink();

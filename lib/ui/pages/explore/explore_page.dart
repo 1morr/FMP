@@ -29,18 +29,29 @@ class ExplorePage extends ConsumerStatefulWidget {
 class _ExplorePageState extends ConsumerState<ExplorePage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  int _activeTabIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_handleTabIndexChanged);
     // 不再需要手動加載，直接使用緩存服務的數據
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_handleTabIndexChanged);
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _handleTabIndexChanged() {
+    if (!mounted || _tabController.indexIsChanging) return;
+    if (_activeTabIndex == _tabController.index) return;
+    setState(() {
+      _activeTabIndex = _tabController.index;
+    });
   }
 
   @override
@@ -50,8 +61,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     // 獲取當前 tab 的 tracks 用於全選
     final bilibiliTracks = ref.watch(cachedBilibiliRankingProvider);
     final youtubeTracks = ref.watch(cachedYouTubeRankingProvider);
-    final currentTracks =
-        _tabController.index == 0 ? bilibiliTracks : youtubeTracks;
+    final currentTracks = _activeTabIndex == 0 ? bilibiliTracks : youtubeTracks;
 
     // 多選模式下的可用操作（探索頁不支持下載和刪除）
     const availableActions = <String>{
