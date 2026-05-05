@@ -40,34 +40,6 @@ class BilibiliApiException extends SourceApiException {
     return SourceErrorKind.unknown;
   }
 
-  /// 是否是视频不可用（已删除/下架）
-  @override
-  bool get isUnavailable => super.isUnavailable;
-
-  /// 是否是限流
-  @override
-  bool get isRateLimited => super.isRateLimited;
-
-  /// 是否需要登录
-  @override
-  bool get requiresLogin => super.requiresLogin;
-
-  /// 是否是权限不足（私人收藏夹/视频）
-  @override
-  bool get isPermissionDenied => super.isPermissionDenied;
-
-  /// 是否是地区限制
-  @override
-  bool get isGeoRestricted => super.isGeoRestricted;
-
-  /// 网络连接错误
-  @override
-  bool get isNetworkError => super.isNetworkError;
-
-  /// 超时
-  @override
-  bool get isTimeout => super.isTimeout;
-
   /// 将数字错误码映射为语义化字符串
   static String _mapCode(int code) {
     if (code == -404 || code == 62002) return 'unavailable';

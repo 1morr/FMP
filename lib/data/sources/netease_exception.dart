@@ -37,31 +37,6 @@ class NeteaseApiException extends SourceApiException {
     return SourceErrorKind.unknown;
   }
 
-  @override
-  bool get isUnavailable => super.isUnavailable;
-
-  @override
-  bool get isRateLimited => super.isRateLimited;
-
-  @override
-  bool get isGeoRestricted => super.isGeoRestricted;
-
-  @override
-  bool get requiresLogin => super.requiresLogin;
-
-  @override
-  bool get isNetworkError => super.isNetworkError;
-
-  @override
-  bool get isTimeout => super.isTimeout;
-
-  @override
-  bool get isPermissionDenied => super.isPermissionDenied;
-
-  /// VIP 歌曲需付費
-  @override
-  bool get isVipRequired => super.isVipRequired;
-
   static String _mapCode(int numericCode) {
     switch (numericCode) {
       case -460:
