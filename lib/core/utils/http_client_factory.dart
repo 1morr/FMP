@@ -21,6 +21,7 @@ class HttpClientFactory {
     String? userAgent,
     Duration? connectTimeout,
     Duration? receiveTimeout,
+    String? contentType,
   }) {
     final mergedHeaders = <String, dynamic>{
       'User-Agent': userAgent ?? defaultUserAgent,
@@ -29,6 +30,7 @@ class HttpClientFactory {
 
     return Dio(BaseOptions(
       headers: mergedHeaders,
+      contentType: contentType,
       connectTimeout: connectTimeout ?? AppConstants.networkConnectTimeout,
       receiveTimeout: receiveTimeout ?? AppConstants.networkReceiveTimeout,
     ));

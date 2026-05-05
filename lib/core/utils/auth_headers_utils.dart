@@ -1,10 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/track.dart';
+import '../../data/sources/source_http_policy.dart';
 import '../../providers/account_provider.dart';
 import '../../services/account/bilibili_account_service.dart';
 import '../../services/account/netease_account_service.dart';
-import '../../services/account/youtube_account_service.dart';/// Build auth headers from account services directly (non-Riverpod contexts).
+import '../../services/account/youtube_account_service.dart';
+
+/// Build auth headers from account services directly (non-Riverpod contexts).
 Future<Map<String, String>?> buildAuthHeaders(
   SourceType platform, {
   BilibiliAccountService? bilibiliAccountService,
@@ -21,13 +24,7 @@ Future<Map<String, String>?> buildAuthHeaders(
     case SourceType.netease:
       final cookies = await neteaseAccountService?.getAuthCookieString();
       if (cookies == null) return null;
-      // Netease /api/ and /eapi/ endpoints need full headers
-      return {
-        'Cookie': cookies,
-        'Origin': 'https://music.163.com',
-        'Referer': 'https://music.163.com/',
-        'User-Agent': NeteaseAccountService.userAgent,
-      };
+      return SourceHttpPolicy.neteaseAuthHeaders(cookies);
   }
 }
 
