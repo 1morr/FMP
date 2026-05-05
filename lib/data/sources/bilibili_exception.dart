@@ -7,7 +7,8 @@ class BilibiliApiException extends SourceApiException {
   @override
   final String message;
 
-  const BilibiliApiException({required this.numericCode, required this.message});
+  const BilibiliApiException(
+      {required this.numericCode, required this.message});
 
   @override
   String get code => _mapCode(numericCode);
@@ -18,37 +19,54 @@ class BilibiliApiException extends SourceApiException {
   @override
   String toString() => 'BilibiliApiException($numericCode): $message';
 
+  @override
+  SourceErrorKind get kind {
+    if (numericCode == -1) return SourceErrorKind.timeout;
+    if (numericCode == -2 || numericCode == -3) return SourceErrorKind.network;
+    if (numericCode == -412 ||
+        numericCode == -509 ||
+        numericCode == -799 ||
+        numericCode == -429) {
+      return SourceErrorKind.rateLimited;
+    }
+    if (numericCode == -404 || numericCode == 62002) {
+      return SourceErrorKind.unavailable;
+    }
+    if (numericCode == -101) return SourceErrorKind.loginRequired;
+    if (numericCode == -403 || numericCode == 62012) {
+      return SourceErrorKind.permissionDenied;
+    }
+    if (numericCode == -10403) return SourceErrorKind.geoRestricted;
+    return SourceErrorKind.unknown;
+  }
+
   /// 是否是视频不可用（已删除/下架）
   @override
-  bool get isUnavailable => numericCode == -404 || numericCode == 62002;
+  bool get isUnavailable => super.isUnavailable;
 
   /// 是否是限流
   @override
-  bool get isRateLimited =>
-      numericCode == -412 ||
-      numericCode == -509 ||
-      numericCode == -799 ||
-      numericCode == -429;
+  bool get isRateLimited => super.isRateLimited;
 
   /// 是否需要登录
   @override
-  bool get requiresLogin => numericCode == -101;
+  bool get requiresLogin => super.requiresLogin;
 
   /// 是否是权限不足（私人收藏夹/视频）
   @override
-  bool get isPermissionDenied => numericCode == -403 || numericCode == 62012;
+  bool get isPermissionDenied => super.isPermissionDenied;
 
   /// 是否是地区限制
   @override
-  bool get isGeoRestricted => numericCode == -10403;
+  bool get isGeoRestricted => super.isGeoRestricted;
 
   /// 网络连接错误
   @override
-  bool get isNetworkError => numericCode == -2 || numericCode == -3;
+  bool get isNetworkError => super.isNetworkError;
 
   /// 超时
   @override
-  bool get isTimeout => numericCode == -1;
+  bool get isTimeout => super.isTimeout;
 
   /// 将数字错误码映射为语义化字符串
   static String _mapCode(int code) {
