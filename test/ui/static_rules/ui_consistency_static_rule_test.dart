@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('Phase 1 UI consistency', () {
+  group('UI consistency static rules', () {
     test('cover picker grid items expose and receive stable keys', () {
       final source = File(
         'lib/ui/pages/library/widgets/cover_picker_dialog.dart',

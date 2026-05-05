@@ -114,6 +114,7 @@ UI (player_page, mini_player)
 - Pages using `isLoading` must guard: `isLoading && data.isEmpty`
 - FutureProvider: must `invalidate` after mutations
 - Mutation side effects that need playlist/detail/cover/download provider invalidation should go through `libraryInvalidationCoordinatorProvider`; UI widgets should not manually guess related provider families.
+- Ranking cache UI must watch immutable `RankingCacheState` from `rankingCacheServiceProvider`; refresh/timer methods are called through `rankingCacheServiceProvider.notifier`, not by reading mutable service snapshot lists.
 - Fire-and-forget imported playlist refresh must use the named remote sync path and log background failures with `AppLogger`.
 - Optimistic updates: must rollback on failure
 - List/grid items: add `ValueKey(item.id)`
