@@ -6,12 +6,18 @@ void main() {
   group('account source HTTP policy usage', () {
     test('source account clients use SourceHttpPolicy for Dio defaults', () {
       final files = {
-        'lib/services/account/bilibili_account_service.dart': 'SourceType.bilibili',
-        'lib/services/account/bilibili_favorites_service.dart': 'SourceType.bilibili',
-        'lib/services/account/youtube_account_service.dart': 'SourceType.youtube',
-        'lib/services/account/youtube_playlist_service.dart': 'SourceType.youtube',
-        'lib/services/account/netease_account_service.dart': 'SourceType.netease',
-        'lib/services/account/netease_playlist_service.dart': 'SourceType.netease',
+        'lib/services/account/bilibili_account_service.dart':
+            'SourceType.bilibili',
+        'lib/services/account/bilibili_favorites_service.dart':
+            'SourceType.bilibili',
+        'lib/services/account/youtube_account_service.dart':
+            'SourceType.youtube',
+        'lib/services/account/youtube_playlist_service.dart':
+            'SourceType.youtube',
+        'lib/services/account/netease_account_service.dart':
+            'SourceType.netease',
+        'lib/services/account/netease_playlist_service.dart':
+            'SourceType.netease',
       };
 
       for (final entry in files.entries) {

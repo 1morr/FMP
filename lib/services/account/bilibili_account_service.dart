@@ -89,7 +89,8 @@ class BilibiliAccountService extends AccountService with Logging {
     required String refreshToken,
   }) async {
     if (sessdata.isEmpty || biliJct.isEmpty || dedeUserId.isEmpty) {
-      throw ArgumentError('Invalid Bilibili credentials: required cookies are empty');
+      throw ArgumentError(
+          'Invalid Bilibili credentials: required cookies are empty');
     }
 
     final credentials = BilibiliCredentials(
@@ -183,20 +184,24 @@ class BilibiliAccountService extends AccountService with Logging {
                 );
               }
 
-              if (!stopped) controller.add(QrCodePollResult(status: QrCodeStatus.success));
+              if (!stopped)
+                controller.add(QrCodePollResult(status: QrCodeStatus.success));
               return;
 
             case 86038: // 已過期
-              if (!stopped) controller.add(QrCodePollResult(status: QrCodeStatus.expired));
+              if (!stopped)
+                controller.add(QrCodePollResult(status: QrCodeStatus.expired));
               return;
 
             case 86090: // 已掃碼待確認
               consecutiveErrors = 0;
-              if (!stopped) controller.add(QrCodePollResult(status: QrCodeStatus.scanned));
+              if (!stopped)
+                controller.add(QrCodePollResult(status: QrCodeStatus.scanned));
 
             default: // 86101 等待掃碼
               consecutiveErrors = 0;
-              if (!stopped) controller.add(QrCodePollResult(status: QrCodeStatus.waiting));
+              if (!stopped)
+                controller.add(QrCodePollResult(status: QrCodeStatus.waiting));
           }
         } catch (e) {
           if (stopped) break;
@@ -317,8 +322,7 @@ class BilibiliAccountService extends AccountService with Logging {
       final timestamp = checkResponse.data['data']['timestamp'] as int;
 
       // Step 2: 生成 correspondPath
-      final correspondPath =
-          BilibiliCrypto.generateCorrespondPath(timestamp);
+      final correspondPath = BilibiliCrypto.generateCorrespondPath(timestamp);
 
       // Step 3: 獲取 refresh_csrf
       final csrfResponse = await _dio.get(
