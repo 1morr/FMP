@@ -256,7 +256,8 @@ class YouTubeAccountService extends AccountService with Logging {
       final name = _extractNameFromAccountOverview(data);
       if (name != null) {
         await _updateAccount(userName: name, isVip: isPremium);
-        logInfo('YouTube user info updated via account_overview: $name (premium: $isPremium)');
+        logInfo(
+            'YouTube user info updated via account_overview: $name (premium: $isPremium)');
         return;
       } else if (data is Map<String, dynamic>) {
         // 即使沒有名字，也更新 Premium 狀態
@@ -478,8 +479,7 @@ class YouTubeAccountService extends AccountService with Logging {
     try {
       final iconType = data['topbar']?['desktopTopbarRenderer']?['logo']
           ?['topbarLogoRenderer']?['iconImage']?['iconType'] as String?;
-      if (iconType != null &&
-          iconType.toUpperCase().contains('PREMIUM')) {
+      if (iconType != null && iconType.toUpperCase().contains('PREMIUM')) {
         return true;
       }
     } catch (_) {}
