@@ -35,28 +35,41 @@ class _BilibiliApiParams {
 /// Bilibili 音源实现
 class BilibiliSource extends BaseSource with Logging {
   late final Dio _dio;
+  late final String _viewApi;
+  late final String _playUrlApi;
+  late final String _searchApi;
+  late final String _favListApi;
+  late final String _replyApi;
+  late final String _rankingApi;
+  late final String _liveRoomInfoApi;
+  late final String _livePlayUrlApi;
+  late final String _liveAnchorInfoApi;
 
   // API 端点
-  static const String _apiBase = 'https://api.bilibili.com';
-  static const String _liveApiBase = 'https://api.live.bilibili.com';
-  static const String _viewApi = '$_apiBase/x/web-interface/view';
-  static const String _playUrlApi = '$_apiBase/x/player/playurl';
-  static const String _searchApi = '$_apiBase/x/web-interface/search/type';
-  static const String _favListApi = '$_apiBase/x/v3/fav/resource/list';
-  static const String _replyApi = '$_apiBase/x/v2/reply';
-  static const String _rankingApi = '$_apiBase/x/web-interface/ranking/v2';
-  // 直播相关 API
-  static const String _liveRoomInfoApi = '$_liveApiBase/room/v1/Room/get_info';
-  static const String _livePlayUrlApi = '$_liveApiBase/room/v1/Room/playUrl';
-  static const String _liveAnchorInfoApi = '$_liveApiBase/live_user/v1/UserInfo/get_anchor_in_room';
+  static const String _defaultApiBase = 'https://api.bilibili.com';
+  static const String _defaultLiveApiBase = 'https://api.live.bilibili.com';
 
-  BilibiliSource() {
+  BilibiliSource({
+    Dio? dio,
+    String apiBase = _defaultApiBase,
+    String liveApiBase = _defaultLiveApiBase,
+  }) {
+    _viewApi = '$apiBase/x/web-interface/view';
+    _playUrlApi = '$apiBase/x/player/playurl';
+    _searchApi = '$apiBase/x/web-interface/search/type';
+    _favListApi = '$apiBase/x/v3/fav/resource/list';
+    _replyApi = '$apiBase/x/v2/reply';
+    _rankingApi = '$apiBase/x/web-interface/ranking/v2';
+    _liveRoomInfoApi = '$liveApiBase/room/v1/Room/get_info';
+    _livePlayUrlApi = '$liveApiBase/room/v1/Room/playUrl';
+    _liveAnchorInfoApi = '$liveApiBase/live_user/v1/UserInfo/get_anchor_in_room';
+
     // 生成必要的 Cookie（用于绕过 412 风控）
     final buvid3 = _generateBuvid3();
     final buvid4 = _generateBuvid4();
     final bNut = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
-    _dio = HttpClientFactory.create(
+    _dio = dio ?? HttpClientFactory.create(
       headers: {
         'Referer': 'https://search.bilibili.com/',
         'Origin': 'https://search.bilibili.com',
@@ -525,7 +538,7 @@ class BilibiliSource extends BaseSource with Logging {
         description: info?['intro'],
         coverUrl: info?['cover'],
         tracks: allTracks,
-        totalCount: allTracks.length,
+        totalCount: totalCount,
         sourceUrl: playlistUrl,
         ownerName: info?['upper']?['name'] as String?,
         ownerUserId: (info?['upper']?['mid'] as int?)?.toString(),

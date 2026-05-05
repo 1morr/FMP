@@ -157,6 +157,93 @@ void main() {
       expect(requests.last['continuation'], 'ANON_TOKEN_2');
     });
 
+    test('counts skipped unavailable videos in totalCount', () async {
+      final dio = Dio();
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        final request = jsonDecode(requestBody as String) as Map<String, dynamic>;
+        expect(request['browseId'], 'VLPLPARTIAL');
+        return ResponseBody.fromString(
+          jsonEncode({
+            'header': {
+              'playlistHeaderRenderer': {
+                'title': {'simpleText': 'Partial Playlist'},
+              }
+            },
+            'contents': {
+              'twoColumnBrowseResultsRenderer': {
+                'tabs': [
+                  {
+                    'tabRenderer': {
+                      'content': {
+                        'sectionListRenderer': {
+                          'contents': [
+                            {
+                              'itemSectionRenderer': {
+                                'contents': [
+                                  {
+                                    'playlistVideoListRenderer': {
+                                      'contents': [
+                                        {
+                                          'playlistVideoRenderer': {
+                                            'videoId': 'playable-1',
+                                            'isPlayable': true,
+                                            'title': {
+                                              'runs': [
+                                                {'text': 'Playable Track'}
+                                              ]
+                                            },
+                                            'shortBylineText': {
+                                              'runs': [
+                                                {'text': 'Artist'}
+                                              ]
+                                            },
+                                            'lengthText': {
+                                              'simpleText': '1:00'
+                                            }
+                                          }
+                                        },
+                                        {
+                                          'playlistVideoRenderer': {
+                                            'videoId': 'unavailable-1',
+                                            'isPlayable': false,
+                                            'title': {
+                                              'runs': [
+                                                {'text': 'Unavailable Track'}
+                                              ]
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }),
+          200,
+          headers: {
+            Headers.contentTypeHeader: ['application/json'],
+          },
+        );
+      });
+
+      final source = YouTubeSource(dio: dio);
+      final result = await source.parsePlaylist(
+        'https://www.youtube.com/playlist?list=PLPARTIAL',
+      );
+
+      expect(result.tracks.map((track) => track.sourceId), ['playable-1']);
+      expect(result.totalCount, 2);
+    });
+
     test('follows continuation pages beyond the first 100 items', () async {
       final dio = Dio();
       final requests = <Map<String, dynamic>>[];
