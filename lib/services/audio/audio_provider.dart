@@ -619,6 +619,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     try {
       final savedTrack = await _queueManager.playSingle(track);
       await _playTrack(savedTrack);
+    } on _RetryScheduledException {
+      logDebug('Retry scheduled while playing track: ${track.title}');
     } catch (e, stack) {
       logError('Failed to play track: ${track.title}', e, stack);
       state = state.copyWith(error: e.toString(), isLoading: false);
@@ -1769,6 +1771,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     _context = _context.copyWith(activeRequestId: 0);
   }
 
+  void _resetSourceErrorLoadingState(int requestId) {
+    if (_isDisposed || requestId != _playRequestId) return;
+    _context = _context.copyWith(activeRequestId: 0);
+  }
+
   /// 檢查當前請求是否已被新請求取代
   bool _isSuperseded(int requestId) {
     return requestId != _playRequestId;
@@ -1880,7 +1887,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       logWarning(
           '${e.sourceType.name} API error for ${track.title}: ${e.message}');
       // 网络错误和超时：走重试逻辑，而非通用错误处理
-      if (e.isNetworkError || e.isTimeout) {
+      if (_shouldRetrySourceError(e)) {
         if (_isSuperseded(requestId)) return;
         try {
           await _stopAudioForRequest(requestId);
@@ -1902,8 +1909,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       }
       logError('Failed to play track: ${track.title}', e, stack);
 
-      // Check if original error is a network error
-      if (_isNetworkError(e)) {
+      // Check if original error is retryable
+      if (_isRetryableError(e)) {
         if (_isSuperseded(requestId)) return;
         try {
           await _stopAudioForRequest(requestId);
@@ -1938,7 +1945,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 處理音源 API 錯誤的統一邏輯
   Future<void> _handleSourceError(
       Track track, SourceApiException e, PlayMode mode, int requestId) async {
-    if (e.isUnavailable || e.isGeoRestricted || e.isVipRequired) {
+    if (_shouldSkipSourceError(e)) {
       logInfo('Track unavailable (${e.sourceType.name}): ${track.title}');
       final nextIdx = _queueManager.getNextIndex();
       if (nextIdx != null && mode == PlayMode.queue) {
@@ -1961,11 +1968,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         state = state.copyWith(
           error: t.audio.playbackFailed(message: e.message),
           isLoading: false,
+          queueTrack: _queueManager.currentTrack,
         );
-        _resetLoadingState(requestId: requestId);
+        _resetSourceErrorLoadingState(requestId);
         _toastService.showError(t.audio.cannotPlay(title: track.title));
       }
-    } else if (e.isRateLimited) {
+    } else if (e.kind == SourceErrorKind.rateLimited) {
       logWarning('Rate limited (${e.sourceType.name}): ${track.title}');
       state = state.copyWith(
         error: e.message,
@@ -1984,8 +1992,15 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   // ========== 网络重试逻辑 ========== //
 
+  bool _shouldRetrySourceError(SourceApiException error) =>
+      error.kind.isRetryable;
+
+  bool _shouldSkipSourceError(SourceApiException error) =>
+      error.kind.shouldSkipTrack ||
+      error.kind == SourceErrorKind.permissionDenied;
+
   /// 判断是否为网络错误
-  bool _isNetworkError(dynamic error) {
+  bool _isStringNetworkError(Object error) {
     final errorStr = error.toString().toLowerCase();
     return errorStr.contains('socket') ||
         errorStr.contains('connection') ||
@@ -1996,6 +2011,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         errorStr.contains('dns') ||
         errorStr.contains('errno') ||
         errorStr.contains('failed host lookup');
+  }
+
+  bool _isRetryableError(Object error) {
+    if (error is SourceApiException) return error.kind.isRetryable;
+    return _isStringNetworkError(error);
   }
 
   /// 安排重试（漸進式延遲）
@@ -2105,7 +2125,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       logDebug('Retry already scheduled by _executePlayRequest');
     } catch (e) {
       logError('Retry playback failed for: ${track.title}', e);
-      if (_isNetworkError(e)) {
+      if (_isRetryableError(e)) {
         _scheduleRetry(track, position);
       } else {
         // 非网络错误，不再重试
@@ -2167,7 +2187,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     } catch (e) {
       logError('Network recovery playback failed for: ${track.title}', e);
       if (!_isRetryGenerationCurrent(generation, track)) return;
-      if (_isNetworkError(e)) {
+      if (_isRetryableError(e)) {
         _scheduleRetry(track, position);
       } else {
         _resetRetryState();
@@ -2248,7 +2268,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       logDebug('Retry scheduled after manual retry attempt');
     } catch (e) {
       if (!_isRetryGenerationCurrent(generation, track)) return;
-      if (_isNetworkError(e)) {
+      if (_isRetryableError(e)) {
         _scheduleRetry(track, position);
       } else {
         _resetRetryState();
@@ -2510,7 +2530,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     logError('Audio error from service: $error');
 
     // 检查是否为网络错误
-    if (!_isNetworkError(error)) {
+    if (!_isStringNetworkError(error)) {
       logDebug('Non-network error, ignoring: $error');
       return;
     }
