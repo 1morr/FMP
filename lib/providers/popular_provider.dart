@@ -135,7 +135,7 @@ final homeBilibiliMusicRankingProvider = Provider<List<Track>>((ref) {
   final tracks = ref.watch(
     rankingCacheServiceProvider.select((state) => state.bilibiliTracks),
   );
-  return tracks.take(AppConstants.rankingPreviewCount).toList(growable: false);
+  return List.unmodifiable(tracks.take(AppConstants.rankingPreviewCount));
 });
 
 // ==================== YouTube 熱門 ====================
@@ -233,7 +233,7 @@ final homeYouTubeMusicRankingProvider = Provider<List<Track>>((ref) {
   final tracks = ref.watch(
     rankingCacheServiceProvider.select((state) => state.youtubeTracks),
   );
-  return tracks.take(AppConstants.rankingPreviewCount).toList(growable: false);
+  return List.unmodifiable(tracks.take(AppConstants.rankingPreviewCount));
 });
 
 // ==================== 緩存排行榜（探索頁使用） ====================

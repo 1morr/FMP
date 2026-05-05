@@ -92,6 +92,17 @@ void main() {
         () => cachedBilibili.add(_track('mutate-full', SourceType.bilibili)),
         throwsUnsupportedError,
       );
+      expect(
+        () => bilibiliPreview[0] = _track(
+          'replace-preview',
+          SourceType.bilibili,
+        ),
+        throwsUnsupportedError,
+      );
+      expect(
+        () => cachedBilibili[0] = _track('replace-full', SourceType.bilibili),
+        throwsUnsupportedError,
+      );
 
       container.dispose();
       await notifier.closeStream();
