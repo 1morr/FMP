@@ -10,6 +10,7 @@ import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/internal/audio_stream_delegate.dart';
@@ -462,6 +463,30 @@ void main() {
           _track('stream-prefetch', title: 'Prefetch Failure'),
         ),
         completes,
+      );
+    });
+
+    test('playback headers use shared source media policy', () async {
+      final youtube = await manager.getPlaybackHeaders(
+        Track()
+          ..sourceId = 'yt'
+          ..sourceType = SourceType.youtube
+          ..title = 'YouTube'
+          ..artist = 'Tester',
+      );
+      final bilibili = await manager.getPlaybackHeaders(
+        Track()
+          ..sourceId = 'bv'
+          ..sourceType = SourceType.bilibili
+          ..title = 'Bilibili'
+          ..artist = 'Tester',
+      );
+
+      expect(youtube, SourceHttpPolicy.mediaHeaders(SourceType.youtube));
+      expect(bilibili, SourceHttpPolicy.mediaHeaders(SourceType.bilibili));
+      expect(
+        AudioStreamManager.defaultPlaybackUserAgent,
+        SourceHttpPolicy.mediaUserAgent,
       );
     });
 
