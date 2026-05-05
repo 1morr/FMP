@@ -88,13 +88,13 @@ class _MusicRankingsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bilibiliAsync = ref.watch(homeBilibiliMusicRankingProvider);
-    final youtubeAsync = ref.watch(homeYouTubeMusicRankingProvider);
-    final cacheService = ref.watch(rankingCacheServiceProvider);
+    final bilibiliTracks = ref.watch(homeBilibiliMusicRankingProvider);
+    final youtubeTracks = ref.watch(homeYouTubeMusicRankingProvider);
+    final rankingState = ref.watch(rankingCacheServiceProvider);
 
-    final hasBilibiliData = bilibiliAsync.valueOrNull?.isNotEmpty ?? false;
-    final hasYoutubeData = youtubeAsync.valueOrNull?.isNotEmpty ?? false;
-    final isLoading = cacheService.isInitialLoading;
+    final hasBilibiliData = bilibiliTracks.isNotEmpty;
+    final hasYoutubeData = youtubeTracks.isNotEmpty;
+    final isLoading = rankingState.isInitialLoading;
 
     if (!isLoading && !hasBilibiliData && !hasYoutubeData) {
       return const SizedBox.shrink();
@@ -124,8 +124,8 @@ class _MusicRankingsSection extends ConsumerWidget {
         _buildRankingContent(
           context,
           colorScheme,
-          bilibiliAsync: bilibiliAsync,
-          youtubeAsync: youtubeAsync,
+          bilibiliTracks: bilibiliTracks,
+          youtubeTracks: youtubeTracks,
           isLoading: isLoading,
           hasBilibiliData: hasBilibiliData,
           hasYoutubeData: hasYoutubeData,
@@ -137,8 +137,8 @@ class _MusicRankingsSection extends ConsumerWidget {
   Widget _buildRankingContent(
     BuildContext context,
     ColorScheme colorScheme, {
-    required AsyncValue<List<Track>> bilibiliAsync,
-    required AsyncValue<List<Track>> youtubeAsync,
+    required List<Track> bilibiliTracks,
+    required List<Track> youtubeTracks,
     required bool isLoading,
     required bool hasBilibiliData,
     required bool hasYoutubeData,
@@ -164,14 +164,14 @@ class _MusicRankingsSection extends ConsumerWidget {
                   Expanded(
                     child: _buildRankingCard(context, colorScheme,
                         title: t.importPlatform.bilibili,
-                        asyncValue: bilibiliAsync),
+                        tracks: bilibiliTracks),
                   ),
                 if (hasBilibiliData && hasYoutubeData)
                   const SizedBox(width: 16),
                 if (hasYoutubeData)
                   Expanded(
                     child: _buildRankingCard(context, colorScheme,
-                        title: 'YouTube', asyncValue: youtubeAsync),
+                        title: 'YouTube', tracks: youtubeTracks),
                   ),
               ],
             ),
@@ -183,13 +183,12 @@ class _MusicRankingsSection extends ConsumerWidget {
               children: [
                 if (hasBilibiliData)
                   _buildRankingCard(context, colorScheme,
-                      title: t.importPlatform.bilibili,
-                      asyncValue: bilibiliAsync),
+                      title: t.importPlatform.bilibili, tracks: bilibiliTracks),
                 if (hasBilibiliData && hasYoutubeData)
                   const SizedBox(height: 12),
                 if (hasYoutubeData)
                   _buildRankingCard(context, colorScheme,
-                      title: 'YouTube', asyncValue: youtubeAsync),
+                      title: 'YouTube', tracks: youtubeTracks),
               ],
             ),
           );
@@ -202,8 +201,12 @@ class _MusicRankingsSection extends ConsumerWidget {
     BuildContext context,
     ColorScheme colorScheme, {
     required String title,
-    required AsyncValue<List<Track>> asyncValue,
+    required List<Track> tracks,
   }) {
+    if (tracks.isEmpty) return const SizedBox.shrink();
+    final displayTracks =
+        tracks.take(AppConstants.homeTrackPreviewCount).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -216,32 +219,17 @@ class _MusicRankingsSection extends ConsumerWidget {
                 ),
           ),
         ),
-        asyncValue.when(
-          loading: () => const SizedBox.shrink(),
-          error: (e, s) => SizedBox(
-            height: 100,
-            child: Center(
-              child: Text(
-                t.home.loadFailed,
-                style: TextStyle(color: colorScheme.outline),
+        Column(
+          children: [
+            for (int i = 0; i < displayTracks.length; i++)
+              _RankingTrackTile(
+                key: ValueKey(
+                  '${displayTracks[i].sourceId}_${displayTracks[i].pageNum}',
+                ),
+                track: displayTracks[i],
+                rank: i + 1,
               ),
-            ),
-          ),
-          data: (tracks) {
-            if (tracks.isEmpty) return const SizedBox.shrink();
-            final displayTracks =
-                tracks.take(AppConstants.homeTrackPreviewCount).toList();
-            return Column(
-              children: [
-                for (int i = 0; i < displayTracks.length; i++)
-                  _RankingTrackTile(
-                      key: ValueKey(
-                          '${displayTracks[i].sourceId}_${displayTracks[i].pageNum}'),
-                      track: displayTracks[i],
-                      rank: i + 1),
-              ],
-            );
-          },
+          ],
         ),
       ],
     );

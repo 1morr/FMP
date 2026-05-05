@@ -7,6 +7,7 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/bilibili_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/youtube_source.dart';
+import 'package:fmp/providers/popular_provider.dart';
 import 'package:fmp/services/cache/ranking_cache_service.dart';
 import 'package:fmp/services/network/connectivity_service.dart';
 
@@ -44,6 +45,42 @@ void main() {
         () => state.bilibiliTracks.add(_track('mutate', SourceType.bilibili)),
         throwsUnsupportedError,
       );
+
+      container.dispose();
+      await notifier.closeStream();
+    });
+
+    test('derived ranking providers expose preview and full immutable lists',
+        () async {
+      final bilibiliTracks = List.generate(
+        12,
+        (index) => _track('bv-$index', SourceType.bilibili),
+      );
+      final youtubeTracks = List.generate(
+        12,
+        (index) => _track('yt-$index', SourceType.youtube, viewCount: index),
+      );
+      final notifier = _TestConnectivityNotifier();
+      final container = ProviderContainer(
+        overrides: [
+          bilibiliSourceProvider.overrideWith(
+            (ref) => _FakeBilibiliSource()..tracks = bilibiliTracks,
+          ),
+          youtubeSourceProvider.overrideWith(
+            (ref) => _FakeYouTubeSource()..tracks = youtubeTracks,
+          ),
+          connectivityProvider.overrideWith((ref) => notifier),
+        ],
+      );
+
+      container.read(rankingCacheServiceProvider);
+      await pumpEventQueue(times: 5);
+
+      expect(container.read(homeBilibiliMusicRankingProvider),
+          bilibiliTracks.take(10));
+      expect(container.read(cachedBilibiliRankingProvider), bilibiliTracks);
+      expect(container.read(homeYouTubeMusicRankingProvider), hasLength(10));
+      expect(container.read(cachedYouTubeRankingProvider), hasLength(12));
 
       container.dispose();
       await notifier.closeStream();

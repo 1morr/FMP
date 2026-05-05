@@ -48,10 +48,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     final selectionState = ref.watch(exploreSelectionProvider);
 
     // 獲取當前 tab 的 tracks 用於全選
-    final bilibiliTracks =
-        ref.watch(cachedBilibiliRankingProvider).valueOrNull ?? [];
-    final youtubeTracks =
-        ref.watch(cachedYouTubeRankingProvider).valueOrNull ?? [];
+    final bilibiliTracks = ref.watch(cachedBilibiliRankingProvider);
+    final youtubeTracks = ref.watch(cachedYouTubeRankingProvider);
     final currentTracks =
         _tabController.index == 0 ? bilibiliTracks : youtubeTracks;
 
@@ -110,70 +108,26 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
   }
 
   Widget _buildBilibiliTab() {
-    final asyncValue = ref.watch(cachedBilibiliRankingProvider);
-    return asyncValue.when(
-      data: (tracks) => _buildRankingContent(
-        tracks: tracks,
-        isLoading: false,
-        error: null,
-        onRefresh: () async {
-          // 觸發緩存刷新
-          final service = ref.read(rankingCacheServiceProvider);
-          await service.refreshBilibili();
-        },
-      ),
-      loading: () => _buildRankingContent(
-        tracks: [],
-        isLoading: true,
-        error: null,
-        onRefresh: () async {},
-      ),
-      error: (error, stack) {
-        debugPrint('Failed to load Bilibili ranking: $error');
-        return _buildRankingContent(
-          tracks: [],
-          isLoading: false,
-          error: t.general.loadFailed,
-          onRefresh: () async {
-            final service = ref.read(rankingCacheServiceProvider);
-            await service.refreshBilibili();
-          },
-        );
-      },
+    final tracks = ref.watch(cachedBilibiliRankingProvider);
+    final rankingState = ref.watch(rankingCacheServiceProvider);
+    return _buildRankingContent(
+      tracks: tracks,
+      isLoading: rankingState.isInitialLoading && tracks.isEmpty,
+      error: rankingState.bilibiliError,
+      onRefresh: () =>
+          ref.read(rankingCacheServiceProvider.notifier).refreshBilibili(),
     );
   }
 
   Widget _buildYouTubeTab() {
-    final asyncValue = ref.watch(cachedYouTubeRankingProvider);
-    return asyncValue.when(
-      data: (tracks) => _buildRankingContent(
-        tracks: tracks,
-        isLoading: false,
-        error: null,
-        onRefresh: () async {
-          // 觸發緩存刷新
-          final service = ref.read(rankingCacheServiceProvider);
-          await service.refreshYouTube();
-        },
-      ),
-      loading: () => _buildRankingContent(
-        tracks: [],
-        isLoading: true,
-        error: null,
-        onRefresh: () async {},
-      ),
-      error: (error, stack) {
-        debugPrint('Failed to load YouTube ranking: $error');
-        return _buildRankingContent(
-          tracks: [],
-          isLoading: false,
-          error: t.general.loadFailed,
-          onRefresh: () async {
-            final service = ref.read(rankingCacheServiceProvider);
-            await service.refreshYouTube();
-          },
-        );
-      },
+    final tracks = ref.watch(cachedYouTubeRankingProvider);
+    final rankingState = ref.watch(rankingCacheServiceProvider);
+    return _buildRankingContent(
+      tracks: tracks,
+      isLoading: rankingState.isInitialLoading && tracks.isEmpty,
+      error: rankingState.youtubeError,
+      onRefresh: () =>
+          ref.read(rankingCacheServiceProvider.notifier).refreshYouTube(),
     );
   }
 
@@ -184,19 +138,23 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     required Future<void> Function() onRefresh,
   }) {
     if (isLoading && tracks.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingPlaceholder();
     }
 
     if (error != null && tracks.isEmpty) {
       return ErrorDisplay(
         type: ErrorType.general,
         message: t.general.loadFailed,
-        onRetry: onRefresh,
+        onRetry: () => onRefresh(),
       );
     }
 
     if (tracks.isEmpty) {
-      return Center(child: Text(t.databaseViewer.noData));
+      return ErrorDisplay.empty(
+        message: t.databaseViewer.noData,
+        icon: Icons.library_music_outlined,
+        onRetry: () => onRefresh(),
+      );
     }
 
     final selectionState = ref.watch(exploreSelectionProvider);
