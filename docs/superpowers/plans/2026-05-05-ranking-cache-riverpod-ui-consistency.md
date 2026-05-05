@@ -114,7 +114,7 @@ test('provider exposes immutable ranking state after refresh', () async {
   await notifier.closeStream();
 });
 
-``` 
+```
 
 Then add this second test immediately after it:
 

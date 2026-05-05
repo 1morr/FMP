@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
@@ -11,6 +13,57 @@ void main() {
 
     setUp(() {
       source = BilibiliSource();
+    });
+
+    group('parsePlaylist', () {
+      test('reports remote media_count instead of parsed track count', () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        addTearDown(() async => server.close(force: true));
+
+        server.listen((request) async {
+          expect(request.uri.path, '/x/v3/fav/resource/list');
+          request.response.headers.contentType = ContentType.json;
+          request.response.write('''
+{
+  "code": 0,
+  "data": {
+    "info": {
+      "title": "Favorites",
+      "media_count": 3
+    },
+    "medias": [
+      {
+        "bvid": "BV1",
+        "title": "Track 1",
+        "upper": {"name": "Artist 1", "mid": 1001},
+        "duration": 60,
+        "cover": "https://example.com/1.jpg",
+        "page": 1
+      },
+      {
+        "bvid": "BV2",
+        "title": "Track 2",
+        "upper": {"name": "Artist 2", "mid": 1002},
+        "duration": 90,
+        "cover": "https://example.com/2.jpg",
+        "page": 1
+      }
+    ]
+  }
+}
+''');
+          await request.response.close();
+        });
+
+        final source = BilibiliSource(apiBase: 'http://localhost:${server.port}');
+        final result = await source.parsePlaylist(
+          'https://space.bilibili.com/1/favlist?fid=123',
+          pageSize: 20,
+        );
+
+        expect(result.tracks, hasLength(2));
+        expect(result.totalCount, 3);
+      });
     });
 
     group('getAudioUrl', () {
