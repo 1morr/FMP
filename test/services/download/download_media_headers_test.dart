@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/services/audio/audio_stream_manager.dart';
+import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/services/download/download_media_headers.dart';
 
 void main() {
@@ -12,8 +12,7 @@ void main() {
       );
 
       expect(headers['Referer'], 'https://www.bilibili.com');
-      expect(
-          headers['User-Agent'], AudioStreamManager.defaultPlaybackUserAgent);
+      expect(headers['User-Agent'], SourceHttpPolicy.mediaUserAgent);
       expect(headers.containsKey('Cookie'), isFalse);
     });
 
@@ -25,8 +24,7 @@ void main() {
 
       expect(headers['Origin'], 'https://www.youtube.com');
       expect(headers['Referer'], 'https://www.youtube.com/');
-      expect(
-          headers['User-Agent'], AudioStreamManager.defaultPlaybackUserAgent);
+      expect(headers['User-Agent'], SourceHttpPolicy.mediaUserAgent);
       expect(headers.containsKey('Authorization'), isFalse);
     });
 

@@ -7,6 +7,7 @@ import '../../data/models/track.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../data/sources/base_source.dart';
+import '../../data/sources/source_http_policy.dart';
 import '../../data/sources/source_provider.dart';
 import '../account/bilibili_account_service.dart';
 import '../account/netease_account_service.dart';
@@ -178,26 +179,13 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
 
   @override
   Future<Map<String, String>?> getPlaybackHeaders(Track track) async {
-    switch (track.sourceType) {
-      case SourceType.bilibili:
-        return {
-          'Referer': 'https://www.bilibili.com',
-          'User-Agent': defaultPlaybackUserAgent,
-        };
-      case SourceType.youtube:
-        return {
-          'Origin': 'https://www.youtube.com',
-          'Referer': 'https://www.youtube.com/',
-          'User-Agent': defaultPlaybackUserAgent,
-        };
-      case SourceType.netease:
-        return await _neteaseAccountService?.getAuthHeaders() ??
-            {
-              'Origin': 'https://music.163.com',
-              'Referer': 'https://music.163.com/',
-              'User-Agent': defaultPlaybackUserAgent,
-            };
-    }
+    final authHeaders = track.sourceType == SourceType.netease
+        ? await _neteaseAccountService?.getAuthHeaders()
+        : null;
+    return SourceHttpPolicy.mediaHeaders(
+      track.sourceType,
+      authHeaders: authHeaders,
+    );
   }
 
   @override
@@ -223,6 +211,5 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
   }
 
   static const String defaultPlaybackUserAgent =
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-      '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+      SourceHttpPolicy.mediaUserAgent;
 }
