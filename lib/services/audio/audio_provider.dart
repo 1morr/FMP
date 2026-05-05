@@ -1986,7 +1986,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         error: t.audio.playbackFailed(message: e.message),
         isLoading: false,
       );
-      _resetLoadingState(requestId: requestId);
+      _resetSourceErrorLoadingState(requestId);
     }
   }
 
@@ -1996,8 +1996,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       error.kind.isRetryable;
 
   bool _shouldSkipSourceError(SourceApiException error) =>
-      error.kind.shouldSkipTrack ||
-      error.kind == SourceErrorKind.permissionDenied;
+      error.kind.shouldSkipTrack;
 
   /// 判断是否为网络错误
   bool _isStringNetworkError(Object error) {

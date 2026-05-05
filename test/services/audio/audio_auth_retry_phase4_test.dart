@@ -203,16 +203,10 @@ void main() {
     test('typed source network kind schedules retry without string matching',
         () async {
       final track = _track('typed-network-kind');
-      sourceManager.source.nextStreamError = const YouTubeApiException(
-        code: 'network_error',
-        message: 'temporary socket failure',
-      );
+      const sourceError = _KindOnlySourceException(SourceErrorKind.network);
+      sourceManager.source.nextStreamError = sourceError;
 
-      expect(
-        const YouTubeApiException(code: 'network_error', message: 'network')
-            .kind,
-        SourceErrorKind.network,
-      );
+      expect(sourceError.kind, SourceErrorKind.network);
 
       await controller.playTrack(track);
       await pumpEventQueue(times: 20);
@@ -305,6 +299,25 @@ class _HeaderOnlyNeteaseAccountService extends NeteaseAccountService {
 
   @override
   Future<String?> getAuthCookieString() async => 'MUSIC_U=music-u; __csrf=csrf';
+}
+
+class _KindOnlySourceException extends SourceApiException {
+  const _KindOnlySourceException(this.kind);
+
+  @override
+  final SourceErrorKind kind;
+
+  @override
+  String get code => 'kind_only';
+
+  @override
+  String get message => 'semantic only';
+
+  @override
+  SourceType get sourceType => SourceType.youtube;
+
+  @override
+  String toString() => 'semantic source failure';
 }
 
 class _RetryAwareSource extends BaseSource {
