@@ -5,6 +5,7 @@ import '../../../data/models/track.dart';
 import '../../../data/repositories/settings_repository.dart';
 import '../../../data/repositories/track_repository.dart';
 import '../../../data/sources/base_source.dart';
+import '../../../data/sources/source_exception.dart';
 import '../../../data/sources/source_provider.dart';
 
 typedef AuthHeadersLoader = Future<Map<String, String>?> Function(
@@ -94,6 +95,8 @@ class AudioStreamDelegate {
       }
 
       return (track, null, streamResult);
+    } on SourceApiException {
+      rethrow;
     } catch (_) {
       if (retryCount < 1) {
         await Future.delayed(AppConstants.queueSaveRetryDelay);

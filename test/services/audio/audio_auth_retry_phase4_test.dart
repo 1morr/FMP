@@ -12,7 +12,9 @@ import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/source_exception.dart';
 import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/data/sources/youtube_exception.dart';
 import 'package:fmp/core/utils/auth_headers_utils.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
@@ -161,7 +163,8 @@ void main() {
       expect(controller.state.error, isNull);
     });
 
-    test('network recovery does not restart old track after switch during stabilization',
+    test(
+        'network recovery does not restart old track after switch during stabilization',
         () async {
       final oldTrack = _track('old-network-track');
       final newTrack = _track('new-user-track');
@@ -195,6 +198,45 @@ void main() {
       expect(audioService.playUrlCalls, isEmpty);
       expect(audioService.seekCalls, isEmpty);
       expect(controller.state.currentTrack?.sourceId, 'new-user-track');
+    });
+
+    test('typed source network kind schedules retry without string matching',
+        () async {
+      final track = _track('typed-network-kind');
+      sourceManager.source.nextStreamError = const YouTubeApiException(
+        code: 'network_error',
+        message: 'temporary socket failure',
+      );
+
+      expect(
+        const YouTubeApiException(code: 'network_error', message: 'network')
+            .kind,
+        SourceErrorKind.network,
+      );
+
+      await controller.playTrack(track);
+      await pumpEventQueue(times: 20);
+
+      expect(controller.state.isRetrying, isTrue);
+      expect(controller.state.isNetworkError, isTrue);
+      expect(controller.state.nextRetryAt, isNotNull);
+      expect(audioService.playUrlCalls, isEmpty);
+    });
+
+    test('typed source permission kind does not schedule network retry',
+        () async {
+      final track = _track('typed-permission-kind');
+      sourceManager.source.nextStreamError = const YouTubeApiException(
+        code: 'private_or_inaccessible',
+        message: 'private video',
+      );
+
+      await controller.playTrack(track);
+      await pumpEventQueue(times: 20);
+
+      expect(controller.state.isRetrying, isFalse);
+      expect(controller.state.isNetworkError, isFalse);
+      expect(controller.state.error, isNotNull);
     });
 
     test('shared auth header builder keeps netease desktop playback headers',
@@ -266,6 +308,8 @@ class _HeaderOnlyNeteaseAccountService extends NeteaseAccountService {
 }
 
 class _RetryAwareSource extends BaseSource {
+  Object? nextStreamError;
+
   @override
   SourceType get sourceType => SourceType.youtube;
 
@@ -278,6 +322,12 @@ class _RetryAwareSource extends BaseSource {
     AudioStreamConfig config = AudioStreamConfig.defaultConfig,
     Map<String, String>? authHeaders,
   }) async {
+    final error = nextStreamError;
+    if (error != null) {
+      nextStreamError = null;
+      throw error;
+    }
+
     return AudioStreamResult(
       url: 'https://example.com/$sourceId.m4a',
       container: 'm4a',
