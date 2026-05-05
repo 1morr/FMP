@@ -5,10 +5,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:isar/isar.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/account.dart';
 import '../../data/models/track.dart';
+import '../../data/sources/source_http_policy.dart';
 import 'account_service.dart';
 import 'bilibili_credentials.dart';
 import 'bilibili_crypto.dart';
@@ -73,17 +73,7 @@ class BilibiliAccountService extends AccountService with Logging {
   BilibiliAccountService({required Isar isar})
       : _isar = isar,
         _secureStorage = const FlutterSecureStorage(),
-        _dio = Dio(BaseOptions(
-          headers: {
-            'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-            'Referer': 'https://www.bilibili.com/',
-            'Origin': 'https://www.bilibili.com',
-            'Accept': 'application/json, text/plain, */*',
-          },
-          connectTimeout: AppConstants.networkConnectTimeout,
-          receiveTimeout: AppConstants.networkReceiveTimeout,
-        ));
+        _dio = SourceHttpPolicy.createApiDio(SourceType.bilibili);
 
   @override
   SourceType get platform => SourceType.bilibili;

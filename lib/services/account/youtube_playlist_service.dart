@@ -3,9 +3,10 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../core/utils/innertube_utils.dart';
+import '../../data/models/track.dart';
+import '../../data/sources/source_http_policy.dart';
 import '../../i18n/strings.g.dart';
 import 'youtube_account_service.dart';
 import 'youtube_auth_interceptor.dart';
@@ -48,18 +49,10 @@ class YouTubePlaylistService with Logging {
         _dio = _createDio(accountService);
 
   static Dio _createDio(YouTubeAccountService accountService) {
-    final dio = Dio(BaseOptions(
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-                '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Origin': 'https://www.youtube.com',
-        'Referer': 'https://www.youtube.com/',
-      },
-      connectTimeout: AppConstants.networkConnectTimeout,
-      receiveTimeout: AppConstants.networkReceiveTimeout,
-    ));
+    final dio = SourceHttpPolicy.createApiDio(
+      SourceType.youtube,
+      contentType: 'application/json',
+    );
     dio.interceptors.add(YouTubeAuthInterceptor(accountService));
     return dio;
   }

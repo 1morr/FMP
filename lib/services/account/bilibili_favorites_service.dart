@@ -1,9 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:isar/isar.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/track.dart';
+import '../../data/sources/source_http_policy.dart';
 import '../../i18n/strings.g.dart';
 import 'bilibili_account_service.dart';
 import 'bilibili_auth_interceptor.dart';
@@ -43,17 +43,7 @@ class BilibiliFavoritesService with Logging {
         _dio = _createDio(accountService);
 
   static Dio _createDio(BilibiliAccountService accountService) {
-    final dio = Dio(BaseOptions(
-      headers: {
-        'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Referer': 'https://www.bilibili.com/',
-        'Origin': 'https://www.bilibili.com',
-        'Accept': 'application/json, text/plain, */*',
-      },
-      connectTimeout: AppConstants.networkConnectTimeout,
-      receiveTimeout: AppConstants.networkReceiveTimeout,
-    ));
+    final dio = SourceHttpPolicy.createApiDio(SourceType.bilibili);
     dio.interceptors.add(BilibiliAuthInterceptor(accountService));
     return dio;
   }

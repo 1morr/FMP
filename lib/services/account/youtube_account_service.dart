@@ -5,11 +5,11 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:isar/isar.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../core/utils/innertube_utils.dart';
 import '../../data/models/account.dart';
 import '../../data/models/track.dart';
+import '../../data/sources/source_http_policy.dart';
 import 'account_service.dart';
 import 'youtube_credentials.dart';
 
@@ -38,18 +38,10 @@ class YouTubeAccountService extends AccountService with Logging {
   YouTubeAccountService({required Isar isar})
       : _isar = isar,
         _secureStorage = const FlutterSecureStorage(),
-        _dio = Dio(BaseOptions(
-          headers: {
-            'Content-Type': 'application/json',
-            'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-                    '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Origin': 'https://www.youtube.com',
-            'Referer': 'https://www.youtube.com/',
-          },
-          connectTimeout: AppConstants.networkConnectTimeout,
-          receiveTimeout: AppConstants.networkReceiveTimeout,
-        ));
+        _dio = SourceHttpPolicy.createApiDio(
+          SourceType.youtube,
+          contentType: 'application/json',
+        );
 
   @override
   SourceType get platform => SourceType.youtube;
