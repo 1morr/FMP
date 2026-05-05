@@ -72,6 +72,25 @@ void main() {
       expect(e.requiresLogin, isFalse);
     });
 
+    test('maps Bilibili numeric codes to shared kinds', () {
+      expect(
+        const BilibiliApiException(numericCode: -412, message: 'Rate').kind,
+        SourceErrorKind.rateLimited,
+      );
+      expect(
+        const BilibiliApiException(numericCode: -101, message: 'Login').kind,
+        SourceErrorKind.loginRequired,
+      );
+      expect(
+        const BilibiliApiException(numericCode: -10403, message: 'Geo').kind,
+        SourceErrorKind.geoRestricted,
+      );
+      expect(
+        const BilibiliApiException(numericCode: 999, message: 'Unknown').kind,
+        SourceErrorKind.unknown,
+      );
+    });
+
     test('is SourceApiException', () {
       const e = BilibiliApiException(numericCode: -1, message: 'test');
       expect(e, isA<SourceApiException>());
@@ -135,6 +154,33 @@ void main() {
       expect(e.sourceType, SourceType.youtube);
     });
 
+    test('maps YouTube diagnostic codes to shared kinds', () {
+      expect(
+        const YouTubeApiException(code: 'rate_limited', message: 'Rate').kind,
+        SourceErrorKind.rateLimited,
+      );
+      expect(
+        const YouTubeApiException(code: 'login_required', message: 'Login')
+            .kind,
+        SourceErrorKind.loginRequired,
+      );
+      expect(
+        const YouTubeApiException(code: 'age_restricted', message: 'Age').kind,
+        SourceErrorKind.loginRequired,
+      );
+      expect(
+        const YouTubeApiException(
+          code: 'private_or_inaccessible',
+          message: 'Private',
+        ).kind,
+        SourceErrorKind.permissionDenied,
+      );
+      expect(
+        const YouTubeApiException(code: 'test', message: 'Unknown').kind,
+        SourceErrorKind.unknown,
+      );
+    });
+
     test('is SourceApiException', () {
       const e = YouTubeApiException(code: 'test', message: 'test');
       expect(e, isA<SourceApiException>());
@@ -196,6 +242,25 @@ void main() {
     test('isGeoRestricted is always false', () {
       const e = NeteaseApiException(numericCode: -10403, message: 'test');
       expect(e.isGeoRestricted, isFalse);
+    });
+
+    test('maps Netease numeric codes to shared kinds', () {
+      expect(
+        const NeteaseApiException(numericCode: -460, message: 'Rate').kind,
+        SourceErrorKind.rateLimited,
+      );
+      expect(
+        const NeteaseApiException(numericCode: 301, message: 'Login').kind,
+        SourceErrorKind.loginRequired,
+      );
+      expect(
+        const NeteaseApiException(numericCode: -10, message: 'VIP').kind,
+        SourceErrorKind.vipRequired,
+      );
+      expect(
+        const NeteaseApiException(numericCode: 0, message: 'Unknown').kind,
+        SourceErrorKind.unknown,
+      );
     });
 
     test('is SourceApiException', () {
