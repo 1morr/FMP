@@ -245,7 +245,7 @@ Per-platform toggle for using login credentials when fetching audio streams:
 
 UI: Toggle button on each platform card in account management page. `FilledButton.tonal` when enabled, `OutlinedButton` when disabled.
 
-Backend: `QueueManager.ensureAudioUrl()` / `DownloadService._startDownload()` read `settings.useAuthForPlay(track.sourceType)`. `SourceHttpPolicy` centralizes source API/media header defaults; keep source-specific anti-rate-limit or encryption details inside the source/account service that owns them.
+Backend: the audio stream resolution path (`AudioStreamManager.ensureAudioUrl()` / `AudioStreamDelegate.ensureAudioStream()`) and `DownloadService._startDownload()` read `settings.useAuthForPlay(track.sourceType)`. `SourceHttpPolicy` centralizes source API/media header defaults; keep source-specific anti-rate-limit or encryption details inside the source/account service that owns them.
 
 ### Lyrics System
 Multi-source auto-match priority (`LyricsAutoMatchService.tryAutoMatch()`):
