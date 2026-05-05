@@ -5,6 +5,7 @@ import 'package:fmp/i18n/strings.g.dart';
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
+import '../../../data/repositories/track_repository.dart';
 import '../../../core/constants/ui_constants.dart';
 import '../../../providers/library_invalidation_coordinator.dart';
 import '../../../providers/playlist_provider.dart';
@@ -558,13 +559,19 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
       int removeSuccessCount = 0;
 
       // 先处理移除
+      final trackRepository = ref.read(trackRepositoryProvider);
+      final existingTrackMap = await trackRepository.getBySourceIdentities(
+        widget.tracks.map(TrackSourceIdentity.fromTrack),
+      );
+      final existingTrackIds = existingTrackMap.values
+          .map((track) => track.id)
+          .where((id) => id > 0)
+          .toList(growable: false);
+
       for (final playlistId in toRemove) {
         try {
-          for (final track in widget.tracks) {
-            // 获取最新的 track ID（可能已经被保存到数据库）
-            final savedTrack =
-                await ref.read(trackRepositoryProvider).getOrCreate(track);
-            await service.removeTrackFromPlaylist(playlistId, savedTrack.id);
+          if (existingTrackIds.isNotEmpty) {
+            await service.removeTracksFromPlaylist(playlistId, existingTrackIds);
           }
           removeSuccessCount++;
           ref
@@ -578,9 +585,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
       // 再处理添加
       for (final playlistId in toAdd) {
         try {
-          for (final track in widget.tracks) {
-            await service.addTrackToPlaylist(playlistId, track);
-          }
+          await service.addTracksToPlaylist(playlistId, widget.tracks);
           addSuccessCount++;
           ref
               .read(libraryInvalidationCoordinatorProvider)

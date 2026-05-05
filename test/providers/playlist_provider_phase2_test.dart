@@ -169,6 +169,21 @@ void main() {
         reason: 'playlistDetailProvider should reload after metadata update',
       );
     });
+
+    test('add-to-playlist removal path does not create tracks', () {
+      final source = File(
+        'lib/ui/widgets/dialogs/add_to_playlist_dialog.dart',
+      ).readAsStringSync();
+      final removeLoopStart = source.indexOf('// 先处理移除');
+      final addLoopStart = source.indexOf('// 再处理添加');
+      expect(removeLoopStart, isNonNegative);
+      expect(addLoopStart, greaterThan(removeLoopStart));
+      final removeSection = source.substring(removeLoopStart, addLoopStart);
+
+      expect(removeSection, contains('removeTracksFromPlaylist'));
+      expect(removeSection, isNot(contains('getOrCreate')));
+      expect(removeSection, isNot(contains('removeTrackFromPlaylist')));
+    });
   });
 }
 
