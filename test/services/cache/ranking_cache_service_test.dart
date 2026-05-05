@@ -76,11 +76,22 @@ void main() {
       container.read(rankingCacheServiceProvider);
       await pumpEventQueue(times: 5);
 
-      expect(container.read(homeBilibiliMusicRankingProvider),
-          bilibiliTracks.take(10));
-      expect(container.read(cachedBilibiliRankingProvider), bilibiliTracks);
+      final bilibiliPreview = container.read(homeBilibiliMusicRankingProvider);
+      final cachedBilibili = container.read(cachedBilibiliRankingProvider);
+
+      expect(bilibiliPreview, bilibiliTracks.take(10));
+      expect(cachedBilibili, bilibiliTracks);
       expect(container.read(homeYouTubeMusicRankingProvider), hasLength(10));
       expect(container.read(cachedYouTubeRankingProvider), hasLength(12));
+      expect(
+        () =>
+            bilibiliPreview.add(_track('mutate-preview', SourceType.bilibili)),
+        throwsUnsupportedError,
+      );
+      expect(
+        () => cachedBilibili.add(_track('mutate-full', SourceType.bilibili)),
+        throwsUnsupportedError,
+      );
 
       container.dispose();
       await notifier.closeStream();
