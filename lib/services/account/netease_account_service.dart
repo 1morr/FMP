@@ -5,11 +5,11 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:isar/isar.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../core/utils/netease_crypto.dart';
 import '../../data/models/account.dart';
 import '../../data/models/track.dart';
+import '../../data/sources/source_http_policy.dart';
 import 'account_service.dart';
 import 'netease_credentials.dart';
 
@@ -38,18 +38,11 @@ class NeteaseAccountService extends AccountService with Logging {
   NeteaseAccountService({required Isar isar})
       : _isar = isar,
         _secureStorage = const FlutterSecureStorage(),
-        _dio = Dio(BaseOptions(
-          headers: {
-            'User-Agent': userAgent,
-            'Referer': '$_apiBase/',
-            'Origin': _apiBase,
-            'Accept': 'application/json, text/plain, */*',
-            'Cookie': _anonymousCookie,
-          },
+        _dio = SourceHttpPolicy.createApiDio(
+          SourceType.netease,
+          extraHeaders: const {'Cookie': _anonymousCookie},
           contentType: Headers.formUrlEncodedContentType,
-          connectTimeout: AppConstants.networkConnectTimeout,
-          receiveTimeout: AppConstants.networkReceiveTimeout,
-        ));
+        );
 
   @override
   SourceType get platform => SourceType.netease;

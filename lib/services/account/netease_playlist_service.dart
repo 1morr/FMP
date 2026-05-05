@@ -4,10 +4,11 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pointycastle/export.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
-import '../../i18n/strings.g.dart';
+import '../../data/models/track.dart';
 import '../../data/sources/playlist_import/netease_playlist_source.dart';
+import '../../data/sources/source_http_policy.dart';
+import '../../i18n/strings.g.dart';
 import 'netease_account_service.dart';
 import 'netease_auth_interceptor.dart';
 
@@ -70,10 +71,6 @@ class NeteasePlaylistService with Logging {
   static const String _musicBase = 'https://music.163.com';
   static const String _linuxApiBase = '$_musicBase/api/linux/forward';
   static const String _linuxApiKey = 'rFgB&h#%2?^eDg:Q';
-  static const String _linuxUserAgent =
-      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
-      '(KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36';
-
   final NeteaseAccountService _accountService;
   final Dio _dio;
   final NeteasePlaylistSource _source;
@@ -87,16 +84,10 @@ class NeteasePlaylistService with Logging {
         _source = source ?? NeteasePlaylistSource();
 
   static Dio _createDio(NeteaseAccountService accountService) {
-    final dio = Dio(BaseOptions(
-      headers: {
-        'User-Agent': _linuxUserAgent,
-        'Referer': 'https://music.163.com/',
-        'Origin': 'https://music.163.com',
-        'Accept': 'application/json, text/plain, */*',
-      },
-      connectTimeout: AppConstants.networkConnectTimeout,
-      receiveTimeout: AppConstants.networkReceiveTimeout,
-    ));
+    final dio = SourceHttpPolicy.createApiDio(
+      SourceType.netease,
+      userAgent: SourceHttpPolicy.neteaseLinuxUserAgent,
+    );
     dio.interceptors.add(NeteaseAuthInterceptor(accountService));
     return dio;
   }
@@ -384,7 +375,7 @@ class NeteasePlaylistService with Logging {
         contentType: Headers.formUrlEncodedContentType,
         responseType: ResponseType.json,
         headers: {
-          'User-Agent': _linuxUserAgent,
+          'User-Agent': SourceHttpPolicy.neteaseLinuxUserAgent,
           'Referer': '$_musicBase/',
           'Cookie': 'os=linux; $sanitizedCookies',
           'X-Real-IP': '118.88.88.88',
