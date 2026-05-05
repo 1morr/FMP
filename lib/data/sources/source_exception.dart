@@ -70,7 +70,7 @@ abstract class SourceApiException implements Exception {
 
   // ========== 通用 Dio 错误分类 ========== //
 
-  /// 将 DioException 分类为语义化的 (code, message) 对。
+  /// 将 DioException 分类为语义化的 (kind, code, message) 对。
   /// 各 Source 的 _handleDioError 可调用此方法后构造自己的异常类型。
   static ({SourceErrorKind kind, String code, String message}) classifyDioError(
     DioException e,

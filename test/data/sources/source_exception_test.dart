@@ -21,18 +21,21 @@ void main() {
     });
 
     test('isRateLimited for -412', () {
-      const e = BilibiliApiException(numericCode: -412, message: 'Rate limited');
+      const e =
+          BilibiliApiException(numericCode: -412, message: 'Rate limited');
       expect(e.isRateLimited, isTrue);
       expect(e.code, 'rate_limited');
     });
 
     test('isRateLimited for -509', () {
-      const e = BilibiliApiException(numericCode: -509, message: 'Rate limited');
+      const e =
+          BilibiliApiException(numericCode: -509, message: 'Rate limited');
       expect(e.isRateLimited, isTrue);
     });
 
     test('requiresLogin for -101', () {
-      const e = BilibiliApiException(numericCode: -101, message: 'Login required');
+      const e =
+          BilibiliApiException(numericCode: -101, message: 'Login required');
       expect(e.requiresLogin, isTrue);
       expect(e.code, 'login_required');
     });
@@ -83,7 +86,12 @@ void main() {
 
   group('YouTubeApiException', () {
     test('isUnavailable for multiple codes', () {
-      for (final code in ['unavailable', 'not_found', 'unplayable', 'no_stream']) {
+      for (final code in [
+        'unavailable',
+        'not_found',
+        'unplayable',
+        'no_stream'
+      ]) {
         final e = YouTubeApiException(code: code, message: 'test');
         expect(e.isUnavailable, isTrue, reason: '$code should be unavailable');
       }
@@ -101,7 +109,8 @@ void main() {
     });
 
     test('isPrivateOrInaccessible', () {
-      const e = YouTubeApiException(code: 'private_or_inaccessible', message: 'test');
+      const e =
+          YouTubeApiException(code: 'private_or_inaccessible', message: 'test');
       expect(e.isPrivateOrInaccessible, isTrue);
       expect(e.isPermissionDenied, isTrue);
     });
@@ -255,7 +264,8 @@ void main() {
       ];
 
       for (final e in exceptions) {
-        expect(e.isUnavailable, isTrue, reason: '${e.runtimeType} should be unavailable');
+        expect(e.isUnavailable, isTrue,
+            reason: '${e.runtimeType} should be unavailable');
         expect(e.code, isNotEmpty);
         expect(e.message, isNotEmpty);
       }
