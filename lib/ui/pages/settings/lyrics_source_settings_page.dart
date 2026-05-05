@@ -327,6 +327,48 @@ class _LyricsSourceSettingsPageState
   }
 }
 
+class _LyricsSourceLeading extends StatelessWidget {
+  final int index;
+  final IconData icon;
+  final bool isEnabled;
+
+  const _LyricsSourceLeading({
+    required this.index,
+    required this.icon,
+    required this.isEnabled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    const disabledAlpha = 0.38;
+
+    return SizedBox(
+      width: 56,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ReorderableDragStartListener(
+            index: index,
+            child: Icon(
+              Icons.drag_handle,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Icon(
+            icon,
+            size: 20,
+            color: isEnabled
+                ? colorScheme.onSurface
+                : colorScheme.onSurface.withValues(alpha: disabledAlpha),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _LyricsSourceTile extends StatelessWidget {
   final int index;
   final String source;
@@ -351,25 +393,10 @@ class _LyricsSourceTile extends StatelessWidget {
     const disabledAlpha = 0.38;
 
     return ListTile(
-      leading: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ReorderableDragStartListener(
-            index: index,
-            child: Icon(
-              Icons.drag_handle,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Icon(
-            icon,
-            size: 20,
-            color: isEnabled
-                ? colorScheme.onSurface
-                : colorScheme.onSurface.withValues(alpha: disabledAlpha),
-          ),
-        ],
+      leading: _LyricsSourceLeading(
+        index: index,
+        icon: icon,
+        isEnabled: isEnabled,
       ),
       title: Text(
         displayName,

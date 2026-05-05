@@ -452,6 +452,143 @@ class _UnmatchedSectionState extends ConsumerState<_UnmatchedSection> {
   }
 }
 
+class _ImportTrackLeading extends StatelessWidget {
+  final bool isSelected;
+  final Track? track;
+
+  const _ImportTrackLeading({
+    required this.isSelected,
+    this.track,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final selectedTrack = track;
+
+    return SizedBox(
+      width: 72,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 24,
+            height: 24,
+            child: isSelected
+                ? Icon(Icons.check_circle, color: colorScheme.primary, size: 20)
+                : Icon(
+                    Icons.radio_button_unchecked,
+                    color: colorScheme.outline,
+                    size: 20,
+                  ),
+          ),
+          const SizedBox(width: 8),
+          if (selectedTrack != null)
+            TrackThumbnail(
+              track: selectedTrack,
+              size: AppSizes.thumbnailSmall,
+              borderRadius: 4,
+            )
+          else
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest,
+                borderRadius: AppRadius.borderRadiusSm,
+              ),
+              child: Icon(
+                Icons.music_note,
+                color: colorScheme.outline,
+                size: 20,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImportMatchLeading extends StatelessWidget {
+  final Track track;
+  final bool isIncluded;
+  final ValueChanged<bool> onChanged;
+
+  const _ImportMatchLeading({
+    required this.track,
+    required this.isIncluded,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 72,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 24,
+            height: 24,
+            child: Checkbox(
+              value: isIncluded,
+              onChanged: (value) => onChanged(value ?? false),
+              visualDensity: VisualDensity.compact,
+            ),
+          ),
+          const SizedBox(width: 8),
+          TrackThumbnail(
+            track: track,
+            size: AppSizes.thumbnailSmall,
+            borderRadius: 4,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AlternativeTrackLeading extends StatelessWidget {
+  final Track track;
+  final bool isSelected;
+
+  const _AlternativeTrackLeading({
+    required this.track,
+    required this.isSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return SizedBox(
+      width: 60,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: isSelected
+                ? Icon(Icons.check_circle, color: colorScheme.primary, size: 18)
+                : Icon(
+                    Icons.radio_button_unchecked,
+                    color: colorScheme.outline,
+                    size: 18,
+                  ),
+          ),
+          const SizedBox(width: 8),
+          TrackThumbnail(
+            track: track,
+            size: 32,
+            borderRadius: 4,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// 未匹配歌曲项 - 与已匹配样式一致
 class _UnmatchedTrackTile extends ConsumerWidget {
   final MatchedTrack matchedTrack;
@@ -486,42 +623,9 @@ class _UnmatchedTrackTile extends ConsumerWidget {
         // 主行 - 如果已选择则显示选中的 track，否则显示原始信息
         ListTile(
           dense: true,
-          leading: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 选中状态图标
-              SizedBox(
-                width: 24,
-                height: 24,
-                child: hasSelection
-                    ? Icon(Icons.check_circle,
-                        color: colorScheme.primary, size: 20)
-                    : Icon(Icons.radio_button_unchecked,
-                        color: colorScheme.outline, size: 20),
-              ),
-              const SizedBox(width: 8),
-              // 封面或音符图标
-              if (hasSelection)
-                TrackThumbnail(
-                  track: selectedTrack,
-                  size: AppSizes.thumbnailSmall,
-                  borderRadius: 4,
-                )
-              else
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
-                    borderRadius: AppRadius.borderRadiusSm,
-                  ),
-                  child: Icon(
-                    Icons.music_note,
-                    color: colorScheme.outline,
-                    size: 20,
-                  ),
-                ),
-            ],
+          leading: _ImportTrackLeading(
+            isSelected: hasSelection,
+            track: selectedTrack,
           ),
           title: Text(
             hasSelection ? selectedTrack.title : original.title,
@@ -717,25 +821,10 @@ class _ImportMatchTile extends StatelessWidget {
         ListTile(
           dense: true,
           // 勾选框放到最左边，然后是封面
-          leading: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 24,
-                height: 24,
-                child: Checkbox(
-                  value: matchedTrack.isIncluded,
-                  onChanged: (v) => onToggleInclude(v ?? false),
-                  visualDensity: VisualDensity.compact,
-                ),
-              ),
-              const SizedBox(width: 8),
-              TrackThumbnail(
-                track: track,
-                size: AppSizes.thumbnailSmall,
-                borderRadius: 4,
-              ),
-            ],
+          leading: _ImportMatchLeading(
+            track: track,
+            isIncluded: matchedTrack.isIncluded,
+            onChanged: onToggleInclude,
           ),
           title: Text(
             track.title,
@@ -878,25 +967,9 @@ class _AlternativeTrackTile extends ConsumerWidget {
       child: ListTile(
         dense: true,
         // 选中状态图标 + 小封面
-        leading: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 20,
-              height: 20,
-              child: isSelected
-                  ? Icon(Icons.check_circle,
-                      color: colorScheme.primary, size: 18)
-                  : Icon(Icons.radio_button_unchecked,
-                      color: colorScheme.outline, size: 18),
-            ),
-            const SizedBox(width: 8),
-            TrackThumbnail(
-              track: track,
-              size: 32,
-              borderRadius: 4,
-            ),
-          ],
+        leading: _AlternativeTrackLeading(
+          track: track,
+          isSelected: isSelected,
         ),
         title: Text(
           track.title,
