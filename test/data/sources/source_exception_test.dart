@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/sources/bilibili_exception.dart';
 import 'package:fmp/data/sources/youtube_exception.dart';
@@ -191,6 +192,57 @@ void main() {
     test('is SourceApiException', () {
       const e = NeteaseApiException(numericCode: 0, message: 'test');
       expect(e, isA<SourceApiException>());
+    });
+  });
+
+  group('SourceErrorKind', () {
+    test('classifyDioError returns timeout kind and diagnostic code', () {
+      final requestOptions = RequestOptions(path: '/timeout');
+      final result = SourceApiException.classifyDioError(
+        DioException(
+          requestOptions: requestOptions,
+          type: DioExceptionType.connectionTimeout,
+        ),
+      );
+
+      expect(result.kind, SourceErrorKind.timeout);
+      expect(result.code, 'timeout');
+      expect(result.message, isNotEmpty);
+    });
+
+    test('classifyDioError returns permission denied for HTTP 403', () {
+      final requestOptions = RequestOptions(path: '/forbidden');
+      final result = SourceApiException.classifyDioError(
+        DioException(
+          requestOptions: requestOptions,
+          type: DioExceptionType.badResponse,
+          response: Response<void>(
+            requestOptions: requestOptions,
+            statusCode: 403,
+          ),
+        ),
+      );
+
+      expect(result.kind, SourceErrorKind.permissionDenied);
+      expect(result.code, 'forbidden');
+      expect(result.message, contains('403'));
+    });
+
+    test('classifyDioError returns rate limited for HTTP 429', () {
+      final requestOptions = RequestOptions(path: '/rate-limited');
+      final result = SourceApiException.classifyDioError(
+        DioException(
+          requestOptions: requestOptions,
+          type: DioExceptionType.badResponse,
+          response: Response<void>(
+            requestOptions: requestOptions,
+            statusCode: 429,
+          ),
+        ),
+      );
+
+      expect(result.kind, SourceErrorKind.rateLimited);
+      expect(result.code, 'rate_limited');
     });
   });
 
