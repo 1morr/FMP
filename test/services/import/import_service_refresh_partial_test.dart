@@ -122,6 +122,40 @@ void main() {
       expect(refreshed.ownerUserId, 'owner-123');
     });
 
+    test('keeps existing owner metadata when refresh omits owner fields',
+        () async {
+      final trackRepository = TrackRepository(isar);
+      final playlist = await _createImportedPlaylist(
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        tracks: [
+          _track('keep', 'Keep'),
+        ],
+      );
+      playlist
+        ..ownerName = 'Existing Owner'
+        ..ownerUserId = 'existing-owner-id';
+      await playlistRepository.save(playlist);
+      source.result = PlaylistParseResult(
+        title: 'Remote playlist',
+        tracks: [_track('keep', 'Keep')],
+        totalCount: 1,
+        sourceUrl: playlist.sourceUrl!,
+      );
+      final service = ImportService(
+        sourceManager: sourceManager,
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        isar: isar,
+      );
+
+      await service.refreshPlaylist(playlist.id);
+
+      final refreshed = await playlistRepository.getById(playlist.id);
+      expect(refreshed!.ownerName, 'Existing Owner');
+      expect(refreshed.ownerUserId, 'existing-owner-id');
+    });
+
     test('does not append tracks when mutation reports a persistence error',
         () async {
       final trackRepository = TrackRepository(isar);

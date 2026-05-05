@@ -511,8 +511,12 @@ class ImportService with Logging implements ImportServiceFacade {
 
       final refreshedPlaylist =
           await _playlistRepository.getById(playlist.id) ?? playlist;
-      refreshedPlaylist.ownerName = result.ownerName;
-      refreshedPlaylist.ownerUserId = result.ownerUserId;
+      if (result.ownerName != null) {
+        refreshedPlaylist.ownerName = result.ownerName;
+      }
+      if (result.ownerUserId != null) {
+        refreshedPlaylist.ownerUserId = result.ownerUserId;
+      }
       await _playlistRepository.save(refreshedPlaylist);
       _throwIfCancelled();
       final savedPlaylist =
