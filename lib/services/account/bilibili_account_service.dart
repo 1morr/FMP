@@ -184,24 +184,28 @@ class BilibiliAccountService extends AccountService with Logging {
                 );
               }
 
-              if (!stopped)
+              if (!stopped) {
                 controller.add(QrCodePollResult(status: QrCodeStatus.success));
+              }
               return;
 
             case 86038: // 已過期
-              if (!stopped)
+              if (!stopped) {
                 controller.add(QrCodePollResult(status: QrCodeStatus.expired));
+              }
               return;
 
             case 86090: // 已掃碼待確認
               consecutiveErrors = 0;
-              if (!stopped)
+              if (!stopped) {
                 controller.add(QrCodePollResult(status: QrCodeStatus.scanned));
+              }
 
             default: // 86101 等待掃碼
               consecutiveErrors = 0;
-              if (!stopped)
+              if (!stopped) {
                 controller.add(QrCodePollResult(status: QrCodeStatus.waiting));
+              }
           }
         } catch (e) {
           if (stopped) break;
