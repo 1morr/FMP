@@ -32,34 +32,12 @@ class YouTubeApiException extends SourceApiException {
         _ => SourceErrorKind.unknown,
       };
 
-  /// 是否是视频不可用
-  @override
-  bool get isUnavailable => super.isUnavailable;
-
-  /// 是否是限流
-  @override
-  bool get isRateLimited => super.isRateLimited;
-
-  /// 是否需要登录（年龄限制等）
-  @override
-  bool get requiresLogin => super.requiresLogin;
-
   /// 是否是权限不足（私人视频/播放列表）
   @override
   bool get isPermissionDenied =>
-      super.isPermissionDenied || code == 'age_restricted';
-
-  /// 是否是地区限制
-  @override
-  bool get isGeoRestricted => super.isGeoRestricted;
-
-  /// 网络连接错误
-  @override
-  bool get isNetworkError => super.isNetworkError;
-
-  /// 超时
-  @override
-  bool get isTimeout => super.isTimeout;
+      super.isPermissionDenied ||
+      code == 'age_restricted' ||
+      code == 'login_required';
 
   /// 是否是私人或無法訪問的播放列表
   bool get isPrivateOrInaccessible => code == 'private_or_inaccessible';

@@ -127,6 +127,11 @@ void main() {
       expect(e.isPermissionDenied, isTrue);
     });
 
+    test('isPermissionDenied for login_required', () {
+      const e = YouTubeApiException(code: 'login_required', message: 'test');
+      expect(e.isPermissionDenied, isTrue);
+    });
+
     test('isPrivateOrInaccessible', () {
       const e =
           YouTubeApiException(code: 'private_or_inaccessible', message: 'test');
