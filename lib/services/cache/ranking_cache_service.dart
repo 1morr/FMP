@@ -17,7 +17,51 @@ import '../network/connectivity_service.dart';
 /// - 網絡恢復時自動重新獲取數據
 /// - 用戶進入首頁時直接顯示緩存，無需等待
 /// - 緩存完整數據，首頁預覽只顯示前 10 首，探索頁使用完整緩存
-class RankingCacheService {
+class RankingCacheState {
+  final List<Track> bilibiliTracks;
+  final List<Track> youtubeTracks;
+  final bool isInitialLoading;
+  final bool bilibiliLoaded;
+  final bool youtubeLoaded;
+  final String? bilibiliError;
+  final String? youtubeError;
+
+  const RankingCacheState({
+    this.bilibiliTracks = const [],
+    this.youtubeTracks = const [],
+    this.isInitialLoading = true,
+    this.bilibiliLoaded = false,
+    this.youtubeLoaded = false,
+    this.bilibiliError,
+    this.youtubeError,
+  });
+
+  RankingCacheState copyWith({
+    List<Track>? bilibiliTracks,
+    List<Track>? youtubeTracks,
+    bool? isInitialLoading,
+    bool? bilibiliLoaded,
+    bool? youtubeLoaded,
+    String? bilibiliError,
+    String? youtubeError,
+    bool clearBilibiliError = false,
+    bool clearYoutubeError = false,
+  }) {
+    return RankingCacheState(
+      bilibiliTracks: List.unmodifiable(bilibiliTracks ?? this.bilibiliTracks),
+      youtubeTracks: List.unmodifiable(youtubeTracks ?? this.youtubeTracks),
+      isInitialLoading: isInitialLoading ?? this.isInitialLoading,
+      bilibiliLoaded: bilibiliLoaded ?? this.bilibiliLoaded,
+      youtubeLoaded: youtubeLoaded ?? this.youtubeLoaded,
+      bilibiliError:
+          clearBilibiliError ? null : bilibiliError ?? this.bilibiliError,
+      youtubeError:
+          clearYoutubeError ? null : youtubeError ?? this.youtubeError,
+    );
+  }
+}
+
+class RankingCacheService extends StateNotifier<RankingCacheState> {
   static const _initialLoadTimeout = Duration(seconds: 5); // 初始加載超時時間
 
   final BilibiliSource _bilibiliSource;
@@ -27,37 +71,14 @@ class RankingCacheService {
   StreamSubscription<void>? _networkRecoveredSubscription;
   Duration _refreshInterval = const Duration(hours: 1);
 
-  // 緩存數據
-  List<Track> _bilibiliTracks = [];
-  List<Track> _youtubeTracks = [];
-
-  // 加載狀態（僅用於首次加載）
-  bool _isInitialLoading = true;
-  bool _bilibiliLoaded = false;
-  bool _youtubeLoaded = false;
-
-  // 狀態變更通知
-  final _stateController = StreamController<void>.broadcast();
-
   bool _isDisposed = false;
 
   RankingCacheService({
     required BilibiliSource bilibiliSource,
     required YouTubeSource youtubeSource,
   })  : _bilibiliSource = bilibiliSource,
-        _youtubeSource = youtubeSource;
-
-  /// 緩存的 Bilibili 音樂排行
-  List<Track> get bilibiliTracks => _bilibiliTracks;
-
-  /// 緩存的 YouTube 音樂排行
-  List<Track> get youtubeTracks => _youtubeTracks;
-
-  /// 是否正在首次加載（用於顯示初始 loading）
-  bool get isInitialLoading => _isInitialLoading;
-
-  /// 狀態變更流
-  Stream<void> get stateChanges => _stateController.stream;
+        _youtubeSource = youtubeSource,
+        super(const RankingCacheState());
 
   /// 初始化服務：立即獲取數據並啟動定時刷新
   Future<void> initialize({Duration? refreshInterval}) async {
@@ -73,9 +94,8 @@ class RankingCacheService {
         debugPrint('[RankingCache] 初始加載超時（${_initialLoadTimeout.inSeconds}秒）');
         if (_isDisposed) return;
         // 確保結束 loading 狀態
-        if (_isInitialLoading) {
-          _isInitialLoading = false;
-          _notifyStateChange();
+        if (state.isInitialLoading) {
+          state = state.copyWith(isInitialLoading: false);
         }
       },
     );
@@ -132,11 +152,10 @@ class RankingCacheService {
     if (_isDisposed) return;
 
     // 首次加載完成（無論成功或失敗都結束 loading）
-    if (_isInitialLoading) {
-      _isInitialLoading = false;
-      _notifyStateChange();
+    if (state.isInitialLoading) {
+      state = state.copyWith(isInitialLoading: false);
       debugPrint(
-          '[RankingCache] 初始加載完成（Bilibili: $_bilibiliLoaded, YouTube: $_youtubeLoaded）');
+          '[RankingCache] 初始加載完成（Bilibili: ${state.bilibiliLoaded}, YouTube: ${state.youtubeLoaded}）');
     }
   }
 
@@ -147,13 +166,16 @@ class RankingCacheService {
       // rid=1003 是音樂區排行榜的正確 ID（網頁 /v/popular/rank/music 使用此 ID）
       final tracks = await _bilibiliSource.getRankingVideos(rid: 1003);
       if (_isDisposed) return;
-      _bilibiliTracks = tracks; // 緩存完整數據
-      _bilibiliLoaded = true;
-      _notifyStateChange();
+      state = state.copyWith(
+        bilibiliTracks: tracks,
+        bilibiliLoaded: true,
+        clearBilibiliError: true,
+      );
       debugPrint(
-          '[RankingCache] Bilibili 音樂排行榜緩存已刷新: ${_bilibiliTracks.length} 首');
+          '[RankingCache] Bilibili 音樂排行榜緩存已刷新: ${state.bilibiliTracks.length} 首');
     } catch (e) {
       if (_isDisposed) return;
+      state = state.copyWith(bilibiliError: e.toString());
       debugPrint('[RankingCache] Bilibili 刷新失敗: $e');
       // 失敗時保留舊緩存
     }
@@ -166,21 +188,20 @@ class RankingCacheService {
       final tracks = await _youtubeSource.getTrendingVideos(category: 'music');
       if (_isDisposed) return;
       // 按播放數降序排序
-      tracks.sort((a, b) => (b.viewCount ?? 0).compareTo(a.viewCount ?? 0));
-      _youtubeTracks = tracks; // 緩存完整數據
-      _youtubeLoaded = true;
-      _notifyStateChange();
-      debugPrint('[RankingCache] YouTube 緩存已刷新: ${_youtubeTracks.length} 首');
+      final sortedTracks = List<Track>.of(tracks)
+        ..sort((a, b) => (b.viewCount ?? 0).compareTo(a.viewCount ?? 0));
+      state = state.copyWith(
+        youtubeTracks: sortedTracks,
+        youtubeLoaded: true,
+        clearYoutubeError: true,
+      );
+      debugPrint(
+          '[RankingCache] YouTube 緩存已刷新: ${state.youtubeTracks.length} 首');
     } catch (e) {
       if (_isDisposed) return;
+      state = state.copyWith(youtubeError: e.toString());
       debugPrint('[RankingCache] YouTube 刷新失敗: $e');
       // 失敗時保留舊緩存
-    }
-  }
-
-  void _notifyStateChange() {
-    if (!_stateController.isClosed) {
-      _stateController.add(null);
     }
   }
 
@@ -190,18 +211,20 @@ class RankingCacheService {
   }
 
   /// 釋放資源
+  @override
   void dispose() {
     if (_isDisposed) return;
     _isDisposed = true;
     _refreshTimer?.cancel();
     _refreshTimer = null;
     clearNetworkMonitoring();
-    _stateController.close();
+    super.dispose();
   }
 }
 
 /// RankingCacheService Provider（負責設置網絡監聽）
-final rankingCacheServiceProvider = Provider<RankingCacheService>((ref) {
+final rankingCacheServiceProvider =
+    StateNotifierProvider<RankingCacheService, RankingCacheState>((ref) {
   final service = RankingCacheService(
     bilibiliSource: ref.watch(bilibiliSourceProvider),
     youtubeSource: ref.watch(youtubeSourceProvider),
@@ -212,9 +235,6 @@ final rankingCacheServiceProvider = Provider<RankingCacheService>((ref) {
   // 設置網絡恢復監聽
   final connectivityNotifier = ref.read(connectivityProvider.notifier);
   service.setupNetworkMonitoring(connectivityNotifier);
-
-  // 當 provider 被銷毀時釋放服務，但不 dispose provider-owned sources
-  ref.onDispose(service.dispose);
 
   return service;
 });

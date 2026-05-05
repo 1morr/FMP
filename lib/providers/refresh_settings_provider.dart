@@ -53,7 +53,7 @@ class RefreshSettingsNotifier extends StateNotifier<RefreshSettingsState> {
     );
 
     // 用用户设置的间隔更新服务定时器
-    _ref.read(rankingCacheServiceProvider).updateRefreshInterval(
+    _ref.read(rankingCacheServiceProvider.notifier).updateRefreshInterval(
           Duration(minutes: rankingMinutes),
         );
     RadioRefreshService.instance.updateRefreshInterval(
@@ -70,7 +70,7 @@ class RefreshSettingsNotifier extends StateNotifier<RefreshSettingsState> {
     _settings!.rankingRefreshIntervalMinutes = minutes;
     state = state.copyWith(rankingRefreshIntervalMinutes: minutes);
 
-    _ref.read(rankingCacheServiceProvider).updateRefreshInterval(
+    _ref.read(rankingCacheServiceProvider.notifier).updateRefreshInterval(
           Duration(minutes: minutes),
         );
   }
