@@ -9,6 +9,32 @@
 | [Flutter SDK](https://flutter.dev/docs/get-started/install) | >= 3.5.0 | 跨平台框架 |
 | [Java JDK](https://adoptium.net/) | 17 | Android 构建（同时提供 `keytool` 命令） |
 
+### Windows 本地构建额外要求
+
+`flutter doctor` 只检查 Flutter、Visual Studio、Windows SDK 等基础环境。本项目的部分 Windows 插件还会在 CMake/MSBuild 阶段构建或下载原生依赖，因此 Windows 本地构建还需要以下工具在 PATH 中可用：
+
+| 工具 | 用途 | 缺失时常见错误 |
+|------|------|---------------|
+| [NuGet CLI](https://www.nuget.org/downloads) | `flutter_inappwebview_windows` 下载 WebView2、WIL、nlohmann.json 等 NuGet 原生依赖 | `Nuget is not installed`、`NUGET-NOTFOUND install ...` |
+| [Rust toolchain](https://www.rust-lang.org/tools/install) | `smtc_windows` 通过 cargokit 编译 Rust 原生库 | `cargo` / `rustc` not recognized，或 `smtc_windows_cargokit` 构建失败 |
+
+推荐用 winget 安装：
+
+```powershell
+winget install -e --id Microsoft.NuGet
+winget install -e --id Rustlang.Rustup
+```
+
+安装后重启终端或 VS Code，让 PATH 更新生效，然后确认命令可用：
+
+```powershell
+nuget help
+cargo --version
+rustc --version
+```
+
+> 如果刚安装后当前终端仍找不到命令，通常是 PATH 尚未刷新。NuGet 的 winget alias 常见位置为 `%LOCALAPPDATA%\Microsoft\WinGet\Links`，Rust 工具链常见位置为 `%USERPROFILE%\.cargo\bin`。
+
 ## 初始化项目
 
 ```bash
@@ -70,6 +96,15 @@ storeFile=../release.keystore
 > `key.properties` 和 `release.keystore` 均已在 `.gitignore` 中，不会被提交。
 
 ## 构建 Windows
+
+构建前建议先确认 Windows 原生工具链已可用：
+
+```powershell
+flutter doctor -v
+nuget help
+cargo --version
+rustc --version
+```
 
 ### 仅构建 EXE（免安装版）
 
@@ -165,6 +200,9 @@ inno_bundle:
 # 运行（调试模式）
 flutter run
 
+# 指定 Windows 桌面端运行
+flutter run -d windows
+
 # 静态分析
 flutter analyze
 
@@ -173,6 +211,32 @@ flutter test
 
 # 重新生成代码（修改 Isar model 后必须执行）
 flutter pub run build_runner build --delete-conflicting-outputs
+```
+
+## Windows 构建排错
+
+### `flutter doctor` 没有错误，但 `flutter run -d windows` 仍然失败
+
+先看错误发生在哪一层：
+
+- `NUGET-NOTFOUND` / `Nuget is not installed`：安装 NuGet CLI，并重启终端。
+- `smtc_windows_cargokit` 失败，或提示找不到 `cargo` / `rustc`：安装 Rustup/Rust toolchain，并重启终端。
+- `Get-Item ... AppData` 出现在 `smtc_windows` 的 `resolve_symlinks.ps1` 中：这是 hidden `AppData` 路径解析产生的 warning；如果后续 build 成功，可以忽略。若 build 失败，优先检查 `cargo` / `rustc` 是否可用。
+- `Error waiting for a debug connection`：确认没有旧的 `fmp.exe` 正在运行。旧进程可能占用调试连接或让 Flutter runner 误判启动状态。
+
+可以用以下命令检查并结束旧进程：
+
+```powershell
+Get-Process -Name fmp -ErrorAction SilentlyContinue
+Stop-Process -Name fmp -ErrorAction SilentlyContinue
+```
+
+安装新工具或清理旧构建状态后，建议重建一次：
+
+```powershell
+flutter clean
+flutter pub get
+flutter run -d windows
 ```
 
 ## 相关文件
