@@ -37,6 +37,17 @@
 | Windows | `desktop_multi_window` | 歌词弹出窗口 |
 | Windows | `launch_at_startup` | 开机自启 |
 
+### Windows 原生构建依赖
+
+Windows 桌面端的部分插件会在 CMake/MSBuild 阶段处理原生依赖，`flutter doctor` 通过并不代表这些插件的构建工具都已安装：
+
+| 工具 | 关联插件 | 用途 |
+|------|----------|------|
+| NuGet CLI | `flutter_inappwebview_windows`（由 `flutter_inappwebview` 提供） | 下载 WebView2、WIL、nlohmann.json 等 NuGet 原生依赖 |
+| Rust toolchain (`cargo` / `rustc`) | `smtc_windows` | 通过 cargokit 编译 Rust 原生库 |
+
+Windows 本地构建或调试前建议确认 `nuget help`、`cargo --version`、`rustc --version` 均可执行。安装命令和常见错误见 [构建指南](build-guide.md#windows-本地构建额外要求)。
+
 ---
 
 ## 项目结构
@@ -310,6 +321,7 @@ UI Layer (player_page, mini_player)
 
 ```bash
 flutter run                          # 运行应用
+flutter run -d windows               # 指定 Windows 桌面端运行
 flutter analyze                      # 静态分析
 flutter test                         # 运行测试
 flutter pub run build_runner build --delete-conflicting-outputs  # Isar 代码生成
