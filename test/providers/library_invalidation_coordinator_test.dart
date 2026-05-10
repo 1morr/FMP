@@ -50,6 +50,27 @@ void main() {
       expect(recorder.allPlaylistInvalidations, 1);
     });
 
+    test(
+        'playlistMutationCompleted refreshes detail for track metadata updates',
+        () {
+      final recorder = _InvalidationRecorder();
+      final coordinator = recorder.createCoordinator();
+
+      coordinator.playlistMutationCompleted(
+        const PlaylistMutationResult(
+          playlistId: 4,
+          affectedPlaylistIds: [4],
+          updatedTrackIds: [11],
+          playlistChanged: false,
+          coverChanged: false,
+        ),
+      );
+
+      expect(recorder.detailIds, [4]);
+      expect(recorder.coverIds, isEmpty);
+      expect(recorder.allPlaylistInvalidations, 0);
+    });
+
     test('downloadStateChanged derives category paths and refreshes playlists',
         () {
       final recorder = _InvalidationRecorder();
@@ -91,7 +112,8 @@ void main() {
       expect(container.exists(playlistDetailProvider(12)), isFalse);
     });
 
-    test('Task 5 UI mutation sites use the library invalidation coordinator', () {
+    test('Task 5 UI mutation sites use the library invalidation coordinator',
+        () {
       final sources = _task5SourceFiles();
 
       for (final entry in sources.entries) {
@@ -99,27 +121,32 @@ void main() {
         expect(
           source,
           contains('libraryInvalidationCoordinatorProvider'),
-          reason: '${entry.key} should route UI mutation refreshes through the coordinator',
+          reason:
+              '${entry.key} should route UI mutation refreshes through the coordinator',
         );
         expect(
           source,
           isNot(contains('ref.invalidate(allPlaylistsProvider)')),
-          reason: '${entry.key} should not directly invalidate allPlaylistsProvider',
+          reason:
+              '${entry.key} should not directly invalidate allPlaylistsProvider',
         );
         expect(
           source,
           isNot(contains('ref.invalidate(playlistDetailProvider')),
-          reason: '${entry.key} should not directly invalidate playlistDetailProvider',
+          reason:
+              '${entry.key} should not directly invalidate playlistDetailProvider',
         );
         expect(
           source,
           isNot(contains('ref.invalidate(playlistCoverProvider')),
-          reason: '${entry.key} should not directly invalidate playlistCoverProvider',
+          reason:
+              '${entry.key} should not directly invalidate playlistCoverProvider',
         );
         expect(
           source,
           isNot(contains('invalidatePlaylistProviders')),
-          reason: '${entry.key} should not use legacy playlist invalidation helpers',
+          reason:
+              '${entry.key} should not use legacy playlist invalidation helpers',
         );
       }
     });

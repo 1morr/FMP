@@ -10,7 +10,7 @@ typedef RefreshMatchingImportedPlaylists = Future<void> Function({
   required Iterable<String> remotePlaylistIds,
 });
 
-typedef RemoveTracksFromLocalPlaylist = Future<void> Function(
+typedef RemoveTracksFromLocalPlaylist = Future<bool> Function(
   int playlistId,
   List<int> trackIds,
 );
@@ -97,13 +97,34 @@ class RemotePlaylistEditController {
     RemotePlaylistEditPlan plan, {
     int? localRemovalPlaylistId,
   }) async {
-    final result = await _adapterFor(plan.sourceType).submit(plan);
+    var result = await _adapterFor(plan.sourceType).submit(plan);
     if (localRemovalPlaylistId != null &&
         result.confirmedRemovedTrackIds.isNotEmpty) {
-      await removeTracksFromLocalPlaylist(
-        localRemovalPlaylistId,
-        result.confirmedRemovedTrackIds,
-      );
+      try {
+        final localRemovalSucceeded = await removeTracksFromLocalPlaylist(
+          localRemovalPlaylistId,
+          result.confirmedRemovedTrackIds,
+        );
+        if (!localRemovalSucceeded) {
+          result = _withLocalRemovalFailure(
+            result,
+            plan,
+            localRemovalPlaylistId,
+            result.confirmedRemovedTrackIds,
+            StateError(
+              'Failed to remove confirmed remote tracks from local playlist $localRemovalPlaylistId',
+            ),
+          );
+        }
+      } catch (error) {
+        result = _withLocalRemovalFailure(
+          result,
+          plan,
+          localRemovalPlaylistId,
+          result.confirmedRemovedTrackIds,
+          error,
+        );
+      }
     }
     if (result.changedRemote) {
       try {
@@ -121,6 +142,35 @@ class RemotePlaylistEditController {
       }
     }
     return result;
+  }
+
+  RemotePlaylistEditResult _withLocalRemovalFailure(
+    RemotePlaylistEditResult result,
+    RemotePlaylistEditPlan plan,
+    int localPlaylistId,
+    List<int> trackIds,
+    Object error,
+  ) {
+    final remotePlaylistIds = result.changedRemotePlaylistIds.isNotEmpty
+        ? result.changedRemotePlaylistIds
+        : plan.playlistIdsToRemove;
+    final remotePlaylistId = remotePlaylistIds.isNotEmpty
+        ? remotePlaylistIds.first
+        : 'local:$localPlaylistId';
+
+    return result.merge(
+      RemotePlaylistEditResult(
+        sourceType: result.sourceType,
+        failures: [
+          for (final trackId in trackIds)
+            RemotePlaylistEditFailure(
+              trackId: trackId,
+              remotePlaylistId: remotePlaylistId,
+              error: error,
+            ),
+        ],
+      ),
+    );
   }
 
   RemotePlaylistEditAdapter _adapterFor(SourceType sourceType) {

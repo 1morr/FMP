@@ -40,8 +40,10 @@ void main() {
       final controller = _controller(
         adapter: _FakeAdapter(
             removeConfirmedIds: [1], skippedIds: [2], changedIds: ['PL']),
-        removeLocalTracks: (_, trackIds) async =>
-            syncedLocalIds.addAll(trackIds),
+        removeLocalTracks: (_, trackIds) async {
+          syncedLocalIds.addAll(trackIds);
+          return true;
+        },
         refreshRemoteIds: (sourceType, remoteIds) async =>
             refreshedIds.addAll(remoteIds),
       );
@@ -72,8 +74,10 @@ void main() {
       final refreshedIds = <String>[];
       final controller = _controller(
         adapter: _FakeAdapter(removeConfirmedIds: [1], changedIds: ['PL']),
-        removeLocalTracks: (_, trackIds) async =>
-            syncedLocalIds.addAll(trackIds),
+        removeLocalTracks: (_, trackIds) async {
+          syncedLocalIds.addAll(trackIds);
+          return true;
+        },
         refreshRemoteIds: (sourceType, remoteIds) async {
           refreshedIds.addAll(remoteIds);
           throw StateError('refresh failed');
@@ -87,6 +91,38 @@ void main() {
 
       expect(result.confirmedRemovedTrackIds, [1]);
       expect(result.hasFailures, isFalse);
+      expect(syncedLocalIds, [1]);
+      expect(refreshedIds, ['PL']);
+    });
+
+    test('reports local sync failure after confirmed remote removals',
+        () async {
+      final playlist = Playlist()
+        ..id = 9
+        ..name = 'Imported'
+        ..sourceUrl = 'https://www.youtube.com/playlist?list=PL'
+        ..importSourceType = SourceType.youtube;
+      final syncedLocalIds = <int>[];
+      final refreshedIds = <String>[];
+      final controller = _controller(
+        adapter: _FakeAdapter(removeConfirmedIds: [1], changedIds: ['PL']),
+        removeLocalTracks: (_, trackIds) async {
+          syncedLocalIds.addAll(trackIds);
+          return false;
+        },
+        refreshRemoteIds: (sourceType, remoteIds) async =>
+            refreshedIds.addAll(remoteIds),
+      );
+
+      final result = await controller.removeTracksFromImportedPlaylist(
+        playlist: playlist,
+        tracks: [_track(SourceType.youtube, 1, 'ok')],
+      );
+
+      expect(result.confirmedRemovedTrackIds, [1]);
+      expect(result.hasFailures, isTrue);
+      expect(result.failedTrackIds, [1]);
+      expect(result.failures.single.remotePlaylistId, 'PL');
       expect(syncedLocalIds, [1]);
       expect(refreshedIds, ['PL']);
     });
@@ -243,7 +279,7 @@ RemotePlaylistEditController _controller({
   RemotePlaylistEditAdapter? adapter,
   Future<void> Function(SourceType sourceType, Iterable<String> remoteIds)?
       refreshRemoteIds,
-  Future<void> Function(int playlistId, List<int> trackIds)? removeLocalTracks,
+  Future<bool> Function(int playlistId, List<int> trackIds)? removeLocalTracks,
 }) {
   final fallback = adapter ?? _FakeAdapter();
   return RemotePlaylistEditController(
@@ -253,7 +289,7 @@ RemotePlaylistEditController _controller({
     refreshMatchingImportedPlaylists: (
             {required sourceType, required remotePlaylistIds}) async =>
         refreshRemoteIds?.call(sourceType, remotePlaylistIds),
-    removeTracksFromLocalPlaylist: removeLocalTracks ?? (_, __) async {},
+    removeTracksFromLocalPlaylist: removeLocalTracks ?? (_, __) async => true,
     isLoggedIn: (_) => true,
   );
 }
