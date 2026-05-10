@@ -76,9 +76,11 @@ class LibraryInvalidationCoordinator {
     final ids = result.affectedPlaylistIds.isEmpty
         ? [result.playlistId]
         : [result.playlistId, ...result.affectedPlaylistIds];
+    final tracksChanged =
+        result.playlistChanged || result.updatedTrackIds.isNotEmpty;
     playlistsChanged(
       ids,
-      tracksChanged: result.playlistChanged,
+      tracksChanged: tracksChanged,
       coverChanged: result.coverChanged,
       includeAll: result.playlistChanged || result.coverChanged,
     );
