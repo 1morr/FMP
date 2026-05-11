@@ -334,4 +334,4 @@ flutter clean                        # 清理构建产物
 ## 更多资源
 
 - [构建指南](build-guide.md) - 本地编译 Android APK 和 Windows 安装包
-- [CLAUDE.md](../CLAUDE.md) - AI 辅助开发指南（详细架构和设计决策）
+- [AGENTS.md](../AGENTS.md) - AI 辅助开发指南（详细架构和设计决策）

@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code when working with code in this repository.
+This file provides guidance to AI coding agents when working with code in this repository.
 
 ## Project Overview
 
@@ -8,7 +8,7 @@ FMP (Flutter Music Player) is a cross-platform music player supporting **Bilibil
 
 ## Documentation Maintenance
 
-After significant code changes, update this file accordingly:
+After significant code changes, update `AGENTS.md` accordingly:
 
 | Change Type | Section to Update |
 |------------|-------------------|
@@ -79,7 +79,7 @@ UI (player_page, mini_player)
 
 **Platform-split backend:**
 - **Android**: `JustAudioService` (ExoPlayer via `just_audio`, ~10-15MB lighter)
-- **Windows/Linux**: `MediaKitAudioService` (libmpv via `media_kit`, supports device switching)
+- **Desktop (Windows; Linux if enabled later)**: `MediaKitAudioService` (libmpv via `media_kit`, supports device switching)
 - `audioServiceProvider` selects implementation based on `Platform.isAndroid`
 - `MediaKit.ensureInitialized()` only called on desktop platforms
 
@@ -147,13 +147,13 @@ UI (player_page, mini_player)
 
 Isar uses type default values for new fields on upgrade: `int` → `0`, `bool` → `false`, `String?` → `null`, `List` → `[]`.
 
-**判断是否需要迁移：** 如果 Isar 的类型默认值与业务期望的默认值**一致**，则**不需要**迁移。例如 `bool isVip = false` — Isar 升级后自动为 `false`，与期望一致，无需迁移。只有当两者不一致时才需要（如 `useNeteaseAuthForPlay` 期望 `true` 但 Isar 给 `false`）。
+**Migration decision:** A migration is needed only when Isar's type default does not match the business default. If they match, no migration is needed. Example: `bool isVip = false` upgrades to `false` automatically, so no repair logic is required. A field like `useNeteaseAuthForPlay`, whose business default is `true` while Isar upgrades to `false`, must be repaired in migration logic.
 
 **Migration function:** `_migrateDatabase()` in `lib/providers/database_provider.dart`
 
 **When adding a new field:**
 1. Modify the model in `lib/data/models/`
-2. **判断是否需要迁移** — 若 Isar 默认值 ≠ 业务期望值，在 `_migrateDatabase()` 中添加修正逻辑
+2. Decide whether migration is needed. If Isar default != business default, add repair logic in `_migrateDatabase()`
 3. Run `flutter pub run build_runner build --delete-conflicting-outputs`
 4. Test upgrade path: old version → new version
 
@@ -359,13 +359,12 @@ Imported tracks save original platform song ID for direct lyrics fetch:
 - Netease: `?param={size}y{size}` parameter
 
 
-## Claude Code Subagent Coordination
+## Agent Coordination
 
-- **Root cause of the recent coordination failure**: when resuming a standalone spawned agent after review feedback, the follow-up message was sent to a human-friendly label instead of the actual resumable agent identity returned by the `Agent` tool result. The message appeared to send, but the implementer was not actually resumed to continue work.
-- **Correct method**: for standalone `Agent(...)` subagents, prefer sending follow-up work to the exact `agentId` returned in the agent result when you need to resume a completed or idle agent. This is the most reliable resumable identifier.
-- **Important distinction**: teammate names are for swarm/team workflows. For one-off spawned agents outside a team, treat the returned `agentId` as the source of truth for resuming work.
-- **Verification rule**: after `SendMessage`, read the tool result carefully. If Claude reports only inbox delivery and you need immediate continued execution, resend to the actual `agentId` and confirm the result explicitly says the agent was resumed from transcript/background.
-- **Do not mark delegation as active** until the messaging result confirms the intended agent has actually resumed.
+- For standalone delegated agents, resume follow-up work by the exact tool-returned agent identity, not by a human-friendly display label.
+- Treat the returned agent ID as the source of truth for completed or idle one-off agents.
+- Teammate names are for swarm/team workflows only unless the tool explicitly maps them to resumable standalone agents.
+- After sending follow-up input, read the tool result carefully. Only consider delegation active when the result confirms the intended agent actually resumed or started executing.
 
 ---
 
