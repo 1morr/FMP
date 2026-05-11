@@ -2791,7 +2791,9 @@ final audioControllerProvider =
     audioHandler: audioHandler,
     windowsSmtcHandler: windowsSmtcHandler,
     playHistoryRepository: playHistoryRepository,
-    lyricsAutoMatchService: ref.watch(lyricsAutoMatchServiceProvider),
+    // Lyrics settings must not rebuild the playback controller. The latest
+    // values are read from SettingsRepository when auto-match actually runs.
+    lyricsAutoMatchService: ref.read(lyricsAutoMatchServiceProvider),
     settingsRepository: ref.watch(settingsRepositoryProvider),
     queuePersistenceManager: ref.watch(queuePersistenceManagerProvider),
     youtubeSource: ref.watch(youtubeSourceProvider),
