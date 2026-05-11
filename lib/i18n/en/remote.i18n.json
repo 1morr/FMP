@@ -7,6 +7,7 @@
   "noChanges": "No changes",
   "updated": "Favorites updated",
   "removedAndLocal": "Removed from favorites and local playlist",
+  "removedRemoteLocalSyncFailed": "Removed from the remote playlist, but local playlist sync failed",
   "confirmRemove": "Remove from remote playlist?",
   "confirmRemoveContent": "This will also remove it from the local playlist.",
   "pleaseLogin": "Please log in first",

@@ -7,6 +7,7 @@
   "noChanges": "沒有變更",
   "updated": "已更新收藏",
   "removedAndLocal": "已從收藏夾和本地歌單移除",
+  "removedRemoteLocalSyncFailed": "已從遠程播放列表移除，但本地歌單同步失敗",
   "confirmRemove": "確定要從遠程播放列表中移除嗎？",
   "confirmRemoveContent": "同時會從本地歌單中移除。",
   "pleaseLogin": "請先登錄帳號",
