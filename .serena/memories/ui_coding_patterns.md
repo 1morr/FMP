@@ -399,7 +399,7 @@ ref.invalidate(dataProvider);
 
 ```dart
 // 通过 cache service 刷新
-ref.read(rankingCacheServiceProvider).refresh();
+ref.read(rankingCacheServiceProvider.notifier).refresh();
 ```
 
 ---

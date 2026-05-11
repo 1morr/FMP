@@ -313,7 +313,7 @@ UI Layer (player_page, mini_player)
 4. **Shuffle 模式下显示 `upcomingTracks`**，不要手动计算下一首
 5. **进度条拖动只在 `onChangeEnd` 触发 seek**
 6. **图片加载统一使用 `TrackThumbnail` / `ImageLoadingService`**，禁止直接 `Image.network()`
-7. **修改 Isar 模型后必须添加迁移逻辑**（`database_provider.dart` 中的 `_migrateDatabase()`）
+7. **修改 Isar 模型后必须检查是否需要迁移逻辑**（当 Isar 默认值不符合业务默认值时，在 `database_provider.dart` 的 `_migrateDatabase()` 中修复）
 8. **AppBar actions 列表末尾加 `SizedBox(width: 8)`**（当最后一项是 IconButton 时）
 9. **避免在 `ListTile.leading` 中放 `Row`**（会导致滚动抖动）
 
