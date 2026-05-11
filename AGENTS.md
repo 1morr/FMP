@@ -22,9 +22,7 @@ Keep `.serena/memories/` for narrow supplemental notes only. Do not duplicate th
 
 Current supplemental memories:
 - `code_style.md` - coding style details not worth duplicating in this file
-- `debugging_vm_service.md` - Flutter VM Service / DevTools API quick reference
 - `download_system.md` - detailed download path, metadata, and Android storage notes
-- `memory_usage_analysis.md` - memory/cache limits and profiling notes
 - `refactoring_lessons.md` - non-obvious project-specific pitfalls
 - `ui_coding_patterns.md` - detailed UI implementation patterns
 - `update_system.md` - in-app update flow details
