@@ -2,6 +2,8 @@
 
 本文档介绍如何在本地构建 FMP（Flutter Music Player）的 Android APK 和 Windows 安装包。
 
+本文档只覆盖本地构建。CI 发布、签名 Secrets、Release 产物命名和应用内更新资产规则见 [构建与发布指南](build-and-release.md)。
+
 ## 前置条件
 
 | 工具 | 版本要求 | 用途 |
@@ -252,5 +254,7 @@ flutter run -d windows
 
 ## 更多资源
 
+- [文档地图](README.md)
+- [构建与发布指南](build-and-release.md) - CI、Release、签名 Secrets、更新资产
 - [返回 README](../README.md)
 - [开发文档](development.md) - 项目架构、技术栈、开发规范

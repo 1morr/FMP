@@ -19,7 +19,7 @@
 
 ### 启动应用
 
-用户需要在终端手动运行（AI Agent 不能启动长期进程）：
+先启动应用。若当前 agent/session 不适合托管长期进程，可让用户在终端手动运行；如果可以启动并保持进程，则直接运行对应命令。
 
 ```bash
 # Android
@@ -71,9 +71,27 @@ ISOLATE="isolates/<ISOLATE_NUMBER>"
 ### Python 注意事项（Windows）
 
 - 使用 `python`（不是 `python3`，Windows 上 `python3` 可能不存在）
-- 文件保存到 `$TEMP` 目录（不是 `/tmp`）
+- PowerShell 临时目录变量是 `$env:TEMP`；Bash/CMD 示例里的 `$TEMP` / `%TEMP%` 不可直接混用
 - 读取 JSON 文件时使用 `encoding='utf-8'`（避免 GBK 编码错误）
 - 输出含 Unicode 时可能报 GBK 编码错误，用 `PYTHONIOENCODING=utf-8` 或重定向到文件
+- PowerShell 中 `curl` 可能是 alias；需要原生命令时用 `curl.exe`，或改用 `Invoke-RestMethod`
+- Bash here-doc（`python << 'PYEOF'`）不能直接在 PowerShell 中运行；PowerShell 用 here-string：`@' ... '@ | python -`
+
+### PowerShell HTTP 示例
+
+```powershell
+$BASE = "http://127.0.0.1:<PORT>/<TOKEN>="
+$ISOLATE = "isolates/<ISOLATE_NUMBER>"
+
+# JSON object
+$vm = Invoke-RestMethod "$BASE/getVM"
+$vm.result.isolates | ForEach-Object { "$($_.name): $($_.id)" }
+
+# Raw response saved to file
+curl.exe -s "$BASE/getMemoryUsage?isolateId=$ISOLATE" -o "$env:TEMP\mem.json"
+```
+
+后续命令如果写成 `curl -s "$BASE/..."`，在 PowerShell 中优先替换为 `curl.exe -s "$BASE/..."`。
 
 ---
 
@@ -484,6 +502,33 @@ print(f"External:        {mem['externalUsage']/1024/1024:.1f} MB")
 PYEOF
 ```
 
+PowerShell 版本：
+
+```powershell
+$BASE = "http://127.0.0.1:<PORT>/<TOKEN>="
+$ISOLATE = "isolates/<NUMBER>"
+
+curl.exe -s "$BASE/getVM" -o "$env:TEMP\vm.json"
+curl.exe -s "$BASE/getMemoryUsage?isolateId=$ISOLATE" -o "$env:TEMP\mem.json"
+
+@'
+import json, os
+tmp = os.environ["TEMP"]
+
+with open(os.path.join(tmp, "vm.json"), encoding="utf-8") as f:
+    vm = json.load(f)["result"]
+with open(os.path.join(tmp, "mem.json"), encoding="utf-8") as f:
+    mem = json.load(f)["result"]
+
+print(f"Process RSS:     {vm['_currentRSS']/1024/1024:.1f} MB (peak: {vm['_maxRSS']/1024/1024:.1f} MB)")
+print(f"Dart Memory:     {vm['_currentMemory']/1024/1024:.1f} MB")
+print(f"Heap Used:       {mem['heapUsage']/1024/1024:.1f} MB")
+print(f"Heap Capacity:   {mem['heapCapacity']/1024/1024:.1f} MB")
+print(f"Heap Util:       {mem['heapUsage']/mem['heapCapacity']*100:.1f}%")
+print(f"External:        {mem['externalUsage']/1024/1024:.1f} MB")
+'@ | python -
+```
+
 ### 7.2 一键帧性能分析
 
 ```bash
@@ -544,6 +589,8 @@ if gc_totals:
 PYEOF
 ```
 
+PowerShell 中把第一行替换为 `$BASE = "http://127.0.0.1:<PORT>/<TOKEN>="`，把输出路径改成 `$env:TEMP\timeline.json`，并用 `@' ... '@ | python -` 执行 Python 代码。
+
 ### 7.3 内存变化监控（前后对比）
 
 ```bash
@@ -572,6 +619,8 @@ for key in ['heapUsage', 'heapCapacity', 'externalUsage']:
     print(f"{key}: {b:.1f} MB -> {a:.1f} MB ({sign}{diff:.1f} MB)")
 PYEOF
 ```
+
+PowerShell 中同样使用 `curl.exe`、`$env:TEMP` 和 here-string 执行 Python。
 
 ---
 

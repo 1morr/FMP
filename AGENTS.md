@@ -20,12 +20,20 @@ After significant code changes, update `AGENTS.md` accordingly:
 
 Keep `.serena/memories/` for narrow supplemental notes only. Do not duplicate this file; when information becomes core/current, merge it here and delete the memory.
 
+Human-facing documentation lives in `docs/`. Use `docs/README.md` as the document map:
+- Local build prerequisites and commands → `docs/build-guide.md`
+- CI release/signing/update asset behavior → `docs/build-and-release.md`
+- Runtime debugging/VM Service/Marionette workflows → `docs/debugging-with-vm-service.md`
+- General contributor onboarding → `docs/development.md`
+
 Current supplemental memories:
 - `code_style.md` - coding style details not worth duplicating in this file
 - `download_system.md` - detailed download path, metadata, and Android storage notes
-- `refactoring_lessons.md` - non-obvious project-specific pitfalls
+- `refactoring_lessons.md` - short index of current non-obvious project-specific pitfalls
 - `ui_coding_patterns.md` - detailed UI implementation patterns
 - `update_system.md` - in-app update flow details
+
+Historical refactoring notes are archived in `docs/history/refactoring-log.md`; do not treat them as current guidance unless they are also reflected in `AGENTS.md` or a current memory.
 
 ## Common Commands
 
@@ -123,7 +131,7 @@ UI (player_page, mini_player)
 - **Repositories:** CRUD operations in `lib/data/repositories/`
 - **Sources:** Audio source parsers in `lib/data/sources/` (BilibiliSource, YouTubeSource, NeteaseSource, with unified SourceApiException base class)
 
-**Data Models:**
+**Persisted Isar collections:**
 
 | Model | Description |
 |-------|-------------|
@@ -138,6 +146,8 @@ UI (player_page, mini_player)
 | DownloadTask | Download task |
 | LyricsMatch | Lyrics match record (Track ↔ lrclib/netease/qqmusic) |
 | LyricsTitleParseCache | AI-parsed title cache for lyrics matching |
+
+Non-persisted DTO/value objects in `lib/data/models/` include `LiveRoom`, `VideoDetail`, and `HotkeyConfig`. Do not add database migration logic for those unless they become registered Isar schemas.
 
 ### Database Migration (Isar)
 
@@ -511,4 +521,4 @@ lib/
 
 - Mobile: < 600dp (bottom navigation)
 - Tablet: 600-1200dp (side navigation)
-- Desktop: > 1200dp (three-column layout)
+- Desktop: >= 1200dp (three-column layout)

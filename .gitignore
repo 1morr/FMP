@@ -122,7 +122,6 @@ tmpclaude*
 .worktrees/
 .claude/
 plan.md
-docs/build-and-release.md
 .playwright-mcp/
 .vscode/settings.json
 .vscode/launch.json
