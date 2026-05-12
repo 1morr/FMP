@@ -1,0 +1,1046 @@
+# FMP 历史重构流水
+
+> 归档说明：此文件保存从 `.serena/memories/` 移出的历史重构记录。它不是当前实现规范。当前规则以 `AGENTS.md` 和 `.serena/memories/` 中的聚焦记忆为准。
+
+## 原始记录
+
+## 已完成的重构 (2026-01-14)
+
+### 1. 按需路径模式
+- Track 使用 `playlistInfo`（`List<PlaylistDownloadInfo>` 嵌入式对象）支持多歌单下载
+- 路径在**下载完成时**保存，非加入歌单时
+- 移除了 `syncDownloadedFiles()`、`findBestMatchForRefresh()` 等复杂同步逻辑
+- 旧的 `playlistIds` + `downloadPaths` 并行列表已于 2026-02 彻底删除
+
+### 2. 统一路径获取
+- 所有基础目录获取统一使用 `DownloadPathUtils.getDefaultBaseDir()`
+- 已删除 4 个重复的 `_getDownloadBaseDir()` 实现
+
+### 3. 播放时验证文件存在性
+- `ensureAudioUrl()` 返回 `(Track, String?)` 元组
+- 直接返回找到的本地文件路径，避免二次检查
+
+### 4. 清理无用字段
+- 移除 `cachedPath` 字段（从未被设置）
+- `localCoverPath` 旧同步 getter 已被 UI 侧 FileExistsCache 模式取代
+
+---
+
+## 关键经验教训
+
+### 1. StateNotifier 不能在 build 期间修改 state
+```dart
+// 错误 - 会导致 StateNotifierListenerError
+Widget build() {
+  cache.checkAndUpdate(track);  // 修改 state
+}
+
+// 正确 - 延迟到下一个 microtask
+void _scheduleRefresh(String path) {
+  Future.microtask(() async {
+    state = {...state, path: exists};
+  });
+}
+```
+
+### 2. ref.watch vs ref.read 的正确使用
+```dart
+// 正确：watch 缓存状态变化，read notifier 调用方法
+ref.watch(fileExistsCacheProvider);  // 触发重建
+final cache = ref.read(fileExistsCacheProvider.notifier);
+final isDownloaded = track.allDownloadPaths.any(cache.exists);
+
+// 错误：watch notifier 不触发重建
+ref.watch(provider.notifier).method();  // UI 不会更新
+```
+
+### 3. Dart 3 Records 简化多返回值
+```dart
+// 旧方式 - 需要额外定义类或回调
+final track = await ensureAudioUrl(t);
+final localPath = await track.getFirstExistingPath();
+
+// 新方式 - 直接使用 Record
+final (trackWithUrl, localPath) = await ensureAudioUrl(t);
+```
+
+### 4. 歌单封面路径格式
+- 实际下载路径：`/{playlistName}/{...}`（只有歌单名）
+- 错误的匹配方式：`/{playlistName}_{playlistId}/{...}`
+
+### 5. getter 必须同步
+```dart
+// 错误 - getter 不能是 async
+String? get firstExistingPath async => ...;  // 编译错误
+
+// 正确 - 使用方法
+Future<String?> getFirstExistingPath() async => ...;
+```
+
+### 6. addTrackToPlaylist 必须使用 getOrCreate (2026-01-18)
+
+**问题**：使用 `save()` 直接保存传入的 track 对象会导致 playlistInfo 数据不同步。
+
+```dart
+// 错误 - 缓存的旧 track 数据会覆盖数据库最新数据
+Future<void> addTrackToPlaylist(int playlistId, Track track) async {
+  track.addToPlaylist(playlistId);
+  await _trackRepository.save(track);  // 可能用旧数据覆盖
+}
+
+// 正确 - 先从数据库获取最新数据
+Future<void> addTrackToPlaylist(int playlistId, Track track) async {
+  final existingTrack = await _trackRepository.getOrCreate(track);  // 获取最新数据
+  existingTrack.addToPlaylist(playlistId);
+  await _trackRepository.save(existingTrack);
+}
+```
+
+**场景**：
+1. Track 在歌单 A、B 中 → playlistInfo 包含 A、B
+2. 删除歌单 B → 数据库更新为只包含 A
+3. 用缓存的旧 track 添加到歌单 C → 旧数据覆盖数据库（A、B、C 而非 A、C）
+
+### 7. refreshPlaylist 必须清理被移除的 tracks (2026-01-18)
+
+**問題**：刷新導入的歌單時，如果遠程移除了某些歌曲，只更新了 `Playlist.trackIds`，但沒有清理對應 Track 的 `playlistIds` 和 `downloadPaths`。
+
+### 8. ListTile 的 leading 中放 Row 會導致滾動卡頓 (2026-01-19)
+
+**問題**：在 `ListTile.leading` 中放置 `Row`（包含排名數字和縮略圖）會導致列表滾動時卡頓。
+
+```dart
+// 錯誤 - 會導致額外的佈局計算
+ListTile(
+  leading: Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      SizedBox(width: 28, child: Text('$rank')),
+      const SizedBox(width: 12),
+      TrackThumbnail(track: track, size: 48),
+    ],
+  ),
+  ...
+)
+
+// 正確 - 使用扁平的自定義佈局
+InkWell(
+  onTap: () => ...,
+  child: Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+    child: Row(
+      children: [
+        SizedBox(width: 24, child: Text('$rank')),
+        const SizedBox(width: 12),
+        TrackThumbnail(track: track, size: 48, borderRadius: 4),
+        const SizedBox(width: 12),
+        Expanded(child: Column(...)),  // 標題和副標題
+        PopupMenuButton(...),  // 菜單按鈕
+      ],
+    ),
+  ),
+)
+```
+
+**原因**：`ListTile` 對 `leading` 有特殊的佈局約束處理。當 `leading` 中包含複雜組件（如 `Row`）時，會觸發額外的佈局計算，導致性能問題。
+
+**解決方案**：放棄 `ListTile`，使用 `InkWell` + `Padding` + `Row` 構建扁平的自定義佈局。
+
+### 9. 快速連續切歌的競態條件防護 (2026-01-19)
+
+**問題**：快速點擊多首歌曲時，會加載所有點擊過的歌曲而不是只加載最後一個，導致根據加載速度輪流播放。同時可能出現 `Player already exists` 錯誤。
+
+**解決方案**：
+
+1. **請求 ID 機制** - 每個播放請求都有唯一 ID，舊請求會被新請求取代
+2. **帶 ID 的鎖包裝類** - 確保只有正確的請求才能完成鎖
+3. **UI 立即更新** - 在任何 `await` 之前更新 UI
+4. **等待播放器 idle** - 設置新的 audio source 前確保播放器完全清理
+5. **finally 塊處理 isLoading** - 請求被 abort 時重置加載狀態
+
+**實現**：
+
+```dart
+// 帶有請求 ID 的鎖包裝類
+class _LockWithId {
+  final int requestId;
+  final Completer<void> completer;
+
+  _LockWithId(this.requestId) : completer = Completer<void>();
+
+  void completeIf(int expectedRequestId) {
+    if (requestId == expectedRequestId && !completer.isCompleted) {
+      completer.complete();
+    }
+  }
+}
+
+// AudioController
+class AudioController {
+  _LockWithId? _playLock;
+  int _playRequestId = 0;
+
+  Future<void> playTemporary(Track track) async {
+    // 【重要】立即更新 UI
+    _updatePlayingTrack(track);
+    _updateQueueState();
+
+    final requestId = ++_playRequestId;
+
+    // 立即完成舊鎖，讓舊請求可以快速退出
+    if (_playLock != null && !_playLock!.completer.isCompleted) {
+      _playLock!.completeIf(_playLock!.requestId);
+      await _playLock!.completer.future.timeout(...);
+    }
+
+    // 檢查是否被取代
+    if (requestId != _playRequestId) {
+      return;  // abort
+    }
+
+    _playLock = _LockWithId(requestId);
+    bool completedSuccessfully = false;
+
+    try {
+      // ... 播放邏輯，多處檢查 requestId ...
+      completedSuccessfully = true;
+    } finally {
+      _playLock?.completeIf(requestId);
+      // 如果沒有成功完成且被取代，重置 isLoading
+      if (!completedSuccessfully && requestId != _playRequestId) {
+        state = state.copyWith(isLoading: false);
+      }
+    }
+  }
+}
+```
+
+**AudioService 修復** - 等待播放器 idle 狀態：
+
+```dart
+// AudioService.playUrl/playFile
+await _player.stop();
+
+// 等待播放器進入 idle 狀態，確保底層播放器完全清理
+// 確保播放器完全清理後再設置新的音頻源
+if (_player.processingState != ProcessingState.idle) {
+  try {
+    await _player.playerStateStream
+        .where((state) => state.processingState == ProcessingState.idle)
+        .first
+        .timeout(const Duration(milliseconds: 500));
+  } catch (e) {
+    // 超時也繼續
+  }
+}
+
+// 現在可以安全地設置新的 audio source
+await _player.setAudioSource(audioSource);
+```
+
+**關鍵點**：
+- 多個檢查點：在 `await` 操作後都要檢查 `requestId != _playRequestId`
+- 鎖的安全完成：使用 `completeIf` 而非直接 `complete()`
+- 正確的狀態管理：`completedSuccessfully` 標誌 + finally 塊處理
+
+### 10. 所有異步方法必須在 finally 塊中重置 isLoading (2026-01-19)
+
+**問題**：臨時播放時點擊「下一首」導致 UI 一直顯示 loading 狀態。
+
+**原因**：`_restoreSavedState()` 方法在正常完成時沒有重置 `isLoading`，只在異常時重置。
+
+```dart
+// ❌ 錯誤 - 只在異常時重置
+Future<void> _restoreSavedState() async {
+  try {
+    // ... 恢復邏輯 ...
+  } catch (e) {
+    _isTemporaryPlay = false;
+    _clearSavedState();
+  }
+  // 正常完成時沒有重置 isLoading！
+}
+
+// ✅ 正確 - 使用 finally 塊確保一定重置
+Future<void> _restoreSavedState() async {
+  try {
+    // ... 恢復邏輯 ...
+  } catch (e) {
+    _isTemporaryPlay = false;
+    _clearSavedState();
+  } finally {
+    state = state.copyWith(isLoading: false);
+  }
+}
+```
+
+**經驗**：任何設置了 `isLoading = true` 的方法，都必須在 `finally` 塊中重置它。即使在正常流程中已經重置，`finally` 塊可以作為雙重保險，處理所有可能的退出路徑（early return、異常等）。
+
+### 11. 播放器狀態監聽器不能用 `||` 保留 loading 狀態 (2026-01-19)
+
+**問題**：在 `_onPlayerStateChanged` 中使用 `state.isLoading || playerState.processingState == loading` 會導致 `isLoading` 只能變成 `true`，永遠不能通過播放器狀態變成 `false`。這導致 Android 上歌曲成功播放後仍顯示 loading。
+
+**原因**：`||` 運算符意味著只要 `state.isLoading` 是 `true`，結果就會是 `true`。即使我們顯式調用 `copyWith(isLoading: false)`，如果播放器狀態事件在之後觸發，`isLoading` 會再次被設為 `true`。
+
+```dart
+// ❌ 錯誤 - isLoading 只能變成 true，不能通過播放器狀態變成 false
+isLoading: state.isLoading || playerState.processingState == FmpAudioProcessingState.loading,
+
+// ✅ 正確 - isLoading 純粹反映播放器狀態
+isLoading: playerState.processingState == FmpAudioProcessingState.loading,
+```
+
+**经验**：播放器狀態監聽器應該純粹反映播放器狀態，不要嘗試「保留」先前的狀態值。
+
+### 12. 切歌時必須立即更新所有 UI 狀態 (2026-01-19)
+
+**問題**：點擊下一首後，在歌曲實際開始播放之前：
+1. 按鈕顯示「播放」而非「加載中」，點擊會播放舊歌曲
+2. 進度條不會重置，仍顯示舊歌曲的進度
+
+**根本原因**：
+1. `isLoading` 和 `position` 設置被播放器狀態事件覆蓋
+2. `_audioService.stop()` 觸發 `_onPlayerStateChanged`，把 `isLoading` 設回 `false`
+3. `_onPositionChanged` 持續接收舊歌曲的位置，覆蓋 `position: Duration.zero`
+
+**解決方案**：使用 `_context.isInLoadingState`（`activeRequestId > 0`）
+
+```dart
+class AudioController {
+  // 統一的播放上下文
+  _PlaybackContext _context = const _PlaybackContext();
+
+  void _onPlayerStateChanged(FmpPlayerState playerState) {
+    state = state.copyWith(
+      isPlaying: playerState.playing,
+      isBuffering: playerState.processingState == FmpAudioProcessingState.buffering,
+      // 使用 _context.isInLoadingState 防止播放器事件覆蓋
+      isLoading: _context.isInLoadingState || playerState.processingState == FmpAudioProcessingState.loading,
+      processingState: playerState.processingState,
+    );
+  }
+
+  void _onPositionChanged(Duration position) {
+    // 加載期間忽略位置更新
+    if (_context.isInLoadingState) return;
+    state = state.copyWith(position: position);
+    // ...
+  }
+
+  int _enterLoadingState() {
+    state = state.copyWith(isLoading: true, position: Duration.zero, error: null);
+    final requestId = ++_playRequestId;
+    _context = _context.copyWith(activeRequestId: requestId);
+    return requestId;
+  }
+
+  void _exitLoadingState(int requestId, Track? trackWithUrl, {...}) {
+    if (requestId == _playRequestId) {
+      state = state.copyWith(isLoading: false);
+      _context = _context.copyWith(activeRequestId: 0, ...);
+      // ...
+    }
+  }
+}
+```
+
+**關鍵點**：
+- `_enterLoadingState()` 設置 `activeRequestId > 0`，觸發 `isInLoadingState`
+- `_onPlayerStateChanged` 檢查 `_context.isInLoadingState` 來決定 `isLoading`
+- `_onPositionChanged` 在加載狀態時直接返回，不更新位置
+- `_exitLoadingState()` 將 `activeRequestId` 重置為 0
+
+> **注意**：Phase 2 重構（2026-01-19）已將獨立的 `_manualLoading` 字段移除，統一使用 `_context.isInLoadingState`
+
+### 13. next()/previous()/_onTrackCompleted() 必須檢測完整的「脫離隊列」狀態 (2026-01-19)
+
+**問題**：
+1. 隊列為空時進行臨時播放，添加歌曲後點擊「下一首」播放第二首而非第一首
+2. 臨時歌曲自然結束時，剛添加的歌曲自動播放第二首
+
+**原因**：`next()` 和 `_onTrackCompleted()` 只檢查 `_isTemporaryPlay`，但「脫離隊列」還有其他情況：
+- 隊列被清空但歌曲繼續播放
+- `_playingTrack.id != queueTrack.id`
+
+當這些情況發生時，`_isTemporaryPlay` 可能是 false，所以會錯誤地調用 `moveToNext()`，從索引 0 移動到索引 1。
+
+**修復**：使用與 `_updateQueueState()` 相同的完整檢測邏輯：
+
+```dart
+// 檢測是否脫離隊列（next/previous/_onTrackCompleted 都要用這個邏輯）
+final queue = _queueManager.tracks;
+final queueTrack = _queueManager.currentTrack;
+final isPlayingOutOfQueue = _isTemporaryPlay ||
+    (_playingTrack != null && queueTrack != null && _playingTrack!.id != queueTrack.id) ||
+    (_playingTrack != null && queueTrack == null && queue.isNotEmpty);
+
+if (isPlayingOutOfQueue) {
+  if (_isTemporaryPlay && _temporaryState != null) {
+    // 有保存的狀態：恢復
+    await _restoreSavedState();
+  } else {
+    // 無保存狀態：播放隊列第一首
+    _isTemporaryPlay = false;
+    _temporaryState = null;
+    if (queue.isNotEmpty) {
+      _queueManager.setCurrentIndex(0);
+      await _playTrack(_queueManager.currentTrack!);
+    }
+  }
+  return;
+}
+
+// 只有正常隊列播放才調用 moveToNext()/moveToPrevious()
+```
+
+**時序問題**：位置檢測定時器可能比播放器完成事件先觸發 `_onTrackCompleted`，第一次調用清除 `_isTemporaryPlay` 後，第二次調用會錯誤地調用 `moveToNext()`。使用完整的 `isPlayingOutOfQueue` 檢測可以避免這個問題，因為即使 `_isTemporaryPlay` 被清除，`_playingTrack.id != queueTrack.id` 仍然成立。
+
+### 14. 使用 PlaybackContext 统一状态管理 (2026-01-19)
+
+**问题**：`AudioController` 中有多个分散的状态字段管理播放模式和加载状态：
+- `_isTemporaryPlay` - 是否临时播放
+- `_temporaryState` - 保存的队列状态
+- `_manualLoading` - 手动加载标志
+- `_playLock` / `_playRequestId` - 播放锁和请求 ID
+
+这些字段之间有复杂的交互关系，容易遗漏同步更新。
+
+**解决方案**：引入 `PlayMode` 枚举和 `_PlaybackContext` 类统一管理：
+
+```dart
+enum PlayMode {
+  queue,      // 正常队列播放
+  temporary,  // 临时播放（播放完成后恢复）
+  detached,   // 脱离队列（如队列清空后继续播放）
+}
+
+class _PlaybackContext {
+  final PlayMode mode;
+  final int activeRequestId;     // 当前活动的请求 ID（0 表示无活动请求）
+  final int? savedQueueIndex;    // 临时播放保存的队列索引
+  final Duration? savedPosition; // 临时播放保存的播放位置
+  final bool? savedWasPlaying;   // 临时播放保存的播放状态
+  
+  bool get isTemporary => mode == PlayMode.temporary;
+  bool get isInLoadingState => activeRequestId > 0;  // 替代 _manualLoading
+  bool get hasSavedState => savedQueueIndex != null;
+  
+  _PlaybackContext copyWith({...});
+}
+```
+
+**好处**：
+1. **单一真相来源** - 所有播放模式状态在一个对象中
+2. **不可变更新** - 使用 `copyWith` 更新，更安全
+3. **便捷 getter** - `isTemporary`, `isInLoadingState`, `hasSavedState` 等
+4. **减少重复检测** - `_isPlayingOutOfQueue` getter 使用 `_context.mode`
+
+**统一播放入口**：
+
+```dart
+Future<void> _executePlayRequest({
+  required Track track,
+  required PlayMode mode,
+  bool persist = true,
+  bool recordHistory = true,
+  bool prefetchNext = true,
+}) async {
+  // 所有播放操作都通过这个入口
+  // _playTrack() 和 playTemporary() 都调用它
+}
+```
+
+**关键点**：
+- 用 `_context.mode` 替代 `_isTemporaryPlay`（Phase 2 已移除旧字段）
+- 用 `_context.isInLoadingState` 替代 `_manualLoading`（Phase 2 已移除旧字段）
+- 用 `_context.hasSavedState` 检查是否有保存的临时状态
+- 清理临时状态用 `_context = _context.copyWith(mode: PlayMode.queue, clearSavedState: true)`
+
+### 15. 所有有独立 URL 获取逻辑的方法都必须使用 _playRequestId (2026-01-19)
+
+**问题**：临时播放正在获取 URL 时，用户点击"下一首"，恢复操作开始。但临时播放的 URL 获取完成后，仍然播放了临时歌曲，覆盖了恢复操作。
+
+**原因**：`_restoreSavedState()` 有自己的 URL 获取逻辑，但没有使用 `_playRequestId` 机制来取消旧请求。
+
+```dart
+// ❌ 错误 - _restoreSavedState() 没有递增 _playRequestId
+Future<void> _restoreSavedState() async {
+  // ... 准备工作 ...
+  final (trackWithUrl, localPath) = await _queueManager.ensureAudioUrl(currentTrack);
+  // 此时临时播放的 URL 获取可能也完成了，它不知道已经被取代
+  await _audioService.setUrl(url);
+  await _audioService.play();
+}
+
+// ✅ 正确 - 开始时递增 _playRequestId，并在 await 后检查取代
+Future<void> _restoreSavedState() async {
+  // 【重要】递增 _playRequestId 来取消任何正在进行的播放请求
+  final requestId = ++_playRequestId;
+  _context = _context.copyWith(activeRequestId: requestId);
+  
+  // ... 准备工作 ...
+  
+  final (trackWithUrl, localPath) = await _queueManager.ensureAudioUrl(currentTrack);
+  
+  // 检查是否被取代
+  if (_isSuperseded(requestId)) {
+    logDebug('_restoreSavedState superseded after URL fetch, aborting');
+    return;
+  }
+  
+  await _audioService.setUrl(url);
+  
+  // 再次检查
+  if (_isSuperseded(requestId)) {
+    await _audioService.stop();
+    return;
+  }
+  
+  await _audioService.play();
+}
+```
+
+**经验**：任何有独立 URL 获取逻辑的方法（不通过 `_executePlayRequest()`）都必须：
+1. 开始时递增 `_playRequestId`
+2. 每个 `await` 点后检查 `_isSuperseded(requestId)`
+3. 如果被取代，立即中止并清理
+
+**受影响的方法**：
+- `_restoreSavedState()` - 恢复临时播放状态
+- `_prepareCurrentTrack()` - 初始化时准备当前歌曲（不自动播放，风险较低）
+
+### 16. 引入统一状态管理后应及时清理遗留字段 (2026-01-19 Phase 2)
+
+**问题**：Phase 1 引入 `_PlaybackContext` 后，为了安全起见保留了旧字段（`_isTemporaryPlay`, `_manualLoading`）作为兼容层。这导致：
+1. 两套状态需要同时维护
+2. 容易出现不一致（如 `clearQueue()` 使用旧字段而非新字段）
+3. 代码复杂度增加，新维护者难以理解
+
+**解决方案**：Phase 2 彻底移除遗留字段
+
+**清理步骤**：
+1. 修复使用旧字段的代码（`clearQueue()` 改用 `_context.isTemporary`）
+2. 移除 `_isTemporaryPlay` 字段及所有使用处
+3. 移除 `_manualLoading` 字段及所有使用处
+4. 更新辅助方法（`_enterLoadingState()` 等）
+5. 更新事件监听器（`_onPlayerStateChanged()` 等）
+6. 简化冗余逻辑（`playTemporary()` 中的重复 if）
+7. 清理过时的 Phase 注释
+
+**经验**：
+- 引入新的统一状态管理后，应该尽快清理旧字段，而不是长期保留兼容层
+- 分阶段重构时，记录清晰的 Phase 注释有助于后续清理
+- 使用搜索工具确保所有使用处都被更新
+
+**问题**：刷新导入的歌单时，如果远程移除了某些歌曲，只更新了 `Playlist.trackIds`，但没有清理对应 Track 的 `playlistInfo`。
+
+```dart
+// 错误 - 只计算了移除数量，没有清理 tracks
+final removedCount = originalTrackIds.difference(newTrackIdSet).length;
+playlist.trackIds = newTrackIds;  // Track 数据不一致！
+
+// 正确 - 清理被移除的 tracks
+final removedTrackIds = originalTrackIds.difference(newTrackIdSet);
+if (removedTrackIds.isNotEmpty) {
+  final removedTracks = await _trackRepository.getByIds(removedTrackIds.toList());
+  for (final track in removedTracks) {
+    track.removeFromPlaylist(playlist.id);
+    // 如果 playlistInfo 为空，删除 track
+  }
+}
+playlist.trackIds = newTrackIds;
+```
+
+**问题**：逐个查询和保存导致删除大歌单极慢（N 首歌 = 2N 次数据库操作）。
+
+```dart
+// 优化前 - O(2N) 数据库操作
+for (final trackId in trackIds) {
+  final track = await _trackRepository.getById(trackId);  // N 次查询
+  await _trackRepository.save(track);  // N 次写入
+}
+
+// 优化后 - O(3) 数据库操作
+final tracks = await _trackRepository.getByIds(trackIds);  // 1 次批量查询
+await _isar.writeTxn(() async {
+  await _isar.playlists.delete(playlistId);  // 1 次删除
+  await _isar.tracks.deleteAll(toDelete);    // 1 次批量删除
+  await _isar.tracks.putAll(toUpdate);       // 1 次批量更新
+});
+```
+
+### 17. Windows 平台下载导致 "Failed to post message to main thread" (2026-02)
+
+**问题**：在 Windows 上进行多文件下载时，控制台出现大量 `Failed to post message to main thread` 错误，程序严重卡顿。
+
+**根本原因**（多层问题）：
+
+1. **Dio 的 onReceiveProgress 回调**：在网络 I/O 线程中执行，频繁的跨线程消息导致 Windows PostMessage 队列溢出
+2. **Isar watch 触发**：进度更新写入数据库会触发 `watchAllTasks()` stream，导致 UI 频繁重建
+
+**尝试过但无效的方案**：
+- 进度更新节流（300ms/500ms）- 减少频率但问题仍在
+- 移除 onReceiveProgress 中的数据库写入 - 问题仍在
+- 完全禁用 onReceiveProgress 回调 - 问题仍在（说明问题不只是回调）
+
+**最终解决方案**：使用 `Isolate` 在独立进程中执行下载
+
+```dart
+// 1. 创建顶层下载函数（在 Isolate 中执行）
+Future<void> _isolateDownload(_IsolateDownloadParams params) async {
+  final client = HttpClient();  // 使用 HttpClient 而非 Dio
+  final request = await client.getUrl(Uri.parse(params.url));
+  final response = await request.close();
+  
+  final sink = File(params.savePath).openWrite();
+  await for (final chunk in response) {
+    sink.add(chunk);
+    // 每 5% 发送进度更新
+    if ((progress - lastProgress) >= 0.05) {
+      params.sendPort.send(_IsolateMessage(_IsolateMessageType.progress, {...}));
+    }
+  }
+  params.sendPort.send(_IsolateMessage(_IsolateMessageType.completed, null));
+}
+
+// 2. DownloadService 中使用 Isolate
+final receivePort = ReceivePort();
+final isolate = await Isolate.spawn(_isolateDownload, params);
+_activeDownloadIsolates[task.id] = (isolate: isolate, receivePort: receivePort);
+
+// 3. 取消使用 isolate.kill() 而非 CancelToken
+void pauseTask(int taskId) {
+  final isolateInfo = _activeDownloadIsolates.remove(taskId);
+  if (isolateInfo != null) {
+    isolateInfo.receivePort.close();
+    isolateInfo.isolate.kill();
+  }
+}
+```
+
+**配套修改**：进度不写数据库，只保存在内存中
+
+```dart
+// download_providers.dart
+class DownloadProgressState extends StateNotifier<Map<int, (double, int, int?)>> {
+  void update(int taskId, double progress, int downloadedBytes, int? totalBytes);
+}
+
+// download_manager_page.dart - UI 从内存读取进度
+final progressState = ref.watch(downloadProgressStateProvider);
+final memProgress = progressState[task.id];
+final progress = memProgress?.$1 ?? task.progress;  // 优先内存，回退数据库
+```
+
+**经验**：
+- Windows 的 PostMessage 队列有限制，高频跨线程通信会溢出
+- 网络 I/O 密集型操作应该在独立 Isolate 中执行
+- Isar 的 watch 机制会在每次写入时触发，不适合高频更新场景
+- 使用内存状态 + 定时持久化模式可以兼顾性能和数据安全
+
+### 18. StateNotifier 列表页闪烁问题与 Isar watch 迁移 (2026-02)
+
+**问题**：歌单列表页在增删歌单时，已有歌单卡片会短暂闪烁。
+
+**根本原因**：
+1. `loadPlaylists()` 设置 `isLoading: true` → UI 用 `CircularProgressIndicator` 替换整个网格
+2. DB 查询完成后更新 state → 网格重新出现
+3. 列表项缺少 `ValueKey`，Flutter 无法高效 diff
+
+**修复方案（三步）**：
+
+1. **加载守卫**（立即止血）：
+```dart
+// 改前：if (state.isLoading)
+// 改后：
+if (state.isLoading && displayPlaylists.isEmpty)
+```
+
+2. **Isar watch 迁移**（根治）：将 StateNotifier 的手动 `loadPlaylists()` 模式改为 Isar `watchAll()` 订阅。CRUD 方法只调用 service，watch 回调自动更新 UI，无需 `isLoading` 中间状态。
+
+3. **ValueKey**：给列表/网格项添加 `ValueKey(item.id)`，帮助 Flutter 识别不变的项。
+
+**选择依据**：
+- DB 集合（可被多处修改）→ 用 Isar watch
+- DB 联合查询/特殊加载逻辑 → 用 StateNotifier + 乐观更新
+- 文件系统扫描 → 用 FutureProvider + invalidate
+- 不要为了统一而强行用一种模式，每种数据来源有最适合的方案
+
+**参考**：完整模式说明见 `ui_coding_patterns` 记忆的第 3 节。
+
+### 19. FutureProvider 操作后必须 invalidate (2026-02)
+
+**问题**：已下载分类详情页删除歌曲/分组后，列表不更新，直到手动刷新。
+
+**原因**：`_deleteDownload()` 和 `_deleteAllDownloads()` 删除了文件并清除了 DB 路径，但没有 `ref.invalidate()` 对应的 `FutureProvider`。
+
+```dart
+// ❌ 错误 - 删除后不刷新
+Future<void> _deleteDownload(WidgetRef ref) async {
+  await file.delete();
+  await trackRepo.clearDownloadPath(track.id);
+  // 缺少 invalidate！
+}
+
+// ✅ 正确 - 删除后刷新列表和分类
+Future<void> _deleteDownload(WidgetRef ref) async {
+  await file.delete();
+  await trackRepo.clearDownloadPath(track.id);
+  ref.invalidate(downloadedCategoryTracksProvider(folderPath));
+  ref.invalidate(downloadedCategoriesProvider);
+}
+```
+
+**经验**：使用 `FutureProvider` 时，任何修改数据源的操作（增删改）都必须 `invalidate` 对应的 provider。FutureProvider 不像 Isar watch 会自动感知变更。
+
+### 20. 乐观更新的正确实现模式 (2026-02)
+
+**问题**：歌单详情页增删歌曲后调用 `loadPlaylist()` 完整重新查询 DB，存在短暂延迟。
+
+**乐观更新模式**：
+```dart
+Future<bool> removeTrack(int trackId) async {
+  try {
+    // 1. 立即更新 UI（同帧响应）
+    state = state.copyWith(
+      tracks: state.tracks.where((t) => t.id != trackId).toList(),
+    );
+    // 2. 异步持久化
+    await _service.removeTrackFromPlaylist(playlistId, trackId);
+    // 3. 刷新相关 providers
+    _ref.invalidate(playlistCoverProvider(playlistId));
+    return true;
+  } catch (e) {
+    // 4. 失败回滚
+    await loadPlaylist();
+    state = state.copyWith(error: e.toString());
+    return false;
+  }
+}
+```
+
+**适用场景**：数据源是 DB 但不适合用 Isar watch（联合查询、特殊加载逻辑）的 CRUD 操作。
+
+---
+
+### 21. StreamProvider 依赖用户筛选/排序状态时 .when() 必须加 skipLoadingOnReload (2026-02)
+
+**问题**：播放历史页面切换排序时，列表内容会闪一下（短暂显示空白/loading 再恢复）。
+
+**根本原因**：`groupedPlayHistoryProvider`（`StreamProvider.autoDispose`）内部 `ref.watch()` 了 `sortOrder`、`selectedSource`、`searchKeyword` 等用户状态。当用户切换排序时：
+1. `sortOrder` 变化 → provider 依赖失效 → stream 重建
+2. `AsyncValue` 状态从 `data` → `AsyncLoading`（但仍保留旧 value）→ 新 `data`
+3. `.when()` 默认在 `AsyncLoading` 时渲染 loading widget → 闪烁
+
+```dart
+// ❌ 错误 - 切换排序时闪烁
+return groupedAsync.when(
+  loading: () => const Center(child: CircularProgressIndicator()),
+  error: (_, __) => ...,
+  data: (grouped) => _buildList(grouped),
+);
+
+// ✅ 正确 - 保留旧数据，无闪烁
+return groupedAsync.when(
+  skipLoadingOnReload: true,
+  loading: () => const Center(child: CircularProgressIndicator()),
+  error: (_, __) => ...,
+  data: (grouped) => _buildList(grouped),
+);
+```
+
+**判断标准**：
+- Provider 通过 `ref.watch()` 依赖了用户交互可改变的状态 → 需要 `skipLoadingOnReload: true`
+- Provider 只依赖固定参数或只监听 DB 变化 → 不需要
+
+**注意**：这不是 Flutter 的限制，是 Riverpod `StreamProvider` 在依赖变化时重建 stream 的正常行为，通过 `skipLoadingOnReload` 即可解决。
+
+---
+
+### 22. 扩大 SizedBox 点击区域时必须配合 HitTestBehavior.opaque (2026-02)
+
+**问题**：迷你播放器进度条悬停时，`SizedBox(height: 2)` 扩展为 `SizedBox(height: 18)` 以增大点击区域。但实际效果是：鼠标接近进度条时光标变为可点击状态（`MouseRegion` 的 cursor），点击却无任何反应——既不改变进度，也不跳转播放器页面。
+
+**根本原因**：Flutter 的 hit testing 机制。`SizedBox(height: 18)` 内部的可视元素（轨道、进度条）只占顶部 6px。在 6-18px 的透明区域：
+
+1. `Stack` 的子元素（`Positioned` 的 `AnimatedContainer`）不在此 y 位置 → `hitTestChildren` 返回 `false`
+2. `SizedBox` 的 `hitTestSelf` 默认返回 `false` → `SizedBox.hitTest` 返回 `false`
+3. 内层 `GestureDetector`（处理 seek）使用默认 `HitTestBehavior.deferToChild` → child 未命中则自身也未命中
+4. 但外层 `GestureDetector`（`HitTestBehavior.opaque`，用于阻止事件冒泡）仍然命中
+5. 外层的 `onTap: () {}` (noop) 赢得手势竞争 → 吞掉了点击事件
+6. 导航的 `GestureDetector.onTap` 在竞争中落败 → 也不触发
+
+**结果**：点击被外层的空 `onTap` 吞掉，内层 seek 逻辑和外层导航逻辑都不执行。
+
+**修复**：给内层处理 seek 的 `GestureDetector` 也加上 `HitTestBehavior.opaque`：
+
+```dart
+// ❌ 错误 - 透明区域 hit test 失败，tap 被外层 noop 吞掉
+GestureDetector(
+  onTapUp: (details) {
+    controller.seekToProgress(progress);
+  },
+  child: SizedBox(
+    height: _isHovering ? 18 : 2,
+    child: Stack(
+      children: [/* 只占顶部 6px 的可视元素 */],
+    ),
+  ),
+)
+
+// ✅ 正确 - opaque 确保整个 18px 区域都能命中
+GestureDetector(
+  behavior: HitTestBehavior.opaque,
+  onTapUp: (details) {
+    controller.seekToProgress(progress);
+  },
+  child: SizedBox(
+    height: _isHovering ? 18 : 2,
+    child: Stack(
+      children: [/* 只占顶部 6px 的可视元素 */],
+    ),
+  ),
+)
+```
+
+**经验**：
+
+1. **扩大 SizedBox 不等于扩大点击区域** — Flutter 的 `hitTest` 默认依赖子元素是否被命中（`deferToChild`）。如果子元素不覆盖整个 SizedBox，透明区域不会响应点击。
+2. **`HitTestBehavior.opaque` 的用途** — 让 widget 在其完整尺寸范围内都报告为"已命中"，即使该位置没有可视子元素。
+3. **多层 GestureDetector 的竞争** — 当外层用 `opaque` + noop 阻止冒泡时，如果内层 `deferToChild` 未命中，外层的 noop 会赢得竞争，导致事件被静默吞掉。
+4. **`MouseRegion` cursor 与 hit test 的关系** — `MouseRegion` 的 cursor 设置也依赖 hit test。加上 `opaque` 后，`MouseRegion` 在整个 18px 区域正确显示点击光标。
+
+---
+
+### 23. ImageLoadingService.loadImage() 不传尺寸导致 YouTube 封面 404 (2026-02)
+
+**问题**：编辑歌单弹窗的封面选择网格中，部分 YouTube 封面显示 placeholder，而歌单详情页、迷你播放器等正常显示。
+
+**根本原因**：`cover_picker_dialog.dart` 的 `_CoverGridItem` 调用 `ImageLoadingService.loadImage()` 时没传 `width`/`height`/`targetDisplaySize`。
+
+URL 优化路径差异：
+- 有尺寸（如 `width: 48`）→ `targetSize` = 96 → `mqdefault.jpg`（所有视频都有）
+- 无尺寸 → `displaySize` = null → `targetSize` 默认 400 → `maxresdefault.jpg`（很多视频不存在 → 404）
+
+```dart
+// ❌ 错误 - 无尺寸参数，YouTube 默认选 maxresdefault（可能 404）
+ImageLoadingService.loadImage(
+  networkUrl: imageUrl,
+  placeholder: const ImagePlaceholder.track(),
+  fit: BoxFit.cover,
+)
+
+// ✅ 正确 - 传尺寸确保选择 mqdefault
+ImageLoadingService.loadImage(
+  networkUrl: imageUrl,
+  placeholder: const ImagePlaceholder.track(),
+  fit: BoxFit.cover,
+  width: 100,
+  height: 100,
+  targetDisplaySize: 80,  // 80 * 2 = 160 ≤ 180 → mqdefault
+)
+```
+
+**经验**：调用 `ImageLoadingService.loadImage()` 时务必传尺寸参数。`ThumbnailUrlUtils` 的 YouTube 质量选择只有两档（mqdefault ≤180, maxresdefault >180），而 `maxresdefault` 并非所有视频都有。
+
+---
+
+### 24. 统一 Source 异常基类避免 catch 遗漏 (2026-02)
+
+**问题**：`AudioController._executePlayRequest()` 只 catch `BilibiliApiException`，`YouTubeApiException` 落入通用 `catch(e)` 被当作未知错误处理。YouTube 限流没有专门的 toast 提示，YouTube 不可用的视频不会自动跳到下一首。
+
+**解决方案**：引入 `SourceApiException` 抽象基类（`lib/data/sources/source_exception.dart`）：
+
+```dart
+abstract class SourceApiException implements Exception {
+  const SourceApiException();
+  String get code;
+  String get message;
+  SourceType get sourceType;
+  bool get isUnavailable;
+  bool get isRateLimited;
+  bool get isGeoRestricted;
+  bool get requiresLogin;
+  bool get isNetworkError;
+  bool get isTimeout;
+
+  static ({String code, String message}) classifyDioError(DioException e) { ... }
+}
+```
+
+**关键变更**：
+- `BilibiliApiException` 字段 `code` → `numericCode`（int），`code` 变为 getter 返回语义化字符串
+- `YouTubeApiException` 新增 `isNetworkError`/`isTimeout` getter
+- `AudioController` 用 `on SourceApiException catch` 统一处理两种来源
+- `_handleBilibiliError` → `_handleSourceError`，新增 `isRateLimited` 分支
+- 各 Source 的 `_handleDioError` 调用 `SourceApiException.classifyDioError()` 减少重复
+
+**经验**：当多个 Source 有相同的异常语义（不可用、限流、地区限制等），应该用基类统一 catch，而不是为每个 Source 写单独的 catch 块。否则新增 Source 时容易遗漏。
+
+---
+
+### 25. desktop_multi_window 子窗口不能注册所有插件 (2026-02)
+
+**问题**：打开歌词弹出窗口后，系统托盘图标点击无反应，主窗口标题栏关闭按钮也无法最小化到托盘。
+
+**根本原因**：`desktop_multi_window` 创建子窗口时，`flutter_window.cpp` 中的回调调用 `RegisterPlugins()` 为子窗口注册所有插件。`tray_manager`、`hotkey_manager`、`window_manager` 都使用**全局静态 C++ channel 变量**（`std::unique_ptr<MethodChannel> channel`）。子窗口注册时覆盖了主窗口的 channel，导致：
+
+1. **tray_manager**：托盘点击事件（`channel->InvokeMethod("onTrayIconMouseDown")`）发送到子窗口的 Dart 代码，主窗口收不到
+2. **hotkey_manager**：全局快捷键回调同理
+3. **window_manager**：`_EmitEvent("close")` 发送到子窗口，主窗口的 `onWindowClose` 不触发，`minimizeToTray()` 不执行
+
+**修复方案（三层防御）**：
+
+1. **C++ 层**（`windows/runner/flutter_window.cpp`）：子窗口使用 `RegisterPluginsForSubWindow()` 排除 `tray_manager` 和 `hotkey_manager`。`window_manager` 保留（子窗口需要 `setSize`/`setAlwaysOnTop` 等）。
+
+2. **Dart 层 — 标题栏**（`custom_title_bar.dart`）：关闭按钮直接调用 `WindowsDesktopService.handleCloseButton()`，不依赖 `windowManager.close()` -> `WM_CLOSE` -> `onWindowClose` 事件链。
+
+3. **Dart 层 — 歌词窗口**（`lyrics_window_service.dart`）：关闭时隐藏而非销毁（`_controller!.hide()`），保持子窗口 engine 存活。子窗口关闭按钮发送 `requestHide` 命令到主窗口。`destroy()` 仅在 app 退出时调用。
+
+```cpp
+// flutter_window.cpp - 子窗口排除有全局 channel 的插件
+static void RegisterPluginsForSubWindow(flutter::PluginRegistry* registry) {
+  DesktopMultiWindowPluginRegisterWithRegistrar(...);
+  WindowManagerPluginRegisterWithRegistrar(...);
+  // ... 其他安全的插件 ...
+  // 排除: TrayManagerPlugin, HotkeyManagerWindowsPlugin
+}
+```
+
+**经验**：
+- Flutter 桌面插件如果使用全局静态 `channel` 变量，在多窗口场景下会互相覆盖
+- 添加新插件时必须检查其 C++ 源码是否有全局 channel，如有则排除出子窗口注册
+- `flutter_window.cpp` 不是自动生成的文件（不像 `generated_plugin_registrant.cc`），手动修改不会被覆盖
+- C++ 文件中不能使用非 ASCII 字符（如中文注释），MSVC 在 codepage 936 下会报编码错误
+
+---
+
+### 28. 共享播放器被多个模式复用时，必须拆分“保留上下文”与“实际所有权” (2026-03)
+
+**问题**：电台/直播与普通歌曲共用同一个底层播放器时，如果只用一个布尔条件（例如 `currentStation != null`）来同时表示：
+1. 当前仍保留电台上下文
+2. 电台正在实际控制播放器
+
+就会产生 UI 与事件时序错乱：
+- 歌曲暂停事件被过早当成“电台事件”忽略
+- 直播结束后 UI 还停留在电台模式
+- 返回歌曲需要点击两次，或者直接从 0:00 重播
+
+**经验与修复模式**：
+- 始终拆成两个语义：
+  - **retained context**：是否仍保留业务上下文（如 `hasCurrentStation`）
+  - **active ownership**：是否实际接管共享资源（如 `hasActivePlaybackOwnership`）
+- **显示逻辑**（mini player、detail panel、右侧面板）用 active ownership
+- **返回动作**（从首页卡片返回歌曲）用 retained context
+- 互斥钩子中如果要决定“是否忽略共享播放器事件”，必须看 active ownership，而不是 retained context
+- 若模式切换前需要保存恢复快照，一定要先保存/暂停旧模式，再设置新模式的 loading/playing state，避免事件被错误归类
+
+**补充**：若某个 nullable 字段需要真正清空，`copyWith(playingTrack: null)` 往往不够，因为它通常与“未传参”语义冲突。应增加显式的 `clearXxx` 参数（如 `clearPlayingTrack`）来避免陈旧 UI 状态残留。
+
+## 常用工具组件
+
+| 组件 | 位置 | 用途 |
+|------|------|------|
+| TrackThumbnail | `lib/ui/widgets/track_thumbnail.dart` | 统一封面显示 |
+| DurationFormatter | `lib/core/utils/duration_formatter.dart` | 时长格式化 |
+| TrackExtensions | `lib/core/extensions/track_extensions.dart` | Track 扩展方法 |
+| ToastService | `lib/core/services/toast_service.dart` | 消息提示 |
+| ImageLoadingService | `lib/core/services/image_loading_service.dart` | 图片加载（本地优先）|
+| DownloadPathUtils | `lib/services/download/download_path_utils.dart` | 路径计算 |
+| FileExistsCache | `lib/providers/download/file_exists_cache.dart` | 文件存在性缓存 |
+
+---
+
+### 26. JustAudioService 的 play() 阻塞导致 UI 卡在加载状态 (2026-02)
+
+**问题**：Android 端（JustAudioService）播放歌曲时，明明已经在播放了，但播放按钮仍显示加载中，进度条也停在开头。第一首歌尤其明显。
+
+**根本原因**：`just_audio` 的 `play()` 方法内部有 `await playCompleter.future`（just_audio.dart line 975），会等待平台播放请求完全完成才返回。第一次播放时需要激活 AudioSession、初始化 ExoPlayer 平台通道等，可能阻塞数秒。
+
+**时序分析**：
+```
+_executePlayRequest()
+├─ _enterLoadingState()  → _context.isInLoadingState = true
+├─ await _audioService.playUrl()
+│  ├─ await _player.setAudioSource()  ← 阻塞：等待 ExoPlayer 加载
+│  └─ await _player.play()            ← 阻塞：等待平台播放请求完成
+│     └─ 内部立即广播 playing=true，但 Future 要等平台确认
+│     └─ 此时 ExoPlayer 已经在播放，位置在更新
+│     └─ 但 _onPositionChanged() 检查 isInLoadingState → return（丢弃！）
+│     └─ _onPlayerStateChanged() 中 isLoading = isInLoadingState || ... = true
+├─ _exitLoadingState()  ← 要等 play() 返回才能执行！
+└─ 此时 UI 才更新为非加载状态
+```
+
+对比 `MediaKitAudioService`：`_player.open()` 几乎立即返回 ready 状态，`play()` 也很快完成，所以 `_exitLoadingState()` 能及时被调用。
+
+**修复**：`playUrl()` 和 `playFile()` 中使用 `unawaited(_player.play())` 代替 `await _player.play()`。
+
+```dart
+// ❌ 错误 - play() 阻塞导致 _exitLoadingState() 延迟
+final duration = await _player.setAudioSource(source);
+await _player.play();  // 阻塞数秒
+return duration;
+// _exitLoadingState() 在这之后才能执行
+
+// ✅ 正确 - 不等待 play()，让 playUrl() 尽快返回
+final duration = await _player.setAudioSource(source);
+unawaited(_player.play());  // fire-and-forget
+return duration;
+// _exitLoadingState() 立即执行
+```
+
+**为什么安全**：
+- `play()` 内部会立即通过 `_playingSubject.add(true)` 广播播放状态
+- ExoPlayer 会自行管理缓冲和播放启动
+- `AudioController` 通过 stream 监听播放状态变化，不依赖 `play()` 的返回
+- 同时移除了不再需要的 `_ensurePlayback()` 轮询逻辑和 `_playbackCancelled` 字段
+
+**经验**：
+- 不同音频后端的 `play()` 语义不同：media_kit 几乎立即返回，just_audio 等待平台确认
+- 当 `AudioController` 使用 `_context.isInLoadingState` 阻塞位置更新时，底层 service 的 `play()` 不应该长时间阻塞
+- 抽象接口的实现需要保证相似的时序特性，否则上层的状态管理逻辑会出问题
+
+### 27. Windows 全局快捷鍵註冊必須統一走串行同步管線 (2026-03)
+
+**問題**：全局快捷鍵偶發失效，通常要到設定頁手動關閉再重新開啟「全局快捷鍵」才恢復。
+
+**根本原因**：啟動時 `globalHotkeysEnabledProvider` 與 `hotkeyConfigProvider` 會幾乎同時呼叫 `setHotkeysEnabled()` / `applyHotkeyConfig()`。若 `WindowsDesktopService` 直接各自執行 `registerHotkeys()` / `unregisterHotkeys()`，會出現競態：Dart 側 `_hotkeysRegistered` 看似正確，但 OS 端實際註冊可能已被後續 `unregisterAll()` 清掉。
+
+**修復**：將所有熱鍵變更集中到 `_syncHotkeys()`：
+- `applyHotkeyConfig()`
+- `registerHotkeys()`
+- `unregisterHotkeys()`
+- `setHotkeysEnabled()`
+
+都只更新最新狀態，然後排入同一條 `_hotkeyOperation` 鏈順序執行。每次同步都：
+1. `unregisterAll()`
+2. 依 `_hotkeysEnabled + _hotkeyConfig` 重建註冊
+3. 最後才更新 `_hotkeysRegistered`
+
+```dart
+Future<void> _syncHotkeys() {
+  _hotkeyOperation = _hotkeyOperation.then((_) => _performHotkeySync());
+  return _hotkeyOperation;
+}
+```
+
+**附帶行為修正**：顯示/隱藏視窗快捷鍵改為三段邏輯：
+1. 已 minimize to tray → 顯示視窗
+2. 視窗可見但未 focus → 只 bring to front + focus
+3. 只有已 focus 時才 minimize to tray
+
+**經驗**：
+- 全局快捷鍵屬於 OS 全域狀態，不能依賴多個 provider 各自 register/unregister
+- 啟動載入與設定變更都應走「最新狀態覆蓋式同步」而非條件式補丁
+- `show()` 前最好先處理 `isMinimized()` / `isVisible()`，避免一般最小化與 tray 隱藏混淆
+
+---
+
+## 封面图片优先级
+
+1. 本地封面（`track.getLocalCoverPath(cache)` → `{videoDir}/cover.jpg`）
+2. 网络封面 (`track.thumbnailUrl`)
+3. 占位符 (Icons.music_note)
+
+由 `ImageLoadingService.loadImage()` 自动处理回退。

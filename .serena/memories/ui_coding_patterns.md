@@ -366,7 +366,7 @@ return _PlaylistCard(
 
 ## 4. 列表刷新模式（补充）
 
-### 3.1 下拉刷新
+### 4.1 下拉刷新
 
 使用 `RefreshIndicator`：
 
@@ -383,7 +383,7 @@ RefreshIndicator(
 )
 ```
 
-### 3.2 StreamProvider/FutureProvider 刷新
+### 4.2 StreamProvider/FutureProvider 刷新
 
 使用 `ref.invalidate()` 或 `ref.refresh()`：
 
@@ -395,7 +395,7 @@ await ref.refresh(dataProvider.future);
 ref.invalidate(dataProvider);
 ```
 
-### 3.3 缓存数据刷新（如排行榜）
+### 4.3 缓存数据刷新（如排行榜）
 
 ```dart
 // 通过 cache service 刷新
@@ -404,11 +404,13 @@ ref.read(rankingCacheServiceProvider.notifier).refresh();
 
 ---
 
-## 4. 歌曲列表项模式
+## 5. 歌曲列表项模式
 
-### 4.1 基本歌曲项组件
+### 5.1 基本歌曲项组件
 
 所有歌曲列表项应遵循相同的结构：
+
+如果 `leading` 需要排名 + 缩略图等复合布局，不要把 `Row` 塞进 `ListTile.leading`；改用扁平的 `InkWell` + `Padding` + `Row` 自定义列表项，避免滚动布局抖动。
 
 ```dart
 class _TrackTile extends ConsumerWidget {
@@ -436,7 +438,7 @@ class _TrackTile extends ConsumerWidget {
 }
 ```
 
-### 4.2 判断当前播放状态
+### 5.2 判断当前播放状态
 
 **统一比较逻辑**：
 
@@ -452,48 +454,59 @@ final isPlaying = currentTrack != null &&
 final isPlaying = currentTrack?.downloadedPath == track.downloadedPath;
 ```
 
-### 4.3 菜单操作统一处理
+### 5.3 菜单操作统一处理
+
+普通歌曲操作不要在页面内手写重复的 `switch`。公共菜单项由 `buildCommonTrackActionMenuItems()` / `buildTrackActionPopupMenuEntries()` 构建，并通过 `TrackActionCoordinator` 执行。页面只追加自己独有的动作，例如下载、删除、从歌单移除、远程歌单操作。
 
 ```dart
-void _handleMenuAction(BuildContext context, WidgetRef ref, String action) {
-  final controller = ref.read(audioControllerProvider.notifier);
-  
-  switch (action) {
-    case 'play':
-      controller.playTemporary(track);
-      break;
-    case 'play_next':
-      controller.addNext(track);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已添加到下一首')),
-      );
-      break;
-    case 'add_to_queue':
-      controller.addToQueue(track);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已添加到隊列')),
-      );
-      break;
-    case 'add_to_playlist':
-      _showAddToPlaylistDialog(context, ref, track);
-      break;
-    case 'download':
-      _startDownload(context, ref, track);
-      break;
+PopupMenuButton<String>(
+  onSelected: (value) => _handleMenuAction(context, ref, value),
+  itemBuilder: (context) => [
+    ...buildTrackActionPopupMenuEntries(
+      buildCommonTrackActionMenuItems(translations: t),
+    ),
+    PopupMenuItem(
+      value: 'download',
+      child: ListTile(
+        leading: const Icon(Icons.download),
+        title: Text(t.common.download),
+        contentPadding: EdgeInsets.zero,
+      ),
+    ),
+  ],
+)
+
+Future<void> _handleMenuAction(
+  BuildContext context,
+  WidgetRef ref,
+  String action,
+) async {
+  if (action == 'download') {
+    await _startDownload(context, ref, track);
+    return;
   }
+
+  await TrackActionCoordinator.handleSingle(
+    context: context,
+    ref: ref,
+    track: track,
+    action: action,
+  );
 }
 ```
 
-### 4.4 临时播放 vs 直接播放
+参考实现：`ExplorePage`、`HomePage`、`PlaylistDetailPage`、`DownloadedCategoryPage`。
+
+### 5.4 临时播放 vs 直接播放
 
 - **搜索/排行榜/探索**：使用 `controller.playTemporary(track)` - 临时播放，不影响队列
 - **歌单/队列**：使用 `controller.playTrackInQueue(index)` - 播放队列中的歌曲
 
 ---
 
-## 5. 多P分组模式
+## 6. 多P分组模式
 
-### 5.1 使用 TrackGroup 工具
+### 6.1 使用 TrackGroup 工具
 
 ```dart
 import '../../widgets/track_group/track_group.dart';
@@ -515,7 +528,7 @@ ListView.builder(
 )
 ```
 
-### 5.2 分组展开/折叠
+### 6.2 分组展开/折叠
 
 ```dart
 // 状态管理
@@ -534,9 +547,9 @@ void _toggleGroup(String groupKey) {
 
 ---
 
-## 6. 错误处理模式
+## 7. 错误处理模式
 
-### 6.1 AsyncValue 处理
+### 7.1 AsyncValue 处理
 
 **当 Provider 依赖用户可切换的筛选/排序状态时**，必须加 `skipLoadingOnReload: true`，否则切换时会闪烁：
 
@@ -589,7 +602,7 @@ return dataAsync.when(
 );
 ```
 
-### 6.2 空状态处理
+### 7.2 空状态处理
 
 ```dart
 if (items.isEmpty) {
@@ -615,7 +628,7 @@ if (items.isEmpty) {
 
 ---
 
-## 7. 可复用组件清单
+## 8. 可复用组件清单
 
 | 组件 | 位置 | 用途 |
 |------|------|------|
@@ -629,9 +642,9 @@ if (items.isEmpty) {
 
 ---
 
-## 8. Provider 使用模式
+## 9. Provider 使用模式
 
-### 8.1 常用 Provider
+### 9.1 常用 Provider
 
 ```dart
 // 播放器状态
@@ -649,7 +662,7 @@ final cache = ref.read(fileExistsCacheProvider.notifier);
 final baseDir = ref.watch(downloadBaseDirProvider).valueOrNull;
 ```
 
-### 8.2 避免在 build 中调用 notifier 方法
+### 9.2 避免在 build 中调用 notifier 方法
 
 ```dart
 // ✅ 正确：在事件处理中调用
@@ -664,7 +677,7 @@ Widget build(BuildContext context, WidgetRef ref) {
 
 ---
 
-## 9. 页面间代码统一检查清单
+## 10. 页面间代码统一检查清单
 
 创建或修改页面时，请检查：
 
@@ -680,11 +693,11 @@ Widget build(BuildContext context, WidgetRef ref) {
 
 ---
 
-## 10. UI 常量使用規範
+## 11. UI 常量使用規範
 
 所有 UI 魔法數字已集中到 `lib/core/constants/ui_constants.dart`，新代碼**禁止**使用硬編碼值。
 
-### 10.1 圓角
+### 11.1 圓角
 
 ```dart
 // ✅ 正確
@@ -697,7 +710,7 @@ borderRadius: BorderRadius.circular(12),
 
 **注意**: `AppRadius.borderRadiusXl` 等是 `static final`（非 `const`），不能用在 `const` 上下文中。
 
-### 10.2 動畫時長
+### 11.2 動畫時長
 
 ```dart
 // ✅ 正確
@@ -708,7 +721,7 @@ AnimatedContainer(duration: AnimationDurations.normal, ...)  // 300ms
 AnimatedOpacity(duration: const Duration(milliseconds: 200), ...)
 ```
 
-### 10.3 防抖與 Toast
+### 11.3 防抖與 Toast
 
 ```dart
 // ✅ 正確
@@ -719,7 +732,7 @@ ToastDurations.short  // 1500ms
 Timer(const Duration(milliseconds: 300), () => ...);
 ```
 
-### 10.4 UI 尺寸
+### 11.4 UI 尺寸
 
 ```dart
 // ✅ 正確
@@ -731,7 +744,7 @@ AppSizes.sidePanelMinWidth   // 280.0
 AppSizes.sidePanelMaxWidth   // 500.0
 ```
 
-### 10.5 常量對照表
+### 11.5 常量對照表
 
 | 硬編碼值 | 替換為 |
 |----------|--------|
@@ -746,7 +759,7 @@ AppSizes.sidePanelMaxWidth   // 500.0
 
 ---
 
-## 11. 相似页面对照表
+## 12. 相似页面对照表
 
 | 页面 | 相似页面 | 应统一的模式 |
 |------|---------|-------------|
