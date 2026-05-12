@@ -16,7 +16,7 @@ void main() {
       );
       expect(state.lyricsAiEndpoint, '');
       expect(state.lyricsAiModel, '');
-      expect(state.lyricsAiTimeoutSeconds, 10);
+      expect(state.lyricsAiTimeoutSeconds, 20);
       expect(state.lyricsAiApiKeyConfigured, isFalse);
       expect(state.allowPlainLyricsAutoMatch, isFalse);
     });
@@ -55,8 +55,8 @@ void main() {
       await Future<void>.delayed(Duration.zero);
 
       await notifier.setLyricsAiTimeoutSeconds(0);
-      expect(notifier.state.lyricsAiTimeoutSeconds, 10);
-      expect(repository.settings.lyricsAiTimeoutSeconds, 10);
+      expect(notifier.state.lyricsAiTimeoutSeconds, 20);
+      expect(repository.settings.lyricsAiTimeoutSeconds, 20);
 
       await notifier.setLyricsAiApiKey('  secret  ');
       expect(notifier.state.lyricsAiApiKeyConfigured, isTrue);

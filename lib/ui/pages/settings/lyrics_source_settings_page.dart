@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:simple_icons/simple_icons.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/settings.dart';
@@ -144,7 +145,8 @@ class _LyricsSourceSettingsPageState
   }
 
   Future<void> _saveLyricsAiTimeoutSeconds(int seconds) async {
-    final normalized = seconds < 1 ? 10 : seconds;
+    final normalized =
+        seconds < 1 ? AppConstants.lyricsAiDefaultTimeoutSeconds : seconds;
     await ref
         .read(audioSettingsProvider.notifier)
         .setLyricsAiTimeoutSeconds(normalized);

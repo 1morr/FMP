@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import '../../core/constants/app_constants.dart';
 import '../../data/models/settings.dart';
 
 /// 备份数据模型
@@ -425,8 +426,8 @@ int _normalizeLyricsAiTitleParsingModeIndex(int? index) {
 }
 
 int _normalizeLyricsAiTimeoutSeconds(int? timeoutSeconds) {
-  final value = timeoutSeconds ?? 10;
-  return value < 1 ? 10 : value;
+  final value = timeoutSeconds ?? AppConstants.lyricsAiDefaultTimeoutSeconds;
+  return value < 1 ? AppConstants.lyricsAiDefaultTimeoutSeconds : value;
 }
 
 /// 设置备份数据
@@ -577,7 +578,8 @@ class SettingsBackup {
           json['allowPlainLyricsAutoMatch'] as bool? ?? false,
       lyricsAiEndpoint: json['lyricsAiEndpoint'] as String? ?? '',
       lyricsAiModel: json['lyricsAiModel'] as String? ?? '',
-      lyricsAiTimeoutSeconds: json['lyricsAiTimeoutSeconds'] as int? ?? 10,
+      lyricsAiTimeoutSeconds: json['lyricsAiTimeoutSeconds'] as int? ??
+          AppConstants.lyricsAiDefaultTimeoutSeconds,
       useBilibiliAuthForPlay: json['useBilibiliAuthForPlay'] as bool? ?? false,
       useYoutubeAuthForPlay: json['useYoutubeAuthForPlay'] as bool? ?? false,
       useNeteaseAuthForPlay: json['useNeteaseAuthForPlay'] as bool? ?? true,

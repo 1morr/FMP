@@ -1,5 +1,6 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../data/models/settings.dart';
 
 abstract class SecureKeyValueStore {
@@ -66,7 +67,7 @@ class LyricsAiConfigService {
     final settings = await _loadSettings();
     final apiKey = await readApiKey();
     final timeoutSeconds = settings.lyricsAiTimeoutSeconds < 1
-        ? 10
+        ? AppConstants.lyricsAiDefaultTimeoutSeconds
         : settings.lyricsAiTimeoutSeconds;
 
     return LyricsAiConfig(

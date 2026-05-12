@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/constants/app_constants.dart';
 import '../data/models/settings.dart';
 import '../data/repositories/settings_repository.dart';
 import '../services/lyrics/lyrics_ai_config_service.dart';
@@ -44,7 +45,7 @@ class AudioSettingsState {
     this.allowPlainLyricsAutoMatch = false,
     this.lyricsAiEndpoint = '',
     this.lyricsAiModel = '',
-    this.lyricsAiTimeoutSeconds = 10,
+    this.lyricsAiTimeoutSeconds = AppConstants.lyricsAiDefaultTimeoutSeconds,
     this.lyricsAiApiKeyConfigured = false,
     this.isLoading = true,
   });
@@ -126,7 +127,7 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
       lyricsAiEndpoint: _settings!.lyricsAiEndpoint.trim(),
       lyricsAiModel: _settings!.lyricsAiModel.trim(),
       lyricsAiTimeoutSeconds: _settings!.lyricsAiTimeoutSeconds < 1
-          ? 10
+          ? AppConstants.lyricsAiDefaultTimeoutSeconds
           : _settings!.lyricsAiTimeoutSeconds,
       lyricsAiApiKeyConfigured: lyricsAiApiKey.isNotEmpty,
       isLoading: false,
@@ -235,7 +236,8 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
   Future<void> setLyricsAiTimeoutSeconds(int seconds) async {
     if (_settings == null) return;
 
-    final normalized = seconds < 1 ? 10 : seconds;
+    final normalized =
+        seconds < 1 ? AppConstants.lyricsAiDefaultTimeoutSeconds : seconds;
     await _settingsRepository
         .update((s) => s.lyricsAiTimeoutSeconds = normalized);
     _settings!.lyricsAiTimeoutSeconds = normalized;

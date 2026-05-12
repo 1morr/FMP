@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:isar/isar.dart';
 
+import '../../core/constants/app_constants.dart';
 import 'track.dart';
 
 part 'settings.g.dart';
@@ -192,7 +193,7 @@ class Settings {
   String lyricsAiModel = '';
 
   /// AI title parsing request timeout in seconds.
-  int lyricsAiTimeoutSeconds = 10;
+  int lyricsAiTimeoutSeconds = AppConstants.lyricsAiDefaultTimeoutSeconds;
 
   // ========== 播放認證設置 ==========
 
