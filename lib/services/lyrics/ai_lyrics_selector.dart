@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import 'openai_chat_endpoint.dart';
 
@@ -89,7 +90,11 @@ class AiLyricsSelector with Logging {
     final trimmedEndpoint = normalizeOpenAiChatCompletionsEndpoint(endpoint);
     final trimmedApiKey = apiKey.trim();
     final trimmedModel = model.trim();
-    final timeout = Duration(seconds: timeoutSeconds < 1 ? 10 : timeoutSeconds);
+    final timeout = Duration(
+      seconds: timeoutSeconds < 1
+          ? AppConstants.lyricsAiDefaultTimeoutSeconds
+          : timeoutSeconds,
+    );
     final normalizedVideoDescription =
         _normalizeOptionalText(videoDescription, maxChars: 500);
     if (trimmedEndpoint.isEmpty ||

@@ -93,7 +93,7 @@ void main() {
       expect(migratedSettings!.lyricsAiTitleParsingModeIndex, 0);
       expect(migratedSettings.lyricsAiTitleParsingMode,
           LyricsAiTitleParsingMode.off);
-      expect(migratedSettings.lyricsAiTimeoutSeconds, 10);
+      expect(migratedSettings.lyricsAiTimeoutSeconds, 20);
       expect(migratedSettings.lyricsAiEndpoint, isEmpty);
       expect(migratedSettings.lyricsAiModel, isEmpty);
     });

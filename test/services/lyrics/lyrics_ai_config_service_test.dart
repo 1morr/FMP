@@ -59,8 +59,7 @@ void main() {
     test('advanced mode is available with endpoint key and model', () async {
       final service = LyricsAiConfigService(
         loadSettings: () async => Settings()
-          ..lyricsAiTitleParsingMode =
-              LyricsAiTitleParsingMode.advancedAiSelect
+          ..lyricsAiTitleParsingMode = LyricsAiTitleParsingMode.advancedAiSelect
           ..lyricsAiEndpoint = 'https://example.test/v1'
           ..lyricsAiModel = 'test-model',
         secureStorage: _MemorySecureKeyValueStore({'lyrics_ai_api_key': 'key'}),
@@ -72,7 +71,7 @@ void main() {
       expect(config.isAvailable, isTrue);
     });
 
-    test('clamps invalid timeout to 10 seconds', () async {
+    test('clamps invalid timeout to 20 seconds', () async {
       final settings = Settings()
         ..lyricsAiTitleParsingMode = LyricsAiTitleParsingMode.alwaysAi
         ..lyricsAiEndpoint = 'https://api.example.com/v1'
@@ -85,7 +84,7 @@ void main() {
 
       final config = await service.loadConfig();
 
-      expect(config.timeoutSeconds, 10);
+      expect(config.timeoutSeconds, 20);
     });
 
     test('stores trimmed key and clears key on empty', () async {

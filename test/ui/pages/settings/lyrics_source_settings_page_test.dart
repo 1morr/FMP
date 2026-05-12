@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/i18n/strings.g.dart';
@@ -54,6 +55,26 @@ void main() {
             matching: find.text(plainLyricsLabel),
           ),
           findsNothing,
+        );
+      },
+    );
+
+    testWidgets(
+      'normalizes invalid AI timeout input through the shared default',
+      (tester) async {
+        await _pumpPage(tester, repository);
+        await tester.pump();
+
+        await tester.tap(find.byIcon(Icons.smart_toy_outlined));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byType(TextField).last, '0');
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pump();
+
+        expect(
+          repository.settings.lyricsAiTimeoutSeconds,
+          AppConstants.lyricsAiDefaultTimeoutSeconds,
         );
       },
     );

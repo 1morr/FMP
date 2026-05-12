@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import 'openai_chat_endpoint.dart';
 
@@ -42,7 +43,11 @@ class AiTitleParser with Logging {
       return null;
     }
 
-    final timeout = Duration(seconds: timeoutSeconds < 1 ? 10 : timeoutSeconds);
+    final timeout = Duration(
+      seconds: timeoutSeconds < 1
+          ? AppConstants.lyricsAiDefaultTimeoutSeconds
+          : timeoutSeconds,
+    );
     final userPayload = {
       'title': title,
       if (trimmedUploader != null && trimmedUploader.isNotEmpty)

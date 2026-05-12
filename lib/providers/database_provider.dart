@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../core/constants/app_constants.dart';
 import '../data/models/track.dart';
 import '../data/models/playlist.dart';
 import '../data/models/play_queue.dart';
@@ -104,7 +105,8 @@ Future<void> _initializeDatabaseDefaultsInTxn(Isar isar) async {
 
     // 修复 AI 标题解析设置
     if (settings.lyricsAiTimeoutSeconds < 1) {
-      settings.lyricsAiTimeoutSeconds = 10;
+      settings.lyricsAiTimeoutSeconds =
+          AppConstants.lyricsAiDefaultTimeoutSeconds;
       needsUpdate = true;
     }
     if (settings.lyricsAiTitleParsingModeIndex == 1 ||

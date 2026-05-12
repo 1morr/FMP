@@ -11,7 +11,7 @@ void main() {
       expect(settings.allowPlainLyricsAutoMatch, isFalse);
       expect(settings.lyricsAiEndpoint, isEmpty);
       expect(settings.lyricsAiModel, isEmpty);
-      expect(settings.lyricsAiTimeoutSeconds, 10);
+      expect(settings.lyricsAiTimeoutSeconds, 20);
     });
 
     test('maps legacy fallback index to off', () {

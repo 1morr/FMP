@@ -76,7 +76,7 @@ void main() {
       expect(settingsBackup.allowPlainLyricsAutoMatch, isFalse);
       expect(settingsBackup.lyricsAiEndpoint, isEmpty);
       expect(settingsBackup.lyricsAiModel, isEmpty);
-      expect(settingsBackup.lyricsAiTimeoutSeconds, 10);
+      expect(settingsBackup.lyricsAiTimeoutSeconds, 20);
       expect(settingsBackup.disabledLyricsSources, 'lrclib');
       expect(settingsBackup.neteaseStreamPriority, 'audioOnly');
       expect(settingsBackup.useBilibiliAuthForPlay, isFalse);
@@ -90,8 +90,8 @@ void main() {
           settingsBackup.enableGlobalHotkeys, Settings().enableGlobalHotkeys);
     });
 
-    test('SettingsBackup defaults lyrics AI timeout to ten seconds', () {
-      expect(SettingsBackup().lyricsAiTimeoutSeconds, 10);
+    test('SettingsBackup defaults lyrics AI timeout to twenty seconds', () {
+      expect(SettingsBackup().lyricsAiTimeoutSeconds, 20);
     });
 
     test('importData normalizes invalid lyrics AI timeout', () async {
@@ -120,7 +120,7 @@ void main() {
       final restoredSettings = await isar.settings.get(0);
       expect(result.settingsImported, isTrue);
       expect(result.errors, isEmpty);
-      expect(restoredSettings!.lyricsAiTimeoutSeconds, 10);
+      expect(restoredSettings!.lyricsAiTimeoutSeconds, 20);
     });
 
     test(

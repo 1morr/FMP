@@ -153,6 +153,9 @@ class AppConstants {
 
   /// 歌词自动匹配最低得分阈值（0.0 - 1.0）
   static const double lyricsMatchScoreThreshold = 0.6;
+
+  /// AI 歌词匹配请求默认超时（秒）
+  static const int lyricsAiDefaultTimeoutSeconds = 20;
 }
 
 /// 网络重试配置（播放失败后的渐进式重试）
