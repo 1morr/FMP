@@ -133,6 +133,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   List<_LyricsLine> _lines = [];
   bool _isSynced = false;
   int _currentLineIndex = -1;
+  int _positionMs = 0;
   int _offsetMs = 0;
   String? _trackTitle;
   String? _trackArtist;
@@ -241,8 +242,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     final appState = context.findAncestorStateOfType<_LyricsWindowAppState>();
     appState?.updateTheme(
       themeMode: ThemeMode.values[themeModeIndex.clamp(0, 2)],
-      primaryColor:
-          primaryColorValue != null ? Color(primaryColorValue) : null,
+      primaryColor: primaryColorValue != null ? Color(primaryColorValue) : null,
       fontFamily: fontFamily,
       stringsMap: stringsMap,
     );
@@ -288,6 +288,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
           [];
       _isSynced = data['isSynced'] as bool? ?? false;
       _currentLineIndex = data['currentLineIndex'] as int? ?? -1;
+      _positionMs = data['positionMs'] as int? ?? 0;
       _offsetMs = data['offsetMs'] as int? ?? 0;
       _trackTitle = data['trackTitle'] as String?;
       _trackArtist = data['trackArtist'] as String?;
@@ -305,6 +306,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   void _handleUpdatePosition(String jsonStr) {
     final data = jsonDecode(jsonStr) as Map<String, dynamic>;
     final newIndex = data['currentLineIndex'] as int? ?? -1;
+    _positionMs = data['positionMs'] as int? ?? _positionMs;
 
     if (newIndex != _currentLineIndex) {
       setState(() => _currentLineIndex = newIndex);
@@ -315,15 +317,21 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   // ─── Commands to main window ───
 
   void _sendPlayPause() {
-    try { _channel.invokeMethod('playPause', ''); } catch (_) {}
+    try {
+      _channel.invokeMethod('playPause', '');
+    } catch (_) {}
   }
 
   void _sendNext() {
-    try { _channel.invokeMethod('next', ''); } catch (_) {}
+    try {
+      _channel.invokeMethod('next', '');
+    } catch (_) {}
   }
 
   void _sendPrevious() {
-    try { _channel.invokeMethod('previous', ''); } catch (_) {}
+    try {
+      _channel.invokeMethod('previous', '');
+    } catch (_) {}
   }
 
   void _requestHide() {
@@ -350,8 +358,18 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   }
 
   void _adjustOffset(int deltaMs) {
+    _updateOffset(_offsetMs + deltaMs);
+  }
+
+  void _calibrateOffsetToLine(int index) {
+    if (!_isSynced || index < 0 || index >= _lines.length) return;
+    final timestamp = _lines[index].timestamp;
+    if (timestamp == null) return;
+    _updateOffset(timestamp.inMilliseconds - _positionMs);
+  }
+
+  void _updateOffset(int newOffsetMs) {
     if (_trackUniqueKey == null) return;
-    final newOffsetMs = _offsetMs + deltaMs;
     try {
       _channel.invokeMethod(
         'adjustOffset',
@@ -501,17 +519,23 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
 
   IconData get _displayModeIcon {
     switch (_displayModeIndex) {
-      case 1: return Icons.translate;
-      case 2: return Icons.abc;
-      default: return Icons.title;
+      case 1:
+        return Icons.translate;
+      case 2:
+        return Icons.abc;
+      default:
+        return Icons.title;
     }
   }
 
   String get _displayModeTooltip {
     switch (_displayModeIndex) {
-      case 1: return _strings.displayPreferTranslated;
-      case 2: return _strings.displayPreferRomaji;
-      default: return _strings.displayOriginal;
+      case 1:
+        return _strings.displayPreferTranslated;
+      case 2:
+        return _strings.displayPreferRomaji;
+      default:
+        return _strings.displayOriginal;
     }
   }
 
@@ -596,9 +620,8 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     final subtitleColor = t ? Colors.white70 : colorScheme.onSurfaceVariant;
     final activeColor = t ? Colors.amber : colorScheme.primary;
     final bgColor = t ? Colors.black.withValues(alpha: 0.85) : null;
-    final borderColor = t
-        ? Colors.white12
-        : colorScheme.outlineVariant.withValues(alpha: 0.3);
+    final borderColor =
+        t ? Colors.white12 : colorScheme.outlineVariant.withValues(alpha: 0.3);
 
     return GestureDetector(
       onPanStart: (_) => windowManager.startDragging(),
@@ -685,7 +708,8 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
                 }
               },
               color: _singleLineMode ? activeColor : iconColor,
-              tooltip: _singleLineMode ? _strings.fullLyrics : _strings.singleLine,
+              tooltip:
+                  _singleLineMode ? _strings.fullLyrics : _strings.singleLine,
               semanticsLabel:
                   _singleLineMode ? _strings.fullLyrics : _strings.singleLine,
             ),
@@ -696,7 +720,8 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
               _toggleTransparentMode,
               color: t ? activeColor : iconColor,
               tooltip: t ? _strings.normalMode : _strings.transparentMode,
-              semanticsLabel: t ? _strings.normalMode : _strings.transparentMode,
+              semanticsLabel:
+                  t ? _strings.normalMode : _strings.transparentMode,
             ),
             // 置顶
             _titleBarButton(
@@ -715,8 +740,8 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
               _titleBarButton(
                 Icons.timer_outlined,
                 16,
-                () => setState(
-                    () => _showOffsetControls = !_showOffsetControls),
+                () =>
+                    setState(() => _showOffsetControls = !_showOffsetControls),
                 color: _showOffsetControls ? activeColor : iconColor,
                 tooltip: _strings.offsetAdjust,
                 semanticsLabel: _strings.offsetAdjust,
@@ -814,6 +839,9 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
       onTap: _isSynced && _currentLineIndex >= 0
           ? () => _seekToLine(_currentLineIndex)
           : null,
+      onSecondaryTap: _isSynced && _currentLineIndex >= 0
+          ? () => _calibrateOffsetToLine(_currentLineIndex)
+          : null,
       behavior: HitTestBehavior.opaque,
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -842,9 +870,8 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
           final safeW = maxW * _boldSafetyFactor;
 
           // 主文本：按宽度缩放（单行填满）
-          double mainFontSize = mainTextW > 0
-              ? (refSize * safeW / mainTextW)
-              : refSize;
+          double mainFontSize =
+              mainTextW > 0 ? (refSize * safeW / mainTextW) : refSize;
 
           // 副文本字号
           double subFontSize = 0;
@@ -861,9 +888,8 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
             final subTextW = subPainter.width;
             subPainter.dispose();
 
-            final subByWidth = subTextW > 0
-                ? (refSize * safeW / subTextW)
-                : refSize;
+            final subByWidth =
+                subTextW > 0 ? (refSize * safeW / subTextW) : refSize;
             final subCap = mainFontSize * subRatio;
             subFontSize = math.min(subByWidth, subCap).clamp(8.0, 200.0);
           }
@@ -891,7 +917,8 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
               text: TextSpan(
                 text: mainText,
                 style: TextStyle(
-                    fontSize: mainFontSize, fontWeight: FontWeight.bold,
+                    fontSize: mainFontSize,
+                    fontWeight: FontWeight.bold,
                     height: 1.3),
               ),
               textDirection: td,
@@ -904,7 +931,8 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
                 text: TextSpan(
                   text: subText,
                   style: TextStyle(
-                      fontSize: subFontSize, fontWeight: FontWeight.w500,
+                      fontSize: subFontSize,
+                      fontWeight: FontWeight.w500,
                       height: 1.3),
                 ),
                 textDirection: td,
@@ -999,8 +1027,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
                     _userScrolling = true;
                   } else if (notification is ScrollEndNotification) {
                     _scrollResumeTimer?.cancel();
-                    _scrollResumeTimer =
-                        Timer(const Duration(seconds: 3), () {
+                    _scrollResumeTimer = Timer(const Duration(seconds: 3), () {
                       if (mounted) _userScrolling = false;
                     });
                   }
@@ -1067,6 +1094,9 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     return GestureDetector(
       onTap:
           _isSynced && line.timestamp != null ? () => _seekToLine(index) : null,
+      onSecondaryTap: _isSynced && line.timestamp != null
+          ? () => _calibrateOffsetToLine(index)
+          : null,
       behavior: HitTestBehavior.opaque,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
@@ -1091,14 +1121,12 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
                   duration: const Duration(milliseconds: 200),
                   style: TextStyle(
                     fontSize: fontSizes.sub,
-                    fontWeight:
-                        isCurrent ? FontWeight.w500 : FontWeight.normal,
+                    fontWeight: isCurrent ? FontWeight.w500 : FontWeight.normal,
                     color: subColor,
                     height: 1.3,
                     shadows: t ? _strokeShadows : null,
                   ),
-                  child:
-                      Text(line.subText!, textAlign: TextAlign.center),
+                  child: Text(line.subText!, textAlign: TextAlign.center),
                 ),
               ),
           ],
@@ -1114,11 +1142,11 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     final labelColor = t ? Colors.white70 : colorScheme.onSurfaceVariant;
     final valueColor = t ? Colors.white : colorScheme.onSurface;
     final btnColor = t ? Colors.white : colorScheme.onSurface;
-    final bgColor =
-        t ? Colors.black.withValues(alpha: 0.85) : Theme.of(context).scaffoldBackgroundColor;
-    final borderColor = t
-        ? Colors.white12
-        : colorScheme.outlineVariant.withValues(alpha: 0.3);
+    final bgColor = t
+        ? Colors.black.withValues(alpha: 0.85)
+        : Theme.of(context).scaffoldBackgroundColor;
+    final borderColor =
+        t ? Colors.white12 : colorScheme.outlineVariant.withValues(alpha: 0.3);
     final chipBg = t
         ? Colors.white.withValues(alpha: 0.15)
         : colorScheme.surfaceContainerHighest;
@@ -1146,7 +1174,9 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
               child: Text(
                 _formatOffset(_offsetMs),
                 style: TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w600, color: valueColor),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: valueColor),
               ),
             ),
             const SizedBox(width: 12),

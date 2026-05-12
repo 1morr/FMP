@@ -69,6 +69,62 @@ void main() {
       );
     });
 
+    test('calculateOffsetForLine aligns clicked line start to current position',
+        () {
+      const line = LyricsLine(
+        timestamp: Duration(seconds: 5),
+        text: 'clicked',
+      );
+
+      expect(
+        LrcParser.calculateOffsetForLine(
+          line,
+          const Duration(milliseconds: 7250),
+        ),
+        -2250,
+      );
+    });
+
+    test('calculated offset selects clicked previous or next lyric line', () {
+      const lyrics = ParsedLyrics(
+        isSynced: true,
+        lines: [
+          LyricsLine(timestamp: Duration(seconds: 1), text: 'first'),
+          LyricsLine(timestamp: Duration(seconds: 5), text: 'second'),
+          LyricsLine(timestamp: Duration(seconds: 9), text: 'third'),
+        ],
+      );
+      const position = Duration(milliseconds: 7250);
+
+      final previousOffset = LrcParser.calculateOffsetForLine(
+        lyrics.lines[1],
+        position,
+      );
+      expect(previousOffset, -2250);
+      expect(
+        calculateCurrentLyricsLineIndex(
+          lyrics: lyrics,
+          position: position,
+          offsetMs: previousOffset,
+        ),
+        1,
+      );
+
+      final nextOffset = LrcParser.calculateOffsetForLine(
+        lyrics.lines[2],
+        position,
+      );
+      expect(nextOffset, 1750);
+      expect(
+        calculateCurrentLyricsLineIndex(
+          lyrics: lyrics,
+          position: position,
+          offsetMs: nextOffset,
+        ),
+        2,
+      );
+    });
+
     test('LyricsDisplay consumes line index provider instead of raw position',
         () {
       final source =

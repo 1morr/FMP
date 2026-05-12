@@ -156,11 +156,15 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
       );
     }
 
-    // 仅行变化时同步位置（高频优化）
+    // 播放位置高频同步到歌词窗口，用于右键 offset 校准；
+    // 子窗口仅在行索引变化时触发滚动。
     if (currentLineIndex != _lastSyncedLineIndex) {
       _lastSyncedLineIndex = currentLineIndex;
-      LyricsWindowService.instance.syncPosition(currentLineIndex);
     }
+    LyricsWindowService.instance.syncPosition(
+      currentLineIndex: currentLineIndex,
+      positionMs: playerState.position.inMilliseconds,
+    );
   }
 
   /// 全量同步歌词内容到弹出窗口（歌词变化时调用）
@@ -185,6 +189,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     LyricsWindowService.instance.syncLyrics(
       lyrics: parsedLyrics,
       currentLineIndex: currentLineIndex,
+      positionMs: playerState.position.inMilliseconds,
       offsetMs: match?.offsetMs ?? 0,
       trackTitle: currentTrack?.title,
       trackArtist: currentTrack?.artist,
@@ -583,8 +588,9 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                     setState(() {});
                   }
                 },
-                tooltip:
-                    LyricsWindowService.instance.isOpen ? t.lyrics.closeLyricsWindow : t.lyrics.openLyricsWindow,
+                tooltip: LyricsWindowService.instance.isOpen
+                    ? t.lyrics.closeLyricsWindow
+                    : t.lyrics.openLyricsWindow,
                 visualDensity: VisualDensity.compact,
                 style: IconButton.styleFrom(
                   foregroundColor: colorScheme.onSurfaceVariant,
@@ -620,15 +626,15 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                     ),
                   ),
                   PopupMenuItem(
-                      value: 'remote',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.cloud_upload_outlined, size: 20),
-                          const SizedBox(width: 12),
-                          Text(t.remote.addToFavorites),
-                        ],
-                      ),
+                    value: 'remote',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.cloud_upload_outlined, size: 20),
+                        const SizedBox(width: 12),
+                        Text(t.remote.addToFavorites),
+                      ],
                     ),
+                  ),
                 ];
               },
             ),
@@ -772,7 +778,8 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
     final currentStreamMetadata = ref.watch(currentStreamMetadataProvider);
     final nextTrack = ref.watch(
       audioControllerProvider.select(
-        (state) => state.upcomingTracks.isNotEmpty ? state.upcomingTracks.first : null,
+        (state) =>
+            state.upcomingTracks.isNotEmpty ? state.upcomingTracks.first : null,
       ),
     );
 
@@ -790,7 +797,8 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
         if (ref.watch(filePathExistsProvider(path))) path,
     };
 
-    final localAvatarPath = _getLocalAvatarPath(currentTrack, existingAvatarPaths);
+    final localAvatarPath =
+        _getLocalAvatarPath(currentTrack, existingAvatarPaths);
 
     // 獲取下載基礎目錄（用於頭像路徑查找）
     final baseDirAsync = ref.watch(downloadBaseDirProvider);
@@ -837,7 +845,9 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
           Row(
             children: [
               ImageLoadingService.loadAvatar(
-                networkUrl: widget.detail.ownerFace.isNotEmpty ? widget.detail.ownerFace : null,
+                networkUrl: widget.detail.ownerFace.isNotEmpty
+                    ? widget.detail.ownerFace
+                    : null,
                 size: 32,
               ),
               const SizedBox(width: 10),
@@ -2220,4 +2230,3 @@ class _RadioClickableAvatar extends StatelessWidget {
     );
   }
 }
-

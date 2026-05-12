@@ -125,7 +125,8 @@ class LyricsWindowService {
       try {
         await _channel.invokeMethod('ping', '');
         _channelReady = true;
-        debugPrint('LyricsWindowService: channel ready after ${(i + 1) * 100}ms');
+        debugPrint(
+            'LyricsWindowService: channel ready after ${(i + 1) * 100}ms');
         return;
       } catch (_) {
         // 子窗口还没注册，继续等
@@ -169,6 +170,7 @@ class LyricsWindowService {
   Future<void> syncLyrics({
     required ParsedLyrics? lyrics,
     required int currentLineIndex,
+    required int positionMs,
     required int offsetMs,
     required String? trackTitle,
     required String? trackArtist,
@@ -177,11 +179,13 @@ class LyricsWindowService {
     if (_controller == null || !_channelReady || _isHidden) return;
 
     try {
-      final lyricsData = lyrics?.lines.map((line) => {
-        'timestamp': line.timestamp.inMilliseconds,
-        'text': line.text,
-        'subText': line.subText,
-      }).toList();
+      final lyricsData = lyrics?.lines
+          .map((line) => {
+                'timestamp': line.timestamp.inMilliseconds,
+                'text': line.text,
+                'subText': line.subText,
+              })
+          .toList();
 
       await _channel.invokeMethod(
         'updateLyrics',
@@ -189,6 +193,7 @@ class LyricsWindowService {
           'lines': lyricsData,
           'isSynced': lyrics?.isSynced ?? false,
           'currentLineIndex': currentLineIndex,
+          'positionMs': positionMs,
           'offsetMs': offsetMs,
           'trackTitle': trackTitle,
           'trackArtist': trackArtist,
@@ -201,14 +206,20 @@ class LyricsWindowService {
     }
   }
 
-  /// 仅同步当前行索引（高频调用，轻量数据）
-  Future<void> syncPosition(int currentLineIndex) async {
+  /// 同步当前行索引与播放位置（高频调用，轻量数据）
+  Future<void> syncPosition({
+    required int currentLineIndex,
+    required int positionMs,
+  }) async {
     if (_controller == null || !_channelReady || _isHidden) return;
 
     try {
       await _channel.invokeMethod(
         'updatePosition',
-        jsonEncode({'currentLineIndex': currentLineIndex}),
+        jsonEncode({
+          'currentLineIndex': currentLineIndex,
+          'positionMs': positionMs,
+        }),
       );
     } catch (e) {
       debugPrint('LyricsWindowService: position sync error: $e');
@@ -326,19 +337,22 @@ class LyricsWindowService {
       await _channel.setMethodCallHandler((call) async {
         switch (call.method) {
           case 'seekTo':
-            final data = jsonDecode(call.arguments as String) as Map<String, dynamic>;
+            final data =
+                jsonDecode(call.arguments as String) as Map<String, dynamic>;
             final timestampMs = data['timestampMs'] as int;
             final offsetMs = data['offsetMs'] as int;
             onSeekTo?.call(timestampMs, offsetMs);
             return 'ok';
           case 'adjustOffset':
-            final data = jsonDecode(call.arguments as String) as Map<String, dynamic>;
+            final data =
+                jsonDecode(call.arguments as String) as Map<String, dynamic>;
             final trackUniqueKey = data['trackUniqueKey'] as String;
             final newOffsetMs = data['newOffsetMs'] as int;
             onAdjustOffset?.call(trackUniqueKey, newOffsetMs);
             return 'ok';
           case 'resetOffset':
-            final data = jsonDecode(call.arguments as String) as Map<String, dynamic>;
+            final data =
+                jsonDecode(call.arguments as String) as Map<String, dynamic>;
             final trackUniqueKey = data['trackUniqueKey'] as String;
             onResetOffset?.call(trackUniqueKey);
             return 'ok';
@@ -352,7 +366,8 @@ class LyricsWindowService {
             onPrevious?.call();
             return 'ok';
           case 'changeLyricsDisplayMode':
-            final data = jsonDecode(call.arguments as String) as Map<String, dynamic>;
+            final data =
+                jsonDecode(call.arguments as String) as Map<String, dynamic>;
             final modeIndex = data['modeIndex'] as int;
             onChangeLyricsDisplayMode?.call(modeIndex);
             return 'ok';
@@ -378,4 +393,3 @@ class LyricsWindowService {
     }
   }
 }
-

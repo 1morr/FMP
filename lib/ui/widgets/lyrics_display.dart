@@ -332,6 +332,12 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
                           subFontSize: fontSizes.sub,
                           colorScheme: colorScheme,
                           onTap: () => _seekToLyricsLine(line, offsetMs),
+                          onSecondaryTap: currentTrack != null
+                              ? () => _calibrateOffsetToLyricsLine(
+                                    line,
+                                    currentTrack.uniqueKey,
+                                  )
+                              : null,
                         ),
                       );
                     },
@@ -436,6 +442,17 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
     ref.read(audioControllerProvider.notifier).seekTo(targetPosition);
   }
 
+  Future<void> _calibrateOffsetToLyricsLine(
+    LyricsLine line,
+    String trackUniqueKey,
+  ) async {
+    final position = ref.read(audioControllerProvider).position;
+    final newOffsetMs = LrcParser.calculateOffsetForLine(line, position);
+    await ref
+        .read(lyricsSearchProvider.notifier)
+        .updateOffset(trackUniqueKey, newOffsetMs);
+  }
+
   /// 平滑滚动到指定行（居中对齐）
   void _scrollToLine(int index, {bool immediate = false}) {
     if (!_itemScrollController.isAttached) return;
@@ -478,6 +495,7 @@ class _LyricsLineWidget extends StatelessWidget {
   final double subFontSize;
   final ColorScheme colorScheme;
   final VoidCallback? onTap;
+  final VoidCallback? onSecondaryTap;
 
   const _LyricsLineWidget({
     super.key,
@@ -488,6 +506,7 @@ class _LyricsLineWidget extends StatelessWidget {
     required this.subFontSize,
     required this.colorScheme,
     this.onTap,
+    this.onSecondaryTap,
   });
 
   @override
@@ -511,6 +530,7 @@ class _LyricsLineWidget extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
+      onSecondaryTap: onSecondaryTap,
       behavior: HitTestBehavior.opaque,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
