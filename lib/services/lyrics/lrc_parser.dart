@@ -18,7 +18,8 @@ class LyricsLine {
       LyricsLine(timestamp: timestamp, text: text, subText: subText);
 
   @override
-  String toString() => 'LyricsLine(${timestamp.inMilliseconds}ms, "$text"${subText != null ? ', sub: "$subText"' : ''})';
+  String toString() =>
+      'LyricsLine(${timestamp.inMilliseconds}ms, "$text"${subText != null ? ', sub: "$subText"' : ''})';
 }
 
 /// LRC 格式解析结果
@@ -38,7 +39,8 @@ class ParsedLyrics {
   bool get isNotEmpty => lines.isNotEmpty;
 
   /// 是否有任何行包含附加文本
-  bool get hasSubText => lines.any((l) => l.subText != null && l.subText!.isNotEmpty);
+  bool get hasSubText =>
+      lines.any((l) => l.subText != null && l.subText!.isNotEmpty);
 }
 
 /// LRC 格式解析器
@@ -95,9 +97,8 @@ class LrcParser {
         final seconds = int.parse(match.group(2)!);
         final msStr = match.group(3)!;
         // 处理 2 位和 3 位毫秒
-        final milliseconds = msStr.length == 2
-            ? int.parse(msStr) * 10
-            : int.parse(msStr);
+        final milliseconds =
+            msStr.length == 2 ? int.parse(msStr) * 10 : int.parse(msStr);
 
         final timestamp = Duration(
           minutes: minutes,
@@ -132,7 +133,8 @@ class LrcParser {
   ///
   /// 通过时间戳匹配，将 [subLyricsText] 中的对应行作为 subText 附加到原文行上。
   /// 如果 [subLyricsText] 为空或无法解析，返回原始 [lyrics] 不变。
-  static ParsedLyrics mergeSubLyrics(ParsedLyrics lyrics, String? subLyricsText) {
+  static ParsedLyrics mergeSubLyrics(
+      ParsedLyrics lyrics, String? subLyricsText) {
     if (subLyricsText == null || subLyricsText.isEmpty) return lyrics;
     if (!lyrics.isSynced) return lyrics;
 
@@ -187,5 +189,13 @@ class LrcParser {
     }
 
     return result;
+  }
+
+  /// 计算让指定歌词行对齐当前播放位置所需的 offset。
+  ///
+  /// offset 公式：adjustedMs = position + offsetMs
+  /// 因此要让点击行成为当前行起点，offset = line.timestamp - position。
+  static int calculateOffsetForLine(LyricsLine line, Duration position) {
+    return line.timestamp.inMilliseconds - position.inMilliseconds;
   }
 }
