@@ -2,14 +2,30 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide visibleForTesting;
 import 'package:flutter/services.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
 import '../core/constants/ui_constants.dart';
 
+enum StoragePermissionStatus {
+  denied,
+  granted,
+  permanentlyDenied,
+}
+
+extension StoragePermissionStatusX on StoragePermissionStatus {
+  bool get isGranted => this == StoragePermissionStatus.granted;
+  bool get isDenied => this == StoragePermissionStatus.denied;
+  bool get isPermanentlyDenied =>
+      this == StoragePermissionStatus.permanentlyDenied;
+}
+
 /// 存储权限服务
 ///
-/// 处理 Android 11+ 的 MANAGE_EXTERNAL_STORAGE 权限
+/// 处理 Android 11+ 的 MANAGE_EXTERNAL_STORAGE 权限。
+///
+/// 权限通过应用自有 Android MethodChannel 实现，避免把 permission_handler
+/// 的 Windows 插件带入桌面构建。permission_handler_windows 会在插件注册时
+/// 订阅 Geolocator.PositionChanged，导致 Windows 显示应用正在使用位置。
 class StoragePermissionService {
   static const MethodChannel _platformChannel =
       MethodChannel('com.personal.fmp/platform');
@@ -24,13 +40,15 @@ class StoragePermissionService {
   static Future<bool> Function()? debugStorageGranted;
 
   @visibleForTesting
-  static Future<PermissionStatus> Function()? debugManageExternalStorageStatus;
+  static Future<StoragePermissionStatus> Function()?
+      debugManageExternalStorageStatus;
 
   @visibleForTesting
-  static Future<PermissionStatus> Function()? debugRequestManageExternalStorage;
+  static Future<StoragePermissionStatus> Function()?
+      debugRequestManageExternalStorage;
 
   @visibleForTesting
-  static Future<PermissionStatus> Function()? debugRequestStorage;
+  static Future<StoragePermissionStatus> Function()? debugRequestStorage;
 
   @visibleForTesting
   static bool? debugIsAndroidOverride;
@@ -118,31 +136,47 @@ class StoragePermissionService {
   static Future<bool> _isManageExternalStorageGranted() async {
     final debugGranted = debugManageExternalStorageGranted;
     if (debugGranted != null) return debugGranted();
-    return Permission.manageExternalStorage.isGranted;
+    return _invokeBool('isManageExternalStorageGranted');
   }
 
   static Future<bool> _isStorageGranted() async {
     final debugGranted = debugStorageGranted;
     if (debugGranted != null) return debugGranted();
-    return Permission.storage.isGranted;
+    return _invokeBool('isStorageGranted');
   }
 
-  static Future<PermissionStatus> _manageExternalStorageStatus() async {
+  static Future<StoragePermissionStatus> _manageExternalStorageStatus() async {
     final debugStatus = debugManageExternalStorageStatus;
     if (debugStatus != null) return debugStatus();
-    return Permission.manageExternalStorage.status;
+    return await _isManageExternalStorageGranted()
+        ? StoragePermissionStatus.granted
+        : StoragePermissionStatus.denied;
   }
 
-  static Future<PermissionStatus> _requestManageExternalStorage() async {
+  static Future<StoragePermissionStatus> _requestManageExternalStorage() async {
     final debugRequest = debugRequestManageExternalStorage;
     if (debugRequest != null) return debugRequest();
-    return Permission.manageExternalStorage.request();
+    return await _invokeBool('requestManageExternalStorage')
+        ? StoragePermissionStatus.granted
+        : StoragePermissionStatus.denied;
   }
 
-  static Future<PermissionStatus> _requestStorage() async {
+  static Future<StoragePermissionStatus> _requestStorage() async {
     final debugRequest = debugRequestStorage;
     if (debugRequest != null) return debugRequest();
-    return Permission.storage.request();
+    return await _invokeBool('requestStorage')
+        ? StoragePermissionStatus.granted
+        : StoragePermissionStatus.denied;
+  }
+
+  static Future<bool> _invokeBool(String method) async {
+    final result = await _platformChannel.invokeMethod<bool>(method);
+    return result ?? false;
+  }
+
+  static Future<void> _openAppSettings() async {
+    if (!_isAndroid) return;
+    await _platformChannel.invokeMethod<bool>('openAppSettings');
   }
 
   /// 显示权限解释对话框
@@ -238,7 +272,7 @@ class StoragePermissionService {
     );
 
     if (goToSettings == true) {
-      await openAppSettings();
+      await _openAppSettings();
     }
   }
 }
