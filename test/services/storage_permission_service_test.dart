@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/services/storage_permission_service.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 void main() {
   group('StoragePermissionService SDK branching', () {
@@ -58,7 +57,7 @@ void main() {
       StoragePermissionService.debugIsAndroidOverride = true;
       StoragePermissionService.debugAndroidSdkProvider = () async => 29;
       StoragePermissionService.debugRequestStorage =
-          () async => PermissionStatus.denied;
+          () async => StoragePermissionStatus.denied;
       StoragePermissionService.debugRequestManageExternalStorage = () async {
         throw StateError('manageExternalStorage should not be requested');
       };
@@ -96,15 +95,15 @@ void main() {
       StoragePermissionService.debugAndroidSdkProvider = () async => 30;
       StoragePermissionService.debugManageExternalStorageStatus = () async {
         manageStatusChecked = true;
-        return PermissionStatus.denied;
+        return StoragePermissionStatus.denied;
       };
       StoragePermissionService.debugRequestManageExternalStorage = () async {
         manageRequested = true;
-        return PermissionStatus.granted;
+        return StoragePermissionStatus.granted;
       };
       StoragePermissionService.debugRequestStorage = () async {
         storageRequested = true;
-        return PermissionStatus.denied;
+        return StoragePermissionStatus.denied;
       };
 
       await tester.pumpWidget(
