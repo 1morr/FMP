@@ -147,30 +147,48 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
   Future<void> setFormatPriority(List<AudioFormat> priority) async {
     if (_settings == null) return;
 
-    await _settingsRepository
-        .update((s) => s.audioFormatPriorityList = priority);
-    _settings!.audioFormatPriorityList = priority;
+    final previous = state.formatPriority;
     state = state.copyWith(formatPriority: priority);
+
+    try {
+      await _settingsRepository
+          .update((s) => s.audioFormatPriorityList = priority);
+      _settings!.audioFormatPriorityList = priority;
+    } catch (_) {
+      state = state.copyWith(formatPriority: previous);
+    }
   }
 
   /// 设置 YouTube 流优先级
   Future<void> setYoutubeStreamPriority(List<StreamType> priority) async {
     if (_settings == null) return;
 
-    await _settingsRepository
-        .update((s) => s.youtubeStreamPriorityList = priority);
-    _settings!.youtubeStreamPriorityList = priority;
+    final previous = state.youtubeStreamPriority;
     state = state.copyWith(youtubeStreamPriority: priority);
+
+    try {
+      await _settingsRepository
+          .update((s) => s.youtubeStreamPriorityList = priority);
+      _settings!.youtubeStreamPriorityList = priority;
+    } catch (_) {
+      state = state.copyWith(youtubeStreamPriority: previous);
+    }
   }
 
   /// 设置 Bilibili 流优先级
   Future<void> setBilibiliStreamPriority(List<StreamType> priority) async {
     if (_settings == null) return;
 
-    await _settingsRepository
-        .update((s) => s.bilibiliStreamPriorityList = priority);
-    _settings!.bilibiliStreamPriorityList = priority;
+    final previous = state.bilibiliStreamPriority;
     state = state.copyWith(bilibiliStreamPriority: priority);
+
+    try {
+      await _settingsRepository
+          .update((s) => s.bilibiliStreamPriorityList = priority);
+      _settings!.bilibiliStreamPriorityList = priority;
+    } catch (_) {
+      state = state.copyWith(bilibiliStreamPriority: previous);
+    }
   }
 
   /// 设置自动匹配歌词
