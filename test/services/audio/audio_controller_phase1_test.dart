@@ -280,6 +280,67 @@ void main() {
       await nextFuture;
     });
 
+    test('mobile notification exits loading when next-track stream fails',
+        () async {
+      final handler = FmpAudioHandler();
+      controller.dispose();
+
+      final settingsRepository = SettingsRepository(isar);
+      final trackRepository = TrackRepository(isar);
+      final queuePersistenceManager = QueuePersistenceManager(
+        queueRepository: queueRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+      );
+      final audioStreamManager = AudioStreamManager(
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: sourceManager,
+      );
+      queueManager = QueueManager(
+        queueRepository: queueRepository,
+        trackRepository: trackRepository,
+        queuePersistenceManager: queuePersistenceManager,
+      );
+      audioService = FakeAudioService();
+      controller = AudioController(
+        audioService: audioService,
+        queueManager: queueManager,
+        audioStreamManager: audioStreamManager,
+        toastService: ToastService(),
+        audioHandler: handler,
+        windowsSmtcHandler: WindowsSmtcHandler(),
+        settingsRepository: settingsRepository,
+        mixTracksFetcher: mixTracksFetcher.call,
+        runtimePlatform: AudioRuntimePlatform.mobile,
+      );
+      await controller.initialize();
+
+      await queueManager.playAll([
+        _track('notification-fail-first', title: 'Notification Fail First'),
+        _track('notification-fail-next', title: 'Notification Fail Next'),
+      ]);
+      await controller.playAt(0);
+      expect(handler.mediaItem.valueOrNull?.title, 'Notification Fail First');
+      await pumpEventQueue(times: 20);
+
+      sourceManager.throwGetAudioStreamOnce(
+        const YouTubeApiException(
+          code: 'rate_limited',
+          message: 'rate limited',
+        ),
+      );
+
+      await controller.next();
+      await pumpEventQueue(times: 10);
+
+      expect(handler.mediaItem.valueOrNull?.title, 'Notification Fail Next');
+      expect(
+        handler.playbackState.value.processingState,
+        isNot(AudioProcessingState.loading),
+      );
+    });
+
     test('superseded request stays loading until the latest request finishes',
         () async {
       final firstTrack = _track('first', title: 'First Track');

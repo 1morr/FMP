@@ -1761,6 +1761,14 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     );
   }
 
+  void _publishMobileAudioHandlerCurrentPlaybackState() {
+    _publishMobileAudioHandlerPlaybackState(
+      isPlaying: _audioService.isPlaying,
+      position: _audioService.position,
+      processingState: _audioService.processingState,
+    );
+  }
+
   /// 退出加載狀態
   /// [requestId] - 當前請求的 ID，用於驗證是否應該退出
   /// [trackWithUrl] - 成功獲取 URL 後的歌曲（用於更新 playingTrack）
@@ -1800,11 +1808,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     }
     state = state.copyWith(isLoading: false);
     _context = _context.copyWith(activeRequestId: 0);
+    _publishMobileAudioHandlerCurrentPlaybackState();
   }
 
   void _resetSourceErrorLoadingState(int requestId) {
     if (_isDisposed || requestId != _playRequestId) return;
     _context = _context.copyWith(activeRequestId: 0);
+    _publishMobileAudioHandlerCurrentPlaybackState();
   }
 
   /// 檢查當前請求是否已被新請求取代
