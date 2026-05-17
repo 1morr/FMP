@@ -202,6 +202,18 @@ class _LockWithId {
 /// 音频控制器 - 管理所有播放相关的状态和操作
 /// 协调 AudioService（单曲播放）和 QueueManager（队列管理）
 class AudioController extends StateNotifier<PlayerState> with Logging {
+  static const _syntheticSourceDiagnostics = <String>{
+    'VIP song, payment required',
+    'No playback rights due to copyright or region restrictions',
+    'Login required',
+    'Playback permission denied',
+    'No stream URL available',
+    'Video unavailable',
+    'Access forbidden (HTTP 403)',
+    'Resource not found (HTTP 404)',
+    'Service temporarily unavailable (HTTP 503)',
+  };
+
   final FmpAudioService _audioService;
   final QueueManager _queueManager;
   final AudioStreamManager _audioStreamManager;
@@ -678,10 +690,11 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // 音源 API 错误：尝试恢复原队列
       logWarning(
           '${e.sourceType.name} API error for temporary track ${track.title}: ${e.message}');
-      if (e.isUnavailable || e.isGeoRestricted) {
-        _toastService.showWarning(t.audio.cannotPlay(title: track.title));
+      if (_shouldSkipSourceError(e)) {
+        _toastService.showWarning(_sourceCannotPlayMessage(track, e));
       } else {
-        _toastService.showError(t.audio.playbackFailed(message: e.message));
+        _toastService
+            .showError(t.audio.playbackFailed(message: _sourceErrorReason(e)));
       }
       if (_context.hasSavedState) {
         await _restoreSavedState();
@@ -1986,13 +1999,15 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 處理音源 API 錯誤的統一邏輯
   Future<void> _handleSourceError(
       Track track, SourceApiException e, PlayMode mode, int requestId) async {
+    final cannotPlayMessage = _sourceCannotPlayMessage(track, e);
     if (_shouldSkipSourceError(e)) {
       logInfo('Track unavailable (${e.sourceType.name}): ${track.title}');
       final nextIdx = _queueManager.getNextIndex();
       if (nextIdx != null && mode == PlayMode.queue) {
         _resetLoadingState(requestId: requestId);
-        _toastService
-            .showWarning(t.audio.cannotPlaySkipped(title: track.title));
+        _toastService.showWarning(
+          _sourceCannotPlayMessage(track, e, skipped: true),
+        );
         Future.delayed(const Duration(milliseconds: 300), () {
           if (!_isSuperseded(requestId)) {
             next();
@@ -2007,12 +2022,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         }
         if (_isSuperseded(requestId)) return;
         state = state.copyWith(
-          error: t.audio.playbackFailed(message: e.message),
+          error: cannotPlayMessage,
           isLoading: false,
           queueTrack: _queueManager.currentTrack,
         );
         _resetSourceErrorLoadingState(requestId);
-        _toastService.showError(t.audio.cannotPlay(title: track.title));
+        _toastService.showError(cannotPlayMessage);
       }
     } else if (e.kind == SourceErrorKind.rateLimited) {
       logWarning('Rate limited (${e.sourceType.name}): ${track.title}');
@@ -2023,15 +2038,53 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       _resetLoadingState(requestId: requestId);
       _toastService.showWarning(e.message);
     } else {
+      final message = t.audio.playbackFailed(message: _sourceErrorReason(e));
       state = state.copyWith(
-        error: t.audio.playbackFailed(message: e.message),
+        error: message,
         isLoading: false,
       );
       _resetSourceErrorLoadingState(requestId);
+      _toastService.showError(message);
     }
   }
 
   // ========== 网络重试逻辑 ========== //
+
+  String _sourceCannotPlayMessage(
+    Track track,
+    SourceApiException error, {
+    bool skipped = false,
+  }) {
+    final reason = _sourceErrorReason(error);
+    return skipped
+        ? t.audio.cannotPlaySkippedReason(title: track.title, reason: reason)
+        : t.audio.cannotPlayReason(title: track.title, reason: reason);
+  }
+
+  String _sourceErrorReason(SourceApiException error) {
+    final diagnostic = _sourceDiagnosticOrNull(error);
+    if (diagnostic != null) return diagnostic;
+
+    return switch (error.kind) {
+      SourceErrorKind.unavailable => t.audio.sourceErrorUnavailable,
+      SourceErrorKind.geoRestricted => t.audio.sourceErrorGeoRestricted,
+      SourceErrorKind.vipRequired => t.audio.sourceErrorVipRequired,
+      SourceErrorKind.loginRequired => t.audio.sourceErrorLoginRequired,
+      SourceErrorKind.permissionDenied => t.audio.sourceErrorPermissionDenied,
+      SourceErrorKind.network => t.audio.sourceErrorNetwork,
+      SourceErrorKind.timeout => t.audio.sourceErrorTimeout,
+      SourceErrorKind.rateLimited => error.message,
+      SourceErrorKind.unknown =>
+        error.message.trim().isNotEmpty ? error.message : t.error.unknownError,
+    };
+  }
+
+  String? _sourceDiagnosticOrNull(SourceApiException error) {
+    final message = error.message.trim();
+    if (message.isEmpty) return null;
+    if (_syntheticSourceDiagnostics.contains(message)) return null;
+    return message;
+  }
 
   bool _shouldRetrySourceError(SourceApiException error) =>
       error.kind.isRetryable;

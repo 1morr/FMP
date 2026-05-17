@@ -1,10 +1,19 @@
 {
   "cannotPlay": "无法播放「$title」",
+  "cannotPlayReason": "无法播放「$title」：$reason",
   "playbackFailed": "播放失败: $message",
   "queueFull": "播放列表已满（最多${count}首）",
   "playbackFailedTrack": "播放失败: $title",
   "mixPlaylistNoAdd": "Mix 播放列表不支持添加歌曲",
   "mixLoadMoreFailed": "无法获取更多歌曲，请稍后重试",
   "mixLoadMoreError": "加载更多歌曲失败",
-  "cannotPlaySkipped": "无法播放「$title」，已跳过"
+  "cannotPlaySkipped": "无法播放「$title」，已跳过",
+  "cannotPlaySkippedReason": "无法播放「$title」：$reason，已跳过",
+  "sourceErrorUnavailable": "歌曲已下架或暂不可播放",
+  "sourceErrorGeoRestricted": "受版权或地区限制",
+  "sourceErrorVipRequired": "需要 VIP 或付费播放权限",
+  "sourceErrorLoginRequired": "需要登录后播放",
+  "sourceErrorPermissionDenied": "没有播放权限",
+  "sourceErrorNetwork": "网络连接异常",
+  "sourceErrorTimeout": "连接超时"
 }

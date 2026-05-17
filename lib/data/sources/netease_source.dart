@@ -148,13 +148,7 @@ class NeteaseSource extends BaseSource with Logging {
       final freeTrialInfo = streamInfo['freeTrialInfo'];
 
       if (url == null || url.isEmpty) {
-        final fee = streamInfo['fee'] as int?;
-        if (fee == 1 || fee == 4) {
-          throw const NeteaseApiException(
-              numericCode: -10, message: 'VIP song, payment required');
-        }
-        throw const NeteaseApiException(
-            numericCode: -200, message: 'No stream URL available');
+        throw _classifyStreamUnavailable(streamInfo);
       }
 
       final isTrial = freeTrialInfo != null;
@@ -742,6 +736,123 @@ class NeteaseSource extends BaseSource with Logging {
       logWarning('Netease API error: code=$code, message=$message');
       throw NeteaseApiException(numericCode: code, message: message);
     }
+  }
+
+  NeteaseApiException _classifyStreamUnavailable(
+    Map<String, dynamic> streamInfo,
+  ) {
+    final fee = _asInt(streamInfo['fee']);
+    final itemCode = _asInt(streamInfo['code']);
+    final flag = _asInt(streamInfo['flag']);
+    final message = _streamErrorMessage(streamInfo);
+
+    if (_isVipRequiredStreamError(fee: fee, flag: flag, message: message)) {
+      return NeteaseApiException(
+        numericCode: -10,
+        message: message ?? 'VIP song, payment required',
+      );
+    }
+
+    if (_isCopyrightOrRegionStreamError(
+      code: itemCode,
+      flag: flag,
+      message: message,
+    )) {
+      return NeteaseApiException(
+        numericCode: -110,
+        message: message ??
+            'No playback rights due to copyright or region restrictions',
+      );
+    }
+
+    if (itemCode == 301) {
+      return NeteaseApiException(
+        numericCode: 301,
+        message: message ?? 'Login required',
+      );
+    }
+    if (itemCode == 403) {
+      return NeteaseApiException(
+        numericCode: 403,
+        message: message ?? 'Playback permission denied',
+      );
+    }
+    if (itemCode == 404) {
+      return NeteaseApiException(
+        numericCode: 404,
+        message: message ?? 'No stream URL available',
+      );
+    }
+    if (itemCode != null && itemCode != 0 && itemCode != 200) {
+      return NeteaseApiException(
+        numericCode: itemCode,
+        message: message ?? 'No stream URL available',
+      );
+    }
+
+    return NeteaseApiException(
+      numericCode: -200,
+      message: message ?? 'No stream URL available',
+    );
+  }
+
+  int? _asInt(Object? value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  String? _streamErrorMessage(Map<String, dynamic> streamInfo) {
+    for (final key in const ['message', 'msg', 'errmsg', 'error']) {
+      final value = streamInfo[key];
+      if (value is String && value.trim().isNotEmpty) {
+        return value.trim();
+      }
+    }
+    return null;
+  }
+
+  bool _isVipRequiredStreamError({
+    required int? fee,
+    required int? flag,
+    required String? message,
+  }) {
+    if (fee == 1 || fee == 4) return true;
+    if (flag != null && (flag & 4) != 0) return true;
+    final normalized = message?.toLowerCase();
+    if (normalized == null) return false;
+    return normalized.contains('vip') ||
+        normalized.contains('svip') ||
+        normalized.contains('会员') ||
+        normalized.contains('會員') ||
+        normalized.contains('付费') ||
+        normalized.contains('付費') ||
+        normalized.contains('购买') ||
+        normalized.contains('購買') ||
+        normalized.contains('payment') ||
+        normalized.contains('paid') ||
+        normalized.contains('purchase');
+  }
+
+  bool _isCopyrightOrRegionStreamError({
+    required int? code,
+    required int? flag,
+    required String? message,
+  }) {
+    if (code == -110) return true;
+    if (flag != null && (flag & 256) != 0) return true;
+    final normalized = message?.toLowerCase();
+    if (normalized == null) return false;
+    return normalized.contains('版权') ||
+        normalized.contains('版權') ||
+        normalized.contains('地区') ||
+        normalized.contains('地區') ||
+        normalized.contains('region') ||
+        normalized.contains('regional') ||
+        normalized.contains('copyright') ||
+        normalized.contains('country') ||
+        normalized.contains('area');
   }
 
   NeteaseApiException _handleDioError(DioException e) {
