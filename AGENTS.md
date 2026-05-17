@@ -311,6 +311,13 @@ class _PlaybackContext {
 2. Check `_isSuperseded(requestId)` after each `await`
 3. Abort if superseded
 
+### Playback Network Error Recovery
+`AudioController` owns recovery for `AudioService.errorStream` playback failures.
+
+- Runtime network errors from backends, including media_kit `tcp:` / `ffurl_read` errors, must retry or refetch the current track URL from the saved position, not advance the queue.
+- `completedStream` is not always a natural song completion: media_kit can emit `completed` around stream read failures or network transitions such as VPN changes. Ignore completion while loading/retrying/network-error state; if completion arrives while the current position is not close to duration, schedule retry for the current track from the saved position.
+- Only source availability failures marked with `SourceErrorKind.shouldSkipTrack` should auto-skip to the next queue item.
+
 ### Radio Return and Ownership
 Distinguishes **retained radio context** vs **active radio ownership of shared player**:
 - `hasCurrentStation` = retaining radio context

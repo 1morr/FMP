@@ -111,6 +111,10 @@ class FakeAudioService implements FmpAudioService {
     _position = position;
   }
 
+  void setDurationValue(Duration? duration) {
+    _duration = duration;
+  }
+
   void setPlayingValue(bool isPlaying) {
     _isPlaying = isPlaying;
   }

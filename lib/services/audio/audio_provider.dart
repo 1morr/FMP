@@ -2002,6 +2002,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   bool _isStringNetworkError(Object error) {
     final errorStr = error.toString().toLowerCase();
     return errorStr.contains('socket') ||
+        errorStr.contains('tcp:') ||
+        errorStr.contains('ffurl_read') ||
         errorStr.contains('connection') ||
         errorStr.contains('network') ||
         errorStr.contains('timeout') ||
@@ -2566,6 +2568,43 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     });
   }
 
+  bool _shouldHandleTrackCompleted() {
+    if (_context.isInLoadingState || state.isRetrying || state.isNetworkError) {
+      logDebug('Track completion ignored during loading/retry state');
+      return false;
+    }
+
+    final duration = _audioService.duration;
+    if (duration == null || duration.inMilliseconds <= 0) {
+      return true;
+    }
+
+    final position = _audioService.position;
+    final remaining = duration - position;
+    final completionTolerance = AppConstants.positionCheckInterval +
+        AppConstants.positionCheckThreshold;
+    if (remaining > completionTolerance) {
+      logWarning(
+          'Track completion occurred before natural end; scheduling retry: position=$position, duration=$duration, remaining=$remaining');
+      _recoverFromPrematureCompletion(position);
+      return false;
+    }
+
+    return true;
+  }
+
+  void _recoverFromPrematureCompletion(Duration position) {
+    final track = state.playingTrack ?? state.currentTrack;
+    if (track == null) {
+      logDebug('Premature completion ignored: no current track to recover');
+      return;
+    }
+
+    state = state.copyWith(isLoading: false, isPlaying: false);
+    _resetLoadingState();
+    _scheduleRetry(track, position);
+  }
+
   void _onDurationChanged(Duration? duration) {
     if (_isDisposed) return;
     if (isRadioPlaying?.call() == true) return;
@@ -2605,6 +2644,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       logDebug('Track completed ignored: radio is playing');
       return;
     }
+
+    if (!_shouldHandleTrackCompleted()) return;
 
     _isHandlingCompletion = true;
 
