@@ -433,29 +433,49 @@ class YouTubeSource extends BaseSource with Logging {
   }
 
   /// 尝试获取 HLS 流
+  /// 依次尝试 safari 和 ios 客户端（两者都可能提供 HLS）
   Future<AudioStreamResult?> _tryGetHlsStream(
     String videoId,
     AudioStreamConfig config,
   ) async {
-    try {
-      final manifest = await _youtube.videos.streams.getManifest(
-        videoId,
-        ytClients: [yt.YoutubeApiClient.safari],
-      );
+    // 尝试多个客户端以获取 HLS 流
+    final clientSets = [
+      [yt.YoutubeApiClient.safari],
+      [yt.YoutubeApiClient.ios],
+      [yt.YoutubeApiClient.safari, yt.YoutubeApiClient.ios],
+    ];
 
-      if (manifest.hls.isEmpty) return null;
+    for (final ytClients in clientSets) {
+      try {
+        final manifest = await _youtube.videos.streams.getManifest(
+          videoId,
+          ytClients: ytClients,
+        );
 
-      final hlsStream = manifest.hls.first;
-      logDebug('Got HLS stream for $videoId');
-      return AudioStreamResult(
-        url: hlsStream.url.toString(),
-        bitrate: null, // HLS 不提供准确码率
-        container: 'm3u8',
-        codec: null,
-        streamType: StreamType.hls,
-      );
-    } catch (e) {
-      logDebug('HLS stream failed for $videoId: $e');
+        if (manifest.hls.isEmpty) continue;
+
+        // 遍歷所有 HLS 流，找第一個有效的 URL
+        for (final hlsStream in manifest.hls) {
+          try {
+            final url = hlsStream.url.toString();
+            if (url.isNotEmpty && url.startsWith('http')) {
+              logDebug('Got HLS stream for $videoId (client set ${ytClients.length})');
+              return AudioStreamResult(
+                url: url,
+                bitrate: null,
+                container: 'm3u8',
+                codec: null,
+                streamType: StreamType.hls,
+              );
+            }
+          } catch (_) {
+            // url 可能是 null（youtube_explode_dart 的已知問題）
+            continue;
+          }
+        }
+      } catch (e) {
+        logDebug('HLS stream via client set failed for $videoId: $e');
+      }
     }
     return null;
   }
@@ -639,29 +659,43 @@ class YouTubeSource extends BaseSource with Logging {
     AudioStreamConfig config,
     String? failedUrl,
   ) async {
-    try {
-      final manifest = await _youtube.videos.streams.getManifest(
-        videoId,
-        ytClients: [yt.YoutubeApiClient.safari],
-      );
+    // 尝试多个客户端
+    final clientSets = [
+      [yt.YoutubeApiClient.safari],
+      [yt.YoutubeApiClient.ios],
+      [yt.YoutubeApiClient.safari, yt.YoutubeApiClient.ios],
+    ];
 
-      if (manifest.hls.isEmpty) return null;
+    for (final ytClients in clientSets) {
+      try {
+        final manifest = await _youtube.videos.streams.getManifest(
+          videoId,
+          ytClients: ytClients,
+        );
 
-      for (final hlsStream in manifest.hls) {
-        final url = hlsStream.url.toString();
-        if (url != failedUrl) {
-          logDebug('Got alternative HLS stream for $videoId');
-          return AudioStreamResult(
-            url: url,
-            bitrate: null,
-            container: 'm3u8',
-            codec: null,
-            streamType: StreamType.hls,
-          );
+        if (manifest.hls.isEmpty) continue;
+
+        for (final hlsStream in manifest.hls) {
+          try {
+            final url = hlsStream.url.toString();
+            if (url.isNotEmpty && url.startsWith('http') && url != failedUrl) {
+              logDebug('Got alternative HLS stream for $videoId (client set ${ytClients.length})');
+              return AudioStreamResult(
+                url: url,
+                bitrate: null,
+                container: 'm3u8',
+                codec: null,
+                streamType: StreamType.hls,
+              );
+            }
+          } catch (_) {
+            // url 可能是 null（youtube_explode_dart 的已知問題）
+            continue;
+          }
         }
+      } catch (e) {
+        logDebug('Alternative HLS stream via client set failed for $videoId: $e');
       }
-    } catch (e) {
-      logDebug('Alternative HLS stream failed for $videoId: $e');
     }
     return null;
   }
