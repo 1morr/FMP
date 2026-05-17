@@ -40,15 +40,25 @@ void main() {
     fail('Could not find matching $close after $anchor');
   }
 
-  String isarOpenSchemaList(String provider) {
+  String openedIsarSchemaList(String provider) {
+    final sharedSchemaList = RegExp(
+      r'Isar\.open\(\s*([A-Za-z0-9_]+)',
+      multiLine: true,
+    ).firstMatch(provider)?.group(1);
+
+    if (sharedSchemaList != null) {
+      return bracketedBlockAfter(provider, '$sharedSchemaList =', '[', ']');
+    }
+
     return bracketedBlockAfter(provider, 'Isar.open(', '[', ']');
   }
 
   test('database viewer lists every opened Isar collection', () {
     final provider = read(databaseProviderPath);
     final viewer = read(viewerPath);
-    final schemaList = isarOpenSchemaList(provider);
-    final collectionsBlock = bracketedBlockAfter(viewer, '_collections =', '[', ']');
+    final schemaList = openedIsarSchemaList(provider);
+    final collectionsBlock =
+        bracketedBlockAfter(viewer, '_collections =', '[', ']');
     final switchBlock = bracketedBlockAfter(
       viewer,
       'Widget _buildCollectionData(Isar isar)',
@@ -154,7 +164,8 @@ void main() {
     };
 
     for (final token in expectedTokens) {
-      expect(viewer, contains("'$token'"), reason: '$token is not displayed by the database viewer');
+      expect(viewer, contains("'$token'"),
+          reason: '$token is not displayed by the database viewer');
     }
   });
 }

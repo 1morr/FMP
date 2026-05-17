@@ -160,6 +160,8 @@ Isar uses type default values for new fields on upgrade: `int` â†’ `0`, `bool` â
 
 **Migration function:** `_migrateDatabase()` in `lib/providers/database_provider.dart`
 
+**Database storage path:** Runtime Isar files live under the app documents directory's `FMP/` child folder, opened through `openFmpDatabase()` in `lib/providers/database_provider.dart`. Do not open `fmp_database` directly from `getApplicationDocumentsDirectory()` elsewhere; use the shared helper so startup preload, `databaseProvider`, developer tools, and legacy root-level file migration stay in sync.
+
 **When adding a new field:**
 1. Modify the model in `lib/data/models/`
 2. Decide whether migration is needed. If Isar default != business default, add repair logic in `_migrateDatabase()`
