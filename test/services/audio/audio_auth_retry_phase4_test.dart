@@ -163,6 +163,53 @@ void main() {
       expect(controller.state.error, isNull);
     });
 
+    test('mid-track network error completion event does not advance queue',
+        () async {
+      final firstTrack = _track('network-error-current');
+      final secondTrack = _track('network-error-next');
+
+      await controller.playAll([firstTrack, secondTrack]);
+      await pumpEventQueue(times: 10);
+
+      audioService.playUrlCalls.clear();
+      audioService.setDurationValue(const Duration(minutes: 4));
+      audioService.emitPosition(const Duration(minutes: 1));
+
+      audioService.emitCompleted();
+      audioService.emitError('tcp: ffurl_read returned 0xffffd8ba');
+      await pumpEventQueue(times: 20);
+
+      expect(controller.state.currentTrack?.sourceId, 'network-error-current');
+      expect(controller.state.playingTrack?.sourceId, 'network-error-current');
+      expect(controller.state.isRetrying, isTrue);
+      expect(controller.state.isNetworkError, isTrue);
+      expect(audioService.playUrlCalls, isEmpty);
+    });
+
+    test('premature completion without error schedules current-track retry',
+        () async {
+      final firstTrack = _track('premature-complete-current');
+      final secondTrack = _track('premature-complete-next');
+
+      await controller.playAll([firstTrack, secondTrack]);
+      await pumpEventQueue(times: 10);
+
+      audioService.playUrlCalls.clear();
+      audioService.setDurationValue(const Duration(minutes: 5));
+      audioService.emitPosition(const Duration(minutes: 4));
+
+      audioService.emitCompleted();
+      await pumpEventQueue(times: 20);
+
+      expect(controller.state.currentTrack?.sourceId,
+          'premature-complete-current');
+      expect(controller.state.playingTrack?.sourceId,
+          'premature-complete-current');
+      expect(controller.state.isRetrying, isTrue);
+      expect(controller.state.isNetworkError, isTrue);
+      expect(audioService.playUrlCalls, isEmpty);
+    });
+
     test(
         'network recovery does not restart old track after switch during stabilization',
         () async {
