@@ -86,8 +86,9 @@ UI (player_page, mini_player)
 **Platform-split backend:**
 - **Android**: `JustAudioService` (ExoPlayer via `just_audio`, ~10-15MB lighter)
 - **Desktop (Windows; Linux if enabled later)**: `MediaKitAudioService` (libmpv via `media_kit`, supports device switching)
-- `audioServiceProvider` selects implementation based on `Platform.isAndroid`
+- `audioServiceProvider` selects implementation through `audioRuntimePlatformProvider`
 - `MediaKit.ensureInitialized()` only called on desktop platforms
+- Mobile notification state is owned by `AudioController`/`FmpAudioHandler`: during controller-owned load phases such as queue next/previous URL resolution, backend `idle` events from `AudioService.stop()` must not overwrite the notification's `loading` `PlaybackState` or clear the next track media item.
 
 **Custom types** (`audio_types.dart`):
 - `FmpAudioProcessingState`, `FmpPlayerState`, `FmpAudioDevice`
