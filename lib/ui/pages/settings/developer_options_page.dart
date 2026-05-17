@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar/isar.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 import '../../../data/models/playlist.dart';
 import '../../../data/models/track.dart';
@@ -136,8 +136,8 @@ class _DatabaseInfoTile extends ConsumerWidget {
   }
 
   Future<_DatabaseInfo> _getDatabaseInfo(Isar isar) async {
-    final dir = await getApplicationDocumentsDirectory();
-    final dbPath = '${dir.path}/fmp_database.isar';
+    final dir = await resolveFmpDatabaseDirectory();
+    final dbPath = p.join(dir.path, fmpDatabaseFileName);
     final file = File(dbPath);
     final size = await file.exists() ? await file.length() : 0;
 

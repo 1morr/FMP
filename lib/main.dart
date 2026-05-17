@@ -10,24 +10,12 @@ import 'package:media_kit/media_kit.dart';
 import 'package:smtc_windows/smtc_windows.dart';
 import 'package:window_manager/window_manager.dart';
 
-import 'package:isar/isar.dart';
-import 'package:path_provider/path_provider.dart';
-
 import 'app.dart';
 import 'core/constants/app_constants.dart';
 import 'core/logger.dart';
-import 'data/models/track.dart';
-import 'data/models/playlist.dart';
-import 'data/models/play_queue.dart';
 import 'data/models/settings.dart';
-import 'data/models/search_history.dart';
-import 'data/models/download_task.dart';
-import 'data/models/play_history.dart';
-import 'data/models/radio_station.dart';
-import 'data/models/lyrics_match.dart';
-import 'data/models/lyrics_title_parse_cache.dart';
-import 'data/models/account.dart';
 import 'i18n/strings.g.dart';
+import 'providers/database_provider.dart';
 import 'services/audio/audio_handler.dart';
 import 'services/audio/windows_smtc_handler.dart';
 import 'services/radio/radio_refresh_service.dart';
@@ -87,80 +75,81 @@ void main(List<String> args) async {
     // 预读主题设置，避免启动时主题闪烁（白→黑→白）
     await _preloadThemeSettings();
 
-  // 限制 Flutter 图片内存缓存大小，减少内存占用
-  // 默认值：maximumSize = 1000, maximumSizeBytes = 100 MB
-  // 配合 ThumbnailUrlUtils 缩略图优化（200×200 ≈ 160KB decoded），适当增大缓存
-  // 避免首页 50+ 张缩略图导致缓存抖动（频繁驱逐→重新解码→CPU 浪费）
-  if (Platform.isAndroid || Platform.isIOS) {
-    // 移动端：100 张 / 50 MB（首页+探索页同时可见 ~50 张缩略图）
-    PaintingBinding.instance.imageCache.maximumSize = 100;
-    PaintingBinding.instance.imageCache.maximumSizeBytes = 50 * 1024 * 1024;
-  } else {
-    // 桌面端：200 张 / 80 MB（三栏布局同时可见更多图片）
-    PaintingBinding.instance.imageCache.maximumSize = 200;
-    PaintingBinding.instance.imageCache.maximumSizeBytes = 80 * 1024 * 1024;
-  }
+    // 限制 Flutter 图片内存缓存大小，减少内存占用
+    // 默认值：maximumSize = 1000, maximumSizeBytes = 100 MB
+    // 配合 ThumbnailUrlUtils 缩略图优化（200×200 ≈ 160KB decoded），适当增大缓存
+    // 避免首页 50+ 张缩略图导致缓存抖动（频繁驱逐→重新解码→CPU 浪费）
+    if (Platform.isAndroid || Platform.isIOS) {
+      // 移动端：100 张 / 50 MB（首页+探索页同时可见 ~50 张缩略图）
+      PaintingBinding.instance.imageCache.maximumSize = 100;
+      PaintingBinding.instance.imageCache.maximumSizeBytes = 50 * 1024 * 1024;
+    } else {
+      // 桌面端：200 张 / 80 MB（三栏布局同时可见更多图片）
+      PaintingBinding.instance.imageCache.maximumSize = 200;
+      PaintingBinding.instance.imageCache.maximumSizeBytes = 80 * 1024 * 1024;
+    }
 
-  // Android/iOS 后台播放初始化（使用 audio_service 替代 just_audio_background）
-  if (Platform.isAndroid || Platform.isIOS) {
-    audioHandler = await AudioService.init(
-      builder: () => FmpAudioHandler(),
-      config: AudioServiceConfig(
-        androidNotificationChannelId: 'com.personal.fmp.channel.audio',
-        androidNotificationChannelName: t.notification.channelName,
-        androidNotificationChannelDescription: t.notification.channelDescription,
-        androidNotificationOngoing: true,
-        androidShowNotificationBadge: true,
-        androidStopForegroundOnPause: true,
-        fastForwardInterval: const Duration(seconds: 10),
-        rewindInterval: const Duration(seconds: 10),
+    // Android/iOS 后台播放初始化（使用 audio_service 替代 just_audio_background）
+    if (Platform.isAndroid || Platform.isIOS) {
+      audioHandler = await AudioService.init(
+        builder: () => FmpAudioHandler(),
+        config: AudioServiceConfig(
+          androidNotificationChannelId: 'com.personal.fmp.channel.audio',
+          androidNotificationChannelName: t.notification.channelName,
+          androidNotificationChannelDescription:
+              t.notification.channelDescription,
+          androidNotificationOngoing: true,
+          androidShowNotificationBadge: true,
+          androidStopForegroundOnPause: true,
+          fastForwardInterval: const Duration(seconds: 10),
+          rewindInterval: const Duration(seconds: 10),
+        ),
+      );
+    } else {
+      // 桌面平台不需要后台播放服务，但为了代码一致性创建一个 dummy handler
+      audioHandler = FmpAudioHandler();
+    }
+
+    // 初始化 media_kit（仅桌面平台需要，Android 使用 just_audio）
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      MediaKit.ensureInitialized();
+    }
+
+    // Windows 平台初始化（并行化 SMTC 和窗口管理器以优化启动时间）
+    if (Platform.isWindows) {
+      // 并行初始化 SMTC 和 WindowManager
+      await Future.wait([
+        _initializeSmtc(),
+        _initializeWindowManager(),
+      ]);
+      // 清理旧更新文件（fire-and-forget，不阻塞启动）
+      UpdateService.cleanupOldWindowsUpdateFiles();
+    } else if (Platform.isLinux || Platform.isMacOS) {
+      // 非 Windows 桌面平台只初始化窗口管理器
+      windowsSmtcHandler = WindowsSmtcHandler();
+      await _initializeWindowManager();
+    } else {
+      // 移动平台不需要窗口管理
+      windowsSmtcHandler = WindowsSmtcHandler();
+    }
+
+    // 延迟初始化后台服务，避免阻塞首帧渲染
+    // 首頁排行榜和電台刷新在第一帧渲染后启动，用户感知不到延迟
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // 初始化電台刷新服務（後台加載）
+      RadioRefreshService.instance = RadioRefreshService();
+    });
+
+    // 初始化 i18n（先使用设备语言，后续由 LocaleProvider 加载用户设置覆盖）
+    LocaleSettings.useDeviceLocale();
+
+    runApp(
+      ProviderScope(
+        child: TranslationProvider(
+          child: const FMPApp(),
+        ),
       ),
     );
-  } else {
-    // 桌面平台不需要后台播放服务，但为了代码一致性创建一个 dummy handler
-    audioHandler = FmpAudioHandler();
-  }
-
-  // 初始化 media_kit（仅桌面平台需要，Android 使用 just_audio）
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    MediaKit.ensureInitialized();
-  }
-
-  // Windows 平台初始化（并行化 SMTC 和窗口管理器以优化启动时间）
-  if (Platform.isWindows) {
-    // 并行初始化 SMTC 和 WindowManager
-    await Future.wait([
-      _initializeSmtc(),
-      _initializeWindowManager(),
-    ]);
-    // 清理旧更新文件（fire-and-forget，不阻塞启动）
-    UpdateService.cleanupOldWindowsUpdateFiles();
-  } else if (Platform.isLinux || Platform.isMacOS) {
-    // 非 Windows 桌面平台只初始化窗口管理器
-    windowsSmtcHandler = WindowsSmtcHandler();
-    await _initializeWindowManager();
-  } else {
-    // 移动平台不需要窗口管理
-    windowsSmtcHandler = WindowsSmtcHandler();
-  }
-
-  // 延迟初始化后台服务，避免阻塞首帧渲染
-  // 首頁排行榜和電台刷新在第一帧渲染后启动，用户感知不到延迟
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    // 初始化電台刷新服務（後台加載）
-    RadioRefreshService.instance = RadioRefreshService();
-  });
-
-  // 初始化 i18n（先使用设备语言，后续由 LocaleProvider 加载用户设置覆盖）
-  LocaleSettings.useDeviceLocale();
-
-  runApp(
-    ProviderScope(
-      child: TranslationProvider(
-        child: const FMPApp(),
-      ),
-    ),
-  );
   }, (error, stackTrace) {
     AppLogger.error('Uncaught async error', error, stackTrace, 'Zone');
   });
@@ -178,8 +167,10 @@ Future<void> _initializeWindowManager() async {
   await windowManager.ensureInitialized();
 
   const windowOptions = WindowOptions(
-    minimumSize: Size(AppConstants.minimumWindowWidth, AppConstants.minimumWindowHeight),
-    size: Size(AppConstants.defaultWindowWidth, AppConstants.defaultWindowHeight),
+    minimumSize:
+        Size(AppConstants.minimumWindowWidth, AppConstants.minimumWindowHeight),
+    size:
+        Size(AppConstants.defaultWindowWidth, AppConstants.defaultWindowHeight),
     center: true,
     backgroundColor: Colors.transparent,
     skipTaskbar: false,
@@ -204,29 +195,7 @@ Future<void> _initializeWindowManager() async {
 /// 提前打开 Isar 读取 Settings，databaseProvider 后续 open 同名数据库会复用此实例。
 Future<void> _preloadThemeSettings() async {
   try {
-    final dir = await getApplicationDocumentsDirectory();
-    final isar = await Isar.open(
-      [
-        TrackSchema,
-        PlaylistSchema,
-        PlayQueueSchema,
-        SettingsSchema,
-        SearchHistorySchema,
-        DownloadTaskSchema,
-        PlayHistorySchema,
-        RadioStationSchema,
-        LyricsMatchSchema,
-        LyricsTitleParseCacheSchema,
-        AccountSchema,
-      ],
-      directory: dir.path,
-      name: 'fmp_database',
-      maxSizeMiB: 64,
-      compactOnLaunch: const CompactCondition(
-        minFileSize: 8 * 1024 * 1024,
-        minRatio: 2.0,
-      ),
-    );
+    final isar = await openFmpDatabase();
     final settings = await isar.settings.get(0);
     if (settings != null) {
       preloadedThemeMode = settings.themeMode;
