@@ -208,6 +208,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   final ToastService _toastService;
   final FmpAudioHandler _audioHandler;
   final WindowsSmtcHandler _windowsSmtcHandler;
+  final AudioRuntimePlatform _runtimePlatform;
   final PlayHistoryRepository? _playHistoryRepository;
   final LyricsAutoMatchService? _lyricsAutoMatchService;
   final SettingsRepository? _settingsRepository;
@@ -292,12 +293,14 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     QueuePersistenceManager? queuePersistenceManager,
     MixTracksFetcher? mixTracksFetcher,
     YouTubeSource? youtubeSource,
+    AudioRuntimePlatform? runtimePlatform,
   })  : _audioService = audioService,
         _queueManager = queueManager,
         _audioStreamManager = audioStreamManager,
         _toastService = toastService,
         _audioHandler = audioHandler,
         _windowsSmtcHandler = windowsSmtcHandler,
+        _runtimePlatform = runtimePlatform ?? detectAudioRuntimePlatform(),
         _playHistoryRepository = playHistoryRepository,
         _lyricsAutoMatchService = lyricsAutoMatchService,
         _settingsRepository = settingsRepository,
@@ -314,6 +317,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     _temporaryPlayHandler = const TemporaryPlayHandler();
     _mixPlaylistHandler = MixPlaylistHandler();
   }
+
+  bool get _usesMobileAudioHandler =>
+      _runtimePlatform == AudioRuntimePlatform.mobile;
 
   /// 是否已初始化
   bool get isInitialized => _isInitialized;
@@ -392,7 +398,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       );
 
       // 设置 AudioHandler 回调（仅在 Android/iOS 上有效）
-      if (Platform.isAndroid || Platform.isIOS) {
+      if (_usesMobileAudioHandler) {
         _setupAudioHandler();
       }
 
@@ -1264,7 +1270,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     state = state.copyWith(isShuffleEnabled: _queueManager.isShuffleEnabled);
 
     // 更新 AudioHandler 的随机播放状态（用于通知栏）
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (_usesMobileAudioHandler) {
       _audioHandler.updateShuffleMode(_queueManager.isShuffleEnabled);
     }
   }
@@ -1276,7 +1282,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     state = state.copyWith(loopMode: mode);
 
     // 更新 AudioHandler 的循环模式（用于通知栏）
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (_usesMobileAudioHandler) {
       _audioHandler.updateRepeatMode(mode);
     }
   }
@@ -1287,7 +1293,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     state = state.copyWith(loopMode: _queueManager.loopMode);
 
     // 更新 AudioHandler 的循环模式（用于通知栏）
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (_usesMobileAudioHandler) {
       _audioHandler.updateRepeatMode(_queueManager.loopMode);
     }
   }
@@ -1485,7 +1491,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     state = state.copyWith(playingTrack: track);
 
     // 更新 AudioHandler 的媒体信息（用于通知栏显示）
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (_usesMobileAudioHandler) {
       _audioHandler.updateCurrentMediaItem(track);
     }
 
@@ -1727,7 +1733,32 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         state.copyWith(isLoading: true, position: Duration.zero, error: null);
     final requestId = ++_playRequestId;
     _context = _context.copyWith(activeRequestId: requestId);
+    _publishMobileAudioHandlerLoadingState();
     return requestId;
+  }
+
+  void _publishMobileAudioHandlerLoadingState() {
+    _publishMobileAudioHandlerPlaybackState(
+      isPlaying: false,
+      position: Duration.zero,
+      processingState: FmpAudioProcessingState.loading,
+    );
+  }
+
+  void _publishMobileAudioHandlerPlaybackState({
+    required bool isPlaying,
+    required Duration position,
+    required FmpAudioProcessingState processingState,
+  }) {
+    if (!_usesMobileAudioHandler) return;
+    _audioHandler.updatePlaybackState(
+      isPlaying: isPlaying,
+      position: position,
+      bufferedPosition: _audioService.bufferedPosition,
+      processingState: processingState,
+      duration: _audioService.duration,
+      speed: _audioService.speed,
+    );
   }
 
   /// 退出加載狀態
@@ -2447,29 +2478,34 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     // 電台播放中的狀態變化由 RadioController 處理，AudioController 不應更新自身狀態
     if (isRadioPlaying?.call() == true) return;
 
+    final isBackendIdleDuringControllerLoad = _context.isInLoadingState &&
+        playerState.processingState == FmpAudioProcessingState.idle;
+    final effectiveProcessingState = isBackendIdleDuringControllerLoad
+        ? FmpAudioProcessingState.loading
+        : playerState.processingState;
+    final effectiveIsPlaying =
+        isBackendIdleDuringControllerLoad ? false : playerState.playing;
+    final effectivePosition =
+        _context.isInLoadingState ? Duration.zero : _audioService.position;
+
     logDebug(
         'PlayerState changed: playing=${playerState.playing}, processingState=${playerState.processingState}');
     state = state.copyWith(
-      isPlaying: playerState.playing,
+      isPlaying: effectiveIsPlaying,
       isBuffering:
-          playerState.processingState == FmpAudioProcessingState.buffering,
+          effectiveProcessingState == FmpAudioProcessingState.buffering,
       // 防止播放器状态事件覆盖 URL 获取期间的 loading 状态
       isLoading: _context.isInLoadingState ||
-          playerState.processingState == FmpAudioProcessingState.loading,
-      processingState: playerState.processingState,
+          effectiveProcessingState == FmpAudioProcessingState.loading,
+      processingState: effectiveProcessingState,
     );
 
     // 更新 AudioHandler 的播放状态（用于通知栏）
-    if (Platform.isAndroid || Platform.isIOS) {
-      _audioHandler.updatePlaybackState(
-        isPlaying: playerState.playing,
-        position: _audioService.position,
-        bufferedPosition: _audioService.bufferedPosition,
-        processingState: playerState.processingState,
-        duration: _audioService.duration,
-        speed: _audioService.speed,
-      );
-    }
+    _publishMobileAudioHandlerPlaybackState(
+      isPlaying: effectiveIsPlaying,
+      position: effectivePosition,
+      processingState: effectiveProcessingState,
+    );
 
     // 更新 Windows SMTC 的播放状态
     if (Platform.isWindows) {
@@ -2501,7 +2537,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     _lastNotificationPosition = position;
 
     // 更新 AudioHandler 的播放状态（用于通知栏进度显示）
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (_usesMobileAudioHandler) {
       _audioHandler.updatePlaybackState(
         isPlaying: _audioService.isPlaying,
         position: position,
@@ -2815,6 +2851,7 @@ final audioControllerProvider =
   final audioService = ref.watch(audioServiceProvider);
   final queueManager = ref.watch(queueManagerProvider);
   final toastService = ref.watch(toastServiceProvider);
+  final runtimePlatform = ref.watch(audioRuntimePlatformProvider);
 
   // 获取播放历史仓库（可能为 null，如果数据库未初始化）
   PlayHistoryRepository? playHistoryRepository;
@@ -2838,6 +2875,7 @@ final audioControllerProvider =
     settingsRepository: ref.watch(settingsRepositoryProvider),
     queuePersistenceManager: ref.watch(queuePersistenceManagerProvider),
     youtubeSource: ref.watch(youtubeSourceProvider),
+    runtimePlatform: runtimePlatform,
   );
 
   // 设置网络恢复监听（用于断网重连自动恢复播放）

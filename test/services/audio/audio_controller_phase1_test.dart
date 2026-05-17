@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/services/toast_service.dart';
 import 'package:fmp/data/models/lyrics_match.dart';
@@ -21,6 +22,7 @@ import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_playback_types.dart';
 import 'package:fmp/services/audio/audio_provider.dart'
     hide MixTracksFetcher, PlayMode;
+import 'package:fmp/services/audio/audio_runtime_platform.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/mix_playlist_types.dart';
 import 'package:fmp/services/lyrics/lrclib_source.dart';
@@ -217,6 +219,65 @@ void main() {
       expect(audioService.setUrlCalls.single.url,
           'https://example.com/queue-b.m4a');
       expect(audioService.seekCalls.single, const Duration(seconds: 32));
+    });
+
+    test(
+        'mobile notification stays on next track loading while queue navigation resolves stream',
+        () async {
+      final handler = FmpAudioHandler();
+      controller.dispose();
+
+      final settingsRepository = SettingsRepository(isar);
+      final trackRepository = TrackRepository(isar);
+      final queuePersistenceManager = QueuePersistenceManager(
+        queueRepository: queueRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+      );
+      final audioStreamManager = AudioStreamManager(
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: sourceManager,
+      );
+      queueManager = QueueManager(
+        queueRepository: queueRepository,
+        trackRepository: trackRepository,
+        queuePersistenceManager: queuePersistenceManager,
+      );
+      audioService = FakeAudioService();
+      controller = AudioController(
+        audioService: audioService,
+        queueManager: queueManager,
+        audioStreamManager: audioStreamManager,
+        toastService: ToastService(),
+        audioHandler: handler,
+        windowsSmtcHandler: WindowsSmtcHandler(),
+        settingsRepository: settingsRepository,
+        mixTracksFetcher: mixTracksFetcher.call,
+        runtimePlatform: AudioRuntimePlatform.mobile,
+      );
+      await controller.initialize();
+
+      await queueManager.playAll([
+        _track('notification-first', title: 'Notification First'),
+        _track('notification-next', title: 'Notification Next'),
+      ]);
+      await controller.playAt(0);
+      expect(handler.mediaItem.valueOrNull?.title, 'Notification First');
+
+      final pendingNextLoad = audioService.enqueuePendingPlayUrl();
+      final nextFuture = controller.next();
+      await audioService.waitForPlayUrlCallCount(2);
+      await pumpEventQueue(times: 5);
+
+      expect(handler.mediaItem.valueOrNull?.title, 'Notification Next');
+      expect(
+        handler.playbackState.value.processingState,
+        AudioProcessingState.loading,
+      );
+
+      pendingNextLoad.complete();
+      await nextFuture;
     });
 
     test('superseded request stays loading until the latest request finishes',
