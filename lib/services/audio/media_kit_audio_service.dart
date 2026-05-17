@@ -17,10 +17,13 @@ import 'audio_types.dart';
 /// 用于 Windows/Linux 平台
 class MediaKitAudioService extends FmpAudioService with Logging {
   static const int mobilePlayerBufferSizeBytes = 2 * 1024 * 1024;
-  static const int desktopPlayerBufferSizeBytes = 16 * 1024 * 1024;
-  static const int desktopDemuxerMaxBytes = 8 * 1024 * 1024;
-  static const int desktopDemuxerMaxBackBytes = 1024 * 1024;
-  static const int desktopBufferSeconds = 30;
+  /// 桌面端緩衝：設為極大值以一次性下載整首歌曲
+  /// 避免分段下載時 TCP 連線閒置被 YouTube CDN 切斷（WSAECONNRESET）
+  /// 一首 5 分鐘 320kbps 的歌約 12MB，桌面端完全負擔得起
+  static const int desktopPlayerBufferSizeBytes = 32 * 1024 * 1024;
+  static const int desktopDemuxerMaxBytes = 24 * 1024 * 1024;
+  static const int desktopDemuxerMaxBackBytes = 8 * 1024 * 1024;
+  static const int desktopBufferSeconds = 7200;
 
   late final Player _player;
   late final AudioSession _session;
@@ -232,9 +235,11 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   /// - `vid=no`: 完全禁用视频轨道解码。播放 muxed 流时，libmpv 默认会解码视频帧
   ///   即使 vo=null（不渲染），解码后的视频帧仍占用大量内存（1080p 约 8MB/帧）。
   ///   设置 vid=no 后 libmpv 直接跳过视频轨道，可节省 200-400MB 内存。
-  /// - `demuxer-max-bytes`: 给桌面网络流保留 8MB 前向缓冲
-  /// - `demuxer-max-back-bytes`: 给 seek/恢复保留 1MB 后向缓冲
-  /// - `cache=yes`: 启用 30 秒 cache/readahead，减少短时网络抖动触发重试
+  /// - `cache-secs=7200`: 极大缓存，让 libmpv 一次性连续下载整首歌曲，
+  ///   避免分段请求间 TCP 连線空閒被 YouTube CDN 切断（WSAECONNRESET）
+  /// - `cache-pause-initial=no`: 不等待缓存填满即开始播放
+  /// - `demuxer-max-bytes=24MB`: 足够缓存整首高品质歌曲
+  /// - `demuxer-max-back-bytes=8MB`: 足够 seek 操作
   Future<void> _configureForAudioOnly() async {
     try {
       final nativePlayer = _player.platform;
@@ -247,7 +252,8 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       // 禁用字幕轨道
       await (nativePlayer as dynamic).setProperty('sid', 'no');
 
-      // 桌面端使用更大的网络缓冲，优先减少在线音乐播放中的短时中断。
+      // 桌面端：極大緩衝以一次性連續下載整首歌曲（約 5-12MB），
+      // 避免分段請求之間 TCP 空閒被 CDN 切斷（YouTube WSAECONNRESET）
       await (nativePlayer as dynamic).setProperty(
         'demuxer-max-bytes',
         desktopDemuxerMaxBytes.toString(),
@@ -257,23 +263,21 @@ class MediaKitAudioService extends FmpAudioService with Logging {
         desktopDemuxerMaxBackBytes.toString(),
       );
 
-      // 限制 demuxer 预读时间（对直播流比字节限制更有效）
-      // 高码率 muxed 流可能先撞到字节上限，时间上限避免无限预读。
+      // 預讀時間設為 7200 秒（2 小時），遠大於任何歌曲長度，
+      // 使 libmpv 一次性下載完整檔案而非分段請求
       await (nativePlayer as dynamic).setProperty(
         'demuxer-readahead-secs',
         desktopBufferSeconds.toString(),
       );
 
-      // 启用 cache 但限制为 30 秒，让 mpv 正确管理流缓冲回收。
-      // cache=no 只禁用 seekable cache，不阻止 demuxer 缓冲
-      // cache=yes + cache-secs=30 让 mpv 主动回收超出范围的缓冲数据
+      // cache=yes + 極大 cache-secs：讓 mpv 一口氣快取整首歌
       await (nativePlayer as dynamic).setProperty('cache', 'yes');
       await (nativePlayer as dynamic).setProperty(
         'cache-secs',
         desktopBufferSeconds.toString(),
       );
 
-      // 限制初始缓冲量为 1 秒（快速开始播放，减少直播场景的内存峰值）
+      // 不等待緩衝填滿，立即開始播放
       await (nativePlayer as dynamic).setProperty('cache-pause-initial', 'no');
 
       // 禁止 demuxer 将已用 buffer 捐赠给其他线程（减少内存碎片）
