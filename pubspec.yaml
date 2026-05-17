@@ -43,7 +43,7 @@ dependencies:
   encrypt: ^5.0.3
 
   # YouTube 数据提取
-  youtube_explode_dart: ^2.3.5
+  youtube_explode_dart: ^3.1.0
 
   # 路由
   go_router: ^14.8.1
