@@ -55,22 +55,26 @@ class ToastService {
 
   /// 发送普通消息到流
   void showInfo(String message) {
-    _messageController.add(ToastMessage(message: message, type: ToastType.info));
+    _messageController
+        .add(ToastMessage(message: message, type: ToastType.info));
   }
 
   /// 发送成功消息到流
   void showSuccess(String message) {
-    _messageController.add(ToastMessage(message: message, type: ToastType.success));
+    _messageController
+        .add(ToastMessage(message: message, type: ToastType.success));
   }
 
   /// 发送警告消息到流
   void showWarning(String message) {
-    _messageController.add(ToastMessage(message: message, type: ToastType.warning));
+    _messageController
+        .add(ToastMessage(message: message, type: ToastType.warning));
   }
 
   /// 发送错误消息到流
   void showError(String message) {
-    _messageController.add(ToastMessage(message: message, type: ToastType.error));
+    _messageController
+        .add(ToastMessage(message: message, type: ToastType.error));
   }
 
   void dispose() {
@@ -121,7 +125,8 @@ class ToastService {
     required String actionLabel,
     required VoidCallback onAction,
   }) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    showSnackBarNow(
+      context,
       SnackBar(
         content: Text(message),
         persist: false,
@@ -132,6 +137,18 @@ class ToastService {
         ),
       ),
     );
+  }
+
+  /// 立即显示 [snackBar]，替换当前可见或排队中的 Toast。
+  static ScaffoldFeatureController<SnackBar, SnackBarClosedReason>
+      showSnackBarNow(
+    BuildContext context,
+    SnackBar snackBar,
+  ) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.removeCurrentSnackBar();
+    return messenger.showSnackBar(snackBar);
   }
 
   static void _showSnackBar(
@@ -150,7 +167,8 @@ class ToastService {
           )
         : Text(message);
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    showSnackBarNow(
+      context,
       SnackBar(content: content, duration: _defaultDuration),
     );
   }

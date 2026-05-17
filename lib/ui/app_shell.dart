@@ -39,7 +39,8 @@ class _AppShellState extends ConsumerState<AppShell> {
         icon = Icons.info;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    ToastService.showSnackBarNow(
+      context,
       SnackBar(
         content: Row(
           children: [
@@ -55,9 +56,10 @@ class _AppShellState extends ConsumerState<AppShell> {
         ),
         backgroundColor: backgroundColor,
         behavior: SnackBarBehavior.floating,
-        duration: message.type == ToastType.error || message.type == ToastType.warning
-            ? ToastDurations.long
-            : ToastDurations.short,
+        duration:
+            message.type == ToastType.error || message.type == ToastType.warning
+                ? ToastDurations.long
+                : ToastDurations.short,
       ),
     );
   }
