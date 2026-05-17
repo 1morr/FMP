@@ -15,6 +15,7 @@ import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/netease_exception.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/youtube_exception.dart';
 import 'package:fmp/data/sources/youtube_source.dart';
@@ -56,6 +57,7 @@ void main() {
     late FakeAudioService audioService;
     late _FakeSourceManager sourceManager;
     late _TestMixTracksFetcher mixTracksFetcher;
+    late ToastService toastService;
     late AudioController controller;
 
     setUpAll(() async {
@@ -94,12 +96,13 @@ void main() {
       );
 
       audioService = FakeAudioService();
+      toastService = ToastService();
       mixTracksFetcher = _TestMixTracksFetcher();
       controller = AudioController(
         audioService: audioService,
         queueManager: queueManager,
         audioStreamManager: audioStreamManager,
-        toastService: ToastService(),
+        toastService: toastService,
         audioHandler: FmpAudioHandler(),
         windowsSmtcHandler: WindowsSmtcHandler(),
         settingsRepository: settingsRepository,
@@ -176,6 +179,7 @@ void main() {
 
     tearDown(() async {
       controller.dispose();
+      toastService.dispose();
       await isar.close(deleteFromDisk: true);
       if (await tempDir.exists()) {
         await tempDir.delete(recursive: true);
@@ -575,6 +579,108 @@ void main() {
       expect(controller.state.currentTrack?.sourceId, 'second-fallback');
       expect(controller.state.isLoading, isFalse);
       expect(controller.state.isPlaying, isTrue);
+    });
+
+    test('source skip errors include semantic reason in toast', () async {
+      final toasts = <ToastMessage>[];
+      final subscription = toastService.messageStream.listen(toasts.add);
+      addTearDown(subscription.cancel);
+      sourceManager.throwGetAudioStreamOnce(
+        const NeteaseApiException(
+          numericCode: -10,
+          message: 'VIP song, payment required',
+        ),
+      );
+
+      await controller.playTrack(_track('locked-song', title: 'Locked Song'));
+      await pumpEventQueue(times: 5);
+
+      expect(toasts, isNotEmpty);
+      expect(toasts.last.message, contains('Locked Song'));
+      expect(toasts.last.message, contains('VIP'));
+      expect(toasts.last.type, ToastType.error);
+    });
+
+    test('source skip errors prefer concrete source diagnostic text', () async {
+      final toasts = <ToastMessage>[];
+      final subscription = toastService.messageStream.listen(toasts.add);
+      addTearDown(subscription.cancel);
+      sourceManager.throwGetAudioStreamOnce(
+        const YouTubeApiException(
+          code: 'geo_restricted',
+          message: 'This video is not available in your country',
+        ),
+      );
+
+      await controller.playTrack(_track('geo-song', title: 'Geo Song'));
+      await pumpEventQueue(times: 5);
+
+      expect(toasts, isNotEmpty);
+      expect(toasts.last.message, contains('Geo Song'));
+      expect(
+        toasts.last.message,
+        contains('This video is not available in your country'),
+      );
+      expect(toasts.last.type, ToastType.error);
+    });
+
+    test('source skip errors hide synthesized fallback diagnostics', () async {
+      final toasts = <ToastMessage>[];
+      final subscription = toastService.messageStream.listen(toasts.add);
+      addTearDown(subscription.cancel);
+      sourceManager.throwGetAudioStreamOnce(
+        const NeteaseApiException(
+          numericCode: -110,
+          message: 'No playback rights due to copyright or region restrictions',
+        ),
+      );
+
+      await controller.playTrack(_track('flag-song', title: 'Flag Song'));
+      await pumpEventQueue(times: 5);
+
+      expect(toasts, isNotEmpty);
+      expect(toasts.last.message, contains('Flag Song'));
+      expect(
+        toasts.last.message,
+        isNot(contains('No playback rights')),
+      );
+      expect(
+        toasts.last.message,
+        anyOf(
+          contains('copyright'),
+          contains('版权'),
+          contains('版權'),
+        ),
+      );
+      expect(toasts.last.type, ToastType.error);
+    });
+
+    test('skipped queue track toast includes semantic reason', () async {
+      final toasts = <ToastMessage>[];
+      final subscription = toastService.messageStream.listen(toasts.add);
+      addTearDown(subscription.cancel);
+      sourceManager.throwGetAudioStreamOnce(
+        const NeteaseApiException(
+          numericCode: -10,
+          message: 'VIP song, payment required',
+        ),
+      );
+
+      try {
+        await controller.playAll([
+          _track('locked-queue-song', title: 'Locked Queue Song'),
+          _track('next-after-locked', title: 'Next After Locked'),
+        ]);
+        await pumpEventQueue(times: 5);
+
+        expect(toasts, isNotEmpty);
+        expect(toasts.last.message, contains('Locked Queue Song'));
+        expect(toasts.last.message, contains('VIP'));
+        expect(toasts.last.type, ToastType.warning);
+      } finally {
+        await Future<void>.delayed(const Duration(milliseconds: 350));
+        await pumpEventQueue(times: 5);
+      }
     });
 
     test(

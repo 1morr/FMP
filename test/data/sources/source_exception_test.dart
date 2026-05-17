@@ -244,9 +244,10 @@ void main() {
       expect(e.sourceType, SourceType.netease);
     });
 
-    test('isGeoRestricted is always false', () {
-      const e = NeteaseApiException(numericCode: -10403, message: 'test');
-      expect(e.isGeoRestricted, isFalse);
+    test('isGeoRestricted for copyright or region restriction', () {
+      const e = NeteaseApiException(numericCode: -110, message: 'test');
+      expect(e.isGeoRestricted, isTrue);
+      expect(e.code, 'geo_restricted');
     });
 
     test('maps Netease numeric codes to shared kinds', () {

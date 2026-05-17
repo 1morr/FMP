@@ -1,10 +1,19 @@
 {
   "cannotPlay": "Cannot play \"$title\"",
+  "cannotPlayReason": "Cannot play \"$title\": $reason",
   "playbackFailed": "Playback failed: $message",
   "queueFull": "Queue is full (maximum ${count} songs)",
   "playbackFailedTrack": "Playback failed: $title",
   "mixPlaylistNoAdd": "Mix playlists do not support adding songs",
   "mixLoadMoreFailed": "Unable to load more songs, please try again later",
   "mixLoadMoreError": "Failed to load more songs",
-  "cannotPlaySkipped": "Cannot play \"$title\", skipped"
+  "cannotPlaySkipped": "Cannot play \"$title\", skipped",
+  "cannotPlaySkippedReason": "Cannot play \"$title\": $reason, skipped",
+  "sourceErrorUnavailable": "Song is unavailable or has been removed",
+  "sourceErrorGeoRestricted": "Blocked by copyright or regional restrictions",
+  "sourceErrorVipRequired": "VIP or paid playback permission required",
+  "sourceErrorLoginRequired": "Login required to play this track",
+  "sourceErrorPermissionDenied": "No playback permission for this track",
+  "sourceErrorNetwork": "Network connection failed",
+  "sourceErrorTimeout": "Connection timed out"
 }
