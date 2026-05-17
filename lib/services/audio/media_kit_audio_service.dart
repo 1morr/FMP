@@ -16,6 +16,12 @@ import 'audio_types.dart';
 /// 解决了 just_audio_media_kit 代理对 audio-only 流的兼容性问题
 /// 用于 Windows/Linux 平台
 class MediaKitAudioService extends FmpAudioService with Logging {
+  static const int mobilePlayerBufferSizeBytes = 2 * 1024 * 1024;
+  static const int desktopPlayerBufferSizeBytes = 16 * 1024 * 1024;
+  static const int desktopDemuxerMaxBytes = 8 * 1024 * 1024;
+  static const int desktopDemuxerMaxBackBytes = 1024 * 1024;
+  static const int desktopBufferSeconds = 30;
+
   late final Player _player;
   late final AudioSession _session;
   bool _hasPlayer = false;
@@ -142,11 +148,10 @@ class MediaKitAudioService extends FmpAudioService with Logging {
     logInfo('Initializing MediaKitAudioService...');
 
     // 创建 media_kit 播放器
-    // 优化内存：将 demuxer 缓存从默认的 32 MB 降低
-    // 移动端 2 MB（约 1 分钟 256kbps），桌面端 4 MB（约 2 分钟）
+    // 桌面端保留更大的网络缓冲，吸收 VPN 切换或 CDN 抖动造成的短时中断。
     final bufferSize = (Platform.isAndroid || Platform.isIOS)
-        ? 2 * 1024 * 1024 // 2 MB
-        : 4 * 1024 * 1024; // 4 MB
+        ? mobilePlayerBufferSizeBytes
+        : desktopPlayerBufferSizeBytes;
     _player = Player(
       configuration: PlayerConfiguration(
         bufferSize: bufferSize,
@@ -227,9 +232,9 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   /// - `vid=no`: 完全禁用视频轨道解码。播放 muxed 流时，libmpv 默认会解码视频帧
   ///   即使 vo=null（不渲染），解码后的视频帧仍占用大量内存（1080p 约 8MB/帧）。
   ///   设置 vid=no 后 libmpv 直接跳过视频轨道，可节省 200-400MB 内存。
-  /// - `demuxer-max-bytes`: 限制前向 demuxer 缓冲区（默认 150MB）
-  /// - `demuxer-max-back-bytes`: 限制后向 demuxer 缓冲区（默认 50MB）
-  /// - `cache=no`: 禁用额外的流缓存层（网络流已有 HTTP 层缓冲）
+  /// - `demuxer-max-bytes`: 给桌面网络流保留 8MB 前向缓冲
+  /// - `demuxer-max-back-bytes`: 给 seek/恢复保留 1MB 后向缓冲
+  /// - `cache=yes`: 启用 30 秒 cache/readahead，减少短时网络抖动触发重试
   Future<void> _configureForAudioOnly() async {
     try {
       final nativePlayer = _player.platform;
@@ -242,28 +247,31 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       // 禁用字幕轨道
       await (nativePlayer as dynamic).setProperty('sid', 'no');
 
-      // 限制 demuxer 缓冲区大小（纯音频不需要大缓冲）
-      // 1MB 前向 ≈ 约 30 秒 256kbps 音频，足够防止卡顿
+      // 桌面端使用更大的网络缓冲，优先减少在线音乐播放中的短时中断。
       await (nativePlayer as dynamic).setProperty(
-        'demuxer-max-bytes', '1048576', // 1 MB
+        'demuxer-max-bytes',
+        desktopDemuxerMaxBytes.toString(),
       );
-      // 256KB 后向缓冲（用于 seek 回退）
       await (nativePlayer as dynamic).setProperty(
-        'demuxer-max-back-bytes', '262144', // 256 KB
+        'demuxer-max-back-bytes',
+        desktopDemuxerMaxBackBytes.toString(),
       );
 
       // 限制 demuxer 预读时间（对直播流比字节限制更有效）
-      // 高码率 muxed 直播流几秒就能填满 1MB，时间限制是更可靠的上限
+      // 高码率 muxed 流可能先撞到字节上限，时间上限避免无限预读。
       await (nativePlayer as dynamic).setProperty(
         'demuxer-readahead-secs',
-        '5',
+        desktopBufferSeconds.toString(),
       );
 
-      // 启用 cache 但限制为 5 秒，让 mpv 正确管理直播流的缓冲回收
+      // 启用 cache 但限制为 30 秒，让 mpv 正确管理流缓冲回收。
       // cache=no 只禁用 seekable cache，不阻止 demuxer 缓冲
-      // cache=yes + cache-secs=5 让 mpv 主动回收超出范围的缓冲数据
+      // cache=yes + cache-secs=30 让 mpv 主动回收超出范围的缓冲数据
       await (nativePlayer as dynamic).setProperty('cache', 'yes');
-      await (nativePlayer as dynamic).setProperty('cache-secs', '5');
+      await (nativePlayer as dynamic).setProperty(
+        'cache-secs',
+        desktopBufferSeconds.toString(),
+      );
 
       // 限制初始缓冲量为 1 秒（快速开始播放，减少直播场景的内存峰值）
       await (nativePlayer as dynamic).setProperty('cache-pause-initial', 'no');
@@ -276,7 +284,7 @@ class MediaKitAudioService extends FmpAudioService with Logging {
       await (nativePlayer as dynamic).setProperty('demuxer-lavf-o', 'icy=0');
 
       logInfo(
-          'libmpv configured for audio-only mode (vid=no, sid=no, reduced buffers)');
+          'libmpv configured for audio-only mode (vid=no, sid=no, desktop network buffers)');
     } catch (e) {
       // 非致命错误，降级到默认配置
       logWarning('Failed to configure libmpv for audio-only: $e');
