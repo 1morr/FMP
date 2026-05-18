@@ -5,7 +5,6 @@ import 'package:fmp/i18n/strings.g.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
-import '../../core/utils/http_client_factory.dart';
 import '../models/live_room.dart';
 import '../models/settings.dart';
 import '../models/track.dart';
@@ -13,6 +12,7 @@ import '../models/video_detail.dart';
 import 'base_source.dart';
 import 'bilibili_exception.dart';
 import 'source_exception.dart';
+import 'source_http_policy.dart';
 
 /// Bilibili API 参数常量
 class _BilibiliApiParams {
@@ -69,17 +69,15 @@ class BilibiliSource extends BaseSource with Logging {
     final buvid3 = _generateBuvid3();
     final buvid4 = _generateBuvid4();
     final bNut = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final cookie =
+        'buvid3=$buvid3; buvid4=$buvid4; b_nut=$bNut; _uuid=$buvid3; buvid_fp=$buvid3';
 
     _dio = dio ??
-        HttpClientFactory.create(
-          headers: {
-            'Referer': 'https://search.bilibili.com/',
-            'Origin': 'https://search.bilibili.com',
-            'Accept': 'application/json, text/plain, */*',
-            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-            'Cookie':
-                'buvid3=$buvid3; buvid4=$buvid4; b_nut=$bNut; _uuid=$buvid3; buvid_fp=$buvid3',
-          },
+        SourceHttpPolicy.createApiDio(
+          SourceType.bilibili,
+          extraHeaders: SourceHttpPolicy.bilibiliSearchApiHeaders(
+            cookie: cookie,
+          ),
         );
   }
 

@@ -4,9 +4,7 @@ import 'package:dio/dio.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
-import '../../core/utils/http_client_factory.dart';
 import '../../core/utils/netease_crypto.dart';
-import '../../services/account/netease_account_service.dart';
 import '../../services/library/remote_playlist_id_parser.dart';
 import '../models/settings.dart';
 import '../models/track.dart';
@@ -14,6 +12,7 @@ import '../models/video_detail.dart';
 import 'base_source.dart';
 import 'netease_exception.dart';
 import 'source_exception.dart';
+import 'source_http_policy.dart';
 
 /// 網易雲音樂音源實現
 ///
@@ -30,13 +29,8 @@ class NeteaseSource extends BaseSource with Logging {
 
   NeteaseSource({Dio? dio}) {
     _dio = dio ??
-        HttpClientFactory.create(
-          userAgent: NeteaseAccountService.userAgent,
-          headers: {
-            'Referer': '$_musicBase/',
-            'Origin': _musicBase,
-            'Accept': 'application/json, text/plain, */*',
-          },
+        SourceHttpPolicy.createApiDio(
+          SourceType.netease,
         );
   }
 
