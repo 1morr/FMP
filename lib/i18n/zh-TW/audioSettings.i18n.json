@@ -26,6 +26,6 @@
     "muxed": "混合串流",
     "muxedDescription": "包含影片資料，相容性好",
     "hls": "HLS 串流",
-    "hlsDescription": "分段串流，適合直播"
+    "hlsDescription": "分段串流，不推薦"
   }
 }

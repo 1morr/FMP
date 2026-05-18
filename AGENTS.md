@@ -241,6 +241,8 @@ User-configurable per source:
 - `AudioFormat` enum: opus, aac (YouTube only — Bilibili/Netease only have AAC)
 - `StreamType` enum: audioOnly, muxed, hls
 
+**Default YouTube audio format priority:** Opus > AAC
+
 **Per-source stream priority:**
 - YouTube: audioOnly > muxed > hls
 - Bilibili: audioOnly > muxed (live streams always muxed)
@@ -321,7 +323,7 @@ class _PlaybackContext {
 
 - Runtime network errors from backends, including media_kit `tcp:` / `ffurl_read` errors, must retry or refetch the current track URL from the saved position, not advance the queue.
 - `completedStream` is not always a natural song completion: media_kit can emit `completed` around stream read failures or network transitions such as VPN changes. Ignore completion while loading/retrying/network-error state; if completion arrives while the current position is not close to duration, schedule retry for the current track from the saved position.
-- Desktop `MediaKitAudioService` intentionally uses a larger network buffer profile for online music playback: 16MB player buffer, 8MB demuxer forward buffer, 1MB demuxer back buffer, and 30s mpv cache/readahead. Keep `vid=no`/`sid=no` enabled so muxed fallback streams do not decode video while the larger buffer absorbs short VPN/CDN stalls.
+- Desktop `MediaKitAudioService` intentionally uses an aggressive network buffer profile for online music playback: 32MB player buffer, 24MB demuxer forward buffer, 8MB demuxer back buffer, and 7200s mpv cache/readahead so libmpv can continuously prefetch full songs and avoid idle CDN connection resets. Keep `vid=no`/`sid=no` enabled so muxed fallback streams do not decode video while the larger buffer absorbs VPN/CDN stalls.
 - Only source availability failures marked with `SourceErrorKind.shouldSkipTrack` should auto-skip to the next queue item.
 
 ### Radio Return and Ownership

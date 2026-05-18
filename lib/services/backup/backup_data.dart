@@ -498,7 +498,7 @@ class SettingsBackup {
     this.fontFamily,
     this.locale,
     this.audioQualityLevelIndex = 0,
-    this.audioFormatPriority = 'aac,opus',
+    this.audioFormatPriority = 'opus,aac',
     this.youtubeStreamPriority = 'audioOnly,muxed,hls',
     this.bilibiliStreamPriority = 'audioOnly,muxed',
     this.neteaseStreamPriority = 'audioOnly',
@@ -557,7 +557,7 @@ class SettingsBackup {
       fontFamily: json['fontFamily'] as String?,
       locale: json['locale'] as String?,
       audioQualityLevelIndex: json['audioQualityLevelIndex'] as int? ?? 0,
-      audioFormatPriority: json['audioFormatPriority'] as String? ?? 'aac,opus',
+      audioFormatPriority: json['audioFormatPriority'] as String? ?? 'opus,aac',
       youtubeStreamPriority:
           json['youtubeStreamPriority'] as String? ?? 'audioOnly,muxed,hls',
       bilibiliStreamPriority:

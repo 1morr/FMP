@@ -6,19 +6,19 @@ void main() {
     test('uses a larger desktop network buffer profile', () {
       expect(
         MediaKitAudioService.desktopPlayerBufferSizeBytes,
-        16 * 1024 * 1024,
+        32 * 1024 * 1024,
       );
       expect(
         MediaKitAudioService.desktopDemuxerMaxBytes,
-        8 * 1024 * 1024,
+        24 * 1024 * 1024,
       );
       expect(
         MediaKitAudioService.desktopDemuxerMaxBackBytes,
-        1024 * 1024,
+        8 * 1024 * 1024,
       );
       expect(
         MediaKitAudioService.desktopBufferSeconds,
-        30,
+        7200,
       );
     });
   });
