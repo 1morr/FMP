@@ -31,7 +31,7 @@ class NeteaseApiException extends SourceApiException {
       return SourceErrorKind.rateLimited;
     }
     if (numericCode == -200) return SourceErrorKind.unavailable;
-    if (numericCode == 404 || numericCode == -404) {
+    if (numericCode == 404 || numericCode == -404 || numericCode == -503) {
       return SourceErrorKind.unavailable;
     }
     if (numericCode == 301) return SourceErrorKind.loginRequired;
@@ -53,6 +53,7 @@ class NeteaseApiException extends SourceApiException {
       case -200:
       case 404:
       case -404:
+      case -503:
         return 'unavailable';
       case -10:
         return 'vip_required';

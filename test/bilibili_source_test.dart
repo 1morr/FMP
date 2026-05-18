@@ -179,6 +179,71 @@ void main() {
         );
       });
 
+      test('falls back to muxed stream after HTTP 503 DASH failure', () async {
+        final dio = Dio();
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
+          if (options.path.endsWith('/x/web-interface/view')) {
+            return ResponseBody.fromString(
+              jsonEncode({
+                'code': 0,
+                'data': {'cid': 12345},
+              }),
+              200,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+
+          if (options.path.endsWith('/x/player/playurl')) {
+            final fnval = options.queryParameters['fnval'];
+            if (fnval == 16) {
+              return ResponseBody.fromString(
+                jsonEncode({'message': 'service unavailable'}),
+                503,
+                headers: {
+                  Headers.contentTypeHeader: ['application/json'],
+                },
+              );
+            }
+            if (fnval == 0) {
+              return ResponseBody.fromString(
+                jsonEncode({
+                  'code': 0,
+                  'data': {
+                    'durl': [
+                      {'url': 'https://example.com/fallback.flv'}
+                    ],
+                  },
+                }),
+                200,
+                headers: {
+                  Headers.contentTypeHeader: ['application/json'],
+                },
+              );
+            }
+          }
+
+          throw StateError(
+            'Unexpected request: ${options.path} ${options.queryParameters}',
+          );
+        });
+        final source = BilibiliSource(
+          dio: dio,
+          apiBase: 'https://api.bilibili.test',
+        );
+
+        final result = await source.getAudioStream(
+          'BVserviceUnavailable',
+          config: const AudioStreamConfig(
+            streamPriority: [StreamType.audioOnly, StreamType.muxed],
+          ),
+        );
+
+        expect(result.url, 'https://example.com/fallback.flv');
+        expect(result.streamType, StreamType.muxed);
+      });
+
       test('returns explicit expiry metadata for DASH audio streams', () async {
         final dio = Dio();
         dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {

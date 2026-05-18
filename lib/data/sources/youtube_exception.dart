@@ -24,7 +24,8 @@ class YouTubeApiException extends SourceApiException {
         'unavailable' ||
         'not_found' ||
         'unplayable' ||
-        'no_stream' =>
+        'no_stream' ||
+        'service_unavailable' =>
           SourceErrorKind.unavailable,
         'login_required' || 'age_restricted' => SourceErrorKind.loginRequired,
         'private_or_inaccessible' => SourceErrorKind.permissionDenied,
