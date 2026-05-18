@@ -10,3 +10,13 @@ Map<String, String> buildDownloadMediaHeaders(
     authHeaders: authHeaders,
   );
 }
+
+Map<String, String> buildDownloadImageHeaders(
+  SourceType sourceType, {
+  Map<String, String>? authHeaders,
+}) {
+  return SourceHttpPolicy.mediaHeaders(
+    sourceType,
+    authHeaders: authHeaders,
+  );
+}

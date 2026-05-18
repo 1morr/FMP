@@ -370,7 +370,7 @@ Slider `onChanged` must NOT call `seekToProgress()`. Only call seek in `onChange
   - `metadata.json` or `metadata_P{NN}.json`
   - `cover.jpg`
   - `avatar.jpg`
-- Per-source `Referer` header: bilibili → `bilibili.com`, youtube → `youtube.com`, netease → `music.163.com`
+- Per-source media/image headers: audio downloads and downloaded metadata images (cover/avatar) must use `buildDownloadMediaHeaders()` / `buildDownloadImageHeaders()` so Bilibili, YouTube, and Netease keep the correct source `Referer`/`Origin`/UA/auth policy. Do not rely on `DownloadService` Dio defaults for source-specific headers.
 - Android custom download directories require storage permission (`MANAGE_EXTERNAL_STORAGE` on Android 11+); default base dir is `Music/FMP` via external storage fallback logic. Storage permission checks are implemented through the app-owned Android MethodChannel in `StoragePermissionService`, not `permission_handler`, so Windows builds do not register `permission_handler_windows` and trigger the system location indicator.
 
 ### Playlist Import - Original Platform Song ID
