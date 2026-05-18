@@ -177,6 +177,58 @@ void main() {
       expect(states, [true, true, false]);
     });
 
+    test('lyrics auto-match preserves an explicitly empty enabled source list',
+        () async {
+      final lyricsService = _GateableLyricsAutoMatchService(isar);
+      controller.dispose();
+
+      final settingsRepository = SettingsRepository(isar);
+      final trackRepository = TrackRepository(isar);
+      final queuePersistenceManager = QueuePersistenceManager(
+        queueRepository: queueRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+      );
+      final audioStreamManager = AudioStreamManager(
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: sourceManager,
+      );
+      queueManager = QueueManager(
+        queueRepository: queueRepository,
+        trackRepository: trackRepository,
+        queuePersistenceManager: queuePersistenceManager,
+      );
+      audioService = FakeAudioService();
+      controller = AudioController(
+        audioService: audioService,
+        queueManager: queueManager,
+        audioStreamManager: audioStreamManager,
+        toastService: ToastService(),
+        audioHandler: FmpAudioHandler(),
+        windowsSmtcHandler: WindowsSmtcHandler(),
+        settingsRepository: settingsRepository,
+        lyricsAutoMatchService: lyricsService,
+        mixTracksFetcher: mixTracksFetcher.call,
+      );
+
+      final settings = await settingsRepository.get();
+      settings.autoMatchLyrics = true;
+      settings.disabledLyricsSourcesSet = {
+        'netease',
+        'qqmusic',
+        'lrclib',
+      };
+      await settingsRepository.save(settings);
+      await controller.initialize();
+
+      await controller.playTrack(_track('lyrics-disabled', title: 'Disabled'));
+      await lyricsService.waitForCallCount(1);
+      await pumpEventQueue(times: 10);
+
+      expect(lyricsService.enabledSourceCalls.single, isEmpty);
+    });
+
     tearDown(() async {
       controller.dispose();
       toastService.dispose();
@@ -407,6 +459,57 @@ void main() {
       expect(controller.state.error, isNull);
       expect(controller.state.isRetrying, isFalse);
       expect(controller.state.isLoading, isFalse);
+    });
+
+    test(
+        'superseded playback-starting callback does not stop the newer request',
+        () async {
+      final firstTrack =
+          _track('callback-first', title: 'Callback First Track');
+      final secondTrack =
+          _track('callback-second', title: 'Callback Second Track');
+      final firstCallback = Completer<void>();
+      final secondCallback = Completer<void>();
+      var callbackCount = 0;
+      controller.onPlaybackStarting = () {
+        callbackCount++;
+        return callbackCount == 1
+            ? firstCallback.future
+            : secondCallback.future;
+      };
+      final secondPlayGate = audioService.enqueuePendingPlayUrl();
+
+      final firstPlay = controller.playTrack(firstTrack);
+      await _pumpUntil(() => callbackCount == 1);
+      expect(controller.state.playingTrack?.sourceId, 'callback-first');
+
+      final secondPlay = controller.playTrack(secondTrack);
+      await _pumpUntil(() => callbackCount == 2);
+      expect(controller.state.playingTrack?.sourceId, 'callback-second');
+
+      firstCallback.complete();
+      await firstPlay;
+      await pumpEventQueue(times: 5);
+
+      expect(audioService.stopCallCount, 0);
+      expect(audioService.playUrlCalls, isEmpty);
+      expect(controller.state.playingTrack?.sourceId, 'callback-second');
+      expect(controller.state.currentTrack?.sourceId, 'callback-second');
+      expect(controller.state.isLoading, isTrue);
+
+      secondCallback.complete();
+      await audioService.waitForPlayUrlCallCount(1);
+      secondPlayGate.complete();
+      await secondPlay;
+      await pumpEventQueue(times: 5);
+
+      expect(audioService.stopCallCount, 1);
+      expect(audioService.playUrlCalls.single.url,
+          'https://example.com/callback-second.m4a');
+      expect(controller.state.playingTrack?.sourceId, 'callback-second');
+      expect(controller.state.currentTrack?.sourceId, 'callback-second');
+      expect(controller.state.isLoading, isFalse);
+      controller.onPlaybackStarting = null;
     });
 
     test('togglePlayPause refreshes expired remote URL and restores position',
@@ -679,6 +782,25 @@ void main() {
         ),
       );
       expect(toasts.last.type, ToastType.error);
+    });
+
+    test('rate-limited source error remains visible after loading resets',
+        () async {
+      sourceManager.throwGetAudioStreamOnce(
+        const YouTubeApiException(
+          code: 'rate_limited',
+          message: 'Too many requests',
+        ),
+      );
+
+      await controller.playTrack(
+        _track('rate-limited-song', title: 'Rate Limited Song'),
+      );
+      await pumpEventQueue(times: 10);
+
+      expect(controller.state.isLoading, isFalse);
+      expect(controller.state.isRetrying, isFalse);
+      expect(controller.state.error, 'Too many requests');
     });
 
     test('skipped queue track toast includes semantic reason', () async {
@@ -1156,6 +1278,7 @@ class _GateableLyricsAutoMatchService extends LyricsAutoMatchService {
 
   final List<_PendingLyricsMatch> _pending = [];
   final List<Track> calls = [];
+  final List<List<String>?> enabledSourceCalls = [];
   final List<_CountWaiter> _waiters = [];
 
   Completer<void> enqueuePendingResult(bool result) {
@@ -1178,6 +1301,7 @@ class _GateableLyricsAutoMatchService extends LyricsAutoMatchService {
     bool? allowPlainLyricsAutoMatch,
   }) async {
     calls.add(track);
+    enabledSourceCalls.add(enabledSources);
     for (final waiter in List<_CountWaiter>.from(_waiters)) {
       if (calls.length >= waiter.target && !waiter.completer.isCompleted) {
         waiter.completer.complete();
@@ -1196,6 +1320,17 @@ class _PendingLyricsMatch {
 
   final Completer<void> completer;
   final bool result;
+}
+
+Future<void> _pumpUntil(
+  bool Function() condition, {
+  int maxPumps = 50,
+}) async {
+  for (var i = 0; i < maxPumps; i++) {
+    if (condition()) return;
+    await pumpEventQueue();
+  }
+  throw StateError('Condition was not met after $maxPumps event pumps');
 }
 
 class _PassThroughTitleParser implements TitleParser {

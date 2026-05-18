@@ -3,11 +3,46 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/source_exception.dart';
+import 'package:fmp/data/sources/youtube_exception.dart';
 import 'package:fmp/data/sources/youtube_source.dart';
+import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt;
 
 void main() {
+  group('YouTubeSource stream fallback', () {
+    test('preserves login-required errors during stream fallback', () async {
+      final source = YouTubeSource(
+        youtube: _FakeYoutubeExplode(
+          const YouTubeApiException(
+            code: 'login_required',
+            message: 'Sign in to confirm your age',
+          ),
+        ),
+      );
+      addTearDown(source.dispose);
+
+      await expectLater(
+        source.getAudioStream(
+          'login-required-video',
+          config: const AudioStreamConfig(
+            streamPriority: [StreamType.audioOnly, StreamType.muxed],
+          ),
+        ),
+        throwsA(
+          isA<YouTubeApiException>()
+              .having(
+                  (error) => error.kind, 'kind', SourceErrorKind.loginRequired)
+              .having((error) => error.code, 'code', 'login_required'),
+        ),
+      );
+    });
+  });
+
   group('YouTubeSource playlist parsing', () {
-    test('uses InnerTube pagination for anonymous playlists before fallback', () async {
+    test('uses InnerTube pagination for anonymous playlists before fallback',
+        () async {
       final dio = Dio();
       final requests = <Map<String, dynamic>>[];
       dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
@@ -119,9 +154,7 @@ void main() {
                               {'text': 'Anon Artist 2'}
                             ]
                           },
-                          'lengthText': {
-                            'simpleText': '2:22'
-                          }
+                          'lengthText': {'simpleText': '2:22'}
                         }
                       }
                     ]
@@ -160,7 +193,8 @@ void main() {
     test('counts skipped unavailable videos in totalCount', () async {
       final dio = Dio();
       dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
-        final request = jsonDecode(requestBody as String) as Map<String, dynamic>;
+        final request =
+            jsonDecode(requestBody as String) as Map<String, dynamic>;
         expect(request['browseId'], 'VLPLPARTIAL');
         return ResponseBody.fromString(
           jsonEncode({
@@ -197,9 +231,7 @@ void main() {
                                                 {'text': 'Artist'}
                                               ]
                                             },
-                                            'lengthText': {
-                                              'simpleText': '1:00'
-                                            }
+                                            'lengthText': {'simpleText': '1:00'}
                                           }
                                         },
                                         {
@@ -405,7 +437,8 @@ void main() {
     test('parses playlistVideoListContinuation responses', () async {
       final dio = Dio();
       dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
-        final request = jsonDecode(requestBody as String) as Map<String, dynamic>;
+        final request =
+            jsonDecode(requestBody as String) as Map<String, dynamic>;
 
         if (request['browseId'] == 'VLPL456') {
           return ResponseBody.fromString(
@@ -506,9 +539,7 @@ void main() {
                             {'text': 'Artist B'}
                           ]
                         },
-                        'lengthText': {
-                          'simpleText': '3:21'
-                        }
+                        'lengthText': {'simpleText': '3:21'}
                       }
                     }
                   ],
@@ -557,9 +588,7 @@ void main() {
                               {'text': 'Artist C'}
                             ]
                           },
-                          'lengthText': {
-                            'simpleText': '4:56'
-                          }
+                          'lengthText': {'simpleText': '4:56'}
                         }
                       }
                     ]
@@ -629,8 +658,7 @@ void main() {
 
       test('returns false for no list param', () {
         expect(
-          YouTubeSource.isMixPlaylistUrl(
-              'https://www.youtube.com/watch?v=abc'),
+          YouTubeSource.isMixPlaylistUrl('https://www.youtube.com/watch?v=abc'),
           isFalse,
         );
       });
@@ -666,8 +694,8 @@ void main() {
       });
 
       test('returns null playlistId when no list param', () {
-        final result = YouTubeSource.extractMixInfo(
-            'https://www.youtube.com/watch?v=abc');
+        final result =
+            YouTubeSource.extractMixInfo('https://www.youtube.com/watch?v=abc');
 
         expect(result.playlistId, isNull);
         expect(result.seedVideoId, 'abc');
@@ -698,4 +726,43 @@ class _FakeHttpClientAdapter implements HttpClientAdapter {
 
   @override
   void close({bool force = false}) {}
+}
+
+class _FakeYoutubeExplode extends yt.YoutubeExplode {
+  _FakeYoutubeExplode(Object manifestError)
+      : _streams = _ThrowingStreamClient(manifestError),
+        super(httpClient: yt.YoutubeHttpClient());
+
+  final _ThrowingStreamClient _streams;
+
+  @override
+  late final yt.VideoClient videos = _FakeVideoClient(_streams);
+
+  @override
+  void close() {}
+}
+
+class _FakeVideoClient extends yt.VideoClient {
+  _FakeVideoClient(this._streams) : super(yt.YoutubeHttpClient());
+
+  final yt.StreamClient _streams;
+
+  @override
+  yt.StreamClient get streams => _streams;
+}
+
+class _ThrowingStreamClient extends yt.StreamClient {
+  _ThrowingStreamClient(this.error) : super(yt.YoutubeHttpClient());
+
+  final Object error;
+
+  @override
+  Future<yt.StreamManifest> getManifest(
+    dynamic videoId, {
+    bool fullManifest = false,
+    List<yt.YoutubeApiClient>? ytClients,
+    bool requireWatchPage = true,
+  }) async {
+    throw error;
+  }
 }

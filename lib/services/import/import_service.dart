@@ -258,7 +258,15 @@ class ImportService with Logging implements ImportServiceFacade {
       Playlist playlist;
       if (existingPlaylist != null) {
         // 更新现有歌单
-        playlist = existingPlaylist;
+        playlist = existingPlaylist
+          ..importSourceType = source.sourceType
+          ..ownerName = result.ownerName
+          ..ownerUserId = result.ownerUserId
+          ..useAuthForRefresh = useAuth
+          ..refreshIntervalHours = refreshIntervalHours
+          ..notifyOnUpdate = notifyOnUpdate
+          ..updatedAt = DateTime.now();
+        await _playlistRepository.save(playlist);
       } else {
         // 创建新歌单
         // 处理同名歌单：自动添加后缀避免唯一索引冲突

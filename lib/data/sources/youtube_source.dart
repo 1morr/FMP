@@ -340,6 +340,11 @@ class YouTubeSource extends BaseSource with Logging {
             message: t.error.rateLimited,
           );
         }
+        if (_shouldAbortStreamFallback(e)) {
+          logWarning(
+              'YouTube stream type $streamType hit non-fallbackable error for $videoId: $e');
+          rethrow;
+        }
         logDebug('Stream type $streamType failed for $videoId: $e');
       }
     }
@@ -402,6 +407,7 @@ class YouTubeSource extends BaseSource with Logging {
         );
       }
     } catch (e) {
+      if (_shouldAbortStreamFallback(e)) rethrow;
       logDebug('Audio-only stream failed for $videoId: $e');
     }
     return null;
@@ -443,6 +449,7 @@ class YouTubeSource extends BaseSource with Logging {
         );
       }
     } catch (e) {
+      if (_shouldAbortStreamFallback(e)) rethrow;
       logDebug('Muxed stream failed for $videoId: $e');
     }
     return null;
@@ -491,6 +498,7 @@ class YouTubeSource extends BaseSource with Logging {
           }
         }
       } catch (e) {
+        if (_shouldAbortStreamFallback(e)) rethrow;
         logDebug('HLS stream via client set failed for $videoId: $e');
       }
     }
@@ -1973,6 +1981,13 @@ class YouTubeSource extends BaseSource with Logging {
         errorStr.contains('rate') ||
         errorStr.contains('quota') ||
         errorStr.contains('too many');
+  }
+
+  bool _shouldAbortStreamFallback(Object error) {
+    if (error is SourceApiException) {
+      return !error.kind.canFallbackToLowerAudioQuality;
+    }
+    return _isRateLimitError(error);
   }
 
   /// 处理 Dio 错误（用于 InnerTube API 调用）

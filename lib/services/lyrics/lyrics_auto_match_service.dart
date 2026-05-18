@@ -93,8 +93,16 @@ class LyricsAutoMatchService with Logging {
         return false;
       }
 
+      final sources = enabledSources ?? ['netease', 'qqmusic', 'lrclib'];
+      final enabledSourceSet = sources.toSet();
+      if (sources.isEmpty) {
+        logDebug('Auto-match skipped: no lyrics sources enabled');
+        return false;
+      }
+
       // 1.5a. 网易云歌曲直接用 sourceId 获取歌词（跳过搜索）
-      if (track.sourceType == SourceType.netease) {
+      if (track.sourceType == SourceType.netease &&
+          enabledSourceSet.contains('netease')) {
         try {
           final result = await _netease
               .getLyricsResult(track.sourceId)
@@ -117,7 +125,9 @@ class LyricsAutoMatchService with Logging {
       }
 
       // 1.5b. 如果有原平台 ID，直接获取歌词（跳过搜索）
-      if (track.originalSongId != null && track.originalSource != null) {
+      if (track.originalSongId != null &&
+          track.originalSource != null &&
+          enabledSourceSet.contains(track.originalSource)) {
         final result = await _tryDirectFetch(
           track.originalSongId!,
           track.originalSource!,
@@ -133,7 +143,6 @@ class LyricsAutoMatchService with Logging {
         // 直接获取失败，fallback 到搜索流程
       }
 
-      final sources = enabledSources ?? ['netease', 'qqmusic', 'lrclib'];
       final aiConfig = await _loadAiConfigSafely();
       final shouldTryAi = _shouldTryAi(aiConfig);
 

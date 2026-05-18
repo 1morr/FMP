@@ -309,6 +309,55 @@ void main() {
       expect(second.playlist.trackIds, hasLength(1));
       expect(savedTrack!.audioUrl, audioUrl);
     });
+
+    test('importFromUrl updates auth refresh metadata on existing playlist',
+        () async {
+      final source = _PlaylistSource(
+        title: 'Existing Import Playlist',
+        tracks: [_track('existing-import-track', 'Existing Import Track')],
+        description: 'Updated remote description',
+        ownerName: 'Remote Owner',
+        ownerUserId: 'remote-owner-id',
+      );
+      sourceManager.detectedSource = source;
+      final service = ImportService(
+        sourceManager: sourceManager,
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        isar: isar,
+      );
+      final existing = Playlist()
+        ..name = 'User Chosen Name'
+        ..description = 'Old local description'
+        ..sourceUrl = 'https://example.com/playlist/existing'
+        ..importSourceType = SourceType.youtube
+        ..ownerName = 'Old Owner'
+        ..ownerUserId = 'old-owner-id'
+        ..useAuthForRefresh = false
+        ..refreshIntervalHours = 24
+        ..notifyOnUpdate = true
+        ..createdAt = DateTime.now();
+      existing.id = await playlistRepository.save(existing);
+
+      final result = await service.importFromUrl(
+        'https://example.com/playlist/existing',
+        customName: 'Ignored Custom Name',
+        refreshIntervalHours: 6,
+        notifyOnUpdate: false,
+        useAuth: true,
+      );
+
+      final savedPlaylist = await playlistRepository.getById(existing.id);
+      expect(result.playlist.id, existing.id);
+      expect(savedPlaylist!.name, 'User Chosen Name');
+      expect(savedPlaylist.description, 'Old local description');
+      expect(savedPlaylist.ownerName, 'Remote Owner');
+      expect(savedPlaylist.ownerUserId, 'remote-owner-id');
+      expect(savedPlaylist.useAuthForRefresh, isTrue);
+      expect(savedPlaylist.refreshIntervalHours, 6);
+      expect(savedPlaylist.notifyOnUpdate, isFalse);
+      expect(savedPlaylist.importSourceType, SourceType.youtube);
+    });
   });
 }
 
@@ -444,10 +493,16 @@ class _PlaylistSource extends BaseSource {
   _PlaylistSource({
     required this.title,
     required List<Track> tracks,
+    this.description,
+    this.ownerName,
+    this.ownerUserId,
   }) : _tracks = tracks;
 
   final String title;
   final List<Track> _tracks;
+  final String? description;
+  final String? ownerName;
+  final String? ownerUserId;
   @override
   SourceType get sourceType => SourceType.youtube;
 
@@ -484,6 +539,9 @@ class _PlaylistSource extends BaseSource {
       tracks: _tracks,
       totalCount: _tracks.length,
       sourceUrl: playlistUrl,
+      description: description,
+      ownerName: ownerName,
+      ownerUserId: ownerUserId,
     );
   }
 

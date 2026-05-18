@@ -165,6 +165,7 @@ class PlayerState {
     bool? isNetworkError,
     bool? isRetrying,
     DateTime? nextRetryAt,
+    bool clearNextRetryAt = false,
     int? currentBitrate,
     String? currentContainer,
     String? currentCodec,
@@ -201,7 +202,7 @@ class PlayerState {
       retryAttempt: retryAttempt ?? this.retryAttempt,
       isNetworkError: isNetworkError ?? this.isNetworkError,
       isRetrying: isRetrying ?? this.isRetrying,
-      nextRetryAt: nextRetryAt,
+      nextRetryAt: clearNextRetryAt ? null : (nextRetryAt ?? this.nextRetryAt),
       currentBitrate: replaceCurrentStreamMetadata
           ? currentBitrate
           : (currentBitrate ?? this.currentBitrate),

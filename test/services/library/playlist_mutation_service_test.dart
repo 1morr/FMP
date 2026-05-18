@@ -69,6 +69,50 @@ void main() {
       );
     });
 
+    test('addTracks fills missing original import IDs on existing tracks',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final playlist = await _createPlaylist(harness, 'Original IDs');
+      final existing = await harness.tracks.save(
+        _track('matched-track', 'Matched Track'),
+      );
+      final incoming = _track('matched-track', 'Imported Match')
+        ..originalSongId = 'qq-original-123'
+        ..originalSource = 'qqmusic';
+
+      final result = await harness.mutations.addTracks(
+        playlist.id,
+        [incoming],
+      );
+
+      final savedTrack = await harness.tracks.getById(existing.id);
+      expect(result.updatedTrackIds, [existing.id]);
+      expect(savedTrack!.originalSongId, 'qq-original-123');
+      expect(savedTrack.originalSource, 'qqmusic');
+    });
+
+    test('addTracks preserves existing original import IDs on existing tracks',
+        () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final playlist = await _createPlaylist(harness, 'Preserve Originals');
+      final existing = await harness.tracks.save(
+        _track('preserve-originals', 'Preserve Originals')
+          ..originalSongId = 'netease-original-456'
+          ..originalSource = 'netease',
+      );
+      final incoming = _track('preserve-originals', 'Imported Preserve')
+        ..originalSongId = 'qq-original-789'
+        ..originalSource = 'qqmusic';
+
+      await harness.mutations.addTracks(playlist.id, [incoming]);
+
+      final savedTrack = await harness.tracks.getById(existing.id);
+      expect(savedTrack!.originalSongId, 'netease-original-456');
+      expect(savedTrack.originalSource, 'netease');
+    });
+
     test('addTracks preserves download path from duplicate playlistInfo',
         () async {
       final harness = await _createHarness();
