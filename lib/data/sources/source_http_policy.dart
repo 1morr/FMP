@@ -21,6 +21,7 @@ class SourceHttpPolicy {
   static const String bilibiliOrigin = 'https://www.bilibili.com';
   static const String bilibiliReferer = 'https://www.bilibili.com/';
   static const String bilibiliWebReferer = 'https://www.bilibili.com';
+  static const String bilibiliLiveReferer = 'https://live.bilibili.com/';
   static const String bilibiliSearchOrigin = 'https://search.bilibili.com';
   static const String bilibiliSearchReferer = 'https://search.bilibili.com/';
   static const String bilibiliSearchAcceptLanguage = 'zh-CN,zh;q=0.9,en;q=0.8';
@@ -107,6 +108,13 @@ class SourceHttpPolicy {
     );
   }
 
+  static Map<String, String> bilibiliLiveHeaders({String? userAgent}) {
+    return {
+      'Referer': bilibiliLiveReferer,
+      'User-Agent': userAgent ?? mediaUserAgent,
+    };
+  }
+
   static Map<String, String> neteaseAuthHeaders(String cookie) {
     return {
       'Cookie': cookie,
@@ -129,6 +137,12 @@ class SourceHttpPolicy {
         userAgent: userAgent,
       ),
       contentType: contentType,
+    );
+  }
+
+  static Dio createBilibiliLiveDio({String? userAgent}) {
+    return HttpClientFactory.create(
+      headers: bilibiliLiveHeaders(userAgent: userAgent),
     );
   }
 }

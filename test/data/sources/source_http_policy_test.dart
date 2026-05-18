@@ -84,6 +84,28 @@ void main() {
       expect(headers['User-Agent'], SourceHttpPolicy.webUserAgent);
     });
 
+    test('bilibili live headers keep live referer and media user agent', () {
+      final headers = SourceHttpPolicy.bilibiliLiveHeaders();
+
+      expect(headers['Referer'], SourceHttpPolicy.bilibiliLiveReferer);
+      expect(headers['User-Agent'], SourceHttpPolicy.mediaUserAgent);
+      expect(headers.containsKey('Origin'), isFalse);
+      expect(headers.containsKey('Cookie'), isFalse);
+    });
+
+    test('createBilibiliLiveDio applies live headers', () {
+      final dio = SourceHttpPolicy.createBilibiliLiveDio();
+
+      expect(
+        dio.options.headers['Referer'],
+        SourceHttpPolicy.bilibiliLiveReferer,
+      );
+      expect(
+          dio.options.headers['User-Agent'], SourceHttpPolicy.mediaUserAgent);
+      expect(dio.options.connectTimeout, isNotNull);
+      dio.close();
+    });
+
     test('createApiDio applies source defaults and optional content type', () {
       final dio = SourceHttpPolicy.createApiDio(
         SourceType.youtube,
