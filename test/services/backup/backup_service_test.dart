@@ -281,6 +281,71 @@ void main() {
       expect(track.playlistInfo.single.playlistName, 'Restored Playlist');
     });
 
+    test('importData restores Netease source types without falling back',
+        () async {
+      final exportedAt = DateTime(2026, 5, 18);
+      final backupData = BackupData(
+        version: kBackupVersion,
+        exportedAt: exportedAt,
+        appVersion: 'test',
+        playlists: [
+          PlaylistBackup(
+            name: 'Netease Import',
+            importSourceType: SourceType.netease.name,
+            trackKeys: const ['netease:netease-song'],
+            createdAt: exportedAt,
+          ),
+        ],
+        tracks: [
+          TrackBackup(
+            sourceId: 'netease-song',
+            sourceType: SourceType.netease.name,
+            title: 'Netease Track',
+            createdAt: exportedAt,
+          ),
+        ],
+        playHistory: [
+          PlayHistoryBackup(
+            sourceId: 'netease-history',
+            sourceType: SourceType.netease.name,
+            title: 'Netease History',
+            playedAt: exportedAt,
+          ),
+        ],
+        searchHistory: const [],
+        radioStations: [
+          RadioStationBackup(
+            url: 'https://music.163.com/radio/test',
+            title: 'Netease Radio',
+            sourceType: SourceType.netease.name,
+            sourceId: 'netease-radio',
+            createdAt: exportedAt,
+          ),
+        ],
+      );
+
+      final result = await backupService.importData(
+        backupData,
+        importPlaylists: true,
+        importPlayHistory: true,
+        importSearchHistory: false,
+        importRadioStations: true,
+        importLyricsMatches: false,
+        importSettings: false,
+      );
+
+      final track = (await isar.tracks.where().findAll()).single;
+      final playlist = (await isar.playlists.where().findAll()).single;
+      final history = (await isar.playHistorys.where().findAll()).single;
+      final radio = (await isar.radioStations.where().findAll()).single;
+
+      expect(result.errors, isEmpty);
+      expect(track.sourceType, SourceType.netease);
+      expect(playlist.importSourceType, SourceType.netease);
+      expect(history.sourceType, SourceType.netease);
+      expect(radio.sourceType, SourceType.netease);
+    });
+
     test('exportData includes lyrics AI settings without secure API key',
         () async {
       final outputPath = '${tempDir.path}/export.json';

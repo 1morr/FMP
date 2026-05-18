@@ -691,6 +691,8 @@ class BackupService {
     switch (value.toLowerCase()) {
       case 'youtube':
         return SourceType.youtube;
+      case 'netease':
+        return SourceType.netease;
       case 'bilibili':
       default:
         return SourceType.bilibili;

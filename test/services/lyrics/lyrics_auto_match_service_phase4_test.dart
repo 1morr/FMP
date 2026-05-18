@@ -119,6 +119,28 @@ void main() {
       expect(cache.savedKeys, ['netease:netease-song-1']);
     });
 
+    test('tryAutoMatch does not direct fetch netease when source is disabled',
+        () async {
+      netease.directResults['netease-disabled'] = _lyricsResult(
+        id: 'netease-disabled',
+        source: 'netease',
+      );
+      final track = _track('netease-disabled')..sourceType = SourceType.netease;
+
+      final matched = await service.tryAutoMatch(
+        track,
+        enabledSources: const [],
+      );
+
+      expect(matched, isFalse);
+      expect(netease.directFetchCalls, isEmpty);
+      expect(netease.searchCalls, isEmpty);
+      expect(qqmusic.searchCalls, isEmpty);
+      expect(lrclib.searchCalls, isEmpty);
+      expect(await repo.getByTrackKey('netease:netease-disabled'), isNull);
+      expect(cache.savedKeys, isEmpty);
+    });
+
     test('rejects netease source direct plain-only lyrics by default',
         () async {
       netease.directResults['netease-plain-default'] = _lyricsResult(
@@ -132,7 +154,7 @@ void main() {
 
       final matched = await service.tryAutoMatch(
         track,
-        enabledSources: const [],
+        enabledSources: const ['netease'],
       );
 
       expect(matched, isFalse);
@@ -164,7 +186,7 @@ void main() {
 
       final matched = await service.tryAutoMatch(
         track,
-        enabledSources: const [],
+        enabledSources: const ['netease'],
       );
 
       expect(matched, isTrue);
@@ -198,7 +220,7 @@ void main() {
 
       final matched = await service.tryAutoMatch(
         track,
-        enabledSources: const [],
+        enabledSources: const ['netease'],
       );
 
       expect(matched, isFalse);
@@ -233,6 +255,30 @@ void main() {
       expect(saved!.lyricsSource, 'qqmusic');
       expect(saved.externalId, 'qq-songmid-1');
       expect(cache.savedKeys, ['youtube:imported-qq']);
+    });
+
+    test('tryAutoMatch does not direct fetch imported source when disabled',
+        () async {
+      qqmusic.directResults['qq-disabled'] = _lyricsResult(
+        id: 'qq-disabled',
+        source: 'qqmusic',
+      );
+      final track = _track('imported-qq-disabled')
+        ..originalSongId = 'qq-disabled'
+        ..originalSource = 'qqmusic';
+
+      final matched = await service.tryAutoMatch(
+        track,
+        enabledSources: const ['netease'],
+      );
+
+      expect(matched, isFalse);
+      expect(qqmusic.directFetchCalls, isEmpty);
+      expect(netease.searchCalls, isNotEmpty);
+      expect(qqmusic.searchCalls, isEmpty);
+      expect(lrclib.searchCalls, isEmpty);
+      expect(await repo.getByTrackKey('youtube:imported-qq-disabled'), isNull);
+      expect(cache.savedKeys, isEmpty);
     });
 
     test('tryAutoMatch searches for spotify imports instead of direct fetch',

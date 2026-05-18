@@ -734,6 +734,18 @@ class PlaylistMutationService with Logging {
       target.artist = incoming.artist;
       changed = true;
     }
+    if ((target.originalSongId == null || target.originalSongId!.isEmpty) &&
+        incoming.originalSongId != null &&
+        incoming.originalSongId!.isNotEmpty) {
+      target.originalSongId = incoming.originalSongId;
+      changed = true;
+    }
+    if ((target.originalSource == null || target.originalSource!.isEmpty) &&
+        incoming.originalSource != null &&
+        incoming.originalSource!.isNotEmpty) {
+      target.originalSource = incoming.originalSource;
+      changed = true;
+    }
 
     return changed;
   }

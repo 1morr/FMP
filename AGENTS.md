@@ -251,6 +251,7 @@ User-configurable per source:
 `AudioStreamConfig` passed to source `getAudioUrl()`, returns `AudioStreamResult` with bitrate/codec info.
 
 **Quality fallback:** Audio stream resolution uses a shared quality ladder. If the configured level fails for a quality-sensitive source error, retry lower levels in order: `high → medium → low`, `medium → low`, `low` has no lower fallback. This applies to playback URL resolution and download stream resolution. Fallback is allowed only for `unavailable` and `vipRequired`; network, timeout, rate-limit, login-required, permission-denied, geo-restricted, and unknown errors must keep their normal retry/skip/error behavior. During playback handoff fallback after a selected URL fails, `AudioStreamDelegate` first tries lower-quality alternatives before falling back to source-specific same-quality alternatives. YouTube alternative stream selection must still respect format priority and the requested fallback quality.
+Source adapters must preserve non-fallbackable `SourceErrorKind` values while trying stream types; do not collapse rate-limit/login/permission/network/timeout/geo errors into generic "no stream" errors after fallback attempts.
 
 ### Auth for Playback
 Per-platform toggle for using login credentials when fetching audio streams:
@@ -274,6 +275,7 @@ Multi-source auto-match priority (`LyricsAutoMatchService.tryAutoMatch()`):
 4. User-configured enabled source order from `Settings.lyricsSourcePriorityList`
    - default order: Netease → QQ Music → lrclib
    - `disabledLyricsSources` are skipped (default disables lrclib for auto-match)
+   - Direct source/original-ID lyric fetches also respect the enabled source set; if all lyric sources are disabled, auto-match is a no-op instead of falling back to defaults.
 5. Manual lyrics search supports filters: All / Netease / QQ Music / lrclib
 
 AI matching modes: `off`, AI title parsing, AI advanced matching. Requests send the video/title string plus optional `uploader` context (currently `Track.artist`) to the configured OpenAI-compatible endpoint; `uploader` is not treated as the song artist. AI title parsing extracts search terms, then local source searches choose lyrics; after a valid AI parse fails to find lyrics, regex fallback is not used. AI advanced matching parses the title, collects filtered candidates using source priority and the synced/plain setting, asks AI to select the closest acceptable same-song candidate, and saves known selected candidates regardless of confidence. AI unavailable/config/connection/invalid/no-response cases can fall back to regex; valid no-selection/unknown-candidate results do not. `allowPlainLyricsAutoMatch` defaults to `false`, so automatic matching only accepts synced lyrics unless enabled, and advanced mode does not offer plain-only candidates when disabled. Successful title parses are stored in `LyricsTitleParseCache` for reuse during the current app run, and the cache is cleared on startup.
@@ -324,6 +326,7 @@ class _PlaybackContext {
 `AudioController` owns recovery for `AudioService.errorStream` playback failures.
 
 - Runtime network errors from backends, including media_kit `tcp:` / `ffurl_read` errors, must retry or refetch the current track URL from the saved position, not advance the queue.
+- Backend error-stream retry suppression must be generation/current-track aware. A fresh backend network error during a manual or automatic retry handoff schedules a new retry generation; stale handoff completion must not clear the fresh retry state.
 - `completedStream` is not always a natural song completion: media_kit can emit `completed` around stream read failures or network transitions such as VPN changes. Ignore completion while loading/retrying/network-error state; if completion arrives while the current position is not close to duration, schedule retry for the current track from the saved position.
 - Desktop `MediaKitAudioService` intentionally uses an aggressive network buffer profile for online music playback: 32MB player buffer, 24MB demuxer forward buffer, 8MB demuxer back buffer, and 7200s mpv cache/readahead so libmpv can continuously prefetch full songs and avoid idle CDN connection resets. Keep `vid=no`/`sid=no` enabled so muxed fallback streams do not decode video while the larger buffer absorbs VPN/CDN stalls.
 - Only source availability failures marked with `SourceErrorKind.shouldSkipTrack` should auto-skip to the next queue item.

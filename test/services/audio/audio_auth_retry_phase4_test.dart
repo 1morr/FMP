@@ -163,6 +163,43 @@ void main() {
       expect(controller.state.error, isNull);
     });
 
+    test('network error during retry handoff schedules a fresh retry',
+        () async {
+      final track = _track('handoff-network-error-track');
+
+      await controller.playTrack(track);
+      await pumpEventQueue(times: 10);
+
+      audioService.emitPosition(const Duration(seconds: 29));
+      audioService.emitError('network timeout during playback');
+      await pumpEventQueue(times: 10);
+
+      expect(controller.state.currentTrack?.sourceId, track.sourceId);
+      expect(controller.state.isRetrying, isTrue);
+      expect(controller.state.isNetworkError, isTrue);
+      expect(controller.state.nextRetryAt, isNotNull);
+
+      audioService.playUrlCalls.clear();
+      final retryHandoff = audioService.enqueuePendingPlayUrl();
+
+      final manualRetry = controller.retryManually();
+      await audioService.waitForPlayUrlCallCount(1);
+      await pumpEventQueue(times: 2);
+
+      audioService.emitError('tcp: ffurl_read returned 0xffffd8ba');
+      await pumpEventQueue(times: 10);
+
+      retryHandoff.complete();
+      await manualRetry;
+      await pumpEventQueue(times: 20);
+
+      expect(controller.state.currentTrack?.sourceId, track.sourceId);
+      expect(controller.state.isRetrying, isTrue);
+      expect(controller.state.isNetworkError, isTrue);
+      expect(controller.state.nextRetryAt, isNotNull);
+      expect(controller.state.retryAttempt, 0);
+    });
+
     test('mid-track network error completion event does not advance queue',
         () async {
       final firstTrack = _track('network-error-current');

@@ -1,11 +1,16 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
+import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/bilibili_source.dart';
 import 'package:fmp/data/sources/bilibili_exception.dart';
 import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/source_exception.dart';
 
 void main() {
   group('BilibiliSource', () {
@@ -16,7 +21,8 @@ void main() {
     });
 
     group('parsePlaylist', () {
-      test('reports remote media_count instead of parsed track count', () async {
+      test('reports remote media_count instead of parsed track count',
+          () async {
         final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
         addTearDown(() async => server.close(force: true));
 
@@ -55,7 +61,8 @@ void main() {
           await request.response.close();
         });
 
-        final source = BilibiliSource(apiBase: 'http://localhost:${server.port}');
+        final source =
+            BilibiliSource(apiBase: 'http://localhost:${server.port}');
         final result = await source.parsePlaylist(
           'https://space.bilibili.com/1/favlist?fid=123',
           pageSize: 20,
@@ -67,6 +74,110 @@ void main() {
     });
 
     group('getAudioUrl', () {
+      test('preserves rate-limit errors during stream fallback', () async {
+        final dio = Dio();
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
+          if (options.path.endsWith('/x/web-interface/view')) {
+            return ResponseBody.fromString(
+              jsonEncode({
+                'code': 0,
+                'data': {'cid': 12345},
+              }),
+              200,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+
+          if (options.path.endsWith('/x/player/playurl')) {
+            return ResponseBody.fromString(
+              jsonEncode({
+                'code': -412,
+                'message': 'request was blocked',
+              }),
+              200,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+
+          throw StateError('Unexpected request: ${options.path}');
+        });
+        final source = BilibiliSource(
+          dio: dio,
+          apiBase: 'https://api.bilibili.test',
+        );
+
+        await expectLater(
+          source.getAudioStream(
+            'BVrateLimit',
+            config: const AudioStreamConfig(
+              streamPriority: [StreamType.audioOnly, StreamType.muxed],
+            ),
+          ),
+          throwsA(
+            isA<BilibiliApiException>()
+                .having(
+                    (error) => error.kind, 'kind', SourceErrorKind.rateLimited)
+                .having((error) => error.numericCode, 'numericCode', -412),
+          ),
+        );
+      });
+
+      test('preserves HTTP rate-limit errors during stream fallback', () async {
+        final dio = Dio();
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
+          if (options.path.endsWith('/x/web-interface/view')) {
+            return ResponseBody.fromString(
+              jsonEncode({
+                'code': 0,
+                'data': {'cid': 12345},
+              }),
+              200,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+
+          if (options.path.endsWith('/x/player/playurl')) {
+            return ResponseBody.fromString(
+              jsonEncode({'message': 'too many requests'}),
+              429,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+
+          throw StateError('Unexpected request: ${options.path}');
+        });
+        final source = BilibiliSource(
+          dio: dio,
+          apiBase: 'https://api.bilibili.test',
+        );
+
+        await expectLater(
+          source.getAudioStream(
+            'BVhttpRateLimit',
+            config: const AudioStreamConfig(
+              streamPriority: [StreamType.audioOnly, StreamType.muxed],
+            ),
+          ),
+          throwsA(
+            isA<BilibiliApiException>()
+                .having(
+                  (error) => error.kind,
+                  'kind',
+                  SourceErrorKind.rateLimited,
+                )
+                .having((error) => error.numericCode, 'numericCode', -429),
+          ),
+        );
+      });
+
       test('should fetch audio URL for valid bvid', () async {
         // 此测试需要网络连接和有效的视频
         // 在CI/CD中可能需要跳过
@@ -79,11 +190,13 @@ void main() {
           expect(audioUrl, isNotNull);
           expect(audioUrl, isNotEmpty);
           expect(audioUrl, contains('http'));
-          debugPrint('Successfully fetched audio URL: ${audioUrl.substring(0, 80)}...');
+          debugPrint(
+              'Successfully fetched audio URL: ${audioUrl.substring(0, 80)}...');
         } on BilibiliApiException catch (e) {
           // 如果视频不可用，跳过测试（可能是地区限制或API限制）
           if (e.isUnavailable || e.numericCode == -404) {
-            debugPrint('Video unavailable (code: ${e.numericCode}), skipping test: ${e.message}');
+            debugPrint(
+                'Video unavailable (code: ${e.numericCode}), skipping test: ${e.message}');
             return;
           }
           rethrow;
@@ -135,7 +248,8 @@ void main() {
           debugPrint('Successfully refreshed audio URL');
         } on BilibiliApiException catch (e) {
           if (e.isUnavailable || e.numericCode == -404) {
-            debugPrint('Video unavailable (code: ${e.numericCode}), skipping test: ${e.message}');
+            debugPrint(
+                'Video unavailable (code: ${e.numericCode}), skipping test: ${e.message}');
             return;
           }
           rethrow;
@@ -150,7 +264,8 @@ void main() {
       test('hasValidAudioUrl should return false for expired URL', () {
         final track = Track()
           ..audioUrl = 'https://example.com/audio.m4s'
-          ..audioUrlExpiry = DateTime.now().subtract(const Duration(minutes: 1));
+          ..audioUrlExpiry =
+              DateTime.now().subtract(const Duration(minutes: 1));
 
         expect(track.hasValidAudioUrl, isFalse);
       });
@@ -192,4 +307,28 @@ void main() {
       expect(true, isTrue);
     });
   });
+}
+
+class _FakeHttpClientAdapter implements HttpClientAdapter {
+  _FakeHttpClientAdapter(this._handler);
+
+  final ResponseBody Function(RequestOptions options, Object? requestBody)
+      _handler;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    final requestBody = requestStream == null
+        ? null
+        : utf8.decode(
+            (await requestStream.expand((chunk) => chunk).toList()),
+          );
+    return _handler(options, requestBody);
+  }
+
+  @override
+  void close({bool force = false}) {}
 }
