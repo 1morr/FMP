@@ -112,6 +112,37 @@ void main() {
     expect(notifier.state.detail, isNull);
     expect(notifier.state.error, contains('blocked'));
   });
+
+  test('refresh retries current track after first detail load fails', () async {
+    final youtube = _CompletingYouTubeSource();
+    final notifier = TrackDetailNotifier(
+      _CompletingBilibiliSource(),
+      youtube,
+      _CompletingNeteaseSource(),
+      _FakeRef(),
+    );
+
+    final track = _track('YT-B', SourceType.youtube);
+    final loadFuture = notifier.loadDetail(track);
+    await pumpEventQueue(times: 2);
+
+    youtube.completeError('YT-B', Exception('blocked'));
+    await loadFuture;
+
+    expect(notifier.state.detail, isNull);
+    expect(notifier.state.error, contains('blocked'));
+
+    final refreshFuture = notifier.refresh();
+    await pumpEventQueue(times: 2);
+
+    expect(youtube.calls, ['YT-B', 'YT-B']);
+
+    youtube.complete('YT-B', _detail('YT-B', 'Track B retry'));
+    await refreshFuture;
+
+    expect(notifier.state.detail!.title, 'Track B retry');
+    expect(notifier.state.error, isNull);
+  });
 }
 
 Track _track(String sourceId, SourceType sourceType) {

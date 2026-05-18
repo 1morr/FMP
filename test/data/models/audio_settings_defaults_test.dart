@@ -74,7 +74,7 @@ void main() {
       final expectedDescriptions = {
         'zh-CN': '分段流，不推荐',
         'zh-TW': '分段串流，不推薦',
-        'en': 'Segmented stream, no recommended',
+        'en': 'Segmented stream, not recommended',
       };
 
       for (final entry in expectedDescriptions.entries) {
