@@ -28,8 +28,21 @@ class AudioStreamConfig {
   /// 默认配置（高音质、Opus 优先）
   static const defaultConfig = AudioStreamConfig();
 
+  AudioStreamConfig copyWith({
+    AudioQualityLevel? qualityLevel,
+    List<AudioFormat>? formatPriority,
+    List<StreamType>? streamPriority,
+  }) {
+    return AudioStreamConfig(
+      qualityLevel: qualityLevel ?? this.qualityLevel,
+      formatPriority: formatPriority ?? this.formatPriority,
+      streamPriority: streamPriority ?? this.streamPriority,
+    );
+  }
+
   /// 从 Settings 构建指定音源的配置
-  factory AudioStreamConfig.fromSettings(Settings settings, SourceType sourceType) {
+  factory AudioStreamConfig.fromSettings(
+      Settings settings, SourceType sourceType) {
     final streamPriority = switch (sourceType) {
       SourceType.youtube => settings.youtubeStreamPriorityList,
       SourceType.bilibili => settings.bilibiliStreamPriorityList,
@@ -82,8 +95,10 @@ class AudioStreamResult {
 enum SearchOrder {
   /// 综合排序（默认）
   relevance,
+
   /// 按播放量排序
   playCount,
+
   /// 按发布时间排序
   publishDate,
 }
@@ -145,7 +160,6 @@ abstract class BaseSource {
 
   /// 音源名称（用于显示）
 
-
   /// 从 URL 解析出源ID
   /// 返回 null 表示不是此音源的有效 URL
   String? parseId(String url);
@@ -158,7 +172,8 @@ abstract class BaseSource {
 
   /// 获取单首歌曲信息
   /// [sourceId] 音源ID（如 BV号、YouTube视频ID）
-  Future<Track> getTrackInfo(String sourceId, {Map<String, String>? authHeaders});
+  Future<Track> getTrackInfo(String sourceId,
+      {Map<String, String>? authHeaders});
 
   /// 获取音频流（包含元信息）
   /// [sourceId] 音源ID
@@ -172,7 +187,8 @@ abstract class BaseSource {
 
   /// 获取音频流 URL（简化版，仅返回 URL）
   /// 内部调用 getAudioStream 并提取 URL
-  Future<String> getAudioUrl(String sourceId, {AudioStreamConfig? config, Map<String, String>? authHeaders}) async {
+  Future<String> getAudioUrl(String sourceId,
+      {AudioStreamConfig? config, Map<String, String>? authHeaders}) async {
     final result = await getAudioStream(
       sourceId,
       config: config ?? AudioStreamConfig.defaultConfig,
@@ -183,7 +199,8 @@ abstract class BaseSource {
 
   /// 刷新歌曲的音频 URL
   /// 用于 URL 过期时重新获取
-  Future<Track> refreshAudioUrl(Track track, {Map<String, String>? authHeaders});
+  Future<Track> refreshAudioUrl(Track track,
+      {Map<String, String>? authHeaders});
 
   /// 获取备选音频流（当主 URL 播放失败时使用）
   /// [sourceId] 音源 ID
