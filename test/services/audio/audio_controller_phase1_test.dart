@@ -624,6 +624,32 @@ void main() {
       expect(toasts.last.type, ToastType.error);
     });
 
+    test('source skip errors clear stale stream metadata', () async {
+      await controller.playTrack(_track('playable-song', title: 'Playable'));
+      await pumpEventQueue(times: 5);
+
+      expect(controller.state.currentContainer, 'm4a');
+      expect(controller.state.currentCodec, 'aac');
+      expect(controller.state.currentStreamType, StreamType.audioOnly);
+
+      sourceManager.throwGetAudioStreamAlways(
+        const YouTubeApiException(
+          code: 'geo_restricted',
+          message: 'This video is not available in your country',
+        ),
+      );
+
+      await controller.playTrack(_track('blocked-song', title: 'Blocked Song'));
+      await pumpEventQueue(times: 5);
+
+      expect(controller.state.playingTrack?.sourceId, 'blocked-song');
+      expect(controller.state.error, contains('Blocked Song'));
+      expect(controller.state.currentBitrate, isNull);
+      expect(controller.state.currentContainer, isNull);
+      expect(controller.state.currentCodec, isNull);
+      expect(controller.state.currentStreamType, isNull);
+    });
+
     test('source skip errors hide synthesized fallback diagnostics', () async {
       final toasts = <ToastMessage>[];
       final subscription = toastService.messageStream.listen(toasts.add);

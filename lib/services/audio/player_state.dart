@@ -141,6 +141,7 @@ class PlayerState {
     FmpAudioProcessingState? processingState,
     Duration? position,
     Duration? duration,
+    bool clearDuration = false,
     Duration? bufferedPosition,
     double? speed,
     double? volume,
@@ -168,6 +169,7 @@ class PlayerState {
     String? currentContainer,
     String? currentCodec,
     StreamType? currentStreamType,
+    bool replaceCurrentStreamMetadata = false,
     List<FmpAudioDevice>? audioDevices,
     FmpAudioDevice? currentAudioDevice,
   }) {
@@ -177,7 +179,7 @@ class PlayerState {
       isLoading: isLoading ?? this.isLoading,
       processingState: processingState ?? this.processingState,
       position: position ?? this.position,
-      duration: duration ?? this.duration,
+      duration: clearDuration ? null : (duration ?? this.duration),
       bufferedPosition: bufferedPosition ?? this.bufferedPosition,
       speed: speed ?? this.speed,
       volume: volume ?? this.volume,
@@ -200,10 +202,18 @@ class PlayerState {
       isNetworkError: isNetworkError ?? this.isNetworkError,
       isRetrying: isRetrying ?? this.isRetrying,
       nextRetryAt: nextRetryAt,
-      currentBitrate: currentBitrate ?? this.currentBitrate,
-      currentContainer: currentContainer ?? this.currentContainer,
-      currentCodec: currentCodec ?? this.currentCodec,
-      currentStreamType: currentStreamType ?? this.currentStreamType,
+      currentBitrate: replaceCurrentStreamMetadata
+          ? currentBitrate
+          : (currentBitrate ?? this.currentBitrate),
+      currentContainer: replaceCurrentStreamMetadata
+          ? currentContainer
+          : (currentContainer ?? this.currentContainer),
+      currentCodec: replaceCurrentStreamMetadata
+          ? currentCodec
+          : (currentCodec ?? this.currentCodec),
+      currentStreamType: replaceCurrentStreamMetadata
+          ? currentStreamType
+          : (currentStreamType ?? this.currentStreamType),
       audioDevices: audioDevices ?? this.audioDevices,
       currentAudioDevice: currentAudioDevice ?? this.currentAudioDevice,
     );

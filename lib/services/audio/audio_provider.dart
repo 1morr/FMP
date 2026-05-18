@@ -1584,7 +1584,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 清除正在播放的歌曲
   void _clearPlayingTrack() {
     _playingTrack = null;
-    state = state.copyWith(clearPlayingTrack: true);
+    state = state.copyWith(
+      clearPlayingTrack: true,
+      position: Duration.zero,
+      bufferedPosition: Duration.zero,
+      clearDuration: true,
+      replaceCurrentStreamMetadata: true,
+    );
 
     // 更新 Windows SMTC 为停止状态
     if (Platform.isWindows) {
@@ -1742,8 +1748,14 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 進入加載狀態（統一的 UI 更新邏輯）
   /// 返回請求 ID，用於後續的取代檢測
   int _enterLoadingState() {
-    state =
-        state.copyWith(isLoading: true, position: Duration.zero, error: null);
+    state = state.copyWith(
+      isLoading: true,
+      position: Duration.zero,
+      bufferedPosition: Duration.zero,
+      error: null,
+      clearDuration: true,
+      replaceCurrentStreamMetadata: true,
+    );
     final requestId = ++_playRequestId;
     _context = _context.copyWith(activeRequestId: requestId);
     _publishMobileAudioHandlerLoadingState();
@@ -1804,6 +1816,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         currentContainer: streamResult?.container,
         currentCodec: streamResult?.codec,
         currentStreamType: streamResult?.streamType,
+        replaceCurrentStreamMetadata: true,
       );
       _context = _context.copyWith(activeRequestId: 0, mode: mode);
 
@@ -2707,7 +2720,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   void _onDurationChanged(Duration? duration) {
     if (_isDisposed) return;
     if (isRadioPlaying?.call() == true) return;
-    state = state.copyWith(duration: duration);
+    state = state.copyWith(
+      duration: duration,
+      clearDuration: duration == null,
+    );
   }
 
   void _onBufferedPositionChanged(Duration bufferedPosition) {
