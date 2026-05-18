@@ -587,8 +587,12 @@ class YouTubeSource extends BaseSource with Logging {
 
       if (authHeaders != null) {
         try {
-          final result =
-              await _getAudioStreamViaInnerTube(videoId, authHeaders, config);
+          final result = await _getAudioStreamViaInnerTube(
+            videoId,
+            authHeaders,
+            config,
+            failedUrl: failedUrl,
+          );
           if (result.url != failedUrl) {
             return result;
           }
@@ -1611,8 +1615,9 @@ class YouTubeSource extends BaseSource with Logging {
   Future<AudioStreamResult> _getAudioStreamViaInnerTube(
     String videoId,
     Map<String, String> authHeaders,
-    AudioStreamConfig config,
-  ) async {
+    AudioStreamConfig config, {
+    String? failedUrl,
+  }) async {
     logDebug('Getting audio stream via InnerTube for: $videoId');
     try {
       // Use WEB client with auth headers directly.
@@ -1631,6 +1636,7 @@ class YouTubeSource extends BaseSource with Logging {
           streamingData,
           streamType,
           config,
+          failedUrl: failedUrl,
         );
         if (result != null) {
           logDebug('Got ${streamType.name} stream via InnerTube for $videoId');
@@ -1654,27 +1660,40 @@ class YouTubeSource extends BaseSource with Logging {
   AudioStreamResult? _selectInnerTubeStream(
     Map<String, dynamic> streamingData,
     StreamType streamType,
-    AudioStreamConfig config,
-  ) {
+    AudioStreamConfig config, {
+    String? failedUrl,
+  }) {
     return switch (streamType) {
-      StreamType.audioOnly =>
-        _selectInnerTubeAudioOnlyStream(streamingData, config),
-      StreamType.muxed => _selectInnerTubeMuxedStream(streamingData, config),
-      StreamType.hls => _selectInnerTubeHlsStream(streamingData),
+      StreamType.audioOnly => _selectInnerTubeAudioOnlyStream(
+          streamingData,
+          config,
+          failedUrl: failedUrl,
+        ),
+      StreamType.muxed => _selectInnerTubeMuxedStream(
+          streamingData,
+          config,
+          failedUrl: failedUrl,
+        ),
+      StreamType.hls => _selectInnerTubeHlsStream(
+          streamingData,
+          failedUrl: failedUrl,
+        ),
     };
   }
 
   AudioStreamResult? _selectInnerTubeAudioOnlyStream(
     Map<String, dynamic> streamingData,
-    AudioStreamConfig config,
-  ) {
+    AudioStreamConfig config, {
+    String? failedUrl,
+  }) {
     final adaptiveFormats = streamingData['adaptiveFormats'] as List? ?? [];
     final audioFormats = adaptiveFormats
         .whereType<Map>()
         .map((format) => Map<String, dynamic>.from(format))
         .where((format) {
       final mimeType = format['mimeType'] as String? ?? '';
-      return mimeType.startsWith('audio/') && _innerTubeUrl(format) != null;
+      final url = _innerTubeUrl(format);
+      return mimeType.startsWith('audio/') && url != null && url != failedUrl;
     }).toList();
     if (audioFormats.isEmpty) return null;
 
@@ -1706,14 +1725,17 @@ class YouTubeSource extends BaseSource with Logging {
 
   AudioStreamResult? _selectInnerTubeMuxedStream(
     Map<String, dynamic> streamingData,
-    AudioStreamConfig config,
-  ) {
+    AudioStreamConfig config, {
+    String? failedUrl,
+  }) {
     final formats = streamingData['formats'] as List? ?? [];
     final muxedFormats = formats
         .whereType<Map>()
         .map((format) => Map<String, dynamic>.from(format))
-        .where((format) => _innerTubeUrl(format) != null)
-        .toList();
+        .where((format) {
+      final url = _innerTubeUrl(format);
+      return url != null && url != failedUrl;
+    }).toList();
     if (muxedFormats.isEmpty) return null;
 
     muxedFormats.sort((a, b) {
@@ -1735,10 +1757,11 @@ class YouTubeSource extends BaseSource with Logging {
   }
 
   AudioStreamResult? _selectInnerTubeHlsStream(
-    Map<String, dynamic> streamingData,
-  ) {
+    Map<String, dynamic> streamingData, {
+    String? failedUrl,
+  }) {
     final hlsUrl = streamingData['hlsManifestUrl'] as String?;
-    if (hlsUrl == null || hlsUrl.isEmpty) return null;
+    if (hlsUrl == null || hlsUrl.isEmpty || hlsUrl == failedUrl) return null;
     return AudioStreamResult(
       url: hlsUrl,
       container: 'm3u8',
