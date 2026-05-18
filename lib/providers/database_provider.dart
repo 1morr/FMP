@@ -138,7 +138,7 @@ Future<void> _initializeDatabaseDefaultsInTxn(Isar isar) async {
 
     // 修复空字符串字段（设置默认值）
     if (settings.audioFormatPriority.isEmpty) {
-      settings.audioFormatPriority = 'aac,opus';
+      settings.audioFormatPriority = 'opus,aac';
       needsUpdate = true;
     }
     if (settings.youtubeStreamPriority.isEmpty) {

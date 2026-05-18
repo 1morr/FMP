@@ -26,6 +26,6 @@
     "muxed": "Muxed",
     "muxedDescription": "Includes video data, more compatible",
     "hls": "HLS",
-    "hlsDescription": "Segmented stream, good for live"
+    "hlsDescription": "Segmented stream, no recommended"
   }
 }

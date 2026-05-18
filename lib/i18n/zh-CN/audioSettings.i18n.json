@@ -26,6 +26,6 @@
     "muxed": "混合流",
     "muxedDescription": "包含视频数据，兼容性好",
     "hls": "HLS 流",
-    "hlsDescription": "分段流，适合直播"
+    "hlsDescription": "分段流，不推荐"
   }
 }

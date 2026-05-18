@@ -284,6 +284,7 @@ class YouTubeSource extends BaseSource with Logging {
     try {
       // 如果没有传入 video，需要先获取
       final videoObj = video ?? await _youtube.videos.get(videoId);
+      // ignore: deprecated_member_use
       final comments = await _youtube.videos.comments.getComments(videoObj);
       
       if (comments == null || comments.isEmpty) {

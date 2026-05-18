@@ -142,9 +142,9 @@ class Settings {
   /// 音质等级: 0=high, 1=medium, 2=low
   int audioQualityLevelIndex = 0;
 
-  /// 格式优先级 (逗号分隔: "aac,opus,m4a,webm")
+  /// 格式优先级 (逗号分隔: "opus,aac")
   /// 按顺序尝试，第一个可用的格式被选中
-  String audioFormatPriority = 'aac,opus';
+  String audioFormatPriority = 'opus,aac';
 
   /// YouTube 流优先级 (逗号分隔: "audioOnly,muxed,hls")
   String youtubeStreamPriority = 'audioOnly,muxed,hls';
@@ -312,7 +312,7 @@ class Settings {
   @ignore
   List<AudioFormat> get audioFormatPriorityList {
     if (audioFormatPriority.isEmpty) {
-      return [AudioFormat.aac, AudioFormat.opus];
+      return [AudioFormat.opus, AudioFormat.aac];
     }
     return audioFormatPriority.split(',').map((s) {
       switch (s.trim()) {

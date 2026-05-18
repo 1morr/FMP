@@ -26,8 +26,8 @@ class AudioSettingsState {
   const AudioSettingsState({
     this.qualityLevel = AudioQualityLevel.high,
     this.formatPriority = const [
-      AudioFormat.aac,
       AudioFormat.opus,
+      AudioFormat.aac,
     ],
     this.youtubeStreamPriority = const [
       StreamType.audioOnly,

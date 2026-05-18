@@ -118,6 +118,26 @@ void main() {
       expect(migratedSettings.lyricsAiTimeoutSeconds, 10);
     });
 
+    test('repairs empty audio stream defaults to current priorities', () async {
+      await openTestDatabase();
+
+      final settings = Settings()
+        ..audioFormatPriority = ''
+        ..youtubeStreamPriority = ''
+        ..bilibiliStreamPriority = '';
+      await isar.writeTxn(() async {
+        await isar.settings.put(settings);
+      });
+
+      await runDatabaseMigrationForTesting(isar);
+
+      final migratedSettings = await isar.settings.get(0);
+      expect(migratedSettings, isNotNull);
+      expect(migratedSettings!.audioFormatPriority, 'opus,aac');
+      expect(migratedSettings.youtubeStreamPriority, 'audioOnly,muxed,hls');
+      expect(migratedSettings.bilibiliStreamPriority, 'audioOnly,muxed');
+    });
+
     test('repairs legacy fallback AI mode index to off', () async {
       await openTestDatabase();
       final settings = Settings()

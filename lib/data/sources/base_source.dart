@@ -15,8 +15,8 @@ class AudioStreamConfig {
   const AudioStreamConfig({
     this.qualityLevel = AudioQualityLevel.high,
     this.formatPriority = const [
-      AudioFormat.aac,
       AudioFormat.opus,
+      AudioFormat.aac,
     ],
     this.streamPriority = const [
       StreamType.audioOnly,
@@ -25,7 +25,7 @@ class AudioStreamConfig {
     ],
   });
 
-  /// 默认配置（高音质、兼容优先）
+  /// 默认配置（高音质、Opus 优先）
   static const defaultConfig = AudioStreamConfig();
 
   /// 从 Settings 构建指定音源的配置
