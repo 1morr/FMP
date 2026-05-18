@@ -201,7 +201,7 @@ Isar uses type default values for new fields on upgrade: `int` â†’ `0`, `bool` â
 - Playlist import via InnerTube `/browse` API
 - **Stream format priority:** audio-only (androidVr) > muxed > HLS
 - Only `YoutubeApiClient.androidVr` produces accessible audio-only URLs (others return 403)
-- Supports Opus / AAC format selection. Authenticated InnerTube fallback must still respect `AudioStreamConfig.streamPriority` and `formatPriority`; do not hard-code audio-only before muxed or bitrate before the configured codec order.
+- Supports Opus / AAC format selection. Authenticated InnerTube fallback must still respect `AudioStreamConfig.streamPriority` and `formatPriority`; do not hard-code audio-only before muxed or bitrate before the configured codec order. Alternative stream fallback must pass and exclude the failed media URL while continuing through the same InnerTube response so a failed audio-only URL can fall back to muxed/HLS.
 - Rate limiting: HTTP 429
 
 ### Netease Cloud Music (Direct Source)

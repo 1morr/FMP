@@ -139,6 +139,56 @@ void main() {
       expect(result.container, 'mp4');
       expect(result.codec, 'mp4a.40.2');
     });
+
+    test('authenticated alternative skips failed InnerTube URL', () async {
+      final dio = Dio();
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        expect(options.path, contains('/player'));
+        return ResponseBody.fromString(
+          jsonEncode(_innerTubePlayerResponse(
+            adaptiveFormats: [
+              _innerTubeAudioFormat(
+                url: 'https://example.com/failed-audio.webm',
+                mimeType: 'audio/webm; codecs="opus"',
+                bitrate: 251000,
+              ),
+            ],
+            formats: [
+              _innerTubeMuxedFormat(
+                url: 'https://example.com/auth-muxed.mp4',
+                bitrate: 128000,
+              ),
+            ],
+          )),
+          200,
+          headers: {
+            Headers.contentTypeHeader: ['application/json'],
+          },
+        );
+      });
+      final source = YouTubeSource(
+        youtube: _FakeYoutubeExplode(
+          const YouTubeApiException(
+            code: 'no_stream',
+            message: 'No anonymous alternative stream',
+          ),
+        ),
+        dio: dio,
+      );
+      addTearDown(source.dispose);
+
+      final result = await source.getAlternativeAudioStream(
+        'auth-alternative-video',
+        failedUrl: 'https://example.com/failed-audio.webm',
+        config: const AudioStreamConfig(
+          streamPriority: [StreamType.audioOnly, StreamType.muxed],
+        ),
+        authHeaders: const {'Authorization': 'SAPISIDHASH test'},
+      );
+
+      expect(result?.url, 'https://example.com/auth-muxed.mp4');
+      expect(result?.streamType, StreamType.muxed);
+    });
   });
 
   group('YouTubeSource playlist parsing', () {
