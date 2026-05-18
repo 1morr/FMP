@@ -6,12 +6,12 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt;
 
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
-import '../../core/utils/http_client_factory.dart';
 import '../models/settings.dart';
 import '../models/track.dart';
 import '../models/video_detail.dart';
 import 'base_source.dart';
 import 'source_exception.dart';
+import 'source_http_policy.dart';
 import 'youtube_exception.dart';
 
 /// YouTube 音源实现
@@ -34,10 +34,9 @@ class YouTubeSource extends BaseSource with Logging {
   YouTubeSource({yt.YoutubeExplode? youtube, Dio? dio}) {
     _youtube = youtube ?? yt.YoutubeExplode();
     _dio = dio ??
-        HttpClientFactory.create(
-          headers: {
-            'Content-Type': 'application/json',
-          },
+        SourceHttpPolicy.createApiDio(
+          SourceType.youtube,
+          contentType: 'application/json',
         );
   }
 
@@ -46,11 +45,12 @@ class YouTubeSource extends BaseSource with Logging {
   /// 对于带认证请求，Origin + Referer 是 SAPISIDHASH 校验所必需的；
   /// 匿名 browse 请求也复用相同头部，以保持与网页请求一致。
   Options _innerTubeRequestOptions([Map<String, String>? headers]) {
-    return Options(headers: {
-      'Origin': 'https://www.youtube.com',
-      'Referer': 'https://www.youtube.com/',
-      if (headers != null) ...headers,
-    });
+    return Options(
+      headers: SourceHttpPolicy.apiHeaders(
+        SourceType.youtube,
+        extraHeaders: headers,
+      ),
+    );
   }
 
   /// Parse Dio response data to Map (handles both String and Map responses).
@@ -965,6 +965,7 @@ class YouTubeSource extends BaseSource with Logging {
             },
           },
         }),
+        options: _innerTubeRequestOptions(),
       );
 
       if (response.statusCode != 200) {
@@ -1373,10 +1374,7 @@ class YouTubeSource extends BaseSource with Logging {
               },
             },
           }),
-          options: Options(headers: {
-            'Origin': 'https://www.youtube.com',
-            'Referer': 'https://www.youtube.com/',
-          }),
+          options: _innerTubeRequestOptions(),
         );
         final browseData = _parseJsonResponse(response.data);
         final header = browseData['header'] as Map<String, dynamic>?;
@@ -1514,6 +1512,7 @@ class YouTubeSource extends BaseSource with Logging {
             },
           },
         }),
+        options: _innerTubeRequestOptions(),
       );
 
       if (response.statusCode != 200) {

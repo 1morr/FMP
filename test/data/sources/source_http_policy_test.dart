@@ -62,6 +62,28 @@ void main() {
           ));
     });
 
+    test('bilibili search api headers keep search host and generated cookie',
+        () {
+      final headers = SourceHttpPolicy.bilibiliSearchApiHeaders(
+        cookie: 'buvid3=test; buvid4=test',
+      );
+
+      expect(
+        headers['Referer'],
+        SourceHttpPolicy.bilibiliSearchReferer,
+      );
+      expect(
+        headers['Origin'],
+        SourceHttpPolicy.bilibiliSearchOrigin,
+      );
+      expect(
+        headers['Accept-Language'],
+        SourceHttpPolicy.bilibiliSearchAcceptLanguage,
+      );
+      expect(headers['Cookie'], 'buvid3=test; buvid4=test');
+      expect(headers['User-Agent'], SourceHttpPolicy.webUserAgent);
+    });
+
     test('createApiDio applies source defaults and optional content type', () {
       final dio = SourceHttpPolicy.createApiDio(
         SourceType.youtube,

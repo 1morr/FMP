@@ -21,6 +21,9 @@ class SourceHttpPolicy {
   static const String bilibiliOrigin = 'https://www.bilibili.com';
   static const String bilibiliReferer = 'https://www.bilibili.com/';
   static const String bilibiliWebReferer = 'https://www.bilibili.com';
+  static const String bilibiliSearchOrigin = 'https://search.bilibili.com';
+  static const String bilibiliSearchReferer = 'https://search.bilibili.com/';
+  static const String bilibiliSearchAcceptLanguage = 'zh-CN,zh;q=0.9,en;q=0.8';
   static const String youtubeOrigin = 'https://www.youtube.com';
   static const String youtubeReferer = 'https://www.youtube.com/';
   static const String neteaseOrigin = 'https://music.163.com';
@@ -86,6 +89,22 @@ class SourceHttpPolicy {
 
     headers.addAll(extraHeaders ?? const <String, String>{});
     return headers;
+  }
+
+  static Map<String, String> bilibiliSearchApiHeaders({
+    required String cookie,
+    String? userAgent,
+  }) {
+    return apiHeaders(
+      SourceType.bilibili,
+      userAgent: userAgent,
+      extraHeaders: {
+        'Referer': bilibiliSearchReferer,
+        'Origin': bilibiliSearchOrigin,
+        'Accept-Language': bilibiliSearchAcceptLanguage,
+        'Cookie': cookie,
+      },
+    );
   }
 
   static Map<String, String> neteaseAuthHeaders(String cookie) {
