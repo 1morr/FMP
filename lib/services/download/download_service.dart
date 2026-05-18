@@ -20,6 +20,7 @@ import '../../data/repositories/settings_repository.dart';
 import '../../data/sources/audio_stream_quality_fallback.dart';
 import '../../data/sources/base_source.dart';
 import '../../data/sources/bilibili_source.dart';
+import '../../data/sources/source_http_policy.dart';
 import '../../data/sources/source_provider.dart';
 import '../../data/sources/youtube_source.dart';
 import '../../core/utils/auth_headers_utils.dart';
@@ -159,9 +160,7 @@ class DownloadService with Logging {
           connectTimeout: AppConstants.downloadConnectTimeout,
           receiveTimeout: const Duration(minutes: 30),
           headers: {
-            'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Referer': 'https://www.bilibili.com',
+            'User-Agent': SourceHttpPolicy.mediaUserAgent,
           },
         ));
 
@@ -887,7 +886,12 @@ class DownloadService with Logging {
       }
 
       // 保存元数据（总是用最新数据覆盖）
-      await _saveMetadata(track, savePath, videoDetail: videoDetail);
+      await _saveMetadata(
+        track,
+        savePath,
+        videoDetail: videoDetail,
+        authHeaders: authHeaders,
+      );
       if (_shouldAbortAfterFinalizationStarted(task.id)) {
         await _clearDownloadPathForTask(task);
         await _deleteTaskFiles(task);
@@ -1161,10 +1165,18 @@ class DownloadService with Logging {
   }
 
   /// 保存元数据
-  Future<void> _saveMetadata(Track track, String audioPath,
-      {VideoDetail? videoDetail}) async {
+  Future<void> _saveMetadata(
+    Track track,
+    String audioPath, {
+    VideoDetail? videoDetail,
+    Map<String, String>? authHeaders,
+  }) async {
     final settings = await _settingsRepository.get();
     final videoDir = Directory(p.dirname(audioPath));
+    final imageHeaders = buildDownloadImageHeaders(
+      track.sourceType,
+      authHeaders: authHeaders,
+    );
 
     // 保存歌曲元数据
     final metadata = <String, dynamic>{
@@ -1226,7 +1238,11 @@ class DownloadService with Logging {
         track.thumbnailUrl != null) {
       try {
         final coverPath = p.join(videoDir.path, 'cover.jpg');
-        await _dio.download(track.thumbnailUrl!, coverPath);
+        await _dio.download(
+          track.thumbnailUrl!,
+          coverPath,
+          options: Options(headers: imageHeaders),
+        );
       } catch (e) {
         logDebug('Failed to download cover: $e');
       }
@@ -1238,7 +1254,11 @@ class DownloadService with Logging {
         videoDetail.ownerFace.isNotEmpty) {
       try {
         final avatarPath = p.join(videoDir.path, 'avatar.jpg');
-        await _dio.download(videoDetail.ownerFace, avatarPath);
+        await _dio.download(
+          videoDetail.ownerFace,
+          avatarPath,
+          options: Options(headers: imageHeaders),
+        );
       } catch (e) {
         logDebug('Failed to download avatar: $e');
       }
