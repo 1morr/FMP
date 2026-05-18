@@ -204,6 +204,40 @@ void main() {
         [1],
       );
     });
+
+    test('search only queries sources enabled by settings for all-source mode',
+        () async {
+      notifier = SearchNotifier(
+        service,
+        bilibili,
+        loadEnabledSources: () async => {SourceType.youtube},
+      );
+
+      await notifier.search('enabled query');
+
+      expect(
+        service.onlineCalls.single.sourceTypes,
+        [SourceType.youtube],
+      );
+      expect(notifier.state.currentPages.keys, [SourceType.youtube]);
+      expect(notifier.state.onlineResults.keys, [SourceType.youtube]);
+    });
+
+    test('search skips online lookup when the selected source is disabled',
+        () async {
+      notifier = SearchNotifier(
+        service,
+        bilibili,
+        loadEnabledSources: () async => {SourceType.youtube},
+      );
+      notifier.setSource(SourceType.netease, autoSearch: false);
+
+      await notifier.search('disabled query');
+
+      expect(service.onlineCalls.single.sourceTypes, isEmpty);
+      expect(notifier.state.currentPages, isEmpty);
+      expect(notifier.state.onlineResults, isEmpty);
+    });
   });
 }
 
@@ -244,7 +278,43 @@ class _CompletingSearchService extends SearchService {
   final List<
           ({SourceType sourceType, String query, int page, SearchOrder order})>
       sourceCalls = [];
+  final List<({String query, List<SourceType> sourceTypes, SearchOrder order})>
+      onlineCalls = [];
   final Map<String, Completer<SearchResult>> _sourceCompleters = {};
+
+  @override
+  Future<List<Track>> searchLocal(String query) async => [];
+
+  @override
+  Future<MultiSourceSearchResult> searchOnline(
+    String query, {
+    List<SourceType>? sourceTypes,
+    int page = 1,
+    int pageSize = 20,
+    SearchOrder order = SearchOrder.relevance,
+  }) async {
+    final requestedSources = List<SourceType>.from(sourceTypes ?? const []);
+    onlineCalls.add((
+      query: query,
+      sourceTypes: requestedSources,
+      order: order,
+    ));
+    return MultiSourceSearchResult(
+      query: query,
+      results: {
+        for (final sourceType in requestedSources)
+          sourceType: SearchResult(
+            tracks: [
+              _track('${sourceType.name}-$query', sourceType: sourceType)
+            ],
+            totalCount: 1,
+            page: page,
+            pageSize: pageSize,
+            hasMore: false,
+          ),
+      },
+    );
+  }
 
   @override
   Future<SearchResult> searchSource(

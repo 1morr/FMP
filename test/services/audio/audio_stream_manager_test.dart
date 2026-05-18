@@ -624,6 +624,28 @@ void main() {
     });
 
     test(
+        'selectFallbackPlayback passes auth headers to source alternative streams when auth-for-play is enabled',
+        () async {
+      final settings = await settingsRepository.get();
+      settings.useYoutubeAuthForPlay = true;
+      await settingsRepository.save(settings);
+      delegateAuthHeaders = {
+        'Authorization': 'Bearer fallback-sentinel',
+      };
+
+      final selection = await manager.selectFallbackPlayback(
+        _track('stream-fallback-auth', title: 'Stream Fallback Auth'),
+        failedUrl: 'https://failed.example/stream-fallback-auth.m4a',
+      );
+
+      expect(selection, isNotNull);
+      expect(authHeaderRequests, [SourceType.youtube]);
+      expect(sourceManager.source.lastAlternativeAuthHeaders, {
+        'Authorization': 'Bearer fallback-sentinel',
+      });
+    });
+
+    test(
         'getAlternativeAudioStream uses configured stream priority for fallback selection',
         () async {
       final settings = await settingsRepository.get();
@@ -761,6 +783,7 @@ class _FakeSource extends BaseSource {
   final List<AudioQualityLevel> audioStreamQualityRequests = [];
   final List<AudioQualityLevel> alternativeQualityRequests = [];
   Map<String, String>? lastAudioAuthHeaders;
+  Map<String, String>? lastAlternativeAuthHeaders;
   bool throwOnRefresh = false;
   Duration? nextAudioExpiry;
   bool encodeQualityInAudioUrl = false;
@@ -836,9 +859,11 @@ class _FakeSource extends BaseSource {
     String sourceId, {
     String? failedUrl,
     AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+    Map<String, String>? authHeaders,
   }) async {
     lastFailedUrl = failedUrl;
     lastAlternativeConfig = config;
+    lastAlternativeAuthHeaders = authHeaders;
     alternativeQualityRequests.add(config.qualityLevel);
     if (returnNullAlternative) {
       return null;

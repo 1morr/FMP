@@ -154,7 +154,7 @@ Future<void> _initializeDatabaseDefaultsInTxn(Isar isar) async {
       needsUpdate = true;
     }
     if (settings.enabledSources.isEmpty) {
-      settings.enabledSources = ['bilibili', 'youtube'];
+      settings.enabledSources = ['bilibili', 'youtube', 'netease'];
       needsUpdate = true;
     }
 

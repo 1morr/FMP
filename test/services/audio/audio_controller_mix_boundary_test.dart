@@ -98,7 +98,8 @@ void main() {
       }
     });
 
-    test('restoring a persisted mix session at queue end schedules load-more runtime state',
+    test(
+        'restoring a persisted mix session at queue end schedules load-more runtime state',
         () async {
       controller.dispose();
 
@@ -113,7 +114,8 @@ void main() {
         _track('restored-b', title: 'Restored B'),
       ]);
       final persistedQueue = await queueRepository.getOrCreate();
-      persistedQueue.trackIds = persistedTracks.map((track) => track.id).toList();
+      persistedQueue.trackIds =
+          persistedTracks.map((track) => track.id).toList();
       persistedQueue.currentIndex = 1;
       persistedQueue.isMixMode = true;
       persistedQueue.mixPlaylistId = 'RDrestore123';
@@ -171,8 +173,8 @@ void main() {
       final loadMoreApplied = Completer<void>();
       late final StreamSubscription<void> queueSub;
       queueSub = queueManager.stateStream.listen((_) {
-        final hasNewTrack =
-            controller.state.queue.any((track) => track.sourceId == 'restored-new-0');
+        final hasNewTrack = controller.state.queue
+            .any((track) => track.sourceId == 'restored-new-0');
         if (hasNewTrack &&
             !controller.state.isLoadingMoreMix &&
             !loadMoreApplied.isCompleted) {
@@ -224,7 +226,8 @@ void main() {
         controller.state.queue.map((track) => track.sourceId),
         orderedEquals(['mix-a', 'mix-b']),
       );
-      expect(audioService.playUrlCalls.single.url, 'https://example.com/mix-a.m4a');
+      expect(audioService.playUrlCalls.single.url,
+          'https://example.com/mix-a.m4a');
     });
   });
 }
@@ -414,6 +417,7 @@ class _FakeSource extends BaseSource {
     String sourceId, {
     String? failedUrl,
     AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+    Map<String, String>? authHeaders,
   }) async {
     return null;
   }

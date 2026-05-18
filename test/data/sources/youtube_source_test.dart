@@ -38,6 +38,107 @@ void main() {
         ),
       );
     });
+
+    test('InnerTube fallback honors stream priority before audio-only formats',
+        () async {
+      final dio = Dio();
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        expect(options.path, contains('/player'));
+        return ResponseBody.fromString(
+          jsonEncode(_innerTubePlayerResponse(
+            adaptiveFormats: [
+              _innerTubeAudioFormat(
+                url: 'https://example.com/audio-opus.webm',
+                mimeType: 'audio/webm; codecs="opus"',
+                bitrate: 251000,
+              ),
+            ],
+            formats: [
+              _innerTubeMuxedFormat(
+                url: 'https://example.com/muxed.mp4',
+                bitrate: 128000,
+              ),
+            ],
+          )),
+          200,
+          headers: {
+            Headers.contentTypeHeader: ['application/json'],
+          },
+        );
+      });
+      final source = YouTubeSource(
+        youtube: _FakeYoutubeExplode(
+          const YouTubeApiException(
+            code: 'no_stream',
+            message: 'No anonymous stream',
+          ),
+        ),
+        dio: dio,
+      );
+      addTearDown(source.dispose);
+
+      final result = await source.getAudioStream(
+        'auth-priority-video',
+        config: const AudioStreamConfig(
+          streamPriority: [StreamType.muxed, StreamType.audioOnly],
+        ),
+        authHeaders: const {'Authorization': 'SAPISIDHASH test'},
+      );
+
+      expect(result.url, 'https://example.com/muxed.mp4');
+      expect(result.streamType, StreamType.muxed);
+    });
+
+    test('InnerTube fallback honors configured audio format priority',
+        () async {
+      final dio = Dio();
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        expect(options.path, contains('/player'));
+        return ResponseBody.fromString(
+          jsonEncode(_innerTubePlayerResponse(
+            adaptiveFormats: [
+              _innerTubeAudioFormat(
+                url: 'https://example.com/audio-opus.webm',
+                mimeType: 'audio/webm; codecs="opus"',
+                bitrate: 251000,
+              ),
+              _innerTubeAudioFormat(
+                url: 'https://example.com/audio-aac.mp4',
+                mimeType: 'audio/mp4; codecs="mp4a.40.2"',
+                bitrate: 128000,
+              ),
+            ],
+          )),
+          200,
+          headers: {
+            Headers.contentTypeHeader: ['application/json'],
+          },
+        );
+      });
+      final source = YouTubeSource(
+        youtube: _FakeYoutubeExplode(
+          const YouTubeApiException(
+            code: 'no_stream',
+            message: 'No anonymous stream',
+          ),
+        ),
+        dio: dio,
+      );
+      addTearDown(source.dispose);
+
+      final result = await source.getAudioStream(
+        'auth-format-video',
+        config: const AudioStreamConfig(
+          formatPriority: [AudioFormat.aac, AudioFormat.opus],
+          streamPriority: [StreamType.audioOnly],
+        ),
+        authHeaders: const {'Authorization': 'SAPISIDHASH test'},
+      );
+
+      expect(result.url, 'https://example.com/audio-aac.mp4');
+      expect(result.container, 'mp4');
+      expect(result.codec, 'mp4a.40.2');
+    });
   });
 
   group('YouTubeSource playlist parsing', () {
@@ -702,6 +803,42 @@ void main() {
       });
     });
   });
+}
+
+Map<String, dynamic> _innerTubePlayerResponse({
+  List<Map<String, dynamic>> adaptiveFormats = const [],
+  List<Map<String, dynamic>> formats = const [],
+}) {
+  return {
+    'playabilityStatus': {'status': 'OK'},
+    'streamingData': {
+      'adaptiveFormats': adaptiveFormats,
+      'formats': formats,
+    },
+  };
+}
+
+Map<String, dynamic> _innerTubeAudioFormat({
+  required String url,
+  required String mimeType,
+  required int bitrate,
+}) {
+  return {
+    'url': url,
+    'mimeType': mimeType,
+    'bitrate': bitrate,
+  };
+}
+
+Map<String, dynamic> _innerTubeMuxedFormat({
+  required String url,
+  required int bitrate,
+}) {
+  return {
+    'url': url,
+    'mimeType': 'video/mp4; codecs="avc1.64001F, mp4a.40.2"',
+    'bitrate': bitrate,
+  };
 }
 
 class _FakeHttpClientAdapter implements HttpClientAdapter {

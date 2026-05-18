@@ -356,6 +356,7 @@ class BilibiliSource extends BaseSource with Logging {
       container: 'm4a',
       codec: 'aac',
       streamType: StreamType.audioOnly,
+      expiry: const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours),
     );
   }
 
@@ -392,6 +393,7 @@ class BilibiliSource extends BaseSource with Logging {
       container: 'flv',
       codec: null,
       streamType: StreamType.muxed,
+      expiry: const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours),
     );
   }
 
