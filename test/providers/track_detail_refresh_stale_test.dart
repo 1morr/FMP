@@ -78,6 +78,40 @@ void main() {
     expect(notifier.state.detail!.bvid, 'YT-B');
     expect(notifier.state.detail!.title, 'Track B');
   });
+
+  test('loadDetail clears old detail while loading a different track',
+      () async {
+    final bilibili = _CompletingBilibiliSource();
+    final youtube = _CompletingYouTubeSource();
+    final notifier = TrackDetailNotifier(
+      bilibili,
+      youtube,
+      _CompletingNeteaseSource(),
+      _FakeRef(),
+    );
+
+    final trackA = _track('BV-A', SourceType.bilibili);
+    final initialLoadFuture = notifier.loadDetail(trackA);
+    await pumpEventQueue(times: 2);
+    bilibili.complete('BV-A', _detail('BV-A', 'Track A'));
+    await initialLoadFuture;
+
+    expect(notifier.state.detail!.title, 'Track A');
+
+    final trackB = _track('YT-B', SourceType.youtube);
+    final loadTrackBFuture = notifier.loadDetail(trackB);
+    await pumpEventQueue(times: 2);
+
+    expect(notifier.state.isLoading, isTrue);
+    expect(notifier.state.detail, isNull);
+
+    youtube.completeError('YT-B', Exception('blocked'));
+    await loadTrackBFuture;
+
+    expect(notifier.state.isLoading, isFalse);
+    expect(notifier.state.detail, isNull);
+    expect(notifier.state.error, contains('blocked'));
+  });
 }
 
 Track _track(String sourceId, SourceType sourceType) {
@@ -126,6 +160,10 @@ class _CompletingBilibiliSource extends BilibiliSource {
   void complete(String sourceId, VideoDetail detail) {
     _completers[sourceId]!.removeAt(0).complete(detail);
   }
+
+  void completeError(String sourceId, Object error) {
+    _completers[sourceId]!.removeAt(0).completeError(error);
+  }
 }
 
 class _CompletingYouTubeSource extends YouTubeSource {
@@ -145,6 +183,10 @@ class _CompletingYouTubeSource extends YouTubeSource {
 
   void complete(String sourceId, VideoDetail detail) {
     _completers[sourceId]!.removeAt(0).complete(detail);
+  }
+
+  void completeError(String sourceId, Object error) {
+    _completers[sourceId]!.removeAt(0).completeError(error);
   }
 }
 

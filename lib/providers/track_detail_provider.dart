@@ -56,9 +56,7 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
   Future<void> loadDetail(Track? track) async {
     // 如果没有歌曲，清空详情
     if (track == null) {
-      if (state.detail != null) {
-        state = const TrackDetailState();
-      }
+      state = const TrackDetailState();
       _currentTrack = null;
       return;
     }
@@ -71,7 +69,11 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
     }
 
     _currentTrack = track;
-    state = state.copyWith(isLoading: true, clearError: true);
+    state = state.copyWith(
+      isLoading: true,
+      clearDetail: true,
+      clearError: true,
+    );
 
     try {
       VideoDetail? detail;
