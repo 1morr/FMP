@@ -585,7 +585,7 @@ void main() {
       final toasts = <ToastMessage>[];
       final subscription = toastService.messageStream.listen(toasts.add);
       addTearDown(subscription.cancel);
-      sourceManager.throwGetAudioStreamOnce(
+      sourceManager.throwGetAudioStreamAlways(
         const NeteaseApiException(
           numericCode: -10,
           message: 'VIP song, payment required',
@@ -659,7 +659,7 @@ void main() {
       final toasts = <ToastMessage>[];
       final subscription = toastService.messageStream.listen(toasts.add);
       addTearDown(subscription.cancel);
-      sourceManager.throwGetAudioStreamOnce(
+      sourceManager.throwGetAudioStreamAlways(
         const NeteaseApiException(
           numericCode: -10,
           message: 'VIP song, payment required',
@@ -1102,6 +1102,10 @@ class _FakeSourceManager extends SourceManager {
     _source.throwGetAudioStreamOnce(error);
   }
 
+  void throwGetAudioStreamAlways(Object error) {
+    _source.throwGetAudioStreamAlways(error);
+  }
+
   void setNextAudioExpiry(Duration? expiry) {
     _source.nextAudioExpiry = expiry;
   }
@@ -1218,10 +1222,15 @@ class _PendingMixFetch {
 
 class _FakeSource extends BaseSource {
   Object? _nextGetAudioStreamError;
+  Object? _alwaysGetAudioStreamError;
   Duration? nextAudioExpiry;
 
   void throwGetAudioStreamOnce(Object error) {
     _nextGetAudioStreamError = error;
+  }
+
+  void throwGetAudioStreamAlways(Object error) {
+    _alwaysGetAudioStreamError = error;
   }
 
   @override
@@ -1255,9 +1264,11 @@ class _FakeSource extends BaseSource {
   Future<AudioStreamResult> getAudioStream(String sourceId,
       {AudioStreamConfig config = AudioStreamConfig.defaultConfig,
       Map<String, String>? authHeaders}) async {
-    final error = _nextGetAudioStreamError;
+    final error = _alwaysGetAudioStreamError ?? _nextGetAudioStreamError;
     if (error != null) {
-      _nextGetAudioStreamError = null;
+      if (_alwaysGetAudioStreamError == null) {
+        _nextGetAudioStreamError = null;
+      }
       throw error;
     }
 

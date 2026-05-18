@@ -20,6 +20,10 @@ enum SourceErrorKind {
       this == SourceErrorKind.unavailable ||
       this == SourceErrorKind.geoRestricted ||
       this == SourceErrorKind.vipRequired;
+
+  bool get canFallbackToLowerAudioQuality =>
+      this == SourceErrorKind.unavailable ||
+      this == SourceErrorKind.vipRequired;
 }
 
 /// 音源 API 统一异常基类

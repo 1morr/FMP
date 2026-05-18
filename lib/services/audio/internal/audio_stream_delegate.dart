@@ -4,6 +4,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../data/models/track.dart';
 import '../../../data/repositories/settings_repository.dart';
 import '../../../data/repositories/track_repository.dart';
+import '../../../data/sources/audio_stream_quality_fallback.dart';
 import '../../../data/sources/base_source.dart';
 import '../../../data/sources/source_exception.dart';
 import '../../../data/sources/source_provider.dart';
@@ -70,8 +71,9 @@ class AudioStreamDelegate {
       final authHeaders = settings.useAuthForPlay(track.sourceType)
           ? await _getAuthHeaders(track.sourceType)
           : null;
-      final streamResult = await source.getAudioStream(
-        track.sourceId,
+      final streamResult = await fetchAudioStreamWithQualityFallback(
+        source: source,
+        sourceId: track.sourceId,
         config: config,
         authHeaders: authHeaders,
       );
@@ -119,6 +121,33 @@ class AudioStreamDelegate {
 
     final settings = await _settingsRepository.get();
     final config = AudioStreamConfig.fromSettings(settings, track.sourceType);
+    final authHeaders = settings.useAuthForPlay(track.sourceType)
+        ? await _getAuthHeaders(track.sourceType)
+        : null;
+
+    for (final level in audioQualityFallbackLevels(
+      config.qualityLevel,
+      includeCurrent: false,
+    )) {
+      final fallbackConfig = config.copyWith(qualityLevel: level);
+      final sourceAlternative = await source.getAlternativeAudioStream(
+        track.sourceId,
+        failedUrl: failedUrl,
+        config: fallbackConfig,
+      );
+      if (sourceAlternative != null) return sourceAlternative;
+
+      try {
+        return await source.getAudioStream(
+          track.sourceId,
+          config: fallbackConfig,
+          authHeaders: authHeaders,
+        );
+      } on SourceApiException catch (error) {
+        if (!error.kind.canFallbackToLowerAudioQuality) rethrow;
+      }
+    }
+
     return source.getAlternativeAudioStream(
       track.sourceId,
       failedUrl: failedUrl,

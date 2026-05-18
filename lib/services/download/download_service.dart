@@ -17,9 +17,10 @@ import '../../data/models/video_detail.dart';
 import '../../data/repositories/download_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../data/repositories/settings_repository.dart';
-import '../../data/sources/source_provider.dart';
+import '../../data/sources/audio_stream_quality_fallback.dart';
 import '../../data/sources/base_source.dart';
 import '../../data/sources/bilibili_source.dart';
+import '../../data/sources/source_provider.dart';
 import '../../data/sources/youtube_source.dart';
 import '../../core/utils/auth_headers_utils.dart';
 import '../account/bilibili_account_service.dart';
@@ -703,8 +704,12 @@ class DownloadService with Logging {
           ? await _getAuthHeaders(track.sourceType)
           : null;
       if (_shouldAbortBeforeRegistration(task.id)) return;
-      final streamResult = await source.getAudioStream(track.sourceId,
-          config: config, authHeaders: authHeaders);
+      final streamResult = await fetchAudioStreamWithQualityFallback(
+        source: source,
+        sourceId: track.sourceId,
+        config: config,
+        authHeaders: authHeaders,
+      );
       if (_shouldAbortBeforeRegistration(task.id)) return;
       final audioUrl = streamResult.url;
 

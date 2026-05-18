@@ -250,6 +250,8 @@ User-configurable per source:
 
 `AudioStreamConfig` passed to source `getAudioUrl()`, returns `AudioStreamResult` with bitrate/codec info.
 
+**Quality fallback:** Audio stream resolution uses a shared quality ladder. If the configured level fails for a quality-sensitive source error, retry lower levels in order: `high → medium → low`, `medium → low`, `low` has no lower fallback. This applies to playback URL resolution and download stream resolution. Fallback is allowed only for `unavailable` and `vipRequired`; network, timeout, rate-limit, login-required, permission-denied, geo-restricted, and unknown errors must keep their normal retry/skip/error behavior. During playback handoff fallback after a selected URL fails, `AudioStreamDelegate` first tries lower-quality alternatives before falling back to source-specific same-quality alternatives. YouTube alternative stream selection must still respect format priority and the requested fallback quality.
+
 ### Auth for Playback
 Per-platform toggle for using login credentials when fetching audio streams:
 

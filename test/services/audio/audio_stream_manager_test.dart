@@ -10,6 +10,7 @@ import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/source_exception.dart';
 import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
@@ -544,6 +545,48 @@ void main() {
       );
     });
 
+    test(
+        'selectPlayback falls back from high quality to the next lower quality when source quality is unavailable',
+        () async {
+      final settings = await settingsRepository.get();
+      settings.audioQualityLevel = AudioQualityLevel.high;
+      await settingsRepository.save(settings);
+      sourceManager.source
+        ..encodeQualityInAudioUrl = true
+        ..failingAudioQualities.add(AudioQualityLevel.high)
+        ..bitrateByQuality[AudioQualityLevel.medium] = 192000;
+
+      final selection = await manager.selectPlayback(
+        _track('quality-fallback', title: 'Quality Fallback'),
+      );
+
+      expect(selection.url, 'https://example.com/quality-fallback-medium.m4a');
+      expect(selection.streamResult?.bitrate, 192000);
+      expect(sourceManager.source.audioStreamQualityRequests, [
+        AudioQualityLevel.high,
+        AudioQualityLevel.medium,
+      ]);
+    });
+
+    test(
+        'selectPlayback does not fall back quality for retryable source errors',
+        () async {
+      sourceManager.source
+        ..failingAudioQualities.add(AudioQualityLevel.high)
+        ..failingAudioKind = SourceErrorKind.network;
+
+      await expectLater(
+        manager.selectPlayback(
+          _track('quality-network-error', title: 'Quality Network Error'),
+        ),
+        throwsA(isA<_FakeSourceException>()),
+      );
+
+      expect(sourceManager.source.audioStreamQualityRequests, [
+        AudioQualityLevel.high,
+      ]);
+    });
+
     test('selectFallbackPlayback assembles fallback selection with headers',
         () async {
       final track = _track('stream-fallback', title: 'Stream Fallback');
@@ -602,6 +645,36 @@ void main() {
       ]);
       expect(sourceManager.source.lastFailedUrl,
           'https://failed.example/stream-2.m4a');
+    });
+
+    test(
+        'selectFallbackPlayback fetches the next lower quality when source alternative stream is unavailable',
+        () async {
+      final settings = await settingsRepository.get();
+      settings.audioQualityLevel = AudioQualityLevel.high;
+      await settingsRepository.save(settings);
+      sourceManager.source
+        ..encodeQualityInAudioUrl = true
+        ..returnNullAlternative = true
+        ..bitrateByQuality[AudioQualityLevel.medium] = 160000;
+      final track =
+          _track('handoff-quality-fallback', title: 'Handoff Fallback');
+
+      final selection = await manager.selectFallbackPlayback(
+        track,
+        failedUrl: 'https://example.com/handoff-quality-fallback-high.m4a',
+      );
+
+      expect(selection, isNotNull);
+      expect(selection!.url,
+          'https://example.com/handoff-quality-fallback-medium.m4a');
+      expect(selection.streamResult?.bitrate, 160000);
+      expect(sourceManager.source.alternativeQualityRequests, [
+        AudioQualityLevel.medium,
+      ]);
+      expect(sourceManager.source.audioStreamQualityRequests, [
+        AudioQualityLevel.medium,
+      ]);
     });
   });
 }
@@ -685,9 +758,16 @@ class _FakeSource extends BaseSource {
   AudioStreamConfig? lastAlternativeConfig;
   String? lastFailedUrl;
   final List<String> audioStreamRequests = [];
+  final List<AudioQualityLevel> audioStreamQualityRequests = [];
+  final List<AudioQualityLevel> alternativeQualityRequests = [];
   Map<String, String>? lastAudioAuthHeaders;
   bool throwOnRefresh = false;
   Duration? nextAudioExpiry;
+  bool encodeQualityInAudioUrl = false;
+  bool returnNullAlternative = false;
+  SourceErrorKind failingAudioKind = SourceErrorKind.unavailable;
+  final Set<AudioQualityLevel> failingAudioQualities = {};
+  final Map<AudioQualityLevel, int> bitrateByQuality = {};
 
   @override
   SourceType get sourceType => SourceType.youtube;
@@ -729,11 +809,21 @@ class _FakeSource extends BaseSource {
     Map<String, String>? authHeaders,
   }) async {
     audioStreamRequests.add(sourceId);
+    audioStreamQualityRequests.add(config.qualityLevel);
     lastAudioAuthHeaders = authHeaders;
+    if (failingAudioQualities.contains(config.qualityLevel)) {
+      throw _FakeSourceException(
+        kind: failingAudioKind,
+        message: 'quality ${config.qualityLevel.name} failed',
+      );
+    }
     final expiry = nextAudioExpiry;
     nextAudioExpiry = null;
+    final qualitySuffix =
+        encodeQualityInAudioUrl ? '-${config.qualityLevel.name}' : '';
     return AudioStreamResult(
-      url: 'https://example.com/$sourceId.m4a',
+      url: 'https://example.com/$sourceId$qualitySuffix.m4a',
+      bitrate: bitrateByQuality[config.qualityLevel],
       container: 'm4a',
       codec: 'aac',
       streamType: StreamType.audioOnly,
@@ -749,6 +839,10 @@ class _FakeSource extends BaseSource {
   }) async {
     lastFailedUrl = failedUrl;
     lastAlternativeConfig = config;
+    alternativeQualityRequests.add(config.qualityLevel);
+    if (returnNullAlternative) {
+      return null;
+    }
     return AudioStreamResult(
       url: 'https://example.com/$sourceId-fallback.m3u8',
       container: 'm3u8',
@@ -783,4 +877,26 @@ class _FakeSource extends BaseSource {
 
   @override
   void dispose() {}
+}
+
+class _FakeSourceException extends SourceApiException {
+  const _FakeSourceException({
+    required this.kind,
+    required this.message,
+  });
+
+  @override
+  final SourceErrorKind kind;
+
+  @override
+  final String message;
+
+  @override
+  String get code => kind.name;
+
+  @override
+  SourceType get sourceType => SourceType.youtube;
+
+  @override
+  String toString() => 'FakeSourceException($code): $message';
 }
