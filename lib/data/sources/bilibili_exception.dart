@@ -29,7 +29,7 @@ class BilibiliApiException extends SourceApiException {
         numericCode == -429) {
       return SourceErrorKind.rateLimited;
     }
-    if (numericCode == -404 || numericCode == 62002) {
+    if (numericCode == -404 || numericCode == -503 || numericCode == 62002) {
       return SourceErrorKind.unavailable;
     }
     if (numericCode == -101) return SourceErrorKind.loginRequired;
@@ -42,7 +42,7 @@ class BilibiliApiException extends SourceApiException {
 
   /// 将数字错误码映射为语义化字符串
   static String _mapCode(int code) {
-    if (code == -404 || code == 62002) return 'unavailable';
+    if (code == -404 || code == -503 || code == 62002) return 'unavailable';
     if (code == -412 || code == -509 || code == -799 || code == -429) {
       return 'rate_limited';
     }

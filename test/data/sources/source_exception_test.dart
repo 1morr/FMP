@@ -86,6 +86,13 @@ void main() {
         SourceErrorKind.geoRestricted,
       );
       expect(
+        const BilibiliApiException(
+          numericCode: -503,
+          message: 'Service unavailable',
+        ).kind,
+        SourceErrorKind.unavailable,
+      );
+      expect(
         const BilibiliApiException(numericCode: 999, message: 'Unknown').kind,
         SourceErrorKind.unknown,
       );
@@ -109,7 +116,8 @@ void main() {
         'unavailable',
         'not_found',
         'unplayable',
-        'no_stream'
+        'no_stream',
+        'service_unavailable',
       ]) {
         final e = YouTubeApiException(code: code, message: 'test');
         expect(e.isUnavailable, isTrue, reason: '$code should be unavailable');
@@ -179,6 +187,13 @@ void main() {
           message: 'Private',
         ).kind,
         SourceErrorKind.permissionDenied,
+      );
+      expect(
+        const YouTubeApiException(
+          code: 'service_unavailable',
+          message: 'Service unavailable',
+        ).kind,
+        SourceErrorKind.unavailable,
       );
       expect(
         const YouTubeApiException(code: 'test', message: 'Unknown').kind,
@@ -262,6 +277,13 @@ void main() {
       expect(
         const NeteaseApiException(numericCode: -10, message: 'VIP').kind,
         SourceErrorKind.vipRequired,
+      );
+      expect(
+        const NeteaseApiException(
+          numericCode: -503,
+          message: 'Service unavailable',
+        ).kind,
+        SourceErrorKind.unavailable,
       );
       expect(
         const NeteaseApiException(numericCode: 0, message: 'Unknown').kind,
