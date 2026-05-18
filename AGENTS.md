@@ -189,6 +189,7 @@ Isar uses type default values for new fields on upgrade: `int` → `0`, `bool` �
 - Video audio extraction (DASH audio-only / durl muxed)
 - Multi-page video (多P) support
 - Live room audio stream (HLS)
+- Bilibili live radio remains Bilibili-only unless explicit multi-source radio support is added. Live room API clients, stream playback headers, and radio cover preloading must use `SourceHttpPolicy.bilibiliLiveHeaders()` / `SourceHttpPolicy.createBilibiliLiveDio()` so the live referer and media user agent stay consistent.
 - Favorites folder import
 - Requires `Referer: https://www.bilibili.com` header
 - Audio URLs expire → periodic refresh via `ensureAudioUrl()`; `AudioStreamResult.expiry` must report the same Bilibili URL TTL used by track refresh logic so shared playback caching does not fall back to a generic default.

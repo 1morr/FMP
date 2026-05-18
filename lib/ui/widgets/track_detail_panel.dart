@@ -16,6 +16,7 @@ import '../../core/services/image_loading_service.dart';
 import '../../data/models/settings.dart';
 import '../../data/models/track.dart';
 import '../../data/models/video_detail.dart';
+import '../../data/sources/source_http_policy.dart';
 import '../../providers/download/download_providers.dart';
 import '../../providers/download/file_exists_cache.dart';
 import '../../providers/track_detail_provider.dart';
@@ -2053,7 +2054,7 @@ class _RadioClickableCoverState extends State<_RadioClickableCover> {
         ThumbnailUrlUtils.getOptimizedUrl(url, displaySize: 480);
     final imageProvider = CachedNetworkImageProvider(
       optimizedUrl,
-      headers: {'Referer': 'https://www.bilibili.com'},
+      headers: SourceHttpPolicy.bilibiliLiveHeaders(),
     );
     final stream = imageProvider.resolve(ImageConfiguration.empty);
     stream.addListener(ImageStreamListener(

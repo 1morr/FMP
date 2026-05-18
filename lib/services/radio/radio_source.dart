@@ -1,10 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/radio_station.dart';
 import '../../data/models/track.dart'; // for SourceType
+import '../../data/sources/source_http_policy.dart';
 
 /// 直播間資訊
 class LiveRoomInfo {
@@ -91,15 +91,7 @@ class RadioSource with Logging {
   );
 
   RadioSource() {
-    _dio = Dio(BaseOptions(
-      headers: {
-        'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://live.bilibili.com/',
-      },
-      connectTimeout: AppConstants.networkConnectTimeout,
-      receiveTimeout: AppConstants.networkReceiveTimeout,
-    ));
+    _dio = SourceHttpPolicy.createBilibiliLiveDio();
   }
 
   /// 檢查是否為 YouTube URL
@@ -295,11 +287,7 @@ class RadioSource with Logging {
 
     return LiveStreamInfo(
       url: streamUrl,
-      headers: {
-        'Referer': 'https://live.bilibili.com/',
-        'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      },
+      headers: SourceHttpPolicy.bilibiliLiveHeaders(),
     );
   }
 
@@ -331,7 +319,11 @@ class RadioSource with Logging {
       station.hostName = info.hostName;
       station.hostAvatarUrl = info.hostAvatarUrl;
       station.hostUid = info.hostUid;
-      logInfo('Station info: title=${info.title}, cover=${info.thumbnailUrl != null}, host=${info.hostName}, uid=${info.hostUid}');
+      logInfo(
+        'Station info: title=${info.title}, '
+        'cover=${info.thumbnailUrl != null}, '
+        'host=${info.hostName}, uid=${info.hostUid}',
+      );
 
       if (!info.isLive) {
         logWarning('Station ${station.sourceId} is not currently live');
