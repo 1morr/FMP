@@ -149,7 +149,7 @@ class TrackDetailNotifier extends StateNotifier<TrackDetailState> {
   /// 刷新当前歌曲详情
   Future<void> refresh() async {
     final track = _currentTrack;
-    if (state.detail == null || track == null) return;
+    if (track == null) return;
 
     final trackKey = track.uniqueKey;
     state = state.copyWith(isLoading: true, clearError: true);
