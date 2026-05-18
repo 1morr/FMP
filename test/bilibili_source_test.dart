@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
+import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/bilibili_source.dart';
@@ -175,6 +176,117 @@ void main() {
                 )
                 .having((error) => error.numericCode, 'numericCode', -429),
           ),
+        );
+      });
+
+      test('returns explicit expiry metadata for DASH audio streams', () async {
+        final dio = Dio();
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
+          if (options.path.endsWith('/x/web-interface/view')) {
+            return ResponseBody.fromString(
+              jsonEncode({
+                'code': 0,
+                'data': {'cid': 12345},
+              }),
+              200,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+
+          if (options.path.endsWith('/x/player/playurl')) {
+            return ResponseBody.fromString(
+              jsonEncode({
+                'code': 0,
+                'data': {
+                  'dash': {
+                    'audio': [
+                      {
+                        'baseUrl': 'https://example.com/audio.m4s',
+                        'bandwidth': 192000,
+                      }
+                    ]
+                  }
+                },
+              }),
+              200,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+
+          throw StateError('Unexpected request: ${options.path}');
+        });
+        final source = BilibiliSource(
+          dio: dio,
+          apiBase: 'https://api.bilibili.test',
+        );
+
+        final result = await source.getAudioStream(
+          'BVdashExpiry',
+          config: const AudioStreamConfig(
+            streamPriority: [StreamType.audioOnly],
+          ),
+        );
+
+        expect(
+          result.expiry,
+          const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours),
+        );
+      });
+
+      test('returns explicit expiry metadata for muxed streams', () async {
+        final dio = Dio();
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
+          if (options.path.endsWith('/x/web-interface/view')) {
+            return ResponseBody.fromString(
+              jsonEncode({
+                'code': 0,
+                'data': {'cid': 12345},
+              }),
+              200,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+
+          if (options.path.endsWith('/x/player/playurl')) {
+            return ResponseBody.fromString(
+              jsonEncode({
+                'code': 0,
+                'data': {
+                  'durl': [
+                    {'url': 'https://example.com/muxed.flv'}
+                  ]
+                },
+              }),
+              200,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+
+          throw StateError('Unexpected request: ${options.path}');
+        });
+        final source = BilibiliSource(
+          dio: dio,
+          apiBase: 'https://api.bilibili.test',
+        );
+
+        final result = await source.getAudioStream(
+          'BVmuxedExpiry',
+          config: const AudioStreamConfig(
+            streamPriority: [StreamType.muxed],
+          ),
+        );
+
+        expect(
+          result.expiry,
+          const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours),
         );
       });
 

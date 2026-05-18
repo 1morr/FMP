@@ -484,7 +484,7 @@ class SettingsBackup {
     this.textColor,
     this.cardColor,
     int? maxCacheSizeMB,
-    this.enabledSources = const ['bilibili', 'youtube'],
+    this.enabledSources = const ['bilibili', 'youtube', 'netease'],
     this.autoScrollToCurrentTrack = false,
     this.rememberPlaybackPosition = true,
     this.restartRewindSeconds = 0,
@@ -539,7 +539,7 @@ class SettingsBackup {
       enabledSources: (json['enabledSources'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
-          ['bilibili', 'youtube'],
+          ['bilibili', 'youtube', 'netease'],
       autoScrollToCurrentTrack:
           json['autoScrollToCurrentTrack'] as bool? ?? false,
       rememberPlaybackPosition:

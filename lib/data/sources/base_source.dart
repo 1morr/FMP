@@ -206,11 +206,13 @@ abstract class BaseSource {
   /// [sourceId] 音源 ID
   /// [failedUrl] 之前失败的 URL（用于排除相同流类型）
   /// [config] 音频流配置
+  /// [authHeaders] 播放认证头，需和主音频流获取路径保持一致
   /// 返回 null 表示没有可用的备选流
   Future<AudioStreamResult?> getAlternativeAudioStream(
     String sourceId, {
     String? failedUrl,
     AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+    Map<String, String>? authHeaders,
   }) async {
     return null; // 默认不支持备选流
   }
@@ -221,11 +223,13 @@ abstract class BaseSource {
     String sourceId, {
     String? failedUrl,
     AudioStreamConfig? config,
+    Map<String, String>? authHeaders,
   }) async {
     final result = await getAlternativeAudioStream(
       sourceId,
       failedUrl: failedUrl,
       config: config ?? AudioStreamConfig.defaultConfig,
+      authHeaders: authHeaders,
     );
     return result?.url;
   }

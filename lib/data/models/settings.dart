@@ -95,7 +95,7 @@ class Settings {
   String? hotkeyConfig;
 
   /// 启用的音源列表
-  List<String> enabledSources = ['bilibili', 'youtube'];
+  List<String> enabledSources = ['bilibili', 'youtube', 'netease'];
 
   /// 切歌时自动跳转到队列页面并定位当前歌曲
   bool autoScrollToCurrentTrack = false;
@@ -495,6 +495,23 @@ class Settings {
       case SourceType.netease:
         return useNeteaseAuthForPlay;
     }
+  }
+
+  /// 获取启用的搜索/导入音源集合。
+  @ignore
+  Set<SourceType> get enabledSourceTypes {
+    final result = <SourceType>{};
+    for (final source in enabledSources) {
+      switch (source.trim()) {
+        case 'bilibili':
+          result.add(SourceType.bilibili);
+        case 'youtube':
+          result.add(SourceType.youtube);
+        case 'netease':
+          result.add(SourceType.netease);
+      }
+    }
+    return result;
   }
 
   /// 設置指定音源的播放認證設定

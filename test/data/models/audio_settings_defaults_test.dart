@@ -3,12 +3,34 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/settings.dart';
+import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/providers/audio_settings_provider.dart';
 import 'package:fmp/services/backup/backup_data.dart';
 
 void main() {
   group('Audio settings defaults', () {
+    test('enable all direct audio sources by default', () {
+      final settings = Settings();
+
+      expect(settings.enabledSources, ['bilibili', 'youtube', 'netease']);
+      expect(settings.enabledSourceTypes, {
+        SourceType.bilibili,
+        SourceType.youtube,
+        SourceType.netease,
+      });
+      expect(SettingsBackup().enabledSources, [
+        'bilibili',
+        'youtube',
+        'netease',
+      ]);
+      expect(SettingsBackup.fromJson({}).enabledSources, [
+        'bilibili',
+        'youtube',
+        'netease',
+      ]);
+    });
+
     test('prefer Opus before AAC by default', () {
       final settings = Settings();
 

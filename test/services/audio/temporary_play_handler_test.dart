@@ -341,6 +341,7 @@ class _FakeSource extends BaseSource {
     String sourceId, {
     String? failedUrl,
     AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+    Map<String, String>? authHeaders,
   }) async {
     return AudioStreamResult(
       url: 'https://example.com/$sourceId-fallback.m4a',

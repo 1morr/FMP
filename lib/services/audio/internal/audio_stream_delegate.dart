@@ -134,6 +134,7 @@ class AudioStreamDelegate {
         track.sourceId,
         failedUrl: failedUrl,
         config: fallbackConfig,
+        authHeaders: authHeaders,
       );
       if (sourceAlternative != null) return sourceAlternative;
 
@@ -152,6 +153,7 @@ class AudioStreamDelegate {
       track.sourceId,
       failedUrl: failedUrl,
       config: config,
+      authHeaders: authHeaders,
     );
   }
 

@@ -567,6 +567,7 @@ class YouTubeSource extends BaseSource with Logging {
     String videoId, {
     String? failedUrl,
     AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+    Map<String, String>? authHeaders,
   }) async {
     logDebug('Getting alternative audio stream for YouTube video: $videoId');
     try {
@@ -581,6 +582,18 @@ class YouTubeSource extends BaseSource with Logging {
         } catch (e) {
           logDebug(
               'Alternative stream type $streamType failed for $videoId: $e');
+        }
+      }
+
+      if (authHeaders != null) {
+        try {
+          final result =
+              await _getAudioStreamViaInnerTube(videoId, authHeaders, config);
+          if (result.url != failedUrl) {
+            return result;
+          }
+        } catch (e) {
+          logDebug('Authenticated alternative stream failed for $videoId: $e');
         }
       }
 
@@ -1614,61 +1627,15 @@ class YouTubeSource extends BaseSource with Logging {
             code: 'no_stream', message: 'No streaming data from InnerTube');
       }
 
-      // Parse adaptiveFormats for audio-only streams
-      final adaptiveFormats = streamingData['adaptiveFormats'] as List? ?? [];
-      final audioFormats = adaptiveFormats.where((f) {
-        final mimeType = f['mimeType'] as String? ?? '';
-        return mimeType.startsWith('audio/');
-      }).toList();
-
-      if (audioFormats.isNotEmpty) {
-        // Sort by bitrate descending
-        audioFormats.sort((a, b) {
-          final bitrateA = a['bitrate'] as int? ?? 0;
-          final bitrateB = b['bitrate'] as int? ?? 0;
-          return bitrateB.compareTo(bitrateA);
-        });
-
-        // Select by quality level
-        final selectedIndex = switch (config.qualityLevel) {
-          AudioQualityLevel.high => 0,
-          AudioQualityLevel.medium => audioFormats.length ~/ 2,
-          AudioQualityLevel.low => audioFormats.length - 1,
-        };
-        final selected = audioFormats[selectedIndex];
-        final url = selected['url'] as String?;
-
-        if (url != null) {
-          final mimeType = selected['mimeType'] as String? ?? '';
-          final codec =
-              RegExp(r'codecs="([^"]+)"').firstMatch(mimeType)?.group(1);
-          final container = mimeType.contains('webm') ? 'webm' : 'mp4';
-
-          logDebug('Got audio-only stream via InnerTube for $videoId');
-          return AudioStreamResult(
-            url: url,
-            bitrate: selected['bitrate'] as int?,
-            container: container,
-            codec: codec,
-            streamType: StreamType.audioOnly,
-          );
-        }
-      }
-
-      // Fallback to muxed formats
-      final formats = streamingData['formats'] as List? ?? [];
-      if (formats.isNotEmpty) {
-        final muxed = formats.first;
-        final url = muxed['url'] as String?;
-        if (url != null) {
-          logDebug('Got muxed stream via InnerTube for $videoId');
-          return AudioStreamResult(
-            url: url,
-            bitrate: muxed['bitrate'] as int?,
-            container: 'mp4',
-            codec: null,
-            streamType: StreamType.muxed,
-          );
+      for (final streamType in config.streamPriority) {
+        final result = _selectInnerTubeStream(
+          streamingData,
+          streamType,
+          config,
+        );
+        if (result != null) {
+          logDebug('Got ${streamType.name} stream via InnerTube for $videoId');
+          return result;
         }
       }
 
@@ -1683,6 +1650,134 @@ class YouTubeSource extends BaseSource with Logging {
       throw YouTubeApiException(
           code: 'error', message: 'Failed to get audio stream: $e');
     }
+  }
+
+  AudioStreamResult? _selectInnerTubeStream(
+    Map<String, dynamic> streamingData,
+    StreamType streamType,
+    AudioStreamConfig config,
+  ) {
+    return switch (streamType) {
+      StreamType.audioOnly =>
+        _selectInnerTubeAudioOnlyStream(streamingData, config),
+      StreamType.muxed => _selectInnerTubeMuxedStream(streamingData, config),
+      StreamType.hls => _selectInnerTubeHlsStream(streamingData),
+    };
+  }
+
+  AudioStreamResult? _selectInnerTubeAudioOnlyStream(
+    Map<String, dynamic> streamingData,
+    AudioStreamConfig config,
+  ) {
+    final adaptiveFormats = streamingData['adaptiveFormats'] as List? ?? [];
+    final audioFormats = adaptiveFormats
+        .whereType<Map>()
+        .map((format) => Map<String, dynamic>.from(format))
+        .where((format) {
+      final mimeType = format['mimeType'] as String? ?? '';
+      return mimeType.startsWith('audio/') && _innerTubeUrl(format) != null;
+    }).toList();
+    if (audioFormats.isEmpty) return null;
+
+    audioFormats.sort((a, b) {
+      final bitrateA = a['bitrate'] as int? ?? 0;
+      final bitrateB = b['bitrate'] as int? ?? 0;
+      return bitrateB.compareTo(bitrateA);
+    });
+
+    Map<String, dynamic>? selected;
+    for (final format in config.formatPriority) {
+      final matching = audioFormats
+          .where((candidate) => _innerTubeAudioFormatMatches(candidate, format))
+          .toList();
+      selected = _selectByQualityLevel(matching, config.qualityLevel);
+      if (selected != null) break;
+    }
+    selected ??= _selectByQualityLevel(audioFormats, config.qualityLevel);
+    if (selected == null) return null;
+
+    return AudioStreamResult(
+      url: _innerTubeUrl(selected)!,
+      bitrate: selected['bitrate'] as int?,
+      container: _innerTubeContainer(selected),
+      codec: _innerTubeCodec(selected),
+      streamType: StreamType.audioOnly,
+    );
+  }
+
+  AudioStreamResult? _selectInnerTubeMuxedStream(
+    Map<String, dynamic> streamingData,
+    AudioStreamConfig config,
+  ) {
+    final formats = streamingData['formats'] as List? ?? [];
+    final muxedFormats = formats
+        .whereType<Map>()
+        .map((format) => Map<String, dynamic>.from(format))
+        .where((format) => _innerTubeUrl(format) != null)
+        .toList();
+    if (muxedFormats.isEmpty) return null;
+
+    muxedFormats.sort((a, b) {
+      final bitrateA = a['bitrate'] as int? ?? 0;
+      final bitrateB = b['bitrate'] as int? ?? 0;
+      return bitrateB.compareTo(bitrateA);
+    });
+
+    final selected = _selectByQualityLevel(muxedFormats, config.qualityLevel);
+    if (selected == null) return null;
+
+    return AudioStreamResult(
+      url: _innerTubeUrl(selected)!,
+      bitrate: selected['bitrate'] as int?,
+      container: _innerTubeContainer(selected),
+      codec: null,
+      streamType: StreamType.muxed,
+    );
+  }
+
+  AudioStreamResult? _selectInnerTubeHlsStream(
+    Map<String, dynamic> streamingData,
+  ) {
+    final hlsUrl = streamingData['hlsManifestUrl'] as String?;
+    if (hlsUrl == null || hlsUrl.isEmpty) return null;
+    return AudioStreamResult(
+      url: hlsUrl,
+      container: 'm3u8',
+      codec: null,
+      streamType: StreamType.hls,
+    );
+  }
+
+  String? _innerTubeUrl(Map<String, dynamic> format) =>
+      format['url'] as String?;
+
+  bool _innerTubeAudioFormatMatches(
+    Map<String, dynamic> format,
+    AudioFormat audioFormat,
+  ) {
+    final mimeType = (format['mimeType'] as String? ?? '').toLowerCase();
+    final codec = (_innerTubeCodec(format) ?? '').toLowerCase();
+
+    return switch (audioFormat) {
+      AudioFormat.opus => mimeType.contains('webm') || codec.contains('opus'),
+      AudioFormat.aac => mimeType.contains('mp4') ||
+          mimeType.contains('m4a') ||
+          codec.contains('aac') ||
+          codec.contains('mp4a'),
+    };
+  }
+
+  String _innerTubeContainer(Map<String, dynamic> format) {
+    final mimeType = (format['mimeType'] as String? ?? '').toLowerCase();
+    if (mimeType.contains('webm')) return 'webm';
+    if (mimeType.contains('m4a')) return 'm4a';
+    if (mimeType.contains('mp4')) return 'mp4';
+    return 'mp4';
+  }
+
+  String? _innerTubeCodec(Map<String, dynamic> format) {
+    final mimeType = format['mimeType'] as String? ?? '';
+    return RegExp(r'codecs="([^"]+)"').firstMatch(mimeType)?.group(1);
   }
 
   /// 通过 InnerTube /browse API 解析播放列表。
