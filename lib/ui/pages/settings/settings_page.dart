@@ -951,14 +951,7 @@ class _DownloadPathListTile extends ConsumerWidget {
       data: (downloadPath) => ListTile(
         leading: const Icon(Icons.folder_outlined),
         title: Text(t.settings.downloadPath.title),
-        subtitle: Text(
-          downloadPath ?? t.general.notSet,
-          style: TextStyle(
-            color: downloadPath == null
-                ? Theme.of(context).colorScheme.error
-                : null,
-          ),
-        ),
+        subtitle: Text(downloadPath ?? t.general.notSet),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => _showDownloadPathOptions(context, ref),
       ),
@@ -1031,9 +1024,7 @@ class _DownloadPathListTile extends ConsumerWidget {
                 style: TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 13,
-                  color: downloadPath == null
-                      ? colorScheme.error
-                      : colorScheme.onSurfaceVariant,
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
             ),

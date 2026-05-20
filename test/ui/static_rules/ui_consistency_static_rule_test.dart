@@ -70,5 +70,23 @@ void main() {
         isTrue,
       );
     });
+
+    test('download path unset text does not use error color', () {
+      final source =
+          File('lib/ui/pages/settings/settings_page.dart').readAsStringSync();
+
+      final downloadPathTile = RegExp(
+        r'class _DownloadPathListTile extends ConsumerWidget \{(?<body>.*?)^///',
+        multiLine: true,
+        dotAll: true,
+      ).firstMatch(source)?.namedGroup('body');
+
+      expect(downloadPathTile, isNotNull);
+      expect(downloadPathTile, isNot(contains('colorScheme.error')));
+      expect(
+        downloadPathTile,
+        isNot(contains('Theme.of(context).colorScheme.error')),
+      );
+    });
   });
 }
