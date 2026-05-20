@@ -7,12 +7,14 @@ class CompactColorPickerButton extends StatelessWidget {
   static const saturationValueKey = ValueKey('compact-color-picker-sv');
 
   final String label;
+  final String? closeLabel;
   final Color color;
   final ValueChanged<Color> onChanged;
 
   const CompactColorPickerButton({
     super.key,
     required this.label,
+    this.closeLabel,
     required this.color,
     required this.onChanged,
   });
@@ -22,14 +24,12 @@ class CompactColorPickerButton extends StatelessWidget {
   }
 
   Future<void> _openPalette(BuildContext context) {
-    return showDialog<void>(
+    return CompactColorPaletteDialog.show(
       context: context,
-      barrierColor: Colors.transparent,
-      builder: (context) => CompactColorPaletteDialog(
-        label: label,
-        color: color,
-        onChanged: onChanged,
-      ),
+      label: label,
+      closeLabel: closeLabel,
+      color: color,
+      onChanged: onChanged,
     );
   }
 
@@ -70,15 +70,36 @@ class CompactColorPickerButton extends StatelessWidget {
 
 class CompactColorPaletteDialog extends StatefulWidget {
   final String label;
+  final String? closeLabel;
   final Color color;
   final ValueChanged<Color> onChanged;
 
   const CompactColorPaletteDialog({
     super.key,
     required this.label,
+    this.closeLabel,
     required this.color,
     required this.onChanged,
   });
+
+  static Future<void> show({
+    required BuildContext context,
+    required String label,
+    String? closeLabel,
+    required Color color,
+    required ValueChanged<Color> onChanged,
+  }) {
+    return showDialog<void>(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (context) => CompactColorPaletteDialog(
+        label: label,
+        closeLabel: closeLabel,
+        color: color,
+        onChanged: onChanged,
+      ),
+    );
+  }
 
   @override
   State<CompactColorPaletteDialog> createState() => _ColorPaletteDialogState();
@@ -104,103 +125,122 @@ class _ColorPaletteDialogState extends State<CompactColorPaletteDialog> {
     final colorScheme = Theme.of(context).colorScheme;
     final windowWidth = MediaQuery.sizeOf(context).width;
     final horizontalInset = windowWidth < 320 ? 12.0 : 24.0;
-    final contentWidth =
-        (windowWidth - horizontalInset * 2 - 32).clamp(180.0, 252.0);
+    final dialogWidth = (windowWidth - horizontalInset * 2).clamp(212.0, 316.0);
 
-    return AlertDialog(
-      key: CompactColorPickerButton.paletteKey,
+    return Dialog(
       insetPadding:
           EdgeInsets.symmetric(horizontal: horizontalInset, vertical: 24),
-      titlePadding: const EdgeInsets.fromLTRB(16, 12, 12, 0),
-      contentPadding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
-      actionsPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-      title: Row(
-        children: [
-          _ColorSwatch(color: color, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              widget.label,
-              style: Theme.of(context).textTheme.titleSmall,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-      content: SizedBox(
-        key: CompactColorPickerButton.paletteContentKey,
-        width: contentWidth,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _SaturationValuePicker(
-              hsv: _hsv,
-              onChanged: _update,
-            ),
-            const SizedBox(height: 10),
-            _HuePicker(
-              hue: _hsv.hue,
-              onChanged: (hue) => _update(_hsv.withHue(hue)),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(
-                  Icons.light_mode_outlined,
-                  size: 14,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                Expanded(
-                  child: SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      trackHeight: 2,
-                      thumbShape:
-                          const RoundSliderThumbShape(enabledThumbRadius: 6),
-                      overlayShape:
-                          const RoundSliderOverlayShape(overlayRadius: 12),
-                    ),
-                    child: Slider(
-                      value: _hsv.value,
-                      min: 0,
-                      max: 1,
-                      onChanged: (value) => _update(_hsv.withValue(value)),
+      child: SizedBox(
+        key: CompactColorPickerButton.paletteKey,
+        width: dialogWidth,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  _ColorSwatch(color: color, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      widget.label,
+                      style: Theme.of(context).textTheme.titleSmall,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                ),
-                SizedBox(
-                  width: 34,
-                  child: Text(
-                    '${(_hsv.value * 100).round()}%',
-                    textAlign: TextAlign.end,
-                    style: TextStyle(
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: 12,
-                      fontFeatures: const [FontFeature.tabularFigures()],
+                ],
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                key: CompactColorPickerButton.paletteContentKey,
+                width: double.infinity,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _SaturationValuePicker(
+                      hsv: _hsv,
+                      onChanged: _update,
                     ),
-                  ),
-                ),
-              ],
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                CompactColorPickerButton.formatColor(color),
-                style: TextStyle(
-                  color: colorScheme.onSurfaceVariant,
-                  fontSize: 12,
-                  fontFeatures: const [FontFeature.tabularFigures()],
+                    const SizedBox(height: 10),
+                    _HuePicker(
+                      hue: _hsv.hue,
+                      onChanged: (hue) => _update(_hsv.withHue(hue)),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.light_mode_outlined,
+                          size: 14,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        Expanded(
+                          child: SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              trackHeight: 2,
+                              thumbShape: const RoundSliderThumbShape(
+                                enabledThumbRadius: 6,
+                              ),
+                              overlayShape: const RoundSliderOverlayShape(
+                                overlayRadius: 12,
+                              ),
+                            ),
+                            child: Slider(
+                              value: _hsv.value,
+                              min: 0,
+                              max: 1,
+                              onChanged: (value) =>
+                                  _update(_hsv.withValue(value)),
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 34,
+                          child: Text(
+                            '${(_hsv.value * 100).round()}%',
+                            textAlign: TextAlign.end,
+                            style: TextStyle(
+                              color: colorScheme.onSurfaceVariant,
+                              fontSize: 12,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures()
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        CompactColorPickerButton.formatColor(color),
+                        style: TextStyle(
+                          color: colorScheme.onSurfaceVariant,
+                          fontSize: 12,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 2),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(
+                    widget.closeLabel ??
+                        MaterialLocalizations.of(context).closeButtonLabel,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(MaterialLocalizations.of(context).closeButtonLabel),
-        ),
-      ],
     );
   }
 }

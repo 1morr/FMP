@@ -114,4 +114,56 @@ void main() {
     expect(paletteRect.right, lessThanOrEqualTo(280));
     expect(contentSize.width, lessThanOrEqualTo(224));
   });
+
+  testWidgets('palette shell keeps title content and actions aligned',
+      (tester) async {
+    tester.view.physicalSize = const Size(360, 500);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CompactColorPickerButton(
+            label: 'Custom color',
+            color: const Color(0xFF6E5A83),
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(OutlinedButton));
+    await tester.pumpAndSettle();
+
+    final paletteWidth =
+        tester.getSize(find.byKey(CompactColorPickerButton.paletteKey)).width;
+    final contentWidth = tester
+        .getSize(find.byKey(CompactColorPickerButton.paletteContentKey))
+        .width;
+
+    expect(paletteWidth - contentWidth, 32);
+  });
+
+  testWidgets('palette uses caller provided close label', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CompactColorPickerButton(
+            label: 'Custom color',
+            closeLabel: '關閉',
+            color: const Color(0xFF6E5A83),
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(OutlinedButton));
+    await tester.pumpAndSettle();
+
+    expect(find.text('關閉'), findsOneWidget);
+    expect(find.text('Close'), findsNothing);
+  });
 }
