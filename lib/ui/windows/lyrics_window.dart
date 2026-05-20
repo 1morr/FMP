@@ -7,7 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../services/lyrics/lyrics_window_style.dart';
 import '../theme/app_theme.dart';
+import '../widgets/compact_color_picker_button.dart';
+import '../widgets/compact_switch_expansion_tile.dart';
 
 /// 歌词弹出窗口入口点
 ///
@@ -39,6 +42,19 @@ class _LyricsWindowStrings {
   String normalMode = '普通模式';
   String singleLine = '单行模式';
   String fullLyrics = '全部歌词模式';
+  String styleSettings = '歌词样式';
+  String textColor = '歌词颜色';
+  String secondaryTextColor = '副歌词颜色';
+  String inactiveOpacity = '非当前行透明度';
+  String outline = '描边';
+  String outlineColor = '描边颜色';
+  String outlineWidth = '描边粗细';
+  String shadow = '阴影';
+  String shadowColor = '阴影颜色';
+  String shadowBlur = '阴影模糊';
+  String shadowOffsetX = '阴影水平偏移';
+  String shadowOffsetY = '阴影垂直偏移';
+  String resetStyle = '重置样式';
 
   void updateFrom(Map<String, dynamic> map) {
     waitingLyrics = map['waitingLyrics'] as String? ?? waitingLyrics;
@@ -61,6 +77,20 @@ class _LyricsWindowStrings {
     normalMode = map['normalMode'] as String? ?? normalMode;
     singleLine = map['singleLine'] as String? ?? singleLine;
     fullLyrics = map['fullLyrics'] as String? ?? fullLyrics;
+    styleSettings = map['styleSettings'] as String? ?? styleSettings;
+    textColor = map['textColor'] as String? ?? textColor;
+    secondaryTextColor =
+        map['secondaryTextColor'] as String? ?? secondaryTextColor;
+    inactiveOpacity = map['inactiveOpacity'] as String? ?? inactiveOpacity;
+    outline = map['outline'] as String? ?? outline;
+    outlineColor = map['outlineColor'] as String? ?? outlineColor;
+    outlineWidth = map['outlineWidth'] as String? ?? outlineWidth;
+    shadow = map['shadow'] as String? ?? shadow;
+    shadowColor = map['shadowColor'] as String? ?? shadowColor;
+    shadowBlur = map['shadowBlur'] as String? ?? shadowBlur;
+    shadowOffsetX = map['shadowOffsetX'] as String? ?? shadowOffsetX;
+    shadowOffsetY = map['shadowOffsetY'] as String? ?? shadowOffsetY;
+    resetStyle = map['resetStyle'] as String? ?? resetStyle;
   }
 }
 
@@ -122,6 +152,278 @@ class _LyricsLine {
   _LyricsLine({this.timestamp, required this.text, this.subText});
 }
 
+class _LyricsStyleDialog extends StatefulWidget {
+  final LyricsWindowStyle initialStyle;
+  final _LyricsWindowStrings strings;
+  final ValueChanged<LyricsWindowStyle> onChanged;
+  final VoidCallback onReset;
+
+  const _LyricsStyleDialog({
+    required this.initialStyle,
+    required this.strings,
+    required this.onChanged,
+    required this.onReset,
+  });
+
+  @override
+  State<_LyricsStyleDialog> createState() => _LyricsStyleDialogState();
+}
+
+class _LyricsStyleDialogState extends State<_LyricsStyleDialog> {
+  late LyricsWindowStyle _style;
+  bool _outlineExpanded = false;
+  bool _shadowExpanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _style = widget.initialStyle;
+  }
+
+  void _update(LyricsWindowStyle style) {
+    setState(() => _style = style);
+    widget.onChanged(style);
+  }
+
+  Widget _colorSetting({
+    required String label,
+    required Color color,
+    required ValueChanged<Color> onChanged,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 10),
+        CompactColorPickerButton(
+          label: label,
+          color: color,
+          onChanged: onChanged,
+        ),
+      ],
+    );
+  }
+
+  Widget _sliderSetting({
+    required String label,
+    required double value,
+    required double min,
+    required double max,
+    int? divisions,
+    required ValueChanged<double> onChanged,
+    String Function(double value)? valueLabel,
+  }) {
+    final formatted = valueLabel?.call(value) ?? value.toStringAsFixed(1);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+            ),
+            Text(
+              formatted,
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+          ],
+        ),
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            trackHeight: 2,
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+            overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+          ),
+          child: Slider(
+            value: value.clamp(min, max).toDouble(),
+            min: min,
+            max: max,
+            divisions: divisions,
+            label: formatted,
+            onChanged: onChanged,
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = widget.strings;
+    return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+      titlePadding: const EdgeInsets.fromLTRB(16, 12, 12, 4),
+      contentPadding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      actionsPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+      title: Row(
+        children: [
+          const Icon(Icons.palette_outlined, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              strings.styleSettings,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+        ],
+      ),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 340, maxHeight: 420),
+        child: Scrollbar(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(right: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _colorSetting(
+                  label: strings.textColor,
+                  color: _style.textColor,
+                  onChanged: (color) => _update(
+                    _style.copyWith(textColor: color),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _colorSetting(
+                  label: strings.secondaryTextColor,
+                  color: _style.secondaryTextColor,
+                  onChanged: (color) => _update(
+                    _style.copyWith(secondaryTextColor: color),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _sliderSetting(
+                  label: strings.inactiveOpacity,
+                  value: _style.inactiveOpacity,
+                  min: 0.15,
+                  max: 1,
+                  divisions: 17,
+                  valueLabel: (value) => '${(value * 100).round()}%',
+                  onChanged: (value) => _update(
+                    _style.copyWith(inactiveOpacity: value),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                CompactSwitchExpansionTile(
+                  title: strings.outline,
+                  expanded: _outlineExpanded,
+                  enabled: _style.outlineEnabled,
+                  onExpanded: (value) =>
+                      setState(() => _outlineExpanded = value),
+                  onEnabledChanged: (value) => _update(
+                    _style.copyWith(outlineEnabled: value),
+                  ),
+                  children: [
+                    _colorSetting(
+                      label: strings.outlineColor,
+                      color: _style.outlineColor,
+                      onChanged: (color) => _update(
+                        _style.copyWith(outlineColor: color),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _sliderSetting(
+                      label: strings.outlineWidth,
+                      value: _style.outlineWidth,
+                      min: 0.5,
+                      max: 8,
+                      divisions: 15,
+                      onChanged: (value) => _update(
+                        _style.copyWith(outlineWidth: value),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                CompactSwitchExpansionTile(
+                  title: strings.shadow,
+                  expanded: _shadowExpanded,
+                  enabled: _style.shadowEnabled,
+                  onExpanded: (value) =>
+                      setState(() => _shadowExpanded = value),
+                  onEnabledChanged: (value) => _update(
+                    _style.copyWith(shadowEnabled: value),
+                  ),
+                  children: [
+                    _colorSetting(
+                      label: strings.shadowColor,
+                      color: _style.shadowColor,
+                      onChanged: (color) => _update(
+                        _style.copyWith(shadowColor: color),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _sliderSetting(
+                      label: strings.shadowBlur,
+                      value: _style.shadowBlurRadius,
+                      min: 0,
+                      max: 24,
+                      divisions: 24,
+                      onChanged: (value) => _update(
+                        _style.copyWith(shadowBlurRadius: value),
+                      ),
+                    ),
+                    _sliderSetting(
+                      label: strings.shadowOffsetX,
+                      value: _style.shadowOffset.dx,
+                      min: -12,
+                      max: 12,
+                      divisions: 24,
+                      onChanged: (value) => _update(
+                        _style.copyWith(
+                          shadowOffset: Offset(value, _style.shadowOffset.dy),
+                        ),
+                      ),
+                    ),
+                    _sliderSetting(
+                      label: strings.shadowOffsetY,
+                      value: _style.shadowOffset.dy,
+                      min: -12,
+                      max: 12,
+                      divisions: 24,
+                      onChanged: (value) => _update(
+                        _style.copyWith(
+                          shadowOffset: Offset(_style.shadowOffset.dx, value),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton.icon(
+          onPressed: () {
+            setState(() {
+              _style = LyricsWindowStyle.defaults;
+              _outlineExpanded = false;
+              _shadowExpanded = false;
+            });
+            widget.onReset();
+          },
+          icon: const Icon(Icons.refresh),
+          label: Text(strings.resetStyle),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(strings.close),
+        ),
+      ],
+    );
+  }
+}
+
 class LyricsWindowPage extends StatefulWidget {
   const LyricsWindowPage({super.key});
 
@@ -145,6 +447,8 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   bool _transparentMode = false;
   bool _singleLineMode = false;
   bool _isHovering = false;
+  LyricsWindowStyle _lyricsStyle = LyricsWindowStyle.defaults;
+  late final LyricsWindowStyleCommitDebouncer _styleCommitDebouncer;
 
   /// 用户是否正在手动滚动
   bool _userScrolling = false;
@@ -162,14 +466,6 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   static const double _refFontSize = 20.0;
   static const double _boldSafetyFactor = 0.95;
 
-  /// 透明模式下的描边文字阴影
-  static const _strokeShadows = [
-    Shadow(offset: Offset(-1.5, -1.5), blurRadius: 3, color: Colors.black),
-    Shadow(offset: Offset(1.5, -1.5), blurRadius: 3, color: Colors.black),
-    Shadow(offset: Offset(1.5, 1.5), blurRadius: 3, color: Colors.black),
-    Shadow(offset: Offset(-1.5, 1.5), blurRadius: 3, color: Colors.black),
-  ];
-
   final _scrollController = ItemScrollController();
   final _positionsListener = ItemPositionsListener.create();
 
@@ -180,12 +476,17 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   @override
   void initState() {
     super.initState();
+    _styleCommitDebouncer = LyricsWindowStyleCommitDebouncer(
+      commit: _sendLyricsWindowStyle,
+    );
     _setupChannel();
     _initWindow();
   }
 
   @override
   void dispose() {
+    _styleCommitDebouncer.flush();
+    _styleCommitDebouncer.dispose();
     _scrollResumeTimer?.cancel();
     super.dispose();
   }
@@ -238,6 +539,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     final primaryColorValue = data['primaryColor'] as int?;
     final fontFamily = data['fontFamily'] as String?;
     final stringsMap = data['strings'] as Map<String, dynamic>?;
+    final style = LyricsWindowStyle.fromJson(data['lyricsWindowStyle']);
 
     final appState = context.findAncestorStateOfType<_LyricsWindowAppState>();
     appState?.updateTheme(
@@ -246,6 +548,9 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
       fontFamily: fontFamily,
       stringsMap: stringsMap,
     );
+    if (_lyricsStyle != style) {
+      setState(() => _lyricsStyle = style);
+    }
   }
 
   void _handleUpdatePlaybackState(String jsonStr) {
@@ -412,6 +717,42 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     }
   }
 
+  void _sendLyricsWindowStyle(LyricsWindowStyle style) {
+    try {
+      _channel.invokeMethod(
+        'changeLyricsWindowStyle',
+        jsonEncode(style.toJson()),
+      );
+    } catch (_) {}
+  }
+
+  void _updateLyricsWindowStyle(LyricsWindowStyle style) {
+    setState(() => _lyricsStyle = style);
+    _styleCommitDebouncer.schedule(style);
+  }
+
+  void _resetLyricsWindowStyle() {
+    _styleCommitDebouncer.cancel();
+    setState(() => _lyricsStyle = LyricsWindowStyle.defaults);
+    try {
+      _channel.invokeMethod('resetLyricsWindowStyle', '');
+    } catch (_) {}
+  }
+
+  Future<void> _showLyricsStyleDialog() async {
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (context) => _LyricsStyleDialog(
+        initialStyle: _lyricsStyle,
+        strings: _strings,
+        onChanged: _updateLyricsWindowStyle,
+        onReset: _resetLyricsWindowStyle,
+      ),
+    );
+    _styleCommitDebouncer.flush();
+  }
+
   Future<void> _toggleTransparentMode() async {
     final newMode = !_transparentMode;
     final brightness = Theme.of(context).brightness;
@@ -472,8 +813,11 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
       final painter = TextPainter(
         text: TextSpan(
           text: line.text,
-          style: const TextStyle(
-              fontSize: _refFontSize, fontWeight: FontWeight.bold),
+          style: LyricsTextStyles.fromTheme(
+            context,
+            fontSize: _refFontSize,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         maxLines: 1,
         textDirection: textDirection,
@@ -573,7 +917,13 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
                   Positioned.fill(
                     child: AnimatedPadding(
                       duration: const Duration(milliseconds: 200),
-                      padding: EdgeInsets.only(top: _isHovering ? 48 : 0),
+                      padding: EdgeInsets.only(
+                        top: LyricsWindowLayout.contentTopInset(
+                          transparentMode: true,
+                          titleBarVisible: _isHovering,
+                          offsetControlsVisible: _showOffsetControls,
+                        ),
+                      ),
                       child: _buildContent(),
                     ),
                   ),
@@ -626,6 +976,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     return GestureDetector(
       onPanStart: (_) => windowManager.startDragging(),
       child: Container(
+        height: LyricsWindowLayout.titleBarHeight,
         padding: const EdgeInsets.only(left: 16, right: 4, top: 6, bottom: 6),
         decoration: BoxDecoration(
           color: bgColor,
@@ -691,6 +1042,14 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
               color: iconColor,
               tooltip: _displayModeTooltip,
               semanticsLabel: _displayModeTooltip,
+            ),
+            _titleBarButton(
+              Icons.palette_outlined,
+              16,
+              _showLyricsStyleDialog,
+              color: iconColor,
+              tooltip: _strings.styleSettings,
+              semanticsLabel: _strings.styleSettings,
             ),
             // 单行/全部歌词切换
             _titleBarButton(
@@ -785,7 +1144,14 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
 
   Widget _buildEmpty() {
     final t = _transparentMode;
+    final applyTextStyle = _lyricsStyle.shouldApplyToText(transparentMode: t);
     final colorScheme = Theme.of(context).colorScheme;
+    final waitingColor = _lyricsStyle.resolveSecondaryColor(
+      isCurrent: true,
+      transparentMode: t,
+      fallbackCurrentColor: colorScheme.onSurfaceVariant,
+      fallbackInactiveColor: colorScheme.onSurfaceVariant,
+    );
 
     return Center(
       child: Column(
@@ -797,15 +1163,15 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
             color: t
                 ? Colors.white.withValues(alpha: 0.4)
                 : colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-            shadows: t ? _strokeShadows : null,
+            shadows: t ? _lyricsStyle.shadows : null,
           ),
           const SizedBox(height: 12),
           Text(
             _strings.waitingLyrics,
             style: TextStyle(
               fontSize: 14,
-              color: t ? Colors.white70 : colorScheme.onSurfaceVariant,
-              shadows: t ? _strokeShadows : null,
+              color: waitingColor,
+              shadows: applyTextStyle ? _lyricsStyle.shadows : null,
             ),
           ),
         ],
@@ -815,6 +1181,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
 
   Widget _buildSingleLine() {
     final t = _transparentMode;
+    final applyTextStyle = _lyricsStyle.shouldApplyToText(transparentMode: t);
     final colorScheme = Theme.of(context).colorScheme;
 
     // 获取当前行文本
@@ -829,10 +1196,18 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
       mainText = _trackTitle ?? '';
     }
 
-    final mainColor = t ? Colors.white : colorScheme.onSurface;
-    final subColor = t
-        ? Colors.white.withValues(alpha: 0.7)
-        : colorScheme.onSurface.withValues(alpha: 0.6);
+    final mainColor = _lyricsStyle.resolveMainColor(
+      isCurrent: true,
+      transparentMode: t,
+      fallbackCurrentColor: colorScheme.onSurface,
+      fallbackInactiveColor: colorScheme.onSurface,
+    );
+    final subColor = _lyricsStyle.resolveSecondaryColor(
+      isCurrent: true,
+      transparentMode: t,
+      fallbackCurrentColor: colorScheme.onSurface.withValues(alpha: 0.6),
+      fallbackInactiveColor: colorScheme.onSurface.withValues(alpha: 0.6),
+    );
     final hasSubText = subText != null && subText.isNotEmpty;
 
     return GestureDetector(
@@ -853,13 +1228,17 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
           const subRatio = 0.7;
           const minFontSize = 24.0;
           final td = Directionality.of(context);
+          final baseTextStyle = LyricsTextStyles.themeBase(context);
 
           // 测量主文本单行宽度
           final mainPainter = TextPainter(
             text: TextSpan(
               text: mainText,
-              style: const TextStyle(
-                  fontSize: refSize, fontWeight: FontWeight.bold),
+              style: LyricsTextStyles.fromBase(
+                baseTextStyle,
+                fontSize: refSize,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             maxLines: 1,
             textDirection: td,
@@ -879,8 +1258,11 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
             final subPainter = TextPainter(
               text: TextSpan(
                 text: subText,
-                style: const TextStyle(
-                    fontSize: refSize, fontWeight: FontWeight.w500),
+                style: LyricsTextStyles.fromBase(
+                  baseTextStyle,
+                  fontSize: refSize,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               maxLines: 1,
               textDirection: td,
@@ -916,10 +1298,12 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
             final mp = TextPainter(
               text: TextSpan(
                 text: mainText,
-                style: TextStyle(
-                    fontSize: mainFontSize,
-                    fontWeight: FontWeight.bold,
-                    height: 1.3),
+                style: LyricsTextStyles.fromBase(
+                  baseTextStyle,
+                  fontSize: mainFontSize,
+                  fontWeight: FontWeight.bold,
+                  height: 1.3,
+                ),
               ),
               textDirection: td,
             )..layout(maxWidth: maxW);
@@ -930,10 +1314,12 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
               final sp = TextPainter(
                 text: TextSpan(
                   text: subText,
-                  style: TextStyle(
-                      fontSize: subFontSize,
-                      fontWeight: FontWeight.w500,
-                      height: 1.3),
+                  style: LyricsTextStyles.fromBase(
+                    baseTextStyle,
+                    fontSize: subFontSize,
+                    fontWeight: FontWeight.w500,
+                    height: 1.3,
+                  ),
                 ),
                 textDirection: td,
               )..layout(maxWidth: maxW);
@@ -959,33 +1345,64 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    mainText,
-                    style: TextStyle(
-                      fontSize: mainFontSize,
-                      fontWeight: FontWeight.bold,
-                      color: mainColor,
-                      height: 1.3,
-                      shadows: t ? _strokeShadows : null,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: mainWrap ? 3 : 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (hasSubText)
-                    Text(
-                      subText!,
-                      style: TextStyle(
-                        fontSize: subFontSize,
-                        fontWeight: FontWeight.w500,
-                        color: subColor,
+                  if (applyTextStyle)
+                    LyricsStyledText(
+                      mainText,
+                      style: LyricsTextStyles.fromBase(
+                        baseTextStyle,
+                        fontSize: mainFontSize,
+                        fontWeight: FontWeight.bold,
+                        color: mainColor,
                         height: 1.3,
-                        shadows: t ? _strokeShadows : null,
+                      ),
+                      lyricsStyle: _lyricsStyle,
+                      textAlign: TextAlign.center,
+                      maxLines: mainWrap ? 3 : 1,
+                      overflow: TextOverflow.ellipsis,
+                    )
+                  else
+                    Text(
+                      mainText,
+                      style: LyricsTextStyles.fromBase(
+                        baseTextStyle,
+                        fontSize: mainFontSize,
+                        fontWeight: FontWeight.bold,
+                        color: mainColor,
+                        height: 1.3,
                       ),
                       textAlign: TextAlign.center,
-                      maxLines: subWrap ? 2 : 1,
+                      maxLines: mainWrap ? 3 : 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                  if (hasSubText)
+                    applyTextStyle
+                        ? LyricsStyledText(
+                            subText!,
+                            style: LyricsTextStyles.fromBase(
+                              baseTextStyle,
+                              fontSize: subFontSize,
+                              fontWeight: FontWeight.w500,
+                              color: subColor,
+                              height: 1.3,
+                            ),
+                            lyricsStyle: _lyricsStyle,
+                            textAlign: TextAlign.center,
+                            maxLines: subWrap ? 2 : 1,
+                            overflow: TextOverflow.ellipsis,
+                          )
+                        : Text(
+                            subText!,
+                            style: LyricsTextStyles.fromBase(
+                              baseTextStyle,
+                              fontSize: subFontSize,
+                              fontWeight: FontWeight.w500,
+                              color: subColor,
+                              height: 1.3,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: subWrap ? 2 : 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                 ],
               ),
             ),
@@ -1037,7 +1454,9 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
                   itemScrollController: _scrollController,
                   itemPositionsListener: _positionsListener,
                   padding: EdgeInsets.only(
-                    top: _showOffsetControls ? 56 : 20,
+                    top: _showOffsetControls
+                        ? LyricsWindowLayout.offsetBarHeight
+                        : LyricsWindowLayout.defaultContentTopPadding,
                     bottom: 20,
                     left: 16,
                     right: 16,
@@ -1076,20 +1495,21 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
       int index, bool isCurrent, ({double main, double sub}) fontSizes) {
     final line = _lines[index];
     final t = _transparentMode;
+    final applyTextStyle = _lyricsStyle.shouldApplyToText(transparentMode: t);
     final colorScheme = Theme.of(context).colorScheme;
 
-    final mainColor = t
-        ? (isCurrent ? Colors.white : Colors.white.withValues(alpha: 0.5))
-        : (isCurrent
-            ? colorScheme.onSurface
-            : colorScheme.onSurface.withValues(alpha: 0.4));
-    final subColor = t
-        ? (isCurrent
-            ? Colors.white.withValues(alpha: 0.8)
-            : Colors.white.withValues(alpha: 0.4))
-        : (isCurrent
-            ? colorScheme.onSurface.withValues(alpha: 0.7)
-            : colorScheme.onSurface.withValues(alpha: 0.3));
+    final mainColor = _lyricsStyle.resolveMainColor(
+      isCurrent: isCurrent,
+      transparentMode: t,
+      fallbackCurrentColor: colorScheme.onSurface,
+      fallbackInactiveColor: colorScheme.onSurface.withValues(alpha: 0.4),
+    );
+    final subColor = _lyricsStyle.resolveSecondaryColor(
+      isCurrent: isCurrent,
+      transparentMode: t,
+      fallbackCurrentColor: colorScheme.onSurface.withValues(alpha: 0.7),
+      fallbackInactiveColor: colorScheme.onSurface.withValues(alpha: 0.3),
+    );
 
     return GestureDetector(
       onTap:
@@ -1105,28 +1525,54 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
           children: [
             AnimatedDefaultTextStyle(
               duration: const Duration(milliseconds: 200),
-              style: TextStyle(
+              style: LyricsTextStyles.fromTheme(
+                context,
                 fontSize: fontSizes.main,
                 fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
                 color: mainColor,
                 height: 1.4,
-                shadows: t ? _strokeShadows : null,
               ),
-              child: Text(line.text, textAlign: TextAlign.center),
+              child: Builder(
+                builder: (context) {
+                  final style = DefaultTextStyle.of(context).style;
+                  if (!applyTextStyle) {
+                    return Text(line.text, textAlign: TextAlign.center);
+                  }
+                  return LyricsStyledText(
+                    line.text,
+                    style: style,
+                    lyricsStyle: _lyricsStyle,
+                    textAlign: TextAlign.center,
+                  );
+                },
+              ),
             ),
             if (line.subText != null && line.subText!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: AnimatedDefaultTextStyle(
                   duration: const Duration(milliseconds: 200),
-                  style: TextStyle(
+                  style: LyricsTextStyles.fromTheme(
+                    context,
                     fontSize: fontSizes.sub,
                     fontWeight: isCurrent ? FontWeight.w500 : FontWeight.normal,
                     color: subColor,
                     height: 1.3,
-                    shadows: t ? _strokeShadows : null,
                   ),
-                  child: Text(line.subText!, textAlign: TextAlign.center),
+                  child: Builder(
+                    builder: (context) {
+                      final style = DefaultTextStyle.of(context).style;
+                      if (!applyTextStyle) {
+                        return Text(line.subText!, textAlign: TextAlign.center);
+                      }
+                      return LyricsStyledText(
+                        line.subText!,
+                        style: style,
+                        lyricsStyle: _lyricsStyle,
+                        textAlign: TextAlign.center,
+                      );
+                    },
+                  ),
                 ),
               ),
           ],
