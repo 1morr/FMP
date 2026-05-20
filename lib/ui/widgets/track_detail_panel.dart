@@ -35,6 +35,7 @@ import '../pages/lyrics/lyrics_search_sheet.dart';
 import '../../providers/account_provider.dart';
 import '../../providers/locale_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../providers/lyrics_window_style_provider.dart';
 import '../../services/lyrics/lyrics_window_service.dart';
 import '../../services/lyrics/lrc_parser.dart';
 
@@ -218,6 +219,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
       themeMode: themeState.themeMode,
       primaryColor: themeState.primaryColor,
       fontFamily: themeState.fontFamily,
+      lyricsWindowStyle: ref.read(lyricsWindowStyleProvider),
     );
   }
 
@@ -266,6 +268,12 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
       final mode = LyricsDisplayMode.values[modeIndex.clamp(0, 2)];
       ref.read(lyricsDisplayModeProvider.notifier).setMode(mode);
     };
+    service.onChangeLyricsWindowStyle = (style) {
+      ref.read(lyricsWindowStyleProvider.notifier).setStyle(style);
+    };
+    service.onResetLyricsWindowStyle = () {
+      ref.read(lyricsWindowStyleProvider.notifier).resetStyle();
+    };
   }
 
   /// 清理歌词窗口回调
@@ -278,6 +286,8 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
     service.onNext = null;
     service.onPrevious = null;
     service.onChangeLyricsDisplayMode = null;
+    service.onChangeLyricsWindowStyle = null;
+    service.onResetLyricsWindowStyle = null;
     service.onWindowClosed = null;
   }
 
@@ -315,6 +325,9 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
       _syncThemeToWindow();
     });
     ref.listen(localeProvider, (_, __) {
+      _syncThemeToWindow();
+    });
+    ref.listen(lyricsWindowStyleProvider, (_, __) {
       _syncThemeToWindow();
     });
 

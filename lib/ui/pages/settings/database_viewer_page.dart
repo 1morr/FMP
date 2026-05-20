@@ -619,6 +619,36 @@ class _SettingsListView extends StatelessWidget {
                     'lyricsAiModel': setting.lyricsAiModel,
                     'lyricsAiTimeoutSeconds':
                         '${setting.lyricsAiTimeoutSeconds}s',
+                    'lyricsWindowTextColor':
+                        _formatNullableColor(setting.lyricsWindowTextColor),
+                    'lyricsWindowSecondaryTextColor': _formatNullableColor(
+                        setting.lyricsWindowSecondaryTextColor),
+                    'lyricsWindowInactiveTextOpacity': setting
+                            .lyricsWindowInactiveTextOpacity
+                            ?.toStringAsFixed(2) ??
+                        'null',
+                    'lyricsWindowOutlineEnabled':
+                        setting.lyricsWindowOutlineEnabled?.toString() ??
+                            'null',
+                    'lyricsWindowOutlineColor':
+                        _formatNullableColor(setting.lyricsWindowOutlineColor),
+                    'lyricsWindowOutlineWidth':
+                        setting.lyricsWindowOutlineWidth?.toStringAsFixed(2) ??
+                            'null',
+                    'lyricsWindowShadowEnabled':
+                        setting.lyricsWindowShadowEnabled?.toString() ?? 'null',
+                    'lyricsWindowShadowColor':
+                        _formatNullableColor(setting.lyricsWindowShadowColor),
+                    'lyricsWindowShadowBlurRadius': setting
+                            .lyricsWindowShadowBlurRadius
+                            ?.toStringAsFixed(2) ??
+                        'null',
+                    'lyricsWindowShadowOffsetX':
+                        setting.lyricsWindowShadowOffsetX?.toStringAsFixed(2) ??
+                            'null',
+                    'lyricsWindowShadowOffsetY':
+                        setting.lyricsWindowShadowOffsetY?.toStringAsFixed(2) ??
+                            'null',
                   },
                 ),
                 _DataSection(
@@ -1081,6 +1111,11 @@ String _truncate(String? value, int maxLength) {
   if (value == null) return 'null';
   if (value.length <= maxLength) return value;
   return '${value.substring(0, maxLength)}...';
+}
+
+String _formatNullableColor(int? value) {
+  if (value == null) return 'null';
+  return '#${value.toRadixString(16).padLeft(8, '0').toUpperCase()}';
 }
 
 /// 格式化字节数

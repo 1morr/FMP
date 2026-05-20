@@ -195,6 +195,39 @@ class Settings {
   /// AI title parsing request timeout in seconds.
   int lyricsAiTimeoutSeconds = AppConstants.lyricsAiDefaultTimeoutSeconds;
 
+  /// Lyrics popup transparent-mode text color. Null uses the default style.
+  int? lyricsWindowTextColor;
+
+  /// Lyrics popup transparent-mode secondary line color.
+  int? lyricsWindowSecondaryTextColor;
+
+  /// Opacity for inactive lyrics in transparent mode.
+  double? lyricsWindowInactiveTextOpacity;
+
+  /// Whether transparent-mode lyrics render an outline.
+  bool? lyricsWindowOutlineEnabled;
+
+  /// Outline color for transparent-mode lyrics.
+  int? lyricsWindowOutlineColor;
+
+  /// Outline width for transparent-mode lyrics.
+  double? lyricsWindowOutlineWidth;
+
+  /// Whether transparent-mode lyrics render a shadow.
+  bool? lyricsWindowShadowEnabled;
+
+  /// Shadow color for transparent-mode lyrics.
+  int? lyricsWindowShadowColor;
+
+  /// Shadow blur radius for transparent-mode lyrics.
+  double? lyricsWindowShadowBlurRadius;
+
+  /// Shadow horizontal offset for transparent-mode lyrics.
+  double? lyricsWindowShadowOffsetX;
+
+  /// Shadow vertical offset for transparent-mode lyrics.
+  double? lyricsWindowShadowOffsetY;
+
   // ========== 播放認證設置 ==========
 
   /// Bilibili 播放時使用登入狀態
