@@ -25,7 +25,18 @@
   },
   "themeColor": {
     "title": "主題色",
-    "selectTitle": "選擇主題色"
+    "selectTitle": "選擇主題色",
+    "customColor": "自訂顏色",
+    "colors": {
+      "defaultPurple": "預設紫",
+      "blue": "海洋藍",
+      "green": "森林綠",
+      "red": "寶石紅",
+      "pink": "玫瑰粉",
+      "orange": "琥珀橙",
+      "teal": "青綠",
+      "indigo": "靛藍"
+    }
   },
   "font": {
     "title": "字體",

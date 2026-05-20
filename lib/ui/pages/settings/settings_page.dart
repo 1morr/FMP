@@ -18,6 +18,7 @@ import '../../../providers/audio_settings_provider.dart';
 import '../../../providers/locale_provider.dart';
 import '../../../providers/theme_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/theme_preset_colors.dart';
 import '../../../providers/download_settings_provider.dart';
 import '../../../providers/developer_options_provider.dart';
 import '../../../providers/playback_settings_provider.dart';
@@ -32,6 +33,7 @@ import '../../../services/backup/backup_service.dart';
 import '../../../services/backup/backup_data.dart';
 import '../../router.dart';
 import '../../widgets/change_download_path_dialog.dart';
+import '../../widgets/compact_color_picker_button.dart';
 import '../../widgets/update_dialog.dart';
 import '../../../core/constants/ui_constants.dart';
 
@@ -276,16 +278,19 @@ class _ThemeColorListTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final primaryColor = ref.watch(primaryColorProvider);
     final colorScheme = Theme.of(context).colorScheme;
+    final selectedPreset = themePresetColorFor(primaryColor);
 
     return ListTile(
       leading: const Icon(Icons.color_lens_outlined),
       title: Text(t.settings.themeColor.title),
-      subtitle: Text(primaryColor == null ? t.general.defaultLabel : t.general.custom),
+      subtitle: Text(
+        selectedPreset != null ? _themePresetColorName(selectedPreset) : t.general.custom,
+      ),
       trailing: Container(
         width: 24,
         height: 24,
         decoration: BoxDecoration(
-          color: primaryColor ?? colorScheme.primary,
+          color: primaryColor ?? defaultThemePrimaryColor,
           shape: BoxShape.circle,
           border: Border.all(
             color: colorScheme.outline.withValues(alpha: 0.3),
@@ -297,90 +302,162 @@ class _ThemeColorListTile extends ConsumerWidget {
     );
   }
 
-  void _showColorPickerDialog(BuildContext context, WidgetRef ref, Color? currentColor) {
+  String _themePresetColorName(ThemePresetColor preset) {
+    return switch (preset.id) {
+      'defaultPurple' => t.settings.themeColor.colors.defaultPurple,
+      'blue' => t.settings.themeColor.colors.blue,
+      'green' => t.settings.themeColor.colors.green,
+      'red' => t.settings.themeColor.colors.red,
+      'pink' => t.settings.themeColor.colors.pink,
+      'orange' => t.settings.themeColor.colors.orange,
+      'teal' => t.settings.themeColor.colors.teal,
+      'indigo' => t.settings.themeColor.colors.indigo,
+      _ => preset.id,
+    };
+  }
+
+  void _showColorPickerDialog(
+    BuildContext context,
+    WidgetRef ref,
+    Color? currentColor,
+  ) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t.settings.themeColor.selectTitle),
-        content: SizedBox(
-          width: 280,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
-                    shape: BoxShape.circle,
-                    border: currentColor == null
-                        ? Border.all(color: Theme.of(context).colorScheme.primary, width: 2)
-                        : null,
-                  ),
-                ),
-                title: Text(t.general.defaultLabel),
-                selected: currentColor == null,
-                onTap: () {
-                  ref.read(themeProvider.notifier).setPrimaryColor(null);
-                  Navigator.pop(context);
-                },
-              ),
-              const SizedBox(height: 16),
-              // 预设颜色网格
-              Wrap(
+      builder: (context) => Consumer(
+        builder: (context, dialogRef, _) {
+          final livePrimaryColor = dialogRef.watch(primaryColorProvider);
+          final selectedPreset = themePresetColorFor(livePrimaryColor);
+
+          return AlertDialog(
+            title: Text(t.settings.themeColor.selectTitle),
+            content: SizedBox(
+              width: 240,
+              child: Wrap(
                 spacing: 12,
                 runSpacing: 12,
-                children: presetColors.map((color) {
-                  final isSelected = currentColor != null && currentColor.toARGB32() == color.toARGB32();
-                  return InkWell(
-                    onTap: () {
-                      ref.read(themeProvider.notifier).setPrimaryColor(color);
-                      Navigator.pop(context);
-                    },
-                    borderRadius: AppRadius.borderRadiusPill,
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                        border: isSelected
-                            ? Border.all(
-                                color: Theme.of(context).colorScheme.onSurface,
-                                width: 2,
-                              )
-                            : null,
-                        boxShadow: [
-                          BoxShadow(
-                            color: color.withValues(alpha: 0.4),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: isSelected
-                          ? Icon(
-                              Icons.check,
-                              color: ThemeData.estimateBrightnessForColor(color) == Brightness.dark
-                                  ? Colors.white
-                                  : Colors.black,
-                              size: 20,
-                            )
-                          : null,
+                children: [
+                  ...themePresetColors.map((preset) {
+                    final isSelected = selectedPreset?.id == preset.id;
+                    return _ThemeColorSwatchButton(
+                      tooltip: _themePresetColorName(preset),
+                      color: preset.color,
+                      isSelected: isSelected,
+                      onTap: () {
+                        ref.read(themeProvider.notifier).setPrimaryColor(
+                              preset.storesAsDefault ? null : preset.color,
+                            );
+                        Navigator.pop(context);
+                      },
+                    );
+                  }),
+                  _ThemeColorSwatchButton(
+                    tooltip: t.settings.themeColor.customColor,
+                    gradient: const SweepGradient(
+                      colors: [
+                        Colors.red,
+                        Colors.yellow,
+                        Colors.green,
+                        Colors.cyan,
+                        Colors.blue,
+                        Colors.purple,
+                        Colors.red,
+                      ],
                     ),
-                  );
-                }).toList(),
+                    isSelected: selectedPreset == null,
+                    onTap: () => _showCustomColorPalette(
+                      context,
+                      ref,
+                      livePrimaryColor ?? currentColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(t.general.cancel),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showCustomColorPalette(
+    BuildContext context,
+    WidgetRef ref,
+    Color? currentColor,
+  ) {
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (context) => CompactColorPaletteDialog(
+        label: t.settings.themeColor.customColor,
+        color: currentColor ?? defaultThemePrimaryColor,
+        onChanged: (color) {
+          ref.read(themeProvider.notifier).setPrimaryColor(color);
+        },
+      ),
+    );
+  }
+}
+
+class _ThemeColorSwatchButton extends StatelessWidget {
+  final String tooltip;
+  final Color? color;
+  final Gradient? gradient;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _ThemeColorSwatchButton({
+    required this.tooltip,
+    required this.isSelected,
+    required this.onTap,
+    this.color,
+    this.gradient,
+  }) : assert(color != null || gradient != null);
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final swatchColor = color ?? colorScheme.primary;
+
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.borderRadiusPill,
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: color,
+            gradient: gradient,
+            shape: BoxShape.circle,
+            border: isSelected
+                ? Border.all(
+                    color: colorScheme.onSurface,
+                    width: 2,
+                  )
+                : null,
+            boxShadow: [
+              BoxShadow(
+                color: swatchColor.withValues(alpha: 0.4),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
+          child: isSelected
+              ? Icon(
+                  Icons.check,
+                  color: color == null || ThemeData.estimateBrightnessForColor(color!) == Brightness.dark ? Colors.white : Colors.black,
+                  size: 20,
+                )
+              : null,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(t.general.cancel),
-          ),
-        ],
       ),
     );
   }
@@ -1884,7 +1961,7 @@ class _ExportDataListTile extends ConsumerWidget {
     try {
       final backupService = ref.read(backupServiceProvider);
       final path = await backupService.exportData();
-      
+
       if (path != null && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1923,11 +2000,11 @@ class _ImportDataListTile extends ConsumerWidget {
     try {
       final backupService = ref.read(backupServiceProvider);
       final backupData = await backupService.pickAndParseBackupFile();
-      
+
       if (backupData == null) return;
-      
+
       if (!context.mounted) return;
-      
+
       // 显示导入预览对话框
       final result = await showDialog<ImportResult>(
         context: context,
@@ -1936,7 +2013,7 @@ class _ImportDataListTile extends ConsumerWidget {
           backupService: backupService,
         ),
       );
-      
+
       if (result != null && context.mounted) {
         // 显示导入结果
         showDialog(
@@ -1984,7 +2061,7 @@ class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
   Widget build(BuildContext context) {
     final data = widget.backupData;
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     return AlertDialog(
       title: Text(t.settings.backup.import.preview),
       content: SizedBox(
@@ -1999,7 +2076,7 @@ class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
                 style: TextStyle(color: colorScheme.outline, fontSize: 12),
               ),
               const SizedBox(height: 16),
-              
+
               // 备份信息
               Container(
                 padding: const EdgeInsets.all(12),
@@ -2022,7 +2099,7 @@ class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
                 ),
               ),
               const SizedBox(height: 16),
-              
+
               // 选择要导入的数据
               if (data.playlists.isNotEmpty)
                 _buildCheckableRow(
@@ -2204,7 +2281,7 @@ class _ImportResultDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     return AlertDialog(
       title: Row(
         children: [
@@ -2264,7 +2341,6 @@ class _ImportResultDialog extends StatelessWidget {
                     ? t.settings.backup.import.result.settingsImported
                     : t.settings.backup.import.result.settingsSkipped,
               ),
-              
               if (result.errors.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Text(

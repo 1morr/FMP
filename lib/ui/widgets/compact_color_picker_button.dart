@@ -25,7 +25,7 @@ class CompactColorPickerButton extends StatelessWidget {
     return showDialog<void>(
       context: context,
       barrierColor: Colors.transparent,
-      builder: (context) => _ColorPaletteDialog(
+      builder: (context) => CompactColorPaletteDialog(
         label: label,
         color: color,
         onChanged: onChanged,
@@ -68,22 +68,23 @@ class CompactColorPickerButton extends StatelessWidget {
   }
 }
 
-class _ColorPaletteDialog extends StatefulWidget {
+class CompactColorPaletteDialog extends StatefulWidget {
   final String label;
   final Color color;
   final ValueChanged<Color> onChanged;
 
-  const _ColorPaletteDialog({
+  const CompactColorPaletteDialog({
+    super.key,
     required this.label,
     required this.color,
     required this.onChanged,
   });
 
   @override
-  State<_ColorPaletteDialog> createState() => _ColorPaletteDialogState();
+  State<CompactColorPaletteDialog> createState() => _ColorPaletteDialogState();
 }
 
-class _ColorPaletteDialogState extends State<_ColorPaletteDialog> {
+class _ColorPaletteDialogState extends State<CompactColorPaletteDialog> {
   late HSVColor _hsv;
 
   @override
