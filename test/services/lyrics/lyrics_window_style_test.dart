@@ -175,6 +175,27 @@ void main() {
       );
     });
 
+    test('inactive lyric color preserves selected text alpha proportionally',
+        () {
+      const style = LyricsWindowStyle(
+        textColor: Color(0x80FF0000),
+        textColorCustomized: true,
+        secondaryTextColor: Color(0x8000FF00),
+        secondaryTextColorCustomized: true,
+        inactiveOpacity: 0.5,
+        outlineEnabled: true,
+        outlineColor: Colors.black,
+        outlineWidth: 1.5,
+        shadowEnabled: true,
+        shadowColor: Colors.black,
+        shadowBlurRadius: 3,
+        shadowOffset: Offset.zero,
+      );
+
+      expect(style.mainColor(isCurrent: false).toARGB32(), 0x40FF0000);
+      expect(style.secondaryColor(isCurrent: false).toARGB32(), 0x3300FF00);
+    });
+
     test('debounces style commits and keeps only the latest pending style',
         () async {
       final committed = <LyricsWindowStyle>[];

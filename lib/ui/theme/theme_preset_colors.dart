@@ -26,7 +26,6 @@ const themePresetColors = <ThemePresetColor>[
   ThemePresetColor(id: 'pink', color: Color(0xFF984061)),
   ThemePresetColor(id: 'orange', color: Color(0xFF7C5800)),
   ThemePresetColor(id: 'teal', color: Color(0xFF006A6A)),
-  ThemePresetColor(id: 'indigo', color: Color(0xFF4758A9)),
 ];
 
 ThemePresetColor? themePresetColorFor(Color? color) {
