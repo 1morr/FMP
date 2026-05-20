@@ -145,12 +145,10 @@ class _ColorPaletteDialogState extends State<CompactColorPaletteDialog> {
             const SizedBox(height: 8),
             Row(
               children: [
-                Text(
-                  'A',
-                  style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: 12,
-                  ),
+                Icon(
+                  Icons.light_mode_outlined,
+                  size: 14,
+                  color: colorScheme.onSurfaceVariant,
                 ),
                 Expanded(
                   child: SliderTheme(
@@ -162,17 +160,17 @@ class _ColorPaletteDialogState extends State<CompactColorPaletteDialog> {
                           const RoundSliderOverlayShape(overlayRadius: 12),
                     ),
                     child: Slider(
-                      value: _hsv.alpha,
+                      value: _hsv.value,
                       min: 0,
                       max: 1,
-                      onChanged: (alpha) => _update(_hsv.withAlpha(alpha)),
+                      onChanged: (value) => _update(_hsv.withValue(value)),
                     ),
                   ),
                 ),
                 SizedBox(
                   width: 34,
                   child: Text(
-                    '${(_hsv.alpha * 100).round()}%',
+                    '${(_hsv.value * 100).round()}%',
                     textAlign: TextAlign.end,
                     style: TextStyle(
                       color: colorScheme.onSurfaceVariant,

@@ -52,6 +52,36 @@ void main() {
     expect(changes, isNotEmpty);
   });
 
+  testWidgets('bottom slider changes color brightness instead of opacity',
+      (tester) async {
+    final changes = <Color>[];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CompactColorPickerButton(
+            label: 'Text color',
+            color: const Color(0xFFFF0000),
+            onChanged: changes.add,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(OutlinedButton));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(Slider), const Offset(-96, 0));
+    await tester.pump();
+
+    final changedValue = changes.last.toARGB32();
+    final changedAlpha = (changedValue >> 24) & 0xff;
+    final changedRed = (changedValue >> 16) & 0xff;
+
+    expect(changedAlpha, 0xff);
+    expect(changedRed, lessThan(0xff));
+  });
+
   testWidgets('palette fits within a narrow lyrics window', (tester) async {
     tester.view.physicalSize = const Size(280, 500);
     tester.view.devicePixelRatio = 1;

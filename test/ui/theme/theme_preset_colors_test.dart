@@ -22,4 +22,10 @@ void main() {
 
     expect(preset, isNull);
   });
+
+  test('preset colors plus custom entry fill complete picker rows', () {
+    const customEntryCount = 1;
+
+    expect((themePresetColors.length + customEntryCount) % 4, 0);
+  });
 }

@@ -312,13 +312,15 @@ class LyricsWindowStyle {
   }
 
   Color mainColor({required bool isCurrent}) {
-    return isCurrent ? textColor : textColor.withValues(alpha: inactiveOpacity);
+    return isCurrent
+        ? textColor
+        : _withMultipliedAlpha(textColor, inactiveOpacity);
   }
 
   Color secondaryColor({required bool isCurrent}) {
     return isCurrent
         ? secondaryTextColor
-        : secondaryTextColor.withValues(alpha: inactiveOpacity * 0.8);
+        : _withMultipliedAlpha(secondaryTextColor, inactiveOpacity * 0.8);
   }
 
   Color resolveMainColor({
@@ -506,4 +508,11 @@ Color _colorOrDefault(int? value, Color fallback) {
 
 double _clampDouble(double value, double min, double max) {
   return value.clamp(min, max).toDouble();
+}
+
+Color _withMultipliedAlpha(Color color, double multiplier) {
+  final alpha = ((color.toARGB32() >> 24) & 0xff) / 255.0;
+  return color.withValues(
+    alpha: (alpha * multiplier).clamp(0.0, 1.0).toDouble(),
+  );
 }

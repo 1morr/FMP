@@ -311,7 +311,6 @@ class _ThemeColorListTile extends ConsumerWidget {
       'pink' => t.settings.themeColor.colors.pink,
       'orange' => t.settings.themeColor.colors.orange,
       'teal' => t.settings.themeColor.colors.teal,
-      'indigo' => t.settings.themeColor.colors.indigo,
       _ => preset.id,
     };
   }
@@ -397,7 +396,9 @@ class _ThemeColorListTile extends ConsumerWidget {
         label: t.settings.themeColor.customColor,
         color: currentColor ?? defaultThemePrimaryColor,
         onChanged: (color) {
-          ref.read(themeProvider.notifier).setPrimaryColor(color);
+          ref.read(themeProvider.notifier).setPrimaryColor(
+                color.withValues(alpha: 1),
+              );
         },
       ),
     );
