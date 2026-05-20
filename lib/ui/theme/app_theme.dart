@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/ui_constants.dart';
 import '../../i18n/strings.g.dart';
+import 'theme_preset_colors.dart';
 
 /// 字体选项
 class FontOption {
@@ -17,7 +18,7 @@ class AppTheme {
   AppTheme._();
 
   /// 默认主色
-  static const Color defaultPrimaryColor = Color(0xFF6750A4);
+  static const Color defaultPrimaryColor = defaultThemePrimaryColor;
 
   /// 可选字体列表（按平台）
   static List<FontOption> get availableFonts {
