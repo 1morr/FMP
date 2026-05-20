@@ -389,18 +389,16 @@ class _ThemeColorListTile extends ConsumerWidget {
     WidgetRef ref,
     Color? currentColor,
   ) {
-    showDialog<void>(
+    CompactColorPaletteDialog.show(
       context: context,
-      barrierColor: Colors.transparent,
-      builder: (context) => CompactColorPaletteDialog(
-        label: t.settings.themeColor.customColor,
-        color: currentColor ?? defaultThemePrimaryColor,
-        onChanged: (color) {
-          ref.read(themeProvider.notifier).setPrimaryColor(
-                color.withValues(alpha: 1),
-              );
-        },
-      ),
+      label: t.settings.themeColor.customColor,
+      closeLabel: t.general.close,
+      color: currentColor ?? defaultThemePrimaryColor,
+      onChanged: (color) {
+        ref.read(themeProvider.notifier).setPrimaryColor(
+              color.withValues(alpha: 1),
+            );
+      },
     );
   }
 }

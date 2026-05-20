@@ -202,6 +202,7 @@ class _LyricsStyleDialogState extends State<_LyricsStyleDialog> {
         const SizedBox(width: 10),
         CompactColorPickerButton(
           label: label,
+          closeLabel: widget.strings.close,
           color: color,
           onChanged: onChanged,
         ),
