@@ -2,6 +2,7 @@
 library;
 
 export 'track.dart';
+export 'account.dart';
 export 'playlist.dart';
 export 'play_queue.dart';
 export 'settings.dart';

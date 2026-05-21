@@ -4,7 +4,7 @@ part 'lyrics_match.g.dart';
 
 /// 歌词匹配记录
 ///
-/// 存储 Track 与 lrclib 歌词的匹配关系。
+/// 存储 Track 与歌词源（lrclib、Netease、QQ Music）的匹配关系。
 /// 不保存歌词内容，每次通过 [externalId] 在线获取。
 @collection
 class LyricsMatch {
@@ -14,7 +14,7 @@ class LyricsMatch {
   @Index(unique: true, replace: true)
   late String trackUniqueKey;
 
-  /// 歌词源标识（"lrclib", 未来: "netease", "qqmusic"）
+  /// 歌词源标识（"lrclib", "netease", "qqmusic"）
   late String lyricsSource;
 
   /// 歌词源中的外部 ID（lrclib/netease 为数字字符串，QQ 音乐为 songmid）
