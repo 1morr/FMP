@@ -157,7 +157,6 @@ void main() {
       await openTestDatabase();
 
       final legacySettings = Settings()
-        ..enabledSources = ['bilibili', 'youtube']
         ..useNeteaseAuthForPlay = false
         ..neteaseStreamPriority = ''
         ..rememberPlaybackPosition = false
@@ -202,7 +201,6 @@ void main() {
       await openTestDatabase();
 
       final intentionallyConfiguredSettings = Settings()
-        ..enabledSources = ['bilibili', 'youtube']
         ..useNeteaseAuthForPlay = false
         ..neteaseStreamPriority = 'audioOnly'
         ..rememberPlaybackPosition = false
@@ -222,15 +220,13 @@ void main() {
       expect(migratedSettings.disabledLyricsSources, '');
       expect(migratedSettings.useNeteaseAuthForPlay, isFalse);
       expect(migratedSettings.neteaseStreamPriority, 'audioOnly');
-      expect(migratedSettings.enabledSources, ['bilibili', 'youtube']);
     });
 
-    test('migrates NetEase defaults when old settings omit netease source',
+    test('migrates NetEase defaults when old settings have empty priority',
         () async {
       await openTestDatabase();
 
       final legacySettings = Settings()
-        ..enabledSources = ['bilibili', 'youtube']
         ..useNeteaseAuthForPlay = false
         ..neteaseStreamPriority = '';
       await isar.writeTxn(() async {
@@ -242,7 +238,6 @@ void main() {
       final migratedSettings = await isar.settings.get(0);
       expect(migratedSettings, isNotNull);
       expect(migratedSettings!.useNeteaseAuthForPlay, isTrue);
-      expect(migratedSettings.enabledSources, contains('netease'));
       expect(migratedSettings.neteaseStreamPriority, 'audioOnly');
     });
 
@@ -251,7 +246,6 @@ void main() {
       await openTestDatabase();
 
       final modernSettings = Settings()
-        ..enabledSources = ['bilibili', 'youtube']
         ..useNeteaseAuthForPlay = false
         ..neteaseStreamPriority = 'audioOnly';
       await isar.writeTxn(() async {
@@ -264,7 +258,6 @@ void main() {
       final migratedSettings = await isar.settings.get(0);
       expect(migratedSettings, isNotNull);
       expect(migratedSettings!.useNeteaseAuthForPlay, isFalse);
-      expect(migratedSettings.enabledSources, isNot(contains('netease')));
       expect(migratedSettings.neteaseStreamPriority, 'audioOnly');
     });
 
