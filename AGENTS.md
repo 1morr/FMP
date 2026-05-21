@@ -101,7 +101,7 @@ UI (player_page, mini_player)
 - `audioControllerProvider` - Main audio state (PlayerState)
 - `playlistProvider` / `playlistDetailProvider` - Playlist management
 - `libraryInvalidationCoordinatorProvider` - Central UI/provider-layer invalidation coordinator for playlist/detail/cover/download side effects
-- `searchProvider` - Search state (supports the user-enabled subset of Bilibili/YouTube/Netease)
+- `searchProvider` - Search state (source chips select All/Bilibili/YouTube/Netease)
 - `neteaseSourceProvider` - NeteaseSource singleton
 - `neteaseAccountProvider` / `neteaseAccountServiceProvider` - Netease account
 - `lyricsSearchProvider` - Multi-source lyrics search (lrclib + netease + qqmusic)
@@ -140,7 +140,7 @@ UI (player_page, mini_player)
 | Track | Song entity (bilibili/youtube/netease SourceType, isVip, originalSongId/originalSource, bilibiliAid populated on demand) |
 | Playlist | Playlist (ownerName, ownerUserId, useAuthForRefresh) |
 | PlayQueue | Play queue (Mix mode state, position persistence, volume persistence) |
-| Settings | App settings (enabled audio sources, quality, auth, lyrics including `allowPlainLyricsAutoMatch`, AI modes, and lyrics popup style, refresh intervals, stream priority per source) |
+| Settings | App settings (quality, auth, lyrics including `allowPlainLyricsAutoMatch`, AI modes, and lyrics popup style, refresh intervals, stream priority per source) |
 | Account | Platform account (login state, VIP status) |
 | RadioStation | Radio/live station |
 | PlayHistory | Play history record |
