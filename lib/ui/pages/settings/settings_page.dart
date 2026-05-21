@@ -10,6 +10,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/network_image_cache_service.dart';
 import '../../../services/lyrics/lyrics_cache_service.dart';
+import '../../../providers/lyrics_window_style_provider.dart';
 import '../../../providers/lyrics_provider.dart';
 import '../../../data/models/hotkey_config.dart';
 import '../../../data/models/settings.dart';
@@ -2246,6 +2247,7 @@ class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
         ref.invalidate(downloadPathProvider);
         ref.invalidate(audioSettingsProvider);
         ref.invalidate(lyricsDisplayModeProvider);
+        ref.invalidate(lyricsWindowStyleProvider);
         if (Platform.isWindows) {
           ref.invalidate(hotkeyConfigProvider);
           ref.invalidate(minimizeToTrayProvider);

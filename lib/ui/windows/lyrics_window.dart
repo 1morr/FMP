@@ -171,6 +171,7 @@ class _LyricsStyleDialog extends StatefulWidget {
 
 class _LyricsStyleDialogState extends State<_LyricsStyleDialog> {
   late LyricsWindowStyle _style;
+  final _scrollController = ScrollController();
   bool _outlineExpanded = false;
   bool _shadowExpanded = false;
 
@@ -178,6 +179,12 @@ class _LyricsStyleDialogState extends State<_LyricsStyleDialog> {
   void initState() {
     super.initState();
     _style = widget.initialStyle;
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   void _update(LyricsWindowStyle style) {
@@ -279,7 +286,9 @@ class _LyricsStyleDialogState extends State<_LyricsStyleDialog> {
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 340, maxHeight: 420),
         child: Scrollbar(
+          controller: _scrollController,
           child: SingleChildScrollView(
+            controller: _scrollController,
             padding: const EdgeInsets.only(right: 8),
             child: Column(
               mainAxisSize: MainAxisSize.min,

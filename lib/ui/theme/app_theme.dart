@@ -46,7 +46,6 @@ class AppTheme {
       onPrimary: _foregroundColorFor(primary),
       primaryContainer: primaryContainer,
       onPrimaryContainer: _foregroundColorFor(primaryContainer),
-      inversePrimary: primary,
       surfaceTint: primary,
     );
   }

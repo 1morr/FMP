@@ -299,7 +299,22 @@ class LyricsWindowStyle {
   }
 
   bool shouldApplyToText({required bool transparentMode}) {
-    return transparentMode || this != defaults;
+    if (!_hasEnabledTextEffects) return false;
+    return transparentMode || _hasCustomTextEffects;
+  }
+
+  bool get _hasEnabledTextEffects {
+    return outlineEnabled || shadowEnabled;
+  }
+
+  bool get _hasCustomTextEffects {
+    return outlineEnabled != defaults.outlineEnabled ||
+        outlineColor != defaults.outlineColor ||
+        outlineWidth != defaults.outlineWidth ||
+        shadowEnabled != defaults.shadowEnabled ||
+        shadowColor != defaults.shadowColor ||
+        shadowBlurRadius != defaults.shadowBlurRadius ||
+        shadowOffset != defaults.shadowOffset;
   }
 
   bool get hasCustomTextColor {

@@ -131,6 +131,38 @@ void main() {
       );
     });
 
+    test('does not apply text effects for opacity-only normal mode changes',
+        () {
+      final style = LyricsWindowStyle.defaults.copyWith(
+        inactiveOpacity: 0.35,
+      );
+
+      expect(
+        style.shouldApplyToText(transparentMode: false),
+        isFalse,
+      );
+      expect(
+        style.shouldApplyToText(transparentMode: true),
+        isTrue,
+      );
+    });
+
+    test('transparent mode does not force disabled text effects', () {
+      final style = LyricsWindowStyle.defaults.copyWith(
+        outlineEnabled: false,
+        shadowEnabled: false,
+      );
+
+      expect(
+        style.shouldApplyToText(transparentMode: true),
+        isFalse,
+      );
+      expect(
+        style.shouldApplyToText(transparentMode: false),
+        isFalse,
+      );
+    });
+
     test('normal mode keeps fallback colors for non-color custom styles', () {
       final style = LyricsWindowStyle.defaults.copyWith(
         outlineWidth: 3,
