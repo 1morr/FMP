@@ -83,7 +83,10 @@ class SearchService {
         _isar = isar,
         _bilibiliAccountService = bilibiliAccountService;
 
-  /// 在线搜索（所有启用的音源）
+  /// 在线搜索。
+  ///
+  /// 呼叫端可传入 chips 对应的 [sourceTypes]；未传入时使用所有已注册的
+  /// direct sources。
   Future<MultiSourceSearchResult> searchOnline(
     String query, {
     List<SourceType>? sourceTypes,

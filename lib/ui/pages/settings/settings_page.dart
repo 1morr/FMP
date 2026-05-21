@@ -210,7 +210,8 @@ class _ThemeModeListTile extends ConsumerWidget {
     );
   }
 
-  void _showThemeModeDialog(BuildContext context, WidgetRef ref, ThemeMode currentMode) {
+  void _showThemeModeDialog(
+      BuildContext context, WidgetRef ref, ThemeMode currentMode) {
     final systemBrightness = MediaQuery.platformBrightnessOf(context);
     final systemThemeName = systemBrightness == Brightness.dark
         ? t.settings.theme.dark
@@ -239,7 +240,10 @@ class _ThemeModeListTile extends ConsumerWidget {
                       TextSpan(
                         text: ' ($systemThemeName)',
                         style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.5),
                           fontSize: 14,
                         ),
                       ),
@@ -285,7 +289,9 @@ class _ThemeColorListTile extends ConsumerWidget {
       leading: const Icon(Icons.color_lens_outlined),
       title: Text(t.settings.themeColor.title),
       subtitle: Text(
-        selectedPreset != null ? _themePresetColorName(selectedPreset) : t.general.custom,
+        selectedPreset != null
+            ? _themePresetColorName(selectedPreset)
+            : t.general.custom,
       ),
       trailing: Container(
         width: 24,
@@ -453,7 +459,11 @@ class _ThemeColorSwatchButton extends StatelessWidget {
           child: isSelected
               ? Icon(
                   Icons.check,
-                  color: color == null || ThemeData.estimateBrightnessForColor(color!) == Brightness.dark ? Colors.white : Colors.black,
+                  color: color == null ||
+                          ThemeData.estimateBrightnessForColor(color!) ==
+                              Brightness.dark
+                      ? Colors.white
+                      : Colors.black,
                   size: 20,
                 )
               : null,
@@ -470,9 +480,11 @@ class _FontFamilyListTile extends ConsumerWidget {
     final fontFamily = ref.watch(fontFamilyProvider);
     final fonts = AppTheme.availableFonts;
     final currentDisplay = fonts
-        .where((f) => f.fontFamily == fontFamily)
-        .map((f) => f.displayName)
-        .firstOrNull ?? fontFamily ?? t.general.systemDefault;
+            .where((f) => f.fontFamily == fontFamily)
+            .map((f) => f.displayName)
+            .firstOrNull ??
+        fontFamily ??
+        t.general.systemDefault;
 
     return ListTile(
       leading: const Icon(Icons.font_download_outlined),
@@ -482,7 +494,8 @@ class _FontFamilyListTile extends ConsumerWidget {
     );
   }
 
-  void _showFontDialog(BuildContext context, WidgetRef ref, String? currentFont) {
+  void _showFontDialog(
+      BuildContext context, WidgetRef ref, String? currentFont) {
     final fonts = AppTheme.availableFonts;
     final systemFontName = Platform.isWindows ? 'Segoe UI' : 'Roboto';
 
@@ -509,7 +522,10 @@ class _FontFamilyListTile extends ConsumerWidget {
                               TextSpan(
                                 text: ' ($systemFontName)',
                                 style: TextStyle(
-                                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withValues(alpha: 0.5),
                                   fontSize: 14,
                                 ),
                               ),
@@ -521,7 +537,8 @@ class _FontFamilyListTile extends ConsumerWidget {
                           style: TextStyle(fontFamily: font.fontFamily),
                         ),
                   subtitle: font.fontFamily != null
-                      ? Text(font.fontFamily!, style: Theme.of(context).textTheme.bodySmall)
+                      ? Text(font.fontFamily!,
+                          style: Theme.of(context).textTheme.bodySmall)
                       : null,
                   value: font.fontFamily,
                 );
@@ -566,7 +583,9 @@ class _LanguageListTile extends ConsumerWidget {
           systemLocale.countryCode == 'TW' ||
           systemLocale.countryCode == 'HK' ||
           systemLocale.countryCode == 'MO';
-      systemLanguageName = isTraditional ? t.settings.traditionalChinese : t.settings.simplifiedChinese;
+      systemLanguageName = isTraditional
+          ? t.settings.traditionalChinese
+          : t.settings.simplifiedChinese;
     } else if (systemLocale.languageCode == 'en') {
       systemLanguageName = t.settings.english;
     } else {
@@ -594,7 +613,10 @@ class _LanguageListTile extends ConsumerWidget {
                       TextSpan(
                         text: ' ($systemLanguageName)',
                         style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.5),
                           fontSize: 14,
                         ),
                       ),
@@ -643,7 +665,9 @@ class _AutoScrollToPlayingTile extends ConsumerWidget {
       onChanged: settings.isLoading
           ? null
           : (value) {
-              ref.read(playbackSettingsProvider.notifier).setAutoScrollToCurrentTrack(value);
+              ref
+                  .read(playbackSettingsProvider.notifier)
+                  .setAutoScrollToCurrentTrack(value);
             },
     );
   }
@@ -654,7 +678,8 @@ class _RememberPlaybackPositionTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(playbackSettingsProvider);
-    final isEnabled = settings.isLoading ? true : settings.rememberPlaybackPosition;
+    final isEnabled =
+        settings.isLoading ? true : settings.rememberPlaybackPosition;
 
     return ListTile(
       leading: const Icon(Icons.history_outlined),
@@ -677,7 +702,9 @@ class _RememberPlaybackPositionTile extends ConsumerWidget {
             onChanged: settings.isLoading
                 ? null
                 : (value) {
-                    ref.read(playbackSettingsProvider.notifier).setRememberPlaybackPosition(value);
+                    ref
+                        .read(playbackSettingsProvider.notifier)
+                        .setRememberPlaybackPosition(value);
                   },
           ),
         ],
@@ -705,7 +732,8 @@ class _AutoMatchLyricsTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final audioSettings = ref.watch(audioSettingsProvider);
-    final isEnabled = audioSettings.isLoading ? true : audioSettings.autoMatchLyrics;
+    final isEnabled =
+        audioSettings.isLoading ? true : audioSettings.autoMatchLyrics;
 
     return ListTile(
       leading: const Icon(Icons.lyrics_outlined),
@@ -725,7 +753,9 @@ class _AutoMatchLyricsTile extends ConsumerWidget {
             onChanged: audioSettings.isLoading
                 ? null
                 : (value) {
-                    ref.read(audioSettingsProvider.notifier).setAutoMatchLyrics(value);
+                    ref
+                        .read(audioSettingsProvider.notifier)
+                        .setAutoMatchLyrics(value);
                   },
           ),
         ],
@@ -767,7 +797,8 @@ class _RewindSettingsDialog extends ConsumerWidget {
           children: [
             Text(
               t.settings.rewindSettings.description,
-              style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
+              style: TextStyle(
+                  fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 20),
             _buildRewindRow(
@@ -775,7 +806,9 @@ class _RewindSettingsDialog extends ConsumerWidget {
               label: t.settings.rewindSettings.restartRewind,
               subtitle: t.settings.rewindSettings.restartRewindSubtitle,
               value: settings.restartRewindSeconds,
-              onChanged: (v) => ref.read(playbackSettingsProvider.notifier).setRestartRewindSeconds(v),
+              onChanged: (v) => ref
+                  .read(playbackSettingsProvider.notifier)
+                  .setRestartRewindSeconds(v),
             ),
             const SizedBox(height: 16),
             _buildRewindRow(
@@ -783,7 +816,9 @@ class _RewindSettingsDialog extends ConsumerWidget {
               label: t.settings.rewindSettings.tempPlayRewind,
               subtitle: t.settings.rewindSettings.tempPlayRewindSubtitle,
               value: settings.tempPlayRewindSeconds,
-              onChanged: (v) => ref.read(playbackSettingsProvider.notifier).setTempPlayRewindSeconds(v),
+              onChanged: (v) => ref
+                  .read(playbackSettingsProvider.notifier)
+                  .setTempPlayRewindSeconds(v),
             ),
           ],
         ),
@@ -811,7 +846,9 @@ class _RewindSettingsDialog extends ConsumerWidget {
       children: [
         Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 2),
-        Text(subtitle, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
+        Text(subtitle,
+            style: TextStyle(
+                fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 6,
@@ -819,7 +856,9 @@ class _RewindSettingsDialog extends ConsumerWidget {
           children: _rewindOptions.map((option) {
             final isSelected = option == value;
             return ChoiceChip(
-              label: Text(option == 0 ? t.settings.rewindSettings.noRewind : t.settings.rewindSettings.seconds(n: option)),
+              label: Text(option == 0
+                  ? t.settings.rewindSettings.noRewind
+                  : t.settings.rewindSettings.seconds(n: option)),
               selected: isSelected,
               onSelected: (_) => onChanged(option),
             );
@@ -856,7 +895,8 @@ class _VersionListTile extends ConsumerWidget {
                 ScaffoldMessenger.of(context).hideCurrentSnackBar();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(t.settings.version.tapToEnableDev(n: remaining)),
+                    content:
+                        Text(t.settings.version.tapToEnableDev(n: remaining)),
                     duration: const Duration(seconds: 1),
                   ),
                 );
@@ -891,7 +931,8 @@ class _CheckUpdateListTile extends ConsumerWidget {
         switch (updateState.status) {
           UpdateStatus.checking => t.settings.update.checking,
           UpdateStatus.upToDate => t.settings.update.upToDate,
-          UpdateStatus.updateAvailable => t.settings.update.available(version: updateState.updateInfo?.version ?? ""),
+          UpdateStatus.updateAvailable => t.settings.update
+              .available(version: updateState.updateInfo?.version ?? ""),
           UpdateStatus.error => t.settings.update.error,
           _ => t.settings.update.checkGitHub,
         },
@@ -910,7 +951,8 @@ class _CheckUpdateListTile extends ConsumerWidget {
               final state = ref.read(updateProvider);
               if (!context.mounted) return;
 
-              if (state.status == UpdateStatus.updateAvailable && state.updateInfo != null) {
+              if (state.status == UpdateStatus.updateAvailable &&
+                  state.updateInfo != null) {
                 UpdateDialog.show(context, state.updateInfo!);
               } else if (state.status == UpdateStatus.upToDate) {
                 ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -924,7 +966,8 @@ class _CheckUpdateListTile extends ConsumerWidget {
                 ScaffoldMessenger.of(context).hideCurrentSnackBar();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(state.errorMessage ?? t.settings.update.checkFailed),
+                    content: Text(
+                        state.errorMessage ?? t.settings.update.checkFailed),
                     duration: const Duration(seconds: 3),
                   ),
                 );
@@ -1165,7 +1208,9 @@ class _ConcurrentDownloadsListTile extends ConsumerWidget {
           groupValue: current,
           onChanged: (value) {
             if (value != null) {
-              ref.read(downloadSettingsProvider.notifier).setMaxConcurrentDownloads(value);
+              ref
+                  .read(downloadSettingsProvider.notifier)
+                  .setMaxConcurrentDownloads(value);
             }
             Navigator.pop(context);
           },
@@ -1200,7 +1245,8 @@ class _DownloadImageOptionListTile extends ConsumerWidget {
     final optionText = switch (option) {
       DownloadImageOption.none => t.settings.downloadImage.off,
       DownloadImageOption.coverOnly => t.settings.downloadImage.coverOnly,
-      DownloadImageOption.coverAndAvatar => t.settings.downloadImage.coverAndAvatar,
+      DownloadImageOption.coverAndAvatar =>
+        t.settings.downloadImage.coverAndAvatar,
     };
 
     return ListTile(
@@ -1212,7 +1258,8 @@ class _DownloadImageOptionListTile extends ConsumerWidget {
     );
   }
 
-  void _showImageOptionDialog(BuildContext context, WidgetRef ref, DownloadImageOption current) {
+  void _showImageOptionDialog(
+      BuildContext context, WidgetRef ref, DownloadImageOption current) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1221,7 +1268,9 @@ class _DownloadImageOptionListTile extends ConsumerWidget {
           groupValue: current,
           onChanged: (value) {
             if (value != null) {
-              ref.read(downloadSettingsProvider.notifier).setDownloadImageOption(value);
+              ref
+                  .read(downloadSettingsProvider.notifier)
+                  .setDownloadImageOption(value);
             }
             Navigator.pop(context);
           },
@@ -1240,7 +1289,8 @@ class _DownloadImageOptionListTile extends ConsumerWidget {
               ),
               RadioListTile<DownloadImageOption>(
                 title: Text(t.settings.downloadImage.coverAndAvatar),
-                subtitle: Text(t.settings.downloadImage.coverAndAvatarDescription),
+                subtitle:
+                    Text(t.settings.downloadImage.coverAndAvatarDescription),
                 value: DownloadImageOption.coverAndAvatar,
               ),
             ],
@@ -1292,7 +1342,9 @@ class _ImageCacheSizeListTile extends ConsumerWidget {
           groupValue: current,
           onChanged: (value) {
             if (value != null) {
-              ref.read(downloadSettingsProvider.notifier).setMaxCacheSizeMB(value);
+              ref
+                  .read(downloadSettingsProvider.notifier)
+                  .setMaxCacheSizeMB(value);
             }
             Navigator.pop(context);
           },
@@ -1430,9 +1482,7 @@ class _LaunchAtStartupTile extends ConsumerWidget {
       ),
       onTap: startupState.enabled
           ? () => _showLaunchModeDialog(context, ref)
-          : () => ref
-              .read(launchAtStartupProvider.notifier)
-              .toggleEnabled(),
+          : () => ref.read(launchAtStartupProvider.notifier).toggleEnabled(),
     );
   }
 
@@ -1565,7 +1615,8 @@ class _HotkeyConfigDialogState extends ConsumerState<_HotkeyConfigDialog> {
           children: [
             Text(
               t.settings.hotkeys.hint,
-              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
+              style: TextStyle(
+                  fontSize: 12, color: Theme.of(context).colorScheme.outline),
             ),
             const SizedBox(height: 16),
             ...HotkeyAction.values.map(
@@ -1639,7 +1690,9 @@ class _HotkeyConfigDialogState extends ConsumerState<_HotkeyConfigDialog> {
             tooltip: t.settings.hotkeys.clear,
             onPressed: binding?.isConfigured == true
                 ? () {
-                    ref.read(hotkeyConfigProvider.notifier).clearBinding(action);
+                    ref
+                        .read(hotkeyConfigProvider.notifier)
+                        .clearBinding(action);
                   }
                 : null,
           ),
@@ -1707,8 +1760,8 @@ class _HotkeyConfigDialogState extends ConsumerState<_HotkeyConfigDialog> {
     );
   }
 
-  void _saveHotkey(
-      HotkeyAction action, LogicalKeyboardKey key, Set<HotKeyModifier> modifiers) {
+  void _saveHotkey(HotkeyAction action, LogicalKeyboardKey key,
+      Set<HotKeyModifier> modifiers) {
     final newBinding = HotkeyBinding(
       action: action,
       key: key,
@@ -2036,7 +2089,8 @@ class _ImportPreviewDialog extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_ImportPreviewDialog> createState() => _ImportPreviewDialogState();
+  ConsumerState<_ImportPreviewDialog> createState() =>
+      _ImportPreviewDialogState();
 }
 
 class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
@@ -2114,7 +2168,8 @@ class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
                   t.settings.backup.import.searchHistory,
                   data.searchHistory.length,
                   _importSearchHistory,
-                  (value) => setState(() => _importSearchHistory = value ?? true),
+                  (value) =>
+                      setState(() => _importSearchHistory = value ?? true),
                 ),
               if (data.radioStations.isNotEmpty)
                 _buildCheckableRow(
@@ -2122,7 +2177,8 @@ class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
                   t.settings.backup.import.radioStations,
                   data.radioStations.length,
                   _importRadioStations,
-                  (value) => setState(() => _importRadioStations = value ?? true),
+                  (value) =>
+                      setState(() => _importRadioStations = value ?? true),
                 ),
               if (data.lyricsMatches.isNotEmpty)
                 _buildCheckableRow(
@@ -2130,7 +2186,8 @@ class _ImportPreviewDialogState extends ConsumerState<_ImportPreviewDialog> {
                   t.settings.backup.import.lyricsMatches,
                   data.lyricsMatches.length,
                   _importLyricsMatches,
-                  (value) => setState(() => _importLyricsMatches = value ?? true),
+                  (value) =>
+                      setState(() => _importLyricsMatches = value ?? true),
                 ),
               if (data.settings != null)
                 _buildCheckableRow(
@@ -2368,7 +2425,8 @@ class _ImportResultDialog extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
                       '... ${result.errors.length - 5} more errors',
-                      style: TextStyle(fontSize: 12, color: colorScheme.outline),
+                      style:
+                          TextStyle(fontSize: 12, color: colorScheme.outline),
                     ),
                   ),
               ],
@@ -2419,7 +2477,9 @@ class _LyricsCacheSizeListTile extends ConsumerWidget {
           groupValue: current,
           onChanged: (value) {
             if (value != null) {
-              ref.read(downloadSettingsProvider.notifier).setMaxLyricsCacheFiles(value);
+              ref
+                  .read(downloadSettingsProvider.notifier)
+                  .setMaxLyricsCacheFiles(value);
             }
             Navigator.pop(context);
           },
@@ -2447,10 +2507,12 @@ class _LyricsCacheSizeListTile extends ConsumerWidget {
 /// 清除歌词缓存
 class _ClearLyricsCacheListTile extends ConsumerStatefulWidget {
   @override
-  ConsumerState<_ClearLyricsCacheListTile> createState() => _ClearLyricsCacheListTileState();
+  ConsumerState<_ClearLyricsCacheListTile> createState() =>
+      _ClearLyricsCacheListTileState();
 }
 
-class _ClearLyricsCacheListTileState extends ConsumerState<_ClearLyricsCacheListTile> {
+class _ClearLyricsCacheListTileState
+    extends ConsumerState<_ClearLyricsCacheListTile> {
   CacheStats? _stats;
 
   @override
@@ -2533,7 +2595,8 @@ class _RankingRefreshIntervalListTile extends ConsumerWidget {
     return ListTile(
       leading: const Icon(Icons.leaderboard_outlined),
       title: Text(t.settings.refreshInterval.rankingTitle),
-      subtitle: Text(t.settings.refreshInterval.rankingSubtitle(interval: _formatInterval(current))),
+      subtitle: Text(t.settings.refreshInterval
+          .rankingSubtitle(interval: _formatInterval(current))),
       trailing: const Icon(Icons.chevron_right),
       onTap: () => _showDialog(context, ref, current),
     );
@@ -2548,7 +2611,9 @@ class _RankingRefreshIntervalListTile extends ConsumerWidget {
           groupValue: current,
           onChanged: (value) {
             if (value != null) {
-              ref.read(refreshSettingsProvider.notifier).setRankingRefreshInterval(value);
+              ref
+                  .read(refreshSettingsProvider.notifier)
+                  .setRankingRefreshInterval(value);
             }
             Navigator.pop(context);
           },
@@ -2603,7 +2668,9 @@ class _RadioRefreshIntervalListTile extends ConsumerWidget {
           groupValue: current,
           onChanged: (value) {
             if (value != null) {
-              ref.read(refreshSettingsProvider.notifier).setRadioRefreshInterval(value);
+              ref
+                  .read(refreshSettingsProvider.notifier)
+                  .setRadioRefreshInterval(value);
             }
             Navigator.pop(context);
           },

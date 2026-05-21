@@ -300,6 +300,12 @@ class LyricsWindowStyle {
     settings.lyricsWindowShadowOffsetY = null;
   }
 
+  /// Whether outline/shadow should be painted by the styled text widget.
+  ///
+  /// The default outline/shadow values are the transparent-window defaults, so
+  /// normal mode keeps the theme's plain text unless the user customizes a text
+  /// effect. Color and inactive-opacity changes are resolved separately by
+  /// [resolveMainColor] and [resolveSecondaryColor].
   bool shouldApplyToText({required bool transparentMode}) {
     if (!_hasEnabledTextEffects) return false;
     return transparentMode || _hasCustomTextEffects;

@@ -129,6 +129,8 @@ class _LyricsStyleDialogState extends State<LyricsStyleDialog> {
               child: Text(
                 label,
                 style: Theme.of(context).textTheme.labelMedium,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             Text(
