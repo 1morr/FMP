@@ -4,24 +4,36 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/providers/search_provider.dart';
 import 'package:fmp/providers/audio_settings_provider.dart';
 import 'package:fmp/services/backup/backup_data.dart';
 
 void main() {
   group('Audio settings defaults', () {
-    test('search source selection is not stored in global settings', () {
-      final settingsSource =
-          File('lib/data/models/settings.dart').readAsStringSync();
-      final searchProviderSource =
-          File('lib/providers/search_provider.dart').readAsStringSync();
-      final backupDataSource =
-          File('lib/services/backup/backup_data.dart').readAsStringSync();
+    test('search source selection follows the current chip state', () {
+      const allSourcesState = SearchState();
+      const singleSourceState = SearchState(selectedSource: SourceType.youtube);
 
-      expect(settingsSource.contains('enabledSources'), isFalse);
-      expect(settingsSource.contains('enabledSourceTypes'), isFalse);
-      expect(searchProviderSource.contains('loadEnabledSources'), isFalse);
-      expect(searchProviderSource.contains('availableSources'), isFalse);
-      expect(backupDataSource.contains('enabledSources'), isFalse);
+      expect(allSourcesState.sourceTypesForSearch, [
+        SourceType.bilibili,
+        SourceType.youtube,
+        SourceType.netease,
+      ]);
+      expect(singleSourceState.sourceTypesForSearch, [SourceType.youtube]);
+    });
+
+    test('legacy search source backup field is ignored on restore', () {
+      const legacySearchSourcesField = 'enabled' 'Sources';
+      final settingsBackup = SettingsBackup.fromJson({
+        legacySearchSourcesField: ['youtube'],
+        'audioFormatPriority': 'aac,opus',
+        'youtubeStreamPriority': 'muxed,audioOnly',
+      });
+
+      expect(settingsBackup.audioFormatPriority, 'aac,opus');
+      expect(settingsBackup.youtubeStreamPriority, 'muxed,audioOnly');
+      expect(
+          settingsBackup.toJson(), isNot(contains(legacySearchSourcesField)));
     });
 
     test('prefer Opus before AAC by default', () {
