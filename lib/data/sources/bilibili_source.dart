@@ -35,6 +35,7 @@ class _BilibiliApiParams {
 /// Bilibili 音源实现
 class BilibiliSource extends BaseSource with Logging {
   late final Dio _dio;
+  late final Dio _liveDio;
   late final String _viewApi;
   late final String _playUrlApi;
   late final String _searchApi;
@@ -51,6 +52,7 @@ class BilibiliSource extends BaseSource with Logging {
 
   BilibiliSource({
     Dio? dio,
+    Dio? liveDio,
     String apiBase = _defaultApiBase,
     String liveApiBase = _defaultLiveApiBase,
   }) {
@@ -79,6 +81,7 @@ class BilibiliSource extends BaseSource with Logging {
             cookie: cookie,
           ),
         );
+    _liveDio = liveDio ?? SourceHttpPolicy.createBilibiliLiveDio();
   }
 
   /// 生成 buvid3 Cookie
@@ -183,7 +186,7 @@ class BilibiliSource extends BaseSource with Logging {
         ..thumbnailUrl = data['pic'];
 
       // 获取音频 URL
-      final audioUrl = await getAudioUrl(bvid);
+      final audioUrl = await getAudioUrl(bvid, authHeaders: authHeaders);
       track.audioUrl = audioUrl;
       track.audioUrlExpiry = DateTime.now()
           .add(const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours));
@@ -1078,7 +1081,7 @@ class BilibiliSource extends BaseSource with Logging {
   Future<LiveRoom?> getLiveRoomInfo(int roomId) async {
     try {
       // 获取直播间信息
-      final roomResponse = await _dio.get(
+      final roomResponse = await _liveDio.get(
         _liveRoomInfoApi,
         queryParameters: {'room_id': roomId},
       );
@@ -1093,7 +1096,7 @@ class BilibiliSource extends BaseSource with Logging {
       String? uname;
       String? face;
       try {
-        final anchorResponse = await _dio.get(
+        final anchorResponse = await _liveDio.get(
           _liveAnchorInfoApi,
           queryParameters: {'roomid': roomId},
         );
@@ -1116,7 +1119,7 @@ class BilibiliSource extends BaseSource with Logging {
   /// 获取直播流地址 (HLS)
   Future<String?> getLiveStreamUrl(int roomId) async {
     try {
-      final response = await _dio.get(
+      final response = await _liveDio.get(
         _livePlayUrlApi,
         queryParameters: {
           'cid': roomId,
@@ -1144,5 +1147,8 @@ class BilibiliSource extends BaseSource with Logging {
   @override
   void dispose() {
     _dio.close();
+    if (!identical(_liveDio, _dio)) {
+      _liveDio.close();
+    }
   }
 }

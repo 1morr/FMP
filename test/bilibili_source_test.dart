@@ -394,6 +394,81 @@ void main() {
       });
     });
 
+    group('getTrackInfo', () {
+      test('passes auth headers into best-effort audio URL fetch', () async {
+        final requestHeaders = <Map<String, dynamic>>[];
+        final dio = Dio();
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
+          requestHeaders.add(Map<String, dynamic>.from(options.headers));
+
+          if (options.path.endsWith('/x/web-interface/view')) {
+            return ResponseBody.fromString(
+              jsonEncode({
+                'code': 0,
+                'data': {
+                  'cid': 12345,
+                  'title': 'Auth Track',
+                  'owner': {'name': 'Auth Owner', 'mid': 1001},
+                  'duration': 60,
+                  'pic': 'https://example.com/cover.jpg',
+                },
+              }),
+              200,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+
+          if (options.path.endsWith('/x/player/playurl')) {
+            return ResponseBody.fromString(
+              jsonEncode({
+                'code': 0,
+                'data': {
+                  'dash': {
+                    'audio': [
+                      {
+                        'baseUrl': 'https://example.com/auth-audio.m4s',
+                        'bandwidth': 192000,
+                      }
+                    ]
+                  }
+                },
+              }),
+              200,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+
+          throw StateError('Unexpected request: ${options.path}');
+        });
+        final source = BilibiliSource(
+          dio: dio,
+          apiBase: 'https://api.bilibili.test',
+        );
+
+        final track = await source.getTrackInfo(
+          'BVauth',
+          authHeaders: const {'Cookie': 'SESSDATA=auth'},
+        );
+
+        expect(track.audioUrl, 'https://example.com/auth-audio.m4s');
+        expect(requestHeaders, hasLength(3));
+        expect(
+          requestHeaders.every(
+            (headers) =>
+                (headers['Cookie'] as String?)?.contains(
+                  'SESSDATA=auth',
+                ) ==
+                true,
+          ),
+          isTrue,
+        );
+      });
+    });
+
     group('refreshAudioUrl', () {
       test('should refresh audio URL for track with expired URL', () async {
         // 创建一个带有过期URL的track

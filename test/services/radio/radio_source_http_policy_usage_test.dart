@@ -16,6 +16,18 @@ void main() {
       );
     });
 
+    test('bilibili source live helpers use live-specific HTTP policy', () {
+      final source =
+          File('lib/data/sources/bilibili_source.dart').readAsStringSync();
+
+      expect(source, contains('SourceHttpPolicy.createBilibiliLiveDio'));
+      expect(source, contains('_liveDio.get'));
+      expect(
+        source,
+        isNot(contains("'Referer': 'https://live.bilibili.com/'")),
+      );
+    });
+
     test('radio cover preloader uses Bilibili live policy headers', () {
       final source =
           File('lib/ui/widgets/track_detail_panel.dart').readAsStringSync();

@@ -82,6 +82,9 @@ class AppConstants {
   /// Mix 模式每次加载的最少新歌曲数
   static const int mixMinNewTracksRequired = 10;
 
+  /// Mix 模式剩余多少首时开始预加载更多歌曲
+  static const int mixLoadMoreRemainingThreshold = 1;
+
   /// Mix 模式最大加载尝试次数
   static const int mixMaxLoadAttempts = 10;
 

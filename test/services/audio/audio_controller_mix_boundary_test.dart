@@ -229,6 +229,52 @@ void main() {
       expect(audioService.playUrlCalls.single.url,
           'https://example.com/mix-a.m4a');
     });
+
+    test('completion at mix queue end waits for pending load-more tracks',
+        () async {
+      final playlist = Playlist()
+        ..name = 'Continuous Mix'
+        ..mixPlaylistId = 'RDcontinuous123'
+        ..mixSeedVideoId = 'seed-video';
+
+      mixTracksFetcher.result = MixFetchResult(
+        title: 'Continuous Mix',
+        tracks: [
+          _track('mix-a', title: 'Mix A'),
+          _track('mix-b', title: 'Mix B'),
+        ],
+      );
+
+      await controller.startMixFromPlaylist(playlist);
+
+      final loadMoreGate = mixTracksFetcher.enqueuePendingResult(
+        MixFetchResult(
+          title: 'Continuous Mix',
+          tracks: List.generate(
+            10,
+            (index) => _track('mix-new-$index', title: 'Mix New $index'),
+          ),
+        ),
+      );
+
+      await controller.next();
+      await pumpEventQueue(times: 5);
+
+      expect(controller.state.currentTrack?.sourceId, 'mix-b');
+      expect(controller.state.isLoadingMoreMix, isTrue);
+
+      final nextTrackPlayed = audioService
+          .waitForPlayUrlCallCount(3)
+          .timeout(const Duration(seconds: 1));
+      audioService.emitCompleted();
+      await pumpEventQueue(times: 5);
+      loadMoreGate.complete();
+
+      await expectLater(nextTrackPlayed, completes);
+      expect(controller.state.currentTrack?.sourceId, 'mix-new-0');
+      expect(audioService.playUrlCalls.last.url,
+          'https://example.com/mix-new-0.m4a');
+    });
   });
 }
 

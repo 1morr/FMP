@@ -580,6 +580,11 @@ class YouTubeSource extends BaseSource with Logging {
             return result;
           }
         } catch (e) {
+          if (_shouldAbortStreamFallback(e)) {
+            logWarning(
+                'YouTube alternative stream type $streamType hit non-fallbackable error for $videoId: $e');
+            rethrow;
+          }
           logDebug(
               'Alternative stream type $streamType failed for $videoId: $e');
         }
@@ -597,6 +602,11 @@ class YouTubeSource extends BaseSource with Logging {
             return result;
           }
         } catch (e) {
+          if (_shouldAbortStreamFallback(e)) {
+            logWarning(
+                'Authenticated alternative stream hit non-fallbackable error for $videoId: $e');
+            rethrow;
+          }
           logDebug('Authenticated alternative stream failed for $videoId: $e');
         }
       }
@@ -604,6 +614,7 @@ class YouTubeSource extends BaseSource with Logging {
       logWarning('No alternative audio stream available for: $videoId');
       return null;
     } catch (e) {
+      if (_shouldAbortStreamFallback(e)) rethrow;
       logError('Failed to get alternative audio stream for $videoId: $e');
       return null;
     }
@@ -655,6 +666,7 @@ class YouTubeSource extends BaseSource with Logging {
         );
       }
     } catch (e) {
+      if (_shouldAbortStreamFallback(e)) rethrow;
       logDebug('Alternative audio-only stream failed for $videoId: $e');
     }
     return null;
@@ -695,6 +707,7 @@ class YouTubeSource extends BaseSource with Logging {
         );
       }
     } catch (e) {
+      if (_shouldAbortStreamFallback(e)) rethrow;
       logDebug('Alternative muxed stream failed for $videoId: $e');
     }
     return null;
@@ -741,6 +754,7 @@ class YouTubeSource extends BaseSource with Logging {
           }
         }
       } catch (e) {
+        if (_shouldAbortStreamFallback(e)) rethrow;
         logDebug(
             'Alternative HLS stream via client set failed for $videoId: $e');
       }

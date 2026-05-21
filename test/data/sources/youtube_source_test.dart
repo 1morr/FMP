@@ -189,6 +189,34 @@ void main() {
       expect(result?.url, 'https://example.com/auth-muxed.mp4');
       expect(result?.streamType, StreamType.muxed);
     });
+
+    test('alternative fallback preserves login-required errors', () async {
+      final source = YouTubeSource(
+        youtube: _FakeYoutubeExplode(
+          const YouTubeApiException(
+            code: 'login_required',
+            message: 'Sign in to confirm your age',
+          ),
+        ),
+      );
+      addTearDown(source.dispose);
+
+      await expectLater(
+        source.getAlternativeAudioStream(
+          'login-required-video',
+          failedUrl: 'https://example.com/failed.webm',
+          config: const AudioStreamConfig(
+            streamPriority: [StreamType.audioOnly, StreamType.muxed],
+          ),
+        ),
+        throwsA(
+          isA<YouTubeApiException>()
+              .having(
+                  (error) => error.kind, 'kind', SourceErrorKind.loginRequired)
+              .having((error) => error.code, 'code', 'login_required'),
+        ),
+      );
+    });
   });
 
   group('YouTubeSource playlist parsing', () {
