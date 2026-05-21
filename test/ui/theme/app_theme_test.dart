@@ -23,6 +23,15 @@ void main() {
     );
   });
 
+  test('light theme chooses readable foreground for mid-light custom primary',
+      () {
+    const selectedColor = Color(0xFFAAAAAA);
+
+    final theme = AppTheme.lightTheme(primaryColor: selectedColor);
+
+    expect(theme.colorScheme.onPrimary, Colors.black);
+  });
+
   test('dark theme uses the selected custom primary color directly', () {
     const selectedColor = Color(0xFFFFCCCC);
 
