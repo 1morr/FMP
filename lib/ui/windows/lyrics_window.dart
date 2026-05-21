@@ -880,17 +880,24 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
     String? tooltip,
     required String semanticsLabel,
   }) {
+    final button = IconButton(
+      icon: ExcludeSemantics(child: Icon(icon, size: size, color: color)),
+      onPressed: onPressed,
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+    );
+
     return Semantics(
       button: true,
       label: tooltip ?? semanticsLabel,
-      child: IconButton(
-        icon: ExcludeSemantics(child: Icon(icon, size: size, color: color)),
-        tooltip: tooltip,
-        onPressed: onPressed,
-        visualDensity: VisualDensity.compact,
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-      ),
+      child: tooltip == null
+          ? button
+          : Tooltip(
+              message: tooltip,
+              excludeFromSemantics: true,
+              child: button,
+            ),
     );
   }
 

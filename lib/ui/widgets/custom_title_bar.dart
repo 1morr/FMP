@@ -13,7 +13,8 @@ class CustomTitleBar extends ConsumerStatefulWidget {
   ConsumerState<CustomTitleBar> createState() => _CustomTitleBarState();
 }
 
-class _CustomTitleBarState extends ConsumerState<CustomTitleBar> with WindowListener {
+class _CustomTitleBarState extends ConsumerState<CustomTitleBar>
+    with WindowListener {
   bool _isMaximized = false;
 
   @override
@@ -145,6 +146,7 @@ class _TitleBarButtonState extends State<_TitleBarButton> {
         label: widget.tooltip,
         child: Tooltip(
           message: widget.tooltip,
+          excludeFromSemantics: true,
           child: GestureDetector(
             onTap: widget.onPressed,
             child: Container(
