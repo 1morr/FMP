@@ -147,6 +147,12 @@ void main() {
       expect(e.isPermissionDenied, isTrue);
     });
 
+    test('isPermissionDenied for forbidden', () {
+      const e = YouTubeApiException(code: 'forbidden', message: 'Forbidden');
+      expect(e.isPermissionDenied, isTrue);
+      expect(e.kind, SourceErrorKind.permissionDenied);
+    });
+
     test('isGeoRestricted', () {
       const e = YouTubeApiException(code: 'geo_restricted', message: 'test');
       expect(e.isGeoRestricted, isTrue);
@@ -240,6 +246,13 @@ void main() {
       const e = NeteaseApiException(numericCode: 403, message: 'Forbidden');
       expect(e.isPermissionDenied, isTrue);
       expect(e.code, 'forbidden');
+    });
+
+    test('isPermissionDenied for -403', () {
+      const e = NeteaseApiException(numericCode: -403, message: 'Forbidden');
+      expect(e.isPermissionDenied, isTrue);
+      expect(e.code, 'forbidden');
+      expect(e.kind, SourceErrorKind.permissionDenied);
     });
 
     test('isNetworkError for -998', () {

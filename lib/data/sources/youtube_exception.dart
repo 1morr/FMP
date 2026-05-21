@@ -28,7 +28,9 @@ class YouTubeApiException extends SourceApiException {
         'service_unavailable' =>
           SourceErrorKind.unavailable,
         'login_required' || 'age_restricted' => SourceErrorKind.loginRequired,
-        'private_or_inaccessible' => SourceErrorKind.permissionDenied,
+        'private_or_inaccessible' ||
+        'forbidden' =>
+          SourceErrorKind.permissionDenied,
         'geo_restricted' => SourceErrorKind.geoRestricted,
         _ => SourceErrorKind.unknown,
       };

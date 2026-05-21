@@ -162,7 +162,6 @@ void main() {
         settings: SettingsBackup(
           themeModeIndex: 2,
           maxCacheSizeMB: 48,
-          enabledSources: const ['bilibili', 'youtube', 'netease'],
           rememberPlaybackPosition: false,
           tempPlayRewindSeconds: 7,
           neteaseStreamPriority: 'audioOnly',
@@ -213,8 +212,6 @@ void main() {
       expect(restoredSettings, isNotNull);
       expect(restoredSettings!.themeModeIndex, 2);
       expect(restoredSettings.maxCacheSizeMB, 48);
-      expect(
-          restoredSettings.enabledSources, ['bilibili', 'youtube', 'netease']);
       expect(restoredSettings.rememberPlaybackPosition, isFalse);
       expect(restoredSettings.tempPlayRewindSeconds, 7);
       expect(restoredSettings.neteaseStreamPriority, 'audioOnly');
