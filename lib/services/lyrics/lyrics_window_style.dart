@@ -10,6 +10,8 @@ class LyricsWindowLayout {
   static const double titleBarHeight = 48;
   static const double offsetBarHeight = 56;
   static const double defaultContentTopPadding = 20;
+  static const double minWindowWidth = 400;
+  static const double minWindowHeight = 300;
 
   static double contentTopInset({
     required bool transparentMode,

@@ -47,6 +47,6 @@
   "windowShadowOffsetX": "陰影水平偏移",
   "windowShadowOffsetY": "陰影垂直偏移",
   "windowResetStyle": "重置樣式",
-  "openLyricsWindow": "彈出歌詞窗口",
-  "closeLyricsWindow": "關閉歌詞窗口"
+  "openLyricsWindow": "彈出歌詞視窗",
+  "closeLyricsWindow": "關閉歌詞視窗"
 }

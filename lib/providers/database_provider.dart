@@ -53,7 +53,6 @@ PlayQueue createBootstrapPlayQueue() => PlayQueue();
 bool _hasLegacyPlaybackAndLyricsDefaultsSignature(Settings settings) {
   return settings.neteaseStreamPriority.isEmpty &&
       !settings.useNeteaseAuthForPlay &&
-      !settings.enabledSources.contains('netease') &&
       !settings.rememberPlaybackPosition &&
       settings.tempPlayRewindSeconds == 0 &&
       settings.disabledLyricsSources.isEmpty;
@@ -153,10 +152,6 @@ Future<void> _initializeDatabaseDefaultsInTxn(Isar isar) async {
       settings.lyricsSourcePriority = 'netease,qqmusic,lrclib';
       needsUpdate = true;
     }
-    if (settings.enabledSources.isEmpty) {
-      settings.enabledSources = ['bilibili', 'youtube', 'netease'];
-      needsUpdate = true;
-    }
 
     // 修复刷新间隔（旧版本可能是 0）
     if (settings.rankingRefreshIntervalMinutes < 1) {
@@ -179,9 +174,6 @@ Future<void> _initializeDatabaseDefaultsInTxn(Isar isar) async {
     // 以 neteaseStreamPriority 是否為空判斷是否仍是未遷移的舊數據，避免後續啟動覆蓋用戶當前設置
     if (settings.neteaseStreamPriority.isEmpty) {
       settings.useNeteaseAuthForPlay = true;
-      if (!settings.enabledSources.contains('netease')) {
-        settings.enabledSources = [...settings.enabledSources, 'netease'];
-      }
       settings.neteaseStreamPriority = 'audioOnly';
       needsUpdate = true;
     }

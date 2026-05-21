@@ -35,7 +35,9 @@ class NeteaseApiException extends SourceApiException {
       return SourceErrorKind.unavailable;
     }
     if (numericCode == 301) return SourceErrorKind.loginRequired;
-    if (numericCode == 403) return SourceErrorKind.permissionDenied;
+    if (numericCode == 403 || numericCode == -403) {
+      return SourceErrorKind.permissionDenied;
+    }
     if (numericCode == -10) return SourceErrorKind.vipRequired;
     if (numericCode == -110) return SourceErrorKind.geoRestricted;
     return SourceErrorKind.unknown;
@@ -48,6 +50,7 @@ class NeteaseApiException extends SourceApiException {
         return 'rate_limited';
       case 301:
         return 'requires_login';
+      case -403:
       case 403:
         return 'forbidden';
       case -200:

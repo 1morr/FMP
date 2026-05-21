@@ -95,7 +95,7 @@ class SearchService {
       return const MultiSourceSearchResult();
     }
 
-    final sources = sourceTypes ?? _sourceManager.enabledSourceTypes;
+    final sources = sourceTypes ?? _sourceManager.registeredSourceTypes;
     final results = <SourceType, SearchResult>{};
     final errors = <String>[];
 
@@ -153,7 +153,9 @@ class SearchService {
 
     final source = _sourceManager.getSource(SourceType.bilibili);
     if (source is! BilibiliSource) {
-      throw SearchException(t.error.sourceUnavailable(source: SourceType.bilibili.name));
+      throw SearchException(
+        t.error.sourceUnavailable(source: SourceType.bilibili.name),
+      );
     }
 
     final authHeaders = await buildAuthHeaders(
