@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fmp/ui/widgets/compact_color_picker_button.dart';
+import 'package:fmp/ui/widgets/color_palette_button.dart';
 
 void main() {
   testWidgets('shows only the current color button before opening the palette',
@@ -8,7 +8,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: CompactColorPickerButton(
+          body: ColorPaletteButton(
             label: 'Text color',
             color: const Color(0xFFFFD166),
             onChanged: (_) {},
@@ -19,7 +19,7 @@ void main() {
 
     expect(find.byType(OutlinedButton), findsOneWidget);
     expect(find.text('#FFFFD166'), findsOneWidget);
-    expect(find.byKey(CompactColorPickerButton.paletteKey), findsNothing);
+    expect(find.byKey(ColorPaletteButton.paletteKey), findsNothing);
     expect(find.byType(TextFormField), findsNothing);
   });
 
@@ -29,7 +29,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: CompactColorPickerButton(
+          body: ColorPaletteButton(
             label: 'Text color',
             color: const Color(0xFFFFD166),
             onChanged: changes.add,
@@ -41,10 +41,10 @@ void main() {
     await tester.tap(find.byType(OutlinedButton));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(CompactColorPickerButton.paletteKey), findsOneWidget);
+    expect(find.byKey(ColorPaletteButton.paletteKey), findsOneWidget);
 
     await tester.drag(
-      find.byKey(CompactColorPickerButton.saturationValueKey),
+      find.byKey(ColorPaletteButton.saturationValueKey),
       const Offset(-24, 18),
     );
     await tester.pump();
@@ -59,7 +59,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: CompactColorPickerButton(
+          body: ColorPaletteButton(
             label: 'Text color',
             color: const Color(0xFFFF0000),
             onChanged: changes.add,
@@ -91,7 +91,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: CompactColorPickerButton(
+          body: ColorPaletteButton(
             label: 'Text color',
             color: const Color(0xFFFFD166),
             onChanged: (_) {},
@@ -104,10 +104,10 @@ void main() {
     await tester.pumpAndSettle();
 
     final paletteRect = tester.getRect(
-      find.byKey(CompactColorPickerButton.paletteKey),
+      find.byKey(ColorPaletteButton.paletteKey),
     );
     final contentSize = tester.getSize(
-      find.byKey(CompactColorPickerButton.paletteContentKey),
+      find.byKey(ColorPaletteButton.paletteContentKey),
     );
 
     expect(paletteRect.left, greaterThanOrEqualTo(0));
@@ -125,7 +125,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: CompactColorPickerButton(
+          body: ColorPaletteButton(
             label: 'Custom color',
             color: const Color(0xFF6E5A83),
             onChanged: (_) {},
@@ -138,10 +138,9 @@ void main() {
     await tester.pumpAndSettle();
 
     final paletteWidth =
-        tester.getSize(find.byKey(CompactColorPickerButton.paletteKey)).width;
-    final contentWidth = tester
-        .getSize(find.byKey(CompactColorPickerButton.paletteContentKey))
-        .width;
+        tester.getSize(find.byKey(ColorPaletteButton.paletteKey)).width;
+    final contentWidth =
+        tester.getSize(find.byKey(ColorPaletteButton.paletteContentKey)).width;
 
     expect(paletteWidth - contentWidth, 32);
   });
@@ -150,7 +149,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: CompactColorPickerButton(
+          body: ColorPaletteButton(
             label: 'Custom color',
             closeLabel: '關閉',
             color: const Color(0xFF6E5A83),

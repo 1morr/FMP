@@ -9,8 +9,8 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../services/lyrics/lyrics_window_style.dart';
 import '../theme/app_theme.dart';
-import '../widgets/compact_color_picker_button.dart';
-import '../widgets/compact_switch_expansion_tile.dart';
+import '../widgets/color_palette_button.dart';
+import '../widgets/switch_expansion_tile.dart';
 
 /// 歌词弹出窗口入口点
 ///
@@ -200,7 +200,7 @@ class _LyricsStyleDialogState extends State<_LyricsStyleDialog> {
           ),
         ),
         const SizedBox(width: 10),
-        CompactColorPickerButton(
+        ColorPaletteButton(
           label: label,
           closeLabel: widget.strings.close,
           color: color,
@@ -313,7 +313,7 @@ class _LyricsStyleDialogState extends State<_LyricsStyleDialog> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                CompactSwitchExpansionTile(
+                SwitchExpansionTile(
                   title: strings.outline,
                   expanded: _outlineExpanded,
                   enabled: _style.outlineEnabled,
@@ -344,7 +344,7 @@ class _LyricsStyleDialogState extends State<_LyricsStyleDialog> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                CompactSwitchExpansionTile(
+                SwitchExpansionTile(
                   title: strings.shadow,
                   expanded: _shadowExpanded,
                   enabled: _style.shadowEnabled,
