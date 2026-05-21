@@ -47,6 +47,18 @@ flutter analyze                      # Static analysis
 flutter test                         # Run tests
 ```
 
+**Targeted verification:**
+
+| Change Area | Minimum Verification |
+|------------|----------------------|
+| Audio playback/controller/queue | `flutter test test/services/audio` + relevant `test/data/sources/*_source_test.dart` when stream resolution changes |
+| Source adapters / HTTP policy | `flutter test test/data/sources test/services/account test/services/radio` |
+| Download pipeline | `flutter test test/services/download test/providers/download` |
+| Isar models / migrations | `flutter pub run build_runner build --delete-conflicting-outputs` + `flutter test test/providers/database_migration_test.dart test/ui/pages/settings/database_viewer_page_coverage_test.dart` |
+| UI widgets/pages | Targeted widget/static-rule tests under `test/ui` + `flutter analyze` |
+| i18n JSON changes | `dart run slang` + `flutter analyze` |
+| Documentation-only changes | `git diff --check` |
+
 ---
 
 ## Architecture
@@ -81,7 +93,14 @@ UI (player_page, mini_player)
 └────────┘ └──────────┘
 ```
 
-**Key Rule:** UI must call `AudioController` methods, never `AudioService` directly.
+**Key Rule:** UI must call `AudioController` methods, never `AudioService` directly. This is an architectural convention rather than a compile-time boundary; use `rg` when reviewing UI changes that touch playback controls.
+
+**Audio internals ownership:**
+- `AudioController` (`audio_provider.dart`) owns user-facing state, request supersession, temporary/mix/detached playback modes, notification/SMTC coordination, network retry, and source-error UI decisions.
+- `PlaybackRequestExecutor` owns selecting and handing off a single playback request to the backend while preserving request IDs and fallback handoff errors.
+- `AudioStreamManager` and `AudioStreamDelegate` own stream URL resolution, local-file selection, source-aware playback headers, quality fallback, and alternative stream lookup.
+- `QueueManager` owns queue order, shuffle/loop state, navigation, and persistence hooks; UI must consume `upcomingTracks` / provider state instead of recalculating queue order.
+- `QueuePersistenceManager` owns persisted queue snapshots, saved position/volume, and Mix metadata restore.
 
 **Platform-split backend:**
 - **Android**: `JustAudioService` (ExoPlayer via `just_audio`, ~10-15MB lighter)
@@ -114,7 +133,7 @@ UI (player_page, mini_player)
 | DB collection (multi-writer) | Isar `watchAll()` + `StateNotifier` | Playlists, radio, history |
 | DB join query | `StateNotifier` + optimistic update | Playlist detail |
 | File system scan | `FutureProvider` + `invalidate` | Downloaded page |
-| API + cache | `CacheService` + `StreamProvider` | Home/explore rankings |
+| API + cache state | `StateNotifierProvider` + immutable state | Home/explore rankings (`RankingCacheState`) |
 | Settings | `StateNotifier` + direct state update | Settings page |
 
 **Rules:**
@@ -125,11 +144,11 @@ UI (player_page, mini_player)
 - Fire-and-forget imported playlist refresh must use the named remote sync path and log background failures with `AppLogger`.
 - Search source selection is owned by the search page chips: "all" queries Bilibili + YouTube + Netease, and a source chip queries only that source. Do not add a hidden global enabled-source filter in `Settings`.
 - Optimistic updates: must rollback on failure
-- List/grid items: add `ValueKey(item.id)`
+- List/grid items: add stable identity keys. For persisted models, `ValueKey(item.id)` is usually enough; for tracks that may be unpersisted, grouped, or multi-page, prefer source/group/page identity such as `sourceId` + `pageNum` / `groupKey`.
 
 ### Data Layer
 
-- **Models:** Isar collections in `lib/data/models/`
+- **Models:** Isar collections in `lib/data/models/`; `lib/data/models/models.dart` is the barrel export for persisted model types, including `Account`.
 - **Repositories:** CRUD operations in `lib/data/repositories/`
 - **Sources:** Audio source parsers in `lib/data/sources/` (BilibiliSource, YouTubeSource, NeteaseSource, with unified SourceApiException base class)
 
@@ -190,7 +209,7 @@ Isar uses type default values for new fields on upgrade: `int` → `0`, `bool` �
 - Video audio extraction (DASH audio-only / durl muxed)
 - Multi-page video (多P) support
 - Live room audio stream (HLS)
-- Bilibili live radio remains Bilibili-only unless explicit multi-source radio support is added. Live room API clients, stream playback headers, and radio cover preloading must use `SourceHttpPolicy.bilibiliLiveHeaders()` / `SourceHttpPolicy.createBilibiliLiveDio()` so the live referer and media user agent stay consistent.
+- Bilibili live radio remains Bilibili-only unless explicit multi-source radio support is added. Live room API clients, stream playback headers, and radio cover preloading must use `SourceHttpPolicy.bilibiliLiveHeaders()` / `SourceHttpPolicy.createBilibiliLiveDio()` so the live referer and media user agent stay consistent. `BilibiliSource` keeps live room helpers on a separate live Dio (`_liveDio`) instead of reusing the search/API Dio.
 - Favorites folder import
 - Requires `Referer: https://www.bilibili.com` header
 - Audio URLs expire → periodic refresh via `ensureAudioUrl()`; `AudioStreamResult.expiry` must report the same Bilibili URL TTL used by track refresh logic so shared playback caching does not fall back to a generic default.
@@ -202,7 +221,7 @@ Isar uses type default values for new fields on upgrade: `int` → `0`, `bool` �
 - Playlist import via InnerTube `/browse` API
 - **Stream format priority:** audio-only (androidVr) > muxed > HLS
 - Only `YoutubeApiClient.androidVr` produces accessible audio-only URLs (others return 403)
-- Supports Opus / AAC format selection. Authenticated InnerTube fallback must still respect `AudioStreamConfig.streamPriority` and `formatPriority`; do not hard-code audio-only before muxed or bitrate before the configured codec order. Alternative stream fallback must pass and exclude the failed media URL while continuing through the same InnerTube response so a failed audio-only URL can fall back to muxed/HLS.
+- Supports Opus / AAC format selection. Authenticated InnerTube fallback must still respect `AudioStreamConfig.streamPriority` and `formatPriority`; do not hard-code audio-only before muxed or bitrate before the configured codec order. Alternative stream fallback must pass and exclude the failed media URL while continuing through the same InnerTube response so a failed audio-only URL can fall back to muxed/HLS. Alternative fallback must rethrow non-fallbackable `SourceErrorKind` values such as login-required, rate-limit, permission, network, timeout, and geo errors instead of returning `null`.
 - Rate limiting: HTTP 429
 
 ### Netease Cloud Music (Direct Source)
@@ -229,12 +248,12 @@ Isar uses type default values for new fields on upgrade: `int` → `0`, `bool` �
 `BilibiliApiException`, `YouTubeApiException`, and `NeteaseApiException` all extend `SourceApiException` (in `lib/data/sources/source_exception.dart`).
 
 - `AudioController` catches `on SourceApiException` for unified error handling
-- `_handleSourceError()` uses base class getters: `isUnavailable`, `isRateLimited`, `isGeoRestricted`
+- `_handleSourceError()` uses `SourceErrorKind` through helpers such as `_shouldSkipSourceError(e)` and checks like `e.kind == SourceErrorKind.rateLimited`; base getters such as `isUnavailable`, `isRateLimited`, and `isGeoRestricted` are convenience views over `kind`.
 - Playback Toasts for source failures must preserve the semantic reason (`cannotPlayReason` / `cannotPlaySkippedReason`) instead of collapsing skippable failures to a generic "cannot play" message.
 - Source exceptions expose `SourceErrorKind` for shared retry/skip/login/rate-limit decisions while preserving source-specific diagnostic codes.
 - `BilibiliApiException` uses `numericCode` (int) with semantic `code` getter
 - `YouTubeApiException` uses `code` (String) directly
-- `NeteaseApiException` uses `numericCode` (int), adds `isVipRequired` getter
+- `NeteaseApiException` uses `numericCode` (int); `isVipRequired` is provided by the shared `SourceApiException` base getter
 - `SourceApiException.classifyDioError()` provides shared Dio error classification
 
 ### Audio Quality Settings
@@ -267,7 +286,9 @@ Per-platform toggle for using login credentials when fetching audio streams:
 
 UI: Backend settings and stream/download resolution support per-platform auth-for-play. The current account/login UI may not expose every per-platform playback-auth toggle; treat those controls as reserved/future UI surface unless the code actually adds them. If the UI is added later, use a per-platform card toggle style (`FilledButton.tonal` when enabled, `OutlinedButton` when disabled).
 
-Backend: the audio stream resolution path (`AudioStreamManager.ensureAudioUrl()` / `AudioStreamDelegate.ensureAudioStream()`), playback fallback (`BaseSource.getAlternativeAudioStream()`), and `DownloadService._startDownload()` read `settings.useAuthForPlay(track.sourceType)`. `SourceHttpPolicy` centralizes source API/media header defaults; direct source adapters and account services should create Dio clients through `SourceHttpPolicy.createApiDio()` and use `SourceHttpPolicy.apiHeaders()` for stable per-request API headers. Source-owned dynamic details stay local: Bilibili keeps generated buvid cookies and uses `bilibiliSearchApiHeaders()` for search-host defaults, YouTube keeps SAPISIDHASH/InnerTube auth headers source-owned, and Netease keeps eapi/weapi encryption plus Cookie-only per-request auth merging source-owned.
+Backend: the audio stream resolution path (`AudioStreamManager.ensureAudioUrl()` / `AudioStreamDelegate.ensureAudioStream()`), source `getTrackInfo()` paths that perform best-effort audio URL lookup, playback fallback (`BaseSource.getAlternativeAudioStream()`), and `DownloadService._startDownload()` read or receive `settings.useAuthForPlay(track.sourceType)` auth headers. `SourceHttpPolicy` centralizes source API/media header defaults; direct source adapters and account services should create Dio clients through `SourceHttpPolicy.createApiDio()` and use `SourceHttpPolicy.apiHeaders()` for stable per-request API headers. Source-owned dynamic details stay local: Bilibili keeps generated buvid cookies and uses `bilibiliSearchApiHeaders()` for search-host defaults, YouTube keeps SAPISIDHASH/InnerTube auth headers source-owned, and Netease keeps eapi/weapi encryption plus Cookie-only per-request auth merging source-owned.
+
+Media playback/download request headers are intentionally narrower than stream-resolution auth headers. `SourceHttpPolicy.mediaHeaders()` currently merges auth headers only for Netease media requests; Bilibili and YouTube auth cookies/authorization are used for source API/stream URL resolution, not forwarded to media/CDN requests unless a future design explicitly changes that security boundary.
 
 ### Lyrics System
 Multi-source auto-match priority (`LyricsAutoMatchService.tryAutoMatch()`):
@@ -289,7 +310,7 @@ Desktop lyrics popup window uses an independent Flutter engine and hide-instead-
 
 | Platform | Login Method | Token |
 |----------|-------------|-------|
-| Bilibili | WebView cookie extraction | Cookie auto-refresh |
+| Bilibili | QR code / WebView cookie extraction | Cookie auto-refresh |
 | YouTube | WebView cookie extraction | SAPISIDHASH |
 | Netease | QR code / WebView cookie | MUSIC_U (long-lived) |
 
@@ -352,7 +373,8 @@ Managed in `QueueManager` with `_shuffleOrder` list. UI must use `upcomingTracks
 ### Mix Playlist Mode (YouTube Mix/Radio)
 YouTube Mix/Radio playlists (ID starts with "RD") are dynamic infinite playlists.
 - Shuffle disabled, addToQueue/addNext blocked
-- Auto-loads more tracks near queue end
+- Auto-loads more tracks near queue end using `AppConstants.mixLoadMoreRemainingThreshold`
+- If the final queued track completes while Mix load-more is still pending, completion handling waits for the pending load and advances into the newly appended tracks instead of stopping playback.
 - State persisted via `PlayQueue` model fields
 
 ### Remember Playback Position
@@ -366,7 +388,7 @@ Slider `onChanged` must NOT call `seekToProgress()`. Only call seek in `onChange
 ### Download System
 - Path deduplication by `savePath` (not trackId)
 - File verification before saving path
-- Windows downloads run in an isolate and progress is kept in memory first (avoids PostMessage queue overflow and Isar watch churn)
+- Downloads run in an isolate and progress is kept in memory first; this avoids Windows PostMessage queue overflow and Isar watch churn while keeping the main isolate responsive.
 - Audio, metadata, cover, and avatar live inside each video folder:
   - `audio.m4a` or `P{NN}.m4a`
   - `metadata.json` or `metadata_P{NN}.json`
@@ -385,8 +407,8 @@ Imported tracks save original platform song ID for direct lyrics fetch:
 
 ### Image Thumbnail Optimization
 `ThumbnailUrlUtils` auto-optimizes image URLs by platform:
-- Bilibili: `@{size}w_{size}h.jpg` suffix
-- YouTube: quality tier (default/mq/hq/sd/maxres) + webp; small UI should pass size to avoid unavailable `maxresdefault`
+- Bilibili: width-only `@{size}w.jpg` suffix, after stripping any existing `@...` image suffix
+- YouTube video thumbnails: only 16:9 tiers are selected (`mqdefault` for small targets, `maxresdefault` otherwise); existing jpg/webp format is preserved and `mqdefault` is not upscaled to `maxresdefault`
 - YouTube avatar: `=s{size}` parameter
 - Netease: `?param={size}y{size}` parameter
 
@@ -433,14 +455,16 @@ Imported tracks save original platform song ID for direct lyrics fetch:
 6. **Refresh:** Use `RefreshIndicator` + `ref.invalidate()` or cache service
 
 ### AppBar Actions Trailing Spacing
-All `AppBar` actions lists must end with `const SizedBox(width: 8)` when last action is `IconButton`. Not needed for `PopupMenuButton` (has built-in padding).
+All `AppBar` actions lists must end with `const SizedBox(width: 8)` when the last action is `IconButton`. `PopupMenuButton` has built-in padding, so the spacer is optional and should be used only when that app bar needs an explicit trailing gutter to match nearby actions.
 
 ### ListTile Performance
 **Avoid `Row` inside `ListTile.leading`** — causes layout jitter. Use flat `InkWell` + `Padding` + `Row` instead.
 
 ### UI Constants
-All UI magic numbers centralized in `lib/core/constants/ui_constants.dart`:
+Prefer shared UI constants from `lib/core/constants/ui_constants.dart` for repeated or design-system values:
 `AppRadius`, `AnimationDurations`, `AppSizes`, `ToastDurations`, `DebounceDurations`.
+
+Small local layout/animation literals are acceptable when they are one-off measurements tied to a single widget interaction; promote them to `ui_constants.dart` when they are reused, part of the design system, or needed across pages.
 
 Note: `AppRadius.borderRadiusXl` etc. are `static final` (not `const`), cannot use in `const` context.
 
@@ -452,13 +476,19 @@ Note: `AppRadius.borderRadiusXl` etc. are `static final` (not `const`), cannot u
 lib/
 ├── services/
 │   ├── audio/
-│   │   ├── audio_provider.dart          # AudioController + PlayerState
+│   │   ├── audio_provider.dart          # AudioController + providers
+│   │   ├── player_state.dart            # PlayerState value object
+│   │   ├── playback_request_executor.dart # Single-request playback handoff
+│   │   ├── audio_stream_manager.dart    # Stream/local selection + headers
+│   │   ├── internal/audio_stream_delegate.dart # Source stream resolution/fallback
 │   │   ├── audio_service.dart           # Abstract AudioService interface
 │   │   ├── media_kit_audio_service.dart # Desktop: media_kit (libmpv)
 │   │   ├── just_audio_service.dart      # Android: just_audio (ExoPlayer)
-│   │   ├── audio_types.dart             # Unified player state types
+│   │   ├── audio_types.dart             # Backend processing/device types
+│   │   ├── audio_playback_types.dart    # Playback request/mode DTOs
 │   │   ├── audio_handler.dart           # Android notification (audio_service)
-│   │   └── queue_manager.dart           # Queue, shuffle, loop, persistence
+│   │   ├── queue_manager.dart           # Queue, shuffle, loop
+│   │   └── queue_persistence_manager.dart # Queue snapshot/position/volume persistence
 │   ├── account/
 │   │   ├── bilibili_account_service.dart
 │   │   ├── youtube_account_service.dart
@@ -479,7 +509,10 @@ lib/
 │   │   └── ranking_cache_service.dart   # Home ranking cache (hourly refresh)
 │   ├── download/
 │   │   ├── download_service.dart        # Task scheduling
+│   │   ├── download_media_headers.dart  # Source-aware download media/image headers
 │   │   ├── download_path_manager.dart   # Path selection
+│   │   ├── download_path_sync_service.dart # Startup/manual downloaded-file sync
+│   │   ├── download_path_maintenance_service.dart # Path cleanup/maintenance
 │   │   └── download_path_utils.dart     # Path calculation
 │   ├── import/
 │   │   ├── import_service.dart          # URL import (useAuth parameter)
@@ -497,8 +530,12 @@ lib/
 │   └── sources/
 │       ├── base_source.dart             # Abstract base class
 │       ├── source_exception.dart        # Unified SourceApiException
+│       ├── source_http_policy.dart      # Shared API/media/live header policy
+│       ├── audio_stream_quality_fallback.dart # Shared quality ladder
 │       ├── bilibili_source.dart         # Bilibili audio source
+│       ├── bilibili_exception.dart      # BilibiliApiException
 │       ├── youtube_source.dart          # YouTube audio source
+│       ├── youtube_exception.dart       # YouTubeApiException
 │       ├── netease_source.dart          # Netease audio source
 │       ├── netease_exception.dart       # NeteaseApiException
 │       ├── source_provider.dart         # SourceManager + providers
@@ -509,6 +546,7 @@ lib/
 ├── core/
 │   ├── constants/
 │   │   ├── app_constants.dart           # App-level constants
+│   │   ├── breakpoints.dart             # Responsive layout breakpoints
 │   │   └── ui_constants.dart            # UI constants
 │   ├── utils/
 │   │   ├── netease_crypto.dart          # Netease eapi/weapi encryption
@@ -542,6 +580,8 @@ lib/
 ```
 
 ## Responsive Breakpoints
+
+Source of truth: `lib/core/constants/breakpoints.dart`.
 
 - Mobile: < 600dp (bottom navigation)
 - Tablet: 600-1200dp (side navigation)
