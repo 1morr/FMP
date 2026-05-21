@@ -29,12 +29,14 @@
     "customColor": "Custom color",
     "colors": {
       "defaultPurple": "Default purple",
+      "indigo": "Indigo",
       "blue": "Ocean blue",
+      "teal": "Teal",
       "green": "Forest green",
+      "yellow": "Sun yellow",
       "red": "Ruby red",
       "pink": "Rose pink",
-      "orange": "Amber orange",
-      "teal": "Teal"
+      "orange": "Amber orange"
     }
   },
   "font": {
