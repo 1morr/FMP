@@ -33,7 +33,7 @@ import '../../../services/backup/backup_service.dart';
 import '../../../services/backup/backup_data.dart';
 import '../../router.dart';
 import '../../widgets/change_download_path_dialog.dart';
-import '../../widgets/compact_color_picker_button.dart';
+import '../../widgets/color_palette_button.dart';
 import '../../widgets/update_dialog.dart';
 import '../../../core/constants/ui_constants.dart';
 
@@ -389,7 +389,7 @@ class _ThemeColorListTile extends ConsumerWidget {
     WidgetRef ref,
     Color? currentColor,
   ) {
-    CompactColorPaletteDialog.show(
+    ColorPaletteDialog.show(
       context: context,
       label: t.settings.themeColor.customColor,
       closeLabel: t.general.close,

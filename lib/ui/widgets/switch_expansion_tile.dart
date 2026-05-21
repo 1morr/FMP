@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class CompactSwitchExpansionTile extends StatelessWidget {
+class SwitchExpansionTile extends StatelessWidget {
   final String title;
   final bool expanded;
   final bool enabled;
@@ -8,7 +8,7 @@ class CompactSwitchExpansionTile extends StatelessWidget {
   final ValueChanged<bool> onEnabledChanged;
   final List<Widget> children;
 
-  const CompactSwitchExpansionTile({
+  const SwitchExpansionTile({
     super.key,
     required this.title,
     required this.expanded,

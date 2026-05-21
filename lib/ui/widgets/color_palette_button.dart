@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 
-class CompactColorPickerButton extends StatelessWidget {
-  static const paletteKey = ValueKey('compact-color-picker-palette');
-  static const paletteContentKey =
-      ValueKey('compact-color-picker-palette-content');
-  static const saturationValueKey = ValueKey('compact-color-picker-sv');
+class ColorPaletteButton extends StatelessWidget {
+  static const paletteKey = ValueKey('color-palette-dialog');
+  static const paletteContentKey = ValueKey('color-palette-dialog-content');
+  static const saturationValueKey = ValueKey('color-palette-sv');
 
   final String label;
   final String? closeLabel;
   final Color color;
   final ValueChanged<Color> onChanged;
 
-  const CompactColorPickerButton({
+  const ColorPaletteButton({
     super.key,
     required this.label,
     this.closeLabel,
@@ -24,7 +23,7 @@ class CompactColorPickerButton extends StatelessWidget {
   }
 
   Future<void> _openPalette(BuildContext context) {
-    return CompactColorPaletteDialog.show(
+    return ColorPaletteDialog.show(
       context: context,
       label: label,
       closeLabel: closeLabel,
@@ -68,13 +67,13 @@ class CompactColorPickerButton extends StatelessWidget {
   }
 }
 
-class CompactColorPaletteDialog extends StatefulWidget {
+class ColorPaletteDialog extends StatefulWidget {
   final String label;
   final String? closeLabel;
   final Color color;
   final ValueChanged<Color> onChanged;
 
-  const CompactColorPaletteDialog({
+  const ColorPaletteDialog({
     super.key,
     required this.label,
     this.closeLabel,
@@ -92,7 +91,7 @@ class CompactColorPaletteDialog extends StatefulWidget {
     return showDialog<void>(
       context: context,
       barrierColor: Colors.transparent,
-      builder: (context) => CompactColorPaletteDialog(
+      builder: (context) => ColorPaletteDialog(
         label: label,
         closeLabel: closeLabel,
         color: color,
@@ -102,10 +101,10 @@ class CompactColorPaletteDialog extends StatefulWidget {
   }
 
   @override
-  State<CompactColorPaletteDialog> createState() => _ColorPaletteDialogState();
+  State<ColorPaletteDialog> createState() => _ColorPaletteDialogState();
 }
 
-class _ColorPaletteDialogState extends State<CompactColorPaletteDialog> {
+class _ColorPaletteDialogState extends State<ColorPaletteDialog> {
   late HSVColor _hsv;
 
   @override
@@ -131,7 +130,7 @@ class _ColorPaletteDialogState extends State<CompactColorPaletteDialog> {
       insetPadding:
           EdgeInsets.symmetric(horizontal: horizontalInset, vertical: 24),
       child: SizedBox(
-        key: CompactColorPickerButton.paletteKey,
+        key: ColorPaletteButton.paletteKey,
         width: dialogWidth,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -154,7 +153,7 @@ class _ColorPaletteDialogState extends State<CompactColorPaletteDialog> {
               ),
               const SizedBox(height: 10),
               SizedBox(
-                key: CompactColorPickerButton.paletteContentKey,
+                key: ColorPaletteButton.paletteContentKey,
                 width: double.infinity,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -215,7 +214,7 @@ class _ColorPaletteDialogState extends State<CompactColorPaletteDialog> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: Text(
-                        CompactColorPickerButton.formatColor(color),
+                        ColorPaletteButton.formatColor(color),
                         style: TextStyle(
                           color: colorScheme.onSurfaceVariant,
                           fontSize: 12,
@@ -289,7 +288,7 @@ class _SaturationValuePicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      key: CompactColorPickerButton.saturationValueKey,
+      key: ColorPaletteButton.saturationValueKey,
       onPanDown: (details) => _handlePointer(context, details.globalPosition),
       onPanUpdate: (details) => _handlePointer(context, details.globalPosition),
       child: SizedBox(
