@@ -440,7 +440,6 @@ class SettingsBackup {
   final int? textColor;
   final int? cardColor;
   final int maxCacheSizeMB;
-  final List<String> enabledSources;
   final bool autoScrollToCurrentTrack;
   final bool rememberPlaybackPosition;
   final int restartRewindSeconds;
@@ -495,7 +494,6 @@ class SettingsBackup {
     this.textColor,
     this.cardColor,
     int? maxCacheSizeMB,
-    this.enabledSources = const ['bilibili', 'youtube', 'netease'],
     this.autoScrollToCurrentTrack = false,
     this.rememberPlaybackPosition = true,
     this.restartRewindSeconds = 0,
@@ -558,10 +556,6 @@ class SettingsBackup {
       cardColor: json['cardColor'] as int?,
       maxCacheSizeMB:
           json['maxCacheSizeMB'] as int? ?? _defaultBackupCacheSizeMB(),
-      enabledSources: (json['enabledSources'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          ['bilibili', 'youtube', 'netease'],
       autoScrollToCurrentTrack:
           json['autoScrollToCurrentTrack'] as bool? ?? false,
       rememberPlaybackPosition:
@@ -639,7 +633,6 @@ class SettingsBackup {
       if (textColor != null) 'textColor': textColor,
       if (cardColor != null) 'cardColor': cardColor,
       'maxCacheSizeMB': maxCacheSizeMB,
-      'enabledSources': enabledSources,
       'autoScrollToCurrentTrack': autoScrollToCurrentTrack,
       'rememberPlaybackPosition': rememberPlaybackPosition,
       'restartRewindSeconds': restartRewindSeconds,

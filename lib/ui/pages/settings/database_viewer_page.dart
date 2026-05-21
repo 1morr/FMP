@@ -658,12 +658,6 @@ class _SettingsListView extends StatelessWidget {
                     'locale': setting.locale ?? 'null',
                   },
                 ),
-                _DataSection(
-                  title: t.databaseViewer.otherSettings,
-                  data: {
-                    'enabledSources': setting.enabledSources.join(', '),
-                  },
-                ),
               ],
             );
           },

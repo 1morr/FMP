@@ -35,11 +35,11 @@ final searchServiceProvider = Provider<SearchService>((ref) {
 
 /// 搜索状态
 class SearchState extends Equatable {
-  static const Set<SourceType> defaultAvailableSources = {
+  static const List<SourceType> allDirectSources = [
     SourceType.bilibili,
     SourceType.youtube,
     SourceType.netease,
-  };
+  ];
 
   final String query;
   final List<Track> localResults;
@@ -47,7 +47,6 @@ class SearchState extends Equatable {
   final bool isLoading;
   final String? error;
   final SourceType? selectedSource; // null = 全部音源
-  final Set<SourceType> availableSources;
   final Map<SourceType, int> currentPages;
   final SearchOrder searchOrder;
   // 直播间搜索相关
@@ -62,7 +61,6 @@ class SearchState extends Equatable {
     this.isLoading = false,
     this.error,
     this.selectedSource, // null = 全部音源
-    this.availableSources = defaultAvailableSources,
     this.currentPages = const {},
     this.searchOrder = SearchOrder.relevance,
     this.liveRoomFilter,
@@ -73,16 +71,13 @@ class SearchState extends Equatable {
   /// 是否为直播间搜索模式
   bool get isLiveSearchMode => liveRoomFilter != null;
 
-  /// 获取启用的音源列表
-  Set<SourceType> get enabledSources {
+  /// 获取当前 chips 对应的搜索音源列表
+  List<SourceType> get sourceTypesForSearch {
     final source = selectedSource;
     if (source == null) {
-      return availableSources;
+      return allDirectSources;
     }
-    if (!availableSources.contains(source)) {
-      return const {};
-    }
-    return {source};
+    return [source];
   }
 
   /// 获取所有在线结果（未排序）
@@ -168,7 +163,6 @@ class SearchState extends Equatable {
     bool? isLoading,
     String? error,
     SourceType? selectedSource,
-    Set<SourceType>? availableSources,
     Map<SourceType, int>? currentPages,
     SearchOrder? searchOrder,
     bool clearSelectedSource = false,
@@ -186,7 +180,6 @@ class SearchState extends Equatable {
       error: error,
       selectedSource:
           clearSelectedSource ? null : (selectedSource ?? this.selectedSource),
-      availableSources: availableSources ?? this.availableSources,
       currentPages: currentPages ?? this.currentPages,
       searchOrder: searchOrder ?? this.searchOrder,
       liveRoomFilter:
@@ -206,7 +199,6 @@ class SearchState extends Equatable {
         isLoading,
         error,
         selectedSource,
-        availableSources,
         currentPages,
         searchOrder,
         liveRoomFilter,
@@ -219,17 +211,13 @@ class SearchState extends Equatable {
 class SearchNotifier extends StateNotifier<SearchState> {
   final SearchService _service;
   final BilibiliSource _bilibiliSource;
-  final Future<Set<SourceType>> Function() _loadEnabledSources;
 
   int _searchRequestId = 0;
 
   SearchNotifier(
     this._service,
-    this._bilibiliSource, {
-    Future<Set<SourceType>> Function()? loadEnabledSources,
-  })  : _loadEnabledSources = loadEnabledSources ??
-            (() async => SearchState.defaultAvailableSources),
-        super(const SearchState());
+    this._bilibiliSource,
+  ) : super(const SearchState());
 
   Future<List<VideoPage>> loadVideoPagesForTrack(Track track) {
     return _service.loadVideoPagesForTrack(track);
@@ -260,17 +248,13 @@ class SearchNotifier extends StateNotifier<SearchState> {
     );
 
     try {
-      final availableSources = await _loadEnabledSources();
-      if (!mounted || requestId != _searchRequestId) return;
-
-      state = state.copyWith(availableSources: availableSources);
-      final enabledSources = state.enabledSources.toList();
+      final sourceTypes = state.sourceTypesForSearch;
 
       // 并行搜索本地和在线
       final localFuture = _service.searchLocal(query);
       final onlineFuture = _service.searchOnline(
         query,
-        sourceTypes: enabledSources,
+        sourceTypes: sourceTypes,
         order: state.searchOrder,
       );
 
@@ -284,7 +268,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
 
       // 初始化页码
       final pages = <SourceType, int>{};
-      for (final type in enabledSources) {
+      for (final type in sourceTypes) {
         pages[type] = 1;
       }
 
@@ -544,7 +528,6 @@ class SearchNotifier extends StateNotifier<SearchState> {
   void clear() {
     state = SearchState(
       selectedSource: state.selectedSource, // 保留音源筛选
-      availableSources: state.availableSources,
       searchOrder: state.searchOrder, // 保留排序设置
       liveRoomFilter: state.liveRoomFilter, // 保留直播间筛选
     );
@@ -736,14 +719,9 @@ final searchProvider =
     StateNotifierProvider<SearchNotifier, SearchState>((ref) {
   final service = ref.watch(searchServiceProvider);
   final bilibiliSource = ref.watch(bilibiliSourceProvider);
-  final settingsRepository = ref.watch(settingsRepositoryProvider);
   return SearchNotifier(
     service,
     bilibiliSource,
-    loadEnabledSources: () async {
-      final settings = await settingsRepository.get();
-      return settings.enabledSourceTypes;
-    },
   );
 });
 

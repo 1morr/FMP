@@ -4,7 +4,7 @@ import '../../services/lyrics/lyrics_window_style.dart';
 import 'color_palette_button.dart';
 import 'switch_expansion_tile.dart';
 
-class LyricsStyleDialogLabels {
+class LyricsStyleDialogStrings {
   final String styleSettings;
   final String textColor;
   final String secondaryTextColor;
@@ -20,7 +20,7 @@ class LyricsStyleDialogLabels {
   final String resetStyle;
   final String close;
 
-  const LyricsStyleDialogLabels({
+  const LyricsStyleDialogStrings({
     required this.styleSettings,
     required this.textColor,
     required this.secondaryTextColor,
@@ -39,15 +39,20 @@ class LyricsStyleDialogLabels {
 }
 
 class LyricsStyleDialog extends StatefulWidget {
+  static const dialogKey = ValueKey('lyrics-style-dialog');
+  static const inactiveOpacitySliderKey =
+      ValueKey('lyrics-style-inactive-opacity-slider');
+  static const resetButtonKey = ValueKey('lyrics-style-reset-button');
+
   final LyricsWindowStyle initialStyle;
-  final LyricsStyleDialogLabels labels;
+  final LyricsStyleDialogStrings strings;
   final ValueChanged<LyricsWindowStyle> onChanged;
   final VoidCallback onReset;
 
   const LyricsStyleDialog({
     super.key,
     required this.initialStyle,
-    required this.labels,
+    required this.strings,
     required this.onChanged,
     required this.onReset,
   });
@@ -96,7 +101,7 @@ class _LyricsStyleDialogState extends State<LyricsStyleDialog> {
         const SizedBox(width: 10),
         ColorPaletteButton(
           label: label,
-          closeLabel: widget.labels.close,
+          closeLabel: widget.strings.close,
           color: color,
           onChanged: onChanged,
         ),
@@ -105,6 +110,7 @@ class _LyricsStyleDialogState extends State<LyricsStyleDialog> {
   }
 
   Widget _sliderSetting({
+    Key? key,
     required String label,
     required double value,
     required double min,
@@ -138,6 +144,7 @@ class _LyricsStyleDialogState extends State<LyricsStyleDialog> {
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
           ),
           child: Slider(
+            key: key,
             value: value.clamp(min, max).toDouble(),
             min: min,
             max: max,
@@ -152,8 +159,9 @@ class _LyricsStyleDialogState extends State<LyricsStyleDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final labels = widget.labels;
+    final strings = widget.strings;
     return AlertDialog(
+      key: LyricsStyleDialog.dialogKey,
       insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
       titlePadding: const EdgeInsets.fromLTRB(16, 12, 12, 4),
       contentPadding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
@@ -164,8 +172,9 @@ class _LyricsStyleDialogState extends State<LyricsStyleDialog> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              labels.styleSettings,
+              strings.styleSettings,
               style: Theme.of(context).textTheme.titleMedium,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -182,7 +191,7 @@ class _LyricsStyleDialogState extends State<LyricsStyleDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _colorSetting(
-                  label: labels.textColor,
+                  label: strings.textColor,
                   color: _style.textColor,
                   onChanged: (color) => _update(
                     _style.copyWith(textColor: color),
@@ -190,7 +199,7 @@ class _LyricsStyleDialogState extends State<LyricsStyleDialog> {
                 ),
                 const SizedBox(height: 10),
                 _colorSetting(
-                  label: labels.secondaryTextColor,
+                  label: strings.secondaryTextColor,
                   color: _style.secondaryTextColor,
                   onChanged: (color) => _update(
                     _style.copyWith(secondaryTextColor: color),
@@ -198,7 +207,8 @@ class _LyricsStyleDialogState extends State<LyricsStyleDialog> {
                 ),
                 const SizedBox(height: 10),
                 _sliderSetting(
-                  label: labels.inactiveOpacity,
+                  key: LyricsStyleDialog.inactiveOpacitySliderKey,
+                  label: strings.inactiveOpacity,
                   value: _style.inactiveOpacity,
                   min: 0.15,
                   max: 1,
@@ -210,7 +220,7 @@ class _LyricsStyleDialogState extends State<LyricsStyleDialog> {
                 ),
                 const SizedBox(height: 10),
                 SwitchExpansionTile(
-                  title: labels.outline,
+                  title: strings.outline,
                   expanded: _outlineExpanded,
                   enabled: _style.outlineEnabled,
                   onExpanded: (value) =>
@@ -220,7 +230,7 @@ class _LyricsStyleDialogState extends State<LyricsStyleDialog> {
                   ),
                   children: [
                     _colorSetting(
-                      label: labels.outlineColor,
+                      label: strings.outlineColor,
                       color: _style.outlineColor,
                       onChanged: (color) => _update(
                         _style.copyWith(outlineColor: color),
@@ -228,7 +238,7 @@ class _LyricsStyleDialogState extends State<LyricsStyleDialog> {
                     ),
                     const SizedBox(height: 8),
                     _sliderSetting(
-                      label: labels.outlineWidth,
+                      label: strings.outlineWidth,
                       value: _style.outlineWidth,
                       min: 0.5,
                       max: 8,
@@ -241,7 +251,7 @@ class _LyricsStyleDialogState extends State<LyricsStyleDialog> {
                 ),
                 const SizedBox(height: 8),
                 SwitchExpansionTile(
-                  title: labels.shadow,
+                  title: strings.shadow,
                   expanded: _shadowExpanded,
                   enabled: _style.shadowEnabled,
                   onExpanded: (value) =>
@@ -251,7 +261,7 @@ class _LyricsStyleDialogState extends State<LyricsStyleDialog> {
                   ),
                   children: [
                     _colorSetting(
-                      label: labels.shadowColor,
+                      label: strings.shadowColor,
                       color: _style.shadowColor,
                       onChanged: (color) => _update(
                         _style.copyWith(shadowColor: color),
@@ -259,7 +269,7 @@ class _LyricsStyleDialogState extends State<LyricsStyleDialog> {
                     ),
                     const SizedBox(height: 8),
                     _sliderSetting(
-                      label: labels.shadowBlur,
+                      label: strings.shadowBlur,
                       value: _style.shadowBlurRadius,
                       min: 0,
                       max: 24,
@@ -269,7 +279,7 @@ class _LyricsStyleDialogState extends State<LyricsStyleDialog> {
                       ),
                     ),
                     _sliderSetting(
-                      label: labels.shadowOffsetX,
+                      label: strings.shadowOffsetX,
                       value: _style.shadowOffset.dx,
                       min: -12,
                       max: 12,
@@ -281,7 +291,7 @@ class _LyricsStyleDialogState extends State<LyricsStyleDialog> {
                       ),
                     ),
                     _sliderSetting(
-                      label: labels.shadowOffsetY,
+                      label: strings.shadowOffsetY,
                       value: _style.shadowOffset.dy,
                       min: -12,
                       max: 12,
@@ -301,6 +311,7 @@ class _LyricsStyleDialogState extends State<LyricsStyleDialog> {
       ),
       actions: [
         TextButton.icon(
+          key: LyricsStyleDialog.resetButtonKey,
           onPressed: () {
             setState(() {
               _style = LyricsWindowStyle.defaults;
@@ -310,11 +321,11 @@ class _LyricsStyleDialogState extends State<LyricsStyleDialog> {
             widget.onReset();
           },
           icon: const Icon(Icons.refresh),
-          label: Text(labels.resetStyle),
+          label: Text(strings.resetStyle),
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text(labels.close),
+          child: Text(strings.close),
         ),
       ],
     );

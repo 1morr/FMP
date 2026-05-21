@@ -20,8 +20,8 @@ class SourceManager {
   /// 所有可用音源
   List<BaseSource> get sources => List.unmodifiable(_sources);
 
-  /// 启用的音源类型列表
-  List<SourceType> get enabledSourceTypes =>
+  /// 已注册的音源类型列表
+  List<SourceType> get registeredSourceTypes =>
       _sources.map((s) => s.sourceType).toList();
 
   /// 根据类型获取音源
@@ -136,6 +136,7 @@ class SourceManager {
 
     return await source.search(query, page: page, pageSize: pageSize);
   }
+
   /// 释放所有音源资源（关闭 HTTP 客户端等）
   void dispose() {
     for (final source in _sources) {

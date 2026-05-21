@@ -92,6 +92,25 @@ class _LyricsWindowStrings {
     shadowOffsetY = map['shadowOffsetY'] as String? ?? shadowOffsetY;
     resetStyle = map['resetStyle'] as String? ?? resetStyle;
   }
+
+  LyricsStyleDialogStrings toStyleDialogStrings() {
+    return LyricsStyleDialogStrings(
+      styleSettings: styleSettings,
+      textColor: textColor,
+      secondaryTextColor: secondaryTextColor,
+      inactiveOpacity: inactiveOpacity,
+      outline: outline,
+      outlineColor: outlineColor,
+      outlineWidth: outlineWidth,
+      shadow: shadow,
+      shadowColor: shadowColor,
+      shadowBlur: shadowBlur,
+      shadowOffsetX: shadowOffsetX,
+      shadowOffsetY: shadowOffsetY,
+      resetStyle: resetStyle,
+      close: close,
+    );
+  }
 }
 
 class LyricsWindowApp extends StatefulWidget {
@@ -222,7 +241,12 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   Future<void> _initWindow() async {
     await windowManager.ensureInitialized();
     await windowManager.setSize(const Size(400, 500));
-    await windowManager.setMinimumSize(const Size(280, 300));
+    await windowManager.setMinimumSize(
+      const Size(
+        LyricsWindowLayout.minWindowWidth,
+        LyricsWindowLayout.minWindowHeight,
+      ),
+    );
     await windowManager.setAlwaysOnTop(true);
     await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
     await windowManager.center();
@@ -473,22 +497,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
       barrierColor: Colors.transparent,
       builder: (context) => LyricsStyleDialog(
         initialStyle: _lyricsStyle,
-        labels: LyricsStyleDialogLabels(
-          styleSettings: _strings.styleSettings,
-          textColor: _strings.textColor,
-          secondaryTextColor: _strings.secondaryTextColor,
-          inactiveOpacity: _strings.inactiveOpacity,
-          outline: _strings.outline,
-          outlineColor: _strings.outlineColor,
-          outlineWidth: _strings.outlineWidth,
-          shadow: _strings.shadow,
-          shadowColor: _strings.shadowColor,
-          shadowBlur: _strings.shadowBlur,
-          shadowOffsetX: _strings.shadowOffsetX,
-          shadowOffsetY: _strings.shadowOffsetY,
-          resetStyle: _strings.resetStyle,
-          close: _strings.close,
-        ),
+        strings: _strings.toStyleDialogStrings(),
         onChanged: _updateLyricsWindowStyle,
         onReset: _resetLyricsWindowStyle,
       ),

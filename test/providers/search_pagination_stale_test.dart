@@ -205,38 +205,40 @@ void main() {
       );
     });
 
-    test('search only queries sources enabled by settings for all-source mode',
-        () async {
-      notifier = SearchNotifier(
-        service,
-        bilibili,
-        loadEnabledSources: () async => {SourceType.youtube},
-      );
-
-      await notifier.search('enabled query');
+    test('all-source chip searches all direct sources', () async {
+      await notifier.search('all query');
 
       expect(
         service.onlineCalls.single.sourceTypes,
-        [SourceType.youtube],
+        [
+          SourceType.bilibili,
+          SourceType.youtube,
+          SourceType.netease,
+        ],
       );
-      expect(notifier.state.currentPages.keys, [SourceType.youtube]);
-      expect(notifier.state.onlineResults.keys, [SourceType.youtube]);
+      expect(notifier.state.currentPages.keys, [
+        SourceType.bilibili,
+        SourceType.youtube,
+        SourceType.netease,
+      ]);
+      expect(notifier.state.onlineResults.keys, [
+        SourceType.bilibili,
+        SourceType.youtube,
+        SourceType.netease,
+      ]);
     });
 
-    test('search skips online lookup when the selected source is disabled',
-        () async {
-      notifier = SearchNotifier(
-        service,
-        bilibili,
-        loadEnabledSources: () async => {SourceType.youtube},
-      );
+    test('single-source chip searches only the selected source', () async {
       notifier.setSource(SourceType.netease, autoSearch: false);
 
-      await notifier.search('disabled query');
+      await notifier.search('chip query');
 
-      expect(service.onlineCalls.single.sourceTypes, isEmpty);
-      expect(notifier.state.currentPages, isEmpty);
-      expect(notifier.state.onlineResults, isEmpty);
+      expect(
+        service.onlineCalls.single.sourceTypes,
+        [SourceType.netease],
+      );
+      expect(notifier.state.currentPages.keys, [SourceType.netease]);
+      expect(notifier.state.onlineResults.keys, [SourceType.netease]);
     });
   });
 }

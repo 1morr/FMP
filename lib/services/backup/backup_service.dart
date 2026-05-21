@@ -202,7 +202,6 @@ class BackupService {
         textColor: settings.textColor,
         cardColor: settings.cardColor,
         maxCacheSizeMB: settings.maxCacheSizeMB,
-        enabledSources: settings.enabledSources,
         autoScrollToCurrentTrack: settings.autoScrollToCurrentTrack,
         rememberPlaybackPosition: settings.rememberPlaybackPosition,
         restartRewindSeconds: settings.restartRewindSeconds,
@@ -614,7 +613,6 @@ class BackupService {
           ..textColor = settingsBackup.textColor
           ..cardColor = settingsBackup.cardColor
           ..maxCacheSizeMB = settingsBackup.maxCacheSizeMB
-          ..enabledSources = settingsBackup.enabledSources
           ..autoScrollToCurrentTrack = settingsBackup.autoScrollToCurrentTrack
           ..rememberPlaybackPosition = settingsBackup.rememberPlaybackPosition
           ..restartRewindSeconds = settingsBackup.restartRewindSeconds
