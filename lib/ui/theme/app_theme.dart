@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/ui_constants.dart';
 import '../../i18n/strings.g.dart';
+import 'theme_preset_colors.dart';
 
 /// 字体选项
 class FontOption {
@@ -17,7 +18,53 @@ class AppTheme {
   AppTheme._();
 
   /// 默认主色
-  static const Color defaultPrimaryColor = Color(0xFF6750A4);
+  static const Color defaultPrimaryColor = defaultThemePrimaryColor;
+
+  static ColorScheme _colorScheme({
+    required Brightness brightness,
+    Color? primaryColor,
+  }) {
+    final seedColor = primaryColor ?? defaultPrimaryColor;
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: seedColor,
+      brightness: brightness,
+    );
+
+    if (primaryColor == null) {
+      return colorScheme;
+    }
+
+    final primary = primaryColor.withValues(alpha: 1);
+    final primaryContainer = _primaryContainerColor(
+      primary: primary,
+      surface: colorScheme.surface,
+      brightness: brightness,
+    );
+
+    return colorScheme.copyWith(
+      primary: primary,
+      onPrimary: _foregroundColorFor(primary),
+      primaryContainer: primaryContainer,
+      onPrimaryContainer: _foregroundColorFor(primaryContainer),
+      surfaceTint: primary,
+    );
+  }
+
+  static Color _primaryContainerColor({
+    required Color primary,
+    required Color surface,
+    required Brightness brightness,
+  }) {
+    final alpha = brightness == Brightness.light ? 0.18 : 0.32;
+    return Color.alphaBlend(primary.withValues(alpha: alpha), surface);
+  }
+
+  static Color _foregroundColorFor(Color background) {
+    final luminance = background.computeLuminance();
+    final blackContrast = (luminance + 0.05) / 0.05;
+    final whiteContrast = 1.05 / (luminance + 0.05);
+    return blackContrast >= whiteContrast ? Colors.black : Colors.white;
+  }
 
   /// 可选字体列表（按平台）
   static List<FontOption> get availableFonts {
@@ -59,10 +106,9 @@ class AppTheme {
 
   /// 创建浅色主题
   static ThemeData lightTheme({Color? primaryColor, String? fontFamily}) {
-    final seedColor = primaryColor ?? defaultPrimaryColor;
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: seedColor,
+    final colorScheme = _colorScheme(
       brightness: Brightness.light,
+      primaryColor: primaryColor,
     );
 
     final fallback = _buildFontFallback(fontFamily);
@@ -71,7 +117,8 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: colorScheme,
       brightness: Brightness.light,
-      fontFamily: (fontFamily != null && fontFamily.isNotEmpty) ? fontFamily : null,
+      fontFamily:
+          (fontFamily != null && fontFamily.isNotEmpty) ? fontFamily : null,
 
       // AppBar 主题
       appBarTheme: AppBarTheme(
@@ -154,10 +201,9 @@ class AppTheme {
 
   /// 创建深色主题
   static ThemeData darkTheme({Color? primaryColor, String? fontFamily}) {
-    final seedColor = primaryColor ?? defaultPrimaryColor;
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: seedColor,
+    final colorScheme = _colorScheme(
       brightness: Brightness.dark,
+      primaryColor: primaryColor,
     );
 
     final fallback = _buildFontFallback(fontFamily);
@@ -166,7 +212,8 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: colorScheme,
       brightness: Brightness.dark,
-      fontFamily: (fontFamily != null && fontFamily.isNotEmpty) ? fontFamily : null,
+      fontFamily:
+          (fontFamily != null && fontFamily.isNotEmpty) ? fontFamily : null,
 
       // AppBar 主题
       appBarTheme: AppBarTheme(

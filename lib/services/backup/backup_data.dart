@@ -469,6 +469,17 @@ class SettingsBackup {
   final String lyricsAiEndpoint;
   final String lyricsAiModel;
   final int lyricsAiTimeoutSeconds;
+  final int? lyricsWindowTextColor;
+  final int? lyricsWindowSecondaryTextColor;
+  final double? lyricsWindowInactiveTextOpacity;
+  final bool? lyricsWindowOutlineEnabled;
+  final int? lyricsWindowOutlineColor;
+  final double? lyricsWindowOutlineWidth;
+  final bool? lyricsWindowShadowEnabled;
+  final int? lyricsWindowShadowColor;
+  final double? lyricsWindowShadowBlurRadius;
+  final double? lyricsWindowShadowOffsetX;
+  final double? lyricsWindowShadowOffsetY;
   final bool useBilibiliAuthForPlay;
   final bool useYoutubeAuthForPlay;
   final bool useNeteaseAuthForPlay;
@@ -513,6 +524,17 @@ class SettingsBackup {
     this.lyricsAiEndpoint = '',
     this.lyricsAiModel = '',
     int? lyricsAiTimeoutSeconds,
+    this.lyricsWindowTextColor,
+    this.lyricsWindowSecondaryTextColor,
+    this.lyricsWindowInactiveTextOpacity,
+    this.lyricsWindowOutlineEnabled,
+    this.lyricsWindowOutlineColor,
+    this.lyricsWindowOutlineWidth,
+    this.lyricsWindowShadowEnabled,
+    this.lyricsWindowShadowColor,
+    this.lyricsWindowShadowBlurRadius,
+    this.lyricsWindowShadowOffsetX,
+    this.lyricsWindowShadowOffsetY,
     this.useBilibiliAuthForPlay = false,
     this.useYoutubeAuthForPlay = false,
     this.useNeteaseAuthForPlay = true,
@@ -580,6 +602,23 @@ class SettingsBackup {
       lyricsAiModel: json['lyricsAiModel'] as String? ?? '',
       lyricsAiTimeoutSeconds: json['lyricsAiTimeoutSeconds'] as int? ??
           AppConstants.lyricsAiDefaultTimeoutSeconds,
+      lyricsWindowTextColor: json['lyricsWindowTextColor'] as int?,
+      lyricsWindowSecondaryTextColor:
+          json['lyricsWindowSecondaryTextColor'] as int?,
+      lyricsWindowInactiveTextOpacity:
+          (json['lyricsWindowInactiveTextOpacity'] as num?)?.toDouble(),
+      lyricsWindowOutlineEnabled: json['lyricsWindowOutlineEnabled'] as bool?,
+      lyricsWindowOutlineColor: json['lyricsWindowOutlineColor'] as int?,
+      lyricsWindowOutlineWidth:
+          (json['lyricsWindowOutlineWidth'] as num?)?.toDouble(),
+      lyricsWindowShadowEnabled: json['lyricsWindowShadowEnabled'] as bool?,
+      lyricsWindowShadowColor: json['lyricsWindowShadowColor'] as int?,
+      lyricsWindowShadowBlurRadius:
+          (json['lyricsWindowShadowBlurRadius'] as num?)?.toDouble(),
+      lyricsWindowShadowOffsetX:
+          (json['lyricsWindowShadowOffsetX'] as num?)?.toDouble(),
+      lyricsWindowShadowOffsetY:
+          (json['lyricsWindowShadowOffsetY'] as num?)?.toDouble(),
       useBilibiliAuthForPlay: json['useBilibiliAuthForPlay'] as bool? ?? false,
       useYoutubeAuthForPlay: json['useYoutubeAuthForPlay'] as bool? ?? false,
       useNeteaseAuthForPlay: json['useNeteaseAuthForPlay'] as bool? ?? true,
@@ -629,6 +668,28 @@ class SettingsBackup {
       'lyricsAiEndpoint': lyricsAiEndpoint,
       'lyricsAiModel': lyricsAiModel,
       'lyricsAiTimeoutSeconds': lyricsAiTimeoutSeconds,
+      if (lyricsWindowTextColor != null)
+        'lyricsWindowTextColor': lyricsWindowTextColor,
+      if (lyricsWindowSecondaryTextColor != null)
+        'lyricsWindowSecondaryTextColor': lyricsWindowSecondaryTextColor,
+      if (lyricsWindowInactiveTextOpacity != null)
+        'lyricsWindowInactiveTextOpacity': lyricsWindowInactiveTextOpacity,
+      if (lyricsWindowOutlineEnabled != null)
+        'lyricsWindowOutlineEnabled': lyricsWindowOutlineEnabled,
+      if (lyricsWindowOutlineColor != null)
+        'lyricsWindowOutlineColor': lyricsWindowOutlineColor,
+      if (lyricsWindowOutlineWidth != null)
+        'lyricsWindowOutlineWidth': lyricsWindowOutlineWidth,
+      if (lyricsWindowShadowEnabled != null)
+        'lyricsWindowShadowEnabled': lyricsWindowShadowEnabled,
+      if (lyricsWindowShadowColor != null)
+        'lyricsWindowShadowColor': lyricsWindowShadowColor,
+      if (lyricsWindowShadowBlurRadius != null)
+        'lyricsWindowShadowBlurRadius': lyricsWindowShadowBlurRadius,
+      if (lyricsWindowShadowOffsetX != null)
+        'lyricsWindowShadowOffsetX': lyricsWindowShadowOffsetX,
+      if (lyricsWindowShadowOffsetY != null)
+        'lyricsWindowShadowOffsetY': lyricsWindowShadowOffsetY,
       'useBilibiliAuthForPlay': useBilibiliAuthForPlay,
       'useYoutubeAuthForPlay': useYoutubeAuthForPlay,
       'useNeteaseAuthForPlay': useNeteaseAuthForPlay,

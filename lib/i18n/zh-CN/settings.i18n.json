@@ -25,7 +25,17 @@
   },
   "themeColor": {
     "title": "主题色",
-    "selectTitle": "选择主题色"
+    "selectTitle": "选择主题色",
+    "customColor": "自定义颜色",
+    "colors": {
+      "defaultPurple": "默认紫",
+      "blue": "海洋蓝",
+      "green": "森林绿",
+      "red": "宝石红",
+      "pink": "玫瑰粉",
+      "orange": "琥珀橙",
+      "teal": "青绿"
+    }
   },
   "font": {
     "title": "字体",

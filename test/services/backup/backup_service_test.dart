@@ -77,6 +77,17 @@ void main() {
       expect(settingsBackup.lyricsAiEndpoint, isEmpty);
       expect(settingsBackup.lyricsAiModel, isEmpty);
       expect(settingsBackup.lyricsAiTimeoutSeconds, 20);
+      expect(settingsBackup.lyricsWindowTextColor, isNull);
+      expect(settingsBackup.lyricsWindowSecondaryTextColor, isNull);
+      expect(settingsBackup.lyricsWindowInactiveTextOpacity, isNull);
+      expect(settingsBackup.lyricsWindowOutlineEnabled, isNull);
+      expect(settingsBackup.lyricsWindowOutlineColor, isNull);
+      expect(settingsBackup.lyricsWindowOutlineWidth, isNull);
+      expect(settingsBackup.lyricsWindowShadowEnabled, isNull);
+      expect(settingsBackup.lyricsWindowShadowColor, isNull);
+      expect(settingsBackup.lyricsWindowShadowBlurRadius, isNull);
+      expect(settingsBackup.lyricsWindowShadowOffsetX, isNull);
+      expect(settingsBackup.lyricsWindowShadowOffsetY, isNull);
       expect(settingsBackup.disabledLyricsSources, 'lrclib');
       expect(settingsBackup.neteaseStreamPriority, 'audioOnly');
       expect(settingsBackup.useBilibiliAuthForPlay, isFalse);
@@ -161,6 +172,17 @@ void main() {
           lyricsAiEndpoint: 'https://example.test/v1',
           lyricsAiModel: 'test-model',
           lyricsAiTimeoutSeconds: 12,
+          lyricsWindowTextColor: 0xFF88CCFF,
+          lyricsWindowSecondaryTextColor: 0xCCFFE680,
+          lyricsWindowInactiveTextOpacity: 0.42,
+          lyricsWindowOutlineEnabled: false,
+          lyricsWindowOutlineColor: 0xFF102030,
+          lyricsWindowOutlineWidth: 2.25,
+          lyricsWindowShadowEnabled: true,
+          lyricsWindowShadowColor: 0xAA000000,
+          lyricsWindowShadowBlurRadius: 8,
+          lyricsWindowShadowOffsetX: 1,
+          lyricsWindowShadowOffsetY: 2,
           disabledLyricsSources: 'qqmusic',
           useBilibiliAuthForPlay: true,
           useYoutubeAuthForPlay: true,
@@ -204,6 +226,17 @@ void main() {
       expect(restoredSettings.lyricsAiEndpoint, 'https://example.test/v1');
       expect(restoredSettings.lyricsAiModel, 'test-model');
       expect(restoredSettings.lyricsAiTimeoutSeconds, 12);
+      expect(restoredSettings.lyricsWindowTextColor, 0xFF88CCFF);
+      expect(restoredSettings.lyricsWindowSecondaryTextColor, 0xCCFFE680);
+      expect(restoredSettings.lyricsWindowInactiveTextOpacity, 0.42);
+      expect(restoredSettings.lyricsWindowOutlineEnabled, isFalse);
+      expect(restoredSettings.lyricsWindowOutlineColor, 0xFF102030);
+      expect(restoredSettings.lyricsWindowOutlineWidth, 2.25);
+      expect(restoredSettings.lyricsWindowShadowEnabled, isTrue);
+      expect(restoredSettings.lyricsWindowShadowColor, 0xAA000000);
+      expect(restoredSettings.lyricsWindowShadowBlurRadius, 8);
+      expect(restoredSettings.lyricsWindowShadowOffsetX, 1);
+      expect(restoredSettings.lyricsWindowShadowOffsetY, 2);
       expect(restoredSettings.disabledLyricsSources, 'qqmusic');
       expect(restoredSettings.useBilibiliAuthForPlay, isTrue);
       expect(restoredSettings.useYoutubeAuthForPlay, isTrue);
@@ -355,7 +388,18 @@ void main() {
         ..allowPlainLyricsAutoMatch = true
         ..lyricsAiEndpoint = 'https://example.test/v1'
         ..lyricsAiModel = 'test-model'
-        ..lyricsAiTimeoutSeconds = 15;
+        ..lyricsAiTimeoutSeconds = 15
+        ..lyricsWindowTextColor = 0xFF88CCFF
+        ..lyricsWindowSecondaryTextColor = 0xCCFFE680
+        ..lyricsWindowInactiveTextOpacity = 0.42
+        ..lyricsWindowOutlineEnabled = false
+        ..lyricsWindowOutlineColor = 0xFF102030
+        ..lyricsWindowOutlineWidth = 2.25
+        ..lyricsWindowShadowEnabled = true
+        ..lyricsWindowShadowColor = 0xAA000000
+        ..lyricsWindowShadowBlurRadius = 8
+        ..lyricsWindowShadowOffsetX = 1
+        ..lyricsWindowShadowOffsetY = 2;
       await isar.writeTxn(() async {
         await isar.settings.put(settings);
       });
@@ -371,6 +415,17 @@ void main() {
       expect(settingsJson['lyricsAiEndpoint'], 'https://example.test/v1');
       expect(settingsJson['lyricsAiModel'], 'test-model');
       expect(settingsJson['lyricsAiTimeoutSeconds'], 15);
+      expect(settingsJson['lyricsWindowTextColor'], 0xFF88CCFF);
+      expect(settingsJson['lyricsWindowSecondaryTextColor'], 0xCCFFE680);
+      expect(settingsJson['lyricsWindowInactiveTextOpacity'], 0.42);
+      expect(settingsJson['lyricsWindowOutlineEnabled'], isFalse);
+      expect(settingsJson['lyricsWindowOutlineColor'], 0xFF102030);
+      expect(settingsJson['lyricsWindowOutlineWidth'], 2.25);
+      expect(settingsJson['lyricsWindowShadowEnabled'], isTrue);
+      expect(settingsJson['lyricsWindowShadowColor'], 0xAA000000);
+      expect(settingsJson['lyricsWindowShadowBlurRadius'], 8);
+      expect(settingsJson['lyricsWindowShadowOffsetX'], 1);
+      expect(settingsJson['lyricsWindowShadowOffsetY'], 2);
       expect(settingsJson.containsKey('lyricsAiApiKey'), isFalse);
       expect(jsonEncode(json).contains('secret'), isFalse);
     });

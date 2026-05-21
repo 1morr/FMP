@@ -124,15 +124,3 @@ final primaryColorProvider = Provider<Color?>((ref) {
 final fontFamilyProvider = Provider<String?>((ref) {
   return ref.watch(themeProvider).fontFamily;
 });
-
-/// 预设颜色列表
-const List<Color> presetColors = [
-  Color(0xFF6750A4), // 默认紫色 (Material 3)
-  Color(0xFF0061A4), // 蓝色
-  Color(0xFF006E1C), // 绿色
-  Color(0xFFBA1A1A), // 红色
-  Color(0xFF984061), // 粉色
-  Color(0xFF7C5800), // 橙色
-  Color(0xFF006A6A), // 青色
-  Color(0xFF4758A9), // 靛蓝色
-];

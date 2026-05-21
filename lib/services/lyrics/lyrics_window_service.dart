@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../../i18n/strings.g.dart';
 import '../lyrics/lrc_parser.dart';
+import 'lyrics_window_style.dart';
 
 /// 桌面歌词弹出窗口管理服务
 ///
@@ -61,6 +62,12 @@ class LyricsWindowService {
   /// 回调：子窗口请求切换歌词显示模式
   /// 参数：(modeIndex) → 0=original, 1=preferTranslated, 2=preferRomaji
   void Function(int modeIndex)? onChangeLyricsDisplayMode;
+
+  /// 回调：子窗口请求更新歌词弹窗样式
+  void Function(LyricsWindowStyle style)? onChangeLyricsWindowStyle;
+
+  /// 回调：子窗口请求重置歌词弹窗样式
+  VoidCallback? onResetLyricsWindowStyle;
 
   /// 回调：子窗口被用户关闭时通知（用于刷新 UI 图标状态）
   VoidCallback? onWindowClosed;
@@ -232,6 +239,7 @@ class LyricsWindowService {
     required ThemeMode themeMode,
     required Color? primaryColor,
     required String? fontFamily,
+    required LyricsWindowStyle lyricsWindowStyle,
   }) async {
     if (_controller == null || !_channelReady || _isHidden) return;
 
@@ -255,6 +263,19 @@ class LyricsWindowService {
       'normalMode': t.lyrics.windowNormalMode,
       'singleLine': t.lyrics.windowSingleLine,
       'fullLyrics': t.lyrics.windowFullLyrics,
+      'styleSettings': t.lyrics.windowStyleSettings,
+      'textColor': t.lyrics.windowTextColor,
+      'secondaryTextColor': t.lyrics.windowSecondaryTextColor,
+      'inactiveOpacity': t.lyrics.windowInactiveOpacity,
+      'outline': t.lyrics.windowOutline,
+      'outlineColor': t.lyrics.windowOutlineColor,
+      'outlineWidth': t.lyrics.windowOutlineWidth,
+      'shadow': t.lyrics.windowShadow,
+      'shadowColor': t.lyrics.windowShadowColor,
+      'shadowBlur': t.lyrics.windowShadowBlur,
+      'shadowOffsetX': t.lyrics.windowShadowOffsetX,
+      'shadowOffsetY': t.lyrics.windowShadowOffsetY,
+      'resetStyle': t.lyrics.windowResetStyle,
     };
 
     try {
@@ -264,6 +285,7 @@ class LyricsWindowService {
           'themeMode': themeMode.index,
           'primaryColor': primaryColor?.toARGB32(),
           'fontFamily': fontFamily,
+          'lyricsWindowStyle': lyricsWindowStyle.toJson(),
           'strings': strings,
         }),
       );
@@ -370,6 +392,14 @@ class LyricsWindowService {
                 jsonDecode(call.arguments as String) as Map<String, dynamic>;
             final modeIndex = data['modeIndex'] as int;
             onChangeLyricsDisplayMode?.call(modeIndex);
+            return 'ok';
+          case 'changeLyricsWindowStyle':
+            final data =
+                jsonDecode(call.arguments as String) as Map<String, dynamic>;
+            onChangeLyricsWindowStyle?.call(LyricsWindowStyle.fromJson(data));
+            return 'ok';
+          case 'resetLyricsWindowStyle':
+            onResetLyricsWindowStyle?.call();
             return 'ok';
           case 'requestHide':
             // 子窗口请求隐藏自己（用户点击关闭按钮）
