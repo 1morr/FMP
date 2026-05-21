@@ -29,12 +29,14 @@
     "customColor": "自定义颜色",
     "colors": {
       "defaultPurple": "默认紫",
+      "indigo": "靛蓝",
       "blue": "海洋蓝",
+      "teal": "青绿",
       "green": "森林绿",
+      "yellow": "阳光黄",
       "red": "宝石红",
       "pink": "玫瑰粉",
-      "orange": "琥珀橙",
-      "teal": "青绿"
+      "orange": "琥珀橙"
     }
   },
   "font": {

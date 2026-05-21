@@ -312,12 +312,14 @@ class _ThemeColorListTile extends ConsumerWidget {
   String _themePresetColorName(ThemePresetColor preset) {
     return switch (preset.id) {
       'defaultPurple' => t.settings.themeColor.colors.defaultPurple,
+      'indigo' => t.settings.themeColor.colors.indigo,
       'blue' => t.settings.themeColor.colors.blue,
+      'teal' => t.settings.themeColor.colors.teal,
       'green' => t.settings.themeColor.colors.green,
+      'yellow' => t.settings.themeColor.colors.yellow,
       'red' => t.settings.themeColor.colors.red,
       'pink' => t.settings.themeColor.colors.pink,
       'orange' => t.settings.themeColor.colors.orange,
-      'teal' => t.settings.themeColor.colors.teal,
       _ => preset.id,
     };
   }
@@ -339,7 +341,7 @@ class _ThemeColorListTile extends ConsumerWidget {
             content: SizedBox(
               width: 240,
               child: Wrap(
-                spacing: 12,
+                spacing: 10,
                 runSpacing: 12,
                 children: [
                   ...themePresetColors.map((preset) {

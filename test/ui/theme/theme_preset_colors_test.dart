@@ -17,15 +17,37 @@ void main() {
     expect(preset?.storesAsDefault, isFalse);
   });
 
+  test('theme color picker exposes two full rows of preset choices', () {
+    final ids = themePresetColors.map((preset) => preset.id).toList();
+
+    expect(ids, [
+      'defaultPurple',
+      'indigo',
+      'blue',
+      'teal',
+      'green',
+      'yellow',
+      'orange',
+      'red',
+      'pink',
+    ]);
+  });
+
   test('palette-picked colors that are not presets stay custom', () {
     final preset = themePresetColorFor(const Color(0xFF123456));
 
     expect(preset, isNull);
   });
 
-  test('preset colors plus custom entry fill complete picker rows', () {
+  test('preset colors plus custom entry fill complete five-column picker rows',
+      () {
     const customEntryCount = 1;
+    const pickerColumnCount = 5;
 
-    expect((themePresetColors.length + customEntryCount) % 4, 0);
+    expect(themePresetColors.length, 9);
+    expect(
+      (themePresetColors.length + customEntryCount) % pickerColumnCount,
+      0,
+    );
   });
 }
