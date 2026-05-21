@@ -231,6 +231,18 @@ class BackupService {
         lyricsAiEndpoint: settings.lyricsAiEndpoint,
         lyricsAiModel: settings.lyricsAiModel,
         lyricsAiTimeoutSeconds: settings.lyricsAiTimeoutSeconds,
+        lyricsWindowTextColor: settings.lyricsWindowTextColor,
+        lyricsWindowSecondaryTextColor: settings.lyricsWindowSecondaryTextColor,
+        lyricsWindowInactiveTextOpacity:
+            settings.lyricsWindowInactiveTextOpacity,
+        lyricsWindowOutlineEnabled: settings.lyricsWindowOutlineEnabled,
+        lyricsWindowOutlineColor: settings.lyricsWindowOutlineColor,
+        lyricsWindowOutlineWidth: settings.lyricsWindowOutlineWidth,
+        lyricsWindowShadowEnabled: settings.lyricsWindowShadowEnabled,
+        lyricsWindowShadowColor: settings.lyricsWindowShadowColor,
+        lyricsWindowShadowBlurRadius: settings.lyricsWindowShadowBlurRadius,
+        lyricsWindowShadowOffsetX: settings.lyricsWindowShadowOffsetX,
+        lyricsWindowShadowOffsetY: settings.lyricsWindowShadowOffsetY,
         useBilibiliAuthForPlay: settings.useBilibiliAuthForPlay,
         useYoutubeAuthForPlay: settings.useYoutubeAuthForPlay,
         useNeteaseAuthForPlay: settings.useNeteaseAuthForPlay,
@@ -653,6 +665,21 @@ class BackupService {
           ..lyricsAiEndpoint = settingsBackup.lyricsAiEndpoint
           ..lyricsAiModel = settingsBackup.lyricsAiModel
           ..lyricsAiTimeoutSeconds = settingsBackup.lyricsAiTimeoutSeconds
+          ..lyricsWindowTextColor = settingsBackup.lyricsWindowTextColor
+          ..lyricsWindowSecondaryTextColor =
+              settingsBackup.lyricsWindowSecondaryTextColor
+          ..lyricsWindowInactiveTextOpacity =
+              settingsBackup.lyricsWindowInactiveTextOpacity
+          ..lyricsWindowOutlineEnabled =
+              settingsBackup.lyricsWindowOutlineEnabled
+          ..lyricsWindowOutlineColor = settingsBackup.lyricsWindowOutlineColor
+          ..lyricsWindowOutlineWidth = settingsBackup.lyricsWindowOutlineWidth
+          ..lyricsWindowShadowEnabled = settingsBackup.lyricsWindowShadowEnabled
+          ..lyricsWindowShadowColor = settingsBackup.lyricsWindowShadowColor
+          ..lyricsWindowShadowBlurRadius =
+              settingsBackup.lyricsWindowShadowBlurRadius
+          ..lyricsWindowShadowOffsetX = settingsBackup.lyricsWindowShadowOffsetX
+          ..lyricsWindowShadowOffsetY = settingsBackup.lyricsWindowShadowOffsetY
           // 设备相关设置 - 保留当前值
           ..customDownloadDir = currentSettings?.customDownloadDir
           ..preferredAudioDeviceId = currentSettings?.preferredAudioDeviceId
