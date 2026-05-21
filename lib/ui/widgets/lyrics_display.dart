@@ -9,6 +9,7 @@ import '../../i18n/strings.g.dart';
 import '../../providers/lyrics_provider.dart';
 import '../../services/audio/audio_provider.dart';
 import '../../services/lyrics/lrc_parser.dart';
+import '../../services/lyrics/lyrics_window_style.dart';
 
 /// 歌词滚动显示组件
 ///
@@ -97,8 +98,11 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
       final painter = TextPainter(
         text: TextSpan(
           text: line.text,
-          style: const TextStyle(
-              fontSize: _refFontSize, fontWeight: FontWeight.bold),
+          style: LyricsTextStyles.fromTheme(
+            context,
+            fontSize: _refFontSize,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         maxLines: 1,
         textDirection: textDirection,
@@ -513,13 +517,15 @@ class _LyricsLineWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     // 当前行和非当前行使用相同字号，仅通过颜色和粗细区分
     final mainStyle = isCurrent
-        ? TextStyle(
+        ? LyricsTextStyles.fromTheme(
+            context,
             color: colorScheme.primary,
             fontSize: mainFontSize,
             fontWeight: FontWeight.bold,
             height: 1.4,
           )
-        : TextStyle(
+        : LyricsTextStyles.fromTheme(
+            context,
             color: colorScheme.onSurface.withValues(alpha: 0.4),
             fontSize: mainFontSize,
             fontWeight: FontWeight.normal,
@@ -549,7 +555,8 @@ class _LyricsLineWidget extends StatelessWidget {
               padding: const EdgeInsets.only(top: 4),
               child: AnimatedDefaultTextStyle(
                 duration: AnimationDurations.medium,
-                style: TextStyle(
+                style: LyricsTextStyles.fromTheme(
+                  context,
                   color: isCurrent
                       ? colorScheme.primary.withValues(alpha: 0.7)
                       : colorScheme.onSurface.withValues(alpha: 0.25),

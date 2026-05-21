@@ -25,7 +25,17 @@
   },
   "themeColor": {
     "title": "Theme Color",
-    "selectTitle": "Select Theme Color"
+    "selectTitle": "Select Theme Color",
+    "customColor": "Custom color",
+    "colors": {
+      "defaultPurple": "Default purple",
+      "blue": "Ocean blue",
+      "green": "Forest green",
+      "red": "Ruby red",
+      "pink": "Rose pink",
+      "orange": "Amber orange",
+      "teal": "Teal"
+    }
   },
   "font": {
     "title": "Font",

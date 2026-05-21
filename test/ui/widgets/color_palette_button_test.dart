@@ -1,0 +1,168 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/ui/widgets/color_palette_button.dart';
+
+void main() {
+  testWidgets('shows only the current color button before opening the palette',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ColorPaletteButton(
+            label: 'Text color',
+            color: const Color(0xFFFFD166),
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(OutlinedButton), findsOneWidget);
+    expect(find.text('#FFFFD166'), findsOneWidget);
+    expect(find.byKey(ColorPaletteButton.paletteKey), findsNothing);
+    expect(find.byType(TextFormField), findsNothing);
+  });
+
+  testWidgets('opens a palette from the current color button', (tester) async {
+    final changes = <Color>[];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ColorPaletteButton(
+            label: 'Text color',
+            color: const Color(0xFFFFD166),
+            onChanged: changes.add,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(OutlinedButton));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(ColorPaletteButton.paletteKey), findsOneWidget);
+
+    await tester.drag(
+      find.byKey(ColorPaletteButton.saturationValueKey),
+      const Offset(-24, 18),
+    );
+    await tester.pump();
+
+    expect(changes, isNotEmpty);
+  });
+
+  testWidgets('bottom slider changes color brightness instead of opacity',
+      (tester) async {
+    final changes = <Color>[];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ColorPaletteButton(
+            label: 'Text color',
+            color: const Color(0xFFFF0000),
+            onChanged: changes.add,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(OutlinedButton));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(Slider), const Offset(-96, 0));
+    await tester.pump();
+
+    final changedValue = changes.last.toARGB32();
+    final changedAlpha = (changedValue >> 24) & 0xff;
+    final changedRed = (changedValue >> 16) & 0xff;
+
+    expect(changedAlpha, 0xff);
+    expect(changedRed, lessThan(0xff));
+  });
+
+  testWidgets('palette fits within a narrow lyrics window', (tester) async {
+    tester.view.physicalSize = const Size(280, 500);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ColorPaletteButton(
+            label: 'Text color',
+            color: const Color(0xFFFFD166),
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(OutlinedButton));
+    await tester.pumpAndSettle();
+
+    final paletteRect = tester.getRect(
+      find.byKey(ColorPaletteButton.paletteKey),
+    );
+    final contentSize = tester.getSize(
+      find.byKey(ColorPaletteButton.paletteContentKey),
+    );
+
+    expect(paletteRect.left, greaterThanOrEqualTo(0));
+    expect(paletteRect.right, lessThanOrEqualTo(280));
+    expect(contentSize.width, lessThanOrEqualTo(224));
+  });
+
+  testWidgets('palette shell keeps title content and actions aligned',
+      (tester) async {
+    tester.view.physicalSize = const Size(360, 500);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ColorPaletteButton(
+            label: 'Custom color',
+            color: const Color(0xFF6E5A83),
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(OutlinedButton));
+    await tester.pumpAndSettle();
+
+    final paletteWidth =
+        tester.getSize(find.byKey(ColorPaletteButton.paletteKey)).width;
+    final contentWidth =
+        tester.getSize(find.byKey(ColorPaletteButton.paletteContentKey)).width;
+
+    expect(paletteWidth - contentWidth, 32);
+  });
+
+  testWidgets('palette uses caller provided close label', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ColorPaletteButton(
+            label: 'Custom color',
+            closeLabel: '關閉',
+            color: const Color(0xFF6E5A83),
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(OutlinedButton));
+    await tester.pumpAndSettle();
+
+    expect(find.text('關閉'), findsOneWidget);
+    expect(find.text('Close'), findsNothing);
+  });
+}
