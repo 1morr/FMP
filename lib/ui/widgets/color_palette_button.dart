@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class ColorPaletteButton extends StatelessWidget {
   static const paletteKey = ValueKey('color-palette-dialog');
   static const paletteContentKey = ValueKey('color-palette-dialog-content');
   static const saturationValueKey = ValueKey('color-palette-sv');
+  static const hexInputKey = ValueKey('color-palette-hex-input');
 
   final String label;
   final String? closeLabel;
@@ -105,17 +107,65 @@ class ColorPaletteDialog extends StatefulWidget {
 }
 
 class _ColorPaletteDialogState extends State<ColorPaletteDialog> {
+  static const _hexInputWidth = 96.0;
+
   late HSVColor _hsv;
+  late final TextEditingController _hexController;
 
   @override
   void initState() {
     super.initState();
     _hsv = HSVColor.fromColor(widget.color);
+    _hexController = TextEditingController(
+      text: ColorPaletteButton.formatColor(widget.color),
+    );
+  }
+
+  @override
+  void dispose() {
+    _hexController.dispose();
+    super.dispose();
   }
 
   void _update(HSVColor next) {
+    final nextColor = next.toColor();
     setState(() => _hsv = next);
-    widget.onChanged(next.toColor());
+    _syncHexInput(nextColor);
+    widget.onChanged(nextColor);
+  }
+
+  void _syncHexInput(Color color) {
+    final text = ColorPaletteButton.formatColor(color);
+    if (_hexController.text == text) return;
+
+    _hexController.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
+
+  void _handleHexChanged(String value) {
+    final color = _parseHexColor(value);
+    if (color == null) return;
+
+    setState(() => _hsv = HSVColor.fromColor(color));
+    widget.onChanged(color);
+  }
+
+  Color? _parseHexColor(String value) {
+    var hex = value.trim();
+    if (hex.startsWith('#')) {
+      hex = hex.substring(1);
+    }
+    if (hex.length == 6) {
+      hex = 'FF$hex';
+    } else if (hex.length != 8) {
+      return null;
+    }
+    if (!RegExp(r'^[0-9a-fA-F]{8}$').hasMatch(hex)) {
+      return null;
+    }
+    return Color(int.parse(hex, radix: 16));
   }
 
   @override
@@ -219,12 +269,43 @@ class _ColorPaletteDialogState extends State<ColorPaletteDialog> {
                       ),
                       Align(
                         alignment: Alignment.centerRight,
-                        child: Text(
-                          ColorPaletteButton.formatColor(color),
-                          style: TextStyle(
-                            color: colorScheme.onSurfaceVariant,
-                            fontSize: 12,
-                            fontFeatures: const [FontFeature.tabularFigures()],
+                        child: SizedBox(
+                          width: _hexInputWidth,
+                          child: TextFormField(
+                            key: ColorPaletteButton.hexInputKey,
+                            controller: _hexController,
+                            textAlign: TextAlign.end,
+                            style: TextStyle(
+                              color: colorScheme.onSurfaceVariant,
+                              fontSize: 12,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures()
+                              ],
+                            ),
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 6,
+                              ),
+                              border: OutlineInputBorder(),
+                            ),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[0-9a-fA-F#]'),
+                              ),
+                              LengthLimitingTextInputFormatter(9),
+                            ],
+                            textInputAction: TextInputAction.done,
+                            onChanged: _handleHexChanged,
+                            onEditingComplete: () {
+                              _syncHexInput(color);
+                              FocusScope.of(context).unfocus();
+                            },
+                            onTapOutside: (_) {
+                              _syncHexInput(color);
+                              FocusScope.of(context).unfocus();
+                            },
                           ),
                         ),
                       ),
