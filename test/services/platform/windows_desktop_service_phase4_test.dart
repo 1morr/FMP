@@ -14,7 +14,9 @@ void main() {
       return File('$repoRoot/$relativePath').readAsStringSync();
     }
 
-    test('Windows desktop service exposes one close-intent path for both close sources', () {
+    test(
+        'Windows desktop service exposes one close-intent path for both close sources',
+        () {
       final source =
           readSource('lib/services/platform/windows_desktop_service.dart');
 
@@ -44,26 +46,34 @@ void main() {
       );
       expect(
         source,
-        isNot(contains('Future<void> minimizeToTray() async {\n    if (!Platform.isWindows || !_isInitialized) return;')),
+        isNot(contains(
+            'Future<void> minimizeToTray() async {\n    if (!Platform.isWindows || !_isInitialized) return;')),
       );
     });
 
     test('custom title bar close button uses unified close-intent handler', () {
       final source = readSource('lib/ui/widgets/custom_title_bar.dart');
 
-      expect(source, contains('service.handleCloseIntent(fromSystemClose: false)'));
+      expect(source,
+          contains('service.handleCloseIntent(fromSystemClose: false)'));
       expect(source, isNot(contains('service.handleCloseButton()')));
     });
 
-    test('custom title bar exposes explicit semantics labels for window controls', () {
+    test(
+        'custom title bar exposes explicit semantics labels for window controls',
+        () {
       final source = readSource('lib/ui/widgets/custom_title_bar.dart');
 
       expect(source, contains('tooltip: t.general.minimize'));
-      expect(source, contains('tooltip: _isMaximized ? t.general.restore : t.general.maximize'));
+      expect(
+          source,
+          contains(
+              'tooltip: _isMaximized ? t.general.restore : t.general.maximize'));
       expect(source, contains('tooltip: t.general.close'));
       expect(source, contains('Semantics('));
       expect(source, contains('label: widget.tooltip'));
       expect(source, contains('message: widget.tooltip'));
+      expect(source, contains('excludeFromSemantics: true'));
       expect(source, contains('ExcludeSemantics('));
     });
 
@@ -76,11 +86,14 @@ void main() {
       );
     });
 
-    test('lyrics window avoids whole-tree semantics exclusion and labels title bar controls', () {
+    test(
+        'lyrics window avoids whole-tree semantics exclusion and labels title bar controls',
+        () {
       final source = readSource('lib/ui/windows/lyrics_window.dart');
 
       expect(source, isNot(contains('return ExcludeSemantics(')));
       expect(source, contains('label: tooltip'));
+      expect(source, contains('excludeFromSemantics: true'));
       expect(source, contains('ExcludeSemantics(child: Icon('));
     });
   });
