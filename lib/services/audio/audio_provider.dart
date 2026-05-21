@@ -255,6 +255,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   late final PlaybackRequestExecutor _playbackRequestExecutor;
   late final TemporaryPlayHandler _temporaryPlayHandler;
   late final MixPlaylistHandler _mixPlaylistHandler;
+  Future<void>? _mixLoadMoreFuture;
 
   // 通知栏/SMTC 更新节流：上次更新的位置
   Duration _lastNotificationPosition = Duration.zero;
@@ -463,7 +464,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
           mixTitle: title,
         );
         _publishCurrentQueueState();
-        _triggerMixLoadMoreIfAtQueueEnd(PlayMode.mix);
+        _triggerMixLoadMoreIfNearQueueEnd(PlayMode.mix);
       }
 
       // 恢复音量
@@ -515,6 +516,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     _stopPositionCheckTimer();
     _cancelRetryTimer();
     _networkRecoverySubscription?.cancel();
+    _mixLoadMoreFuture = null;
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
@@ -944,7 +946,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// Mix 播放列表是 YouTube 自動生成的播放列表（RD 開頭），使用特殊的播放模式：
   /// - 禁止隨機播放
   /// - 禁止添加/插入歌曲到隊列
-  /// - 播放到最後一首時自動加載更多
+  /// - 播放接近尾端時自動加載更多
   /// - 清空隊列時退出 Mix 模式
   Future<void> playMixPlaylist({
     required String playlistId,
@@ -1022,6 +1024,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     if (mixState != null) {
       logDebug('Exiting Mix mode');
       _mixPlaylistHandler.clear();
+      _mixLoadMoreFuture = null;
       _context = _context.copyWith(mode: PlayMode.queue);
       state = state.copyWith(
         isMixMode: false,
@@ -1405,12 +1408,43 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     _queueManager.replaceTrack(updatedTrack.copy());
   }
 
-  void _triggerMixLoadMoreIfAtQueueEnd(PlayMode mode) {
-    if (mode == PlayMode.mix &&
-        _queueManager.currentIndex == _queueManager.tracks.length - 1) {
-      logDebug('Mix mode: started playing last track, loading more...');
-      unawaited(_loadMoreMixTracks());
-    }
+  void _triggerMixLoadMoreIfNearQueueEnd(PlayMode mode) {
+    if (!_shouldLoadMoreMixTracks(mode)) return;
+
+    final remaining =
+        _queueManager.tracks.length - 1 - _queueManager.currentIndex;
+    logDebug(
+        'Mix mode: $remaining tracks remaining, loading more before queue end...');
+    _scheduleMixLoadMore();
+  }
+
+  bool _shouldLoadMoreMixTracks(PlayMode mode) {
+    if (mode != PlayMode.mix) return false;
+    if (_mixLoadMoreFuture != null) return false;
+
+    final queueLength = _queueManager.tracks.length;
+    if (queueLength == 0) return false;
+
+    final remaining = queueLength - 1 - _queueManager.currentIndex;
+    final threshold =
+        queueLength > AppConstants.mixLoadMoreRemainingThreshold + 1
+            ? AppConstants.mixLoadMoreRemainingThreshold
+            : 0;
+    return remaining <= threshold;
+  }
+
+  void _scheduleMixLoadMore() {
+    if (_mixLoadMoreFuture != null) return;
+
+    final future = _loadMoreMixTracks();
+    _mixLoadMoreFuture = future;
+    unawaited(
+      future.whenComplete(() {
+        if (identical(_mixLoadMoreFuture, future)) {
+          _mixLoadMoreFuture = null;
+        }
+      }),
+    );
   }
 
   QueueState _createQueueStateFromCurrentState({int? queueVersion}) {
@@ -1956,8 +1990,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         unawaited(_tryAutoMatchLyrics(track));
       }
 
-      // Mix 模式：當開始播放最後一首時，立即加載更多歌曲
-      _triggerMixLoadMoreIfAtQueueEnd(mode);
+      // Mix 模式：接近尾端時提前加載更多歌曲
+      _triggerMixLoadMoreIfNearQueueEnd(mode);
 
       logDebug(
           '_executePlayRequest completed successfully for: ${track.title}');
@@ -2784,6 +2818,26 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     state = state.copyWith(currentAudioDevice: device);
   }
 
+  Future<bool> _advanceAfterPendingMixLoadMore() async {
+    if (!_context.isMix) return false;
+
+    final pendingLoad = _mixLoadMoreFuture;
+    if (pendingLoad == null) return false;
+
+    logDebug('Mix queue end reached while load-more is pending; waiting...');
+    await pendingLoad;
+    if (_isDisposed || !_context.isMix) return false;
+
+    final nextIdx = _queueManager.moveToNext();
+    if (nextIdx == null) return false;
+
+    final track = _queueManager.currentTrack;
+    if (track == null) return false;
+
+    await _playTrack(track);
+    return true;
+  }
+
   void _onTrackCompleted(void _) {
     if (_isDisposed) return;
     // 防止重复处理
@@ -2829,7 +2883,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
           if (track != null) {
             await _playTrack(track);
           }
-        } else {
+        } else if (!await _advanceAfterPendingMixLoadMore()) {
           logDebug('No next track available');
         }
       } catch (e, stack) {
