@@ -60,7 +60,10 @@ class AppTheme {
   }
 
   static Color _foregroundColorFor(Color background) {
-    return background.computeLuminance() > 0.5 ? Colors.black : Colors.white;
+    final luminance = background.computeLuminance();
+    final blackContrast = (luminance + 0.05) / 0.05;
+    final whiteContrast = 1.05 / (luminance + 0.05);
+    return blackContrast >= whiteContrast ? Colors.black : Colors.white;
   }
 
   /// 可选字体列表（按平台）
