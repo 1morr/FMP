@@ -1,0 +1,171 @@
+# lib/data/sources AGENTS.md
+
+Guidance for Bilibili, YouTube, Netease, external playlist import sources, and
+shared source error/stream/auth policy.
+
+## Bilibili
+
+- Direct source supports video audio extraction through DASH audio-only and durl
+  muxed streams.
+- Multi-page video (multi-P) is supported.
+- Live room audio streams use HLS.
+- Bilibili live radio remains Bilibili-only unless explicit multi-source radio
+  support is added.
+- Live room API clients, stream playback headers, and radio cover preloading
+  must use `SourceHttpPolicy.bilibiliLiveHeaders()` /
+  `SourceHttpPolicy.createBilibiliLiveDio()` so live Referer and media user
+  agent stay consistent.
+- `BilibiliSource` keeps live room helpers on a separate live Dio (`_liveDio`)
+  instead of reusing the search/API Dio.
+- Favorites folder import is supported.
+- Regular media/API requests require `Referer: https://www.bilibili.com`.
+- Audio URLs expire; `ensureAudioUrl()` must periodically refresh them.
+- `AudioStreamResult.expiry` must report the same Bilibili URL TTL used by track
+  refresh logic so shared playback caching does not fall back to a generic
+  default.
+- Rate-limit codes include `-412`, `-509`, and `-799`.
+
+## YouTube
+
+- Direct source uses `youtube_explode_dart` plus InnerTube API.
+- YouTube Mix/Radio dynamic infinite playlists use `RD` playlist IDs and
+  InnerTube `/next`.
+- Playlist import uses InnerTube `/browse`.
+- Stream priority: audio-only (`androidVr`) > muxed > HLS.
+- Only `YoutubeApiClient.androidVr` produces accessible audio-only URLs; other
+  clients can return 403.
+- Supports Opus / AAC format selection.
+- Authenticated InnerTube fallback must respect `AudioStreamConfig.streamPriority`
+  and `formatPriority`.
+- Do not hard-code audio-only before muxed or bitrate before configured codec
+  order.
+- Alternative stream fallback must pass and exclude the failed media URL while
+  continuing through the same InnerTube response so a failed audio-only URL can
+  fall back to muxed/HLS.
+- Alternative fallback must rethrow non-fallbackable `SourceErrorKind` values
+  such as login-required, rate-limit, permission, network, timeout, and geo
+  errors instead of returning `null`.
+- Rate limiting is HTTP 429.
+
+## Netease Cloud Music
+
+- Search uses `/api/cloudsearch/pc` with plain form encoding.
+- Song detail uses `/api/v3/song/detail`, max 400 IDs per request.
+- Audio stream uses `/eapi/song/enhance/player/url/v1`, eapi encryption, and
+  generally requires login.
+- Audio stream failures inspect per-song `data[0].code/message/fee/flag`.
+  VIP/paid failures become `vipRequired`; copyright/region failures become
+  `geoRestricted` (including `404` + copyright flag); generic missing URLs
+  become `unavailable`.
+- Playlist import uses `/api/v6/playlist/detail` plus batch song detail.
+- Short URLs (`163cn.tv`) are resolved through HEAD/GET redirects.
+- VIP detection: `fee == 1 || fee == 4` -> `Track.isVip = true`.
+- Availability: `st == -200` -> unavailable.
+- Audio URL expiry is 16 minutes.
+- Requires `Referer: https://music.163.com/`.
+- Encryption is in `lib/core/utils/netease_crypto.dart` (`eapi` + `weapi`).
+- Account login supports QR code and WebView cookie extraction; `MUSIC_U` is the
+  long-lived token.
+- Default `useNeteaseAuthForPlay = true`.
+
+## External Playlist Import
+
+Search-match playlist import supports:
+- Netease standard links and short links (`163cn.tv`)
+- QQ Music multiple URL formats with `QQMusicSign`
+- Spotify embed page parsing (`__NEXT_DATA__`), no auth needed
+
+Imported tracks save the original platform ID for direct lyrics fetch:
+- `ImportedTrack.sourceId` -> `Track.originalSongId`
+- `ImportedTrack.source` -> `Track.originalSource`
+
+## Unified Source Exceptions
+
+`BilibiliApiException`, `YouTubeApiException`, and `NeteaseApiException` extend
+`SourceApiException` from `source_exception.dart`.
+
+- `AudioController` catches `on SourceApiException` for unified error handling.
+- `_handleSourceError()` uses `SourceErrorKind` through helpers such as
+  `_shouldSkipSourceError(e)` and checks like
+  `e.kind == SourceErrorKind.rateLimited`.
+- Base getters such as `isUnavailable`, `isRateLimited`, `isGeoRestricted`, and
+  `isVipRequired` are convenience views over `kind`.
+- Playback toasts for source failures must preserve semantic reason
+  (`cannotPlayReason` / `cannotPlaySkippedReason`) instead of collapsing
+  skippable failures to a generic "cannot play" message.
+- `BilibiliApiException` uses `numericCode` (int) with semantic `code` getter.
+- `YouTubeApiException` uses `code` (String) directly.
+- `NeteaseApiException` uses `numericCode` (int).
+- `SourceApiException.classifyDioError()` provides shared Dio classification.
+
+## Audio Quality And Stream Config
+
+User-configurable per source:
+- `AudioQualityLevel`: high, medium, low
+- `AudioFormat`: opus, aac (YouTube only; Bilibili/Netease only have AAC)
+- `StreamType`: audioOnly, muxed, hls
+
+Defaults:
+- YouTube format priority: Opus > AAC
+- YouTube stream priority: audioOnly > muxed > hls
+- Bilibili stream priority: audioOnly > muxed (live streams always muxed)
+- Netease stream priority: audioOnly
+
+`AudioStreamConfig` is passed to source `getAudioUrl()` and returns
+`AudioStreamResult` with bitrate/codec metadata. `BaseSource.getAlternativeAudioStream()`
+also accepts `authHeaders`; playback handoff fallback must pass the same
+auth-for-play headers as primary stream resolution.
+
+Quality fallback uses the shared ladder:
+- high -> medium -> low
+- medium -> low
+- low has no lower fallback
+
+Fallback applies to playback URL resolution and download stream resolution. It
+is allowed only for `unavailable` and `vipRequired`. Network, timeout,
+rate-limit, login-required, permission-denied, geo-restricted, and unknown
+errors keep normal retry/skip/error behavior.
+
+During playback handoff fallback after a selected URL fails, `AudioStreamDelegate`
+first tries lower-quality alternatives before source-specific same-quality
+alternatives. YouTube alternative selection must still respect format priority
+and requested fallback quality.
+
+Source adapters must preserve non-fallbackable `SourceErrorKind` values while
+trying stream types; do not collapse rate-limit/login/permission/network/
+timeout/geo errors into generic "no stream" errors after fallback attempts.
+
+## Auth For Playback And Headers
+
+Defaults:
+
+| Setting | Default | Rationale |
+|---------|---------|-----------|
+| `useBilibiliAuthForPlay` | `false` | Most content accessible without login |
+| `useYoutubeAuthForPlay` | `false` | Most content accessible without login |
+| `useNeteaseAuthForPlay` | `true` | Most songs require login for audio URLs |
+
+Backend resolution paths read or receive `settings.useAuthForPlay(track.sourceType)`:
+- `AudioStreamManager.ensureAudioUrl()`
+- `AudioStreamDelegate.ensureAudioStream()`
+- source `getTrackInfo()` paths that perform best-effort audio URL lookup
+- `BaseSource.getAlternativeAudioStream()`
+- `DownloadService._startDownload()`
+
+`SourceHttpPolicy` centralizes API/media header defaults. Direct source adapters
+and account services should create Dio clients through
+`SourceHttpPolicy.createApiDio()` and use `SourceHttpPolicy.apiHeaders()` for
+stable per-request API headers.
+
+Source-owned dynamic details stay local:
+- Bilibili keeps generated buvid cookies and search-host defaults.
+- YouTube keeps SAPISIDHASH/InnerTube auth headers source-owned.
+- Netease keeps eapi/weapi encryption plus Cookie-only per-request auth merging
+  source-owned.
+
+Media playback/download request headers are intentionally narrower than
+stream-resolution auth headers. `SourceHttpPolicy.mediaHeaders()` currently
+merges auth headers only for Netease media requests; Bilibili and YouTube auth
+cookies/authorization are used for source API/stream URL resolution, not
+forwarded to media/CDN requests unless a future design explicitly changes that
+security boundary.
