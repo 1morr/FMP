@@ -9,7 +9,7 @@ import '../../i18n/strings.g.dart';
 import '../../providers/lyrics_provider.dart';
 import '../../services/audio/audio_provider.dart';
 import '../../services/lyrics/lrc_parser.dart';
-import '../../services/lyrics/lyrics_window_style.dart';
+import 'lyrics_styled_text.dart';
 
 /// 歌词滚动显示组件
 ///

@@ -195,37 +195,37 @@ class Settings {
   /// AI title parsing request timeout in seconds.
   int lyricsAiTimeoutSeconds = AppConstants.lyricsAiDefaultTimeoutSeconds;
 
-  /// Lyrics popup transparent-mode text color. Null uses the default style.
+  /// Lyrics popup text color. Null uses the default style.
   int? lyricsWindowTextColor;
 
-  /// Lyrics popup transparent-mode secondary line color.
+  /// Lyrics popup secondary line color.
   int? lyricsWindowSecondaryTextColor;
 
-  /// Opacity for inactive lyrics in transparent mode.
+  /// Opacity for inactive lyrics in the popup.
   double? lyricsWindowInactiveTextOpacity;
 
-  /// Whether transparent-mode lyrics render an outline.
+  /// Whether popup lyrics render an outline.
   bool? lyricsWindowOutlineEnabled;
 
-  /// Outline color for transparent-mode lyrics.
+  /// Outline color for popup lyrics.
   int? lyricsWindowOutlineColor;
 
-  /// Outline width for transparent-mode lyrics.
+  /// Outline width for popup lyrics.
   double? lyricsWindowOutlineWidth;
 
-  /// Whether transparent-mode lyrics render a shadow.
+  /// Whether popup lyrics render a shadow.
   bool? lyricsWindowShadowEnabled;
 
-  /// Shadow color for transparent-mode lyrics.
+  /// Shadow color for popup lyrics.
   int? lyricsWindowShadowColor;
 
-  /// Shadow blur radius for transparent-mode lyrics.
+  /// Shadow blur radius for popup lyrics.
   double? lyricsWindowShadowBlurRadius;
 
-  /// Shadow horizontal offset for transparent-mode lyrics.
+  /// Shadow horizontal offset for popup lyrics.
   double? lyricsWindowShadowOffsetX;
 
-  /// Shadow vertical offset for transparent-mode lyrics.
+  /// Shadow vertical offset for popup lyrics.
   double? lyricsWindowShadowOffsetY;
 
   // ========== 播放認證設置 ==========

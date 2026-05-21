@@ -122,121 +122,128 @@ class _ColorPaletteDialogState extends State<ColorPaletteDialog> {
   Widget build(BuildContext context) {
     final color = _hsv.toColor();
     final colorScheme = Theme.of(context).colorScheme;
-    final windowWidth = MediaQuery.sizeOf(context).width;
-    final horizontalInset = windowWidth < 320 ? 12.0 : 24.0;
-    final dialogWidth = (windowWidth - horizontalInset * 2).clamp(212.0, 316.0);
+    final windowSize = MediaQuery.sizeOf(context);
+    final horizontalInset = windowSize.width < 320 ? 12.0 : 24.0;
+    final verticalInset = windowSize.height < 360 ? 12.0 : 24.0;
+    final dialogWidth =
+        (windowSize.width - horizontalInset * 2).clamp(212.0, 316.0);
+    final dialogMaxHeight =
+        (windowSize.height - verticalInset * 2).clamp(180.0, double.infinity);
 
     return Dialog(
-      insetPadding:
-          EdgeInsets.symmetric(horizontal: horizontalInset, vertical: 24),
-      child: SizedBox(
+      insetPadding: EdgeInsets.symmetric(
+          horizontal: horizontalInset, vertical: verticalInset),
+      child: ConstrainedBox(
         key: ColorPaletteButton.paletteKey,
-        width: dialogWidth,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  _ColorSwatch(color: color, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      widget.label,
-                      style: Theme.of(context).textTheme.titleSmall,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                key: ColorPaletteButton.paletteContentKey,
-                width: double.infinity,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+        constraints: BoxConstraints(maxHeight: dialogMaxHeight),
+        child: SizedBox(
+          width: dialogWidth,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
                   children: [
-                    _SaturationValuePicker(
-                      hsv: _hsv,
-                      onChanged: _update,
-                    ),
-                    const SizedBox(height: 10),
-                    _HuePicker(
-                      hue: _hsv.hue,
-                      onChanged: (hue) => _update(_hsv.withHue(hue)),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.light_mode_outlined,
-                          size: 14,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        Expanded(
-                          child: SliderTheme(
-                            data: SliderTheme.of(context).copyWith(
-                              trackHeight: 2,
-                              thumbShape: const RoundSliderThumbShape(
-                                enabledThumbRadius: 6,
-                              ),
-                              overlayShape: const RoundSliderOverlayShape(
-                                overlayRadius: 12,
-                              ),
-                            ),
-                            child: Slider(
-                              value: _hsv.value,
-                              min: 0,
-                              max: 1,
-                              onChanged: (value) =>
-                                  _update(_hsv.withValue(value)),
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          width: 34,
-                          child: Text(
-                            '${(_hsv.value * 100).round()}%',
-                            textAlign: TextAlign.end,
-                            style: TextStyle(
-                              color: colorScheme.onSurfaceVariant,
-                              fontSize: 12,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures()
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Align(
-                      alignment: Alignment.centerRight,
+                    _ColorSwatch(color: color, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
                       child: Text(
-                        ColorPaletteButton.formatColor(color),
-                        style: TextStyle(
-                          color: colorScheme.onSurfaceVariant,
-                          fontSize: 12,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
+                        widget.label,
+                        style: Theme.of(context).textTheme.titleSmall,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 2),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(
-                    widget.closeLabel ??
-                        MaterialLocalizations.of(context).closeButtonLabel,
+                const SizedBox(height: 10),
+                SizedBox(
+                  key: ColorPaletteButton.paletteContentKey,
+                  width: double.infinity,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _SaturationValuePicker(
+                        hsv: _hsv,
+                        onChanged: _update,
+                      ),
+                      const SizedBox(height: 10),
+                      _HuePicker(
+                        hue: _hsv.hue,
+                        onChanged: (hue) => _update(_hsv.withHue(hue)),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.light_mode_outlined,
+                            size: 14,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          Expanded(
+                            child: SliderTheme(
+                              data: SliderTheme.of(context).copyWith(
+                                trackHeight: 2,
+                                thumbShape: const RoundSliderThumbShape(
+                                  enabledThumbRadius: 6,
+                                ),
+                                overlayShape: const RoundSliderOverlayShape(
+                                  overlayRadius: 12,
+                                ),
+                              ),
+                              child: Slider(
+                                value: _hsv.value,
+                                min: 0,
+                                max: 1,
+                                onChanged: (value) =>
+                                    _update(_hsv.withValue(value)),
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 34,
+                            child: Text(
+                              '${(_hsv.value * 100).round()}%',
+                              textAlign: TextAlign.end,
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                                fontSize: 12,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures()
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          ColorPaletteButton.formatColor(color),
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 2),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(
+                      widget.closeLabel ??
+                          MaterialLocalizations.of(context).closeButtonLabel,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -115,6 +115,37 @@ void main() {
     expect(contentSize.width, lessThanOrEqualTo(224));
   });
 
+  testWidgets('palette fits within a short lyrics window', (tester) async {
+    tester.view.physicalSize = const Size(280, 300);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ColorPaletteButton(
+            label: 'Text color',
+            color: const Color(0xFFFFD166),
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(OutlinedButton));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+
+    final paletteRect = tester.getRect(
+      find.byKey(ColorPaletteButton.paletteKey),
+    );
+
+    expect(paletteRect.top, greaterThanOrEqualTo(0));
+    expect(paletteRect.bottom, lessThanOrEqualTo(300));
+  });
+
   testWidgets('palette shell keeps title content and actions aligned',
       (tester) async {
     tester.view.physicalSize = const Size(360, 500);
