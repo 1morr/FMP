@@ -2715,6 +2715,17 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
     // 检查是否为网络错误
     if (!_isStringNetworkError(error)) {
+      if (_isStringMediaOpenError(error)) {
+        final track = state.playingTrack;
+        if (track != null) {
+          unawaited(_handleMediaOpenErrorIfStillFailed(
+            error: error,
+            track: track,
+            positionAtError: state.position,
+          ));
+          return;
+        }
+      }
       logDebug('Non-network error, ignoring: $error');
       return;
     }
@@ -2759,6 +2770,49 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       _resetLoadingState();
       _scheduleRetry(track, positionBeforeStop);
     });
+  }
+
+  bool _isStringMediaOpenError(Object error) {
+    final errorStr = error.toString().toLowerCase();
+    return errorStr.contains('failed to open') ||
+        errorStr.contains('cannot open') ||
+        errorStr.contains('could not open');
+  }
+
+  Future<void> _handleMediaOpenErrorIfStillFailed({
+    required String error,
+    required Track track,
+    required Duration positionAtError,
+  }) async {
+    // media_kit may emit an open error and still recover shortly after. Delay
+    // before surfacing it so transient backend events do not interrupt playback.
+    await Future.delayed(const Duration(seconds: 2));
+    if (_isDisposed || state.playingTrack?.uniqueKey != track.uniqueKey) return;
+
+    final currentPosition = _audioService.position;
+    final hasAdvanced =
+        currentPosition - positionAtError > const Duration(milliseconds: 500);
+    if (_audioService.isPlaying && hasAdvanced) {
+      logDebug('Media open error recovered by backend: $error');
+      return;
+    }
+
+    logWarning('Media open error did not recover: $error');
+    try {
+      await _audioService.stop();
+    } catch (stopError) {
+      logError('Failed to stop player after media open error', stopError);
+    }
+
+    if (_isDisposed || state.playingTrack?.uniqueKey != track.uniqueKey) return;
+    final message = t.audio.playbackFailedTrack(title: track.title);
+    state = state.copyWith(
+      error: message,
+      isLoading: false,
+      isPlaying: false,
+    );
+    _resetLoadingState();
+    _toastService.showError(message);
   }
 
   bool _shouldHandleTrackCompleted() {

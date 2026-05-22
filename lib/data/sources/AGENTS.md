@@ -31,6 +31,8 @@ shared source error/stream/auth policy.
 - YouTube Mix/Radio dynamic infinite playlists use `RD` playlist IDs and
   InnerTube `/next`.
 - Playlist import uses InnerTube `/browse`.
+- Authenticated video detail paths must fall back to InnerTube when
+  `youtube_explode_dart` reports a private/unplayable video.
 - Stream priority: audio-only (`androidVr`) > muxed > HLS.
 - Only `YoutubeApiClient.androidVr` produces accessible audio-only URLs; other
   clients can return 403.

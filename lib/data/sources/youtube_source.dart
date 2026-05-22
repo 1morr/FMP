@@ -246,6 +246,11 @@ class YouTubeSource extends BaseSource with Logging {
         comments: comments,
       );
     } on yt.VideoUnplayableException catch (e) {
+      if (authHeaders != null) {
+        logDebug(
+            'youtube_explode reported video detail unplayable for $videoId, trying InnerTube with auth');
+        return _getVideoDetailViaInnerTube(videoId, authHeaders);
+      }
       logError('YouTube video unplayable: $videoId, reason: $e');
       throw YouTubeApiException(
         code: 'unplayable',

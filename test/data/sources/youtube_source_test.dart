@@ -219,6 +219,62 @@ void main() {
     });
   });
 
+  group('YouTubeSource video detail', () {
+    test('authenticated detail falls back to InnerTube when video is private',
+        () async {
+      Object? postedBody;
+      final dio = Dio();
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        expect(options.path, contains('/player'));
+        expect(options.headers['Authorization'], 'SAPISIDHASH test');
+        postedBody = requestBody;
+        return ResponseBody.fromString(
+          jsonEncode(_innerTubePlayerResponse(
+            videoDetails: {
+              'title': 'Private Auth Video',
+              'author': 'Auth Channel',
+              'channelId': 'UC-auth',
+              'lengthSeconds': '167',
+              'viewCount': '1234',
+              'shortDescription': 'Visible with auth',
+              'thumbnail': {
+                'thumbnails': [
+                  {'url': 'https://i.ytimg.com/vi/private/hqdefault.jpg'},
+                ],
+              },
+            },
+          )),
+          200,
+          headers: {
+            Headers.contentTypeHeader: ['application/json'],
+          },
+        );
+      });
+      final source = YouTubeSource(
+        youtube: _FakeYoutubeExplode(
+          const YouTubeApiException(
+            code: 'no_stream',
+            message: 'No anonymous stream',
+          ),
+          videoError: yt.VideoUnplayableException('private video'),
+        ),
+        dio: dio,
+      );
+      addTearDown(source.dispose);
+
+      final detail = await source.getVideoDetail(
+        'private-auth',
+        authHeaders: const {'Authorization': 'SAPISIDHASH test'},
+      );
+
+      expect(detail.title, 'Private Auth Video');
+      expect(detail.ownerName, 'Auth Channel');
+      expect(detail.durationSeconds, 167);
+      expect(detail.viewCount, 1234);
+      expect(postedBody.toString(), contains('"videoId":"private-auth"'));
+    });
+  });
+
   group('YouTubeSource playlist parsing', () {
     test('uses InnerTube pagination for anonymous playlists before fallback',
         () async {
@@ -886,9 +942,11 @@ void main() {
 Map<String, dynamic> _innerTubePlayerResponse({
   List<Map<String, dynamic>> adaptiveFormats = const [],
   List<Map<String, dynamic>> formats = const [],
+  Map<String, dynamic>? videoDetails,
 }) {
   return {
     'playabilityStatus': {'status': 'OK'},
+    if (videoDetails != null) 'videoDetails': videoDetails,
     'streamingData': {
       'adaptiveFormats': adaptiveFormats,
       'formats': formats,
@@ -944,26 +1002,39 @@ class _FakeHttpClientAdapter implements HttpClientAdapter {
 }
 
 class _FakeYoutubeExplode extends yt.YoutubeExplode {
-  _FakeYoutubeExplode(Object manifestError)
+  _FakeYoutubeExplode(Object manifestError, {Object? videoError})
       : _streams = _ThrowingStreamClient(manifestError),
+        _videoError = videoError,
         super(httpClient: yt.YoutubeHttpClient());
 
   final _ThrowingStreamClient _streams;
+  final Object? _videoError;
 
   @override
-  late final yt.VideoClient videos = _FakeVideoClient(_streams);
+  late final yt.VideoClient videos =
+      _FakeVideoClient(_streams, videoError: _videoError);
 
   @override
   void close() {}
 }
 
 class _FakeVideoClient extends yt.VideoClient {
-  _FakeVideoClient(this._streams) : super(yt.YoutubeHttpClient());
+  _FakeVideoClient(this._streams, {Object? videoError})
+      : _videoError = videoError,
+        super(yt.YoutubeHttpClient());
 
   final yt.StreamClient _streams;
+  final Object? _videoError;
 
   @override
   yt.StreamClient get streams => _streams;
+
+  @override
+  Future<yt.Video> get(dynamic videoId) async {
+    final error = _videoError;
+    if (error != null) throw error;
+    return super.get(videoId);
+  }
 }
 
 class _ThrowingStreamClient extends yt.StreamClient {
