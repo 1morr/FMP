@@ -113,6 +113,9 @@ failures.
 - Runtime backend network errors, including media_kit `tcp:` / `ffurl_read`
   errors, must retry or refetch the current track URL from the saved position,
   not advance the queue.
+- Runtime backend media-open errors such as media_kit `Failed to open https://`
+  must not be silently ignored. Delay briefly to allow backend self-recovery;
+  if playback does not advance, stop and surface a playback error to the user.
 - Backend error-stream retry suppression must be generation/current-track aware.
   A fresh backend network error during manual or automatic retry handoff
   schedules a new retry generation; stale handoff completion must not clear the
