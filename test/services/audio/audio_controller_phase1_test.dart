@@ -15,6 +15,7 @@ import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/bilibili_exception.dart';
 import 'package:fmp/data/sources/netease_exception.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/youtube_exception.dart';
@@ -780,6 +781,36 @@ void main() {
           contains('版权'),
           contains('版權'),
         ),
+      );
+      expect(toasts.last.type, ToastType.error);
+    });
+
+    test('Bilibili permission error code uses friendly playback message',
+        () async {
+      final toasts = <ToastMessage>[];
+      final subscription = toastService.messageStream.listen(toasts.add);
+      addTearDown(subscription.cancel);
+      sourceManager.throwGetAudioStreamOnce(
+        const BilibiliApiException(
+          numericCode: 62012,
+          message: '62012',
+        ),
+      );
+
+      await controller.playTrack(
+        _track('private-bilibili-video', title: 'Private Bilibili Video'),
+      );
+      await pumpEventQueue(times: 5);
+
+      expect(toasts, isNotEmpty);
+      expect(toasts.last.message, isNot(contains('62012')));
+      expect(
+        toasts.last.message,
+        contains('Bilibili'),
+      );
+      expect(
+        toasts.last.message,
+        anyOf(contains('logged-in'), contains('登录状态'), contains('登入狀態')),
       );
       expect(toasts.last.type, ToastType.error);
     });

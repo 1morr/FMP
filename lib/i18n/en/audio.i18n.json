@@ -13,6 +13,7 @@
   "sourceErrorGeoRestricted": "Blocked by copyright or regional restrictions",
   "sourceErrorVipRequired": "VIP or paid playback permission required",
   "sourceErrorLoginRequired": "Login required to play this track",
+  "sourceErrorBilibiliPermissionDenied": "Bilibili private or restricted video needs logged-in playback",
   "sourceErrorPermissionDenied": "No playback permission for this track",
   "sourceErrorNetwork": "Network connection failed",
   "sourceErrorTimeout": "Connection timed out"
