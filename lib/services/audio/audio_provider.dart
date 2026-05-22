@@ -1987,6 +1987,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         prefetchNext: prefetchNext,
       );
       if (execution == null) {
+        await _waitForMediaOpenErrorRecovery(requestId);
         return;
       }
       if (!await _waitForMediaOpenErrorRecovery(requestId)) {
@@ -2678,6 +2679,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       isLoading: _context.isInLoadingState ||
           effectiveProcessingState == FmpAudioProcessingState.loading,
       processingState: effectiveProcessingState,
+      error: state.error,
     );
 
     // 更新 AudioHandler 的播放状态（用于通知栏）
@@ -2704,7 +2706,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     // 加载期间忽略位置更新（防止旧歌曲的位置覆盖已重置的进度条）
     if (_context.isInLoadingState) return;
 
-    state = state.copyWith(position: position);
+    state = state.copyWith(position: position, error: state.error);
     // 更新 QueueManager 的位置（用于恢复播放）
     _queueManager.updatePosition(position);
 
@@ -2951,30 +2953,34 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     state = state.copyWith(
       duration: duration,
       clearDuration: duration == null,
+      error: state.error,
     );
   }
 
   void _onBufferedPositionChanged(Duration bufferedPosition) {
     if (_isDisposed) return;
     if (isRadioPlaying?.call() == true) return;
-    state = state.copyWith(bufferedPosition: bufferedPosition);
+    state = state.copyWith(
+      bufferedPosition: bufferedPosition,
+      error: state.error,
+    );
   }
 
   void _onSpeedChanged(double speed) {
     if (_isDisposed) return;
-    state = state.copyWith(speed: speed);
+    state = state.copyWith(speed: speed, error: state.error);
   }
 
   void _onAudioDevicesChanged(List<FmpAudioDevice> devices) {
     if (_isDisposed) return;
     logDebug('Audio devices updated: ${devices.length} devices');
-    state = state.copyWith(audioDevices: devices);
+    state = state.copyWith(audioDevices: devices, error: state.error);
   }
 
   void _onAudioDeviceChanged(FmpAudioDevice? device) {
     if (_isDisposed) return;
     logDebug('Current audio device: ${device?.name ?? "auto"}');
-    state = state.copyWith(currentAudioDevice: device);
+    state = state.copyWith(currentAudioDevice: device, error: state.error);
   }
 
   Future<bool> _advanceAfterPendingMixLoadMore() async {

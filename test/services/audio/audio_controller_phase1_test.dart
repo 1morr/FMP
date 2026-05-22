@@ -848,6 +848,38 @@ void main() {
       expect(controller.state.currentStreamType, isNull);
     });
 
+    test('waits for pending media open cleanup when handoff is superseded',
+        () async {
+      final playGate = audioService.enqueuePendingPlayUrl();
+      var playCompleted = false;
+
+      final playFuture = controller
+          .playTrack(
+            _track('media-open-cleanup', title: 'Media Open Cleanup'),
+          )
+          .then((_) => playCompleted = true);
+      await audioService.waitForPlayUrlCallCount(1);
+      final stopGate = audioService.enqueuePendingStop();
+
+      audioService.emitError(
+        'Failed to open https://example.com/media-open-cleanup.m4a.',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 2200));
+
+      playGate.complete();
+      await pumpEventQueue(times: 5);
+
+      expect(playCompleted, isFalse);
+
+      stopGate.complete();
+      await playFuture;
+      await pumpEventQueue(times: 5);
+
+      expect(playCompleted, isTrue);
+      expect(controller.state.isLoading, isFalse);
+      expect(controller.state.isPlaying, isFalse);
+    });
+
     test('rate-limited source error remains visible after loading resets',
         () async {
       sourceManager.throwGetAudioStreamOnce(
