@@ -13,6 +13,7 @@
   "sourceErrorGeoRestricted": "受版權或地區限制",
   "sourceErrorVipRequired": "需要 VIP 或付費播放權限",
   "sourceErrorLoginRequired": "需要登入後播放",
+  "sourceErrorBilibiliPermissionDenied": "Bilibili 私人或受限影片需要登入狀態播放",
   "sourceErrorPermissionDenied": "沒有播放權限",
   "sourceErrorNetwork": "網路連線異常",
   "sourceErrorTimeout": "連線逾時"

@@ -2128,7 +2128,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       SourceErrorKind.geoRestricted => t.audio.sourceErrorGeoRestricted,
       SourceErrorKind.vipRequired => t.audio.sourceErrorVipRequired,
       SourceErrorKind.loginRequired => t.audio.sourceErrorLoginRequired,
-      SourceErrorKind.permissionDenied => t.audio.sourceErrorPermissionDenied,
+      SourceErrorKind.permissionDenied =>
+        error.sourceType == SourceType.bilibili
+            ? t.audio.sourceErrorBilibiliPermissionDenied
+            : t.audio.sourceErrorPermissionDenied,
       SourceErrorKind.network => t.audio.sourceErrorNetwork,
       SourceErrorKind.timeout => t.audio.sourceErrorTimeout,
       SourceErrorKind.rateLimited => error.message,
@@ -2140,8 +2143,17 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   String? _sourceDiagnosticOrNull(SourceApiException error) {
     final message = error.message.trim();
     if (message.isEmpty) return null;
+    if (_isLowSignalSourceDiagnostic(error, message)) return null;
     if (_syntheticSourceDiagnostics.contains(message)) return null;
     return message;
+  }
+
+  bool _isLowSignalSourceDiagnostic(
+    SourceApiException error,
+    String message,
+  ) {
+    if (message == error.code) return true;
+    return RegExp(r'^-?\d+$').hasMatch(message);
   }
 
   bool _shouldRetrySourceError(SourceApiException error) =>
