@@ -39,6 +39,29 @@ Detailed subreports:
 - `docs/reviews/ui/ux-flow-review.md`
 - `docs/reviews/ui/ui-docs-alignment-review.md`
 
+## Follow-up fix status
+
+The implementation pass after this review addressed the actionable findings
+listed below while keeping the original review evidence in this document:
+
+- Queue display now consumes queue-specific state instead of deriving queue
+  order from `PlayerState`.
+- Home ranking keeps already available source ranking data visible during
+  loading.
+- Playlist/downloaded UI now uses file-existence cache state for downloaded
+  badges and single-track deletion invalidation.
+- Search source chips now filter visible local results, and Bilibili multi-page
+  rows surface common track actions plus loading errors.
+- Search/downloaded dynamic rows now have stable keys.
+- Download path setup, account status checks, Bilibili login, and manual lyrics
+  save/remove flows now surface user-visible error or saving states.
+- Auth-for-play controls are exposed from Audio Settings and documented as an
+  Audio Settings boundary rather than an Account-page action.
+- Playlist card actions, playlist-detail group actions, and remote playlist
+  dialog selection UI now reuse shared menu/widget helpers where applicable.
+- UI/documentation alignment notes for routes, responsive layout, ranking state,
+  UI constants, and auth-for-play placement have been updated.
+
 ## UI consistency issues
 
 | Type | Severity | Finding | Evidence | Suggested direction |

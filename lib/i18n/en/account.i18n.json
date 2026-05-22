@@ -37,5 +37,6 @@
   "sessionExpired": "$platform login has expired, please log in again",
   "vipExpired": "$platform VIP has expired",
   "checkingAccounts": "Verifying account status...",
-  "accountsVerified": "Account verification complete"
+  "accountsVerified": "Account verification complete",
+  "accountsVerifiedWithFailures": "Account verification completed with failures: $platforms"
 }

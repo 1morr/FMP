@@ -153,13 +153,31 @@ final accountStatusCheckProvider = FutureProvider<void>((ref) async {
   await verifyAllAccountStatuses(services, toastService);
 });
 
+class AccountStatusVerificationResult {
+  const AccountStatusVerificationResult({
+    required this.checkedPlatforms,
+    required this.failedPlatforms,
+    required this.expiredPlatforms,
+  });
+
+  final List<SourceType> checkedPlatforms;
+  final List<SourceType> failedPlatforms;
+  final List<SourceType> expiredPlatforms;
+
+  bool get hasFailures => failedPlatforms.isNotEmpty;
+}
+
 /// 檢查所有已登錄帳號的 Session 有效性和 VIP 狀態
 ///
 /// 供 [accountStatusCheckProvider] 和帳號管理頁面共用。
-Future<void> verifyAllAccountStatuses(
+Future<AccountStatusVerificationResult> verifyAllAccountStatuses(
   List<AccountService> services,
   ToastService toastService,
 ) async {
+  final checkedPlatforms = <SourceType>[];
+  final failedPlatforms = <SourceType>[];
+  final expiredPlatforms = <SourceType>[];
+
   for (final service in services) {
     if (!await service.isLoggedIn()) continue;
     final oldAccount = await service.getCurrentAccount();
@@ -168,8 +186,10 @@ Future<void> verifyAllAccountStatuses(
 
     try {
       final result = await service.checkAccountStatus();
+      checkedPlatforms.add(service.platform);
       if (result.status == AccountStatus.invalid) {
         await service.logout();
+        expiredPlatforms.add(service.platform);
         toastService.showWarning(t.account.sessionExpired(platform: name));
       } else if (result.status == AccountStatus.valid) {
         if (oldIsVip && result.isVip == false) {
@@ -177,10 +197,17 @@ Future<void> verifyAllAccountStatuses(
         }
       }
     } catch (e) {
+      failedPlatforms.add(service.platform);
       AppLogger.warning('${service.platform.name} status check failed: $e',
           'AccountStatusCheck');
     }
   }
+
+  return AccountStatusVerificationResult(
+    checkedPlatforms: checkedPlatforms,
+    failedPlatforms: failedPlatforms,
+    expiredPlatforms: expiredPlatforms,
+  );
 }
 
 /// 通用帳號狀態管理（監聽 Isar Account 變化）

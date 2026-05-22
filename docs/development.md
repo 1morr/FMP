@@ -126,7 +126,7 @@ lib/
 |------|------|
 | 主导航 | `/`、`/search`、`/explore`、`/queue`、`/history`、`/library`、`/radio`、`/settings` |
 | 详情页 | `/player`、`/radio-player`、`/library/:id`、`/library/downloaded`、`/library/downloaded/:folderName` |
-| 设置 | `/settings/audio`、`/settings/lyrics-source`、`/settings/download-manager`、`/settings/account`、`/settings/developer` |
+| 设置 | `/settings/audio`、`/settings/lyrics-source`、`/settings/download-manager`、`/settings/account`、`/settings/account/bilibili-login`、`/settings/account/youtube-login`、`/settings/account/netease-login`、`/settings/user-guide`、`/settings/developer` |
 | 开发者工具 | `/settings/developer/database`、`/settings/developer/logs` |
 
 ## 响应式布局

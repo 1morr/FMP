@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/ui_constants.dart';
-import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
@@ -10,7 +9,7 @@ import '../../../providers/account_provider.dart';
 import '../../../providers/remote_playlist_sync_provider.dart';
 import '../../../services/account/youtube_playlist_service.dart';
 import '../../../services/library/remote_playlist_selection_changes.dart';
-import '../track_thumbnail.dart';
+import 'remote_playlist_dialog_widgets.dart';
 
 /// 顯示添加到 YouTube 播放列表對話框
 Future<bool> showAddToYouTubePlaylistDialog({
@@ -318,7 +317,8 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
       if (!mounted) return;
       if (result.changedRemote && result.hasFailures) {
         final summary = result.summary;
-        final successCount = summary.addedTrackCount + summary.removedTrackCount;
+        final successCount =
+            summary.addedTrackCount + summary.removedTrackCount;
         final totalCount = successCount + summary.failedTrackCount;
         ToastService.warning(
           context,
@@ -384,104 +384,15 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
               ),
             ),
             // 標題
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  Text(t.remote.dialogTitleYoutube,
-                      style: Theme.of(context).textTheme.titleLarge),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    tooltip:
-                        MaterialLocalizations.of(context).closeButtonTooltip,
-                    onPressed: () => Navigator.pop(context, false),
-                  ),
-                ],
-              ),
+            RemotePlaylistDialogHeader(
+              title: t.remote.dialogTitleYoutube,
+              onClose: () => Navigator.pop(context, false),
             ),
-            // 歌曲信息
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest,
-                borderRadius: AppRadius.borderRadiusLg,
-              ),
-              child: _isMulti
-                  ? Row(
-                      children: [
-                        Icon(Icons.music_note, color: colorScheme.primary),
-                        const SizedBox(width: 12),
-                        Text(
-                          '${_tracks.length} ${t.remote.tracksCount}',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w500),
-                        ),
-                      ],
-                    )
-                  : Row(
-                      children: [
-                        TrackThumbnail(
-                          track: _tracks.first,
-                          size: AppSizes.thumbnailMedium,
-                          borderRadius: 4,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _tracks.first.title,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
-                                    ?.copyWith(fontWeight: FontWeight.w500),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                _tracks.first.artist ?? '',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                        color: colorScheme.onSurfaceVariant),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
+            RemotePlaylistTrackSummary(tracks: _tracks),
             const SizedBox(height: 8),
-            // 新建播放列表
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: ListTile(
-                leading: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: AppRadius.borderRadiusMd,
-                  ),
-                  child: Icon(
-                    Icons.add,
-                    color: colorScheme.onPrimaryContainer,
-                  ),
-                ),
-                title: Text(t.remote.createPlaylist),
-                shape: RoundedRectangleBorder(
-                  borderRadius: AppRadius.borderRadiusLg,
-                ),
-                onTap: _isSubmitting ? null : _showCreatePlaylistDialog,
-              ),
+            RemotePlaylistCreateTile(
+              title: t.remote.createPlaylist,
+              onTap: _isSubmitting ? null : _showCreatePlaylistDialog,
             ),
             const Divider(),
             // 播放列表列表
@@ -559,39 +470,15 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
             !_deselectedPartialIds.contains(playlist.playlistId);
         final containsStatus = _containsStatus[playlist.playlistId];
 
-        return ListTile(
-          leading: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              borderRadius: AppRadius.borderRadiusMd,
-              color: colorScheme.surfaceContainerHighest,
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: playlist.thumbnailUrl != null
-                ? ImageLoadingService.loadImage(
-                    networkUrl: playlist.thumbnailUrl,
-                    placeholder:
-                        Icon(Icons.playlist_play, color: colorScheme.outline),
-                    width: 40,
-                    height: 40,
-                    fit: BoxFit.cover,
-                    targetDisplaySize: 40,
-                  )
-                : Icon(Icons.playlist_play, color: colorScheme.outline),
-          ),
-          title: Text(playlist.title),
-          subtitle: Text('${playlist.videoCount}'),
-          trailing: _buildTrailing(
-            colorScheme,
-            isSelected,
-            isPartial,
-            containsStatus,
-          ),
-          selected: isSelected || isPartial,
-          selectedTileColor:
-              colorScheme.primaryContainer.withValues(alpha: 0.3),
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.borderRadiusLg),
+        return RemotePlaylistListTile(
+          imageUrl: playlist.thumbnailUrl,
+          fallbackIcon: Icons.playlist_play,
+          title: playlist.title,
+          subtitle: '${playlist.videoCount}',
+          isSelected: isSelected,
+          isPartial: isPartial,
+          isChecking: _isCheckingMulti ||
+              (!_isMulti && containsStatus == null && _playlists != null),
           onTap: () {
             setState(() {
               if (isSelected) {
@@ -611,37 +498,6 @@ class _YouTubePlaylistSheetState extends ConsumerState<_YouTubePlaylistSheet> {
         );
       },
     );
-  }
-
-  Widget _buildTrailing(
-    ColorScheme colorScheme,
-    bool isSelected,
-    bool isPartial,
-    bool? containsStatus,
-  ) {
-    // 多選模式正在檢查中
-    if (_isCheckingMulti) {
-      return const SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      );
-    }
-    // 單曲模式且正在檢查中
-    if (!_isMulti && containsStatus == null && _playlists != null) {
-      return const SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      );
-    }
-    if (isSelected) {
-      return Icon(Icons.check_circle, color: colorScheme.primary);
-    }
-    if (isPartial) {
-      return Icon(Icons.remove_circle_outline, color: colorScheme.primary);
-    }
-    return Icon(Icons.circle_outlined, color: colorScheme.outline);
   }
 
   String _getButtonText() {

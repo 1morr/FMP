@@ -53,6 +53,13 @@ Use `RefreshIndicator` + `ref.invalidate()` or cache service refresh APIs.
 Downloaded/library flows often use explicit invalidation/buttons instead of
 pull-to-refresh; follow existing page behavior.
 
+## Settings Boundaries
+
+Playback auth toggles (`useBilibiliAuthForPlay`, `useYoutubeAuthForPlay`,
+`useNeteaseAuthForPlay`) belong in Audio Settings because they control stream
+resolution behavior. Keep Account pages focused on login/account state and do
+not add per-platform auth-for-play buttons there.
+
 ## AppBar Actions
 
 All `AppBar` actions lists should end with `const SizedBox(width: 8)` when the
@@ -103,7 +110,7 @@ Source of truth: `lib/core/constants/breakpoints.dart`.
 
 - Mobile: `< 600dp` (bottom navigation)
 - Tablet: `600-1200dp` (side navigation)
-- Desktop: `>= 1200dp` (three-column layout)
+- Desktop: `>= 1200dp` (collapsible side navigation + optional detail panel)
 
 ## Verification
 

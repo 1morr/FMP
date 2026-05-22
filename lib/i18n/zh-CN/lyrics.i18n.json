@@ -3,6 +3,8 @@
   "searchLyrics": "搜索歌词",
   "lyricsMatched": "歌词已匹配",
   "lyricsRemoved": "已移除歌词匹配",
+  "saveFailed": "保存歌词匹配失败：$error",
+  "removeFailed": "移除歌词匹配失败：$error",
   "noLyricsFound": "未找到歌词",
   "searchHint": "歌曲名 - 歌手",
   "removeMatch": "移除匹配",

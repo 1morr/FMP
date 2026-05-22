@@ -88,5 +88,148 @@ void main() {
         isNot(contains('Theme.of(context).colorScheme.error')),
       );
     });
+
+    test('queue page reads queue display state from queue providers', () {
+      final source =
+          File('lib/ui/pages/queue/queue_page.dart').readAsStringSync();
+
+      expect(source, contains('queueStateProvider'));
+      expect(
+        source,
+        isNot(contains('audioControllerProvider.select((s) => s.queue)')),
+      );
+      expect(
+        source,
+        isNot(
+            contains('audioControllerProvider.select((s) => s.currentIndex)')),
+      );
+      expect(
+        source,
+        isNot(
+            contains('audioControllerProvider.select((s) => s.queueVersion)')),
+      );
+    });
+
+    test('home ranking loading guard keeps available ranking data visible', () {
+      final source =
+          File('lib/ui/pages/home/home_page.dart').readAsStringSync();
+
+      expect(
+        source,
+        contains('isLoading && !hasBilibiliData && !hasYoutubeData'),
+      );
+      expect(
+        source,
+        isNot(contains('if (isLoading) {\n          return const SizedBox')),
+      );
+    });
+
+    test('search and downloaded dynamic rows use stable keys', () {
+      final search =
+          File('lib/ui/pages/search/search_page.dart').readAsStringSync();
+      final downloadedCategory = File(
+        'lib/ui/pages/library/downloaded_category_page.dart',
+      ).readAsStringSync();
+
+      expect(search, contains("ValueKey('local-group-\${group.groupKey}')"));
+      expect(search, contains("ValueKey('live-room-\${room.roomId}')"));
+      expect(
+        downloadedCategory,
+        contains("ValueKey('downloaded-track-\${_downloadedTrackKey("),
+      );
+      expect(
+        downloadedCategory,
+        contains("ValueKey('downloaded-group-\${group.groupKey}')"),
+      );
+    });
+
+    test('search multi-page rows expose common single track actions', () {
+      final source =
+          File('lib/ui/pages/search/search_page.dart').readAsStringSync();
+
+      final pageTileBody = _classBody(source, '_PageTile');
+
+      expect(pageTileBody, isNotNull);
+      expect(pageTileBody, isNot(contains('includeAddToPlaylist: false')));
+      expect(pageTileBody, isNot(contains('includeMatchLyrics: false')));
+      expect(pageTileBody, isNot(contains('includeAddToRemote: false')));
+      expect(source, contains('TrackActionCoordinator.handleSingle'));
+    });
+
+    test('silent async UI failures surface errors to users', () {
+      final search =
+          File('lib/ui/pages/search/search_page.dart').readAsStringSync();
+      final downloadPathDialog =
+          File('lib/ui/widgets/download_path_setup_dialog.dart')
+              .readAsStringSync();
+      final bilibiliLogin =
+          File('lib/ui/pages/settings/bilibili_login_page.dart')
+              .readAsStringSync();
+      final lyricsSearch = File('lib/ui/pages/lyrics/lyrics_search_sheet.dart')
+          .readAsStringSync();
+
+      expect(_methodBody(search, '_loadVideoPages'),
+          contains('ToastService.error'));
+      expect(_methodBody(downloadPathDialog, '_selectPath'),
+          contains('ToastService.error'));
+      expect(_methodBody(bilibiliLogin, '_onPageLoaded'),
+          contains('ToastService.error'));
+      expect(_methodBody(bilibiliLogin, '_startPolling'), contains('onError'));
+      expect(_methodBody(lyricsSearch, '_selectResult'), contains('_isSaving'));
+      expect(_methodBody(lyricsSearch, '_removeMatch'),
+          contains('ToastService.error'));
+    });
   });
+}
+
+String _classBody(String source, String className) {
+  final declaration = RegExp(
+    r'class\s+' + RegExp.escape(className) + r'\s+extends\s+[^{]+\{',
+  ).firstMatch(source);
+  if (declaration == null) {
+    throw StateError('Class $className not found');
+  }
+
+  final openBrace = source.indexOf('{', declaration.start);
+  if (openBrace == -1) {
+    throw StateError('Class $className has no body');
+  }
+
+  var depth = 0;
+  for (var i = openBrace; i < source.length; i++) {
+    final char = source[i];
+    if (char == '{') depth++;
+    if (char == '}') depth--;
+    if (depth == 0) {
+      return source.substring(openBrace, i + 1);
+    }
+  }
+
+  throw StateError('Class body did not close');
+}
+
+String _methodBody(String source, String methodName) {
+  final declaration = RegExp(
+    r'(?:Future<[^>]+>|void)\s+' + RegExp.escape(methodName) + r'\s*\(',
+  ).firstMatch(source);
+  if (declaration == null) {
+    throw StateError('Method $methodName not found');
+  }
+
+  final openBrace = source.indexOf('{', declaration.start);
+  if (openBrace == -1) {
+    throw StateError('Method $methodName has no body');
+  }
+
+  var depth = 0;
+  for (var i = openBrace; i < source.length; i++) {
+    final char = source[i];
+    if (char == '{') depth++;
+    if (char == '}') depth--;
+    if (depth == 0) {
+      return source.substring(openBrace, i + 1);
+    }
+  }
+
+  throw StateError('Body did not close');
 }

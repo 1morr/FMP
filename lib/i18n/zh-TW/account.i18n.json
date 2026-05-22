@@ -37,5 +37,6 @@
   "sessionExpired": "$platform 登錄已失效，請重新登錄",
   "vipExpired": "$platform VIP 已過期",
   "checkingAccounts": "正在驗證帳號狀態...",
-  "accountsVerified": "帳號驗證完成"
+  "accountsVerified": "帳號驗證完成",
+  "accountsVerifiedWithFailures": "帳號驗證完成，但以下平台失敗：$platforms"
 }

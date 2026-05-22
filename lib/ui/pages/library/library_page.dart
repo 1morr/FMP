@@ -529,90 +529,40 @@ class _PlaylistCard extends ConsumerWidget {
 
   List<PopupMenuEntry<String>> _buildContextMenuItems(
       BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
     final isRefreshing = ref.read(isPlaylistRefreshingProvider(playlist.id));
-
-    return [
-      if (playlist.isMix) ...[
-        PopupMenuItem(
-          value: 'play_mix',
-          child: ListTile(
-            leading: const Icon(Icons.play_arrow),
-            title: Text(t.library.main.playMix),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-      ] else ...[
-        PopupMenuItem(
-          value: 'add_all',
-          child: ListTile(
-            leading: const Icon(Icons.play_arrow),
-            title: Text(t.library.addAll),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        PopupMenuItem(
-          value: 'shuffle_add',
-          child: ListTile(
-            leading: const Icon(Icons.shuffle),
-            title: Text(t.library.shuffleAdd),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-      ],
-      PopupMenuItem(
-        value: 'edit',
-        child: ListTile(
-          leading: const Icon(Icons.edit),
-          title: Text(t.library.main.editPlaylist),
-          contentPadding: EdgeInsets.zero,
-        ),
+    return PlaylistCardActions.buildPopupMenuEntries(
+      context: context,
+      items: PlaylistCardActions.buildMenuItems(
+        playlist: playlist,
+        isRefreshing: isRefreshing,
       ),
-      if (playlist.isImported && !playlist.isMix)
-        PopupMenuItem(
-          value: 'refresh',
-          enabled: !isRefreshing,
-          child: ListTile(
-            leading: Icon(isRefreshing ? Icons.hourglass_empty : Icons.refresh),
-            title: Text(isRefreshing
-                ? t.library.main.refreshing
-                : t.library.main.refreshPlaylist),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-      PopupMenuItem(
-        value: 'delete',
-        child: ListTile(
-          leading: Icon(Icons.delete, color: colorScheme.error),
-          title: Text(t.library.main.deletePlaylist,
-              style: TextStyle(color: colorScheme.error)),
-          contentPadding: EdgeInsets.zero,
-        ),
-      ),
-    ];
+    );
   }
 
   void _handleContextMenuAction(
       BuildContext context, WidgetRef ref, String value) {
     switch (value) {
-      case 'play_mix':
+      case PlaylistCardActions.actionPlayMix:
         _playMix(context, ref);
-      case 'add_all':
+      case PlaylistCardActions.actionAddAll:
         _addAllToQueue(context, ref);
-      case 'shuffle_add':
+      case PlaylistCardActions.actionShuffleAdd:
         _shuffleAddToQueue(context, ref);
-      case 'edit':
+      case PlaylistCardActions.actionEdit:
         _showEditDialog(context, ref);
-      case 'refresh':
+      case PlaylistCardActions.actionRefresh:
         _refreshPlaylist(context, ref);
-      case 'delete':
+      case PlaylistCardActions.actionDelete:
         _showDeleteConfirm(context, ref);
     }
   }
 
   void _showOptionsMenu(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
     final isRefreshing = ref.read(isPlaylistRefreshingProvider(playlist.id));
+    final items = PlaylistCardActions.buildMenuItems(
+      playlist: playlist,
+      isRefreshing: isRefreshing,
+    );
 
     showModalBottomSheet(
       context: context,
@@ -621,78 +571,12 @@ class _PlaylistCard extends ConsumerWidget {
           padding: const EdgeInsets.only(top: 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: [
-              // Mix播放列表显示不同的菜单
-              if (playlist.isMix) ...[
-                ListTile(
-                  leading: const Icon(Icons.play_arrow),
-                  title: Text(t.library.main.playMix),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _playMix(context, ref);
-                  },
-                ),
-              ] else ...[
-                ListTile(
-                  leading: const Icon(Icons.play_arrow),
-                  title: Text(t.library.addAll),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _addAllToQueue(context, ref);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.shuffle),
-                  title: Text(t.library.shuffleAdd),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _shuffleAddToQueue(context, ref);
-                  },
-                ),
-              ],
-              ListTile(
-                leading: const Icon(Icons.edit),
-                title: Text(t.library.main.editPlaylist),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showEditDialog(context, ref);
-                },
-              ),
-              // 刷新选项仅对导入的非Mix歌单显示
-              if (playlist.isImported && !playlist.isMix)
-                ListTile(
-                  leading: isRefreshing
-                      ? SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                                colorScheme.primary),
-                          ),
-                        )
-                      : const Icon(Icons.refresh),
-                  title: Text(isRefreshing
-                      ? t.library.main.refreshing
-                      : t.library.main.refreshPlaylist),
-                  enabled: !isRefreshing,
-                  onTap: isRefreshing
-                      ? null
-                      : () {
-                          Navigator.pop(context);
-                          _refreshPlaylist(context, ref);
-                        },
-                ),
-              ListTile(
-                leading: Icon(Icons.delete, color: colorScheme.error),
-                title: Text(t.library.main.deletePlaylist,
-                    style: TextStyle(color: colorScheme.error)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showDeleteConfirm(context, ref);
-                },
-              ),
-            ],
+            children: PlaylistCardActions.buildBottomSheetTiles(
+              context: context,
+              items: items,
+              onSelected: (value) =>
+                  _handleContextMenuAction(context, ref, value),
+            ),
           ),
         ),
       ),

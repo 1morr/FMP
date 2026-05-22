@@ -132,49 +132,55 @@ class _WebViewLoginTabState extends ConsumerState<_WebViewLoginTab> {
     if (host.contains('bilibili.com') && !host.contains('passport')) {
       _loginHandled = true;
 
-      // 提取 cookies
-      final cookieManager = CookieManager.instance();
-      final cookies = await cookieManager.getCookies(
-        url: WebUri('https://www.bilibili.com'),
-      );
+      try {
+        // 提取 cookies
+        final cookieManager = CookieManager.instance();
+        final cookies = await cookieManager.getCookies(
+          url: WebUri('https://www.bilibili.com'),
+        );
 
-      String? findCookie(String name) {
-        try {
-          return cookies
-              .firstWhere((c) => c.name == name)
-              .value;
-        } catch (_) {
-          return null;
+        String? findCookie(String name) {
+          try {
+            return cookies.firstWhere((c) => c.name == name).value;
+          } catch (_) {
+            return null;
+          }
+        }
+
+        final sessdata = findCookie('SESSDATA');
+        final biliJct = findCookie('bili_jct');
+        final dedeUserId = findCookie('DedeUserID');
+        final dedeUserIdCkMd5 = findCookie('DedeUserID__ckMd5');
+
+        if (sessdata == null || biliJct == null || dedeUserId == null) {
+          _loginHandled = false;
+          return;
+        }
+
+        // 提取 refresh_token
+        final refreshToken = await controller.evaluateJavascript(
+          source: "localStorage.getItem('ac_time_value')",
+        ) as String?;
+
+        final accountService = ref.read(bilibiliAccountServiceProvider);
+        await accountService.loginWithCookies(
+          sessdata: sessdata,
+          biliJct: biliJct,
+          dedeUserId: dedeUserId,
+          dedeUserIdCkMd5: dedeUserIdCkMd5 ?? '',
+          refreshToken: refreshToken ?? '',
+        );
+        await accountService.fetchAndUpdateUserInfo();
+        await _cleanupWebView();
+
+        widget.onLoginSuccess();
+      } catch (e) {
+        _loginHandled = false;
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ToastService.error(context, e.toString());
         }
       }
-
-      final sessdata = findCookie('SESSDATA');
-      final biliJct = findCookie('bili_jct');
-      final dedeUserId = findCookie('DedeUserID');
-      final dedeUserIdCkMd5 = findCookie('DedeUserID__ckMd5');
-
-      if (sessdata == null || biliJct == null || dedeUserId == null) {
-        _loginHandled = false;
-        return;
-      }
-
-      // 提取 refresh_token
-      final refreshToken = await controller.evaluateJavascript(
-        source: "localStorage.getItem('ac_time_value')",
-      ) as String?;
-
-      final accountService = ref.read(bilibiliAccountServiceProvider);
-      await accountService.loginWithCookies(
-        sessdata: sessdata,
-        biliJct: biliJct,
-        dedeUserId: dedeUserId,
-        dedeUserIdCkMd5: dedeUserIdCkMd5 ?? '',
-        refreshToken: refreshToken ?? '',
-      );
-      await accountService.fetchAndUpdateUserInfo();
-      await _cleanupWebView();
-
-      widget.onLoginSuccess();
     }
   }
 
@@ -197,8 +203,7 @@ class _WebViewLoginTabState extends ConsumerState<_WebViewLoginTab> {
             if (mounted) setState(() => _isLoading = true);
           },
         ),
-        if (_isLoading)
-          const Center(child: CircularProgressIndicator()),
+        if (_isLoading) const Center(child: CircularProgressIndicator()),
       ],
     );
   }
@@ -263,17 +268,33 @@ class _QrCodeLoginTabState extends ConsumerState<_QrCodeLoginTab> {
     _pollSubscription?.cancel();
     final accountService = ref.read(bilibiliAccountServiceProvider);
 
-    _pollSubscription =
-        accountService.pollQrCodeStatus(qrcodeKey).listen((result) async {
-      if (!mounted) return;
+    _pollSubscription = accountService.pollQrCodeStatus(qrcodeKey).listen(
+      (result) async {
+        if (!mounted) return;
 
-      setState(() => _status = result.status);
+        setState(() => _status = result.status);
+        if (result.message?.isNotEmpty == true &&
+            result.status == QrCodeStatus.expired) {
+          ToastService.error(context, result.message!);
+        }
 
-      if (result.status == QrCodeStatus.success) {
-        await accountService.fetchAndUpdateUserInfo();
-        widget.onLoginSuccess();
-      }
-    });
+        if (result.status == QrCodeStatus.success) {
+          try {
+            await accountService.fetchAndUpdateUserInfo();
+            widget.onLoginSuccess();
+          } catch (e) {
+            if (!mounted) return;
+            setState(() => _status = QrCodeStatus.waiting);
+            ToastService.error(context, e.toString());
+          }
+        }
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        if (!mounted) return;
+        setState(() => _status = QrCodeStatus.expired);
+        ToastService.error(context, error.toString());
+      },
+    );
   }
 
   @override
@@ -321,8 +342,8 @@ class _QrCodeLoginTabState extends ConsumerState<_QrCodeLoginTab> {
                                   size: 40, color: colorScheme.primary),
                               const SizedBox(height: 8),
                               Text(t.account.qrExpired,
-                                  style: TextStyle(
-                                      color: colorScheme.onSurface)),
+                                  style:
+                                      TextStyle(color: colorScheme.onSurface)),
                             ],
                           ),
                         ),

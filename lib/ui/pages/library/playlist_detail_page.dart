@@ -18,8 +18,6 @@ import '../../../providers/download_path_provider.dart';
 import '../../../providers/selection_provider.dart';
 import '../../widgets/download_path_setup_dialog.dart';
 import '../../../services/audio/audio_provider.dart';
-import '../../widgets/dialogs/add_to_playlist_dialog.dart';
-import '../../widgets/dialogs/add_to_remote_playlist_dialog.dart';
 import '../../widgets/error_display.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/selection_mode_app_bar.dart';
@@ -27,12 +25,10 @@ import '../../widgets/context_menu_region.dart';
 import '../../widgets/track_group/track_group.dart';
 import '../../widgets/track_thumbnail.dart';
 import '../../widgets/vip_badge.dart';
-import '../../../providers/account_provider.dart';
 import '../../../providers/library_invalidation_coordinator.dart';
 import '../../../services/account/bilibili_favorites_service.dart';
 import '../../../services/account/youtube_playlist_service.dart';
 import '../../../services/account/netease_playlist_service.dart';
-import '../../../services/library/remote_playlist_track_filter.dart';
 import '../../../providers/remote_playlist_sync_provider.dart';
 import '../../handlers/track_action_coordinator.dart';
 import '../../handlers/track_action_handler.dart';
@@ -56,8 +52,8 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   List<Track>? _cachedTracks;
   List<TrackGroup>? _cachedGroups;
 
-  // 上次预加载过的封面路径集合，用于避免重复 fan-out I/O
-  Set<String> _cachedCoverPaths = const {};
+  // 上次预加载过的本地文件路径集合，用于避免重复 fan-out I/O
+  Set<String> _cachedDownloadFilePaths = const {};
   int _lastCacheEpoch = -1;
 
   // 滚动控制器，用于跟踪 AppBar 收起状态
@@ -74,7 +70,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     _scrollController.addListener(_onScroll);
     // 初始刷新
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _preloadCoverPaths();
+      _preloadDownloadFilePaths();
     });
   }
 
@@ -99,51 +95,54 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     super.dispose();
   }
 
-  Set<String> _buildCoverPathsSet(List<Track> tracks) {
-    return tracks
-        .where((t) => t.hasAnyDownload)
-        .map((t) =>
-            '${t.allDownloadPaths.first.replaceAll(RegExp(r'[/\\][^/\\]+$'), '')}/cover.jpg')
-        .toSet();
+  Set<String> _buildDownloadFilePathsSet(List<Track> tracks) {
+    final paths = <String>{};
+    for (final track in tracks.where((t) => t.hasAnyDownload)) {
+      for (final downloadPath in track.allDownloadPaths) {
+        paths.add(downloadPath);
+        paths.add(
+          '${downloadPath.replaceAll(RegExp(r'[/\\][^/\\]+$'), '')}/cover.jpg',
+        );
+      }
+    }
+    return paths;
   }
 
-  /// 预加载封面图路径缓存
-  Future<void> _preloadCoverPaths() async {
+  /// 预加载封面和音频文件路径缓存
+  Future<void> _preloadDownloadFilePaths() async {
     final state = ref.read(playlistDetailProvider(widget.playlistId));
     final cacheEpoch = ref.read(fileExistsCacheEpochProvider);
-    final coverPaths = _buildCoverPathsSet(state.tracks);
-    if (setEquals(coverPaths, _cachedCoverPaths) &&
+    final paths = _buildDownloadFilePathsSet(state.tracks);
+    if (setEquals(paths, _cachedDownloadFilePaths) &&
         cacheEpoch == _lastCacheEpoch) {
       return;
     }
 
-    _cachedCoverPaths = coverPaths;
+    _cachedDownloadFilePaths = paths;
     _lastCacheEpoch = cacheEpoch;
-    if (coverPaths.isEmpty) return;
+    if (paths.isEmpty) return;
 
     await ref
         .read(fileExistsCacheProvider.notifier)
-        .preloadPaths(coverPaths.toList());
+        .preloadPaths(paths.toList());
   }
 
   /// 检查并预加载缓存（在 build 中调用，当实际封面路径集合变化时）
   void _checkAndPreloadCache(List<Track> tracks, int cacheEpoch) {
-    final coverPaths = _buildCoverPathsSet(tracks);
-    if (setEquals(coverPaths, _cachedCoverPaths) &&
+    final paths = _buildDownloadFilePathsSet(tracks);
+    if (setEquals(paths, _cachedDownloadFilePaths) &&
         cacheEpoch == _lastCacheEpoch) {
       return;
     }
 
-    _cachedCoverPaths = coverPaths;
+    _cachedDownloadFilePaths = paths;
     _lastCacheEpoch = cacheEpoch;
-    if (coverPaths.isEmpty) return;
+    if (paths.isEmpty) return;
 
     // 使用 addPostFrameCallback 避免在 build 期间修改 state
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        ref
-            .read(fileExistsCacheProvider.notifier)
-            .preloadPaths(coverPaths.toList());
+        ref.read(fileExistsCacheProvider.notifier).preloadPaths(paths.toList());
       }
     });
   }
@@ -1126,6 +1125,25 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   }
 }
 
+bool _isDownloadedForPlaylistWithExistingFile(
+  WidgetRef ref,
+  Track track,
+  int playlistId, {
+  required String playlistName,
+}) {
+  final path = track.getDownloadPath(playlistId, playlistName: playlistName);
+  if (path == null || path.isEmpty) {
+    return false;
+  }
+
+  final cachedExists = ref.watch(filePathExistsProvider(path));
+  if (cachedExists) {
+    return true;
+  }
+
+  return ref.read(fileExistsCacheProvider.notifier).exists(path);
+}
+
 /// 分组标题组件
 class _GroupHeader extends ConsumerWidget {
   final TrackGroup group;
@@ -1163,6 +1181,14 @@ class _GroupHeader extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final firstTrack = group.tracks.first;
     final currentTrack = ref.watch(currentTrackProvider);
+    final isGroupDownloaded = group.tracks.every(
+      (track) => _isDownloadedForPlaylistWithExistingFile(
+        ref,
+        track,
+        playlistId,
+        playlistName: playlistName,
+      ),
+    );
     // 检查当前播放的是否是这个组的某个分P
     // 使用 sourceId + pageNum 比较，因为临时播放的 track 可能没有数据库 ID
     final isPlayingThisGroup = currentTrack != null &&
@@ -1210,9 +1236,7 @@ class _GroupHeader extends ConsumerWidget {
                     ),
               ),
             ),
-            // 检查是否所有分P都已下载（使用 playlist-specific 检查）
-            if (group.tracks.every((t) => t.isDownloadedForPlaylist(playlistId,
-                playlistName: playlistName))) ...[
+            if (isGroupDownloaded) ...[
               const SizedBox(width: 8),
               Icon(
                 Icons.download_done,
@@ -1271,18 +1295,16 @@ class _GroupHeader extends ConsumerWidget {
                   leading: const Icon(Icons.download_outlined),
                   title: Text(t.library.detail.downloadAllParts),
                   contentPadding: EdgeInsets.zero)),
-        PopupMenuItem(
-            value: addToPlaylistTrackActionId,
-            child: ListTile(
-                leading: const Icon(Icons.playlist_add),
-                title: Text(t.library.detail.addToOtherPlaylist),
-                contentPadding: EdgeInsets.zero)),
-        PopupMenuItem(
-            value: addToRemoteTrackActionId,
-            child: ListTile(
-                leading: const Icon(Icons.cloud_upload_outlined),
-                title: Text(t.remote.addToFavorites),
-                contentPadding: EdgeInsets.zero)),
+        ...buildTrackActionPopupMenuEntries(
+          buildCommonTrackActionMenuItems(
+            translations: t,
+            scope: TrackActionMenuScope.multi,
+            options: const TrackActionMenuOptions(
+              includePlayNext: false,
+              includeAddToQueue: false,
+            ),
+          ),
+        ),
         if (!isImported)
           PopupMenuItem(
               value: 'remove_all',
@@ -1302,20 +1324,13 @@ class _GroupHeader extends ConsumerWidget {
         onAddAllToQueue();
         break;
       case addToRemoteTrackActionId:
-        final remoteTracks = filterLoggedInRemoteTracks(
-          group.tracks,
-          isLoggedIn: (sourceType) => ref.read(isLoggedInProvider(sourceType)),
+      case addToPlaylistTrackActionId:
+        await TrackActionCoordinator.handleMulti(
+          context: context,
+          ref: ref,
+          tracks: group.tracks,
+          actionId: action,
         );
-        if (remoteTracks.isEmpty) {
-          if (context.mounted) {
-            ToastService.show(context, t.remote.pleaseLogin);
-          }
-          return;
-        }
-        if (context.mounted) {
-          showAddToRemotePlaylistDialogMulti(
-              context: context, tracks: remoteTracks);
-        }
         break;
       case 'download_all':
         // 检查路径配置
@@ -1389,10 +1404,6 @@ class _GroupHeader extends ConsumerWidget {
           }
         }
         break;
-      case addToPlaylistTrackActionId:
-        // 添加所有分P到其他歌单
-        showAddToPlaylistDialog(context: context, tracks: group.tracks);
-        break;
       case 'remove_all':
         // 移除所有分P
         final notifier = ref.read(playlistDetailProvider(playlistId).notifier);
@@ -1442,6 +1453,12 @@ class _TrackListTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final currentTrack = ref.watch(currentTrackProvider);
+    final isDownloaded = _isDownloadedForPlaylistWithExistingFile(
+      ref,
+      track,
+      playlistId,
+      playlistName: playlistName,
+    );
     // 使用 sourceId + pageNum 比较，因为临时播放的 track 可能没有数据库 ID
     final isPlaying = currentTrack != null &&
         currentTrack.sourceId == track.sourceId &&
@@ -1512,9 +1529,7 @@ class _TrackListTile extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    // 检查歌曲是否已下载到本歌单（使用 playlist-specific 检查）
-                    if (track.isDownloadedForPlaylist(playlistId,
-                        playlistName: playlistName))
+                    if (isDownloaded)
                       Icon(
                         Icons.download_done,
                         size: 14,
@@ -1531,9 +1546,7 @@ class _TrackListTile extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // 分P子项目单独显示下载状态（主项目在 subtitle 显示）
-                    if (isPartOfMultiPage &&
-                        track.isDownloadedForPlaylist(playlistId,
-                            playlistName: playlistName))
+                    if (isPartOfMultiPage && isDownloaded)
                       Padding(
                         padding: const EdgeInsets.only(right: 4),
                         child: Icon(

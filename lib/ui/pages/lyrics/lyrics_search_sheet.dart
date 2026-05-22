@@ -40,6 +40,7 @@ class LyricsSearchSheet extends ConsumerStatefulWidget {
 class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
   final _searchController = TextEditingController();
   bool _hasAutoSearched = false;
+  bool _isSaving = false;
   LyricsSourceFilter _selectedFilter = LyricsSourceFilter.all;
 
   @override
@@ -139,9 +140,7 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
                     label: Text(getLabel(source)),
                     labelPadding: const EdgeInsets.only(left: 4, right: 4),
                     selected: _selectedFilter == filter,
-                    onSelected: isDisabled
-                        ? null
-                        : (_) => _setFilter(filter),
+                    onSelected: isDisabled ? null : (_) => _setFilter(filter),
                   ),
                 );
               }),
@@ -153,32 +152,58 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
   }
 
   Future<void> _selectResult(LyricsResult result) async {
-    final notifier = ref.read(lyricsSearchProvider.notifier);
-    await notifier.saveMatch(
-      trackUniqueKey: widget.track.uniqueKey,
-      result: result,
-    );
-    // invalidate 相关 providers，确保歌词内容也重新加载
-    ref.invalidate(currentLyricsMatchProvider);
-    ref.invalidate(currentLyricsContentProvider);
-    ref.invalidate(lyricsMatchForTrackProvider(widget.track.uniqueKey));
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
 
-    if (mounted) {
-      Navigator.of(context).pop();
-      ToastService.success(context, t.lyrics.lyricsMatched);
+    try {
+      final notifier = ref.read(lyricsSearchProvider.notifier);
+      await notifier.saveMatch(
+        trackUniqueKey: widget.track.uniqueKey,
+        result: result,
+      );
+      // invalidate 相关 providers，确保歌词内容也重新加载
+      ref.invalidate(currentLyricsMatchProvider);
+      ref.invalidate(currentLyricsContentProvider);
+      ref.invalidate(lyricsMatchForTrackProvider(widget.track.uniqueKey));
+
+      if (mounted) {
+        Navigator.of(context).pop();
+        ToastService.success(context, t.lyrics.lyricsMatched);
+      }
+    } catch (e) {
+      if (mounted) {
+        ToastService.error(context, t.lyrics.saveFailed(error: e.toString()));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
   Future<void> _removeMatch() async {
-    final notifier = ref.read(lyricsSearchProvider.notifier);
-    await notifier.removeMatch(widget.track.uniqueKey);
-    ref.invalidate(currentLyricsMatchProvider);
-    ref.invalidate(currentLyricsContentProvider);
-    ref.invalidate(lyricsMatchForTrackProvider(widget.track.uniqueKey));
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
 
-    if (mounted) {
-      Navigator.of(context).pop();
-      ToastService.success(context, t.lyrics.lyricsRemoved);
+    try {
+      final notifier = ref.read(lyricsSearchProvider.notifier);
+      await notifier.removeMatch(widget.track.uniqueKey);
+      ref.invalidate(currentLyricsMatchProvider);
+      ref.invalidate(currentLyricsContentProvider);
+      ref.invalidate(lyricsMatchForTrackProvider(widget.track.uniqueKey));
+
+      if (mounted) {
+        Navigator.of(context).pop();
+        ToastService.success(context, t.lyrics.lyricsRemoved);
+      }
+    } catch (e) {
+      if (mounted) {
+        ToastService.error(context, t.lyrics.removeFailed(error: e.toString()));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
@@ -230,7 +255,8 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
                         width: 40,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                          color: colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.4),
                           borderRadius: AppRadius.borderRadiusXs,
                         ),
                       ),
@@ -285,7 +311,8 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
                             border: OutlineInputBorder(
                               borderRadius: AppRadius.borderRadiusXl,
                             ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                            contentPadding:
+                                const EdgeInsets.symmetric(horizontal: 16),
                           ),
                           textInputAction: TextInputAction.search,
                           onSubmitted: (_) => _doSearch(),
@@ -362,8 +389,14 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
             width: 32,
             height: 32,
             child: IconButton.filledTonal(
-              onPressed: _removeMatch,
-              icon: const Icon(Icons.link_off, size: 18),
+              onPressed: _isSaving ? null : _removeMatch,
+              icon: _isSaving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.link_off, size: 18),
               padding: EdgeInsets.zero,
               tooltip: t.lyrics.removeMatch,
               style: IconButton.styleFrom(
@@ -455,7 +488,7 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
           return _LyricsResultTile(
             result: result,
             trackDurationMs: widget.track.durationMs,
-            onTap: () => _selectResult(result),
+            onTap: _isSaving ? null : () => _selectResult(result),
           );
         },
         childCount: filtered.length,
@@ -468,7 +501,7 @@ class _LyricsSearchSheetState extends ConsumerState<LyricsSearchSheet> {
 class _LyricsResultTile extends StatelessWidget {
   final LyricsResult result;
   final int? trackDurationMs;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _LyricsResultTile({
     required this.result,
@@ -491,9 +524,8 @@ class _LyricsResultTile extends StatelessWidget {
             : result.hasPlainLyrics
                 ? Icons.text_snippet
                 : Icons.music_off,
-        color: result.hasSyncedLyrics
-            ? colorScheme.primary
-            : colorScheme.outline,
+        color:
+            result.hasSyncedLyrics ? colorScheme.primary : colorScheme.outline,
       ),
       title: Text(
         result.trackName,

@@ -54,8 +54,7 @@ void main() {
     }
   });
 
-  test(
-      'source remote playlist dialogs surface partial success before success',
+  test('source remote playlist dialogs surface partial success before success',
       () {
     for (final path in [
       'lib/ui/widgets/dialogs/add_to_bilibili_playlist_dialog.dart',
@@ -63,7 +62,8 @@ void main() {
       'lib/ui/widgets/dialogs/add_to_netease_playlist_dialog.dart',
     ]) {
       final submitBody = _methodBody(File(path).readAsStringSync(), '_submit');
-      final partialIndex = submitBody.indexOf('result.changedRemote && result.hasFailures');
+      final partialIndex =
+          submitBody.indexOf('result.changedRemote && result.hasFailures');
       final successIndex = submitBody.indexOf('result.changedRemote)');
 
       expect(partialIndex, isNot(-1), reason: path);
@@ -74,13 +74,42 @@ void main() {
     }
   });
 
+  test('source remote playlist dialogs reuse shared selection UI widgets', () {
+    final sharedSource = File(
+      'lib/ui/widgets/dialogs/remote_playlist_dialog_widgets.dart',
+    ).readAsStringSync();
+
+    expect(sharedSource, contains('class RemotePlaylistDialogHeader'));
+    expect(sharedSource, contains('class RemotePlaylistTrackSummary'));
+    expect(sharedSource, contains('class RemotePlaylistCreateTile'));
+    expect(sharedSource, contains('class RemotePlaylistListTile'));
+    expect(sharedSource, contains('class RemotePlaylistSelectionIndicator'));
+
+    for (final path in [
+      'lib/ui/widgets/dialogs/add_to_bilibili_playlist_dialog.dart',
+      'lib/ui/widgets/dialogs/add_to_youtube_playlist_dialog.dart',
+      'lib/ui/widgets/dialogs/add_to_netease_playlist_dialog.dart',
+    ]) {
+      final source = File(path).readAsStringSync();
+      expect(source, contains("import 'remote_playlist_dialog_widgets.dart';"));
+      expect(source, contains('RemotePlaylistDialogHeader('), reason: path);
+      expect(source, contains('RemotePlaylistTrackSummary('), reason: path);
+      expect(source, contains('RemotePlaylistCreateTile('), reason: path);
+      expect(source, contains('RemotePlaylistListTile('), reason: path);
+      expect(source, isNot(contains('ImageLoadingService.loadImage(')),
+          reason: path);
+      expect(source, isNot(contains('TrackThumbnail(')), reason: path);
+    }
+  });
+
   test('legacy remote action services are removed from providers and UI', () {
     final accountProvider =
         File('lib/providers/account_provider.dart').readAsStringSync();
     final syncProvider =
-        File('lib/providers/remote_playlist_sync_provider.dart').readAsStringSync();
-    final detailPage =
-        File('lib/ui/pages/library/playlist_detail_page.dart').readAsStringSync();
+        File('lib/providers/remote_playlist_sync_provider.dart')
+            .readAsStringSync();
+    final detailPage = File('lib/ui/pages/library/playlist_detail_page.dart')
+        .readAsStringSync();
 
     const actionsProvider = 'remotePlaylistActions' 'ServiceProvider';
     const removalSyncProvider = 'remotePlaylistRemoval' 'SyncServiceProvider';

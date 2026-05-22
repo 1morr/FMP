@@ -42,7 +42,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   final _searchController = TextEditingController();
   final _focusNode = FocusNode();
 
-
   // 分P展开状态管理
   final Set<String> _expandedVideos = {};
   final Map<String, List<VideoPage>> _loadedPages = {};
@@ -78,7 +77,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     final selectionState = ref.watch(searchSelectionProvider);
 
     // 獲取所有搜索結果用於全選
-    final allTracks = [...searchState.localResults, ...searchState.mixedOnlineTracks];
+    final allTracks = [
+      ...searchState.localResults,
+      ...searchState.mixedOnlineTracks
+    ];
 
     // 多選模式下的可用操作（搜索頁不支持下載和刪除）
     const availableActions = <String>{
@@ -174,100 +176,110 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
-                      children: [
-                        ChoiceChip(
-                          label: Text(t.searchPage.source.all),
-                          selected: state.selectedSource == null && !state.isLiveSearchMode,
-                          onSelected: (_) {
-                            ref.read(searchProvider.notifier).setFilters(
-                              clearSource: true,
-                              clearLiveRoomFilter: true,
-                            );
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        ChoiceChip(
-                          label: Text(t.importPlatform.bilibili),
-                          selected: state.selectedSource == SourceType.bilibili && !state.isLiveSearchMode,
-                          onSelected: (_) {
-                            ref.read(searchProvider.notifier).setFilters(
-                              sourceType: SourceType.bilibili,
-                              clearLiveRoomFilter: true,
-                            );
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        ChoiceChip(
-                          label: const Text('YouTube'),
-                          selected: state.selectedSource == SourceType.youtube,
-                          onSelected: (_) {
-                            ref.read(searchProvider.notifier).setFilters(
-                              sourceType: SourceType.youtube,
-                              clearLiveRoomFilter: true,
-                            );
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        ChoiceChip(
-                          label: Text(t.importPlatform.netease),
-                          selected: state.selectedSource == SourceType.netease,
-                          onSelected: (_) {
-                            ref.read(searchProvider.notifier).setFilters(
-                              sourceType: SourceType.netease,
-                              clearLiveRoomFilter: true,
-                            );
-                          },
-                        ),
-                        const SizedBox(width: 16),
-                        // 分隔线
-                        Container(
-                          width: 1,
-                          height: 24,
-                          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
-                        ),
-                        const SizedBox(width: 16),
-                        // 直播间筛选
-                        ChoiceChip(
-                          label: Text(t.searchPage.liveRoom.all),
-                          selected: state.liveRoomFilter == LiveRoomFilter.all,
-                          onSelected: (_) {
-                            ref.read(searchProvider.notifier).setFilters(
-                              sourceType: SourceType.bilibili,
-                              liveRoomFilter: LiveRoomFilter.all,
-                            );
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        ChoiceChip(
-                          label: Text(t.searchPage.liveRoom.online),
-                          selected: state.liveRoomFilter == LiveRoomFilter.online,
-                          onSelected: (_) {
-                            ref.read(searchProvider.notifier).setFilters(
-                              sourceType: SourceType.bilibili,
-                              liveRoomFilter: LiveRoomFilter.online,
-                            );
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        ChoiceChip(
-                          label: Text(t.searchPage.liveRoom.offline),
-                          selected: state.liveRoomFilter == LiveRoomFilter.offline,
-                          onSelected: (_) {
-                            ref.read(searchProvider.notifier).setFilters(
-                              sourceType: SourceType.bilibili,
-                              liveRoomFilter: LiveRoomFilter.offline,
-                            );
-                          },
-                        ),
-                      ],
+                        children: [
+                          ChoiceChip(
+                            label: Text(t.searchPage.source.all),
+                            selected: state.selectedSource == null &&
+                                !state.isLiveSearchMode,
+                            onSelected: (_) {
+                              ref.read(searchProvider.notifier).setFilters(
+                                    clearSource: true,
+                                    clearLiveRoomFilter: true,
+                                  );
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          ChoiceChip(
+                            label: Text(t.importPlatform.bilibili),
+                            selected:
+                                state.selectedSource == SourceType.bilibili &&
+                                    !state.isLiveSearchMode,
+                            onSelected: (_) {
+                              ref.read(searchProvider.notifier).setFilters(
+                                    sourceType: SourceType.bilibili,
+                                    clearLiveRoomFilter: true,
+                                  );
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          ChoiceChip(
+                            label: const Text('YouTube'),
+                            selected:
+                                state.selectedSource == SourceType.youtube,
+                            onSelected: (_) {
+                              ref.read(searchProvider.notifier).setFilters(
+                                    sourceType: SourceType.youtube,
+                                    clearLiveRoomFilter: true,
+                                  );
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          ChoiceChip(
+                            label: Text(t.importPlatform.netease),
+                            selected:
+                                state.selectedSource == SourceType.netease,
+                            onSelected: (_) {
+                              ref.read(searchProvider.notifier).setFilters(
+                                    sourceType: SourceType.netease,
+                                    clearLiveRoomFilter: true,
+                                  );
+                            },
+                          ),
+                          const SizedBox(width: 16),
+                          // 分隔线
+                          Container(
+                            width: 1,
+                            height: 24,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .outline
+                                .withValues(alpha: 0.3),
+                          ),
+                          const SizedBox(width: 16),
+                          // 直播间筛选
+                          ChoiceChip(
+                            label: Text(t.searchPage.liveRoom.all),
+                            selected:
+                                state.liveRoomFilter == LiveRoomFilter.all,
+                            onSelected: (_) {
+                              ref.read(searchProvider.notifier).setFilters(
+                                    sourceType: SourceType.bilibili,
+                                    liveRoomFilter: LiveRoomFilter.all,
+                                  );
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          ChoiceChip(
+                            label: Text(t.searchPage.liveRoom.online),
+                            selected:
+                                state.liveRoomFilter == LiveRoomFilter.online,
+                            onSelected: (_) {
+                              ref.read(searchProvider.notifier).setFilters(
+                                    sourceType: SourceType.bilibili,
+                                    liveRoomFilter: LiveRoomFilter.online,
+                                  );
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          ChoiceChip(
+                            label: Text(t.searchPage.liveRoom.offline),
+                            selected:
+                                state.liveRoomFilter == LiveRoomFilter.offline,
+                            onSelected: (_) {
+                              ref.read(searchProvider.notifier).setFilters(
+                                    sourceType: SourceType.bilibili,
+                                    liveRoomFilter: LiveRoomFilter.offline,
+                                  );
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 // 排序按钮（仅在视频搜索模式下显示）
-                if (!state.isLiveSearchMode)
-                  _buildSortButton(context, state),
+                if (!state.isLiveSearchMode) _buildSortButton(context, state),
               ],
             ),
           ),
@@ -299,7 +311,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5)),
+          border: Border.all(
+              color:
+                  Theme.of(context).colorScheme.outline.withValues(alpha: 0.5)),
           borderRadius: AppRadius.borderRadiusXl,
         ),
         child: Row(
@@ -466,7 +480,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  t.searchPage.section.inPlaylist(count: state.localResults.length),
+                  t.searchPage.section
+                      .inPlaylist(count: state.localResults.length),
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
@@ -474,7 +489,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             Builder(
               builder: (context) {
                 final selectionState = ref.watch(searchSelectionProvider);
-                final selectionNotifier = ref.read(searchSelectionProvider.notifier);
+                final selectionNotifier =
+                    ref.read(searchSelectionProvider.notifier);
                 // 先按 sourceId + pageNum 去重，避免同一首歌在多个歌单中重复显示
                 final uniqueTracks = <String, Track>{};
                 for (final track in state.localResults) {
@@ -483,30 +499,40 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   uniqueTracks.putIfAbsent(key, () => track);
                 }
                 // 然后按视频分组
-                final groupedLocalResults = groupTracks(uniqueTracks.values.toList());
+                final groupedLocalResults =
+                    groupTracks(uniqueTracks.values.toList());
                 return SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final group = groupedLocalResults[index];
                       return _LocalGroupTile(
+                        key: ValueKey('local-group-${group.groupKey}'),
                         group: group,
                         isExpanded: _expandedVideos.contains(group.groupKey),
                         onToggleExpand: () => _toggleExpanded(group.groupKey),
                         onPlayTrack: selectionState.isSelectionMode
-                            ? (track) => selectionNotifier.toggleSelection(track)
+                            ? (track) =>
+                                selectionNotifier.toggleSelection(track)
                             : (track) {
-                                final controller = ref.read(audioControllerProvider.notifier);
+                                final controller =
+                                    ref.read(audioControllerProvider.notifier);
                                 controller.playTemporary(track);
                               },
                         onMenuAction: _handleMenuAction,
                         isSelectionMode: selectionState.isSelectionMode,
-                        isGroupFullySelected: selectionNotifier.isGroupFullySelected(group.tracks),
-                        isGroupPartiallySelected: selectionNotifier.isGroupPartiallySelected(group.tracks),
+                        isGroupFullySelected: selectionNotifier
+                            .isGroupFullySelected(group.tracks),
+                        isGroupPartiallySelected: selectionNotifier
+                            .isGroupPartiallySelected(group.tracks),
                         onLongPress: selectionState.isSelectionMode
-                            ? () => selectionNotifier.toggleGroupSelection(group.tracks)
-                            : () => selectionNotifier.enterSelectionModeWithTracks(group.tracks),
-                        isTrackSelected: (track) => selectionState.isSelected(track),
-                        onTrackLongPress: (track) => selectionNotifier.toggleSelection(track),
+                            ? () => selectionNotifier
+                                .toggleGroupSelection(group.tracks)
+                            : () => selectionNotifier
+                                .enterSelectionModeWithTracks(group.tracks),
+                        isTrackSelected: (track) =>
+                            selectionState.isSelected(track),
+                        onTrackLongPress: (track) =>
+                            selectionNotifier.toggleSelection(track),
                       );
                     },
                     childCount: groupedLocalResults.length,
@@ -522,7 +548,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  t.searchPage.section.onlineResults(count: state.mixedOnlineTracks.length),
+                  t.searchPage.section
+                      .onlineResults(count: state.mixedOnlineTracks.length),
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
@@ -530,13 +557,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             Builder(
               builder: (context) {
                 final selectionState = ref.watch(searchSelectionProvider);
-                final selectionNotifier = ref.read(searchSelectionProvider.notifier);
+                final selectionNotifier =
+                    ref.read(searchSelectionProvider.notifier);
                 return SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final track = state.mixedOnlineTracks[index];
                       return _SearchResultTile(
-                        key: ValueKey('${track.groupKey}:${track.pageNum ?? 1}'),
+                        key:
+                            ValueKey('${track.groupKey}:${track.pageNum ?? 1}'),
                         track: track,
                         isLocal: false,
                         isExpanded: _expandedVideos.contains(track.sourceId),
@@ -550,7 +579,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                             : () => selectionNotifier.enterSelectionMode(track),
                         onToggleExpand: () => _toggleExpanded(track.sourceId),
                         onMenuAction: _handleMenuAction,
-                        onPageMenuAction: (page, action) => _handlePageMenuAction(track, page, action),
+                        onPageMenuAction: (page, action) =>
+                            _handlePageMenuAction(track, page, action),
                         isSelectionMode: selectionState.isSelectionMode,
                         isSelected: selectionState.isSelected(track),
                       );
@@ -694,7 +724,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                t.searchPage.liveRoom.title(count: state.liveRoomResults?.totalCount ?? rooms.length),
+                t.searchPage.liveRoom.title(
+                    count: state.liveRoomResults?.totalCount ?? rooms.length),
                 style: Theme.of(context).textTheme.titleSmall,
               ),
             ),
@@ -706,6 +737,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               (context, index) {
                 final room = rooms[index];
                 return _LiveRoomTile(
+                  key: ValueKey('live-room-${room.roomId}'),
                   room: room,
                   onTap: () => _openLiveRoom(room),
                   onMenuAction: _onLiveRoomMenuAction,
@@ -811,7 +843,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     });
 
     try {
-      final pages = await ref.read(searchProvider.notifier).loadVideoPagesForTrack(track);
+      final pages =
+          await ref.read(searchProvider.notifier).loadVideoPagesForTrack(track);
 
       if (mounted) {
         setState(() {
@@ -827,6 +860,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         setState(() {
           _loadingPages.remove(key);
         });
+        ToastService.error(context, e.toString());
       }
     }
   }
@@ -888,7 +922,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             if (added) anyAdded = true;
           }
           if (anyAdded && mounted) {
-            ToastService.success(context, t.searchPage.toast.addedPartsToNext(count: pages.length));
+            ToastService.success(context,
+                t.searchPage.toast.addedPartsToNext(count: pages.length));
           }
           return;
         case addToQueueTrackActionId:
@@ -898,7 +933,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             if (added) anyAdded = true;
           }
           if (anyAdded && mounted) {
-            ToastService.success(context, t.searchPage.toast.addedPartsToQueue(count: pages.length));
+            ToastService.success(context,
+                t.searchPage.toast.addedPartsToQueue(count: pages.length));
           }
           return;
         case addToPlaylistTrackActionId:
@@ -935,28 +971,18 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       actionId: action,
     );
   }
-  void _handlePageMenuAction(Track parentTrack, VideoPage page, String action) async {
-    final controller = ref.read(audioControllerProvider.notifier);
+
+  void _handlePageMenuAction(
+      Track parentTrack, VideoPage page, String action) async {
     final pageTrack = page.toTrack(parentTrack);
 
-    switch (action) {
-      case playTrackActionId:
-        controller.playTemporary(pageTrack);
-        break;
-      case playNextTrackActionId:
-        final added = await controller.addNext(pageTrack);
-        if (added && mounted) {
-          ToastService.success(context, t.general.addedToNext);
-        }
-        break;
-      case addToQueueTrackActionId:
-        final added = await controller.addToQueue(pageTrack);
-        if (added && mounted) {
-          ToastService.success(context, t.general.addedToQueue);
-        }
-        break;
-
-    }
+    if (!mounted) return;
+    await TrackActionCoordinator.handleSingle(
+      context: context,
+      ref: ref,
+      track: pageTrack,
+      actionId: action,
+    );
   }
 }
 
@@ -998,11 +1024,11 @@ class _SearchResultTile extends ConsumerWidget {
     final currentTrack = ref.watch(currentTrackProvider);
 
     // 检查当前播放的是否是这个视频的某个分P
-    final isPlayingThisVideo = currentTrack != null &&
-        currentTrack.sourceId == track.sourceId;
+    final isPlayingThisVideo =
+        currentTrack != null && currentTrack.sourceId == track.sourceId;
     // 检查是否正在播放这个具体的 track（单P视频或第一个分P）
-    final isPlaying = isPlayingThisVideo &&
-        currentTrack.pageNum == track.pageNum;
+    final isPlaying =
+        isPlayingThisVideo && currentTrack.pageNum == track.pageNum;
     // 多P视频高亮整个视频，单P视频高亮具体匹配
     final shouldHighlight = hasMultiplePages ? isPlayingThisVideo : isPlaying;
 
@@ -1014,130 +1040,131 @@ class _SearchResultTile extends ConsumerWidget {
           menuBuilder: (_) => _buildMenuItems(),
           onSelected: (value) => onMenuAction(track, value),
           child: ListTile(
-          leading: TrackThumbnail(
-            track: track,
-            size: AppSizes.thumbnailMedium,
-            borderRadius: 4,
-            isPlaying: shouldHighlight,
-          ),
-          onLongPress: onLongPress,
-          title: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  track.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: shouldHighlight ? colorScheme.primary : null,
-                    fontWeight: shouldHighlight ? FontWeight.w600 : null,
-                  ),
-                ),
-              ),
-              if (track.isVip) ...[
-                const SizedBox(width: 4),
-                const VipBadge(),
-              ],
-            ],
-          ),
-          subtitle: Row(
-            children: [
-              if (isLocal) ...[
-                Icon(
-                  Icons.check_circle,
-                  size: 14,
-                  color: colorScheme.primary,
-                ),
-                const SizedBox(width: 4),
-              ],
-              Flexible(
-                child: Text(
-                  track.artist ?? t.general.unknownArtist,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (track.viewCount != null) ...[
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.play_arrow,
-                  size: 14,
-                  color: colorScheme.outline,
-                ),
-                const SizedBox(width: 2),
-                Text(
-                  formatCount(track.viewCount!),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.outline,
-                      ),
-                ),
-              ],
-              // 音源标识（播放数右边）
-              const SizedBox(width: 8),
-              _SourceBadge(sourceType: track.sourceType),
-              if (hasMultiplePages) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: AppRadius.borderRadiusSm,
-                  ),
+            leading: TrackThumbnail(
+              track: track,
+              size: AppSizes.thumbnailMedium,
+              borderRadius: 4,
+              isPlaying: shouldHighlight,
+            ),
+            onLongPress: onLongPress,
+            title: Row(
+              children: [
+                Expanded(
                   child: Text(
-                    '${pages!.length}P',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onPrimaryContainer,
-                        ),
+                    track.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: shouldHighlight ? colorScheme.primary : null,
+                      fontWeight: shouldHighlight ? FontWeight.w600 : null,
+                    ),
                   ),
                 ),
+                if (track.isVip) ...[
+                  const SizedBox(width: 4),
+                  const VipBadge(),
+                ],
               ],
-            ],
-          ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (track.durationMs != null)
-                SizedBox(
-                  width: 48,
+            ),
+            subtitle: Row(
+              children: [
+                if (isLocal) ...[
+                  Icon(
+                    Icons.check_circle,
+                    size: 14,
+                    color: colorScheme.primary,
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                Flexible(
                   child: Text(
-                    DurationFormatter.formatMs(track.durationMs!),
+                    track.artist ?? t.general.unknownArtist,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (track.viewCount != null) ...[
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.play_arrow,
+                    size: 14,
+                    color: colorScheme.outline,
+                  ),
+                  const SizedBox(width: 2),
+                  Text(
+                    formatCount(track.viewCount!),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: colorScheme.outline,
                         ),
-                    textAlign: TextAlign.center,
                   ),
-                ),
-              if (isLoading)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  child: SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                ],
+                // 音源标识（播放数右边）
+                const SizedBox(width: 8),
+                _SourceBadge(sourceType: track.sourceType),
+                if (hasMultiplePages) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer,
+                      borderRadius: AppRadius.borderRadiusSm,
+                    ),
+                    child: Text(
+                      '${pages!.length}P',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onPrimaryContainer,
+                          ),
+                    ),
                   ),
-                )
-              else if (hasMultiplePages && !isSelectionMode)
-                IconButton(
-                  icon: Icon(
-                    isExpanded ? Icons.expand_less : Icons.expand_more,
+                ],
+              ],
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (track.durationMs != null)
+                  SizedBox(
+                    width: 48,
+                    child: Text(
+                      DurationFormatter.formatMs(track.durationMs!),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.outline,
+                          ),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
-                  onPressed: onToggleExpand,
-                ),
-              if (isSelectionMode)
-                _SelectionCheckbox(
-                  isSelected: isSelected,
-                  onTap: onLongPress,
-                )
-              else
-                PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert),
-                onSelected: (value) => onMenuAction(track, value),
-                itemBuilder: (_) => _buildMenuItems(),
-              ),
-            ],
+                if (isLoading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                else if (hasMultiplePages && !isSelectionMode)
+                  IconButton(
+                    icon: Icon(
+                      isExpanded ? Icons.expand_less : Icons.expand_more,
+                    ),
+                    onPressed: onToggleExpand,
+                  ),
+                if (isSelectionMode)
+                  _SelectionCheckbox(
+                    isSelected: isSelected,
+                    onTap: onLongPress,
+                  )
+                else
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert),
+                    onSelected: (value) => onMenuAction(track, value),
+                    itemBuilder: (_) => _buildMenuItems(),
+                  ),
+              ],
+            ),
+            onTap: onTap,
           ),
-          onTap: onTap,
-        ),
         ),
 
         // 分P列表（展开时显示）
@@ -1157,7 +1184,6 @@ class _SearchResultTile extends ConsumerWidget {
       buildCommonTrackActionMenuItems(translations: t),
     );
   }
-
 }
 
 /// 分P列表项
@@ -1242,14 +1268,7 @@ class _PageTile extends ConsumerWidget {
 
   List<PopupMenuEntry<String>> _buildMenuItems() {
     return buildTrackActionPopupMenuEntries(
-      buildCommonTrackActionMenuItems(
-        translations: t,
-        options: const TrackActionMenuOptions(
-          includeAddToPlaylist: false,
-          includeMatchLyrics: false,
-          includeAddToRemote: false,
-        ),
-      ),
+      buildCommonTrackActionMenuItems(translations: t),
     );
   }
 }
@@ -1269,6 +1288,7 @@ class _LocalGroupTile extends ConsumerWidget {
   final void Function(Track track)? onTrackLongPress;
 
   const _LocalGroupTile({
+    super.key,
     required this.group,
     required this.isExpanded,
     required this.onToggleExpand,
@@ -1302,83 +1322,85 @@ class _LocalGroupTile extends ConsumerWidget {
           menuBuilder: (_) => _buildMenuItems(),
           onSelected: (value) => _handleMenuAction(context, ref, value),
           child: ListTile(
-          leading: TrackThumbnail(
-            track: firstTrack,
-            size: 48,
-            borderRadius: 4,
-            isPlaying: isPlayingThisGroup,
-          ),
-          onLongPress: onLongPress,
-          title: Text(
-            group.parentTitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: isPlayingThisGroup ? colorScheme.primary : null,
-              fontWeight: isPlayingThisGroup ? FontWeight.w600 : null,
+            leading: TrackThumbnail(
+              track: firstTrack,
+              size: 48,
+              borderRadius: 4,
+              isPlaying: isPlayingThisGroup,
             ),
-          ),
-          subtitle: Row(
-            children: [
-              Icon(
-                Icons.check_circle,
-                size: 14,
-                color: colorScheme.primary,
+            onLongPress: onLongPress,
+            title: Text(
+              group.parentTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: isPlayingThisGroup ? colorScheme.primary : null,
+                fontWeight: isPlayingThisGroup ? FontWeight.w600 : null,
               ),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  firstTrack.artist ?? t.general.unknownArtist,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Row(
+              children: [
+                Icon(
+                  Icons.check_circle,
+                  size: 14,
+                  color: colorScheme.primary,
                 ),
-              ),
-              if (hasMultipleParts) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: AppRadius.borderRadiusSm,
-                  ),
+                const SizedBox(width: 4),
+                Flexible(
                   child: Text(
-                    '${group.partCount}P',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onPrimaryContainer,
-                        ),
+                    firstTrack.artist ?? t.general.unknownArtist,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (hasMultipleParts) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer,
+                      borderRadius: AppRadius.borderRadiusSm,
+                    ),
+                    child: Text(
+                      '${group.partCount}P',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onPrimaryContainer,
+                          ),
+                    ),
+                  ),
+                ],
               ],
-            ],
-          ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 展开/折叠按钮 - 与音乐库页面对齐
-              if (hasMultipleParts && !isSelectionMode)
-                IconButton(
-                  icon: Icon(
-                    isExpanded ? Icons.expand_less : Icons.expand_more,
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 展开/折叠按钮 - 与音乐库页面对齐
+                if (hasMultipleParts && !isSelectionMode)
+                  IconButton(
+                    icon: Icon(
+                      isExpanded ? Icons.expand_less : Icons.expand_more,
+                    ),
+                    onPressed: onToggleExpand,
                   ),
-                  onPressed: onToggleExpand,
-                ),
-              // 菜单
-              if (isSelectionMode)
-                _SelectionGroupCheckbox(
-                  isFullySelected: isGroupFullySelected,
-                  isPartiallySelected: isGroupPartiallySelected,
-                  onTap: onLongPress,
-                )
-              else
-                PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert),
-                onSelected: (value) => _handleMenuAction(context, ref, value),
-                itemBuilder: (_) => _buildMenuItems(),
-              ),
-            ],
+                // 菜单
+                if (isSelectionMode)
+                  _SelectionGroupCheckbox(
+                    isFullySelected: isGroupFullySelected,
+                    isPartiallySelected: isGroupPartiallySelected,
+                    onTap: onLongPress,
+                  )
+                else
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert),
+                    onSelected: (value) =>
+                        _handleMenuAction(context, ref, value),
+                    itemBuilder: (_) => _buildMenuItems(),
+                  ),
+              ],
+            ),
+            onTap: () => onPlayTrack(firstTrack),
           ),
-          onTap: () => onPlayTrack(firstTrack),
-        ),
         ),
 
         // 展开的分P列表
@@ -1409,7 +1431,8 @@ class _LocalGroupTile extends ConsumerWidget {
     );
   }
 
-  void _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
+  void _handleMenuAction(
+      BuildContext context, WidgetRef ref, String action) async {
     final controller = ref.read(audioControllerProvider.notifier);
 
     switch (action) {
@@ -1423,7 +1446,8 @@ class _LocalGroupTile extends ConsumerWidget {
           if (added) anyAdded = true;
         }
         if (anyAdded && context.mounted) {
-          ToastService.success(context,
+          ToastService.success(
+            context,
             group.hasMultipleParts
                 ? t.searchPage.toast.addedPartsToNext(count: group.partCount)
                 : t.general.addedToNext,
@@ -1437,7 +1461,8 @@ class _LocalGroupTile extends ConsumerWidget {
           if (added) anyAdded = true;
         }
         if (anyAdded && context.mounted) {
-          ToastService.success(context,
+          ToastService.success(
+            context,
             group.hasMultipleParts
                 ? t.searchPage.toast.addedPartsToQueue(count: group.partCount)
                 : t.general.addedToQueue,
@@ -1449,7 +1474,8 @@ class _LocalGroupTile extends ConsumerWidget {
         showAddToPlaylistDialog(context: context, tracks: group.tracks);
         break;
       case addToRemoteTrackActionId:
-        final isLoggedIn = ref.read(isLoggedInProvider(group.firstTrack.sourceType));
+        final isLoggedIn =
+            ref.read(isLoggedInProvider(group.firstTrack.sourceType));
         if (!isLoggedIn) {
           if (context.mounted) {
             ToastService.show(context, t.remote.pleaseLogin);
@@ -1457,7 +1483,8 @@ class _LocalGroupTile extends ConsumerWidget {
           return;
         }
         if (context.mounted) {
-          showAddToRemotePlaylistDialog(context: context, track: group.firstTrack);
+          showAddToRemotePlaylistDialog(
+              context: context, track: group.firstTrack);
         }
         break;
     }
@@ -1495,63 +1522,63 @@ class _LocalTrackTile extends ConsumerWidget {
       menuBuilder: (_) => _buildMenuItems(),
       onSelected: (value) => onMenuAction(track, value),
       child: Padding(
-      padding: const EdgeInsets.only(left: 56),
-      child: ListTile(
-        leading: isPlaying
-            ? NowPlayingIndicator(
-                size: 24,
-                color: colorScheme.primary,
-              )
-            : Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest,
-                  borderRadius: AppRadius.borderRadiusSm,
+        padding: const EdgeInsets.only(left: 56),
+        child: ListTile(
+          leading: isPlaying
+              ? NowPlayingIndicator(
+                  size: 24,
+                  color: colorScheme.primary,
+                )
+              : Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                    borderRadius: AppRadius.borderRadiusSm,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    'P${track.pageNum ?? 1}',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: colorScheme.outline,
+                        ),
+                  ),
                 ),
-                alignment: Alignment.center,
-                child: Text(
-                  'P${track.pageNum ?? 1}',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: colorScheme.outline,
-                      ),
-                ),
-              ),
-        onLongPress: onLongPress,
-        title: Text(
-          track.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: isPlaying ? colorScheme.primary : null,
-            fontWeight: isPlaying ? FontWeight.w600 : null,
+          onLongPress: onLongPress,
+          title: Text(
+            track.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: isPlaying ? colorScheme.primary : null,
+              fontWeight: isPlaying ? FontWeight.w600 : null,
+            ),
           ),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (track.durationMs != null)
-              SizedBox(
-                width: 48, // 与 IconButton 宽度对齐
-                child: Text(
-                  DurationFormatter.formatMs(track.durationMs!),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.outline,
-                      ),
-                  textAlign: TextAlign.center,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (track.durationMs != null)
+                SizedBox(
+                  width: 48, // 与 IconButton 宽度对齐
+                  child: Text(
+                    DurationFormatter.formatMs(track.durationMs!),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.outline,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
-              ),
-            if (isSelectionMode)
-              _SelectionCheckbox(
-                isSelected: isSelected,
-                onTap: onLongPress,
-              )
-            else
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert, size: 20),
-                onSelected: (value) => onMenuAction(track, value),
-                itemBuilder: (_) => _buildMenuItems(),
-              ),
+              if (isSelectionMode)
+                _SelectionCheckbox(
+                  isSelected: isSelected,
+                  onTap: onLongPress,
+                )
+              else
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, size: 20),
+                  onSelected: (value) => onMenuAction(track, value),
+                  itemBuilder: (_) => _buildMenuItems(),
+                ),
             ],
           ),
           onTap: onTap,
@@ -1656,6 +1683,7 @@ class _LiveRoomTile extends StatelessWidget {
   final void Function(LiveRoom room, String action) onMenuAction;
 
   const _LiveRoomTile({
+    super.key,
     required this.room,
     required this.onTap,
     required this.onMenuAction,
@@ -1669,122 +1697,149 @@ class _LiveRoomTile extends StatelessWidget {
       menuBuilder: (_) => _buildMenuItems(colorScheme),
       onSelected: (value) => onMenuAction(room, value),
       child: ListTile(
-      leading: ClipRRect(
-        borderRadius: AppRadius.borderRadiusSm,
-        child: SizedBox(
-          width: 48,
-          height: 48,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // 封面图
-              ColorFiltered(
-                colorFilter: room.isLive
-                    ? const ColorFilter.mode(Colors.transparent, BlendMode.multiply)
-                    : const ColorFilter.matrix(<double>[
-                        0.2126, 0.7152, 0.0722, 0, 0,
-                        0.2126, 0.7152, 0.0722, 0, 0,
-                        0.2126, 0.7152, 0.0722, 0, 0,
-                        0, 0, 0, 1, 0,
-                      ]),
-                child: ImageLoadingService.loadImage(
-                  networkUrl: room.cover?.isNotEmpty == true
-                      ? room.cover
-                      : room.face,
-                  placeholder: ImagePlaceholder(
-                    icon: Icons.live_tv,
-                    size: 48,
-                    backgroundColor: colorScheme.surfaceContainerHighest,
-                    iconColor: colorScheme.outline,
+        leading: ClipRRect(
+          borderRadius: AppRadius.borderRadiusSm,
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // 封面图
+                ColorFiltered(
+                  colorFilter: room.isLive
+                      ? const ColorFilter.mode(
+                          Colors.transparent, BlendMode.multiply)
+                      : const ColorFilter.matrix(<double>[
+                          0.2126,
+                          0.7152,
+                          0.0722,
+                          0,
+                          0,
+                          0.2126,
+                          0.7152,
+                          0.0722,
+                          0,
+                          0,
+                          0.2126,
+                          0.7152,
+                          0.0722,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          1,
+                          0,
+                        ]),
+                  child: ImageLoadingService.loadImage(
+                    networkUrl:
+                        room.cover?.isNotEmpty == true ? room.cover : room.face,
+                    placeholder: ImagePlaceholder(
+                      icon: Icons.live_tv,
+                      size: 48,
+                      backgroundColor: colorScheme.surfaceContainerHighest,
+                      iconColor: colorScheme.outline,
+                    ),
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.cover,
                   ),
-                  width: 48,
-                  height: 48,
-                  fit: BoxFit.cover,
                 ),
-              ),
-
-            ],
-          ),
-        ),
-      ),
-      title: Text(
-        room.title.isNotEmpty ? room.title : t.searchPage.liveRoom.userRoom(user: room.uname),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: room.isLive ? null : colorScheme.outline,
-        ),
-      ),
-      subtitle: Row(
-        children: [
-          // 主播名
-          Flexible(
-            child: Text(
-              room.uname,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              ],
             ),
           ),
-          // 在线人数
-          if (room.isLive && (room.online ?? 0) > 0) ...[
-            const SizedBox(width: 8),
-            Icon(
-              Icons.visibility,
-              size: 14,
-              color: colorScheme.outline,
-            ),
-            const SizedBox(width: 2),
-            Text(
-              _formatOnlineCount(room.online!),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.outline,
-                  ),
-            ),
-          ],
-          // 分区标签
-          if (room.areaName?.isNotEmpty ?? false) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-              decoration: BoxDecoration(
-                color: room.isLive ? colorScheme.primaryContainer : colorScheme.surfaceContainerHighest,
-                borderRadius: AppRadius.borderRadiusSm,
-              ),
+        ),
+        title: Text(
+          room.title.isNotEmpty
+              ? room.title
+              : t.searchPage.liveRoom.userRoom(user: room.uname),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: room.isLive ? null : colorScheme.outline,
+          ),
+        ),
+        subtitle: Row(
+          children: [
+            // 主播名
+            Flexible(
               child: Text(
-                room.areaName!,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: room.isLive ? colorScheme.onPrimaryContainer : colorScheme.outline,
+                room.uname,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            // 在线人数
+            if (room.isLive && (room.online ?? 0) > 0) ...[
+              const SizedBox(width: 8),
+              Icon(
+                Icons.visibility,
+                size: 14,
+                color: colorScheme.outline,
+              ),
+              const SizedBox(width: 2),
+              Text(
+                _formatOnlineCount(room.online!),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.outline,
                     ),
               ),
-            ),
+            ],
+            // 分区标签
+            if (room.areaName?.isNotEmpty ?? false) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: room.isLive
+                      ? colorScheme.primaryContainer
+                      : colorScheme.surfaceContainerHighest,
+                  borderRadius: AppRadius.borderRadiusSm,
+                ),
+                child: Text(
+                  room.areaName!,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: room.isLive
+                            ? colorScheme.onPrimaryContainer
+                            : colorScheme.outline,
+                      ),
+                ),
+              ),
+            ],
           ],
-        ],
-      ),
-      trailing: PopupMenuButton<String>(
-        icon: const Icon(Icons.more_vert),
-        onSelected: (value) => onMenuAction(room, value),
-        itemBuilder: (_) => _buildMenuItems(colorScheme),
-      ),
-      onTap: onTap,
+        ),
+        trailing: PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert),
+          onSelected: (value) => onMenuAction(room, value),
+          itemBuilder: (_) => _buildMenuItems(colorScheme),
+        ),
+        onTap: onTap,
       ),
     );
   }
 
   List<PopupMenuEntry<String>> _buildMenuItems(ColorScheme colorScheme) => [
-    PopupMenuItem(
-      value: 'play',
-      enabled: room.isLive,
-      child: ListTile(
-        leading: Icon(Icons.play_arrow, color: room.isLive ? null : colorScheme.outline),
-        title: Text(t.general.play, style: TextStyle(color: room.isLive ? null : colorScheme.outline)),
-        contentPadding: EdgeInsets.zero,
-      ),
-    ),
-    PopupMenuItem(
-      value: 'add_to_radio',
-      child: ListTile(leading: const Icon(Icons.radio), title: Text(t.searchPage.menu.addToRadio), contentPadding: EdgeInsets.zero),
-    ),
-  ];
+        PopupMenuItem(
+          value: 'play',
+          enabled: room.isLive,
+          child: ListTile(
+            leading: Icon(Icons.play_arrow,
+                color: room.isLive ? null : colorScheme.outline),
+            title: Text(t.general.play,
+                style:
+                    TextStyle(color: room.isLive ? null : colorScheme.outline)),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          value: 'add_to_radio',
+          child: ListTile(
+              leading: const Icon(Icons.radio),
+              title: Text(t.searchPage.menu.addToRadio),
+              contentPadding: EdgeInsets.zero),
+        ),
+      ];
 
   String _formatOnlineCount(int count) => formatCount(count);
 }

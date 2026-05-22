@@ -27,5 +27,12 @@
     "muxedDescription": "包含影片資料，相容性好",
     "hls": "HLS 串流",
     "hlsDescription": "分段串流，不推薦"
+  },
+  "authForPlay": {
+    "title": "播放認證",
+    "subtitle": "僅在音源播放需要登入憑證時使用帳號狀態。",
+    "bilibiliDescription": "除非需要大會員或私人內容播放，否則建議關閉。",
+    "youtubeDescription": "除非需要帳號限定內容播放，否則建議關閉。",
+    "neteaseDescription": "預設開啟，用於 VIP 或帳號受限歌曲。"
   }
 }
