@@ -226,7 +226,7 @@ void initState() {
 | DB 集合（多处可修改） | Isar watch（响应式流） | 歌单列表、电台、播放历史、下载任务 |
 | DB 联合查询（playlist+tracks） | StateNotifier + 乐观更新 | 歌单详情 |
 | 文件系统扫描 | FutureProvider + invalidate | 已下载页面 |
-| API 数据 + 缓存 | CacheService + StreamProvider | 首页、探索页排行榜 |
+| API 数据 + 缓存 | StateNotifierProvider + immutable cache state | 首页、探索页排行榜 |
 | 设置项 | StateNotifier + 直接更新 | 设置页面、音频设置 |
 
 ### 3.2 Isar watch 模式（推荐用于 DB 集合）
@@ -689,13 +689,15 @@ Widget build(BuildContext context, WidgetRef ref) {
 - [ ] 列表项样式是否与相似页面统一
 - [ ] 是否使用了相似页面的现有组件和模式
 - [ ] AppBar actions 尾部间距：IconButton 结尾加 `const SizedBox(width: 8)`，PopupMenuButton 结尾无需额外间距
-- [ ] 圓角、動畫時長、防抖、Toast 時長是否使用 `ui_constants.dart` 中的常量（禁止硬編碼）
+- [ ] 圓角、動畫時長、防抖、Toast 時長是否優先使用 `ui_constants.dart` 中的常量；一次性局部尺寸可保留在局部。
 
 ---
 
 ## 11. UI 常量使用規範
 
-所有 UI 魔法數字已集中到 `lib/core/constants/ui_constants.dart`，新代碼**禁止**使用硬編碼值。
+共享 UI 尺寸、圓角、動畫時長、防抖和 Toast 時長集中在
+`lib/core/constants/ui_constants.dart`。新代碼應優先使用這些常量；只在
+單一 widget 內使用的一次性局部尺寸可以保留為局部 literal。
 
 ### 11.1 圓角
 

@@ -25,7 +25,8 @@ class QueuePage extends ConsumerStatefulWidget {
 class _QueuePageState extends ConsumerState<QueuePage> {
   /// 用于快速跳转到指定索引
   final ItemScrollController _itemScrollController = ItemScrollController();
-  final ItemPositionsListener _itemPositionsListener = ItemPositionsListener.create();
+  final ItemPositionsListener _itemPositionsListener =
+      ItemPositionsListener.create();
 
   static const double _itemHeight = 72.0;
   bool _initialScrollDone = false;
@@ -55,7 +56,8 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     if (positions.isEmpty) return;
 
     // 找到最小索引（最靠近顶部的可见项）
-    final minIndex = positions.map((p) => p.index).reduce((a, b) => a < b ? a : b);
+    final minIndex =
+        positions.map((p) => p.index).reduce((a, b) => a < b ? a : b);
     final isNearTop = minIndex <= 2; // 前3项视为顶部区域
 
     if (_isNearTop != isNearTop) {
@@ -102,10 +104,11 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     }
 
     // 检查当前项是否大部分可见（允许 20% 被遮挡）
-    final currentPosition = positions.where((p) => p.index == currentIndex).firstOrNull;
+    final currentPosition =
+        positions.where((p) => p.index == currentIndex).firstOrNull;
     if (currentPosition != null) {
-      final visibleRatio = (currentPosition.itemTrailingEdge.clamp(0, 1) - 
-                           currentPosition.itemLeadingEdge.clamp(0, 1));
+      final visibleRatio = (currentPosition.itemTrailingEdge.clamp(0, 1) -
+          currentPosition.itemLeadingEdge.clamp(0, 1));
       if (visibleRatio >= 0.8) {
         // 80% 以上可见，不需要滚动
         return;
@@ -121,7 +124,8 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     final prevIdx = previousIndex ?? currentIndex;
     final distance = (currentIndex - prevIdx).abs();
     // 如果目标在可见范围内，或距离小于等于3，视为小范围移动
-    final isInVisibleRange = currentIndex >= minVisible && currentIndex <= maxVisible;
+    final isInVisibleRange =
+        currentIndex >= minVisible && currentIndex <= maxVisible;
     final isSmallMove = isInVisibleRange || distance <= 3;
 
     const smallMoveDuration = Duration(milliseconds: 50);
@@ -145,8 +149,8 @@ class _QueuePageState extends ConsumerState<QueuePage> {
       }
       // 如果在可见范围内但大部分被遮挡，做小幅调整
       else if (currentPosition != null) {
-        final visibleRatio = (currentPosition.itemTrailingEdge.clamp(0, 1) - 
-                             currentPosition.itemLeadingEdge.clamp(0, 1));
+        final visibleRatio = (currentPosition.itemTrailingEdge.clamp(0, 1) -
+            currentPosition.itemLeadingEdge.clamp(0, 1));
         if (visibleRatio < 0.8) {
           if (currentPosition.itemLeadingEdge < 0) {
             _itemScrollController.scrollTo(
@@ -231,12 +235,13 @@ class _QueuePageState extends ConsumerState<QueuePage> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final providerQueue = ref.watch(audioControllerProvider.select((s) => s.queue));
-    final providerCurrentIndex = ref.watch(audioControllerProvider.select((s) => s.currentIndex)) ?? -1;
+    final queueState = ref.watch(queueStateProvider);
+    final providerQueue = queueState.queue;
+    final providerCurrentIndex = queueState.currentIndex ?? -1;
     final autoScroll = ref.watch(autoScrollToCurrentTrackProvider);
 
     // 同步本地队列与provider
-    final queueVersion = ref.watch(audioControllerProvider.select((s) => s.queueVersion));
+    final queueVersion = queueState.queueVersion;
     final needsSync = _localQueue == null || _lastQueueVersion != queueVersion;
 
     if (needsSync) {
@@ -259,7 +264,10 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     }
 
     // 切歌时自动滚动
-    if (autoScroll && _lastCurrentIndex != null && _lastCurrentIndex != currentIndex && currentIndex >= 0) {
+    if (autoScroll &&
+        _lastCurrentIndex != null &&
+        _lastCurrentIndex != currentIndex &&
+        currentIndex >= 0) {
       final prevIndex = _lastCurrentIndex!;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -269,17 +277,20 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     }
     _lastCurrentIndex = currentIndex;
 
-    final isMixMode = ref.watch(audioControllerProvider.select((s) => s.isMixMode));
-    final mixTitle = ref.watch(audioControllerProvider.select((s) => s.mixTitle));
-    final isLoadingMoreMix = ref.watch(audioControllerProvider.select((s) => s.isLoadingMoreMix));
+    final isMixMode = queueState.isMixMode;
+    final mixTitle = queueState.mixTitle;
+    final isLoadingMoreMix = queueState.isLoadingMoreMix;
 
     return Scaffold(
       appBar: AppBar(
         leadingWidth: 56,
         leading: queue.isNotEmpty
             ? IconButton(
-                icon: Icon(_isNearTop ? Icons.vertical_align_bottom : Icons.vertical_align_top),
-                tooltip: _isNearTop ? t.queue.scrollToBottom : t.queue.scrollToTop,
+                icon: Icon(_isNearTop
+                    ? Icons.vertical_align_bottom
+                    : Icons.vertical_align_top),
+                tooltip:
+                    _isNearTop ? t.queue.scrollToBottom : t.queue.scrollToTop,
                 onPressed: () => _scrollToTopOrBottom(queue.length),
               )
             : null,
@@ -288,9 +299,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
             return ConstrainedBox(
               constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.8),
               child: Text(
-                isMixMode
-                    ? 'Mix · ${mixTitle ?? ''}'
-                    : t.queue.title,
+                isMixMode ? 'Mix · ${mixTitle ?? ''}' : t.queue.title,
                 overflow: TextOverflow.ellipsis,
               ),
             );
@@ -363,7 +372,8 @@ class _QueuePageState extends ConsumerState<QueuePage> {
             child: GestureDetector(
               onTap: () => _scrollToCurrentTrack(currentIndex),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 color: colorScheme.primaryContainer.withValues(alpha: 0.3),
                 child: Row(
                   children: [
@@ -420,7 +430,9 @@ class _QueuePageState extends ConsumerState<QueuePage> {
               final track = queue[index];
               final isPlaying = index == currentIndex;
               final isDragging = _draggingIndex == index;
-              final isDragTarget = _dragTargetIndex == index && _draggingIndex != null && _draggingIndex != index;
+              final isDragTarget = _dragTargetIndex == index &&
+                  _draggingIndex != null &&
+                  _draggingIndex != index;
 
               // 使用 RepaintBoundary 隔离重绘
               return RepaintBoundary(
@@ -432,8 +444,11 @@ class _QueuePageState extends ConsumerState<QueuePage> {
                   isDragging: isDragging,
                   isDragTarget: isDragTarget,
                   itemHeight: _itemHeight,
-                  onTap: () => ref.read(audioControllerProvider.notifier).playAt(index),
-                  onRemove: () => ref.read(audioControllerProvider.notifier).removeFromQueue(index),
+                  onTap: () =>
+                      ref.read(audioControllerProvider.notifier).playAt(index),
+                  onRemove: () => ref
+                      .read(audioControllerProvider.notifier)
+                      .removeFromQueue(index),
                   onDragStart: () => _onDragStart(index),
                   onDragUpdate: _onDragUpdate,
                   onDragEnd: _onDragEnd,
@@ -511,24 +526,25 @@ class _DraggableQueueItem extends StatelessWidget {
       return SizedBox(
         height: itemHeight,
         child: Material(
-          color: isFeedback ? colorScheme.surfaceContainerHigh : Colors.transparent,
+          color: isFeedback
+              ? colorScheme.surfaceContainerHigh
+              : Colors.transparent,
           elevation: isFeedback ? 8 : 0,
           borderRadius: isFeedback ? AppRadius.borderRadiusMd : null,
           child: InkWell(
             onTap: isFeedback ? null : onTap,
-            borderRadius: AppRadius.borderRadiusMd,  // 添加圆角，匹配 ListTile
+            borderRadius: AppRadius.borderRadiusMd, // 添加圆角，匹配 ListTile
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: [
-
                   // 封面
                   TrackThumbnail(
                     track: track,
                     size: 48,
                     isPlaying: isPlaying,
                   ),
-                  const SizedBox(width: 16),  // 改为 16dp，匹配 ListTile
+                  const SizedBox(width: 16), // 改为 16dp，匹配 ListTile
                   // 标题和艺术家
                   Expanded(
                     child: Column(
@@ -539,19 +555,25 @@ class _DraggableQueueItem extends StatelessWidget {
                           track.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(  // 使用 bodyLarge，匹配 ListTile
-                            color: isPlaying ? colorScheme.primary : null,
-                            fontWeight: isPlaying ? FontWeight.w600 : null,
-                          ),
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyLarge
+                              ?.copyWith(
+                                // 使用 bodyLarge，匹配 ListTile
+                                color: isPlaying ? colorScheme.primary : null,
+                                fontWeight: isPlaying ? FontWeight.w600 : null,
+                              ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           track.artist ?? t.general.unknownArtist,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(  // 使用 bodyMedium，匹配 ListTile
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    // 使用 bodyMedium，匹配 ListTile
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
                         ),
                       ],
                     ),
@@ -562,9 +584,10 @@ class _DraggableQueueItem extends StatelessWidget {
                       padding: const EdgeInsets.only(left: 8),
                       child: Text(
                         DurationFormatter.formatMs(track.durationMs!),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(  // 使用 bodySmall
-                          color: colorScheme.outline,
-                        ),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              // 使用 bodySmall
+                              color: colorScheme.outline,
+                            ),
                       ),
                     ),
                   // 删除按钮

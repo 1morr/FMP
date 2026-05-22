@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/settings.dart';
+import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/audio_settings_provider.dart';
 
@@ -38,7 +39,9 @@ class AudioSettingsPage extends ConsumerWidget {
           _FormatPrioritySection(
             formatPriority: audioSettings.formatPriority,
             onReorder: (newPriority) {
-              ref.read(audioSettingsProvider.notifier).setFormatPriority(newPriority);
+              ref
+                  .read(audioSettingsProvider.notifier)
+                  .setFormatPriority(newPriority);
             },
           ),
           const Divider(),
@@ -46,9 +49,15 @@ class AudioSettingsPage extends ConsumerWidget {
           _StreamPrioritySection(
             title: t.audioSettings.streamPriority.youtubeTitle,
             streamPriority: audioSettings.youtubeStreamPriority,
-            availableTypes: const [StreamType.audioOnly, StreamType.muxed, StreamType.hls],
+            availableTypes: const [
+              StreamType.audioOnly,
+              StreamType.muxed,
+              StreamType.hls
+            ],
             onReorder: (newPriority) {
-              ref.read(audioSettingsProvider.notifier).setYoutubeStreamPriority(newPriority);
+              ref
+                  .read(audioSettingsProvider.notifier)
+                  .setYoutubeStreamPriority(newPriority);
             },
           ),
           const Divider(),
@@ -58,12 +67,86 @@ class AudioSettingsPage extends ConsumerWidget {
             streamPriority: audioSettings.bilibiliStreamPriority,
             availableTypes: const [StreamType.audioOnly, StreamType.muxed],
             onReorder: (newPriority) {
-              ref.read(audioSettingsProvider.notifier).setBilibiliStreamPriority(newPriority);
+              ref
+                  .read(audioSettingsProvider.notifier)
+                  .setBilibiliStreamPriority(newPriority);
+            },
+          ),
+          const Divider(),
+          _AuthForPlaySection(
+            useBilibiliAuthForPlay: audioSettings.useBilibiliAuthForPlay,
+            useYoutubeAuthForPlay: audioSettings.useYoutubeAuthForPlay,
+            useNeteaseAuthForPlay: audioSettings.useNeteaseAuthForPlay,
+            onChanged: (sourceType, enabled) {
+              ref
+                  .read(audioSettingsProvider.notifier)
+                  .setAuthForPlay(sourceType, enabled);
             },
           ),
           const SizedBox(height: 16),
         ],
       ),
+    );
+  }
+}
+
+class _AuthForPlaySection extends StatelessWidget {
+  final bool useBilibiliAuthForPlay;
+  final bool useYoutubeAuthForPlay;
+  final bool useNeteaseAuthForPlay;
+  final void Function(SourceType sourceType, bool enabled) onChanged;
+
+  const _AuthForPlaySection({
+    required this.useBilibiliAuthForPlay,
+    required this.useYoutubeAuthForPlay,
+    required this.useNeteaseAuthForPlay,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Text(
+            t.audioSettings.authForPlay.title,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: colorScheme.primary,
+                ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            t.audioSettings.authForPlay.subtitle,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        SwitchListTile(
+          title: Text(t.importPlatform.bilibili),
+          subtitle: Text(t.audioSettings.authForPlay.bilibiliDescription),
+          value: useBilibiliAuthForPlay,
+          onChanged: (enabled) => onChanged(SourceType.bilibili, enabled),
+        ),
+        SwitchListTile(
+          title: const Text('YouTube'),
+          subtitle: Text(t.audioSettings.authForPlay.youtubeDescription),
+          value: useYoutubeAuthForPlay,
+          onChanged: (enabled) => onChanged(SourceType.youtube, enabled),
+        ),
+        SwitchListTile(
+          title: Text(t.importPlatform.netease),
+          subtitle: Text(t.audioSettings.authForPlay.neteaseDescription),
+          value: useNeteaseAuthForPlay,
+          onChanged: (enabled) => onChanged(SourceType.netease, enabled),
+        ),
+      ],
     );
   }
 }
@@ -252,7 +335,8 @@ class _StreamPrioritySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 只显示可用的流类型
-    final displayList = streamPriority.where((t) => availableTypes.contains(t)).toList();
+    final displayList =
+        streamPriority.where((t) => availableTypes.contains(t)).toList();
     // 添加缺失的可用类型到末尾
     for (final type in availableTypes) {
       if (!displayList.contains(type)) {

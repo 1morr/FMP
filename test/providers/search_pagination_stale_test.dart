@@ -240,6 +240,22 @@ void main() {
       expect(notifier.state.currentPages.keys, [SourceType.netease]);
       expect(notifier.state.onlineResults.keys, [SourceType.netease]);
     });
+
+    test('single-source chip filters visible local results', () async {
+      service.localResults = [
+        _track('local-bili', sourceType: SourceType.bilibili),
+        _track('local-netease', sourceType: SourceType.netease),
+        _track('local-youtube', sourceType: SourceType.youtube),
+      ];
+      notifier.setSource(SourceType.netease, autoSearch: false);
+
+      await notifier.search('chip query');
+
+      expect(
+        notifier.state.localResults.map((track) => track.sourceType),
+        [SourceType.netease],
+      );
+    });
   });
 }
 
@@ -283,9 +299,10 @@ class _CompletingSearchService extends SearchService {
   final List<({String query, List<SourceType> sourceTypes, SearchOrder order})>
       onlineCalls = [];
   final Map<String, Completer<SearchResult>> _sourceCompleters = {};
+  List<Track> localResults = [];
 
   @override
-  Future<List<Track>> searchLocal(String query) async => [];
+  Future<List<Track>> searchLocal(String query) async => localResults;
 
   @override
   Future<MultiSourceSearchResult> searchOnline(

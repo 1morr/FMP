@@ -3,6 +3,8 @@
   "searchLyrics": "Search Lyrics",
   "lyricsMatched": "Lyrics matched",
   "lyricsRemoved": "Lyrics match removed",
+  "saveFailed": "Failed to save lyrics match: $error",
+  "removeFailed": "Failed to remove lyrics match: $error",
   "noLyricsFound": "No lyrics found",
   "searchHint": "Song name - Artist",
   "removeMatch": "Remove Match",

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 import '../../core/constants/ui_constants.dart';
+import '../../data/models/lyrics_match.dart';
 import '../../i18n/strings.g.dart';
 import '../../providers/lyrics_provider.dart';
 import '../../services/audio/audio_provider.dart';
@@ -57,6 +58,7 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
 
   /// 上次歌词匹配的 ID（检测歌词切换）
   int? _lastMatchId;
+  ProviderSubscription<AsyncValue<LyricsMatch?>>? _matchSubscription;
 
   /// 缓存：代表行的参考宽度（歌词变化时重算）
   double? _cachedRefWidth;
@@ -73,9 +75,30 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
   static const double _boldSafetyFactor = 0.95;
 
   @override
+  void initState() {
+    super.initState();
+    _matchSubscription = ref.listenManual<AsyncValue<LyricsMatch?>>(
+      currentLyricsMatchProvider,
+      (_, next) => _resetForMatch(next.valueOrNull?.id),
+      fireImmediately: true,
+    );
+  }
+
+  @override
   void dispose() {
+    _matchSubscription?.close();
     _scrollResumeTimer?.cancel();
     super.dispose();
+  }
+
+  void _resetForMatch(int? matchId) {
+    if (matchId == _lastMatchId) return;
+
+    _lastMatchId = matchId;
+    _currentLineIndex = -1;
+    _isFirstBuild = true;
+    _userScrolling = false;
+    _scrollResumeTimer?.cancel();
   }
 
   /// 计算用于字号基准的代表行宽度（结果缓存，歌词不变时不重算）
@@ -160,16 +183,6 @@ class _LyricsDisplayState extends ConsumerState<LyricsDisplay> {
     final lyricsContent = ref.watch(currentLyricsContentProvider);
     final parsedLyrics = ref.watch(parsedLyricsProvider);
     final match = ref.watch(currentLyricsMatchProvider).valueOrNull;
-
-    // 歌词匹配变化时（手动匹配/自动匹配），重置滚动状态
-    final matchId = match?.id;
-    if (matchId != _lastMatchId) {
-      _lastMatchId = matchId;
-      _currentLineIndex = -1;
-      _isFirstBuild = true;
-      _userScrolling = false;
-      _scrollResumeTimer?.cancel();
-    }
 
     final isAutoMatching = ref.watch(lyricsAutoMatchingProvider);
 

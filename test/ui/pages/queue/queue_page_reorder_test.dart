@@ -36,7 +36,8 @@ void main() {
     );
   });
 
-  testWidgets('QueuePage keeps drag reorder available while shuffle is enabled', (
+  testWidgets('QueuePage keeps drag reorder available while shuffle is enabled',
+      (
     tester,
   ) async {
     final harness = (await tester.runAsync(_QueuePageHarness.create))!;
@@ -51,6 +52,15 @@ void main() {
         child: ProviderScope(
           overrides: [
             audioControllerProvider.overrideWith((ref) => harness.controller),
+            queueStateProvider.overrideWith(
+              (ref) => QueueState(
+                queue: harness.controller.state.queue,
+                currentIndex: harness.controller.state.currentIndex,
+                queueTrack: harness.controller.state.queue.first,
+                isShuffleEnabled: true,
+                queueVersion: harness.controller.state.queueVersion,
+              ),
+            ),
             autoScrollToCurrentTrackProvider.overrideWith((ref) => false),
           ],
           child: const MaterialApp(home: QueuePage()),
@@ -69,7 +79,8 @@ void main() {
     expect(
       _queueOrder(tester),
       ['Alpha', 'Bravo', 'Charlie'],
-      reason: 'showing drag affordances should not change the rendered queue order',
+      reason:
+          'showing drag affordances should not change the rendered queue order',
     );
     expect(harness.controller.moveInQueueCallCount, 0);
   });
@@ -135,11 +146,11 @@ class _QueuePageTestAudioController extends AudioController {
     required super.audioStreamManager,
     required List<Track> queue,
   }) : super(
-         audioService: FakeAudioService(),
-         toastService: ToastService(),
-         audioHandler: FmpAudioHandler(),
-         windowsSmtcHandler: WindowsSmtcHandler(),
-       ) {
+          audioService: FakeAudioService(),
+          toastService: ToastService(),
+          audioHandler: FmpAudioHandler(),
+          windowsSmtcHandler: WindowsSmtcHandler(),
+        ) {
     state = PlayerState(
       queue: queue,
       currentIndex: 0,
@@ -193,7 +204,8 @@ Future<String> _resolveIsarLibraryPath() async {
     if (package['name'] != 'isar_flutter_libs') continue;
 
     final rootUri = package['rootUri'] as String;
-    final packageDir = Directory(packageConfigDir.uri.resolve(rootUri).toFilePath());
+    final packageDir =
+        Directory(packageConfigDir.uri.resolve(rootUri).toFilePath());
 
     if (Platform.isWindows) return '${packageDir.path}/windows/isar.dll';
     if (Platform.isLinux) return '${packageDir.path}/linux/libisar.so';

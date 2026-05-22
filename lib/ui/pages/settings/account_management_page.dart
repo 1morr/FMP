@@ -132,8 +132,17 @@ class _AccountManagementPageState extends ConsumerState<AccountManagementPage> {
         ref.read(neteaseAccountServiceProvider),
       ];
 
-      await verifyAllAccountStatuses(services, toastService);
-      toastService.showSuccess(t.account.accountsVerified);
+      final result = await verifyAllAccountStatuses(services, toastService);
+      if (result.hasFailures) {
+        final platforms = result.failedPlatforms
+            .map((platform) => platform.displayName)
+            .join(', ');
+        toastService.showWarning(
+          t.account.accountsVerifiedWithFailures(platforms: platforms),
+        );
+      } else {
+        toastService.showSuccess(t.account.accountsVerified);
+      }
     } finally {
       if (mounted) {
         setState(() => _isVerifying = false);

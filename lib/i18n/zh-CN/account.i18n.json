@@ -37,5 +37,6 @@
   "sessionExpired": "$platform 登录已失效，请重新登录",
   "vipExpired": "$platform VIP 已过期",
   "checkingAccounts": "正在验证账号状态...",
-  "accountsVerified": "账号验证完成"
+  "accountsVerified": "账号验证完成",
+  "accountsVerifiedWithFailures": "账号验证完成，但以下平台失败：$platforms"
 }

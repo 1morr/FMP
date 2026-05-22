@@ -1,9 +1,5 @@
-import 'dart:io';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart' as p;
 
 import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/image_loading_service.dart';
@@ -22,61 +18,6 @@ import '../../widgets/track_group/track_group.dart';
 import '../../widgets/track_thumbnail.dart';
 import '../../../i18n/strings.g.dart';
 import '../../widgets/context_menu_region.dart';
-
-/// 在 Isolate 中删除单首歌曲的文件（含 metadata 清理和空文件夹检测）
-Future<void> _deleteTrackFilesInIsolate(List<String> paths) async {
-  for (final path in paths) {
-    try {
-      final file = File(path);
-      if (!await file.exists()) continue;
-
-      final parentDir = file.parent;
-      final audioFileName = p.basename(file.path);
-
-      // 删除音频文件
-      await file.delete();
-
-      // 删除对应的 metadata 文件
-      if (audioFileName.startsWith('P') && audioFileName.contains('.')) {
-        final pageNumStr =
-            audioFileName.substring(1, audioFileName.indexOf('.'));
-        final metadataFile =
-            File(p.join(parentDir.path, 'metadata_P$pageNumStr.json'));
-        if (await metadataFile.exists()) await metadataFile.delete();
-      } else {
-        final metadataFile = File(p.join(parentDir.path, 'metadata.json'));
-        if (await metadataFile.exists()) await metadataFile.delete();
-      }
-
-      // 检查文件夹是否还有其他音频文件
-      if (await parentDir.exists()) {
-        final remainingAudio = await parentDir.list().where((entity) {
-          if (entity is! File) return false;
-          final name = p.basename(entity.path);
-          return name.endsWith('.m4a') ||
-              name.endsWith('.mp3') ||
-              name.endsWith('.aac') ||
-              name.endsWith('.opus');
-        }).toList();
-
-        if (remainingAudio.isEmpty) {
-          await parentDir.delete(recursive: true);
-
-          // 检查歌单文件夹是否也空了，空则一并删除
-          final categoryDir = parentDir.parent;
-          if (await categoryDir.exists()) {
-            final remaining = await categoryDir.list().toList();
-            if (remaining.isEmpty) {
-              await categoryDir.delete();
-            }
-          }
-        }
-      }
-    } on FileSystemException catch (_) {
-      // 单个文件操作失败不影响其他文件
-    }
-  }
-}
 
 /// 已下载分类详情页面
 class DownloadedCategoryPage extends ConsumerStatefulWidget {
@@ -487,6 +428,9 @@ class _DownloadedCategoryPageState
     // 如果组只有一个track，显示普通样式
     if (group.tracks.length == 1) {
       return _DownloadedTrackTile(
+        key: ValueKey(
+          'downloaded-track-${_downloadedTrackKey(group.tracks.first)}',
+        ),
         track: group.tracks.first,
         onTap: () => _playTrack(group.tracks.first),
         isPartOfMultiPage: false,
@@ -498,6 +442,7 @@ class _DownloadedCategoryPageState
     final isExpanded = _expandedGroups.contains(group.groupKey);
 
     return Column(
+      key: ValueKey('downloaded-group-${group.groupKey}'),
       children: [
         // 父视频标题行
         _GroupHeader(
@@ -511,6 +456,7 @@ class _DownloadedCategoryPageState
         // 展开的分P列表
         if (isExpanded)
           ...group.tracks.map((track) => _DownloadedTrackTile(
+                key: ValueKey('downloaded-track-${_downloadedTrackKey(track)}'),
                 track: track,
                 onTap: () => _playTrack(track),
                 isPartOfMultiPage: true,
@@ -755,6 +701,7 @@ class _DownloadedTrackTile extends ConsumerWidget {
   final String folderPath;
 
   const _DownloadedTrackTile({
+    super.key,
     required this.track,
     required this.onTap,
     required this.isPartOfMultiPage,
@@ -908,19 +855,22 @@ class _DownloadedTrackTile extends ConsumerWidget {
   }
 
   Future<void> _deleteDownload(WidgetRef ref) async {
-    final trackRepo = ref.read(trackRepositoryProvider);
+    final maintenanceService = ref.read(downloadPathMaintenanceServiceProvider);
+    final result = await maintenanceService.deleteDownloadedTracks([track]);
 
-    // 在 Isolate 中执行文件删除（含 metadata 清理和空文件夹检测）
-    await compute(_deleteTrackFilesInIsolate, track.allDownloadPaths);
-
-    // 清除数据库中的下载路径（必须在主线程）
-    await trackRepo.clearDownloadPath(track.id);
-
-    // Refresh scanned category providers. FileExistsCache is unchanged here
-    // because this flow only clears database download paths.
     ref.read(libraryInvalidationCoordinatorProvider).downloadStateChanged(
       categoryPaths: [folderPath],
-      fileExistsChanged: false,
+      affectedPlaylistIds: result.affectedPlaylistIds,
     );
   }
+}
+
+String _downloadedTrackKey(Track track) {
+  return [
+    track.sourceType.name,
+    track.sourceId,
+    track.cid?.toString() ?? '',
+    track.pageNum?.toString() ?? '',
+    track.allDownloadPaths.join('|'),
+  ].join(':');
 }

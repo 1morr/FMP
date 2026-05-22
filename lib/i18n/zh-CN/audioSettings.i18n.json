@@ -27,5 +27,12 @@
     "muxedDescription": "包含视频数据，兼容性好",
     "hls": "HLS 流",
     "hlsDescription": "分段流，不推荐"
+  },
+  "authForPlay": {
+    "title": "播放认证",
+    "subtitle": "仅在音源播放需要登录凭证时使用账号状态。",
+    "bilibiliDescription": "除非需要大会员或私有内容播放，否则建议关闭。",
+    "youtubeDescription": "除非需要账号限定内容播放，否则建议关闭。",
+    "neteaseDescription": "默认开启，用于 VIP 或账号受限歌曲。"
   }
 }

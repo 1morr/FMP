@@ -220,14 +220,16 @@ void main() {
     });
 
     test(
-      'playlist detail page tracks a cached cover-path set and watches the reactive cache epoch provider',
+      'playlist detail page tracks a cached download file-path set and watches the reactive cache epoch provider',
       () {
         final source = File(
           '${Directory.current.path}/lib/ui/pages/library/playlist_detail_page.dart',
         ).readAsStringSync();
 
-        expect(source, contains('_cachedCoverPaths'));
-        expect(source, contains('setEquals(coverPaths, _cachedCoverPaths)'));
+        expect(source, contains('_cachedDownloadFilePaths'));
+        expect(source, contains('_buildDownloadFilePathsSet'));
+        expect(source, contains('setEquals(paths, _cachedDownloadFilePaths)'));
+        expect(source, contains('preloadPaths(paths.toList())'));
         expect(source, contains('_lastCacheEpoch'));
         expect(source, contains('fileExistsCacheEpochProvider'));
         expect(source,

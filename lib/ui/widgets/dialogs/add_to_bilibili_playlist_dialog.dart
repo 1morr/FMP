@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/ui_constants.dart';
-import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
@@ -10,7 +9,7 @@ import '../../../providers/account_provider.dart';
 import '../../../providers/remote_playlist_sync_provider.dart';
 import '../../../services/account/bilibili_favorites_service.dart';
 import '../../../services/library/remote_playlist_selection_changes.dart';
-import '../track_thumbnail.dart';
+import 'remote_playlist_dialog_widgets.dart';
 
 Future<bool> showAddToBilibiliPlaylistDialog({
   required BuildContext context,
@@ -294,7 +293,8 @@ class _BilibiliRemoteFavSheetState
       if (!mounted) return;
       if (result.changedRemote && result.hasFailures) {
         final summary = result.summary;
-        final successCount = summary.addedTrackCount + summary.removedTrackCount;
+        final successCount =
+            summary.addedTrackCount + summary.removedTrackCount;
         final totalCount = successCount + summary.failedTrackCount;
         ToastService.warning(
           context,
@@ -358,105 +358,15 @@ class _BilibiliRemoteFavSheetState
                 borderRadius: AppRadius.borderRadiusXs,
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  Text(
-                    t.remote.dialogTitle,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    tooltip:
-                        MaterialLocalizations.of(context).closeButtonTooltip,
-                    onPressed: () => Navigator.pop(context, false),
-                  ),
-                ],
-              ),
+            RemotePlaylistDialogHeader(
+              title: t.remote.dialogTitle,
+              onClose: () => Navigator.pop(context, false),
             ),
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest,
-                borderRadius: AppRadius.borderRadiusLg,
-              ),
-              child: _isMulti
-                  ? Row(
-                      children: [
-                        Icon(Icons.music_note, color: colorScheme.primary),
-                        const SizedBox(width: 12),
-                        Text(
-                          '${_tracks.length} ${t.remote.tracksCount}',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w500),
-                        ),
-                      ],
-                    )
-                  : Row(
-                      children: [
-                        TrackThumbnail(
-                          track: _tracks.first,
-                          size: AppSizes.thumbnailMedium,
-                          borderRadius: 4,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _tracks.first.title,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
-                                    ?.copyWith(fontWeight: FontWeight.w500),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                _tracks.first.artist ?? '',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
+            RemotePlaylistTrackSummary(tracks: _tracks),
             const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: ListTile(
-                leading: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: AppRadius.borderRadiusMd,
-                  ),
-                  child: Icon(
-                    Icons.add,
-                    color: colorScheme.onPrimaryContainer,
-                  ),
-                ),
-                title: Text(t.remote.createFolder),
-                shape: RoundedRectangleBorder(
-                  borderRadius: AppRadius.borderRadiusLg,
-                ),
-                onTap: _isSubmitting ? null : _showCreateFolderDialog,
-              ),
+            RemotePlaylistCreateTile(
+              title: t.remote.createFolder,
+              onTap: _isSubmitting ? null : _showCreateFolderDialog,
             ),
             const Divider(),
             Expanded(
@@ -535,54 +445,14 @@ class _BilibiliRemoteFavSheetState
             _partialIds.contains(folder.id) &&
             !_deselectedPartialIds.contains(folder.id);
 
-        return ListTile(
-          leading: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              borderRadius: AppRadius.borderRadiusMd,
-              color: colorScheme.surfaceContainerHighest,
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: folder.coverUrl != null
-                ? ImageLoadingService.loadImage(
-                    networkUrl: folder.coverUrl,
-                    placeholder: Icon(
-                      folder.isDefault ? Icons.star : Icons.folder_outlined,
-                      color: colorScheme.outline,
-                    ),
-                    width: 40,
-                    height: 40,
-                    fit: BoxFit.cover,
-                    targetDisplaySize: 40,
-                  )
-                : Icon(
-                    folder.isDefault ? Icons.star : Icons.folder_outlined,
-                    color: colorScheme.outline,
-                  ),
-          ),
-          title: Text(folder.title),
-          subtitle: Text('${folder.mediaCount}'),
-          trailing: _isCheckingMulti
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : isSelected
-                  ? Icon(Icons.check_circle, color: colorScheme.primary)
-                  : isPartial
-                      ? Icon(
-                          Icons.remove_circle_outline,
-                          color: colorScheme.primary,
-                        )
-                      : Icon(Icons.circle_outlined, color: colorScheme.outline),
-          selected: isSelected || isPartial,
-          selectedTileColor:
-              colorScheme.primaryContainer.withValues(alpha: 0.3),
-          shape: RoundedRectangleBorder(
-            borderRadius: AppRadius.borderRadiusLg,
-          ),
+        return RemotePlaylistListTile(
+          imageUrl: folder.coverUrl,
+          fallbackIcon: folder.isDefault ? Icons.star : Icons.folder_outlined,
+          title: folder.title,
+          subtitle: '${folder.mediaCount}',
+          isSelected: isSelected,
+          isPartial: isPartial,
+          isChecking: _isCheckingMulti,
           onTap: () {
             setState(() {
               if (isSelected) {

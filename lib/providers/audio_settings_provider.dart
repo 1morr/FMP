@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/constants/app_constants.dart';
 import '../data/models/settings.dart';
+import '../data/models/track.dart';
 import '../data/repositories/settings_repository.dart';
 import '../services/lyrics/lyrics_ai_config_service.dart';
 import 'repository_providers.dart';
@@ -21,6 +22,9 @@ class AudioSettingsState {
   final String lyricsAiModel;
   final int lyricsAiTimeoutSeconds;
   final bool lyricsAiApiKeyConfigured;
+  final bool useBilibiliAuthForPlay;
+  final bool useYoutubeAuthForPlay;
+  final bool useNeteaseAuthForPlay;
   final bool isLoading;
 
   const AudioSettingsState({
@@ -47,6 +51,9 @@ class AudioSettingsState {
     this.lyricsAiModel = '',
     this.lyricsAiTimeoutSeconds = AppConstants.lyricsAiDefaultTimeoutSeconds,
     this.lyricsAiApiKeyConfigured = false,
+    this.useBilibiliAuthForPlay = false,
+    this.useYoutubeAuthForPlay = false,
+    this.useNeteaseAuthForPlay = true,
     this.isLoading = true,
   });
 
@@ -69,6 +76,9 @@ class AudioSettingsState {
     String? lyricsAiModel,
     int? lyricsAiTimeoutSeconds,
     bool? lyricsAiApiKeyConfigured,
+    bool? useBilibiliAuthForPlay,
+    bool? useYoutubeAuthForPlay,
+    bool? useNeteaseAuthForPlay,
     bool? isLoading,
   }) {
     return AudioSettingsState(
@@ -92,6 +102,12 @@ class AudioSettingsState {
           lyricsAiTimeoutSeconds ?? this.lyricsAiTimeoutSeconds,
       lyricsAiApiKeyConfigured:
           lyricsAiApiKeyConfigured ?? this.lyricsAiApiKeyConfigured,
+      useBilibiliAuthForPlay:
+          useBilibiliAuthForPlay ?? this.useBilibiliAuthForPlay,
+      useYoutubeAuthForPlay:
+          useYoutubeAuthForPlay ?? this.useYoutubeAuthForPlay,
+      useNeteaseAuthForPlay:
+          useNeteaseAuthForPlay ?? this.useNeteaseAuthForPlay,
       isLoading: isLoading ?? this.isLoading,
     );
   }
@@ -130,6 +146,9 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
           ? AppConstants.lyricsAiDefaultTimeoutSeconds
           : _settings!.lyricsAiTimeoutSeconds,
       lyricsAiApiKeyConfigured: lyricsAiApiKey.isNotEmpty,
+      useBilibiliAuthForPlay: _settings!.useBilibiliAuthForPlay,
+      useYoutubeAuthForPlay: _settings!.useYoutubeAuthForPlay,
+      useNeteaseAuthForPlay: _settings!.useNeteaseAuthForPlay,
       isLoading: false,
     );
   }
@@ -268,6 +287,33 @@ class AudioSettingsNotifier extends StateNotifier<AudioSettingsState> {
 
     await _lyricsAiConfigService.saveApiKey(apiKey);
     state = state.copyWith(lyricsAiApiKeyConfigured: apiKey.trim().isNotEmpty);
+  }
+
+  /// 设置播放时是否使用指定音源的登录凭证
+  Future<void> setAuthForPlay(SourceType sourceType, bool enabled) async {
+    if (_settings == null) return;
+
+    final previous = state;
+    state = state.copyWith(
+      useBilibiliAuthForPlay: sourceType == SourceType.bilibili
+          ? enabled
+          : state.useBilibiliAuthForPlay,
+      useYoutubeAuthForPlay: sourceType == SourceType.youtube
+          ? enabled
+          : state.useYoutubeAuthForPlay,
+      useNeteaseAuthForPlay: sourceType == SourceType.netease
+          ? enabled
+          : state.useNeteaseAuthForPlay,
+    );
+
+    try {
+      await _settingsRepository.update(
+        (settings) => settings.setUseAuthForPlay(sourceType, enabled),
+      );
+      _settings!.setUseAuthForPlay(sourceType, enabled);
+    } catch (_) {
+      state = previous;
+    }
   }
 
   /// 切换歌词源的启用/禁用状态

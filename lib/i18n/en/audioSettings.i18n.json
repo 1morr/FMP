@@ -27,5 +27,12 @@
     "muxedDescription": "Includes video data, more compatible",
     "hls": "HLS",
     "hlsDescription": "Segmented stream, not recommended"
+  },
+  "authForPlay": {
+    "title": "Playback Authentication",
+    "subtitle": "Use logged-in account credentials only when a source needs them for playback.",
+    "bilibiliDescription": "Keep off unless playback needs member or private-content access.",
+    "youtubeDescription": "Keep off unless playback needs account-only access.",
+    "neteaseDescription": "Enabled by default for VIP and account-restricted tracks."
   }
 }

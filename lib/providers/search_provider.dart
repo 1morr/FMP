@@ -264,6 +264,10 @@ class SearchNotifier extends StateNotifier<SearchState> {
       if (!mounted || requestId != _searchRequestId) return;
 
       final localTracks = results[0] as List<Track>;
+      final visibleLocalTracks = _filterLocalResultsBySource(
+        localTracks,
+        sourceTypes,
+      );
       final onlineResult = results[1] as MultiSourceSearchResult;
 
       // 初始化页码
@@ -273,7 +277,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
       }
 
       state = state.copyWith(
-        localResults: localTracks,
+        localResults: visibleLocalTracks,
         onlineResults: onlineResult.results,
         isLoading: false,
         currentPages: pages,
@@ -288,6 +292,19 @@ class SearchNotifier extends StateNotifier<SearchState> {
         error: e.toString(),
       );
     }
+  }
+
+  List<Track> _filterLocalResultsBySource(
+    List<Track> tracks,
+    List<SourceType> sourceTypes,
+  ) {
+    if (sourceTypes.length == SearchState.allDirectSources.length) {
+      return tracks;
+    }
+    final sourceSet = sourceTypes.toSet();
+    return tracks
+        .where((track) => sourceSet.contains(track.sourceType))
+        .toList(growable: false);
   }
 
   /// 加载更多（特定音源）
