@@ -199,6 +199,13 @@ class _LockWithId {
   bool belongsTo(int checkRequestId) => requestId == checkRequestId;
 }
 
+class _PendingMediaOpenError {
+  _PendingMediaOpenError();
+
+  final Completer<bool> recovered = Completer<bool>();
+  String? terminalMessage;
+}
+
 /// 音频控制器 - 管理所有播放相关的状态和操作
 /// 协调 AudioService（单曲播放）和 QueueManager（队列管理）
 class AudioController extends StateNotifier<PlayerState> with Logging {
@@ -239,6 +246,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   // 播放锁 - 防止快速切歌时的竞态条件
   _LockWithId? _playLock;
   int _playRequestId = 0;
+  final Map<int, _PendingMediaOpenError> _pendingMediaOpenErrors = {};
+  String? _terminalMediaOpenErrorTrackKey;
 
   // 导航请求ID - 防止快速点击 next/previous 时的竞态条件
   int _navRequestId = 0;
@@ -517,6 +526,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     _cancelRetryTimer();
     _networkRecoverySubscription?.cancel();
     _mixLoadMoreFuture = null;
+    for (final pending in _pendingMediaOpenErrors.values) {
+      if (!pending.recovered.isCompleted) {
+        pending.recovered.complete(true);
+      }
+    }
+    _pendingMediaOpenErrors.clear();
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
@@ -773,6 +788,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         shouldResume: restorePlan.savedWasPlaying,
       );
       if (execution == null) {
+        await _waitForMediaOpenErrorRecovery(requestId);
         return;
       }
 
@@ -1787,6 +1803,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 進入加載狀態（統一的 UI 更新邏輯）
   /// 返回請求 ID，用於後續的取代檢測
   int _enterLoadingState() {
+    _terminalMediaOpenErrorTrackKey = null;
     state = state.copyWith(
       isLoading: true,
       position: Duration.zero,
@@ -1970,6 +1987,16 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         prefetchNext: prefetchNext,
       );
       if (execution == null) {
+        return;
+      }
+      if (!await _waitForMediaOpenErrorRecovery(requestId)) {
+        logDebug(
+            'Play request $requestId aborted after terminal media open error');
+        return;
+      }
+      if (_isSuperseded(requestId)) {
+        logDebug(
+            'Play request $requestId superseded after playback handoff, aborting success path');
         return;
       }
 
@@ -2624,6 +2651,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     if (_isDisposed) return;
     // 電台播放中的狀態變化由 RadioController 處理，AudioController 不應更新自身狀態
     if (isRadioPlaying?.call() == true) return;
+    if (_terminalMediaOpenErrorTrackKey != null &&
+        state.playingTrack?.uniqueKey == _terminalMediaOpenErrorTrackKey &&
+        state.error != null) {
+      logDebug('Backend state ignored after terminal media open error');
+      return;
+    }
 
     final isBackendIdleDuringControllerLoad = _context.isInLoadingState &&
         playerState.processingState == FmpAudioProcessingState.idle;
@@ -2718,10 +2751,24 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       if (_isStringMediaOpenError(error)) {
         final track = state.playingTrack;
         if (track != null) {
+          final requestId =
+              _context.activeRequestId > 0 ? _context.activeRequestId : null;
+          _PendingMediaOpenError? pending;
+          if (requestId != null) {
+            if (_pendingMediaOpenErrors.containsKey(requestId)) {
+              logDebug(
+                  'Media open error already pending for request $requestId');
+              return;
+            }
+            pending = _PendingMediaOpenError();
+            _pendingMediaOpenErrors[requestId] = pending;
+          }
           unawaited(_handleMediaOpenErrorIfStillFailed(
             error: error,
             track: track,
             positionAtError: state.position,
+            requestId: requestId,
+            pending: pending,
           ));
           return;
         }
@@ -2783,36 +2830,82 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     required String error,
     required Track track,
     required Duration positionAtError,
+    required int? requestId,
+    required _PendingMediaOpenError? pending,
   }) async {
     // media_kit may emit an open error and still recover shortly after. Delay
     // before surfacing it so transient backend events do not interrupt playback.
     await Future.delayed(const Duration(seconds: 2));
-    if (_isDisposed || state.playingTrack?.uniqueKey != track.uniqueKey) return;
+    if (_isDisposed || state.playingTrack?.uniqueKey != track.uniqueKey) {
+      _completeMediaOpenRecovery(requestId, pending, recovered: true);
+      return;
+    }
 
     final currentPosition = _audioService.position;
     final hasAdvanced =
         currentPosition - positionAtError > const Duration(milliseconds: 500);
     if (_audioService.isPlaying && hasAdvanced) {
       logDebug('Media open error recovered by backend: $error');
+      _completeMediaOpenRecovery(requestId, pending, recovered: true);
       return;
     }
 
     logWarning('Media open error did not recover: $error');
+    if (requestId != null && !_isSuperseded(requestId)) {
+      _playRequestId++;
+      _playLock?.completeIf(requestId);
+    }
     try {
       await _audioService.stop();
     } catch (stopError) {
       logError('Failed to stop player after media open error', stopError);
     }
 
-    if (_isDisposed || state.playingTrack?.uniqueKey != track.uniqueKey) return;
+    if (_isDisposed || state.playingTrack?.uniqueKey != track.uniqueKey) {
+      _completeMediaOpenRecovery(requestId, pending, recovered: false);
+      return;
+    }
     final message = t.audio.playbackFailedTrack(title: track.title);
+    pending?.terminalMessage = message;
+    _terminalMediaOpenErrorTrackKey = track.uniqueKey;
+    _resetLoadingState();
     state = state.copyWith(
       error: message,
       isLoading: false,
       isPlaying: false,
     );
-    _resetLoadingState();
     _toastService.showError(message);
+    _completeMediaOpenRecovery(requestId, pending, recovered: false);
+  }
+
+  Future<bool> _waitForMediaOpenErrorRecovery(int requestId) async {
+    final pending = _pendingMediaOpenErrors[requestId];
+    if (pending == null) return true;
+    try {
+      final recovered = await pending.recovered.future;
+      if (!recovered && !_isDisposed && pending.terminalMessage != null) {
+        state = state.copyWith(
+          error: pending.terminalMessage,
+          isLoading: false,
+          isPlaying: false,
+        );
+      }
+      return recovered;
+    } finally {
+      if (_pendingMediaOpenErrors[requestId] == pending) {
+        _pendingMediaOpenErrors.remove(requestId);
+      }
+    }
+  }
+
+  void _completeMediaOpenRecovery(
+    int? requestId,
+    _PendingMediaOpenError? pending, {
+    required bool recovered,
+  }) {
+    if (pending != null && !pending.recovered.isCompleted) {
+      pending.recovered.complete(recovered);
+    }
   }
 
   bool _shouldHandleTrackCompleted() {

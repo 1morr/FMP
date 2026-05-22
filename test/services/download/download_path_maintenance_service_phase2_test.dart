@@ -13,7 +13,8 @@ import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/providers/download/download_providers.dart'
     as download_providers;
 import 'package:fmp/providers/download_path_provider.dart';
-import 'package:fmp/providers/repository_providers.dart' as repository_providers;
+import 'package:fmp/providers/repository_providers.dart'
+    as repository_providers;
 import 'package:fmp/services/download/download_path_maintenance_service.dart';
 import 'package:fmp/services/download/download_path_manager.dart';
 import 'package:isar/isar.dart';
@@ -147,12 +148,14 @@ void main() {
     test(
       'deleteDownloadedTracks clears only the matching multi-page entry by cid',
       () async {
-        final pageOneFolder = Directory('${tempDir.path}/Playlist A/video-multi');
+        final pageOneFolder =
+            Directory('${tempDir.path}/Playlist A/video-multi');
         await pageOneFolder.create(recursive: true);
         final pageOneAudioPath = '${pageOneFolder.path}/P01.m4a';
         await File(pageOneAudioPath).writeAsString('audio');
 
-        final pageTwoFolder = Directory('${tempDir.path}/Playlist B/video-multi');
+        final pageTwoFolder =
+            Directory('${tempDir.path}/Playlist B/video-multi');
         await pageTwoFolder.create(recursive: true);
         final pageTwoAudioPath = '${pageTwoFolder.path}/P02.m4a';
         await File(pageTwoAudioPath).writeAsString('audio');
@@ -201,6 +204,66 @@ void main() {
     );
 
     test(
+      'deleteDownloadedTracks keeps sibling audio files in the same folder',
+      () async {
+        final folder = Directory('${tempDir.path}/Playlist A/video-multi');
+        await folder.create(recursive: true);
+        final pageOneAudioPath = '${folder.path}/P01.m4a';
+        final pageTwoAudioPath = '${folder.path}/P02.m4a';
+        final pageOneMetadataPath = '${folder.path}/metadata_P01.json';
+        final pageTwoMetadataPath = '${folder.path}/metadata_P02.json';
+        await File(pageOneAudioPath).writeAsString('audio');
+        await File(pageTwoAudioPath).writeAsString('audio');
+        await File(pageOneMetadataPath).writeAsString('{}');
+        await File(pageTwoMetadataPath).writeAsString('{}');
+
+        final persistedPageOne = await trackRepository.save(
+          _track('video-multi')
+            ..cid = 101
+            ..pageNum = 1
+            ..playlistInfo = [
+              _info(1, 'Playlist A', pageOneAudioPath),
+            ],
+        );
+        final persistedPageTwo = await trackRepository.save(
+          _track('video-multi')
+            ..cid = 202
+            ..pageNum = 2
+            ..playlistInfo = [
+              _info(1, 'Playlist A', pageTwoAudioPath),
+            ],
+        );
+
+        final scannedTrack = _track('video-multi')
+          ..cid = 101
+          ..pageNum = 1
+          ..playlistInfo = [
+            _info(0, 'Playlist A', pageOneAudioPath),
+          ];
+
+        final result = await service.deleteDownloadedTracks([scannedTrack]);
+
+        expect(result.clearedPathCount, 1);
+        expect(result.affectedPlaylistIds, [1]);
+        expect(await Directory(folder.path).exists(), isTrue);
+        expect(await File(pageOneAudioPath).exists(), isFalse);
+        expect(await File(pageOneMetadataPath).exists(), isFalse);
+        expect(await File(pageTwoAudioPath).exists(), isTrue);
+        expect(await File(pageTwoMetadataPath).exists(), isTrue);
+
+        final refreshedPageOne =
+            await trackRepository.getById(persistedPageOne.id);
+        final refreshedPageTwo =
+            await trackRepository.getById(persistedPageTwo.id);
+        expect(refreshedPageOne?.playlistInfo.single.downloadPath, '');
+        expect(
+          refreshedPageTwo?.playlistInfo.single.downloadPath,
+          pageTwoAudioPath,
+        );
+      },
+    );
+
+    test(
       'deleteDownloadedCategory clears only matching persisted paths for deleted files',
       () async {
         final deletedFolder = Directory('${tempDir.path}/Playlist A/video-a');
@@ -229,8 +292,8 @@ void main() {
             ],
         );
 
-        final result =
-            await service.deleteDownloadedCategory('${tempDir.path}/Playlist A');
+        final result = await service
+            .deleteDownloadedCategory('${tempDir.path}/Playlist A');
 
         expect(result.clearedPathCount, 1);
         expect(result.affectedPlaylistIds, [1]);
