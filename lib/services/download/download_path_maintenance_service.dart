@@ -267,10 +267,12 @@ Future<void> _deleteFilesInIsolate(List<String> paths) async {
   for (final path in paths) {
     try {
       final file = File(path);
-      if (await file.exists()) {
-        foldersToDelete.add(file.parent.path);
-        await file.delete();
-      }
+      if (!await file.exists()) continue;
+
+      final parentDir = file.parent;
+      foldersToDelete.add(parentDir.path);
+      await file.delete();
+      await _deleteMetadataForAudioFile(parentDir, file.path);
     } on FileSystemException {
       // Keep best-effort deletion behavior for UI flows.
     }
@@ -279,11 +281,47 @@ Future<void> _deleteFilesInIsolate(List<String> paths) async {
   for (final folderPath in foldersToDelete) {
     try {
       final dir = Directory(folderPath);
-      if (await dir.exists()) {
+      if (await dir.exists() && !await _hasRemainingAudioFiles(dir)) {
         await dir.delete(recursive: true);
+        await _deleteParentIfEmpty(dir.parent);
       }
     } on FileSystemException {
       // Keep best-effort deletion behavior for UI flows.
     }
+  }
+}
+
+Future<void> _deleteMetadataForAudioFile(
+  Directory parentDir,
+  String audioPath,
+) async {
+  final audioFileName = p.basename(audioPath);
+  final metadataName = audioFileName.startsWith('P') &&
+          audioFileName.contains('.')
+      ? 'metadata_P${audioFileName.substring(1, audioFileName.indexOf('.'))}.json'
+      : 'metadata.json';
+  final metadataFile = File(p.join(parentDir.path, metadataName));
+  if (await metadataFile.exists()) {
+    await metadataFile.delete();
+  }
+}
+
+Future<bool> _hasRemainingAudioFiles(Directory dir) async {
+  final entities = await dir.list().toList();
+  return entities.any((entity) {
+    if (entity is! File) return false;
+    final name = p.basename(entity.path).toLowerCase();
+    return name.endsWith('.m4a') ||
+        name.endsWith('.mp3') ||
+        name.endsWith('.aac') ||
+        name.endsWith('.opus');
+  });
+}
+
+Future<void> _deleteParentIfEmpty(Directory dir) async {
+  if (!await dir.exists()) return;
+  final remaining = await dir.list().toList();
+  if (remaining.isEmpty) {
+    await dir.delete();
   }
 }

@@ -815,6 +815,39 @@ void main() {
       expect(toasts.last.type, ToastType.error);
     });
 
+    test('terminal media open error aborts the active play request', () async {
+      final toasts = <ToastMessage>[];
+      final subscription = toastService.messageStream.listen(toasts.add);
+      addTearDown(subscription.cancel);
+
+      final playGate = audioService.enqueuePendingPlayUrl();
+      final playFuture = controller.playTrack(
+        _track('media-open-failure', title: 'Media Open Failure'),
+      );
+      await audioService.waitForPlayUrlCallCount(1);
+
+      audioService.emitError(
+        'Failed to open https://example.com/media-open-failure.m4a.',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 2200));
+
+      expect(toasts, isNotEmpty);
+      expect(toasts.last.type, ToastType.error);
+      expect(toasts.last.message, contains('Media Open Failure'));
+      expect(controller.state.error, contains('Media Open Failure'));
+      expect(controller.state.isLoading, isFalse);
+      expect(controller.state.isPlaying, isFalse);
+
+      playGate.complete();
+      await playFuture;
+      await pumpEventQueue(times: 5);
+
+      expect(controller.state.isLoading, isFalse);
+      expect(controller.state.isPlaying, isFalse);
+      expect(controller.state.currentContainer, isNull);
+      expect(controller.state.currentStreamType, isNull);
+    });
+
     test('rate-limited source error remains visible after loading resets',
         () async {
       sourceManager.throwGetAudioStreamOnce(
