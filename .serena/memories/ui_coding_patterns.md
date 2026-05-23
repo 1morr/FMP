@@ -1,6 +1,7 @@
 # FMP UI 编码模式与规范
 
 本文档定义了 FMP 项目中 UI 页面开发的统一编码模式，确保各页面逻辑一致性。
+当前权威 UI 规则维护在 `lib/ui/AGENTS.md`；本记忆只保留补充模式和示例。
 
 ---
 
@@ -689,13 +690,15 @@ Widget build(BuildContext context, WidgetRef ref) {
 - [ ] 列表项样式是否与相似页面统一
 - [ ] 是否使用了相似页面的现有组件和模式
 - [ ] AppBar actions 尾部间距：IconButton 结尾加 `const SizedBox(width: 8)`，PopupMenuButton 结尾无需额外间距
-- [ ] 圓角、動畫時長、防抖、Toast 時長是否使用 `ui_constants.dart` 中的常量（禁止硬編碼）
+- [ ] 圓角、動畫時長、防抖、Toast 時長是否優先使用 `ui_constants.dart` 中的常量；一次性局部字面量按 `lib/ui/AGENTS.md` 的 UI constants 規則處理
 
 ---
 
 ## 11. UI 常量使用規範
 
-所有 UI 魔法數字已集中到 `lib/core/constants/ui_constants.dart`，新代碼**禁止**使用硬編碼值。
+可複用的 UI 尺寸、圓角、動畫時長、防抖與 Toast 時長優先使用
+`lib/core/constants/ui_constants.dart`。一次性局部字面量允許保留；是否抽常量以
+`lib/ui/AGENTS.md` 的 UI constants 規則為準。
 
 ### 11.1 圓角
 

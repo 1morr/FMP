@@ -256,6 +256,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   late final TemporaryPlayHandler _temporaryPlayHandler;
   late final MixPlaylistHandler _mixPlaylistHandler;
   Future<void>? _mixLoadMoreFuture;
+  int _mixStartRequestId = 0;
 
   // 通知栏/SMTC 更新节流：上次更新的位置
   Duration _lastNotificationPosition = Duration.zero;
@@ -639,6 +640,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   Future<void> playSingle(Track track) async {
     await _ensureInitialized();
     _resetRetryState(); // 重置网络重试状态
+    _supersedeInFlightPlaybackIntent();
     state = state.copyWith(isLoading: true, error: null);
     logInfo('Playing single track: ${track.title}');
     try {
@@ -660,6 +662,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   Future<void> playTemporary(Track track) async {
     await _ensureInitialized();
     _resetRetryState(); // 重置网络重试状态
+    _supersedeInFlightPlaybackIntent();
 
     logInfo('Playing temporary track: ${track.title}');
 
@@ -888,6 +891,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 播放多首歌曲
   Future<void> playAll(List<Track> tracks, {int startIndex = 0}) async {
     await _ensureInitialized();
+    _supersedeInFlightPlaybackIntent();
     state = state.copyWith(isLoading: true, error: null);
     logInfo('Playing ${tracks.length} tracks, starting at index $startIndex');
     try {
@@ -924,10 +928,16 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       throw StateError(t.library.main.cannotLoadMix);
     }
 
+    _supersedeInFlightPlaybackIntent();
+    final mixStartRequestId = ++_mixStartRequestId;
+    final playRequestGeneration = _playRequestId;
     final result = await fetcher(
       playlistId: playlistId,
       currentVideoId: seedVideoId,
     );
+    if (!_isMixStartCurrent(mixStartRequestId, playRequestGeneration)) {
+      return;
+    }
 
     if (result.tracks.isEmpty) {
       throw StateError(t.library.main.cannotLoadMix);
@@ -939,6 +949,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       title: playlist.name,
       tracks: result.tracks,
     );
+  }
+
+  bool _isMixStartCurrent(int mixStartRequestId, int playRequestGeneration) {
+    return !_isDisposed &&
+        mixStartRequestId == _mixStartRequestId &&
+        playRequestGeneration == _playRequestId;
   }
 
   /// 播放 Mix 播放列表
@@ -1783,6 +1799,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   // ========== 統一播放入口 ========== //
+
+  void _supersedeInFlightPlaybackIntent() {
+    if (_isDisposed) return;
+    _playRequestId++;
+    _context = _context.copyWith(activeRequestId: 0);
+    _playLock?.completeIf(_playLock!.requestId);
+  }
 
   /// 進入加載狀態（統一的 UI 更新邏輯）
   /// 返回請求 ID，用於後續的取代檢測
@@ -2633,6 +2656,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       isLoading: _context.isInLoadingState ||
           effectiveProcessingState == FmpAudioProcessingState.loading,
       processingState: effectiveProcessingState,
+      error: state.error,
     );
 
     // 更新 AudioHandler 的播放状态（用于通知栏）
@@ -2659,7 +2683,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     // 加载期间忽略位置更新（防止旧歌曲的位置覆盖已重置的进度条）
     if (_context.isInLoadingState) return;
 
-    state = state.copyWith(position: position);
+    state = state.copyWith(position: position, error: state.error);
     // 更新 QueueManager 的位置（用于恢复播放）
     _queueManager.updatePosition(position);
 
@@ -2731,22 +2755,39 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       _playRequestId++;
       _playLock?.completeIf(activeRetryRequestId);
     }
+    final retryRequestGeneration = _playRequestId;
 
     // 保存當前位置，stop() 可能會透過 positionStream 將 position 重置為 zero
     final positionBeforeStop = state.position;
 
     // 停止播放并触发重试
     _audioService.stop().then((_) {
+      if (!_isAudioErrorRetryContextCurrent(track, retryRequestGeneration)) {
+        return;
+      }
       state = state.copyWith(isLoading: false, isPlaying: false);
       _resetLoadingState();
       _scheduleRetry(track, positionBeforeStop);
     }).catchError((e) {
+      if (!_isAudioErrorRetryContextCurrent(track, retryRequestGeneration)) {
+        return;
+      }
       logError('Failed to stop player after error', e);
       // stop() 失败时仍需触发重试，否则播放器会卡在错误状态
       state = state.copyWith(isLoading: false, isPlaying: false);
       _resetLoadingState();
       _scheduleRetry(track, positionBeforeStop);
     });
+  }
+
+  bool _isAudioErrorRetryContextCurrent(
+    Track track,
+    int requestGeneration,
+  ) {
+    return !_isDisposed &&
+        _playRequestId == requestGeneration &&
+        state.playingTrack?.uniqueKey == track.uniqueKey &&
+        state.currentTrack?.uniqueKey == track.uniqueKey;
   }
 
   bool _shouldHandleTrackCompleted() {
@@ -2792,30 +2833,34 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     state = state.copyWith(
       duration: duration,
       clearDuration: duration == null,
+      error: state.error,
     );
   }
 
   void _onBufferedPositionChanged(Duration bufferedPosition) {
     if (_isDisposed) return;
     if (isRadioPlaying?.call() == true) return;
-    state = state.copyWith(bufferedPosition: bufferedPosition);
+    state = state.copyWith(
+      bufferedPosition: bufferedPosition,
+      error: state.error,
+    );
   }
 
   void _onSpeedChanged(double speed) {
     if (_isDisposed) return;
-    state = state.copyWith(speed: speed);
+    state = state.copyWith(speed: speed, error: state.error);
   }
 
   void _onAudioDevicesChanged(List<FmpAudioDevice> devices) {
     if (_isDisposed) return;
     logDebug('Audio devices updated: ${devices.length} devices');
-    state = state.copyWith(audioDevices: devices);
+    state = state.copyWith(audioDevices: devices, error: state.error);
   }
 
   void _onAudioDeviceChanged(FmpAudioDevice? device) {
     if (_isDisposed) return;
     logDebug('Current audio device: ${device?.name ?? "auto"}');
-    state = state.copyWith(currentAudioDevice: device);
+    state = state.copyWith(currentAudioDevice: device, error: state.error);
   }
 
   Future<bool> _advanceAfterPendingMixLoadMore() async {

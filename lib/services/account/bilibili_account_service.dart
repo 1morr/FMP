@@ -12,6 +12,7 @@ import '../../data/sources/source_http_policy.dart';
 import 'account_service.dart';
 import 'bilibili_credentials.dart';
 import 'bilibili_crypto.dart';
+import 'http_cookie_parser.dart';
 
 /// QR 碼數據
 class QrCodeData {
@@ -584,25 +585,12 @@ class BilibiliAccountService extends AccountService with Logging {
 
   /// 從 HTTP 響應中提取 Set-Cookie
   Map<String, String>? _extractCookiesFromResponse(Response response) {
-    final setCookies = response.headers['set-cookie'];
-    if (setCookies == null || setCookies.isEmpty) return null;
-
-    final cookies = <String, String>{};
-    for (final cookie in setCookies) {
-      try {
-        final parts = cookie.split(';').first.split('=');
-        if (parts.length >= 2) {
-          final key = parts[0].trim();
-          final value = parts.sublist(1).join('=').trim();
-          if (key.isNotEmpty) {
-            cookies[key] = value;
-          }
-        }
-      } catch (e) {
-        logWarning('Failed to parse cookie: $cookie, error: $e');
-      }
-    }
-    return cookies.isEmpty ? null : cookies;
+    return parseSetCookieHeaders(
+      response.headers['set-cookie'],
+      onParseError: (cookie, error) {
+        logWarning('Failed to parse cookie: $cookie, error: $error');
+      },
+    );
   }
 
   /// 暴露 Dio 實例（供 Interceptor 重試使用）

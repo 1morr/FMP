@@ -116,10 +116,24 @@ class FileExistsCache extends StateNotifier<Set<String>> {
     _updateState(newState);
   }
 
+  /// 批量移除路径缓存
+  void removeAll(Iterable<String> paths) {
+    final pathSet = paths.toSet();
+    if (pathSet.isEmpty) return;
+
+    final missingCountBefore = _missingPaths.length;
+    _missingPaths.removeAll(pathSet);
+    final newState = Set<String>.from(state)..removeAll(pathSet);
+    final stateChanged = newState.length != state.length;
+    final missingChanged = _missingPaths.length != missingCountBefore;
+    if (!stateChanged && !missingChanged) return;
+
+    _updateState(newState);
+  }
+
   /// 清除所有缓存
   void clearAll() {
     _missingPaths.clear();
-    if (state.isEmpty) return;
     _updateState(<String>{});
   }
 

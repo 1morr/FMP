@@ -10,6 +10,7 @@ import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
+import '../../../providers/download/file_exists_cache.dart';
 import '../../../providers/download_provider.dart';
 import '../../../providers/download_path_provider.dart';
 import '../../../providers/library_invalidation_coordinator.dart';
@@ -913,11 +914,15 @@ class _DownloadedTrackTile extends ConsumerWidget {
     // 在 Isolate 中执行文件删除（含 metadata 清理和空文件夹检测）
     await compute(_deleteTrackFilesInIsolate, track.allDownloadPaths);
 
+    ref
+        .read(fileExistsCacheProvider.notifier)
+        .removeAll(track.allDownloadPaths);
+
     // 清除数据库中的下载路径（必须在主线程）
     await trackRepo.clearDownloadPath(track.id);
 
-    // Refresh scanned category providers. FileExistsCache is unchanged here
-    // because this flow only clears database download paths.
+    // Refresh scanned category providers. FileExistsCache is updated explicitly
+    // with the deleted paths above.
     ref.read(libraryInvalidationCoordinatorProvider).downloadStateChanged(
       categoryPaths: [folderPath],
       fileExistsChanged: false,
