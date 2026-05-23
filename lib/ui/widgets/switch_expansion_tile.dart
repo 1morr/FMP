@@ -44,12 +44,14 @@ class SwitchExpansionTile extends StatelessWidget {
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Transform.scale(
-                scale: 0.78,
+              SizedBox(
+                width: 52,
+                height: 32,
                 child: Switch(
                   value: enabled,
                   onChanged: onEnabledChanged,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: EdgeInsets.zero,
                 ),
               ),
               AnimatedRotation(
