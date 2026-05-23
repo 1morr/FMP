@@ -53,4 +53,32 @@ void main() {
 
     expect(find.text('Outline color'), findsNothing);
   });
+
+  testWidgets('does not use paint-only scaling for the switch', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SwitchExpansionTile(
+            title: 'Outline',
+            expanded: false,
+            enabled: true,
+            onExpanded: (_) {},
+            onEnabledChanged: (_) {},
+            children: const [
+              Text('Outline color'),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final scaledSwitch = find.ancestor(
+      of: find.byType(Switch),
+      matching: find.byWidgetPredicate((widget) {
+        return widget is Transform && widget.transform.storage[0] != 1;
+      }),
+    );
+
+    expect(scaledSwitch, findsNothing);
+  });
 }
