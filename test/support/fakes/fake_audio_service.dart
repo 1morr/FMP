@@ -268,6 +268,7 @@ class FakeAudioService implements FmpAudioService {
   @override
   Future<void> stop() async {
     stopCallCount++;
+    await _awaitPending(_pendingStop);
     if (_stopErrors.isNotEmpty) {
       throw _stopErrors.removeAt(0);
     }

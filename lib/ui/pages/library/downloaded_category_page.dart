@@ -6,6 +6,7 @@ import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
+import '../../../providers/download/file_exists_cache.dart';
 import '../../../providers/download_provider.dart';
 import '../../../providers/download_path_provider.dart';
 import '../../../providers/library_invalidation_coordinator.dart';
@@ -857,6 +858,12 @@ class _DownloadedTrackTile extends ConsumerWidget {
   Future<void> _deleteDownload(WidgetRef ref) async {
     final maintenanceService = ref.read(downloadPathMaintenanceServiceProvider);
     final result = await maintenanceService.deleteDownloadedTracks([track]);
+
+    // FileExistsCache is updated explicitly for deleted paths because scanned
+    // category refreshes do not re-check paths that were just removed.
+    ref
+        .read(fileExistsCacheProvider.notifier)
+        .removeAll(track.allDownloadPaths);
 
     ref.read(libraryInvalidationCoordinatorProvider).downloadStateChanged(
       categoryPaths: [folderPath],

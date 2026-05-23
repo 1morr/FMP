@@ -284,6 +284,39 @@ void main() {
       expect(controller.state.currentTrack?.sourceId, 'new-user-track');
     });
 
+    test('delayed backend stop from old network error does not retry new track',
+        () async {
+      final oldTrack = _track('old-delayed-stop-track');
+      final newTrack = _track('new-delayed-stop-track');
+
+      await controller.playTrack(oldTrack);
+      await pumpEventQueue(times: 10);
+
+      audioService.emitPosition(const Duration(seconds: 21));
+      final delayedStop = audioService.enqueuePendingStop();
+      audioService.emitError('network timeout during playback');
+      await pumpEventQueue(times: 2);
+
+      expect(controller.state.currentTrack?.sourceId, 'old-delayed-stop-track');
+
+      final newPlayback = controller.playTrack(newTrack);
+
+      delayedStop.complete();
+      await newPlayback;
+      await pumpEventQueue(times: 20);
+
+      expect(controller.state.currentTrack?.sourceId, 'new-delayed-stop-track');
+      expect(controller.state.playingTrack?.sourceId, 'new-delayed-stop-track');
+      expect(controller.state.isRetrying, isFalse);
+      expect(controller.state.isNetworkError, isFalse);
+      expect(
+        audioService.playUrlCalls.where(
+          (call) => call.track?.sourceId == 'old-delayed-stop-track',
+        ),
+        hasLength(1),
+      );
+    });
+
     test('typed source network kind schedules retry without string matching',
         () async {
       final track = _track('typed-network-kind');

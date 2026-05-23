@@ -56,15 +56,26 @@ class UpdateState {
 /// 更新状态管理器
 class UpdateNotifier extends StateNotifier<UpdateState> {
   final UpdateService _service;
+  int _operationId = 0;
 
-  UpdateNotifier() : _service = UpdateService(), super(const UpdateState());
+  UpdateNotifier({UpdateService? service})
+      : _service = service ?? UpdateService(),
+        super(const UpdateState());
+
+  int _startOperation() => ++_operationId;
+
+  bool _isCurrentOperation(int operationId) {
+    return mounted && _operationId == operationId;
+  }
 
   /// 检查更新
   Future<void> checkForUpdate() async {
+    final operationId = _startOperation();
     state = state.copyWith(status: UpdateStatus.checking, errorMessage: null);
 
     try {
       final info = await _service.checkForUpdate();
+      if (!_isCurrentOperation(operationId)) return;
       if (info != null) {
         state = state.copyWith(
           status: UpdateStatus.updateAvailable,
@@ -74,6 +85,7 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
         state = state.copyWith(status: UpdateStatus.upToDate);
       }
     } catch (e) {
+      if (!_isCurrentOperation(operationId)) return;
       state = state.copyWith(
         status: UpdateStatus.error,
         errorMessage: '${t.updateProvider.checkFailed}: $e',
@@ -85,16 +97,18 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
   Future<void> downloadAndInstall() async {
     final info = state.updateInfo;
     if (info == null) return;
+    final operationId = _startOperation();
 
     // 检查是否已有下载好的文件
     final existingPath = await _service.getExistingDownloadPath(info);
+    if (!_isCurrentOperation(operationId)) return;
     if (existingPath != null) {
       AppLogger.info('Reusing existing download: $existingPath', _tag);
       state = state.copyWith(
         status: UpdateStatus.readyToInstall,
         downloadedFilePath: existingPath,
       );
-      await _triggerInstall(existingPath);
+      await _triggerInstall(existingPath, operationId: operationId);
       return;
     }
 
@@ -108,28 +122,30 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
       final filePath = await _service.downloadAndInstall(
         info,
         onProgress: (received, total) {
+          if (!_isCurrentOperation(operationId)) return;
           if (total > 0) {
             final progress = received / total;
             // 仅在进度变化 ≥ 1% 或下载完成时更新，避免过多的 UI 重建
-            if (progress >= 1.0 ||
-                progress - state.downloadProgress >= 0.01) {
+            if (progress >= 1.0 || progress - state.downloadProgress >= 0.01) {
               state = state.copyWith(downloadProgress: progress);
             }
           }
         },
       );
 
+      if (!_isCurrentOperation(operationId)) return;
       if (Platform.isAndroid) {
         state = state.copyWith(
           status: UpdateStatus.readyToInstall,
           downloadedFilePath: filePath,
         );
-        await _triggerInstall(filePath);
+        await _triggerInstall(filePath, operationId: operationId);
       } else {
         // Windows: 已经退出应用，不会到这里
         state = state.copyWith(status: UpdateStatus.installing);
       }
     } catch (e) {
+      if (!_isCurrentOperation(operationId)) return;
       state = state.copyWith(
         status: UpdateStatus.error,
         errorMessage: '${t.updateProvider.downloadFailed}: $e',
@@ -138,17 +154,21 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
   }
 
   /// 触发安装（Android）
-  Future<void> _triggerInstall(String filePath) async {
+  Future<void> _triggerInstall(
+    String filePath, {
+    required int operationId,
+  }) async {
+    if (!_isCurrentOperation(operationId)) return;
     state = state.copyWith(status: UpdateStatus.installing);
     try {
       await _service.installApk(filePath);
       // OpenFilex.open() 返回了 — 用户取消安装或安装完成后回到 App
       // 恢复为 readyToInstall，用户可以再次点击安装
-      if (mounted) {
+      if (_isCurrentOperation(operationId)) {
         state = state.copyWith(status: UpdateStatus.readyToInstall);
       }
     } catch (e) {
-      if (mounted) {
+      if (_isCurrentOperation(operationId)) {
         state = state.copyWith(
           status: UpdateStatus.error,
           errorMessage: '${t.updateProvider.installFailed}: $e',
@@ -162,16 +182,19 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
     if (state.status == UpdateStatus.installing) return;
     final filePath = state.downloadedFilePath;
     if (filePath == null) return;
-    await _triggerInstall(filePath);
+    final operationId = _startOperation();
+    await _triggerInstall(filePath, operationId: operationId);
   }
 
   /// 重置状态
   void reset() {
+    _operationId++;
     state = const UpdateState();
   }
 }
 
 /// 更新 Provider
-final updateProvider = StateNotifierProvider<UpdateNotifier, UpdateState>((ref) {
+final updateProvider =
+    StateNotifierProvider<UpdateNotifier, UpdateState>((ref) {
   return UpdateNotifier();
 });

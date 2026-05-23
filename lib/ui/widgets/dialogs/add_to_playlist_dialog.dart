@@ -557,6 +557,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
       final service = ref.read(playlistServiceProvider);
       int addSuccessCount = 0;
       int removeSuccessCount = 0;
+      final changedPlaylistIds = <int>{};
 
       // 先处理移除
       final trackRepository = ref.read(trackRepositoryProvider);
@@ -571,12 +572,11 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
       for (final playlistId in toRemove) {
         try {
           if (existingTrackIds.isNotEmpty) {
-            await service.removeTracksFromPlaylist(playlistId, existingTrackIds);
+            await service.removeTracksFromPlaylist(
+                playlistId, existingTrackIds);
           }
           removeSuccessCount++;
-          ref
-              .read(libraryInvalidationCoordinatorProvider)
-              .playlistChanged(playlistId, includeAll: false);
+          changedPlaylistIds.add(playlistId);
         } catch (e) {
           // 继续处理其他歌单
         }
@@ -587,19 +587,18 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
         try {
           await service.addTracksToPlaylist(playlistId, widget.tracks);
           addSuccessCount++;
-          ref
-              .read(libraryInvalidationCoordinatorProvider)
-              .playlistChanged(playlistId, includeAll: false);
+          changedPlaylistIds.add(playlistId);
         } catch (e) {
           // 继续处理其他歌单
         }
       }
 
       // 刷新变更歌单的快照 provider
-      ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged([
-        ...toAdd,
-        ...toRemove,
-      ]);
+      if (changedPlaylistIds.isNotEmpty) {
+        ref
+            .read(libraryInvalidationCoordinatorProvider)
+            .playlistsChanged(changedPlaylistIds);
+      }
       // watch 自动更新歌单列表，无需手动刷新
 
       if (mounted) {

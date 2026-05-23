@@ -163,7 +163,9 @@ final libraryInvalidationCoordinatorProvider =
     invalidateDownloadedCategoryTracks: (categoryPath) {
       ref.invalidate(downloadedCategoryTracksProvider(categoryPath));
     },
-    invalidateFileExistsCache: () => ref.invalidate(fileExistsCacheProvider),
+    invalidateFileExistsCache: () {
+      ref.read(fileExistsCacheProvider.notifier).clearAll();
+    },
     refreshLoadedPlaylistDetail: (playlistId) {
       final provider = playlistDetailProvider(playlistId);
       if (!ref.exists(provider)) {

@@ -83,6 +83,34 @@ void main() {
       expect(values, [0, 1, 2, 3, 4]);
     });
 
+    test('clearAll bumps cache epoch even when cache is already empty', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final values = <int>[];
+      final subscription = container.listen<int>(
+        fileExistsCacheEpochProvider,
+        (_, next) => values.add(next),
+        fireImmediately: true,
+      );
+      addTearDown(subscription.close);
+
+      container.read(fileExistsCacheProvider.notifier).clearAll();
+
+      expect(values, [0, 1]);
+    });
+
+    test('downloaded category delete removes deleted paths from file cache',
+        () {
+      final source = File(
+        '${Directory.current.path}/lib/ui/pages/library/downloaded_category_page.dart',
+      ).readAsStringSync();
+
+      expect(source, contains('fileExistsCacheProvider.notifier'));
+      expect(source, contains('removeAll(track.allDownloadPaths)'));
+      expect(source, contains('FileExistsCache is updated explicitly'));
+    });
+
     test('single-path overflow trimming stays stable for incremental inserts',
         () {
       final container = ProviderContainer();
