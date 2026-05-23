@@ -240,6 +240,62 @@ void main() {
       expect(notifier.state.currentPages.keys, [SourceType.netease]);
       expect(notifier.state.onlineResults.keys, [SourceType.netease]);
     });
+
+    test('clear cancels a delayed video search completion', () async {
+      final onlineGate = service.enqueueOnlineSearchResult(
+        MultiSourceSearchResult(
+          query: 'slow query',
+          results: {
+            SourceType.youtube: SearchResult(
+              tracks: [_track('late-video-result')],
+              totalCount: 1,
+              page: 1,
+              pageSize: 20,
+              hasMore: false,
+            ),
+          },
+        ),
+      );
+
+      final searchFuture = notifier.search('slow query');
+      await pumpEventQueue(times: 2);
+
+      notifier.clear();
+      onlineGate.complete();
+      await searchFuture;
+
+      expect(notifier.state.query, isEmpty);
+      expect(notifier.state.onlineResults, isEmpty);
+      expect(notifier.state.localResults, isEmpty);
+    });
+
+    test('clear cancels a delayed live-room search completion', () async {
+      notifier.setSeedState(
+        const SearchState(liveRoomFilter: LiveRoomFilter.online),
+      );
+
+      final searchFuture = notifier.searchLiveRooms('slow live');
+      await pumpEventQueue(times: 2);
+      expect(bilibili.liveRoomCalls.single.query, 'slow live');
+
+      notifier.clear();
+      bilibili.completeLiveRooms(
+        'slow live',
+        1,
+        LiveRoomFilter.online,
+        LiveSearchResult(
+          rooms: [_room(9)],
+          totalCount: 1,
+          page: 1,
+          pageSize: 20,
+          hasMore: false,
+        ),
+      );
+      await searchFuture;
+
+      expect(notifier.state.query, isEmpty);
+      expect(notifier.state.liveRoomResults, isNull);
+    });
   });
 }
 
@@ -282,10 +338,17 @@ class _CompletingSearchService extends SearchService {
       sourceCalls = [];
   final List<({String query, List<SourceType> sourceTypes, SearchOrder order})>
       onlineCalls = [];
+  final List<_PendingOnlineSearch> _pendingOnlineSearches = [];
   final Map<String, Completer<SearchResult>> _sourceCompleters = {};
 
   @override
   Future<List<Track>> searchLocal(String query) async => [];
+
+  Completer<void> enqueueOnlineSearchResult(MultiSourceSearchResult result) {
+    final gate = Completer<void>();
+    _pendingOnlineSearches.add(_PendingOnlineSearch(gate, result));
+    return gate;
+  }
 
   @override
   Future<MultiSourceSearchResult> searchOnline(
@@ -301,6 +364,11 @@ class _CompletingSearchService extends SearchService {
       sourceTypes: requestedSources,
       order: order,
     ));
+    if (_pendingOnlineSearches.isNotEmpty) {
+      final pending = _pendingOnlineSearches.removeAt(0);
+      await pending.gate.future;
+      return pending.result;
+    }
     return MultiSourceSearchResult(
       query: query,
       results: {
@@ -348,6 +416,13 @@ class _CompletingSearchService extends SearchService {
 
   String _sourceKey(SourceType sourceType, String query, int page) =>
       '${sourceType.name}|$query|$page';
+}
+
+class _PendingOnlineSearch {
+  _PendingOnlineSearch(this.gate, this.result);
+
+  final Completer<void> gate;
+  final MultiSourceSearchResult result;
 }
 
 class _CompletingBilibiliSource extends BilibiliSource {

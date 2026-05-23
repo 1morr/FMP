@@ -219,6 +219,10 @@ class SearchNotifier extends StateNotifier<SearchState> {
     this._bilibiliSource,
   ) : super(const SearchState());
 
+  void _cancelInFlightSearches() {
+    _searchRequestId++;
+  }
+
   Future<List<VideoPage>> loadVideoPagesForTrack(Track track) {
     return _service.loadVideoPagesForTrack(track);
   }
@@ -226,6 +230,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
   /// 执行搜索（根据当前模式自动选择视频或直播间搜索）
   Future<void> search(String query) async {
     if (query.trim().isEmpty) {
+      _cancelInFlightSearches();
       state = const SearchState();
       return;
     }
@@ -526,6 +531,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
 
   /// 清除搜索
   void clear() {
+    _cancelInFlightSearches();
     state = SearchState(
       selectedSource: state.selectedSource, // 保留音源筛选
       searchOrder: state.searchOrder, // 保留排序设置
@@ -599,6 +605,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
   /// 搜索直播间
   Future<void> searchLiveRooms(String query) async {
     if (query.trim().isEmpty) {
+      _cancelInFlightSearches();
       state = state.copyWith(
         query: '',
         liveRoomResults: null,

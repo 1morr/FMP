@@ -263,8 +263,8 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     this._radioSource,
     this._audioService, {
     Duration initialLoadDelay = Duration.zero,
-  }) : _initialLoadDelay = initialLoadDelay,
-       super(const RadioState()) {
+  })  : _initialLoadDelay = initialLoadDelay,
+        super(const RadioState()) {
     _initialize();
     _setupMutualExclusion();
   }
@@ -385,7 +385,9 @@ class RadioController extends StateNotifier<RadioState> with Logging {
 
   void _restoreMusicMediaControlOwnership() {
     try {
-      _ref.read(audioControllerProvider.notifier).restoreMediaControlOwnership();
+      _ref
+          .read(audioControllerProvider.notifier)
+          .restoreMediaControlOwnership();
     } catch (e) {
       logDebug('Skipping music media-control ownership restore: $e');
     }
@@ -696,7 +698,8 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     }
   }
 
-  Future<List<RadioAccountImportCandidate>> loadAccountImportCandidates() async {
+  Future<List<RadioAccountImportCandidate>>
+      loadAccountImportCandidates() async {
     final service = _ref.read(bilibiliAccountServiceProvider);
     final items = await service.fetchMedalWall();
     final importedSourceIds = await _loadImportedSourceIds();
@@ -850,13 +853,21 @@ class RadioController extends StateNotifier<RadioState> with Logging {
 
     state = state.copyWith(isRefreshingStatus: true);
 
-    // 使用 RadioRefreshService 進行刷新
-    await RadioRefreshService.instance.refreshAll();
+    try {
+      // 使用 RadioRefreshService 進行刷新
+      await RadioRefreshService.instance.refreshAll();
 
-    // 同步狀態
-    _syncLiveStatusFromRefreshService();
-
-    state = state.copyWith(isRefreshingStatus: false);
+      // 同步狀態
+      if (mounted) {
+        _syncLiveStatusFromRefreshService();
+      }
+    } catch (e, stack) {
+      logError('Failed to refresh all live status', e, stack);
+    } finally {
+      if (mounted) {
+        state = state.copyWith(isRefreshingStatus: false);
+      }
+    }
   }
 
   // ========== Private Methods ==========

@@ -386,6 +386,7 @@ class _PlayQueueListView extends StatelessWidget {
                     'id': queue.id.toString(),
                     'length': queue.length.toString(),
                     'isEmpty': queue.isEmpty.toString(),
+                    'isNotEmpty': queue.isNotEmpty.toString(),
                   },
                 ),
                 _DataSection(
@@ -600,6 +601,8 @@ class _SettingsListView extends StatelessWidget {
                   title: t.databaseViewer.lyricsSettings,
                   data: {
                     'autoMatchLyrics': setting.autoMatchLyrics.toString(),
+                    'allowPlainLyricsAutoMatch':
+                        setting.allowPlainLyricsAutoMatch.toString(),
                     'maxLyricsCacheFiles':
                         setting.maxLyricsCacheFiles.toString(),
                     'lyricsDisplayModeIndex':

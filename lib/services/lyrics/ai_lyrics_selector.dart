@@ -2,9 +2,8 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
-import 'openai_chat_endpoint.dart';
+import 'openai_chat_client.dart';
 
 class AiLyricsCandidate {
   const AiLyricsCandidate({
@@ -87,19 +86,15 @@ class AiLyricsSelector with Logging {
     required List<AiLyricsCandidate> candidates,
     required int timeoutSeconds,
   }) async {
-    final trimmedEndpoint = normalizeOpenAiChatCompletionsEndpoint(endpoint);
-    final trimmedApiKey = apiKey.trim();
-    final trimmedModel = model.trim();
-    final timeout = Duration(
-      seconds: timeoutSeconds < 1
-          ? AppConstants.lyricsAiDefaultTimeoutSeconds
-          : timeoutSeconds,
+    final config = resolveOpenAiChatConfig(
+      endpoint: endpoint,
+      apiKey: apiKey,
+      model: model,
+      timeoutSeconds: timeoutSeconds,
     );
     final normalizedVideoDescription =
         _normalizeOptionalText(videoDescription, maxChars: 500);
-    if (trimmedEndpoint.isEmpty ||
-        trimmedApiKey.isEmpty ||
-        trimmedModel.isEmpty) {
+    if (!config.isComplete) {
       logDebug(
           'AI lyrics selector skipped because configuration is incomplete');
       return null;
@@ -119,44 +114,27 @@ class AiLyricsSelector with Logging {
     logDebug('AI lyrics selector request payload: ${jsonEncode(userPayload)}');
 
     try {
-      final response = await _dio.post<dynamic>(
-        trimmedEndpoint,
-        options: Options(
-          headers: {
-            Headers.contentTypeHeader: Headers.jsonContentType,
-            'Authorization': 'Bearer $trimmedApiKey',
-          },
-          connectTimeout: timeout,
-          sendTimeout: timeout,
-          receiveTimeout: timeout,
-        ),
-        data: {
-          'model': trimmedModel,
-          'temperature': 0.1,
-          'messages': [
-            {
-              'role': 'system',
-              'content': 'Choose the best lyrics candidate for the provided '
-                  'video. You may use videoDescription as extra context when '
-                  'present. The uploader is context and is not necessarily the '
-                  'artist. Use lyricsPreview to compare candidate content '
-                  'against the title, uploader, and videoDescription. Always '
-                  'choose the closest acceptable candidate, including a cover, '
-                  'remix, live version, or alternate performance when that is '
-                  'the best available match for the same song. Use '
-                  'selectedCandidateId null only when every candidate is a '
-                  'completely different song. Respect sourcePriority when '
-                  'candidates are otherwise similarly accurate. Always prefer '
-                  'synced lyrics over plain lyrics. Return strict JSON only '
-                  'with exactly these fields: selectedCandidateId, confidence, '
-                  'reason.',
-            },
-            {'role': 'user', 'content': jsonEncode(userPayload)},
-          ],
-        },
+      final response = await postOpenAiChatCompletion(
+        dio: _dio,
+        config: config,
+        systemPrompt: 'Choose the best lyrics candidate for the provided '
+            'video. You may use videoDescription as extra context when '
+            'present. The uploader is context and is not necessarily the '
+            'artist. Use lyricsPreview to compare candidate content '
+            'against the title, uploader, and videoDescription. Always '
+            'choose the closest acceptable candidate, including a cover, '
+            'remix, live version, or alternate performance when that is '
+            'the best available match for the same song. Use '
+            'selectedCandidateId null only when every candidate is a '
+            'completely different song. Respect sourcePriority when '
+            'candidates are otherwise similarly accurate. Always prefer '
+            'synced lyrics over plain lyrics. Return strict JSON only '
+            'with exactly these fields: selectedCandidateId, confidence, '
+            'reason.',
+        userPayload: jsonEncode(userPayload),
       );
 
-      final content = _extractContent(response.data);
+      final content = extractOpenAiChatMessageContent(response.data);
       if (content == null) {
         logWarning('AI lyrics selector response has no content');
         return null;
@@ -190,7 +168,7 @@ class AiLyricsSelector with Logging {
 
   static AiLyricsSelection? parseContent(String content) {
     try {
-      final decoded = jsonDecode(_stripCodeFence(content));
+      final decoded = jsonDecode(stripJsonCodeFence(content));
       if (decoded is! Map<String, dynamic>) return null;
       final selected = decoded['selectedCandidateId'];
       final confidence = decoded['confidence'];
@@ -205,26 +183,5 @@ class AiLyricsSelector with Logging {
     } catch (_) {
       return null;
     }
-  }
-
-  static String? _extractContent(dynamic data) {
-    if (data is! Map<String, dynamic>) return null;
-    final choices = data['choices'];
-    if (choices is! List || choices.isEmpty) return null;
-    final firstChoice = choices.first;
-    if (firstChoice is! Map<String, dynamic>) return null;
-    final message = firstChoice['message'];
-    if (message is! Map<String, dynamic>) return null;
-    final content = message['content'];
-    return content is String ? content : null;
-  }
-
-  static String _stripCodeFence(String content) {
-    final trimmed = content.trim();
-    final match = RegExp(
-      r'^```(?:json)?\s*([\s\S]*?)\s*```$',
-      caseSensitive: false,
-    ).firstMatch(trimmed);
-    return match?.group(1)?.trim() ?? trimmed;
   }
 }

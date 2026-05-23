@@ -312,10 +312,17 @@ class RefreshManagerNotifier extends StateNotifier<RefreshManagerState> {
 
   @override
   void dispose() {
+    for (final playlistId in _activeImportServices.keys.toList()) {
+      _nextRefreshGeneration(playlistId);
+    }
+    for (final service in _activeImportServices.values) {
+      service.cancelImport();
+    }
     for (final sub in _subscriptions.values) {
       sub.cancel();
     }
     _subscriptions.clear();
+    _activeImportServices.clear();
     _refreshingPlaylistIds.clear();
     _refreshGenerations.clear();
     super.dispose();
