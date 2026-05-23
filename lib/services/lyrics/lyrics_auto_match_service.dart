@@ -228,7 +228,7 @@ class LyricsAutoMatchService with Logging {
   ) async {
     final parsed = _parser.parse(track.title);
     final trackName = parsed.trackName;
-    final artistName = parsed.artistName ?? track.artist ?? '';
+    final artistName = parsed.artistName ?? '';
 
     if (trackName.isEmpty) {
       logDebug('Cannot parse track name: ${track.title}');

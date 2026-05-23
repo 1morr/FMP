@@ -355,6 +355,149 @@ void main() {
         );
       });
 
+      test('uses regular API headers for view/playurl requests', () async {
+        final seenHeadersByPath = <String, Map<String, dynamic>>{};
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        addTearDown(() async => server.close(force: true));
+
+        server.listen((request) async {
+          seenHeadersByPath[request.uri.path] = {
+            'referer': request.headers.value('referer'),
+            'origin': request.headers.value('origin'),
+          };
+          request.response.headers.contentType = ContentType.json;
+          if (request.uri.path.endsWith('/x/web-interface/view')) {
+            request.response.write(jsonEncode({
+              'code': 0,
+              'data': {'cid': 12345},
+            }));
+          } else if (request.uri.path.endsWith('/x/player/playurl')) {
+            request.response.write(jsonEncode({
+              'code': 0,
+              'data': {
+                'dash': {
+                  'audio': [
+                    {
+                      'baseUrl': 'https://example.com/audio.m4s',
+                      'bandwidth': 192000,
+                    }
+                  ]
+                }
+              },
+            }));
+          } else {
+            request.response.statusCode = 404;
+          }
+          await request.response.close();
+        });
+        final source =
+            BilibiliSource(apiBase: 'http://localhost:${server.port}');
+
+        await source.getAudioStream(
+          'BVheaders',
+          config:
+              const AudioStreamConfig(streamPriority: [StreamType.audioOnly]),
+        );
+
+        expect(seenHeadersByPath['/x/web-interface/view'], {
+          'referer': 'https://www.bilibili.com/',
+          'origin': 'https://www.bilibili.com',
+        });
+        expect(seenHeadersByPath['/x/player/playurl'], {
+          'referer': 'https://www.bilibili.com/',
+          'origin': 'https://www.bilibili.com',
+        });
+      });
+
+      test('uses search headers only for search requests', () async {
+        Map<String, dynamic>? seenHeaders;
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        addTearDown(() async => server.close(force: true));
+
+        server.listen((request) async {
+          seenHeaders = {
+            'referer': request.headers.value('referer'),
+            'origin': request.headers.value('origin'),
+          };
+          request.response.headers.contentType = ContentType.json;
+          request.response.write(jsonEncode({
+            'code': 0,
+            'data': {
+              'result': [],
+              'numResults': 0,
+            },
+          }));
+          await request.response.close();
+        });
+        final source =
+            BilibiliSource(apiBase: 'http://localhost:${server.port}');
+
+        await source.search('song');
+
+        expect(seenHeaders, {
+          'referer': 'https://search.bilibili.com/',
+          'origin': 'https://search.bilibili.com',
+        });
+      });
+
+      test('alternative stream selects DASH backup URL excluding failed URL',
+          () async {
+        final dio = Dio();
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
+          if (options.path.endsWith('/x/web-interface/view')) {
+            return ResponseBody.fromString(
+              jsonEncode({
+                'code': 0,
+                'data': {'cid': 12345},
+              }),
+              200,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+
+          if (options.path.endsWith('/x/player/playurl')) {
+            return ResponseBody.fromString(
+              jsonEncode({
+                'code': 0,
+                'data': {
+                  'dash': {
+                    'audio': [
+                      {
+                        'baseUrl': 'https://example.com/failed.m4s',
+                        'backupUrl': ['https://example.com/backup.m4s'],
+                        'bandwidth': 192000,
+                      }
+                    ]
+                  }
+                },
+              }),
+              200,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+
+          throw StateError('Unexpected request: ${options.path}');
+        });
+        final source = BilibiliSource(
+          dio: dio,
+          apiBase: 'https://api.bilibili.test',
+        );
+
+        final result = await source.getAlternativeAudioStream(
+          'BValternative',
+          failedUrl: 'https://example.com/failed.m4s',
+          config:
+              const AudioStreamConfig(streamPriority: [StreamType.audioOnly]),
+        );
+
+        expect(result?.url, 'https://example.com/backup.m4s');
+        expect(result?.streamType, StreamType.audioOnly);
+      });
+
       test('should fetch audio URL for valid bvid', () async {
         // 此测试需要网络连接和有效的视频
         // 在CI/CD中可能需要跳过

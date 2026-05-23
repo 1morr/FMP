@@ -16,6 +16,7 @@ import 'package:fmp/data/repositories/download_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/bilibili_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/youtube_source.dart';
 import 'package:fmp/providers/database_provider.dart';
@@ -977,6 +978,80 @@ void main() {
       service.dispose();
     });
 
+    test('download start preserves Bilibili cid during stream resolution',
+        () async {
+      final baseDir =
+          await Directory.systemTemp.createTemp('download_bilibili_cid_');
+      addTearDown(() async {
+        for (var i = 0; i < 100; i++) {
+          if (!await baseDir.exists()) return;
+          try {
+            await baseDir.delete(recursive: true);
+            return;
+          } on FileSystemException {
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
+        }
+      });
+
+      final settings = await settingsRepository.get();
+      settings.customDownloadDir = baseDir.path;
+      await settingsRepository.save(settings);
+
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final serverSub = server.listen((request) async {
+        request.response.headers.contentType = ContentType.binary;
+        request.response.contentLength = 4;
+        request.response.add(Uint8List.fromList([1, 2, 3, 4]));
+        await request.response.close();
+      });
+      addTearDown(() async {
+        await serverSub.cancel();
+        await server.close(force: true);
+      });
+
+      final audioUrl =
+          'http://${server.address.address}:${server.port}/audio.m4a';
+      final bilibiliSource = _RecordingBilibiliSource(audioUrl);
+      final track = Track()
+        ..sourceId = 'BVmultiPage'
+        ..sourceType = SourceType.bilibili
+        ..cid = 24680
+        ..pageNum = 2
+        ..pageCount = 3
+        ..title = 'Bilibili P2'
+        ..artist = 'Test Artist'
+        ..createdAt = DateTime.now();
+      final savedTrack = await trackRepository.save(track);
+      final playlist = Playlist()..name = 'Phase1';
+      final task = await downloadRepository.saveTask(
+        DownloadTask()
+          ..trackId = savedTrack.id
+          ..playlistId = playlist.id
+          ..playlistName = playlist.name
+          ..status = DownloadStatus.downloading
+          ..createdAt = DateTime.now(),
+      );
+      final service = DownloadService(
+        downloadRepository: downloadRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: _SingleSourceManager(bilibiliSource),
+      );
+
+      await service.debugStartDownloadForTesting(task);
+      await _waitUntil(() async => service.debugActiveDownloads == 0);
+
+      expect(bilibiliSource.cidAudioRequests, [
+        (sourceId: 'BVmultiPage', cid: 24680),
+      ]);
+      expect(bilibiliSource.plainAudioRequests, isEmpty);
+      final updatedTrack = await trackRepository.getById(savedTrack.id);
+      expect(updatedTrack?.audioUrl, audioUrl);
+
+      service.dispose();
+    });
+
     test(
         'download start uses source-provided expiry instead of defaulting to one hour',
         () async {
@@ -1392,6 +1467,39 @@ class _RecordingAudioSource extends _StaticAudioSource {
       sourceId,
       config: config,
       authHeaders: authHeaders,
+    );
+  }
+}
+
+class _RecordingBilibiliSource extends BilibiliSource {
+  _RecordingBilibiliSource(this.audioUrl);
+
+  final String audioUrl;
+  final List<({String sourceId, int cid})> cidAudioRequests = [];
+  final List<String> plainAudioRequests = [];
+
+  @override
+  Future<AudioStreamResult> getAudioStream(
+    String sourceId, {
+    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+    Map<String, String>? authHeaders,
+  }) async {
+    plainAudioRequests.add(sourceId);
+    throw StateError('plain Bilibili stream resolution must preserve cid');
+  }
+
+  @override
+  Future<AudioStreamResult> getAudioStreamWithCid(
+    String bvid,
+    int cid, {
+    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+    Map<String, String>? authHeaders,
+  }) async {
+    cidAudioRequests.add((sourceId: bvid, cid: cid));
+    return AudioStreamResult(
+      url: audioUrl,
+      streamType: StreamType.audioOnly,
+      expiry: const Duration(minutes: 16),
     );
   }
 }

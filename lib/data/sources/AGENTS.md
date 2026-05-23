@@ -8,7 +8,13 @@ shared source error/stream/auth policy.
 - Direct source supports video audio extraction through DASH audio-only and durl
   muxed streams.
 - Multi-page video (multi-P) is supported.
-- Live room audio streams use HLS.
+- Playback, download, and handoff stream resolution must preserve `Track.cid`
+  and call the cid-aware Bilibili resolver for multi-P tracks, including
+  source-specific alternative streams. Falling back to sourceId-only resolution
+  can play or download the wrong page.
+- Live room audio streams currently use Bilibili live `durl` URLs returned by
+  `/room/v1/Room/playUrl`; do not document or assume HLS unless the
+  implementation changes.
 - Bilibili live radio remains Bilibili-only unless explicit multi-source radio
   support is added.
 - Live room API clients, stream playback headers, and radio cover preloading
@@ -23,6 +29,8 @@ shared source error/stream/auth policy.
 - `AudioStreamResult.expiry` must report the same Bilibili URL TTL used by track
   refresh logic so shared playback caching does not fall back to a generic
   default.
+- Bilibili same-quality alternative fallback should exclude the failed media URL
+  and may select DASH backup URLs or another durl entry before giving up.
 - Rate-limit codes include `-412`, `-509`, and `-799`.
 
 ## YouTube
@@ -48,6 +56,8 @@ shared source error/stream/auth policy.
   such as login-required, rate-limit, permission, network, timeout, and geo
   errors instead of returning `null`.
 - Rate limiting is HTTP 429.
+- YouTube stream results must carry the one-hour YouTube URL TTL in
+  `AudioStreamResult.expiry`, including InnerTube fallback streams.
 
 ## Netease Cloud Music
 
@@ -113,7 +123,7 @@ Defaults:
 - Bilibili stream priority: audioOnly > muxed (live streams always muxed)
 - Netease stream priority: audioOnly
 
-`AudioStreamConfig` is passed to source `getAudioUrl()` and returns
+`AudioStreamConfig` is passed to source `getAudioStream()` and returns
 `AudioStreamResult` with bitrate/codec metadata. `BaseSource.getAlternativeAudioStream()`
 also accepts `authHeaders`; playback handoff fallback must pass the same
 auth-for-play headers as primary stream resolution.
@@ -153,6 +163,11 @@ Backend resolution paths read or receive `settings.useAuthForPlay(track.sourceTy
 - source `getTrackInfo()` paths that perform best-effort audio URL lookup
 - `BaseSource.getAlternativeAudioStream()`
 - `DownloadService._startDownload()`
+- Playback media headers read `settings.useAuthForPlay(track.sourceType)` for
+  every source before resolving account auth headers. `SourceHttpPolicy.mediaHeaders()`
+  remains the final source-aware allowlist: it currently merges auth headers
+  only for Netease media requests, while Bilibili/YouTube auth stays limited to
+  stream URL resolution.
 
 `SourceHttpPolicy` centralizes API/media header defaults. Direct source adapters
 and account services should create Dio clients through

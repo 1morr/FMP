@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_exception.dart';
@@ -215,6 +216,161 @@ void main() {
                   (error) => error.kind, 'kind', SourceErrorKind.loginRequired)
               .having((error) => error.code, 'code', 'login_required'),
         ),
+      );
+    });
+
+    test('preserves timeout errors from manifest fetches', () async {
+      final source = YouTubeSource(
+        youtube: _FakeYoutubeExplode(
+          DioException(
+            requestOptions: RequestOptions(path: '/manifest'),
+            type: DioExceptionType.connectionTimeout,
+          ),
+        ),
+      );
+      addTearDown(source.dispose);
+
+      await expectLater(
+        source.getAudioStream(
+          'timeout-video',
+          config: const AudioStreamConfig(
+            streamPriority: [StreamType.audioOnly, StreamType.muxed],
+          ),
+        ),
+        throwsA(
+          isA<YouTubeApiException>()
+              .having((error) => error.kind, 'kind', SourceErrorKind.timeout)
+              .having((error) => error.code, 'code', 'timeout'),
+        ),
+      );
+    });
+
+    test('falls back to InnerTube after probe-level HTTP 403', () async {
+      final dio = Dio();
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        expect(options.path, contains('/player'));
+        return ResponseBody.fromString(
+          jsonEncode(_innerTubePlayerResponse(
+            adaptiveFormats: [
+              _innerTubeAudioFormat(
+                url: 'https://example.com/auth-audio.webm',
+                mimeType: 'audio/webm; codecs="opus"',
+                bitrate: 251000,
+              ),
+            ],
+          )),
+          200,
+          headers: {
+            Headers.contentTypeHeader: ['application/json'],
+          },
+        );
+      });
+      final source = YouTubeSource(
+        youtube: _FakeYoutubeExplode(
+          DioException.badResponse(
+            statusCode: 403,
+            requestOptions: RequestOptions(path: '/manifest'),
+            response: Response<void>(
+              requestOptions: RequestOptions(path: '/manifest'),
+              statusCode: 403,
+            ),
+          ),
+        ),
+        dio: dio,
+      );
+      addTearDown(source.dispose);
+
+      final result = await source.getAudioStream(
+        'probe-forbidden-video',
+        authHeaders: const {'Authorization': 'SAPISIDHASH test'},
+      );
+
+      expect(result.url, 'https://example.com/auth-audio.webm');
+      expect(result.streamType, StreamType.audioOnly);
+    });
+
+    test('maps InnerTube country restriction to geo-restricted', () async {
+      final dio = Dio();
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        return ResponseBody.fromString(
+          jsonEncode({
+            'playabilityStatus': {
+              'status': 'UNPLAYABLE',
+              'reason': 'This video is not available in your country',
+            },
+          }),
+          200,
+          headers: {
+            Headers.contentTypeHeader: ['application/json'],
+          },
+        );
+      });
+      final source = YouTubeSource(
+        youtube: _FakeYoutubeExplode(
+          const YouTubeApiException(
+            code: 'no_stream',
+            message: 'No anonymous stream',
+          ),
+        ),
+        dio: dio,
+      );
+      addTearDown(source.dispose);
+
+      await expectLater(
+        source.getAudioStream(
+          'geo-video',
+          authHeaders: const {'Authorization': 'SAPISIDHASH test'},
+        ),
+        throwsA(
+          isA<YouTubeApiException>()
+              .having(
+                (error) => error.kind,
+                'kind',
+                SourceErrorKind.geoRestricted,
+              )
+              .having((error) => error.code, 'code', 'geo_restricted'),
+        ),
+      );
+    });
+
+    test('InnerTube streams carry YouTube URL expiry metadata', () async {
+      final dio = Dio();
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        return ResponseBody.fromString(
+          jsonEncode(_innerTubePlayerResponse(
+            adaptiveFormats: [
+              _innerTubeAudioFormat(
+                url: 'https://example.com/audio-opus.webm',
+                mimeType: 'audio/webm; codecs="opus"',
+                bitrate: 251000,
+              ),
+            ],
+          )),
+          200,
+          headers: {
+            Headers.contentTypeHeader: ['application/json'],
+          },
+        );
+      });
+      final source = YouTubeSource(
+        youtube: _FakeYoutubeExplode(
+          const YouTubeApiException(
+            code: 'no_stream',
+            message: 'No anonymous stream',
+          ),
+        ),
+        dio: dio,
+      );
+      addTearDown(source.dispose);
+
+      final result = await source.getAudioStream(
+        'auth-expiry-video',
+        authHeaders: const {'Authorization': 'SAPISIDHASH test'},
+      );
+
+      expect(
+        result.expiry,
+        const Duration(hours: AppConstants.youtubeAudioUrlExpiryHours),
       );
     });
   });

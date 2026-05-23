@@ -71,9 +71,9 @@ class AudioStreamDelegate {
       final authHeaders = settings.useAuthForPlay(track.sourceType)
           ? await _getAuthHeaders(track.sourceType)
           : null;
-      final streamResult = await fetchAudioStreamWithQualityFallback(
+      final streamResult = await fetchTrackAudioStreamWithQualityFallback(
         source: source,
-        sourceId: track.sourceId,
+        track: track,
         config: config,
         authHeaders: authHeaders,
       );
@@ -130,8 +130,9 @@ class AudioStreamDelegate {
       includeCurrent: false,
     )) {
       final fallbackConfig = config.copyWith(qualityLevel: level);
-      final sourceAlternative = await source.getAlternativeAudioStream(
-        track.sourceId,
+      final sourceAlternative = await fetchTrackAlternativeAudioStream(
+        source: source,
+        track: track,
         failedUrl: failedUrl,
         config: fallbackConfig,
         authHeaders: authHeaders,
@@ -139,18 +140,23 @@ class AudioStreamDelegate {
       if (sourceAlternative != null) return sourceAlternative;
 
       try {
-        return await source.getAudioStream(
-          track.sourceId,
+        final primaryFallback = await fetchTrackAudioStream(
+          source: source,
+          track: track,
           config: fallbackConfig,
           authHeaders: authHeaders,
         );
+        if (primaryFallback.url != failedUrl) {
+          return primaryFallback;
+        }
       } on SourceApiException catch (error) {
         if (!error.kind.canFallbackToLowerAudioQuality) rethrow;
       }
     }
 
-    return source.getAlternativeAudioStream(
-      track.sourceId,
+    return fetchTrackAlternativeAudioStream(
+      source: source,
+      track: track,
       failedUrl: failedUrl,
       config: config,
       authHeaders: authHeaders,
