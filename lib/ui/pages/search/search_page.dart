@@ -909,55 +909,27 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     final hasMultiplePages = pages != null && pages.length > 1;
 
     if (hasMultiplePages) {
-      final controller = ref.read(audioControllerProvider.notifier);
-
       switch (action) {
         case playTrackActionId:
           _playVideo(track);
           return;
         case playNextTrackActionId:
-          bool anyAdded = false;
-          for (final page in pages) {
-            final added = await controller.addNext(page.toTrack(track));
-            if (added) anyAdded = true;
-          }
-          if (anyAdded && mounted) {
-            ToastService.success(context,
-                t.searchPage.toast.addedPartsToNext(count: pages.length));
-          }
-          return;
         case addToQueueTrackActionId:
-          bool anyAdded = false;
-          for (final page in pages) {
-            final added = await controller.addToQueue(page.toTrack(track));
-            if (added) anyAdded = true;
-          }
-          if (anyAdded && mounted) {
-            ToastService.success(context,
-                t.searchPage.toast.addedPartsToQueue(count: pages.length));
-          }
-          return;
         case addToPlaylistTrackActionId:
+        case addToRemoteTrackActionId:
           final pageTracks = pages.map((p) => p.toTrack(track)).toList();
           if (mounted) {
-            showAddToPlaylistDialog(context: context, tracks: pageTracks);
+            await TrackActionCoordinator.handleMulti(
+              context: context,
+              ref: ref,
+              tracks: pageTracks,
+              actionId: action,
+            );
           }
           return;
         case matchLyricsTrackActionId:
           if (mounted) {
             showLyricsSearchSheet(context: context, track: track);
-          }
-          return;
-        case addToRemoteTrackActionId:
-          final isLoggedIn = ref.read(isLoggedInProvider(track.sourceType));
-          if (!isLoggedIn) {
-            if (mounted) {
-              ToastService.show(context, t.remote.pleaseLogin);
-            }
-            return;
-          }
-          if (mounted) {
-            showAddToRemotePlaylistDialog(context: context, track: track);
           }
           return;
       }

@@ -19,6 +19,8 @@ class AutoRefreshService with Logging {
 
   Timer? _checkTimer;
   bool _isRefreshing = false;
+  bool _isDisposed = false;
+  int _checkGeneration = 0;
 
   AutoRefreshService({
     required Ref ref,
@@ -28,27 +30,32 @@ class AutoRefreshService with Logging {
 
   /// 启动自动刷新服务
   void start() {
+    if (_isDisposed) return;
     logInfo('Starting auto-refresh service');
+    _checkTimer?.cancel();
 
     // 立即检查一次
-    _checkAndRefresh();
+    unawaited(_checkAndRefresh(++_checkGeneration));
 
     // 每 30 分钟检查一次
     _checkTimer = Timer.periodic(
       AppConstants.autoRefreshCheckInterval,
-      (_) => _checkAndRefresh(),
+      (_) => _checkAndRefresh(++_checkGeneration),
     );
   }
 
   /// 停止自动刷新服务
   void stop() {
     logInfo('Stopping auto-refresh service');
+    _checkGeneration++;
     _checkTimer?.cancel();
     _checkTimer = null;
+    _isRefreshing = false;
   }
 
   /// 检查并刷新需要更新的歌单
-  Future<void> _checkAndRefresh() async {
+  Future<void> _checkAndRefresh(int generation) async {
+    if (!_isCurrentCheck(generation)) return;
     // 如果正在刷新，跳过本次检查
     if (_isRefreshing) {
       logDebug('Already refreshing, skipping check');
@@ -58,9 +65,8 @@ class AutoRefreshService with Logging {
     try {
       // 获取所有需要刷新的歌单
       final playlists = await _playlistRepository.getAll();
-      final needsRefreshList = playlists
-          .where((p) => p.needsRefresh)
-          .toList();
+      if (!_isCurrentCheck(generation)) return;
+      final needsRefreshList = playlists.where((p) => p.needsRefresh).toList();
 
       if (needsRefreshList.isEmpty) {
         logDebug('No playlists need refresh');
@@ -80,38 +86,54 @@ class AutoRefreshService with Logging {
       for (final playlist in needsRefreshList) {
         // 再次检查是否需要刷新（可能在等待期间已被手动刷新）
         final current = await _playlistRepository.getById(playlist.id);
+        if (!_isCurrentCheck(generation)) return;
         if (current == null || !current.needsRefresh) {
-          logDebug('Playlist ${playlist.name} no longer needs refresh, skipping');
+          logDebug(
+              'Playlist ${playlist.name} no longer needs refresh, skipping');
           continue;
         }
 
         _isRefreshing = true;
         try {
           logInfo('Auto-refreshing playlist: ${playlist.name}');
-          await _ref.read(refreshManagerProvider.notifier).refreshPlaylist(playlist);
+          await _ref
+              .read(refreshManagerProvider.notifier)
+              .refreshPlaylist(playlist);
+          if (!_isCurrentCheck(generation)) return;
 
           // 刷新成功后等待一小段时间再继续下一个（避免请求过快）
           await Future.delayed(const Duration(seconds: 5));
+          if (!_isCurrentCheck(generation)) return;
         } catch (e) {
           logError('Failed to auto-refresh playlist ${playlist.name}: $e');
           // 继续刷新下一个歌单
         } finally {
-          _isRefreshing = false;
+          if (_isCurrentCheck(generation)) {
+            _isRefreshing = false;
+          }
         }
       }
     } catch (e) {
       logError('Error in auto-refresh check: $e');
-      _isRefreshing = false;
+      if (_isCurrentCheck(generation)) {
+        _isRefreshing = false;
+      }
     }
+  }
+
+  bool _isCurrentCheck(int generation) {
+    return !_isDisposed && generation == _checkGeneration;
   }
 
   /// 手动触发检查（用于应用启动时）
   Future<void> checkNow() async {
     logInfo('Manual check triggered');
-    await _checkAndRefresh();
+    if (_isDisposed) return;
+    await _checkAndRefresh(++_checkGeneration);
   }
 
   void dispose() {
+    _isDisposed = true;
     stop();
   }
 }

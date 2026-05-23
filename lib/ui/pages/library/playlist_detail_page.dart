@@ -18,6 +18,8 @@ import '../../../providers/download_path_provider.dart';
 import '../../../providers/selection_provider.dart';
 import '../../widgets/download_path_setup_dialog.dart';
 import '../../../services/audio/audio_provider.dart';
+import '../../../services/download/download_service.dart'
+    show DownloadBatchAddSummary;
 import '../../widgets/error_display.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/selection_mode_app_bar.dart';
@@ -287,56 +289,19 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   /// 下載選中的歌曲
   Future<void> _downloadSelectedTracks(
       BuildContext context, List<Track> tracks) async {
-    // 检查路径配置
-    final pathManager = ref.read(downloadPathManagerProvider);
-    if (!await pathManager.hasConfiguredPath()) {
-      if (!context.mounted) return;
-      final configured = await DownloadPathSetupDialog.show(context);
-      if (configured != true) return;
-    }
-
-    final downloadService = ref.read(downloadServiceProvider);
-    final state = ref.read(playlistDetailProvider(widget.playlistId));
-    final playlist = state.playlist;
-    if (playlist == null) return;
-
-    final summary = await downloadService.addTracksDownload(
-      tracks,
-      fromPlaylist: playlist,
-      skipSchedule: true,
+    final summary = await _addTracksToDownloadQueue(
+      context: context,
+      ref: ref,
+      playlistId: widget.playlistId,
+      tracks: tracks,
     );
-    if (summary.createdCount > 0) {
-      downloadService.triggerSchedule();
-    }
-    final addedCount = summary.createdCount;
-    final alreadyDownloadedCount = summary.alreadyDownloadedCount;
-    final taskExistsCount = summary.taskExistsCount;
-
-    // 显示结果提示
-    if (context.mounted) {
-      if (addedCount > 0) {
-        ToastService.showWithAction(
-          context,
-          t.library.detail.addedToDownloadQueue(n: addedCount),
-          actionLabel: t.library.detail.view,
-          onAction: () => context.pushNamed(RouteNames.downloadManager),
-        );
-      } else if (alreadyDownloadedCount == tracks.length) {
-        // 所有歌曲都已下载
-        ToastService.success(context, t.library.detail.alreadyDownloaded);
-      } else if (taskExistsCount == tracks.length) {
-        // 所有歌曲都已在下载队列中
-        ToastService.showWithAction(
-          context,
-          t.library.detail.downloadTaskExists,
-          actionLabel: t.library.detail.view,
-          onAction: () => context.pushNamed(RouteNames.downloadManager),
-        );
-      } else if (alreadyDownloadedCount + taskExistsCount == tracks.length) {
-        // 混合情况：部分已下载，部分在队列中
-        ToastService.success(context, t.library.detail.alreadyDownloaded);
-      }
-    }
+    if (summary == null || !context.mounted) return;
+    _showDownloadBatchResult(
+      context: context,
+      summary: summary,
+      totalCount: tracks.length,
+      labels: _DownloadBatchLabels.selectedTracks,
+    );
   }
 
   /// 构建分组项
@@ -1144,6 +1109,111 @@ bool _isDownloadedForPlaylistWithExistingFile(
   return ref.read(fileExistsCacheProvider.notifier).exists(path);
 }
 
+enum _DownloadBatchLabels {
+  selectedTracks,
+  groupParts,
+}
+
+Future<bool> _ensureDownloadPathConfigured(
+  BuildContext context,
+  WidgetRef ref,
+) async {
+  final pathManager = ref.read(downloadPathManagerProvider);
+  if (await pathManager.hasConfiguredPath()) return true;
+  if (!context.mounted) return false;
+  final configured = await DownloadPathSetupDialog.show(context);
+  return configured == true;
+}
+
+Future<DownloadBatchAddSummary?> _addTracksToDownloadQueue({
+  required BuildContext context,
+  required WidgetRef ref,
+  required int playlistId,
+  required List<Track> tracks,
+}) async {
+  if (!await _ensureDownloadPathConfigured(context, ref)) return null;
+
+  final downloadService = ref.read(downloadServiceProvider);
+  final playlist = ref.read(playlistDetailProvider(playlistId)).playlist;
+  if (playlist == null) return null;
+
+  final summary = await downloadService.addTracksDownload(
+    tracks,
+    fromPlaylist: playlist,
+    skipSchedule: true,
+  );
+  if (summary.createdCount > 0) {
+    downloadService.triggerSchedule();
+  }
+  return summary;
+}
+
+void _showDownloadBatchResult({
+  required BuildContext context,
+  required DownloadBatchAddSummary summary,
+  required int totalCount,
+  required _DownloadBatchLabels labels,
+}) {
+  final addedCount = summary.createdCount;
+  final alreadyDownloadedCount = summary.alreadyDownloadedCount;
+  final taskExistsCount = summary.taskExistsCount;
+
+  if (addedCount > 0) {
+    ToastService.showWithAction(
+      context,
+      labels == _DownloadBatchLabels.groupParts
+          ? t.library.detail.addedPartsToDownloadQueue(n: addedCount)
+          : t.library.detail.addedToDownloadQueue(n: addedCount),
+      actionLabel: t.library.detail.view,
+      onAction: () => context.pushNamed(RouteNames.downloadManager),
+    );
+  } else if (alreadyDownloadedCount == totalCount) {
+    ToastService.success(
+      context,
+      labels == _DownloadBatchLabels.groupParts
+          ? t.library.detail.allPartsAlreadyDownloaded
+          : t.library.detail.alreadyDownloaded,
+    );
+  } else if (taskExistsCount == totalCount) {
+    ToastService.showWithAction(
+      context,
+      labels == _DownloadBatchLabels.groupParts
+          ? t.library.detail.allPartsInDownloadQueue
+          : t.library.detail.downloadTaskExists,
+      actionLabel: t.library.detail.view,
+      onAction: () => context.pushNamed(RouteNames.downloadManager),
+    );
+  } else if (alreadyDownloadedCount + taskExistsCount == totalCount) {
+    ToastService.success(
+      context,
+      labels == _DownloadBatchLabels.groupParts
+          ? t.library.detail.allPartsDownloadedOrQueued
+          : t.library.detail.alreadyDownloaded,
+    );
+  }
+}
+
+void _showSingleDownloadResult(BuildContext context, DownloadResult result) {
+  switch (result) {
+    case DownloadResult.created:
+      ToastService.showWithAction(
+        context,
+        t.library.detail.addedToDownloadQueueSingle,
+        actionLabel: t.library.detail.view,
+        onAction: () => context.pushNamed(RouteNames.downloadManager),
+      );
+    case DownloadResult.alreadyDownloaded:
+      ToastService.success(context, t.library.detail.songAlreadyDownloaded);
+    case DownloadResult.taskExists:
+      ToastService.showWithAction(
+        context,
+        t.library.detail.downloadTaskExists,
+        actionLabel: t.library.detail.view,
+        onAction: () => context.pushNamed(RouteNames.downloadManager),
+      );
+  }
+}
+
 /// 分组标题组件
 class _GroupHeader extends ConsumerWidget {
   final TrackGroup group;
@@ -1333,76 +1403,19 @@ class _GroupHeader extends ConsumerWidget {
         );
         break;
       case 'download_all':
-        // 检查路径配置
-        final pathManager = ref.read(downloadPathManagerProvider);
-        if (!await pathManager.hasConfiguredPath()) {
-          if (!context.mounted) return;
-          final configured = await DownloadPathSetupDialog.show(context);
-          if (configured != true) return;
-        }
-
-        // 下载所有分P（批量添加后统一触发调度）
-        final downloadService = ref.read(downloadServiceProvider);
-        final state = ref.read(playlistDetailProvider(playlistId));
-        final playlist = state.playlist;
-        if (playlist == null) return;
-
-        int addedCount = 0;
-        int alreadyDownloadedCount = 0;
-        int taskExistsCount = 0;
-
-        for (final track in group.tracks) {
-          final result = await downloadService.addTrackDownload(
-            track,
-            fromPlaylist: playlist,
-            skipSchedule: true, // 批量添加时跳过调度
-          );
-          switch (result) {
-            case DownloadResult.created:
-              addedCount++;
-              break;
-            case DownloadResult.alreadyDownloaded:
-              alreadyDownloadedCount++;
-              break;
-            case DownloadResult.taskExists:
-              taskExistsCount++;
-              break;
-          }
-        }
-
-        // 所有任务添加完成后统一触发调度
-        if (addedCount > 0) {
-          downloadService.triggerSchedule();
-        }
-
-        // 显示结果提示
-        if (context.mounted) {
-          if (addedCount > 0) {
-            ToastService.showWithAction(
-              context,
-              t.library.detail.addedPartsToDownloadQueue(n: addedCount),
-              actionLabel: t.library.detail.view,
-              onAction: () => context.pushNamed(RouteNames.downloadManager),
-            );
-          } else if (alreadyDownloadedCount == group.tracks.length) {
-            // 所有分P都已下载
-            ToastService.success(
-                context, t.library.detail.allPartsAlreadyDownloaded);
-          } else if (taskExistsCount == group.tracks.length) {
-            // 所有分P都已在下载队列中
-            ToastService.showWithAction(
-              context,
-              t.library.detail.allPartsInDownloadQueue,
-              actionLabel: t.library.detail.view,
-              onAction: () => context.pushNamed(RouteNames.downloadManager),
-            );
-          } else if (alreadyDownloadedCount + taskExistsCount ==
-              group.tracks.length) {
-            // 混合情况：部分已下载，部分在队列中
-            ToastService.success(
-                context, t.library.detail.allPartsDownloadedOrQueued);
-          }
-        }
+        final summary = await _addTracksToDownloadQueue(
+          context: context,
+          ref: ref,
+          playlistId: playlistId,
+          tracks: group.tracks,
+        );
+        if (summary == null || !context.mounted) return;
+        _showDownloadBatchResult(
+          context: context,
+          summary: summary,
+          totalCount: group.tracks.length,
+          labels: _DownloadBatchLabels.groupParts,
+        );
         break;
       case 'remove_all':
         // 移除所有分P
@@ -1629,43 +1642,16 @@ class _TrackListTile extends ConsumerWidget {
       BuildContext context, WidgetRef ref, String action) async {
     switch (action) {
       case selectionActionDownload:
-        // 检查路径配置
-        final pathManager = ref.read(downloadPathManagerProvider);
-        if (!await pathManager.hasConfiguredPath()) {
-          if (!context.mounted) return;
-          final configured = await DownloadPathSetupDialog.show(context);
-          if (configured != true) return;
-        }
-
+        if (!await _ensureDownloadPathConfigured(context, ref)) return;
         final downloadService = ref.read(downloadServiceProvider);
-        final state = ref.read(playlistDetailProvider(playlistId));
-        final playlist = state.playlist;
+        final playlist = ref.read(playlistDetailProvider(playlistId)).playlist;
         if (playlist == null) return;
-
         final result = await downloadService.addTrackDownload(
           track,
           fromPlaylist: playlist,
         );
         if (context.mounted) {
-          switch (result) {
-            case DownloadResult.created:
-              ToastService.showWithAction(
-                context,
-                t.library.detail.addedToDownloadQueueSingle,
-                actionLabel: t.library.detail.view,
-                onAction: () => context.pushNamed(RouteNames.downloadManager),
-              );
-            case DownloadResult.alreadyDownloaded:
-              ToastService.success(
-                  context, t.library.detail.songAlreadyDownloaded);
-            case DownloadResult.taskExists:
-              ToastService.showWithAction(
-                context,
-                t.library.detail.downloadTaskExists,
-                actionLabel: t.library.detail.view,
-                onAction: () => context.pushNamed(RouteNames.downloadManager),
-              );
-          }
+          _showSingleDownloadResult(context, result);
         }
         return;
       case selectionActionRemoveFromRemotePlaylist:

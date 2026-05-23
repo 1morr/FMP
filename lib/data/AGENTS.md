@@ -26,7 +26,7 @@ For concrete source adapter rules, also read `lib/data/sources/AGENTS.md`.
 | `SearchHistory` | Search history |
 | `DownloadTask` | Download task |
 | `LyricsMatch` | Track-to-lyrics match (`lrclib`/Netease/QQ Music) |
-| `LyricsTitleParseCache` | AI-parsed title cache for lyrics matching |
+| `LyricsTitleParseCache` | Registered Isar collection for AI-parsed title cache; cleared on startup and treated as an ephemeral runtime cache |
 
 Non-persisted DTO/value objects in `lib/data/models/` include `LiveRoom`,
 `VideoDetail`, and `HotkeyConfig`. Do not add database migration logic for those
@@ -58,6 +58,10 @@ Database storage path:
 - Open through `openFmpDatabase()` in `lib/providers/database_provider.dart`.
 - Do not open `fmp_database` directly from `getApplicationDocumentsDirectory()`
   elsewhere.
+
+`LyricsTitleParseCache` is intentionally registered as an Isar collection so
+lyrics matching can share repository/query code, but `_migrateDatabase()` clears
+it on startup. Treat it as ephemeral runtime cache data, not durable user data.
 
 When adding a persisted field:
 1. Modify the model in `lib/data/models/`.

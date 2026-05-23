@@ -104,11 +104,14 @@ class PlaylistImportState {
 class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
   final PlaylistImportService _service;
   StreamSubscription<ImportProgress>? _progressSubscription;
-  bool _importCancelled = false;
+  int _importOperationId = 0;
+  int? _activeImportOperationId;
+  int _manualSearchOperationId = 0;
+  final Map<int, int> _manualSearchOperations = {};
 
   PlaylistImportNotifier(this._service) : super(const PlaylistImportState()) {
     _progressSubscription = _service.progressStream.listen((progress) {
-      if (!_importCancelled) {
+      if (_activeImportOperationId != null && mounted) {
         state = state.copyWith(
           progress: progress,
           phase: progress.phase,
@@ -119,7 +122,9 @@ class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
 
   /// 取消当前导入
   void cancelImport() {
-    _importCancelled = true;
+    _importOperationId++;
+    _activeImportOperationId = null;
+    _manualSearchOperations.clear();
     _service.cancelImport();
     state = const PlaylistImportState();
   }
@@ -136,7 +141,9 @@ class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
 
   /// 导入并匹配歌单
   Future<void> importAndMatch(String url) async {
-    _importCancelled = false;
+    final operationId = ++_importOperationId;
+    _activeImportOperationId = operationId;
+    _manualSearchOperations.clear();
     state = state.copyWith(
       isLoading: true,
       phase: ImportPhase.fetching,
@@ -149,7 +156,7 @@ class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
         searchSource: state.searchSource,
       );
 
-      if (_importCancelled) return;
+      if (!_isImportOperationCurrent(operationId)) return;
 
       state = state.copyWith(
         isLoading: false,
@@ -157,18 +164,27 @@ class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
         playlist: result.playlist,
         matchedTracks: result.matchedTracks,
       );
+      _activeImportOperationId = null;
     } on ImportCancelledException {
       // 用户取消，不设置错误状态
+      if (_isImportOperationCurrent(operationId)) {
+        _activeImportOperationId = null;
+      }
       return;
     } catch (e) {
-      if (_importCancelled) return;
+      if (!_isImportOperationCurrent(operationId)) return;
 
       state = state.copyWith(
         isLoading: false,
         phase: ImportPhase.error,
         errorMessage: e.toString(),
       );
+      _activeImportOperationId = null;
     }
+  }
+
+  bool _isImportOperationCurrent(int operationId) {
+    return mounted && _activeImportOperationId == operationId;
   }
 
   /// 更新匹配结果（用户选择其他搜索结果）
@@ -204,6 +220,8 @@ class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
   Future<void> manualSearch(int index, String query) async {
     if (index < 0 || index >= state.matchedTracks.length) return;
 
+    final operationId = ++_manualSearchOperationId;
+    _manualSearchOperations[index] = operationId;
     final updatedTracks = List<MatchedTrack>.from(state.matchedTracks);
     updatedTracks[index] = updatedTracks[index].copyWith(
       status: MatchStatus.searching,
@@ -216,19 +234,37 @@ class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
         searchSource: state.searchSource,
       );
 
-      updatedTracks[index] = updatedTracks[index].copyWith(
+      if (!_isManualSearchCurrent(index, operationId)) return;
+      final latestTracks = List<MatchedTrack>.from(state.matchedTracks);
+      if (index < 0 || index >= latestTracks.length) {
+        _manualSearchOperations.remove(index);
+        return;
+      }
+      latestTracks[index] = latestTracks[index].copyWith(
         searchResults: results,
         selectedTrack: results.isNotEmpty ? results.first : null,
         status: results.isNotEmpty ? MatchStatus.matched : MatchStatus.noResult,
       );
 
-      state = state.copyWith(matchedTracks: updatedTracks);
+      state = state.copyWith(matchedTracks: latestTracks);
+      _manualSearchOperations.remove(index);
     } catch (e) {
-      updatedTracks[index] = updatedTracks[index].copyWith(
+      if (!_isManualSearchCurrent(index, operationId)) return;
+      final latestTracks = List<MatchedTrack>.from(state.matchedTracks);
+      if (index < 0 || index >= latestTracks.length) {
+        _manualSearchOperations.remove(index);
+        return;
+      }
+      latestTracks[index] = latestTracks[index].copyWith(
         status: MatchStatus.noResult,
       );
-      state = state.copyWith(matchedTracks: updatedTracks);
+      state = state.copyWith(matchedTracks: latestTracks);
+      _manualSearchOperations.remove(index);
     }
+  }
+
+  bool _isManualSearchCurrent(int index, int operationId) {
+    return mounted && _manualSearchOperations[index] == operationId;
   }
 
   /// 为未匹配歌曲搜索（仅返回结果，不更新状态）
@@ -258,11 +294,18 @@ class PlaylistImportNotifier extends StateNotifier<PlaylistImportState> {
 
   /// 重置状态
   void reset() {
+    _importOperationId++;
+    _activeImportOperationId = null;
+    _manualSearchOperations.clear();
+    _service.cancelImport();
     state = const PlaylistImportState();
   }
 
   @override
   void dispose() {
+    _importOperationId++;
+    _activeImportOperationId = null;
+    _manualSearchOperations.clear();
     _progressSubscription?.cancel();
     _service.dispose();
     super.dispose();

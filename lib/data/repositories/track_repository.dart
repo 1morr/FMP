@@ -542,17 +542,20 @@ class TrackRepository with Logging {
             if (info.downloadPath.isEmpty) {
               return PlaylistDownloadInfo()
                 ..playlistId = info.playlistId
+                ..playlistName = info.playlistName
                 ..downloadPath = '';
             }
             try {
               if (File(info.downloadPath).existsSync()) {
                 return PlaylistDownloadInfo()
                   ..playlistId = info.playlistId
+                  ..playlistName = info.playlistName
                   ..downloadPath = info.downloadPath;
               }
             } catch (_) {}
             return PlaylistDownloadInfo()
               ..playlistId = info.playlistId
+              ..playlistName = info.playlistName
               ..downloadPath = '';
           }).toList();
           toUpdate.add(track);

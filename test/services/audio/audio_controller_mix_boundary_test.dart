@@ -230,6 +230,38 @@ void main() {
           'https://example.com/mix-a.m4a');
     });
 
+    test('delayed startMixFromPlaylist result does not override newer playback',
+        () async {
+      final playlist = Playlist()
+        ..name = 'Slow Mix'
+        ..mixPlaylistId = 'RDslow123'
+        ..mixSeedVideoId = 'seed-video';
+      final mixGate = mixTracksFetcher.enqueuePendingResult(
+        MixFetchResult(
+          title: 'Slow Mix',
+          tracks: [_track('slow-mix-a', title: 'Slow Mix A')],
+        ),
+      );
+
+      final mixFuture = controller.startMixFromPlaylist(playlist);
+      await pumpEventQueue(times: 2);
+
+      await controller.playTrack(_track('new-direct-track', title: 'Direct'));
+      await pumpEventQueue(times: 10);
+      expect(controller.state.currentTrack?.sourceId, 'new-direct-track');
+
+      mixGate.complete();
+      await mixFuture;
+      await pumpEventQueue(times: 10);
+
+      expect(controller.state.currentTrack?.sourceId, 'new-direct-track');
+      expect(controller.state.isMixMode, isFalse);
+      expect(
+        audioService.playUrlCalls.map((call) => call.url),
+        isNot(contains('https://example.com/slow-mix-a.m4a')),
+      );
+    });
+
     test('completion at mix queue end waits for pending load-more tracks',
         () async {
       final playlist = Playlist()

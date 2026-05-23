@@ -2,9 +2,8 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
-import 'openai_chat_endpoint.dart';
+import 'openai_chat_client.dart';
 
 class AiParsedTitle {
   const AiParsedTitle({
@@ -33,21 +32,17 @@ class AiTitleParser with Logging {
     String? uploader,
     required int timeoutSeconds,
   }) async {
-    final trimmedEndpoint = normalizeOpenAiChatCompletionsEndpoint(endpoint);
-    final trimmedApiKey = apiKey.trim();
-    final trimmedModel = model.trim();
+    final config = resolveOpenAiChatConfig(
+      endpoint: endpoint,
+      apiKey: apiKey,
+      model: model,
+      timeoutSeconds: timeoutSeconds,
+    );
     final trimmedUploader = uploader?.trim();
-    if (trimmedEndpoint.isEmpty ||
-        trimmedApiKey.isEmpty ||
-        trimmedModel.isEmpty) {
+    if (!config.isComplete) {
       return null;
     }
 
-    final timeout = Duration(
-      seconds: timeoutSeconds < 1
-          ? AppConstants.lyricsAiDefaultTimeoutSeconds
-          : timeoutSeconds,
-    );
     final userPayload = {
       'title': title,
       if (trimmedUploader != null && trimmedUploader.isNotEmpty)
@@ -57,64 +52,20 @@ class AiTitleParser with Logging {
     try {
       logInfo('Calling AI title parser: $title');
       logDebug(
-          'AI title parser config: endpoint=$trimmedEndpoint, model=$trimmedModel, timeoutSeconds=${timeout.inSeconds}');
+          'AI title parser config: endpoint=${config.endpoint}, model=${config.model}, timeoutSeconds=${config.timeout.inSeconds}');
       logDebug('AI title parser request payload: ${jsonEncode(userPayload)}');
-      final response = await _dio.post<dynamic>(
-        trimmedEndpoint,
-        options: Options(
-          headers: {
-            Headers.contentTypeHeader: Headers.jsonContentType,
-            'Authorization': 'Bearer $trimmedApiKey',
-          },
-          connectTimeout: timeout,
-          sendTimeout: timeout,
-          receiveTimeout: timeout,
-        ),
-        data: {
-          'model': trimmedModel,
-          'temperature': 0.1,
-          'messages': [
-            {
-              'role': 'system',
-              'content':
-                  'Extract the likely music track title and artist from the provided video title and optional uploader context. The uploader is the video/content uploader and is not necessarily the song artist or performer. Use uploader only as context; do not copy it into artistName unless the title or context strongly indicates it is the actual music artist. Respond with strict JSON only using exactly these fields: trackName, artistName, artistConfidence.',
-            },
-            {
-              'role': 'user',
-              'content': jsonEncode(userPayload),
-            },
-          ],
-        },
+      final response = await postOpenAiChatCompletion(
+        dio: _dio,
+        config: config,
+        systemPrompt:
+            'Extract the likely music track title and artist from the provided video title and optional uploader context. The uploader is the video/content uploader and is not necessarily the song artist or performer. Use uploader only as context; do not copy it into artistName unless the title or context strongly indicates it is the actual music artist. Respond with strict JSON only using exactly these fields: trackName, artistName, artistConfidence.',
+        userPayload: jsonEncode(userPayload),
       );
 
-      final data = response.data;
-      if (data is! Map<String, dynamic>) {
+      final content = extractOpenAiChatMessageContent(response.data);
+      if (content == null) {
         logWarning(
-            'AI title parser returned non-object response for title "$title"');
-        return null;
-      }
-      final choices = data['choices'];
-      if (choices is! List || choices.isEmpty) {
-        logWarning(
-            'AI title parser response has no choices for title "$title"');
-        return null;
-      }
-      final firstChoice = choices.first;
-      if (firstChoice is! Map<String, dynamic>) {
-        logWarning(
-            'AI title parser first choice is invalid for title "$title"');
-        return null;
-      }
-      final message = firstChoice['message'];
-      if (message is! Map<String, dynamic>) {
-        logWarning(
-            'AI title parser response message is invalid for title "$title"');
-        return null;
-      }
-      final content = message['content'];
-      if (content is! String) {
-        logWarning(
-            'AI title parser response content is invalid for title "$title"');
+            'AI title parser response has no content for title "$title"');
         return null;
       }
       logDebug('AI title parser raw response content: $content');
@@ -138,7 +89,7 @@ class AiTitleParser with Logging {
 
   static AiParsedTitle? parseContent(String content) {
     try {
-      final decoded = jsonDecode(_stripCodeFence(content));
+      final decoded = jsonDecode(stripJsonCodeFence(content));
       if (decoded is! Map<String, dynamic>) {
         return null;
       }
@@ -183,13 +134,5 @@ class AiTitleParser with Logging {
       'low' => 0.3,
       _ => double.tryParse(normalized) ?? 0.0,
     };
-  }
-
-  static String _stripCodeFence(String content) {
-    final trimmed = content.trim();
-    final match =
-        RegExp(r'^```(?:json)?\s*([\s\S]*?)\s*```$', caseSensitive: false)
-            .firstMatch(trimmed);
-    return match?.group(1)?.trim() ?? trimmed;
   }
 }

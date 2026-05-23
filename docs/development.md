@@ -57,7 +57,8 @@ lib/
 └── main.dart      # 进程启动和平台初始化
 ```
 
-更完整的文件结构和当前 provider 规则见 [AGENTS.md](../AGENTS.md#file-structure-highlights)。
+更完整的文件结构见 [AGENTS.md](../AGENTS.md#key-paths)，当前 provider 规则见
+[lib/providers/AGENTS.md](../lib/providers/AGENTS.md)。
 
 ## 数据模型分类
 
@@ -126,7 +127,7 @@ lib/
 |------|------|
 | 主导航 | `/`、`/search`、`/explore`、`/queue`、`/history`、`/library`、`/radio`、`/settings` |
 | 详情页 | `/player`、`/radio-player`、`/library/:id`、`/library/downloaded`、`/library/downloaded/:folderName` |
-| 设置 | `/settings/audio`、`/settings/lyrics-source`、`/settings/download-manager`、`/settings/account`、`/settings/account/bilibili-login`、`/settings/account/youtube-login`、`/settings/account/netease-login`、`/settings/user-guide`、`/settings/developer` |
+| 设置 | `/settings/audio`、`/settings/lyrics-source`、`/settings/download-manager`、`/settings/user-guide`、`/settings/account`、`/settings/account/bilibili-login`、`/settings/account/youtube-login`、`/settings/account/netease-login`、`/settings/developer` |
 | 开发者工具 | `/settings/developer/database`、`/settings/developer/logs` |
 
 ## 响应式布局

@@ -11,6 +11,7 @@ import '../../data/models/account.dart';
 import '../../data/models/track.dart';
 import '../../data/sources/source_http_policy.dart';
 import 'account_service.dart';
+import 'http_cookie_parser.dart';
 import 'netease_credentials.dart';
 
 /// 網易雲音樂帳號服務實現
@@ -503,25 +504,12 @@ class NeteaseAccountService extends AccountService with Logging {
 
   /// 從 HTTP 響應中提取 Set-Cookie
   Map<String, String>? _extractCookiesFromResponse(Response response) {
-    final setCookies = response.headers['set-cookie'];
-    if (setCookies == null || setCookies.isEmpty) return null;
-
-    final cookies = <String, String>{};
-    for (final cookie in setCookies) {
-      try {
-        final parts = cookie.split(';').first.split('=');
-        if (parts.length >= 2) {
-          final key = parts[0].trim();
-          final value = parts.sublist(1).join('=').trim();
-          if (key.isNotEmpty) {
-            cookies[key] = value;
-          }
-        }
-      } catch (e) {
-        logWarning('Failed to parse cookie: $cookie, error: $e');
-      }
-    }
-    return cookies.isEmpty ? null : cookies;
+    return parseSetCookieHeaders(
+      response.headers['set-cookie'],
+      onParseError: (cookie, error) {
+        logWarning('Failed to parse cookie: $cookie, error: $error');
+      },
+    );
   }
 
   /// 從 response body 的 cookie 字段提取（Netease 803 回應可能包含）

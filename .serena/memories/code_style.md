@@ -26,19 +26,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/track.dart';
 ```
 
-## 架构边界
+## 架构与 UI 规则
 
-- UI 层只调用 `AudioController`，不要直接调用 `AudioService`
-- Riverpod provider 负责状态和依赖注入，业务逻辑放 service/controller
-- Isar model 修改后必须检查 `AGENTS.md` 的 Database Migration 规则
-- 不要在 build 期间修改 provider/state；需要延后时用事件回调或 `Future.microtask()`
-
-## UI 规范
-
-- 使用 Material 3 / `ColorScheme`
-- 响应式断点以 `AGENTS.md` 为准
-- UI 魔法数字优先使用 `lib/core/constants/ui_constants.dart`
-- 图片加载必须走 `TrackThumbnail` / `TrackCover` / `ImageLoadingService`
+架构边界、provider/database/audio/UI 规范以根目录 `AGENTS.md` 和对应子目录
+`AGENTS.md` 为准；本记忆不重复维护这些规则。若这里的风格提示与 scoped
+instruction 冲突，按 scoped instruction 处理。
 
 ## 代码生成
 
