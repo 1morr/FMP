@@ -58,6 +58,14 @@ void main() {
       expect(e.code, 'network_error');
     });
 
+    test('invalid input code -3 is not retryable network', () {
+      const e = BilibiliApiException(numericCode: -3, message: 'Invalid');
+      expect(e.kind, SourceErrorKind.unknown);
+      expect(e.isNetworkError, isFalse);
+      expect(e.kind.isRetryable, isFalse);
+      expect(e.code, 'api_error');
+    });
+
     test('isTimeout for -1', () {
       const e = BilibiliApiException(numericCode: -1, message: 'Timeout');
       expect(e.isTimeout, isTrue);
@@ -234,7 +242,7 @@ void main() {
     test('requiresLogin for 301', () {
       const e = NeteaseApiException(numericCode: 301, message: 'Login');
       expect(e.requiresLogin, isTrue);
-      expect(e.code, 'requires_login');
+      expect(e.code, 'login_required');
     });
 
     test('isVipRequired for -10', () {

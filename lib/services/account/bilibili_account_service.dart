@@ -62,6 +62,7 @@ class QrCodePollResult {
 /// Bilibili 帳號服務實現
 class BilibiliAccountService extends AccountService with Logging {
   final Dio _dio;
+  final Dio _liveDio;
   final FlutterSecureStorage _secureStorage;
   final Isar _isar;
   BilibiliCredentials? _cachedCredentials;
@@ -74,7 +75,8 @@ class BilibiliAccountService extends AccountService with Logging {
   BilibiliAccountService({required Isar isar})
       : _isar = isar,
         _secureStorage = const FlutterSecureStorage(),
-        _dio = SourceHttpPolicy.createApiDio(SourceType.bilibili);
+        _dio = SourceHttpPolicy.createApiDio(SourceType.bilibili),
+        _liveDio = SourceHttpPolicy.createBilibiliLiveDio();
 
   @override
   SourceType get platform => SourceType.bilibili;
@@ -485,7 +487,7 @@ class BilibiliAccountService extends AccountService with Logging {
     final mid = await getUserMid();
     if (mid == null) throw Exception('User mid not available');
 
-    final response = await _dio.get(
+    final response = await _liveDio.get(
       '$_liveApiBase/xlive/web-ucenter/user/MedalWall',
       queryParameters: {'target_id': mid},
       options: Options(headers: {'Cookie': cookieString}),
@@ -508,7 +510,7 @@ class BilibiliAccountService extends AccountService with Logging {
 
       try {
         // 通過 UID 獲取直播間號
-        final roomResponse = await _dio.get(
+        final roomResponse = await _liveDio.get(
           '$_liveApiBase/room/v1/Room/getRoomInfoOld',
           queryParameters: {'mid': uid},
         );

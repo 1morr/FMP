@@ -22,7 +22,7 @@ class BilibiliApiException extends SourceApiException {
   @override
   SourceErrorKind get kind {
     if (numericCode == -1) return SourceErrorKind.timeout;
-    if (numericCode == -2 || numericCode == -3) return SourceErrorKind.network;
+    if (numericCode == -2) return SourceErrorKind.network;
     if (numericCode == -412 ||
         numericCode == -509 ||
         numericCode == -799 ||
@@ -50,7 +50,7 @@ class BilibiliApiException extends SourceApiException {
     if (code == -101) return 'login_required';
     if (code == -403 || code == 62012) return 'permission_denied';
     if (code == -1) return 'timeout';
-    if (code == -2 || code == -3) return 'network_error';
+    if (code == -2) return 'network_error';
     if (code == -999) return 'error';
     return 'api_error';
   }

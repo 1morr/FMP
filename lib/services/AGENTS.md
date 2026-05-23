@@ -49,6 +49,11 @@ AI matching modes:
 Requests send the video/title string plus optional `uploader` context (currently
 `Track.artist`) to the configured OpenAI-compatible endpoint; `uploader` is not
 treated as the song artist.
+Regex fallback must not treat Bilibili UP names or YouTube channel/uploader
+names as song artists when the parser cannot extract an artist. Do not use
+`Track.artist` as a regex fallback artist for any source; Netease direct source
+and original-ID lyric fetches should cover exact Netease IDs before regex
+fallback is needed.
 
 AI title parsing extracts search terms, then local source searches choose
 lyrics. After a valid AI parse fails to find lyrics, regex fallback is not used.

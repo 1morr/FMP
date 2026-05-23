@@ -61,24 +61,27 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
     BilibiliAccountService? bilibiliAccountService,
     YouTubeAccountService? youtubeAccountService,
     NeteaseAccountService? neteaseAccountService,
-  }) : _neteaseAccountService = neteaseAccountService {
+  })  : _settingsRepository = settingsRepository,
+        _getAuthHeaders = ((sourceType) => buildAuthHeaders(
+              sourceType,
+              bilibiliAccountService: bilibiliAccountService,
+              youtubeAccountService: youtubeAccountService,
+              neteaseAccountService: neteaseAccountService,
+            )) {
     _delegate = delegate ??
         AudioStreamDelegate(
           trackRepository: trackRepository!,
           settingsRepository: settingsRepository!,
           sourceManager: sourceManager!,
-          getAuthHeaders: (sourceType) => buildAuthHeaders(
-            sourceType,
-            bilibiliAccountService: bilibiliAccountService,
-            youtubeAccountService: youtubeAccountService,
-            neteaseAccountService: neteaseAccountService,
-          ),
+          getAuthHeaders: _getAuthHeaders,
           onDownloadPathsChanged: _emitDownloadPathsChanged,
         );
   }
 
   late final AudioStreamDelegate _delegate;
-  final NeteaseAccountService? _neteaseAccountService;
+  final SettingsRepository? _settingsRepository;
+  final Future<Map<String, String>?> Function(SourceType sourceType)
+      _getAuthHeaders;
   final Set<int> _fetchingUrlTrackIds = {};
   var _isDisposed = false;
   final _downloadPathsChangedController =
@@ -179,9 +182,12 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
 
   @override
   Future<Map<String, String>?> getPlaybackHeaders(Track track) async {
-    final authHeaders = track.sourceType == SourceType.netease
-        ? await _neteaseAccountService?.getAuthHeaders()
-        : null;
+    final settingsRepository = _settingsRepository;
+    final useAuthForPlay = settingsRepository == null
+        ? _defaultUseAuthForPlay(track.sourceType)
+        : (await settingsRepository.get()).useAuthForPlay(track.sourceType);
+    final authHeaders =
+        useAuthForPlay ? await _getAuthHeaders(track.sourceType) : null;
     return SourceHttpPolicy.mediaHeaders(
       track.sourceType,
       authHeaders: authHeaders,
@@ -208,6 +214,14 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
     } finally {
       _fetchingUrlTrackIds.remove(track.id);
     }
+  }
+
+  bool _defaultUseAuthForPlay(SourceType sourceType) {
+    return switch (sourceType) {
+      SourceType.bilibili => false,
+      SourceType.youtube => false,
+      SourceType.netease => true,
+    };
   }
 
   static const String defaultPlaybackUserAgent =

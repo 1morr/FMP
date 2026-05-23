@@ -36,6 +36,7 @@ class _BilibiliApiParams {
 class BilibiliSource extends BaseSource with Logging {
   late final Dio _dio;
   late final Dio _liveDio;
+  late final Options _searchOptions;
   late final String _viewApi;
   late final String _playUrlApi;
   late final String _searchApi;
@@ -77,10 +78,11 @@ class BilibiliSource extends BaseSource with Logging {
     _dio = dio ??
         SourceHttpPolicy.createApiDio(
           SourceType.bilibili,
-          extraHeaders: SourceHttpPolicy.bilibiliSearchApiHeaders(
-            cookie: cookie,
-          ),
+          extraHeaders: {'Cookie': cookie},
         );
+    _searchOptions = Options(
+      headers: SourceHttpPolicy.bilibiliSearchApiHeaders(cookie: cookie),
+    );
     _liveDio = liveDio ?? SourceHttpPolicy.createBilibiliLiveDio();
   }
 
@@ -211,21 +213,7 @@ class BilibiliSource extends BaseSource with Logging {
     logDebug(
         'Getting audio stream for bvid: $bvid with config: qualityLevel=${config.qualityLevel}');
     try {
-      // 1. 获取视频 cid
-      final viewResponse = await _dio.get(
-        _viewApi,
-        queryParameters: {'bvid': bvid},
-        options: authHeaders != null ? _withAuth(authHeaders) : null,
-      );
-
-      _checkResponse(viewResponse.data);
-
-      final cid = viewResponse.data['data']['cid'];
-      if (cid == null) {
-        logError('Failed to get cid for $bvid');
-        throw BilibiliApiException(
-            numericCode: -404, message: 'Failed to get cid for $bvid');
-      }
+      final cid = await _getCid(bvid, authHeaders: authHeaders);
       logDebug('Got cid: $cid for bvid: $bvid');
 
       return _getAudioStreamWithCid(bvid, cid, config,
@@ -295,12 +283,24 @@ class BilibiliSource extends BaseSource with Logging {
     StreamType streamType,
     AudioStreamConfig config, {
     Map<String, String>? authHeaders,
+    String? failedUrl,
   }) async {
     switch (streamType) {
       case StreamType.audioOnly:
-        return _tryGetDashStream(bvid, cid, config, authHeaders: authHeaders);
+        return _tryGetDashStream(
+          bvid,
+          cid,
+          config,
+          authHeaders: authHeaders,
+          failedUrl: failedUrl,
+        );
       case StreamType.muxed:
-        return _tryGetDurlStream(bvid, cid, authHeaders: authHeaders);
+        return _tryGetDurlStream(
+          bvid,
+          cid,
+          authHeaders: authHeaders,
+          failedUrl: failedUrl,
+        );
       case StreamType.hls:
         return null; // Bilibili 不支持 HLS
     }
@@ -312,6 +312,7 @@ class BilibiliSource extends BaseSource with Logging {
     int cid,
     AudioStreamConfig config, {
     Map<String, String>? authHeaders,
+    String? failedUrl,
   }) async {
     final response = await _dio.get(
       _playUrlApi,
@@ -343,9 +344,8 @@ class BilibiliSource extends BaseSource with Logging {
     final selected = _selectByQualityLevel(sortedAudios, config.qualityLevel);
     if (selected == null) return null;
 
-    final audioUrl = selected['baseUrl'] ??
-        selected['base_url'] ??
-        (selected['backupUrl'] as List?)?[0];
+    final audioUrl =
+        _dashAudioUrls(selected).where((url) => url != failedUrl).firstOrNull;
     if (audioUrl == null) return null;
 
     final bandwidth = selected['bandwidth'] as int;
@@ -366,6 +366,7 @@ class BilibiliSource extends BaseSource with Logging {
     String bvid,
     int cid, {
     Map<String, String>? authHeaders,
+    String? failedUrl,
   }) async {
     final response = await _dio.get(
       _playUrlApi,
@@ -384,7 +385,12 @@ class BilibiliSource extends BaseSource with Logging {
     final durl = data['durl'];
     if (durl == null || durl is! List || durl.isEmpty) return null;
 
-    final url = durl[0]['url'] as String?;
+    final url = durl
+        .whereType<Map>()
+        .map((entry) => entry['url'] as String?)
+        .whereType<String>()
+        .where((url) => url != failedUrl)
+        .firstOrNull;
     if (url == null) return null;
 
     logDebug('Got durl (muxed) stream for $bvid:$cid');
@@ -396,6 +402,32 @@ class BilibiliSource extends BaseSource with Logging {
       streamType: StreamType.muxed,
       expiry: const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours),
     );
+  }
+
+  List<String> _dashAudioUrls(Map<String, dynamic> audio) {
+    return [
+      audio['baseUrl'] as String?,
+      audio['base_url'] as String?,
+      ...(audio['backupUrl'] as List? ?? const []),
+      ...(audio['backup_url'] as List? ?? const []),
+    ].whereType<String>().where((url) => url.isNotEmpty).toList();
+  }
+
+  Future<int> _getCid(String bvid, {Map<String, String>? authHeaders}) async {
+    final viewResponse = await _dio.get(
+      _viewApi,
+      queryParameters: {'bvid': bvid},
+      options: authHeaders != null ? _withAuth(authHeaders) : null,
+    );
+
+    _checkResponse(viewResponse.data);
+
+    final cid = viewResponse.data['data']['cid'];
+    if (cid == null) {
+      throw BilibiliApiException(
+          numericCode: -404, message: 'Failed to get cid for $bvid');
+    }
+    return cid as int;
   }
 
   /// 根据音质等级选择
@@ -453,6 +485,7 @@ class BilibiliSource extends BaseSource with Logging {
           'page_size': pageSize,
           'order': _mapSearchOrder(order),
         },
+        options: _searchOptions,
       );
 
       _checkResponse(response.data);
@@ -671,6 +704,67 @@ class BilibiliSource extends BaseSource with Logging {
         config: config ?? AudioStreamConfig.defaultConfig,
         authHeaders: authHeaders);
     return result.url;
+  }
+
+  @override
+  Future<AudioStreamResult?> getAlternativeAudioStream(
+    String sourceId, {
+    String? failedUrl,
+    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+    Map<String, String>? authHeaders,
+  }) async {
+    try {
+      final bvid = sourceId;
+      final cid = await _getCid(bvid, authHeaders: authHeaders);
+      return getAlternativeAudioStreamWithCid(
+        bvid,
+        cid,
+        failedUrl: failedUrl,
+        config: config,
+        authHeaders: authHeaders,
+      );
+    } on BilibiliApiException {
+      rethrow;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  Future<AudioStreamResult?> getAlternativeAudioStreamWithCid(
+    String bvid,
+    int cid, {
+    String? failedUrl,
+    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+    Map<String, String>? authHeaders,
+  }) async {
+    SourceApiException? lastFallbackableError;
+    for (final streamType in config.streamPriority) {
+      try {
+        final result = await _tryGetStreamByType(
+          bvid,
+          cid,
+          streamType,
+          config,
+          authHeaders: authHeaders,
+          failedUrl: failedUrl,
+        );
+        if (result != null) return result;
+      } catch (e) {
+        final sourceError = e is DioException ? _handleDioError(e) : e;
+        if (_shouldAbortStreamFallback(sourceError)) throw sourceError;
+        if (sourceError is SourceApiException) {
+          lastFallbackableError = sourceError;
+        }
+        logDebug(
+            'Alternative stream type $streamType failed for $bvid:$cid: $sourceError');
+      }
+    }
+
+    if (lastFallbackableError != null &&
+        !lastFallbackableError.kind.canFallbackToLowerAudioQuality) {
+      throw lastFallbackableError;
+    }
+    return null;
   }
 
   /// 获取视频详细信息（包括统计数据和UP主信息）
@@ -996,6 +1090,7 @@ class BilibiliSource extends BaseSource with Logging {
         'page': page,
         'page_size': pageSize,
       },
+      options: _searchOptions,
     );
 
     _checkResponse(response.data);
@@ -1030,6 +1125,7 @@ class BilibiliSource extends BaseSource with Logging {
         'page': page,
         'page_size': pageSize,
       },
+      options: _searchOptions,
     );
 
     _checkResponse(response.data);

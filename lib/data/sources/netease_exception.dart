@@ -49,7 +49,7 @@ class NeteaseApiException extends SourceApiException {
       case -462:
         return 'rate_limited';
       case 301:
-        return 'requires_login';
+        return 'login_required';
       case -403:
       case 403:
         return 'forbidden';

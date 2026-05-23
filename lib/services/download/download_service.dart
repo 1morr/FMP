@@ -703,9 +703,9 @@ class DownloadService with Logging {
           ? await _getAuthHeaders(track.sourceType)
           : null;
       if (_shouldAbortBeforeRegistration(task.id)) return;
-      final streamResult = await fetchAudioStreamWithQualityFallback(
+      final streamResult = await fetchTrackAudioStreamWithQualityFallback(
         source: source,
-        sourceId: track.sourceId,
+        track: track,
         config: config,
         authHeaders: authHeaders,
       );

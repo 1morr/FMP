@@ -334,6 +334,18 @@ class LyricsSearchNotifier extends StateNotifier<LyricsSearchState> {
       final filter = state.filter;
       List<LyricsResult> results;
 
+      final selectedSource = switch (filter) {
+        LyricsSourceFilter.netease => 'netease',
+        LyricsSourceFilter.qqmusic => 'qqmusic',
+        LyricsSourceFilter.lrclib => 'lrclib',
+        LyricsSourceFilter.all => null,
+      };
+      if (selectedSource != null && _disabledSources.contains(selectedSource)) {
+        if (!mounted || requestId != _searchRequestId) return;
+        state = state.copyWith(isLoading: false, results: const []);
+        return;
+      }
+
       switch (filter) {
         case LyricsSourceFilter.lrclib:
           results = await _lrclib.search(

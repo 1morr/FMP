@@ -10,9 +10,13 @@ import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/bilibili_source.dart';
 import 'package:fmp/data/sources/source_exception.dart';
 import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/services/account/bilibili_account_service.dart';
+import 'package:fmp/services/account/netease_account_service.dart';
+import 'package:fmp/services/account/youtube_account_service.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/internal/audio_stream_delegate.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
@@ -587,6 +591,58 @@ void main() {
       ]);
     });
 
+    test('selectPlayback preserves Bilibili cid during stream resolution',
+        () async {
+      final bilibili = _FakeBilibiliSource();
+      sourceManager.source = bilibili;
+      final track = Track()
+        ..sourceId = 'BVmultiPage'
+        ..sourceType = SourceType.bilibili
+        ..cid = 24680
+        ..title = 'Bilibili P2'
+        ..artist = 'Tester';
+
+      final selection = await manager.selectPlayback(track);
+
+      expect(selection.url, 'https://example.com/BVmultiPage-24680.m4a');
+      expect(bilibili.cidAudioRequests, [
+        (sourceId: 'BVmultiPage', cid: 24680),
+      ]);
+      expect(bilibili.plainAudioRequests, isEmpty);
+    });
+
+    test(
+        'selectFallbackPlayback preserves Bilibili cid for alternative streams',
+        () async {
+      final bilibili = _FakeBilibiliSource();
+      sourceManager.source = bilibili;
+      const failedUrl = 'https://failed.example/bilibili-p2.m4a';
+      final track = Track()
+        ..sourceId = 'BVmultiPage'
+        ..sourceType = SourceType.bilibili
+        ..cid = 13579
+        ..title = 'Bilibili P2'
+        ..artist = 'Tester';
+
+      final selection = await manager.selectFallbackPlayback(
+        track,
+        failedUrl: failedUrl,
+      );
+
+      expect(selection, isNotNull);
+      expect(selection!.url,
+          'https://example.com/BVmultiPage-13579-medium-alternative.m4a');
+      expect(bilibili.cidAlternativeRequests, [
+        (
+          sourceId: 'BVmultiPage',
+          cid: 13579,
+          failedUrl: failedUrl,
+          quality: AudioQualityLevel.medium,
+        ),
+      ]);
+      expect(bilibili.plainAlternativeRequests, isEmpty);
+    });
+
     test('selectFallbackPlayback assembles fallback selection with headers',
         () async {
       final track = _track('stream-fallback', title: 'Stream Fallback');
@@ -698,6 +754,103 @@ void main() {
         AudioQualityLevel.medium,
       ]);
     });
+
+    test(
+        'selectFallbackPlayback does not return the failed URL from lower-quality primary fallback',
+        () async {
+      final settings = await settingsRepository.get();
+      settings.audioQualityLevel = AudioQualityLevel.high;
+      await settingsRepository.save(settings);
+      sourceManager.source
+        ..returnNullAlternative = true
+        ..reuseFailedUrlForPrimaryFallback = true;
+      final failedUrl = 'https://example.com/handoff-failed-url-exclusion.m4a';
+
+      final selection = await manager.selectFallbackPlayback(
+        _track(
+          'handoff-failed-url-exclusion',
+          title: 'Handoff Failed URL Exclusion',
+        ),
+        failedUrl: failedUrl,
+      );
+
+      expect(selection, isNull);
+      expect(sourceManager.source.audioStreamQualityRequests, [
+        AudioQualityLevel.medium,
+        AudioQualityLevel.low,
+      ]);
+    });
+
+    test(
+        'playback headers include Netease auth only when auth-for-play is enabled',
+        () async {
+      final managerWithNetease = AudioStreamManager(
+        delegate: delegate,
+        settingsRepository: settingsRepository,
+        neteaseAccountService: _HeaderOnlyNeteaseAccountService(isar),
+      );
+      final track = Track()
+        ..sourceId = 'netease-song'
+        ..sourceType = SourceType.netease
+        ..title = 'Netease Song'
+        ..artist = 'Tester';
+      final settings = await settingsRepository.get();
+
+      settings.useNeteaseAuthForPlay = true;
+      await settingsRepository.save(settings);
+      final enabledHeaders = await managerWithNetease.getPlaybackHeaders(track);
+      expect(enabledHeaders?['Cookie'], 'MUSIC_U=music-u; __csrf=csrf');
+
+      settings.useNeteaseAuthForPlay = false;
+      await settingsRepository.save(settings);
+      final disabledHeaders =
+          await managerWithNetease.getPlaybackHeaders(track);
+      expect(
+          disabledHeaders, SourceHttpPolicy.mediaHeaders(SourceType.netease));
+      expect(disabledHeaders, isNot(contains('Cookie')));
+    });
+
+    test(
+        'playback headers resolve auth by source setting without leaking non-Netease media auth',
+        () async {
+      final bilibiliAccountService = _HeaderOnlyBilibiliAccountService(isar);
+      final youtubeAccountService = _HeaderOnlyYouTubeAccountService(isar);
+      final managerWithAccounts = AudioStreamManager(
+        delegate: delegate,
+        settingsRepository: settingsRepository,
+        bilibiliAccountService: bilibiliAccountService,
+        youtubeAccountService: youtubeAccountService,
+      );
+      final settings = await settingsRepository.get();
+      settings
+        ..useBilibiliAuthForPlay = true
+        ..useYoutubeAuthForPlay = true;
+      await settingsRepository.save(settings);
+
+      final bilibiliHeaders = await managerWithAccounts.getPlaybackHeaders(
+        Track()
+          ..sourceId = 'BVauth'
+          ..sourceType = SourceType.bilibili
+          ..title = 'Bilibili Auth'
+          ..artist = 'Tester',
+      );
+      final youtubeHeaders = await managerWithAccounts.getPlaybackHeaders(
+        Track()
+          ..sourceId = 'yt-auth'
+          ..sourceType = SourceType.youtube
+          ..title = 'YouTube Auth'
+          ..artist = 'Tester',
+      );
+
+      expect(bilibiliAccountService.cookieRequests, 1);
+      expect(youtubeAccountService.authHeaderRequests, 1);
+      expect(
+          bilibiliHeaders, SourceHttpPolicy.mediaHeaders(SourceType.bilibili));
+      expect(youtubeHeaders, SourceHttpPolicy.mediaHeaders(SourceType.youtube));
+      expect(bilibiliHeaders, isNot(contains('Cookie')));
+      expect(youtubeHeaders, isNot(contains('Cookie')));
+      expect(youtubeHeaders, isNot(contains('Authorization')));
+    });
   });
 }
 
@@ -767,10 +920,10 @@ Track _track(String sourceId, {required String title}) {
 class _FakeSourceManager extends SourceManager {
   _FakeSourceManager() : super();
 
-  final source = _FakeSource();
+  dynamic source = _FakeSource();
 
   @override
-  BaseSource? getSource(SourceType type) => source;
+  BaseSource? getSource(SourceType type) => source as BaseSource;
 
   @override
   void dispose() {}
@@ -788,6 +941,7 @@ class _FakeSource extends BaseSource {
   Duration? nextAudioExpiry;
   bool encodeQualityInAudioUrl = false;
   bool returnNullAlternative = false;
+  bool reuseFailedUrlForPrimaryFallback = false;
   SourceErrorKind failingAudioKind = SourceErrorKind.unavailable;
   final Set<AudioQualityLevel> failingAudioQualities = {};
   final Map<AudioQualityLevel, int> bitrateByQuality = {};
@@ -843,7 +997,9 @@ class _FakeSource extends BaseSource {
     final expiry = nextAudioExpiry;
     nextAudioExpiry = null;
     final qualitySuffix =
-        encodeQualityInAudioUrl ? '-${config.qualityLevel.name}' : '';
+        encodeQualityInAudioUrl && !reuseFailedUrlForPrimaryFallback
+            ? '-${config.qualityLevel.name}'
+            : '';
     return AudioStreamResult(
       url: 'https://example.com/$sourceId$qualitySuffix.m4a',
       bitrate: bitrateByQuality[config.qualityLevel],
@@ -902,6 +1058,119 @@ class _FakeSource extends BaseSource {
 
   @override
   void dispose() {}
+}
+
+class _FakeBilibiliSource extends BilibiliSource {
+  final List<({String sourceId, int cid})> cidAudioRequests = [];
+  final List<String> plainAudioRequests = [];
+  final List<String> plainAlternativeRequests = [];
+  final List<
+      ({
+        String sourceId,
+        int cid,
+        String? failedUrl,
+        AudioQualityLevel quality,
+      })> cidAlternativeRequests = [];
+
+  @override
+  Future<AudioStreamResult> getAudioStream(
+    String sourceId, {
+    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+    Map<String, String>? authHeaders,
+  }) async {
+    plainAudioRequests.add(sourceId);
+    throw StateError('plain Bilibili stream resolution must preserve cid');
+  }
+
+  @override
+  Future<AudioStreamResult> getAudioStreamWithCid(
+    String bvid,
+    int cid, {
+    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+    Map<String, String>? authHeaders,
+  }) async {
+    cidAudioRequests.add((sourceId: bvid, cid: cid));
+    return AudioStreamResult(
+      url: 'https://example.com/$bvid-$cid.m4a',
+      streamType: StreamType.audioOnly,
+      expiry: const Duration(minutes: 16),
+    );
+  }
+
+  @override
+  Future<AudioStreamResult?> getAlternativeAudioStream(
+    String sourceId, {
+    String? failedUrl,
+    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+    Map<String, String>? authHeaders,
+  }) async {
+    plainAlternativeRequests.add(sourceId);
+    throw StateError('plain Bilibili alternative stream must preserve cid');
+  }
+
+  @override
+  Future<AudioStreamResult?> getAlternativeAudioStreamWithCid(
+    String bvid,
+    int cid, {
+    String? failedUrl,
+    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
+    Map<String, String>? authHeaders,
+  }) async {
+    cidAlternativeRequests.add((
+      sourceId: bvid,
+      cid: cid,
+      failedUrl: failedUrl,
+      quality: config.qualityLevel,
+    ));
+    return AudioStreamResult(
+      url:
+          'https://example.com/$bvid-$cid-${config.qualityLevel.name}-alternative.m4a',
+      streamType: config.streamPriority.first,
+      expiry: const Duration(minutes: 16),
+    );
+  }
+}
+
+class _HeaderOnlyNeteaseAccountService extends NeteaseAccountService {
+  _HeaderOnlyNeteaseAccountService(Isar isar) : super(isar: isar);
+
+  @override
+  Future<String?> getAuthCookieString() async => 'MUSIC_U=music-u; __csrf=csrf';
+
+  @override
+  Future<Map<String, String>?> getAuthHeaders() async => {
+        'Cookie': 'MUSIC_U=music-u; __csrf=csrf',
+        'Origin': 'https://music.163.com',
+        'Referer': 'https://music.163.com/',
+        'User-Agent': NeteaseAccountService.userAgent,
+      };
+}
+
+class _HeaderOnlyBilibiliAccountService extends BilibiliAccountService {
+  _HeaderOnlyBilibiliAccountService(Isar isar) : super(isar: isar);
+
+  int cookieRequests = 0;
+
+  @override
+  Future<String?> getAuthCookieString() async {
+    cookieRequests++;
+    return 'SESSDATA=bilibili-session';
+  }
+}
+
+class _HeaderOnlyYouTubeAccountService extends YouTubeAccountService {
+  _HeaderOnlyYouTubeAccountService(Isar isar) : super(isar: isar);
+
+  int authHeaderRequests = 0;
+
+  @override
+  Future<Map<String, String>?> getAuthHeaders() async {
+    authHeaderRequests++;
+    return {
+      'Cookie': 'SAPISID=youtube-session',
+      'Authorization': 'SAPISIDHASH youtube-auth',
+    };
+  }
 }
 
 class _FakeSourceException extends SourceApiException {

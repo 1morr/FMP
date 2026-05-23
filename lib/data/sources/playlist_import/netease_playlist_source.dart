@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
+import '../../models/track.dart';
+import '../source_http_policy.dart';
 import '../../../services/library/remote_playlist_id_parser.dart';
 import 'playlist_import_source.dart';
 
@@ -9,7 +11,8 @@ import 'playlist_import_source.dart';
 class NeteasePlaylistSource implements PlaylistImportSource {
   final Dio _dio;
 
-  NeteasePlaylistSource({Dio? dio}) : _dio = dio ?? Dio();
+  NeteasePlaylistSource({Dio? dio})
+      : _dio = dio ?? SourceHttpPolicy.createApiDio(SourceType.netease);
 
   @override
   PlaylistSource get source => PlaylistSource.netease;
@@ -123,11 +126,7 @@ class NeteasePlaylistSource implements PlaylistImportSource {
       options: Options(
         contentType: 'application/x-www-form-urlencoded',
         responseType: ResponseType.json,
-        headers: {
-          'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Referer': 'https://music.163.com/',
-        },
+        headers: SourceHttpPolicy.apiHeaders(SourceType.netease),
       ),
     );
 
@@ -173,11 +172,7 @@ class NeteasePlaylistSource implements PlaylistImportSource {
       options: Options(
         contentType: 'application/x-www-form-urlencoded',
         responseType: ResponseType.json,
-        headers: {
-          'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Referer': 'https://music.163.com/',
-        },
+        headers: SourceHttpPolicy.apiHeaders(SourceType.netease),
       ),
     );
 

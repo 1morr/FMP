@@ -333,6 +333,36 @@ void main() {
       expect(cache.savedKeys, ['youtube:track-1']);
     });
 
+    test('regex fallback does not use YouTube channel as artist', () async {
+      parser.artistName = null;
+      final track = _track('video-uploader')..artist = 'Uploader Channel';
+
+      final matched = await service.tryAutoMatch(
+        track,
+        enabledSources: const ['netease'],
+      );
+
+      expect(matched, isFalse);
+      expect(netease.searchCalls, ['Song Name']);
+    });
+
+    test(
+        'regex fallback does not use Netease track artist when parser has none',
+        () async {
+      parser.artistName = null;
+      final track = _track('netease-artist')
+        ..sourceType = SourceType.netease
+        ..artist = 'Real Artist';
+
+      final matched = await service.tryAutoMatch(
+        track,
+        enabledSources: const ['qqmusic'],
+      );
+
+      expect(matched, isFalse);
+      expect(qqmusic.searchCalls, ['Song Name']);
+    });
+
     test('tryAutoMatch accepts search result within 20 seconds', () async {
       netease.searchResults = [
         _lyricsResult(id: 'netease-20s', source: 'netease', duration: 200),
@@ -515,12 +545,15 @@ class _RecordingLyricsCacheService extends LyricsCacheService {
 }
 
 class _FakeTitleParser implements TitleParser {
+  String trackName = 'Song Name';
+  String? artistName = 'Singer';
+
   @override
   ParsedTitle parse(String title, {String? uploader}) {
-    return const ParsedTitle(
-      trackName: 'Song Name',
-      artistName: 'Singer',
-      cleanedTitle: 'Song Name Singer',
+    return ParsedTitle(
+      trackName: trackName,
+      artistName: artistName,
+      cleanedTitle: [trackName, artistName].whereType<String>().join(' '),
     );
   }
 }

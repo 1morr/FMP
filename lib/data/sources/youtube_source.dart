@@ -30,6 +30,8 @@ class YouTubeSource extends BaseSource with Logging {
   // https://www.youtube.com/playlist?list=OLPPnm121Qlcoo7kKykmswKG0IepmDUVpag
   static const String _newThisWeekPlaylistId =
       'OLPPnm121Qlcoo7kKykmswKG0IepmDUVpag';
+  static const Duration _audioUrlExpiry =
+      Duration(hours: AppConstants.youtubeAudioUrlExpiryHours);
 
   YouTubeSource({yt.YoutubeExplode? youtube, Dio? dio}) {
     _youtube = youtube ?? yt.YoutubeExplode();
@@ -65,11 +67,33 @@ class YouTubeSource extends BaseSource with Logging {
     final playabilityStatus = data['playabilityStatus'];
     final status = playabilityStatus?['status'] as String?;
     if (status != 'OK') {
+      final reason = playabilityStatus?['reason'] as String?;
       throw YouTubeApiException(
-        code: status?.toLowerCase() ?? 'error',
-        message: playabilityStatus?['reason'] as String? ?? 'Video unavailable',
+        code: _mapPlayabilityCode(status, reason),
+        message: reason ?? 'Video unavailable',
       );
     }
+  }
+
+  String _mapPlayabilityCode(String? status, String? reason) {
+    final normalizedStatus = (status ?? '').toLowerCase();
+    final normalizedReason = (reason ?? '').toLowerCase();
+    final combined = '$normalizedStatus $normalizedReason';
+    if (combined.contains('country') ||
+        combined.contains('region') ||
+        combined.contains('geo') ||
+        combined.contains('location')) {
+      return 'geo_restricted';
+    }
+    if (combined.contains('age')) return 'age_restricted';
+    if (combined.contains('sign in') ||
+        combined.contains('login') ||
+        combined.contains('log in')) {
+      return 'login_required';
+    }
+    if (combined.contains('private')) return 'private_or_inaccessible';
+    if (normalizedStatus == 'unplayable') return 'unplayable';
+    return normalizedStatus.isNotEmpty ? normalizedStatus : 'error';
   }
 
   /// Call InnerTube /player endpoint and return parsed + validated response.
@@ -409,10 +433,14 @@ class YouTubeSource extends BaseSource with Logging {
           container: selected.container.name,
           codec: selected.audioCodec,
           streamType: StreamType.audioOnly,
+          expiry: _audioUrlExpiry,
         );
       }
     } catch (e) {
-      if (_shouldAbortStreamFallback(e)) rethrow;
+      final sourceError = _classifyStreamFallbackError(e);
+      if (sourceError != null && _shouldAbortStreamFallback(sourceError)) {
+        throw sourceError;
+      }
       logDebug('Audio-only stream failed for $videoId: $e');
     }
     return null;
@@ -451,10 +479,14 @@ class YouTubeSource extends BaseSource with Logging {
           container: selected.container.name,
           codec: selected.audioCodec,
           streamType: StreamType.muxed,
+          expiry: _audioUrlExpiry,
         );
       }
     } catch (e) {
-      if (_shouldAbortStreamFallback(e)) rethrow;
+      final sourceError = _classifyStreamFallbackError(e);
+      if (sourceError != null && _shouldAbortStreamFallback(sourceError)) {
+        throw sourceError;
+      }
       logDebug('Muxed stream failed for $videoId: $e');
     }
     return null;
@@ -495,6 +527,7 @@ class YouTubeSource extends BaseSource with Logging {
                 container: 'm3u8',
                 codec: null,
                 streamType: StreamType.hls,
+                expiry: _audioUrlExpiry,
               );
             }
           } catch (_) {
@@ -503,7 +536,10 @@ class YouTubeSource extends BaseSource with Logging {
           }
         }
       } catch (e) {
-        if (_shouldAbortStreamFallback(e)) rethrow;
+        final sourceError = _classifyStreamFallbackError(e);
+        if (sourceError != null && _shouldAbortStreamFallback(sourceError)) {
+          throw sourceError;
+        }
         logDebug('HLS stream via client set failed for $videoId: $e');
       }
     }
@@ -668,10 +704,14 @@ class YouTubeSource extends BaseSource with Logging {
           container: selected.container.name,
           codec: selected.audioCodec,
           streamType: StreamType.audioOnly,
+          expiry: _audioUrlExpiry,
         );
       }
     } catch (e) {
-      if (_shouldAbortStreamFallback(e)) rethrow;
+      final sourceError = _classifyStreamFallbackError(e);
+      if (sourceError != null && _shouldAbortStreamFallback(sourceError)) {
+        throw sourceError;
+      }
       logDebug('Alternative audio-only stream failed for $videoId: $e');
     }
     return null;
@@ -709,10 +749,14 @@ class YouTubeSource extends BaseSource with Logging {
           container: selected.container.name,
           codec: selected.audioCodec,
           streamType: StreamType.muxed,
+          expiry: _audioUrlExpiry,
         );
       }
     } catch (e) {
-      if (_shouldAbortStreamFallback(e)) rethrow;
+      final sourceError = _classifyStreamFallbackError(e);
+      if (sourceError != null && _shouldAbortStreamFallback(sourceError)) {
+        throw sourceError;
+      }
       logDebug('Alternative muxed stream failed for $videoId: $e');
     }
     return null;
@@ -751,6 +795,7 @@ class YouTubeSource extends BaseSource with Logging {
                 container: 'm3u8',
                 codec: null,
                 streamType: StreamType.hls,
+                expiry: _audioUrlExpiry,
               );
             }
           } catch (_) {
@@ -759,7 +804,10 @@ class YouTubeSource extends BaseSource with Logging {
           }
         }
       } catch (e) {
-        if (_shouldAbortStreamFallback(e)) rethrow;
+        final sourceError = _classifyStreamFallbackError(e);
+        if (sourceError != null && _shouldAbortStreamFallback(sourceError)) {
+          throw sourceError;
+        }
         logDebug(
             'Alternative HLS stream via client set failed for $videoId: $e');
       }
@@ -1739,6 +1787,7 @@ class YouTubeSource extends BaseSource with Logging {
       container: _innerTubeContainer(selected),
       codec: _innerTubeCodec(selected),
       streamType: StreamType.audioOnly,
+      expiry: _audioUrlExpiry,
     );
   }
 
@@ -1772,6 +1821,7 @@ class YouTubeSource extends BaseSource with Logging {
       container: _innerTubeContainer(selected),
       codec: null,
       streamType: StreamType.muxed,
+      expiry: _audioUrlExpiry,
     );
   }
 
@@ -1786,6 +1836,7 @@ class YouTubeSource extends BaseSource with Logging {
       container: 'm3u8',
       codec: null,
       streamType: StreamType.hls,
+      expiry: _audioUrlExpiry,
     );
   }
 
@@ -2117,6 +2168,43 @@ class YouTubeSource extends BaseSource with Logging {
         errorStr.contains('rate') ||
         errorStr.contains('quota') ||
         errorStr.contains('too many');
+  }
+
+  YouTubeApiException? _classifyStreamFallbackError(Object error) {
+    if (error is YouTubeApiException) return error;
+    if (error is DioException) {
+      if (error.response?.statusCode == 403) return null;
+      return _handleDioError(error);
+    }
+    if (_isRateLimitError(error)) {
+      return YouTubeApiException(
+        code: 'rate_limited',
+        message: t.error.rateLimited,
+      );
+    }
+
+    final errorText = error.toString().toLowerCase();
+    if (errorText.contains('timeout') || errorText.contains('timed out')) {
+      return YouTubeApiException(
+        code: 'timeout',
+        message: t.error.connectionTimeout,
+      );
+    }
+    if (errorText.contains('socket') ||
+        errorText.contains('connection') ||
+        errorText.contains('network')) {
+      return YouTubeApiException(
+        code: 'network_error',
+        message: t.error.networkError,
+      );
+    }
+    if (errorText.contains('404') || errorText.contains('not found')) {
+      return const YouTubeApiException(
+        code: 'not_found',
+        message: 'Resource not found (HTTP 404)',
+      );
+    }
+    return null;
   }
 
   bool _shouldAbortStreamFallback(Object error) {
