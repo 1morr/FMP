@@ -23,7 +23,8 @@ class BilibiliApiException extends SourceApiException {
   SourceErrorKind get kind {
     if (numericCode == -1) return SourceErrorKind.timeout;
     if (numericCode == -2) return SourceErrorKind.network;
-    if (numericCode == -412 ||
+    if (numericCode == -352 ||
+        numericCode == -412 ||
         numericCode == -509 ||
         numericCode == -799 ||
         numericCode == -429) {
@@ -43,7 +44,11 @@ class BilibiliApiException extends SourceApiException {
   /// 将数字错误码映射为语义化字符串
   static String _mapCode(int code) {
     if (code == -404 || code == -503 || code == 62002) return 'unavailable';
-    if (code == -412 || code == -509 || code == -799 || code == -429) {
+    if (code == -352 ||
+        code == -412 ||
+        code == -509 ||
+        code == -799 ||
+        code == -429) {
       return 'rate_limited';
     }
     if (code == -10403) return 'geo_restricted';
