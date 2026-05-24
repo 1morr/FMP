@@ -158,6 +158,27 @@ Future<void> _initializeDatabaseDefaultsInTxn(Isar isar) async {
       settings.rankingRefreshIntervalMinutes = 60;
       needsUpdate = true;
     }
+    if (settings.homeRankingSourcePriority.isEmpty) {
+      settings.homeRankingSourcePriority = defaultHomeRankingSourcePriority;
+      needsUpdate = true;
+    }
+
+    final normalizedHomeRankingPriority =
+        settings.homeRankingSourcePriorityList.join(',');
+    if (settings.homeRankingSourcePriority != normalizedHomeRankingPriority) {
+      settings.homeRankingSourcePriority = normalizedHomeRankingPriority;
+      needsUpdate = true;
+    }
+
+    final normalizedDisabledHomeRankingSources =
+        settings.disabledHomeRankingSourcesSet.join(',');
+    if (settings.disabledHomeRankingSources !=
+        normalizedDisabledHomeRankingSources) {
+      settings.disabledHomeRankingSources =
+          normalizedDisabledHomeRankingSources;
+      needsUpdate = true;
+    }
+
     if (settings.radioRefreshIntervalMinutes < 1) {
       settings.radioRefreshIntervalMinutes = 5;
       needsUpdate = true;

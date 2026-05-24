@@ -483,6 +483,8 @@ class SettingsBackup {
   final bool useYoutubeAuthForPlay;
   final bool useNeteaseAuthForPlay;
   final int rankingRefreshIntervalMinutes;
+  final String homeRankingSourcePriority;
+  final String disabledHomeRankingSources;
   final int radioRefreshIntervalMinutes;
 
   SettingsBackup({
@@ -537,13 +539,21 @@ class SettingsBackup {
     this.useYoutubeAuthForPlay = false,
     this.useNeteaseAuthForPlay = true,
     this.rankingRefreshIntervalMinutes = 60,
+    String? homeRankingSourcePriority,
+    String? disabledHomeRankingSources,
     this.radioRefreshIntervalMinutes = 5,
   })  : maxCacheSizeMB = maxCacheSizeMB ?? _defaultBackupCacheSizeMB(),
         lyricsAiTitleParsingModeIndex = _normalizeLyricsAiTitleParsingModeIndex(
             lyricsAiTitleParsingModeIndex),
         lyricsAiTimeoutSeconds = _normalizeLyricsAiTimeoutSeconds(
           lyricsAiTimeoutSeconds,
-        );
+        ),
+        homeRankingSourcePriority = normalizeHomeRankingSourcePriority(
+          homeRankingSourcePriority ?? defaultHomeRankingSourcePriority,
+        ).join(','),
+        disabledHomeRankingSources = normalizeDisabledHomeRankingSources(
+          disabledHomeRankingSources ?? '',
+        ).join(',');
 
   factory SettingsBackup.fromJson(Map<String, dynamic> json) {
     return SettingsBackup(
@@ -618,6 +628,10 @@ class SettingsBackup {
       useNeteaseAuthForPlay: json['useNeteaseAuthForPlay'] as bool? ?? true,
       rankingRefreshIntervalMinutes:
           json['rankingRefreshIntervalMinutes'] as int? ?? 60,
+      homeRankingSourcePriority: json['homeRankingSourcePriority'] as String? ??
+          defaultHomeRankingSourcePriority,
+      disabledHomeRankingSources:
+          json['disabledHomeRankingSources'] as String? ?? '',
       radioRefreshIntervalMinutes:
           json['radioRefreshIntervalMinutes'] as int? ?? 5,
     );
@@ -687,6 +701,8 @@ class SettingsBackup {
       'useYoutubeAuthForPlay': useYoutubeAuthForPlay,
       'useNeteaseAuthForPlay': useNeteaseAuthForPlay,
       'rankingRefreshIntervalMinutes': rankingRefreshIntervalMinutes,
+      'homeRankingSourcePriority': homeRankingSourcePriority,
+      'disabledHomeRankingSources': disabledHomeRankingSources,
       'radioRefreshIntervalMinutes': radioRefreshIntervalMinutes,
     };
   }

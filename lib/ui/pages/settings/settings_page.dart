@@ -111,6 +111,13 @@ class SettingsPage extends ConsumerWidget {
               _LyricsCacheSizeListTile(),
               _ClearLyricsCacheListTile(),
               _RankingRefreshIntervalListTile(),
+              ListTile(
+                leading: const Icon(Icons.view_column_outlined),
+                title: Text(t.settings.homeRankingSettings.title),
+                subtitle: Text(t.settings.homeRankingSettings.subtitle),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push(RoutePaths.homeRankingSettings),
+              ),
               _RadioRefreshIntervalListTile(),
             ],
           ),

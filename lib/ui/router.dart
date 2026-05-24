@@ -14,6 +14,7 @@ import 'pages/settings/download_manager_page.dart';
 import 'pages/settings/developer_options_page.dart';
 import 'pages/settings/audio_settings_page.dart';
 import 'pages/settings/lyrics_source_settings_page.dart';
+import 'pages/settings/home_ranking_settings_page.dart';
 import 'pages/settings/user_guide_page.dart';
 import 'pages/settings/database_viewer_page.dart';
 import 'pages/settings/log_viewer_page.dart';
@@ -48,6 +49,7 @@ class RoutePaths {
   static const String downloadManager = '/settings/download-manager';
   static const String audioSettings = '/settings/audio';
   static const String lyricsSourceSettings = '/settings/lyrics-source';
+  static const String homeRankingSettings = '/settings/home-ranking';
   static const String userGuide = '/settings/user-guide';
   static const String developerOptions = '/settings/developer';
   static const String databaseViewer = '/settings/developer/database';
@@ -78,6 +80,7 @@ class RouteNames {
   static const String downloadManager = 'downloadManager';
   static const String audioSettings = 'audioSettings';
   static const String lyricsSourceSettings = 'lyricsSourceSettings';
+  static const String homeRankingSettings = 'homeRankingSettings';
   static const String userGuide = 'userGuide';
   static const String developerOptions = 'developerOptions';
   static const String databaseViewer = 'databaseViewer';
@@ -213,6 +216,12 @@ final appRouter = GoRouter(
               path: 'lyrics-source',
               name: RouteNames.lyricsSourceSettings,
               builder: (context, state) => const LyricsSourceSettingsPage(),
+            ),
+            // 主页热门来源设置页面
+            GoRoute(
+              path: 'home-ranking',
+              name: RouteNames.homeRankingSettings,
+              builder: (context, state) => const HomeRankingSettingsPage(),
             ),
             // 使用说明页面
             GoRoute(

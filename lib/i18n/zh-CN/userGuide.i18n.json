@@ -60,9 +60,11 @@
   "explore": {
     "title": "探索页面",
     "ranking": "热门排行榜",
-    "rankingDesc": "查看 哔哩哔哩 和 YouTube 音乐热门排行",
+    "rankingDesc": "查看 哔哩哔哩、YouTube 和网易云音乐热门排行",
     "autoUpdate": "自动更新",
-    "autoUpdateDesc": "排行榜每小时自动后台刷新，打开即看无需等待"
+    "autoUpdateDesc": "排行榜每小时自动后台刷新，打开即看无需等待",
+    "homeSources": "主页热门来源",
+    "homeSourcesDesc": "在设置 → 主页热门来源中选择并排序主页显示的排行榜来源"
   },
   "history": {
     "title": "播放历史",

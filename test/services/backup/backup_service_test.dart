@@ -94,6 +94,11 @@ void main() {
       expect(settingsBackup.useYoutubeAuthForPlay, isFalse);
       expect(settingsBackup.useNeteaseAuthForPlay, isTrue);
       expect(settingsBackup.rankingRefreshIntervalMinutes, 60);
+      expect(
+        settingsBackup.homeRankingSourcePriority,
+        defaultHomeRankingSourcePriority,
+      );
+      expect(settingsBackup.disabledHomeRankingSources, isEmpty);
       expect(settingsBackup.radioRefreshIntervalMinutes, 5);
       expect(settingsBackup.minimizeToTrayOnClose,
           Settings().minimizeToTrayOnClose);
@@ -187,6 +192,8 @@ void main() {
           useYoutubeAuthForPlay: true,
           useNeteaseAuthForPlay: false,
           rankingRefreshIntervalMinutes: 15,
+          homeRankingSourcePriority: 'youtube,unknown,bilibili,youtube',
+          disabledHomeRankingSources: 'netease,unknown',
           radioRefreshIntervalMinutes: 9,
           minimizeToTrayOnClose: true,
           enableGlobalHotkeys: true,
@@ -239,6 +246,17 @@ void main() {
       expect(restoredSettings.useYoutubeAuthForPlay, isTrue);
       expect(restoredSettings.useNeteaseAuthForPlay, isFalse);
       expect(restoredSettings.rankingRefreshIntervalMinutes, 15);
+      expect(
+        restoredSettings.homeRankingSourcePriority,
+        'youtube,bilibili,netease',
+      );
+      expect(restoredSettings.homeRankingSourcePriorityList, [
+        'youtube',
+        'bilibili',
+        'netease',
+      ]);
+      expect(restoredSettings.disabledHomeRankingSources, 'netease');
+      expect(restoredSettings.disabledHomeRankingSourcesSet, {'netease'});
       expect(restoredSettings.radioRefreshIntervalMinutes, 9);
       expect(restoredSettings.customDownloadDir, '/device/downloads');
       expect(restoredSettings.preferredAudioDeviceId, 'device-1');
@@ -396,7 +414,9 @@ void main() {
         ..lyricsWindowShadowColor = 0xAA000000
         ..lyricsWindowShadowBlurRadius = 8
         ..lyricsWindowShadowOffsetX = 1
-        ..lyricsWindowShadowOffsetY = 2;
+        ..lyricsWindowShadowOffsetY = 2
+        ..homeRankingSourcePriority = 'youtube,unknown,bilibili,youtube'
+        ..disabledHomeRankingSources = 'netease,unknown';
       await isar.writeTxn(() async {
         await isar.settings.put(settings);
       });
@@ -423,6 +443,11 @@ void main() {
       expect(settingsJson['lyricsWindowShadowBlurRadius'], 8);
       expect(settingsJson['lyricsWindowShadowOffsetX'], 1);
       expect(settingsJson['lyricsWindowShadowOffsetY'], 2);
+      expect(
+        settingsJson['homeRankingSourcePriority'],
+        'youtube,bilibili,netease',
+      );
+      expect(settingsJson['disabledHomeRankingSources'], 'netease');
       expect(settingsJson.containsKey('lyricsAiApiKey'), isFalse);
       expect(jsonEncode(json).contains('secret'), isFalse);
     });
