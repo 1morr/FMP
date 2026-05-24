@@ -518,10 +518,19 @@ class YouTubeAccountService extends AccountService with Logging {
         jsonDecode(json) as Map<String, dynamic>,
       );
       return _cachedCredentials;
-    } catch (e) {
-      logError('Failed to parse YouTube credentials', e);
-      return null;
+    } on FormatException {
+      return _discardMalformedCredentials();
+    } on TypeError {
+      return _discardMalformedCredentials();
     }
+  }
+
+  Future<YouTubeCredentials?> _discardMalformedCredentials() async {
+    await _secureStorage.delete(key: _storageKey);
+    _cachedCredentials = null;
+    await _updateAccount(isLoggedIn: false);
+    logWarning('Discarded malformed YouTube credentials from secure storage');
+    return null;
   }
 
   Future<void> _updateAccount({

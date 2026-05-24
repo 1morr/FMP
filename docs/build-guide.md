@@ -77,12 +77,11 @@ keytool -genkey -v \
   -alias fmp \
   -keyalg RSA -keysize 2048 \
   -validity 36500 \
-  -storepass <你的密码> \
-  -keypass <你的密码> \
   -dname "CN=FMP,OU=Personal,O=Personal,L=Unknown,ST=Unknown,C=US"
 ```
 
 > 如果 `keytool` 不在 PATH 中，完整路径通常在 `C:\Program Files\Java\jdk-17\bin\keytool.exe`
+> 不要把 keystore 密码写在命令行、issue、日志或 agent 对话中。让 `keytool` 交互式提示输入密码；命令行参数会进入 shell history 和进程列表。
 
 **2. 创建 `android/key.properties`：**
 
@@ -95,7 +94,7 @@ storeFile=../release.keystore
 
 `build.gradle.kts` 会自动检测该文件：存在则使用你的 keystore 签名，不存在则 fallback 到 debug 签名。
 
-> `key.properties` 和 `release.keystore` 均已在 `.gitignore` 中，不会被提交。
+> `key.properties` 和 `release.keystore` 均已在 `.gitignore` 中，不会被提交。仍需把它们当作签名密钥保管，不要复制到日志、截图、工单、agent 报告或临时公开目录。
 
 ## 构建 Windows
 

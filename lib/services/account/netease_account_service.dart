@@ -399,10 +399,20 @@ class NeteaseAccountService extends AccountService with Logging {
       );
       _credentialsLoaded = true;
       return _cachedCredentials;
-    } catch (e) {
-      logError('Failed to parse Netease credentials', e);
-      return null;
+    } on FormatException {
+      return _discardMalformedCredentials();
+    } on TypeError {
+      return _discardMalformedCredentials();
     }
+  }
+
+  Future<NeteaseCredentials?> _discardMalformedCredentials() async {
+    await _secureStorage.delete(key: _storageKey);
+    _cachedCredentials = null;
+    _credentialsLoaded = true;
+    await _updateAccount(isLoggedIn: false);
+    logWarning('Discarded malformed Netease credentials from secure storage');
+    return null;
   }
 
   /// 更新或創建 Account 記錄
@@ -449,9 +459,24 @@ class NeteaseAccountService extends AccountService with Logging {
 
   Future<_LoginSnapshot> _captureLoginSnapshot() async {
     final storedJson = await _secureStorage.read(key: _storageKey);
+    NeteaseCredentials? credentials;
+    String? credentialsJson;
+    if (storedJson != null) {
+      try {
+        credentials = NeteaseCredentials.fromJson(
+          jsonDecode(storedJson) as Map<String, dynamic>,
+        );
+        credentialsJson = storedJson;
+      } on FormatException {
+        await _discardMalformedCredentials();
+      } on TypeError {
+        await _discardMalformedCredentials();
+      }
+    }
+
     final account = await getCurrentAccount();
     Account? accountCopy;
-    if (account != null) {
+    if (credentials != null && account != null) {
       accountCopy = Account()
         ..id = account.id
         ..platform = account.platform
@@ -465,7 +490,8 @@ class NeteaseAccountService extends AccountService with Logging {
     }
 
     return _LoginSnapshot(
-      credentialsJson: storedJson,
+      credentialsJson: credentialsJson,
+      credentials: credentials,
       account: accountCopy,
     );
   }
@@ -480,9 +506,7 @@ class NeteaseAccountService extends AccountService with Logging {
         key: _storageKey,
         value: snapshot.credentialsJson!,
       );
-      _cachedCredentials = NeteaseCredentials.fromJson(
-        jsonDecode(snapshot.credentialsJson!) as Map<String, dynamic>,
-      );
+      _cachedCredentials = snapshot.credentials;
       _credentialsLoaded = true;
     }
 
@@ -559,10 +583,12 @@ class NeteaseAccountService extends AccountService with Logging {
 
 class _LoginSnapshot {
   final String? credentialsJson;
+  final NeteaseCredentials? credentials;
   final Account? account;
 
   const _LoginSnapshot({
     required this.credentialsJson,
+    required this.credentials,
     required this.account,
   });
 }

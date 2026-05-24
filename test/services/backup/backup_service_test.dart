@@ -4,7 +4,9 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/data/models/hotkey_config.dart';
 import 'package:fmp/data/models/lyrics_match.dart';
 import 'package:fmp/data/models/play_history.dart';
 import 'package:fmp/data/models/playlist.dart';
@@ -15,6 +17,7 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/providers/database_provider.dart';
 import 'package:fmp/services/backup/backup_data.dart';
 import 'package:fmp/services/backup/backup_service.dart';
+import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:isar/isar.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -278,6 +281,65 @@ void main() {
             jsonEncode({'playPause': 'Ctrl+Alt+P'}));
       }
     });
+
+    test(
+      'importData sanitizes Windows hotkey config from backup',
+      () async {
+        if (!Platform.isWindows) return;
+
+        final importedHotkeyConfig = jsonEncode({
+          'bindings': [
+            {
+              'action': HotkeyAction.playPause.name,
+              'keyId': LogicalKeyboardKey.keyA.keyId,
+              'modifiers': <String>[],
+            },
+            {
+              'action': HotkeyAction.next.name,
+              'keyId': LogicalKeyboardKey.arrowRight.keyId,
+              'modifiers': ['control'],
+            },
+          ],
+        });
+
+        final backupData = BackupData(
+          version: kBackupVersion,
+          exportedAt: DateTime(2026, 5, 25),
+          appVersion: 'test',
+          playlists: const [],
+          tracks: const [],
+          playHistory: const [],
+          searchHistory: const [],
+          radioStations: const [],
+          settings: SettingsBackup(
+            enableGlobalHotkeys: true,
+            hotkeyConfig: importedHotkeyConfig,
+          ),
+        );
+
+        final result = await backupService.importData(
+          backupData,
+          importPlaylists: false,
+          importPlayHistory: false,
+          importSearchHistory: false,
+          importRadioStations: false,
+          importLyricsMatches: false,
+          importSettings: true,
+        );
+
+        final restoredSettings = await isar.settings.get(0);
+        final restoredConfig =
+            HotkeyConfig.fromJsonString(restoredSettings!.hotkeyConfig);
+
+        expect(result.settingsImported, isTrue);
+        expect(result.errors, isEmpty);
+        expect(restoredConfig.getBinding(HotkeyAction.playPause)!.isConfigured,
+            isFalse);
+        expect(restoredConfig.getBinding(HotkeyAction.next)!.modifiers,
+            {HotKeyModifier.control});
+      },
+      skip: !Platform.isWindows ? 'Windows-only hotkey import behavior' : false,
+    );
 
     test('importData restores playlist memberships through mutation service',
         () async {

@@ -63,17 +63,24 @@ class PlaybackRequestExecutor with Logging {
       throw Exception('No audio URL available for: ${track.title}');
     }
 
+    var attemptedUrl = url;
     if (localPath != null) {
       await _audioService.setFile(url, track: trackWithUrl);
     } else {
-      final headers = await _audioStreamManager.getPlaybackHeaders(trackWithUrl);
+      final networkRequest =
+          await _audioStreamManager.prepareNetworkPlayback(trackWithUrl, url);
       if (_isSuperseded(requestId)) {
         logDebug(
-          'Queue restore request $requestId superseded after header fetch, aborting',
+          'Queue restore request $requestId superseded after playback preparation, aborting',
         );
         return null;
       }
-      await _audioService.setUrl(url, headers: headers, track: trackWithUrl);
+      attemptedUrl = networkRequest.url;
+      await _audioService.setUrl(
+        networkRequest.url,
+        headers: networkRequest.headers,
+        track: trackWithUrl,
+      );
     }
 
     if (_isSuperseded(requestId)) {
@@ -105,7 +112,7 @@ class PlaybackRequestExecutor with Logging {
 
     return PlaybackRequestExecution(
       track: trackWithUrl,
-      attemptedUrl: url,
+      attemptedUrl: attemptedUrl,
       streamResult: streamResult,
     );
   }
@@ -209,7 +216,8 @@ class PlaybackRequestExecutor with Logging {
     );
   }
 
-  Future<void> _playSelection(int requestId, PlaybackSelection selection) async {
+  Future<void> _playSelection(
+      int requestId, PlaybackSelection selection) async {
     final urlType = selection.localPath != null ? 'downloaded' : 'stream';
     logDebug(
       'Playing track: ${selection.track.title}, URL type: $urlType, source: ${selection.track.sourceType}',

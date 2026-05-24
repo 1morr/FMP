@@ -550,10 +550,19 @@ class BilibiliAccountService extends AccountService with Logging {
         jsonDecode(json) as Map<String, dynamic>,
       );
       return _cachedCredentials;
-    } catch (e) {
-      logError('Failed to parse credentials', e);
-      return null;
+    } on FormatException {
+      return _discardMalformedCredentials();
+    } on TypeError {
+      return _discardMalformedCredentials();
     }
+  }
+
+  Future<BilibiliCredentials?> _discardMalformedCredentials() async {
+    await _secureStorage.delete(key: _storageKey);
+    _cachedCredentials = null;
+    await _updateAccount(isLoggedIn: false);
+    logWarning('Discarded malformed Bilibili credentials from secure storage');
+    return null;
   }
 
   /// 更新或創建 Account 記錄

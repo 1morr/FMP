@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../core/utils/http_client_factory.dart';
 import '../models/track.dart';
+import 'source_url_policy.dart';
 
 class SourceHttpPolicy {
   SourceHttpPolicy._();
@@ -33,6 +34,8 @@ class SourceHttpPolicy {
   static Map<String, String> mediaHeaders(
     SourceType sourceType, {
     Map<String, String>? authHeaders,
+    String? requestUrl,
+    bool includeCredentials = true,
   }) {
     final headers = switch (sourceType) {
       SourceType.bilibili => <String, String>{
@@ -51,7 +54,10 @@ class SourceHttpPolicy {
         },
     };
 
-    if (sourceType == SourceType.netease && authHeaders != null) {
+    if (sourceType == SourceType.netease &&
+        authHeaders != null &&
+        includeCredentials &&
+        canAttachNeteaseMediaCredentials(requestUrl)) {
       for (final key in const ['Cookie', 'Origin', 'Referer', 'User-Agent']) {
         final value = authHeaders[key];
         if (value != null && value.isNotEmpty) {
@@ -61,6 +67,20 @@ class SourceHttpPolicy {
     }
 
     return headers;
+  }
+
+  static bool canAttachNeteaseMediaCredentials(String? requestUrl) {
+    if (requestUrl == null || requestUrl.isEmpty) return false;
+    final uri = Uri.tryParse(requestUrl);
+    if (uri == null || uri.scheme.toLowerCase() != 'https') return false;
+
+    final host = SourceUrlPolicy.normalizeHost(uri.host);
+    if (host.isEmpty) return false;
+
+    return host == 'music.163.com' ||
+        host.endsWith('.music.163.com') ||
+        host == 'music.126.net' ||
+        host.endsWith('.music.126.net');
   }
 
   static Map<String, String> apiHeaders(

@@ -5,6 +5,38 @@ import 'package:fmp/data/sources/netease_exception.dart';
 import 'package:fmp/data/sources/netease_source.dart';
 
 void main() {
+  group('NeteaseSource URL parsing', () {
+    test('parseId only accepts numeric song IDs from supported URL shapes', () {
+      final source = NeteaseSource();
+
+      expect(source.parseId('https://music.163.com/song?id=123'), '123');
+      expect(source.parseId('https://music.163.com/song/456'), '456');
+      expect(source.parseId('https://music.163.com/#/song?id=789'), '789');
+      expect(source.parseId('https://music.163.com/song?id=abc'), isNull);
+      expect(source.canHandle('https://music.163.com/song?id=abc'), isFalse);
+    });
+
+    test('isPlaylistUrl only accepts actual playlist URL shapes', () {
+      final source = NeteaseSource();
+
+      expect(
+        source.isPlaylistUrl(
+          'https://music.163.com/#/song?id=123&playlistId=456',
+        ),
+        isFalse,
+      );
+      expect(
+        source.isPlaylistUrl('https://music.163.com/song?id=123'),
+        isFalse,
+      );
+      expect(
+        source.isPlaylistUrl('https://music.163.com/#/playlist?id=456'),
+        isTrue,
+      );
+      expect(source.isPlaylistUrl('https://163cn.tv/abc'), isTrue);
+    });
+  });
+
   group('NeteaseSource getHotRankingTracks', () {
     test('fetches hot playlist metadata up to limit without audio stream',
         () async {

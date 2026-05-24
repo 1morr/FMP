@@ -43,6 +43,8 @@ http://127.0.0.1:<PORT>/<TOKEN>/devtools/?uri=ws://127.0.0.1:<PORT>/<TOKEN>/ws
 - **BASE URL**: `http://127.0.0.1:<PORT>/<TOKEN>=`（用于 HTTP API）
 - **WS URI**: `ws://127.0.0.1:<PORT>/<TOKEN>=/ws`（用于 Marionette 连接）
 
+> VM Service URL 中的 token 等同于本机调试访问凭证。不要把完整 URL、token、DevTools 链接或 websocket URI 贴到 issue、日志、截图、agent 报告或聊天记录中。需要分享时只保留端口和用途，删掉 token 路径；调试结束后关闭 app 或重新启动以失效旧 URI。
+
 ### 获取 Isolate ID
 
 ```bash
@@ -452,6 +454,8 @@ curl -s "$BASE/ext.flutter.inspector.structuredErrors?isolateId=$ISOLATE"
 
 FMP 使用 Isar 数据库，debug 模式下暴露了 Isar Inspector 扩展。
 
+Isar 查询和导出可能包含用户搜索词、播放历史、本地下载路径、账号元数据、设置项和其他本地隐私数据。只查询最小必要 collection 和字段；不要把完整 export、schema dump、查询结果、VM Service token 或临时 JSON 文件直接附到报告中。分享前应删掉 token、绝对路径、用户标识和历史记录，并清理 `$TEMP` 中的调试输出。
+
 ```bash
 # 列出所有 Isar 实例
 curl -s "$BASE/ext.isar.listInstances?isolateId=$ISOLATE"
@@ -648,6 +652,8 @@ PowerShell 中同样使用 `curl.exe`、`$env:TEMP` 和 here-string 执行 Pytho
 ### 8.3 VM Service URI 会变
 
 - 每次 `flutter run` 会生成新的 URI
+- URI 中的 token 必须视为临时 secret；复制命令、截图和日志时先脱敏
+- 调试导出的 VM/Isar JSON 应只保存在本机临时目录，使用完立即删除
 - Hot restart 不会改变 URI，但 hot reload 也不会
 - 完全重启应用会生成新 URI
 - **如果 API 调用无响应或返回空，先确认 URI 是否仍然有效**

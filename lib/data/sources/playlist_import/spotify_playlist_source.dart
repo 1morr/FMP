@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
+import '../source_url_policy.dart';
 import 'playlist_import_source.dart';
 
 /// Spotify 歌单导入源
@@ -18,8 +19,17 @@ class SpotifyPlaylistSource implements PlaylistImportSource {
 
   @override
   bool canHandle(String url) {
-    return url.contains('open.spotify.com/playlist') ||
-        url.contains('spotify.link');
+    final uri = SourceUrlPolicy.parseTrustedHttpUrl(
+      url,
+      allowedHosts: {
+        ...SourceUrlPolicy.spotifyHosts,
+        ...SourceUrlPolicy.spotifyShortHosts,
+      },
+    );
+    if (uri == null) return false;
+    final host = SourceUrlPolicy.normalizeHost(uri.host);
+    if (SourceUrlPolicy.spotifyShortHosts.contains(host)) return true;
+    return uri.pathSegments.length >= 2 && uri.pathSegments[0] == 'playlist';
   }
 
   @override
@@ -69,16 +79,17 @@ class SpotifyPlaylistSource implements PlaylistImportSource {
 
   /// 处理 spotify.link 短链接重定向
   Future<String> _resolveShortUrl(String url) async {
-    if (url.contains('spotify.link')) {
+    if (SourceUrlPolicy.isTrustedHttpUrl(
+      url,
+      allowedHosts: SourceUrlPolicy.spotifyShortHosts,
+    )) {
       try {
-        final response = await _dio.get(
+        return await SourceUrlPolicy.resolveRedirects(
+          _dio,
           url,
-          options: Options(
-            followRedirects: true,
-            maxRedirects: 5,
-          ),
+          initialAllowedHosts: SourceUrlPolicy.spotifyShortHosts,
+          redirectAllowedHosts: SourceUrlPolicy.spotifyHosts,
         );
-        return response.realUri.toString();
       } catch (_) {
         // 忽略错误，返回原始URL
       }
@@ -126,8 +137,9 @@ class SpotifyPlaylistSource implements PlaylistImportSource {
       throw Exception(t.importSource.spotifyPageDataAbnormal);
     }
 
-    final name =
-        entity['name'] as String? ?? entity['title'] as String? ?? t.importSource.unknownPlaylist;
+    final name = entity['name'] as String? ??
+        entity['title'] as String? ??
+        t.importSource.unknownPlaylist;
 
     final trackList = entity['trackList'];
     if (trackList is! List) {

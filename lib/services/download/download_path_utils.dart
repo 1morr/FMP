@@ -26,13 +26,13 @@ class DownloadPathUtils {
     required Track track,
   }) {
     // 子目录：歌单名或"未分类"
-    final subDir = playlistName != null
-        ? sanitizeFileName(playlistName)
-        : '未分类';
+    final subDir =
+        playlistName != null ? sanitizeFileName(playlistName) : '未分类';
 
     // 视频文件夹名：sourceId_parentTitle
     final parentTitle = track.parentTitle ?? track.title;
-    final videoFolder = '${track.sourceId}_${sanitizeFileName(parentTitle)}';
+    final videoFolder =
+        '${sanitizePathComponent(track.sourceId)}_${sanitizeFileName(parentTitle)}';
 
     // 音频文件名
     String fileName;
@@ -44,7 +44,15 @@ class DownloadPathUtils {
       fileName = 'audio.m4a';
     }
 
-    return p.join(baseDir, subDir, videoFolder, fileName);
+    final downloadPath = p.join(baseDir, subDir, videoFolder, fileName);
+    if (!isPathInsideBase(downloadPath, baseDir)) {
+      throw ArgumentError.value(
+        track.sourceId,
+        'track.sourceId',
+        'Computed download path escapes the download base directory',
+      );
+    }
+    return downloadPath;
   }
 
   /// 从文件夹名提取 sourceId
@@ -61,8 +69,10 @@ class DownloadPathUtils {
 
   /// 检查文件夹名是否匹配指定的 sourceId
   static bool folderMatchesSourceId(String folderName, String sourceId) {
-    return folderName.startsWith('${sourceId}_');
+    return folderName.startsWith('${sanitizePathComponent(sourceId)}_');
   }
+
+  static String sanitizePathComponent(String value) => sanitizeFileName(value);
 
   /// 清理文件名中的特殊字符
   ///
@@ -92,12 +102,56 @@ class DownloadPathUtils {
       result = result.substring(0, result.length - 1);
     }
 
+    result = _avoidWindowsReservedName(result);
+
     // 限制长度 (Windows 路径限制考虑)
     if (result.length > 200) {
       result = result.substring(0, 200);
+      result = _avoidWindowsReservedName(result);
     }
 
     return result.isEmpty ? 'untitled' : result;
+  }
+
+  static bool isPathInsideBase(String candidatePath, String baseDir) {
+    final normalizedBase = p.normalize(p.absolute(baseDir));
+    final normalizedCandidate = p.normalize(p.absolute(candidatePath));
+    if (normalizedCandidate == normalizedBase) return true;
+    return p.isWithin(normalizedBase, normalizedCandidate);
+  }
+
+  static String _avoidWindowsReservedName(String name) {
+    if (name.isEmpty) return name;
+    final extension = p.extension(name);
+    final basename = extension.isEmpty
+        ? name
+        : name.substring(0, name.length - extension.length);
+    const reserved = {
+      'CON',
+      'PRN',
+      'AUX',
+      'NUL',
+      'COM1',
+      'COM2',
+      'COM3',
+      'COM4',
+      'COM5',
+      'COM6',
+      'COM7',
+      'COM8',
+      'COM9',
+      'LPT1',
+      'LPT2',
+      'LPT3',
+      'LPT4',
+      'LPT5',
+      'LPT6',
+      'LPT7',
+      'LPT8',
+      'LPT9',
+    };
+    if (!reserved.contains(basename.toUpperCase())) return name;
+    return '_$name';
   }
 
   /// 从完整路径提取歌单名
@@ -125,11 +179,13 @@ class DownloadPathUtils {
   /// 1. 用户自定义目录（settings.customDownloadDir）
   /// 2. Android: /storage/emulated/0/Music/FMP
   /// 3. Windows/其他: Documents/FMP
-  static Future<String> getDefaultBaseDir(SettingsRepository settingsRepo) async {
+  static Future<String> getDefaultBaseDir(
+      SettingsRepository settingsRepo) async {
     final settings = await settingsRepo.get();
 
     // 1. 优先使用自定义目录
-    if (settings.customDownloadDir != null && settings.customDownloadDir!.isNotEmpty) {
+    if (settings.customDownloadDir != null &&
+        settings.customDownloadDir!.isNotEmpty) {
       return settings.customDownloadDir!;
     }
 
@@ -137,7 +193,8 @@ class DownloadPathUtils {
     if (Platform.isAndroid) {
       final extDir = await getExternalStorageDirectory();
       if (extDir != null) {
-        final musicDir = p.join(extDir.parent.parent.parent.parent.path, 'Music', 'FMP');
+        final musicDir =
+            p.join(extDir.parent.parent.parent.parent.path, 'Music', 'FMP');
         return musicDir;
       }
       final appDir = await getApplicationDocumentsDirectory();
@@ -166,7 +223,8 @@ class DownloadPathUtils {
   }
 
   /// 確保頭像目錄存在
-  static Future<void> ensureAvatarDirExists(String baseDir, SourceType sourceType) async {
+  static Future<void> ensureAvatarDirExists(
+      String baseDir, SourceType sourceType) async {
     final platform = sourceType == SourceType.bilibili ? 'bilibili' : 'youtube';
     final dir = Directory(p.join(baseDir, 'avatars', platform));
     if (!await dir.exists()) {

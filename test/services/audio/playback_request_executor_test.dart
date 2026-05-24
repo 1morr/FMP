@@ -157,6 +157,43 @@ void main() {
       expect(audioService.isPlaying, isFalse);
     });
 
+    test('executeQueueRestore uses prepared network URL and headers', () async {
+      final restoreTrack = _track('queue-prepared', title: 'Queue Prepared');
+      final streamManager = _HarnessPlaybackRequestStreamAccess(
+        trackBySourceId: {restoreTrack.sourceId: restoreTrack},
+      );
+      streamManager.onPrepareNetworkPlayback = (track, url) async {
+        expect(track.sourceId, 'queue-prepared');
+        expect(url, 'https://example.com/queue-prepared.m4a');
+        return const PlaybackNetworkRequest(
+          url: 'https://cdn.example.com/queue-prepared.m4a',
+          headers: {'X-Prepared': 'yes'},
+        );
+      };
+      final audioService = FakeAudioService();
+      final executor = PlaybackRequestExecutor(
+        audioService: audioService,
+        audioStreamManager: streamManager,
+        getNextTrack: () => null,
+        isSuperseded: (_) => false,
+      );
+
+      final result = await executor.executeQueueRestore(
+        requestId: 9,
+        track: restoreTrack,
+        position: Duration.zero,
+        shouldResume: false,
+      );
+
+      expect(result, isNotNull);
+      expect(
+          result!.attemptedUrl, 'https://cdn.example.com/queue-prepared.m4a');
+      expect(audioService.setUrlCalls.single.url,
+          'https://cdn.example.com/queue-prepared.m4a');
+      expect(audioService.setUrlCalls.single.headers, {'X-Prepared': 'yes'});
+      expect(streamManager.headerRequests, isEmpty);
+    });
+
     test('execute plays local selections with playFile and skips URL headers',
         () async {
       final localTrack = _track('downloaded-local', title: 'Downloaded Local');
@@ -656,6 +693,8 @@ class _HarnessPlaybackRequestStreamAccess
   final List<String> headerRequests = [];
   final Map<String, Completer<void>> _headerRequestWaiters = {};
   Future<Map<String, String>?> Function(Track track)? onGetPlaybackHeaders;
+  Future<PlaybackNetworkRequest> Function(Track track, String url)?
+      onPrepareNetworkPlayback;
   Future<PlaybackSelection?> Function(Track track, String? failedUrl)?
       onSelectFallbackPlayback;
   Future<(Track, String?, AudioStreamResult?)> Function(
@@ -683,8 +722,9 @@ class _HarnessPlaybackRequestStreamAccess
       track: trackWithUrl,
       url: url,
       localPath: localPath,
-      headers:
-          localPath == null ? await getPlaybackHeaders(trackWithUrl) : null,
+      headers: localPath == null
+          ? await getPlaybackHeaders(trackWithUrl, requestUrl: url)
+          : null,
       streamResult: streamResult,
     );
   }
@@ -727,13 +767,29 @@ class _HarnessPlaybackRequestStreamAccess
   }
 
   @override
-  Future<Map<String, String>?> getPlaybackHeaders(Track track) async {
+  Future<Map<String, String>?> getPlaybackHeaders(
+    Track track, {
+    String? requestUrl,
+  }) async {
     headerRequests.add(track.sourceId);
     final waiter = _headerRequestWaiters[track.sourceId];
     if (waiter != null && !waiter.isCompleted) {
       waiter.complete();
     }
     return onGetPlaybackHeaders?.call(track);
+  }
+
+  @override
+  Future<PlaybackNetworkRequest> prepareNetworkPlayback(
+    Track track,
+    String url,
+  ) async {
+    final prepared = await onPrepareNetworkPlayback?.call(track, url);
+    if (prepared != null) {
+      return prepared;
+    }
+    final headers = await getPlaybackHeaders(track, requestUrl: url);
+    return PlaybackNetworkRequest(url: url, headers: headers);
   }
 
   @override

@@ -15,9 +15,15 @@ Service-layer guidance. For audio-specific rules, also read
   - `metadata.json` or `metadata_P{NN}.json`
   - `cover.jpg`
   - `avatar.jpg`
+- Download path components, including restored `Track.sourceId`, must be
+  sanitized before path construction. Write/delete paths must stay inside the
+  configured download base, and existing destination files must be treated as a
+  conflict rather than overwritten.
 - Audio downloads and downloaded metadata images must use
   `buildDownloadMediaHeaders()` / `buildDownloadImageHeaders()` so Bilibili,
   YouTube, and Netease keep the correct source Referer/Origin/UA/auth policy.
+  Media headers are URL-aware; only allowlisted HTTPS Netease media URLs may
+  receive `MUSIC_U`, and image downloads must not include Netease cookies.
 - Do not rely on `DownloadService` Dio defaults for source-specific headers.
 - Android custom download directories require storage permission
   (`MANAGE_EXTERNAL_STORAGE` on Android 11+).
@@ -71,7 +77,9 @@ Successful title parses are stored in `LyricsTitleParseCache` for reuse during
 the current app run, and the cache is cleared on startup.
 
 Desktop lyrics popup window uses an independent Flutter engine and
-hide-instead-of-destroy lifecycle.
+hide-instead-of-destroy lifecycle. Window lifecycle operations must be
+coalesced/serialized so rapid repeated open calls cannot create orphan child
+windows.
 
 ## Account System
 
@@ -80,6 +88,10 @@ hide-instead-of-destroy lifecycle.
 | Bilibili | QR code / WebView cookie extraction | Cookie auto-refresh |
 | YouTube | WebView cookie extraction | SAPISIDHASH |
 | Netease | QR code / WebView cookie | MUSIC_U (long-lived) |
+
+Credential parse/load failures must log fixed sanitized messages only. Do not
+pass raw secure-storage JSON, cookie strings, token-bearing exceptions, or
+`FormatException` source snippets into `AppLogger`.
 
 ## Playlist Import
 
@@ -111,6 +123,10 @@ events.
 excludes `tray_manager` and `hotkey_manager` because global static C++ channels
 would overwrite the main window. When adding plugins, check for global static
 channel variables before registering them in sub-windows.
+
+Global system hotkeys must require at least one modifier. Validate this in the
+model/import path, not only in the recording dialog, because backups can contain
+raw `hotkeyConfig` JSON.
 
 ## Image Thumbnail Optimization
 

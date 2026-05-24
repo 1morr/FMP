@@ -4,6 +4,7 @@ import 'package:fmp/i18n/strings.g.dart';
 
 import '../../models/track.dart';
 import '../source_http_policy.dart';
+import '../source_url_policy.dart';
 import '../../../services/library/remote_playlist_id_parser.dart';
 import 'playlist_import_source.dart';
 
@@ -19,9 +20,17 @@ class NeteasePlaylistSource implements PlaylistImportSource {
 
   @override
   bool canHandle(String url) {
-    return url.contains('music.163.com') ||
-        url.contains('163cn.tv') ||
-        url.contains('y.music.163.com');
+    final uri = SourceUrlPolicy.parseTrustedHttpUrl(
+      url,
+      allowedHosts: {
+        ...SourceUrlPolicy.neteaseHosts,
+        ...SourceUrlPolicy.neteaseShortHosts,
+      },
+    );
+    if (uri == null) return false;
+    final host = SourceUrlPolicy.normalizeHost(uri.host);
+    if (SourceUrlPolicy.neteaseShortHosts.contains(host)) return true;
+    return _extractPlaylistIdFromTrustedUri(uri) != null;
   }
 
   @override
@@ -69,36 +78,48 @@ class NeteasePlaylistSource implements PlaylistImportSource {
   }
 
   Future<String> _resolveShortUrl(String url) async {
-    if (url.contains('163cn.tv')) {
+    if (SourceUrlPolicy.isTrustedHttpUrl(
+      url,
+      allowedHosts: SourceUrlPolicy.neteaseShortHosts,
+    )) {
       try {
-        final response = await _dio.head(
+        return await SourceUrlPolicy.resolveRedirects(
+          _dio,
           url,
-          options: Options(
-            followRedirects: false,
-            validateStatus: (status) => status != null && status < 400,
-          ),
+          initialAllowedHosts: SourceUrlPolicy.neteaseShortHosts,
+          redirectAllowedHosts: SourceUrlPolicy.neteaseHosts,
+          preferHead: true,
         );
-        final location = response.headers.value('location');
-        if (location != null) {
-          return location;
-        }
       } catch (e) {
         // 如果重定向失败，尝试 GET 请求
         try {
-          final response = await _dio.get(
+          return await SourceUrlPolicy.resolveRedirects(
+            _dio,
             url,
-            options: Options(
-              followRedirects: true,
-              maxRedirects: 5,
-            ),
+            initialAllowedHosts: SourceUrlPolicy.neteaseShortHosts,
+            redirectAllowedHosts: SourceUrlPolicy.neteaseHosts,
           );
-          return response.realUri.toString();
         } catch (_) {
           // 忽略错误，返回原始URL
         }
       }
     }
     return url;
+  }
+
+  String? _extractPlaylistIdFromTrustedUri(Uri uri) {
+    if (_uriPathContainsPlaylist(uri)) {
+      return extractPlaylistId(uri.toString());
+    }
+    final fragmentUri = SourceUrlPolicy.parseNeteaseFragment(uri.fragment);
+    if (fragmentUri != null && _uriPathContainsPlaylist(fragmentUri)) {
+      return extractPlaylistId(fragmentUri.toString());
+    }
+    return null;
+  }
+
+  bool _uriPathContainsPlaylist(Uri uri) {
+    return uri.pathSegments.contains('playlist');
   }
 
   /// 解析响应数据，处理字符串或Map格式

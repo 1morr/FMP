@@ -8,6 +8,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
 
 import '../../data/models/lyrics_match.dart';
+import '../../data/models/hotkey_config.dart';
 import '../../data/models/play_history.dart';
 import '../../data/models/playlist.dart';
 import '../../data/models/radio_station.dart';
@@ -658,7 +659,7 @@ class BackupService {
               ? settingsBackup.launchMinimized
               : (currentSettings?.launchMinimized ?? settings.launchMinimized)
           ..hotkeyConfig = Platform.isWindows
-              ? settingsBackup.hotkeyConfig
+              ? _sanitizeHotkeyConfig(settingsBackup.hotkeyConfig)
               : currentSettings?.hotkeyConfig
           // 歌词设置 - 从备份导入
           ..autoMatchLyrics = settingsBackup.autoMatchLyrics
@@ -718,6 +719,19 @@ class BackupService {
       settingsImported: settingsImportedFlag,
       errors: errors,
     );
+  }
+
+  String? _sanitizeHotkeyConfig(String? hotkeyConfig) {
+    if (hotkeyConfig == null || hotkeyConfig.isEmpty) return hotkeyConfig;
+    try {
+      final decoded = jsonDecode(hotkeyConfig);
+      if (decoded is Map<String, dynamic> && decoded['bindings'] is List) {
+        return HotkeyConfig.fromJson(decoded).toJsonString();
+      }
+    } catch (_) {
+      return hotkeyConfig;
+    }
+    return hotkeyConfig;
   }
 
   /// 解析 SourceType 枚举

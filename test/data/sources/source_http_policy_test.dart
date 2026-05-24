@@ -22,9 +22,12 @@ void main() {
       expect(youtube.containsKey('Authorization'), isFalse);
     });
 
-    test('media headers preserve only allowed Netease auth media headers', () {
+    test(
+        'media headers preserve Netease auth only for allowlisted https media URLs',
+        () {
       final headers = SourceHttpPolicy.mediaHeaders(
         SourceType.netease,
+        requestUrl: 'https://m701.music.126.net/song.m4a',
         authHeaders: const {
           'Cookie': 'MUSIC_U=token',
           'Origin': 'https://music.163.com',
@@ -39,6 +42,24 @@ void main() {
       expect(headers['Referer'], SourceHttpPolicy.neteaseReferer);
       expect(headers['User-Agent'], 'NetEase-UA');
       expect(headers.containsKey('X-Api-Only'), isFalse);
+    });
+
+    test(
+        'media headers strip Netease auth for missing non-https or non-Netease URLs',
+        () {
+      for (final url in [
+        null,
+        'http://m701.music.126.net/song.m4a',
+        'https://attacker.example/song.m4a',
+      ]) {
+        final headers = SourceHttpPolicy.mediaHeaders(
+          SourceType.netease,
+          requestUrl: url,
+          authHeaders: const {'Cookie': 'MUSIC_U=token'},
+        );
+
+        expect(headers.containsKey('Cookie'), isFalse, reason: '$url');
+      }
     });
 
     test('api headers keep source-specific referer origin and user agent', () {

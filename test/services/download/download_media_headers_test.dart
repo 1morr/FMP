@@ -33,6 +33,7 @@ void main() {
     test('netease media headers preserve netease auth for media requests', () {
       final headers = buildDownloadMediaHeaders(
         SourceType.netease,
+        requestUrl: 'https://m701.music.126.net/song.m4a',
         authHeaders: const {
           'Cookie': 'MUSIC_U=token',
           'Origin': 'https://music.163.com',
@@ -69,8 +70,7 @@ void main() {
       expect(headers.containsKey('Cookie'), isFalse);
     });
 
-    test('netease image headers preserve allowed netease auth media headers',
-        () {
+    test('netease image headers never include credential cookies', () {
       final headers = buildDownloadImageHeaders(
         SourceType.netease,
         authHeaders: const {
@@ -82,10 +82,10 @@ void main() {
         },
       );
 
-      expect(headers['Cookie'], 'MUSIC_U=token');
+      expect(headers.containsKey('Cookie'), isFalse);
       expect(headers['Origin'], SourceHttpPolicy.neteaseOrigin);
       expect(headers['Referer'], SourceHttpPolicy.neteaseReferer);
-      expect(headers['User-Agent'], 'NetEase-UA');
+      expect(headers['User-Agent'], SourceHttpPolicy.mediaUserAgent);
       expect(headers.containsKey('X-Api-Only'), isFalse);
     });
 
