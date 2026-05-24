@@ -104,6 +104,18 @@ void main() {
       );
     });
 
+    testWidgets('source rows match the non-tappable lyrics ordering style',
+        (tester) async {
+      await _pumpPage(tester, repository);
+      await tester.pump();
+
+      final tiles = tester.widgetList<ListTile>(find.byType(ListTile)).toList();
+
+      expect(tiles, hasLength(3));
+      expect(tiles.map((tile) => tile.onTap), everyElement(isNull));
+      expect(find.byIcon(Icons.drag_handle), findsNWidgets(3));
+    });
+
     testWidgets('SettingsPage entry opens home ranking settings route',
         (tester) async {
       tester.view.physicalSize = const Size(800, 1000);

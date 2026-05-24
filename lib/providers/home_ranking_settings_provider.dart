@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models/settings.dart';
@@ -44,6 +45,10 @@ class HomeRankingSettingsNotifier
   Settings? _settings;
   Future<void> _sourceOrderMutation = Future<void>.value();
   Future<void> _disabledSourcesMutation = Future<void>.value();
+  List<String> _persistedSourceOrder = homeRankingSourceIds;
+  Set<String> _persistedDisabledSources = const <String>{};
+  int _sourceOrderGeneration = 0;
+  int _disabledSourcesGeneration = 0;
 
   HomeRankingSettingsNotifier({
     required LoadHomeRankingSettings loadSettings,
@@ -57,9 +62,11 @@ class HomeRankingSettingsNotifier
   Future<void> _loadSettings() async {
     final settings = await _loadSettingsFromStore();
     _settings = settings;
+    _persistedSourceOrder = settings.homeRankingSourcePriorityList;
+    _persistedDisabledSources = settings.disabledHomeRankingSourcesSet;
     state = HomeRankingSettingsState(
-      sourceOrder: settings.homeRankingSourcePriorityList,
-      disabledSources: settings.disabledHomeRankingSourcesSet,
+      sourceOrder: _persistedSourceOrder,
+      disabledSources: _persistedDisabledSources,
       isLoading: false,
     );
   }
@@ -68,22 +75,34 @@ class HomeRankingSettingsNotifier
     if (_settings == null) return Future<void>.value();
 
     final normalized = normalizeHomeRankingSourcePriority(order.join(','));
+    if (listEquals(normalized, state.sourceOrder)) {
+      return Future<void>.value();
+    }
+    final generation = ++_sourceOrderGeneration;
+    state = state.copyWith(sourceOrder: normalized);
+
     _sourceOrderMutation = _sourceOrderMutation.then(
-      (_) => _setSourceOrder(normalized),
+      (_) => _persistSourceOrder(normalized, generation),
     );
     return _sourceOrderMutation;
   }
 
-  Future<void> _setSourceOrder(List<String> normalized) async {
-    final previousOrder = state.sourceOrder;
-    state = state.copyWith(sourceOrder: normalized);
-
+  Future<void> _persistSourceOrder(
+    List<String> normalized,
+    int generation,
+  ) async {
     try {
       _settings = await _updateSettings(
         (settings) => settings.homeRankingSourcePriorityList = normalized,
       );
+      _persistedSourceOrder = _settings!.homeRankingSourcePriorityList;
+      if (_sourceOrderGeneration == generation) {
+        state = state.copyWith(sourceOrder: _persistedSourceOrder);
+      }
     } catch (_) {
-      state = state.copyWith(sourceOrder: previousOrder);
+      if (_sourceOrderGeneration == generation) {
+        state = state.copyWith(sourceOrder: _persistedSourceOrder);
+      }
     }
   }
 
@@ -92,33 +111,71 @@ class HomeRankingSettingsNotifier
       return Future<void>.value();
     }
 
+    final disabled = _applySourceToggle(
+      state.disabledSources,
+      source,
+      enabled,
+    );
+
+    if (disabled.length >= homeRankingSourceIds.length) {
+      return Future<void>.value();
+    }
+
+    if (setEquals(disabled, state.disabledSources)) {
+      return Future<void>.value();
+    }
+
+    final generation = ++_disabledSourcesGeneration;
+    state = state.copyWith(disabledSources: disabled);
+
     _disabledSourcesMutation = _disabledSourcesMutation.then(
-      (_) => _toggleSource(source, enabled),
+      (_) => _persistSourceToggle(source, enabled, generation),
     );
     return _disabledSourcesMutation;
   }
 
-  Future<void> _toggleSource(String source, bool enabled) async {
-    final disabled = Set<String>.from(state.disabledSources);
+  Set<String> _applySourceToggle(
+    Set<String> current,
+    String source,
+    bool enabled,
+  ) {
+    final disabled = Set<String>.from(current);
     if (enabled) {
       disabled.remove(source);
     } else {
       disabled.add(source);
     }
+    return disabled;
+  }
 
-    if (disabled.length >= homeRankingSourceIds.length) {
-      return;
-    }
-
-    final previousDisabled = state.disabledSources;
-    state = state.copyWith(disabledSources: disabled);
-
+  Future<void> _persistSourceToggle(
+    String source,
+    bool enabled,
+    int generation,
+  ) async {
     try {
       _settings = await _updateSettings(
-        (settings) => settings.disabledHomeRankingSourcesSet = disabled,
+        (settings) {
+          final disabled = _applySourceToggle(
+            settings.disabledHomeRankingSourcesSet,
+            source,
+            enabled,
+          );
+          if (disabled.length < homeRankingSourceIds.length) {
+            settings.disabledHomeRankingSourcesSet = disabled;
+          }
+        },
       );
+      _persistedDisabledSources = _settings!.disabledHomeRankingSourcesSet;
+      if (_disabledSourcesGeneration == generation) {
+        state = state.copyWith(disabledSources: _persistedDisabledSources);
+      }
     } catch (_) {
-      state = state.copyWith(disabledSources: previousDisabled);
+      if (_disabledSourcesGeneration == generation) {
+        state = state.copyWith(
+          disabledSources: _persistedDisabledSources,
+        );
+      }
     }
   }
 }

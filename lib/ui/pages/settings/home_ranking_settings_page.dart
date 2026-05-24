@@ -135,62 +135,77 @@ class _HomeRankingSourceTile extends StatelessWidget {
     final disabledColor =
         colorScheme.onSurface.withValues(alpha: disabledAlpha);
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onToggle == null ? null : () => onToggle!(!isEnabled),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            children: [
-              ReorderableDragStartListener(
-                index: index,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: Icon(
-                    Icons.drag_handle,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: Icon(
-                  icon,
-                  size: 20,
-                  color: isEnabled ? colorScheme.onSurface : disabledColor,
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      displayName,
-                      style: TextStyle(color: isEnabled ? null : disabledColor),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      isEnabled
-                          ? t.settings.homeRankingSettings.enabled
-                          : t.settings.homeRankingSettings.disabled,
-                      style: TextStyle(
-                        color: isEnabled ? colorScheme.primary : disabledColor,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              Switch(
-                value: isEnabled,
-                onChanged: onToggle,
-              ),
-            ],
-          ),
+    return ListTile(
+      leading: _HomeRankingSourceLeading(
+        index: index,
+        icon: icon,
+        isEnabled: isEnabled,
+      ),
+      title: Text(
+        displayName,
+        style: TextStyle(color: isEnabled ? null : disabledColor),
+      ),
+      subtitle: Text(
+        isEnabled
+            ? t.settings.homeRankingSettings.enabled
+            : t.settings.homeRankingSettings.disabled,
+        style: TextStyle(
+          color: isEnabled ? colorScheme.primary : disabledColor,
+          fontSize: 12,
         ),
+      ),
+      trailing: Switch(
+        value: isEnabled,
+        onChanged: onToggle,
+      ),
+    );
+  }
+}
+
+class _HomeRankingSourceLeading extends StatelessWidget {
+  final int index;
+  final IconData icon;
+  final bool isEnabled;
+
+  const _HomeRankingSourceLeading({
+    required this.index,
+    required this.icon,
+    required this.isEnabled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    const disabledAlpha = 0.38;
+
+    return SizedBox(
+      width: 56,
+      child: Stack(
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ReorderableDragStartListener(
+              index: index,
+              child: Icon(
+                Icons.drag_handle,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 36),
+              child: Icon(
+                icon,
+                size: 20,
+                color: isEnabled
+                    ? colorScheme.onSurface
+                    : colorScheme.onSurface.withValues(alpha: disabledAlpha),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
