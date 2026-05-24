@@ -53,6 +53,26 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('resizes with the lyrics window', (tester) async {
+    tester.view.physicalSize = const Size(400, 520);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _pumpDialog(tester);
+    final compactWidth =
+        tester.getRect(find.byKey(LyricsStyleDialog.contentKey)).width;
+
+    tester.view.physicalSize = const Size(640, 520);
+    await tester.pumpAndSettle();
+
+    final expandedWidth =
+        tester.getRect(find.byKey(LyricsStyleDialog.contentKey)).width;
+    expect(expandedWidth, greaterThan(compactWidth + 40));
+    expect(expandedWidth, lessThanOrEqualTo(400));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('opacity slider reports style changes', (tester) async {
     final changes = <LyricsWindowStyle>[];
     await _pumpDialog(tester, onChanged: changes.add);
