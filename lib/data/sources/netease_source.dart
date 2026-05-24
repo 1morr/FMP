@@ -13,6 +13,7 @@ import 'base_source.dart';
 import 'netease_exception.dart';
 import 'source_exception.dart';
 import 'source_http_policy.dart';
+import 'source_url_policy.dart';
 
 /// 網易雲音樂音源實現
 ///
@@ -43,9 +44,14 @@ class NeteaseSource extends BaseSource with Logging {
 
   @override
   String? parseId(String url) {
-    final match =
-        RegExp(r'music\.163\.com.*?(?:song[?/]|[?&]id=)(\d+)').firstMatch(url);
-    return match?.group(1);
+    final uri = SourceUrlPolicy.parseTrustedHttpUrl(
+      url,
+      allowedHosts: SourceUrlPolicy.neteaseHosts,
+    );
+    if (uri == null) return null;
+    final fragmentSongId = _parseSongIdFromFragment(uri.fragment);
+    if (fragmentSongId != null) return fragmentSongId;
+    return _parseSongIdFromUri(uri);
   }
 
   @override
@@ -53,17 +59,24 @@ class NeteaseSource extends BaseSource with Logging {
 
   @override
   bool isPlaylistUrl(String url) {
-    return (url.contains('music.163.com') &&
-            RegExp(r'playlist[?/]').hasMatch(url)) ||
-        url.contains('163cn.tv');
+    final uri = SourceUrlPolicy.parseTrustedHttpUrl(
+      url,
+      allowedHosts: {
+        ...SourceUrlPolicy.neteaseHosts,
+        ...SourceUrlPolicy.neteaseShortHosts,
+      },
+    );
+    if (uri == null) return false;
+    final host = SourceUrlPolicy.normalizeHost(uri.host);
+    if (SourceUrlPolicy.neteaseShortHosts.contains(host)) return true;
+    if (_uriPathContainsPlaylist(uri)) return true;
+    final fragmentUri = SourceUrlPolicy.parseNeteaseFragment(uri.fragment);
+    return fragmentUri != null && _uriPathContainsPlaylist(fragmentUri);
   }
 
   @override
   bool canHandle(String url) {
-    if (url.contains('music.163.com') && url.contains('song')) {
-      return parseId(url) != null;
-    }
-    return false;
+    return parseId(url) != null;
   }
 
   // ========== 歌曲信息 ==========
@@ -702,7 +715,10 @@ class NeteaseSource extends BaseSource with Logging {
 
   /// 提取歌單 ID（支持標準連結和短連結）
   Future<String?> _extractPlaylistId(String url) async {
-    if (url.contains('163cn.tv')) {
+    if (SourceUrlPolicy.isTrustedHttpUrl(
+      url,
+      allowedHosts: SourceUrlPolicy.neteaseShortHosts,
+    )) {
       final resolvedUrl = await _resolveShortUrl(url);
       return _parsePlaylistIdFromUrl(resolvedUrl);
     }
@@ -713,24 +729,49 @@ class NeteaseSource extends BaseSource with Logging {
     return RemotePlaylistIdParser.parseNeteasePlaylistId(url);
   }
 
+  String? _parseSongIdFromUri(Uri uri) {
+    final pathSegments = uri.pathSegments;
+    final songIndex = pathSegments.indexOf('song');
+    if (songIndex < 0) return null;
+
+    final queryId = uri.queryParameters['id'];
+    if (queryId != null && isValidId(queryId)) return queryId;
+
+    final pathIdIndex = songIndex + 1;
+    if (pathIdIndex < pathSegments.length) {
+      final pathId = pathSegments[pathIdIndex];
+      if (isValidId(pathId)) return pathId;
+    }
+    return null;
+  }
+
+  String? _parseSongIdFromFragment(String fragment) {
+    final fragmentUri = SourceUrlPolicy.parseNeteaseFragment(fragment);
+    if (fragmentUri == null) return null;
+    return _parseSongIdFromUri(fragmentUri);
+  }
+
+  bool _uriPathContainsPlaylist(Uri uri) {
+    return uri.pathSegments.contains('playlist');
+  }
+
   Future<String> _resolveShortUrl(String url) async {
     try {
-      final response = await _dio.head(
+      return await SourceUrlPolicy.resolveRedirects(
+        _dio,
         url,
-        options: Options(
-          followRedirects: false,
-          validateStatus: (status) => status != null && status < 400,
-        ),
+        initialAllowedHosts: SourceUrlPolicy.neteaseShortHosts,
+        redirectAllowedHosts: SourceUrlPolicy.neteaseHosts,
+        preferHead: true,
       );
-      final location = response.headers.value('location');
-      if (location != null) return location;
     } catch (_) {
       try {
-        final response = await _dio.get(
+        return await SourceUrlPolicy.resolveRedirects(
+          _dio,
           url,
-          options: Options(followRedirects: true, maxRedirects: 5),
+          initialAllowedHosts: SourceUrlPolicy.neteaseShortHosts,
+          redirectAllowedHosts: SourceUrlPolicy.neteaseHosts,
         );
-        return response.realUri.toString();
       } catch (_) {}
     }
     return url;

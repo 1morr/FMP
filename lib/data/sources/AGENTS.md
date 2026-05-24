@@ -191,7 +191,15 @@ Source-owned dynamic details stay local:
 
 Media playback/download request headers are intentionally narrower than
 stream-resolution auth headers. `SourceHttpPolicy.mediaHeaders()` currently
-merges auth headers only for Netease media requests; Bilibili and YouTube auth
-cookies/authorization are used for source API/stream URL resolution, not
-forwarded to media/CDN requests unless a future design explicitly changes that
-security boundary.
+merges auth headers only for HTTPS Netease media URLs whose host is explicitly
+allowlisted (`music.163.com` / `*.music.163.com` / `music.126.net` /
+`*.music.126.net`). Bilibili and YouTube auth cookies/authorization are used for
+source API/stream URL resolution, not forwarded to media/CDN requests unless a
+future design explicitly changes that security boundary. Image/header helpers
+must not attach Netease `Cookie` by default.
+
+External playlist import must parse URLs with `Uri`, compare normalized hosts
+against exact allowlists, and validate each redirect target before following it.
+Reject loopback, localhost, private, carrier-grade NAT, and link-local literal
+IP hosts. Do not detect platforms with substring checks against the raw input
+URL.

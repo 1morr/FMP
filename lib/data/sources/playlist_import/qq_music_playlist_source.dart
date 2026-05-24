@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
+import '../source_url_policy.dart';
 import 'playlist_import_source.dart';
 import 'qq_music_sign.dart';
 
@@ -16,7 +17,17 @@ class QQMusicPlaylistSource implements PlaylistImportSource {
 
   @override
   bool canHandle(String url) {
-    return url.contains('y.qq.com') || url.contains('i.y.qq.com');
+    final uri = SourceUrlPolicy.parseTrustedHttpUrl(
+      url,
+      allowedHosts: {
+        ...SourceUrlPolicy.qqMusicHosts,
+        ...SourceUrlPolicy.qqMusicShortHosts,
+      },
+    );
+    if (uri == null) return false;
+    final host = SourceUrlPolicy.normalizeHost(uri.host);
+    if (SourceUrlPolicy.qqMusicShortHosts.contains(host)) return true;
+    return _extractPlaylistIdFromTrustedUri(uri) != null;
   }
 
   @override
@@ -65,7 +76,8 @@ class QQMusicPlaylistSource implements PlaylistImportSource {
     var songBegin = 0;
 
     while (true) {
-      final result = await _fetchPlaylistPage(playlistIdInt, songBegin, pageSize);
+      final result =
+          await _fetchPlaylistPage(playlistIdInt, songBegin, pageSize);
 
       playlistName ??= result.name;
       totalCount = result.totalCount;
@@ -95,21 +107,34 @@ class QQMusicPlaylistSource implements PlaylistImportSource {
 
   Future<String> _resolveShortUrl(String url) async {
     // QQ音乐短链接处理
-    if (url.contains('c.y.qq.com') || url.contains('url.cn')) {
+    if (SourceUrlPolicy.isTrustedHttpUrl(
+      url,
+      allowedHosts: SourceUrlPolicy.qqMusicShortHosts,
+    )) {
       try {
-        final response = await _dio.get(
+        return await SourceUrlPolicy.resolveRedirects(
+          _dio,
           url,
-          options: Options(
-            followRedirects: true,
-            maxRedirects: 5,
-          ),
+          initialAllowedHosts: SourceUrlPolicy.qqMusicShortHosts,
+          redirectAllowedHosts: SourceUrlPolicy.qqMusicHosts,
         );
-        return response.realUri.toString();
       } catch (_) {
         // 忽略错误，返回原始URL
       }
     }
     return url;
+  }
+
+  String? _extractPlaylistIdFromTrustedUri(Uri uri) {
+    final pathSegments = uri.pathSegments;
+    if (pathSegments.contains('playlist')) {
+      return extractPlaylistId(uri.toString());
+    }
+    if (uri.path.endsWith('/taoge.html')) {
+      final id = uri.queryParameters['id'];
+      return id != null && RegExp(r'^\d+$').hasMatch(id) ? id : null;
+    }
+    return null;
   }
 
   Future<_PlaylistPageResult> _fetchPlaylistPage(
@@ -154,12 +179,10 @@ class QQMusicPlaylistSource implements PlaylistImportSource {
 
     // 解析歌单信息
     final dirinfo = reqData['dirinfo'];
-    final name = dirinfo is Map<String, dynamic>
-        ? dirinfo['title'] as String?
-        : null;
-    final totalCount = dirinfo is Map<String, dynamic>
-        ? (dirinfo['songnum'] as int? ?? 0)
-        : 0;
+    final name =
+        dirinfo is Map<String, dynamic> ? dirinfo['title'] as String? : null;
+    final totalCount =
+        dirinfo is Map<String, dynamic> ? (dirinfo['songnum'] as int? ?? 0) : 0;
 
     // 解析歌曲列表
     final songlist = reqData['songlist'];
@@ -212,7 +235,8 @@ class QQMusicPlaylistSource implements PlaylistImportSource {
     throw Exception(t.importSource.invalidResponseFormat);
   }
 
-  Map<String, dynamic> _buildRequest(int playlistId, int songBegin, int songNum) {
+  Map<String, dynamic> _buildRequest(
+      int playlistId, int songBegin, int songNum) {
     return {
       'req_0': {
         'module': 'music.srfDissInfo.aiDissInfo',

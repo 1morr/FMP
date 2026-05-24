@@ -4,21 +4,103 @@ import 'dart:io';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../i18n/strings.g.dart';
 import '../lyrics/lrc_parser.dart';
 import 'lyrics_window_style.dart';
+
+abstract class LyricsWindowControllerHandle {
+  String get windowId;
+  Future<void> show();
+  Future<void> hide();
+}
+
+class _DesktopLyricsWindowControllerHandle
+    implements LyricsWindowControllerHandle {
+  _DesktopLyricsWindowControllerHandle(this._controller);
+
+  final WindowController _controller;
+
+  @override
+  String get windowId => _controller.windowId;
+
+  @override
+  Future<void> show() => _controller.show();
+
+  @override
+  Future<void> hide() => _controller.hide();
+}
+
+@visibleForTesting
+abstract class LyricsWindowPlatform {
+  bool get isWindows;
+  Future<LyricsWindowControllerHandle> createWindow(
+    WindowConfiguration configuration,
+  );
+  Future<List<LyricsWindowControllerHandle>> getAllWindows();
+  Stream<void> get windowsChanged;
+  Future<dynamic> invokeMethod(String method, String arguments);
+  Future<void> setMethodCallHandler(
+    Future<dynamic> Function(MethodCall call)? handler,
+  );
+}
+
+class _DesktopLyricsWindowPlatform implements LyricsWindowPlatform {
+  const _DesktopLyricsWindowPlatform();
+
+  @override
+  bool get isWindows => Platform.isWindows;
+
+  @override
+  Future<LyricsWindowControllerHandle> createWindow(
+    WindowConfiguration configuration,
+  ) async {
+    final controller = await WindowController.create(configuration);
+    return _DesktopLyricsWindowControllerHandle(controller);
+  }
+
+  @override
+  Future<List<LyricsWindowControllerHandle>> getAllWindows() async {
+    final controllers = await WindowController.getAll();
+    return controllers.map(_DesktopLyricsWindowControllerHandle.new).toList();
+  }
+
+  @override
+  Stream<void> get windowsChanged => onWindowsChanged;
+
+  @override
+  Future<dynamic> invokeMethod(String method, String arguments) {
+    return LyricsWindowService._channel.invokeMethod(method, arguments);
+  }
+
+  @override
+  Future<void> setMethodCallHandler(
+    Future<dynamic> Function(MethodCall call)? handler,
+  ) {
+    return LyricsWindowService._channel.setMethodCallHandler(handler);
+  }
+}
 
 /// 桌面歌词弹出窗口管理服务
 ///
 /// 负责创建、管理歌词子窗口，以及主窗口与子窗口之间的数据同步。
 /// 子窗口运行独立 Flutter engine，通过 WindowMethodChannel 双向通信。
 class LyricsWindowService {
-  LyricsWindowService._();
+  LyricsWindowService._({LyricsWindowPlatform? platform})
+      : _platform = platform ?? const _DesktopLyricsWindowPlatform();
+
+  @visibleForTesting
+  factory LyricsWindowService.forTesting(LyricsWindowPlatform platform) {
+    return LyricsWindowService._(platform: platform);
+  }
+
   static final instance = LyricsWindowService._();
 
   /// 子窗口控制器（null 表示窗口未创建）
-  WindowController? _controller;
+  LyricsWindowControllerHandle? _controller;
+
+  Future<void>? _opening;
 
   /// 窗口变化监听
   StreamSubscription<void>? _windowChangeSub;
@@ -37,6 +119,8 @@ class LyricsWindowService {
     'lyrics_sync',
     mode: ChannelMode.bidirectional,
   );
+
+  final LyricsWindowPlatform _platform;
 
   /// 回调：子窗口请求 seek 到指定时间点
   /// 参数：(timestampMs, offsetMs) → 目标位置 = timestampMs - offsetMs
@@ -74,8 +158,30 @@ class LyricsWindowService {
 
   /// 打开歌词窗口（如果已隐藏则恢复显示，如果已打开则聚焦）
   Future<void> open() async {
-    if (!Platform.isWindows) return;
+    if (!_platform.isWindows) return;
+    final opening = _opening;
+    if (opening != null) {
+      if (_controller != null && _isHidden) {
+        try {
+          await _controller!.show();
+          _isHidden = false;
+        } catch (_) {}
+      }
+      return opening;
+    }
 
+    final openOperation = _openWindow();
+    _opening = openOperation;
+    try {
+      await openOperation;
+    } finally {
+      if (identical(_opening, openOperation)) {
+        _opening = null;
+      }
+    }
+  }
+
+  Future<void> _openWindow() async {
     // 窗口存在且未隐藏 → 聚焦
     if (_controller != null && !_isHidden) {
       try {
@@ -105,7 +211,7 @@ class LyricsWindowService {
     // 注册主窗口 handler（处理子窗口发来的命令）
     await _registerMainWindowHandler();
 
-    _controller = await WindowController.create(
+    _controller = await _platform.createWindow(
       WindowConfiguration(
         hiddenAtLaunch: false,
         arguments: jsonEncode({'window_type': 'lyrics'}),
@@ -116,7 +222,7 @@ class LyricsWindowService {
 
     // 监听窗口列表变化，检测子窗口关闭
     _windowChangeSub?.cancel();
-    _windowChangeSub = onWindowsChanged.listen((_) {
+    _windowChangeSub = _platform.windowsChanged.listen((_) {
       _checkWindowClosed();
     });
 
@@ -130,7 +236,7 @@ class LyricsWindowService {
       await Future.delayed(const Duration(milliseconds: 100));
       if (_controller == null) return; // 窗口已关闭
       try {
-        await _channel.invokeMethod('ping', '');
+        await _platform.invokeMethod('ping', '');
         _channelReady = true;
         debugPrint(
             'LyricsWindowService: channel ready after ${(i + 1) * 100}ms');
@@ -162,7 +268,7 @@ class LyricsWindowService {
     if (_controller == null) return;
     try {
       if (_channelReady) {
-        await _channel.invokeMethod('close', '');
+        await _platform.invokeMethod('close', '');
       }
     } catch (_) {}
     _controller = null;
@@ -194,7 +300,7 @@ class LyricsWindowService {
               })
           .toList();
 
-      await _channel.invokeMethod(
+      await _platform.invokeMethod(
         'updateLyrics',
         jsonEncode({
           'lines': lyricsData,
@@ -221,7 +327,7 @@ class LyricsWindowService {
     if (_controller == null || !_channelReady || _isHidden) return;
 
     try {
-      await _channel.invokeMethod(
+      await _platform.invokeMethod(
         'updatePosition',
         jsonEncode({
           'currentLineIndex': currentLineIndex,
@@ -279,7 +385,7 @@ class LyricsWindowService {
     };
 
     try {
-      await _channel.invokeMethod(
+      await _platform.invokeMethod(
         'updateTheme',
         jsonEncode({
           'themeMode': themeMode.index,
@@ -300,7 +406,7 @@ class LyricsWindowService {
     if (_controller == null || !_channelReady || _isHidden) return;
 
     try {
-      await _channel.invokeMethod(
+      await _platform.invokeMethod(
         'updatePlaybackState',
         jsonEncode({'isPlaying': isPlaying}),
       );
@@ -315,7 +421,7 @@ class LyricsWindowService {
     if (_controller == null || !_channelReady || _isHidden) return;
 
     try {
-      await _channel.invokeMethod(
+      await _platform.invokeMethod(
         'updateLyricsDisplayMode',
         jsonEncode({'modeIndex': modeIndex}),
       );
@@ -329,7 +435,7 @@ class LyricsWindowService {
   Future<void> _checkWindowClosed() async {
     if (_controller == null) return;
     try {
-      final controllers = await WindowController.getAll();
+      final controllers = await _platform.getAllWindows();
       final stillExists = controllers.any(
         (c) => c.windowId == _controller!.windowId,
       );
@@ -356,7 +462,7 @@ class LyricsWindowService {
   /// 注册主窗口 handler（处理子窗口发来的 seek/offset/requestHide 命令）
   Future<void> _registerMainWindowHandler() async {
     try {
-      await _channel.setMethodCallHandler((call) async {
+      await _platform.setMethodCallHandler((call) async {
         switch (call.method) {
           case 'seekTo':
             final data =
@@ -417,7 +523,7 @@ class LyricsWindowService {
   /// 注销主窗口 handler
   Future<void> _unregisterMainWindowHandler() async {
     try {
-      await _channel.setMethodCallHandler(null);
+      await _platform.setMethodCallHandler(null);
     } catch (e) {
       debugPrint('LyricsWindowService: unregister handler error: $e');
     }

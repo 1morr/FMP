@@ -15,6 +15,25 @@ The review first built the instruction/document corpus and threat model in
 `docs/reviews/security/threat-model.md`. Descriptive docs were treated as review
 questions, not as proof; the findings below survived code-based validation.
 
+## Remediation Status
+
+Status as of 2026-05-25: all valid findings below have been remediated in the
+follow-up security patch. The detailed finding sections preserve the original
+review evidence and affected line references from the vulnerable snapshot.
+
+| Finding | Status | Remediation summary | Regression / validation |
+|---------|--------|---------------------|-------------------------|
+| FMP-SEC-01 | Fixed | Netease credential-bearing media headers are now URL-aware, HTTPS-only, and host-allowlisted; image downloads do not attach credentials and download redirects recompute headers per hop. | `source_http_policy`, download media header, audio stream manager, and download tests |
+| FMP-SEC-02 | Fixed | Restored `sourceId` values are sanitized before path construction and task file deletion refuses paths outside the configured download base. | download path utility and download service tests |
+| FMP-SEC-03 | Fixed | Playlist import uses parsed URL host allowlists before network requests and validates every redirect target while rejecting local/private literal hosts. | `test/data/sources/source_url_policy_test.dart` |
+| FMP-SEC-04 | Fixed | Account credential parse failures discard malformed secure-storage entries and log fixed sanitized messages; `AppLogger` redacts common cookie/token keys. | account credential redaction tests |
+| FMP-SEC-05 | Fixed | Android signing docs now avoid command-line passwords, use stdin/body-file secret upload examples, and delete temporary base64 keystore files. | documentation review and `git diff --check` |
+| FMP-SEC-06 | Fixed | VM Service / Isar docs now warn that debug tokens, query results, exports, and temp files are sensitive local data. | documentation review and `git diff --check` |
+| FMP-SEC-07 | Fixed | Downloads fail with a visible conflict when the computed final destination already exists before start or final rename. | download service conflict test |
+| FMP-SEC-08 | Fixed | System hotkey bindings imported from backups or JSON must include at least one modifier or they are cleared. | hotkey config and backup import tests |
+| FMP-SEC-09 | Fixed | Lyrics popup `open()` calls are coalesced so concurrent requests create at most one child window. | lyrics window lifecycle test |
+| FMP-SEC-10 | Fixed | Filename sanitization prefixes Windows reserved device names, including extension-bearing forms such as `CON.txt`. | download path utility tests |
+
 ## Valid Findings Only
 
 ### FMP-SEC-01 - Medium - Netease `MUSIC_U` can be sent to non-allowlisted media/image URLs
@@ -274,20 +293,27 @@ extensions such as `CON.txt`.
 
 ## Security-Related Documentation Inaccuracies
 
-- Release docs currently teach command-line signing secrets and leave a base64
-  keystore copy in temp files. This is a valid security documentation finding
-  and should be fixed in `docs/build-guide.md` and
-  `docs/build-and-release.md`.
-- VM Service docs describe token extraction and Isar export commands but do not
-  warn that VM Service URLs/tokens and Isar exports are sensitive local data.
-- Header/download instructions accurately say only Netease media requests merge
-  auth, but they do not require a URL host/scheme allowlist before attaching
-  `MUSIC_U`, and they do not distinguish image requests from media requests.
-- Playlist import docs mention short URL resolution but do not state that
-  user-supplied URLs and every redirect destination must be host-validated and
-  private-address-filtered before network requests.
-- Windows plugin docs are conservative and mostly accurate, but the exact
-  `hotkey_manager` rationale appears stale for the checked dependency version.
+- Release docs originally taught command-line signing secrets and left a base64
+  keystore copy in temp files. The follow-up patch changed the guidance in
+  `docs/build-guide.md` and `docs/build-and-release.md` to avoid command-line
+  passwords, use safer secret upload examples, and clean temporary keystore
+  material.
+- VM Service docs originally described token extraction and Isar export commands
+  without warning that VM Service URLs/tokens and Isar exports are sensitive
+  local data. The follow-up patch added explicit handling boundaries in
+  `docs/debugging-with-vm-service.md`.
+- Header/download instructions originally said only Netease media requests merge
+  auth, but did not require a URL host/scheme allowlist before attaching
+  `MUSIC_U` or distinguish image requests from media requests. The follow-up
+  patch updated `lib/data/sources/AGENTS.md` and `lib/services/AGENTS.md` to
+  document the allowlist and image-header constraints.
+- Playlist import docs originally mentioned short URL resolution but did not
+  state that user-supplied URLs and every redirect destination must be
+  host-validated and private-address-filtered before network requests. The
+  follow-up code moved this into the shared source URL policy used by playlist
+  imports and Netease URL parsing.
+- Windows plugin docs were conservative and mostly accurate, but the exact
+  `hotkey_manager` rationale appeared stale for the checked dependency version.
   The safer instruction remains: keep global hotkey ownership main-window-only
   and inspect static/global channel ownership before adding sub-window plugins.
 

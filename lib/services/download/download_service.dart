@@ -728,6 +728,9 @@ class DownloadService with Logging {
       final savePath = await _getDownloadPath(track, task);
       if (_shouldAbortBeforeRegistration(task.id)) return;
       final tempPath = '$savePath.downloading';
+      if (await File(savePath).exists()) {
+        await _throwDestinationConflict(task, savePath);
+      }
 
       // 确保目录存在
       final dir = Directory(p.dirname(savePath));
@@ -761,17 +764,13 @@ class DownloadService with Logging {
       final receivePort = ReceivePort();
       final cancelPortReady = Completer<SendPort>();
       isolateStopped = Completer<void>();
-      final headers = buildDownloadMediaHeaders(
-        track.sourceType,
-        authHeaders: authHeaders,
-      );
-
       final isolate = await Isolate.spawn(
         _isolateDownload,
         _IsolateDownloadParams(
           url: audioUrl,
           savePath: tempPath,
-          headers: headers,
+          sourceType: track.sourceType,
+          authHeaders: authHeaders,
           resumePosition: resumePosition,
           sendPort: receivePort.sendPort,
         ),
@@ -844,8 +843,8 @@ class DownloadService with Logging {
         throw Exception('Download failed: $downloadError');
       }
 
-      // 下载完成，将临时文件重命名为正式文件
-      await tempFile.rename(savePath);
+      // 下载完成，使用 no-replace finalization，避免覆盖用户已有文件。
+      await _promoteTempFileWithoutReplacing(tempFile, savePath, task);
       if (_shouldAbortAfterFinalizationStarted(task.id)) {
         await _clearDownloadPathForTask(task);
         await _deleteTaskFiles(task);
@@ -1072,13 +1071,19 @@ class DownloadService with Logging {
   }
 
   Future<void> _deleteTaskFiles(DownloadTask task) async {
+    final baseDir =
+        await DownloadPathUtils.getDefaultBaseDir(_settingsRepository);
     final paths = <String>{
       if (task.tempFilePath != null) task.tempFilePath!,
       if (task.savePath != null) task.savePath!,
     };
 
     for (final path in paths) {
-      await _deletePathIfExists(path);
+      if (DownloadPathUtils.isPathInsideBase(path, baseDir)) {
+        await _deletePathIfExists(path);
+      } else {
+        logWarning('Skipped deleting task file outside download base: $path');
+      }
     }
 
     final directoryPaths = <String>{
@@ -1086,7 +1091,12 @@ class DownloadService with Logging {
       if (task.savePath != null) p.dirname(task.savePath!),
     };
     for (final directoryPath in directoryPaths) {
-      await _deleteDirectoryIfEmpty(directoryPath, task.id);
+      if (DownloadPathUtils.isPathInsideBase(directoryPath, baseDir)) {
+        await _deleteDirectoryIfEmpty(directoryPath, task.id);
+      } else {
+        logWarning(
+            'Skipped deleting task directory outside download base: $directoryPath');
+      }
     }
   }
 
@@ -1162,6 +1172,42 @@ class DownloadService with Logging {
       playlistName: task.playlistName,
       track: track,
     );
+  }
+
+  Future<void> _throwDestinationConflict(
+    DownloadTask task,
+    String savePath,
+  ) async {
+    task.savePath = null;
+    await _downloadRepository.saveTask(task);
+    throw FileSystemException(
+      'Download destination already exists',
+      savePath,
+    );
+  }
+
+  Future<void> _promoteTempFileWithoutReplacing(
+    File tempFile,
+    String savePath,
+    DownloadTask task,
+  ) async {
+    final destination = File(savePath);
+    try {
+      await destination.create(exclusive: true);
+    } on FileSystemException {
+      await _throwDestinationConflict(task, savePath);
+    }
+
+    try {
+      final sink = destination.openWrite(mode: FileMode.writeOnly);
+      await tempFile.openRead().pipe(sink);
+      await tempFile.delete();
+    } catch (_) {
+      if (await destination.exists()) {
+        await destination.delete();
+      }
+      rethrow;
+    }
   }
 
   /// 保存元数据
@@ -1431,14 +1477,16 @@ class DownloadDirInfo {
 class _IsolateDownloadParams {
   final String url;
   final String savePath;
-  final Map<String, String> headers;
+  final SourceType sourceType;
+  final Map<String, String>? authHeaders;
   final int resumePosition;
   final SendPort sendPort;
 
   _IsolateDownloadParams({
     required this.url,
     required this.savePath,
-    required this.headers,
+    required this.sourceType,
+    required this.authHeaders,
     required this.resumePosition,
     required this.sendPort,
   });
@@ -1485,19 +1533,55 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
     final client = HttpClient();
     client.connectionTimeout = AppConstants.downloadConnectTimeout;
 
-    final request = await client.getUrl(Uri.parse(params.url));
+    var requestUri = Uri.parse(params.url);
+    late HttpClientResponse response;
+    for (var redirectCount = 0; redirectCount <= 5; redirectCount++) {
+      if (requestUri.scheme != 'http' && requestUri.scheme != 'https') {
+        throw HttpException(
+            'Unsupported redirect scheme: ${requestUri.scheme}');
+      }
 
-    // 添加 headers
-    params.headers.forEach((key, value) {
-      request.headers.set(key, value);
-    });
+      final request = await client.getUrl(requestUri);
+      request.followRedirects = false;
 
-    // 断点续传
-    if (params.resumePosition > 0) {
-      request.headers.set('Range', 'bytes=${params.resumePosition}-');
+      // 添加 headers。每一跳都根据最终请求 URL 重新计算，避免重定向泄漏凭据。
+      final headers = buildDownloadMediaHeaders(
+        params.sourceType,
+        authHeaders: params.authHeaders,
+        requestUrl: requestUri.toString(),
+      );
+      headers.forEach((key, value) {
+        request.headers.set(key, value);
+      });
+
+      // 断点续传
+      if (params.resumePosition > 0) {
+        request.headers.set('Range', 'bytes=${params.resumePosition}-');
+      }
+
+      response = await request.close();
+      if (!_isRedirectStatus(response.statusCode)) {
+        break;
+      }
+
+      final location = response.headers.value(HttpHeaders.locationHeader);
+      await response.drain<void>();
+      if (location == null || location.isEmpty) {
+        await closeCancelPort();
+        client.close(force: true);
+        sendPort.send(_IsolateMessage(
+            _IsolateMessageType.error, 'Redirect without Location'));
+        return;
+      }
+      if (redirectCount == 5) {
+        await closeCancelPort();
+        client.close(force: true);
+        sendPort.send(
+            _IsolateMessage(_IsolateMessageType.error, 'Too many redirects'));
+        return;
+      }
+      requestUri = requestUri.resolve(location);
     }
-
-    final response = await request.close();
 
     if (response.statusCode >= 400) {
       await closeCancelPort();
@@ -1577,4 +1661,12 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
       jsonEncode({'type': 'unknown', 'message': e.toString()}),
     ));
   }
+}
+
+bool _isRedirectStatus(int statusCode) {
+  return statusCode == HttpStatus.movedPermanently ||
+      statusCode == HttpStatus.found ||
+      statusCode == HttpStatus.seeOther ||
+      statusCode == HttpStatus.temporaryRedirect ||
+      statusCode == HttpStatus.permanentRedirect;
 }

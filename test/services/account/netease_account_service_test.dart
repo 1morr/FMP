@@ -82,7 +82,8 @@ void main() {
       expect(secureStorageData, isEmpty);
     });
 
-    test('returns auth headers with cookie origin referer and desktop user agent',
+    test(
+        'returns auth headers with cookie origin referer and desktop user agent',
         () async {
       final service = _FakeNeteaseAccountService(
         isar: isar,
@@ -183,6 +184,26 @@ void main() {
       expect(cookieString, contains('MUSIC_U=existing-music-u'));
       expect(cookieString, contains('__csrf=existing-csrf'));
       expect(cookieString, isNot(contains('new-music-u')));
+    });
+
+    test('invalid login clears malformed rollback snapshot without throwing',
+        () async {
+      secureStorageData[_storageKey] = '{"musicU":"old-secret",';
+      FlutterSecureStorage.setMockInitialValues(secureStorageData);
+      final service = _FakeNeteaseAccountService(
+        isar: isar,
+        nextStatus: const AccountCheckResult(status: AccountStatus.invalid),
+      );
+
+      final success = await service.loginWithCookiesAndValidate(
+        musicU: 'new-music-u',
+        csrf: 'new-csrf',
+      );
+
+      expect(success, isFalse);
+      expect(await service.isLoggedIn(), isFalse);
+      expect(await service.getAuthCookieString(), isNull);
+      expect(secureStorageData.containsKey(_storageKey), isFalse);
     });
   });
 }

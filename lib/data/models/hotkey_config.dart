@@ -44,6 +44,9 @@ class HotkeyBinding {
   /// 是否已配置
   bool get isConfigured => key != null;
 
+  /// 系统级快捷键必须带至少一个 modifier，避免裸键抢占全局输入。
+  bool get isValidSystemBinding => !isConfigured || modifiers.isNotEmpty;
+
   /// 是否与另一个绑定冲突
   bool conflictsWith(HotkeyBinding other) {
     if (!isConfigured || !other.isConfigured) return false;
@@ -68,7 +71,7 @@ class HotkeyBinding {
 
   /// 转换为 HotKey 对象
   HotKey? toHotKey() {
-    if (!isConfigured) return null;
+    if (!isConfigured || !isValidSystemBinding) return null;
     return HotKey(
       key: key!,
       modifiers: modifiers.toList(),
@@ -95,11 +98,12 @@ class HotkeyBinding {
         .whereType<HotKeyModifier>()
         .toSet();
 
-    return HotkeyBinding(
+    final binding = HotkeyBinding(
       action: action,
       key: key,
       modifiers: modifiers,
     );
+    return binding.isValidSystemBinding ? binding : binding.cleared();
   }
 
   /// 序列化为 JSON
@@ -260,7 +264,8 @@ class HotkeyConfig {
   /// 更新绑定
   HotkeyConfig updateBinding(HotkeyBinding binding) {
     final newBindings = Map<HotkeyAction, HotkeyBinding>.from(bindings);
-    newBindings[binding.action] = binding;
+    newBindings[binding.action] =
+        binding.isValidSystemBinding ? binding : binding.cleared();
     return HotkeyConfig(bindings: newBindings);
   }
 

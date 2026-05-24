@@ -29,12 +29,11 @@ keytool -genkey -v \
   -alias fmp \
   -keyalg RSA -keysize 2048 \
   -validity 36500 \
-  -storepass <你的密码> \
-  -keypass <你的密码> \
   -dname "CN=FMP,OU=Personal,O=Personal,L=Unknown,ST=Unknown,C=US"
 ```
 
 > Windows 上 `keytool` 路径通常在 `C:\Program Files\Java\jdk-17\bin\keytool.exe`
+> 让 `keytool` 交互式提示输入密码。不要把 keystore 密码写在命令行、日志、issue、截图或 agent 对话中。
 
 ### 创建 key.properties（本地构建用）
 
@@ -47,12 +46,12 @@ keyAlias=fmp
 storeFile=../release.keystore
 ```
 
-> `key.properties` 和 `release.keystore` 均已在 `.gitignore` 中，不会被提交。
+> `key.properties` 和 `release.keystore` 均已在 `.gitignore` 中，不会被提交。仍需把它们当作签名密钥保管，不要复制到日志、工单、agent 报告或临时公开目录。
 
 ### 验证 Keystore
 
 ```bash
-keytool -list -keystore android/release.keystore -storepass <你的密码>
+keytool -list -keystore android/release.keystore
 ```
 
 应输出包含 `fmp` alias 和 `PrivateKeyEntry` 的信息。
@@ -75,15 +74,19 @@ gh auth status
 ```powershell
 # 1. 上传 Keystore（使用 certutil 编码为 base64）
 certutil -encode android/release.keystore "$env:TEMP\ks.txt"
-Get-Content "$env:TEMP\ks.txt" | Where-Object { $_ -notmatch 'CERTIFICATE' } | gh secret set KEYSTORE_BASE64 --repo 1morr/FMP
+Get-Content "$env:TEMP\ks.txt" |
+  Where-Object { $_ -notmatch 'CERTIFICATE' } |
+  gh secret set KEYSTORE_BASE64 --repo 1morr/FMP --body-file -
+Remove-Item -LiteralPath "$env:TEMP\ks.txt" -Force
 
-# 2. 设置密码和别名
-gh secret set KEYSTORE_PASSWORD --repo 1morr/FMP --body "<你的密码>"
-gh secret set KEY_PASSWORD --repo 1morr/FMP --body "<你的密码>"
-gh secret set KEY_ALIAS --repo 1morr/FMP --body "fmp"
+# 2. 设置密码和别名（逐条输入 secret 内容，不要把密码放在命令行）
+gh secret set KEYSTORE_PASSWORD --repo 1morr/FMP
+gh secret set KEY_PASSWORD --repo 1morr/FMP
+"fmp" | gh secret set KEY_ALIAS --repo 1morr/FMP --body-file -
 ```
 
-> Linux/macOS 用 `base64 android/release.keystore | gh secret set KEYSTORE_BASE64`
+> Linux/macOS 用 `base64 android/release.keystore | gh secret set KEYSTORE_BASE64 --body-file -`
+> 临时 base64 文件、终端 scrollback 和 agent transcript 都可能泄漏签名密钥。上传后确认 `$env:TEMP\ks.txt` 已删除，不要把 secret 值贴到报告中。
 
 ### 验证 Secrets
 

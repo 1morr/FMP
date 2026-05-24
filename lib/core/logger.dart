@@ -29,11 +29,11 @@ class LogEntry {
   });
 
   String get levelPrefix => switch (level) {
-    LogLevel.debug => 'D',
-    LogLevel.info => 'I',
-    LogLevel.warning => 'W',
-    LogLevel.error => 'E',
-  };
+        LogLevel.debug => 'D',
+        LogLevel.info => 'I',
+        LogLevel.warning => 'W',
+        LogLevel.error => 'E',
+      };
 
   String get formattedTime {
     final h = timestamp.hour.toString().padLeft(2, '0');
@@ -61,6 +61,56 @@ class AppLogger {
   /// 日志流控制器（用于实时更新）
   static final _logStreamController = StreamController<LogEntry>.broadcast();
 
+  static final RegExp _authorizationPattern = RegExp(
+    r"""(["']?Authorization["']?\s*[:=]\s*["']?)([^"',;}\r\n]+)""",
+    caseSensitive: false,
+  );
+  static final RegExp _sapisidHashPattern = RegExp(
+    r'SAPISIDHASH\s+[A-Za-z0-9._:-]+',
+    caseSensitive: false,
+  );
+  static final RegExp _bearerPattern = RegExp(
+    r'Bearer\s+[A-Za-z0-9._-]+',
+    caseSensitive: false,
+  );
+  static final RegExp _cookieHeaderPattern = RegExp(
+    r"""(["']?Cookie["']?\s*[:=]\s*["']?)([^"',}\r\n]+)""",
+    caseSensitive: false,
+  );
+  static const List<String> _sensitiveKeys = [
+    'MUSIC_U',
+    'musicU',
+    '__csrf',
+    'SESSDATA',
+    'bili_jct',
+    'DedeUserID',
+    'DedeUserID__ckMd5',
+    'refresh_token',
+    'access_token',
+    'SAPISID',
+    'APISID',
+    'SID',
+    'HSID',
+    'SSID',
+    '__Secure-1PSID',
+    '__Secure-3PSID',
+    '__Secure-1PAPISID',
+    '__Secure-3PAPISID',
+    'LOGIN_INFO',
+    'storePassword',
+    'keyPassword',
+    'password',
+    'token',
+  ];
+  static final List<RegExp> _sensitiveKeyPatterns = _sensitiveKeys
+      .map(
+        (key) => RegExp(
+          '(["\\\']?${RegExp.escape(key)}["\\\']?\\s*[:=]\\s*["\\\']?)([^"\\\',;\\s}]+)',
+          caseSensitive: false,
+        ),
+      )
+      .toList(growable: false);
+
   /// 日志流（用于实时监听）
   static Stream<LogEntry> get logStream => _logStreamController.stream;
 
@@ -75,6 +125,34 @@ class AppLogger {
   /// 设置最小日志级别
   static void setMinLevel(LogLevel level) {
     _minLevel = level;
+  }
+
+  static String redactSensitive(String input) {
+    var redacted = input;
+    redacted = redacted.replaceAllMapped(
+      _authorizationPattern,
+      (match) => '${match.group(1)}[REDACTED]',
+    );
+    redacted = redacted.replaceAll(
+      _sapisidHashPattern,
+      'SAPISIDHASH [REDACTED]',
+    );
+    redacted = redacted.replaceAll(
+      _bearerPattern,
+      'Bearer [REDACTED]',
+    );
+    redacted = redacted.replaceAllMapped(
+      _cookieHeaderPattern,
+      (match) => '${match.group(1)}[REDACTED]',
+    );
+
+    for (final pattern in _sensitiveKeyPatterns) {
+      redacted = redacted.replaceAllMapped(
+        pattern,
+        (match) => '${match.group(1)}[REDACTED]',
+      );
+    }
+    return redacted;
   }
 
   /// 调试日志
@@ -93,7 +171,8 @@ class AppLogger {
   }
 
   /// 错误日志
-  static void error(String message, [Object? error, StackTrace? stackTrace, String? tag]) {
+  static void error(String message,
+      [Object? error, StackTrace? stackTrace, String? tag]) {
     _log(LogLevel.error, message, tag, error, stackTrace);
   }
 
@@ -105,6 +184,9 @@ class AppLogger {
     StackTrace? stackTrace,
   ]) {
     if (level.index < _minLevel.index) return;
+    final safeMessage = redactSensitive(message);
+    final Object? safeError =
+        error == null ? null : redactSensitive(error.toString());
 
     final prefix = switch (level) {
       LogLevel.debug => '[DEBUG]',
@@ -114,14 +196,14 @@ class AppLogger {
     };
 
     final tagStr = tag != null ? '[$tag] ' : '';
-    final fullMessage = '$prefix $tagStr$message';
+    final fullMessage = '$prefix $tagStr$safeMessage';
 
     // 创建日志条目
     final entry = LogEntry(
       level: level,
-      message: message,
+      message: safeMessage,
       tag: tag,
-      error: error,
+      error: safeError,
       stackTrace: stackTrace,
       timestamp: DateTime.now(),
     );
@@ -140,7 +222,7 @@ class AppLogger {
       developer.log(
         fullMessage,
         name: 'FMP',
-        error: error,
+        error: safeError,
         stackTrace: stackTrace,
         level: level == LogLevel.error ? 1000 : 800,
       );
@@ -148,8 +230,8 @@ class AppLogger {
 
     // 始终输出到控制台
     debugPrint(fullMessage);
-    if (error != null) {
-      debugPrint('  Error: $error');
+    if (safeError != null) {
+      debugPrint('  Error: $safeError');
     }
     if (stackTrace != null) {
       debugPrint('  StackTrace: $stackTrace');

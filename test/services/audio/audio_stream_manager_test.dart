@@ -792,6 +792,7 @@ void main() {
       final track = Track()
         ..sourceId = 'netease-song'
         ..sourceType = SourceType.netease
+        ..audioUrl = 'https://m701.music.126.net/netease-song.m4a'
         ..title = 'Netease Song'
         ..artist = 'Tester';
       final settings = await settingsRepository.get();
@@ -808,6 +809,40 @@ void main() {
       expect(
           disabledHeaders, SourceHttpPolicy.mediaHeaders(SourceType.netease));
       expect(disabledHeaders, isNot(contains('Cookie')));
+    });
+
+    test('prepareNetworkPlayback strips Netease auth after off-domain redirect',
+        () async {
+      final settings = await settingsRepository.get();
+      settings.useNeteaseAuthForPlay = true;
+      await settingsRepository.save(settings);
+      final managerWithNetease = AudioStreamManager(
+        delegate: delegate,
+        settingsRepository: settingsRepository,
+        neteaseAccountService: _HeaderOnlyNeteaseAccountService(isar),
+        playbackUrlResolver: (sourceType, url, authHeaders) async {
+          expect(sourceType, SourceType.netease);
+          expect(url, 'https://m701.music.126.net/netease-song.m4a');
+          expect(authHeaders?['Cookie'], 'MUSIC_U=music-u; __csrf=csrf');
+          return const PlaybackUrlResolution(
+            url: 'https://attacker.example/netease-song.m4a',
+            includeCredentials: false,
+          );
+        },
+      );
+
+      final prepared = await managerWithNetease.prepareNetworkPlayback(
+        Track()
+          ..sourceId = 'netease-song'
+          ..sourceType = SourceType.netease
+          ..title = 'Netease Song'
+          ..artist = 'Tester',
+        'https://m701.music.126.net/netease-song.m4a',
+      );
+
+      expect(prepared.url, 'https://attacker.example/netease-song.m4a');
+      expect(prepared.headers, isNot(contains('Cookie')));
+      expect(prepared.headers?['Origin'], SourceHttpPolicy.neteaseOrigin);
     });
 
     test(
