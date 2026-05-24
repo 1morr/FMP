@@ -76,6 +76,9 @@ shared source error/stream/auth policy.
   `geoRestricted` (including `404` + copyright flag); generic missing URLs
   become `unavailable`.
 - Playlist import uses `/api/v6/playlist/detail` plus batch song detail.
+- Hot songs ranking uses the official Netease hot playlist id `3778678` via
+  `/api/v6/playlist/detail` plus song detail metadata only; ranking fetches
+  must not resolve or refresh audio URLs.
 - Short URLs (`163cn.tv`) are resolved through HEAD/GET redirects.
 - VIP detection: `fee == 1 || fee == 4` -> `Track.isVip = true`.
 - Availability: `st == -200` -> unavailable.

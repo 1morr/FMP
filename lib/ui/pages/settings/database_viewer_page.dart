@@ -572,6 +572,14 @@ class _SettingsListView extends StatelessWidget {
                   data: {
                     'rankingRefreshIntervalMinutes':
                         '${setting.rankingRefreshIntervalMinutes} min',
+                    'homeRankingSourcePriority':
+                        setting.homeRankingSourcePriority,
+                    'homeRankingSourcePriorityList':
+                        setting.homeRankingSourcePriorityList.join(', '),
+                    'disabledHomeRankingSources':
+                        setting.disabledHomeRankingSources,
+                    'disabledHomeRankingSourcesSet':
+                        setting.disabledHomeRankingSourcesSet.join(', '),
                     'radioRefreshIntervalMinutes':
                         '${setting.radioRefreshIntervalMinutes} min',
                   },

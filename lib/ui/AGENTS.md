@@ -53,6 +53,13 @@ Use `RefreshIndicator` + `ref.invalidate()` or cache service refresh APIs.
 Downloaded/library flows often use explicit invalidation/buttons instead of
 pull-to-refresh; follow existing page behavior.
 
+## Home Rankings
+
+Home ranking UI is source-configurable. Use
+`enabledHomeRankingSourceOrderProvider` for display order, keep malformed empty
+settings from producing an empty header, and keep the settings UI from disabling
+the final enabled ranking source.
+
 ## Settings Boundaries
 
 Playback auth toggles (`useBilibiliAuthForPlay`, `useYoutubeAuthForPlay`,
@@ -97,6 +104,8 @@ When adding, removing, or changing an Isar collection, persisted field, embedded
 object, or schema registration in `database_provider.dart`, update
 `lib/ui/pages/settings/database_viewer_page.dart` in the same change so the
 developer database viewer remains complete.
+Settings persisted fields and debug getters should also be covered by the
+database viewer coverage test.
 
 Run:
 

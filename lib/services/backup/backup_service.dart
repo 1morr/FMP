@@ -246,6 +246,10 @@ class BackupService {
         useYoutubeAuthForPlay: settings.useYoutubeAuthForPlay,
         useNeteaseAuthForPlay: settings.useNeteaseAuthForPlay,
         rankingRefreshIntervalMinutes: settings.rankingRefreshIntervalMinutes,
+        homeRankingSourcePriority:
+            settings.homeRankingSourcePriorityList.join(','),
+        disabledHomeRankingSources:
+            settings.disabledHomeRankingSourcesSet.join(','),
         radioRefreshIntervalMinutes: settings.radioRefreshIntervalMinutes,
       );
     }
@@ -631,6 +635,11 @@ class BackupService {
           ..useNeteaseAuthForPlay = settingsBackup.useNeteaseAuthForPlay
           ..rankingRefreshIntervalMinutes =
               settingsBackup.rankingRefreshIntervalMinutes
+          ..homeRankingSourcePriorityList =
+              settingsBackup.homeRankingSourcePriority.split(',')
+          ..disabledHomeRankingSourcesSet = normalizeDisabledHomeRankingSources(
+            settingsBackup.disabledHomeRankingSources,
+          )
           ..radioRefreshIntervalMinutes =
               settingsBackup.radioRefreshIntervalMinutes
           // 桌面专属设置 - 仅在桌面平台导入，否则保留当前值

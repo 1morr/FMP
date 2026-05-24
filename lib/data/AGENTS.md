@@ -82,7 +82,8 @@ When adding a persisted field:
   default popup style, so no upgrade repair is needed.
 - `audioFormatPriority`, `youtubeStreamPriority`, `bilibiliStreamPriority`,
   `neteaseStreamPriority`
-- `rankingRefreshIntervalMinutes`, `radioRefreshIntervalMinutes`
+- `rankingRefreshIntervalMinutes`, `homeRankingSourcePriority`,
+  `disabledHomeRankingSources`, `radioRefreshIntervalMinutes`
 - `useNeteaseAuthForPlay` (business default `true`, Isar default `false`)
 - Legacy default-signature repair for `rememberPlaybackPosition`,
   `tempPlayRewindSeconds`, and disabled lrclib auto-match defaults

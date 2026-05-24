@@ -60,9 +60,11 @@
   "explore": {
     "title": "探索頁面",
     "ranking": "熱門排行榜",
-    "rankingDesc": "檢視 嗶哩嗶哩 和 YouTube 音樂熱門排行",
+    "rankingDesc": "檢視 嗶哩嗶哩、YouTube 和網易雲音樂熱門排行",
     "autoUpdate": "自動更新",
-    "autoUpdateDesc": "排行榜每小時自動背景重新整理，開啟即看無需等待"
+    "autoUpdateDesc": "排行榜每小時自動背景重新整理，開啟即看無需等待",
+    "homeSources": "首頁熱門來源",
+    "homeSourcesDesc": "在設定 → 首頁熱門來源中選擇並排序首頁顯示的排行榜來源"
   },
   "history": {
     "title": "播放歷史",
