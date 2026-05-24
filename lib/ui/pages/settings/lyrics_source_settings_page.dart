@@ -486,14 +486,6 @@ class _AiTitleParsingSettingsDialogState
           Icon(Icons.smart_toy_outlined, color: colorScheme.primary),
           const SizedBox(width: 8),
           Expanded(child: Text(t.settings.lyricsSourceSettings.aiSectionTitle)),
-          IconButton(
-            onPressed: _isTesting ? null : () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close),
-            tooltip: t.general.close,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            iconSize: 20,
-          ),
         ],
       ),
       content: SizedBox(

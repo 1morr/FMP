@@ -40,6 +40,7 @@ class LyricsStyleDialogStrings {
 
 class LyricsStyleDialog extends StatefulWidget {
   static const dialogKey = ValueKey('lyrics-style-dialog');
+  static const contentKey = ValueKey('lyrics-style-dialog-content');
   static const inactiveOpacitySliderKey =
       ValueKey('lyrics-style-inactive-opacity-slider');
   static const resetButtonKey = ValueKey('lyrics-style-reset-button');
@@ -162,151 +163,163 @@ class _LyricsStyleDialogState extends State<LyricsStyleDialog> {
   @override
   Widget build(BuildContext context) {
     final strings = widget.strings;
+    final windowSize = MediaQuery.sizeOf(context);
+    final horizontalInset = windowSize.width < 400 ? 12.0 : 24.0;
+    final verticalInset = windowSize.height < 360 ? 12.0 : 24.0;
+    final contentWidth =
+        (windowSize.width - horizontalInset * 2 - 48).clamp(240.0, 400.0);
+    final contentMaxHeight =
+        (windowSize.height - verticalInset * 2 - 156).clamp(120.0, 420.0);
+
     return AlertDialog(
       key: LyricsStyleDialog.dialogKey,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
-      titlePadding: const EdgeInsets.fromLTRB(16, 12, 12, 4),
-      contentPadding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-      actionsPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: horizontalInset,
+        vertical: verticalInset,
+      ),
+      contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
       title: Row(
         children: [
-          const Icon(Icons.palette_outlined, size: 20),
+          const Icon(Icons.palette_outlined),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               strings.styleSettings,
-              style: Theme.of(context).textTheme.titleMedium,
               overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
       ),
       content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 340, maxHeight: 420),
-        child: Scrollbar(
-          controller: _scrollController,
-          child: SingleChildScrollView(
+        constraints: BoxConstraints(maxHeight: contentMaxHeight.toDouble()),
+        child: SizedBox(
+          key: LyricsStyleDialog.contentKey,
+          width: contentWidth.toDouble(),
+          child: Scrollbar(
             controller: _scrollController,
-            padding: const EdgeInsets.only(right: 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _colorSetting(
-                  label: strings.textColor,
-                  color: _style.textColor,
-                  onChanged: (color) => _update(
-                    _style.copyWith(textColor: color),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _colorSetting(
-                  label: strings.secondaryTextColor,
-                  color: _style.secondaryTextColor,
-                  onChanged: (color) => _update(
-                    _style.copyWith(secondaryTextColor: color),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _sliderSetting(
-                  key: LyricsStyleDialog.inactiveOpacitySliderKey,
-                  label: strings.inactiveOpacity,
-                  value: _style.inactiveOpacity,
-                  min: 0.15,
-                  max: 1,
-                  divisions: 17,
-                  valueLabel: (value) => '${(value * 100).round()}%',
-                  onChanged: (value) => _update(
-                    _style.copyWith(inactiveOpacity: value),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                SwitchExpansionTile(
-                  title: strings.outline,
-                  expanded: _outlineExpanded,
-                  enabled: _style.outlineEnabled,
-                  onExpanded: (value) =>
-                      setState(() => _outlineExpanded = value),
-                  onEnabledChanged: (value) => _update(
-                    _style.copyWith(outlineEnabled: value),
-                  ),
-                  children: [
-                    _colorSetting(
-                      label: strings.outlineColor,
-                      color: _style.outlineColor,
-                      onChanged: (color) => _update(
-                        _style.copyWith(outlineColor: color),
-                      ),
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              padding: const EdgeInsets.only(right: 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _colorSetting(
+                    label: strings.textColor,
+                    color: _style.textColor,
+                    onChanged: (color) => _update(
+                      _style.copyWith(textColor: color),
                     ),
-                    const SizedBox(height: 8),
-                    _sliderSetting(
-                      label: strings.outlineWidth,
-                      value: _style.outlineWidth,
-                      min: 0.5,
-                      max: 8,
-                      divisions: 15,
-                      onChanged: (value) => _update(
-                        _style.copyWith(outlineWidth: value),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                SwitchExpansionTile(
-                  title: strings.shadow,
-                  expanded: _shadowExpanded,
-                  enabled: _style.shadowEnabled,
-                  onExpanded: (value) =>
-                      setState(() => _shadowExpanded = value),
-                  onEnabledChanged: (value) => _update(
-                    _style.copyWith(shadowEnabled: value),
                   ),
-                  children: [
-                    _colorSetting(
-                      label: strings.shadowColor,
-                      color: _style.shadowColor,
-                      onChanged: (color) => _update(
-                        _style.copyWith(shadowColor: color),
-                      ),
+                  const SizedBox(height: 10),
+                  _colorSetting(
+                    label: strings.secondaryTextColor,
+                    color: _style.secondaryTextColor,
+                    onChanged: (color) => _update(
+                      _style.copyWith(secondaryTextColor: color),
                     ),
-                    const SizedBox(height: 8),
-                    _sliderSetting(
-                      label: strings.shadowBlur,
-                      value: _style.shadowBlurRadius,
-                      min: 0,
-                      max: 24,
-                      divisions: 24,
-                      onChanged: (value) => _update(
-                        _style.copyWith(shadowBlurRadius: value),
-                      ),
+                  ),
+                  const SizedBox(height: 10),
+                  _sliderSetting(
+                    key: LyricsStyleDialog.inactiveOpacitySliderKey,
+                    label: strings.inactiveOpacity,
+                    value: _style.inactiveOpacity,
+                    min: 0.15,
+                    max: 1,
+                    divisions: 17,
+                    valueLabel: (value) => '${(value * 100).round()}%',
+                    onChanged: (value) => _update(
+                      _style.copyWith(inactiveOpacity: value),
                     ),
-                    _sliderSetting(
-                      label: strings.shadowOffsetX,
-                      value: _style.shadowOffset.dx,
-                      min: -12,
-                      max: 12,
-                      divisions: 24,
-                      onChanged: (value) => _update(
-                        _style.copyWith(
-                          shadowOffset: Offset(value, _style.shadowOffset.dy),
+                  ),
+                  const SizedBox(height: 10),
+                  SwitchExpansionTile(
+                    title: strings.outline,
+                    expanded: _outlineExpanded,
+                    enabled: _style.outlineEnabled,
+                    onExpanded: (value) =>
+                        setState(() => _outlineExpanded = value),
+                    onEnabledChanged: (value) => _update(
+                      _style.copyWith(outlineEnabled: value),
+                    ),
+                    children: [
+                      _colorSetting(
+                        label: strings.outlineColor,
+                        color: _style.outlineColor,
+                        onChanged: (color) => _update(
+                          _style.copyWith(outlineColor: color),
                         ),
                       ),
-                    ),
-                    _sliderSetting(
-                      label: strings.shadowOffsetY,
-                      value: _style.shadowOffset.dy,
-                      min: -12,
-                      max: 12,
-                      divisions: 24,
-                      onChanged: (value) => _update(
-                        _style.copyWith(
-                          shadowOffset: Offset(_style.shadowOffset.dx, value),
+                      const SizedBox(height: 8),
+                      _sliderSetting(
+                        label: strings.outlineWidth,
+                        value: _style.outlineWidth,
+                        min: 0.5,
+                        max: 8,
+                        divisions: 15,
+                        onChanged: (value) => _update(
+                          _style.copyWith(outlineWidth: value),
                         ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchExpansionTile(
+                    title: strings.shadow,
+                    expanded: _shadowExpanded,
+                    enabled: _style.shadowEnabled,
+                    onExpanded: (value) =>
+                        setState(() => _shadowExpanded = value),
+                    onEnabledChanged: (value) => _update(
+                      _style.copyWith(shadowEnabled: value),
                     ),
-                  ],
-                ),
-              ],
+                    children: [
+                      _colorSetting(
+                        label: strings.shadowColor,
+                        color: _style.shadowColor,
+                        onChanged: (color) => _update(
+                          _style.copyWith(shadowColor: color),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _sliderSetting(
+                        label: strings.shadowBlur,
+                        value: _style.shadowBlurRadius,
+                        min: 0,
+                        max: 24,
+                        divisions: 24,
+                        onChanged: (value) => _update(
+                          _style.copyWith(shadowBlurRadius: value),
+                        ),
+                      ),
+                      _sliderSetting(
+                        label: strings.shadowOffsetX,
+                        value: _style.shadowOffset.dx,
+                        min: -12,
+                        max: 12,
+                        divisions: 24,
+                        onChanged: (value) => _update(
+                          _style.copyWith(
+                            shadowOffset: Offset(value, _style.shadowOffset.dy),
+                          ),
+                        ),
+                      ),
+                      _sliderSetting(
+                        label: strings.shadowOffsetY,
+                        value: _style.shadowOffset.dy,
+                        min: -12,
+                        max: 12,
+                        divisions: 24,
+                        onChanged: (value) => _update(
+                          _style.copyWith(
+                            shadowOffset: Offset(_style.shadowOffset.dx, value),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
