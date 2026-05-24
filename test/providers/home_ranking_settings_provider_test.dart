@@ -128,6 +128,29 @@ void main() {
       );
     });
 
+    test('setSourceOrder updates state before persistence completes', () async {
+      final store = _InMemorySettingsStore(Settings());
+      final notifier = _createNotifier(store);
+      await Future<void>.delayed(Duration.zero);
+      store.updateGate = Completer<void>();
+
+      final persistence = notifier.setSourceOrder(['netease']);
+
+      expect(notifier.state.sourceOrder, ['netease', 'bilibili', 'youtube']);
+      expect(
+        store.settings.homeRankingSourcePriority,
+        defaultHomeRankingSourcePriority,
+      );
+
+      store.updateGate!.complete();
+      await persistence;
+
+      expect(
+        store.settings.homeRankingSourcePriority,
+        'netease,bilibili,youtube',
+      );
+    });
+
     test(
         'setSourceOrder persistence failure rolls back only source order '
         'and leaves disabled sources untouched', () async {
@@ -177,6 +200,28 @@ void main() {
       );
     });
 
+    test(
+        'overlapping setSourceOrder failures rollback to the last persisted '
+        'order', () async {
+      final store = _InMemorySettingsStore(Settings());
+      final notifier = _createNotifier(store);
+      await Future<void>.delayed(Duration.zero);
+      store.failUpdateCount = 2;
+
+      final first = notifier.setSourceOrder(['youtube']);
+      final second = notifier.setSourceOrder(['netease']);
+      await Future.wait([first, second]);
+
+      expect(
+        notifier.state.sourceOrder,
+        ['bilibili', 'youtube', 'netease'],
+      );
+      expect(
+        store.settings.homeRankingSourcePriority,
+        'bilibili,youtube,netease',
+      );
+    });
+
     test('toggleSource disables and enables source', () async {
       final store = _InMemorySettingsStore(Settings());
       final notifier = _createNotifier(store);
@@ -196,6 +241,24 @@ void main() {
         notifier.state.enabledSourceOrder,
         ['bilibili', 'youtube', 'netease'],
       );
+    });
+
+    test('toggleSource updates state before persistence completes', () async {
+      final store = _InMemorySettingsStore(Settings());
+      final notifier = _createNotifier(store);
+      await Future<void>.delayed(Duration.zero);
+      store.updateGate = Completer<void>();
+
+      final persistence = notifier.toggleSource('youtube', false);
+
+      expect(notifier.state.disabledSources, {'youtube'});
+      expect(notifier.state.enabledSourceOrder, ['bilibili', 'netease']);
+      expect(store.settings.disabledHomeRankingSourcesSet, isEmpty);
+
+      store.updateGate!.complete();
+      await persistence;
+
+      expect(store.settings.disabledHomeRankingSourcesSet, {'youtube'});
     });
 
     test('toggleSource keeps the last enabled source enabled', () async {
@@ -257,6 +320,27 @@ void main() {
       expect(store.settings.disabledHomeRankingSourcesSet, {'netease'});
     });
 
+    test(
+        'overlapping toggleSource failures rollback to the last persisted '
+        'disabled sources', () async {
+      final store = _InMemorySettingsStore(Settings());
+      final notifier = _createNotifier(store);
+      await Future<void>.delayed(Duration.zero);
+      store.failUpdateCount = 2;
+
+      final first = notifier.toggleSource('youtube', false);
+      final second = notifier.toggleSource('youtube', true);
+      await Future.wait([first, second]);
+
+      expect(notifier.state.disabledSources, isEmpty);
+      expect(notifier.state.enabledSourceOrder, [
+        'bilibili',
+        'youtube',
+        'netease',
+      ]);
+      expect(store.settings.disabledHomeRankingSourcesSet, isEmpty);
+    });
+
     test('invalid source toggle does not change state', () async {
       final store = _InMemorySettingsStore(
         Settings()..disabledHomeRankingSources = 'netease',
@@ -288,6 +372,8 @@ class _InMemorySettingsStore {
   final Settings settings;
   int updateCount = 0;
   bool failNextUpdate = false;
+  int failUpdateCount = 0;
+  Completer<void>? updateGate;
 
   Future<Settings> get() async => settings;
 
@@ -296,6 +382,15 @@ class _InMemorySettingsStore {
     if (failNextUpdate) {
       failNextUpdate = false;
       throw StateError('update failed');
+    }
+    if (failUpdateCount > 0) {
+      failUpdateCount -= 1;
+      throw StateError('update failed');
+    }
+    final gate = updateGate;
+    if (gate != null) {
+      updateGate = null;
+      await gate.future;
     }
     mutate(settings);
     return settings;
