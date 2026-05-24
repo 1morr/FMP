@@ -1559,7 +1559,16 @@ class YouTubeSource extends BaseSource with Logging {
   /// 播放列表每週更新，包含本週最熱門的新 MV。
   Future<List<Track>> getTrendingVideos({String category = 'music'}) async {
     logDebug('Getting YouTube trending videos via New This Week playlist');
-    final tracks = await _fetchNewThisWeekPlaylist();
+    List<Track> tracks;
+    try {
+      tracks = await _fetchNewThisWeekPlaylist();
+    } catch (e) {
+      if (!_isRetryableTrendingError(e)) rethrow;
+      logWarning(
+          'YouTube trending fetch hit transient error; retrying once: $e');
+      await Future<void>.delayed(AppConstants.networkRetryDelay);
+      tracks = await _fetchNewThisWeekPlaylist();
+    }
     logDebug('Got ${tracks.length} tracks from New This Week playlist');
     return tracks;
   }
@@ -2212,6 +2221,31 @@ class YouTubeSource extends BaseSource with Logging {
       return !error.kind.canFallbackToLowerAudioQuality;
     }
     return _isRateLimitError(error);
+  }
+
+  bool _isRetryableTrendingError(Object error) {
+    if (error is YouTubeApiException) {
+      if (error.kind.isRetryable) return true;
+      if (error.code == 'service_unavailable') return true;
+      if (error.code == 'api_error') {
+        final message = error.message.toLowerCase();
+        return message.contains('server error: 5') ||
+            message.contains('returned status 5');
+      }
+      return false;
+    }
+    if (error is DioException) {
+      final statusCode = error.response?.statusCode;
+      if (statusCode == 429) return false;
+      if (statusCode != null && statusCode >= 500 && statusCode < 600) {
+        return true;
+      }
+      return error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.sendTimeout ||
+          error.type == DioExceptionType.receiveTimeout ||
+          error.type == DioExceptionType.connectionError;
+    }
+    return false;
   }
 
   /// 处理 Dio 错误（用于 InnerTube API 调用）

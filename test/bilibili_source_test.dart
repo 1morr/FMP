@@ -14,11 +14,108 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/source_exception.dart';
 
 void main() {
+  group('BilibiliApiException', () {
+    test('classifies risk-control code as rate limited', () {
+      const error = BilibiliApiException(numericCode: -352, message: '-352');
+
+      expect(error.kind, SourceErrorKind.rateLimited);
+      expect(error.code, 'rate_limited');
+    });
+  });
+
   group('BilibiliSource', () {
     late BilibiliSource source;
 
     setUp(() {
       source = BilibiliSource();
+    });
+
+    group('getRankingVideos', () {
+      test('refreshes Bilibili fingerprint and retries after risk control',
+          () async {
+        final requests = <RequestOptions>[];
+        var rankingCalls = 0;
+        final dio = Dio();
+        dio.httpClientAdapter = _FakeHttpClientAdapter((options, _) {
+          requests.add(options);
+
+          if (options.path.endsWith('/x/web-interface/ranking/v2')) {
+            rankingCalls++;
+            if (rankingCalls == 1) {
+              return ResponseBody.fromString(
+                jsonEncode({
+                  'code': -352,
+                  'message': '-352',
+                }),
+                200,
+                headers: {
+                  Headers.contentTypeHeader: ['application/json'],
+                },
+              );
+            }
+
+            return ResponseBody.fromString(
+              jsonEncode({
+                'code': 0,
+                'data': {
+                  'list': [
+                    {
+                      'bvid': 'BVrankingRetry',
+                      'title': 'Ranking Retry',
+                      'duration': 123,
+                      'pic': '//example.com/cover.jpg',
+                      'owner': {'name': 'Artist', 'mid': 1001},
+                      'stat': {'view': 456},
+                    }
+                  ],
+                },
+              }),
+              200,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+
+          if (options.path.endsWith('/x/frontend/finger/spi')) {
+            return ResponseBody.fromString(
+              jsonEncode({
+                'code': 0,
+                'data': {
+                  'b_3': 'OFFICIAL-BUVID3infoc',
+                  'b_4': 'OFFICIAL-BUVID4',
+                },
+              }),
+              200,
+              headers: {
+                Headers.contentTypeHeader: ['application/json'],
+              },
+            );
+          }
+
+          throw StateError('Unexpected request: ${options.path}');
+        });
+        final source = BilibiliSource(
+          dio: dio,
+          apiBase: 'https://api.bilibili.test',
+        );
+
+        final tracks = await source.getRankingVideos(rid: 1003);
+
+        expect(tracks, hasLength(1));
+        expect(tracks.single.sourceId, 'BVrankingRetry');
+        expect(
+          requests.map((request) => request.path),
+          [
+            'https://api.bilibili.test/x/web-interface/ranking/v2',
+            'https://api.bilibili.test/x/frontend/finger/spi',
+            'https://api.bilibili.test/x/web-interface/ranking/v2',
+          ],
+        );
+        final retryCookie = requests.last.headers['Cookie'] as String?;
+        expect(retryCookie, contains('buvid3=OFFICIAL-BUVID3infoc'));
+        expect(retryCookie, contains('buvid4=OFFICIAL-BUVID4'));
+      });
     });
 
     group('parsePlaylist', () {

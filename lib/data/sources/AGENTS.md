@@ -25,19 +25,25 @@ shared source error/stream/auth policy.
   instead of reusing the search/API Dio.
 - Favorites folder import is supported.
 - Regular media/API requests require `Referer: https://www.bilibili.com`.
+- Bilibili ranking requests that return `-352` are risk-control failures; refresh
+  browser fingerprint cookies through `/x/frontend/finger/spi` and retry once
+  instead of changing away from `/x/web-interface/ranking/v2`.
 - Audio URLs expire; `ensureAudioUrl()` must periodically refresh them.
 - `AudioStreamResult.expiry` must report the same Bilibili URL TTL used by track
   refresh logic so shared playback caching does not fall back to a generic
   default.
 - Bilibili same-quality alternative fallback should exclude the failed media URL
   and may select DASH backup URLs or another durl entry before giving up.
-- Rate-limit codes include `-412`, `-509`, and `-799`.
+- Rate-limit/risk-control codes include `-352`, `-412`, `-509`, and `-799`.
 
 ## YouTube
 
 - Direct source uses `youtube_explode_dart` plus InnerTube API.
 - YouTube Mix/Radio dynamic infinite playlists use `RD` playlist IDs and
   InnerTube `/next`.
+- YouTube trending rankings use the YouTube Music "New This Week" playlist via
+  InnerTube `/browse`; retry transient network/timeout/5xx failures once after
+  `AppConstants.networkRetryDelay`, but do not immediately retry HTTP 429.
 - Playlist import uses InnerTube `/browse`.
 - Authenticated video detail paths must fall back to InnerTube when
   `youtube_explode_dart` reports a private/unplayable video.

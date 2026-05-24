@@ -36,16 +36,18 @@ class _BilibiliApiParams {
 class BilibiliSource extends BaseSource with Logging {
   late final Dio _dio;
   late final Dio _liveDio;
-  late final Options _searchOptions;
+  late Options _searchOptions;
   late final String _viewApi;
   late final String _playUrlApi;
   late final String _searchApi;
   late final String _favListApi;
   late final String _replyApi;
   late final String _rankingApi;
+  late final String _fingerprintApi;
   late final String _liveRoomInfoApi;
   late final String _livePlayUrlApi;
   late final String _liveAnchorInfoApi;
+  late String _browserCookie;
 
   // API 端点
   static const String _defaultApiBase = 'https://api.bilibili.com';
@@ -63,25 +65,27 @@ class BilibiliSource extends BaseSource with Logging {
     _favListApi = '$apiBase/x/v3/fav/resource/list';
     _replyApi = '$apiBase/x/v2/reply';
     _rankingApi = '$apiBase/x/web-interface/ranking/v2';
+    _fingerprintApi = '$apiBase/x/frontend/finger/spi';
     _liveRoomInfoApi = '$liveApiBase/room/v1/Room/get_info';
     _livePlayUrlApi = '$liveApiBase/room/v1/Room/playUrl';
     _liveAnchorInfoApi =
         '$liveApiBase/live_user/v1/UserInfo/get_anchor_in_room';
 
-    // 生成必要的 Cookie（用于绕过 412 风控）
-    final buvid3 = _generateBuvid3();
-    final buvid4 = _generateBuvid4();
-    final bNut = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    final cookie =
-        'buvid3=$buvid3; buvid4=$buvid4; b_nut=$bNut; _uuid=$buvid3; buvid_fp=$buvid3';
+    _browserCookie = _buildBrowserCookie(
+      buvid3: _generateBuvid3(),
+      buvid4: _generateBuvid4(),
+    );
 
     _dio = dio ??
         SourceHttpPolicy.createApiDio(
           SourceType.bilibili,
-          extraHeaders: {'Cookie': cookie},
+          extraHeaders: {'Cookie': _browserCookie},
         );
+    _dio.options.headers.putIfAbsent('Cookie', () => _browserCookie);
     _searchOptions = Options(
-      headers: SourceHttpPolicy.bilibiliSearchApiHeaders(cookie: cookie),
+      headers: SourceHttpPolicy.bilibiliSearchApiHeaders(
+        cookie: _browserCookie,
+      ),
     );
     _liveDio = liveDio ?? SourceHttpPolicy.createBilibiliLiveDio();
   }
@@ -107,6 +111,22 @@ class BilibiliSource extends BaseSource with Logging {
     }
 
     return '${randomHex(8)}-${randomHex(4)}-${randomHex(4)}-${randomHex(4)}-${randomHex(12)}';
+  }
+
+  String _buildBrowserCookie({
+    required String buvid3,
+    required String buvid4,
+  }) {
+    final bNut = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    return 'buvid3=$buvid3; buvid4=$buvid4; b_nut=$bNut; _uuid=$buvid3; buvid_fp=$buvid3';
+  }
+
+  void _setBrowserCookie(String cookie) {
+    _browserCookie = cookie;
+    _dio.options.headers['Cookie'] = cookie;
+    _searchOptions = Options(
+      headers: SourceHttpPolicy.bilibiliSearchApiHeaders(cookie: cookie),
+    );
   }
 
   /// 将 SearchOrder 映射到 Bilibili API 的排序参数
@@ -886,13 +906,13 @@ class BilibiliSource extends BaseSource with Logging {
   /// [rid] 分区 ID：0=全站，1=动画，3=音乐，4=游戏，5=娱乐，36=科技，119=鬼畜，129=舞蹈，155=时尚，160=生活，181=影视
   Future<List<Track>> getRankingVideos({int rid = 0}) async {
     try {
-      final response = await _dio.get(
-        _rankingApi,
-        queryParameters: {
-          'rid': rid,
-          'type': 'all',
-        },
-      );
+      var response = await _fetchRankingVideosResponse(rid);
+      if (_isBilibiliRiskControlResponse(response.data)) {
+        logWarning(
+            'Bilibili ranking hit risk control; refreshing fingerprint and retrying');
+        await _refreshBrowserFingerprintCookie();
+        response = await _fetchRankingVideosResponse(rid);
+      }
 
       _checkResponse(response.data);
 
@@ -922,6 +942,43 @@ class BilibiliSource extends BaseSource with Logging {
     }
   }
 
+  Future<Response<dynamic>> _fetchRankingVideosResponse(int rid) {
+    return _dio.get(
+      _rankingApi,
+      queryParameters: {
+        'rid': rid,
+        'type': 'all',
+      },
+    );
+  }
+
+  bool _isBilibiliRiskControlResponse(Object? data) {
+    return data is Map && data['code'] == -352;
+  }
+
+  Future<void> _refreshBrowserFingerprintCookie() async {
+    final response = await _dio.get(_fingerprintApi);
+    _checkResponse(response.data);
+
+    final data = response.data['data'];
+    final buvid3 = data is Map ? data['b_3'] as String? : null;
+    final buvid4 = data is Map ? data['b_4'] as String? : null;
+
+    if (buvid3 == null || buvid3.isEmpty || buvid4 == null || buvid4.isEmpty) {
+      throw const BilibiliApiException(
+        numericCode: -352,
+        message: 'Failed to refresh Bilibili browser fingerprint',
+      );
+    }
+
+    _setBrowserCookie(
+      _buildBrowserCookie(
+        buvid3: buvid3,
+        buvid4: buvid4,
+      ),
+    );
+  }
+
   // ========== 辅助方法 ==========
 
   /// 检查 API 响应
@@ -930,7 +987,7 @@ class BilibiliSource extends BaseSource with Logging {
     if (code != 0) {
       final message = data['message'] ?? 'Unknown error';
       // 记录API错误，特别关注限流相关错误
-      if (code == -412 || code == -509 || code == -799) {
+      if (code == -352 || code == -412 || code == -509 || code == -799) {
         logWarning('Bilibili rate limited: code=$code, message=$message');
         throw BilibiliApiException(
             numericCode: code, message: t.error.rateLimited);

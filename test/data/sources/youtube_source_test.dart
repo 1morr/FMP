@@ -1016,6 +1016,118 @@ void main() {
     });
   });
 
+  group('YouTubeSource trending videos', () {
+    test('retries New This Week browse once after transient server failure',
+        () async {
+      var browseCalls = 0;
+      final dio = Dio();
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        final request =
+            jsonDecode(requestBody as String) as Map<String, dynamic>;
+        expect(request['browseId'], 'VLOLPPnm121Qlcoo7kKykmswKG0IepmDUVpag');
+        expect(options.path, contains('/browse'));
+
+        browseCalls++;
+        if (browseCalls == 1) {
+          return ResponseBody.fromString(
+            jsonEncode({'error': 'temporary unavailable'}),
+            503,
+            headers: {
+              Headers.contentTypeHeader: ['application/json'],
+            },
+          );
+        }
+
+        return ResponseBody.fromString(
+          jsonEncode(_newThisWeekBrowseResponse()),
+          200,
+          headers: {
+            Headers.contentTypeHeader: ['application/json'],
+          },
+        );
+      });
+      final source = YouTubeSource(dio: dio);
+      addTearDown(source.dispose);
+
+      final tracks = await source.getTrendingVideos();
+
+      expect(browseCalls, 2);
+      expect(tracks, hasLength(1));
+      expect(tracks.single.sourceId, 'retry-video');
+    });
+
+    test('retries New This Week browse when accepted response is server error',
+        () async {
+      var browseCalls = 0;
+      final dio = Dio(BaseOptions(
+        validateStatus: (status) => status != null && status < 600,
+      ));
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        browseCalls++;
+        if (browseCalls == 1) {
+          return ResponseBody.fromString(
+            jsonEncode({'error': 'temporary unavailable'}),
+            500,
+            headers: {
+              Headers.contentTypeHeader: ['application/json'],
+            },
+          );
+        }
+
+        return ResponseBody.fromString(
+          jsonEncode(_newThisWeekBrowseResponse()),
+          200,
+          headers: {
+            Headers.contentTypeHeader: ['application/json'],
+          },
+        );
+      });
+      final source = YouTubeSource(dio: dio);
+      addTearDown(source.dispose);
+
+      final tracks = await source.getTrendingVideos();
+
+      expect(browseCalls, 2);
+      expect(tracks.single.sourceId, 'retry-video');
+    });
+
+    test('does not immediately retry New This Week browse after rate limit',
+        () async {
+      var browseCalls = 0;
+      final dio = Dio();
+      dio.httpClientAdapter = _FakeHttpClientAdapter((options, requestBody) {
+        final request =
+            jsonDecode(requestBody as String) as Map<String, dynamic>;
+        expect(request['browseId'], 'VLOLPPnm121Qlcoo7kKykmswKG0IepmDUVpag');
+
+        browseCalls++;
+        return ResponseBody.fromString(
+          jsonEncode({'error': 'too many requests'}),
+          429,
+          headers: {
+            Headers.contentTypeHeader: ['application/json'],
+          },
+        );
+      });
+      final source = YouTubeSource(dio: dio);
+      addTearDown(source.dispose);
+
+      await expectLater(
+        source.getTrendingVideos(),
+        throwsA(
+          isA<YouTubeApiException>()
+              .having((error) => error.code, 'code', 'rate_limited')
+              .having(
+                (error) => error.kind,
+                'kind',
+                SourceErrorKind.rateLimited,
+              ),
+        ),
+      );
+      expect(browseCalls, 1);
+    });
+  });
+
   group('YouTubeSource static methods', () {
     group('isMixPlaylistId', () {
       test('returns true for RD prefix', () {
@@ -1130,6 +1242,68 @@ Map<String, dynamic> _innerTubeMuxedFormat({
     'url': url,
     'mimeType': 'video/mp4; codecs="avc1.64001F, mp4a.40.2"',
     'bitrate': bitrate,
+  };
+}
+
+Map<String, dynamic> _newThisWeekBrowseResponse() {
+  return {
+    'contents': {
+      'twoColumnBrowseResultsRenderer': {
+        'tabs': [
+          {
+            'tabRenderer': {
+              'content': {
+                'sectionListRenderer': {
+                  'contents': [
+                    {
+                      'itemSectionRenderer': {
+                        'contents': [
+                          {
+                            'playlistVideoListRenderer': {
+                              'contents': [
+                                {
+                                  'playlistVideoRenderer': {
+                                    'videoId': 'retry-video',
+                                    'title': {
+                                      'runs': [
+                                        {'text': 'Retry Track'}
+                                      ]
+                                    },
+                                    'shortBylineText': {
+                                      'runs': [
+                                        {'text': 'Retry Artist'}
+                                      ]
+                                    },
+                                    'lengthText': {'simpleText': '3:21'},
+                                    'videoInfo': {
+                                      'runs': [
+                                        {'text': '1.2M views'}
+                                      ]
+                                    },
+                                    'thumbnail': {
+                                      'thumbnails': [
+                                        {
+                                          'url':
+                                              'https://i.ytimg.com/vi/retry-video/hqdefault.jpg'
+                                        }
+                                      ]
+                                    },
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
   };
 }
 
