@@ -118,6 +118,13 @@
     "aiTestSuccessWithArtist": "AI test succeeded: $track - $artist",
     "aiTestFailed": "AI test failed. Check the endpoint, API key, and model."
   },
+  "homeRankingSettings": {
+    "title": "Home ranking sources",
+    "subtitle": "Choose and order the rankings shown on Home",
+    "hint": "Drag to set priority from top to bottom. Home shows enabled sources left to right, then top to bottom.",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
   "version": {
     "title": "Version",
     "tapToEnableDev": "$n more taps to enable developer options",
@@ -166,7 +173,7 @@
     "nativeMemoryDetail": "~$size (RSS - Dart heap)",
     "dataCaches": "Data Caches",
     "queueTracks": "Play queue: $count tracks",
-    "rankingCache": "Ranking cache: Bilibili $bilibili / YT $youtube tracks",
+    "rankingCache": "Ranking cache: Bilibili $bilibili / YT $youtube / Netease $netease tracks",
     "lyricsCacheCount": "Lyrics cache: $count entries",
     "clearImageMemoryCache": "Clear image memory cache",
     "clearImageMemoryCacheDone": "Flutter image memory cache cleared",

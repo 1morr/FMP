@@ -26,6 +26,8 @@ class NeteaseSource extends BaseSource with Logging {
   static const String _musicBase = 'https://music.163.com';
   static const String _interfaceBase = 'https://interface3.music.163.com';
   static const Duration _audioUrlExpiry = Duration(minutes: 16);
+  static const String _hotRankingPlaylistId = '3778678';
+  static const int _songDetailBatchSize = 400;
 
   NeteaseSource({Dio? dio}) {
     _dio = dio ??
@@ -284,29 +286,9 @@ class NeteaseSource extends BaseSource with Logging {
       final ownerUserId = creator?['userId']?.toString();
       final trackCount = playlist['trackCount'] as int? ?? 0;
 
-      final trackIds = <int>[];
-      final trackIdsList = playlist['trackIds'] as List?;
-      if (trackIdsList != null) {
-        for (final item in trackIdsList) {
-          final id = (item as Map<String, dynamic>)['id'] as int?;
-          if (id != null) trackIds.add(id);
-        }
-      }
-
-      // 分批獲取歌曲詳情（每批 400 個）
-      final allTracks = <Track>[];
-      const batchSize = 400;
-
-      for (var i = 0; i < trackIds.length; i += batchSize) {
-        final batchIds = trackIds.skip(i).take(batchSize).toList();
-        final batchTracks =
-            await _fetchTrackDetailsBatch(batchIds, authHeaders: authHeaders);
-        allTracks.addAll(batchTracks);
-
-        if (i + batchSize < trackIds.length) {
-          await Future.delayed(AppConstants.networkRetryDelay);
-        }
-      }
+      final trackIds = _parsePlaylistTrackIds(playlist);
+      final allTracks =
+          await _fetchTrackDetailsInBatches(trackIds, authHeaders: authHeaders);
 
       return PlaylistParseResult(
         title: title,
@@ -323,6 +305,33 @@ class NeteaseSource extends BaseSource with Logging {
     } catch (e) {
       if (e is NeteaseApiException) rethrow;
       logError('Unexpected error in parsePlaylist: $e');
+      throw NeteaseApiException(numericCode: -999, message: e.toString());
+    }
+  }
+
+  // ========== 熱歌榜 ==========
+
+  /// 獲取網易雲官方熱歌榜歌曲 metadata。
+  ///
+  /// 只解析榜單歌曲資訊，不刷新或解析 audio URL。
+  Future<List<Track>> getHotRankingTracks({int limit = 50}) async {
+    if (limit <= 0) return const [];
+
+    try {
+      final trackIds = await _fetchPlaylistTrackIds(_hotRankingPlaylistId);
+      final tracks = await _fetchTrackDetailsInBatches(
+        trackIds.take(limit).toList(),
+      );
+      final now = DateTime.now();
+      for (final track in tracks) {
+        track.createdAt = now;
+      }
+      return tracks;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    } catch (e) {
+      if (e is NeteaseApiException) rethrow;
+      logError('Unexpected error in getHotRankingTracks: $e');
       throw NeteaseApiException(numericCode: -999, message: e.toString());
     }
   }
@@ -454,6 +463,64 @@ class NeteaseSource extends BaseSource with Logging {
   }
 
   // ========== 內部方法 ==========
+
+  Future<List<int>> _fetchPlaylistTrackIds(
+    String playlistId, {
+    Map<String, String>? authHeaders,
+  }) async {
+    final response = await _dio.post(
+      '$_musicBase/api/v6/playlist/detail',
+      data: 'id=$playlistId',
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        responseType: ResponseType.json,
+        headers: _withAuth(authHeaders),
+      ),
+    );
+
+    final respData = _ensureMap(response.data);
+    _checkResponse(respData);
+
+    final playlist = respData['playlist'] as Map<String, dynamic>?;
+    if (playlist == null) {
+      throw const NeteaseApiException(
+          numericCode: -3, message: 'Playlist data not found');
+    }
+
+    return _parsePlaylistTrackIds(playlist);
+  }
+
+  List<int> _parsePlaylistTrackIds(Map<String, dynamic> playlist) {
+    final trackIds = <int>[];
+    final trackIdsList = playlist['trackIds'] as List?;
+    if (trackIdsList != null) {
+      for (final item in trackIdsList) {
+        final id = (item as Map<String, dynamic>)['id'] as int?;
+        if (id != null) trackIds.add(id);
+      }
+    }
+    return trackIds;
+  }
+
+  Future<List<Track>> _fetchTrackDetailsInBatches(
+    List<int> trackIds, {
+    Map<String, String>? authHeaders,
+  }) async {
+    final allTracks = <Track>[];
+
+    for (var i = 0; i < trackIds.length; i += _songDetailBatchSize) {
+      final batchIds = trackIds.skip(i).take(_songDetailBatchSize).toList();
+      final batchTracks =
+          await _fetchTrackDetailsBatch(batchIds, authHeaders: authHeaders);
+      allTracks.addAll(batchTracks);
+
+      if (i + _songDetailBatchSize < trackIds.length) {
+        await Future.delayed(AppConstants.networkRetryDelay);
+      }
+    }
+
+    return allTracks;
+  }
 
   /// 獲取單首歌曲詳情（明文 /api/，含 privilege）
   Future<Map<String, dynamic>> _getSongDetail(String sourceId,

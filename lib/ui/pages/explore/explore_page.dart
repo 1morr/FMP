@@ -34,7 +34,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(_handleTabIndexChanged);
     // 不再需要手動加載，直接使用緩存服務的數據
   }
@@ -61,7 +61,12 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
     // 獲取當前 tab 的 tracks 用於全選
     final bilibiliTracks = ref.watch(cachedBilibiliRankingProvider);
     final youtubeTracks = ref.watch(cachedYouTubeRankingProvider);
-    final currentTracks = _activeTabIndex == 0 ? bilibiliTracks : youtubeTracks;
+    final neteaseTracks = ref.watch(cachedNeteaseRankingProvider);
+    final currentTracks = switch (_activeTabIndex) {
+      0 => bilibiliTracks,
+      1 => youtubeTracks,
+      _ => neteaseTracks,
+    };
 
     // 多選模式下的可用操作（探索頁不支持下載和刪除）
     const availableActions = <String>{
@@ -89,6 +94,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
                   tabs: [
                     Tab(text: t.importPlatform.bilibili),
                     const Tab(text: 'YouTube'),
+                    Tab(text: t.importPlatform.netease),
                   ],
                 ),
               )
@@ -103,6 +109,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
                   tabs: [
                     Tab(text: t.importPlatform.bilibili),
                     const Tab(text: 'YouTube'),
+                    Tab(text: t.importPlatform.netease),
                   ],
                 ),
               ),
@@ -111,6 +118,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
           children: [
             _buildBilibiliTab(),
             _buildYouTubeTab(),
+            _buildNeteaseTab(),
           ],
         ),
       ),
@@ -138,6 +146,18 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
       error: rankingState.youtubeError,
       onRefresh: () =>
           ref.read(rankingCacheServiceProvider.notifier).refreshYouTube(),
+    );
+  }
+
+  Widget _buildNeteaseTab() {
+    final tracks = ref.watch(cachedNeteaseRankingProvider);
+    final rankingState = ref.watch(rankingCacheServiceProvider);
+    return _buildRankingContent(
+      tracks: tracks,
+      isLoading: rankingState.isInitialLoading && tracks.isEmpty,
+      error: rankingState.neteaseError,
+      onRefresh: () =>
+          ref.read(rankingCacheServiceProvider.notifier).refreshNetease(),
     );
   }
 

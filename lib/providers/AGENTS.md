@@ -21,7 +21,9 @@ Rules:
 - Ranking cache UI must watch immutable `RankingCacheState` from
   `rankingCacheServiceProvider`. Refresh/timer methods are called through
   `rankingCacheServiceProvider.notifier`, not by reading mutable service
-  snapshot lists.
+  snapshot lists. The ranking cache refreshes Bilibili, YouTube, and Netease
+  sources together; home/explore providers should derive their lists from that
+  shared three-source cache.
 - Fire-and-forget imported playlist refresh must use the named remote sync path
   and log background failures with `AppLogger`.
 - Search source selection is owned by search page chips: "all" queries
@@ -38,6 +40,7 @@ Database provider rules are shared with `lib/data/AGENTS.md`:
 - Migration/default repair entry point is `_migrateDatabase()` in
   `database_provider.dart`.
 - Testing helper is `runDatabaseMigrationForTesting()`.
+- Home ranking settings fields must stay in sync with migration/default repair.
 
 When model schemas or persisted defaults change:
 1. Read `lib/data/AGENTS.md`.

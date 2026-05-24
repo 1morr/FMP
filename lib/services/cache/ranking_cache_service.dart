@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/track.dart';
 import '../../data/sources/bilibili_source.dart';
+import '../../data/sources/netease_source.dart';
 import '../../data/sources/source_provider.dart';
 import '../../data/sources/youtube_source.dart';
 import '../network/connectivity_service.dart';
@@ -20,65 +21,90 @@ import '../network/connectivity_service.dart';
 class RankingCacheState {
   final List<Track> bilibiliTracks;
   final List<Track> youtubeTracks;
+  final List<Track> neteaseTracks;
   final bool isInitialLoading;
   final bool bilibiliLoaded;
   final bool youtubeLoaded;
+  final bool neteaseLoaded;
   final String? bilibiliError;
   final String? youtubeError;
+  final String? neteaseError;
 
-  const RankingCacheState({
-    this.bilibiliTracks = const [],
-    this.youtubeTracks = const [],
+  RankingCacheState({
+    List<Track> bilibiliTracks = const [],
+    List<Track> youtubeTracks = const [],
+    List<Track> neteaseTracks = const [],
     this.isInitialLoading = true,
     this.bilibiliLoaded = false,
     this.youtubeLoaded = false,
+    this.neteaseLoaded = false,
     this.bilibiliError,
     this.youtubeError,
-  });
+    this.neteaseError,
+  })  : bilibiliTracks = List.unmodifiable(bilibiliTracks),
+        youtubeTracks = List.unmodifiable(youtubeTracks),
+        neteaseTracks = List.unmodifiable(neteaseTracks);
 
   RankingCacheState copyWith({
     List<Track>? bilibiliTracks,
     List<Track>? youtubeTracks,
+    List<Track>? neteaseTracks,
     bool? isInitialLoading,
     bool? bilibiliLoaded,
     bool? youtubeLoaded,
+    bool? neteaseLoaded,
     String? bilibiliError,
     String? youtubeError,
+    String? neteaseError,
     bool clearBilibiliError = false,
     bool clearYoutubeError = false,
+    bool clearNeteaseError = false,
   }) {
     return RankingCacheState(
       bilibiliTracks: List.unmodifiable(bilibiliTracks ?? this.bilibiliTracks),
       youtubeTracks: List.unmodifiable(youtubeTracks ?? this.youtubeTracks),
+      neteaseTracks: List.unmodifiable(neteaseTracks ?? this.neteaseTracks),
       isInitialLoading: isInitialLoading ?? this.isInitialLoading,
       bilibiliLoaded: bilibiliLoaded ?? this.bilibiliLoaded,
       youtubeLoaded: youtubeLoaded ?? this.youtubeLoaded,
+      neteaseLoaded: neteaseLoaded ?? this.neteaseLoaded,
       bilibiliError:
           clearBilibiliError ? null : bilibiliError ?? this.bilibiliError,
       youtubeError:
           clearYoutubeError ? null : youtubeError ?? this.youtubeError,
+      neteaseError:
+          clearNeteaseError ? null : neteaseError ?? this.neteaseError,
     );
   }
 }
 
 class RankingCacheService extends StateNotifier<RankingCacheState> {
-  static const _initialLoadTimeout = Duration(seconds: 5); // 初始加載超時時間
+  static const _defaultInitialLoadTimeout = Duration(seconds: 5);
 
   final BilibiliSource _bilibiliSource;
   final YouTubeSource _youtubeSource;
+  final NeteaseSource _neteaseSource;
+  final Duration _initialLoadTimeout;
 
   Timer? _refreshTimer;
   StreamSubscription<void>? _networkRecoveredSubscription;
   Duration _refreshInterval = const Duration(hours: 1);
 
+  int _bilibiliRefreshGeneration = 0;
+  int _youtubeRefreshGeneration = 0;
+  int _neteaseRefreshGeneration = 0;
   bool _isDisposed = false;
 
   RankingCacheService({
     required BilibiliSource bilibiliSource,
     required YouTubeSource youtubeSource,
+    required NeteaseSource neteaseSource,
+    Duration initialLoadTimeout = _defaultInitialLoadTimeout,
   })  : _bilibiliSource = bilibiliSource,
         _youtubeSource = youtubeSource,
-        super(const RankingCacheState());
+        _neteaseSource = neteaseSource,
+        _initialLoadTimeout = initialLoadTimeout,
+        super(RankingCacheState());
 
   /// 初始化服務：立即獲取數據並啟動定時刷新
   Future<void> initialize({Duration? refreshInterval}) async {
@@ -139,13 +165,16 @@ class RankingCacheService extends StateNotifier<RankingCacheState> {
   Future<void> _refreshAll() async {
     if (_isDisposed) return;
 
-    // 並行獲取兩個數據源，使用 catchError 確保失敗不會中斷
+    // 並行獲取三個數據源，使用 catchError 確保失敗不會中斷
     await Future.wait([
       refreshBilibili().catchError((e) {
         debugPrint('[RankingCache] Bilibili 刷新異常（未預期）: $e');
       }),
       refreshYouTube().catchError((e) {
         debugPrint('[RankingCache] YouTube 刷新異常（未預期）: $e');
+      }),
+      refreshNetease().catchError((e) {
+        debugPrint('[RankingCache] Netease 刷新異常（未預期）: $e');
       }),
     ]);
 
@@ -155,17 +184,18 @@ class RankingCacheService extends StateNotifier<RankingCacheState> {
     if (state.isInitialLoading) {
       state = state.copyWith(isInitialLoading: false);
       debugPrint(
-          '[RankingCache] 初始加載完成（Bilibili: ${state.bilibiliLoaded}, YouTube: ${state.youtubeLoaded}）');
+          '[RankingCache] 初始加載完成（Bilibili: ${state.bilibiliLoaded}, YouTube: ${state.youtubeLoaded}, Netease: ${state.neteaseLoaded}）');
     }
   }
 
   /// 刷新 Bilibili 數據（使用 rid=1003 音樂區排行榜）
   Future<void> refreshBilibili() async {
     if (_isDisposed) return;
+    final generation = ++_bilibiliRefreshGeneration;
     try {
       // rid=1003 是音樂區排行榜的正確 ID（網頁 /v/popular/rank/music 使用此 ID）
       final tracks = await _bilibiliSource.getRankingVideos(rid: 1003);
-      if (_isDisposed) return;
+      if (_isDisposed || generation != _bilibiliRefreshGeneration) return;
       state = state.copyWith(
         bilibiliTracks: tracks,
         bilibiliLoaded: true,
@@ -174,7 +204,7 @@ class RankingCacheService extends StateNotifier<RankingCacheState> {
       debugPrint(
           '[RankingCache] Bilibili 音樂排行榜緩存已刷新: ${state.bilibiliTracks.length} 首');
     } catch (e) {
-      if (_isDisposed) return;
+      if (_isDisposed || generation != _bilibiliRefreshGeneration) return;
       state = state.copyWith(bilibiliError: e.toString());
       debugPrint('[RankingCache] Bilibili 刷新失敗: $e');
       // 失敗時保留舊緩存
@@ -184,9 +214,10 @@ class RankingCacheService extends StateNotifier<RankingCacheState> {
   /// 刷新 YouTube 數據
   Future<void> refreshYouTube() async {
     if (_isDisposed) return;
+    final generation = ++_youtubeRefreshGeneration;
     try {
       final tracks = await _youtubeSource.getTrendingVideos(category: 'music');
-      if (_isDisposed) return;
+      if (_isDisposed || generation != _youtubeRefreshGeneration) return;
       // 按播放數降序排序
       final sortedTracks = List<Track>.of(tracks)
         ..sort((a, b) => (b.viewCount ?? 0).compareTo(a.viewCount ?? 0));
@@ -198,9 +229,31 @@ class RankingCacheService extends StateNotifier<RankingCacheState> {
       debugPrint(
           '[RankingCache] YouTube 緩存已刷新: ${state.youtubeTracks.length} 首');
     } catch (e) {
-      if (_isDisposed) return;
+      if (_isDisposed || generation != _youtubeRefreshGeneration) return;
       state = state.copyWith(youtubeError: e.toString());
       debugPrint('[RankingCache] YouTube 刷新失敗: $e');
+      // 失敗時保留舊緩存
+    }
+  }
+
+  /// 刷新 Netease 熱歌榜數據
+  Future<void> refreshNetease() async {
+    if (_isDisposed) return;
+    final generation = ++_neteaseRefreshGeneration;
+    try {
+      final tracks = await _neteaseSource.getHotRankingTracks();
+      if (_isDisposed || generation != _neteaseRefreshGeneration) return;
+      state = state.copyWith(
+        neteaseTracks: tracks,
+        neteaseLoaded: true,
+        clearNeteaseError: true,
+      );
+      debugPrint(
+          '[RankingCache] Netease 熱歌榜緩存已刷新: ${state.neteaseTracks.length} 首');
+    } catch (e) {
+      if (_isDisposed || generation != _neteaseRefreshGeneration) return;
+      state = state.copyWith(neteaseError: e.toString());
+      debugPrint('[RankingCache] Netease 刷新失敗: $e');
       // 失敗時保留舊緩存
     }
   }
@@ -228,6 +281,7 @@ final rankingCacheServiceProvider =
   final service = RankingCacheService(
     bilibiliSource: ref.watch(bilibiliSourceProvider),
     youtubeSource: ref.watch(youtubeSourceProvider),
+    neteaseSource: ref.watch(neteaseAudioSourceProvider),
   );
 
   Future.microtask(() => service.initialize());

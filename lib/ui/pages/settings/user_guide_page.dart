@@ -233,6 +233,12 @@ class UserGuidePage extends StatelessWidget {
                 title: t.userGuide.explore.autoUpdate,
                 description: t.userGuide.explore.autoUpdateDesc,
               ),
+              _buildInfoItem(
+                context,
+                icon: Icons.tune,
+                title: t.userGuide.explore.homeSources,
+                description: t.userGuide.explore.homeSourcesDesc,
+              ),
             ],
           ),
 
