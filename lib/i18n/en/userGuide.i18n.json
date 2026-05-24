@@ -2,7 +2,7 @@
   "quickStart": {
     "title": "Quick Start",
     "importPlaylist": "Import Playlist",
-    "importPlaylistDesc": "Tap import at top-right of library. Supports Bilibili/YouTube links and importing from NetEase, QQ Music, Spotify",
+    "importPlaylistDesc": "Tap import at top-right of Library. Supports Bilibili, YouTube, Netease, QQ Music, and Spotify playlist links",
     "addToQueue": "Add to Queue",
     "addToQueueDesc": "Open a playlist and tap \"Add All\" to add songs to the play queue",
     "startPlayback": "Start Playing",
@@ -11,7 +11,7 @@
   "externalImport": {
     "title": "External Playlist Import",
     "platforms": "Supported Platforms",
-    "platformsDesc": "NetEase Music, QQ Music, Spotify",
+    "platformsDesc": "Bilibili, YouTube, and Netease import directly; QQ Music and Spotify are matched through search",
     "smartMatch": "Smart Matching",
     "smartMatchDesc": "Automatically search and match songs on Bilibili/YouTube",
     "preview": "Preview & Adjust",
@@ -33,7 +33,7 @@
   "search": {
     "title": "Search",
     "sources": "Supported Sources",
-    "sourcesDesc": "Bilibili and YouTube dual-source search",
+    "sourcesDesc": "Search Bilibili, YouTube, or Netease individually, or use All for mixed results",
     "sortFilter": "Sort & Filter",
     "sortFilterDesc": "Sort by relevance, views, date, or comments",
     "liveFilter": "Live Room Filter",
@@ -96,5 +96,35 @@
     "checkUpdateDesc": "Settings → About → Check for Updates, fetches latest version from GitHub",
     "autoInstall": "Auto Install",
     "autoInstallDesc": "Android auto-installs APK after download, Windows auto-replaces on update"
+  },
+  "tips": {
+    "youtubeMixShortcut": "YouTube Mix shortcut",
+    "youtubeMixShortcutDesc": "Enter mix:<YouTube video id> in playlist import, for example mix:dvgZkm1xWPE, to create a YouTube Mix playlist",
+    "authImport": "Use login state for private content",
+    "authImportDesc": "When importing Bilibili, YouTube, or Netease playlists, signed-in accounts can enable \"Use login state to import\"",
+    "importAutoRefresh": "Auto-refresh imported playlists",
+    "importAutoRefreshDesc": "Edit an imported playlist to set a refresh interval for remote playlists that keep changing",
+    "audioSettingsDesc": "Audio Quality lets you choose quality level, YouTube format priority, and audio-only vs muxed stream priority",
+    "authForPlay": "Playback can use login state",
+    "authForPlayDesc": "Audio settings can let stream resolution use platform login credentials for content that needs sign-in or membership access",
+    "lyricsTitle": "Lyrics & Desktop Lyrics",
+    "autoLyrics": "Auto-match lyrics",
+    "autoLyricsDesc": "Playback can search lyrics automatically; settings also control whether plain unsynced lyrics are accepted",
+    "lyricsSources": "Lyrics sources can be ordered",
+    "lyricsSourcesDesc": "Lyrics matching supports Netease, QQ Music, and lrclib, with draggable source priority",
+    "lyricsAi": "AI lyrics matching",
+    "lyricsAiDesc": "After setting an API endpoint, AI can parse video titles or help choose from candidate lyrics",
+    "desktopLyrics": "Desktop lyrics window",
+    "desktopLyricsDesc": "Desktop can open a separate lyrics window with pin, transparent, single-line/full, offset, and style controls",
+    "downloadSync": "Sync local files after download",
+    "downloadSyncDesc": "The Downloaded page can rescan the download folder and reconnect files that were moved manually or already exist",
+    "backup": "Data backup and restore",
+    "backupDesc": "Settings can export/import playlists, play history, search history, radio stations, lyrics matches, and settings",
+    "desktopAndMaintenanceTitle": "Desktop & Maintenance",
+    "desktopHotkeys": "Global hotkeys",
+    "desktopHotkeysDesc": "On Windows, configure play/pause, previous, next, volume, mute, and show/hide window shortcuts",
+    "trayStartup": "Tray and startup",
+    "trayStartupDesc": "Desktop can minimize to tray on close, and can launch normally or minimized at startup",
+    "historyDesc": "Play History includes timeline, statistics, filters, and sorting for finding previously played items"
   }
 }

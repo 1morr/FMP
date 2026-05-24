@@ -2,7 +2,7 @@
   "quickStart": {
     "title": "快速開始",
     "importPlaylist": "匯入歌單",
-    "importPlaylistDesc": "音樂庫右上角點擊匯入，支援 嗶哩嗶哩/YouTube 連結匯入，也支援從網易雲、QQ音樂、Spotify 匯入歌單",
+    "importPlaylistDesc": "音樂庫右上角點擊匯入，支援 嗶哩嗶哩、YouTube、網易雲、QQ音樂、Spotify 歌單連結",
     "addToQueue": "加入佇列",
     "addToQueueDesc": "開啟歌單，點擊「加入全部」將歌曲加入播放佇列",
     "startPlayback": "開始播放",
@@ -11,7 +11,7 @@
   "externalImport": {
     "title": "外部歌單匯入",
     "platforms": "支援平台",
-    "platformsDesc": "網易雲音樂、QQ音樂、Spotify",
+    "platformsDesc": "嗶哩嗶哩、YouTube、網易雲可直接匯入；QQ音樂、Spotify 會先搜尋配對",
     "smartMatch": "智慧配對",
     "smartMatchDesc": "自動在 嗶哩嗶哩/YouTube 搜尋配對對應歌曲",
     "preview": "預覽調整",
@@ -33,7 +33,7 @@
   "search": {
     "title": "搜尋功能",
     "sources": "支援音源",
-    "sourcesDesc": "嗶哩嗶哩、YouTube 雙源搜尋",
+    "sourcesDesc": "嗶哩嗶哩、YouTube、網易雲可單獨搜尋，也可用「全部」混合搜尋",
     "sortFilter": "排序篩選",
     "sortFilterDesc": "支援按綜合、播放量、最新、彈幕數排序",
     "liveFilter": "直播間篩選",
@@ -96,5 +96,35 @@
     "checkUpdateDesc": "設定 → 關於 → 檢查更新，自動從 GitHub 取得最新版本",
     "autoInstall": "自動安裝",
     "autoInstallDesc": "Android 下載 APK 後自動安裝，Windows 下載後自動替換更新"
+  },
+  "tips": {
+    "youtubeMixShortcut": "YouTube Mix 快捷匯入",
+    "youtubeMixShortcutDesc": "在匯入歌單輸入 mix:<YouTube video id>，例如 mix:dvgZkm1xWPE，即可建立 YouTube Mix 歌單",
+    "authImport": "私人內容可用登入狀態",
+    "authImportDesc": "匯入 嗶哩嗶哩、YouTube、網易雲歌單時，已登入帳號可開啟「使用登入狀態匯入」",
+    "importAutoRefresh": "匯入歌單可自動重新整理",
+    "importAutoRefreshDesc": "編輯已匯入歌單時可設定重新整理間隔，適合追蹤會變動的遠端歌單",
+    "audioSettingsDesc": "在音訊品質中可調整音質、YouTube 格式優先級，以及純音訊/混合串流優先級",
+    "authForPlay": "播放也可使用登入狀態",
+    "authForPlayDesc": "音訊設定中可讓串流解析使用平台登入憑證，處理需要登入或會員權限的內容",
+    "lyricsTitle": "歌詞與桌面歌詞",
+    "autoLyrics": "自動匹配歌詞",
+    "autoLyricsDesc": "播放時可自動搜尋歌詞；沒有同步歌詞時，也可在設定中決定是否接受純文字歌詞",
+    "lyricsSources": "歌詞源可排序",
+    "lyricsSourcesDesc": "歌詞匹配源支援網易雲、QQ音樂、lrclib，並可拖曳調整優先順序",
+    "lyricsAi": "AI 歌詞匹配",
+    "lyricsAiDesc": "設定 API 端點後，可用 AI 解析影片標題，或從候選歌詞中輔助選擇",
+    "desktopLyrics": "桌面歌詞窗",
+    "desktopLyricsDesc": "桌面端可開啟獨立歌詞窗，支援置頂、透明、單行/完整歌詞、偏移與樣式設定",
+    "downloadSync": "下載後可同步本機檔案",
+    "downloadSyncDesc": "已下載頁可重新掃描下載目錄，重新關聯手動移動或已存在的檔案",
+    "backup": "資料備份與還原",
+    "backupDesc": "設定中可匯出/匯入歌單、播放歷史、搜尋紀錄、電台收藏、歌詞匹配和設定",
+    "desktopAndMaintenanceTitle": "桌面與維護",
+    "desktopHotkeys": "全域快捷鍵",
+    "desktopHotkeysDesc": "Windows 可設定播放/暫停、上一首、下一首、音量、靜音與顯示/隱藏視窗快捷鍵",
+    "trayStartup": "系統列與開機啟動",
+    "trayStartupDesc": "桌面端可設定關閉時最小化到系統列，也可開機後正常或最小化啟動",
+    "historyDesc": "播放歷史支援時間軸、統計、篩選與排序，方便找回聽過的內容"
   }
 }
