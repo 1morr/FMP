@@ -2,7 +2,7 @@
   "quickStart": {
     "title": "快速开始",
     "importPlaylist": "导入歌单",
-    "importPlaylistDesc": "音乐库右上角点击导入，支持 哔哩哔哩/YouTube 链接导入，也支持从网易云、QQ音乐、Spotify 导入歌单",
+    "importPlaylistDesc": "音乐库右上角点击导入，支持 哔哩哔哩、YouTube、网易云、QQ音乐、Spotify 歌单链接",
     "addToQueue": "添加到队列",
     "addToQueueDesc": "打开歌单，点击「添加所有」将歌曲加入播放队列",
     "startPlayback": "开始播放",
@@ -11,7 +11,7 @@
   "externalImport": {
     "title": "外部歌单导入",
     "platforms": "支持平台",
-    "platformsDesc": "网易云音乐、QQ音乐、Spotify",
+    "platformsDesc": "哔哩哔哩、YouTube、网易云可直接导入；QQ音乐、Spotify 会先搜索匹配",
     "smartMatch": "智能匹配",
     "smartMatchDesc": "自动在 哔哩哔哩/YouTube 搜索匹配对应歌曲",
     "preview": "预览调整",
@@ -33,7 +33,7 @@
   "search": {
     "title": "搜索功能",
     "sources": "支持音源",
-    "sourcesDesc": "哔哩哔哩、YouTube 双源搜索",
+    "sourcesDesc": "哔哩哔哩、YouTube、网易云可单独搜索，也可用“全部”混合搜索",
     "sortFilter": "排序筛选",
     "sortFilterDesc": "支持按综合、播放量、最新、弹幕数排序",
     "liveFilter": "直播间筛选",
@@ -96,5 +96,35 @@
     "checkUpdateDesc": "设置 → 关于 → 检查更新，自动从 GitHub 获取最新版本",
     "autoInstall": "自动安装",
     "autoInstallDesc": "Android 下载 APK 后自动安装，Windows 下载后自动替换更新"
+  },
+  "tips": {
+    "youtubeMixShortcut": "YouTube Mix 快捷导入",
+    "youtubeMixShortcutDesc": "在导入歌单输入 mix:<YouTube video id>，例如 mix:dvgZkm1xWPE，即可创建 YouTube Mix 歌单",
+    "authImport": "私人内容可用登录状态",
+    "authImportDesc": "导入 哔哩哔哩、YouTube、网易云歌单时，已登录账号可开启“使用登录状态导入”",
+    "importAutoRefresh": "导入歌单可自动刷新",
+    "importAutoRefreshDesc": "编辑已导入歌单时可设置刷新间隔，适合跟踪会变动的远程歌单",
+    "audioSettingsDesc": "在音频质量中可调整音质、YouTube 格式优先级，以及纯音频/混合流优先级",
+    "authForPlay": "播放也可使用登录状态",
+    "authForPlayDesc": "音频设置中可让流解析使用平台登录凭证，处理需要登录或会员权限的内容",
+    "lyricsTitle": "歌词与桌面歌词",
+    "autoLyrics": "自动匹配歌词",
+    "autoLyricsDesc": "播放时可自动搜索歌词；没有同步歌词时，也可在设置中决定是否接受纯文本歌词",
+    "lyricsSources": "歌词源可排序",
+    "lyricsSourcesDesc": "歌词匹配源支持网易云、QQ音乐、lrclib，并可拖拽调整优先顺序",
+    "lyricsAi": "AI 歌词匹配",
+    "lyricsAiDesc": "设置 API 端点后，可用 AI 解析视频标题，或从候选歌词中辅助选择",
+    "desktopLyrics": "桌面歌词窗",
+    "desktopLyricsDesc": "桌面端可开启独立歌词窗，支持置顶、透明、单行/完整歌词、偏移与样式设置",
+    "downloadSync": "下载后可同步本机文件",
+    "downloadSyncDesc": "已下载页可重新扫描下载目录，重新关联手动移动或已存在的文件",
+    "backup": "数据备份与还原",
+    "backupDesc": "设置中可导出/导入歌单、播放历史、搜索记录、电台收藏、歌词匹配和设置",
+    "desktopAndMaintenanceTitle": "桌面与维护",
+    "desktopHotkeys": "全局快捷键",
+    "desktopHotkeysDesc": "Windows 可设置播放/暂停、上一首、下一首、音量、静音与显示/隐藏窗口快捷键",
+    "trayStartup": "托盘与开机启动",
+    "trayStartupDesc": "桌面端可设置关闭时最小化到系统托盘，也可开机后正常或最小化启动",
+    "historyDesc": "播放历史支持时间轴、统计、筛选与排序，方便找回听过的内容"
   }
 }
