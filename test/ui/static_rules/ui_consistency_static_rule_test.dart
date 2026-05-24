@@ -110,18 +110,13 @@ void main() {
       );
     });
 
-    test('home ranking loading guard keeps available ranking data visible', () {
+    test('home ranking section exposes lightweight loading fallback', () {
       final source =
           File('lib/ui/pages/home/home_page.dart').readAsStringSync();
 
-      expect(
-        source,
-        contains('isLoading && !hasBilibiliData && !hasYoutubeData'),
-      );
-      expect(
-        source,
-        isNot(contains('if (isLoading) {\n          return const SizedBox')),
-      );
+      expect(source, contains('class HomeRankingsSection'));
+      expect(source, contains('CircularProgressIndicator'));
+      expect(source, isNot(contains('ForTest')));
     });
 
     test('search and downloaded dynamic rows use stable keys', () {

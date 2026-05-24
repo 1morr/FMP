@@ -69,6 +69,44 @@ enum LyricsAiTitleParsingMode {
   advancedAiSelect,
 }
 
+const List<String> homeRankingSourceIds = [
+  'bilibili',
+  'youtube',
+  'netease',
+];
+
+const String defaultHomeRankingSourcePriority = 'bilibili,youtube,netease';
+
+List<String> normalizeHomeRankingSourcePriority(String value) {
+  final seen = <String>{};
+  final normalized = <String>[];
+
+  for (final raw in value.split(',')) {
+    final source = raw.trim();
+    if (!homeRankingSourceIds.contains(source) || !seen.add(source)) {
+      continue;
+    }
+    normalized.add(source);
+  }
+
+  for (final source in homeRankingSourceIds) {
+    if (seen.add(source)) normalized.add(source);
+  }
+
+  return normalized;
+}
+
+Set<String> normalizeDisabledHomeRankingSources(String value) {
+  if (value.isEmpty) return <String>{};
+  final disabled = value
+      .split(',')
+      .map((s) => s.trim())
+      .where(homeRankingSourceIds.contains)
+      .toSet();
+  if (disabled.length >= homeRankingSourceIds.length) return <String>{};
+  return disabled;
+}
+
 /// 应用设置实体（单例模式，始终使用 ID 0）
 @collection
 class Settings {
@@ -240,6 +278,12 @@ class Settings {
 
   /// 排行榜缓存刷新间隔（分钟），默认 60
   int rankingRefreshIntervalMinutes = 60;
+
+  /// Home recent trending ranking source priority.
+  String homeRankingSourcePriority = defaultHomeRankingSourcePriority;
+
+  /// Disabled Home recent trending ranking sources.
+  String disabledHomeRankingSources = '';
 
   /// 电台直播状态刷新间隔（分钟），默认 5
   int radioRefreshIntervalMinutes = 5;
@@ -488,6 +532,30 @@ class Settings {
   /// 设置禁用的歌词源集合
   set disabledLyricsSourcesSet(Set<String> set) {
     disabledLyricsSources = set.join(',');
+  }
+
+  /// 获取首页排行榜源优先级列表
+  @ignore
+  List<String> get homeRankingSourcePriorityList {
+    return normalizeHomeRankingSourcePriority(homeRankingSourcePriority);
+  }
+
+  /// 设置首页排行榜源优先级列表
+  set homeRankingSourcePriorityList(List<String> list) {
+    homeRankingSourcePriority =
+        normalizeHomeRankingSourcePriority(list.join(',')).join(',');
+  }
+
+  /// 获取禁用的首页排行榜源集合
+  @ignore
+  Set<String> get disabledHomeRankingSourcesSet {
+    return normalizeDisabledHomeRankingSources(disabledHomeRankingSources);
+  }
+
+  /// 设置禁用的首页排行榜源集合
+  set disabledHomeRankingSourcesSet(Set<String> set) {
+    disabledHomeRankingSources =
+        normalizeDisabledHomeRankingSources(set.join(',')).join(',');
   }
 
   @ignore

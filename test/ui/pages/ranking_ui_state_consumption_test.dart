@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/bilibili_source.dart';
+import 'package:fmp/data/sources/netease_source.dart';
 import 'package:fmp/data/sources/youtube_source.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/selection_provider.dart';
@@ -28,12 +29,19 @@ void main() {
           _track('yt-b', SourceType.youtube, 'YT B'),
           _track('yt-c', SourceType.youtube, 'YT C'),
         ];
+        final neteaseTracks = [
+          _track('ne-a', SourceType.netease, 'NE A'),
+          _track('ne-b', SourceType.netease, 'NE B'),
+          _track('ne-c', SourceType.netease, 'NE C'),
+          _track('ne-d', SourceType.netease, 'NE D'),
+        ];
         final container = ProviderContainer(
           overrides: [
             rankingCacheServiceProvider.overrideWith(
               (ref) => _StaticRankingCacheService(
                 bilibiliTracks: bilibiliTracks,
                 youtubeTracks: youtubeTracks,
+                neteaseTracks: neteaseTracks,
               ),
             ),
             currentTrackProvider.overrideWithValue(null),
@@ -72,6 +80,20 @@ void main() {
               ),
           orderedEquals(['yt-a', 'yt-b', 'yt-c']),
         );
+
+        await tester.tap(find.text(t.importPlatform.netease));
+        await tester.pumpAndSettle();
+        expect(find.text('NE A'), findsOneWidget);
+
+        await tester.tap(find.byIcon(Icons.select_all));
+        await tester.pump();
+
+        expect(
+          container.read(exploreSelectionProvider).selectedTracks.map(
+                (track) => track.sourceId,
+              ),
+          orderedEquals(['ne-a', 'ne-b', 'ne-c', 'ne-d']),
+        );
       },
     );
 
@@ -97,16 +119,20 @@ class _StaticRankingCacheService extends RankingCacheService {
   _StaticRankingCacheService({
     required List<Track> bilibiliTracks,
     required List<Track> youtubeTracks,
+    required List<Track> neteaseTracks,
   }) : super(
           bilibiliSource: _FakeBilibiliSource(),
           youtubeSource: _FakeYouTubeSource(),
+          neteaseSource: _FakeNeteaseSource(),
         ) {
     state = RankingCacheState(
       bilibiliTracks: List.unmodifiable(bilibiliTracks),
       youtubeTracks: List.unmodifiable(youtubeTracks),
+      neteaseTracks: List.unmodifiable(neteaseTracks),
       isInitialLoading: false,
       bilibiliLoaded: true,
       youtubeLoaded: true,
+      neteaseLoaded: true,
     );
   }
 
@@ -115,6 +141,9 @@ class _StaticRankingCacheService extends RankingCacheService {
 
   @override
   Future<void> refreshYouTube() async {}
+
+  @override
+  Future<void> refreshNetease() async {}
 }
 
 class _FakeBilibiliSource extends BilibiliSource {
@@ -125,6 +154,13 @@ class _FakeBilibiliSource extends BilibiliSource {
 class _FakeYouTubeSource extends YouTubeSource {
   @override
   Future<List<Track>> getTrendingVideos({String category = 'music'}) async {
+    return const <Track>[];
+  }
+}
+
+class _FakeNeteaseSource extends NeteaseSource {
+  @override
+  Future<List<Track>> getHotRankingTracks({int limit = 50}) async {
     return const <Track>[];
   }
 }

@@ -219,6 +219,7 @@ class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
       final rankingCache = ref.read(rankingCacheServiceProvider);
       final bilibiliCacheCount = rankingCache.bilibiliTracks.length;
       final youtubeCacheCount = rankingCache.youtubeTracks.length;
+      final neteaseCacheCount = rankingCache.neteaseTracks.length;
 
       // 歌词缓存
       int lyricsCacheCount = 0;
@@ -244,6 +245,7 @@ class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
           queueTrackCount: queueTrackCount,
           bilibiliCacheCount: bilibiliCacheCount,
           youtubeCacheCount: youtubeCacheCount,
+          neteaseCacheCount: neteaseCacheCount,
           lyricsCacheCount: lyricsCacheCount,
         );
         _isLoading = false;
@@ -396,6 +398,7 @@ class _MemoryInfoTileState extends ConsumerState<_MemoryInfoTile> {
           t.settings.developerOptions.rankingCache(
             bilibili: info.bilibiliCacheCount.toString(),
             youtube: info.youtubeCacheCount.toString(),
+            netease: info.neteaseCacheCount.toString(),
           ),
           colorScheme,
         ),
@@ -491,6 +494,7 @@ class _MemoryInfo {
   final int queueTrackCount;
   final int bilibiliCacheCount;
   final int youtubeCacheCount;
+  final int neteaseCacheCount;
   final int lyricsCacheCount;
 
   _MemoryInfo({
@@ -504,6 +508,7 @@ class _MemoryInfo {
     required this.queueTrackCount,
     required this.bilibiliCacheCount,
     required this.youtubeCacheCount,
+    required this.neteaseCacheCount,
     required this.lyricsCacheCount,
   });
 }

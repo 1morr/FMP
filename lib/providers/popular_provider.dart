@@ -236,6 +236,16 @@ final homeYouTubeMusicRankingProvider = Provider<List<Track>>((ref) {
   return List.unmodifiable(tracks.take(AppConstants.rankingPreviewCount));
 });
 
+// ==================== Netease 熱歌榜 ====================
+
+/// 首頁 Netease 熱歌榜預覽 Provider（使用緩存服務）
+final homeNeteaseHotRankingProvider = Provider<List<Track>>((ref) {
+  final tracks = ref.watch(
+    rankingCacheServiceProvider.select((state) => state.neteaseTracks),
+  );
+  return List.unmodifiable(tracks.take(AppConstants.rankingPreviewCount));
+});
+
 // ==================== 緩存排行榜（探索頁使用） ====================
 
 /// Bilibili 完整緩存排行榜 Provider（探索頁使用）
@@ -250,4 +260,12 @@ final cachedYouTubeRankingProvider = Provider<List<Track>>((ref) {
   return ref.watch(
     rankingCacheServiceProvider.select((state) => state.youtubeTracks),
   );
+});
+
+/// Netease 完整緩存排行榜 Provider（探索頁使用）
+final cachedNeteaseRankingProvider = Provider<List<Track>>((ref) {
+  final tracks = ref.watch(
+    rankingCacheServiceProvider.select((state) => state.neteaseTracks),
+  );
+  return List.unmodifiable(tracks);
 });

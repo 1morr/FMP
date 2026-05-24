@@ -60,9 +60,11 @@
   "explore": {
     "title": "Explore",
     "ranking": "Trending Charts",
-    "rankingDesc": "View Bilibili and YouTube music trending charts",
+    "rankingDesc": "View Bilibili, YouTube, and Netease music trending charts",
     "autoUpdate": "Auto Update",
-    "autoUpdateDesc": "Charts refresh hourly in background, instant access with no wait"
+    "autoUpdateDesc": "Charts refresh hourly in background, instant access with no wait",
+    "homeSources": "Home sources",
+    "homeSourcesDesc": "Choose and order Home ranking sources in Settings → Home ranking sources"
   },
   "history": {
     "title": "Play History",

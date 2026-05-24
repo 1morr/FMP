@@ -57,6 +57,89 @@ void main() {
       expect(queues.single.currentIndex, 0);
     });
 
+    test('initializes Home ranking source defaults', () async {
+      await openTestDatabase();
+
+      await initializeDatabaseDefaults(isar);
+
+      final settings = await isar.settings.get(0);
+      expect(settings, isNotNull);
+      expect(settings!.homeRankingSourcePriority, 'bilibili,youtube,netease');
+      expect(settings.homeRankingSourcePriorityList,
+          ['bilibili', 'youtube', 'netease']);
+      expect(settings.disabledHomeRankingSources, '');
+      expect(settings.disabledHomeRankingSourcesSet, isEmpty);
+    });
+
+    test('repairs empty Home ranking source priority', () async {
+      await openTestDatabase();
+
+      final upgradedSettings = Settings()
+        ..homeRankingSourcePriority = ''
+        ..disabledHomeRankingSources = '';
+      await isar.writeTxn(() async {
+        await isar.settings.put(upgradedSettings);
+      });
+
+      await runDatabaseMigrationForTesting(isar);
+
+      final migratedSettings = await isar.settings.get(0);
+      expect(migratedSettings, isNotNull);
+      expect(
+        migratedSettings!.homeRankingSourcePriority,
+        'bilibili,youtube,netease',
+      );
+      expect(migratedSettings.disabledHomeRankingSources, '');
+    });
+
+    test(
+        'normalizes Home ranking source priority and preserves disabled sources',
+        () async {
+      await openTestDatabase();
+
+      final settings = Settings()
+        ..homeRankingSourcePriority = 'youtube,unknown,bilibili,youtube'
+        ..disabledHomeRankingSources = 'netease,unknown';
+      await isar.writeTxn(() async {
+        await isar.settings.put(settings);
+      });
+
+      await runDatabaseMigrationForTesting(isar);
+
+      final migratedSettings = await isar.settings.get(0);
+      expect(migratedSettings, isNotNull);
+      expect(
+        migratedSettings!.homeRankingSourcePriority,
+        'youtube,bilibili,netease',
+      );
+      expect(migratedSettings!.homeRankingSourcePriorityList,
+          ['youtube', 'bilibili', 'netease']);
+      expect(migratedSettings.disabledHomeRankingSources, 'netease');
+      expect(migratedSettings.disabledHomeRankingSourcesSet, {'netease'});
+    });
+
+    test('repairs all disabled Home ranking sources', () async {
+      await openTestDatabase();
+
+      final settings = Settings()
+        ..homeRankingSourcePriority = 'netease,youtube,bilibili'
+        ..disabledHomeRankingSources = 'bilibili,youtube,netease';
+      await isar.writeTxn(() async {
+        await isar.settings.put(settings);
+      });
+
+      await runDatabaseMigrationForTesting(isar);
+
+      final migratedSettings = await isar.settings.get(0);
+      expect(migratedSettings, isNotNull);
+      expect(
+        migratedSettings!.homeRankingSourcePriority,
+        'netease,youtube,bilibili',
+      );
+      expect(migratedSettings.disabledHomeRankingSources, '');
+      expect(migratedSettings.disabledHomeRankingSourcesSet, isEmpty);
+    });
+
     test('clears AI title parse cache during startup migration', () async {
       await openTestDatabase();
       final cache = LyricsTitleParseCache()

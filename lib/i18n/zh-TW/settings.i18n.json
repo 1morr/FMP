@@ -118,6 +118,13 @@
     "aiTestSuccessWithArtist": "AI 測試成功：$track - $artist",
     "aiTestFailed": "AI 測試失敗，請檢查端點、API Key 和模型"
   },
+  "homeRankingSettings": {
+    "title": "首頁熱門來源",
+    "subtitle": "選擇並排序首頁顯示的熱門榜單",
+    "hint": "拖曳設定由高到低的優先級。首頁會按從左到右、從上到下顯示已啟用來源。",
+    "enabled": "已啟用",
+    "disabled": "已停用"
+  },
   "version": {
     "title": "版本",
     "tapToEnableDev": "再點擊 $n 次啟用開發者選項",
@@ -166,7 +173,7 @@
     "nativeMemoryDetail": "約 $size（RSS - Dart堆積）",
     "dataCaches": "資料快取",
     "queueTracks": "播放佇列: $count 首",
-    "rankingCache": "排行榜快取: B站 $bilibili 首 / YT $youtube 首",
+    "rankingCache": "排行榜快取: B站 $bilibili 首 / YT $youtube 首 / 網易雲 $netease 首",
     "lyricsCacheCount": "歌詞快取: $count 條",
     "clearImageMemoryCache": "清除圖片記憶體快取",
     "clearImageMemoryCacheDone": "已清除 Flutter 圖片記憶體快取",

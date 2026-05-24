@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/constants/breakpoints.dart';
 import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
@@ -10,6 +11,7 @@ import '../../../data/models/play_history.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../providers/play_history_provider.dart';
+import '../../../providers/home_ranking_settings_provider.dart';
 import '../../../providers/popular_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/cache/ranking_cache_service.dart';
@@ -32,6 +34,54 @@ import '../../../providers/refresh_provider.dart';
 import '../../../services/library/playlist_service.dart';
 import '../library/widgets/create_playlist_dialog.dart';
 import '../../../core/constants/app_constants.dart';
+
+class HomeRankingSourcePlan {
+  final String id;
+  final List<Track> tracks;
+
+  HomeRankingSourcePlan({
+    required this.id,
+    required List<Track> tracks,
+  }) : tracks = List.unmodifiable(tracks);
+}
+
+class HomeRankingLayoutPlan {
+  final Axis axis;
+  final List<HomeRankingSourcePlan> sources;
+
+  HomeRankingLayoutPlan({
+    required this.axis,
+    required List<HomeRankingSourcePlan> sources,
+  }) : sources = List.unmodifiable(sources);
+}
+
+HomeRankingLayoutPlan buildHomeRankingLayoutPlan({
+  required double maxWidth,
+  required List<String> enabledSourceOrder,
+  required Map<String, List<Track>> tracksBySource,
+}) {
+  final layoutType = Breakpoints.getLayoutType(maxWidth);
+  final axis =
+      layoutType == LayoutType.mobile ? Axis.vertical : Axis.horizontal;
+  final maxSources = layoutType == LayoutType.desktop ? 3 : 2;
+
+  final candidateSources = enabledSourceOrder
+      .where(tracksBySource.containsKey)
+      .map(
+        (source) => HomeRankingSourcePlan(
+          id: source,
+          tracks: tracksBySource[source] ?? const <Track>[],
+        ),
+      )
+      .toList();
+  final availableSources =
+      candidateSources.where((source) => source.tracks.isNotEmpty).toList();
+
+  return HomeRankingLayoutPlan(
+    axis: axis,
+    sources: availableSources.take(maxSources).toList(),
+  );
+}
 
 /// 首页
 class HomePage extends ConsumerStatefulWidget {
@@ -57,7 +107,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 音樂排行榜（独立 ConsumerWidget）
-            _MusicRankingsSection(),
+            HomeRankingsSection(),
 
             // 我的歌单（独立 ConsumerWidget）
             _RecentPlaylistsSection(),
@@ -83,21 +133,43 @@ class _HomePageState extends ConsumerState<HomePage> {
 }
 
 /// 音樂排行榜區域（独立 ConsumerWidget，避免其他 section 变化触发 rebuild）
-class _MusicRankingsSection extends ConsumerWidget {
-  const _MusicRankingsSection();
+class HomeRankingsSection extends ConsumerWidget {
+  const HomeRankingsSection({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bilibiliTracks = ref.watch(homeBilibiliMusicRankingProvider);
-    final youtubeTracks = ref.watch(homeYouTubeMusicRankingProvider);
+    final enabledSourceOrder = ref.watch(enabledHomeRankingSourceOrderProvider);
+
+    if (enabledSourceOrder.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final tracksBySource = {
+      for (final source in enabledSourceOrder)
+        if (_tracksForRankingSource(ref, source) case final tracks?)
+          source: tracks,
+    };
+    if (tracksBySource.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     final isLoading = ref.watch(
       rankingCacheServiceProvider.select((state) => state.isInitialLoading),
     );
 
-    final hasBilibiliData = bilibiliTracks.isNotEmpty;
-    final hasYoutubeData = youtubeTracks.isNotEmpty;
+    final candidateSources = enabledSourceOrder
+        .where(tracksBySource.containsKey)
+        .map(
+          (source) => HomeRankingSourcePlan(
+            id: source,
+            tracks: tracksBySource[source] ?? const <Track>[],
+          ),
+        )
+        .toList();
+    final availableSources =
+        candidateSources.where((source) => source.tracks.isNotEmpty).toList();
 
-    if (!isLoading && !hasBilibiliData && !hasYoutubeData) {
+    if (!isLoading && availableSources.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -125,77 +197,117 @@ class _MusicRankingsSection extends ConsumerWidget {
         _buildRankingContent(
           context,
           colorScheme,
-          bilibiliTracks: bilibiliTracks,
-          youtubeTracks: youtubeTracks,
+          enabledSourceOrder: enabledSourceOrder,
+          tracksBySource: tracksBySource,
           isLoading: isLoading,
-          hasBilibiliData: hasBilibiliData,
-          hasYoutubeData: hasYoutubeData,
         ),
       ],
     );
   }
 
+  List<Track>? _tracksForRankingSource(WidgetRef ref, String source) {
+    switch (source) {
+      case 'bilibili':
+        return ref.watch(homeBilibiliMusicRankingProvider);
+      case 'youtube':
+        return ref.watch(homeYouTubeMusicRankingProvider);
+      case 'netease':
+        return ref.watch(homeNeteaseHotRankingProvider);
+      default:
+        return null;
+    }
+  }
+
   Widget _buildRankingContent(
     BuildContext context,
     ColorScheme colorScheme, {
-    required List<Track> bilibiliTracks,
-    required List<Track> youtubeTracks,
+    required List<String> enabledSourceOrder,
+    required Map<String, List<Track>> tracksBySource,
     required bool isLoading,
-    required bool hasBilibiliData,
-    required bool hasYoutubeData,
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isWideScreen = constraints.maxWidth > 600;
+        final plan = buildHomeRankingLayoutPlan(
+          maxWidth: constraints.maxWidth,
+          enabledSourceOrder: enabledSourceOrder,
+          tracksBySource: tracksBySource,
+        );
+        final candidateSources = enabledSourceOrder
+            .where(tracksBySource.containsKey)
+            .map(
+              (source) => HomeRankingSourcePlan(
+                id: source,
+                tracks: tracksBySource[source] ?? const <Track>[],
+              ),
+            )
+            .toList();
+        final availableSources = candidateSources
+            .where((source) => source.tracks.isNotEmpty)
+            .toList();
 
-        if (isLoading && !hasBilibiliData && !hasYoutubeData) {
+        if (isLoading && availableSources.isEmpty) {
+          if (candidateSources.isEmpty) return const SizedBox.shrink();
           return const SizedBox(
             height: 200,
             child: Center(child: CircularProgressIndicator()),
           );
         }
 
-        if (isWideScreen) {
+        if (plan.sources.isEmpty) return const SizedBox.shrink();
+
+        if (plan.axis == Axis.horizontal) {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (hasBilibiliData)
+                for (var i = 0; i < plan.sources.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 16),
                   Expanded(
-                    child: _buildRankingCard(context, colorScheme,
-                        title: t.importPlatform.bilibili,
-                        tracks: bilibiliTracks),
+                    child: _buildRankingCard(
+                      context,
+                      colorScheme,
+                      title: _titleForRankingSource(plan.sources[i].id),
+                      tracks: plan.sources[i].tracks,
+                    ),
                   ),
-                if (hasBilibiliData && hasYoutubeData)
-                  const SizedBox(width: 16),
-                if (hasYoutubeData)
-                  Expanded(
-                    child: _buildRankingCard(context, colorScheme,
-                        title: 'YouTube', tracks: youtubeTracks),
-                  ),
-              ],
-            ),
-          );
-        } else {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              children: [
-                if (hasBilibiliData)
-                  _buildRankingCard(context, colorScheme,
-                      title: t.importPlatform.bilibili, tracks: bilibiliTracks),
-                if (hasBilibiliData && hasYoutubeData)
-                  const SizedBox(height: 12),
-                if (hasYoutubeData)
-                  _buildRankingCard(context, colorScheme,
-                      title: 'YouTube', tracks: youtubeTracks),
+                ],
               ],
             ),
           );
         }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            children: [
+              for (var i = 0; i < plan.sources.length; i++) ...[
+                if (i > 0) const SizedBox(height: 12),
+                _buildRankingCard(
+                  context,
+                  colorScheme,
+                  title: _titleForRankingSource(plan.sources[i].id),
+                  tracks: plan.sources[i].tracks,
+                ),
+              ],
+            ],
+          ),
+        );
       },
     );
+  }
+
+  String _titleForRankingSource(String source) {
+    switch (source) {
+      case 'bilibili':
+        return t.importPlatform.bilibili;
+      case 'youtube':
+        return 'YouTube';
+      case 'netease':
+        return t.importPlatform.netease;
+      default:
+        return source;
+    }
   }
 
   Widget _buildRankingCard(
