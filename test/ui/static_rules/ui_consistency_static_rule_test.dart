@@ -71,6 +71,26 @@ void main() {
       );
     });
 
+    test(
+        'image loading applies decode-size hints to local and target-sized images',
+        () {
+      final source = File(
+        'lib/core/services/image_loading_service.dart',
+      ).readAsStringSync();
+
+      expect(source, contains('ResizeImage('));
+      expect(source, contains('MediaQuery.devicePixelRatioOf(context)'));
+      expect(source, contains('targetDisplaySize: targetDisplaySize'));
+      expect(
+        source,
+        contains('widget.width ?? widget.targetDisplaySize'),
+      );
+      expect(
+        source,
+        contains('widget.height ?? widget.targetDisplaySize'),
+      );
+    });
+
     test('download path unset text does not use error color', () {
       final source =
           File('lib/ui/pages/settings/settings_page.dart').readAsStringSync();
@@ -119,15 +139,27 @@ void main() {
       expect(source, isNot(contains('ForTest')));
     });
 
-    test('search and downloaded dynamic rows use stable keys', () {
+    test('search, playlist, and downloaded dynamic rows use stable keys', () {
       final search =
           File('lib/ui/pages/search/search_page.dart').readAsStringSync();
+      final playlistDetail = File(
+        'lib/ui/pages/library/playlist_detail_page.dart',
+      ).readAsStringSync();
       final downloadedCategory = File(
         'lib/ui/pages/library/downloaded_category_page.dart',
       ).readAsStringSync();
 
       expect(search, contains("ValueKey('local-group-\${group.groupKey}')"));
       expect(search, contains("ValueKey('live-room-\${room.roomId}')"));
+      expect(
+        search,
+        contains(
+            "'page-\${track.sourceType.name}:\${track.sourceId}:\${page.page}'"),
+      );
+      expect(
+        playlistDetail,
+        contains("ValueKey('playlist-group-\${group.groupKey}')"),
+      );
       expect(
         downloadedCategory,
         contains("ValueKey('downloaded-track-\${_downloadedTrackKey("),
@@ -149,6 +181,63 @@ void main() {
       expect(pageTileBody, isNot(contains('includeMatchLyrics: false')));
       expect(pageTileBody, isNot(contains('includeAddToRemote: false')));
       expect(source, contains('TrackActionCoordinator.handleSingle'));
+    });
+
+    test('search results cache mixed online tracks per build', () {
+      final source =
+          File('lib/ui/pages/search/search_page.dart').readAsStringSync();
+      final buildResultsBody = _methodBody(source, '_buildSearchResults');
+
+      expect(buildResultsBody, contains('final mixedOnlineTracks ='));
+      expect(
+        buildResultsBody,
+        isNot(contains('state.mixedOnlineTracks[index]')),
+      );
+      expect(
+        buildResultsBody,
+        isNot(contains('state.mixedOnlineTracks.length')),
+      );
+    });
+
+    test('download manager rows expose stable keys', () {
+      final source = File(
+        'lib/ui/pages/settings/download_manager_page.dart',
+      ).readAsStringSync();
+
+      expect(source, contains("ValueKey('download-section-\${row.title}')"));
+      expect(source, contains("ValueKey('download-task-\${row.task!.id}')"));
+      expect(
+        source,
+        contains("ValueKey('download-active-task-\${tasks[index].id}')"),
+      );
+      expect(source, contains("ValueKey('download-empty-slot-\$index')"));
+    });
+
+    test('radio UI watches only audio device and volume fields', () {
+      final miniPlayer = File(
+        'lib/ui/widgets/radio/radio_mini_player.dart',
+      ).readAsStringSync();
+      final playerPage = File(
+        'lib/ui/pages/radio/radio_player_page.dart',
+      ).readAsStringSync();
+
+      for (final source in [miniPlayer, playerPage]) {
+        expect(source, isNot(contains('ref.watch(audioControllerProvider);')));
+        expect(
+          source,
+          contains('audioControllerProvider.select((state) => state.volume)'),
+        );
+        expect(
+          source,
+          contains(
+              'audioControllerProvider.select((state) => state.audioDevices)'),
+        );
+        expect(
+          source,
+          contains(
+              'audioControllerProvider.select((state) => state.currentAudioDevice)'),
+        );
+      }
     });
 
     test('silent async UI failures surface errors to users', () {
@@ -205,7 +294,7 @@ String _classBody(String source, String className) {
 
 String _methodBody(String source, String methodName) {
   final declaration = RegExp(
-    r'(?:Future<[^>]+>|void)\s+' + RegExp.escape(methodName) + r'\s*\(',
+    r'(?:Future<[^>]+>|void|Widget)\s+' + RegExp.escape(methodName) + r'\s*\(',
   ).firstMatch(source);
   if (declaration == null) {
     throw StateError('Method $methodName not found');

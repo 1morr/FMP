@@ -96,6 +96,9 @@ void main() {
 
       expect(source, contains('buildDownloadImageHeaders('));
       expect(source, contains('Options(headers: imageHeaders)'));
+      expect(source, contains('ThumbnailUrlUtils.getOptimizedUrlCandidates('));
+      expect(source, contains('displaySize: 480'));
+      expect(source, contains('displaySize: 160'));
       expect(
         source,
         isNot(contains('await _dio.download(track.thumbnailUrl!, coverPath);')),
@@ -115,6 +118,17 @@ void main() {
         source,
         isNot(contains("'Referer': 'https://www.bilibili.com'")),
       );
+    });
+
+    test('download isolate applies receive timeout to stalled responses', () {
+      final source = File('lib/services/download/download_service.dart')
+          .readAsStringSync();
+
+      expect(
+        source,
+        contains('response.timeout(AppConstants.networkReceiveTimeout)'),
+      );
+      expect(source, contains('on TimeoutException catch'));
     });
   });
 }

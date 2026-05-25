@@ -11,6 +11,9 @@ For concrete source adapter rules, also read `lib/data/sources/AGENTS.md`.
 - CRUD repositories live in `lib/data/repositories/`.
 - Audio source parsers live in `lib/data/sources/` and share
   `SourceApiException`.
+- Repository bulk status changes should mutate loaded Isar objects and call
+  `putAll()` inside one write transaction instead of issuing per-row `put()`
+  calls.
 
 ## Persisted Isar Collections
 

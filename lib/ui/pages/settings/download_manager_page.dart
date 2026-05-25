@@ -125,16 +125,21 @@ class DownloadManagerPage extends ConsumerWidget {
               switch (row.type) {
                 case _DownloadListRowType.header:
                   return _SectionHeader(
+                    key: ValueKey('download-section-${row.title}'),
                     title: row.title!,
                     count: row.count!,
                   );
                 case _DownloadListRowType.fixedDownloadingSection:
                   return _FixedHeightDownloadingSection(
+                    key: const ValueKey('download-section-active-slots'),
                     tasks: row.tasks!,
                     maxSlots: row.maxSlots!,
                   );
                 case _DownloadListRowType.task:
-                  return _DownloadTaskTile(task: row.task!);
+                  return _DownloadTaskTile(
+                    key: ValueKey('download-task-${row.task!.id}'),
+                    task: row.task!,
+                  );
               }
             },
           );
@@ -250,6 +255,7 @@ class _FixedHeightDownloadingSection extends ConsumerWidget {
   static const double _tileHeight = 88.0;
 
   const _FixedHeightDownloadingSection({
+    super.key,
     required this.tasks,
     required this.maxSlots,
   });
@@ -265,10 +271,16 @@ class _FixedHeightDownloadingSection extends ConsumerWidget {
         itemCount: maxSlots,
         itemBuilder: (context, index) {
           if (index < tasks.length) {
-            return _DownloadTaskTile(task: tasks[index]);
+            return _DownloadTaskTile(
+              key: ValueKey('download-active-task-${tasks[index].id}'),
+              task: tasks[index],
+            );
           }
           // 空槽位占位符
-          return const SizedBox(height: _tileHeight);
+          return SizedBox(
+            key: ValueKey('download-empty-slot-$index'),
+            height: _tileHeight,
+          );
         },
       ),
     );
@@ -280,7 +292,7 @@ class _SectionHeader extends StatelessWidget {
   final String title;
   final int count;
 
-  const _SectionHeader({required this.title, required this.count});
+  const _SectionHeader({super.key, required this.title, required this.count});
 
   @override
   Widget build(BuildContext context) {
@@ -318,7 +330,7 @@ class _SectionHeader extends StatelessWidget {
 class _DownloadTaskTile extends ConsumerWidget {
   final DownloadTask task;
 
-  const _DownloadTaskTile({required this.task});
+  const _DownloadTaskTile({super.key, required this.task});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

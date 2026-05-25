@@ -6,7 +6,7 @@ Guidance for Riverpod providers, provider invalidation, and database startup.
 
 | Source | Pattern | Example |
 |--------|---------|---------|
-| DB collection, multi-writer | Isar `watchAll()` + `StateNotifier` | Playlists, radio, history |
+| DB collection, multi-writer | Isar `watchAll()` + `StateNotifier` | Playlists, radio |
 | DB join query | `StateNotifier` + optimistic update | Playlist detail |
 | File system scan | `FutureProvider` + `invalidate` | Downloaded page |
 | API + cache state | `StateNotifierProvider` + immutable state | Home/explore rankings (`RankingCacheState`) |
@@ -14,6 +14,9 @@ Guidance for Riverpod providers, provider invalidation, and database startup.
 
 Rules:
 - Pages using `isLoading` must guard with `isLoading && data.isEmpty`.
+- Play history currently uses `watchLazy()` plus a shared snapshot stream rather
+  than the playlist/radio `watchAll()` data notifier pattern. Profile large
+  history datasets before changing its watch/query shape.
 - `FutureProvider` data must be invalidated after mutations.
 - Mutation side effects that need playlist/detail/cover/download provider
   invalidation should go through `libraryInvalidationCoordinatorProvider`; UI
@@ -29,6 +32,8 @@ Rules:
 - Search source selection is owned by search page chips: "all" queries
   Bilibili + YouTube + Netease, and a source chip queries only that source. Do
   not add a hidden global enabled-source filter in Settings.
+- Search source/sort changes should preserve existing results while the
+  replacement query is loading, so slow networks do not blank the result list.
 - Optimistic updates must roll back on failure.
 
 ## Database Startup And Migration

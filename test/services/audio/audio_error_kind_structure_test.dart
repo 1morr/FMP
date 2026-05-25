@@ -27,5 +27,18 @@ void main() {
       final onAudioErrorBody = source.substring(onAudioErrorStart);
       expect(onAudioErrorBody, contains('_isStringNetworkError(error)'));
     });
+
+    test('dispose handles async backend cleanup errors', () {
+      final source =
+          File('lib/services/audio/audio_provider.dart').readAsStringSync();
+
+      final disposeStart = source.indexOf('void dispose()');
+      expect(disposeStart, isNot(-1));
+      final disposeBody = source.substring(disposeStart);
+
+      expect(disposeBody, contains('unawaited(_audioService.dispose()'));
+      expect(disposeBody, contains('catchError'));
+      expect(disposeBody, contains('logError('));
+    });
   });
 }

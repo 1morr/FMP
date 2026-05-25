@@ -539,7 +539,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     _subscriptions.clear();
     _mixPlaylistHandler.clear();
     _queueManager.dispose();
-    _audioService.dispose();
+    unawaited(_audioService.dispose().catchError((Object e, StackTrace stack) {
+      logError('Failed to dispose audio service', e, stack);
+    }));
     super.dispose();
   }
 

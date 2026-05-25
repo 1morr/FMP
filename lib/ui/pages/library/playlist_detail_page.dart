@@ -339,6 +339,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final isExpanded = _expandedGroups.contains(group.groupKey);
 
     return Column(
+      key: ValueKey('playlist-group-${group.groupKey}'),
       children: [
         // 父视频标题行
         _GroupHeader(

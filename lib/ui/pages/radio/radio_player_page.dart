@@ -28,7 +28,15 @@ class RadioPlayerPage extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final radioState = ref.watch(radioControllerProvider);
     final radioController = ref.read(radioControllerProvider.notifier);
-    final audioState = ref.watch(audioControllerProvider);
+    final audioDevices = ref.watch(
+      audioControllerProvider.select((state) => state.audioDevices),
+    );
+    final currentAudioDevice = ref.watch(
+      audioControllerProvider.select((state) => state.currentAudioDevice),
+    );
+    final volume = ref.watch(
+      audioControllerProvider.select((state) => state.volume),
+    );
     final audioController = ref.read(audioControllerProvider.notifier);
 
     final station = radioState.currentStation;
@@ -40,16 +48,23 @@ class RadioPlayerPage extends ConsumerWidget {
           onPressed: () => Navigator.of(context).pop(),
         ),
         // Windows: 让 AppBar 空白区域可拖动窗口（播放器页面覆盖了标题栏）
-        flexibleSpace: Platform.isWindows ? const DragToMoveArea(child: SizedBox.expand()) : null,
+        flexibleSpace: Platform.isWindows
+            ? const DragToMoveArea(child: SizedBox.expand())
+            : null,
         actions: [
           // 桌面端音頻設備選擇器
-          if (isDesktop && audioState.audioDevices.length > 1)
+          if (isDesktop && audioDevices.length > 1)
             _buildFmpAudioDeviceSelector(
-                context, audioState, audioController, colorScheme),
+              context,
+              audioDevices,
+              currentAudioDevice,
+              audioController,
+              colorScheme,
+            ),
           // 桌面端音量控制（緊湊版）
           if (isDesktop)
             _buildCompactVolumeControl(
-                context, audioState, audioController, colorScheme),
+                context, volume, audioController, colorScheme),
           // 更多選項
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
@@ -65,7 +80,9 @@ class RadioPlayerPage extends ConsumerWidget {
               }
             },
             itemBuilder: (context) {
-              final isDisabled = radioState.isBuffering || radioState.isLoading || !radioState.isPlaying;
+              final isDisabled = radioState.isBuffering ||
+                  radioState.isLoading ||
+                  !radioState.isPlaying;
               return [
                 PopupMenuItem(
                   value: 'reload',
@@ -75,13 +92,18 @@ class RadioPlayerPage extends ConsumerWidget {
                       Icon(
                         Icons.refresh,
                         size: 20,
-                        color: isDisabled ? colorScheme.onSurfaceVariant.withValues(alpha: 0.38) : null,
+                        color: isDisabled
+                            ? colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.38)
+                            : null,
                       ),
                       const SizedBox(width: 12),
                       Text(
                         t.radio.reloadLive,
                         style: isDisabled
-                            ? TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.38))
+                            ? TextStyle(
+                                color: colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.38))
                             : null,
                       ),
                     ],
@@ -128,7 +150,8 @@ class RadioPlayerPage extends ConsumerWidget {
                   const SizedBox(height: 24),
 
                   // 播放控制
-                  _buildPlaybackControls(radioState, radioController, colorScheme),
+                  _buildPlaybackControls(
+                      radioState, radioController, colorScheme),
                 ],
               ),
             ),
@@ -156,7 +179,7 @@ class RadioPlayerPage extends ConsumerWidget {
           networkUrl: station.thumbnailUrl,
           placeholder: _buildCoverPlaceholder(colorScheme),
           fit: BoxFit.cover,
-          targetDisplaySize: 480,  // 高清封面
+          targetDisplaySize: 480, // 高清封面
         ),
       ),
     );
@@ -214,7 +237,8 @@ class RadioPlayerPage extends ConsumerWidget {
     final parts = <String>[];
 
     if (state.liveStartTime != null) {
-      parts.add(t.radio.startedBroadcast(time: _formatDateTime(state.liveStartTime!)));
+      parts.add(t.radio
+          .startedBroadcast(time: _formatDateTime(state.liveStartTime!)));
     }
     if (state.isPlaying) {
       parts.add(_formatDuration(state.playDuration));
@@ -339,7 +363,7 @@ class RadioPlayerPage extends ConsumerWidget {
   /// 緊湊音量控制（AppBar 內使用）
   Widget _buildCompactVolumeControl(
     BuildContext context,
-    PlayerState state,
+    double volume,
     AudioController controller,
     ColorScheme colorScheme,
   ) {
@@ -347,9 +371,9 @@ class RadioPlayerPage extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          icon: Icon(getVolumeIcon(state.volume), size: 20),
+          icon: Icon(getVolumeIcon(volume), size: 20),
           visualDensity: VisualDensity.compact,
-          tooltip: state.volume > 0 ? t.radio.mute : t.radio.unmute,
+          tooltip: volume > 0 ? t.radio.mute : t.radio.unmute,
           onPressed: () => controller.toggleMute(),
         ),
         SizedBox(
@@ -365,7 +389,7 @@ class RadioPlayerPage extends ConsumerWidget {
               overlayColor: colorScheme.primary.withValues(alpha: 0.2),
             ),
             child: Slider(
-              value: state.volume,
+              value: volume,
               min: 0.0,
               max: 1.0,
               onChanged: (value) => controller.setVolume(value),
@@ -379,13 +403,11 @@ class RadioPlayerPage extends ConsumerWidget {
   /// 音頻輸出設備選擇器（AppBar用，僅桌面端）
   Widget _buildFmpAudioDeviceSelector(
     BuildContext context,
-    PlayerState state,
+    List<FmpAudioDevice> devices,
+    FmpAudioDevice? currentDevice,
     AudioController controller,
     ColorScheme colorScheme,
   ) {
-    final currentDevice = state.currentAudioDevice;
-    final devices = state.audioDevices;
-
     const menuWidth = 220.0;
 
     return MenuAnchor(
@@ -424,7 +446,9 @@ class RadioPlayerPage extends ConsumerWidget {
           ),
         ),
         const Divider(height: 1),
-        ...devices.where((d) => d.name != 'auto' && d.name != 'openal').map((device) {
+        ...devices
+            .where((d) => d.name != 'auto' && d.name != 'openal')
+            .map((device) {
           final isSelected = currentDevice?.name == device.name;
           return MenuItemButton(
             onPressed: () => controller.setAudioDevice(device),
@@ -446,14 +470,16 @@ class RadioPlayerPage extends ConsumerWidget {
 
   /// 格式化設備名稱
   String _formatDeviceName(FmpAudioDevice device) {
-    final displayName = device.description.isNotEmpty ? device.description : device.name;
+    final displayName =
+        device.description.isNotEmpty ? device.description : device.name;
 
     final match = RegExp(r'喇叭\s*\((.+)\)$').firstMatch(displayName);
     if (match != null) {
       return match.group(1) ?? displayName;
     }
 
-    final matchEn = RegExp(r'Speakers?\s*\((.+)\)$', caseSensitive: false).firstMatch(displayName);
+    final matchEn = RegExp(r'Speakers?\s*\((.+)\)$', caseSensitive: false)
+        .firstMatch(displayName);
     if (matchEn != null) {
       return matchEn.group(1) ?? displayName;
     }
@@ -534,17 +560,19 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
 
   void _checkIfNeedsExpansion() {
     final textStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
-      height: 1.6,
-    );
+          height: 1.6,
+        );
 
     // 檢查公告是否需要展開
-    if (widget.state.announcement != null && widget.state.announcement!.isNotEmpty) {
+    if (widget.state.announcement != null &&
+        widget.state.announcement!.isNotEmpty) {
       final announcementPainter = TextPainter(
         text: TextSpan(text: widget.state.announcement!, style: textStyle),
         maxLines: _maxLines,
         textDirection: TextDirection.ltr,
       );
-      final box = _announcementKey.currentContext?.findRenderObject() as RenderBox?;
+      final box =
+          _announcementKey.currentContext?.findRenderObject() as RenderBox?;
       if (box != null) {
         announcementPainter.layout(maxWidth: box.size.width);
         if (mounted) {
@@ -556,13 +584,15 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
     }
 
     // 檢查簡介是否需要展開
-    if (widget.state.description != null && widget.state.description!.isNotEmpty) {
+    if (widget.state.description != null &&
+        widget.state.description!.isNotEmpty) {
       final descriptionPainter = TextPainter(
         text: TextSpan(text: widget.state.description!, style: textStyle),
         maxLines: _maxLines,
         textDirection: TextDirection.ltr,
       );
-      final box = _descriptionKey.currentContext?.findRenderObject() as RenderBox?;
+      final box =
+          _descriptionKey.currentContext?.findRenderObject() as RenderBox?;
       if (box != null) {
         descriptionPainter.layout(maxWidth: box.size.width);
         if (mounted) {
@@ -620,7 +650,8 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
                         width: 40,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                          color: colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.4),
                           borderRadius: AppRadius.borderRadiusXs,
                         ),
                       ),
@@ -661,162 +692,175 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
                     child: station == null
                         ? Text(t.radio.unableToGetInfo)
                         : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 標題（點擊跳轉到直播間）
-                        MouseRegion(
-                          cursor: SystemMouseCursors.click,
-                          child: GestureDetector(
-                            onTap: () => UrlLauncherService.instance.openBilibiliLive(station.sourceId),
-                            child: Text(
-                              station.title,
-                              style: textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                height: 1.3,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // 標題（點擊跳轉到直播間）
+                              MouseRegion(
+                                cursor: SystemMouseCursors.click,
+                                child: GestureDetector(
+                                  onTap: () => UrlLauncherService.instance
+                                      .openBilibiliLive(station.sourceId),
+                                  child: Text(
+                                    station.title,
+                                    style: textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      height: 1.3,
+                                    ),
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
                               ),
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
 
-                        const SizedBox(height: 16),
+                              const SizedBox(height: 16),
 
-                        // 主播信息（點擊跳轉到個人空間）
-                        if (station.hostName != null)
-                          MouseRegion(
-                            cursor: station.hostUid != null
-                                ? SystemMouseCursors.click
-                                : SystemMouseCursors.basic,
-                            child: GestureDetector(
-                              onTap: station.hostUid != null
-                                  ? () => UrlLauncherService.instance.openBilibiliSpace(station.hostUid!)
-                                  : null,
-                              child: Row(
+                              // 主播信息（點擊跳轉到個人空間）
+                              if (station.hostName != null)
+                                MouseRegion(
+                                  cursor: station.hostUid != null
+                                      ? SystemMouseCursors.click
+                                      : SystemMouseCursors.basic,
+                                  child: GestureDetector(
+                                    onTap: station.hostUid != null
+                                        ? () => UrlLauncherService.instance
+                                            .openBilibiliSpace(station.hostUid!)
+                                        : null,
+                                    child: Row(
+                                      children: [
+                                        ImageLoadingService.loadAvatar(
+                                          networkUrl: station.hostAvatarUrl,
+                                          size: 40,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            station.hostName!,
+                                            style:
+                                                textTheme.bodyLarge?.copyWith(
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (station.hostUid != null)
+                                          Icon(
+                                            Icons.chevron_right,
+                                            size: 20,
+                                            color: colorScheme.onSurfaceVariant,
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+
+                              const SizedBox(height: 16),
+
+                              // 統計數據
+                              Wrap(
+                                spacing: 16,
+                                runSpacing: 8,
                                 children: [
-                                  ImageLoadingService.loadAvatar(
-                                    networkUrl: station.hostAvatarUrl,
-                                    size: 40,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      station.hostName!,
-                                      style: textTheme.bodyLarge?.copyWith(
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                  if (widget.state.viewerCount != null)
+                                    _buildStatItem(
+                                      context,
+                                      Icons.visibility_rounded,
+                                      t.radio.viewersCount(
+                                          count: _formatCount(
+                                              widget.state.viewerCount!)),
                                     ),
-                                  ),
-                                  if (station.hostUid != null)
-                                    Icon(
-                                      Icons.chevron_right,
-                                      size: 20,
-                                      color: colorScheme.onSurfaceVariant,
+                                  if (widget.state.isPlaying)
+                                    _buildStatItem(
+                                      context,
+                                      Icons.schedule_outlined,
+                                      t.radio.played(
+                                          duration: _formatDuration(
+                                              widget.state.playDuration)),
                                     ),
+                                  if (widget.state.liveStartTime != null)
+                                    _buildStatItem(
+                                      context,
+                                      Icons.play_circle_outline,
+                                      t.radio.startedAt(
+                                          time: _formatDateTime(
+                                              widget.state.liveStartTime!)),
+                                    ),
+                                  if (widget.state.areaName != null)
+                                    _buildStatItem(
+                                      context,
+                                      Icons.category_outlined,
+                                      widget.state.areaName!,
+                                    ),
+                                  _buildStatItem(
+                                    context,
+                                    widget.state.isPlaying
+                                        ? Icons.radio_button_checked
+                                        : Icons.radio_button_off,
+                                    widget.state.isPlaying
+                                        ? t.radio.live
+                                        : t.radio.stopped,
+                                  ),
                                 ],
                               ),
-                            ),
+
+                              // 主播公告
+                              if (widget.state.announcement != null &&
+                                  widget.state.announcement!.isNotEmpty) ...[
+                                const SizedBox(height: 20),
+                                const Divider(),
+                                const SizedBox(height: 16),
+                                _buildExpandableSection(
+                                  context,
+                                  icon: Icons.campaign_outlined,
+                                  title: t.radio.announcement,
+                                  content: widget.state.announcement!,
+                                  textKey: _announcementKey,
+                                  isExpanded: _isAnnouncementExpanded,
+                                  needsExpansion: _announcementNeedsExpansion,
+                                  onToggle: () {
+                                    setState(() {
+                                      _isAnnouncementExpanded =
+                                          !_isAnnouncementExpanded;
+                                    });
+                                  },
+                                ),
+                              ],
+
+                              // 直播間簡介
+                              if (widget.state.description != null &&
+                                  widget.state.description!.isNotEmpty) ...[
+                                const SizedBox(height: 20),
+                                const Divider(),
+                                const SizedBox(height: 16),
+                                _buildExpandableSection(
+                                  context,
+                                  icon: Icons.info_outline_rounded,
+                                  title: t.radio.description,
+                                  content: widget.state.description!,
+                                  textKey: _descriptionKey,
+                                  isExpanded: _isDescriptionExpanded,
+                                  needsExpansion: _descriptionNeedsExpansion,
+                                  onToggle: () {
+                                    setState(() {
+                                      _isDescriptionExpanded =
+                                          !_isDescriptionExpanded;
+                                    });
+                                  },
+                                ),
+                              ],
+
+                              // 標籤
+                              if (widget.state.tags != null &&
+                                  widget.state.tags!.isNotEmpty) ...[
+                                const SizedBox(height: 20),
+                                const Divider(),
+                                const SizedBox(height: 16),
+                                _buildTagsSection(context, widget.state.tags!),
+                              ],
+
+                              const SizedBox(height: 20),
+                            ],
                           ),
-
-                        const SizedBox(height: 16),
-
-                        // 統計數據
-                        Wrap(
-                          spacing: 16,
-                          runSpacing: 8,
-                          children: [
-                            if (widget.state.viewerCount != null)
-                              _buildStatItem(
-                                context,
-                                Icons.visibility_rounded,
-                                t.radio.viewersCount(count: _formatCount(widget.state.viewerCount!)),
-                              ),
-                            if (widget.state.isPlaying)
-                              _buildStatItem(
-                                context,
-                                Icons.schedule_outlined,
-                                t.radio.played(duration: _formatDuration(widget.state.playDuration)),
-                              ),
-                            if (widget.state.liveStartTime != null)
-                              _buildStatItem(
-                                context,
-                                Icons.play_circle_outline,
-                                t.radio.startedAt(time: _formatDateTime(widget.state.liveStartTime!)),
-                              ),
-                            if (widget.state.areaName != null)
-                              _buildStatItem(
-                                context,
-                                Icons.category_outlined,
-                                widget.state.areaName!,
-                              ),
-                            _buildStatItem(
-                              context,
-                              widget.state.isPlaying
-                                  ? Icons.radio_button_checked
-                                  : Icons.radio_button_off,
-                              widget.state.isPlaying ? t.radio.live : t.radio.stopped,
-                            ),
-                          ],
-                        ),
-
-                        // 主播公告
-                        if (widget.state.announcement != null &&
-                            widget.state.announcement!.isNotEmpty) ...[
-                          const SizedBox(height: 20),
-                          const Divider(),
-                          const SizedBox(height: 16),
-                          _buildExpandableSection(
-                            context,
-                            icon: Icons.campaign_outlined,
-                            title: t.radio.announcement,
-                            content: widget.state.announcement!,
-                            textKey: _announcementKey,
-                            isExpanded: _isAnnouncementExpanded,
-                            needsExpansion: _announcementNeedsExpansion,
-                            onToggle: () {
-                              setState(() {
-                                _isAnnouncementExpanded = !_isAnnouncementExpanded;
-                              });
-                            },
-                          ),
-                        ],
-
-                        // 直播間簡介
-                        if (widget.state.description != null &&
-                            widget.state.description!.isNotEmpty) ...[
-                          const SizedBox(height: 20),
-                          const Divider(),
-                          const SizedBox(height: 16),
-                          _buildExpandableSection(
-                            context,
-                            icon: Icons.info_outline_rounded,
-                            title: t.radio.description,
-                            content: widget.state.description!,
-                            textKey: _descriptionKey,
-                            isExpanded: _isDescriptionExpanded,
-                            needsExpansion: _descriptionNeedsExpansion,
-                            onToggle: () {
-                              setState(() {
-                                _isDescriptionExpanded = !_isDescriptionExpanded;
-                              });
-                            },
-                          ),
-                        ],
-
-                        // 標籤
-                        if (widget.state.tags != null &&
-                            widget.state.tags!.isNotEmpty) ...[
-                          const SizedBox(height: 20),
-                          const Divider(),
-                          const SizedBox(height: 16),
-                          _buildTagsSection(context, widget.state.tags!),
-                        ],
-
-                        const SizedBox(height: 20),
-                      ],
-                    ),
                   ),
                 ),
               ],
@@ -916,19 +960,22 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: tagList.map((tag) => Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest,
-              borderRadius: AppRadius.borderRadiusXl,
-            ),
-            child: Text(
-              tag.trim(),
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          )).toList(),
+          children: tagList
+              .map((tag) => Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest,
+                      borderRadius: AppRadius.borderRadiusXl,
+                    ),
+                    child: Text(
+                      tag.trim(),
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ))
+              .toList(),
         ),
       ],
     );

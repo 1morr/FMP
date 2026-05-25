@@ -9,7 +9,8 @@ UI guidance for Flutter pages, widgets, layouts, and windows.
 - Other images -> `ImageLoadingService.loadImage()`
 - Never use `Image.network()` or `Image.file()` directly.
 - Pass `width`/`height` or `targetDisplaySize` to `loadImage()` so thumbnail URL
-  optimization selects reliable sizes.
+  optimization selects reliable sizes and image decoding can use bounded cache
+  dimensions for both network and local files.
 
 File existence cache pattern:
 
@@ -21,6 +22,17 @@ final localPath = track.getLocalCoverPath(cache);
 
 Shared thumbnail widgets may use `.select(...)` to watch only the relevant local
 path state.
+
+## Provider Watch Scope
+
+- Prefer `.select(...)` for UI that only needs a few fields from a large state
+  object, especially audio volume/device controls and ranking cache error/loading
+  flags.
+- Keep long-list rows keyed by stable source/task/group identity so insertions,
+  expansion, progress updates, and section changes do not churn element state.
+- Cache expensive derived lists inside a build method when the same getter is
+  used multiple times in one frame; move it into provider/notifier state only
+  after profiling shows the getter itself is a hot path.
 
 ## Play State
 

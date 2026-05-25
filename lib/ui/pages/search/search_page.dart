@@ -433,6 +433,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       return _buildLiveRoomResults(context, state);
     }
 
+    final mixedOnlineTracks = state.mixedOnlineTracks;
+
     if (state.isLoading && state.allOnlineTracks.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -543,13 +545,13 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           ],
 
           // 在线结果（混合显示）
-          if (state.mixedOnlineTracks.isNotEmpty) ...[
+          if (mixedOnlineTracks.isNotEmpty) ...[
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
                   t.searchPage.section
-                      .onlineResults(count: state.mixedOnlineTracks.length),
+                      .onlineResults(count: mixedOnlineTracks.length),
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
@@ -562,7 +564,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 return SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
-                      final track = state.mixedOnlineTracks[index];
+                      final track = mixedOnlineTracks[index];
                       return _SearchResultTile(
                         key:
                             ValueKey('${track.groupKey}:${track.pageNum ?? 1}'),
@@ -585,7 +587,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         isSelected: selectionState.isSelected(track),
                       );
                     },
-                    childCount: state.mixedOnlineTracks.length,
+                    childCount: mixedOnlineTracks.length,
                   ),
                 );
               },
@@ -1142,6 +1144,9 @@ class _SearchResultTile extends ConsumerWidget {
         // 分P列表（展开时显示）
         if (isExpanded && pages != null && pages!.length > 1)
           ...pages!.map((page) => _PageTile(
+                key: ValueKey(
+                  'page-${track.sourceType.name}:${track.sourceId}:${page.page}',
+                ),
                 page: page,
                 parentTrack: track,
                 onTap: () => onPageMenuAction(page, 'play'),
@@ -1166,6 +1171,7 @@ class _PageTile extends ConsumerWidget {
   final void Function(String action) onMenuAction;
 
   const _PageTile({
+    super.key,
     required this.page,
     required this.parentTrack,
     required this.onTap,
