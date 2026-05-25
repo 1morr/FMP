@@ -74,13 +74,17 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   @override
   Widget build(BuildContext context) {
     final searchState = ref.watch(searchProvider);
-    final selectionState = ref.watch(searchSelectionProvider);
+    final isSelectionMode = ref.watch(
+      searchSelectionProvider.select((state) => state.isSelectionMode),
+    );
 
     // 獲取所有搜索結果用於全選
-    final allTracks = [
-      ...searchState.localResults,
-      ...searchState.mixedOnlineTracks
-    ];
+    final allTracks = isSelectionMode
+        ? [
+            ...searchState.localResults,
+            ...searchState.mixedOnlineTracks,
+          ]
+        : const <Track>[];
 
     // 多選模式下的可用操作（搜索頁不支持下載和刪除）
     const availableActions = <String>{
@@ -91,14 +95,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     };
 
     return PopScope(
-      canPop: !selectionState.isSelectionMode,
+      canPop: !isSelectionMode,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && selectionState.isSelectionMode) {
+        if (!didPop && isSelectionMode) {
           ref.read(searchSelectionProvider.notifier).exitSelectionMode();
         }
       },
       child: Scaffold(
-        appBar: selectionState.isSelectionMode
+        appBar: isSelectionMode
             ? SelectionModeAppBar(
                 selectionProvider: searchSelectionProvider,
                 allTracks: allTracks,
@@ -123,8 +127,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         body: Column(
           children: [
             // 音源筛选（多選模式下隱藏）
-            if (!selectionState.isSelectionMode)
-              _buildSourceFilter(context, searchState),
+            if (!isSelectionMode) _buildSourceFilter(context, searchState),
 
             // 内容区域
             Expanded(
@@ -490,9 +493,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             ),
             Builder(
               builder: (context) {
-                final selectionState = ref.watch(searchSelectionProvider);
-                final selectionNotifier =
-                    ref.read(searchSelectionProvider.notifier);
                 // 先按 sourceId + pageNum 去重，避免同一首歌在多个歌单中重复显示
                 final uniqueTracks = <String, Track>{};
                 for (final track in state.localResults) {
@@ -512,29 +512,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         group: group,
                         isExpanded: _expandedVideos.contains(group.groupKey),
                         onToggleExpand: () => _toggleExpanded(group.groupKey),
-                        onPlayTrack: selectionState.isSelectionMode
-                            ? (track) =>
-                                selectionNotifier.toggleSelection(track)
-                            : (track) {
-                                final controller =
-                                    ref.read(audioControllerProvider.notifier);
-                                controller.playTemporary(track);
-                              },
+                        onPlayTrack: (track) {
+                          final controller =
+                              ref.read(audioControllerProvider.notifier);
+                          controller.playTemporary(track);
+                        },
                         onMenuAction: _handleMenuAction,
-                        isSelectionMode: selectionState.isSelectionMode,
-                        isGroupFullySelected: selectionNotifier
-                            .isGroupFullySelected(group.tracks),
-                        isGroupPartiallySelected: selectionNotifier
-                            .isGroupPartiallySelected(group.tracks),
-                        onLongPress: selectionState.isSelectionMode
-                            ? () => selectionNotifier
-                                .toggleGroupSelection(group.tracks)
-                            : () => selectionNotifier
-                                .enterSelectionModeWithTracks(group.tracks),
-                        isTrackSelected: (track) =>
-                            selectionState.isSelected(track),
-                        onTrackLongPress: (track) =>
-                            selectionNotifier.toggleSelection(track),
                       );
                     },
                     childCount: groupedLocalResults.length,
@@ -558,33 +541,47 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             ),
             Builder(
               builder: (context) {
-                final selectionState = ref.watch(searchSelectionProvider);
-                final selectionNotifier =
-                    ref.read(searchSelectionProvider.notifier);
                 return SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final track = mixedOnlineTracks[index];
-                      return _SearchResultTile(
-                        key:
-                            ValueKey('${track.groupKey}:${track.pageNum ?? 1}'),
-                        track: track,
-                        isLocal: false,
-                        isExpanded: _expandedVideos.contains(track.sourceId),
-                        isLoading: _loadingPages.contains(track.sourceId),
-                        pages: _loadedPages[track.sourceId],
-                        onTap: selectionState.isSelectionMode
-                            ? () => selectionNotifier.toggleSelection(track)
-                            : () => _playVideo(track),
-                        onLongPress: selectionState.isSelectionMode
-                            ? null
-                            : () => selectionNotifier.enterSelectionMode(track),
-                        onToggleExpand: () => _toggleExpanded(track.sourceId),
-                        onMenuAction: _handleMenuAction,
-                        onPageMenuAction: (page, action) =>
-                            _handlePageMenuAction(track, page, action),
-                        isSelectionMode: selectionState.isSelectionMode,
-                        isSelected: selectionState.isSelected(track),
+                      return Consumer(
+                        builder: (context, ref, child) {
+                          final selection = ref.watch(
+                            searchSelectionProvider.select(
+                              (state) => (
+                                isSelectionMode: state.isSelectionMode,
+                                isSelected: state.isSelected(track),
+                              ),
+                            ),
+                          );
+                          final selectionNotifier =
+                              ref.read(searchSelectionProvider.notifier);
+                          return _SearchResultTile(
+                            key: ValueKey(
+                                '${track.groupKey}:${track.pageNum ?? 1}'),
+                            track: track,
+                            isLocal: false,
+                            isExpanded:
+                                _expandedVideos.contains(track.sourceId),
+                            isLoading: _loadingPages.contains(track.sourceId),
+                            pages: _loadedPages[track.sourceId],
+                            onTap: selection.isSelectionMode
+                                ? () => selectionNotifier.toggleSelection(track)
+                                : () => _playVideo(track),
+                            onLongPress: selection.isSelectionMode
+                                ? null
+                                : () =>
+                                    selectionNotifier.enterSelectionMode(track),
+                            onToggleExpand: () =>
+                                _toggleExpanded(track.sourceId),
+                            onMenuAction: _handleMenuAction,
+                            onPageMenuAction: (page, action) =>
+                                _handlePageMenuAction(track, page, action),
+                            isSelectionMode: selection.isSelectionMode,
+                            isSelected: selection.isSelected,
+                          );
+                        },
                       );
                     },
                     childCount: mixedOnlineTracks.length,
@@ -1258,12 +1255,6 @@ class _LocalGroupTile extends ConsumerWidget {
   final VoidCallback onToggleExpand;
   final void Function(Track track) onPlayTrack;
   final void Function(Track track, String action) onMenuAction;
-  final bool isSelectionMode;
-  final bool isGroupFullySelected;
-  final bool isGroupPartiallySelected;
-  final VoidCallback? onLongPress;
-  final bool Function(Track track)? isTrackSelected;
-  final void Function(Track track)? onTrackLongPress;
 
   const _LocalGroupTile({
     super.key,
@@ -1272,18 +1263,30 @@ class _LocalGroupTile extends ConsumerWidget {
     required this.onToggleExpand,
     required this.onPlayTrack,
     required this.onMenuAction,
-    this.isSelectionMode = false,
-    this.isGroupFullySelected = false,
-    this.isGroupPartiallySelected = false,
-    this.onLongPress,
-    this.isTrackSelected,
-    this.onTrackLongPress,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final currentTrack = ref.watch(currentTrackProvider);
+    final groupKeys = group.tracks
+        .map((track) => SelectionKey.fromTrack(track))
+        .toList(growable: false);
+    final selection = ref.watch(
+      searchSelectionProvider.select((state) {
+        final selectedCount =
+            groupKeys.where(state.selectedKeys.contains).length;
+        return (
+          isSelectionMode: state.isSelectionMode,
+          selectedKeys: state.selectedKeys,
+          isGroupFullySelected:
+              groupKeys.isNotEmpty && selectedCount == groupKeys.length,
+          isGroupPartiallySelected:
+              selectedCount > 0 && selectedCount < groupKeys.length,
+        );
+      }),
+    );
+    final selectionNotifier = ref.read(searchSelectionProvider.notifier);
     final firstTrack = group.firstTrack;
     final hasMultipleParts = group.hasMultipleParts;
 
@@ -1306,7 +1309,10 @@ class _LocalGroupTile extends ConsumerWidget {
               borderRadius: 4,
               isPlaying: isPlayingThisGroup,
             ),
-            onLongPress: onLongPress,
+            onLongPress: selection.isSelectionMode
+                ? null
+                : () => selectionNotifier
+                    .enterSelectionModeWithTracks(group.tracks),
             title: Text(
               group.parentTitle,
               maxLines: 1,
@@ -1354,7 +1360,7 @@ class _LocalGroupTile extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 // 展开/折叠按钮 - 与音乐库页面对齐
-                if (hasMultipleParts && !isSelectionMode)
+                if (hasMultipleParts && !selection.isSelectionMode)
                   IconButton(
                     icon: Icon(
                       isExpanded ? Icons.expand_less : Icons.expand_more,
@@ -1362,11 +1368,12 @@ class _LocalGroupTile extends ConsumerWidget {
                     onPressed: onToggleExpand,
                   ),
                 // 菜单
-                if (isSelectionMode)
+                if (selection.isSelectionMode)
                   _SelectionGroupCheckbox(
-                    isFullySelected: isGroupFullySelected,
-                    isPartiallySelected: isGroupPartiallySelected,
-                    onTap: onLongPress,
+                    isFullySelected: selection.isGroupFullySelected,
+                    isPartiallySelected: selection.isGroupPartiallySelected,
+                    onTap: () =>
+                        selectionNotifier.toggleGroupSelection(group.tracks),
                   )
                 else
                   PopupMenuButton<String>(
@@ -1377,7 +1384,9 @@ class _LocalGroupTile extends ConsumerWidget {
                   ),
               ],
             ),
-            onTap: () => onPlayTrack(firstTrack),
+            onTap: selection.isSelectionMode
+                ? () => selectionNotifier.toggleGroupSelection(group.tracks)
+                : () => onPlayTrack(firstTrack),
           ),
         ),
 
@@ -1386,13 +1395,14 @@ class _LocalGroupTile extends ConsumerWidget {
           ...group.tracks.map((track) => _LocalTrackTile(
                 key: ValueKey('${track.groupKey}:${track.pageNum ?? 1}'),
                 track: track,
-                onTap: () => onPlayTrack(track),
+                onTap: selection.isSelectionMode
+                    ? () => selectionNotifier.toggleSelection(track)
+                    : () => onPlayTrack(track),
                 onMenuAction: onMenuAction,
-                isSelectionMode: isSelectionMode,
-                isSelected: isTrackSelected?.call(track) ?? false,
-                onLongPress: onTrackLongPress != null
-                    ? () => onTrackLongPress!(track)
-                    : null,
+                isSelectionMode: selection.isSelectionMode,
+                isSelected: selection.selectedKeys
+                    .contains(SelectionKey.fromTrack(track)),
+                onLongPress: () => selectionNotifier.toggleSelection(track),
               )),
       ],
     );

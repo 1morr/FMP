@@ -240,6 +240,39 @@ void main() {
       }
     });
 
+    test('search and playlist pages avoid page-wide selection watches', () {
+      final search =
+          File('lib/ui/pages/search/search_page.dart').readAsStringSync();
+      final playlistDetail = File(
+        'lib/ui/pages/library/playlist_detail_page.dart',
+      ).readAsStringSync();
+
+      expect(search, isNot(contains('ref.watch(searchSelectionProvider);')));
+      expect(
+        search,
+        contains('isSelected: state.isSelected(track)'),
+      );
+      expect(
+        search,
+        contains(
+            'searchSelectionProvider.select((state) => state.isSelectionMode)'),
+      );
+
+      expect(
+        playlistDetail,
+        isNot(contains('ref.watch(playlistDetailSelectionProvider);')),
+      );
+      expect(
+        playlistDetail,
+        contains('isSelected: state.isSelected(track)'),
+      );
+      expect(
+        playlistDetail,
+        contains(
+            'playlistDetailSelectionProvider.select((state) => state.isSelectionMode)'),
+      );
+    });
+
     test('silent async UI failures surface errors to users', () {
       final search =
           File('lib/ui/pages/search/search_page.dart').readAsStringSync();
