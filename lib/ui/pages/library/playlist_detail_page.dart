@@ -162,7 +162,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(playlistDetailProvider(widget.playlistId));
-    final selectionState = ref.watch(playlistDetailSelectionProvider);
+    final isSelectionMode = ref.watch(
+      playlistDetailSelectionProvider.select((state) => state.isSelectionMode),
+    );
     final cacheEpoch = ref.watch(fileExistsCacheEpochProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -214,9 +216,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
 
     // 處理返回鍵退出多選模式
     return PopScope(
-      canPop: !selectionState.isSelectionMode,
+      canPop: !isSelectionMode,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && selectionState.isSelectionMode) {
+        if (!didPop && isSelectionMode) {
           ref
               .read(playlistDetailSelectionProvider.notifier)
               .exitSelectionMode();
@@ -227,8 +229,8 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           controller: _scrollController,
           slivers: [
             // 折叠式应用栏（始終顯示封面）
-            _buildSliverAppBar(context, playlist, state,
-                selectionState.isSelectionMode, tracks, availableActions),
+            _buildSliverAppBar(context, playlist, state, isSelectionMode,
+                tracks, availableActions),
 
             // 操作按钮（始終顯示）
             SliverToBoxAdapter(
@@ -307,84 +309,118 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   /// 构建分组项
   Widget _buildGroupItem(BuildContext context, TrackGroup group) {
     final state = ref.read(playlistDetailProvider(widget.playlistId));
-    final selectionState = ref.watch(playlistDetailSelectionProvider);
-    final selectionNotifier =
-        ref.read(playlistDetailSelectionProvider.notifier);
     final isImported = state.playlist?.isImported ?? false;
     final isMix = state.playlist?.isMix ?? false;
 
     // 如果组只有一个track，显示普通样式
     if (group.tracks.length == 1) {
       final track = group.tracks.first;
-      return _TrackListTile(
-        key: ValueKey('${track.groupKey}:${track.pageNum ?? 1}'),
-        track: track,
-        playlistId: widget.playlistId,
-        playlistName: state.playlist?.name ?? '',
-        onTap: selectionState.isSelectionMode
-            ? () => selectionNotifier.toggleSelection(track)
-            : () => _playTrack(track),
-        onLongPress: selectionState.isSelectionMode
-            ? null
-            : () => selectionNotifier.enterSelectionMode(track),
-        isPartOfMultiPage: false,
-        isImported: isImported,
-        isMix: isMix,
-        isSelectionMode: selectionState.isSelectionMode,
-        isSelected: selectionState.isSelected(track),
+      return Consumer(
+        builder: (context, ref, child) {
+          final selection = ref.watch(
+            playlistDetailSelectionProvider.select(
+              (state) => (
+                isSelectionMode: state.isSelectionMode,
+                isSelected: state.isSelected(track),
+              ),
+            ),
+          );
+          final selectionNotifier =
+              ref.read(playlistDetailSelectionProvider.notifier);
+          return _TrackListTile(
+            key: ValueKey('${track.groupKey}:${track.pageNum ?? 1}'),
+            track: track,
+            playlistId: widget.playlistId,
+            playlistName: state.playlist?.name ?? '',
+            onTap: selection.isSelectionMode
+                ? () => selectionNotifier.toggleSelection(track)
+                : () => _playTrack(track),
+            onLongPress: selection.isSelectionMode
+                ? null
+                : () => selectionNotifier.enterSelectionMode(track),
+            isPartOfMultiPage: false,
+            isImported: isImported,
+            isMix: isMix,
+            isSelectionMode: selection.isSelectionMode,
+            isSelected: selection.isSelected,
+          );
+        },
       );
     }
 
     // 多P视频，显示可展开样式
     final isExpanded = _expandedGroups.contains(group.groupKey);
+    final groupKeys = group.tracks
+        .map((track) => SelectionKey.fromTrack(track))
+        .toList(growable: false);
 
-    return Column(
-      key: ValueKey('playlist-group-${group.groupKey}'),
-      children: [
-        // 父视频标题行
-        _GroupHeader(
-          group: group,
-          isExpanded: isExpanded,
-          onToggle: selectionState.isSelectionMode
-              ? () => selectionNotifier.toggleGroupSelection(group.tracks)
-              : () => _toggleGroup(group.groupKey),
-          onLongPress: selectionState.isSelectionMode
-              ? null
-              : () =>
-                  selectionNotifier.enterSelectionModeWithTracks(group.tracks),
-          onPlayFirst: () => _playTrack(group.tracks.first),
-          onAddAllToQueue: () => _addAllToQueue(context, group.tracks),
-          playlistId: widget.playlistId,
-          playlistName: state.playlist?.name ?? '',
-          isImported: isImported,
-          isMix: isMix,
-          isSelectionMode: selectionState.isSelectionMode,
-          isGroupFullySelected:
-              selectionNotifier.isGroupFullySelected(group.tracks),
-          isGroupPartiallySelected:
-              selectionNotifier.isGroupPartiallySelected(group.tracks),
-        ),
-        // 展开的分P列表
-        if (isExpanded)
-          ...group.tracks.map((track) => _TrackListTile(
-                key: ValueKey('${track.groupKey}:${track.pageNum ?? 1}'),
-                track: track,
-                playlistId: widget.playlistId,
-                playlistName: state.playlist?.name ?? '',
-                onTap: selectionState.isSelectionMode
-                    ? () => selectionNotifier.toggleSelection(track)
-                    : () => _playTrack(track),
-                onLongPress: selectionState.isSelectionMode
-                    ? null
-                    : () => selectionNotifier.enterSelectionMode(track),
-                isPartOfMultiPage: true,
-                isImported: isImported,
-                indent: true,
-                isMix: isMix,
-                isSelectionMode: selectionState.isSelectionMode,
-                isSelected: selectionState.isSelected(track),
-              )),
-      ],
+    return Consumer(
+      builder: (context, ref, child) {
+        final selection = ref.watch(
+          playlistDetailSelectionProvider.select((state) {
+            final selectedCount =
+                groupKeys.where(state.selectedKeys.contains).length;
+            return (
+              isSelectionMode: state.isSelectionMode,
+              selectedKeys: state.selectedKeys,
+              isGroupFullySelected:
+                  groupKeys.isNotEmpty && selectedCount == groupKeys.length,
+              isGroupPartiallySelected:
+                  selectedCount > 0 && selectedCount < groupKeys.length,
+            );
+          }),
+        );
+        final selectionNotifier =
+            ref.read(playlistDetailSelectionProvider.notifier);
+
+        return Column(
+          key: ValueKey('playlist-group-${group.groupKey}'),
+          children: [
+            // 父视频标题行
+            _GroupHeader(
+              group: group,
+              isExpanded: isExpanded,
+              onToggle: selection.isSelectionMode
+                  ? () => selectionNotifier.toggleGroupSelection(group.tracks)
+                  : () => _toggleGroup(group.groupKey),
+              onLongPress: selection.isSelectionMode
+                  ? null
+                  : () => selectionNotifier
+                      .enterSelectionModeWithTracks(group.tracks),
+              onPlayFirst: () => _playTrack(group.tracks.first),
+              onAddAllToQueue: () => _addAllToQueue(context, group.tracks),
+              playlistId: widget.playlistId,
+              playlistName: state.playlist?.name ?? '',
+              isImported: isImported,
+              isMix: isMix,
+              isSelectionMode: selection.isSelectionMode,
+              isGroupFullySelected: selection.isGroupFullySelected,
+              isGroupPartiallySelected: selection.isGroupPartiallySelected,
+            ),
+            // 展开的分P列表
+            if (isExpanded)
+              ...group.tracks.map((track) => _TrackListTile(
+                    key: ValueKey('${track.groupKey}:${track.pageNum ?? 1}'),
+                    track: track,
+                    playlistId: widget.playlistId,
+                    playlistName: state.playlist?.name ?? '',
+                    onTap: selection.isSelectionMode
+                        ? () => selectionNotifier.toggleSelection(track)
+                        : () => _playTrack(track),
+                    onLongPress: selection.isSelectionMode
+                        ? null
+                        : () => selectionNotifier.enterSelectionMode(track),
+                    isPartOfMultiPage: true,
+                    isImported: isImported,
+                    indent: true,
+                    isMix: isMix,
+                    isSelectionMode: selection.isSelectionMode,
+                    isSelected: selection.selectedKeys
+                        .contains(SelectionKey.fromTrack(track)),
+                  )),
+          ],
+        );
+      },
     );
   }
 
@@ -663,14 +699,8 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final isCollapsed = _scrollOffset >= _collapseThreshold;
     final iconColor = isCollapsed ? colorScheme.onSurface : Colors.white;
 
-    // 多選模式相關
-    final selectionState = ref.watch(playlistDetailSelectionProvider);
     final selectionNotifier =
         ref.read(playlistDetailSelectionProvider.notifier);
-    final selectedCount = selectionState.selectedCount;
-    final hasSelection = selectionState.hasSelection;
-    final isAllSelected =
-        selectedCount == allTracks.length && allTracks.isNotEmpty;
 
     return SliverAppBar(
       expandedHeight: 280,
@@ -688,19 +718,51 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             ),
       // 標題（多選模式下顯示選擇數量）
       title: isSelectionMode
-          ? Text(t.library.detail.selectedCount(n: selectedCount),
-              style: TextStyle(color: iconColor))
+          ? Consumer(
+              builder: (context, ref, child) {
+                final selectedCount = ref.watch(
+                  playlistDetailSelectionProvider
+                      .select((state) => state.selectedCount),
+                );
+                return Text(
+                  t.library.detail.selectedCount(n: selectedCount),
+                  style: TextStyle(color: iconColor),
+                );
+              },
+            )
           : null,
       // 操作按鈕
       actions: isSelectionMode
-          ? _buildSelectionActions(
-              iconColor,
-              isAllSelected,
-              hasSelection,
-              allTracks,
-              availableActions,
-              selectionNotifier,
-              selectionState.selectedTracks)
+          ? [
+              Consumer(
+                builder: (context, ref, child) {
+                  final selection = ref.watch(
+                    playlistDetailSelectionProvider.select(
+                      (state) => (
+                        selectedCount: state.selectedCount,
+                        hasSelection: state.hasSelection,
+                        selectedTracks: state.selectedTracks,
+                      ),
+                    ),
+                  );
+                  final isAllSelected =
+                      selection.selectedCount == allTracks.length &&
+                          allTracks.isNotEmpty;
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: _buildSelectionActions(
+                      iconColor,
+                      isAllSelected,
+                      selection.hasSelection,
+                      allTracks,
+                      availableActions,
+                      selectionNotifier,
+                      selection.selectedTracks,
+                    ),
+                  );
+                },
+              ),
+            ]
           : [
               if (state.tracks.isNotEmpty &&
                   state.playlist != null &&
