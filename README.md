@@ -34,9 +34,29 @@
 
 ## 应用截图
 
-<p align="center">
-  <img src="screenshots/home_desktop.png" width="800" alt="桌面端首页">
-</p>
+<details>
+<summary>展开查看应用截图</summary>
+
+<table>
+<tr>
+  <td align="center"><img src="screenshots/home-page.png" width="390" alt="首页"><br>首页</td>
+  <td align="center"><img src="screenshots/library-page.png" width="390" alt="音乐库"><br>音乐库</td>
+</tr>
+<tr>
+  <td align="center"><img src="screenshots/search-page.png" width="390" alt="搜索"><br>搜索</td>
+  <td align="center"><img src="screenshots/queue-page.png" width="390" alt="播放队列"><br>播放队列</td>
+</tr>
+<tr>
+  <td align="center"><img src="screenshots/radio-page.png" width="390" alt="电台"><br>电台</td>
+  <td align="center"><img src="screenshots/lyrics-features.png" width="390" alt="歌词功能"><br>歌词功能</td>
+</tr>
+<tr>
+  <td align="center"><img src="screenshots/settings-page.png" width="390" alt="设置"><br>设置</td>
+  <td></td>
+</tr>
+</table>
+
+</details>
 
 ---
 

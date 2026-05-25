@@ -183,6 +183,12 @@ class UserGuidePage extends StatelessWidget {
               ),
               _buildInfoItem(
                 context,
+                icon: Icons.queue_music,
+                title: t.userGuide.tips.queueNowPlayingJump,
+                description: t.userGuide.tips.queueNowPlayingJumpDesc,
+              ),
+              _buildInfoItem(
+                context,
                 icon: Icons.equalizer,
                 title: t.userGuide.audioSettingsGuide.title,
                 description: t.userGuide.tips.audioSettingsDesc,
@@ -207,6 +213,12 @@ class UserGuidePage extends StatelessWidget {
                 icon: Icons.auto_awesome,
                 title: t.userGuide.tips.autoLyrics,
                 description: t.userGuide.tips.autoLyricsDesc,
+              ),
+              _buildInfoItem(
+                context,
+                icon: Icons.tune,
+                title: t.userGuide.tips.lyricsOffsetShortcut,
+                description: t.userGuide.tips.lyricsOffsetShortcutDesc,
               ),
               _buildInfoItem(
                 context,
