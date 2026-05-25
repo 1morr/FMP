@@ -252,8 +252,8 @@ class DownloadRepository with Logging {
           .findAll();
       for (final task in tasks) {
         task.status = DownloadStatus.paused;
-        await _isar.downloadTasks.put(task);
       }
+      await _isar.downloadTasks.putAll(tasks);
     });
   }
 
@@ -268,8 +268,8 @@ class DownloadRepository with Logging {
           .findAll();
       for (final task in tasks) {
         task.status = DownloadStatus.paused;
-        await _isar.downloadTasks.put(task);
       }
+      await _isar.downloadTasks.putAll(tasks);
     });
   }
 
@@ -282,8 +282,8 @@ class DownloadRepository with Logging {
           .findAll();
       for (final task in tasks) {
         task.status = DownloadStatus.pending;
-        await _isar.downloadTasks.put(task);
       }
+      await _isar.downloadTasks.putAll(tasks);
     });
   }
 

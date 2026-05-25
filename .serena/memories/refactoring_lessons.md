@@ -42,14 +42,14 @@
 - `addTrackToPlaylist` 必须先从数据库拿最新 Track（如 `getOrCreate`），避免缓存旧对象覆盖最新 `playlistInfo`。
 - 刷新导入歌单时，必须清理远端已移除歌曲在本地 Track 上的歌单关联。
 - 歌单重命名不自动移动本地文件夹；清除关联后由用户手动移动并重新同步。
-- Windows 下载进度优先保存在内存，完成/暂停/失败时再落 DB，避免 Isar watch 高频重建。
+- 下载在全平台 isolate 中执行；进度优先保存在内存，完成/暂停/失败时再落 DB，避免 Isar watch 高频重建。
 - Fire-and-forget 的 imported playlist refresh 要走命名 remote sync 路径，并用 `AppLogger` 记录后台失败。
 - 远程歌单增删统一走 `RemotePlaylistEditController` / planner / result 类型。调用方要处理 partial success 和 local removal failure，不要只用 bool success/fail。
 
 ## Images / Local Files
 
 - 图片加载走 `TrackThumbnail` / `TrackCover` / `ImageLoadingService`，不要直接用 `Image.network()` / `Image.file()`。
-- `ImageLoadingService.loadImage()` 必须传 `width`/`height` 或 `targetDisplaySize`；否则 YouTube 小图可能被优化到不存在的 `maxresdefault.jpg`。
+- `ImageLoadingService.loadImage()` 必须传 `width`/`height` 或 `targetDisplaySize`；否则 YouTube 小图可能被优化到不存在的 `maxresdefault.jpg`，也无法给本地/网络图片提供可靠 decode/cache 尺寸。
 - 使用 FileExistsCache 时，Widget 要 `ref.watch(fileExistsCacheProvider)` 触发重建，再 `ref.read(fileExistsCacheProvider.notifier)` 查询缓存。
 - 本地封面优先级：本地 `cover.jpg` -> `track.thumbnailUrl` -> placeholder。
 

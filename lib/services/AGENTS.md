@@ -7,9 +7,12 @@ Service-layer guidance. For audio-specific rules, also read
 
 - Path deduplication is by `savePath`, not `trackId`.
 - Verify the file exists before saving the downloaded path.
-- Downloads run in an isolate and progress is kept in memory first. This avoids
-  Windows PostMessage queue overflow and Isar watch churn while keeping the main
-  isolate responsive.
+- Downloads run in an isolate on all platforms and progress is kept in memory
+  first. This avoids Windows PostMessage queue overflow and Isar watch churn
+  while keeping the main isolate responsive.
+- Download progress is flushed to Isar on completion, pause, failure, and app
+  disposal. Pause/failure paths must preserve the latest pending in-memory
+  progress tuple before clearing task state.
 - Audio, metadata, cover, and avatar live inside each video folder:
   - `audio.m4a` or `P{NN}.m4a`
   - `metadata.json` or `metadata_P{NN}.json`
@@ -24,7 +27,13 @@ Service-layer guidance. For audio-specific rules, also read
   YouTube, and Netease keep the correct source Referer/Origin/UA/auth policy.
   Media headers are URL-aware; only allowlisted HTTPS Netease media URLs may
   receive `MUSIC_U`, and image downloads must not include Netease cookies.
+- Downloaded metadata cover/avatar images should use
+  `ThumbnailUrlUtils.getOptimizedUrlCandidates()` with a bounded display size
+  before falling back to the original URL. Cover downloads use larger candidates
+  than avatars; keep avatar downloads small.
 - Do not rely on `DownloadService` Dio defaults for source-specific headers.
+- Isolate media downloads must apply both connection timeout and receive/idle
+  timeout so a stalled response cannot hold a download slot forever.
 - Android custom download directories require storage permission
   (`MANAGE_EXTERNAL_STORAGE` on Android 11+).
 - Default Android base dir is `Music/FMP` via external storage fallback logic.

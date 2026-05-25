@@ -36,9 +36,10 @@ UI
 - 下载任务按 `savePath` 去重，不按 trackId 去重。
 - 下载完成后才保存 `Track.playlistInfo[].downloadPath`。
 - 写入 DB 前验证文件存在。
-- Windows 下载在 isolate 中执行，避免 PostMessage 队列溢出。
-- 下载进度优先保存在内存 provider，完成/暂停/失败时再落 DB，避免 Isar watch 高频重建。
-- `FileExistsCache` 只缓存存在的路径，最大 5000 条；UI 中用 `ref.watch(fileExistsCacheProvider)` 触发重建，用 notifier 调方法。
+- 下载在全平台 isolate 中执行；最初是为避免 Windows PostMessage 队列溢出，同时保持主 isolate 响应。
+- 下载进度优先保存在内存 provider，完成/暂停/失败/释放时再落 DB；暂停/失败前必须先保存最新 pending progress，避免 UI 回退到旧百分比。
+- `FileExistsCache` 同时缓存存在路径和 missing negative cache，各自最多 5000 条；UI 中用 `ref.watch(fileExistsCacheProvider)` 触发重建，用 notifier 调方法。
+- metadata 的 `cover.jpg` / `avatar.jpg` 下载应走 `ThumbnailUrlUtils.getOptimizedUrlCandidates()`，cover 使用较大候选，avatar 保持较小候选，并保留原 URL fallback。
 
 ## 路径与权限
 

@@ -228,7 +228,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
   }
 
   /// 执行搜索（根据当前模式自动选择视频或直播间搜索）
-  Future<void> search(String query) async {
+  Future<void> search(String query, {bool preserveResults = false}) async {
     if (query.trim().isEmpty) {
       _cancelInFlightSearches();
       state = const SearchState();
@@ -248,8 +248,8 @@ class SearchNotifier extends StateNotifier<SearchState> {
       query: query,
       isLoading: true,
       error: null,
-      currentPages: {},
-      onlineResults: {}, // 清空之前的结果
+      currentPages: preserveResults ? state.currentPages : {},
+      onlineResults: preserveResults ? state.onlineResults : {},
     );
 
     try {
@@ -516,14 +516,12 @@ class SearchNotifier extends StateNotifier<SearchState> {
     state = state.copyWith(
       selectedSource: sourceType,
       clearSelectedSource: sourceType == null,
-      // 有查询时清空旧结果并显示加载状态
-      onlineResults: (autoSearch && hasQuery) ? {} : state.onlineResults,
       isLoading: autoSearch && hasQuery,
     );
 
     // 如果有查询，重新搜索
     if (autoSearch && hasQuery) {
-      search(state.query);
+      search(state.query, preserveResults: true);
     }
   }
 
@@ -535,14 +533,12 @@ class SearchNotifier extends StateNotifier<SearchState> {
 
     state = state.copyWith(
       searchOrder: order,
-      // 有查询时清空旧结果并显示加载状态
-      onlineResults: hasQuery ? {} : state.onlineResults,
       isLoading: hasQuery,
     );
 
     // 如果有查询，重新搜索
     if (hasQuery) {
-      search(state.query);
+      search(state.query, preserveResults: true);
     }
   }
 

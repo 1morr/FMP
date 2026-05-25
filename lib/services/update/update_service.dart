@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
@@ -19,8 +20,10 @@ const _repoName = 'FMP';
 class UpdateInfo {
   final String version;
   final String releaseNotes;
+
   /// APK download URLs keyed by ABI (arm64-v8a, armeabi-v7a, x86_64, universal)
   final Map<String, String> apkDownloadUrls;
+
   /// APK sizes keyed by ABI
   final Map<String, int> apkSizes;
   final String? windowsZipDownloadUrl;
@@ -108,10 +111,11 @@ class UpdateInfo {
 class UpdateService {
   final Dio _dio;
 
-  UpdateService() : _dio = Dio(BaseOptions(
-    connectTimeout: AppConstants.updateConnectTimeout,
-    receiveTimeout: AppConstants.networkReceiveTimeout,
-  ));
+  UpdateService()
+      : _dio = Dio(BaseOptions(
+          connectTimeout: AppConstants.updateConnectTimeout,
+          receiveTimeout: AppConstants.networkReceiveTimeout,
+        ));
 
   /// 检查已下载的更新文件是否存在且完整
   Future<String?> getExistingDownloadPath(UpdateInfo info) async {
@@ -235,7 +239,8 @@ class UpdateService {
 
       final data = response.data as Map<String, dynamic>;
       final tagName = data['tag_name'] as String; // e.g. "v1.2.0"
-      final latestVersion = tagName.startsWith('v') ? tagName.substring(1) : tagName;
+      final latestVersion =
+          tagName.startsWith('v') ? tagName.substring(1) : tagName;
 
       // 获取当前版本
       final packageInfo = await PackageInfo.fromPlatform();
@@ -294,7 +299,9 @@ class UpdateService {
       final publishedAt = DateTime.parse(data['published_at'] as String);
       final htmlUrl = data['html_url'] as String?;
 
-      AppLogger.info('Update available: $latestVersion, APK ABIs: ${apkUrls.keys.toList()}', _tag);
+      AppLogger.info(
+          'Update available: $latestVersion, APK ABIs: ${apkUrls.keys.toList()}',
+          _tag);
 
       return UpdateInfo(
         version: tagName,
@@ -378,7 +385,9 @@ class UpdateService {
       for (final entity in dir.listSync()) {
         if (entity is File) {
           final name = p.basename(entity.path);
-          if (name != keepFileName && name.startsWith('fmp-') && name.endsWith('.apk')) {
+          if (name != keepFileName &&
+              name.startsWith('fmp-') &&
+              name.endsWith('.apk')) {
             entity.deleteSync();
             AppLogger.info('Removed old APK: $name', _tag);
           }
@@ -399,7 +408,9 @@ class UpdateService {
     final installerPath = '${tempDir.path}/$fileName';
     final appDir = File(Platform.resolvedExecutable).parent.path;
 
-    AppLogger.info('Installed version detected, downloading installer to $installerPath', _tag);
+    AppLogger.info(
+        'Installed version detected, downloading installer to $installerPath',
+        _tag);
 
     await _dio.download(
       url,
@@ -429,7 +440,8 @@ class UpdateService {
     final zipPath = '${tempDir.path}/$fileName';
     final extractDir = '${tempDir.path}/fmp_update';
 
-    AppLogger.info('Portable version detected, downloading ZIP to $zipPath', _tag);
+    AppLogger.info(
+        'Portable version detected, downloading ZIP to $zipPath', _tag);
 
     await _dio.download(
       url,
@@ -446,18 +458,7 @@ class UpdateService {
     }
     extractDirObj.createSync(recursive: true);
 
-    final bytes = File(zipPath).readAsBytesSync();
-    final archive = ZipDecoder().decodeBytes(bytes);
-    for (final file in archive) {
-      final filePath = _safeZipEntryDestination(extractDir, file.name);
-      if (file.isFile) {
-        final outFile = File(filePath);
-        outFile.createSync(recursive: true);
-        outFile.writeAsBytesSync(file.content as List<int>);
-      } else {
-        Directory(filePath).createSync(recursive: true);
-      }
-    }
+    await Isolate.run(() => _extractZipToDirectorySync(zipPath, extractDir));
 
     // 获取当前应用目录
     final appDir = File(Platform.resolvedExecutable).parent.path;
@@ -495,8 +496,10 @@ del "%~f0"
 
   /// 比较版本号，判断 latest 是否比 current 新
   bool _isNewerVersion(String current, String latest) {
-    final currentParts = current.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-    final latestParts = latest.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+    final currentParts =
+        current.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+    final latestParts =
+        latest.split('.').map((e) => int.tryParse(e) ?? 0).toList();
 
     // 补齐长度
     while (currentParts.length < 3) {
@@ -511,5 +514,31 @@ del "%~f0"
       if (latestParts[i] < currentParts[i]) return false;
     }
     return false;
+  }
+}
+
+void _extractZipToDirectorySync(String zipPath, String extractDir) {
+  final input = InputFileStream(zipPath);
+  try {
+    final archive = ZipDecoder().decodeStream(input);
+    for (final file in archive) {
+      final filePath = UpdateService._safeZipEntryDestination(
+        extractDir,
+        file.name,
+      );
+      if (file.isFile) {
+        File(filePath).parent.createSync(recursive: true);
+        final output = OutputFileStream(filePath);
+        try {
+          file.writeContent(output);
+        } finally {
+          output.closeSync();
+        }
+      } else {
+        Directory(filePath).createSync(recursive: true);
+      }
+    }
+  } finally {
+    input.closeSync();
   }
 }

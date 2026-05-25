@@ -257,6 +257,107 @@ void main() {
       );
     });
 
+    test('source changes keep previous results while refresh is in flight',
+        () async {
+      notifier.setSeedState(SearchState(
+        query: 'chip query',
+        onlineResults: {
+          SourceType.youtube: SearchResult(
+            tracks: [_track('old-youtube')],
+            totalCount: 1,
+            page: 1,
+            pageSize: 20,
+            hasMore: false,
+          ),
+        },
+        currentPages: const {SourceType.youtube: 1},
+      ));
+      final gate = service.enqueueOnlineSearchResult(
+        MultiSourceSearchResult(
+          query: 'chip query',
+          results: {
+            SourceType.netease: SearchResult(
+              tracks: [_track('new-netease', sourceType: SourceType.netease)],
+              totalCount: 1,
+              page: 1,
+              pageSize: 20,
+              hasMore: false,
+            ),
+          },
+        ),
+      );
+
+      notifier.setSource(SourceType.netease);
+      await pumpEventQueue(times: 2);
+
+      expect(notifier.state.isLoading, isTrue);
+      expect(
+        notifier.state.onlineResults[SourceType.youtube]?.tracks
+            .map((track) => track.sourceId),
+        ['old-youtube'],
+      );
+
+      gate.complete();
+      await pumpEventQueue(times: 2);
+
+      expect(notifier.state.isLoading, isFalse);
+      expect(notifier.state.onlineResults.keys, [SourceType.netease]);
+    });
+
+    test(
+        'search order changes keep previous results while refresh is in flight',
+        () async {
+      notifier.setSeedState(SearchState(
+        query: 'sort query',
+        searchOrder: SearchOrder.relevance,
+        onlineResults: {
+          SourceType.youtube: SearchResult(
+            tracks: [_track('old-youtube')],
+            totalCount: 1,
+            page: 1,
+            pageSize: 20,
+            hasMore: false,
+          ),
+        },
+        currentPages: const {SourceType.youtube: 1},
+      ));
+      final gate = service.enqueueOnlineSearchResult(
+        MultiSourceSearchResult(
+          query: 'sort query',
+          results: {
+            SourceType.youtube: SearchResult(
+              tracks: [_track('new-youtube')],
+              totalCount: 1,
+              page: 1,
+              pageSize: 20,
+              hasMore: false,
+            ),
+          },
+        ),
+      );
+
+      notifier.setSearchOrder(SearchOrder.playCount);
+      await pumpEventQueue(times: 2);
+
+      expect(notifier.state.searchOrder, SearchOrder.playCount);
+      expect(notifier.state.isLoading, isTrue);
+      expect(
+        notifier.state.onlineResults[SourceType.youtube]?.tracks
+            .map((track) => track.sourceId),
+        ['old-youtube'],
+      );
+
+      gate.complete();
+      await pumpEventQueue(times: 2);
+
+      expect(notifier.state.isLoading, isFalse);
+      expect(
+        notifier.state.onlineResults[SourceType.youtube]?.tracks
+            .map((track) => track.sourceId),
+        ['new-youtube'],
+      );
+    });
+
     test('clear cancels a delayed video search completion', () async {
       final onlineGate = service.enqueueOnlineSearchResult(
         MultiSourceSearchResult(

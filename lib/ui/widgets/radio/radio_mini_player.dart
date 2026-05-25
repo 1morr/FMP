@@ -34,7 +34,15 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
     final radioState = ref.watch(radioControllerProvider);
     final radioController = ref.read(radioControllerProvider.notifier);
     // 使用 AudioController 管理音量（共享同一個 AudioService）
-    final audioState = ref.watch(audioControllerProvider);
+    final audioDevices = ref.watch(
+      audioControllerProvider.select((state) => state.audioDevices),
+    );
+    final currentAudioDevice = ref.watch(
+      audioControllerProvider.select((state) => state.currentAudioDevice),
+    );
+    final volume = ref.watch(
+      audioControllerProvider.select((state) => state.volume),
+    );
     final audioController = ref.read(audioControllerProvider.notifier);
 
     // 沒有電台在播放時不顯示
@@ -73,10 +81,7 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
                   children: [
                     Text(
                       station.title,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyMedium
-                          ?.copyWith(
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w500,
                           ),
                       maxLines: 1,
@@ -98,11 +103,16 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
               if (isDesktop) ...[
                 const SizedBox(width: 4),
                 // 音頻設備選擇器
-                if (audioState.audioDevices.length > 1)
+                if (audioDevices.length > 1)
                   _buildFmpAudioDeviceSelector(
-                      context, audioState, audioController, colorScheme),
+                    context,
+                    audioDevices,
+                    currentAudioDevice,
+                    audioController,
+                    colorScheme,
+                  ),
                 _buildVolumeControl(
-                    context, audioState, audioController, colorScheme),
+                    context, volume, audioController, colorScheme),
               ],
             ],
           ),
@@ -118,12 +128,12 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
         width: 48,
         height: 48,
         child: ImageLoadingService.loadImage(
-            networkUrl: station.thumbnailUrl,
-            placeholder: _buildPlaceholder(colorScheme),
-            fit: BoxFit.cover,
-            width: 48,
-            height: 48,
-          ),
+          networkUrl: station.thumbnailUrl,
+          placeholder: _buildPlaceholder(colorScheme),
+          fit: BoxFit.cover,
+          width: 48,
+          height: 48,
+        ),
       ),
     );
   }
@@ -160,7 +170,8 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
 
     // 觀眾數
     if (radioState.viewerCount != null) {
-      parts.add(t.radio.viewersCount(count: _formatCount(radioState.viewerCount!)));
+      parts.add(
+          t.radio.viewersCount(count: _formatCount(radioState.viewerCount!)));
     }
 
     // 重連/緩衝狀態
@@ -234,7 +245,9 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
         icon: Icon(
           Icons.sync,
           size: 22,
-          color: isDisabled ? colorScheme.onSurfaceVariant.withValues(alpha: 0.38) : null,
+          color: isDisabled
+              ? colorScheme.onSurfaceVariant.withValues(alpha: 0.38)
+              : null,
         ),
         tooltip: t.radio.syncLive,
         onPressed: isDisabled ? null : () => controller.sync(),
@@ -245,13 +258,11 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
   /// 音頻輸出設備選擇器（僅桌面端）
   Widget _buildFmpAudioDeviceSelector(
     BuildContext context,
-    PlayerState state,
+    List<FmpAudioDevice> devices,
+    FmpAudioDevice? currentDevice,
     AudioController controller,
     ColorScheme colorScheme,
   ) {
-    final currentDevice = state.currentAudioDevice;
-    final devices = state.audioDevices;
-
     const menuWidth = 220.0;
 
     return MenuAnchor(
@@ -290,7 +301,9 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
           ),
         ),
         const Divider(height: 1),
-        ...devices.where((d) => d.name != 'auto' && d.name != 'openal').map((device) {
+        ...devices
+            .where((d) => d.name != 'auto' && d.name != 'openal')
+            .map((device) {
           final isSelected = currentDevice?.name == device.name;
           return MenuItemButton(
             onPressed: () => controller.setAudioDevice(device),
@@ -312,14 +325,16 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
 
   /// 格式化設備名稱
   String _formatDeviceName(FmpAudioDevice device) {
-    final displayName = device.description.isNotEmpty ? device.description : device.name;
+    final displayName =
+        device.description.isNotEmpty ? device.description : device.name;
 
     final match = RegExp(r'喇叭\s*\((.+)\)$').firstMatch(displayName);
     if (match != null) {
       return match.group(1) ?? displayName;
     }
 
-    final matchEn = RegExp(r'Speakers?\s*\((.+)\)$', caseSensitive: false).firstMatch(displayName);
+    final matchEn = RegExp(r'Speakers?\s*\((.+)\)$', caseSensitive: false)
+        .firstMatch(displayName);
     if (matchEn != null) {
       return matchEn.group(1) ?? displayName;
     }
@@ -330,7 +345,7 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
   /// 音量控制（僅桌面端）
   Widget _buildVolumeControl(
     BuildContext context,
-    PlayerState state,
+    double volume,
     AudioController controller,
     ColorScheme colorScheme,
   ) {
@@ -343,7 +358,7 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
         builder: (context, menuController, child) {
           return IconButton(
             icon: Icon(
-              getVolumeIcon(state.volume),
+              getVolumeIcon(volume),
               size: 20,
             ),
             visualDensity: VisualDensity.compact,
@@ -383,7 +398,7 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
                   overlayColor: colorScheme.primary.withValues(alpha: 0.2),
                 ),
                 child: Slider(
-                  value: state.volume,
+                  value: volume,
                   min: 0.0,
                   max: 1.0,
                   onChanged: (value) => controller.setVolume(value),
@@ -402,11 +417,11 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
         // 靜音/音量圖標按鈕
         IconButton(
           icon: Icon(
-            getVolumeIcon(state.volume),
+            getVolumeIcon(volume),
             size: 20,
           ),
           visualDensity: VisualDensity.compact,
-          tooltip: state.volume > 0 ? t.radio.mute : t.radio.unmute,
+          tooltip: volume > 0 ? t.radio.mute : t.radio.unmute,
           onPressed: () => controller.toggleMute(),
         ),
         // 音量滑塊
@@ -423,7 +438,7 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
               overlayColor: colorScheme.primary.withValues(alpha: 0.2),
             ),
             child: Slider(
-              value: state.volume,
+              value: volume,
               min: 0.0,
               max: 1.0,
               onChanged: (value) => controller.setVolume(value),

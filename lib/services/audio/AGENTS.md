@@ -148,6 +148,20 @@ profile for online music playback:
 Keep `vid=no` and `sid=no` enabled so muxed fallback streams do not decode video
 while the larger buffer absorbs VPN/CDN stalls.
 
+Android `JustAudioService` intentionally uses a smaller ExoPlayer load-control
+profile to avoid live or muxed high-bitrate streams buffering hundreds of MB:
+- 10s min buffer
+- 20s max buffer
+- 3s back buffer
+- 2MB `targetBufferBytes` fallback
+
+Do not restore just_audio's default 50s/50s Android buffers without measuring
+RSS/external memory and stall behavior on Android profile builds.
+
+Fire-and-forget backend cleanup futures must catch and log errors. Provider
+dispose can cancel controller subscriptions synchronously, but async
+`FmpAudioService.dispose()` failures must not become unhandled async errors.
+
 ## Queue, Shuffle, And Mix
 
 - Shuffle is managed in `QueueManager` with `_shuffleOrder`.

@@ -11,7 +11,7 @@ import 'network_image_cache_service.dart';
 ///
 /// 功能：
 /// - 统一的图片加载优先级：本地 → 网络 → 占位符
-/// - 本地图片：直接使用 FileImage（Flutter 内置内存缓存）
+/// - 本地图片：使用 FileImage + ResizeImage（Flutter 内置内存缓存）
 /// - 网络图片：使用 CachedNetworkImage 进行内存 + 磁盘缓存
 /// - 提供统一的占位符和错误处理
 /// - 图片加载完成后有淡入效果
@@ -64,26 +64,36 @@ class ImageLoadingService {
     // 1. 尝试加载本地图片（假设调用方已验证文件存在）
     if (localPath != null) {
       final file = File(localPath);
-      final imageProvider = FileImage(file);
-      return _FadeInImage(
-        image: imageProvider,
-        fit: fit,
-        width: width,
-        height: height,
-        placeholder: placeholder,
-        fadeInDuration: fadeInDuration,
-        errorBuilder: (context, error, stackTrace) {
-          // 本地文件加载失败，尝试网络图片
-          return _loadNetworkOrPlaceholder(
-            networkUrl: networkUrl,
-            placeholder: placeholder,
-            fit: fit,
+      return Builder(
+        builder: (context) {
+          final imageProvider = _localImageProvider(
+            context,
+            file,
             width: width,
             height: height,
             targetDisplaySize: targetDisplaySize,
-            headers: headers,
-            showLoadingIndicator: showLoadingIndicator,
+          );
+          return _FadeInImage(
+            image: imageProvider,
+            fit: fit,
+            width: width,
+            height: height,
+            placeholder: placeholder,
             fadeInDuration: fadeInDuration,
+            errorBuilder: (context, error, stackTrace) {
+              // 本地文件加载失败，尝试网络图片
+              return _loadNetworkOrPlaceholder(
+                networkUrl: networkUrl,
+                placeholder: placeholder,
+                fit: fit,
+                width: width,
+                height: height,
+                targetDisplaySize: targetDisplaySize,
+                headers: headers,
+                showLoadingIndicator: showLoadingIndicator,
+                fadeInDuration: fadeInDuration,
+              );
+            },
           );
         },
       );
@@ -128,6 +138,7 @@ class ImageLoadingService {
         fit: fit,
         width: width,
         height: height,
+        targetDisplaySize: targetDisplaySize,
         headers: headers,
         placeholder: placeholder,
         showLoadingIndicator: showLoadingIndicator,
@@ -215,6 +226,30 @@ class ImageLoadingService {
       iconSize: iconSize ?? 24,
       backgroundColor: backgroundColor,
     );
+  }
+
+  static ImageProvider _localImageProvider(
+    BuildContext context,
+    File file, {
+    double? width,
+    double? height,
+    double? targetDisplaySize,
+  }) {
+    final fileImage = FileImage(file);
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final cacheWidth =
+        _cacheExtent(width ?? targetDisplaySize, devicePixelRatio);
+    final cacheHeight =
+        _cacheExtent(height ?? targetDisplaySize, devicePixelRatio);
+    if (cacheWidth == null && cacheHeight == null) {
+      return fileImage;
+    }
+    return ResizeImage(fileImage, width: cacheWidth, height: cacheHeight);
+  }
+
+  static int? _cacheExtent(double? logicalSize, double devicePixelRatio) {
+    if (logicalSize == null || logicalSize <= 0) return null;
+    return (logicalSize * devicePixelRatio).round().clamp(1, 8192).toInt();
   }
 }
 
@@ -342,6 +377,7 @@ class _CachedNetworkImage extends StatefulWidget {
   final BoxFit fit;
   final double? width;
   final double? height;
+  final double? targetDisplaySize;
   final Map<String, String>? headers;
   final Widget placeholder;
   final bool showLoadingIndicator;
@@ -352,6 +388,7 @@ class _CachedNetworkImage extends StatefulWidget {
     required this.fit,
     this.width,
     this.height,
+    this.targetDisplaySize,
     this.headers,
     required this.placeholder,
     required this.showLoadingIndicator,
@@ -410,8 +447,14 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
 
     // 计算内存缓存尺寸（考虑设备像素比）
     final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
-    final memCacheWidth = widget.width != null ? (widget.width! * devicePixelRatio).toInt() : null;
-    final memCacheHeight = widget.height != null ? (widget.height! * devicePixelRatio).toInt() : null;
+    final displayWidth = widget.width ?? widget.targetDisplaySize;
+    final displayHeight = widget.height ?? widget.targetDisplaySize;
+    final memCacheWidth = displayWidth != null
+        ? (displayWidth * devicePixelRatio).round().clamp(1, 8192).toInt()
+        : null;
+    final memCacheHeight = displayHeight != null
+        ? (displayHeight * devicePixelRatio).round().clamp(1, 8192).toInt()
+        : null;
 
     return CachedNetworkImage(
       imageUrl: _currentUrl,

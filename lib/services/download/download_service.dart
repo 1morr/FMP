@@ -24,6 +24,7 @@ import '../../data/sources/source_http_policy.dart';
 import '../../data/sources/source_provider.dart';
 import '../../data/sources/youtube_source.dart';
 import '../../core/utils/auth_headers_utils.dart';
+import '../../core/utils/thumbnail_url_utils.dart';
 import '../account/bilibili_account_service.dart';
 import '../account/netease_account_service.dart';
 import '../account/youtube_account_service.dart';
@@ -539,6 +540,10 @@ class DownloadService with Logging {
   Future<void> pauseTask(int taskId) async {
     logDebug('Pausing download task: $taskId');
 
+    final task = await _downloadRepository.getTaskById(taskId);
+    if (task != null) {
+      await _saveResumeProgress(task);
+    }
     _clearPendingProgressForTask(taskId);
     await _cleanupActiveTask(taskId, cancelReason: 'User paused');
     await _downloadRepository.updateTaskStatus(taskId, DownloadStatus.paused);
@@ -591,11 +596,17 @@ class DownloadService with Logging {
   Future<void> pauseAll() async {
     logDebug('Pausing all downloads');
 
-    _pendingProgressUpdates.clear();
     final activeTaskIds = {
       ..._activeDownloadIsolates.keys,
       ..._activeCancelTokens.keys,
     }.toList();
+    for (final taskId in activeTaskIds) {
+      final task = await _downloadRepository.getTaskById(taskId);
+      if (task != null) {
+        await _saveResumeProgress(task);
+      }
+    }
+    _pendingProgressUpdates.clear();
     for (final taskId in activeTaskIds) {
       await _cleanupActiveTask(taskId, cancelReason: 'User paused all');
     }
@@ -1040,11 +1051,29 @@ class DownloadService with Logging {
 
   /// 保存断点续传进度
   Future<void> _saveResumeProgress(DownloadTask task) async {
-    if (task.tempFilePath == null || _discardedTaskIds.contains(task.id)) {
+    if (_discardedTaskIds.contains(task.id)) {
       return;
     }
 
     try {
+      final pendingProgress = _pendingProgressUpdates[task.id];
+      if (pendingProgress != null) {
+        final (_, progress, downloadedBytes, totalBytes) = pendingProgress;
+        await _downloadRepository.updateTaskProgress(
+          task.id,
+          progress,
+          downloadedBytes,
+          totalBytes,
+        );
+        logDebug(
+            'Saved buffered resume progress: $downloadedBytes bytes for task ${task.id}');
+        return;
+      }
+
+      if (task.tempFilePath == null) {
+        return;
+      }
+
       final tempFile = File(task.tempFilePath!);
       if (await tempFile.exists()) {
         final downloadedBytes = await tempFile.length();
@@ -1284,10 +1313,14 @@ class DownloadService with Logging {
         track.thumbnailUrl != null) {
       try {
         final coverPath = p.join(videoDir.path, 'cover.jpg');
-        await _dio.download(
+        final coverUrls = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           track.thumbnailUrl!,
+          displaySize: 480,
+        );
+        await _downloadImageCandidates(
+          coverUrls,
           coverPath,
-          options: Options(headers: imageHeaders),
+          imageHeaders,
         );
       } catch (e) {
         logDebug('Failed to download cover: $e');
@@ -1300,14 +1333,41 @@ class DownloadService with Logging {
         videoDetail.ownerFace.isNotEmpty) {
       try {
         final avatarPath = p.join(videoDir.path, 'avatar.jpg');
-        await _dio.download(
+        final avatarUrls = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           videoDetail.ownerFace,
+          displaySize: 160,
+        );
+        await _downloadImageCandidates(
+          avatarUrls,
           avatarPath,
-          options: Options(headers: imageHeaders),
+          imageHeaders,
         );
       } catch (e) {
         logDebug('Failed to download avatar: $e');
       }
+    }
+  }
+
+  Future<void> _downloadImageCandidates(
+    List<String> urls,
+    String savePath,
+    Map<String, String> imageHeaders,
+  ) async {
+    Object? lastError;
+    for (final url in urls) {
+      try {
+        await _dio.download(
+          url,
+          savePath,
+          options: Options(headers: imageHeaders),
+        );
+        return;
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    if (lastError != null) {
+      throw lastError;
     }
   }
 
@@ -1529,8 +1589,10 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
     cancelPort.close();
   }
 
+  HttpClient? client;
+  IOSink? sink;
   try {
-    final client = HttpClient();
+    client = HttpClient();
     client.connectionTimeout = AppConstants.downloadConnectTimeout;
 
     var requestUri = Uri.parse(params.url);
@@ -1596,7 +1658,7 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
     final resumePosition = shouldRestartFromZero ? 0 : params.resumePosition;
 
     final file = File(params.savePath);
-    final sink = file.openWrite(
+    sink = file.openWrite(
         mode: resumePosition > 0 ? FileMode.append : FileMode.write);
 
     final contentLength = response.contentLength;
@@ -1604,7 +1666,8 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
     int receivedBytes = resumePosition;
     double lastProgress = 0;
 
-    await for (final chunk in response) {
+    await for (final chunk
+        in response.timeout(AppConstants.networkReceiveTimeout)) {
       if (isCancelled) {
         await sink.close();
         client.close(force: true);
@@ -1636,25 +1699,41 @@ Future<void> _isolateDownload(_IsolateDownloadParams params) async {
     await closeCancelPort();
 
     sendPort.send(_IsolateMessage(_IsolateMessageType.completed, null));
+  } on TimeoutException catch (e) {
+    await sink?.close();
+    client?.close(force: true);
+    await closeCancelPort();
+    sendPort.send(_IsolateMessage(
+      _IsolateMessageType.error,
+      jsonEncode({'type': 'network', 'message': e.message ?? 'Timeout'}),
+    ));
   } on SocketException catch (e) {
+    await sink?.close();
+    client?.close(force: true);
     await closeCancelPort();
     sendPort.send(_IsolateMessage(
       _IsolateMessageType.error,
       jsonEncode({'type': 'network', 'message': e.message}),
     ));
   } on HttpException catch (e) {
+    await sink?.close();
+    client?.close(force: true);
     await closeCancelPort();
     sendPort.send(_IsolateMessage(
       _IsolateMessageType.error,
       jsonEncode({'type': 'http', 'message': e.message}),
     ));
   } on FileSystemException catch (e) {
+    await sink?.close();
+    client?.close(force: true);
     await closeCancelPort();
     sendPort.send(_IsolateMessage(
       _IsolateMessageType.error,
       jsonEncode({'type': 'filesystem', 'message': e.message}),
     ));
   } catch (e) {
+    await sink?.close();
+    client?.close(force: true);
     await closeCancelPort();
     sendPort.send(_IsolateMessage(
       _IsolateMessageType.error,

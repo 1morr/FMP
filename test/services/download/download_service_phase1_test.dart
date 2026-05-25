@@ -90,6 +90,72 @@ void main() {
       service.dispose();
     });
 
+    test('pauseTask persists the latest buffered progress before clearing it',
+        () async {
+      final service = DownloadService(
+        downloadRepository: downloadRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: SourceManager(),
+      );
+      final tempFile =
+          File('${tempDir.path}/pause-progress/audio.m4a.downloading');
+      await tempFile.parent.create(recursive: true);
+      await tempFile.writeAsBytes(List<int>.filled(40, 1));
+      final task = await downloadRepository.saveTask(
+        _task(trackId: 12)
+          ..tempFilePath = tempFile.path
+          ..totalBytes = 100,
+      );
+
+      service.debugRecordProgressUpdateForTesting(
+          task.id, task.trackId, 0.4, 40, 100);
+      await service.pauseTask(task.id);
+
+      final updatedTask = await downloadRepository.getTaskById(task.id);
+      expect(updatedTask?.status, DownloadStatus.paused);
+      expect(updatedTask?.progress, 0.4);
+      expect(updatedTask?.downloadedBytes, 40);
+      expect(updatedTask?.totalBytes, 100);
+      expect(service.debugPendingProgressCount, 0);
+
+      service.dispose();
+    });
+
+    test('pauseAll persists buffered progress for active tasks before clearing',
+        () async {
+      final service = DownloadService(
+        downloadRepository: downloadRepository,
+        trackRepository: trackRepository,
+        settingsRepository: settingsRepository,
+        sourceManager: SourceManager(),
+      );
+      final tempFile =
+          File('${tempDir.path}/pause-all-progress/audio.m4a.downloading');
+      await tempFile.parent.create(recursive: true);
+      await tempFile.writeAsBytes(List<int>.filled(75, 1));
+      final task = await downloadRepository.saveTask(
+        _task(trackId: 13)
+          ..tempFilePath = tempFile.path
+          ..totalBytes = 100,
+      );
+
+      service.debugRegisterLegacyActiveDownloadForTesting(task.id);
+      service.debugRecordProgressUpdateForTesting(
+          task.id, task.trackId, 0.75, 75, 100);
+      await service.pauseAll();
+
+      final updatedTask = await downloadRepository.getTaskById(task.id);
+      expect(updatedTask?.status, DownloadStatus.paused);
+      expect(updatedTask?.progress, 0.75);
+      expect(updatedTask?.downloadedBytes, 75);
+      expect(updatedTask?.totalBytes, 100);
+      expect(service.debugPendingProgressCount, 0);
+      expect(service.debugActiveDownloads, 0);
+
+      service.dispose();
+    });
+
     test('cancelTask clears buffered progress before a flush runs', () async {
       final service = DownloadService(
         downloadRepository: downloadRepository,

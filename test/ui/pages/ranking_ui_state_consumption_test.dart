@@ -112,6 +112,35 @@ void main() {
             'Home rankings should not rebuild for unrelated ranking cache state changes.',
       );
     });
+
+    test('explore tabs select only source-specific ranking cache fields', () {
+      final source = File(
+        'lib/ui/pages/explore/explore_page.dart',
+      ).readAsStringSync();
+
+      expect(
+          source, isNot(contains('ref.watch(rankingCacheServiceProvider);')));
+      expect(
+        source,
+        contains(
+            'rankingCacheServiceProvider.select((state) => state.isInitialLoading)'),
+      );
+      expect(
+        source,
+        contains(
+            'rankingCacheServiceProvider.select((state) => state.bilibiliError)'),
+      );
+      expect(
+        source,
+        contains(
+            'rankingCacheServiceProvider.select((state) => state.youtubeError)'),
+      );
+      expect(
+        source,
+        contains(
+            'rankingCacheServiceProvider.select((state) => state.neteaseError)'),
+      );
+    });
   });
 }
 
