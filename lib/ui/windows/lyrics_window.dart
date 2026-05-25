@@ -213,6 +213,9 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
   static const double _refFontSize = 20.0;
   static const double _boldSafetyFactor = 0.95;
 
+  /// 透明/普通模式切换时保留滚动位置
+  final _lyricsListKey = GlobalKey();
+
   final _scrollController = ItemScrollController();
   final _positionsListener = ItemPositionsListener.create();
 
@@ -1210,6 +1213,7 @@ class _LyricsWindowPageState extends State<LyricsWindowPage> {
                   return false;
                 },
                 child: ScrollablePositionedList.builder(
+                  key: _lyricsListKey,
                   itemScrollController: _scrollController,
                   itemPositionsListener: _positionsListener,
                   padding: EdgeInsets.only(
