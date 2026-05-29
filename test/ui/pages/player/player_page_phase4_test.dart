@@ -85,6 +85,37 @@ void main() {
       expect(candidatesSource, isNot(contains('maxHeight')));
     });
 
+    test('PlayerPage keeps AppBar backdrop opacity independent from body', () {
+      final playerSource = readSource('lib/ui/pages/player/player_page.dart');
+
+      expect(
+        playerSource,
+        contains(
+          'static const double _bodyBackdropSurfaceOverlayAlpha = 0.74;',
+        ),
+      );
+      expect(
+        playerSource,
+        contains(
+          'static const double _bodyBackdropContainerOverlayAlpha = 0.08;',
+        ),
+      );
+      expect(
+        playerSource,
+        contains(
+          'static const double _appBarBackdropSurfaceOverlayAlpha = 0.30;',
+        ),
+      );
+      expect(
+        playerSource,
+        contains(
+          'static const double _appBarBackdropContainerOverlayAlpha = 0.01;',
+        ),
+      );
+      expect(playerSource, contains('surfaceOverlayAlpha:'));
+      expect(playerSource, contains('surfaceContainerOverlayAlpha:'));
+    });
+
     test('Windows title bar is owned by the app wrapper', () {
       final appSource = readSource('lib/app.dart');
       final playerSource = readSource('lib/ui/pages/player/player_page.dart');
