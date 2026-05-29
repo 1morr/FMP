@@ -18,6 +18,7 @@ import '../../../i18n/strings.g.dart';
 import '../../../providers/download/file_exists_cache.dart';
 import '../../../providers/download/download_providers.dart';
 import '../../../providers/account_provider.dart';
+import '../../../core/constants/breakpoints.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/dialogs/add_to_remote_playlist_dialog.dart';
@@ -88,6 +89,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final currentTrack = ref.watch(currentTrackProvider);
     final playbackSpeed = ref.watch(playbackSpeedProvider);
+    final isWideLayout = Breakpoints.isDesktop(MediaQuery.sizeOf(context).width);
+    final showLyricsActions = isWideLayout || _showLyrics;
     final desktopAudioDeviceState = ref.watch(desktopAudioDeviceStateProvider);
     final playerState = ref.watch(
       audioControllerProvider.select(
@@ -235,7 +238,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                 ),
               ),
               // 歌词选项（仅在显示歌词时显示）
-              if (_showLyrics) ...[
+              if (showLyricsActions) ...[
                 const PopupMenuDivider(),
                 PopupMenuItem(
                   value: 'lyrics_search',
@@ -285,21 +288,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            // 封面图 / 歌词切换
+            // 封面图 / 歌词区域
             Expanded(
               flex: 3,
-              child: AnimatedSwitcher(
-                duration: AnimationDurations.normal,
-                child: _showLyrics
-                    ? LyricsDisplay(
-                        key: const ValueKey('lyrics'),
-                        onLongPress: () => setState(() => _showLyrics = false),
-                        showOffsetControls: _showOffsetControls,
-                      )
-                    : GestureDetector(
-                        onLongPress: () => setState(() => _showLyrics = true),
-                        child: _buildCoverArt(context, currentTrack, colorScheme),
-                      ),
+            child: _buildWideMediaSection(
+                context,
+                currentTrack,
+                colorScheme,
+                isWideLayout,
               ),
             ),
             const SizedBox(height: 32),
@@ -336,6 +332,61 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           ],
         ),
       ),
+    );
+  }
+
+  /// 媒体区域（窄屏上下切换，宽屏左右并排）
+  Widget _buildWideMediaSection(
+    BuildContext context,
+    Track? track,
+    ColorScheme colorScheme,
+    bool isWideLayout,
+  ) {
+    if (isWideLayout) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            flex: 5,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: _buildCoverArt(context, track, colorScheme),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 24),
+          Expanded(
+            flex: 7,
+            child: _buildLyricsPanel(colorScheme),
+          ),
+        ],
+      );
+    }
+
+    return AnimatedSwitcher(
+      duration: AnimationDurations.normal,
+      child: _showLyrics
+          ? LyricsDisplay(
+              key: const ValueKey('lyrics'),
+              onLongPress: () => setState(() => _showLyrics = false),
+              showOffsetControls: _showOffsetControls,
+            )
+          : GestureDetector(
+              onLongPress: () => setState(() => _showLyrics = true),
+              child: _buildCoverArt(context, track, colorScheme),
+            ),
+    );
+  }
+
+  /// 宽屏歌词面板
+  Widget _buildLyricsPanel(ColorScheme colorScheme) {
+    return LyricsDisplay(
+      key: const ValueKey('lyrics'),
+      showOffsetControls: _showOffsetControls,
     );
   }
 
