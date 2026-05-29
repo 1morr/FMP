@@ -76,7 +76,8 @@ void main() {
         expect(result, contains('.jpg'));
       });
 
-      test('does not upscale mqdefault candidates to maxresdefault', () {
+      test('upscales mqdefault through intermediate tiers to desired quality',
+          () {
         const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg';
         final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           url,
@@ -84,9 +85,13 @@ void main() {
           devicePixelRatio: 1.0,
         );
 
+        // displaySize=200 → targetSize=200 → sddefault,
+        // 原始为 mqdefault，候选为 [sddefault, hqdefault, 原始 mqdefault]
         expect(
             result,
             equals([
+              'https://i.ytimg.com/vi/dQw4w9WgXcQ/sddefault.jpg',
+              'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
               'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
             ]));
       });

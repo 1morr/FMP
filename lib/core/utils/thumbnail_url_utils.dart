@@ -61,6 +61,12 @@ class ThumbnailUrlUtils {
     // 根据 URL 域名选择处理方式
     if (_isBilibiliUrl(url)) {
       addCandidate(_optimizeBilibiliUrl(url, targetSize));
+    } else if (_isYouTubeUrl(url) && url.contains('ytimg.com')) {
+      // YouTube 视频缩略图：生成从高到低多级质量候选，逐级回退
+      for (final candidate
+          in _optimizeYouTubeThumbnailCandidates(url, targetSize)) {
+        addCandidate(candidate);
+      }
     } else if (_isYouTubeUrl(url)) {
       addCandidate(_optimizeYouTubeUrl(url, targetSize));
     } else if (_isNeteaseUrl(url)) {
@@ -151,46 +157,61 @@ class ThumbnailUrlUtils {
 
   /// 优化 YouTube 视频缩略图
   static String _optimizeYouTubeThumbnail(String url, int targetSize) {
-    // 选择合适的质量档位
     final quality = _selectYouTubeQuality(targetSize);
+    return _buildYouTubeThumbnailUrl(url, quality);
+  }
 
-    // 替换 URL 中的质量参数
-    // 常见格式：/vi/{videoId}/hqdefault.jpg 或 /vi_webp/{videoId}/hqdefault.webp
+  /// 生成 YouTube 缩略图多级质量候选 URL（从高到低）
+  ///
+  /// 从期望质量开始，逐级下降到比原始质量高一档为止。
+  /// 原始 URL 由 [getOptimizedUrlCandidates] 作为最终回退添加，
+  /// 因此这里不重复生成原始质量的 URL。
+  static List<String> _optimizeYouTubeThumbnailCandidates(
+      String url, int targetSize) {
+    const qualityOrder = ['maxresdefault', 'sddefault', 'hqdefault', 'mqdefault', 'default'];
+
     final pattern = RegExp(r'/vi(_webp)?/([^/]+)/([^/]+)\.(jpg|webp)');
-
     final match = pattern.firstMatch(url);
-    if (match != null) {
-      final isWebp = match.group(1) != null; // 原始 URL 是否使用 webp
-      final videoId = match.group(2);
-      final originalQuality = match.group(3);
-      final ext = match.group(4); // 保持原始扩展名
+    if (match == null) return const [];
 
-      if (originalQuality == 'mqdefault' && quality == 'maxresdefault') {
-        return url;
-      }
+    final originalQuality = match.group(3);
+    final desiredQuality = _selectYouTubeQuality(targetSize);
 
-      // 保持原始格式（不强制转换为 webp，因为不是所有视频都支持）
-      if (isWebp) {
-        return 'https://i.ytimg.com/vi_webp/$videoId/$quality.webp';
-      } else {
-        return 'https://i.ytimg.com/vi/$videoId/$quality.$ext';
-      }
+    final desiredIdx = qualityOrder.indexOf(desiredQuality);
+    final originalIdx = qualityOrder.indexOf(originalQuality ?? 'mqdefault');
+
+    if (desiredIdx < 0) return const [];
+
+    final candidates = <String>[];
+    // 从期望质量向下生成候选，直到原始质量（不含，由调用方添加）
+    for (int i = desiredIdx; i <= qualityOrder.length - 1; i++) {
+      if (i >= originalIdx) break;
+      final candidate = _buildYouTubeThumbnailUrl(url, qualityOrder[i]);
+      if (candidate.isNotEmpty) candidates.add(candidate);
     }
+    return candidates;
+  }
 
-    // 无法解析的 URL 原样返回
-    return url;
+  /// 用指定质量构建 YouTube 缩略图 URL
+  static String _buildYouTubeThumbnailUrl(String url, String quality) {
+    final pattern = RegExp(r'/vi(_webp)?/([^/]+)/([^/]+)\.(jpg|webp)');
+    final match = pattern.firstMatch(url);
+    if (match == null) return '';
+
+    final isWebp = match.group(1) != null;
+    final videoId = match.group(2);
+    final ext = match.group(4);
+    final prefix = isWebp ? 'vi_webp' : 'vi';
+    return 'https://i.ytimg.com/$prefix/$videoId/$quality.$ext';
   }
 
   /// 选择 YouTube 缩略图质量档位
-  ///
-  /// 只使用 16:9 比例的档位（mqdefault, maxresdefault），
-  /// 避免使用 4:3 档位（default, hqdefault, sddefault）带来的黑边问题。
   static String _selectYouTubeQuality(int targetSize) {
     // mqdefault: 320x180 (16:9)
+    // sddefault: 640x480 (4:3, 16:9 视频有效内容 640x360)
     // maxresdefault: 1280x720 (16:9)
-    // 避免使用 default(120x90), hqdefault(480x360), sddefault(640x480)
-    // 因为这些是 4:3 比例，YouTube 会在上下添加黑边
     if (targetSize <= 180) return 'mqdefault';
+    if (targetSize <= 480) return 'sddefault';
     return 'maxresdefault';
   }
 
