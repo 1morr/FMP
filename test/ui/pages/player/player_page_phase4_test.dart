@@ -91,7 +91,7 @@ void main() {
       expect(
         playerSource,
         contains(
-          'static const double _bodyBackdropSurfaceOverlayAlpha = 0.74;',
+          'static const double _bodyBackdropSurfaceOverlayAlpha = 0.60;',
         ),
       );
       expect(
