@@ -113,6 +113,54 @@ class ImageLoadingService {
     );
   }
 
+  /// 建立图片 Provider 候选列表，用于需要先预加载再显示的场景。
+  ///
+  /// 顺序与 [loadImage] 一致：本地图片优先，网络缩略图候选随后。
+  /// 调用方可以逐个 `precacheImage`，成功后再显示，避免加载期间露出占位符。
+  static List<ImageProvider> imageProviderCandidates({
+    required BuildContext context,
+    String? localPath,
+    String? networkUrl,
+    double? width,
+    double? height,
+    double? targetDisplaySize,
+    Map<String, String>? headers,
+  }) {
+    final providers = <ImageProvider>[];
+
+    if (localPath != null) {
+      providers.add(
+        _localImageProvider(
+          context,
+          File(localPath),
+          width: width,
+          height: height,
+          targetDisplaySize: targetDisplaySize,
+        ),
+      );
+    }
+
+    if (networkUrl != null && networkUrl.isNotEmpty) {
+      final displaySize = targetDisplaySize ?? width ?? height;
+      final candidateUrls = ThumbnailUrlUtils.getOptimizedUrlCandidates(
+        networkUrl,
+        displaySize: displaySize,
+      );
+
+      for (final url in candidateUrls) {
+        providers.add(
+          CachedNetworkImageProvider(
+            url,
+            headers: headers,
+            cacheManager: NetworkImageCacheService.defaultCacheManager,
+          ),
+        );
+      }
+    }
+
+    return providers;
+  }
+
   /// 加载网络图片或显示占位符
   static Widget _loadNetworkOrPlaceholder({
     String? networkUrl,
