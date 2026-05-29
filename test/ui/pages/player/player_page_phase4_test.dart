@@ -42,6 +42,14 @@ void main() {
       expect(source, contains('ref.watch(currentStreamMetadataProvider)'));
     });
 
+    test('PlayerPage splits cover and lyrics on desktop width', () {
+      final source = readSource('lib/ui/pages/player/player_page.dart');
+
+      expect(source, contains('Breakpoints.isDesktop'));
+      expect(source, contains('_buildWideMediaSection'));
+      expect(source, contains('showLyricsActions = isWideLayout || _showLyrics'));
+    });
+
     test('TrackDetailPanel uses shared stream selector without broad watch', () {
       final source = readSource('lib/ui/widgets/track_detail_panel.dart');
 

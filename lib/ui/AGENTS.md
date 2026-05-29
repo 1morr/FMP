@@ -133,6 +133,14 @@ Source of truth: `lib/core/constants/breakpoints.dart`.
 - Tablet: `600-1200dp` (side navigation)
 - Desktop: `>= 1200dp` (collapsible side navigation + optional detail panel)
 
+## Player Layout
+
+- `lib/ui/pages/player/player_page.dart` should use a single-column cover/lyrics
+  toggle on narrow layouts.
+- On desktop widths, the player page should show cover art on the left and
+  lyrics on the right, while keeping the track info, progress bar, and playback
+  controls below the media area.
+
 ## Verification
 
 For UI changes, run focused tests under `test/ui` when available, then
