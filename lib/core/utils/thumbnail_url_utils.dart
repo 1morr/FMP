@@ -60,7 +60,10 @@ class ThumbnailUrlUtils {
 
     // 根据 URL 域名选择处理方式
     if (_isBilibiliUrl(url)) {
-      addCandidate(_optimizeBilibiliUrl(url, targetSize));
+      for (final candidate
+          in _optimizeBilibiliUrlCandidates(url, targetSize)) {
+        addCandidate(candidate);
+      }
     } else if (_isYouTubeUrl(url) && url.contains('ytimg.com')) {
       // YouTube 视频缩略图：生成从高到低多级质量候选，逐级回退
       for (final candidate
@@ -70,7 +73,10 @@ class ThumbnailUrlUtils {
     } else if (_isYouTubeUrl(url)) {
       addCandidate(_optimizeYouTubeUrl(url, targetSize));
     } else if (_isNeteaseUrl(url)) {
-      addCandidate(_optimizeNeteaseUrl(url, targetSize));
+      for (final candidate
+          in _optimizeNeteaseUrlCandidates(url, targetSize)) {
+        addCandidate(candidate);
+      }
     }
 
     // 最后回退到原始 URL
@@ -90,31 +96,6 @@ class ThumbnailUrlUtils {
         url.contains('googleusercontent.com');
   }
 
-  /// 优化 Bilibili 图片 URL
-  ///
-  /// Bilibili 图片 URL 支持后缀参数：
-  /// - @{width}w_{height}h.jpg - 指定宽高
-  /// - @{width}w.jpg - 指定宽度，高度自适应
-  /// - @{size}w_{size}h_1c.jpg - 正方形裁剪
-  ///
-  /// 示例：
-  /// - 原始：https://i0.hdslb.com/bfs/archive/xxx.jpg
-  /// - 优化：https://i0.hdslb.com/bfs/archive/xxx.jpg@200w_200h.jpg
-  static String _optimizeBilibiliUrl(String url, int targetSize) {
-    // 移除已有的尺寸后缀
-    String baseUrl = url;
-    final atIndex = url.indexOf('@');
-    if (atIndex != -1) {
-      baseUrl = url.substring(0, atIndex);
-    }
-
-    // 选择合适的尺寸档位
-    final size = _selectBilibiliSize(targetSize);
-
-    // 添加尺寸后缀（保持宽高比）
-    return '$baseUrl@${size}w.jpg';
-  }
-
   /// 选择 Bilibili 合适的尺寸档位
   ///
   /// Bilibili 图片服务支持任意尺寸，但为了利用 CDN 缓存，
@@ -125,6 +106,28 @@ class ThumbnailUrlUtils {
     if (targetSize <= 400) return 400;
     if (targetSize <= 640) return 640;
     return 1280; // 大于 640 使用 1280
+  }
+
+  /// 生成 Bilibili 缩略图多级尺寸候选 URL（从高到低）
+  ///
+  /// 从期望尺寸向下逐级生成候选，避免直接回退到原始大图。
+  static List<String> _optimizeBilibiliUrlCandidates(
+      String url, int targetSize) {
+    const sizes = [1280, 640, 400, 200];
+
+    final baseUrl = url.contains('@') ? url.substring(0, url.indexOf('@')) : url;
+    final desiredSize = _selectBilibiliSize(targetSize);
+
+    final candidates = <String>[];
+    var include = false;
+    for (final size in sizes) {
+      if (size == desiredSize) include = true;
+      if (include) {
+        candidates.add('$baseUrl@${size}w.jpg');
+      }
+    }
+    // 不包含原图本身，由 getOptimizedUrlCandidates 添加
+    return candidates;
   }
 
   /// 优化 YouTube 图片 URL
@@ -267,26 +270,30 @@ class ThumbnailUrlUtils {
     return url.contains('music.126.net');
   }
 
-  /// 优化网易云图片 URL
-  ///
-  /// 网易云图片 URL 支持 ?param={w}y{h} 参数调整大小：
-  /// - 原始：http://p1.music.126.net/xxx.jpg
-  /// - 优化：http://p1.music.126.net/xxx.jpg?param=200y200
-  static String _optimizeNeteaseUrl(String url, int targetSize) {
-    // 移除已有的 param 参数
-    final baseUrl = url.split('?').first;
-
-    // 选择合适的尺寸档位
-    final size = _selectNeteaseSize(targetSize);
-
-    return '$baseUrl?param=${size}y$size';
-  }
-
   /// 选择网易云合适的尺寸档位
   static int _selectNeteaseSize(int targetSize) {
     if (targetSize <= 100) return 100;
     if (targetSize <= 200) return 200;
     if (targetSize <= 400) return 400;
     return 800;
+  }
+
+  /// 生成网易云缩略图多级尺寸候选 URL（从高到低）
+  static List<String> _optimizeNeteaseUrlCandidates(
+      String url, int targetSize) {
+    const sizes = [800, 400, 200, 100];
+
+    final baseUrl = url.split('?').first;
+    final desiredSize = _selectNeteaseSize(targetSize);
+
+    final candidates = <String>[];
+    var include = false;
+    for (final size in sizes) {
+      if (size == desiredSize) include = true;
+      if (include) {
+        candidates.add('$baseUrl?param=${size}y$size');
+      }
+    }
+    return candidates;
   }
 }
