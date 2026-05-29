@@ -151,14 +151,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 
     final scaffold = Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.keyboard_arrow_down),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        // Windows: 标题栏下方的 AppBar 空白区域也可拖动窗口
-        flexibleSpace: Platform.isWindows
-            ? const DragToMoveArea(child: SizedBox.expand())
-            : null,
+        flexibleSpace: _buildAppBarBackdrop(currentTrack, colorScheme),
         actions: [
           // 添加到歌单
           if (currentTrack != null)
@@ -333,6 +334,20 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     );
 
     return scaffold;
+  }
+
+  /// AppBar 背景：跟随播放器模糊封面，Windows 空白区域仍可拖动窗口
+  Widget _buildAppBarBackdrop(Track? currentTrack, ColorScheme colorScheme) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _PlayerBackdrop(
+          currentTrack: currentTrack,
+          colorScheme: colorScheme,
+        ),
+        if (Platform.isWindows) const DragToMoveArea(child: SizedBox.expand()),
+      ],
+    );
   }
 
   /// 窄屏布局：封面/歌词切换，控制区位于媒体区下方
@@ -1067,10 +1082,10 @@ class _PlayerBackdropState extends ConsumerState<_PlayerBackdrop> {
                 ),
               ),
             ),
-          Container(color: widget.colorScheme.surface.withValues(alpha: 0.74)),
+          Container(color: widget.colorScheme.surface.withValues(alpha: 0.30)),
           Container(
             color: widget.colorScheme.surfaceContainerHighest
-                .withValues(alpha: 0.08),
+                .withValues(alpha: 0.01),
           ),
         ],
       ),
