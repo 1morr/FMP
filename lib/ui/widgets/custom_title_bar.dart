@@ -137,6 +137,39 @@ class _TitleBarButtonState extends State<_TitleBarButton> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final button = GestureDetector(
+      onTap: widget.onPressed,
+      child: Container(
+        width: 46,
+        height: 36,
+        color: _isHovered
+            ? (widget.isClose
+                ? Colors.red
+                : colorScheme.onSurface.withValues(alpha: 0.08))
+            : Colors.transparent,
+        child: Center(
+          child: ExcludeSemantics(
+            child: Icon(
+              widget.icon,
+              size: widget.iconSize,
+              color: _isHovered && widget.isClose
+                  ? Colors.white
+                  : colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // App-level title bars can sit above the Navigator's Overlay. Tooltips need
+    // an Overlay, so keep semantics and skip the floating tooltip in that case.
+    final tooltipButton = Overlay.maybeOf(context) == null
+        ? button
+        : Tooltip(
+            message: widget.tooltip,
+            excludeFromSemantics: true,
+            child: button,
+          );
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -144,33 +177,7 @@ class _TitleBarButtonState extends State<_TitleBarButton> {
       child: Semantics(
         button: true,
         label: widget.tooltip,
-        child: Tooltip(
-          message: widget.tooltip,
-          excludeFromSemantics: true,
-          child: GestureDetector(
-            onTap: widget.onPressed,
-            child: Container(
-              width: 46,
-              height: 36,
-              color: _isHovered
-                  ? (widget.isClose
-                      ? Colors.red
-                      : colorScheme.onSurface.withValues(alpha: 0.08))
-                  : Colors.transparent,
-              child: Center(
-                child: ExcludeSemantics(
-                  child: Icon(
-                    widget.icon,
-                    size: widget.iconSize,
-                    color: _isHovered && widget.isClose
-                        ? Colors.white
-                        : colorScheme.onSurface.withValues(alpha: 0.7),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
+        child: tooltipButton,
       ),
     );
   }

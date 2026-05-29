@@ -138,8 +138,11 @@ Source of truth: `lib/core/constants/breakpoints.dart`.
 - `lib/ui/pages/player/player_page.dart` should use a single-column cover/lyrics
   toggle on narrow layouts.
 - On desktop widths, the player page should show cover art on the left and
-  lyrics on the right, while keeping the track info, progress bar, and playback
-  controls below the media area.
+  lyrics on the right. Keep track info, progress bar, and playback controls in
+  the left column below the cover so the lyrics column can use the full content
+  height.
+- Windows custom title bar and network banner are owned by the app-level
+  wrapper in `lib/app.dart`, not individual pages or responsive content layouts.
 
 ## Verification
 
