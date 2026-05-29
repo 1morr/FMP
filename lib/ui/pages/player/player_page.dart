@@ -42,6 +42,11 @@ class PlayerPage extends ConsumerStatefulWidget {
 }
 
 class _PlayerPageState extends ConsumerState<PlayerPage> {
+  static const double _bodyBackdropSurfaceOverlayAlpha = 0.60;
+  static const double _bodyBackdropContainerOverlayAlpha = 0.08;
+  static const double _appBarBackdropSurfaceOverlayAlpha = 0.30;
+  static const double _appBarBackdropContainerOverlayAlpha = 0.01;
+
   /// 打开歌词搜索 BottomSheet
   void _openLyricsSearch(BuildContext context) {
     final playerState = ref.read(audioControllerProvider);
@@ -344,6 +349,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         _PlayerBackdrop(
           currentTrack: currentTrack,
           colorScheme: colorScheme,
+          surfaceOverlayAlpha: _appBarBackdropSurfaceOverlayAlpha,
+          surfaceContainerOverlayAlpha: _appBarBackdropContainerOverlayAlpha,
         ),
         if (Platform.isWindows) const DragToMoveArea(child: SizedBox.expand()),
       ],
@@ -479,6 +486,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         _PlayerBackdrop(
           currentTrack: currentTrack,
           colorScheme: colorScheme,
+          surfaceOverlayAlpha: _bodyBackdropSurfaceOverlayAlpha,
+          surfaceContainerOverlayAlpha: _bodyBackdropContainerOverlayAlpha,
         ),
         child,
       ],
@@ -1024,10 +1033,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 class _PlayerBackdrop extends ConsumerStatefulWidget {
   final Track? currentTrack;
   final ColorScheme colorScheme;
+  final double surfaceOverlayAlpha;
+  final double surfaceContainerOverlayAlpha;
 
   const _PlayerBackdrop({
     required this.currentTrack,
     required this.colorScheme,
+    required this.surfaceOverlayAlpha,
+    required this.surfaceContainerOverlayAlpha,
   });
 
   @override
@@ -1082,10 +1095,13 @@ class _PlayerBackdropState extends ConsumerState<_PlayerBackdrop> {
                 ),
               ),
             ),
-          Container(color: widget.colorScheme.surface.withValues(alpha: 0.30)),
+          Container(
+            color: widget.colorScheme.surface
+                .withValues(alpha: widget.surfaceOverlayAlpha),
+          ),
           Container(
             color: widget.colorScheme.surfaceContainerHighest
-                .withValues(alpha: 0.01),
+                .withValues(alpha: widget.surfaceContainerOverlayAlpha),
           ),
         ],
       ),
