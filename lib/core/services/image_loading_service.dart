@@ -147,11 +147,13 @@ class ImageLoadingService {
         displaySize: displaySize,
       );
 
+      final effectiveHeaders = headers ?? _defaultImageHeaders(networkUrl);
+
       for (final url in candidateUrls) {
         providers.add(
           CachedNetworkImageProvider(
             url,
-            headers: headers,
+            headers: effectiveHeaders,
             cacheManager: NetworkImageCacheService.defaultCacheManager,
           ),
         );
@@ -181,13 +183,16 @@ class ImageLoadingService {
         displaySize: displaySize,
       );
 
+      // 未显式传入 headers 时，根据 URL 域名自动添加 Referer/Origin
+      final effectiveHeaders = headers ?? _defaultImageHeaders(networkUrl);
+
       return _CachedNetworkImage(
         urls: candidateUrls,
         fit: fit,
         width: width,
         height: height,
         targetDisplaySize: targetDisplaySize,
-        headers: headers,
+        headers: effectiveHeaders,
         placeholder: placeholder,
         showLoadingIndicator: showLoadingIndicator,
         fadeInDuration: fadeInDuration,
@@ -298,6 +303,31 @@ class ImageLoadingService {
   static int? _cacheExtent(double? logicalSize, double devicePixelRatio) {
     if (logicalSize == null || logicalSize <= 0) return null;
     return (logicalSize * devicePixelRatio).round().clamp(1, 8192).toInt();
+  }
+
+  /// 根据图片 URL 域名返回默认的 Referer/Origin 请求头
+  ///
+  /// Bilibili / YouTube / Netease 的图片 CDN 可能檢查 Referer，
+  /// 預設帶上對應平台的 Referer 以避免請求被拒絕。
+  static Map<String, String>? _defaultImageHeaders(String url) {
+    if (url.contains('hdslb.com') || url.contains('bilibili.com')) {
+      return const {'Referer': 'https://www.bilibili.com/'};
+    }
+    if (url.contains('ytimg.com') ||
+        url.contains('ggpht.com') ||
+        url.contains('googleusercontent.com')) {
+      return const {
+        'Referer': 'https://www.youtube.com/',
+        'Origin': 'https://www.youtube.com',
+      };
+    }
+    if (url.contains('music.126.net')) {
+      return const {
+        'Referer': 'https://music.163.com/',
+        'Origin': 'https://music.163.com',
+      };
+    }
+    return null;
   }
 }
 

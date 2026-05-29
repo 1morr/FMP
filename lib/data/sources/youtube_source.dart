@@ -2009,8 +2009,10 @@ class YouTubeSource extends BaseSource with Logging {
             final title = _extractText(renderer['title']) ?? 'Unknown';
             final artist = _extractText(renderer['shortBylineText']) ?? '';
             final durationMs = _parseDurationText(lengthText);
-            final thumbnailUrl =
-                'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
+            final thumbnails = renderer['thumbnail']?['thumbnails'] as List?;
+            final thumbnailUrl = thumbnails?.isNotEmpty == true
+                ? thumbnails!.last['url'] as String?
+                : 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
 
             tracks.add(Track()
               ..sourceId = videoId
