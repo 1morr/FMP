@@ -68,6 +68,9 @@ void main() {
           imageServiceSource.substring(candidatesStart, candidatesEnd);
 
       expect(playerSource, contains('body: _buildImmersivePlayerLayout('));
+      expect(playerSource, contains('flexibleSpace: _buildAppBarBackdrop'));
+      expect(playerSource, contains('backgroundColor: Colors.transparent'));
+      expect(playerSource, contains('surfaceTintColor: Colors.transparent'));
       expect(playerSource, contains('class _PlayerBackdrop'));
       expect(playerSource, contains('precacheImage'));
       expect(playerSource, contains('Future<bool> _precacheImage'));
