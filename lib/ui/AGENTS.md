@@ -141,6 +141,9 @@ Source of truth: `lib/core/constants/breakpoints.dart`.
   lyrics on the right. Keep track info, progress bar, and playback controls in
   the left column below the cover so the lyrics column can use the full content
   height.
+- Player backgrounds should use the current track cover as a blurred backdrop on
+  all widths. When tracks change, keep the previous loaded backdrop visible until
+  the next cover has been preloaded to avoid flashing a placeholder background.
 - Windows custom title bar and network banner are owned by the app-level
   wrapper in `lib/app.dart`, not individual pages or responsive content layouts.
 

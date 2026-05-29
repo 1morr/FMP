@@ -49,11 +49,37 @@ void main() {
 
       expect(source, contains('Breakpoints.isDesktop'));
       expect(source, contains('ImageFilter.blur'));
-      expect(source, contains('_buildImmersiveDesktopLayout'));
+      expect(source, contains('_buildImmersivePlayerLayout'));
       expect(source, contains('_buildDesktopPlayerContent'));
       expect(source, contains('_buildControlSection'));
       expect(
           source, contains('showLyricsActions = isWideLayout || _showLyrics'));
+    });
+
+    test('PlayerPage uses a preloaded cover backdrop for all widths', () {
+      final playerSource = readSource('lib/ui/pages/player/player_page.dart');
+      final imageServiceSource =
+          readSource('lib/core/services/image_loading_service.dart');
+      final candidatesStart =
+          imageServiceSource.indexOf('static List<ImageProvider>');
+      final candidatesEnd =
+          imageServiceSource.indexOf('/// 加载网络图片', candidatesStart);
+      final candidatesSource =
+          imageServiceSource.substring(candidatesStart, candidatesEnd);
+
+      expect(playerSource, contains('body: _buildImmersivePlayerLayout('));
+      expect(playerSource, contains('class _PlayerBackdrop'));
+      expect(playerSource, contains('precacheImage'));
+      expect(playerSource, contains('Future<bool> _precacheImage'));
+      expect(playerSource, contains('onError:'));
+      expect(playerSource, contains('_loadedKey'));
+      expect(playerSource, contains('_desiredKey'));
+      expect(playerSource,
+          contains('ImageLoadingService.imageProviderCandidates'));
+      expect(imageServiceSource, contains('imageProviderCandidates'));
+      expect(imageServiceSource, contains('CachedNetworkImageProvider'));
+      expect(candidatesSource, isNot(contains('maxWidth')));
+      expect(candidatesSource, isNot(contains('maxHeight')));
     });
 
     test('Windows title bar is owned by the app wrapper', () {

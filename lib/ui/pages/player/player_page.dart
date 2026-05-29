@@ -325,14 +325,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           ),
         ],
       ),
-      body: isWideLayout
-          ? _buildImmersiveDesktopLayout(
-              context: context,
-              currentTrack: currentTrack,
-              colorScheme: colorScheme,
-              child: playerContent,
-            )
-          : playerContent,
+      body: _buildImmersivePlayerLayout(
+        currentTrack: currentTrack,
+        colorScheme: colorScheme,
+        child: playerContent,
+      ),
     );
 
     return scaffold;
@@ -455,9 +452,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     );
   }
 
-  /// 桌面沉浸式布局：模糊封面背景 + 前景内容
-  Widget _buildImmersiveDesktopLayout({
-    required BuildContext context,
+  /// 沉浸式播放器布局：模糊封面背景 + 前景内容
+  Widget _buildImmersivePlayerLayout({
     required Track? currentTrack,
     required ColorScheme colorScheme,
     required Widget child,
@@ -465,48 +461,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        _buildImmersiveBackdrop(context, currentTrack, colorScheme),
+        _PlayerBackdrop(
+          currentTrack: currentTrack,
+          colorScheme: colorScheme,
+        ),
         child,
       ],
-    );
-  }
-
-  /// 桌面沉浸式背景：模糊封面 + 半透明遮罩
-  Widget _buildImmersiveBackdrop(
-    BuildContext context,
-    Track? currentTrack,
-    ColorScheme colorScheme,
-  ) {
-    ref.watch(fileExistsCacheProvider);
-    final cache = ref.read(fileExistsCacheProvider.notifier);
-    final localCoverPath = currentTrack?.getLocalCoverPath(cache);
-    final size = MediaQuery.sizeOf(context);
-    final targetDisplaySize =
-        size.width > size.height ? size.width : size.height;
-
-    return Positioned.fill(
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          ImageFiltered(
-            imageFilter: ImageFilter.blur(sigmaX: 48, sigmaY: 48),
-            child: ImageLoadingService.loadImage(
-              localPath: localCoverPath,
-              networkUrl: currentTrack?.thumbnailUrl,
-              placeholder:
-                  Container(color: colorScheme.surfaceContainerHighest),
-              fit: BoxFit.cover,
-              width: size.width,
-              height: size.height,
-              targetDisplaySize: targetDisplaySize,
-            ),
-          ),
-          Container(color: colorScheme.surface.withValues(alpha: 0.74)),
-          Container(
-              color:
-                  colorScheme.surfaceContainerHighest.withValues(alpha: 0.08)),
-        ],
-      ),
     );
   }
 
@@ -1039,6 +999,153 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       backgroundColor: Colors.transparent,
       builder: (context) => const _TrackInfoDialog(),
     );
+  }
+}
+
+/// 播放器模糊背景。
+///
+/// 新曲目封面会先预加载；只有加载成功后才替换当前背景，避免切歌时短暂露出
+/// 占位底色。
+class _PlayerBackdrop extends ConsumerStatefulWidget {
+  final Track? currentTrack;
+  final ColorScheme colorScheme;
+
+  const _PlayerBackdrop({
+    required this.currentTrack,
+    required this.colorScheme,
+  });
+
+  @override
+  ConsumerState<_PlayerBackdrop> createState() => _PlayerBackdropState();
+}
+
+class _PlayerBackdropState extends ConsumerState<_PlayerBackdrop> {
+  ImageProvider? _imageProvider;
+  String? _loadedKey;
+  String? _desiredKey;
+  String? _requestedKey;
+  int _loadGeneration = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    ref.watch(fileExistsCacheProvider);
+
+    final cache = ref.read(fileExistsCacheProvider.notifier);
+    final localCoverPath = widget.currentTrack?.getLocalCoverPath(cache);
+    final size = MediaQuery.sizeOf(context);
+    final targetDisplaySize =
+        size.width > size.height ? size.width : size.height;
+    final sourceKey = _sourceKey(widget.currentTrack, localCoverPath);
+    final candidates = ImageLoadingService.imageProviderCandidates(
+      context: context,
+      localPath: localCoverPath,
+      networkUrl: widget.currentTrack?.thumbnailUrl,
+      width: size.width,
+      height: size.height,
+      targetDisplaySize: targetDisplaySize,
+    );
+
+    _scheduleImageLoad(sourceKey, candidates);
+
+    return Positioned.fill(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ColoredBox(color: widget.colorScheme.surface),
+          if (_imageProvider != null)
+            AnimatedSwitcher(
+              duration: AnimationDurations.normal,
+              child: ImageFiltered(
+                key: ValueKey(_loadedKey),
+                imageFilter: ImageFilter.blur(sigmaX: 48, sigmaY: 48),
+                child: Image(
+                  image: _imageProvider!,
+                  fit: BoxFit.cover,
+                  width: size.width,
+                  height: size.height,
+                  gaplessPlayback: true,
+                ),
+              ),
+            ),
+          Container(color: widget.colorScheme.surface.withValues(alpha: 0.74)),
+          Container(
+            color: widget.colorScheme.surfaceContainerHighest
+                .withValues(alpha: 0.08),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String? _sourceKey(Track? track, String? localCoverPath) {
+    if (track == null) return null;
+    if (localCoverPath != null) return 'local:$localCoverPath';
+
+    final thumbnailUrl = track.thumbnailUrl;
+    if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) {
+      return 'network:$thumbnailUrl';
+    }
+
+    return null;
+  }
+
+  void _scheduleImageLoad(String? sourceKey, List<ImageProvider> candidates) {
+    if (sourceKey != _desiredKey) {
+      _desiredKey = sourceKey;
+      _requestedKey = null;
+      _loadGeneration++;
+    }
+
+    if (sourceKey == null ||
+        candidates.isEmpty ||
+        sourceKey == _loadedKey ||
+        sourceKey == _requestedKey) {
+      return;
+    }
+
+    _requestedKey = sourceKey;
+    final generation = _loadGeneration;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || generation != _loadGeneration) return;
+      _loadImage(generation, sourceKey, candidates);
+    });
+  }
+
+  Future<void> _loadImage(
+    int generation,
+    String sourceKey,
+    List<ImageProvider> candidates,
+  ) async {
+    for (final candidate in candidates) {
+      if (!mounted || generation != _loadGeneration) return;
+
+      final loaded = await _precacheImage(candidate);
+      if (!loaded) {
+        continue;
+      }
+
+      if (!mounted || generation != _loadGeneration) return;
+
+      setState(() {
+        _imageProvider = candidate;
+        _loadedKey = sourceKey;
+        _requestedKey = null;
+      });
+      return;
+    }
+
+    if (!mounted || generation != _loadGeneration) return;
+    setState(() => _requestedKey = null);
+  }
+
+  Future<bool> _precacheImage(ImageProvider candidate) async {
+    var failed = false;
+    await precacheImage(
+      candidate,
+      context,
+      onError: (_, __) => failed = true,
+    );
+    return !failed;
   }
 }
 
