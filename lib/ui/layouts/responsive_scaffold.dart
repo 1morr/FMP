@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,8 +6,6 @@ import '../../core/constants/ui_constants.dart';
 import '../../i18n/strings.g.dart';
 import '../../services/audio/audio_provider.dart';
 import '../../services/radio/radio_controller.dart';
-import '../widgets/custom_title_bar.dart';
-import '../widgets/network_status_banner.dart';
 import '../widgets/player/mini_player.dart';
 import '../widgets/radio/radio_mini_player.dart';
 import '../widgets/track_detail_panel.dart';
@@ -80,7 +76,7 @@ class ResponsiveScaffold extends StatelessWidget {
     final width = MediaQuery.of(context).size.width;
     final layoutType = Breakpoints.getLayoutType(width);
 
-    Widget layout = switch (layoutType) {
+    final layout = switch (layoutType) {
       LayoutType.mobile => _MobileLayout(
           selectedIndex: selectedIndex,
           onDestinationSelected: onDestinationSelected,
@@ -97,18 +93,6 @@ class ResponsiveScaffold extends StatelessWidget {
           child: child,
         ),
     };
-
-    // Windows 平台使用自定义标题栏替代系统默认标题栏
-    // 网络状态 Banner 放在标题栏下方（而非上方）
-    if (Platform.isWindows) {
-      layout = Column(
-        children: [
-          const CustomTitleBar(),
-          const NetworkStatusBanner(),
-          Expanded(child: layout),
-        ],
-      );
-    }
 
     return layout;
   }

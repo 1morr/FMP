@@ -27,13 +27,15 @@ void main() {
       expect(source, contains('currentStreamMetadataProvider'));
     });
 
-    test('PlayerPage selector does not capture the whole PlayerState object', () {
+    test('PlayerPage selector does not capture the whole PlayerState object',
+        () {
       final source = readSource('lib/ui/pages/player/player_page.dart');
 
       expect(source, isNot(contains('state: state')));
     });
 
-    test('PlayerPage uses shared selectors instead of broad controller watch', () {
+    test('PlayerPage uses shared selectors instead of broad controller watch',
+        () {
       final source = readSource('lib/ui/pages/player/player_page.dart');
 
       expect(source, isNot(contains('ref.watch(audioControllerProvider)')));
@@ -46,11 +48,34 @@ void main() {
       final source = readSource('lib/ui/pages/player/player_page.dart');
 
       expect(source, contains('Breakpoints.isDesktop'));
-      expect(source, contains('_buildWideMediaSection'));
-      expect(source, contains('showLyricsActions = isWideLayout || _showLyrics'));
+      expect(source, contains('ImageFilter.blur'));
+      expect(source, contains('_buildImmersiveDesktopLayout'));
+      expect(source, contains('_buildDesktopPlayerContent'));
+      expect(source, contains('_buildControlSection'));
+      expect(
+          source, contains('showLyricsActions = isWideLayout || _showLyrics'));
     });
 
-    test('TrackDetailPanel uses shared stream selector without broad watch', () {
+    test('Windows title bar is owned by the app wrapper', () {
+      final appSource = readSource('lib/app.dart');
+      final playerSource = readSource('lib/ui/pages/player/player_page.dart');
+      final responsiveSource =
+          readSource('lib/ui/layouts/responsive_scaffold.dart');
+
+      expect(appSource, contains('CustomTitleBar'));
+      expect(playerSource, isNot(contains('CustomTitleBar')));
+      expect(responsiveSource, isNot(contains('CustomTitleBar')));
+    });
+
+    test('CustomTitleBar skips Tooltip when no Overlay is available', () {
+      final source = readSource('lib/ui/widgets/custom_title_bar.dart');
+
+      expect(source, contains('Overlay.maybeOf(context)'));
+      expect(source, contains('Tooltip('));
+    });
+
+    test('TrackDetailPanel uses shared stream selector without broad watch',
+        () {
       final source = readSource('lib/ui/widgets/track_detail_panel.dart');
 
       expect(source, isNot(contains('ref.watch(audioControllerProvider)')));

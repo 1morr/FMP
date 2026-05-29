@@ -1,5 +1,5 @@
 import 'dart:io' show Platform;
-import 'dart:ui' show PointerDeviceKind;
+import 'dart:ui' show ImageFilter, PointerDeviceKind;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -42,7 +42,6 @@ class PlayerPage extends ConsumerStatefulWidget {
 }
 
 class _PlayerPageState extends ConsumerState<PlayerPage> {
-
   /// 打开歌词搜索 BottomSheet
   void _openLyricsSearch(BuildContext context) {
     final playerState = ref.read(audioControllerProvider);
@@ -54,6 +53,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       track: currentTrack,
     );
   }
+
   /// 处理添加到歌单选项
   void _handleAddToPlaylist(BuildContext context, Track track, String value) {
     if (value == 'local') {
@@ -89,7 +89,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final currentTrack = ref.watch(currentTrackProvider);
     final playbackSpeed = ref.watch(playbackSpeedProvider);
-    final isWideLayout = Breakpoints.isDesktop(MediaQuery.sizeOf(context).width);
+    final isWideLayout =
+        Breakpoints.isDesktop(MediaQuery.sizeOf(context).width);
     final showLyricsActions = isWideLayout || _showLyrics;
     final desktopAudioDeviceState = ref.watch(desktopAudioDeviceStateProvider);
     final playerState = ref.watch(
@@ -113,14 +114,51 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     );
     final controller = ref.read(audioControllerProvider.notifier);
 
-    return Scaffold(
+    final controlSection = _buildControlSection(
+      context: context,
+      currentTrack: currentTrack,
+      colorScheme: colorScheme,
+      position: playerState.position,
+      duration: playerState.duration,
+      progress: playerState.progress,
+      isShuffleEnabled: playerState.isShuffleEnabled,
+      isMixMode: playerState.isMixMode,
+      canPlayPrevious: playerState.canPlayPrevious,
+      canPlayNext: playerState.canPlayNext,
+      isBuffering: playerState.isBuffering,
+      isLoading: playerState.isLoading,
+      hasCurrentTrack: playerState.hasCurrentTrack,
+      isPlaying: playerState.isPlaying,
+      loopMode: playerState.loopMode,
+      controller: controller,
+      trackInfoGap: isWideLayout ? 20 : 32,
+      controlsGap: isWideLayout ? 16 : 24,
+    );
+
+    final playerContent = isWideLayout
+        ? _buildDesktopPlayerContent(
+            context: context,
+            currentTrack: currentTrack,
+            colorScheme: colorScheme,
+            controlSection: controlSection,
+          )
+        : _buildNarrowPlayerContent(
+            context: context,
+            currentTrack: currentTrack,
+            colorScheme: colorScheme,
+            controlSection: controlSection,
+          );
+
+    final scaffold = Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.keyboard_arrow_down),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        // Windows: 让 AppBar 空白区域可拖动窗口（播放器页面覆盖了标题栏）
-        flexibleSpace: Platform.isWindows ? const DragToMoveArea(child: SizedBox.expand()) : null,
+        // Windows: 标题栏下方的 AppBar 空白区域也可拖动窗口
+        flexibleSpace: Platform.isWindows
+            ? const DragToMoveArea(child: SizedBox.expand())
+            : null,
         actions: [
           // 添加到歌单
           if (currentTrack != null)
@@ -148,15 +186,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                     ),
                   ),
                   PopupMenuItem(
-                      value: 'remote',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.cloud_upload_outlined, size: 20),
-                          const SizedBox(width: 12),
-                          Text(t.remote.addToFavorites),
-                        ],
-                      ),
+                    value: 'remote',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.cloud_upload_outlined, size: 20),
+                        const SizedBox(width: 12),
+                        Text(t.remote.addToFavorites),
+                      ],
                     ),
+                  ),
                 ];
               },
             ),
@@ -191,7 +229,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                 // 延迟显示子菜单，等主菜单关闭后再显示
                 Future.delayed(AnimationDurations.fastest, () {
                   if (!context.mounted) return;
-                  _showSpeedMenu(context, controller, playbackSpeed, colorScheme);
+                  _showSpeedMenu(
+                      context, controller, playbackSpeed, colorScheme);
                 });
               } else if (value == 'lyrics_search') {
                 // 打开歌词搜索
@@ -255,7 +294,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                   child: Row(
                     children: [
                       Icon(
-                        _showOffsetControls ? Icons.check_box : Icons.check_box_outline_blank,
+                        _showOffsetControls
+                            ? Icons.check_box
+                            : Icons.check_box_outline_blank,
                         size: 20,
                       ),
                       const SizedBox(width: 12),
@@ -284,89 +325,197 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            // 封面图 / 歌词区域
-            Expanded(
-              flex: 3,
-            child: _buildWideMediaSection(
-                context,
-                currentTrack,
-                colorScheme,
-                isWideLayout,
-              ),
-            ),
-            const SizedBox(height: 32),
+      body: isWideLayout
+          ? _buildImmersiveDesktopLayout(
+              context: context,
+              currentTrack: currentTrack,
+              colorScheme: colorScheme,
+              child: playerContent,
+            )
+          : playerContent,
+    );
 
-            // 歌曲信息
-            _buildTrackInfo(context, currentTrack, colorScheme),
-            const SizedBox(height: 32),
+    return scaffold;
+  }
 
-            // 进度条
-            _buildProgressBar(
+  /// 窄屏布局：封面/歌词切换，控制区位于媒体区下方
+  Widget _buildNarrowPlayerContent({
+    required BuildContext context,
+    required Track? currentTrack,
+    required ColorScheme colorScheme,
+    required Widget controlSection,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          Expanded(
+            flex: 3,
+            child: _buildNarrowMediaSection(
               context,
-              playerState.position,
-              playerState.duration,
-              playerState.progress,
-              controller,
-            ),
-            const SizedBox(height: 24),
-
-            // 播放控制
-            _buildPlaybackControls(
-              context,
-              playerState.isShuffleEnabled,
-              playerState.isMixMode,
-              playerState.canPlayPrevious,
-              playerState.canPlayNext,
-              playerState.isBuffering,
-              playerState.isLoading,
-              playerState.hasCurrentTrack,
-              playerState.isPlaying,
-              playerState.loopMode,
-              controller,
+              currentTrack,
               colorScheme,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 32),
+          controlSection,
+        ],
       ),
     );
   }
 
-  /// 媒体区域（窄屏上下切换，宽屏左右并排）
-  Widget _buildWideMediaSection(
-    BuildContext context,
-    Track? track,
-    ColorScheme colorScheme,
-    bool isWideLayout,
-  ) {
-    if (isWideLayout) {
-      return Row(
+  /// 桌面布局：左侧封面和控制区，右侧歌词占满高度
+  Widget _buildDesktopPlayerContent({
+    required BuildContext context,
+    required Track? currentTrack,
+    required ColorScheme colorScheme,
+    required Widget controlSection,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
             flex: 5,
-            child: Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: _buildCoverArt(context, track, colorScheme),
+            child: Column(
+              children: [
+                Expanded(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 420),
+                      child: _buildCoverArt(context, currentTrack, colorScheme),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 24),
+                controlSection,
+              ],
             ),
           ),
-          const SizedBox(width: 24),
+          const SizedBox(width: 32),
           Expanded(
             flex: 7,
             child: _buildLyricsPanel(colorScheme),
           ),
         ],
-      );
-    }
+      ),
+    );
+  }
 
+  /// 歌曲信息、进度条和播放控制
+  Widget _buildControlSection({
+    required BuildContext context,
+    required Track? currentTrack,
+    required ColorScheme colorScheme,
+    required Duration position,
+    required Duration? duration,
+    required double progress,
+    required bool isShuffleEnabled,
+    required bool isMixMode,
+    required bool canPlayPrevious,
+    required bool canPlayNext,
+    required bool isBuffering,
+    required bool isLoading,
+    required bool hasCurrentTrack,
+    required bool isPlaying,
+    required LoopMode loopMode,
+    required AudioController controller,
+    required double trackInfoGap,
+    required double controlsGap,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildTrackInfo(context, currentTrack, colorScheme),
+        SizedBox(height: trackInfoGap),
+        _buildProgressBar(
+          context,
+          position,
+          duration,
+          progress,
+          controller,
+        ),
+        SizedBox(height: controlsGap),
+        _buildPlaybackControls(
+          context,
+          isShuffleEnabled,
+          isMixMode,
+          canPlayPrevious,
+          canPlayNext,
+          isBuffering,
+          isLoading,
+          hasCurrentTrack,
+          isPlaying,
+          loopMode,
+          controller,
+          colorScheme,
+        ),
+      ],
+    );
+  }
+
+  /// 桌面沉浸式布局：模糊封面背景 + 前景内容
+  Widget _buildImmersiveDesktopLayout({
+    required BuildContext context,
+    required Track? currentTrack,
+    required ColorScheme colorScheme,
+    required Widget child,
+  }) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _buildImmersiveBackdrop(context, currentTrack, colorScheme),
+        child,
+      ],
+    );
+  }
+
+  /// 桌面沉浸式背景：模糊封面 + 半透明遮罩
+  Widget _buildImmersiveBackdrop(
+    BuildContext context,
+    Track? currentTrack,
+    ColorScheme colorScheme,
+  ) {
+    ref.watch(fileExistsCacheProvider);
+    final cache = ref.read(fileExistsCacheProvider.notifier);
+    final localCoverPath = currentTrack?.getLocalCoverPath(cache);
+    final size = MediaQuery.sizeOf(context);
+    final targetDisplaySize =
+        size.width > size.height ? size.width : size.height;
+
+    return Positioned.fill(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ImageFiltered(
+            imageFilter: ImageFilter.blur(sigmaX: 48, sigmaY: 48),
+            child: ImageLoadingService.loadImage(
+              localPath: localCoverPath,
+              networkUrl: currentTrack?.thumbnailUrl,
+              placeholder:
+                  Container(color: colorScheme.surfaceContainerHighest),
+              fit: BoxFit.cover,
+              width: size.width,
+              height: size.height,
+              targetDisplaySize: targetDisplaySize,
+            ),
+          ),
+          Container(color: colorScheme.surface.withValues(alpha: 0.74)),
+          Container(
+              color:
+                  colorScheme.surfaceContainerHighest.withValues(alpha: 0.08)),
+        ],
+      ),
+    );
+  }
+
+  /// 窄屏媒体区域：长按切换封面 / 歌词
+  Widget _buildNarrowMediaSection(
+    BuildContext context,
+    Track? track,
+    ColorScheme colorScheme,
+  ) {
     return AnimatedSwitcher(
       duration: AnimationDurations.normal,
       child: _showLyrics
@@ -396,7 +545,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     Track? track,
     ColorScheme colorScheme,
   ) {
-
     return AspectRatio(
       key: const ValueKey('cover'),
       aspectRatio: 1,
@@ -437,7 +585,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     Track? track,
     ColorScheme colorScheme,
   ) {
-
     return Column(
       children: [
         Text(
@@ -472,11 +619,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     AudioController controller,
   ) {
     // 显示的进度：拖动时显示拖动进度，否则显示实际播放进度
-    final displayProgress = _isDragging ? _dragProgress : progress.clamp(0.0, 1.0);
+    final displayProgress =
+        _isDragging ? _dragProgress : progress.clamp(0.0, 1.0);
 
     // 显示的位置：拖动时根据拖动进度计算，否则显示实际位置
     final displayPosition = _isDragging && duration != null
-        ? Duration(milliseconds: (duration.inMilliseconds * _dragProgress).round())
+        ? Duration(
+            milliseconds: (duration.inMilliseconds * _dragProgress).round())
         : position;
 
     return Column(
@@ -516,7 +665,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               Text(
-                DurationFormatter.formatMs((duration ?? Duration.zero).inMilliseconds),
+                DurationFormatter.formatMs(
+                    (duration ?? Duration.zero).inMilliseconds),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -630,9 +780,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       width: buttonSize,
       height: buttonSize,
       child: FilledButton(
-        onPressed: hasCurrentTrack
-            ? () => controller.togglePlayPause()
-            : null,
+        onPressed: hasCurrentTrack ? () => controller.togglePlayPause() : null,
         style: FilledButton.styleFrom(
           shape: const CircleBorder(),
           minimumSize: const Size(buttonSize, buttonSize),
@@ -666,19 +814,21 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     showMenu<double>(
       context: context,
       position: position,
-      items: AppConstants.playbackSpeeds.map((speed) => PopupMenuItem(
-        value: speed,
-        child: Row(
-          children: [
-            if (currentSpeed == speed)
-              Icon(Icons.check, size: 18, color: colorScheme.primary)
-            else
-              const SizedBox(width: 18),
-            const SizedBox(width: 8),
-            Text('${speed}x'),
-          ],
-        ),
-      )).toList(),
+      items: AppConstants.playbackSpeeds
+          .map((speed) => PopupMenuItem(
+                value: speed,
+                child: Row(
+                  children: [
+                    if (currentSpeed == speed)
+                      Icon(Icons.check, size: 18, color: colorScheme.primary)
+                    else
+                      const SizedBox(width: 18),
+                    const SizedBox(width: 8),
+                    Text('${speed}x'),
+                  ],
+                ),
+              ))
+          .toList(),
     ).then((value) {
       if (value != null) {
         controller.setSpeed(value);
@@ -687,7 +837,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   }
 
   /// 显示歌词显示模式选择菜单
-  void _showLyricsDisplayModeMenu(BuildContext context, ColorScheme colorScheme) {
+  void _showLyricsDisplayModeMenu(
+      BuildContext context, ColorScheme colorScheme) {
     final currentMode = ref.read(lyricsDisplayModeProvider);
     final screenSize = MediaQuery.of(context).size;
     final position = RelativeRect.fromLTRB(
@@ -706,19 +857,21 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     showMenu<LyricsDisplayMode>(
       context: context,
       position: position,
-      items: modes.map((entry) => PopupMenuItem(
-        value: entry.$1,
-        child: Row(
-          children: [
-            if (currentMode == entry.$1)
-              Icon(Icons.check, size: 18, color: colorScheme.primary)
-            else
-              const SizedBox(width: 18),
-            const SizedBox(width: 8),
-            Text(entry.$2),
-          ],
-        ),
-      )).toList(),
+      items: modes
+          .map((entry) => PopupMenuItem(
+                value: entry.$1,
+                child: Row(
+                  children: [
+                    if (currentMode == entry.$1)
+                      Icon(Icons.check, size: 18, color: colorScheme.primary)
+                    else
+                      const SizedBox(width: 18),
+                    const SizedBox(width: 8),
+                    Text(entry.$2),
+                  ],
+                ),
+              ))
+          .toList(),
     ).then((value) {
       if (value != null) {
         ref.read(lyricsDisplayModeProvider.notifier).setMode(value);
@@ -738,7 +891,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 
     // 计算菜单宽度以便居中对齐
     const menuWidth = 220.0;
-    
+
     return MenuAnchor(
       consumeOutsideTap: true,
       // 向左偏移使菜单居中于图标，向下偏移使菜单显示在图标下方
@@ -778,7 +931,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         ),
         const Divider(height: 1),
         // 设备列表
-        ...devices.where((d) => d.name != 'auto' && d.name != 'openal').map((device) {
+        ...devices
+            .where((d) => d.name != 'auto' && d.name != 'openal')
+            .map((device) {
           final isSelected = currentDevice?.name == device.name;
           return MenuItemButton(
             onPressed: () => controller.setAudioDevice(device),
@@ -801,7 +956,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   /// 格式化设备名称
   String _formatDeviceName(FmpAudioDevice device) {
     // 优先使用 description（人类可读名称），如果为空则使用 name
-    final displayName = device.description.isNotEmpty ? device.description : device.name;
+    final displayName =
+        device.description.isNotEmpty ? device.description : device.name;
 
     // Windows 设备名称格式通常是 "喇叭 (设备名称)"，提取括号内的实际设备名
     // 但要排除像 "(R)" 这样的商标符号
@@ -811,7 +967,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     }
 
     // 英文格式 "Speakers (Device Name)"
-    final matchEn = RegExp(r'Speakers?\s*\((.+)\)$', caseSensitive: false).firstMatch(displayName);
+    final matchEn = RegExp(r'Speakers?\s*\((.+)\)$', caseSensitive: false)
+        .firstMatch(displayName);
     if (matchEn != null) {
       return matchEn.group(1) ?? displayName;
     }
@@ -863,16 +1020,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 
   /// 获取循环模式图标
   IconData _getLoopModeIcon(LoopMode mode) => switch (mode) {
-    LoopMode.none || LoopMode.all => Icons.repeat,
-    LoopMode.one => Icons.repeat_one,
-  };
+        LoopMode.none || LoopMode.all => Icons.repeat,
+        LoopMode.one => Icons.repeat_one,
+      };
 
   /// 获取循环模式提示
   String _getLoopModeTooltip(LoopMode mode) => switch (mode) {
-    LoopMode.none => t.player.loopOff,
-    LoopMode.all => t.player.loopAll,
-    LoopMode.one => t.player.loopOne,
-  };
+        LoopMode.none => t.player.loopOff,
+        LoopMode.all => t.player.loopAll,
+        LoopMode.one => t.player.loopOne,
+      };
 
   /// 显示视频信息弹窗
   void _showTrackInfoDialog(BuildContext context, ColorScheme colorScheme) {
@@ -945,7 +1102,8 @@ class _TrackInfoDialog extends ConsumerWidget {
                         width: 40,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                          color: colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.4),
                           borderRadius: AppRadius.borderRadiusXs,
                         ),
                       ),
@@ -993,7 +1151,8 @@ class _TrackInfoDialog extends ConsumerWidget {
                           _DetailContent(
                             detail: detailState.detail!,
                             isYouTube: isYouTube,
-                            isNetease: currentTrack?.sourceType == SourceType.netease,
+                            isNetease:
+                                currentTrack?.sourceType == SourceType.netease,
                             track: currentTrack,
                             cache: cache,
                             baseDir: baseDir,
@@ -1050,7 +1209,9 @@ class _DetailContent extends StatelessWidget {
       children: [
         // 标题（点击跳转到视频页面）
         MouseRegion(
-          cursor: track != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+          cursor: track != null
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
           child: GestureDetector(
             onTap: track != null
                 ? () => UrlLauncherService.instance.openVideo(track!)
@@ -1085,7 +1246,8 @@ class _DetailContent extends StatelessWidget {
           Row(
             children: [
               ImageLoadingService.loadAvatar(
-                networkUrl: detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
+                networkUrl:
+                    detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
                 size: 40,
               ),
               const SizedBox(width: 12),
@@ -1104,7 +1266,9 @@ class _DetailContent extends StatelessWidget {
         else
           // Bilibili/YouTube：頭像可點擊進入頻道/空間
           MouseRegion(
-            cursor: track != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+            cursor: track != null
+                ? SystemMouseCursors.click
+                : SystemMouseCursors.basic,
             child: GestureDetector(
               onTap: track != null
                   ? () => UrlLauncherService.instance.openChannel(track!)
@@ -1113,8 +1277,10 @@ class _DetailContent extends StatelessWidget {
                 children: [
                   // 头像
                   ImageLoadingService.loadAvatar(
-                    localPath: track?.getLocalAvatarPath(cache, baseDir: baseDir),
-                    networkUrl: detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
+                    localPath:
+                        track?.getLocalAvatarPath(cache, baseDir: baseDir),
+                    networkUrl:
+                        detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
                     size: 40,
                   ),
                   const SizedBox(width: 12),
@@ -1263,7 +1429,8 @@ class _CommentPagerState extends State<_CommentPager> {
   bool _isForward = true;
   final GlobalKey _containerKey = GlobalKey();
 
-  List<VideoComment> get _commentsToShow => widget.comments.take(AppConstants.commentsPreviewCount).toList();
+  List<VideoComment> get _commentsToShow =>
+      widget.comments.take(AppConstants.commentsPreviewCount).toList();
 
   bool get _hasPrevious => _currentIndex > 0;
   bool get _hasNext => _currentIndex < _commentsToShow.length - 1;
@@ -1400,20 +1567,23 @@ class _CommentPagerState extends State<_CommentPager> {
                       Icon(
                         Icons.thumb_up_outlined,
                         size: 14,
-                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                        color:
+                            colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                       ),
                       const SizedBox(width: 6),
                       Text(
                         currentComment.formattedLikeCount,
                         style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                          color: colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.6),
                         ),
                       ),
                       const Spacer(),
                       Text(
                         currentComment.memberName,
                         style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                          color: colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.6),
                         ),
                       ),
                     ],
@@ -1633,7 +1803,10 @@ class _AudioInfoSection extends StatelessWidget {
     final streamType = formatStreamType(metadata.streamType);
 
     // 如果没有任何信息，不显示此部分
-    if (bitrate == null && container == null && codec == null && streamType == null) {
+    if (bitrate == null &&
+        container == null &&
+        codec == null &&
+        streamType == null) {
       return const SizedBox.shrink();
     }
 
@@ -1669,8 +1842,7 @@ class _AudioInfoSection extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            if (bitrate != null)
-              _buildInfoChip(context, Icons.speed, bitrate),
+            if (bitrate != null) _buildInfoChip(context, Icons.speed, bitrate),
             if (container != null)
               _buildInfoChip(context, Icons.folder_outlined, container),
             if (codec != null)
@@ -1754,8 +1926,8 @@ class _DescriptionSectionState extends State<_DescriptionSection> {
       text: TextSpan(
         text: widget.description,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          height: 1.6,
-        ),
+              height: 1.6,
+            ),
       ),
       maxLines: 6,
       textDirection: TextDirection.ltr,

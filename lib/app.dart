@@ -5,7 +5,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/constants/app_constants.dart';
-import 'main.dart' show preloadedThemeMode, preloadedPrimaryColor, preloadedFontFamily;
+import 'main.dart'
+    show preloadedThemeMode, preloadedPrimaryColor, preloadedFontFamily;
 import 'providers/database_provider.dart';
 import 'providers/account_provider.dart';
 import 'providers/playback_settings_provider.dart';
@@ -19,6 +20,7 @@ import 'i18n/strings.g.dart';
 import 'providers/locale_provider.dart';
 import 'ui/router.dart';
 import 'ui/theme/app_theme.dart';
+import 'ui/widgets/custom_title_bar.dart';
 import 'ui/widgets/network_status_banner.dart';
 
 /// FMP 应用主组件
@@ -33,8 +35,12 @@ class FMPApp extends ConsumerWidget {
     return dbAsync.when(
       loading: () => MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme(primaryColor: preloadedPrimaryColor, fontFamily: preloadedFontFamily),
-        darkTheme: AppTheme.darkTheme(primaryColor: preloadedPrimaryColor, fontFamily: preloadedFontFamily),
+        theme: AppTheme.lightTheme(
+            primaryColor: preloadedPrimaryColor,
+            fontFamily: preloadedFontFamily),
+        darkTheme: AppTheme.darkTheme(
+            primaryColor: preloadedPrimaryColor,
+            fontFamily: preloadedFontFamily),
         themeMode: preloadedThemeMode,
         locale: TranslationProvider.of(context).flutterLocale,
         supportedLocales: AppLocaleUtils.supportedLocales,
@@ -54,8 +60,12 @@ class FMPApp extends ConsumerWidget {
       ),
       error: (error, stack) => MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme(primaryColor: preloadedPrimaryColor, fontFamily: preloadedFontFamily),
-        darkTheme: AppTheme.darkTheme(primaryColor: preloadedPrimaryColor, fontFamily: preloadedFontFamily),
+        theme: AppTheme.lightTheme(
+            primaryColor: preloadedPrimaryColor,
+            fontFamily: preloadedFontFamily),
+        darkTheme: AppTheme.darkTheme(
+            primaryColor: preloadedPrimaryColor,
+            fontFamily: preloadedFontFamily),
         themeMode: preloadedThemeMode,
         locale: TranslationProvider.of(context).flutterLocale,
         supportedLocales: AppLocaleUtils.supportedLocales,
@@ -119,14 +129,16 @@ class FMPApp extends ConsumerWidget {
           localizationsDelegates: GlobalMaterialLocalizations.delegates,
 
           // 主题配置
-          theme: AppTheme.lightTheme(primaryColor: primaryColor, fontFamily: fontFamily),
-          darkTheme: AppTheme.darkTheme(primaryColor: primaryColor, fontFamily: fontFamily),
+          theme: AppTheme.lightTheme(
+              primaryColor: primaryColor, fontFamily: fontFamily),
+          darkTheme: AppTheme.darkTheme(
+              primaryColor: primaryColor, fontFamily: fontFamily),
           themeMode: themeMode,
 
           // 路由配置
           routerConfig: appRouter,
 
-          // 全局 Banner 包装器 - 确保在所有页面（包括全屏播放器）显示网络状态
+          // 全局内容包装器 - 确保标题栏 / 网络状态在所有页面（包括播放器）一致显示
           builder: (context, child) => _AppContentWrapper(child: child),
         );
       },
@@ -134,7 +146,7 @@ class FMPApp extends ConsumerWidget {
   }
 }
 
-/// App 内容包装器 - 处理网络状态 Banner 和 SafeArea
+/// App 内容包装器 - 处理 Windows 标题栏、网络状态 Banner 和 SafeArea
 class _AppContentWrapper extends ConsumerWidget {
   final Widget? child;
 
@@ -142,14 +154,18 @@ class _AppContentWrapper extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (Platform.isWindows) {
+      return Column(
+        children: [
+          const CustomTitleBar(),
+          const NetworkStatusBanner(),
+          Expanded(child: child ?? const SizedBox.shrink()),
+        ],
+      );
+    }
+
     final isBannerVisible = ref.watch(networkBannerVisibleProvider);
     final colorScheme = Theme.of(context).colorScheme;
-
-    // Windows 平台的 Banner 由 ResponsiveScaffold 在标题栏下方显示，
-    // 此处不重复渲染（全屏页面如播放器页面自行处理）
-    if (Platform.isWindows) {
-      return child ?? const SizedBox.shrink();
-    }
 
     // 当 banner 可见时，状态栏区域使用 banner 颜色；否则使用 scaffold 背景色
     final statusBarColor = isBannerVisible
