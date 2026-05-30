@@ -254,10 +254,12 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                     if (index >= groupedTracks.length - 5 &&
                         state.hasMore &&
                         !state.isLoadingMore) {
-                      ref
-                          .read(playlistDetailProvider(widget.playlistId)
-                              .notifier)
-                          .loadMore();
+                      Future.microtask(() {
+                        ref
+                            .read(playlistDetailProvider(widget.playlistId)
+                                .notifier)
+                            .loadMore();
+                      });
                     }
                     // 最后一项：加载指示器
                     if (index == groupedTracks.length) {
