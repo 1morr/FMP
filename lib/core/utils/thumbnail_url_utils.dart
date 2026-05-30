@@ -225,12 +225,18 @@ class ThumbnailUrlUtils {
   }
 
   /// 选择 YouTube 缩略图质量档位
+  ///
+  /// maxresdefault (1280×720) 僅在 targetSize > 960 時選用，
+  /// 因為非 HD 影片沒有 maxresdefault，過早嘗試會產生不必要的
+  /// 404 HTTP round-trip（每次導航都重試，導致 1-2s loading spinner）。
+  /// sddefault (640×480) 對所有影片都存在，裁切到 16:9 後有效
+  /// 解析度為 640×360，足夠覆蓋 displaySize ≤ 480dp 的場景。
   static String _selectYouTubeQuality(int targetSize) {
     // mqdefault: 320x180 (16:9)
     // sddefault: 640x480 (4:3, 16:9 视频有效内容 640x360)
-    // maxresdefault: 1280x720 (16:9)
+    // maxresdefault: 1280x720 (16:9, 仅 HD 影片有)
     if (targetSize <= 180) return 'mqdefault';
-    if (targetSize <= 480) return 'sddefault';
+    if (targetSize <= 960) return 'sddefault';
     return 'maxresdefault';
   }
 

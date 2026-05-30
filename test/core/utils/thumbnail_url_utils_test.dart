@@ -160,7 +160,8 @@ void main() {
             ]));
       });
 
-      test('maxresdefault original with large display deduplicates', () {
+      test('maxresdefault original with large display selects sddefault when target ≤ 960',
+          () {
         const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg';
         final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           url,
@@ -168,7 +169,30 @@ void main() {
           devicePixelRatio: 2.0,
         );
 
-        // displaySize=480*2=960 → maxresdefault
+        // displaySize=480*2=960 → sddefault（≤ 960 門檻）
+        // original=maxresdefault (idx=0), desired=sddefault (idx=1)
+        // originalIdx < desiredIdx → 從 sddefault 向下生成
+        expect(
+            result,
+            equals([
+              'https://i.ytimg.com/vi/dQw4w9WgXcQ/sddefault.jpg',
+              'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+              'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
+              'https://i.ytimg.com/vi/dQw4w9WgXcQ/default.jpg',
+              'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
+            ]));
+      });
+
+      test('maxresdefault selected for very large displays beyond sddefault range',
+          () {
+        const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg';
+        final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
+          url,
+          displaySize: 600,
+          devicePixelRatio: 2.0,
+        );
+
+        // displaySize=600*2=1200 → maxresdefault（> 960 門檻）
         // desired == original → 只追加原始 URL
         expect(
             result,
