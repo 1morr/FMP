@@ -86,6 +86,10 @@ flutter test                         # Run tests
 Always:
 - Prefer `rg` / `rg --files` for searching.
 - Preserve unrelated user changes in the working tree.
+- Preserve meaningful comments that explain non-obvious intent, historical
+  rationale, edge cases, upstream behavior, or bug-workaround context. When
+  updating such comments, keep the original reason unless it is demonstrably
+  stale, and replace it with equivalent current rationale instead of deleting it.
 - Use repository patterns and local helper APIs before inventing new abstractions.
 - Keep generated Isar/slang outputs in sync when changing schemas or i18n JSON.
 - Include focused verification in the final report.

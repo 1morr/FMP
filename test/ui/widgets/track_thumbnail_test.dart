@@ -30,7 +30,8 @@ void main() {
       expect(sizedBox.height, equals(64));
     });
 
-    testWidgets('shows placeholder icon when no cover available', (tester) async {
+    testWidgets('shows placeholder icon when no cover available',
+        (tester) async {
       final track = Track()
         ..sourceId = 'test123'
         ..sourceType = SourceType.bilibili
@@ -77,7 +78,8 @@ void main() {
       expect(decoration.borderRadius, equals(BorderRadius.circular(8)));
     });
 
-    testWidgets('shows playing indicator when isPlaying is true', (tester) async {
+    testWidgets('shows playing indicator when isPlaying is true',
+        (tester) async {
       final track = Track()
         ..sourceId = 'test123'
         ..sourceType = SourceType.bilibili
@@ -106,7 +108,8 @@ void main() {
       expect(stack.children.length, equals(2)); // image + overlay
     });
 
-    testWidgets('hides playing indicator when showPlayingIndicator is false', (tester) async {
+    testWidgets('hides playing indicator when showPlayingIndicator is false',
+        (tester) async {
       final track = Track()
         ..sourceId = 'test123'
         ..sourceType = SourceType.bilibili
