@@ -166,13 +166,12 @@ class ThumbnailUrlUtils {
 
   /// 生成 YouTube 缩略图多级质量候选 URL（从高到低）
   ///
-  /// 当原始 URL 质量低于期望时：生成从期望到原始之间更高画质的候选。
-  /// 当原始 URL 质量等于或高于期望时：生成期望及以下画质的降级候选，
-  /// 跳过原始质量避免与调用方追加的原始 URL 重复。
+  /// 仅生成 16:9 质量档位的候选（maxresdefault、mqdefault），
+  /// 排除 4:3 档位（sddefault、hqdefault、default）以避免黑边。
   /// 原始 URL 由 [getOptimizedUrlCandidates] 作为最终回退添加。
   static List<String> _optimizeYouTubeThumbnailCandidates(
       String url, int targetSize) {
-    const qualityOrder = ['maxresdefault', 'sddefault', 'hqdefault', 'mqdefault', 'default'];
+    const qualityOrder = ['maxresdefault', 'mqdefault'];
 
     final pattern = RegExp(r'/vi(_webp)?/([^/]+)/([^/]+)\.(jpg|webp)');
     final match = pattern.firstMatch(url);
@@ -188,15 +187,22 @@ class ThumbnailUrlUtils {
 
     final candidates = <String>[];
 
-    if (originalIdx < desiredIdx) {
-      // 原始质量已 >= 期望：从期望档位向下生成降级候选（跳过原始档位）
+    if (originalIdx < 0) {
+      // 原始 URL 不是 16:9 档位（如 hqdefault/sddefault）：
+      // 从期望档位向下生成所有 16:9 候选，原始 URL 作为最终回退
+      for (int i = desiredIdx; i < qualityOrder.length; i++) {
+        final candidate = _buildYouTubeThumbnailUrl(url, qualityOrder[i]);
+        if (candidate.isNotEmpty) candidates.add(candidate);
+      }
+    } else if (originalIdx < desiredIdx) {
+      // 原始质量高于期望：从期望档位向下生成降级候选（跳过原始档位）
       for (int i = desiredIdx; i < qualityOrder.length; i++) {
         if (i == originalIdx) continue;
         final candidate = _buildYouTubeThumbnailUrl(url, qualityOrder[i]);
         if (candidate.isNotEmpty) candidates.add(candidate);
       }
     } else {
-      // 原始质量低于期望：从期望档位向下生成更高画质候选，到原始档位之前停止
+      // 原始质量低于或等于期望：从期望档位向下生成更高画质候选，到原始档位之前停止
       for (int i = desiredIdx; i < qualityOrder.length; i++) {
         if (i >= originalIdx) break;
         final candidate = _buildYouTubeThumbnailUrl(url, qualityOrder[i]);
@@ -226,17 +232,16 @@ class ThumbnailUrlUtils {
 
   /// 选择 YouTube 缩略图质量档位
   ///
-  /// maxresdefault (1280×720) 僅在 targetSize > 960 時選用，
-  /// 因為非 HD 影片沒有 maxresdefault，過早嘗試會產生不必要的
-  /// 404 HTTP round-trip（每次導航都重試，導致 1-2s loading spinner）。
-  /// sddefault (640×480) 對所有影片都存在，裁切到 16:9 後有效
-  /// 解析度為 640×360，足夠覆蓋 displaySize ≤ 480dp 的場景。
+  /// 仅使用 16:9 档位：maxresdefault (1280×720) 和 mqdefault (320×180)。
+  /// sddefault/hqdefault/default 是 4:3 格式，YouTube 对 16:9 视频会在
+  /// 上下添加黑边填充。BoxFit.cover 在 16:9 容器中可以裁切掉黑边，
+  /// 但在正方形 (1:1) 容器中无法裁切——因此直接排除 4:3 档位。
+  ///
+  /// mqdefault (320×180) 对中小显示尺寸足够；
+  /// maxresdefault (1280×720) 用于大尺寸显示，但非 HD 视频可能不存在，
+  /// 此时会回退到原始 URL。
   static String _selectYouTubeQuality(int targetSize) {
-    // mqdefault: 320x180 (16:9)
-    // sddefault: 640x480 (4:3, 16:9 视频有效内容 640x360)
-    // maxresdefault: 1280x720 (16:9, 仅 HD 影片有)
-    if (targetSize <= 180) return 'mqdefault';
-    if (targetSize <= 960) return 'sddefault';
+    if (targetSize <= 360) return 'mqdefault';
     return 'maxresdefault';
   }
 
