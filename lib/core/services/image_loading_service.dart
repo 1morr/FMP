@@ -18,6 +18,20 @@ import 'network_image_cache_service.dart';
 ///
 /// 注意：调用方应通过 FileExistsCache 预先验证本地文件存在后再传入 localPath，
 /// 以避免在 build 期间执行同步 IO 操作。
+///
+/// ## 维护说明
+///
+/// 当前使用 `cached_network_image` (^3.4.1) 作为网络图片缓存方案。
+/// 该包上游已约 2 年无实质性更新，但功能稳定且广泛使用。
+/// 若未来 Flutter 大版本升级导致兼容性问题，迁移路径：
+/// - [extended_image](https://pub.dev/packages/extended_image) —
+///   fluttercandies 维护，内置缓存、手势、编辑功能，API 接近
+/// - 或直接使用 `flutter_cache_manager` + `Image.network` 封装
+///
+/// `_FmpImageCacheManager` 已整合 `ImageCacheManager` mixin，
+/// 支持 `maxWidthDiskCache` / `maxHeightDiskCache` 磁盘缩放。
+/// 迁移时只需替换 Widget 层（`_CachedNetworkImage` → 新实现），
+/// 缓存管理层可保持不变。
 class ImageLoadingService {
   ImageLoadingService._();
 
