@@ -147,8 +147,10 @@ raw `hotkeyConfig` JSON.
   multi-tier candidate system works correctly — it generates higher-quality
   candidates (`sddefault` → `maxresdefault`) for large displays and
   lower-quality fallbacks (`mqdefault` → `default`) when the original is
-  already the highest available tier. Candidate URLs are always WebP for
-  bandwidth savings; the original URL (typically JPG) remains as final fallback.
+  already the highest available tier. Candidate format (JPG/WebP) is
+  preserved from the canonical URL to ensure reliability — some rare videos
+  (e.g., JqRggTDg5Bo) have no WebP thumbnails at all, so format conversion
+  would cause cascading 404s.
   sddefault/hqdefault are 4:3 tiers with black bars on 16:9 videos, but the
   app uses `BoxFit.cover` throughout which crops them out of the visible area.
 - YouTube avatar: `=s{size}` parameter.
