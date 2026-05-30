@@ -201,7 +201,11 @@ class YouTubeSource extends BaseSource with Logging {
         ..artist = video.author
         ..channelId = video.channelId.value
         ..durationMs = video.duration?.inMilliseconds ?? 0
-        ..thumbnailUrl = video.thumbnails.highResUrl
+        // hqdefault (480x360) ensures multi-tier fallback works correctly.
+        // highResUrl (maxresdefault) would be the highest quality and break
+        // the candidate chain — ThumbnailUrlUtils cannot generate meaningful
+        // alternatives when the canonical URL is already the best tier.
+        ..thumbnailUrl = 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg'
         ..viewCount = video.engagement.viewCount;
 
       // 获取音频 URL
@@ -261,7 +265,7 @@ class YouTubeSource extends BaseSource with Logging {
         description: video.description,
         author: video.author,
         authorAvatarUrl: channelLogoUrl,
-        thumbnailUrl: video.thumbnails.highResUrl,
+        thumbnailUrl: 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg',
         channelId: video.channelId.value,
         durationMs: video.duration?.inMilliseconds ?? 0,
         viewCount: video.engagement.viewCount,
@@ -888,7 +892,7 @@ class YouTubeSource extends BaseSource with Logging {
           ..artist = video.author
           ..channelId = video.channelId.value
           ..durationMs = video.duration?.inMilliseconds ?? 0
-          ..thumbnailUrl = video.thumbnails.highResUrl
+          ..thumbnailUrl = 'https://i.ytimg.com/vi/${video.id.value}/hqdefault.jpg'
           ..viewCount = video.engagement.viewCount);
 
         if (tracks.length >= pageSize) break;
@@ -906,7 +910,7 @@ class YouTubeSource extends BaseSource with Logging {
               ..artist = video.author
               ..channelId = video.channelId.value
               ..durationMs = video.duration?.inMilliseconds ?? 0
-              ..thumbnailUrl = video.thumbnails.highResUrl
+              ..thumbnailUrl = 'https://i.ytimg.com/vi/${video.id.value}/hqdefault.jpg'
               ..viewCount = video.engagement.viewCount);
             if (tracks.length >= pageSize) break;
           }
@@ -1094,11 +1098,8 @@ class YouTubeSource extends BaseSource with Logging {
         final lengthText = renderer['lengthText']?['simpleText'] as String?;
         final durationMs = _parseDurationText(lengthText);
 
-        // 解析縮圖
-        final thumbnails = renderer['thumbnail']?['thumbnails'] as List?;
-        final thumbnailUrl = thumbnails?.isNotEmpty == true
-            ? thumbnails!.last['url'] as String?
-            : 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
+        // 縮圖 — 以 hqdefault 為標準 URL，ThumbnailUrlUtils 多級回退會嘗試更高畫質
+        final thumbnailUrl = 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
 
         tracks.add(Track()
           ..sourceId = videoId
@@ -1660,11 +1661,8 @@ class YouTubeSource extends BaseSource with Logging {
         final viewCountText = videoInfoRuns?.firstOrNull?['text'] as String?;
         final viewCount = _parseViewCountText(viewCountText);
 
-        // 縮圖
-        final thumbnails = renderer['thumbnail']?['thumbnails'] as List?;
-        final thumbnailUrl = thumbnails?.isNotEmpty == true
-            ? thumbnails!.last['url'] as String?
-            : 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
+        // 縮圖 — 以 hqdefault 為標準 URL，ThumbnailUrlUtils 多級回退會嘗試更高畫質
+        final thumbnailUrl = 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
 
         tracks.add(Track()
           ..sourceId = videoId
@@ -2009,10 +2007,7 @@ class YouTubeSource extends BaseSource with Logging {
             final title = _extractText(renderer['title']) ?? 'Unknown';
             final artist = _extractText(renderer['shortBylineText']) ?? '';
             final durationMs = _parseDurationText(lengthText);
-            final thumbnails = renderer['thumbnail']?['thumbnails'] as List?;
-            final thumbnailUrl = thumbnails?.isNotEmpty == true
-                ? thumbnails!.last['url'] as String?
-                : 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
+            final thumbnailUrl = 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
 
             tracks.add(Track()
               ..sourceId = videoId
@@ -2094,10 +2089,7 @@ class YouTubeSource extends BaseSource with Logging {
           int.tryParse(videoDetails['lengthSeconds']?.toString() ?? '0') ?? 0;
       final viewCount =
           int.tryParse(videoDetails['viewCount']?.toString() ?? '0') ?? 0;
-      final thumbnails = videoDetails['thumbnail']?['thumbnails'] as List?;
-      final thumbnailUrl = thumbnails?.isNotEmpty == true
-          ? thumbnails!.last['url'] as String?
-          : 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
+      final thumbnailUrl = 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
 
       final track = Track()
         ..sourceId = videoId
@@ -2141,10 +2133,7 @@ class YouTubeSource extends BaseSource with Logging {
           int.tryParse(videoDetails['lengthSeconds']?.toString() ?? '0') ?? 0;
       final viewCount =
           int.tryParse(videoDetails['viewCount']?.toString() ?? '0') ?? 0;
-      final thumbnails = videoDetails['thumbnail']?['thumbnails'] as List?;
-      final thumbnailUrl = thumbnails?.isNotEmpty == true
-          ? thumbnails!.last['url'] as String?
-          : 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
+      final thumbnailUrl = 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
 
       return VideoDetail.fromYouTube(
         videoId: videoId,

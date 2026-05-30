@@ -142,8 +142,15 @@ raw `hotkeyConfig` JSON.
 `ThumbnailUrlUtils` optimizes image URLs by platform:
 - Bilibili: width-only `@{size}w.jpg` suffix after stripping any existing
   `@...` image suffix.
-- YouTube video thumbnails: multi-tier quality selection (`mqdefault` → `sddefault` →
-  `maxresdefault`); generates descending-quality candidates so the first available
-  tier is used automatically. Original jpg/webp format is preserved.
+- YouTube video thumbnails: all source adapters MUST store `hqdefault.jpg` as
+  the canonical URL (not `highResUrl` / `maxresdefault`). This ensures the
+  multi-tier candidate system works correctly — it generates higher-quality
+  candidates (`sddefault` → `maxresdefault`) for large displays and
+  lower-quality fallbacks (`mqdefault` → `default`) when the original is
+  already the highest available tier. Original jpg/webp format is preserved.
 - YouTube avatar: `=s{size}` parameter.
 - Netease: `?param={size}y{size}` parameter.
+
+Disk cache resize is enabled via `_FmpImageCacheManager` (`ImageCacheManager`
+mixin) so `maxWidthDiskCache` / `maxHeightDiskCache` constrain the stored file
+size as well as the in-memory decode size.

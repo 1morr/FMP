@@ -93,15 +93,7 @@ class NetworkImageCacheService {
 
   /// 获取缓存管理器（单例）
   static CacheManager get cacheManager {
-    _cacheManager ??= CacheManager(
-      Config(
-        _cacheKey,
-        stalePeriod: const Duration(days: _stalePeriodDays),
-        maxNrOfCacheObjects: _maxNrOfCacheObjects,
-        repo: JsonCacheInfoRepository(databaseName: _cacheKey),
-        fileService: HttpFileService(),
-      ),
-    );
+    _cacheManager ??= _FmpImageCacheManager();
     return _cacheManager!;
   }
 
@@ -344,4 +336,23 @@ class NetworkImageCacheService {
       'maxNrOfCacheObjects': _maxNrOfCacheObjects,
     };
   }
+}
+
+/// 支援磁碟圖片縮放的快取管理器
+///
+/// 整合 [ImageCacheManager] 以啟用 maxWidthDiskCache / maxHeightDiskCache 功能，
+/// 在存入磁碟前將圖片縮放到顯示尺寸，節省磁碟空間。
+class _FmpImageCacheManager extends CacheManager with ImageCacheManager {
+  _FmpImageCacheManager()
+      : super(
+          Config(
+            NetworkImageCacheService._cacheKey,
+            stalePeriod:
+                const Duration(days: NetworkImageCacheService._stalePeriodDays),
+            maxNrOfCacheObjects: NetworkImageCacheService._maxNrOfCacheObjects,
+            repo: JsonCacheInfoRepository(
+                databaseName: NetworkImageCacheService._cacheKey),
+            fileService: HttpFileService(),
+          ),
+        );
 }

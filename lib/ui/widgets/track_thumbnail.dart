@@ -102,6 +102,7 @@ class TrackThumbnail extends ConsumerWidget {
       fit: BoxFit.cover,
       width: size,
       height: size,
+      targetDisplaySize: size,
     );
   }
 
