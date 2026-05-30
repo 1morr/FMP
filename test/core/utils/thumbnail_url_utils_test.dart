@@ -78,22 +78,21 @@ void main() {
         expect(result, contains('.jpg'));
       });
 
-      test('upscales mqdefault through intermediate tiers to desired quality',
+      test('upscales mqdefault to maxresdefault for large displays',
           () {
         const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg';
         final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           url,
-          displaySize: 200,
-          devicePixelRatio: 1.0,
+          displaySize: 300,
+          devicePixelRatio: 2.0,
         );
 
-        // displaySize=200 → targetSize=200 → sddefault,
-        // 原始为 mqdefault，候选为 [sddefault.jpg, hqdefault.jpg, 原始 mqdefault.jpg]
+        // displaySize=300*2=600 → targetSize=600 → maxresdefault
+        // 原始为 mqdefault，仅生成 16:9 候选 [maxresdefault, 原始 mqdefault]
         expect(
             result,
             equals([
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/sddefault.jpg',
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+              'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
               'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
             ]));
       });
@@ -114,9 +113,8 @@ void main() {
             ]));
       });
 
-      test('maxresdefault original generates lower-quality candidates for small display',
+      test('maxresdefault original generates mqdefault fallback for small display',
           () {
-        // 原始 URL 是既有數據中的 maxresdefault，顯示尺寸只有 48px
         const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg';
         final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           url,
@@ -124,86 +122,55 @@ void main() {
           devicePixelRatio: 1.0,
         );
 
-        // displaySize=48, targetSize=48 → mqdefault
-        // original=maxresdefault (idx=0), desired=mqdefault (idx=3)
-        // originalIdx < desiredIdx → 從 desired 向下生成（跳過 original）
+        // displaySize=48, targetSize=48 → mqdefault (≤360)
+        // 仅 16:9 候选：[mqdefault, 原始 maxresdefault]
         expect(
             result,
             equals([
               'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/default.jpg',
-              // 原始 maxresdefault 由 getOptimizedUrlCandidates 追加
               'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
             ]));
       });
 
-      test('maxresdefault original with medium display generates sddefault candidates',
-          () {
+      test('maxresdefault original stays for large display', () {
         const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg';
         final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           url,
-          displaySize: 120,
+          displaySize: 200,
           devicePixelRatio: 2.0,
         );
 
-        // displaySize=120*2=240, targetSize=240 → sddefault
-        // original=maxresdefault (idx=0), desired=sddefault (idx=1)
-        // originalIdx < desiredIdx → 從 sddefault 向下生成（跳過 maxresdefault）
+        // displaySize=200*2=400, targetSize=400 → maxresdefault (>360)
+        // desired == original → 仅原始 URL
         expect(
             result,
             equals([
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/sddefault.jpg',
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/default.jpg',
               'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
             ]));
       });
 
-      test('maxresdefault original with large display selects sddefault when target ≤ 960',
+      test('hqdefault canonical generates 16:9 candidates for large display',
           () {
-        const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg';
+        const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg';
         final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           url,
           displaySize: 480,
           devicePixelRatio: 2.0,
         );
 
-        // displaySize=480*2=960 → sddefault（≤ 960 門檻）
-        // original=maxresdefault (idx=0), desired=sddefault (idx=1)
-        // originalIdx < desiredIdx → 從 sddefault 向下生成
+        // displaySize=480*2=960, targetSize=960 → maxresdefault
+        // hqdefault 不在 16:9 order 中 → 生成所有 16:9 候选 + 原始 URL
         expect(
             result,
             equals([
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/sddefault.jpg',
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+              'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
               'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/default.jpg',
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
+              'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
             ]));
       });
 
-      test('maxresdefault selected for very large displays beyond sddefault range',
+      test('sddefault canonical generates 16:9 fallback for small display',
           () {
-        const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg';
-        final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
-          url,
-          displaySize: 600,
-          devicePixelRatio: 2.0,
-        );
-
-        // displaySize=600*2=1200 → maxresdefault（> 960 門檻）
-        // desired == original → 只追加原始 URL
-        expect(
-            result,
-            equals([
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
-            ]));
-      });
-
-      test('sddefault original generates lower-quality candidates for small display',
-          () {
-        // 既有數據可能是 sddefault
         const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/sddefault.jpg';
         final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           url,
@@ -212,13 +179,11 @@ void main() {
         );
 
         // displaySize=48 → mqdefault
-        // original=sddefault (idx=1), desired=mqdefault (idx=3)
-        // originalIdx < desiredIdx → 從 mqdefault 向下生成（跳過 sddefault）
+        // sddefault 不在 16:9 order 中 → 生成所有 16:9 候选 + 原始 URL
         expect(
             result,
             equals([
               'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/default.jpg',
               'https://i.ytimg.com/vi/dQw4w9WgXcQ/sddefault.jpg',
             ]));
       });
