@@ -1049,10 +1049,7 @@ class _PlayerBackdrop extends ConsumerStatefulWidget {
 
 class _PlayerBackdropState extends ConsumerState<_PlayerBackdrop> {
   ImageProvider? _imageProvider;
-  String? _loadedKey;
-  String? _desiredKey;
-  String? _requestedKey;
-  int _loadGeneration = 0;
+  final _loadState = PlayerBackdropLoadState();
 
   @override
   Widget build(BuildContext context) {
@@ -1084,7 +1081,7 @@ class _PlayerBackdropState extends ConsumerState<_PlayerBackdrop> {
             AnimatedSwitcher(
               duration: AnimationDurations.normal,
               child: ImageFiltered(
-                key: ValueKey(_loadedKey),
+                key: ValueKey(_loadState.loadedKey),
                 imageFilter: ImageFilter.blur(sigmaX: 48, sigmaY: 48),
                 child: Image(
                   image: _imageProvider!,
@@ -1121,16 +1118,12 @@ class _PlayerBackdropState extends ConsumerState<_PlayerBackdrop> {
   }
 
   void _scheduleImageLoad(String? sourceKey, List<ImageProvider> candidates) {
-    if (sourceKey != _desiredKey) {
-      _desiredKey = sourceKey;
-      _requestedKey = null;
-      _loadGeneration++;
-    }
+    _loadState.updateDesiredKey(sourceKey);
 
     if (sourceKey == null || candidates.isEmpty) {
-      if (_imageProvider != null || _loadedKey != null) {
+      if (_imageProvider != null || _loadState.loadedKey != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && sourceKey == _desiredKey) {
+          if (mounted && sourceKey == _loadState.desiredKey) {
             _clearLoadedImage();
           }
         });
@@ -1138,14 +1131,16 @@ class _PlayerBackdropState extends ConsumerState<_PlayerBackdrop> {
       return;
     }
 
-    if (sourceKey == _loadedKey || sourceKey == _requestedKey) {
+    if (!_loadState.shouldRequest(
+      sourceKey,
+      hasCandidates: candidates.isNotEmpty,
+    )) {
       return;
     }
 
-    _requestedKey = sourceKey;
-    final generation = _loadGeneration;
+    final generation = _loadState.markRequested(sourceKey);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || generation != _loadGeneration) return;
+      if (!mounted || !_loadState.isCurrentGeneration(generation)) return;
       _loadImage(generation, sourceKey, candidates);
     });
   }
@@ -1156,32 +1151,30 @@ class _PlayerBackdropState extends ConsumerState<_PlayerBackdrop> {
     List<ImageProvider> candidates,
   ) async {
     for (final candidate in candidates) {
-      if (!mounted || generation != _loadGeneration) return;
+      if (!mounted || !_loadState.isCurrentGeneration(generation)) return;
 
       final loaded = await _precacheImage(candidate);
       if (!loaded) {
         continue;
       }
 
-      if (!mounted || generation != _loadGeneration) return;
+      if (!mounted || !_loadState.isCurrentGeneration(generation)) return;
 
       setState(() {
         _imageProvider = candidate;
-        _loadedKey = sourceKey;
-        _requestedKey = null;
+        _loadState.markLoaded(sourceKey, generation);
       });
       return;
     }
 
-    if (!mounted || generation != _loadGeneration) return;
-    setState(() => _requestedKey = null);
+    if (!mounted || !_loadState.isCurrentGeneration(generation)) return;
+    _loadState.markFailed(sourceKey, generation);
   }
 
   void _clearLoadedImage() {
     setState(() {
       _imageProvider = null;
-      _loadedKey = null;
-      _requestedKey = null;
+      _loadState.clearLoaded();
     });
   }
 
@@ -1193,6 +1186,53 @@ class _PlayerBackdropState extends ConsumerState<_PlayerBackdrop> {
       onError: (_, __) => failed = true,
     );
     return !failed;
+  }
+}
+
+@visibleForTesting
+class PlayerBackdropLoadState {
+  String? loadedKey;
+  String? desiredKey;
+  String? requestedKey;
+  int generation = 0;
+
+  void updateDesiredKey(String? sourceKey) {
+    if (sourceKey == desiredKey) return;
+    desiredKey = sourceKey;
+    requestedKey = null;
+    generation++;
+  }
+
+  bool shouldRequest(String? sourceKey, {required bool hasCandidates}) {
+    if (sourceKey == null || !hasCandidates) return false;
+    return sourceKey != loadedKey && sourceKey != requestedKey;
+  }
+
+  int markRequested(String sourceKey) {
+    requestedKey = sourceKey;
+    return generation;
+  }
+
+  bool isCurrentGeneration(int requestGeneration) {
+    return requestGeneration == generation;
+  }
+
+  void markLoaded(String sourceKey, int requestGeneration) {
+    if (!isCurrentGeneration(requestGeneration)) return;
+    loadedKey = sourceKey;
+    requestedKey = null;
+  }
+
+  void markFailed(String sourceKey, int requestGeneration) {
+    if (!isCurrentGeneration(requestGeneration) || sourceKey != desiredKey) {
+      return;
+    }
+    requestedKey = sourceKey;
+  }
+
+  void clearLoaded() {
+    loadedKey = null;
+    requestedKey = null;
   }
 }
 

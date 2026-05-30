@@ -75,8 +75,9 @@ void main() {
       expect(playerSource, contains('precacheImage'));
       expect(playerSource, contains('Future<bool> _precacheImage'));
       expect(playerSource, contains('onError:'));
-      expect(playerSource, contains('_loadedKey'));
-      expect(playerSource, contains('_desiredKey'));
+      expect(playerSource, contains('PlayerBackdropLoadState'));
+      expect(playerSource, contains('loadedKey'));
+      expect(playerSource, contains('desiredKey'));
       expect(playerSource,
           contains('ImageLoadingService.imageProviderCandidates'));
       expect(imageServiceSource, contains('imageProviderCandidates'));
@@ -91,7 +92,7 @@ void main() {
 
       expect(source, contains('void _clearLoadedImage()'));
       expect(source, contains('_imageProvider = null'));
-      expect(source, contains('_loadedKey = null'));
+      expect(source, contains('_loadState.clearLoaded()'));
       expect(source, contains('sourceKey == null || candidates.isEmpty'));
     });
 
