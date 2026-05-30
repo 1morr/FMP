@@ -69,11 +69,13 @@ void main() {
         expect(result, contains('vi_webp'));
       });
 
-      test('preserves jpg format', () {
+      test('prefers webp format for jpg input', () {
         const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg';
         final result = ThumbnailUrlUtils.getOptimizedUrl(url, displaySize: 100);
 
-        expect(result, contains('.jpg'));
+        // 总是输出 WebP（比 JPG 小 30-40%）
+        expect(result, contains('.webp'));
+        expect(result, contains('vi_webp'));
       });
 
       test('upscales mqdefault through intermediate tiers to desired quality',
@@ -86,12 +88,12 @@ void main() {
         );
 
         // displaySize=200 → targetSize=200 → sddefault,
-        // 原始为 mqdefault，候选为 [sddefault, hqdefault, 原始 mqdefault]
+        // 原始为 mqdefault，候选为 [sddefault.webp, hqdefault.webp, 原始 mqdefault.jpg]
         expect(
             result,
             equals([
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/sddefault.jpg',
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+              'https://i.ytimg.com/vi_webp/dQw4w9WgXcQ/sddefault.webp',
+              'https://i.ytimg.com/vi_webp/dQw4w9WgXcQ/hqdefault.webp',
               'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
             ]));
       });
@@ -128,8 +130,8 @@ void main() {
         expect(
             result,
             equals([
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/default.jpg',
+              'https://i.ytimg.com/vi_webp/dQw4w9WgXcQ/mqdefault.webp',
+              'https://i.ytimg.com/vi_webp/dQw4w9WgXcQ/default.webp',
               // 原始 maxresdefault 由 getOptimizedUrlCandidates 追加
               'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
             ]));
@@ -150,10 +152,10 @@ void main() {
         expect(
             result,
             equals([
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/sddefault.jpg',
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/default.jpg',
+              'https://i.ytimg.com/vi_webp/dQw4w9WgXcQ/sddefault.webp',
+              'https://i.ytimg.com/vi_webp/dQw4w9WgXcQ/hqdefault.webp',
+              'https://i.ytimg.com/vi_webp/dQw4w9WgXcQ/mqdefault.webp',
+              'https://i.ytimg.com/vi_webp/dQw4w9WgXcQ/default.webp',
               'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
             ]));
       });
@@ -191,8 +193,8 @@ void main() {
         expect(
             result,
             equals([
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/default.jpg',
+              'https://i.ytimg.com/vi_webp/dQw4w9WgXcQ/mqdefault.webp',
+              'https://i.ytimg.com/vi_webp/dQw4w9WgXcQ/default.webp',
               'https://i.ytimg.com/vi/dQw4w9WgXcQ/sddefault.jpg',
             ]));
       });
