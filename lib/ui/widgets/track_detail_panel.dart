@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,7 +10,6 @@ import '../../core/constants/app_constants.dart';
 import '../../core/constants/ui_constants.dart';
 import '../../core/services/toast_service.dart';
 import '../../core/utils/number_format_utils.dart';
-import '../../core/utils/thumbnail_url_utils.dart';
 import '../../core/services/image_loading_service.dart';
 import '../../data/models/settings.dart';
 import '../../data/models/track.dart';
@@ -2059,27 +2057,19 @@ class _RadioClickableCoverState extends State<_RadioClickableCover> {
     }
   }
 
-  void _preloadImage() {
+  Future<void> _preloadImage() async {
     final url = widget.station.thumbnailUrl;
     if (url == null || url.isEmpty) return;
 
-    final optimizedUrl =
-        ThumbnailUrlUtils.getOptimizedUrl(url, displaySize: 480);
-    final imageProvider = CachedNetworkImageProvider(
-      optimizedUrl,
+    final imageProvider = await ImageLoadingService.precacheImageCandidates(
+      context: context,
+      networkUrl: url,
+      targetDisplaySize: 480,
       headers: SourceHttpPolicy.bilibiliLiveHeaders(),
     );
-    final stream = imageProvider.resolve(ImageConfiguration.empty);
-    stream.addListener(ImageStreamListener(
-      (ImageInfo info, bool synchronousCall) {
-        if (mounted) {
-          setState(() => _isImageLoaded = true);
-        }
-      },
-      onError: (Object error, StackTrace? stackTrace) {
-        // 加载失败时保持 placeholder 状态
-      },
-    ));
+
+    if (!mounted || imageProvider == null) return;
+    setState(() => _isImageLoaded = true);
   }
 
   @override

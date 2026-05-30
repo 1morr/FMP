@@ -60,8 +60,7 @@ class ThumbnailUrlUtils {
 
     // 根据 URL 域名选择处理方式
     if (_isBilibiliUrl(url)) {
-      for (final candidate
-          in _optimizeBilibiliUrlCandidates(url, targetSize)) {
+      for (final candidate in _optimizeBilibiliUrlCandidates(url, targetSize)) {
         addCandidate(candidate);
       }
     } else if (_isYouTubeUrl(url) && url.contains('ytimg.com')) {
@@ -73,14 +72,16 @@ class ThumbnailUrlUtils {
     } else if (_isYouTubeUrl(url)) {
       addCandidate(_optimizeYouTubeUrl(url, targetSize));
     } else if (_isNeteaseUrl(url)) {
-      for (final candidate
-          in _optimizeNeteaseUrlCandidates(url, targetSize)) {
+      for (final candidate in _optimizeNeteaseUrlCandidates(url, targetSize)) {
         addCandidate(candidate);
       }
     }
 
-    // 最后回退到原始 URL
-    addCandidate(url);
+    // 最后回退到原始 URL。YouTube 的 default/hqdefault/sddefault 是 4:3
+    // 档位，常带黑边；用户界面只显示 16:9 候选，避免任何黑边封面。
+    if (!_isYouTubeBlackBarThumbnail(url)) {
+      addCandidate(url);
+    }
     return candidates;
   }
 
@@ -94,6 +95,15 @@ class ThumbnailUrlUtils {
     return url.contains('ytimg.com') ||
         url.contains('ggpht.com') ||
         url.contains('googleusercontent.com');
+  }
+
+  static bool _isYouTubeBlackBarThumbnail(String url) {
+    final match =
+        RegExp(r'/vi(?:_webp)?/[^/]+/([^/]+)\.(?:jpg|webp)').firstMatch(url);
+    final quality = match?.group(1);
+    return quality == 'default' ||
+        quality == 'hqdefault' ||
+        quality == 'sddefault';
   }
 
   /// 选择 Bilibili 合适的尺寸档位
@@ -115,7 +125,8 @@ class ThumbnailUrlUtils {
       String url, int targetSize) {
     const sizes = [1280, 640, 400, 200];
 
-    final baseUrl = url.contains('@') ? url.substring(0, url.indexOf('@')) : url;
+    final baseUrl =
+        url.contains('@') ? url.substring(0, url.indexOf('@')) : url;
     final desiredSize = _selectBilibiliSize(targetSize);
 
     final candidates = <String>[];
@@ -168,7 +179,7 @@ class ThumbnailUrlUtils {
   ///
   /// 仅生成 16:9 质量档位的候选（maxresdefault、mqdefault），
   /// 排除 4:3 档位（sddefault、hqdefault、default）以避免黑边。
-  /// 原始 URL 由 [getOptimizedUrlCandidates] 作为最终回退添加。
+  /// 4:3 原始 URL 不会作为最终回退添加，以避免显示黑边。
   static List<String> _optimizeYouTubeThumbnailCandidates(
       String url, int targetSize) {
     const qualityOrder = ['maxresdefault', 'mqdefault'];
@@ -234,8 +245,7 @@ class ThumbnailUrlUtils {
   ///
   /// 仅使用 16:9 档位：maxresdefault (1280×720) 和 mqdefault (320×180)。
   /// sddefault/hqdefault/default 是 4:3 格式，YouTube 对 16:9 视频会在
-  /// 上下添加黑边填充。BoxFit.cover 在 16:9 容器中可以裁切掉黑边，
-  /// 但在正方形 (1:1) 容器中无法裁切——因此直接排除 4:3 档位。
+  /// 上下添加黑边填充；因此显示候选直接排除 4:3 档位。
   ///
   /// mqdefault (320×180) 对中小显示尺寸足够；
   /// maxresdefault (1280×720) 用于大尺寸显示，但非 HD 视频可能不存在，

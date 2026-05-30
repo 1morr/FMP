@@ -144,15 +144,13 @@ raw `hotkeyConfig` JSON.
   `@...` image suffix.
 - YouTube video thumbnails: all source adapters MUST store `hqdefault.jpg` as
   the canonical URL (not `highResUrl` / `maxresdefault`). This ensures the
-  multi-tier candidate system works correctly — it generates higher-quality
-  candidates (`sddefault` → `maxresdefault`) for large displays and
-  lower-quality fallbacks (`mqdefault` → `default`) when the original is
-  already the highest available tier. Candidate format (JPG/WebP) is
-  preserved from the canonical URL to ensure reliability — some rare videos
-  (e.g., JqRggTDg5Bo) have no WebP thumbnails at all, so format conversion
-  would cause cascading 404s.
-  sddefault/hqdefault are 4:3 tiers with black bars on 16:9 videos, but the
-  app uses `BoxFit.cover` throughout which crops them out of the visible area.
+  multi-tier candidate system works correctly while keeping stored metadata
+  stable. Display loading MUST only use 16:9 candidates (`maxresdefault` and
+  `mqdefault`). Never display or fall back to `default`, `hqdefault`, or
+  `sddefault`, because those 4:3 tiers can contain black bars. Candidate format
+  (JPG/WebP) is preserved from the canonical URL to ensure reliability; some
+  rare videos (e.g., JqRggTDg5Bo) have no WebP thumbnails at all, so format
+  conversion would cause cascading 404s.
 - YouTube avatar: `=s{size}` parameter.
 - Netease: `?param={size}y{size}` parameter.
 

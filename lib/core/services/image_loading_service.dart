@@ -177,6 +177,39 @@ class ImageLoadingService {
     return providers;
   }
 
+  /// 逐一预加载图片候选，返回第一个成功加载的 provider。
+  static Future<ImageProvider?> precacheImageCandidates({
+    required BuildContext context,
+    String? localPath,
+    String? networkUrl,
+    double? width,
+    double? height,
+    double? targetDisplaySize,
+    Map<String, String>? headers,
+  }) async {
+    final candidates = imageProviderCandidates(
+      context: context,
+      localPath: localPath,
+      networkUrl: networkUrl,
+      width: width,
+      height: height,
+      targetDisplaySize: targetDisplaySize,
+      headers: headers,
+    );
+
+    for (final candidate in candidates) {
+      var failed = false;
+      await precacheImage(
+        candidate,
+        context,
+        onError: (_, __) => failed = true,
+      );
+      if (!failed) return candidate;
+    }
+
+    return null;
+  }
+
   /// 加载网络图片或显示占位符
   static Widget _loadNetworkOrPlaceholder({
     String? networkUrl,
@@ -324,24 +357,32 @@ class ImageLoadingService {
   /// Bilibili / YouTube / Netease 的图片 CDN 可能檢查 Referer，
   /// 預設帶上對應平台的 Referer 以避免請求被拒絕。
   static Map<String, String>? _defaultImageHeaders(String url) {
-    if (url.contains('hdslb.com') || url.contains('bilibili.com')) {
+    final host = Uri.tryParse(url)?.host.toLowerCase();
+    if (host == null) return null;
+
+    if (_isHostOrSubdomain(host, 'hdslb.com') ||
+        _isHostOrSubdomain(host, 'bilibili.com')) {
       return const {'Referer': 'https://www.bilibili.com/'};
     }
-    if (url.contains('ytimg.com') ||
-        url.contains('ggpht.com') ||
-        url.contains('googleusercontent.com')) {
+    if (_isHostOrSubdomain(host, 'ytimg.com') ||
+        _isHostOrSubdomain(host, 'ggpht.com') ||
+        _isHostOrSubdomain(host, 'googleusercontent.com')) {
       return const {
         'Referer': 'https://www.youtube.com/',
         'Origin': 'https://www.youtube.com',
       };
     }
-    if (url.contains('music.126.net')) {
+    if (_isHostOrSubdomain(host, 'music.126.net')) {
       return const {
         'Referer': 'https://music.163.com/',
         'Origin': 'https://music.163.com',
       };
     }
     return null;
+  }
+
+  static bool _isHostOrSubdomain(String host, String domain) {
+    return host == domain || host.endsWith('.$domain');
   }
 }
 
@@ -373,6 +414,8 @@ class _FadeInImageState extends State<_FadeInImage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
+  ImageStream? _stream;
+  ImageStreamListener? _listener;
   bool _isLoaded = false;
   Object? _error;
   StackTrace? _stackTrace;
@@ -393,9 +436,26 @@ class _FadeInImageState extends State<_FadeInImage>
     _loadImage();
   }
 
+  @override
+  void didUpdateWidget(covariant _FadeInImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.image != widget.image ||
+        oldWidget.fadeInDuration != widget.fadeInDuration) {
+      _stream?.removeListener(_listener!);
+      _controller.duration = widget.fadeInDuration;
+      _controller.reset();
+      setState(() {
+        _isLoaded = false;
+        _error = null;
+        _stackTrace = null;
+      });
+      _loadImage();
+    }
+  }
+
   void _loadImage() {
     final ImageStream stream = widget.image.resolve(ImageConfiguration.empty);
-    stream.addListener(ImageStreamListener(
+    final listener = ImageStreamListener(
       (ImageInfo info, bool synchronousCall) {
         if (mounted) {
           setState(() {
@@ -417,11 +477,18 @@ class _FadeInImageState extends State<_FadeInImage>
           });
         }
       },
-    ));
+    );
+    _stream = stream;
+    _listener = listener;
+    stream.addListener(listener);
   }
 
   @override
   void dispose() {
+    final listener = _listener;
+    if (listener != null) {
+      _stream?.removeListener(listener);
+    }
     _controller.dispose();
     super.dispose();
   }

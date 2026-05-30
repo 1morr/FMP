@@ -85,6 +85,42 @@ void main() {
       expect(candidatesSource, isNot(contains('maxHeight')));
     });
 
+    test('PlayerPage clears stale cover backdrop when no cover is available',
+        () {
+      final source = readSource('lib/ui/pages/player/player_page.dart');
+
+      expect(source, contains('void _clearLoadedImage()'));
+      expect(source, contains('_imageProvider = null'));
+      expect(source, contains('_loadedKey = null'));
+      expect(source, contains('sourceKey == null || candidates.isEmpty'));
+    });
+
+    test('ImageLoadingService exposes shared precache helper for image users',
+        () {
+      final imageServiceSource =
+          readSource('lib/core/services/image_loading_service.dart');
+      final trackDetailSource =
+          readSource('lib/ui/widgets/track_detail_panel.dart');
+
+      expect(imageServiceSource, contains('precacheImageCandidates'));
+      expect(trackDetailSource,
+          contains('ImageLoadingService.precacheImageCandidates'));
+      expect(trackDetailSource, isNot(contains('CachedNetworkImageProvider(')));
+      expect(trackDetailSource,
+          isNot(contains('ThumbnailUrlUtils.getOptimizedUrl(')));
+    });
+
+    test('ImageLoadingService reloads local fade images when provider changes',
+        () {
+      final source = readSource('lib/core/services/image_loading_service.dart');
+
+      expect(source, contains('void didUpdateWidget'));
+      expect(source, contains('oldWidget.image != widget.image'));
+      expect(source, contains('_stream?.removeListener'));
+      expect(source, contains('_error = null'));
+      expect(source, contains('_loadImage();'));
+    });
+
     test('PlayerPage keeps AppBar backdrop opacity independent from body', () {
       final playerSource = readSource('lib/ui/pages/player/player_page.dart');
 

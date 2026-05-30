@@ -201,10 +201,11 @@ class YouTubeSource extends BaseSource with Logging {
         ..artist = video.author
         ..channelId = video.channelId.value
         ..durationMs = video.duration?.inMilliseconds ?? 0
-        // hqdefault (480x360) ensures multi-tier fallback works correctly.
-        // highResUrl (maxresdefault) would be the highest quality and break
-        // the candidate chain — ThumbnailUrlUtils cannot generate meaningful
-        // alternatives when the canonical URL is already the best tier.
+        // Store hqdefault as the canonical key instead of highResUrl
+        // (maxresdefault). If the stored URL is already the highest tier,
+        // ThumbnailUrlUtils cannot build a useful candidate chain.
+        // Display loading still tries only 16:9 candidates
+        // (maxresdefault/mqdefault) to avoid black bars.
         ..thumbnailUrl = 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg'
         ..viewCount = video.engagement.viewCount;
 
@@ -892,7 +893,8 @@ class YouTubeSource extends BaseSource with Logging {
           ..artist = video.author
           ..channelId = video.channelId.value
           ..durationMs = video.duration?.inMilliseconds ?? 0
-          ..thumbnailUrl = 'https://i.ytimg.com/vi/${video.id.value}/hqdefault.jpg'
+          ..thumbnailUrl =
+              'https://i.ytimg.com/vi/${video.id.value}/hqdefault.jpg'
           ..viewCount = video.engagement.viewCount);
 
         if (tracks.length >= pageSize) break;
@@ -910,7 +912,8 @@ class YouTubeSource extends BaseSource with Logging {
               ..artist = video.author
               ..channelId = video.channelId.value
               ..durationMs = video.duration?.inMilliseconds ?? 0
-              ..thumbnailUrl = 'https://i.ytimg.com/vi/${video.id.value}/hqdefault.jpg'
+              ..thumbnailUrl =
+                  'https://i.ytimg.com/vi/${video.id.value}/hqdefault.jpg'
               ..viewCount = video.engagement.viewCount);
             if (tracks.length >= pageSize) break;
           }
@@ -1399,8 +1402,10 @@ class YouTubeSource extends BaseSource with Logging {
       // 获取所有视频
       final allTracks = <Track>[];
       await for (final video in _youtube.playlists.getVideos(playlistId)) {
-        // hqdefault (480x360) 比 mqdefault (320x180) 提供更高基础分辨率，
-        // ThumbnailUrlUtils 多级候选回退机制会尝试 maxresdefault → sddefault → 原图
+        // 存 hqdefault 作為穩定 canonical key，而不是 highResUrl
+        // (maxresdefault)。若 canonical 已是最高畫質，ThumbnailUrlUtils
+        // 就無法建立有用的候選鏈；實際顯示仍只使用 16:9 候選，
+        // 避免 default/hqdefault/sddefault 黑邊圖。
         final thumbnailUrl =
             'https://i.ytimg.com/vi/${video.id.value}/hqdefault.jpg';
         allTracks.add(Track()
@@ -2007,7 +2012,8 @@ class YouTubeSource extends BaseSource with Logging {
             final title = _extractText(renderer['title']) ?? 'Unknown';
             final artist = _extractText(renderer['shortBylineText']) ?? '';
             final durationMs = _parseDurationText(lengthText);
-            final thumbnailUrl = 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
+            final thumbnailUrl =
+                'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
 
             tracks.add(Track()
               ..sourceId = videoId

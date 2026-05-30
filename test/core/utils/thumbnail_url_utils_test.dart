@@ -78,8 +78,7 @@ void main() {
         expect(result, contains('.jpg'));
       });
 
-      test('upscales mqdefault to maxresdefault for large displays',
-          () {
+      test('upscales mqdefault to maxresdefault for large displays', () {
         const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg';
         final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           url,
@@ -113,7 +112,8 @@ void main() {
             ]));
       });
 
-      test('maxresdefault original generates mqdefault fallback for small display',
+      test(
+          'maxresdefault original generates mqdefault fallback for small display',
           () {
         const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg';
         final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
@@ -149,7 +149,8 @@ void main() {
             ]));
       });
 
-      test('hqdefault canonical generates 16:9 candidates for large display',
+      test(
+          'hqdefault canonical generates only 16:9 candidates for large display',
           () {
         const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg';
         final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
@@ -158,19 +159,18 @@ void main() {
           devicePixelRatio: 2.0,
         );
 
-        // displaySize=480*2=960, targetSize=960 → maxresdefault
-        // hqdefault 不在 16:9 order 中 → 生成所有 16:9 候选 + 原始 URL
+        // displaySize=480*2=960, targetSize=960 -> maxresdefault.
+        // hqdefault is 4:3 and can contain black bars, so it must not be
+        // used as a display fallback.
         expect(
             result,
             equals([
               'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
               'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
             ]));
       });
 
-      test('sddefault canonical generates 16:9 fallback for small display',
-          () {
+      test('sddefault canonical excludes original black-bar fallback', () {
         const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/sddefault.jpg';
         final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           url,
@@ -178,14 +178,36 @@ void main() {
           devicePixelRatio: 1.0,
         );
 
-        // displaySize=48 → mqdefault
-        // sddefault 不在 16:9 order 中 → 生成所有 16:9 候选 + 原始 URL
+        // displaySize=48 -> mqdefault. sddefault is 4:3 and can contain
+        // black bars, so it must not be used as a display fallback.
         expect(
             result,
             equals([
               'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
-              'https://i.ytimg.com/vi/dQw4w9WgXcQ/sddefault.jpg',
             ]));
+      });
+
+      test('youtube candidates never include known black-bar quality tiers',
+          () {
+        const blackBarUrls = [
+          'https://i.ytimg.com/vi/dQw4w9WgXcQ/default.jpg',
+          'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+          'https://i.ytimg.com/vi/dQw4w9WgXcQ/sddefault.jpg',
+          'https://i.ytimg.com/vi_webp/dQw4w9WgXcQ/hqdefault.webp',
+        ];
+
+        for (final url in blackBarUrls) {
+          final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
+            url,
+            displaySize: 480,
+            devicePixelRatio: 2.0,
+          );
+
+          expect(result, isNot(contains(url)), reason: url);
+          expect(result.join('\n'), isNot(contains('/default.')));
+          expect(result.join('\n'), isNot(contains('/hqdefault.')));
+          expect(result.join('\n'), isNot(contains('/sddefault.')));
+        }
       });
     });
 

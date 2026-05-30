@@ -352,8 +352,7 @@ class YouTubePlaylistService with Logging {
       final countText = _extractText(renderer['videoCountShortText']) ??
           _extractText(renderer['videoCountText']) ??
           _extractText(renderer['thumbnailText']);
-      final thumbnailUrl =
-          _extractThumbnailHqDefault(renderer['thumbnail']);
+      final thumbnailUrl = _extractThumbnailHqDefault(renderer['thumbnail']);
 
       if (playlistId != null && title != null) {
         playlists.add(YouTubePlaylistInfo(
@@ -658,12 +657,12 @@ class YouTubePlaylistService with Logging {
 
   /// 从 InnerTube thumbnail 结构中提取 hqdefault.jpg 作为规范化 URL
   ///
-  /// 与 YouTube 音轨一致使用 hqdefault (480×360) 作为基础画质，
-  /// [ThumbnailUrlUtils] 的多级候选回退会根据显示尺寸自动尝试
-  /// 更高 (sddefault → maxresdefault) 或更低 (mqdefault → default) 档位。
+  /// 与 YouTube 音轨一致使用 hqdefault (480×360) 作为稳定 canonical key。
+  /// 实际显示由 [ThumbnailUrlUtils] 只尝试 16:9 候选
+  /// (maxresdefault / mqdefault)，避免 default/hqdefault/sddefault 黑边图。
   static String? _extractThumbnailHqDefault(dynamic thumbnailObj) {
-    final thumbnails = (thumbnailObj as Map<String, dynamic>?)
-        ?['thumbnails'] as List?;
+    final thumbnails =
+        (thumbnailObj as Map<String, dynamic>?)?['thumbnails'] as List?;
     if (thumbnails == null || thumbnails.isEmpty) return null;
     final firstUrl = thumbnails.first['url'] as String?;
     if (firstUrl == null) return null;

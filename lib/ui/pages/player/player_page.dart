@@ -1127,10 +1127,18 @@ class _PlayerBackdropState extends ConsumerState<_PlayerBackdrop> {
       _loadGeneration++;
     }
 
-    if (sourceKey == null ||
-        candidates.isEmpty ||
-        sourceKey == _loadedKey ||
-        sourceKey == _requestedKey) {
+    if (sourceKey == null || candidates.isEmpty) {
+      if (_imageProvider != null || _loadedKey != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && sourceKey == _desiredKey) {
+            _clearLoadedImage();
+          }
+        });
+      }
+      return;
+    }
+
+    if (sourceKey == _loadedKey || sourceKey == _requestedKey) {
       return;
     }
 
@@ -1167,6 +1175,14 @@ class _PlayerBackdropState extends ConsumerState<_PlayerBackdrop> {
 
     if (!mounted || generation != _loadGeneration) return;
     setState(() => _requestedKey = null);
+  }
+
+  void _clearLoadedImage() {
+    setState(() {
+      _imageProvider = null;
+      _loadedKey = null;
+      _requestedKey = null;
+    });
   }
 
   Future<bool> _precacheImage(ImageProvider candidate) async {
