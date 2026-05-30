@@ -208,16 +208,16 @@ class ThumbnailUrlUtils {
   }
 
   /// 用指定质量构建 YouTube 缩略图 URL
+  ///
+  /// 优先使用 WebP 格式（比 JPG 小 30-40%），多级候选回退机制
+  /// 会在 WebP 不可用时自动降级到原始 URL（通常为 JPG）。
   static String _buildYouTubeThumbnailUrl(String url, String quality) {
     final pattern = RegExp(r'/vi(_webp)?/([^/]+)/([^/]+)\.(jpg|webp)');
     final match = pattern.firstMatch(url);
     if (match == null) return '';
 
-    final isWebp = match.group(1) != null;
     final videoId = match.group(2);
-    final ext = match.group(4);
-    final prefix = isWebp ? 'vi_webp' : 'vi';
-    return 'https://i.ytimg.com/$prefix/$videoId/$quality.$ext';
+    return 'https://i.ytimg.com/vi_webp/$videoId/$quality.webp';
   }
 
   /// 选择 YouTube 缩略图质量档位

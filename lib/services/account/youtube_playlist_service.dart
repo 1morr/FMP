@@ -352,15 +352,15 @@ class YouTubePlaylistService with Logging {
       final countText = _extractText(renderer['videoCountShortText']) ??
           _extractText(renderer['videoCountText']) ??
           _extractText(renderer['thumbnailText']);
-      final thumbnail =
-          renderer['thumbnail']?['thumbnails']?[0]?['url'] as String?;
+      final thumbnailUrl =
+          _extractThumbnailHqDefault(renderer['thumbnail']);
 
       if (playlistId != null && title != null) {
         playlists.add(YouTubePlaylistInfo(
           playlistId: playlistId,
           title: title,
           videoCount: _parseVideoCount(countText),
-          thumbnailUrl: thumbnail,
+          thumbnailUrl: thumbnailUrl,
         ));
         return;
       }
@@ -655,6 +655,24 @@ class YouTubePlaylistService with Logging {
   }
 
   int _parseVideoCount(String? text) => parseVideoCount(text);
+
+  /// 从 InnerTube thumbnail 结构中提取 hqdefault.jpg 作为规范化 URL
+  ///
+  /// 与 YouTube 音轨一致使用 hqdefault (480×360) 作为基础画质，
+  /// [ThumbnailUrlUtils] 的多级候选回退会根据显示尺寸自动尝试
+  /// 更高 (sddefault → maxresdefault) 或更低 (mqdefault → default) 档位。
+  static String? _extractThumbnailHqDefault(dynamic thumbnailObj) {
+    final thumbnails = (thumbnailObj as Map<String, dynamic>?)
+        ?['thumbnails'] as List?;
+    if (thumbnails == null || thumbnails.isEmpty) return null;
+    final firstUrl = thumbnails.first['url'] as String?;
+    if (firstUrl == null) return null;
+    // 从 https://i.ytimg.com/vi/{videoId}/{quality}.jpg 提取 videoId
+    final match = RegExp(r'/vi/([^/]+)/').firstMatch(firstUrl);
+    final videoId = match?.group(1);
+    if (videoId == null) return firstUrl; // 非标准格式，保留原 URL
+    return 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
+  }
 
   void _checkResponse(Map<String, dynamic> data) {
     final error = data['error'];
