@@ -546,6 +546,9 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
       // 限制内存缓存中的图片尺寸，减少内存占用
       memCacheWidth: memCacheWidth,
       memCacheHeight: memCacheHeight,
+      // 限制磁盘缓存中的图片尺寸，减少磁盘占用
+      maxWidthDiskCache: memCacheWidth,
+      maxHeightDiskCache: memCacheHeight,
       placeholder: (context, url) => widget.showLoadingIndicator
           ? const Center(
               child: CircularProgressIndicator(strokeWidth: 2),

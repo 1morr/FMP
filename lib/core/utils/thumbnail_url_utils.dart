@@ -166,9 +166,10 @@ class ThumbnailUrlUtils {
 
   /// 生成 YouTube 缩略图多级质量候选 URL（从高到低）
   ///
-  /// 从期望质量开始，逐级下降到比原始质量高一档为止。
-  /// 原始 URL 由 [getOptimizedUrlCandidates] 作为最终回退添加，
-  /// 因此这里不重复生成原始质量的 URL。
+  /// 当原始 URL 质量低于期望时：生成从期望到原始之间更高画质的候选。
+  /// 当原始 URL 质量等于或高于期望时：生成期望及以下画质的降级候选，
+  /// 跳过原始质量避免与调用方追加的原始 URL 重复。
+  /// 原始 URL 由 [getOptimizedUrlCandidates] 作为最终回退添加。
   static List<String> _optimizeYouTubeThumbnailCandidates(
       String url, int targetSize) {
     const qualityOrder = ['maxresdefault', 'sddefault', 'hqdefault', 'mqdefault', 'default'];
@@ -186,12 +187,23 @@ class ThumbnailUrlUtils {
     if (desiredIdx < 0) return const [];
 
     final candidates = <String>[];
-    // 从期望质量向下生成候选，直到原始质量（不含，由调用方添加）
-    for (int i = desiredIdx; i <= qualityOrder.length - 1; i++) {
-      if (i >= originalIdx) break;
-      final candidate = _buildYouTubeThumbnailUrl(url, qualityOrder[i]);
-      if (candidate.isNotEmpty) candidates.add(candidate);
+
+    if (originalIdx < desiredIdx) {
+      // 原始质量已 >= 期望：从期望档位向下生成降级候选（跳过原始档位）
+      for (int i = desiredIdx; i < qualityOrder.length; i++) {
+        if (i == originalIdx) continue;
+        final candidate = _buildYouTubeThumbnailUrl(url, qualityOrder[i]);
+        if (candidate.isNotEmpty) candidates.add(candidate);
+      }
+    } else {
+      // 原始质量低于期望：从期望档位向下生成更高画质候选，到原始档位之前停止
+      for (int i = desiredIdx; i < qualityOrder.length; i++) {
+        if (i >= originalIdx) break;
+        final candidate = _buildYouTubeThumbnailUrl(url, qualityOrder[i]);
+        if (candidate.isNotEmpty) candidates.add(candidate);
+      }
     }
+
     return candidates;
   }
 
