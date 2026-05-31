@@ -344,6 +344,7 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
         fit: BoxFit.cover,
         width: 120,
         height: 120,
+        targetDisplaySize: ImageTargetSizes.medium,
       );
     }
 
@@ -358,6 +359,7 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
               fit: BoxFit.cover,
               width: 120,
               height: 120,
+              targetDisplaySize: ImageTargetSizes.medium,
             )
           : const ImagePlaceholder.track(),
       loading: () => const ImagePlaceholder.track(),

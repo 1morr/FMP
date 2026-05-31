@@ -3,13 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:simple_icons/simple_icons.dart';
 
-import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/account_provider.dart';
 import '../../../services/account/account_service.dart';
 import '../../router.dart';
+import '../../widgets/avatar_image.dart';
 import 'widgets/account_playlists_sheet.dart';
 import 'widgets/account_radio_import_sheet.dart';
 
@@ -240,7 +240,7 @@ class _PlatformCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final avatar = isLoggedIn && avatarUrl != null
-        ? ImageLoadingService.loadAvatar(
+        ? AvatarImage(
             networkUrl: avatarUrl,
             size: 48,
           )

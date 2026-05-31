@@ -1731,6 +1731,7 @@ class _LiveRoomTile extends StatelessWidget {
                     ),
                     width: 48,
                     height: 48,
+                    targetDisplaySize: ImageTargetSizes.medium,
                     fit: BoxFit.cover,
                   ),
                 ),

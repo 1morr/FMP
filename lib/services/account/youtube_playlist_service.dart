@@ -378,12 +378,13 @@ class YouTubePlaylistService with Logging {
         final title = metadata?['title']?['content'] as String?;
 
         // 縮略圖
-        final thumbnail = lockup['contentImage']
+        final rawThumbnail = lockup['contentImage']
                         ?['collectionThumbnailViewModel']?['primaryThumbnail']
                     ?['thumbnailViewModel']?['image']?['sources']?[0]?['url']
                 as String? ??
             lockup['contentImage']?['thumbnailViewModel']?['image']?['sources']
                 ?[0]?['url'] as String?;
+        final thumbnail = canonicalThumbnailUrl(rawThumbnail);
 
         // 視頻數量：嘗試多種路徑
         final countText = _extractVideoCountFromLockup(lockup, metadata);
@@ -655,6 +656,19 @@ class YouTubePlaylistService with Logging {
 
   int _parseVideoCount(String? text) => parseVideoCount(text);
 
+  /// Normalize any standard YouTube thumbnail URL to hqdefault.jpg.
+  ///
+  /// Source adapters intentionally store hqdefault as the stable canonical key.
+  /// Display loading then derives 16:9 candidates from that key and never shows
+  /// hqdefault itself, because hqdefault can contain black bars.
+  static String? canonicalThumbnailUrl(String? thumbnailUrl) {
+    if (thumbnailUrl == null) return null;
+    final match = RegExp(r'/vi(?:_webp)?/([^/]+)/').firstMatch(thumbnailUrl);
+    final videoId = match?.group(1);
+    if (videoId == null) return thumbnailUrl;
+    return 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
+  }
+
   /// 从 InnerTube thumbnail 结构中提取 hqdefault.jpg 作为规范化 URL
   ///
   /// 与 YouTube 音轨一致使用 hqdefault (480×360) 作为稳定 canonical key。
@@ -666,11 +680,7 @@ class YouTubePlaylistService with Logging {
     if (thumbnails == null || thumbnails.isEmpty) return null;
     final firstUrl = thumbnails.first['url'] as String?;
     if (firstUrl == null) return null;
-    // 从 https://i.ytimg.com/vi/{videoId}/{quality}.jpg 提取 videoId
-    final match = RegExp(r'/vi/([^/]+)/').firstMatch(firstUrl);
-    final videoId = match?.group(1);
-    if (videoId == null) return firstUrl; // 非标准格式，保留原 URL
-    return 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
+    return canonicalThumbnailUrl(firstUrl);
   }
 
   void _checkResponse(Map<String, dynamic> data) {

@@ -47,7 +47,7 @@ void main() {
       );
     });
 
-    test('known fixed-size image loads pass display-size hints', () {
+    test('known image loads use named display-size targets', () {
       final home = File('lib/ui/pages/home/home_page.dart').readAsStringSync();
       final downloaded =
           File('lib/ui/pages/library/downloaded_page.dart').readAsStringSync();
@@ -57,18 +57,162 @@ void main() {
       final coverPicker = File(
         'lib/ui/pages/library/widgets/cover_picker_dialog.dart',
       ).readAsStringSync();
+      final createPlaylist = File(
+        'lib/ui/pages/library/widgets/create_playlist_dialog.dart',
+      ).readAsStringSync();
+      final library = File(
+        'lib/ui/pages/library/library_page.dart',
+      ).readAsStringSync();
+      final playlistDetail = File(
+        'lib/ui/pages/library/playlist_detail_page.dart',
+      ).readAsStringSync();
+      final radioPage =
+          File('lib/ui/pages/radio/radio_page.dart').readAsStringSync();
       final trackThumbnail =
           File('lib/ui/widgets/track_thumbnail.dart').readAsStringSync();
+      final imageService = File('lib/core/services/image_loading_service.dart')
+          .readAsStringSync();
+      final radioMiniPlayer =
+          File('lib/ui/widgets/radio/radio_mini_player.dart')
+              .readAsStringSync();
+      final radioPlayer =
+          File('lib/ui/pages/radio/radio_player_page.dart').readAsStringSync();
+      final searchPage =
+          File('lib/ui/pages/search/search_page.dart').readAsStringSync();
+      final addToPlaylist = File(
+        'lib/ui/widgets/dialogs/add_to_playlist_dialog.dart',
+      ).readAsStringSync();
+      final remotePlaylist = File(
+        'lib/ui/widgets/dialogs/remote_playlist_dialog_widgets.dart',
+      ).readAsStringSync();
+      final accountPlaylists = File(
+        'lib/ui/pages/settings/widgets/account_playlists_sheet.dart',
+      ).readAsStringSync();
 
-      expect(home.contains('targetDisplaySize: 160'), isTrue);
-      expect(downloaded.contains('targetDisplaySize: 160'), isTrue);
-      expect(downloadedCategory.contains('targetDisplaySize: 240'), isTrue);
-      expect(coverPicker.contains('targetDisplaySize: 320'), isTrue);
       expect(
-        trackThumbnail
-            .contains('targetDisplaySize: highResolution ? 480.0 : 320.0'),
+        home,
+        contains('targetDisplaySize: ImageTargetSizes.high'),
+      );
+      expect(
+        home,
+        isNot(contains('targetDisplaySize: ImageTargetSizes.medium')),
+      );
+      expect(
+        downloaded.contains('targetDisplaySize: ImageTargetSizes.high'),
         isTrue,
       );
+      expect(
+        downloadedCategory.contains('targetDisplaySize: ImageTargetSizes.high'),
+        isTrue,
+      );
+      expect(
+        coverPicker.contains('targetDisplaySize: ImageTargetSizes.medium'),
+        isTrue,
+      );
+      expect(
+        coverPicker,
+        isNot(contains('targetDisplaySize: ImageTargetSizes.low')),
+      );
+      expect(
+        createPlaylist.contains('targetDisplaySize: ImageTargetSizes.medium'),
+        isTrue,
+      );
+      expect(
+        createPlaylist,
+        isNot(contains('targetDisplaySize: ImageTargetSizes.high')),
+      );
+      expect(
+        library.contains('targetDisplaySize: ImageTargetSizes.high'),
+        isTrue,
+      );
+      expect(
+        playlistDetail.contains('targetDisplaySize: ImageTargetSizes.highest'),
+        isTrue,
+      );
+      expect(
+        radioPage.contains('targetDisplaySize: ImageTargetSizes.high'),
+        isTrue,
+      );
+      expect(
+        radioPlayer,
+        matches(RegExp(r'targetDisplaySize:\s*ImageTargetSizes\.highest\b')),
+      );
+      expect(
+        radioPlayer,
+        isNot(
+            matches(RegExp(r'targetDisplaySize:\s*ImageTargetSizes\.high\b'))),
+      );
+      expect(
+        radioMiniPlayer.contains('targetDisplaySize: ImageTargetSizes.medium'),
+        isTrue,
+      );
+      expect(
+        searchPage.contains('targetDisplaySize: ImageTargetSizes.medium'),
+        isTrue,
+      );
+      expect(
+        addToPlaylist,
+        matches(RegExp(r'targetDisplaySize:\s*ImageTargetSizes\.medium')),
+      );
+      expect(
+        remotePlaylist.contains('targetDisplaySize: ImageTargetSizes.medium'),
+        isTrue,
+      );
+      expect(
+        accountPlaylists.contains('targetDisplaySize: ImageTargetSizes.medium'),
+        isTrue,
+      );
+      expect(trackThumbnail, isNot(contains('TrackCoverQuality')));
+      expect(trackThumbnail, contains('required this.targetDisplaySize'));
+      expect(
+        trackThumbnail,
+        contains('targetDisplaySize: ImageTargetSizes.medium'),
+      );
+      expect(
+        trackThumbnail,
+        contains('targetDisplaySize: targetDisplaySize'),
+      );
+      expect(
+        imageService.contains('targetDisplaySize: targetDisplaySize'),
+        isTrue,
+      );
+    });
+
+    test('avatar images use the shared AvatarImage widget', () {
+      final avatarWidget = File('lib/ui/widgets/avatar_image.dart');
+      expect(avatarWidget.existsSync(), isTrue);
+      final avatarSource = avatarWidget.readAsStringSync();
+
+      expect(
+          avatarSource, contains('class AvatarImage extends StatelessWidget'));
+      expect(avatarSource, contains('ImageLoadingService.loadAvatar('));
+      expect(
+        avatarSource,
+        contains('targetDisplaySize: ImageTargetSizes.low'),
+      );
+
+      final directAvatarCalls = <String>[];
+      final lowTargetsOutsideAvatar = <String>[];
+      final files = Directory('lib/ui')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart'));
+
+      for (final file in files) {
+        final normalizedPath = file.path.replaceAll('\\', '/');
+        if (normalizedPath.endsWith('/avatar_image.dart')) continue;
+
+        final source = file.readAsStringSync();
+        if (source.contains('ImageLoadingService.loadAvatar(')) {
+          directAvatarCalls.add(file.path);
+        }
+        if (source.contains('targetDisplaySize: ImageTargetSizes.low')) {
+          lowTargetsOutsideAvatar.add(file.path);
+        }
+      }
+
+      expect(directAvatarCalls, isEmpty);
+      expect(lowTargetsOutsideAvatar, isEmpty);
     });
 
     test(
@@ -77,18 +221,96 @@ void main() {
       final source = File(
         'lib/core/services/image_loading_service.dart',
       ).readAsStringSync();
+      final thumbnailUtils = File(
+        'lib/core/utils/thumbnail_url_utils.dart',
+      ).readAsStringSync();
 
       expect(source, contains('ResizeImage('));
       expect(source, contains('MediaQuery.devicePixelRatioOf(context)'));
+      expect(source, isNot(contains('_urlCandidateDevicePixelRatio')));
+      expect(source, contains('_networkImageCacheKey'));
+      expect(source, contains('cacheExtent: memCacheExtent'));
+      expect(source, contains('final cacheExtent = _cacheExtent('));
+      expect(source, contains('maxWidth: cacheExtent'));
+      expect(source, contains('maxHeight: cacheExtent'));
       expect(source, contains('targetDisplaySize: targetDisplaySize'));
+      expect(thumbnailUtils, isNot(contains('devicePixelRatio')));
       expect(
         source,
-        contains('widget.width ?? widget.targetDisplaySize'),
+        isNot(contains('targetDisplaySize ?? width')),
       );
       expect(
         source,
-        contains('widget.height ?? widget.targetDisplaySize'),
+        isNot(contains('targetDisplaySize ?? height')),
       );
+      expect(
+        source,
+        isNot(contains('widget.targetDisplaySize ?? widget.width')),
+      );
+      expect(
+        source,
+        isNot(contains('widget.targetDisplaySize ?? widget.height')),
+      );
+      expect(
+        source,
+        contains('required double targetDisplaySize'),
+      );
+    });
+
+    test('UI image-loading calls pass explicit targetDisplaySize', () {
+      final files = Directory('lib/ui')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart'));
+      final missingTargets = <String>[];
+
+      for (final file in files) {
+        final source = file.readAsStringSync();
+        var searchFrom = 0;
+        while (true) {
+          final callStarts = [
+            source.indexOf('ImageLoadingService.loadImage(', searchFrom),
+            source.indexOf('ImageLoadingService.loadAvatar(', searchFrom),
+            source.indexOf(
+              'ImageLoadingService.imageProviderCandidates(',
+              searchFrom,
+            ),
+            source.indexOf(
+              'ImageLoadingService.precacheImageCandidates(',
+              searchFrom,
+            ),
+          ].where((index) => index >= 0).toList()
+            ..sort();
+          if (callStarts.isEmpty) break;
+
+          final callStart = callStarts.first;
+          if (callStart < 0) break;
+
+          var depth = 0;
+          var callEnd = callStart;
+          for (var i = callStart; i < source.length; i++) {
+            final char = source[i];
+            if (char == '(') depth++;
+            if (char == ')') {
+              depth--;
+              if (depth == 0) {
+                callEnd = i;
+                break;
+              }
+            }
+          }
+
+          final call = source.substring(callStart, callEnd + 1);
+          if (!call.contains('targetDisplaySize:')) {
+            final line =
+                '\n'.allMatches(source.substring(0, callStart)).length + 1;
+            missingTargets.add('${file.path}:$line');
+          }
+          searchFrom = callEnd + 1;
+        }
+      }
+
+      expect(missingTargets, isEmpty);
     });
 
     test('download path unset text does not use error color', () {

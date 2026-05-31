@@ -265,7 +265,7 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
                         networkUrl: _urlController.text,
                         placeholder: const ImagePlaceholder.track(),
                         fit: BoxFit.contain,
-                        targetDisplaySize: 320,
+                        targetDisplaySize: ImageTargetSizes.medium,
                       ),
                     ),
                   ),
@@ -332,7 +332,7 @@ class _CoverGridItem extends StatelessWidget {
                   fit: BoxFit.cover,
                   width: 100,
                   height: 100,
-                  targetDisplaySize: 80,
+                  targetDisplaySize: ImageTargetSizes.medium,
                 ),
                 if (isSelected)
                   Container(

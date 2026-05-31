@@ -82,8 +82,8 @@ void main() {
           contains('ImageLoadingService.imageProviderCandidates'));
       expect(imageServiceSource, contains('imageProviderCandidates'));
       expect(imageServiceSource, contains('CachedNetworkImageProvider'));
-      expect(candidatesSource, isNot(contains('maxWidth')));
-      expect(candidatesSource, isNot(contains('maxHeight')));
+      expect(candidatesSource, contains('maxWidth: cacheExtent'));
+      expect(candidatesSource, contains('maxHeight: cacheExtent'));
     });
 
     test('PlayerPage clears stale cover backdrop when no cover is available',

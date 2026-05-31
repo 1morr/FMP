@@ -133,6 +133,7 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
           fit: BoxFit.cover,
           width: 48,
           height: 48,
+          targetDisplaySize: ImageTargetSizes.medium,
         ),
       ),
     );

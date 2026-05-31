@@ -79,6 +79,26 @@ class AppSizes {
   static const double cardAspectRatio = 0.8;
 }
 
+/// 图片源尺寸目标。
+///
+/// 这些值用于选择 CDN 缩略图候选和缓存缩放边界，是图片源尺寸提示，
+/// 不是 720p 这类视频分辨率。
+class ImageTargetSizes {
+  ImageTargetSizes._();
+
+  /// 低画质：仅用于头像。
+  static const double low = 80.0;
+
+  /// 中等画质：除头像、首页卡片、音乐库/电台页和大图场景外的默认档位。
+  static const double medium = 320.0;
+
+  /// 高画质：首页歌单/电台/最近播放、音乐库页面和电台列表页面。
+  static const double high = 720.0;
+
+  /// 最高画质：播放器/电台播放器主封面、歌单详情背景、Detail Panel 大图。
+  static const double highest = 960.0;
+}
+
 /// Toast 时长常量
 class ToastDurations {
   ToastDurations._();

@@ -341,6 +341,8 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                                           fit: BoxFit.cover,
                                           width: 48,
                                           height: 48,
+                                          targetDisplaySize:
+                                              ImageTargetSizes.medium,
                                         )
                                       : Icon(
                                           Icons.album,

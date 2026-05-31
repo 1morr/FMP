@@ -140,6 +140,13 @@ raw `hotkeyConfig` JSON.
 ## Image Thumbnail Optimization
 
 `ThumbnailUrlUtils` optimizes image URLs by platform:
+- Platform detection must parse the URL host and match exact host/subdomain,
+  not search the whole URL string. A proxy/path containing `ytimg.com`,
+  `hdslb.com`, or `music.126.net` is not that platform's CDN.
+- URL candidate selection should use the caller's explicit `targetDisplaySize`,
+  not device DPR. Decode and disk-cache sizing still use the real device DPR.
+  Use larger targets for covers/backgrounds that are scaled, blurred, or reused
+  in detail views.
 - Bilibili: width-only `@{size}w.jpg` suffix after stripping any existing
   `@...` image suffix.
 - YouTube video thumbnails: all source adapters MUST store `hqdefault.jpg` as

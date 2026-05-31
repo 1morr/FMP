@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/ui_constants.dart';
-import '../../../../core/services/image_loading_service.dart';
 import '../../../../core/services/toast_service.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../../../services/radio/radio_controller.dart';
 import '../../../../services/radio/radio_refresh_service.dart';
+import '../../../widgets/avatar_image.dart';
 
 /// 電台列表項（內部使用）
 class _RadioItem {
@@ -228,7 +228,7 @@ class _AccountRadioImportSheetState
     final isSelected = _selectedIds.contains(item.roomId);
 
     return ListTile(
-      leading: ImageLoadingService.loadAvatar(
+      leading: AvatarImage(
         networkUrl: item.avatarUrl,
         size: 40,
       ),
@@ -317,4 +317,3 @@ class _AccountRadioImportSheetState
     );
   }
 }
-

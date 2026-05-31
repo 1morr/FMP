@@ -27,6 +27,7 @@ import '../../../providers/track_detail_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/platform/url_launcher_service.dart';
 import '../../../core/constants/ui_constants.dart';
+import '../../widgets/avatar_image.dart';
 import '../../widgets/track_thumbnail.dart';
 import '../../widgets/vip_badge.dart';
 import '../../../providers/lyrics_provider.dart';
@@ -550,7 +551,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                 track: track,
                 aspectRatio: 1,
                 borderRadius: 0, // Container 已有圆角
-                highResolution: true,
+                targetDisplaySize: ImageTargetSizes.highest,
               )
             : Center(
                 child: Icon(
@@ -1058,8 +1059,6 @@ class _PlayerBackdropState extends ConsumerState<_PlayerBackdrop> {
     final cache = ref.read(fileExistsCacheProvider.notifier);
     final localCoverPath = widget.currentTrack?.getLocalCoverPath(cache);
     final size = MediaQuery.sizeOf(context);
-    final targetDisplaySize =
-        size.width > size.height ? size.width : size.height;
     final sourceKey = _sourceKey(widget.currentTrack, localCoverPath);
     final candidates = ImageLoadingService.imageProviderCandidates(
       context: context,
@@ -1067,7 +1066,7 @@ class _PlayerBackdropState extends ConsumerState<_PlayerBackdrop> {
       networkUrl: widget.currentTrack?.thumbnailUrl,
       width: size.width,
       height: size.height,
-      targetDisplaySize: targetDisplaySize,
+      targetDisplaySize: ImageTargetSizes.medium,
     );
 
     _scheduleImageLoad(sourceKey, candidates);
@@ -1439,7 +1438,7 @@ class _DetailContent extends StatelessWidget {
           // 網易雲：歌手頭像 + 歌手名
           Row(
             children: [
-              ImageLoadingService.loadAvatar(
+              AvatarImage(
                 networkUrl:
                     detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
                 size: 40,
@@ -1470,7 +1469,7 @@ class _DetailContent extends StatelessWidget {
               child: Row(
                 children: [
                   // 头像
-                  ImageLoadingService.loadAvatar(
+                  AvatarImage(
                     localPath:
                         track?.getLocalAvatarPath(cache, baseDir: baseDir),
                     networkUrl:
