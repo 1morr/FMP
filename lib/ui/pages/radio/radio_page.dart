@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import '../../../core/services/image_loading_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
@@ -14,6 +13,7 @@ import '../../widgets/context_menu_region.dart';
 import '../../widgets/error_display.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/radio/add_radio_dialog.dart';
+import '../../widgets/radio_cover_image.dart';
 
 /// 电台页面
 class RadioPage extends ConsumerStatefulWidget {
@@ -441,13 +441,13 @@ class _RadioStationCard extends StatelessWidget {
                                   1,
                                   0,
                                 ]),
-                          child: ImageLoadingService.loadImage(
+                          child: RadioCoverImage(
                             networkUrl: station.thumbnailUrl,
                             placeholder: _buildPlaceholder(colorScheme),
                             fit: BoxFit.cover,
                             width: coverSize,
                             height: coverSize,
-                            targetDisplaySize: ImageTargetSizes.high,
+                            variant: RadioCoverVariant.card,
                           ),
                         ),
                       ),
@@ -639,13 +639,13 @@ class _ReorderableRadioStationCard extends StatelessWidget {
                                     1,
                                     0,
                                   ]),
-                            child: ImageLoadingService.loadImage(
+                            child: RadioCoverImage(
                               networkUrl: station.thumbnailUrl,
                               placeholder: _buildPlaceholder(colorScheme),
                               fit: BoxFit.cover,
                               width: coverSize,
                               height: coverSize,
-                              targetDisplaySize: ImageTargetSizes.high,
+                              variant: RadioCoverVariant.card,
                             ),
                           ),
                         ),

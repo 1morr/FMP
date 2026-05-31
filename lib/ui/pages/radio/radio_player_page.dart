@@ -1,7 +1,6 @@
 import 'dart:io' show Platform;
 import 'dart:ui' show PointerDeviceKind;
 
-import '../../../core/services/image_loading_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/services/audio/audio_types.dart' show FmpAudioDevice;
@@ -15,6 +14,7 @@ import '../../../services/platform/url_launcher_service.dart';
 import '../../../core/constants/ui_constants.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../widgets/avatar_image.dart';
+import '../../widgets/radio_cover_image.dart';
 
 /// 電台播放器頁面（全屏）
 class RadioPlayerPage extends ConsumerWidget {
@@ -176,11 +176,11 @@ class RadioPlayerPage extends ConsumerWidget {
           ],
         ),
         clipBehavior: Clip.antiAlias,
-        child: ImageLoadingService.loadImage(
+        child: RadioCoverImage(
           networkUrl: station.thumbnailUrl,
           placeholder: _buildCoverPlaceholder(colorScheme),
           fit: BoxFit.cover,
-          targetDisplaySize: ImageTargetSizes.highest,
+          variant: RadioCoverVariant.hero,
         ),
       ),
     );

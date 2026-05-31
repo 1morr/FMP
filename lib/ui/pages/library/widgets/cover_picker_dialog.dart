@@ -6,6 +6,7 @@ import '../../../../core/services/image_loading_service.dart';
 import '../../../../data/models/track.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../../../providers/playlist_provider.dart';
+import '../../../widgets/playlist_cover_image.dart';
 
 /// 封面選擇結果
 class CoverPickerResult {
@@ -261,11 +262,11 @@ class _CoverPickerDialogState extends ConsumerState<CoverPickerDialog>
                 : Center(
                     child: ClipRRect(
                       borderRadius: AppRadius.borderRadiusLg,
-                      child: ImageLoadingService.loadImage(
+                      child: PlaylistCoverImage(
                         networkUrl: _urlController.text,
                         placeholder: const ImagePlaceholder.track(),
                         fit: BoxFit.contain,
-                        targetDisplaySize: ImageTargetSizes.medium,
+                        variant: PlaylistCoverVariant.compact,
                       ),
                     ),
                   ),
@@ -326,13 +327,13 @@ class _CoverGridItem extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                ImageLoadingService.loadImage(
+                PlaylistCoverImage(
                   networkUrl: imageUrl,
                   placeholder: const ImagePlaceholder.track(),
                   fit: BoxFit.cover,
                   width: 100,
                   height: 100,
-                  targetDisplaySize: ImageTargetSizes.medium,
+                  variant: PlaylistCoverVariant.compact,
                 ),
                 if (isSelected)
                   Container(

@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../../core/services/image_loading_service.dart';
+import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../data/repositories/track_repository.dart';
-import '../../../core/constants/ui_constants.dart';
 import '../../../providers/library_invalidation_coordinator.dart';
 import '../../../providers/playlist_provider.dart';
 import '../../../providers/repository_providers.dart';
+import '../playlist_cover_image.dart';
 import '../track_thumbnail.dart';
 
 /// 显示添加到歌单对话框（单个track）
@@ -331,7 +331,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                                 clipBehavior: Clip.antiAlias,
                                 child: coverAsync.when(
                                   data: (coverData) => coverData.hasCover
-                                      ? ImageLoadingService.loadImage(
+                                      ? PlaylistCoverImage(
                                           localPath: coverData.localPath,
                                           networkUrl: coverData.networkUrl,
                                           placeholder: Icon(
@@ -341,8 +341,7 @@ class _AddToPlaylistSheetState extends ConsumerState<_AddToPlaylistSheet> {
                                           fit: BoxFit.cover,
                                           width: 48,
                                           height: 48,
-                                          targetDisplaySize:
-                                              ImageTargetSizes.medium,
+                                          variant: PlaylistCoverVariant.compact,
                                         )
                                       : Icon(
                                           Icons.album,

@@ -20,6 +20,7 @@ import '../../widgets/dialogs/add_to_playlist_dialog.dart';
 import '../../widgets/dialogs/add_to_remote_playlist_dialog.dart';
 import '../lyrics/lyrics_search_sheet.dart';
 import '../../widgets/now_playing_indicator.dart';
+import '../../widgets/radio_cover_image.dart';
 import '../../widgets/track_group/track_group.dart';
 import '../../widgets/track_thumbnail.dart';
 import '../../widgets/vip_badge.dart';
@@ -1720,7 +1721,7 @@ class _LiveRoomTile extends StatelessWidget {
                           1,
                           0,
                         ]),
-                  child: ImageLoadingService.loadImage(
+                  child: RadioCoverImage(
                     networkUrl:
                         room.cover?.isNotEmpty == true ? room.cover : room.face,
                     placeholder: ImagePlaceholder(
@@ -1731,7 +1732,7 @@ class _LiveRoomTile extends StatelessWidget {
                     ),
                     width: 48,
                     height: 48,
-                    targetDisplaySize: ImageTargetSizes.medium,
+                    variant: RadioCoverVariant.compact,
                     fit: BoxFit.cover,
                   ),
                 ),

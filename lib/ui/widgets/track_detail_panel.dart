@@ -10,7 +10,6 @@ import '../../core/constants/app_constants.dart';
 import '../../core/constants/ui_constants.dart';
 import '../../core/services/toast_service.dart';
 import '../../core/utils/number_format_utils.dart';
-import '../../core/services/image_loading_service.dart';
 import '../../data/models/settings.dart';
 import '../../data/models/track.dart';
 import '../../data/models/video_detail.dart';
@@ -25,6 +24,7 @@ import '../../services/platform/url_launcher_service.dart';
 import '../../services/radio/radio_controller.dart';
 import '../../data/models/radio_station.dart';
 import 'avatar_image.dart';
+import 'radio_cover_image.dart';
 import 'track_thumbnail.dart';
 import 'vip_badge.dart';
 import 'lyrics_display.dart';
@@ -698,7 +698,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                 track: track,
                 aspectRatio: 1,
                 borderRadius: 0,
-                targetDisplaySize: ImageTargetSizes.highest,
+                variant: TrackCoverVariant.hero,
               ),
             ),
           ),
@@ -1269,7 +1269,7 @@ class _ClickableCoverState extends State<_ClickableCover> {
                   networkUrl: widget.detail.coverUrl,
                   aspectRatio: _aspectRatio,
                   borderRadius: 0,
-                  targetDisplaySize: ImageTargetSizes.highest,
+                  variant: TrackCoverVariant.hero,
                 ),
                 // 时长标签
                 Positioned(
@@ -2062,10 +2062,10 @@ class _RadioClickableCoverState extends State<_RadioClickableCover> {
     final url = widget.station.thumbnailUrl;
     if (url == null || url.isEmpty) return;
 
-    final imageProvider = await ImageLoadingService.precacheImageCandidates(
+    final imageProvider = await RadioCoverImage.precacheImageCandidates(
       context: context,
       networkUrl: url,
-      targetDisplaySize: ImageTargetSizes.highest,
+      variant: RadioCoverVariant.hero,
       headers: SourceHttpPolicy.bilibiliLiveHeaders(),
     );
 
@@ -2090,11 +2090,12 @@ class _RadioClickableCoverState extends State<_RadioClickableCover> {
               fit: StackFit.expand,
               children: [
                 // 封面图片
-                ImageLoadingService.loadImage(
+                RadioCoverImage(
                   networkUrl: widget.station.thumbnailUrl,
                   placeholder: _buildCoverPlaceholder(context),
                   fit: BoxFit.cover,
-                  targetDisplaySize: ImageTargetSizes.highest, // 高清背景
+                  variant: RadioCoverVariant.hero,
+                  headers: SourceHttpPolicy.bilibiliLiveHeaders(),
                 ),
                 // LIVE 标签 - 仅在图片加载完成且正在播放时显示
                 if (_isImageLoaded && widget.isPlaying)

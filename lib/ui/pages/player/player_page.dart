@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/services/audio/audio_types.dart' show FmpAudioDevice;
 import 'package:window_manager/window_manager.dart' show DragToMoveArea;
 import '../../../core/extensions/track_extensions.dart';
-import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../core/utils/icon_helpers.dart';
@@ -551,7 +550,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                 track: track,
                 aspectRatio: 1,
                 borderRadius: 0, // Container 已有圆角
-                targetDisplaySize: ImageTargetSizes.highest,
+                variant: TrackCoverVariant.hero,
               )
             : Center(
                 child: Icon(
@@ -1060,13 +1059,13 @@ class _PlayerBackdropState extends ConsumerState<_PlayerBackdrop> {
     final localCoverPath = widget.currentTrack?.getLocalCoverPath(cache);
     final size = MediaQuery.sizeOf(context);
     final sourceKey = _sourceKey(widget.currentTrack, localCoverPath);
-    final candidates = ImageLoadingService.imageProviderCandidates(
+    final candidates = TrackCover.imageProviderCandidates(
       context: context,
       localPath: localCoverPath,
       networkUrl: widget.currentTrack?.thumbnailUrl,
       width: size.width,
       height: size.height,
-      targetDisplaySize: ImageTargetSizes.medium,
+      variant: TrackCoverVariant.backdrop,
     );
 
     _scheduleImageLoad(sourceKey, candidates);

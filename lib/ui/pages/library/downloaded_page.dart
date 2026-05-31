@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/ui_constants.dart';
-import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/download_provider.dart';
@@ -15,6 +14,7 @@ import '../../../services/download/download_path_sync_service.dart';
 import '../../../i18n/strings.g.dart';
 import '../../router.dart';
 import '../../widgets/error_display.dart';
+import '../../widgets/playlist_cover_image.dart';
 
 /// 已下载页面 - 显示分类网格
 class DownloadedPage extends ConsumerStatefulWidget {
@@ -304,12 +304,12 @@ class _CategoryCard extends ConsumerWidget {
 
   Widget _buildCover(ColorScheme colorScheme) {
     if (category.coverPath != null) {
-      return ImageLoadingService.loadImage(
+      return PlaylistCoverImage(
         localPath: category.coverPath,
         networkUrl: null,
         placeholder: _buildDefaultCover(colorScheme),
         fit: BoxFit.cover,
-        targetDisplaySize: ImageTargetSizes.high,
+        variant: PlaylistCoverVariant.card,
       );
     }
     return _buildDefaultCover(colorScheme);

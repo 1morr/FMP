@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/ui_constants.dart';
-import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
@@ -15,6 +14,7 @@ import '../../handlers/track_action_coordinator.dart';
 import '../../handlers/track_action_menu.dart';
 import '../../widgets/error_display.dart';
 import '../../widgets/now_playing_indicator.dart';
+import '../../widgets/playlist_cover_image.dart';
 import '../../widgets/track_group/track_group.dart';
 import '../../widgets/track_thumbnail.dart';
 import '../../../i18n/strings.g.dart';
@@ -335,12 +335,12 @@ class _DownloadedCategoryPageState
           Colors.black54,
           BlendMode.darken,
         ),
-        child: ImageLoadingService.loadImage(
+        child: PlaylistCoverImage(
           localPath: widget.category.coverPath,
           networkUrl: null,
           placeholder: gradientPlaceholder,
           fit: BoxFit.cover,
-          targetDisplaySize: ImageTargetSizes.high,
+          variant: PlaylistCoverVariant.card,
         ),
       );
     }
@@ -358,12 +358,12 @@ class _DownloadedCategoryPageState
     );
 
     if (widget.category.coverPath != null) {
-      return ImageLoadingService.loadImage(
+      return PlaylistCoverImage(
         localPath: widget.category.coverPath,
         networkUrl: null,
         placeholder: placeholder,
         fit: BoxFit.cover,
-        targetDisplaySize: ImageTargetSizes.high,
+        variant: PlaylistCoverVariant.card,
       );
     }
     return placeholder;

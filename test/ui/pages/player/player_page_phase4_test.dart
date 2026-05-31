@@ -78,8 +78,9 @@ void main() {
       expect(playerSource, contains('PlayerBackdropLoadState'));
       expect(playerSource, contains('loadedKey'));
       expect(playerSource, contains('desiredKey'));
+      expect(playerSource, contains('TrackCover.imageProviderCandidates'));
       expect(playerSource,
-          contains('ImageLoadingService.imageProviderCandidates'));
+          isNot(contains('ImageLoadingService.imageProviderCandidates')));
       expect(imageServiceSource, contains('imageProviderCandidates'));
       expect(imageServiceSource, contains('CachedNetworkImageProvider'));
       expect(candidatesSource, contains('maxWidth: cacheExtent'));
@@ -105,7 +106,9 @@ void main() {
 
       expect(imageServiceSource, contains('precacheImageCandidates'));
       expect(trackDetailSource,
-          contains('ImageLoadingService.precacheImageCandidates'));
+          contains('RadioCoverImage.precacheImageCandidates'));
+      expect(trackDetailSource,
+          isNot(contains('ImageLoadingService.precacheImageCandidates')));
       expect(trackDetailSource, isNot(contains('CachedNetworkImageProvider(')));
       expect(trackDetailSource,
           isNot(contains('ThumbnailUrlUtils.getOptimizedUrl(')));

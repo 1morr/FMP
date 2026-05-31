@@ -27,6 +27,9 @@ import '../../widgets/context_menu_region.dart';
 import '../../widgets/playlist_card_actions.dart';
 import '../../../core/utils/number_format_utils.dart';
 import '../../../i18n/strings.g.dart';
+import '../../widgets/playlist_cover_image.dart';
+import '../../widgets/radio_cover_image.dart';
+import '../../widgets/recent_play_cover_image.dart';
 import '../../widgets/track_thumbnail.dart';
 import '../../widgets/vip_badge.dart';
 import '../../../data/models/playlist.dart';
@@ -739,12 +742,11 @@ class _RecentHistorySection extends ConsumerWidget {
                     fit: StackFit.expand,
                     children: [
                       history.thumbnailUrl != null
-                          ? ImageLoadingService.loadImage(
+                          ? RecentPlayCoverImage(
                               networkUrl: history.thumbnailUrl,
                               placeholder: const ImagePlaceholder.track(),
                               fit: BoxFit.cover,
                               width: cardWidth,
-                              targetDisplaySize: ImageTargetSizes.high,
                             )
                           : const ImagePlaceholder.track(),
                     ],
@@ -1115,13 +1117,13 @@ class _HomeRadioStationCard extends StatelessWidget {
                             1,
                             0,
                           ]),
-                    child: ImageLoadingService.loadImage(
+                    child: RadioCoverImage(
                       networkUrl: station.thumbnailUrl,
                       placeholder: _buildPlaceholder(colorScheme),
                       fit: BoxFit.cover,
                       width: 100,
                       height: 100,
-                      targetDisplaySize: ImageTargetSizes.high,
+                      variant: RadioCoverVariant.card,
                     ),
                   ),
                 ),
@@ -1246,12 +1248,12 @@ class _HomePlaylistCard extends ConsumerWidget {
                     coverAsync.when(
                       skipLoadingOnReload: true,
                       data: (coverData) => coverData.hasCover
-                          ? ImageLoadingService.loadImage(
+                          ? PlaylistCoverImage(
                               localPath: coverData.localPath,
                               networkUrl: coverData.networkUrl,
                               placeholder: const ImagePlaceholder.playlist(),
                               fit: BoxFit.cover,
-                              targetDisplaySize: ImageTargetSizes.high,
+                              variant: PlaylistCoverVariant.card,
                             )
                           : const ImagePlaceholder.playlist(),
                       loading: () => const ImagePlaceholder.playlist(),
