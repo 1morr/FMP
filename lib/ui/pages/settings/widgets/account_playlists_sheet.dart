@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/ui_constants.dart';
-import '../../../../core/services/image_loading_service.dart';
 import '../../../../core/services/toast_service.dart';
 import '../../../../data/models/track.dart';
 import '../../../../services/library/remote_playlist_id_parser.dart';
@@ -14,6 +13,7 @@ import '../../../../providers/import_playlist_provider.dart';
 import '../../../../providers/library_invalidation_coordinator.dart';
 import '../../../../providers/repository_providers.dart';
 import '../../../../services/import/import_service.dart';
+import '../../../widgets/playlist_cover_image.dart';
 
 /// 帳號歌單列表項
 class _PlaylistItem {
@@ -417,14 +417,14 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
         ),
         clipBehavior: Clip.antiAlias,
         child: item.thumbnailUrl != null
-            ? ImageLoadingService.loadImage(
+            ? PlaylistCoverImage(
                 networkUrl: item.thumbnailUrl,
                 placeholder:
                     Icon(Icons.playlist_play, color: colorScheme.outline),
                 width: 40,
                 height: 40,
                 fit: BoxFit.cover,
-                targetDisplaySize: ImageTargetSizes.medium,
+                variant: PlaylistCoverVariant.compact,
               )
             : Icon(Icons.playlist_play, color: colorScheme.outline),
       ),

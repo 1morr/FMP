@@ -5,24 +5,28 @@ UI guidance for Flutter pages, widgets, layouts, and windows.
 ## Image Components
 
 - Song cover -> `TrackThumbnail` / `TrackCover`
+- Playlist cover -> `PlaylistCoverImage`
+- Radio/live cover -> `RadioCoverImage`
+- Home recent-play cover -> `RecentPlayCoverImage`
 - Avatar -> `AvatarImage`
-- Other images -> `ImageLoadingService.loadImage()`
+- Other images -> a small semantic widget wrapping `ImageLoadingService`.
 - Never use `Image.network()` or `Image.file()` directly.
-- Pass explicit `targetDisplaySize` to `loadImage()`, `loadAvatar()`,
-  `imageProviderCandidates()`, and `precacheImageCandidates()` so thumbnail URL
-  optimization selects reliable sizes and image decoding can use bounded cache
-  dimensions for both network and local files. Never infer image quality from
-  `width` or `height`; those are layout-only. Use `ImageTargetSizes` from
-  `lib/core/constants/ui_constants.dart` for repeated target values instead of
-  raw numeric literals. `low` is only for avatars through `AvatarImage`;
-  `medium` is the default for other non-avatar images; `high` is for home
+- Page code should pass semantic variants, not raw `targetDisplaySize`.
+  `targetDisplaySize` belongs inside semantic image widgets and
+  `ImageLoadingService`; never infer image quality from `width` or `height`,
+  which are layout-only. Use `ImageTargetSizes` from
+  `lib/core/constants/ui_constants.dart` only inside image components or core
+  image services, not page call sites.
+- Current target-size mapping: `low` is only for avatars through
+  `AvatarImage`; `medium` is the default for compact non-avatar images and
+  player blurred backdrop preloading; `high` is for home
   playlist/radio/recent-play cards, radio list pages, and library pages;
-  `highest` is for player cover art, radio player cover art, playlist-detail
-  backgrounds, and Detail Panel large images.
+  `highest` is for player cover art, radio player cover art,
+  playlist-detail backgrounds, and Detail Panel large images.
 - `ImageLoadingService` should use the current `MediaQuery.devicePixelRatio`
   for decode and disk-cache sizing only. URL candidate selection is controlled
-  by the caller's `targetDisplaySize`; use larger explicit targets for covers
-  and backgrounds that must stay sharp when scaled or blurred.
+  by the semantic widget's target size; use larger variants for covers and
+  backgrounds that must stay sharp when scaled or blurred.
 
 File existence cache pattern:
 

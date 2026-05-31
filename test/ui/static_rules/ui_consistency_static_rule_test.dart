@@ -70,6 +70,13 @@ void main() {
           File('lib/ui/pages/radio/radio_page.dart').readAsStringSync();
       final trackThumbnail =
           File('lib/ui/widgets/track_thumbnail.dart').readAsStringSync();
+      final recentPlayCover =
+          File('lib/ui/widgets/recent_play_cover_image.dart')
+              .readAsStringSync();
+      final playlistCover =
+          File('lib/ui/widgets/playlist_cover_image.dart').readAsStringSync();
+      final radioCover =
+          File('lib/ui/widgets/radio_cover_image.dart').readAsStringSync();
       final imageService = File('lib/core/services/image_loading_service.dart')
           .readAsStringSync();
       final radioMiniPlayer =
@@ -77,6 +84,10 @@ void main() {
               .readAsStringSync();
       final radioPlayer =
           File('lib/ui/pages/radio/radio_player_page.dart').readAsStringSync();
+      final playerPage =
+          File('lib/ui/pages/player/player_page.dart').readAsStringSync();
+      final trackDetailPanel =
+          File('lib/ui/widgets/track_detail_panel.dart').readAsStringSync();
       final searchPage =
           File('lib/ui/pages/search/search_page.dart').readAsStringSync();
       final addToPlaylist = File(
@@ -91,86 +102,130 @@ void main() {
 
       expect(
         home,
-        contains('targetDisplaySize: ImageTargetSizes.high'),
+        contains('RecentPlayCoverImage('),
       );
       expect(
         home,
-        isNot(contains('targetDisplaySize: ImageTargetSizes.medium')),
+        contains('variant: PlaylistCoverVariant.card'),
       );
       expect(
-        downloaded.contains('targetDisplaySize: ImageTargetSizes.high'),
-        isTrue,
+        home,
+        contains('variant: RadioCoverVariant.card'),
       );
       expect(
-        downloadedCategory.contains('targetDisplaySize: ImageTargetSizes.high'),
-        isTrue,
+        downloaded,
+        contains('variant: PlaylistCoverVariant.card'),
       );
       expect(
-        coverPicker.contains('targetDisplaySize: ImageTargetSizes.medium'),
-        isTrue,
+        downloadedCategory,
+        contains('variant: PlaylistCoverVariant.card'),
       );
       expect(
         coverPicker,
-        isNot(contains('targetDisplaySize: ImageTargetSizes.low')),
-      );
-      expect(
-        createPlaylist.contains('targetDisplaySize: ImageTargetSizes.medium'),
-        isTrue,
+        contains('variant: PlaylistCoverVariant.compact'),
       );
       expect(
         createPlaylist,
-        isNot(contains('targetDisplaySize: ImageTargetSizes.high')),
+        contains('variant: PlaylistCoverVariant.compact'),
       );
       expect(
-        library.contains('targetDisplaySize: ImageTargetSizes.high'),
-        isTrue,
+        library,
+        contains('variant: PlaylistCoverVariant.card'),
       );
       expect(
-        playlistDetail.contains('targetDisplaySize: ImageTargetSizes.highest'),
-        isTrue,
+        playlistDetail,
+        contains('variant: PlaylistCoverVariant.hero'),
       );
       expect(
-        radioPage.contains('targetDisplaySize: ImageTargetSizes.high'),
-        isTrue,
+        playlistDetail,
+        contains('variant: PlaylistCoverVariant.compact'),
+      );
+      expect(
+        radioPage,
+        contains('variant: RadioCoverVariant.card'),
       );
       expect(
         radioPlayer,
-        matches(RegExp(r'targetDisplaySize:\s*ImageTargetSizes\.highest\b')),
+        contains('variant: RadioCoverVariant.hero'),
       );
       expect(
-        radioPlayer,
-        isNot(
-            matches(RegExp(r'targetDisplaySize:\s*ImageTargetSizes\.high\b'))),
+        radioMiniPlayer,
+        contains('variant: RadioCoverVariant.compact'),
       );
       expect(
-        radioMiniPlayer.contains('targetDisplaySize: ImageTargetSizes.medium'),
-        isTrue,
+        playerPage,
+        contains('variant: TrackCoverVariant.hero'),
       );
       expect(
-        searchPage.contains('targetDisplaySize: ImageTargetSizes.medium'),
-        isTrue,
+        trackDetailPanel,
+        contains('variant: TrackCoverVariant.hero'),
+      );
+      expect(
+        searchPage,
+        contains('variant: RadioCoverVariant.compact'),
       );
       expect(
         addToPlaylist,
-        matches(RegExp(r'targetDisplaySize:\s*ImageTargetSizes\.medium')),
+        contains('variant: PlaylistCoverVariant.compact'),
       );
       expect(
-        remotePlaylist.contains('targetDisplaySize: ImageTargetSizes.medium'),
-        isTrue,
+        remotePlaylist,
+        contains('variant: PlaylistCoverVariant.compact'),
       );
       expect(
-        accountPlaylists.contains('targetDisplaySize: ImageTargetSizes.medium'),
-        isTrue,
+        accountPlaylists,
+        contains('variant: PlaylistCoverVariant.compact'),
+      );
+      expect(
+        recentPlayCover,
+        contains('class RecentPlayCoverImage'),
+      );
+      expect(
+        recentPlayCover,
+        contains('targetDisplaySize: ImageTargetSizes.high'),
+      );
+      expect(
+        recentPlayCover,
+        isNot(contains('RecentPlayCoverVariant')),
+      );
+      expect(
+        playlistCover,
+        contains('return ImageTargetSizes.medium;'),
+      );
+      expect(
+        playlistCover,
+        contains('return ImageTargetSizes.high;'),
+      );
+      expect(
+        playlistCover,
+        contains('return ImageTargetSizes.highest;'),
+      );
+      expect(
+        radioCover,
+        contains('return ImageTargetSizes.medium;'),
+      );
+      expect(
+        radioCover,
+        contains('return ImageTargetSizes.high;'),
+      );
+      expect(
+        radioCover,
+        contains('return ImageTargetSizes.highest;'),
       );
       expect(trackThumbnail, isNot(contains('TrackCoverQuality')));
-      expect(trackThumbnail, contains('required this.targetDisplaySize'));
+      expect(trackThumbnail, contains('enum TrackCoverVariant'));
+      expect(trackThumbnail, isNot(contains('TrackCoverVariant.compact')));
+      expect(trackThumbnail, contains('return ImageTargetSizes.medium;'));
+      expect(trackThumbnail, contains('return ImageTargetSizes.highest;'));
+      expect(
+          trackThumbnail, isNot(contains('required this.targetDisplaySize')));
       expect(
         trackThumbnail,
         contains('targetDisplaySize: ImageTargetSizes.medium'),
       );
       expect(
         trackThumbnail,
-        contains('targetDisplaySize: targetDisplaySize'),
+        contains('targetDisplaySize: variant.targetDisplaySize'),
       );
       expect(
         imageService.contains('targetDisplaySize: targetDisplaySize'),
@@ -213,6 +268,116 @@ void main() {
 
       expect(directAvatarCalls, isEmpty);
       expect(lowTargetsOutsideAvatar, isEmpty);
+    });
+
+    test('playlist and radio covers use shared semantic image widgets', () {
+      final playlistWidget = File('lib/ui/widgets/playlist_cover_image.dart');
+      final radioWidget = File('lib/ui/widgets/radio_cover_image.dart');
+      expect(playlistWidget.existsSync(), isTrue);
+      expect(radioWidget.existsSync(), isTrue);
+
+      final playlistSource = playlistWidget.readAsStringSync();
+      final radioSource = radioWidget.readAsStringSync();
+
+      expect(playlistSource, contains('class PlaylistCoverImage'));
+      expect(playlistSource, contains('enum PlaylistCoverVariant'));
+      expect(
+        playlistSource,
+        contains('targetDisplaySize: variant.targetDisplaySize'),
+      );
+      expect(radioSource, contains('class RadioCoverImage'));
+      expect(radioSource, contains('enum RadioCoverVariant'));
+      expect(
+        radioSource,
+        contains('targetDisplaySize: variant.targetDisplaySize'),
+      );
+
+      final allowedDirectLoadImage = <String>{
+        'lib/ui/widgets/playlist_cover_image.dart',
+        'lib/ui/widgets/radio_cover_image.dart',
+        'lib/ui/widgets/recent_play_cover_image.dart',
+        'lib/ui/widgets/track_thumbnail.dart',
+      };
+      final directLoadImage = <String>[];
+      final files = Directory('lib/ui')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart'));
+
+      for (final file in files) {
+        final normalizedPath = file.path.replaceAll('\\', '/');
+        if (allowedDirectLoadImage.contains(normalizedPath)) continue;
+        final source = file.readAsStringSync();
+        if (source.contains('ImageLoadingService.loadImage(')) {
+          directLoadImage.add(normalizedPath);
+        }
+      }
+
+      expect(directLoadImage, isEmpty);
+
+      final expectedPlaylistUsers = <String>[
+        'lib/ui/pages/home/home_page.dart',
+        'lib/ui/pages/library/downloaded_page.dart',
+        'lib/ui/pages/library/downloaded_category_page.dart',
+        'lib/ui/pages/library/library_page.dart',
+        'lib/ui/pages/library/playlist_detail_page.dart',
+        'lib/ui/pages/library/widgets/create_playlist_dialog.dart',
+        'lib/ui/pages/library/widgets/cover_picker_dialog.dart',
+        'lib/ui/widgets/dialogs/add_to_playlist_dialog.dart',
+        'lib/ui/widgets/dialogs/remote_playlist_dialog_widgets.dart',
+        'lib/ui/pages/settings/widgets/account_playlists_sheet.dart',
+      ];
+
+      for (final path in expectedPlaylistUsers) {
+        final source = File(path).readAsStringSync();
+        expect(source, contains('PlaylistCoverImage('), reason: path);
+      }
+
+      final expectedRadioUsers = <String>[
+        'lib/ui/pages/home/home_page.dart',
+        'lib/ui/pages/radio/radio_page.dart',
+        'lib/ui/pages/radio/radio_player_page.dart',
+        'lib/ui/pages/search/search_page.dart',
+        'lib/ui/widgets/radio/radio_mini_player.dart',
+        'lib/ui/widgets/track_detail_panel.dart',
+      ];
+
+      for (final path in expectedRadioUsers) {
+        final source = File(path).readAsStringSync();
+        expect(source, contains('RadioCoverImage('), reason: path);
+      }
+    });
+
+    test('semantic image helpers are the only UI ImageLoadingService callers',
+        () {
+      final allowedCallers = <String>{
+        'lib/ui/widgets/avatar_image.dart',
+        'lib/ui/widgets/playlist_cover_image.dart',
+        'lib/ui/widgets/radio_cover_image.dart',
+        'lib/ui/widgets/recent_play_cover_image.dart',
+        'lib/ui/widgets/track_thumbnail.dart',
+      };
+      final directCallers = <String>[];
+      final files = Directory('lib/ui')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart'));
+
+      for (final file in files) {
+        final normalizedPath = file.path.replaceAll('\\', '/');
+        if (allowedCallers.contains(normalizedPath)) continue;
+
+        final source = file.readAsStringSync();
+        final hasDirectCall = source
+                .contains('ImageLoadingService.loadImage(') ||
+            source.contains('ImageLoadingService.loadAvatar(') ||
+            source.contains('ImageLoadingService.imageProviderCandidates(') ||
+            source.contains('ImageLoadingService.precacheImageCandidates(');
+
+        if (hasDirectCall) directCallers.add(normalizedPath);
+      }
+
+      expect(directCallers, isEmpty);
     });
 
     test(

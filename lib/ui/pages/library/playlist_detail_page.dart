@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/services/image_loading_service.dart';
 import '../../router.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
@@ -22,6 +21,7 @@ import '../../../services/download/download_service.dart'
     show DownloadBatchAddSummary;
 import '../../widgets/error_display.dart';
 import '../../widgets/now_playing_indicator.dart';
+import '../../widgets/playlist_cover_image.dart';
 import '../../widgets/selection_mode_app_bar.dart';
 import '../../widgets/context_menu_region.dart';
 import '../../widgets/track_group/track_group.dart';
@@ -789,13 +789,13 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                         Colors.black54,
                         BlendMode.darken,
                       ),
-                      child: ImageLoadingService.loadImage(
+                      child: PlaylistCoverImage(
                         localPath: coverData.localPath,
                         networkUrl: coverData.networkUrl,
                         placeholder:
                             Container(color: colorScheme.primaryContainer),
                         fit: BoxFit.cover,
-                        targetDisplaySize: ImageTargetSizes.highest, // 高清背景
+                        variant: PlaylistCoverVariant.hero,
                       ),
                     )
                   : Container(color: colorScheme.primaryContainer),
@@ -843,7 +843,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                     child: coverAsync.when(
                       skipLoadingOnReload: true,
                       data: (coverData) => coverData.hasCover
-                          ? ImageLoadingService.loadImage(
+                          ? PlaylistCoverImage(
                               localPath: coverData.localPath,
                               networkUrl: coverData.networkUrl,
                               placeholder: Container(
@@ -859,7 +859,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                               fit: BoxFit.cover,
                               width: 120,
                               height: 120,
-                              targetDisplaySize: ImageTargetSizes.medium,
+                              variant: PlaylistCoverVariant.compact,
                             )
                           : Container(
                               color: colorScheme.primaryContainer,

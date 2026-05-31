@@ -6,12 +6,12 @@ import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/services/audio/audio_types.dart' show FmpAudioDevice;
 
 import '../../../core/constants/ui_constants.dart';
-import '../../../core/services/image_loading_service.dart';
 import '../../../core/utils/icon_helpers.dart';
 import '../../../core/utils/number_format_utils.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../router.dart';
+import '../radio_cover_image.dart';
 
 /// 電台迷你播放器
 /// 顯示在頁面底部，展示當前播放的電台資訊和控制按鈕
@@ -127,13 +127,13 @@ class _RadioMiniPlayerState extends ConsumerState<RadioMiniPlayer> {
       child: SizedBox(
         width: 48,
         height: 48,
-        child: ImageLoadingService.loadImage(
+        child: RadioCoverImage(
           networkUrl: station.thumbnailUrl,
           placeholder: _buildPlaceholder(colorScheme),
           fit: BoxFit.cover,
           width: 48,
           height: 48,
-          targetDisplaySize: ImageTargetSizes.medium,
+          variant: RadioCoverVariant.compact,
         ),
       ),
     );

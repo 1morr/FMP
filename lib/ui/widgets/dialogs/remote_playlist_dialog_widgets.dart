@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/ui_constants.dart';
-import '../../../core/services/image_loading_service.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
+import '../playlist_cover_image.dart';
 import '../track_thumbnail.dart';
 
 class RemotePlaylistDialogHeader extends StatelessWidget {
@@ -180,13 +180,13 @@ class RemotePlaylistListTile extends StatelessWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: imageUrl != null
-            ? ImageLoadingService.loadImage(
+            ? PlaylistCoverImage(
                 networkUrl: imageUrl,
                 placeholder: Icon(fallbackIcon, color: colorScheme.outline),
                 width: 40,
                 height: 40,
                 fit: BoxFit.cover,
-                targetDisplaySize: ImageTargetSizes.medium,
+                variant: PlaylistCoverVariant.compact,
               )
             : Icon(fallbackIcon, color: colorScheme.outline),
       ),

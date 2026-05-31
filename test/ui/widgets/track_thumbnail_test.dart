@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fmp/core/constants/ui_constants.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/ui/widgets/track_thumbnail.dart';
 
@@ -178,7 +177,6 @@ void main() {
                 width: 320,
                 child: TrackCover(
                   track: track,
-                  targetDisplaySize: ImageTargetSizes.medium,
                 ),
               ),
             ),
@@ -205,7 +203,6 @@ void main() {
                 child: TrackCover(
                   track: track,
                   aspectRatio: 1.0,
-                  targetDisplaySize: ImageTargetSizes.medium,
                 ),
               ),
             ),
@@ -224,9 +221,7 @@ void main() {
             home: Scaffold(
               body: SizedBox(
                 width: 320,
-                child: const TrackCover(
-                  targetDisplaySize: ImageTargetSizes.medium,
-                ),
+                child: const TrackCover(),
               ),
             ),
           ),
@@ -252,7 +247,6 @@ void main() {
                 child: TrackCover(
                   track: track,
                   networkUrl: 'https://example.com/custom.jpg',
-                  targetDisplaySize: ImageTargetSizes.medium,
                 ),
               ),
             ),
@@ -273,7 +267,6 @@ void main() {
                 width: 320,
                 child: const TrackCover(
                   borderRadius: 24,
-                  targetDisplaySize: ImageTargetSizes.medium,
                 ),
               ),
             ),

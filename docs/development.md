@@ -159,7 +159,9 @@ dart run slang
 
 - UI 代码调用 `AudioController`，不要直接调用平台音频 service。
 - 修改 Isar collection 或注册 schema 时，需要检查迁移/default repair 和数据库查看器。
-- UI 图片加载应使用 `TrackThumbnail`、`TrackCover` 或 `ImageLoadingService`。
+- UI 图片加载应使用语义图片组件，例如 `TrackThumbnail`、`TrackCover`、
+  `PlaylistCoverImage`、`RadioCoverImage`、`RecentPlayCoverImage` 或
+  `AvatarImage`。
 - 公共 track actions 应走 `TrackActionCoordinator` 和共享 menu builders。
 - 文件系统 `FutureProvider` 数据源被修改后必须 invalidate。
 - 列表/网格重复项应使用稳定 key。

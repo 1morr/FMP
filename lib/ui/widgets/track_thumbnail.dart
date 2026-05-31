@@ -133,13 +133,33 @@ class TrackThumbnail extends ConsumerWidget {
   }
 }
 
+/// 大封面显示场景。
+enum TrackCoverVariant {
+  /// 播放器模糊背景，使用中等图片源尺寸避免无意义的大图解码。
+  backdrop,
+
+  /// 播放器、Detail Panel 等大图场景。
+  hero,
+}
+
+extension TrackCoverVariantTarget on TrackCoverVariant {
+  double get targetDisplaySize {
+    switch (this) {
+      case TrackCoverVariant.backdrop:
+        return ImageTargetSizes.medium;
+      case TrackCoverVariant.hero:
+        return ImageTargetSizes.highest;
+    }
+  }
+}
+
 /// 大尺寸封面图片组件（用于播放页面等）
 ///
 /// 与 TrackThumbnail 类似，但支持：
 /// - 更大的尺寸
 /// - 16:9 宽高比
 /// - 加载指示器
-/// - 显式图片源尺寸
+/// - 语义化图片源尺寸
 class TrackCover extends ConsumerWidget {
   /// 歌曲数据
   final Track? track;
@@ -156,8 +176,8 @@ class TrackCover extends ConsumerWidget {
   /// 是否显示加载指示器
   final bool showLoadingIndicator;
 
-  /// 图片源和缓存目标尺寸。
-  final double targetDisplaySize;
+  /// 图片显示场景，用于选择图片源和缓存目标尺寸。
+  final TrackCoverVariant variant;
 
   const TrackCover({
     super.key,
@@ -166,8 +186,26 @@ class TrackCover extends ConsumerWidget {
     this.aspectRatio = 16 / 9,
     this.borderRadius = 16,
     this.showLoadingIndicator = true,
-    required this.targetDisplaySize,
+    this.variant = TrackCoverVariant.hero,
   });
+
+  static List<ImageProvider> imageProviderCandidates({
+    required BuildContext context,
+    String? localPath,
+    String? networkUrl,
+    double? width,
+    double? height,
+    TrackCoverVariant variant = TrackCoverVariant.hero,
+  }) {
+    return ImageLoadingService.imageProviderCandidates(
+      context: context,
+      localPath: localPath,
+      networkUrl: networkUrl,
+      width: width,
+      height: height,
+      targetDisplaySize: variant.targetDisplaySize,
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -214,7 +252,7 @@ class TrackCover extends ConsumerWidget {
       placeholder: placeholder,
       fit: BoxFit.cover,
       showLoadingIndicator: showLoadingIndicator,
-      targetDisplaySize: targetDisplaySize,
+      targetDisplaySize: variant.targetDisplaySize,
     );
   }
 

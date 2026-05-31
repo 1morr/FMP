@@ -8,6 +8,7 @@ import '../../../../data/models/playlist.dart';
 import '../../../../providers/playlist_provider.dart';
 import '../../../../services/library/playlist_service.dart';
 import '../../../../i18n/strings.g.dart';
+import '../../../widgets/playlist_cover_image.dart';
 import 'cover_picker_dialog.dart';
 
 /// 创建/编辑歌单对话框
@@ -70,7 +71,9 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(isEditing ? t.library.createPlaylist.editTitle : t.library.createPlaylist.createTitle),
+      title: Text(isEditing
+          ? t.library.createPlaylist.editTitle
+          : t.library.createPlaylist.createTitle),
       contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
       content: ConstrainedBox(
         constraints: const BoxConstraints(
@@ -78,65 +81,67 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
           maxWidth: 500,
         ),
         child: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // 封面選擇區域（僅編輯模式顯示）
-              if (isEditing) ...[
-                _buildCoverSection(context),
-                const SizedBox(height: 16),
-              ],
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 封面選擇區域（僅編輯模式顯示）
+                if (isEditing) ...[
+                  _buildCoverSection(context),
+                  const SizedBox(height: 16),
+                ],
 
-              TextFormField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  labelText: t.library.createPlaylist.nameLabel,
-                  hintText: t.library.createPlaylist.nameHint,
-                ),
-                autofocus: !isEditing,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return t.library.createPlaylist.nameRequired;
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _descriptionController,
-                decoration: InputDecoration(
-                  labelText: t.library.createPlaylist.descLabel,
-                  hintText: t.library.createPlaylist.descHint,
-                ),
-                maxLines: 3,
-              ),
-
-              // 自動刷新設置（僅對導入的歌單顯示）
-              if (isEditing && widget.playlist!.isImported && !widget.playlist!.isMix) ...[
-                const SizedBox(height: 24),
-                const Divider(),
-                const SizedBox(height: 16),
-                _buildAutoRefreshSection(context),
-                const SizedBox(height: 8),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(t.library.createPlaylist.useAuthForRefresh),
-                  subtitle: Text(
-                    t.library.createPlaylist.useAuthForRefreshHint,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.outline,
-                        ),
+                TextFormField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    labelText: t.library.createPlaylist.nameLabel,
+                    hintText: t.library.createPlaylist.nameHint,
                   ),
-                  value: _useAuthForRefresh,
-                  onChanged: (v) => setState(() => _useAuthForRefresh = v),
+                  autofocus: !isEditing,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return t.library.createPlaylist.nameRequired;
+                    }
+                    return null;
+                  },
                 ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _descriptionController,
+                  decoration: InputDecoration(
+                    labelText: t.library.createPlaylist.descLabel,
+                    hintText: t.library.createPlaylist.descHint,
+                  ),
+                  maxLines: 3,
+                ),
+
+                // 自動刷新設置（僅對導入的歌單顯示）
+                if (isEditing &&
+                    widget.playlist!.isImported &&
+                    !widget.playlist!.isMix) ...[
+                  const SizedBox(height: 24),
+                  const Divider(),
+                  const SizedBox(height: 16),
+                  _buildAutoRefreshSection(context),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(t.library.createPlaylist.useAuthForRefresh),
+                    subtitle: Text(
+                      t.library.createPlaylist.useAuthForRefreshHint,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.outline,
+                          ),
+                    ),
+                    value: _useAuthForRefresh,
+                    onChanged: (v) => setState(() => _useAuthForRefresh = v),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
         ),
       ),
       actions: [
@@ -152,7 +157,9 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : Text(isEditing ? t.library.createPlaylist.save : t.library.createPlaylist.create),
+              : Text(isEditing
+                  ? t.library.createPlaylist.save
+                  : t.library.createPlaylist.create),
         ),
       ],
     );
@@ -183,7 +190,8 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
             height: 120,
             decoration: BoxDecoration(
               borderRadius: AppRadius.borderRadiusMd,
-              border: Border.all(color: colorScheme.outline.withValues(alpha: 0.5)),
+              border:
+                  Border.all(color: colorScheme.outline.withValues(alpha: 0.5)),
             ),
             child: Row(
               children: [
@@ -226,10 +234,13 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          _customCoverUrl != null ? t.library.createPlaylist.usingCustomCover : t.library.createPlaylist.usingDefaultCover,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: colorScheme.outline,
-                              ),
+                          _customCoverUrl != null
+                              ? t.library.createPlaylist.usingCustomCover
+                              : t.library.createPlaylist.usingDefaultCover,
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.outline,
+                                  ),
                         ),
                       ],
                     ),
@@ -278,13 +289,21 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
             ),
             initialValue: _refreshIntervalHours,
             items: [
-              DropdownMenuItem(value: 1, child: Text(t.library.createPlaylist.interval1h)),
-              DropdownMenuItem(value: 6, child: Text(t.library.createPlaylist.interval6h)),
-              DropdownMenuItem(value: 12, child: Text(t.library.createPlaylist.interval12h)),
-              DropdownMenuItem(value: 24, child: Text(t.library.createPlaylist.interval24h)),
-              DropdownMenuItem(value: 48, child: Text(t.library.createPlaylist.interval48h)),
-              DropdownMenuItem(value: 72, child: Text(t.library.createPlaylist.interval72h)),
-              DropdownMenuItem(value: 168, child: Text(t.library.createPlaylist.interval1week)),
+              DropdownMenuItem(
+                  value: 1, child: Text(t.library.createPlaylist.interval1h)),
+              DropdownMenuItem(
+                  value: 6, child: Text(t.library.createPlaylist.interval6h)),
+              DropdownMenuItem(
+                  value: 12, child: Text(t.library.createPlaylist.interval12h)),
+              DropdownMenuItem(
+                  value: 24, child: Text(t.library.createPlaylist.interval24h)),
+              DropdownMenuItem(
+                  value: 48, child: Text(t.library.createPlaylist.interval48h)),
+              DropdownMenuItem(
+                  value: 72, child: Text(t.library.createPlaylist.interval72h)),
+              DropdownMenuItem(
+                  value: 168,
+                  child: Text(t.library.createPlaylist.interval1week)),
             ],
             onChanged: (value) {
               setState(() {
@@ -338,13 +357,13 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
   ) {
     // 如果有自定義封面，優先顯示
     if (customUrl != null && customUrl.isNotEmpty) {
-      return ImageLoadingService.loadImage(
+      return PlaylistCoverImage(
         networkUrl: customUrl,
         placeholder: const ImagePlaceholder.track(),
         fit: BoxFit.cover,
         width: 120,
         height: 120,
-        targetDisplaySize: ImageTargetSizes.medium,
+        variant: PlaylistCoverVariant.compact,
       );
     }
 
@@ -352,14 +371,14 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
     return coverAsync.when(
       skipLoadingOnReload: true,
       data: (coverData) => coverData.hasCover
-          ? ImageLoadingService.loadImage(
+          ? PlaylistCoverImage(
               localPath: coverData.localPath,
               networkUrl: coverData.networkUrl,
               placeholder: const ImagePlaceholder.track(),
               fit: BoxFit.cover,
               width: 120,
               height: 120,
-              targetDisplaySize: ImageTargetSizes.medium,
+              variant: PlaylistCoverVariant.compact,
             )
           : const ImagePlaceholder.track(),
       loading: () => const ImagePlaceholder.track(),
@@ -419,7 +438,8 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
         // 確定自動刷新設置
         int? refreshIntervalHours;
         if (widget.playlist!.isImported && !widget.playlist!.isMix) {
-          refreshIntervalHours = _autoRefreshEnabled ? _refreshIntervalHours : -1; // -1 表示禁用
+          refreshIntervalHours =
+              _autoRefreshEnabled ? _refreshIntervalHours : -1; // -1 表示禁用
         }
 
         final result = await notifier.updatePlaylist(
@@ -428,15 +448,17 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
           description: description.isEmpty ? null : description,
           coverUrl: coverUrl,
           refreshIntervalHours: refreshIntervalHours,
-          useAuthForRefresh: _useAuthForRefresh != (widget.playlist!.useAuthForRefresh)
-              ? _useAuthForRefresh
-              : null,
+          useAuthForRefresh:
+              _useAuthForRefresh != (widget.playlist!.useAuthForRefresh)
+                  ? _useAuthForRefresh
+                  : null,
         );
 
         if (mounted) {
           if (result != null) {
             Navigator.pop(context);
-            ToastService.success(context, t.library.createPlaylist.playlistUpdated);
+            ToastService.success(
+                context, t.library.createPlaylist.playlistUpdated);
 
             // 如果有需要手动移动的下载文件，显示提示
             if (result.needsManualFileMigration) {
@@ -447,7 +469,8 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
             }
           } else {
             final error = ref.read(playlistListProvider).error;
-            ToastService.error(context, error ?? t.library.createPlaylist.operationFailed);
+            ToastService.error(
+                context, error ?? t.library.createPlaylist.operationFailed);
           }
         }
       } else {
@@ -459,10 +482,12 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
         if (mounted) {
           if (playlist != null) {
             Navigator.pop(context);
-            ToastService.success(context, t.library.createPlaylist.playlistCreated);
+            ToastService.success(
+                context, t.library.createPlaylist.playlistCreated);
           } else {
             final error = ref.read(playlistListProvider).error;
-            ToastService.error(context, error ?? t.library.createPlaylist.operationFailed);
+            ToastService.error(
+                context, error ?? t.library.createPlaylist.operationFailed);
           }
         }
       }
@@ -494,7 +519,8 @@ class _CreatePlaylistDialogState extends ConsumerState<CreatePlaylistDialog> {
                 borderRadius: AppRadius.borderRadiusSm,
               ),
               child: SelectableText(
-                t.library.createPlaylist.oldNewPath(oldPath: oldFolder, newPath: newFolder),
+                t.library.createPlaylist
+                    .oldNewPath(oldPath: oldFolder, newPath: newFolder),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       fontFamily: 'monospace',
                     ),
