@@ -14,7 +14,7 @@ import '../../../services/download/download_path_sync_service.dart';
 import '../../../i18n/strings.g.dart';
 import '../../router.dart';
 import '../../widgets/error_display.dart';
-import '../../widgets/playlist_cover_image.dart';
+import '../../widgets/images/playlist_cover_image.dart';
 
 /// 已下载页面 - 显示分类网格
 class DownloadedPage extends ConsumerStatefulWidget {

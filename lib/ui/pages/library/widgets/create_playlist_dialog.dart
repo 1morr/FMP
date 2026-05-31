@@ -8,7 +8,7 @@ import '../../../../data/models/playlist.dart';
 import '../../../../providers/playlist_provider.dart';
 import '../../../../services/library/playlist_service.dart';
 import '../../../../i18n/strings.g.dart';
-import '../../../widgets/playlist_cover_image.dart';
+import '../../../widgets/images/playlist_cover_image.dart';
 import 'cover_picker_dialog.dart';
 
 /// 创建/编辑歌单对话框

@@ -14,7 +14,7 @@ import '../../handlers/track_action_coordinator.dart';
 import '../../handlers/track_action_handler.dart';
 import '../../handlers/track_action_menu.dart';
 import '../../widgets/context_menu_region.dart';
-import '../../widgets/track_thumbnail.dart';
+import '../../widgets/images/track_thumbnail.dart';
 import '../../../core/constants/ui_constants.dart';
 
 /// 播放历史页面

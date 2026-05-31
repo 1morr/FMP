@@ -11,7 +11,7 @@ import '../../../core/utils/number_format_utils.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../router.dart';
-import '../radio_cover_image.dart';
+import '../images/radio_cover_image.dart';
 
 /// 電台迷你播放器
 /// 顯示在頁面底部，展示當前播放的電台資訊和控制按鈕

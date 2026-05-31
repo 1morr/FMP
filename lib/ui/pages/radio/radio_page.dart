@@ -13,7 +13,7 @@ import '../../widgets/context_menu_region.dart';
 import '../../widgets/error_display.dart';
 import '../../widgets/now_playing_indicator.dart';
 import '../../widgets/radio/add_radio_dialog.dart';
-import '../../widgets/radio_cover_image.dart';
+import '../../widgets/images/radio_cover_image.dart';
 
 /// 电台页面
 class RadioPage extends ConsumerStatefulWidget {

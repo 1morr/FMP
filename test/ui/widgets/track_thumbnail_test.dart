@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/ui/widgets/track_thumbnail.dart';
+import 'package:fmp/ui/widgets/images/track_thumbnail.dart';
 
 void main() {
   group('TrackThumbnail', () {

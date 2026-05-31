@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../core/constants/ui_constants.dart';
-import '../../core/services/image_loading_service.dart';
+import '../../../core/constants/ui_constants.dart';
+import '../../../core/services/image_loading_service.dart';
 
 /// 歌单封面显示场景。
 enum PlaylistCoverVariant {

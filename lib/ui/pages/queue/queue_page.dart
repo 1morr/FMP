@@ -12,7 +12,7 @@ import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
 import '../../../i18n/strings.g.dart';
 import '../../widgets/error_display.dart';
-import '../../widgets/track_thumbnail.dart';
+import '../../widgets/images/track_thumbnail.dart';
 
 /// 播放队列页
 class QueuePage extends ConsumerStatefulWidget {

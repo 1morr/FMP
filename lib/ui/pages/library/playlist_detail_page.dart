@@ -21,11 +21,11 @@ import '../../../services/download/download_service.dart'
     show DownloadBatchAddSummary;
 import '../../widgets/error_display.dart';
 import '../../widgets/now_playing_indicator.dart';
-import '../../widgets/playlist_cover_image.dart';
+import '../../widgets/images/playlist_cover_image.dart';
 import '../../widgets/selection_mode_app_bar.dart';
 import '../../widgets/context_menu_region.dart';
 import '../../widgets/track_group/track_group.dart';
-import '../../widgets/track_thumbnail.dart';
+import '../../widgets/images/track_thumbnail.dart';
 import '../../widgets/vip_badge.dart';
 import '../../../providers/library_invalidation_coordinator.dart';
 import '../../../services/account/bilibili_favorites_service.dart';
