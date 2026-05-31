@@ -9,7 +9,7 @@ import '../../../i18n/strings.g.dart';
 import '../../../providers/account_provider.dart';
 import '../../../services/account/account_service.dart';
 import '../../router.dart';
-import '../../widgets/avatar_image.dart';
+import '../../widgets/images/avatar_image.dart';
 import 'widgets/account_playlists_sheet.dart';
 import 'widgets/account_radio_import_sheet.dart';
 

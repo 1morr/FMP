@@ -17,7 +17,7 @@ import '../../../services/library/playlist_service.dart';
 import '../../router.dart';
 import '../../widgets/context_menu_region.dart';
 import '../../widgets/error_display.dart';
-import '../../widgets/playlist_cover_image.dart';
+import '../../widgets/images/playlist_cover_image.dart';
 import '../../widgets/playlist_card_actions.dart';
 import '../../widgets/refresh_progress_indicator.dart';
 import 'widgets/create_playlist_dialog.dart';

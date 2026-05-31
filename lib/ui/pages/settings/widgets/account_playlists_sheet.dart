@@ -13,7 +13,7 @@ import '../../../../providers/import_playlist_provider.dart';
 import '../../../../providers/library_invalidation_coordinator.dart';
 import '../../../../providers/repository_providers.dart';
 import '../../../../services/import/import_service.dart';
-import '../../../widgets/playlist_cover_image.dart';
+import '../../../widgets/images/playlist_cover_image.dart';
 
 /// 帳號歌單列表項
 class _PlaylistItem {

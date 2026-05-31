@@ -6,7 +6,7 @@ import '../../../../core/services/toast_service.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../../../services/radio/radio_controller.dart';
 import '../../../../services/radio/radio_refresh_service.dart';
-import '../../../widgets/avatar_image.dart';
+import '../../../widgets/images/avatar_image.dart';
 
 /// 電台列表項（內部使用）
 class _RadioItem {

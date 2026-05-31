@@ -4,6 +4,8 @@ UI guidance for Flutter pages, widgets, layouts, and windows.
 
 ## Image Components
 
+Image components live under `lib/ui/widgets/images/`.
+
 - Song cover -> `TrackThumbnail` / `TrackCover`
 - Playlist cover -> `PlaylistCoverImage`
 - Radio/live cover -> `RadioCoverImage`

@@ -13,7 +13,7 @@ import '../../../providers/playlist_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../core/utils/number_format_utils.dart';
 import '../../../i18n/strings.g.dart';
-import '../../widgets/track_thumbnail.dart';
+import '../../widgets/images/track_thumbnail.dart';
 
 /// 显示导入预览弹窗
 Future<void> showImportPreviewDialog(

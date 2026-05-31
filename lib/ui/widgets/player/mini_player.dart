@@ -9,7 +9,7 @@ import '../../../data/models/play_queue.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../../providers/audio_player_selectors.dart';
 import '../../router.dart';
-import '../track_thumbnail.dart';
+import '../images/track_thumbnail.dart';
 import '../../../core/constants/ui_constants.dart';
 
 /// 迷你播放器
@@ -142,7 +142,7 @@ class _MiniPlayerProgressBarState extends ConsumerState<_MiniPlayerProgressBar> 
 
     // 显示的进度：拖动时显示拖动进度，否则显示实际播放进度
     final displayProgress = _isDragging ? _dragProgress : progress.clamp(0.0, 1.0);
-    
+
     // 是否应该展开：父组件悬停或正在拖动
     final isExpanded = widget.isParentHovering || _isDragging;
 

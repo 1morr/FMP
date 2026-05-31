@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/ui_constants.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
-import '../playlist_cover_image.dart';
-import '../track_thumbnail.dart';
+import '../images/playlist_cover_image.dart';
+import '../images/track_thumbnail.dart';
 
 class RemotePlaylistDialogHeader extends StatelessWidget {
   final String title;

@@ -13,8 +13,8 @@ import '../../../services/audio/audio_provider.dart';
 import '../../../services/platform/url_launcher_service.dart';
 import '../../../core/constants/ui_constants.dart';
 import '../../../services/radio/radio_controller.dart';
-import '../../widgets/avatar_image.dart';
-import '../../widgets/radio_cover_image.dart';
+import '../../widgets/images/avatar_image.dart';
+import '../../widgets/images/radio_cover_image.dart';
 
 /// 電台播放器頁面（全屏）
 class RadioPlayerPage extends ConsumerWidget {

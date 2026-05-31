@@ -11,7 +11,7 @@ import '../../../i18n/strings.g.dart';
 import '../../../providers/audio_settings_provider.dart';
 import '../../../providers/lyrics_provider.dart';
 import '../../../services/lyrics/lyrics_result.dart';
-import '../../widgets/track_thumbnail.dart';
+import '../../widgets/images/track_thumbnail.dart';
 
 /// 显示歌词搜索匹配 BottomSheet
 void showLyricsSearchSheet({

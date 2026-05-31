@@ -69,14 +69,15 @@ void main() {
       final radioPage =
           File('lib/ui/pages/radio/radio_page.dart').readAsStringSync();
       final trackThumbnail =
-          File('lib/ui/widgets/track_thumbnail.dart').readAsStringSync();
+          File('lib/ui/widgets/images/track_thumbnail.dart').readAsStringSync();
       final recentPlayCover =
-          File('lib/ui/widgets/recent_play_cover_image.dart')
+          File('lib/ui/widgets/images/recent_play_cover_image.dart')
               .readAsStringSync();
       final playlistCover =
-          File('lib/ui/widgets/playlist_cover_image.dart').readAsStringSync();
-      final radioCover =
-          File('lib/ui/widgets/radio_cover_image.dart').readAsStringSync();
+          File('lib/ui/widgets/images/playlist_cover_image.dart')
+              .readAsStringSync();
+      final radioCover = File('lib/ui/widgets/images/radio_cover_image.dart')
+          .readAsStringSync();
       final imageService = File('lib/core/services/image_loading_service.dart')
           .readAsStringSync();
       final radioMiniPlayer =
@@ -234,7 +235,7 @@ void main() {
     });
 
     test('avatar images use the shared AvatarImage widget', () {
-      final avatarWidget = File('lib/ui/widgets/avatar_image.dart');
+      final avatarWidget = File('lib/ui/widgets/images/avatar_image.dart');
       expect(avatarWidget.existsSync(), isTrue);
       final avatarSource = avatarWidget.readAsStringSync();
 
@@ -255,7 +256,7 @@ void main() {
 
       for (final file in files) {
         final normalizedPath = file.path.replaceAll('\\', '/');
-        if (normalizedPath.endsWith('/avatar_image.dart')) continue;
+        if (normalizedPath.endsWith('/images/avatar_image.dart')) continue;
 
         final source = file.readAsStringSync();
         if (source.contains('ImageLoadingService.loadAvatar(')) {
@@ -271,8 +272,9 @@ void main() {
     });
 
     test('playlist and radio covers use shared semantic image widgets', () {
-      final playlistWidget = File('lib/ui/widgets/playlist_cover_image.dart');
-      final radioWidget = File('lib/ui/widgets/radio_cover_image.dart');
+      final playlistWidget =
+          File('lib/ui/widgets/images/playlist_cover_image.dart');
+      final radioWidget = File('lib/ui/widgets/images/radio_cover_image.dart');
       expect(playlistWidget.existsSync(), isTrue);
       expect(radioWidget.existsSync(), isTrue);
 
@@ -293,10 +295,10 @@ void main() {
       );
 
       final allowedDirectLoadImage = <String>{
-        'lib/ui/widgets/playlist_cover_image.dart',
-        'lib/ui/widgets/radio_cover_image.dart',
-        'lib/ui/widgets/recent_play_cover_image.dart',
-        'lib/ui/widgets/track_thumbnail.dart',
+        'lib/ui/widgets/images/playlist_cover_image.dart',
+        'lib/ui/widgets/images/radio_cover_image.dart',
+        'lib/ui/widgets/images/recent_play_cover_image.dart',
+        'lib/ui/widgets/images/track_thumbnail.dart',
       };
       final directLoadImage = <String>[];
       final files = Directory('lib/ui')
@@ -348,14 +350,40 @@ void main() {
       }
     });
 
-    test('semantic image helpers are the only UI ImageLoadingService callers',
-        () {
-      final allowedCallers = <String>{
+    test('semantic image widgets live under widgets/images', () {
+      final imageWidgetPaths = <String>[
+        'lib/ui/widgets/images/avatar_image.dart',
+        'lib/ui/widgets/images/playlist_cover_image.dart',
+        'lib/ui/widgets/images/radio_cover_image.dart',
+        'lib/ui/widgets/images/recent_play_cover_image.dart',
+        'lib/ui/widgets/images/track_thumbnail.dart',
+      ];
+
+      for (final path in imageWidgetPaths) {
+        expect(File(path).existsSync(), isTrue, reason: path);
+      }
+
+      final rootImageWidgetPaths = <String>[
         'lib/ui/widgets/avatar_image.dart',
         'lib/ui/widgets/playlist_cover_image.dart',
         'lib/ui/widgets/radio_cover_image.dart',
         'lib/ui/widgets/recent_play_cover_image.dart',
         'lib/ui/widgets/track_thumbnail.dart',
+      ];
+
+      for (final path in rootImageWidgetPaths) {
+        expect(File(path).existsSync(), isFalse, reason: path);
+      }
+    });
+
+    test('semantic image helpers are the only UI ImageLoadingService callers',
+        () {
+      final allowedCallers = <String>{
+        'lib/ui/widgets/images/avatar_image.dart',
+        'lib/ui/widgets/images/playlist_cover_image.dart',
+        'lib/ui/widgets/images/radio_cover_image.dart',
+        'lib/ui/widgets/images/recent_play_cover_image.dart',
+        'lib/ui/widgets/images/track_thumbnail.dart',
       };
       final directCallers = <String>[];
       final files = Directory('lib/ui')
