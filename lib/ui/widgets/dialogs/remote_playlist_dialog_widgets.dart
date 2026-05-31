@@ -186,7 +186,7 @@ class RemotePlaylistListTile extends StatelessWidget {
                 width: 40,
                 height: 40,
                 fit: BoxFit.cover,
-                targetDisplaySize: 40,
+                targetDisplaySize: ImageTargetSizes.medium,
               )
             : Icon(fallbackIcon, color: colorScheme.outline),
       ),

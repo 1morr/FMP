@@ -174,9 +174,12 @@ class _RadioPageState extends ConsumerState<RadioPage> {
               value: 'delete',
               child: Row(
                 children: [
-                  Icon(Icons.delete, size: 20, color: Theme.of(context).colorScheme.error),
+                  Icon(Icons.delete,
+                      size: 20, color: Theme.of(context).colorScheme.error),
                   const SizedBox(width: 12),
-                  Text(t.radio.deleteStation, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  Text(t.radio.deleteStation,
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.error)),
                 ],
               ),
             ),
@@ -312,7 +315,8 @@ class _RadioPageState extends ConsumerState<RadioPage> {
             children: [
               ListTile(
                 leading: Icon(Icons.delete, color: colorScheme.error),
-                title: Text(t.radio.deleteStation, style: TextStyle(color: colorScheme.error)),
+                title: Text(t.radio.deleteStation,
+                    style: TextStyle(color: colorScheme.error)),
                 onTap: () {
                   Navigator.pop(context);
                   _showDeleteConfirm(context, station);
@@ -416,10 +420,26 @@ class _RadioStationCard extends StatelessWidget {
                                   BlendMode.multiply,
                                 )
                               : const ColorFilter.matrix(<double>[
-                                  0.2126, 0.7152, 0.0722, 0, 0,
-                                  0.2126, 0.7152, 0.0722, 0, 0,
-                                  0.2126, 0.7152, 0.0722, 0, 0,
-                                  0, 0, 0, 1, 0,
+                                  0.2126,
+                                  0.7152,
+                                  0.0722,
+                                  0,
+                                  0,
+                                  0.2126,
+                                  0.7152,
+                                  0.0722,
+                                  0,
+                                  0,
+                                  0.2126,
+                                  0.7152,
+                                  0.0722,
+                                  0,
+                                  0,
+                                  0,
+                                  0,
+                                  0,
+                                  1,
+                                  0,
                                 ]),
                           child: ImageLoadingService.loadImage(
                             networkUrl: station.thumbnailUrl,
@@ -427,6 +447,7 @@ class _RadioStationCard extends StatelessWidget {
                             fit: BoxFit.cover,
                             width: coverSize,
                             height: coverSize,
+                            targetDisplaySize: ImageTargetSizes.high,
                           ),
                         ),
                       ),
@@ -498,7 +519,9 @@ class _RadioStationCard extends StatelessWidget {
                   style: textTheme.titleSmall?.copyWith(
                     fontWeight: isPlaying ? FontWeight.bold : null,
                     color: isLive
-                        ? (isPlaying ? colorScheme.primary : colorScheme.onSurface)
+                        ? (isPlaying
+                            ? colorScheme.primary
+                            : colorScheme.onSurface)
                         : colorScheme.onSurfaceVariant,
                   ),
                   maxLines: 1,
@@ -595,10 +618,26 @@ class _ReorderableRadioStationCard extends StatelessWidget {
                                     BlendMode.multiply,
                                   )
                                 : const ColorFilter.matrix(<double>[
-                                    0.2126, 0.7152, 0.0722, 0, 0,
-                                    0.2126, 0.7152, 0.0722, 0, 0,
-                                    0.2126, 0.7152, 0.0722, 0, 0,
-                                    0, 0, 0, 1, 0,
+                                    0.2126,
+                                    0.7152,
+                                    0.0722,
+                                    0,
+                                    0,
+                                    0.2126,
+                                    0.7152,
+                                    0.0722,
+                                    0,
+                                    0,
+                                    0.2126,
+                                    0.7152,
+                                    0.0722,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    1,
+                                    0,
                                   ]),
                             child: ImageLoadingService.loadImage(
                               networkUrl: station.thumbnailUrl,
@@ -606,6 +645,7 @@ class _ReorderableRadioStationCard extends StatelessWidget {
                               fit: BoxFit.cover,
                               width: coverSize,
                               height: coverSize,
+                              targetDisplaySize: ImageTargetSizes.high,
                             ),
                           ),
                         ),
@@ -642,7 +682,8 @@ class _ReorderableRadioStationCard extends StatelessWidget {
                             child: Container(
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: colorScheme.primary.withValues(alpha: 0.4),
+                                color:
+                                    colorScheme.primary.withValues(alpha: 0.4),
                               ),
                               child: Center(
                                 child: isLoading
@@ -677,7 +718,9 @@ class _ReorderableRadioStationCard extends StatelessWidget {
                     style: textTheme.titleSmall?.copyWith(
                       fontWeight: isPlaying ? FontWeight.bold : null,
                       color: isLive
-                          ? (isPlaying ? colorScheme.primary : colorScheme.onSurface)
+                          ? (isPlaying
+                              ? colorScheme.primary
+                              : colorScheme.onSurface)
                           : colorScheme.onSurfaceVariant,
                     ),
                     maxLines: 1,

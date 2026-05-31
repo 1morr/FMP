@@ -424,7 +424,7 @@ class _AccountPlaylistsSheetState extends ConsumerState<AccountPlaylistsSheet> {
                 width: 40,
                 height: 40,
                 fit: BoxFit.cover,
-                targetDisplaySize: 40,
+                targetDisplaySize: ImageTargetSizes.medium,
               )
             : Icon(Icons.playlist_play, color: colorScheme.outline),
       ),

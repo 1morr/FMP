@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/ui_constants.dart';
 import '../../core/services/image_loading_service.dart';
 import '../../data/models/track.dart';
 import '../../providers/download/file_exists_cache.dart';
@@ -102,7 +103,7 @@ class TrackThumbnail extends ConsumerWidget {
       fit: BoxFit.cover,
       width: size,
       height: size,
-      targetDisplaySize: size,
+      targetDisplaySize: ImageTargetSizes.medium,
     );
   }
 
@@ -138,7 +139,7 @@ class TrackThumbnail extends ConsumerWidget {
 /// - 更大的尺寸
 /// - 16:9 宽高比
 /// - 加载指示器
-/// - 高清模式（用于背景图片）
+/// - 显式图片源尺寸
 class TrackCover extends ConsumerWidget {
   /// 歌曲数据
   final Track? track;
@@ -155,9 +156,8 @@ class TrackCover extends ConsumerWidget {
   /// 是否显示加载指示器
   final bool showLoadingIndicator;
 
-  /// 是否使用高清图片（用于背景等大尺寸显示）
-  /// 设为 true 时会请求 480px 分辨率的图片
-  final bool highResolution;
+  /// 图片源和缓存目标尺寸。
+  final double targetDisplaySize;
 
   const TrackCover({
     super.key,
@@ -166,7 +166,7 @@ class TrackCover extends ConsumerWidget {
     this.aspectRatio = 16 / 9,
     this.borderRadius = 16,
     this.showLoadingIndicator = true,
-    this.highResolution = false,
+    required this.targetDisplaySize,
   });
 
   @override
@@ -214,7 +214,7 @@ class TrackCover extends ConsumerWidget {
       placeholder: placeholder,
       fit: BoxFit.cover,
       showLoadingIndicator: showLoadingIndicator,
-      targetDisplaySize: highResolution ? 480.0 : 320.0,
+      targetDisplaySize: targetDisplaySize,
     );
   }
 

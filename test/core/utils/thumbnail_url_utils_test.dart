@@ -19,6 +19,17 @@ void main() {
     });
 
     group('Bilibili URL optimization', () {
+      test('does not optimize non-Bilibili hosts that mention Bilibili in path',
+          () {
+        const url = 'https://example.com/proxy/hdslb.com/image.jpg';
+        final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
+          url,
+          displaySize: 100,
+        );
+
+        expect(result, equals([url]));
+      });
+
       test('adds size suffix to Bilibili URL', () {
         const url = 'https://i0.hdslb.com/bfs/archive/test.jpg';
         final result = ThumbnailUrlUtils.getOptimizedUrl(url, displaySize: 100);
@@ -41,18 +52,40 @@ void main() {
         const url = 'https://i0.hdslb.com/bfs/archive/test.jpg';
 
         // Small display → small size
-        final small = ThumbnailUrlUtils.getOptimizedUrl(url,
-            displaySize: 50, devicePixelRatio: 1.0);
+        final small = ThumbnailUrlUtils.getOptimizedUrl(url, displaySize: 50);
         expect(small, contains('@200w.jpg'));
 
         // Large display → larger size
-        final large = ThumbnailUrlUtils.getOptimizedUrl(url,
-            displaySize: 500, devicePixelRatio: 1.0);
+        final large = ThumbnailUrlUtils.getOptimizedUrl(url, displaySize: 500);
         expect(large, contains('@640w.jpg'));
+      });
+
+      test('uses display size directly for URL candidate selection', () {
+        const url = 'https://i0.hdslb.com/bfs/archive/test.jpg';
+
+        final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
+          url,
+          displaySize: 200,
+        );
+
+        expect(
+            result.first, 'https://i0.hdslb.com/bfs/archive/test.jpg@200w.jpg');
       });
     });
 
     group('YouTube URL optimization', () {
+      test('does not optimize non-YouTube hosts that mention ytimg in path',
+          () {
+        const url =
+            'https://example.com/proxy/i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg';
+        final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
+          url,
+          displaySize: 480,
+        );
+
+        expect(result, equals([url]));
+      });
+
       test('optimizes ytimg.com thumbnail', () {
         const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg';
         final result = ThumbnailUrlUtils.getOptimizedUrl(url, displaySize: 100);
@@ -78,15 +111,14 @@ void main() {
         expect(result, contains('.jpg'));
       });
 
-      test('upscales mqdefault to maxresdefault for large displays', () {
+      test('upscales mqdefault to maxresdefault for large source targets', () {
         const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg';
         final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           url,
-          displaySize: 300,
-          devicePixelRatio: 2.0,
+          displaySize: 720,
         );
 
-        // displaySize=300*2=600 → targetSize=600 → maxresdefault
+        // displaySize=720 → targetSize=720 → maxresdefault
         // 原始为 mqdefault，仅生成 16:9 候选 [maxresdefault, 原始 mqdefault]
         expect(
             result,
@@ -96,13 +128,26 @@ void main() {
             ]));
       });
 
+      test('uses maxresdefault when caller requests a large source target', () {
+        const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg';
+
+        final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
+          url,
+          displaySize: 720,
+        );
+
+        expect(
+          result.first,
+          'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
+        );
+      });
+
       test('dedupes youtube candidates when optimized url matches original',
           () {
         const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg';
         final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           url,
           displaySize: 100,
-          devicePixelRatio: 1.0,
         );
 
         expect(
@@ -119,7 +164,6 @@ void main() {
         final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           url,
           displaySize: 48,
-          devicePixelRatio: 1.0,
         );
 
         // displaySize=48, targetSize=48 → mqdefault (≤360)
@@ -136,11 +180,10 @@ void main() {
         const url = 'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg';
         final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           url,
-          displaySize: 200,
-          devicePixelRatio: 2.0,
+          displaySize: 720,
         );
 
-        // displaySize=200*2=400, targetSize=400 → maxresdefault (>360)
+        // displaySize=720, targetSize=720 → maxresdefault (>360)
         // desired == original → 仅原始 URL
         expect(
             result,
@@ -156,10 +199,9 @@ void main() {
         final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           url,
           displaySize: 480,
-          devicePixelRatio: 2.0,
         );
 
-        // displaySize=480*2=960, targetSize=960 -> maxresdefault.
+        // displaySize=480, targetSize=480 -> maxresdefault.
         // hqdefault is 4:3 and can contain black bars, so it must not be
         // used as a display fallback.
         expect(
@@ -175,7 +217,6 @@ void main() {
         final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           url,
           displaySize: 48,
-          devicePixelRatio: 1.0,
         );
 
         // displaySize=48 -> mqdefault. sddefault is 4:3 and can contain
@@ -200,7 +241,6 @@ void main() {
           final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
             url,
             displaySize: 480,
-            devicePixelRatio: 2.0,
           );
 
           expect(result, isNot(contains(url)), reason: url);
@@ -212,6 +252,17 @@ void main() {
     });
 
     group('Netease URL optimization', () {
+      test('does not optimize non-Netease hosts that mention music.126.net',
+          () {
+        const url = 'https://example.com/proxy/music.126.net/cover.jpg';
+        final result = ThumbnailUrlUtils.getOptimizedUrlCandidates(
+          url,
+          displaySize: 100,
+        );
+
+        expect(result, equals([url]));
+      });
+
       test('adds param suffix to Netease URL', () {
         const url = 'https://p1.music.126.net/xxx/xxx.jpg';
         final result = ThumbnailUrlUtils.getOptimizedUrl(url, displaySize: 100);

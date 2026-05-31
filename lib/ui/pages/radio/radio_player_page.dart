@@ -14,6 +14,7 @@ import '../../../services/audio/audio_provider.dart';
 import '../../../services/platform/url_launcher_service.dart';
 import '../../../core/constants/ui_constants.dart';
 import '../../../services/radio/radio_controller.dart';
+import '../../widgets/avatar_image.dart';
 
 /// 電台播放器頁面（全屏）
 class RadioPlayerPage extends ConsumerWidget {
@@ -179,7 +180,7 @@ class RadioPlayerPage extends ConsumerWidget {
           networkUrl: station.thumbnailUrl,
           placeholder: _buildCoverPlaceholder(colorScheme),
           fit: BoxFit.cover,
-          targetDisplaySize: 480, // 高清封面
+          targetDisplaySize: ImageTargetSizes.highest,
         ),
       ),
     );
@@ -727,7 +728,7 @@ class _LiveInfoDialogState extends State<_LiveInfoDialog> {
                                         : null,
                                     child: Row(
                                       children: [
-                                        ImageLoadingService.loadAvatar(
+                                        AvatarImage(
                                           networkUrl: station.hostAvatarUrl,
                                           size: 40,
                                         ),

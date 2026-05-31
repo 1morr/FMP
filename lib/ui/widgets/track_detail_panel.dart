@@ -24,6 +24,7 @@ import '../../services/audio/audio_provider.dart';
 import '../../services/platform/url_launcher_service.dart';
 import '../../services/radio/radio_controller.dart';
 import '../../data/models/radio_station.dart';
+import 'avatar_image.dart';
 import 'track_thumbnail.dart';
 import 'vip_badge.dart';
 import 'lyrics_display.dart';
@@ -697,7 +698,7 @@ class _TrackDetailPanelState extends ConsumerState<TrackDetailPanel> {
                 track: track,
                 aspectRatio: 1,
                 borderRadius: 0,
-                highResolution: true,
+                targetDisplaySize: ImageTargetSizes.highest,
               ),
             ),
           ),
@@ -856,7 +857,7 @@ class _DetailContentState extends ConsumerState<_DetailContent> {
           // 網易雲：歌手頭像 + 歌手名 + 發布時間
           Row(
             children: [
-              ImageLoadingService.loadAvatar(
+              AvatarImage(
                 networkUrl: widget.detail.ownerFace.isNotEmpty
                     ? widget.detail.ownerFace
                     : null,
@@ -1268,7 +1269,7 @@ class _ClickableCoverState extends State<_ClickableCover> {
                   networkUrl: widget.detail.coverUrl,
                   aspectRatio: _aspectRatio,
                   borderRadius: 0,
-                  highResolution: true,
+                  targetDisplaySize: ImageTargetSizes.highest,
                 ),
                 // 时长标签
                 Positioned(
@@ -1358,7 +1359,7 @@ class _ClickableAvatar extends StatelessWidget {
               width: 1,
             ),
           ),
-          child: ImageLoadingService.loadAvatar(
+          child: AvatarImage(
             localPath: localAvatarPath,
             networkUrl: detail.ownerFace.isNotEmpty ? detail.ownerFace : null,
             size: 32,
@@ -2064,7 +2065,7 @@ class _RadioClickableCoverState extends State<_RadioClickableCover> {
     final imageProvider = await ImageLoadingService.precacheImageCandidates(
       context: context,
       networkUrl: url,
-      targetDisplaySize: 480,
+      targetDisplaySize: ImageTargetSizes.highest,
       headers: SourceHttpPolicy.bilibiliLiveHeaders(),
     );
 
@@ -2093,7 +2094,7 @@ class _RadioClickableCoverState extends State<_RadioClickableCover> {
                   networkUrl: widget.station.thumbnailUrl,
                   placeholder: _buildCoverPlaceholder(context),
                   fit: BoxFit.cover,
-                  targetDisplaySize: 480, // 高清背景
+                  targetDisplaySize: ImageTargetSizes.highest, // 高清背景
                 ),
                 // LIVE 标签 - 仅在图片加载完成且正在播放时显示
                 if (_isImageLoaded && widget.isPlaying)
@@ -2206,30 +2207,13 @@ class _RadioClickableAvatar extends StatelessWidget {
             child: SizedBox(
               width: 32,
               height: 32,
-              child: ImageLoadingService.loadImage(
+              child: AvatarImage(
                 networkUrl: hostAvatarUrl,
-                placeholder: _buildPlaceholder(context),
-                fit: BoxFit.cover,
-                width: 32,
-                height: 32,
+                size: 32,
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildPlaceholder(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      width: 32,
-      height: 32,
-      color: colorScheme.surfaceContainerHighest,
-      child: Icon(
-        Icons.person,
-        size: 19,
-        color: colorScheme.onSurfaceVariant,
       ),
     );
   }

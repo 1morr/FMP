@@ -18,19 +18,16 @@ class ThumbnailUrlUtils {
   /// 获取适合显示尺寸的缩略图 URL
   ///
   /// [url] 原始图片 URL
-  /// [displaySize] 显示尺寸（像素），用于选择合适的缩略图
-  /// [devicePixelRatio] 设备像素比，默认 2.0（考虑高清屏）
+  /// [displaySize] 目标图片源尺寸，用于选择合适的缩略图
   ///
   /// 返回优化后的 URL，如果无法优化则返回原 URL
   static String getOptimizedUrl(
     String? url, {
     double? displaySize,
-    double devicePixelRatio = 2.0,
   }) {
     final candidates = getOptimizedUrlCandidates(
       url,
       displaySize: displaySize,
-      devicePixelRatio: devicePixelRatio,
     );
     return candidates.isNotEmpty ? candidates.first : '';
   }
@@ -41,14 +38,11 @@ class ThumbnailUrlUtils {
   static List<String> getOptimizedUrlCandidates(
     String? url, {
     double? displaySize,
-    double devicePixelRatio = 2.0,
   }) {
     if (url == null || url.isEmpty) return const [];
 
-    // 计算实际需要的像素尺寸
-    final targetSize = displaySize != null
-        ? (displaySize * devicePixelRatio).toInt()
-        : mediumSize * devicePixelRatio.toInt();
+    // URL 候选由调用场景直接传入目标源尺寸决定。
+    final targetSize = displaySize?.toInt() ?? mediumSize;
 
     final candidates = <String>[];
 
@@ -63,7 +57,8 @@ class ThumbnailUrlUtils {
       for (final candidate in _optimizeBilibiliUrlCandidates(url, targetSize)) {
         addCandidate(candidate);
       }
-    } else if (_isYouTubeUrl(url) && url.contains('ytimg.com')) {
+    } else if (_isYouTubeUrl(url) &&
+        _isHostOrSubdomain(_hostOf(url), 'ytimg.com')) {
       // YouTube 视频缩略图：生成从高到低多级质量候选，逐级回退
       for (final candidate
           in _optimizeYouTubeThumbnailCandidates(url, targetSize)) {
@@ -79,7 +74,7 @@ class ThumbnailUrlUtils {
 
     // 最后回退到原始 URL。YouTube 的 default/hqdefault/sddefault 是 4:3
     // 档位，常带黑边；用户界面只显示 16:9 候选，避免任何黑边封面。
-    if (!_isYouTubeBlackBarThumbnail(url)) {
+    if (!(_isYouTubeUrl(url) && _isYouTubeBlackBarThumbnail(url))) {
       addCandidate(url);
     }
     return candidates;
@@ -87,14 +82,17 @@ class ThumbnailUrlUtils {
 
   /// 检查是否为 Bilibili 图片 URL
   static bool _isBilibiliUrl(String url) {
-    return url.contains('hdslb.com') || url.contains('bilibili.com');
+    final host = _hostOf(url);
+    return _isHostOrSubdomain(host, 'hdslb.com') ||
+        _isHostOrSubdomain(host, 'bilibili.com');
   }
 
   /// 检查是否为 YouTube 图片 URL
   static bool _isYouTubeUrl(String url) {
-    return url.contains('ytimg.com') ||
-        url.contains('ggpht.com') ||
-        url.contains('googleusercontent.com');
+    final host = _hostOf(url);
+    return _isHostOrSubdomain(host, 'ytimg.com') ||
+        _isHostOrSubdomain(host, 'ggpht.com') ||
+        _isHostOrSubdomain(host, 'googleusercontent.com');
   }
 
   static bool _isYouTubeBlackBarThumbnail(String url) {
@@ -157,12 +155,14 @@ class ThumbnailUrlUtils {
   /// - https://yt3.ggpht.com/xxx=s{size}-c-k-c0x00ffffff-no-rj
   static String _optimizeYouTubeUrl(String url, int targetSize) {
     // 处理视频缩略图
-    if (url.contains('ytimg.com')) {
+    if (_isHostOrSubdomain(_hostOf(url), 'ytimg.com')) {
       return _optimizeYouTubeThumbnail(url, targetSize);
     }
 
     // 处理频道头像
-    if (url.contains('ggpht.com') || url.contains('googleusercontent.com')) {
+    final host = _hostOf(url);
+    if (_isHostOrSubdomain(host, 'ggpht.com') ||
+        _isHostOrSubdomain(host, 'googleusercontent.com')) {
       return _optimizeYouTubeAvatar(url, targetSize);
     }
 
@@ -200,7 +200,7 @@ class ThumbnailUrlUtils {
 
     if (originalIdx < 0) {
       // 原始 URL 不是 16:9 档位（如 hqdefault/sddefault）：
-      // 从期望档位向下生成所有 16:9 候选，原始 URL 作为最终回退
+      // 从期望档位向下生成所有 16:9 候选，原始 URL 不作为回退。
       for (int i = desiredIdx; i < qualityOrder.length; i++) {
         final candidate = _buildYouTubeThumbnailUrl(url, qualityOrder[i]);
         if (candidate.isNotEmpty) candidates.add(candidate);
@@ -271,7 +271,7 @@ class ThumbnailUrlUtils {
     }
 
     // 如果没有尺寸参数，尝试添加
-    if (url.contains('ggpht.com') && !url.contains('=s')) {
+    if (_isHostOrSubdomain(_hostOf(url), 'ggpht.com') && !url.contains('=s')) {
       return '$url=s$size';
     }
 
@@ -304,7 +304,7 @@ class ThumbnailUrlUtils {
 
   /// 检查是否为网易云图片 URL
   static bool _isNeteaseUrl(String url) {
-    return url.contains('music.126.net');
+    return _isHostOrSubdomain(_hostOf(url), 'music.126.net');
   }
 
   /// 选择网易云合适的尺寸档位
@@ -332,5 +332,12 @@ class ThumbnailUrlUtils {
       }
     }
     return candidates;
+  }
+
+  static String? _hostOf(String url) => Uri.tryParse(url)?.host.toLowerCase();
+
+  static bool _isHostOrSubdomain(String? host, String domain) {
+    if (host == null || host.isEmpty) return false;
+    return host == domain || host.endsWith('.$domain');
   }
 }

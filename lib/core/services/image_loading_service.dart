@@ -56,10 +56,9 @@ class ImageLoadingService {
   /// [networkUrl] 网络图片 URL
   /// [placeholder] 自定义占位符 Widget
   /// [fit] 图片填充模式
-  /// [width] 宽度
-  /// [height] 高度
-  /// [targetDisplaySize] 用于 URL 优化的目标显示尺寸（覆盖 width/height）
-  ///                     设置为较大值（如 480、720）可获取高清图片
+  /// [width] 宽度，仅控制显示布局
+  /// [height] 高度，仅控制显示布局
+  /// [targetDisplaySize] 图片源和缓存目标尺寸；不会从 width/height 推导
   /// [headers] 网络请求头（用于需要认证的图片）
   /// [showLoadingIndicator] 是否显示加载指示器
   /// [fadeInDuration] 淡入动画时长
@@ -70,7 +69,7 @@ class ImageLoadingService {
     BoxFit fit = BoxFit.cover,
     double? width,
     double? height,
-    double? targetDisplaySize,
+    required double targetDisplaySize,
     Map<String, String>? headers,
     bool showLoadingIndicator = false,
     Duration fadeInDuration = AnimationDurations.fast,
@@ -137,7 +136,7 @@ class ImageLoadingService {
     String? networkUrl,
     double? width,
     double? height,
-    double? targetDisplaySize,
+    required double targetDisplaySize,
     Map<String, String>? headers,
   }) {
     final providers = <ImageProvider>[];
@@ -155,18 +154,27 @@ class ImageLoadingService {
     }
 
     if (networkUrl != null && networkUrl.isNotEmpty) {
-      final displaySize = targetDisplaySize ?? width ?? height;
       final candidateUrls = ThumbnailUrlUtils.getOptimizedUrlCandidates(
         networkUrl,
-        displaySize: displaySize,
+        displaySize: targetDisplaySize,
       );
 
       final effectiveHeaders = headers ?? _defaultImageHeaders(networkUrl);
+      final cacheExtent = _cacheExtent(
+        targetDisplaySize,
+        MediaQuery.devicePixelRatioOf(context),
+      );
 
       for (final url in candidateUrls) {
         providers.add(
           CachedNetworkImageProvider(
             url,
+            cacheKey: _networkImageCacheKey(
+              url,
+              cacheExtent: cacheExtent,
+            ),
+            maxWidth: cacheExtent,
+            maxHeight: cacheExtent,
             headers: effectiveHeaders,
             cacheManager: NetworkImageCacheService.defaultCacheManager,
           ),
@@ -184,7 +192,7 @@ class ImageLoadingService {
     String? networkUrl,
     double? width,
     double? height,
-    double? targetDisplaySize,
+    required double targetDisplaySize,
     Map<String, String>? headers,
   }) async {
     final candidates = imageProviderCandidates(
@@ -217,32 +225,34 @@ class ImageLoadingService {
     BoxFit fit = BoxFit.cover,
     double? width,
     double? height,
-    double? targetDisplaySize,
+    required double targetDisplaySize,
     Map<String, String>? headers,
     bool showLoadingIndicator = false,
     Duration fadeInDuration = AnimationDurations.fast,
   }) {
     if (networkUrl != null && networkUrl.isNotEmpty) {
-      // 根据显示尺寸优化 URL（优先使用 targetDisplaySize）
-      final displaySize = targetDisplaySize ?? width ?? height;
-      final candidateUrls = ThumbnailUrlUtils.getOptimizedUrlCandidates(
-        networkUrl,
-        displaySize: displaySize,
-      );
-
       // 未显式传入 headers 时，根据 URL 域名自动添加 Referer/Origin
       final effectiveHeaders = headers ?? _defaultImageHeaders(networkUrl);
 
-      return _CachedNetworkImage(
-        urls: candidateUrls,
-        fit: fit,
-        width: width,
-        height: height,
-        targetDisplaySize: targetDisplaySize,
-        headers: effectiveHeaders,
-        placeholder: placeholder,
-        showLoadingIndicator: showLoadingIndicator,
-        fadeInDuration: fadeInDuration,
+      return Builder(
+        builder: (context) {
+          final candidateUrls = ThumbnailUrlUtils.getOptimizedUrlCandidates(
+            networkUrl,
+            displaySize: targetDisplaySize,
+          );
+
+          return _CachedNetworkImage(
+            urls: candidateUrls,
+            fit: fit,
+            width: width,
+            height: height,
+            targetDisplaySize: targetDisplaySize,
+            headers: effectiveHeaders,
+            placeholder: placeholder,
+            showLoadingIndicator: showLoadingIndicator,
+            fadeInDuration: fadeInDuration,
+          );
+        },
       );
     }
 
@@ -256,10 +266,12 @@ class ImageLoadingService {
   /// [localPath] 本地头像路径
   /// [networkUrl] 网络头像 URL
   /// [size] 头像尺寸（直径）
+  /// [targetDisplaySize] 图片源和缓存目标尺寸；必须由调用方显式传入
   static Widget loadAvatar({
     String? localPath,
     String? networkUrl,
     double size = 40,
+    required double targetDisplaySize,
   }) {
     return Builder(
       builder: (context) {
@@ -284,6 +296,7 @@ class ImageLoadingService {
               fit: BoxFit.cover,
               width: size,
               height: size,
+              targetDisplaySize: targetDisplaySize,
             ),
           ),
         );
@@ -333,23 +346,23 @@ class ImageLoadingService {
     File file, {
     double? width,
     double? height,
-    double? targetDisplaySize,
+    required double targetDisplaySize,
   }) {
     final fileImage = FileImage(file);
     final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
-    final cacheWidth =
-        _cacheExtent(width ?? targetDisplaySize, devicePixelRatio);
-    final cacheHeight =
-        _cacheExtent(height ?? targetDisplaySize, devicePixelRatio);
-    if (cacheWidth == null && cacheHeight == null) {
-      return fileImage;
-    }
-    return ResizeImage(fileImage, width: cacheWidth, height: cacheHeight);
+    final cacheExtent = _cacheExtent(targetDisplaySize, devicePixelRatio);
+    return ResizeImage(fileImage, width: cacheExtent, height: cacheExtent);
   }
 
-  static int? _cacheExtent(double? logicalSize, double devicePixelRatio) {
-    if (logicalSize == null || logicalSize <= 0) return null;
+  static int _cacheExtent(double logicalSize, double devicePixelRatio) {
     return (logicalSize * devicePixelRatio).round().clamp(1, 8192).toInt();
+  }
+
+  static String? _networkImageCacheKey(
+    String url, {
+    required int cacheExtent,
+  }) {
+    return 'fmp_s${cacheExtent}_$url';
   }
 
   /// 根据图片 URL 域名返回默认的 Referer/Origin 请求头
@@ -536,7 +549,7 @@ class _CachedNetworkImage extends StatefulWidget {
   final BoxFit fit;
   final double? width;
   final double? height;
-  final double? targetDisplaySize;
+  final double targetDisplaySize;
   final Map<String, String>? headers;
   final Widget placeholder;
   final bool showLoadingIndicator;
@@ -547,7 +560,7 @@ class _CachedNetworkImage extends StatefulWidget {
     required this.fit,
     this.width,
     this.height,
-    this.targetDisplaySize,
+    required this.targetDisplaySize,
     this.headers,
     required this.placeholder,
     required this.showLoadingIndicator,
@@ -606,14 +619,14 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
 
     // 计算内存缓存尺寸（考虑设备像素比）
     final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
-    final displayWidth = widget.width ?? widget.targetDisplaySize;
-    final displayHeight = widget.height ?? widget.targetDisplaySize;
-    final memCacheWidth = displayWidth != null
-        ? (displayWidth * devicePixelRatio).round().clamp(1, 8192).toInt()
-        : null;
-    final memCacheHeight = displayHeight != null
-        ? (displayHeight * devicePixelRatio).round().clamp(1, 8192).toInt()
-        : null;
+    final memCacheExtent = (widget.targetDisplaySize * devicePixelRatio)
+        .round()
+        .clamp(1, 8192)
+        .toInt();
+    final cacheKey = ImageLoadingService._networkImageCacheKey(
+      _currentUrl,
+      cacheExtent: memCacheExtent,
+    );
 
     return CachedNetworkImage(
       imageUrl: _currentUrl,
@@ -621,15 +634,16 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
       width: widget.width,
       height: widget.height,
       httpHeaders: widget.headers,
+      cacheKey: cacheKey,
       cacheManager: NetworkImageCacheService.defaultCacheManager,
       fadeInDuration: widget.fadeInDuration,
       fadeOutDuration: AnimationDurations.fastest,
       // 限制内存缓存中的图片尺寸，减少内存占用
-      memCacheWidth: memCacheWidth,
-      memCacheHeight: memCacheHeight,
+      memCacheWidth: memCacheExtent,
+      memCacheHeight: memCacheExtent,
       // 限制磁盘缓存中的图片尺寸，减少磁盘占用
-      maxWidthDiskCache: memCacheWidth,
-      maxHeightDiskCache: memCacheHeight,
+      maxWidthDiskCache: memCacheExtent,
+      maxHeightDiskCache: memCacheExtent,
       placeholder: (context, url) => widget.showLoadingIndicator
           ? const Center(
               child: CircularProgressIndicator(strokeWidth: 2),
