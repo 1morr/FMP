@@ -82,7 +82,8 @@ class AppSizes {
 /// 图片源尺寸目标。
 ///
 /// 这些值用于选择 CDN 缩略图候选和缓存缩放边界，是图片源尺寸提示，
-/// 不是 720p 这类视频分辨率。
+/// 不是 720p 这类视频分辨率。UI 图片和下载的 metadata 图片共用这些
+/// 语义档位，避免显示与落盘图片使用不同的画质规则。
 class ImageTargetSizes {
   ImageTargetSizes._();
 

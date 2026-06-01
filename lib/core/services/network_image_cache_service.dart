@@ -8,25 +8,88 @@ import 'package:path/path.dart' as p;
 
 import '../constants/ui_constants.dart';
 
-/// 缓存文件信息（用于 Isolate 通信）
-class _CacheFileInfo {
+/// 缓存文件信息（用于 Isolate 通信和测试）
+class NetworkImageCacheFileInfo {
   final String path;
   final int size;
   final DateTime lastModified;
 
-  _CacheFileInfo({
+  const NetworkImageCacheFileInfo({
     required this.path,
     required this.size,
     required this.lastModified,
   });
 }
 
-/// Isolate 中执行的缓存扫描结果
-class _CacheScanResult {
+/// Isolate 中执行的缓存扫描结果。
+class NetworkImageCacheScanResult {
   final int totalSize;
-  final List<_CacheFileInfo> files;
+  final List<NetworkImageCacheFileInfo> files;
 
-  _CacheScanResult({required this.totalSize, required this.files});
+  const NetworkImageCacheScanResult({
+    required this.totalSize,
+    required this.files,
+  });
+}
+
+class NetworkImageCacheFileStore {
+  final Directory cacheDir;
+
+  NetworkImageCacheFileStore._(this.cacheDir);
+
+  factory NetworkImageCacheFileStore.forTesting(Directory cacheDir) {
+    return NetworkImageCacheFileStore._(cacheDir);
+  }
+
+  Future<bool> exists() => cacheDir.exists();
+
+  Future<NetworkImageCacheScanResult> scan() async {
+    if (!await cacheDir.exists()) {
+      return const NetworkImageCacheScanResult(totalSize: 0, files: []);
+    }
+    return compute(NetworkImageCacheService._scanCacheDirectory, cacheDir.path);
+  }
+
+  Future<int> calculateSize() async {
+    if (!await cacheDir.exists()) return 0;
+    return compute(
+      NetworkImageCacheService._calculateDirectorySize,
+      cacheDir.path,
+    );
+  }
+
+  Future<int> deleteOldestToFit(int maxSizeBytes) async {
+    final scanResult = await scan();
+    if (scanResult.totalSize <= maxSizeBytes) return scanResult.totalSize;
+
+    final filesToDelete = <String>[];
+    var deletedSize = 0;
+    final targetDeleteSize = scanResult.totalSize - maxSizeBytes;
+
+    for (final fileInfo in scanResult.files) {
+      if (deletedSize >= targetDeleteSize) break;
+      filesToDelete.add(fileInfo.path);
+      deletedSize += fileInfo.size;
+    }
+
+    if (filesToDelete.isNotEmpty) {
+      await compute(NetworkImageCacheService._deleteFiles, filesToDelete);
+    }
+    return scanResult.totalSize - deletedSize;
+  }
+
+  Future<void> clear() async {
+    if (!await cacheDir.exists()) return;
+    await for (final entity in cacheDir.list(recursive: true)) {
+      if (entity is File) {
+        try {
+          await entity.delete();
+        } catch (_) {
+          // 忽略单个文件删除失败
+        }
+      }
+    }
+  }
 }
 
 enum _TrimTiming {
@@ -200,19 +263,7 @@ class NetworkImageCacheService {
 
   static Future<void> _deleteCacheDirectoryFiles() async {
     try {
-      final cacheDir = await _getCacheDirectory();
-      if (await cacheDir.exists()) {
-        // 删除目录中的所有文件
-        await for (final entity in cacheDir.list(recursive: true)) {
-          if (entity is File) {
-            try {
-              await entity.delete();
-            } catch (_) {
-              // 忽略单个文件删除失败
-            }
-          }
-        }
-      }
+      await (await _getFileStore()).clear();
     } catch (_) {
       // 忽略目录访问错误
     }
@@ -229,13 +280,15 @@ class NetworkImageCacheService {
     return Directory(p.join(tempDir.path, _cacheKey));
   }
 
+  static Future<NetworkImageCacheFileStore> _getFileStore() async {
+    return NetworkImageCacheFileStore._(await _getCacheDirectory());
+  }
+
   /// 获取当前缓存大小（字节）
   /// 使用 compute 在后台执行，避免阻塞 UI
   static Future<int> getCacheSizeBytes() async {
     try {
-      final cacheDir = await _getCacheDirectory();
-      if (!await cacheDir.exists()) return 0;
-      return await compute(_calculateDirectorySize, cacheDir.path);
+      return await (await _getFileStore()).calculateSize();
     } catch (_) {
       return 0;
     }
@@ -272,34 +325,17 @@ class NetworkImageCacheService {
   /// 当缓存超过 [maxSizeMB] 时，删除最旧的文件直到缓存小于限制
   /// 使用 compute 在后台 Isolate 中执行，避免阻塞 UI
   static Future<void> trimCacheIfNeeded(int maxSizeMB) async {
-    final cacheDir = await _getCacheDirectory();
-    if (!await cacheDir.exists()) return;
+    final store = await _getFileStore();
+    if (!await store.exists()) return;
 
-    final cachePath = cacheDir.path;
     final maxSizeBytes = _megabytesToBytes(maxSizeMB);
+    final beforeSize = (await store.scan()).totalSize;
 
-    // 在后台 Isolate 中执行文件扫描
-    final scanResult = await compute(_scanCacheDirectory, cachePath);
+    if (beforeSize <= maxSizeBytes) return;
 
-    if (scanResult.totalSize <= maxSizeBytes) {
-      return; // 缓存未超限
-    }
-
-    // 按修改时间排序（最旧的在前）- 已在 Isolate 中排序
-    final filesToDelete = <String>[];
-    int deletedSize = 0;
-    final targetDeleteSize = scanResult.totalSize - maxSizeBytes;
-
-    for (final fileInfo in scanResult.files) {
-      if (deletedSize >= targetDeleteSize) break;
-      filesToDelete.add(fileInfo.path);
-      deletedSize += fileInfo.size;
-    }
-
-    // 在后台删除文件
-    if (filesToDelete.isNotEmpty) {
-      await compute(_deleteFiles, filesToDelete);
-      _markTrimmed(scanResult.totalSize - deletedSize);
+    final remainingSize = await store.deleteOldestToFit(maxSizeBytes);
+    if (remainingSize < beforeSize) {
+      _markTrimmed(remainingSize);
     }
   }
 
@@ -315,9 +351,11 @@ class NetworkImageCacheService {
   }
 
   /// 在 Isolate 中扫描缓存目录（一次遍历获取所有信息）
-  static Future<_CacheScanResult> _scanCacheDirectory(String dirPath) async {
+  static Future<NetworkImageCacheScanResult> _scanCacheDirectory(
+    String dirPath,
+  ) async {
     final dir = Directory(dirPath);
-    final files = <_CacheFileInfo>[];
+    final files = <NetworkImageCacheFileInfo>[];
     int totalSize = 0;
 
     try {
@@ -327,7 +365,7 @@ class NetworkImageCacheService {
             final stat = await entity.stat();
             final size = stat.size;
             totalSize += size;
-            files.add(_CacheFileInfo(
+            files.add(NetworkImageCacheFileInfo(
               path: entity.path,
               size: size,
               lastModified: stat.modified,
@@ -344,7 +382,7 @@ class NetworkImageCacheService {
       // 忽略目录访问错误
     }
 
-    return _CacheScanResult(totalSize: totalSize, files: files);
+    return NetworkImageCacheScanResult(totalSize: totalSize, files: files);
   }
 
   /// 在 Isolate 中删除文件

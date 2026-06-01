@@ -43,6 +43,13 @@ Image components live under `lib/ui/widgets/images/`.
   playlist/radio/recent-play cards, radio list pages, and library pages;
   `highest` is for player cover art, radio player cover art,
   playlist-detail backgrounds, and Detail Panel large images.
+- Image pipeline: semantic image widget -> `ImageLoadingService` -> local file,
+  then optimized network URL candidates with source-specific headers, then
+  placeholder. Network images use `NetworkImageCacheService` for shared memory
+  and disk cache management.
+- Downloaded metadata images use the same `ImageTargetSizes` semantics as UI:
+  covers use `high`, avatars use `low`. Do not introduce a separate download
+  image quality enum unless the product requirements actually diverge.
 - `ImageLoadingService` should use the current `MediaQuery.devicePixelRatio`
   for decode and disk-cache sizing only. URL candidate selection is controlled
   by the semantic widget's target size; use larger variants for covers and
