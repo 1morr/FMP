@@ -122,6 +122,9 @@ Radio distinguishes retained context from active ownership of the shared player:
 - `isRadioPlayingProvider` exposes active ownership
 - Home "Now Playing" uses retained context for tap actions
 - `RadioController.play()` must pause music before setting radio loading state
+- Timed live-status refresh is owned by `RadioRefreshService` and follows the
+  user-configured interval; UI pages should not create their own periodic
+  full-status refresh timers.
 
 Radio intentionally consumes the shared `audioServiceProvider` and calls the
 backend while ownership hooks keep `AudioController` from reacting to radio

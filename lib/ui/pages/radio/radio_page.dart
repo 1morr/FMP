@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
@@ -24,24 +22,7 @@ class RadioPage extends ConsumerStatefulWidget {
 }
 
 class _RadioPageState extends ConsumerState<RadioPage> {
-  Timer? _refreshTimer;
   bool _isSortMode = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // 每分钟自动刷新直播状态
-    _refreshTimer = Timer.periodic(
-      const Duration(minutes: 1),
-      (_) => ref.read(radioControllerProvider.notifier).refreshAllLiveStatus(),
-    );
-  }
-
-  @override
-  void dispose() {
-    _refreshTimer?.cancel();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {

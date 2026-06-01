@@ -61,11 +61,35 @@ void main() {
       expect(_stationOrder(tester), ['Alpha', 'Bravo', 'Charlie']);
     },
   );
+
+  testWidgets('RadioPage does not own a periodic status refresh timer',
+      (tester) async {
+    final controller = _CountingRefreshRadioController([
+      _buildStation(id: 1, title: 'Alpha', sortOrder: 0),
+    ]);
+
+    LocaleSettings.setLocale(AppLocale.en);
+
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: ProviderScope(
+          overrides: [
+            radioControllerProvider.overrideWith((ref) => controller),
+          ],
+          child: const MaterialApp(home: RadioPage()),
+        ),
+      ),
+    );
+
+    await tester.pump(const Duration(seconds: 61));
+
+    expect(controller.refreshAllLiveStatusCalls, 0);
+  });
 }
 
 class _FailingReorderRadioController extends RadioController {
   _FailingReorderRadioController(List<RadioStation> stations)
-    : super.forLoading() {
+      : super.forLoading() {
     state = RadioState(stations: stations);
   }
 
@@ -78,6 +102,20 @@ class _FailingReorderRadioController extends RadioController {
   @override
   void updateStationsOrder(List<RadioStation> orderedStations) {
     state = state.copyWith(stations: orderedStations);
+  }
+}
+
+class _CountingRefreshRadioController extends RadioController {
+  _CountingRefreshRadioController(List<RadioStation> stations)
+      : super.forLoading() {
+    state = RadioState(stations: stations);
+  }
+
+  int refreshAllLiveStatusCalls = 0;
+
+  @override
+  Future<void> refreshAllLiveStatus() async {
+    refreshAllLiveStatusCalls++;
   }
 }
 
@@ -96,9 +134,7 @@ RadioStation _buildStation({
 }
 
 bool _sortButtonIsLeftOfTitle(WidgetTester tester) {
-  final sortButtonRight = tester
-      .getTopRight(find.byIcon(Icons.swap_vert))
-      .dx;
+  final sortButtonRight = tester.getTopRight(find.byIcon(Icons.swap_vert)).dx;
   final titleLeft = tester.getTopLeft(find.text(t.radio.title)).dx;
   return sortButtonRight <= titleLeft;
 }

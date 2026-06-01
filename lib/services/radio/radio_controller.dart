@@ -856,11 +856,6 @@ class RadioController extends StateNotifier<RadioState> with Logging {
     try {
       // 使用 RadioRefreshService 進行刷新
       await RadioRefreshService.instance.refreshAll();
-
-      // 同步狀態
-      if (mounted) {
-        _syncLiveStatusFromRefreshService();
-      }
     } catch (e, stack) {
       logError('Failed to refresh all live status', e, stack);
     } finally {
