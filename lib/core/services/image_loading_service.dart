@@ -155,28 +155,21 @@ class ImageLoadingService {
     }
 
     if (networkUrl != null && networkUrl.isNotEmpty) {
-      final candidateUrls = ThumbnailUrlUtils.getOptimizedUrlCandidates(
-        networkUrl,
-        displaySize: targetDisplaySize,
+      final request = _NetworkImageRequest.from(
+        context: context,
+        networkUrl: networkUrl,
+        targetDisplaySize: targetDisplaySize,
+        headers: headers,
       );
 
-      final effectiveHeaders = headers ?? _defaultImageHeaders(networkUrl);
-      final cacheExtent = _cacheExtent(
-        targetDisplaySize,
-        MediaQuery.devicePixelRatioOf(context),
-      );
-
-      for (final url in candidateUrls) {
+      for (final url in request.urls) {
         providers.add(
           CachedNetworkImageProvider(
             url,
-            cacheKey: _networkImageCacheKey(
-              url,
-              cacheExtent: cacheExtent,
-            ),
-            maxWidth: cacheExtent,
-            maxHeight: cacheExtent,
-            headers: effectiveHeaders,
+            cacheKey: request.cacheKey(url),
+            maxWidth: request.cacheExtent,
+            maxHeight: request.cacheExtent,
+            headers: request.headers,
             cacheManager: NetworkImageCacheService.defaultCacheManager,
           ),
         );
@@ -232,23 +225,20 @@ class ImageLoadingService {
     Duration fadeInDuration = AnimationDurations.fast,
   }) {
     if (networkUrl != null && networkUrl.isNotEmpty) {
-      // 未显式传入 headers 时，根据 URL 域名自动添加 Referer/Origin
-      final effectiveHeaders = headers ?? _defaultImageHeaders(networkUrl);
-
       return Builder(
         builder: (context) {
-          final candidateUrls = ThumbnailUrlUtils.getOptimizedUrlCandidates(
-            networkUrl,
-            displaySize: targetDisplaySize,
+          final request = _NetworkImageRequest.from(
+            context: context,
+            networkUrl: networkUrl,
+            targetDisplaySize: targetDisplaySize,
+            headers: headers,
           );
 
           return _CachedNetworkImage(
-            urls: candidateUrls,
+            request: request,
             fit: fit,
             width: width,
             height: height,
-            targetDisplaySize: targetDisplaySize,
-            headers: effectiveHeaders,
             placeholder: placeholder,
             showLoadingIndicator: showLoadingIndicator,
             fadeInDuration: fadeInDuration,
@@ -372,6 +362,44 @@ class ImageLoadingService {
   /// 預設帶上對應平台的 Referer 以避免請求被拒絕。
   static Map<String, String>? _defaultImageHeaders(String url) {
     return SourceHttpPolicy.imageHeadersForUrl(url);
+  }
+}
+
+class _NetworkImageRequest {
+  final List<String> urls;
+  final int cacheExtent;
+  final Map<String, String>? headers;
+
+  const _NetworkImageRequest({
+    required this.urls,
+    required this.cacheExtent,
+    required this.headers,
+  });
+
+  factory _NetworkImageRequest.from({
+    required BuildContext context,
+    required String networkUrl,
+    required double targetDisplaySize,
+    Map<String, String>? headers,
+  }) {
+    return _NetworkImageRequest(
+      urls: ThumbnailUrlUtils.getOptimizedUrlCandidates(
+        networkUrl,
+        displaySize: targetDisplaySize,
+      ),
+      cacheExtent: ImageLoadingService._cacheExtent(
+        targetDisplaySize,
+        MediaQuery.devicePixelRatioOf(context),
+      ),
+      headers: headers ?? ImageLoadingService._defaultImageHeaders(networkUrl),
+    );
+  }
+
+  String? cacheKey(String url) {
+    return ImageLoadingService._networkImageCacheKey(
+      url,
+      cacheExtent: cacheExtent,
+    );
   }
 }
 
@@ -521,23 +549,19 @@ class _FadeInImageState extends State<_FadeInImage>
 /// 使用 StatefulWidget 确保 onImageLoaded() 只在首次加载时通知一次，
 /// 避免 widget rebuild 时重复触发缓存大小估算和清理检查。
 class _CachedNetworkImage extends StatefulWidget {
-  final List<String> urls;
+  final _NetworkImageRequest request;
   final BoxFit fit;
   final double? width;
   final double? height;
-  final double targetDisplaySize;
-  final Map<String, String>? headers;
   final Widget placeholder;
   final bool showLoadingIndicator;
   final Duration fadeInDuration;
 
   const _CachedNetworkImage({
-    required this.urls,
+    required this.request,
     required this.fit,
     this.width,
     this.height,
-    required this.targetDisplaySize,
-    this.headers,
     required this.placeholder,
     required this.showLoadingIndicator,
     required this.fadeInDuration,
@@ -553,17 +577,17 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
   bool _retryScheduled = false;
   int _urlIndex = 0;
 
-  String get _currentUrl => widget.urls[_urlIndex];
+  String get _currentUrl => widget.request.urls[_urlIndex];
 
   @override
   void didUpdateWidget(covariant _CachedNetworkImage oldWidget) {
     super.didUpdateWidget(oldWidget);
     // URL 候选变化时重置，允许新图片再次通知
-    if (!_sameUrlList(oldWidget.urls, widget.urls)) {
+    if (!_sameUrlList(oldWidget.request.urls, widget.request.urls)) {
       _notified = false;
       _retryScheduled = false;
       _urlIndex = 0;
-    } else if (_urlIndex >= widget.urls.length) {
+    } else if (_urlIndex >= widget.request.urls.length) {
       _retryScheduled = false;
       _urlIndex = 0;
     }
@@ -579,7 +603,7 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
   }
 
   void _advanceToNextUrl() {
-    if (_urlIndex >= widget.urls.length - 1) return;
+    if (_urlIndex >= widget.request.urls.length - 1) return;
     setState(() {
       _urlIndex += 1;
       _notified = false;
@@ -589,44 +613,33 @@ class _CachedNetworkImageState extends State<_CachedNetworkImage> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.urls.isEmpty) {
+    if (widget.request.urls.isEmpty) {
       return widget.placeholder;
     }
-
-    // 计算内存缓存尺寸（考虑设备像素比）
-    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
-    final memCacheExtent = (widget.targetDisplaySize * devicePixelRatio)
-        .round()
-        .clamp(1, 8192)
-        .toInt();
-    final cacheKey = ImageLoadingService._networkImageCacheKey(
-      _currentUrl,
-      cacheExtent: memCacheExtent,
-    );
 
     return CachedNetworkImage(
       imageUrl: _currentUrl,
       fit: widget.fit,
       width: widget.width,
       height: widget.height,
-      httpHeaders: widget.headers,
-      cacheKey: cacheKey,
+      httpHeaders: widget.request.headers,
+      cacheKey: widget.request.cacheKey(_currentUrl),
       cacheManager: NetworkImageCacheService.defaultCacheManager,
       fadeInDuration: widget.fadeInDuration,
       fadeOutDuration: AnimationDurations.fastest,
       // 限制内存缓存中的图片尺寸，减少内存占用
-      memCacheWidth: memCacheExtent,
-      memCacheHeight: memCacheExtent,
+      memCacheWidth: widget.request.cacheExtent,
+      memCacheHeight: widget.request.cacheExtent,
       // 限制磁盘缓存中的图片尺寸，减少磁盘占用
-      maxWidthDiskCache: memCacheExtent,
-      maxHeightDiskCache: memCacheExtent,
+      maxWidthDiskCache: widget.request.cacheExtent,
+      maxHeightDiskCache: widget.request.cacheExtent,
       placeholder: (context, url) => widget.showLoadingIndicator
           ? const Center(
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           : widget.placeholder,
       errorWidget: (context, url, error) {
-        if (_urlIndex < widget.urls.length - 1 && !_retryScheduled) {
+        if (_urlIndex < widget.request.urls.length - 1 && !_retryScheduled) {
           _retryScheduled = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {

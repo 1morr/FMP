@@ -480,10 +480,12 @@ void main() {
       expect(source, contains('MediaQuery.devicePixelRatioOf(context)'));
       expect(source, isNot(contains('_urlCandidateDevicePixelRatio')));
       expect(source, contains('_networkImageCacheKey'));
-      expect(source, contains('cacheExtent: memCacheExtent'));
+      expect(source, contains('class _NetworkImageRequest'));
+      expect(source, contains('cacheExtent: cacheExtent'));
+      expect(source, contains('widget.request.cacheExtent'));
       expect(source, contains('final cacheExtent = _cacheExtent('));
-      expect(source, contains('maxWidth: cacheExtent'));
-      expect(source, contains('maxHeight: cacheExtent'));
+      expect(source, contains('maxWidth: request.cacheExtent'));
+      expect(source, contains('maxHeight: request.cacheExtent'));
       expect(source, contains('targetDisplaySize: targetDisplaySize'));
       expect(thumbnailUtils, isNot(contains('devicePixelRatio')));
       expect(
