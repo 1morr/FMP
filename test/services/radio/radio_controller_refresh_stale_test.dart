@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/radio_station.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/radio_repository.dart';
@@ -99,6 +100,36 @@ void main() {
     expect(service.isStationLive(1), isTrue);
     expect(repository.savedStations.single.title, 'New Station');
   });
+
+  test('manual refresh syncs live status once from service notification',
+      () async {
+    final repository = _RefreshAllRadioRepository()
+      ..stations = [
+        _station(id: 1, sourceId: '101', title: 'Station A'),
+      ];
+    final controller = RadioController(
+      _FakeRef(),
+      repository,
+      _CompletingRadioSource(),
+      FakeAudioService(),
+    );
+    addTearDown(controller.dispose);
+
+    await _pumpUntil(
+      () => controller.state.stations.length == 1,
+      reason: 'controller should load stations before manual refresh',
+    );
+
+    AppLogger.clearLogs();
+    await controller.refreshAllLiveStatus();
+    await pumpEventQueue();
+
+    final syncLogs = AppLogger.logs.where(
+      (entry) =>
+          entry.tag == 'RadioController' && entry.message == '同步直播狀態: 1 個電台',
+    );
+    expect(syncLogs, hasLength(1));
+  });
 }
 
 RadioStation _station({
@@ -136,6 +167,16 @@ extension on RadioController {
 class _CompletingRadioSource extends RadioSource {
   final calls = <String>[];
   final _completers = <String, Completer<int?>>{};
+
+  @override
+  Future<LiveRoomInfo> getLiveInfo(RadioStation station) async {
+    return LiveRoomInfo(
+      title: station.title,
+      thumbnailUrl: station.thumbnailUrl,
+      hostName: station.hostName,
+      isLive: true,
+    );
+  }
 
   @override
   Future<int?> getHighEnergyUserCount(RadioStation station) {
@@ -193,6 +234,9 @@ class _RefreshAllRadioRepository extends Fake implements RadioRepository {
     savedStations.add(_copyStation(station));
     return station.id;
   }
+
+  @override
+  Stream<List<RadioStation>> watchAll() => const Stream.empty();
 }
 
 RadioStation _copyStation(RadioStation station) {
