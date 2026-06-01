@@ -29,6 +29,12 @@ class _CacheScanResult {
   _CacheScanResult({required this.totalSize, required this.files});
 }
 
+enum _TrimTiming {
+  none,
+  debounced,
+  immediate,
+}
+
 /// 网络图片缓存服务
 ///
 /// 功能：
@@ -82,14 +88,18 @@ class NetworkImageCacheService {
   /// 预防性清理阈值（90%）
   static const double _preemptiveThreshold = 0.9;
 
+  static int get _maxCacheSizeBytes => _maxCacheSizeMB * 1024 * 1024;
+
+  static int get _preemptiveThresholdBytes =>
+      (_maxCacheSizeBytes * _preemptiveThreshold).toInt();
+
   /// 设置最大缓存大小（MB）
   ///
   /// 应该在应用启动时或用户修改设置时调用
   static void setMaxCacheSizeMB(int value) {
     if (_maxCacheSizeMB == value) return;
     _maxCacheSizeMB = value;
-    // 重置 CacheManager 以使用新的 maxNrOfCacheObjects
-    _cacheManager = null;
+    _resetCacheManager();
   }
 
   /// 获取当前设置的最大缓存大小（MB）
@@ -109,29 +119,34 @@ class NetworkImageCacheService {
   /// [estimatedFileSize] 可选的文件大小估算值（字节），用于快速判断是否需要清理
   /// 每次图片加载完成时调用此方法，会定期触发缓存清理检查
   static void onImageLoaded({int estimatedFileSize = 100000}) {
+    final trimTiming = _recordLoadedImage(estimatedFileSize);
+    switch (trimTiming) {
+      case _TrimTiming.none:
+        return;
+      case _TrimTiming.debounced:
+        _scheduleTrimmingCheck();
+      case _TrimTiming.immediate:
+        _scheduleTrimmingCheck(immediate: true);
+    }
+  }
+
+  static _TrimTiming _recordLoadedImage(int estimatedFileSize) {
     _loadCounter++;
 
-    // 更新缓存大小估算值
     if (_estimatedCacheSizeBytes >= 0) {
       _estimatedCacheSizeBytes += estimatedFileSize;
 
-      // 检查是否接近限制，需要预防性清理
-      final maxSizeBytes = _maxCacheSizeMB * 1024 * 1024;
-      final threshold = (maxSizeBytes * _preemptiveThreshold).toInt();
-
-      if (_estimatedCacheSizeBytes >= threshold) {
-        // 接近限制，立即触发清理
+      if (_estimatedCacheSizeBytes >= _preemptiveThresholdBytes) {
         _loadCounter = 0;
-        _scheduleTrimmingCheck(immediate: true);
-        return;
+        return _TrimTiming.immediate;
       }
     }
 
-    // 每加载 _checkInterval 张图片后检查一次
     if (_loadCounter >= _checkInterval) {
       _loadCounter = 0;
-      _scheduleTrimmingCheck();
+      return _TrimTiming.debounced;
     }
+    return _TrimTiming.none;
   }
 
   /// 调度缓存清理检查（带防抖）
@@ -177,6 +192,13 @@ class NetworkImageCacheService {
     await cacheManager.emptyCache();
 
     // 然后手动删除缓存目录中的所有文件（确保彻底清除）
+    await _deleteCacheDirectoryFiles();
+
+    _resetCacheManager();
+    _estimatedCacheSizeBytes = 0;
+  }
+
+  static Future<void> _deleteCacheDirectoryFiles() async {
     try {
       final cacheDir = await _getCacheDirectory();
       if (await cacheDir.exists()) {
@@ -194,12 +216,6 @@ class NetworkImageCacheService {
     } catch (_) {
       // 忽略目录访问错误
     }
-
-    // 重置缓存管理器，让它重新初始化
-    _cacheManager = null;
-
-    // 重置估算值
-    _estimatedCacheSizeBytes = 0;
   }
 
   /// 删除指定 URL 的缓存
@@ -260,7 +276,7 @@ class NetworkImageCacheService {
     if (!await cacheDir.exists()) return;
 
     final cachePath = cacheDir.path;
-    final maxSizeBytes = maxSizeMB * 1024 * 1024;
+    final maxSizeBytes = _megabytesToBytes(maxSizeMB);
 
     // 在后台 Isolate 中执行文件扫描
     final scanResult = await compute(_scanCacheDirectory, cachePath);
@@ -283,9 +299,19 @@ class NetworkImageCacheService {
     // 在后台删除文件
     if (filesToDelete.isNotEmpty) {
       await compute(_deleteFiles, filesToDelete);
-      _cacheManager = null;
-      _estimatedCacheSizeBytes = scanResult.totalSize - deletedSize;
+      _markTrimmed(scanResult.totalSize - deletedSize);
     }
+  }
+
+  static int _megabytesToBytes(int megabytes) => megabytes * 1024 * 1024;
+
+  static void _markTrimmed(int estimatedSizeBytes) {
+    _resetCacheManager();
+    _estimatedCacheSizeBytes = estimatedSizeBytes;
+  }
+
+  static void _resetCacheManager() {
+    _cacheManager = null;
   }
 
   /// 在 Isolate 中扫描缓存目录（一次遍历获取所有信息）
