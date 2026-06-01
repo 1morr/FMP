@@ -88,7 +88,8 @@ void main() {
       final playerPage =
           File('lib/ui/pages/player/player_page.dart').readAsStringSync();
       final trackDetailPanel =
-          File('lib/ui/widgets/panels/track_detail_panel.dart').readAsStringSync();
+          File('lib/ui/widgets/panels/track_detail_panel.dart')
+              .readAsStringSync();
       final searchPage =
           File('lib/ui/pages/search/search_page.dart').readAsStringSync();
       final addToPlaylist = File(
@@ -505,6 +506,17 @@ void main() {
         source,
         contains('required double targetDisplaySize'),
       );
+    });
+
+    test('image loading uses shared URL header policy', () {
+      final source = File(
+        'lib/core/services/image_loading_service.dart',
+      ).readAsStringSync();
+
+      expect(source, contains('SourceHttpPolicy.imageHeadersForUrl('));
+      expect(source, isNot(contains("return const {'Referer':")));
+      expect(source, isNot(contains("'Origin': 'https://www.youtube.com'")));
+      expect(source, isNot(contains("'Origin': 'https://music.163.com'")));
     });
 
     test('UI image-loading calls pass explicit targetDisplaySize', () {

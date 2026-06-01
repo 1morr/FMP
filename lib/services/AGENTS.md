@@ -28,9 +28,10 @@ Service-layer guidance. For audio-specific rules, also read
   Media headers are URL-aware; only allowlisted HTTPS Netease media URLs may
   receive `MUSIC_U`, and image downloads must not include Netease cookies.
 - Downloaded metadata cover/avatar images should use
-  `ThumbnailUrlUtils.getOptimizedUrlCandidates()` with a bounded display size
-  before falling back to the original URL. Cover downloads use larger candidates
-  than avatars; keep avatar downloads small.
+  `ThumbnailUrlUtils.getOptimizedUrlCandidates()` with `ImageTargetSizes.high`
+  for covers and `ImageTargetSizes.low` for avatars before falling back through
+  source-specific candidates. Cover downloads use larger candidates than
+  avatars; keep avatar downloads small.
 - Do not rely on `DownloadService` Dio defaults for source-specific headers.
 - Isolate media downloads must apply both connection timeout and receive/idle
   timeout so a stalled response cannot hold a download slot forever.

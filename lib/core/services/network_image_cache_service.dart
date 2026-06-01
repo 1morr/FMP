@@ -36,6 +36,10 @@ class _CacheScanResult {
 /// - 支持用户配置缓存大小
 /// - 提供缓存清理功能
 /// - 使用 Isolate 在后台执行文件操作，避免阻塞 UI
+///
+/// `flutter_cache_manager` 负责常规过期和文件数限制；本服务只额外执行用户
+/// 配置的磁盘大小上限检查。手动删除缓存文件后会重建 CacheManager，避免
+/// metadata 长期指向已删除文件。
 class NetworkImageCacheService {
   NetworkImageCacheService._();
 
@@ -279,6 +283,8 @@ class NetworkImageCacheService {
     // 在后台删除文件
     if (filesToDelete.isNotEmpty) {
       await compute(_deleteFiles, filesToDelete);
+      _cacheManager = null;
+      _estimatedCacheSizeBytes = scanResult.totalSize - deletedSize;
     }
   }
 
