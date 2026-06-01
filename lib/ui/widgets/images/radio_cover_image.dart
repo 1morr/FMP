@@ -5,6 +5,9 @@ import '../../../core/services/image_loading_service.dart';
 
 /// 电台/直播封面显示场景。
 enum RadioCoverVariant {
+  /// 播放器模糊背景，使用中等图片源尺寸避免无意义的大图解码。
+  backdrop,
+
   /// 迷你播放器、搜索列表等小图。
   compact,
 
@@ -18,6 +21,8 @@ enum RadioCoverVariant {
 extension RadioCoverVariantTarget on RadioCoverVariant {
   double get targetDisplaySize {
     switch (this) {
+      case RadioCoverVariant.backdrop:
+        return ImageTargetSizes.medium;
       case RadioCoverVariant.compact:
         return ImageTargetSizes.medium;
       case RadioCoverVariant.card:
@@ -64,6 +69,24 @@ class RadioCoverImage extends StatelessWidget {
       targetDisplaySize: variant.targetDisplaySize,
       headers: headers,
       showLoadingIndicator: showLoadingIndicator,
+    );
+  }
+
+  static List<ImageProvider> imageProviderCandidates({
+    required BuildContext context,
+    String? networkUrl,
+    double? width,
+    double? height,
+    RadioCoverVariant variant = RadioCoverVariant.compact,
+    Map<String, String>? headers,
+  }) {
+    return ImageLoadingService.imageProviderCandidates(
+      context: context,
+      networkUrl: networkUrl,
+      width: width,
+      height: height,
+      targetDisplaySize: variant.targetDisplaySize,
+      headers: headers,
     );
   }
 
