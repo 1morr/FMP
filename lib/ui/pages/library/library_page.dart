@@ -15,11 +15,11 @@ import '../../../providers/playlist_provider.dart';
 import '../../../providers/refresh_provider.dart';
 import '../../../services/library/playlist_service.dart';
 import '../../router.dart';
-import '../../widgets/context_menu_region.dart';
-import '../../widgets/error_display.dart';
+import '../../widgets/menus/context_menu_region.dart';
+import '../../widgets/feedback/error_display.dart';
 import '../../widgets/images/playlist_cover_image.dart';
-import '../../widgets/playlist_card_actions.dart';
-import '../../widgets/refresh_progress_indicator.dart';
+import '../../widgets/menus/playlist_card_actions.dart';
+import '../../widgets/indicators/refresh_progress_indicator.dart';
 import 'widgets/create_playlist_dialog.dart';
 import 'widgets/import_playlist_dialog.dart';
 

@@ -261,7 +261,7 @@ void main() {
   group('Phase 4 regression guards', () {
     test('detail content state uses widget detail and required imports', () {
       final source = File(
-        '${Directory.current.path}/lib/ui/widgets/track_detail_panel.dart',
+        '${Directory.current.path}/lib/ui/widgets/panels/track_detail_panel.dart',
       ).readAsStringSync();
       final stateStart = source.indexOf(
         'class _DetailContentState extends ConsumerState<_DetailContent>',

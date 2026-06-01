@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fmp/i18n/strings.g.dart';
-import '../../core/constants/ui_constants.dart';
+import '../../../core/constants/ui_constants.dart';
 
 /// 错误类型枚举
 enum ErrorType {

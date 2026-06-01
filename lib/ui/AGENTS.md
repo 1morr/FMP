@@ -2,6 +2,24 @@
 
 UI guidance for Flutter pages, widgets, layouts, and windows.
 
+## Widget Directory Layout
+
+Shared widgets live in semantic subdirectories under `lib/ui/widgets/`; do not
+add new `.dart` files directly under `lib/ui/widgets/`.
+
+Current folders:
+- `app_bars/` - app-level bars such as custom title bars and selection bars.
+- `controls/` - reusable controls such as color pickers and compound toggles.
+- `dialogs/` - shared dialog widgets.
+- `feedback/` - error and app-status feedback surfaces.
+- `images/` - semantic image loading widgets.
+- `indicators/` - compact state indicators and badges.
+- `layout/` - reusable layout sections.
+- `lyrics/` - lyrics display and lyrics styling widgets.
+- `menus/` - menu/action helpers.
+- `panels/` - large persistent panels such as `TrackDetailPanel`.
+- `player/`, `radio/`, `track_group/` - domain-specific widget groups.
+
 ## Image Components
 
 Image components live under `lib/ui/widgets/images/`.

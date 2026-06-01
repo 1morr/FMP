@@ -33,9 +33,9 @@ import '../../../providers/backup_provider.dart';
 import '../../../services/backup/backup_service.dart';
 import '../../../services/backup/backup_data.dart';
 import '../../router.dart';
-import '../../widgets/change_download_path_dialog.dart';
-import '../../widgets/color_palette_button.dart';
-import '../../widgets/update_dialog.dart';
+import '../../widgets/dialogs/change_download_path_dialog.dart';
+import '../../widgets/controls/color_palette_button.dart';
+import '../../widgets/dialogs/update_dialog.dart';
 import '../../../core/constants/ui_constants.dart';
 
 /// 设置页

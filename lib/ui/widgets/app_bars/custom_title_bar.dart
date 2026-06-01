@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:window_manager/window_manager.dart';
 
-import '../../providers/windows_desktop_provider.dart';
+import '../../../providers/windows_desktop_provider.dart';
 
 /// Windows 自定义标题栏 - 替代系统默认标题栏，融入应用主题风格
 class CustomTitleBar extends ConsumerStatefulWidget {

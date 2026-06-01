@@ -12,13 +12,13 @@ import '../../../providers/library_invalidation_coordinator.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../handlers/track_action_coordinator.dart';
 import '../../handlers/track_action_menu.dart';
-import '../../widgets/error_display.dart';
-import '../../widgets/now_playing_indicator.dart';
+import '../../widgets/feedback/error_display.dart';
+import '../../widgets/indicators/now_playing_indicator.dart';
 import '../../widgets/images/playlist_cover_image.dart';
 import '../../widgets/track_group/track_group.dart';
 import '../../widgets/images/track_thumbnail.dart';
 import '../../../i18n/strings.g.dart';
-import '../../widgets/context_menu_region.dart';
+import '../../widgets/menus/context_menu_region.dart';
 
 /// 已下载分类详情页面
 class DownloadedCategoryPage extends ConsumerStatefulWidget {

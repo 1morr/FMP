@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
-import '../../core/constants/ui_constants.dart';
-import '../../data/models/lyrics_match.dart';
-import '../../i18n/strings.g.dart';
-import '../../providers/lyrics_provider.dart';
-import '../../services/audio/audio_provider.dart';
-import '../../services/lyrics/lrc_parser.dart';
+import '../../../core/constants/ui_constants.dart';
+import '../../../data/models/lyrics_match.dart';
+import '../../../i18n/strings.g.dart';
+import '../../../providers/lyrics_provider.dart';
+import '../../../services/audio/audio_provider.dart';
+import '../../../services/lyrics/lrc_parser.dart';
 import 'lyrics_styled_text.dart';
 
 /// 歌词滚动显示组件

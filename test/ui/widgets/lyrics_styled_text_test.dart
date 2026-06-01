@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fmp/ui/widgets/lyrics_styled_text.dart';
+import 'package:fmp/ui/widgets/lyrics/lyrics_styled_text.dart';
 
 void main() {
   group('LyricsTextStyles', () {

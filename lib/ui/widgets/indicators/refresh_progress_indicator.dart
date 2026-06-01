@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
-import '../../core/constants/ui_constants.dart';
-import '../../providers/refresh_provider.dart';
+import '../../../core/constants/ui_constants.dart';
+import '../../../providers/refresh_provider.dart';
 
 /// 歌单刷新进度指示器组件
 /// 显示在页面底部，展示所有正在刷新的歌单进度

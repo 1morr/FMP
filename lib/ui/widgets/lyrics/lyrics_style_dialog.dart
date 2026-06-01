@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../services/lyrics/lyrics_window_style.dart';
-import 'color_palette_button.dart';
-import 'switch_expansion_tile.dart';
+import '../../../services/lyrics/lyrics_window_style.dart';
+import '../controls/color_palette_button.dart';
+import '../controls/switch_expansion_tile.dart';
 
 class LyricsStyleDialogStrings {
   final String styleSettings;

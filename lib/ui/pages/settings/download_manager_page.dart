@@ -6,7 +6,7 @@ import '../../../i18n/strings.g.dart';
 import '../../../providers/download_provider.dart';
 import '../../../providers/download_settings_provider.dart';
 import '../../../core/constants/ui_constants.dart';
-import '../../widgets/error_display.dart';
+import '../../widgets/feedback/error_display.dart';
 
 /// 下载管理页面
 class DownloadManagerPage extends ConsumerWidget {

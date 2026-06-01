@@ -102,7 +102,7 @@ void main() {
       final imageServiceSource =
           readSource('lib/core/services/image_loading_service.dart');
       final trackDetailSource =
-          readSource('lib/ui/widgets/track_detail_panel.dart');
+          readSource('lib/ui/widgets/panels/track_detail_panel.dart');
 
       expect(imageServiceSource, contains('precacheImageCandidates'));
       expect(trackDetailSource,
@@ -168,7 +168,7 @@ void main() {
     });
 
     test('CustomTitleBar skips Tooltip when no Overlay is available', () {
-      final source = readSource('lib/ui/widgets/custom_title_bar.dart');
+      final source = readSource('lib/ui/widgets/app_bars/custom_title_bar.dart');
 
       expect(source, contains('Overlay.maybeOf(context)'));
       expect(source, contains('Tooltip('));
@@ -176,7 +176,7 @@ void main() {
 
     test('TrackDetailPanel uses shared stream selector without broad watch',
         () {
-      final source = readSource('lib/ui/widgets/track_detail_panel.dart');
+      final source = readSource('lib/ui/widgets/panels/track_detail_panel.dart');
 
       expect(source, isNot(contains('ref.watch(audioControllerProvider)')));
       expect(source, contains('ref.watch(currentStreamMetadataProvider)'));

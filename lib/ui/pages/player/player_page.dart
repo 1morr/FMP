@@ -28,9 +28,9 @@ import '../../../services/platform/url_launcher_service.dart';
 import '../../../core/constants/ui_constants.dart';
 import '../../widgets/images/avatar_image.dart';
 import '../../widgets/images/track_thumbnail.dart';
-import '../../widgets/vip_badge.dart';
+import '../../widgets/indicators/vip_badge.dart';
 import '../../../providers/lyrics_provider.dart';
-import '../../widgets/lyrics_display.dart';
+import '../../widgets/lyrics/lyrics_display.dart';
 import '../lyrics/lyrics_search_sheet.dart';
 
 /// 播放器页面（全屏）

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/services/lyrics/lyrics_window_style.dart';
-import 'package:fmp/ui/widgets/color_palette_button.dart';
-import 'package:fmp/ui/widgets/lyrics_style_dialog.dart';
+import 'package:fmp/ui/widgets/controls/color_palette_button.dart';
+import 'package:fmp/ui/widgets/lyrics/lyrics_style_dialog.dart';
 
 const _strings = LyricsStyleDialogStrings(
   styleSettings: 'Lyrics style',
