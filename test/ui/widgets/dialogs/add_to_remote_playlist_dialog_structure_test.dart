@@ -104,9 +104,9 @@ void main() {
 
   test('legacy remote action services are removed from providers and UI', () {
     final accountProvider =
-        File('lib/providers/account_provider.dart').readAsStringSync();
+        File('lib/providers/account/account_provider.dart').readAsStringSync();
     final syncProvider =
-        File('lib/providers/remote_playlist_sync_provider.dart')
+        File('lib/providers/library/remote_playlist_sync_provider.dart')
             .readAsStringSync();
     final detailPage = File('lib/ui/pages/library/playlist_detail_page.dart')
         .readAsStringSync();

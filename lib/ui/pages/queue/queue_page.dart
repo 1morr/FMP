@@ -7,7 +7,7 @@ import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/duration_formatter.dart';
 import '../../../data/models/track.dart';
-import '../../../providers/playback_settings_provider.dart';
+import '../../../providers/audio/playback_settings_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../router.dart';
 import '../../../i18n/strings.g.dart';

@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/services/toast_service.dart';
 import '../../../i18n/strings.g.dart';
-import '../../../providers/account_provider.dart';
+import '../../../providers/account/account_provider.dart';
 import '../../../services/account/youtube_account_service.dart';
 
 /// YouTube 登錄頁面（WebView 登錄）

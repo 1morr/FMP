@@ -8,7 +8,7 @@ import '../../../data/models/play_history.dart';
 import '../../../data/models/track.dart';
 import '../../../data/repositories/play_history_repository.dart';
 import '../../../i18n/strings.g.dart';
-import '../../../providers/play_history_provider.dart';
+import '../../../providers/library/play_history_provider.dart';
 import '../../../services/audio/audio_provider.dart';
 import '../../handlers/track_action_coordinator.dart';
 import '../../handlers/track_action_handler.dart';

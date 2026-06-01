@@ -52,13 +52,13 @@ automatically, so no repair logic is required. A field like
 `false`, must be repaired.
 
 Migration/default repair entry point:
-- `_migrateDatabase()` in `lib/providers/database_provider.dart`
+- `_migrateDatabase()` in `lib/providers/database/database_provider.dart`
 - testing helper: `runDatabaseMigrationForTesting()`
 
 Database storage path:
 - Runtime Isar files live under the app documents directory's `FMP/` child
   folder.
-- Open through `openFmpDatabase()` in `lib/providers/database_provider.dart`.
+- Open through `openFmpDatabase()` in `lib/providers/database/database_provider.dart`.
 - Do not open `fmp_database` directly from `getApplicationDocumentsDirectory()`
   elsewhere.
 

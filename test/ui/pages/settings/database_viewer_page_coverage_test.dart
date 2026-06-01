@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   const viewerPath = 'lib/ui/pages/settings/database_viewer_page.dart';
-  const databaseProviderPath = 'lib/providers/database_provider.dart';
+  const databaseProviderPath = 'lib/providers/database/database_provider.dart';
 
   String read(String path) => File(path).readAsStringSync();
 

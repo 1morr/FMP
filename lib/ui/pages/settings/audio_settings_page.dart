@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/models/settings.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
-import '../../../providers/audio_settings_provider.dart';
+import '../../../providers/audio/audio_settings_provider.dart';
 
 /// 音频质量设置页面
 class AudioSettingsPage extends ConsumerWidget {

@@ -16,7 +16,7 @@ void main() {
 
     test('audio selector providers file defines shared player selectors', () {
       final selectorFile = File(
-        '$repoRoot/lib/providers/audio_player_selectors.dart',
+        '$repoRoot/lib/providers/audio/audio_player_selectors.dart',
       );
 
       expect(selectorFile.existsSync(), isTrue);

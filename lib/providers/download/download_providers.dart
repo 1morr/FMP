@@ -10,20 +10,20 @@ import '../../data/repositories/settings_repository.dart';
 import '../../data/sources/source_provider.dart';
 import '../../services/download/download_service.dart';
 import '../../services/download/download_path_utils.dart';
-import '../account_provider.dart';
-import '../database_provider.dart';
-import '../repository_providers.dart';
+import '../account/account_provider.dart';
+import '../database/database_provider.dart';
+import '../database/repository_providers.dart';
 import 'download_event_handler.dart';
 import 'download_scanner.dart';
 import 'file_exists_cache.dart';
-import '../library_invalidation_coordinator.dart';
+import '../library/library_invalidation_coordinator.dart';
 import '../../core/services/toast_service.dart';
 import '../../i18n/strings.g.dart';
 
 // Re-export for convenience
 export 'download_scanner.dart';
 export '../../services/download/download_service.dart' show DownloadResult;
-export '../repository_providers.dart' show trackRepositoryProvider;
+export '../database/repository_providers.dart' show trackRepositoryProvider;
 
 // ==================== Repository Providers ====================
 

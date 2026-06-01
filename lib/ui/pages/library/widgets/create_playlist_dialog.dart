@@ -5,7 +5,7 @@ import '../../../../core/constants/ui_constants.dart';
 import '../../../../core/services/image_loading_service.dart';
 import '../../../../core/services/toast_service.dart';
 import '../../../../data/models/playlist.dart';
-import '../../../../providers/playlist_provider.dart';
+import '../../../../providers/library/playlist_provider.dart';
 import '../../../../services/library/playlist_service.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../../widgets/images/playlist_cover_image.dart';

@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fmp/providers/update_provider.dart';
+import 'package:fmp/providers/system/update_provider.dart';
 import 'package:fmp/services/update/update_service.dart';
 
 void main() {

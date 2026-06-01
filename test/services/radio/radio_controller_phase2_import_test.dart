@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/radio_station.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/radio_repository.dart';
-import 'package:fmp/providers/account_provider.dart';
+import 'package:fmp/providers/account/account_provider.dart';
 import 'package:fmp/services/account/bilibili_account_service.dart';
 import 'package:fmp/services/radio/radio_controller.dart';
 import 'package:fmp/services/radio/radio_refresh_service.dart';

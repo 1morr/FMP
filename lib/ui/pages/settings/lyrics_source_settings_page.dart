@@ -8,8 +8,8 @@ import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/settings.dart';
 import '../../../i18n/strings.g.dart';
-import '../../../providers/audio_settings_provider.dart';
-import '../../../providers/lyrics_provider.dart';
+import '../../../providers/audio/audio_settings_provider.dart';
+import '../../../providers/lyrics/lyrics_provider.dart';
 
 /// 歌词匹配源设置页面
 ///

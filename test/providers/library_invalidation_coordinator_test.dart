@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fmp/providers/library_invalidation_coordinator.dart';
-import 'package:fmp/providers/playlist_provider.dart';
+import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
+import 'package:fmp/providers/library/playlist_provider.dart';
 import 'package:fmp/services/library/playlist_mutation_service.dart';
 
 void main() {

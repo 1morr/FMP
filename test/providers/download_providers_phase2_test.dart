@@ -10,9 +10,9 @@ import 'package:fmp/data/models/play_queue.dart';
 import 'package:fmp/data/models/playlist.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/providers/database_provider.dart';
+import 'package:fmp/providers/database/database_provider.dart';
 import 'package:fmp/providers/download/download_providers.dart' as download_providers;
-import 'package:fmp/providers/repository_providers.dart';
+import 'package:fmp/providers/database/repository_providers.dart';
 import 'package:isar/isar.dart';
 
 void main() {

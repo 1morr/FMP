@@ -2,6 +2,23 @@
 
 Guidance for Riverpod providers, provider invalidation, and database startup.
 
+## Directory Layout
+
+Providers live in semantic subdirectories; do not add new `.dart` files directly
+under `lib/providers/`.
+
+Current folders:
+- `account/` - login/account state and source account services.
+- `audio/` - playback selectors and audio/playback settings.
+- `database/` - Isar startup and repository providers.
+- `download/` - download state, path, scanner, and file-existence cache.
+- `library/` - playlists, play history, remote sync, imports, and track detail.
+- `lyrics/` - lyrics search/cache state and lyrics window style.
+- `search/` - search, ranking/popular content, and refresh orchestration.
+- `settings/` - persisted user settings not owned by a narrower subsystem.
+- `system/` - backup, update, and desktop-window integration.
+- `ui/` - UI-only state such as selection mode.
+
 ## Provider Patterns
 
 | Source | Pattern | Example |
@@ -43,7 +60,7 @@ Database provider rules are shared with `lib/data/AGENTS.md`:
   folder.
 - Open the DB through `openFmpDatabase()` only.
 - Migration/default repair entry point is `_migrateDatabase()` in
-  `database_provider.dart`.
+  `database/database_provider.dart`.
 - Testing helper is `runDatabaseMigrationForTesting()`.
 - Home ranking settings fields must stay in sync with migration/default repair.
 

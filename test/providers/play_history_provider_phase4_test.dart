@@ -5,8 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/play_history.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/play_history_repository.dart';
-import 'package:fmp/providers/play_history_provider.dart';
-import 'package:fmp/providers/repository_providers.dart';
+import 'package:fmp/providers/library/play_history_provider.dart';
+import 'package:fmp/providers/database/repository_providers.dart';
 import 'package:isar/isar.dart';
 
 void main() {

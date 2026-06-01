@@ -5,7 +5,7 @@ import '../../../core/services/toast_service.dart';
 import '../../../data/models/playlist.dart';
 import '../../../data/models/track.dart';
 import '../../../services/audio/audio_provider.dart';
-import '../../../providers/playlist_provider.dart';
+import '../../../providers/library/playlist_provider.dart';
 import '../../../i18n/strings.g.dart';
 
 class PlaylistCardMenuItem {

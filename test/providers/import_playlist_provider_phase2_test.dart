@@ -6,8 +6,8 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/playlist_import/playlist_import_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
-import 'package:fmp/providers/import_playlist_provider.dart';
-import 'package:fmp/providers/playlist_import_provider.dart';
+import 'package:fmp/providers/library/import_playlist_provider.dart';
+import 'package:fmp/providers/library/playlist_import_provider.dart';
 import 'package:fmp/services/import/import_service.dart';
 import 'package:fmp/services/import/playlist_import_service.dart'
     as legacy_import;

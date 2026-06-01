@@ -15,8 +15,8 @@ import 'package:fmp/data/models/video_detail.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/bilibili_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
-import 'package:fmp/providers/database_provider.dart';
-import 'package:fmp/providers/refresh_provider.dart';
+import 'package:fmp/providers/database/database_provider.dart';
+import 'package:fmp/providers/search/refresh_provider.dart';
 import 'package:fmp/services/import/import_service.dart';
 import 'package:isar/isar.dart';
 

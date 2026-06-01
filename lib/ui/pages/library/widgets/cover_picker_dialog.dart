@@ -5,7 +5,7 @@ import '../../../../core/constants/ui_constants.dart';
 import '../../../../core/services/image_loading_service.dart';
 import '../../../../data/models/track.dart';
 import '../../../../i18n/strings.g.dart';
-import '../../../../providers/playlist_provider.dart';
+import '../../../../providers/library/playlist_provider.dart';
 import '../../../widgets/images/playlist_cover_image.dart';
 
 /// 封面選擇結果
