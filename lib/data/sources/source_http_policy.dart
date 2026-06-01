@@ -69,6 +69,61 @@ class SourceHttpPolicy {
     return headers;
   }
 
+  static Map<String, String> imageHeaders(
+    SourceType sourceType, {
+    bool includeUserAgent = true,
+  }) {
+    final headers = switch (sourceType) {
+      SourceType.bilibili => <String, String>{
+          'Referer': bilibiliWebReferer,
+        },
+      SourceType.youtube => <String, String>{
+          'Origin': youtubeOrigin,
+          'Referer': youtubeReferer,
+        },
+      SourceType.netease => <String, String>{
+          'Origin': neteaseOrigin,
+          'Referer': neteaseReferer,
+        },
+    };
+
+    if (includeUserAgent) {
+      headers['User-Agent'] = mediaUserAgent;
+    }
+    return headers;
+  }
+
+  static Map<String, String>? imageHeadersForUrl(
+    String url, {
+    bool includeUserAgent = false,
+  }) {
+    final host = Uri.tryParse(url)?.host.toLowerCase();
+    if (host == null || host.isEmpty) return null;
+
+    if (_isHostOrSubdomain(host, 'hdslb.com') ||
+        _isHostOrSubdomain(host, 'bilibili.com')) {
+      return imageHeaders(
+        SourceType.bilibili,
+        includeUserAgent: includeUserAgent,
+      );
+    }
+    if (_isHostOrSubdomain(host, 'ytimg.com') ||
+        _isHostOrSubdomain(host, 'ggpht.com') ||
+        _isHostOrSubdomain(host, 'googleusercontent.com')) {
+      return imageHeaders(
+        SourceType.youtube,
+        includeUserAgent: includeUserAgent,
+      );
+    }
+    if (_isHostOrSubdomain(host, 'music.126.net')) {
+      return imageHeaders(
+        SourceType.netease,
+        includeUserAgent: includeUserAgent,
+      );
+    }
+    return null;
+  }
+
   static bool canAttachNeteaseMediaCredentials(String? requestUrl) {
     if (requestUrl == null || requestUrl.isEmpty) return false;
     final uri = Uri.tryParse(requestUrl);
@@ -81,6 +136,10 @@ class SourceHttpPolicy {
         host.endsWith('.music.163.com') ||
         host == 'music.126.net' ||
         host.endsWith('.music.126.net');
+  }
+
+  static bool _isHostOrSubdomain(String host, String domain) {
+    return host == domain || host.endsWith('.$domain');
   }
 
   static Map<String, String> apiHeaders(

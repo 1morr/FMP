@@ -17,9 +17,5 @@ Map<String, String> buildDownloadImageHeaders(
   SourceType sourceType, {
   Map<String, String>? authHeaders,
 }) {
-  return SourceHttpPolicy.mediaHeaders(
-    sourceType,
-    authHeaders: authHeaders,
-    includeCredentials: false,
-  );
+  return SourceHttpPolicy.imageHeaders(sourceType);
 }

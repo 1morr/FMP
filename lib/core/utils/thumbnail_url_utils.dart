@@ -20,7 +20,12 @@ class ThumbnailUrlUtils {
   /// [url] 原始图片 URL
   /// [displaySize] 目标图片源尺寸，用于选择合适的缩略图
   ///
-  /// 返回优化后的 URL，如果无法优化则返回原 URL
+  /// 返回优化后的 URL，如果无法优化则返回原 URL。
+  ///
+  /// This is for a single URL consumer that cannot try alternatives, such as
+  /// OS media metadata. It does not perform fallback loading. UI and download
+  /// paths should use [getOptimizedUrlCandidates] so they can try the next
+  /// source-specific candidate when the preferred thumbnail does not exist.
   static String getOptimizedUrl(
     String? url, {
     double? displaySize,
@@ -35,6 +40,8 @@ class ThumbnailUrlUtils {
   /// 获取按优先级排序的缩略图候选 URL
   ///
   /// 用于先尝试优化后的 URL，失败时再回退到原始 URL。
+  /// Preferred for UI rendering, preloading, and downloads because callers can
+  /// keep moving through the list when a high-quality CDN variant returns 404.
   static List<String> getOptimizedUrlCandidates(
     String? url, {
     double? displaySize,

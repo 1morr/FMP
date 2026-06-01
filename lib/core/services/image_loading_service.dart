@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../constants/ui_constants.dart';
+import '../../data/sources/source_http_policy.dart';
 import '../utils/thumbnail_url_utils.dart';
 import 'network_image_cache_service.dart';
 
@@ -370,32 +371,7 @@ class ImageLoadingService {
   /// Bilibili / YouTube / Netease 的图片 CDN 可能檢查 Referer，
   /// 預設帶上對應平台的 Referer 以避免請求被拒絕。
   static Map<String, String>? _defaultImageHeaders(String url) {
-    final host = Uri.tryParse(url)?.host.toLowerCase();
-    if (host == null) return null;
-
-    if (_isHostOrSubdomain(host, 'hdslb.com') ||
-        _isHostOrSubdomain(host, 'bilibili.com')) {
-      return const {'Referer': 'https://www.bilibili.com/'};
-    }
-    if (_isHostOrSubdomain(host, 'ytimg.com') ||
-        _isHostOrSubdomain(host, 'ggpht.com') ||
-        _isHostOrSubdomain(host, 'googleusercontent.com')) {
-      return const {
-        'Referer': 'https://www.youtube.com/',
-        'Origin': 'https://www.youtube.com',
-      };
-    }
-    if (_isHostOrSubdomain(host, 'music.126.net')) {
-      return const {
-        'Referer': 'https://music.163.com/',
-        'Origin': 'https://music.163.com',
-      };
-    }
-    return null;
-  }
-
-  static bool _isHostOrSubdomain(String host, String domain) {
-    return host == domain || host.endsWith('.$domain');
+    return SourceHttpPolicy.imageHeadersForUrl(url);
   }
 }
 

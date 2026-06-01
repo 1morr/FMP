@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/constants/app_constants.dart';
+import '../../core/constants/ui_constants.dart';
 import '../../core/logger.dart';
 import '../../data/models/download_task.dart';
 import '../../data/models/track.dart';
@@ -1315,7 +1316,7 @@ class DownloadService with Logging {
         final coverPath = p.join(videoDir.path, 'cover.jpg');
         final coverUrls = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           track.thumbnailUrl!,
-          displaySize: 480,
+          displaySize: ImageTargetSizes.high,
         );
         await _downloadImageCandidates(
           coverUrls,
@@ -1335,7 +1336,7 @@ class DownloadService with Logging {
         final avatarPath = p.join(videoDir.path, 'avatar.jpg');
         final avatarUrls = ThumbnailUrlUtils.getOptimizedUrlCandidates(
           videoDetail.ownerFace,
-          displaySize: 160,
+          displaySize: ImageTargetSizes.low,
         );
         await _downloadImageCandidates(
           avatarUrls,

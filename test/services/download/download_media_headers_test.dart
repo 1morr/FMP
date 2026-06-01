@@ -97,8 +97,11 @@ void main() {
       expect(source, contains('buildDownloadImageHeaders('));
       expect(source, contains('Options(headers: imageHeaders)'));
       expect(source, contains('ThumbnailUrlUtils.getOptimizedUrlCandidates('));
-      expect(source, contains('displaySize: 480'));
-      expect(source, contains('displaySize: 160'));
+      expect(source, contains('ImageTargetSizes.high'));
+      expect(source, contains('ImageTargetSizes.low'));
+      expect(source, isNot(contains('DownloadImageTargetSizes')));
+      expect(source, isNot(contains('displaySize: 480')));
+      expect(source, isNot(contains('displaySize: 160')));
       expect(
         source,
         isNot(contains('await _dio.download(track.thumbnailUrl!, coverPath);')),
