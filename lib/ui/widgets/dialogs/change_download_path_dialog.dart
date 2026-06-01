@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import '../../../core/constants/ui_constants.dart';
-import '../../../providers/download_path_provider.dart';
-import '../../../providers/library_invalidation_coordinator.dart';
+import '../../../providers/download/download_path_provider.dart';
+import '../../../providers/library/library_invalidation_coordinator.dart';
 
 /// 更改下载路径对话框
 ///

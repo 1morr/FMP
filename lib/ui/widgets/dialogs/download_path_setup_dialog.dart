@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/i18n/strings.g.dart';
-import '../../../providers/download_path_provider.dart';
+import '../../../providers/download/download_path_provider.dart';
 import '../../../core/services/toast_service.dart';
 
 /// 下载路径配置引导对话框

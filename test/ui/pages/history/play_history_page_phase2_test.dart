@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/play_history.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/providers/play_history_provider.dart';
+import 'package:fmp/providers/library/play_history_provider.dart';
 import 'package:fmp/ui/handlers/track_action_handler.dart';
 import 'package:fmp/ui/pages/history/play_history_page.dart';
 

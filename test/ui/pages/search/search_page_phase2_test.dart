@@ -83,7 +83,7 @@ void main() {
         'lib/ui/pages/search/search_page.dart',
       ).readAsStringSync();
       final searchProviderSource = File(
-        'lib/providers/search_provider.dart',
+        'lib/providers/search/search_provider.dart',
       ).readAsStringSync();
       final searchServiceSource = File(
         'lib/services/search/search_service.dart',

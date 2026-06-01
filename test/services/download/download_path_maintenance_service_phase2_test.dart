@@ -12,8 +12,8 @@ import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/providers/download/download_providers.dart'
     as download_providers;
-import 'package:fmp/providers/download_path_provider.dart';
-import 'package:fmp/providers/repository_providers.dart'
+import 'package:fmp/providers/download/download_path_provider.dart';
+import 'package:fmp/providers/database/repository_providers.dart'
     as repository_providers;
 import 'package:fmp/services/download/download_path_maintenance_service.dart';
 import 'package:fmp/services/download/download_path_manager.dart';

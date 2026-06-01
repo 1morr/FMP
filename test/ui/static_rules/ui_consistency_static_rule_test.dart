@@ -406,6 +406,33 @@ void main() {
       }
     });
 
+    test('providers live under semantic subdirectories', () {
+      final rootProviderFiles = Directory('lib/providers')
+          .listSync()
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart'))
+          .toList();
+
+      expect(rootProviderFiles, isEmpty);
+
+      final expectedDirectories = <String>[
+        'lib/providers/account',
+        'lib/providers/audio',
+        'lib/providers/database',
+        'lib/providers/download',
+        'lib/providers/library',
+        'lib/providers/lyrics',
+        'lib/providers/search',
+        'lib/providers/settings',
+        'lib/providers/system',
+        'lib/providers/ui',
+      ];
+
+      for (final path in expectedDirectories) {
+        expect(Directory(path).existsSync(), isTrue, reason: path);
+      }
+    });
+
     test('semantic image helpers are the only UI ImageLoadingService callers',
         () {
       final allowedCallers = <String>{

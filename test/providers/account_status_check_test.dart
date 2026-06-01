@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/services/toast_service.dart';
 import 'package:fmp/data/models/account.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/providers/account_provider.dart';
+import 'package:fmp/providers/account/account_provider.dart';
 import 'package:fmp/services/account/account_service.dart';
 
 void main() {

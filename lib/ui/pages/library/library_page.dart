@@ -8,11 +8,11 @@ import '../../../core/services/image_loading_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/icon_helpers.dart';
 import '../../../i18n/strings.g.dart';
-import '../../../providers/download_provider.dart';
+import '../../../providers/download/download_provider.dart';
 
 import '../../../data/models/playlist.dart';
-import '../../../providers/playlist_provider.dart';
-import '../../../providers/refresh_provider.dart';
+import '../../../providers/library/playlist_provider.dart';
+import '../../../providers/search/refresh_provider.dart';
 import '../../../services/library/playlist_service.dart';
 import '../../router.dart';
 import '../../widgets/menus/context_menu_region.dart';

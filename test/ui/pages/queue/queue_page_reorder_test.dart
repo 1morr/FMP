@@ -23,7 +23,7 @@ import 'package:fmp/services/audio/windows_smtc_handler.dart';
 import 'package:fmp/ui/pages/queue/queue_page.dart';
 import 'package:isar/isar.dart';
 
-import 'package:fmp/providers/playback_settings_provider.dart';
+import 'package:fmp/providers/audio/playback_settings_provider.dart';
 
 import '../../../support/fakes/fake_audio_service.dart';
 

@@ -9,7 +9,7 @@ import 'package:fmp/data/sources/bilibili_source.dart';
 import 'package:fmp/data/sources/netease_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/youtube_source.dart';
-import 'package:fmp/providers/popular_provider.dart';
+import 'package:fmp/providers/search/popular_provider.dart';
 import 'package:fmp/services/cache/ranking_cache_service.dart';
 import 'package:fmp/services/network/connectivity_service.dart';
 

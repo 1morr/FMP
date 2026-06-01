@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/track.dart';
 import '../../data/sources/source_http_policy.dart';
-import '../../providers/account_provider.dart';
+import '../../providers/account/account_provider.dart';
 import '../../services/account/bilibili_account_service.dart';
 import '../../services/account/netease_account_service.dart';
 import '../../services/account/youtube_account_service.dart';

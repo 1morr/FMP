@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
-import 'package:fmp/providers/audio_settings_provider.dart';
+import 'package:fmp/providers/audio/audio_settings_provider.dart';
 import 'package:isar/isar.dart';
 
 void main() {

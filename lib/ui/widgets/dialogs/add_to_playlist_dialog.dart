@@ -6,9 +6,9 @@ import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../data/repositories/track_repository.dart';
-import '../../../providers/library_invalidation_coordinator.dart';
-import '../../../providers/playlist_provider.dart';
-import '../../../providers/repository_providers.dart';
+import '../../../providers/library/library_invalidation_coordinator.dart';
+import '../../../providers/library/playlist_provider.dart';
+import '../../../providers/database/repository_providers.dart';
 import '../images/playlist_cover_image.dart';
 import '../images/track_thumbnail.dart';
 

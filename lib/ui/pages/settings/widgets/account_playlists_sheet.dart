@@ -8,10 +8,10 @@ import '../../../../core/services/toast_service.dart';
 import '../../../../data/models/track.dart';
 import '../../../../services/library/remote_playlist_id_parser.dart';
 import '../../../../i18n/strings.g.dart';
-import '../../../../providers/account_provider.dart';
-import '../../../../providers/import_playlist_provider.dart';
-import '../../../../providers/library_invalidation_coordinator.dart';
-import '../../../../providers/repository_providers.dart';
+import '../../../../providers/account/account_provider.dart';
+import '../../../../providers/library/import_playlist_provider.dart';
+import '../../../../providers/library/library_invalidation_coordinator.dart';
+import '../../../../providers/database/repository_providers.dart';
 import '../../../../services/import/import_service.dart';
 import '../../../widgets/images/playlist_cover_image.dart';
 

@@ -6,7 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../i18n/strings.g.dart';
 import '../../../core/constants/ui_constants.dart';
-import '../../../providers/update_provider.dart';
+import '../../../providers/system/update_provider.dart';
 import '../../../services/update/update_service.dart';
 
 /// 更新对话框

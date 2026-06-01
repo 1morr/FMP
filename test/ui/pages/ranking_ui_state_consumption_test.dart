@@ -8,7 +8,7 @@ import 'package:fmp/data/sources/bilibili_source.dart';
 import 'package:fmp/data/sources/netease_source.dart';
 import 'package:fmp/data/sources/youtube_source.dart';
 import 'package:fmp/i18n/strings.g.dart';
-import 'package:fmp/providers/selection_provider.dart';
+import 'package:fmp/providers/ui/selection_provider.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/cache/ranking_cache_service.dart';
 import 'package:fmp/ui/pages/explore/explore_page.dart';

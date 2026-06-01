@@ -8,8 +8,8 @@ import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
-import '../../../providers/audio_settings_provider.dart';
-import '../../../providers/lyrics_provider.dart';
+import '../../../providers/audio/audio_settings_provider.dart';
+import '../../../providers/lyrics/lyrics_provider.dart';
 import '../../../services/lyrics/lyrics_result.dart';
 import '../../widgets/images/track_thumbnail.dart';
 

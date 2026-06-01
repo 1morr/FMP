@@ -6,7 +6,7 @@ import 'package:simple_icons/simple_icons.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
 import '../../../i18n/strings.g.dart';
-import '../../../providers/account_provider.dart';
+import '../../../providers/account/account_provider.dart';
 import '../../../services/account/account_service.dart';
 import '../../router.dart';
 import '../../widgets/images/avatar_image.dart';

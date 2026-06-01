@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
 
 import '../../../i18n/strings.g.dart';
-import '../../../providers/database_provider.dart';
+import '../../../providers/database/database_provider.dart';
 import '../../../data/models/track.dart';
 import '../../../data/models/playlist.dart';
 import '../../../data/models/play_queue.dart';

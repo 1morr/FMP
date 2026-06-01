@@ -280,7 +280,7 @@ GET https://api.github.com/repos/1morr/FMP/releases/latest
 | 文件 | 说明 |
 |------|------|
 | `lib/services/update/update_service.dart` | GitHub API 调用、下载、平台安装逻辑 |
-| `lib/providers/update_provider.dart` | Riverpod 状态管理 |
+| `lib/providers/system/update_provider.dart` | Riverpod 状态管理 |
 | `lib/ui/widgets/update_dialog.dart` | 更新对话框 UI |
 
 ---

@@ -15,7 +15,7 @@ import 'core/constants/app_constants.dart';
 import 'core/logger.dart';
 import 'data/models/settings.dart';
 import 'i18n/strings.g.dart';
-import 'providers/database_provider.dart';
+import 'providers/database/database_provider.dart';
 import 'services/audio/audio_handler.dart';
 import 'services/audio/windows_smtc_handler.dart';
 import 'services/radio/radio_refresh_service.dart';

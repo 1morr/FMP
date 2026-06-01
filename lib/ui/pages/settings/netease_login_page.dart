@@ -8,7 +8,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/services/toast_service.dart';
 import '../../../i18n/strings.g.dart';
-import '../../../providers/account_provider.dart';
+import '../../../providers/account/account_provider.dart';
 
 /// 網易雲音樂登錄頁面
 ///

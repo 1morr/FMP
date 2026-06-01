@@ -11,7 +11,7 @@ void main() {
     final homeSource =
         File('lib/ui/pages/home/home_page.dart').readAsStringSync();
     final providerSource =
-        File('lib/providers/playlist_provider.dart').readAsStringSync();
+        File('lib/providers/library/playlist_provider.dart').readAsStringSync();
 
     expect(providerSource, contains('final playlistCoverMapProvider'));
     expect(librarySource, contains('playlistCoverMapProvider'));

@@ -27,7 +27,7 @@ import 'pages/radio/radio_player_page.dart';
 import 'pages/library/downloaded_page.dart';
 import 'pages/library/downloaded_category_page.dart';
 import 'pages/history/play_history_page.dart';
-import '../providers/download_provider.dart';
+import '../providers/download/download_provider.dart';
 import 'app_shell.dart';
 
 /// 路由路径常量

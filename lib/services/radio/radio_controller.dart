@@ -10,8 +10,8 @@ import '../../data/models/radio_station.dart';
 import '../../data/models/track.dart'; // for SourceType
 import '../../data/repositories/radio_repository.dart';
 import '../../main.dart' show audioHandler, windowsSmtcHandler;
-import '../../providers/account_provider.dart';
-import '../../providers/database_provider.dart';
+import '../../providers/account/account_provider.dart';
+import '../../providers/database/database_provider.dart';
 import '../audio/audio_service.dart';
 import '../audio/audio_types.dart';
 import '../audio/audio_provider.dart';

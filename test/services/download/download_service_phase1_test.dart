@@ -19,7 +19,7 @@ import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/bilibili_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/youtube_source.dart';
-import 'package:fmp/providers/database_provider.dart';
+import 'package:fmp/providers/database/database_provider.dart';
 import 'package:fmp/providers/download/download_providers.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/services/download/download_path_utils.dart';

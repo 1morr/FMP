@@ -7,7 +7,7 @@ import 'package:fmp/i18n/strings.g.dart';
 import '../../../core/utils/icon_helpers.dart';
 import '../../../data/models/play_queue.dart';
 import '../../../services/audio/audio_provider.dart';
-import '../../../providers/audio_player_selectors.dart';
+import '../../../providers/audio/audio_player_selectors.dart';
 import '../../router.dart';
 import '../images/track_thumbnail.dart';
 import '../../../core/constants/ui_constants.dart';

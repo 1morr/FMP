@@ -1,0 +1,571 @@
+import 'dart:async';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:equatable/equatable.dart';
+
+import '../../core/logger.dart';
+import '../../data/models/playlist.dart';
+import '../../data/models/track.dart';
+import '../../data/sources/source_provider.dart';
+import '../../services/library/playlist_mutation_service.dart';
+import '../../services/library/playlist_service.dart';
+
+// 导出 PlaylistUpdateResult 供 UI 使用
+export '../../services/library/playlist_service.dart' show PlaylistUpdateResult;
+import 'package:fmp/i18n/strings.g.dart';
+
+import '../database/database_provider.dart';
+import '../download/file_exists_cache.dart';
+import 'library_invalidation_coordinator.dart';
+import '../database/repository_providers.dart';
+
+/// PlaylistService Provider
+final playlistServiceProvider = Provider<PlaylistService>((ref) {
+  final playlistRepo = ref.watch(playlistRepositoryProvider);
+  final trackRepo = ref.watch(trackRepositoryProvider);
+  final settingsRepo = ref.watch(settingsRepositoryProvider);
+  final db = ref.watch(databaseProvider).valueOrNull;
+  if (db == null) {
+    throw StateError('Database not initialized');
+  }
+  final mutationService = PlaylistMutationService(isar: db);
+  return PlaylistService(
+    playlistRepository: playlistRepo,
+    trackRepository: trackRepo,
+    settingsRepository: settingsRepo,
+    isar: db,
+    mutationService: mutationService,
+  );
+});
+
+/// 歌单列表状态
+class PlaylistListState extends Equatable {
+  final List<Playlist> playlists;
+  final bool isLoading;
+  final String? error;
+
+  const PlaylistListState({
+    this.playlists = const [],
+    this.isLoading = false,
+    this.error,
+  });
+
+  PlaylistListState copyWith({
+    List<Playlist>? playlists,
+    bool? isLoading,
+    String? error,
+  }) {
+    return PlaylistListState(
+      playlists: playlists ?? this.playlists,
+      isLoading: isLoading ?? this.isLoading,
+      error: error,
+    );
+  }
+
+  @override
+  List<Object?> get props => [playlists, isLoading, error];
+}
+
+/// 歌单列表控制器（响应式，基于 Isar watch）
+///
+/// 注意：`playlistListProvider` 会随着 Isar `watchAll()` 自动更新；
+/// `allPlaylistsProvider` 仍然只是一个快照型 FutureProvider，给依赖它的 UI
+/// 或一次性读取场景使用时，仍需要显式 invalidate。
+class PlaylistListNotifier extends StateNotifier<PlaylistListState> {
+  final PlaylistService _service;
+  final Ref _ref;
+  StreamSubscription<List<Playlist>>? _watchSubscription;
+
+  PlaylistListNotifier(this._service, this._ref)
+      : super(const PlaylistListState(isLoading: true)) {
+    _setupWatch();
+  }
+
+  /// 设置 Isar watch 订阅
+  void _setupWatch() {
+    final repo = _ref.read(playlistRepositoryProvider);
+    _watchSubscription = repo.watchAll().listen((playlists) {
+      state = PlaylistListState(playlists: playlists);
+    });
+  }
+
+  /// 创建歌单
+  Future<Playlist?> createPlaylist({
+    required String name,
+    String? description,
+    String? coverUrl,
+  }) async {
+    try {
+      final playlist = await _service.createPlaylist(
+        name: name,
+        description: description,
+        coverUrl: coverUrl,
+      );
+      // watch 自动更新列表
+      _ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
+        [playlist.id],
+        tracksChanged: false,
+        coverChanged: false,
+      );
+      return playlist;
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      return null;
+    }
+  }
+
+  /// 更新歌单
+  ///
+  /// 返回 [PlaylistUpdateResult]，如果失败返回 null。
+  /// 如果重命名了歌单且有已下载的文件，结果中会包含旧文件夹路径。
+  Future<PlaylistUpdateResult?> updatePlaylist({
+    required int playlistId,
+    String? name,
+    String? description,
+    String? coverUrl,
+    int? refreshIntervalHours,
+    bool? useAuthForRefresh,
+  }) async {
+    try {
+      final result = await _service.updatePlaylist(
+        playlistId: playlistId,
+        name: name,
+        description: description,
+        coverUrl: coverUrl,
+        refreshIntervalHours: refreshIntervalHours,
+        useAuthForRefresh: useAuthForRefresh,
+      );
+      // watch 自动更新列表
+      _ref.read(libraryInvalidationCoordinatorProvider).playlistChanged(
+            playlistId,
+            coverChanged: true,
+          );
+      _ref.read(fileExistsCacheProvider.notifier).clearAll();
+      return result;
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      return null;
+    }
+  }
+
+  /// 删除歌单
+  Future<bool> deletePlaylist(int playlistId) async {
+    try {
+      final result = await _service.deletePlaylist(playlistId);
+      // watch 自动更新列表
+      _ref
+          .read(libraryInvalidationCoordinatorProvider)
+          .playlistMutationCompleted(result);
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      return false;
+    }
+  }
+
+  /// 复制歌单
+  Future<Playlist?> duplicatePlaylist(int playlistId, String newName) async {
+    try {
+      final playlist = await _service.duplicatePlaylist(playlistId, newName);
+      // watch 自动更新列表
+      _ref.read(libraryInvalidationCoordinatorProvider).playlistsChanged(
+        [playlist.id],
+        tracksChanged: false,
+        coverChanged: true,
+      );
+      return playlist;
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      return null;
+    }
+  }
+
+  /// 清除错误
+  void clearError() {
+    state = state.copyWith(error: null);
+  }
+
+  /// 直接更新歌單順序（用于拖拽排序的即时反馈，不触发 watch）
+  void updatePlaylistsOrder(List<Playlist> orderedPlaylists) {
+    state = state.copyWith(playlists: orderedPlaylists);
+  }
+
+  @override
+  void dispose() {
+    _watchSubscription?.cancel();
+    super.dispose();
+  }
+}
+
+/// 歌单列表 Provider
+final playlistListProvider =
+    StateNotifierProvider<PlaylistListNotifier, PlaylistListState>((ref) {
+  final service = ref.watch(playlistServiceProvider);
+  return PlaylistListNotifier(service, ref);
+});
+
+/// 歌单详情状态
+class PlaylistDetailState extends Equatable {
+  final Playlist? playlist;
+  final List<Track> tracks;
+  final bool isLoading;
+  final bool isLoadingMore;
+  final bool hasMore;
+  final int totalTrackCount;
+  final String? error;
+
+  const PlaylistDetailState({
+    this.playlist,
+    this.tracks = const [],
+    this.isLoading = false,
+    this.isLoadingMore = false,
+    this.hasMore = false,
+    this.totalTrackCount = 0,
+    this.error,
+  });
+
+  PlaylistDetailState copyWith({
+    Playlist? playlist,
+    List<Track>? tracks,
+    bool? isLoading,
+    bool? isLoadingMore,
+    bool? hasMore,
+    int? totalTrackCount,
+    String? error,
+  }) {
+    return PlaylistDetailState(
+      playlist: playlist ?? this.playlist,
+      tracks: tracks ?? this.tracks,
+      isLoading: isLoading ?? this.isLoading,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      hasMore: hasMore ?? this.hasMore,
+      totalTrackCount: totalTrackCount ?? this.totalTrackCount,
+      error: error,
+    );
+  }
+
+  Duration get totalDuration {
+    int totalMs = 0;
+    for (final track in tracks) {
+      totalMs += track.durationMs ?? 0;
+    }
+    return Duration(milliseconds: totalMs);
+  }
+
+  @override
+  List<Object?> get props => [
+        playlist,
+        tracks,
+        isLoading,
+        isLoadingMore,
+        hasMore,
+        totalTrackCount,
+        error
+      ];
+}
+
+/// 歌单详情控制器
+class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
+  final PlaylistService _service;
+  final int playlistId;
+  final Ref _ref;
+
+  static const _pageSize = 100;
+
+  PlaylistDetailNotifier(this._service, this.playlistId, this._ref)
+      : super(const PlaylistDetailState()) {
+    loadPlaylist();
+  }
+
+  /// 加载歌单详情（首次加载前 _pageSize 首）
+  Future<void> loadPlaylist() async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final result = await _service.getPlaylistWithTracksPage(
+        playlistId,
+        offset: 0,
+        limit: _pageSize,
+      );
+      if (!mounted) return;
+      if (result != null) {
+        // Mix 歌單：從 InnerTube API 動態加載 tracks
+        if (result.playlist.isMix) {
+          state = state.copyWith(
+            playlist: result.playlist,
+            tracks: const [], // 先顯示空列表
+            isLoading: true,
+            totalTrackCount: 0,
+            hasMore: false,
+          );
+          await _loadMixTracks(result.playlist);
+        } else {
+          state = state.copyWith(
+            playlist: result.playlist,
+            tracks: result.tracks,
+            totalTrackCount: result.totalTrackCount,
+            hasMore: result.hasMore,
+            isLoading: false,
+          );
+        }
+      } else {
+        state = state.copyWith(
+          isLoading: false,
+          error: t.importSource.playlistNotFound,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  /// 加载更多歌曲
+  Future<void> loadMore() async {
+    if (state.isLoadingMore || !state.hasMore) return;
+    state = state.copyWith(isLoadingMore: true);
+    try {
+      final result = await _service.getPlaylistWithTracksPage(
+        playlistId,
+        offset: state.tracks.length,
+        limit: _pageSize,
+      );
+      if (!mounted) return;
+      if (result != null) {
+        state = state.copyWith(
+          tracks: [...state.tracks, ...result.tracks],
+          hasMore: result.hasMore,
+          isLoadingMore: false,
+        );
+      } else {
+        state = state.copyWith(isLoadingMore: false);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      state = state.copyWith(isLoadingMore: false, error: e.toString());
+    }
+  }
+
+  /// 获取歌单的所有歌曲（用于 playAll、addAllToQueue 等全量操作）
+  /// 如果已全部加载则直接返回 state.tracks，否则从 service 获取完整列表
+  Future<List<Track>> getAllTracks() async {
+    if (!state.hasMore) return state.tracks;
+    final result = await _service.getPlaylistWithTracks(playlistId);
+    return result?.tracks ?? state.tracks;
+  }
+
+  /// 從 InnerTube API 加載 Mix 播放列表的 tracks
+  Future<void> _loadMixTracks(Playlist playlist) async {
+    try {
+      if (playlist.mixPlaylistId == null || playlist.mixSeedVideoId == null) {
+        if (!mounted) return;
+        state = state.copyWith(
+          isLoading: false,
+          error: t.importSource.mixMissingInfo,
+        );
+        return;
+      }
+
+      final youtubeSource = _ref.read(youtubeSourceProvider);
+      final result = await youtubeSource.fetchMixTracks(
+        playlistId: playlist.mixPlaylistId!,
+        currentVideoId: playlist.mixSeedVideoId!,
+      );
+
+      if (!mounted) return;
+      state = state.copyWith(
+        tracks: result.tracks,
+        isLoading: false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      state = state.copyWith(
+        isLoading: false,
+        error: '${t.importSource.mixLoadFailed}: $e',
+      );
+    }
+  }
+
+  /// 静默刷新歌曲数据（不显示 loading 状态，用于下载完成后更新标记）
+  /// 只刷新已加载的部分，保持分页状态
+  Future<void> refreshTracks() async {
+    try {
+      final loadedCount = state.tracks.length;
+      final result = await _service.getPlaylistWithTracksPage(
+        playlistId,
+        offset: 0,
+        limit: loadedCount > 0 ? loadedCount : _pageSize,
+      );
+      if (!mounted) return;
+      if (result != null) {
+        state = state.copyWith(
+          tracks: result.tracks,
+          totalTrackCount: result.totalTrackCount,
+          hasMore: result.hasMore,
+        );
+      }
+    } catch (error, stackTrace) {
+      AppLogger.error(
+        'Failed to refresh loaded playlist tracks: $playlistId',
+        error,
+        stackTrace,
+        'PlaylistDetail',
+      );
+    }
+  }
+
+  /// 添加歌曲到歌单
+  Future<bool> addTrack(Track track) async {
+    try {
+      // 乐观更新 UI
+      state = state.copyWith(
+        tracks: [...state.tracks, track],
+        totalTrackCount: state.totalTrackCount + 1,
+      );
+
+      final result = await _service.addTrackToPlaylist(playlistId, track);
+      if (!mounted) return true;
+      await refreshTracks();
+      if (!mounted) return true;
+      _ref
+          .read(libraryInvalidationCoordinatorProvider)
+          .playlistMutationCompleted(result);
+      return true;
+    } catch (e) {
+      if (!mounted) return false;
+      // 回滚
+      await loadPlaylist();
+      state = state.copyWith(error: e.toString());
+      return false;
+    }
+  }
+
+  /// 移除歌曲
+  Future<bool> removeTrack(int trackId) async {
+    try {
+      // 乐观更新 UI
+      final updatedTracks = state.tracks.where((t) => t.id != trackId).toList();
+      state = state.copyWith(
+        tracks: updatedTracks,
+        totalTrackCount: state.totalTrackCount - 1,
+      );
+
+      final result =
+          await _service.removeTrackFromPlaylist(playlistId, trackId);
+      if (!mounted) return true;
+      await refreshTracks();
+      if (!mounted) return true;
+      _ref
+          .read(libraryInvalidationCoordinatorProvider)
+          .playlistMutationCompleted(result);
+      return true;
+    } catch (e) {
+      if (!mounted) return false;
+      // 回滚
+      await loadPlaylist();
+      state = state.copyWith(error: e.toString());
+      return false;
+    }
+  }
+
+  /// 批量移除歌曲
+  Future<bool> removeTracks(List<int> trackIds) async {
+    if (trackIds.isEmpty) return true;
+    try {
+      // 乐观更新 UI
+      final idSet = trackIds.toSet();
+      final updatedTracks =
+          state.tracks.where((t) => !idSet.contains(t.id)).toList();
+      final removedCount = state.tracks.length - updatedTracks.length;
+      state = state.copyWith(
+        tracks: updatedTracks,
+        totalTrackCount: state.totalTrackCount - removedCount,
+      );
+
+      final result =
+          await _service.removeTracksFromPlaylist(playlistId, trackIds);
+      if (!mounted) return true;
+      await refreshTracks();
+      if (!mounted) return true;
+      _ref
+          .read(libraryInvalidationCoordinatorProvider)
+          .playlistMutationCompleted(result);
+      return true;
+    } catch (e) {
+      if (!mounted) return false;
+      // 回滚
+      await loadPlaylist();
+      state = state.copyWith(error: e.toString());
+      return false;
+    }
+  }
+
+  /// 重新排序
+  Future<bool> reorderTracks(int oldIndex, int newIndex) async {
+    try {
+      // 乐观更新 UI
+      final tracks = List<Track>.from(state.tracks);
+      final track = tracks.removeAt(oldIndex);
+      final insertIndex = newIndex > oldIndex ? newIndex - 1 : newIndex;
+      tracks.insert(insertIndex, track);
+      state = state.copyWith(tracks: tracks);
+
+      final result =
+          await _service.reorderPlaylistTracks(playlistId, oldIndex, newIndex);
+      if (!mounted) return true;
+      await refreshTracks();
+      if (!mounted) return true;
+      _ref
+          .read(libraryInvalidationCoordinatorProvider)
+          .playlistMutationCompleted(result);
+      return true;
+    } catch (e) {
+      if (!mounted) return false;
+      // 回滚
+      await loadPlaylist();
+      state = state.copyWith(error: e.toString());
+      return false;
+    }
+  }
+}
+
+/// 歌单详情 Provider Family
+final playlistDetailProvider = StateNotifierProvider.family<
+    PlaylistDetailNotifier, PlaylistDetailState, int>((ref, playlistId) {
+  final service = ref.watch(playlistServiceProvider);
+  return PlaylistDetailNotifier(service, playlistId, ref);
+});
+
+/// 歌单封面 Provider
+/// 返回 PlaylistCoverData，包含本地路径和网络 URL
+final playlistCoverProvider =
+    FutureProvider.family<PlaylistCoverData, int>((ref, playlistId) async {
+  final service = ref.watch(playlistServiceProvider);
+  return service.getPlaylistCoverData(playlistId);
+});
+
+/// 歌单封面批量 Provider
+final playlistCoverMapProvider =
+    FutureProvider<Map<int, PlaylistCoverData>>((ref) async {
+  final service = ref.watch(playlistServiceProvider);
+  final playlists = ref.watch(playlistListProvider).playlists;
+  return service.getPlaylistCoverDataForPlaylists(playlists);
+});
+
+/// 所有歌单列表 Provider (简化版)
+final allPlaylistsProvider = FutureProvider<List<Playlist>>((ref) async {
+  final service = ref.watch(playlistServiceProvider);
+  return service.getAllPlaylists();
+});
+
+/// 添加歌曲到歌单的快捷方法
+final addTrackToPlaylistProvider =
+    FutureProvider.family<bool, ({int playlistId, Track track})>(
+        (ref, params) async {
+  final service = ref.watch(playlistServiceProvider);
+  final result =
+      await service.addTrackToPlaylist(params.playlistId, params.track);
+  ref
+      .read(libraryInvalidationCoordinatorProvider)
+      .playlistMutationCompleted(result);
+  return true;
+});

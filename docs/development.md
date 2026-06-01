@@ -66,7 +66,7 @@ lib/
 
 ### 持久化 Isar Collections
 
-以下 collection 注册在 `lib/providers/database_provider.dart`。字段变化时需要检查迁移/default repair，并同步检查数据库查看器。
+以下 collection 注册在 `lib/providers/database/database_provider.dart`。字段变化时需要检查迁移/default repair，并同步检查数据库查看器。
 
 数据库文件通过 `openFmpDatabase()` 打开，固定存放在应用 documents 目录下的 `FMP/` 子目录中。不要在其他位置手写 `getApplicationDocumentsDirectory()/fmp_database.isar`；需要路径或大小信息时复用 `resolveFmpDatabaseDirectory()` 和 `fmpDatabaseFileName`。
 

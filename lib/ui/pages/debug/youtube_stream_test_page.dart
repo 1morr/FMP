@@ -12,7 +12,7 @@ import '../../../data/sources/base_source.dart' as fmp;
 import '../../../data/sources/source_http_policy.dart';
 import '../../../data/sources/youtube_source.dart';
 import '../../../i18n/strings.g.dart';
-import '../../../providers/account_provider.dart';
+import '../../../providers/account/account_provider.dart';
 
 /// YouTube 音频流测试页面
 /// 用于测试不同类型的 YouTube 流在 Windows 和 Android 上的播放情况

@@ -4,7 +4,7 @@ import 'package:fmp/i18n/strings.g.dart';
 
 import '../../../core/services/toast_service.dart';
 import '../../../data/models/track.dart';
-import '../../../providers/selection_provider.dart';
+import '../../../providers/ui/selection_provider.dart';
 import '../../handlers/track_action_coordinator.dart';
 import '../../handlers/track_action_handler.dart';
 import '../../handlers/track_action_menu.dart';

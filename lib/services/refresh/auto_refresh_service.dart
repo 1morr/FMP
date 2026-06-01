@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/logger.dart';
 import '../../data/repositories/playlist_repository.dart';
-import '../../providers/refresh_provider.dart';
-import '../../providers/repository_providers.dart';
+import '../../providers/search/refresh_provider.dart';
+import '../../providers/database/repository_providers.dart';
 
 /// 自动刷新服务
 ///

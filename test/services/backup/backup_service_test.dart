@@ -14,7 +14,7 @@ import 'package:fmp/data/models/radio_station.dart';
 import 'package:fmp/data/models/search_history.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/providers/database_provider.dart';
+import 'package:fmp/providers/database/database_provider.dart';
 import 'package:fmp/services/backup/backup_data.dart';
 import 'package:fmp/services/backup/backup_service.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';

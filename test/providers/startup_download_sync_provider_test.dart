@@ -10,12 +10,12 @@ import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
-import 'package:fmp/providers/database_provider.dart';
+import 'package:fmp/providers/database/database_provider.dart';
 import 'package:fmp/providers/download/download_providers.dart'
     show downloadedCategoriesProvider;
 import 'package:fmp/providers/download/file_exists_cache.dart';
-import 'package:fmp/providers/library_invalidation_coordinator.dart';
-import 'package:fmp/providers/startup_download_sync_provider.dart';
+import 'package:fmp/providers/library/library_invalidation_coordinator.dart';
+import 'package:fmp/providers/download/startup_download_sync_provider.dart';
 import 'package:isar/isar.dart';
 import 'package:path/path.dart' as p;
 
@@ -36,14 +36,14 @@ void main() {
 
       expect(
         appSource,
-        contains("import 'providers/startup_download_sync_provider.dart';"),
+        contains("import 'providers/download/startup_download_sync_provider.dart';"),
       );
       expect(appSource, contains('ref.watch(startupDownloadSyncProvider);'));
     });
 
     test('provider syncs local files silently and refreshes changed state', () {
       final providerFile = File(
-        '${Directory.current.path}/lib/providers/startup_download_sync_provider.dart',
+        '${Directory.current.path}/lib/providers/download/startup_download_sync_provider.dart',
       );
 
       expect(providerFile.existsSync(), isTrue);
