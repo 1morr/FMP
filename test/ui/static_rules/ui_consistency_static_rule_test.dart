@@ -564,8 +564,9 @@ void main() {
     });
 
     test('download path unset text does not use error color', () {
-      final source =
-          File('lib/ui/pages/settings/settings_page.dart').readAsStringSync();
+      final source = File(
+        'lib/ui/pages/settings/widgets/settings_storage.dart',
+      ).readAsStringSync();
 
       final downloadPathTile = RegExp(
         r'class _DownloadPathListTile extends ConsumerWidget \{(?<body>.*?)^///',
