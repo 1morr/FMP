@@ -12,11 +12,11 @@ import '../../../services/audio/audio_provider.dart';
 import '../../../services/cache/ranking_cache_service.dart';
 import '../../handlers/track_action_coordinator.dart';
 import '../../handlers/track_action_menu.dart';
-import '../../widgets/context_menu_region.dart';
-import '../../widgets/error_display.dart';
-import '../../widgets/selection_mode_app_bar.dart';
+import '../../widgets/menus/context_menu_region.dart';
+import '../../widgets/feedback/error_display.dart';
+import '../../widgets/app_bars/selection_mode_app_bar.dart';
 import '../../widgets/images/track_thumbnail.dart';
-import '../../widgets/vip_badge.dart';
+import '../../widgets/indicators/vip_badge.dart';
 
 /// 探索页面 - 显示音乐排行榜
 class ExplorePage extends ConsumerStatefulWidget {

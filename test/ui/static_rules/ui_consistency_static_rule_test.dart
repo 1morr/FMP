@@ -88,7 +88,7 @@ void main() {
       final playerPage =
           File('lib/ui/pages/player/player_page.dart').readAsStringSync();
       final trackDetailPanel =
-          File('lib/ui/widgets/track_detail_panel.dart').readAsStringSync();
+          File('lib/ui/widgets/panels/track_detail_panel.dart').readAsStringSync();
       final searchPage =
           File('lib/ui/pages/search/search_page.dart').readAsStringSync();
       final addToPlaylist = File(
@@ -341,7 +341,7 @@ void main() {
         'lib/ui/pages/radio/radio_player_page.dart',
         'lib/ui/pages/search/search_page.dart',
         'lib/ui/widgets/radio/radio_mini_player.dart',
-        'lib/ui/widgets/track_detail_panel.dart',
+        'lib/ui/widgets/panels/track_detail_panel.dart',
       ];
 
       for (final path in expectedRadioUsers) {
@@ -373,6 +373,36 @@ void main() {
 
       for (final path in rootImageWidgetPaths) {
         expect(File(path).existsSync(), isFalse, reason: path);
+      }
+    });
+
+    test('shared widgets live under semantic subdirectories', () {
+      final rootWidgetFiles = Directory('lib/ui/widgets')
+          .listSync()
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart'))
+          .toList();
+
+      expect(rootWidgetFiles, isEmpty);
+
+      final expectedDirectories = <String>[
+        'lib/ui/widgets/app_bars',
+        'lib/ui/widgets/controls',
+        'lib/ui/widgets/dialogs',
+        'lib/ui/widgets/feedback',
+        'lib/ui/widgets/images',
+        'lib/ui/widgets/indicators',
+        'lib/ui/widgets/layout',
+        'lib/ui/widgets/lyrics',
+        'lib/ui/widgets/menus',
+        'lib/ui/widgets/panels',
+        'lib/ui/widgets/player',
+        'lib/ui/widgets/radio',
+        'lib/ui/widgets/track_group',
+      ];
+
+      for (final path in expectedDirectories) {
+        expect(Directory(path).existsSync(), isTrue, reason: path);
       }
     });
 
@@ -692,7 +722,7 @@ void main() {
       final search =
           File('lib/ui/pages/search/search_page.dart').readAsStringSync();
       final downloadPathDialog =
-          File('lib/ui/widgets/download_path_setup_dialog.dart')
+          File('lib/ui/widgets/dialogs/download_path_setup_dialog.dart')
               .readAsStringSync();
       final bilibiliLogin =
           File('lib/ui/pages/settings/bilibili_login_page.dart')

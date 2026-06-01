@@ -20,8 +20,8 @@ import 'i18n/strings.g.dart';
 import 'providers/locale_provider.dart';
 import 'ui/router.dart';
 import 'ui/theme/app_theme.dart';
-import 'ui/widgets/custom_title_bar.dart';
-import 'ui/widgets/network_status_banner.dart';
+import 'ui/widgets/app_bars/custom_title_bar.dart';
+import 'ui/widgets/feedback/network_status_banner.dart';
 
 /// FMP 应用主组件
 class FMPApp extends ConsumerWidget {

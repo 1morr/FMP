@@ -281,7 +281,7 @@ void main() {
 
     test('track detail panel watches the reactive cache epoch provider', () {
       final source = File(
-        '${Directory.current.path}/lib/ui/widgets/track_detail_panel.dart',
+        '${Directory.current.path}/lib/ui/widgets/panels/track_detail_panel.dart',
       ).readAsStringSync();
 
       expect(source, contains('_lastAvatarCacheEpoch'));

@@ -30,7 +30,7 @@ void main() {
 
     test('radio cover preloader uses Bilibili live policy headers', () {
       final source =
-          File('lib/ui/widgets/track_detail_panel.dart').readAsStringSync();
+          File('lib/ui/widgets/panels/track_detail_panel.dart').readAsStringSync();
 
       expect(source, contains('SourceHttpPolicy.bilibiliLiveHeaders'));
       expect(

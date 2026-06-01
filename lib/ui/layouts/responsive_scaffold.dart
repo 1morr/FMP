@@ -8,7 +8,7 @@ import '../../services/audio/audio_provider.dart';
 import '../../services/radio/radio_controller.dart';
 import '../widgets/player/mini_player.dart';
 import '../widgets/radio/radio_mini_player.dart';
-import '../widgets/track_detail_panel.dart';
+import '../widgets/panels/track_detail_panel.dart';
 
 /// 导航目的地定义
 class NavDestination {

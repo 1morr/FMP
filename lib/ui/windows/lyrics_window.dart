@@ -9,8 +9,8 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../services/lyrics/lyrics_window_style.dart';
 import '../theme/app_theme.dart';
-import '../widgets/lyrics_style_dialog.dart';
-import '../widgets/lyrics_styled_text.dart';
+import '../widgets/lyrics/lyrics_style_dialog.dart';
+import '../widgets/lyrics/lyrics_styled_text.dart';
 
 /// 歌词弹出窗口入口点
 ///

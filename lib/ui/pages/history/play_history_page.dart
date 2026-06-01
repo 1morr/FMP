@@ -13,7 +13,7 @@ import '../../../services/audio/audio_provider.dart';
 import '../../handlers/track_action_coordinator.dart';
 import '../../handlers/track_action_handler.dart';
 import '../../handlers/track_action_menu.dart';
-import '../../widgets/context_menu_region.dart';
+import '../../widgets/menus/context_menu_region.dart';
 import '../../widgets/images/track_thumbnail.dart';
 import '../../../core/constants/ui_constants.dart';
 

@@ -52,7 +52,7 @@ void main() {
     });
 
     test('custom title bar close button uses unified close-intent handler', () {
-      final source = readSource('lib/ui/widgets/custom_title_bar.dart');
+      final source = readSource('lib/ui/widgets/app_bars/custom_title_bar.dart');
 
       expect(source,
           contains('service.handleCloseIntent(fromSystemClose: false)'));
@@ -62,7 +62,7 @@ void main() {
     test(
         'custom title bar exposes explicit semantics labels for window controls',
         () {
-      final source = readSource('lib/ui/widgets/custom_title_bar.dart');
+      final source = readSource('lib/ui/widgets/app_bars/custom_title_bar.dart');
 
       expect(source, contains('tooltip: t.general.minimize'));
       expect(

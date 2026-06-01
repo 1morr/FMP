@@ -9,9 +9,9 @@ import '../../../core/services/toast_service.dart';
 import '../../../data/models/radio_station.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../services/radio/radio_controller.dart';
-import '../../widgets/context_menu_region.dart';
-import '../../widgets/error_display.dart';
-import '../../widgets/now_playing_indicator.dart';
+import '../../widgets/menus/context_menu_region.dart';
+import '../../widgets/feedback/error_display.dart';
+import '../../widgets/indicators/now_playing_indicator.dart';
 import '../../widgets/radio/add_radio_dialog.dart';
 import '../../widgets/images/radio_cover_image.dart';
 

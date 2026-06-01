@@ -7,7 +7,7 @@ import '../../../core/constants/ui_constants.dart';
 import '../../../core/services/image_loading_service.dart';
 import '../../../data/models/track.dart';
 import '../../../providers/download/file_exists_cache.dart';
-import '../now_playing_indicator.dart';
+import '../indicators/now_playing_indicator.dart';
 
 /// 统一的歌曲封面缩略图组件
 ///

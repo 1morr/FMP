@@ -3,7 +3,7 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../../core/constants/ui_constants.dart';
+import '../../../core/constants/ui_constants.dart';
 
 /// A horizontal scroll section with:
 /// - Gradient indicators on edges when more content exists

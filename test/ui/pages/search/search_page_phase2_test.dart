@@ -136,7 +136,7 @@ void main() {
 
     test('playlist mix bootstrap goes through the audio controller boundary', () {
       final playlistCardActionsSource = File(
-        'lib/ui/widgets/playlist_card_actions.dart',
+        'lib/ui/widgets/menus/playlist_card_actions.dart',
       ).readAsStringSync();
       final audioProviderSource = File(
         'lib/services/audio/audio_provider.dart',

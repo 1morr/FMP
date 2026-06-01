@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../services/lyrics/lyrics_window_style.dart';
+import '../../../services/lyrics/lyrics_window_style.dart';
 
 class LyricsTextStyles {
   const LyricsTextStyles._();

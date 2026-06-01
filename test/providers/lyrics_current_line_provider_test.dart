@@ -128,7 +128,7 @@ void main() {
     test('LyricsDisplay consumes line index provider instead of raw position',
         () {
       final source =
-          File('lib/ui/widgets/lyrics_display.dart').readAsStringSync();
+          File('lib/ui/widgets/lyrics/lyrics_display.dart').readAsStringSync();
 
       expect(source, contains('currentLyricsLineIndexProvider'));
       expect(

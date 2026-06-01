@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fmp/ui/widgets/color_palette_button.dart';
+import 'package:fmp/ui/widgets/controls/color_palette_button.dart';
 
 const _hexInputKey = ValueKey('color-palette-hex-input');
 

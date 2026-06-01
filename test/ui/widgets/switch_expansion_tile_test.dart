@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fmp/ui/widgets/switch_expansion_tile.dart';
+import 'package:fmp/ui/widgets/controls/switch_expansion_tile.dart';
 
 void main() {
   testWidgets('shows expanded content even when switch is off', (tester) async {
