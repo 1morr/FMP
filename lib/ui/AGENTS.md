@@ -115,6 +115,13 @@ Playback auth toggles (`useBilibiliAuthForPlay`, `useYoutubeAuthForPlay`,
 resolution behavior. Keep Account pages focused on login/account state and do
 not add per-platform auth-for-play buttons there.
 
+`lib/ui/pages/settings/settings_page.dart` owns the top-level settings page
+layout. Keep feature-specific settings tiles in its `part` files under
+`lib/ui/pages/settings/widgets/settings_*.dart`, grouped by section
+(`appearance`, `playback`, `cache`, `storage`, `desktop`, `backup`, `about`).
+Use this split for private settings-page-only widgets; promote reusable widgets
+to `lib/ui/widgets/` instead.
+
 ## AppBar Actions
 
 All `AppBar` actions lists should end with `const SizedBox(width: 8)` when the
