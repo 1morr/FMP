@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fmp/ui/pages/player/player_page.dart';
+import 'package:fmp/ui/widgets/player/blurred_cover_backdrop.dart';
 
 void main() {
-  group('PlayerBackdropLoadState', () {
+  group('BlurredCoverBackdropLoadState', () {
     test('keeps failed requests marked until the source key changes', () {
-      final state = PlayerBackdropLoadState();
+      final state = BlurredCoverBackdropLoadState();
 
       state.updateDesiredKey('network:bad-cover');
       expect(

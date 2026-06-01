@@ -1,5 +1,5 @@
 import 'dart:io' show Platform;
-import 'dart:ui' show ImageFilter, PointerDeviceKind;
+import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,6 +29,7 @@ import '../../../core/constants/ui_constants.dart';
 import '../../widgets/images/avatar_image.dart';
 import '../../widgets/images/track_thumbnail.dart';
 import '../../widgets/indicators/vip_badge.dart';
+import '../../widgets/player/blurred_cover_backdrop.dart';
 import '../../../providers/lyrics/lyrics_provider.dart';
 import '../../widgets/lyrics/lyrics_display.dart';
 import '../lyrics/lyrics_search_sheet.dart';
@@ -346,7 +347,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        _PlayerBackdrop(
+        TrackBlurredBackdrop(
           currentTrack: currentTrack,
           colorScheme: colorScheme,
           surfaceOverlayAlpha: _appBarBackdropSurfaceOverlayAlpha,
@@ -483,7 +484,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        _PlayerBackdrop(
+        TrackBlurredBackdrop(
           currentTrack: currentTrack,
           colorScheme: colorScheme,
           surfaceOverlayAlpha: _bodyBackdropSurfaceOverlayAlpha,
@@ -1023,214 +1024,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       backgroundColor: Colors.transparent,
       builder: (context) => const _TrackInfoDialog(),
     );
-  }
-}
-
-/// 播放器模糊背景。
-///
-/// 新曲目封面会先预加载；只有加载成功后才替换当前背景，避免切歌时短暂露出
-/// 占位底色。
-class _PlayerBackdrop extends ConsumerStatefulWidget {
-  final Track? currentTrack;
-  final ColorScheme colorScheme;
-  final double surfaceOverlayAlpha;
-  final double surfaceContainerOverlayAlpha;
-
-  const _PlayerBackdrop({
-    required this.currentTrack,
-    required this.colorScheme,
-    required this.surfaceOverlayAlpha,
-    required this.surfaceContainerOverlayAlpha,
-  });
-
-  @override
-  ConsumerState<_PlayerBackdrop> createState() => _PlayerBackdropState();
-}
-
-class _PlayerBackdropState extends ConsumerState<_PlayerBackdrop> {
-  ImageProvider? _imageProvider;
-  final _loadState = PlayerBackdropLoadState();
-
-  @override
-  Widget build(BuildContext context) {
-    ref.watch(fileExistsCacheProvider);
-
-    final cache = ref.read(fileExistsCacheProvider.notifier);
-    final localCoverPath = widget.currentTrack?.getLocalCoverPath(cache);
-    final size = MediaQuery.sizeOf(context);
-    final sourceKey = _sourceKey(widget.currentTrack, localCoverPath);
-    final candidates = TrackCover.imageProviderCandidates(
-      context: context,
-      localPath: localCoverPath,
-      networkUrl: widget.currentTrack?.thumbnailUrl,
-      width: size.width,
-      height: size.height,
-      variant: TrackCoverVariant.backdrop,
-    );
-
-    _scheduleImageLoad(sourceKey, candidates);
-
-    return Positioned.fill(
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          ColoredBox(color: widget.colorScheme.surface),
-          if (_imageProvider != null)
-            AnimatedSwitcher(
-              duration: AnimationDurations.normal,
-              child: ImageFiltered(
-                key: ValueKey(_loadState.loadedKey),
-                imageFilter: ImageFilter.blur(sigmaX: 48, sigmaY: 48),
-                child: Image(
-                  image: _imageProvider!,
-                  fit: BoxFit.cover,
-                  width: size.width,
-                  height: size.height,
-                  gaplessPlayback: true,
-                ),
-              ),
-            ),
-          Container(
-            color: widget.colorScheme.surface
-                .withValues(alpha: widget.surfaceOverlayAlpha),
-          ),
-          Container(
-            color: widget.colorScheme.surfaceContainerHighest
-                .withValues(alpha: widget.surfaceContainerOverlayAlpha),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String? _sourceKey(Track? track, String? localCoverPath) {
-    if (track == null) return null;
-    if (localCoverPath != null) return 'local:$localCoverPath';
-
-    final thumbnailUrl = track.thumbnailUrl;
-    if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) {
-      return 'network:$thumbnailUrl';
-    }
-
-    return null;
-  }
-
-  void _scheduleImageLoad(String? sourceKey, List<ImageProvider> candidates) {
-    _loadState.updateDesiredKey(sourceKey);
-
-    if (sourceKey == null || candidates.isEmpty) {
-      if (_imageProvider != null || _loadState.loadedKey != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && sourceKey == _loadState.desiredKey) {
-            _clearLoadedImage();
-          }
-        });
-      }
-      return;
-    }
-
-    if (!_loadState.shouldRequest(
-      sourceKey,
-      hasCandidates: candidates.isNotEmpty,
-    )) {
-      return;
-    }
-
-    final generation = _loadState.markRequested(sourceKey);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_loadState.isCurrentGeneration(generation)) return;
-      _loadImage(generation, sourceKey, candidates);
-    });
-  }
-
-  Future<void> _loadImage(
-    int generation,
-    String sourceKey,
-    List<ImageProvider> candidates,
-  ) async {
-    for (final candidate in candidates) {
-      if (!mounted || !_loadState.isCurrentGeneration(generation)) return;
-
-      final loaded = await _precacheImage(candidate);
-      if (!loaded) {
-        continue;
-      }
-
-      if (!mounted || !_loadState.isCurrentGeneration(generation)) return;
-
-      setState(() {
-        _imageProvider = candidate;
-        _loadState.markLoaded(sourceKey, generation);
-      });
-      return;
-    }
-
-    if (!mounted || !_loadState.isCurrentGeneration(generation)) return;
-    _loadState.markFailed(sourceKey, generation);
-  }
-
-  void _clearLoadedImage() {
-    setState(() {
-      _imageProvider = null;
-      _loadState.clearLoaded();
-    });
-  }
-
-  Future<bool> _precacheImage(ImageProvider candidate) async {
-    var failed = false;
-    await precacheImage(
-      candidate,
-      context,
-      onError: (_, __) => failed = true,
-    );
-    return !failed;
-  }
-}
-
-@visibleForTesting
-class PlayerBackdropLoadState {
-  String? loadedKey;
-  String? desiredKey;
-  String? requestedKey;
-  int generation = 0;
-
-  void updateDesiredKey(String? sourceKey) {
-    if (sourceKey == desiredKey) return;
-    desiredKey = sourceKey;
-    requestedKey = null;
-    generation++;
-  }
-
-  bool shouldRequest(String? sourceKey, {required bool hasCandidates}) {
-    if (sourceKey == null || !hasCandidates) return false;
-    return sourceKey != loadedKey && sourceKey != requestedKey;
-  }
-
-  int markRequested(String sourceKey) {
-    requestedKey = sourceKey;
-    return generation;
-  }
-
-  bool isCurrentGeneration(int requestGeneration) {
-    return requestGeneration == generation;
-  }
-
-  void markLoaded(String sourceKey, int requestGeneration) {
-    if (!isCurrentGeneration(requestGeneration)) return;
-    loadedKey = sourceKey;
-    requestedKey = null;
-  }
-
-  void markFailed(String sourceKey, int requestGeneration) {
-    if (!isCurrentGeneration(requestGeneration) || sourceKey != desiredKey) {
-      return;
-    }
-    requestedKey = sourceKey;
-  }
-
-  void clearLoaded() {
-    loadedKey = null;
-    requestedKey = null;
   }
 }
 

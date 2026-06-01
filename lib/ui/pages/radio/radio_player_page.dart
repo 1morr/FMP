@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/services/audio/audio_types.dart' show FmpAudioDevice;
 import 'package:window_manager/window_manager.dart' show DragToMoveArea;
 
+import '../../../data/models/radio_station.dart';
 import '../../../core/utils/icon_helpers.dart';
 import '../../../core/utils/number_format_utils.dart';
 import '../../../i18n/strings.g.dart';
@@ -15,10 +16,16 @@ import '../../../core/constants/ui_constants.dart';
 import '../../../services/radio/radio_controller.dart';
 import '../../widgets/images/avatar_image.dart';
 import '../../widgets/images/radio_cover_image.dart';
+import '../../widgets/player/blurred_cover_backdrop.dart';
 
 /// 電台播放器頁面（全屏）
 class RadioPlayerPage extends ConsumerWidget {
   const RadioPlayerPage({super.key});
+
+  static const double _bodyBackdropSurfaceOverlayAlpha = 0.60;
+  static const double _bodyBackdropContainerOverlayAlpha = 0.08;
+  static const double _appBarBackdropSurfaceOverlayAlpha = 0.30;
+  static const double _appBarBackdropContainerOverlayAlpha = 0.01;
 
   /// 是否為桌面平台
   bool get isDesktop =>
@@ -44,14 +51,16 @@ class RadioPlayerPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.keyboard_arrow_down),
           onPressed: () => Navigator.of(context).pop(),
         ),
         // Windows: 让 AppBar 空白区域可拖动窗口（播放器页面覆盖了标题栏）
-        flexibleSpace: Platform.isWindows
-            ? const DragToMoveArea(child: SizedBox.expand())
-            : null,
+        flexibleSpace: _buildAppBarBackdrop(station, colorScheme),
         actions: [
           // 桌面端音頻設備選擇器
           if (isDesktop && audioDevices.length > 1)
@@ -125,42 +134,85 @@ class RadioPlayerPage extends ConsumerWidget {
           ),
         ],
       ),
-      body: station == null
-          ? Center(child: Text(t.radio.noPlaying))
-          : Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  // 封面圖
-                  Expanded(
-                    flex: 3,
-                    child: _buildCoverArt(station, colorScheme),
-                  ),
-                  const SizedBox(height: 32),
+      body: _buildImmersiveRadioLayout(
+        station: station,
+        colorScheme: colorScheme,
+        child: station == null
+            ? Center(child: Text(t.radio.noPlaying))
+            : Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    // 封面圖
+                    Expanded(
+                      flex: 3,
+                      child: _buildCoverArt(station, colorScheme),
+                    ),
+                    const SizedBox(height: 32),
 
-                  // 電台資訊
-                  _buildStationInfo(context, radioState, colorScheme),
-                  const SizedBox(height: 16),
+                    // 電台資訊
+                    _buildStationInfo(context, radioState, colorScheme),
+                    const SizedBox(height: 16),
 
-                  // 已開播時長標記
-                  _buildLiveTag(context, radioState),
-                  const SizedBox(height: 16),
+                    // 已開播時長標記
+                    _buildLiveTag(context, radioState),
+                    const SizedBox(height: 16),
 
-                  // 狀態行
-                  _buildStatusBar(context, radioState, colorScheme),
-                  const SizedBox(height: 24),
+                    // 狀態行
+                    _buildStatusBar(context, radioState, colorScheme),
+                    const SizedBox(height: 24),
 
-                  // 播放控制
-                  _buildPlaybackControls(
-                      radioState, radioController, colorScheme),
-                ],
+                    // 播放控制
+                    _buildPlaybackControls(
+                        radioState, radioController, colorScheme),
+                  ],
+                ),
               ),
-            ),
+      ),
+    );
+  }
+
+  /// AppBar 背景：跟随电台封面模糊背景，Windows 空白区域仍可拖动窗口
+  Widget _buildAppBarBackdrop(
+    RadioStation? station,
+    ColorScheme colorScheme,
+  ) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        RadioBlurredBackdrop(
+          networkUrl: station?.thumbnailUrl,
+          colorScheme: colorScheme,
+          surfaceOverlayAlpha: _appBarBackdropSurfaceOverlayAlpha,
+          surfaceContainerOverlayAlpha: _appBarBackdropContainerOverlayAlpha,
+        ),
+        if (Platform.isWindows) const DragToMoveArea(child: SizedBox.expand()),
+      ],
+    );
+  }
+
+  /// 沉浸式电台播放器布局：模糊封面背景 + 前景内容
+  Widget _buildImmersiveRadioLayout({
+    required RadioStation? station,
+    required ColorScheme colorScheme,
+    required Widget child,
+  }) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        RadioBlurredBackdrop(
+          networkUrl: station?.thumbnailUrl,
+          colorScheme: colorScheme,
+          surfaceOverlayAlpha: _bodyBackdropSurfaceOverlayAlpha,
+          surfaceContainerOverlayAlpha: _bodyBackdropContainerOverlayAlpha,
+        ),
+        child,
+      ],
     );
   }
 
   /// 封面圖
-  Widget _buildCoverArt(dynamic station, ColorScheme colorScheme) {
+  Widget _buildCoverArt(RadioStation station, ColorScheme colorScheme) {
     return AspectRatio(
       aspectRatio: 1,
       child: Container(
