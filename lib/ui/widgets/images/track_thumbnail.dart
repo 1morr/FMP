@@ -135,7 +135,7 @@ class TrackThumbnail extends ConsumerWidget {
 
 /// 大封面显示场景。
 enum TrackCoverVariant {
-  /// 播放器模糊背景，使用中等图片源尺寸避免无意义的大图解码。
+  /// 播放器模糊背景，使用高画质图片源减少全屏模糊后的色带和条纹。
   backdrop,
 
   /// 播放器、Detail Panel 等大图场景。
@@ -146,7 +146,7 @@ extension TrackCoverVariantTarget on TrackCoverVariant {
   double get targetDisplaySize {
     switch (this) {
       case TrackCoverVariant.backdrop:
-        return ImageTargetSizes.medium;
+        return ImageTargetSizes.high;
       case TrackCoverVariant.hero:
         return ImageTargetSizes.highest;
     }

@@ -62,6 +62,8 @@ void main() {
       final playerSource = readSource('lib/ui/pages/player/player_page.dart');
       final backdropSource =
           readSource('lib/ui/widgets/player/blurred_cover_backdrop.dart');
+      final trackCoverSource =
+          readSource('lib/ui/widgets/images/track_thumbnail.dart');
       final imageServiceSource =
           readSource('lib/core/services/image_loading_service.dart');
       final candidatesStart =
@@ -84,6 +86,12 @@ void main() {
       expect(backdropSource, contains('loadedKey'));
       expect(backdropSource, contains('desiredKey'));
       expect(backdropSource, contains('TrackCover.imageProviderCandidates'));
+      expect(
+        trackCoverSource,
+        contains(RegExp(
+          r'case TrackCoverVariant\.backdrop:\s*return ImageTargetSizes\.high;',
+        )),
+      );
       expect(playerSource,
           isNot(contains('ImageLoadingService.imageProviderCandidates')));
       expect(imageServiceSource, contains('imageProviderCandidates'));

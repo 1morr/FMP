@@ -38,12 +38,17 @@ void main() {
       expect(sharedBackdrop, contains('BlurredCoverBackdropLoadState'));
     });
 
-    test('radio covers expose medium-sized backdrop image candidates', () {
+    test('radio covers expose high-sized backdrop image candidates', () {
       final radioCover =
           readSource('lib/ui/widgets/images/radio_cover_image.dart');
 
       expect(radioCover, contains('RadioCoverVariant.backdrop'));
-      expect(radioCover, contains('ImageTargetSizes.medium'));
+      expect(
+        radioCover,
+        contains(RegExp(
+          r'case RadioCoverVariant\.backdrop:\s*return ImageTargetSizes\.high;',
+        )),
+      );
       expect(radioCover, contains('imageProviderCandidates'));
       expect(radioCover, contains('RadioCoverVariant.hero'));
     });

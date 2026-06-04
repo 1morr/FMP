@@ -5,7 +5,7 @@ import '../../../core/services/image_loading_service.dart';
 
 /// 电台/直播封面显示场景。
 enum RadioCoverVariant {
-  /// 播放器模糊背景，使用中等图片源尺寸避免无意义的大图解码。
+  /// 播放器模糊背景，使用高画质图片源减少全屏模糊后的色带和条纹。
   backdrop,
 
   /// 迷你播放器、搜索列表等小图。
@@ -22,7 +22,7 @@ extension RadioCoverVariantTarget on RadioCoverVariant {
   double get targetDisplaySize {
     switch (this) {
       case RadioCoverVariant.backdrop:
-        return ImageTargetSizes.medium;
+        return ImageTargetSizes.high;
       case RadioCoverVariant.compact:
         return ImageTargetSizes.medium;
       case RadioCoverVariant.card:

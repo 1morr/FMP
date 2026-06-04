@@ -38,10 +38,10 @@ Image components live under `lib/ui/widgets/images/`.
   `lib/core/constants/ui_constants.dart` only inside image components or core
   image services, not page call sites.
 - Current target-size mapping: `low` is only for avatars through
-  `AvatarImage`; `medium` is the default for compact non-avatar images and
-  player blurred backdrop preloading; `high` is for home
-  playlist/radio/recent-play cards, radio list pages, and library pages;
-  `highest` is for player cover art, radio player cover art,
+  `AvatarImage`; `medium` is the default for compact non-avatar images;
+  `high` is for home playlist/radio/recent-play cards, radio list pages,
+  library pages, and player blurred backdrop preloading; `highest` is for
+  player cover art, radio player cover art,
   playlist-detail backgrounds, and Detail Panel large images.
 - Image pipeline: semantic image widget -> `ImageLoadingService` -> local file,
   then optimized network URL candidates with source-specific headers, then

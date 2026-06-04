@@ -93,7 +93,7 @@ class ImageTargetSizes {
   /// 中等画质：除头像、首页卡片、音乐库/电台页和大图场景外的默认档位。
   static const double medium = 320.0;
 
-  /// 高画质：首页歌单/电台/最近播放、音乐库页面和电台列表页面。
+  /// 高画质：首页歌单/电台/最近播放、音乐库页面、电台列表页面和播放器背景。
   static const double high = 720.0;
 
   /// 最高画质：播放器/电台播放器主封面、歌单详情背景、Detail Panel 大图。
