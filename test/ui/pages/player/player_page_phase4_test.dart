@@ -74,7 +74,8 @@ void main() {
           imageServiceSource.substring(candidatesStart, candidatesEnd);
 
       expect(playerSource, contains('body: _buildImmersivePlayerLayout('));
-      expect(playerSource, contains('flexibleSpace: _buildAppBarBackdrop'));
+      expect(playerSource, contains('appBar: null'));
+      expect(playerSource, contains('appBar: appBar'));
       expect(playerSource, contains('backgroundColor: Colors.transparent'));
       expect(playerSource, contains('surfaceTintColor: Colors.transparent'));
       expect(playerSource, contains('TrackBlurredBackdrop('));
@@ -98,6 +99,22 @@ void main() {
       expect(imageServiceSource, contains('CachedNetworkImageProvider'));
       expect(candidatesSource, contains('maxWidth: request.cacheExtent'));
       expect(candidatesSource, contains('maxHeight: request.cacheExtent'));
+    });
+
+    test('PlayerPage keeps one backdrop image layer behind the AppBar', () {
+      final playerSource = readSource('lib/ui/pages/player/player_page.dart');
+
+      expect(playerSource, contains('appBar: null'));
+      expect(playerSource, contains('appBar: appBar'));
+      expect(playerSource, contains('flexibleSpace: _buildAppBarOverlay'));
+      expect(
+          playerSource, isNot(contains('flexibleSpace: _buildAppBarBackdrop')));
+      expect(
+        RegExp(r'TrackBlurredBackdrop\(').allMatches(playerSource),
+        hasLength(1),
+      );
+      expect(playerSource, contains('top: _playerAppBarHeight'));
+      expect(playerSource, contains('height: _playerAppBarHeight'));
     });
 
     test('PlayerPage clears stale cover backdrop when no cover is available',
@@ -139,7 +156,7 @@ void main() {
       expect(source, contains('_loadImage();'));
     });
 
-    test('PlayerPage keeps AppBar backdrop opacity independent from body', () {
+    test('PlayerPage keeps AppBar overlay opacity independent from body', () {
       final playerSource = readSource('lib/ui/pages/player/player_page.dart');
 
       expect(
@@ -157,17 +174,17 @@ void main() {
       expect(
         playerSource,
         contains(
-          'static const double _appBarBackdropSurfaceOverlayAlpha = 0.30;',
+          'static const double _appBarBackdropSurfaceOverlayAlpha = 0.50;',
         ),
       );
       expect(
         playerSource,
         contains(
-          'static const double _appBarBackdropContainerOverlayAlpha = 0.01;',
+          'static const double _appBarBackdropContainerOverlayAlpha = 0.06;',
         ),
       );
-      expect(playerSource, contains('surfaceOverlayAlpha:'));
-      expect(playerSource, contains('surfaceContainerOverlayAlpha:'));
+      expect(playerSource, contains('_buildBodyBackdropOverlays(colorScheme)'));
+      expect(playerSource, contains('_buildAppBarOverlay(colorScheme)'));
     });
 
     test('Windows title bar is owned by the app wrapper', () {

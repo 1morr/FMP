@@ -22,10 +22,11 @@ import '../../widgets/player/blurred_cover_backdrop.dart';
 class RadioPlayerPage extends ConsumerWidget {
   const RadioPlayerPage({super.key});
 
+  static const double _radioPlayerAppBarHeight = kToolbarHeight;
   static const double _bodyBackdropSurfaceOverlayAlpha = 0.60;
   static const double _bodyBackdropContainerOverlayAlpha = 0.08;
-  static const double _appBarBackdropSurfaceOverlayAlpha = 0.30;
-  static const double _appBarBackdropContainerOverlayAlpha = 0.01;
+  static const double _appBarBackdropSurfaceOverlayAlpha = 0.50;
+  static const double _appBarBackdropContainerOverlayAlpha = 0.06;
 
   /// 是否為桌面平台
   bool get isDesktop =>
@@ -49,94 +50,97 @@ class RadioPlayerPage extends ConsumerWidget {
 
     final station = radioState.currentStation;
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.keyboard_arrow_down),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        // Windows: 让 AppBar 空白区域可拖动窗口（播放器页面覆盖了标题栏）
-        flexibleSpace: _buildAppBarBackdrop(station, colorScheme),
-        actions: [
-          // 桌面端音頻設備選擇器
-          if (isDesktop && audioDevices.length > 1)
-            _buildFmpAudioDeviceSelector(
-              context,
-              audioDevices,
-              currentAudioDevice,
-              audioController,
-              colorScheme,
-            ),
-          // 桌面端音量控制（緊湊版）
-          if (isDesktop)
-            _buildCompactVolumeControl(
-                context, volume, audioController, colorScheme),
-          // 更多選項
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            offset: const Offset(0, 48),
-            onSelected: (value) {
-              if (value == 'reload') {
-                radioController.reload();
-              } else if (value == 'info') {
-                Future.delayed(AnimationDurations.fastest, () {
-                  if (!context.mounted) return;
-                  _showLiveInfoDialog(context, radioState, colorScheme);
-                });
-              }
-            },
-            itemBuilder: (context) {
-              final isDisabled = radioState.isBuffering ||
-                  radioState.isLoading ||
-                  !radioState.isPlaying;
-              return [
-                PopupMenuItem(
-                  value: 'reload',
-                  enabled: !isDisabled,
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.refresh,
-                        size: 20,
-                        color: isDisabled
-                            ? colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.38)
-                            : null,
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        t.radio.reloadLive,
-                        style: isDisabled
-                            ? TextStyle(
-                                color: colorScheme.onSurfaceVariant
-                                    .withValues(alpha: 0.38))
-                            : null,
-                      ),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'info',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.info_outline, size: 20),
-                      const SizedBox(width: 12),
-                      Text(t.radio.info),
-                    ],
-                  ),
-                ),
-              ];
-            },
-          ),
-        ],
+    final appBar = AppBar(
+      primary: false,
+      toolbarHeight: _radioPlayerAppBarHeight,
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.keyboard_arrow_down),
+        onPressed: () => Navigator.of(context).pop(),
       ),
+      flexibleSpace: _buildAppBarOverlay(colorScheme),
+      actions: [
+        // 桌面端音頻設備選擇器
+        if (isDesktop && audioDevices.length > 1)
+          _buildFmpAudioDeviceSelector(
+            context,
+            audioDevices,
+            currentAudioDevice,
+            audioController,
+            colorScheme,
+          ),
+        // 桌面端音量控制（緊湊版）
+        if (isDesktop)
+          _buildCompactVolumeControl(
+              context, volume, audioController, colorScheme),
+        // 更多選項
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert),
+          offset: const Offset(0, 48),
+          onSelected: (value) {
+            if (value == 'reload') {
+              radioController.reload();
+            } else if (value == 'info') {
+              Future.delayed(AnimationDurations.fastest, () {
+                if (!context.mounted) return;
+                _showLiveInfoDialog(context, radioState, colorScheme);
+              });
+            }
+          },
+          itemBuilder: (context) {
+            final isDisabled = radioState.isBuffering ||
+                radioState.isLoading ||
+                !radioState.isPlaying;
+            return [
+              PopupMenuItem(
+                value: 'reload',
+                enabled: !isDisabled,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.refresh,
+                      size: 20,
+                      color: isDisabled
+                          ? colorScheme.onSurfaceVariant.withValues(alpha: 0.38)
+                          : null,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      t.radio.reloadLive,
+                      style: isDisabled
+                          ? TextStyle(
+                              color: colorScheme.onSurfaceVariant
+                                  .withValues(alpha: 0.38))
+                          : null,
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'info',
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, size: 20),
+                    const SizedBox(width: 12),
+                    Text(t.radio.info),
+                  ],
+                ),
+              ),
+            ];
+          },
+        ),
+      ],
+    );
+
+    return Scaffold(
+      appBar: null,
       body: _buildImmersiveRadioLayout(
         station: station,
         colorScheme: colorScheme,
+        appBar: appBar,
         child: station == null
             ? Center(child: Text(t.radio.noPlaying))
             : Padding(
@@ -172,16 +176,12 @@ class RadioPlayerPage extends ConsumerWidget {
     );
   }
 
-  /// AppBar 背景：跟随电台封面模糊背景，Windows 空白区域仍可拖动窗口
-  Widget _buildAppBarBackdrop(
-    RadioStation? station,
-    ColorScheme colorScheme,
-  ) {
+  /// AppBar 覆盖层：背景图由全页 Stack 统一绘制，避免路由转场不同步。
+  Widget _buildAppBarOverlay(ColorScheme colorScheme) {
     return Stack(
       fit: StackFit.expand,
       children: [
-        RadioBlurredBackdrop(
-          networkUrl: station?.thumbnailUrl,
+        _buildBackdropOverlay(
           colorScheme: colorScheme,
           surfaceOverlayAlpha: _appBarBackdropSurfaceOverlayAlpha,
           surfaceContainerOverlayAlpha: _appBarBackdropContainerOverlayAlpha,
@@ -195,6 +195,7 @@ class RadioPlayerPage extends ConsumerWidget {
   Widget _buildImmersiveRadioLayout({
     required RadioStation? station,
     required ColorScheme colorScheme,
+    required Widget appBar,
     required Widget child,
   }) {
     return Stack(
@@ -203,10 +204,51 @@ class RadioPlayerPage extends ConsumerWidget {
         RadioBlurredBackdrop(
           networkUrl: station?.thumbnailUrl,
           colorScheme: colorScheme,
-          surfaceOverlayAlpha: _bodyBackdropSurfaceOverlayAlpha,
-          surfaceContainerOverlayAlpha: _bodyBackdropContainerOverlayAlpha,
+          surfaceOverlayAlpha: 0,
+          surfaceContainerOverlayAlpha: 0,
         ),
-        child,
+        _buildBodyBackdropOverlays(colorScheme),
+        Positioned.fill(
+          top: _radioPlayerAppBarHeight,
+          child: child,
+        ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: _radioPlayerAppBarHeight,
+          child: appBar,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBodyBackdropOverlays(ColorScheme colorScheme) {
+    return Positioned.fill(
+      top: _radioPlayerAppBarHeight,
+      child: _buildBackdropOverlay(
+        colorScheme: colorScheme,
+        surfaceOverlayAlpha: _bodyBackdropSurfaceOverlayAlpha,
+        surfaceContainerOverlayAlpha: _bodyBackdropContainerOverlayAlpha,
+      ),
+    );
+  }
+
+  Widget _buildBackdropOverlay({
+    required ColorScheme colorScheme,
+    required double surfaceOverlayAlpha,
+    required double surfaceContainerOverlayAlpha,
+  }) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ColoredBox(
+          color: colorScheme.surface.withValues(alpha: surfaceOverlayAlpha),
+        ),
+        ColoredBox(
+          color: colorScheme.surfaceContainerHighest
+              .withValues(alpha: surfaceContainerOverlayAlpha),
+        ),
       ],
     );
   }

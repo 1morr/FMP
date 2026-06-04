@@ -191,11 +191,19 @@ Source of truth: `lib/core/constants/breakpoints.dart`.
   lyrics on the right. Keep track info, progress bar, and playback controls in
   the left column below the cover so the lyrics column can use the full content
   height.
-- Player backgrounds should use the current track cover as a blurred backdrop on
-  all widths. When tracks change, keep the previous loaded backdrop visible until
+- Player backgrounds should use the current track cover as a single full-page
+  blurred backdrop on all widths. Keep the player AppBar transparent and embed
+  it inside the same immersive body Stack, with only its overlay/drag region
+  above that shared backdrop; do not use `Scaffold.appBar` for these fullscreen
+  player AppBars because route transitions can expose separate Scaffold paint
+  regions. When tracks change, keep the previous loaded backdrop visible until
   the next cover has been preloaded to avoid flashing a placeholder background.
 - Radio player backgrounds should use the current station cover through the same
-  shared blurred-backdrop behavior as the main player.
+  single full-page blurred-backdrop behavior as the main player.
+- Fullscreen player routes in `lib/ui/router.dart` should use the shared
+  `_fullscreenPlayerPage` transition helper so entry uses the slower settling
+  curve while dismissal uses a fast reverse curve and clips blurred paint at the
+  route boundary.
 - Windows custom title bar and network banner are owned by the app-level
   wrapper in `lib/app.dart`, not individual pages or responsive content layouts.
 
