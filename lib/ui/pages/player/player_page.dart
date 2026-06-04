@@ -43,10 +43,11 @@ class PlayerPage extends ConsumerStatefulWidget {
 }
 
 class _PlayerPageState extends ConsumerState<PlayerPage> {
+  static const double _playerAppBarHeight = kToolbarHeight;
   static const double _bodyBackdropSurfaceOverlayAlpha = 0.60;
   static const double _bodyBackdropContainerOverlayAlpha = 0.08;
-  static const double _appBarBackdropSurfaceOverlayAlpha = 0.30;
-  static const double _appBarBackdropContainerOverlayAlpha = 0.01;
+  static const double _appBarBackdropSurfaceOverlayAlpha = 0.50;
+  static const double _appBarBackdropContainerOverlayAlpha = 0.06;
 
   /// 打开歌词搜索 BottomSheet
   void _openLyricsSearch(BuildContext context) {
@@ -155,125 +156,169 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             controlSection: controlSection,
           );
 
-    final scaffold = Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.keyboard_arrow_down),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        flexibleSpace: _buildAppBarBackdrop(currentTrack, colorScheme),
-        actions: [
-          // 添加到歌单
-          if (currentTrack != null)
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.playlist_add),
-              tooltip: t.general.addToPlaylist,
-              offset: const Offset(0, 48),
-              onSelected: (value) {
-                final track = currentTrack;
-                Future.delayed(AnimationDurations.fastest, () {
-                  if (!context.mounted) return;
-                  _handleAddToPlaylist(context, track, value);
-                });
-              },
-              itemBuilder: (context) {
-                return [
-                  PopupMenuItem(
-                    value: 'local',
-                    child: Row(
-                      children: [
-                        const Icon(Icons.playlist_add, size: 20),
-                        const SizedBox(width: 12),
-                        Text(t.general.addToPlaylist),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'remote',
-                    child: Row(
-                      children: [
-                        const Icon(Icons.cloud_upload_outlined, size: 20),
-                        const SizedBox(width: 12),
-                        Text(t.remote.addToFavorites),
-                      ],
-                    ),
-                  ),
-                ];
-              },
-            ),
-          // 桌面端音频输出设备选择
-          if (isDesktop && desktopAudioDeviceState.hasSelectableDevices)
-            _buildFmpAudioDeviceSelector(
-              context,
-              desktopAudioDeviceState,
-              controller,
-              colorScheme,
-            ),
-          // 桌面端音量控制（紧凑版）
-          if (isDesktop)
-            _buildCompactVolumeControl(
-              context,
-              playerState.volume,
-              controller,
-              colorScheme,
-            ),
-          // 更多选项（包含信息、倍速、歌词）
+    final appBar = AppBar(
+      primary: false,
+      toolbarHeight: _playerAppBarHeight,
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.keyboard_arrow_down),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+      flexibleSpace: _buildAppBarOverlay(colorScheme),
+      actions: [
+        // 添加到歌单
+        if (currentTrack != null)
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            offset: const Offset(0, 48), // 向下偏移，与子菜单位置一致
-            onSelected: (value) async {
-              if (value == 'info') {
-                // 延迟显示弹窗，等主菜单关闭后再显示
-                Future.delayed(AnimationDurations.fastest, () {
-                  if (!context.mounted) return;
-                  _showTrackInfoDialog(context, colorScheme);
-                });
-              } else if (value == 'speed') {
-                // 延迟显示子菜单，等主菜单关闭后再显示
-                Future.delayed(AnimationDurations.fastest, () {
-                  if (!context.mounted) return;
-                  _showSpeedMenu(
-                      context, controller, playbackSpeed, colorScheme);
-                });
-              } else if (value == 'lyrics_search') {
-                // 打开歌词搜索
-                Future.delayed(AnimationDurations.fastest, () {
-                  if (!context.mounted) return;
-                  _openLyricsSearch(context);
-                });
-              } else if (value == 'lyrics_offset') {
-                // 切换 offset 控件显示
-                setState(() => _showOffsetControls = !_showOffsetControls);
-              } else if (value == 'lyrics_display_mode') {
-                // 打开歌词显示模式子菜单
-                Future.delayed(AnimationDurations.fastest, () {
-                  if (!context.mounted) return;
-                  _showLyricsDisplayModeMenu(context, colorScheme);
-                });
-              }
+            icon: const Icon(Icons.playlist_add),
+            tooltip: t.general.addToPlaylist,
+            offset: const Offset(0, 48),
+            onSelected: (value) {
+              final track = currentTrack;
+              Future.delayed(AnimationDurations.fastest, () {
+                if (!context.mounted) return;
+                _handleAddToPlaylist(context, track, value);
+              });
             },
-            itemBuilder: (context) => [
+            itemBuilder: (context) {
+              return [
+                PopupMenuItem(
+                  value: 'local',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.playlist_add, size: 20),
+                      const SizedBox(width: 12),
+                      Text(t.general.addToPlaylist),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'remote',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.cloud_upload_outlined, size: 20),
+                      const SizedBox(width: 12),
+                      Text(t.remote.addToFavorites),
+                    ],
+                  ),
+                ),
+              ];
+            },
+          ),
+        // 桌面端音频输出设备选择
+        if (isDesktop && desktopAudioDeviceState.hasSelectableDevices)
+          _buildFmpAudioDeviceSelector(
+            context,
+            desktopAudioDeviceState,
+            controller,
+            colorScheme,
+          ),
+        // 桌面端音量控制（紧凑版）
+        if (isDesktop)
+          _buildCompactVolumeControl(
+            context,
+            playerState.volume,
+            controller,
+            colorScheme,
+          ),
+        // 更多选项（包含信息、倍速、歌词）
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert),
+          offset: const Offset(0, 48), // 向下偏移，与子菜单位置一致
+          onSelected: (value) async {
+            if (value == 'info') {
+              // 延迟显示弹窗，等主菜单关闭后再显示
+              Future.delayed(AnimationDurations.fastest, () {
+                if (!context.mounted) return;
+                _showTrackInfoDialog(context, colorScheme);
+              });
+            } else if (value == 'speed') {
+              // 延迟显示子菜单，等主菜单关闭后再显示
+              Future.delayed(AnimationDurations.fastest, () {
+                if (!context.mounted) return;
+                _showSpeedMenu(context, controller, playbackSpeed, colorScheme);
+              });
+            } else if (value == 'lyrics_search') {
+              // 打开歌词搜索
+              Future.delayed(AnimationDurations.fastest, () {
+                if (!context.mounted) return;
+                _openLyricsSearch(context);
+              });
+            } else if (value == 'lyrics_offset') {
+              // 切换 offset 控件显示
+              setState(() => _showOffsetControls = !_showOffsetControls);
+            } else if (value == 'lyrics_display_mode') {
+              // 打开歌词显示模式子菜单
+              Future.delayed(AnimationDurations.fastest, () {
+                if (!context.mounted) return;
+                _showLyricsDisplayModeMenu(context, colorScheme);
+              });
+            }
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 'info',
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, size: 20),
+                  const SizedBox(width: 12),
+                  Text(t.player.info),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'speed',
+              child: Row(
+                children: [
+                  const Icon(Icons.speed, size: 20),
+                  const SizedBox(width: 12),
+                  Text('${playbackSpeed}x'),
+                  const Spacer(),
+                  Icon(
+                    Icons.chevron_right,
+                    size: 18,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+            ),
+            // 歌词选项（仅在显示歌词时显示）
+            if (showLyricsActions) ...[
+              const PopupMenuDivider(),
               PopupMenuItem(
-                value: 'info',
+                value: 'lyrics_search',
                 child: Row(
                   children: [
-                    const Icon(Icons.info_outline, size: 20),
+                    const Icon(Icons.search, size: 20),
                     const SizedBox(width: 12),
-                    Text(t.player.info),
+                    Text(t.lyrics.searchLyrics),
                   ],
                 ),
               ),
               PopupMenuItem(
-                value: 'speed',
+                value: 'lyrics_offset',
                 child: Row(
                   children: [
-                    const Icon(Icons.speed, size: 20),
+                    Icon(
+                      _showOffsetControls
+                          ? Icons.check_box
+                          : Icons.check_box_outline_blank,
+                      size: 20,
+                    ),
                     const SizedBox(width: 12),
-                    Text('${playbackSpeed}x'),
+                    Text(t.lyrics.adjustOffset),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'lyrics_display_mode',
+                child: Row(
+                  children: [
+                    const Icon(Icons.translate, size: 20),
+                    const SizedBox(width: 12),
+                    Text(t.lyrics.displayMode),
                     const Spacer(),
                     Icon(
                       Icons.chevron_right,
@@ -283,58 +328,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                   ],
                 ),
               ),
-              // 歌词选项（仅在显示歌词时显示）
-              if (showLyricsActions) ...[
-                const PopupMenuDivider(),
-                PopupMenuItem(
-                  value: 'lyrics_search',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.search, size: 20),
-                      const SizedBox(width: 12),
-                      Text(t.lyrics.searchLyrics),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'lyrics_offset',
-                  child: Row(
-                    children: [
-                      Icon(
-                        _showOffsetControls
-                            ? Icons.check_box
-                            : Icons.check_box_outline_blank,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 12),
-                      Text(t.lyrics.adjustOffset),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'lyrics_display_mode',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.translate, size: 20),
-                      const SizedBox(width: 12),
-                      Text(t.lyrics.displayMode),
-                      const Spacer(),
-                      Icon(
-                        Icons.chevron_right,
-                        size: 18,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
             ],
-          ),
-        ],
-      ),
+          ],
+        ),
+      ],
+    );
+
+    final scaffold = Scaffold(
+      appBar: null,
       body: _buildImmersivePlayerLayout(
         currentTrack: currentTrack,
         colorScheme: colorScheme,
+        appBar: appBar,
         child: playerContent,
       ),
     );
@@ -342,13 +347,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     return scaffold;
   }
 
-  /// AppBar 背景：跟随播放器模糊封面，Windows 空白区域仍可拖动窗口
-  Widget _buildAppBarBackdrop(Track? currentTrack, ColorScheme colorScheme) {
+  /// AppBar 覆盖层：背景图由全页 Stack 统一绘制，避免路由转场不同步。
+  Widget _buildAppBarOverlay(ColorScheme colorScheme) {
     return Stack(
       fit: StackFit.expand,
       children: [
-        TrackBlurredBackdrop(
-          currentTrack: currentTrack,
+        _buildBackdropOverlay(
           colorScheme: colorScheme,
           surfaceOverlayAlpha: _appBarBackdropSurfaceOverlayAlpha,
           surfaceContainerOverlayAlpha: _appBarBackdropContainerOverlayAlpha,
@@ -479,6 +483,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   Widget _buildImmersivePlayerLayout({
     required Track? currentTrack,
     required ColorScheme colorScheme,
+    required Widget appBar,
     required Widget child,
   }) {
     return Stack(
@@ -487,10 +492,51 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         TrackBlurredBackdrop(
           currentTrack: currentTrack,
           colorScheme: colorScheme,
-          surfaceOverlayAlpha: _bodyBackdropSurfaceOverlayAlpha,
-          surfaceContainerOverlayAlpha: _bodyBackdropContainerOverlayAlpha,
+          surfaceOverlayAlpha: 0,
+          surfaceContainerOverlayAlpha: 0,
         ),
-        child,
+        _buildBodyBackdropOverlays(colorScheme),
+        Positioned.fill(
+          top: _playerAppBarHeight,
+          child: child,
+        ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: _playerAppBarHeight,
+          child: appBar,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBodyBackdropOverlays(ColorScheme colorScheme) {
+    return Positioned.fill(
+      top: _playerAppBarHeight,
+      child: _buildBackdropOverlay(
+        colorScheme: colorScheme,
+        surfaceOverlayAlpha: _bodyBackdropSurfaceOverlayAlpha,
+        surfaceContainerOverlayAlpha: _bodyBackdropContainerOverlayAlpha,
+      ),
+    );
+  }
+
+  Widget _buildBackdropOverlay({
+    required ColorScheme colorScheme,
+    required double surfaceOverlayAlpha,
+    required double surfaceContainerOverlayAlpha,
+  }) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ColoredBox(
+          color: colorScheme.surface.withValues(alpha: surfaceOverlayAlpha),
+        ),
+        ColoredBox(
+          color: colorScheme.surfaceContainerHighest
+              .withValues(alpha: surfaceContainerOverlayAlpha),
+        ),
       ],
     );
   }

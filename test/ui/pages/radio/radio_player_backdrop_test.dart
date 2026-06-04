@@ -8,7 +8,7 @@ void main() {
       return File(relativePath).readAsStringSync();
     }
 
-    test('uses the shared blurred backdrop for body and app bar', () {
+    test('uses one shared blurred backdrop behind the AppBar', () {
       final radioPlayer =
           readSource('lib/ui/pages/radio/radio_player_page.dart');
       final sharedBackdrop =
@@ -21,13 +21,32 @@ void main() {
         ),
       );
       expect(radioPlayer, contains('body: _buildImmersiveRadioLayout('));
+      expect(radioPlayer, contains('appBar: null'));
+      expect(radioPlayer, contains('appBar: appBar'));
+      expect(radioPlayer, contains('flexibleSpace: _buildAppBarOverlay'));
       expect(
-        radioPlayer,
-        contains('flexibleSpace: _buildAppBarBackdrop(station, colorScheme)'),
-      );
+          radioPlayer, isNot(contains('flexibleSpace: _buildAppBarBackdrop')));
       expect(radioPlayer, contains('backgroundColor: Colors.transparent'));
       expect(radioPlayer, contains('surfaceTintColor: Colors.transparent'));
-      expect(radioPlayer, contains('RadioBlurredBackdrop('));
+      expect(
+        RegExp(r'RadioBlurredBackdrop\(').allMatches(radioPlayer),
+        hasLength(1),
+      );
+      expect(radioPlayer, contains('top: _radioPlayerAppBarHeight'));
+      expect(radioPlayer, contains('height: _radioPlayerAppBarHeight'));
+      expect(radioPlayer, contains('_buildBodyBackdropOverlays(colorScheme)'));
+      expect(
+        radioPlayer,
+        contains(
+          'static const double _appBarBackdropSurfaceOverlayAlpha = 0.50;',
+        ),
+      );
+      expect(
+        radioPlayer,
+        contains(
+          'static const double _appBarBackdropContainerOverlayAlpha = 0.06;',
+        ),
+      );
       expect(radioPlayer, contains('RadioCoverImage('));
 
       expect(sharedBackdrop, contains('class RadioBlurredBackdrop'));

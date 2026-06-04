@@ -98,6 +98,27 @@ final rootNavigatorKey = GlobalKey<NavigatorState>();
 /// 導出此 key 以便 AppShell 可以關閉 shell 內的 popup 菜單
 final shellNavigatorKey = GlobalKey<NavigatorState>();
 
+CustomTransitionPage<void> _fullscreenPlayerPage({
+  required Widget child,
+}) {
+  return CustomTransitionPage<void>(
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 1),
+          end: Offset.zero,
+        ).animate(CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        )),
+        child: ClipRect(child: child),
+      );
+    },
+  );
+}
+
 /// 应用路由配置
 /// 使用普通 ShellRoute 以优化内存（页面切换时销毁非活动页面）
 final appRouter = GoRouter(
@@ -281,20 +302,8 @@ final appRouter = GoRouter(
       path: RoutePaths.player,
       name: RouteNames.player,
       parentNavigatorKey: rootNavigatorKey,
-      pageBuilder: (context, state) => CustomTransitionPage(
+      pageBuilder: (context, state) => _fullscreenPlayerPage(
         child: const PlayerPage(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 1),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutCubic,
-            )),
-            child: child,
-          );
-        },
       ),
     ),
     // 電台播放器頁面（不在 Shell 內）
@@ -302,20 +311,8 @@ final appRouter = GoRouter(
       path: RoutePaths.radioPlayer,
       name: RouteNames.radioPlayer,
       parentNavigatorKey: rootNavigatorKey,
-      pageBuilder: (context, state) => CustomTransitionPage(
+      pageBuilder: (context, state) => _fullscreenPlayerPage(
         child: const RadioPlayerPage(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 1),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutCubic,
-            )),
-            child: child,
-          );
-        },
       ),
     ),
   ],
