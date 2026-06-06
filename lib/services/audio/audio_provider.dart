@@ -34,7 +34,8 @@ import 'just_audio_service.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'audio_runtime_platform.dart';
 import 'audio_stream_manager.dart';
-import 'playback_request_executor.dart';
+import 'playback_recovery_coordinator.dart';
+import 'playback_request_session.dart';
 import 'queue_manager.dart';
 import 'queue_persistence_manager.dart';
 import '../network/connectivity_service.dart';
@@ -180,35 +181,11 @@ class _PlaybackContext {
   }
 }
 
-/// 带有请求 ID 的锁包装类
-/// 用于确保只有正确的请求才能完成锁，避免完成错误的锁
-class _LockWithId {
-  final int requestId;
-  final Completer<void> completer;
-
-  _LockWithId(this.requestId) : completer = Completer<void>();
-
-  /// 只有当锁仍然属于指定请求时才完成
-  void completeIf(int expectedRequestId) {
-    if (requestId == expectedRequestId && !completer.isCompleted) {
-      completer.complete();
-    }
-  }
-
-  /// 检查锁是否属于指定请求
-  bool belongsTo(int checkRequestId) => requestId == checkRequestId;
-}
-
-class _PendingMediaOpenError {
-  _PendingMediaOpenError();
-
-  final Completer<bool> recovered = Completer<bool>();
-  String? terminalMessage;
-}
-
 /// 音频控制器 - 管理所有播放相关的状态和操作
 /// 协调 AudioService（单曲播放）和 QueueManager（队列管理）
-class AudioController extends StateNotifier<PlayerState> with Logging {
+class AudioController extends StateNotifier<PlayerState>
+    with Logging
+    implements PlaybackRetryExecutor {
   static const _syntheticSourceDiagnostics = <String>{
     'VIP song, payment required',
     'No playback rights due to copyright or region restrictions',
@@ -242,11 +219,6 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   // 防止重复处理完成事件
   bool _isHandlingCompletion = false;
-
-  // 播放锁 - 防止快速切歌时的竞态条件
-  _LockWithId? _playLock;
-  int _playRequestId = 0;
-  final Map<int, _PendingMediaOpenError> _pendingMediaOpenErrors = {};
   String? _terminalMediaOpenErrorTrackKey;
 
   // 导航请求ID - 防止快速点击 next/previous 时的竞态条件
@@ -261,7 +233,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   // 基于位置检测的备选切歌定时器（解决后台播放 completed 事件丢失问题）
   Timer? _positionCheckTimer;
 
-  late final PlaybackRequestExecutor _playbackRequestExecutor;
+  late final PlaybackRequestSession _playbackRequestSession;
+  late final PlaybackRecoveryCoordinator _recoveryCoordinator;
   late final TemporaryPlayHandler _temporaryPlayHandler;
   late final MixPlaylistHandler _mixPlaylistHandler;
   Future<void>? _mixLoadMoreFuture;
@@ -285,26 +258,6 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   void Function(QueueState queueState)? onQueueStateChanged;
 
   // ========== 网络重试相关 ==========
-  /// 重试定时器
-  Timer? _retryTimer;
-
-  /// 当前重试次数
-  int _retryAttempt = 0;
-
-  /// 网络恢复后需要重新播放的歌曲
-  Track? _trackToRecoverAfterReconnect;
-
-  /// 网络恢复后需要恢复到的播放位置
-  Duration? _positionToRecoverAfterReconnect;
-
-  /// 重试/恢复代数，用于取消已过期的延迟重试和网络恢复任务
-  int _retryGeneration = 0;
-
-  /// Last retry generation scheduled for a track, used to suppress only
-  /// duplicate backend errors from the same retry wait period.
-  int? _scheduledRetryGeneration;
-  String? _scheduledRetryTrackKey;
-
   /// 网络恢复监听订阅
   StreamSubscription<void>? _networkRecoverySubscription;
 
@@ -336,11 +289,26 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         _mixTracksFetcher = mixTracksFetcher,
         _youtubeSource = youtubeSource,
         super(const PlayerState()) {
-    _playbackRequestExecutor = PlaybackRequestExecutor(
+    _playbackRequestSession = PlaybackRequestSession(
       audioService: _audioService,
       audioStreamManager: _audioStreamManager,
       getNextTrack: _nextTrackForPrefetch,
-      isSuperseded: _isSuperseded,
+      onLoadingStarted: _startSessionLoadingState,
+      onLoadingFinished: (requestId, result) {
+        if (_context.activeRequestId == requestId && result.isSuperseded) {
+          state = state.copyWith(isLoading: false);
+          _context = _context.copyWith(activeRequestId: 0);
+          _publishMobileAudioHandlerCurrentPlaybackState();
+        }
+      },
+      terminalMediaOpenMessage: (track) =>
+          t.audio.playbackFailedTrack(title: track.title),
+      onTerminalMediaOpenError: _handlePostHandoffTerminalMediaOpen,
+    );
+    _recoveryCoordinator = PlaybackRecoveryCoordinator(
+      retryExecutor: this,
+      onRecoveryEvent: _applyRecoveryEvent,
+      isRetryableError: _isRetryableError,
     );
     _temporaryPlayHandler = const TemporaryPlayHandler();
     _mixPlaylistHandler = MixPlaylistHandler();
@@ -525,14 +493,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     onLyricsAutoMatchStateChanged = null;
     _stopPositionCheckTimer();
     _cancelRetryTimer();
+    _recoveryCoordinator.dispose();
+    _playbackRequestSession.dispose();
     _networkRecoverySubscription?.cancel();
     _mixLoadMoreFuture = null;
-    for (final pending in _pendingMediaOpenErrors.values) {
-      if (!pending.recovered.isCompleted) {
-        pending.recovered.complete(true);
-      }
-    }
-    _pendingMediaOpenErrors.clear();
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
@@ -657,7 +621,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   Future<void> playSingle(Track track) async {
     await _ensureInitialized();
     _resetRetryState(); // 重置网络重试状态
-    _supersedeInFlightPlaybackIntent();
+    _playbackRequestSession.cancelActive();
+    _context = _context.copyWith(activeRequestId: 0);
     state = state.copyWith(isLoading: true, error: null);
     logInfo('Playing single track: ${track.title}');
     try {
@@ -679,7 +644,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   Future<void> playTemporary(Track track) async {
     await _ensureInitialized();
     _resetRetryState(); // 重置网络重试状态
-    _supersedeInFlightPlaybackIntent();
+    _playbackRequestSession.cancelActive();
+    _context = _context.copyWith(activeRequestId: 0);
 
     logInfo('Playing temporary track: ${track.title}');
 
@@ -748,8 +714,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     required String debugLabel,
     bool clearSavedState = false,
   }) async {
-    final requestId = _enterLoadingState();
-    logDebug('$debugLabel started (requestId: $requestId)');
+    int? requestId;
+    logDebug('$debugLabel started');
 
     try {
       final queue = _queueManager.tracks;
@@ -774,30 +740,35 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       _updatePlayingTrack(currentTrack);
       _updateQueueState();
 
-      try {
-        await _audioService.stop();
-      } catch (_) {
-        _resetLoadingState(requestId: requestId);
-        rethrow;
-      }
-
       final rewind = Duration(seconds: restorePlan.rewindSeconds);
       final adjustedPosition = restorePlan.savedPosition - rewind;
       final restorePosition =
           adjustedPosition.isNegative ? Duration.zero : adjustedPosition;
 
-      final execution = await _playbackRequestExecutor.executeQueueRestore(
-        requestId: requestId,
-        track: requestTrack,
-        position: restorePosition,
-        shouldResume: restorePlan.savedWasPlaying,
+      final result = await _playbackRequestSession.restore(
+        PlaybackRestoreCommand(
+          track: requestTrack,
+          mode: targetMode,
+          position: restorePosition,
+          shouldResume: restorePlan.savedWasPlaying,
+        ),
       );
-      if (execution == null) {
-        await _waitForMediaOpenErrorRecovery(requestId);
+      requestId = result.requestId;
+      if (result.isSuperseded) {
         return;
       }
+      if (result.isTerminalMediaOpenError) {
+        _handleTerminalMediaOpenResult(result);
+        return;
+      }
+      if (result.isFailed) {
+        final error = result.error!;
+        final stackTrace = result.stackTrace ?? StackTrace.current;
+        Error.throwWithStackTrace(error, stackTrace);
+      }
 
-      _replaceQueueTrackIfCurrent(execution.track);
+      final executionTrack = result.track!;
+      _replaceQueueTrackIfCurrent(executionTrack);
 
       if (clearSavedState) {
         _context = _context.copyWith(clearSavedState: true);
@@ -805,9 +776,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
       _exitLoadingState(
         requestId,
-        execution.track,
+        executionTrack,
         mode: targetMode,
-        streamResult: execution.streamResult,
+        streamResult: result.streamResult,
       );
       _updateQueueState();
       logInfo('$debugLabel completed successfully');
@@ -817,7 +788,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       if (clearSavedState) {
         _context = _context.copyWith(clearSavedState: true);
       }
-      if (_isSuperseded(requestId)) return;
+      if (requestId == null || _isSessionSuperseded(requestId)) return;
       final track = _queueManager.currentTrack;
       if (track != null) {
         await _handleSourceError(track, e, targetMode, requestId);
@@ -831,7 +802,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         _context = _context.copyWith(clearSavedState: true);
       }
     } finally {
-      _resetLoadingState(requestId: requestId);
+      if (requestId != null) {
+        _resetLoadingState(requestId: requestId);
+      }
     }
   }
 
@@ -909,7 +882,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   /// 播放多首歌曲
   Future<void> playAll(List<Track> tracks, {int startIndex = 0}) async {
     await _ensureInitialized();
-    _supersedeInFlightPlaybackIntent();
+    _playbackRequestSession.cancelActive();
+    _context = _context.copyWith(activeRequestId: 0);
     state = state.copyWith(isLoading: true, error: null);
     logInfo('Playing ${tracks.length} tracks, starting at index $startIndex');
     try {
@@ -946,9 +920,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       throw StateError(t.library.main.cannotLoadMix);
     }
 
-    _supersedeInFlightPlaybackIntent();
+    _playbackRequestSession.cancelActive();
+    _context = _context.copyWith(activeRequestId: 0);
     final mixStartRequestId = ++_mixStartRequestId;
-    final playRequestGeneration = _playRequestId;
+    final playRequestGeneration = _playbackRequestSession.activeRequestId;
     final result = await fetcher(
       playlistId: playlistId,
       currentVideoId: seedVideoId,
@@ -972,7 +947,7 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   bool _isMixStartCurrent(int mixStartRequestId, int playRequestGeneration) {
     return !_isDisposed &&
         mixStartRequestId == _mixStartRequestId &&
-        playRequestGeneration == _playRequestId;
+        playRequestGeneration == _playbackRequestSession.activeRequestId;
   }
 
   /// 播放 Mix 播放列表
@@ -1818,16 +1793,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   // ========== 統一播放入口 ========== //
 
-  void _supersedeInFlightPlaybackIntent() {
-    if (_isDisposed) return;
-    _playRequestId++;
-    _context = _context.copyWith(activeRequestId: 0);
-    _playLock?.completeIf(_playLock!.requestId);
-  }
-
-  /// 進入加載狀態（統一的 UI 更新邏輯）
-  /// 返回請求 ID，用於後續的取代檢測
-  int _enterLoadingState() {
+  /// 進入 session 加載狀態（統一的 UI 更新邏輯）
+  void _startSessionLoadingState(int requestId) {
     _terminalMediaOpenErrorTrackKey = null;
     state = state.copyWith(
       isLoading: true,
@@ -1837,10 +1804,8 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       clearDuration: true,
       replaceCurrentStreamMetadata: true,
     );
-    final requestId = ++_playRequestId;
     _context = _context.copyWith(activeRequestId: requestId);
     _publishMobileAudioHandlerLoadingState();
-    return requestId;
   }
 
   void _publishMobileAudioHandlerLoadingState() {
@@ -1888,29 +1853,28 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     bool recordHistory = false,
     AudioStreamResult? streamResult,
   }) {
-    // 只有當請求沒有被取代時才更新狀態
-    if (requestId == _playRequestId) {
-      state = state.copyWith(
-        isLoading: false,
-        // 更新音頻流信息
-        currentBitrate: streamResult?.bitrate,
-        currentContainer: streamResult?.container,
-        currentCodec: streamResult?.codec,
-        currentStreamType: streamResult?.streamType,
-        replaceCurrentStreamMetadata: true,
-      );
-      _context = _context.copyWith(activeRequestId: 0, mode: mode);
+    if (_isSessionSuperseded(requestId)) return;
 
-      if (trackWithUrl != null) {
-        _updatePlayingTrack(trackWithUrl, recordHistory: recordHistory);
-      }
+    state = state.copyWith(
+      isLoading: false,
+      // 更新音頻流信息
+      currentBitrate: streamResult?.bitrate,
+      currentContainer: streamResult?.container,
+      currentCodec: streamResult?.codec,
+      currentStreamType: streamResult?.streamType,
+      replaceCurrentStreamMetadata: true,
+    );
+    _context = _context.copyWith(activeRequestId: 0, mode: mode);
+
+    if (trackWithUrl != null) {
+      _updatePlayingTrack(trackWithUrl, recordHistory: recordHistory);
     }
   }
 
   /// 重置加載狀態（在請求被取代或失敗時使用）
   void _resetLoadingState({int? requestId}) {
     if (_isDisposed) return;
-    if (requestId != null && requestId != _playRequestId) {
+    if (requestId != null && _isSessionSuperseded(requestId)) {
       return;
     }
     state = state.copyWith(isLoading: false);
@@ -1919,14 +1883,68 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
   }
 
   void _resetSourceErrorLoadingState(int requestId) {
-    if (_isDisposed || requestId != _playRequestId) return;
+    if (_isDisposed || _isSessionSuperseded(requestId)) return;
     _context = _context.copyWith(activeRequestId: 0);
     _publishMobileAudioHandlerCurrentPlaybackState();
   }
 
+  void _clearMatchingSessionLoadingContext(int requestId) {
+    if (_isDisposed || _context.activeRequestId != requestId) return;
+    _context = _context.copyWith(activeRequestId: 0);
+    _publishMobileAudioHandlerCurrentPlaybackState();
+  }
+
+  void _handleTerminalMediaOpenResult(PlaybackSessionResult result) {
+    final resultTrack = result.track;
+    if (resultTrack != null &&
+        state.playingTrack?.uniqueKey != resultTrack.uniqueKey) {
+      logDebug(
+        'Ignoring stale terminal media open result for: ${resultTrack.title}',
+      );
+      return;
+    }
+    _handleTerminalMediaOpen(
+      track: resultTrack,
+      message: result.message,
+      requestId: result.requestId,
+    );
+  }
+
+  void _handlePostHandoffTerminalMediaOpen({
+    required Track track,
+    required String message,
+  }) {
+    if (_isDisposed || state.playingTrack?.uniqueKey != track.uniqueKey) {
+      return;
+    }
+    _handleTerminalMediaOpen(track: track, message: message);
+  }
+
+  void _handleTerminalMediaOpen({
+    required Track? track,
+    required String? message,
+    int? requestId,
+  }) {
+    if (message != null) {
+      _toastService.showError(message);
+    }
+    _terminalMediaOpenErrorTrackKey =
+        track?.uniqueKey ?? state.playingTrack?.uniqueKey;
+    state = state.copyWith(
+      error: message,
+      isLoading: false,
+      isPlaying: false,
+      isBuffering: false,
+      processingState: FmpAudioProcessingState.idle,
+    );
+    if (requestId != null) {
+      _clearMatchingSessionLoadingContext(requestId);
+    }
+  }
+
   /// 檢查當前請求是否已被新請求取代
-  bool _isSuperseded(int requestId) {
-    return requestId != _playRequestId;
+  bool _isSessionSuperseded(int requestId) {
+    return _playbackRequestSession.isSuperseded(requestId);
   }
 
   Track? _nextTrackForPrefetch() {
@@ -1941,15 +1959,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     return tracks[nextIndex];
   }
 
-  Future<void> _stopAudioForRequest(int requestId) async {
-    if (_isSuperseded(requestId)) return;
-    await _audioService.stop();
-  }
-
-  void _scheduleRetryForRequest(
-      int requestId, Track track, Duration? position) {
-    if (_isSuperseded(requestId)) return;
-    _scheduleRetry(track, position);
+  void _scheduleRetryForSessionRequest(
+      int requestId, Track track, Duration? position, PlayMode mode) {
+    if (_isSessionSuperseded(requestId)) return;
+    _scheduleRetry(track, position, mode);
   }
 
   /// 統一的播放請求入口
@@ -1968,70 +1981,52 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     bool prefetchNext = true,
   }) async {
     // 保存當前播放位置，用於網路錯誤重試時恢復
-    // 必須在 _enterLoadingState（重置 position 為 zero）之前保存
+    // 必須在 session loading state（重置 position 為 zero）之前保存
     final positionBeforeLoad = state.position;
 
     // 階段 1：立即更新 UI（在任何 await 之前）
     _updatePlayingTrack(track);
     _updateQueueState();
 
-    // 階段 2：進入加載狀態
-    final requestId = _enterLoadingState();
-    logDebug(
-        '_executePlayRequest started for: ${track.title} (requestId: $requestId, mode: $mode)');
-
-    // 原子性地完成舊鎖並創建新鎖（在任何 await 之前，防止競態條件）
-    _playLock?.completeIf(_playLock!.requestId);
-    _playLock = _LockWithId(requestId);
-
-    // 互斥：停止電台播放（如果有）
-    await onPlaybackStarting?.call();
-    if (_isSuperseded(requestId)) {
-      logDebug(
-          'Play request $requestId superseded after playback-starting callback, aborting before stop');
-      _playLock?.completeIf(requestId);
-      return;
-    }
-
     bool completedSuccessfully = false;
-
-    try {
-      await _stopAudioForRequest(requestId);
-    } catch (_) {
-      _playLock?.completeIf(requestId);
-      _resetLoadingState(requestId: requestId);
-      rethrow;
-    }
+    int? requestId;
 
     try {
       final requestTrack = _createPlaybackRequestTrack(track);
-      final execution = await _playbackRequestExecutor.execute(
-        requestId: requestId,
-        track: requestTrack,
-        persist: persist,
-        prefetchNext: prefetchNext,
+      final result = await _playbackRequestSession.start(
+        PlaybackSessionCommand(
+          track: requestTrack,
+          mode: mode,
+          persist: persist,
+          recordHistory: recordHistory,
+          prefetchNext: prefetchNext,
+          positionBeforeLoad: positionBeforeLoad,
+          onPlaybackStarting: onPlaybackStarting,
+        ),
       );
-      if (execution == null) {
-        await _waitForMediaOpenErrorRecovery(requestId);
+      requestId = result.requestId;
+      logDebug(
+          '_executePlayRequest session finished for: ${track.title} (requestId: $requestId, mode: $mode, result: ${result.kind})');
+
+      if (result.isSuperseded) {
         return;
       }
-      if (!await _waitForMediaOpenErrorRecovery(requestId)) {
-        logDebug(
-            'Play request $requestId aborted after terminal media open error');
+      if (result.isTerminalMediaOpenError) {
+        _handleTerminalMediaOpenResult(result);
         return;
       }
-      if (_isSuperseded(requestId)) {
-        logDebug(
-            'Play request $requestId superseded after playback handoff, aborting success path');
-        return;
+      if (result.isFailed) {
+        final error = result.error!;
+        final stackTrace = result.stackTrace ?? StackTrace.current;
+        Error.throwWithStackTrace(error, stackTrace);
       }
 
-      final trackWithUrl = execution.track;
-      final streamResult = execution.streamResult;
+      final trackWithUrl = result.track!;
+      final streamResult = result.streamResult;
       _replaceQueueTrackIfCurrent(trackWithUrl);
 
       // 階段 6：完成
-      _exitLoadingState(requestId, trackWithUrl,
+      _exitLoadingState(result.requestId, trackWithUrl,
           mode: mode, recordHistory: recordHistory, streamResult: streamResult);
       completedSuccessfully = true;
 
@@ -2053,21 +2048,20 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
           '${e.sourceType.name} API error for ${track.title}: ${e.message}');
       // 网络错误和超时：走重试逻辑，而非通用错误处理
       if (_shouldRetrySourceError(e)) {
-        if (_isSuperseded(requestId)) return;
-        try {
-          await _stopAudioForRequest(requestId);
-        } catch (stopError) {
-          logError(
-              'Failed to stop player during source network error', stopError);
-        }
+        if (requestId == null || _isSessionSuperseded(requestId)) return;
         _resetLoadingState(requestId: requestId);
-        _scheduleRetryForRequest(requestId, track, positionBeforeLoad);
+        _scheduleRetryForSessionRequest(
+          requestId,
+          track,
+          positionBeforeLoad,
+          mode,
+        );
         throw const _RetryScheduledException();
       }
-      if (_isSuperseded(requestId)) return;
+      if (requestId == null || _isSessionSuperseded(requestId)) return;
       await _handleSourceError(track, e, mode, requestId);
     } catch (e, stack) {
-      if (_isSuperseded(requestId)) {
+      if (requestId != null && _isSessionSuperseded(requestId)) {
         logDebug(
             'Play request $requestId superseded after playback failure, ignoring error');
         return;
@@ -2076,31 +2070,27 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
       // Check if original error is retryable
       if (_isRetryableError(e)) {
-        if (_isSuperseded(requestId)) return;
-        try {
-          await _stopAudioForRequest(requestId);
-        } catch (stopError) {
-          logError(
-              'Failed to stop player during network error handling', stopError);
-        }
+        if (requestId == null || _isSessionSuperseded(requestId)) return;
         _resetLoadingState(requestId: requestId);
-        _scheduleRetryForRequest(requestId, track, positionBeforeLoad);
+        _scheduleRetryForSessionRequest(
+          requestId,
+          track,
+          positionBeforeLoad,
+          mode,
+        );
         throw const _RetryScheduledException();
       }
 
-      if (_isSuperseded(requestId)) return;
-      try {
-        await _stopAudioForRequest(requestId);
-      } catch (stopError) {
-        logError('Failed to stop player after playback error', stopError);
-      }
+      if (requestId != null && _isSessionSuperseded(requestId)) return;
       state = state.copyWith(error: e.toString(), isLoading: false);
-      _resetSourceErrorLoadingState(requestId);
+      if (requestId != null) {
+        _resetSourceErrorLoadingState(requestId);
+      }
       _toastService.showError(t.audio.playbackFailedTrack(title: track.title));
     } finally {
-      _playLock?.completeIf(requestId);
-
-      if (!completedSuccessfully && _isSuperseded(requestId)) {
+      if (requestId != null &&
+          !completedSuccessfully &&
+          _isSessionSuperseded(requestId)) {
         logDebug('Play request $requestId was superseded, resetting isLoading');
         _resetLoadingState(requestId: requestId);
       }
@@ -2120,18 +2110,20 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
           _sourceCannotPlayMessage(track, e, skipped: true),
         );
         Future.delayed(const Duration(milliseconds: 300), () {
-          if (!_isSuperseded(requestId)) {
+          if (!_isSessionSuperseded(requestId)) {
             next();
           }
         });
       } else {
         try {
-          await _stopAudioForRequest(requestId);
+          if (!_isSessionSuperseded(requestId)) {
+            await _audioService.stop();
+          }
         } catch (stopError) {
           logError(
               'Failed to stop player during source error handling', stopError);
         }
-        if (_isSuperseded(requestId)) return;
+        if (_isSessionSuperseded(requestId)) return;
         state = state.copyWith(
           error: cannotPlayMessage,
           isLoading: false,
@@ -2236,219 +2228,154 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     return _isStringNetworkError(error);
   }
 
-  /// 安排重试（漸進式延遲）
-  void _scheduleRetry(Track track, Duration? position) {
-    final generation = ++_retryGeneration;
-    _scheduledRetryGeneration = generation;
-    _scheduledRetryTrackKey = track.uniqueKey;
-    // 立即保存需要恢复的歌曲和位置（无论是否达到最大重试次数）
-    // 这样当网络恢复时，无论重试进行到哪一步，都能自动恢复播放
-    _trackToRecoverAfterReconnect = track;
-    // 只在有意义的位置时更新；避免重试链中零值覆盖原始位置
-    // （_enterLoadingState 会将 state.position 重置为 zero，
-    //   后续重试的 positionBeforeLoad 会是 zero）
-    if (position != null && position > Duration.zero) {
-      _positionToRecoverAfterReconnect = position;
-    }
+  PlayMode get _currentRecoveryMode =>
+      _context.isMix ? PlayMode.mix : PlayMode.queue;
 
-    if (_retryAttempt >= NetworkRetryConfig.maxRetries) {
-      logInfo('Max retry attempts reached for: ${track.title}');
-      state = state.copyWith(
-        isNetworkError: true,
-        isRetrying: false,
-        retryAttempt: _retryAttempt,
-        nextRetryAt: null,
-        clearNextRetryAt: true,
-      );
-      return;
-    }
+  @override
+  Future<PlaybackSessionResult> retryPlayback({
+    required Track track,
+    required Duration? position,
+    required PlayMode mode,
+  }) async {
+    logInfo('Retrying playback for: ${track.title}, savedPosition: $position');
 
-    final delay = NetworkRetryConfig.getRetryDelay(_retryAttempt);
-    final nextRetryTime = DateTime.now().add(delay);
+    _updatePlayingTrack(track);
+    _updateQueueState();
 
-    logInfo(
-        'Scheduling retry ${_retryAttempt + 1}/${NetworkRetryConfig.maxRetries} for: ${track.title} in ${delay.inSeconds}s');
-
-    state = state.copyWith(
-      isNetworkError: true,
-      isRetrying: true,
-      retryAttempt: _retryAttempt,
-      nextRetryAt: nextRetryTime,
+    final requestTrack = _createPlaybackRequestTrack(track);
+    final result = await _playbackRequestSession.start(
+      PlaybackSessionCommand(
+        track: requestTrack,
+        mode: mode,
+        persist: false,
+        recordHistory: false,
+        prefetchNext: true,
+        positionBeforeLoad: position ?? state.position,
+        onPlaybackStarting: onPlaybackStarting,
+      ),
     );
 
-    _retryTimer?.cancel();
-    _retryTimer = Timer(delay, () {
-      if (!_isRetryGenerationCurrent(generation, track)) return;
-      // 使用已保存的恢复位置，而非本地 position 参数
-      // （重试链中 _executePlayRequest 传入的 position 可能是零）
-      _retryPlayback(track, _positionToRecoverAfterReconnect, generation);
-    });
-  }
+    logDebug(
+        'retryPlayback session finished for: ${track.title} (requestId: ${result.requestId}, mode: $mode, result: ${result.kind})');
 
-  bool _isRetryGenerationCurrent(int generation, Track track) {
-    return !_isDisposed &&
-        generation == _retryGeneration &&
-        _trackToRecoverAfterReconnect?.uniqueKey == track.uniqueKey;
-  }
+    if (result.isCompleted) {
+      final trackWithUrl = result.track!;
+      _replaceQueueTrackIfCurrent(trackWithUrl);
+      _exitLoadingState(
+        result.requestId,
+        trackWithUrl,
+        mode: mode,
+        recordHistory: false,
+        streamResult: result.streamResult,
+      );
+      _updateQueueState();
 
-  bool _isRetryTrackCurrent(Track track) {
-    return !_isDisposed && state.currentTrack?.uniqueKey == track.uniqueKey;
-  }
-
-  bool _isDuplicateRetryingAudioError(Track track) {
-    return state.isRetrying &&
-        !_context.isInLoadingState &&
-        _scheduledRetryGeneration == _retryGeneration &&
-        _scheduledRetryTrackKey == track.uniqueKey;
-  }
-
-  /// 执行重试
-  Future<void> _retryPlayback(
-    Track track,
-    Duration? position,
-    int generation,
-  ) async {
-    if (!_isRetryGenerationCurrent(generation, track)) return;
-    _retryAttempt++;
-    logInfo(
-        'Retrying playback ($_retryAttempt/${NetworkRetryConfig.maxRetries}) for: ${track.title}, savedPosition: $position');
-
-    try {
-      // 更新状态为重试中
       state = state.copyWith(
-        isRetrying: true,
-        retryAttempt: _retryAttempt,
+        isNetworkError: false,
+        isRetrying: false,
+        retryAttempt: 0,
         nextRetryAt: null,
         clearNextRetryAt: true,
         error: null,
       );
 
-      if (!_isRetryGenerationCurrent(generation, track)) return;
-
-      // 保持当前模式
-      final currentMode = _context.isMix ? PlayMode.mix : PlayMode.queue;
-      await _executePlayRequest(
-        track: track,
-        mode: currentMode,
-        persist: false, // 重试时不需要再次持久化
-        recordHistory: false, // 重试时不重复记录历史
-        prefetchNext: true,
-      );
-
-      if (!_isRetryGenerationCurrent(generation, track)) return;
-
-      // 重试成功，重置状态
-      _resetRetryState();
-
-      // 如果有保存的位置，尝试恢复
       if (position != null && position > Duration.zero) {
-        await Future.delayed(AppConstants.seekStabilizationDelay);
-        if (_isRetryTrackCurrent(track)) {
+        await Future<void>.delayed(AppConstants.seekStabilizationDelay);
+        if (!_isDisposed && state.currentTrack?.uniqueKey == track.uniqueKey) {
           await seekTo(position);
         }
       }
 
       logInfo('Retry playback succeeded for: ${track.title}');
-    } on _RetryScheduledException {
-      // 重试已在 _executePlayRequest 中安排，不需要额外处理
-      logDebug('Retry already scheduled by _executePlayRequest');
-    } catch (e) {
-      logError('Retry playback failed for: ${track.title}', e);
-      if (_isRetryableError(e)) {
-        _scheduleRetry(track, position);
-      } else {
-        // 非网络错误，不再重试
-        _resetRetryState();
-        state = state.copyWith(error: e.toString());
-        _toastService
-            .showError(t.audio.playbackFailedTrack(title: track.title));
-      }
+      return result;
     }
+
+    if (!result.isSuperseded) {
+      _resetLoadingState(requestId: result.requestId);
+    }
+    return result;
+  }
+
+  void _applyRecoveryEvent(
+    PlaybackRecoveryEvent event, {
+    bool showNonRetryableToast = false,
+  }) {
+    if (_isDisposed) return;
+
+    switch (event.kind) {
+      case PlaybackRecoveryEventKind.retryStarted:
+        _applyRecoveryState(event.state, clearError: true);
+      case PlaybackRecoveryEventKind.retryScheduled:
+        final attempt = event.state.retryAttempt + 1;
+        logInfo(
+            'Scheduling retry $attempt/${NetworkRetryConfig.maxRetries} for: ${event.track?.title ?? 'unknown track'}');
+        _applyRecoveryState(event.state);
+      case PlaybackRecoveryEventKind.retryExhausted:
+        logInfo(
+            'Max retry attempts reached for: ${event.track?.title ?? 'unknown track'}');
+        _applyRecoveryState(event.state);
+      case PlaybackRecoveryEventKind.retrySucceeded:
+        _applyRecoveryState(event.state, clearError: true);
+      case PlaybackRecoveryEventKind.recoveryFailedNonRetryable:
+        _applyRecoveryState(event.state);
+        final result = event.result;
+        if (result != null && result.isTerminalMediaOpenError) {
+          _handleTerminalMediaOpenResult(result);
+          return;
+        }
+        state = state.copyWith(error: event.error?.toString());
+        final track = event.track;
+        if (showNonRetryableToast && track != null) {
+          _toastService
+              .showError(t.audio.playbackFailedTrack(title: track.title));
+        }
+      case PlaybackRecoveryEventKind.staleEventIgnored:
+        return;
+    }
+  }
+
+  void _applyRecoveryState(
+    PlaybackRecoveryState recoveryState, {
+    bool clearError = false,
+  }) {
+    state = state.copyWith(
+      isNetworkError: recoveryState.isNetworkError,
+      isRetrying: recoveryState.isRetrying,
+      retryAttempt: recoveryState.retryAttempt,
+      nextRetryAt: recoveryState.nextRetryAt,
+      clearNextRetryAt: recoveryState.nextRetryAt == null,
+      error: clearError ? null : state.error,
+    );
+  }
+
+  /// 安排重试（漸進式延遲）
+  void _scheduleRetry(Track track, Duration? position, PlayMode mode) {
+    final event = _recoveryCoordinator.scheduleRetry(
+      track: track,
+      position: position,
+      mode: mode,
+    );
+    _applyRecoveryEvent(event);
   }
 
   /// 网络恢复时自动恢复播放
   Future<void> _onNetworkRecovered() async {
     logInfo(
-        '_onNetworkRecovered called, trackToRecover: ${_trackToRecoverAfterReconnect?.title}');
-    if (_trackToRecoverAfterReconnect == null) {
-      logDebug('No track to recover, skipping');
-      return;
-    }
-
-    final track = _trackToRecoverAfterReconnect!;
-    final position = _positionToRecoverAfterReconnect;
-    final generation = ++_retryGeneration;
-
-    logInfo(
-        'Network recovered, attempting to resume playback for: ${track.title}');
-
-    _retryAttempt = 0; // 重置重试计数
-
-    // 延迟一下确保网络稳定
-    await Future.delayed(AppConstants.seekStabilizationDelay);
-    if (!_isRetryGenerationCurrent(generation, track)) return;
-
-    try {
-      final currentMode = _context.isMix ? PlayMode.mix : PlayMode.queue;
-      await _executePlayRequest(
-        track: track,
-        mode: currentMode,
-        persist: false,
-        recordHistory: false,
-        prefetchNext: true,
-      );
-
-      if (!_isRetryGenerationCurrent(generation, track)) return;
-      _resetRetryState();
-
-      // 恢复播放位置
-      if (position != null && position > Duration.zero) {
-        await Future.delayed(AppConstants.seekStabilizationDelay);
-        if (_isRetryTrackCurrent(track)) {
-          await seekTo(position);
-        }
-      }
-
-      logInfo('Network recovery playback succeeded for: ${track.title}');
-    } on _RetryScheduledException {
-      // 重试已在 _executePlayRequest 中安排
-      logDebug('Retry scheduled after network recovery attempt');
-    } catch (e) {
-      logError('Network recovery playback failed for: ${track.title}', e);
-      if (!_isRetryGenerationCurrent(generation, track)) return;
-      if (_isRetryableError(e)) {
-        _scheduleRetry(track, position);
-      } else {
-        _resetRetryState();
-        state = state.copyWith(error: e.toString());
-        _toastService
-            .showError(t.audio.playbackFailedTrack(title: track.title));
-      }
-    }
+        '_onNetworkRecovered called, recoveryTrack: ${_recoveryCoordinator.recoveryTrack?.title}');
+    final event = await _recoveryCoordinator.onNetworkRecovered(
+      mode: _currentRecoveryMode,
+    );
+    _applyRecoveryEvent(event, showNonRetryableToast: true);
   }
 
   /// 重置重试状态
   void _resetRetryState() {
-    _retryGeneration++;
-    _cancelRetryTimer();
-    _retryAttempt = 0;
-    _trackToRecoverAfterReconnect = null;
-    _positionToRecoverAfterReconnect = null;
-    _scheduledRetryGeneration = null;
-    _scheduledRetryTrackKey = null;
-    state = state.copyWith(
-      isNetworkError: false,
-      isRetrying: false,
-      retryAttempt: 0,
-      nextRetryAt: null,
-      clearNextRetryAt: true,
-    );
+    _applyRecoveryEvent(_recoveryCoordinator.reset());
   }
 
   /// 取消待处理的重试
   void _cancelRetryTimer() {
-    _retryTimer?.cancel();
-    _retryTimer = null;
+    _recoveryCoordinator.reset();
   }
 
   /// 设置网络恢复监听（需要在初始化时从外部传入 Ref）
@@ -2464,51 +2391,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
   /// 手动触发重试（用户点击重试按钮）
   Future<void> retryManually() async {
-    final track = _trackToRecoverAfterReconnect ?? state.playingTrack;
-    if (track == null) return;
-
-    final generation = ++_retryGeneration;
-    _trackToRecoverAfterReconnect = track;
-    _retryAttempt = 0; // 重置重试计数
-    _cancelRetryTimer();
-
-    final position = _positionToRecoverAfterReconnect ?? state.position;
-
-    try {
-      final currentMode = _context.isMix ? PlayMode.mix : PlayMode.queue;
-      await _executePlayRequest(
-        track: track,
-        mode: currentMode,
-        persist: false,
-        recordHistory: false,
-        prefetchNext: true,
-      );
-
-      if (!_isRetryGenerationCurrent(generation, track)) return;
-      _resetRetryState();
-
-      if (position.inSeconds > 0) {
-        await Future.delayed(AppConstants.seekStabilizationDelay);
-        if (_isRetryTrackCurrent(track)) {
-          await seekTo(position);
-        }
-      }
-
-      logInfo('Manual retry succeeded for: ${track.title}');
-    } on _RetryScheduledException {
-      // 重试已在 _executePlayRequest 中安排
-      logDebug('Retry scheduled after manual retry attempt');
-    } catch (e) {
-      if (!_isRetryGenerationCurrent(generation, track)) return;
-      if (_isRetryableError(e)) {
-        _scheduleRetry(track, position);
-      } else {
-        _resetRetryState();
-        state = state.copyWith(error: e.toString());
-        _toastService
-            .showError(t.audio.playbackFailedTrack(title: track.title));
-      }
-    }
+    final event = await _recoveryCoordinator.retryManually(
+      fallbackTrack: state.playingTrack,
+      fallbackPosition: state.position,
+      mode: _currentRecoveryMode,
+    );
+    _applyRecoveryEvent(event, showNonRetryableToast: true);
   }
 
   // ========== 脫離隊列檢測 ========== //
@@ -2575,19 +2463,25 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         'Audio URL expired for: ${track.title}, re-fetching and resuming from ${state.position}');
     final position = state.position;
     final trackKey = track.uniqueKey;
-    final requestGeneration = _playRequestId;
+    final previousRequestId = _playbackRequestSession.activeRequestId;
     final requestTrack = _createPlaybackRequestTrack(track);
     await _playTrack(requestTrack);
+    final resumedRequestId = _playbackRequestSession.activeRequestId;
 
     if (_isDisposed) return true;
-    if (_playRequestId != requestGeneration + 1) return true;
+    if (resumedRequestId == previousRequestId ||
+        _playbackRequestSession.activeRequestId != resumedRequestId) {
+      return true;
+    }
     if (state.currentTrack?.uniqueKey != trackKey) return true;
 
     // 播放成功后恢复到之前的位置
     if (position.inSeconds > 0) {
       await Future.delayed(AppConstants.seekStabilizationDelay);
       if (_isDisposed) return true;
-      if (_playRequestId != requestGeneration + 1) return true;
+      if (_playbackRequestSession.activeRequestId != resumedRequestId) {
+        return true;
+      }
       if (state.currentTrack?.uniqueKey != trackKey) return true;
       await seekTo(position);
     }
@@ -2614,17 +2508,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     final track = _queueManager.currentTrack;
     if (track == null) return;
 
-    final requestId = _enterLoadingState();
+    int? requestId;
     try {
       _updatePlayingTrack(track);
       _updateQueueState();
-
-      try {
-        await _audioService.stop();
-      } catch (_) {
-        _resetLoadingState(requestId: requestId);
-        rethrow;
-      }
 
       final requestTrack = _createPlaybackRequestTrack(track);
       final positionToSeek = initialPosition ?? _queueManager.savedPosition;
@@ -2645,20 +2532,36 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         logDebug('No saved position to restore (position is zero)');
       }
 
-      final execution = await _playbackRequestExecutor.executeQueueRestore(
-        requestId: requestId,
-        track: requestTrack,
-        position: restorePosition,
-        shouldResume: autoPlay,
+      final mode = _context.isMix ? PlayMode.mix : PlayMode.queue;
+      final result = await _playbackRequestSession.restore(
+        PlaybackRestoreCommand(
+          track: requestTrack,
+          mode: mode,
+          position: restorePosition,
+          shouldResume: autoPlay,
+        ),
       );
-      if (execution == null || _isDisposed) return;
+      requestId = result.requestId;
+      if (result.isSuperseded || _isDisposed) {
+        return;
+      }
+      if (result.isTerminalMediaOpenError) {
+        _handleTerminalMediaOpenResult(result);
+        return;
+      }
+      if (result.isFailed) {
+        final error = result.error!;
+        final stackTrace = result.stackTrace ?? StackTrace.current;
+        Error.throwWithStackTrace(error, stackTrace);
+      }
 
-      _replaceQueueTrackIfCurrent(execution.track);
+      final executionTrack = result.track!;
+      _replaceQueueTrackIfCurrent(executionTrack);
       _exitLoadingState(
         requestId,
-        execution.track,
-        mode: _context.isMix ? PlayMode.mix : PlayMode.queue,
-        streamResult: execution.streamResult,
+        executionTrack,
+        mode: mode,
+        streamResult: result.streamResult,
       );
       _updateQueueState();
 
@@ -2669,7 +2572,9 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
     } catch (e) {
       if (_isDisposed) return;
       logError('Failed to prepare track: ${track.title}', e);
-      _resetLoadingState(requestId: requestId);
+      if (requestId != null) {
+        _resetLoadingState(requestId: requestId);
+      }
     }
   }
 
@@ -2778,24 +2683,10 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       if (_isStringMediaOpenError(error)) {
         final track = state.playingTrack;
         if (track != null) {
-          final requestId =
-              _context.activeRequestId > 0 ? _context.activeRequestId : null;
-          _PendingMediaOpenError? pending;
-          if (requestId != null) {
-            if (_pendingMediaOpenErrors.containsKey(requestId)) {
-              logDebug(
-                  'Media open error already pending for request $requestId');
-              return;
-            }
-            pending = _PendingMediaOpenError();
-            _pendingMediaOpenErrors[requestId] = pending;
-          }
-          unawaited(_handleMediaOpenErrorIfStillFailed(
+          unawaited(_playbackRequestSession.onMediaOpenError(
             error: error,
             track: track,
             positionAtError: state.position,
-            requestId: requestId,
-            pending: pending,
           ));
           return;
         }
@@ -2811,24 +2702,15 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       return;
     }
 
-    // Suppress only duplicate errors from the same scheduled retry generation.
-    // A new error during a manual/automatic retry handoff must schedule a fresh
-    // generation so the retry state is not cleared by the in-flight handoff.
-    if (_isDuplicateRetryingAudioError(track)) {
-      logDebug('Duplicate retrying error for current generation, ignoring');
-      return;
-    }
-
     logWarning('Network error detected during playback: ${track.title}');
 
     final activeRetryRequestId = state.isRetrying && _context.isInLoadingState
         ? _context.activeRequestId
         : null;
     if (activeRetryRequestId != null) {
-      _playRequestId++;
-      _playLock?.completeIf(activeRetryRequestId);
+      _playbackRequestSession.cancelActive();
     }
-    final retryRequestGeneration = _playRequestId;
+    final retryRequestGeneration = _playbackRequestSession.activeRequestId;
 
     // 保存當前位置，stop() 可能會透過 positionStream 將 position 重置為 zero
     final positionBeforeStop = state.position;
@@ -2840,7 +2722,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       }
       state = state.copyWith(isLoading: false, isPlaying: false);
       _resetLoadingState();
-      _scheduleRetry(track, positionBeforeStop);
+      final event = _recoveryCoordinator.onBackendNetworkError(
+        track: track,
+        position: positionBeforeStop,
+        isActiveRetryHandoff: activeRetryRequestId != null,
+        mode: _currentRecoveryMode,
+      );
+      _applyRecoveryEvent(event);
     }).catchError((e) {
       if (!_isAudioErrorRetryContextCurrent(track, retryRequestGeneration)) {
         return;
@@ -2849,7 +2737,13 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
       // stop() 失败时仍需触发重试，否则播放器会卡在错误状态
       state = state.copyWith(isLoading: false, isPlaying: false);
       _resetLoadingState();
-      _scheduleRetry(track, positionBeforeStop);
+      final event = _recoveryCoordinator.onBackendNetworkError(
+        track: track,
+        position: positionBeforeStop,
+        isActiveRetryHandoff: activeRetryRequestId != null,
+        mode: _currentRecoveryMode,
+      );
+      _applyRecoveryEvent(event);
     });
   }
 
@@ -2860,94 +2754,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
         errorStr.contains('could not open');
   }
 
-  Future<void> _handleMediaOpenErrorIfStillFailed({
-    required String error,
-    required Track track,
-    required Duration positionAtError,
-    required int? requestId,
-    required _PendingMediaOpenError? pending,
-  }) async {
-    // media_kit may emit an open error and still recover shortly after. Delay
-    // before surfacing it so transient backend events do not interrupt playback.
-    await Future.delayed(const Duration(seconds: 2));
-    if (_isDisposed || state.playingTrack?.uniqueKey != track.uniqueKey) {
-      _completeMediaOpenRecovery(requestId, pending, recovered: true);
-      return;
-    }
-
-    final currentPosition = _audioService.position;
-    final hasAdvanced =
-        currentPosition - positionAtError > const Duration(milliseconds: 500);
-    if (_audioService.isPlaying && hasAdvanced) {
-      logDebug('Media open error recovered by backend: $error');
-      _completeMediaOpenRecovery(requestId, pending, recovered: true);
-      return;
-    }
-
-    logWarning('Media open error did not recover: $error');
-    if (requestId != null && !_isSuperseded(requestId)) {
-      _playRequestId++;
-      _playLock?.completeIf(requestId);
-    }
-    try {
-      await _audioService.stop();
-    } catch (stopError) {
-      logError('Failed to stop player after media open error', stopError);
-    }
-
-    if (_isDisposed || state.playingTrack?.uniqueKey != track.uniqueKey) {
-      _completeMediaOpenRecovery(requestId, pending, recovered: false);
-      return;
-    }
-    final message = t.audio.playbackFailedTrack(title: track.title);
-    pending?.terminalMessage = message;
-    _terminalMediaOpenErrorTrackKey = track.uniqueKey;
-    _resetLoadingState();
-    state = state.copyWith(
-      error: message,
-      isLoading: false,
-      isPlaying: false,
-    );
-    _toastService.showError(message);
-    _completeMediaOpenRecovery(requestId, pending, recovered: false);
-  }
-
-  Future<bool> _waitForMediaOpenErrorRecovery(int requestId) async {
-    final pending = _pendingMediaOpenErrors[requestId];
-    if (pending == null) return true;
-    try {
-      final recovered = await pending.recovered.future;
-      if (!recovered && !_isDisposed && pending.terminalMessage != null) {
-        state = state.copyWith(
-          error: pending.terminalMessage,
-          isLoading: false,
-          isPlaying: false,
-        );
-      }
-      return recovered;
-    } finally {
-      if (_pendingMediaOpenErrors[requestId] == pending) {
-        _pendingMediaOpenErrors.remove(requestId);
-      }
-    }
-  }
-
-  void _completeMediaOpenRecovery(
-    int? requestId,
-    _PendingMediaOpenError? pending, {
-    required bool recovered,
-  }) {
-    if (pending != null && !pending.recovered.isCompleted) {
-      pending.recovered.complete(recovered);
-    }
-  }
-
   bool _isAudioErrorRetryContextCurrent(
     Track track,
     int requestGeneration,
   ) {
     return !_isDisposed &&
-        _playRequestId == requestGeneration &&
+        _playbackRequestSession.activeRequestId == requestGeneration &&
         state.playingTrack?.uniqueKey == track.uniqueKey &&
         state.currentTrack?.uniqueKey == track.uniqueKey;
   }
@@ -2986,7 +2798,12 @@ class AudioController extends StateNotifier<PlayerState> with Logging {
 
     state = state.copyWith(isLoading: false, isPlaying: false);
     _resetLoadingState();
-    _scheduleRetry(track, position);
+    final event = _recoveryCoordinator.onPrematureCompletion(
+      track: track,
+      position: position,
+      mode: _currentRecoveryMode,
+    );
+    _applyRecoveryEvent(event);
   }
 
   void _onDurationChanged(Duration? duration) {
