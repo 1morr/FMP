@@ -144,6 +144,9 @@ profile for online music playback:
 - 24MB demuxer forward buffer
 - 8MB demuxer back buffer
 - 7200s mpv cache/readahead
+- FFmpeg/lavf reconnect options (`reconnect=1`,
+  `reconnect_streamed=1`, `reconnect_on_network_error=1`,
+  `reconnect_delay_max=2`, `reconnect_max_retries=3`)
 
 Keep `vid=no` and `sid=no` enabled so muxed fallback streams do not decode video
 while the larger buffer absorbs VPN/CDN stalls.

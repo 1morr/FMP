@@ -17,6 +17,7 @@ import 'audio_types.dart';
 /// 用于 Windows/Linux 平台
 class MediaKitAudioService extends FmpAudioService with Logging {
   static const int mobilePlayerBufferSizeBytes = 2 * 1024 * 1024;
+
   /// 桌面端緩衝：設為極大值以一次性下載整首歌曲
   /// 避免分段下載時 TCP 連線閒置被 YouTube CDN 切斷（WSAECONNRESET）
   /// 一首 5 分鐘 320kbps 的歌約 12MB，桌面端完全負擔得起
@@ -24,6 +25,9 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   static const int desktopDemuxerMaxBytes = 24 * 1024 * 1024;
   static const int desktopDemuxerMaxBackBytes = 8 * 1024 * 1024;
   static const int desktopBufferSeconds = 7200;
+  static const String desktopLavfReconnectOptions =
+      'reconnect=1,reconnect_streamed=1,reconnect_on_network_error=1,'
+      'reconnect_delay_max=2,reconnect_max_retries=3';
 
   late final Player _player;
   late final AudioSession _session;
@@ -240,6 +244,8 @@ class MediaKitAudioService extends FmpAudioService with Logging {
   /// - `cache-pause-initial=no`: 不等待缓存填满即开始播放
   /// - `demuxer-max-bytes=24MB`: 足够缓存整首高品质歌曲
   /// - `demuxer-max-back-bytes=8MB`: 足够 seek 操作
+  /// - `stream-lavf-o`: 让 FFmpeg/lavf 对短暂 TCP/CDN 中断先尝试重连，
+  ///   降低运行时 `ffurl_read` 错误进入控制层重开播放的概率
   Future<void> _configureForAudioOnly() async {
     try {
       final nativePlayer = _player.platform;
@@ -286,9 +292,13 @@ class MediaKitAudioService extends FmpAudioService with Logging {
 
       // 禁用 ICY 元数据解析（网络电台标题等，减少不必要的处理）
       await (nativePlayer as dynamic).setProperty('demuxer-lavf-o', 'icy=0');
+      await (nativePlayer as dynamic).setProperty(
+        'stream-lavf-o',
+        desktopLavfReconnectOptions,
+      );
 
       logInfo(
-          'libmpv configured for audio-only mode (vid=no, sid=no, desktop network buffers)');
+          'libmpv configured for audio-only mode (vid=no, sid=no, desktop network buffers, lavf reconnect)');
     } catch (e) {
       // 非致命错误，降级到默认配置
       logWarning('Failed to configure libmpv for audio-only: $e');

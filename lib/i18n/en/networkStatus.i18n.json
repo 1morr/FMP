@@ -1,4 +1,5 @@
 {
   "noNetwork": "No network",
+  "playbackNetworkError": "Playback network issue",
   "retry": "Retry"
 }
