@@ -828,12 +828,10 @@ class _FakeSource extends BaseSource {
   }
 
   @override
-  Future<AudioStreamResult> getAudioStream(String sourceId,
-      {AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-      Map<String, String>? authHeaders}) async {
-    audioStreamRequests.add(sourceId);
+  Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
+    audioStreamRequests.add(request.sourceId);
     return AudioStreamResult(
-      url: 'https://example.com/$sourceId.m4a',
+      url: 'https://example.com/${request.sourceId}.m4a',
       container: 'm4a',
       codec: 'aac',
       streamType: StreamType.audioOnly,

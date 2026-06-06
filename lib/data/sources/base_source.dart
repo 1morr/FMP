@@ -56,6 +56,47 @@ class AudioStreamConfig {
   }
 }
 
+/// Audio stream resolution request.
+class AudioStreamRequest {
+  final String sourceId;
+  final int? cid;
+  final int? pageNum;
+  final AudioStreamConfig config;
+  final Map<String, String>? authHeaders;
+  final String? failedUrl;
+
+  const AudioStreamRequest({
+    required this.sourceId,
+    this.cid,
+    this.pageNum,
+    this.config = AudioStreamConfig.defaultConfig,
+    this.authHeaders,
+    this.failedUrl,
+  });
+
+  AudioStreamRequest copyWith({
+    String? sourceId,
+    int? cid,
+    bool clearCid = false,
+    int? pageNum,
+    bool clearPageNum = false,
+    AudioStreamConfig? config,
+    Map<String, String>? authHeaders,
+    bool clearAuthHeaders = false,
+    String? failedUrl,
+    bool clearFailedUrl = false,
+  }) {
+    return AudioStreamRequest(
+      sourceId: sourceId ?? this.sourceId,
+      cid: clearCid ? null : (cid ?? this.cid),
+      pageNum: clearPageNum ? null : (pageNum ?? this.pageNum),
+      config: config ?? this.config,
+      authHeaders: clearAuthHeaders ? null : (authHeaders ?? this.authHeaders),
+      failedUrl: clearFailedUrl ? null : (failedUrl ?? this.failedUrl),
+    );
+  }
+}
+
 /// 音频流结果（包含元信息）
 class AudioStreamResult {
   /// 音频流 URL
@@ -176,24 +217,14 @@ abstract class BaseSource {
       {Map<String, String>? authHeaders});
 
   /// 获取音频流（包含元信息）
-  /// [sourceId] 音源ID
-  /// [config] 音频流配置（码率、格式、流类型优先级）
+  /// [request] 音频流请求（音源ID、音频流配置、认证头等）
   /// 返回的 URL 可能会过期，需要定期刷新
-  Future<AudioStreamResult> getAudioStream(
-    String sourceId, {
-    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-    Map<String, String>? authHeaders,
-  });
+  Future<AudioStreamResult> getAudioStream(AudioStreamRequest request);
 
   /// 获取音频流 URL（简化版，仅返回 URL）
   /// 内部调用 getAudioStream 并提取 URL
-  Future<String> getAudioUrl(String sourceId,
-      {AudioStreamConfig? config, Map<String, String>? authHeaders}) async {
-    final result = await getAudioStream(
-      sourceId,
-      config: config ?? AudioStreamConfig.defaultConfig,
-      authHeaders: authHeaders,
-    );
+  Future<String> getAudioUrl(AudioStreamRequest request) async {
+    final result = await getAudioStream(request);
     return result.url;
   }
 
@@ -203,34 +234,18 @@ abstract class BaseSource {
       {Map<String, String>? authHeaders});
 
   /// 获取备选音频流（当主 URL 播放失败时使用）
-  /// [sourceId] 音源 ID
-  /// [failedUrl] 之前失败的 URL（用于排除相同流类型）
-  /// [config] 音频流配置
-  /// [authHeaders] 播放认证头，需和主音频流获取路径保持一致
+  /// [request] 音频流请求，包含之前失败的 URL（用于排除相同流类型）
   /// 返回 null 表示没有可用的备选流
   Future<AudioStreamResult?> getAlternativeAudioStream(
-    String sourceId, {
-    String? failedUrl,
-    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-    Map<String, String>? authHeaders,
-  }) async {
+    AudioStreamRequest request,
+  ) async {
     return null; // 默认不支持备选流
   }
 
   /// 获取备选音频 URL（简化版）
   /// 内部调用 getAlternativeAudioStream 并提取 URL
-  Future<String?> getAlternativeAudioUrl(
-    String sourceId, {
-    String? failedUrl,
-    AudioStreamConfig? config,
-    Map<String, String>? authHeaders,
-  }) async {
-    final result = await getAlternativeAudioStream(
-      sourceId,
-      failedUrl: failedUrl,
-      config: config ?? AudioStreamConfig.defaultConfig,
-      authHeaders: authHeaders,
-    );
+  Future<String?> getAlternativeAudioUrl(AudioStreamRequest request) async {
+    final result = await getAlternativeAudioStream(request);
     return result?.url;
   }
 

@@ -108,7 +108,8 @@ void main() {
         _track('stream-auth', title: 'Stream Auth'),
       );
 
-      expect(sourceManager.source.audioStreamRequests, ['stream-auth']);
+      expect(sourceManager.source.audioStreamRequests.map((r) => r.sourceId),
+          ['stream-auth']);
       expect(authHeaderRequests, [SourceType.youtube]);
       expect(sourceManager.source.lastAudioAuthHeaders, {
         'Authorization': 'Bearer sentinel',
@@ -129,7 +130,8 @@ void main() {
         _track('stream-no-auth', title: 'Stream No Auth'),
       );
 
-      expect(sourceManager.source.audioStreamRequests, ['stream-no-auth']);
+      expect(sourceManager.source.audioStreamRequests.map((r) => r.sourceId),
+          ['stream-no-auth']);
       expect(authHeaderRequests, isEmpty);
       expect(sourceManager.source.lastAudioAuthHeaders, isNull);
     });
@@ -205,7 +207,8 @@ void main() {
       expect(selection.url, 'https://example.com/stream-temporary.m4a');
       expect(selection.track.audioUrl, selection.url);
       expect(selection.track.playlistInfo.single.downloadPath, isEmpty);
-      expect(sourceManager.source.audioStreamRequests, ['stream-temporary']);
+      expect(sourceManager.source.audioStreamRequests.map((r) => r.sourceId),
+          ['stream-temporary']);
 
       final persistedTrack = await trackRepository.getById(savedTrack.id);
       expect(persistedTrack, isNotNull);
@@ -605,10 +608,12 @@ void main() {
       final selection = await manager.selectPlayback(track);
 
       expect(selection.url, 'https://example.com/BVmultiPage-24680.m4a');
-      expect(bilibili.cidAudioRequests, [
-        (sourceId: 'BVmultiPage', cid: 24680),
-      ]);
-      expect(bilibili.plainAudioRequests, isEmpty);
+      expect(
+        bilibili.primaryRequests.map((r) => (sourceId: r.sourceId, cid: r.cid)),
+        [
+          (sourceId: 'BVmultiPage', cid: 24680),
+        ],
+      );
     });
 
     test(
@@ -632,15 +637,24 @@ void main() {
       expect(selection, isNotNull);
       expect(selection!.url,
           'https://example.com/BVmultiPage-13579-medium-alternative.m4a');
-      expect(bilibili.cidAlternativeRequests, [
-        (
-          sourceId: 'BVmultiPage',
-          cid: 13579,
-          failedUrl: failedUrl,
-          quality: AudioQualityLevel.medium,
+      expect(
+        bilibili.alternativeRequests.map(
+          (r) => (
+            sourceId: r.sourceId,
+            cid: r.cid,
+            failedUrl: r.failedUrl,
+            quality: r.config.qualityLevel,
+          ),
         ),
-      ]);
-      expect(bilibili.plainAlternativeRequests, isEmpty);
+        [
+          (
+            sourceId: 'BVmultiPage',
+            cid: 13579,
+            failedUrl: failedUrl,
+            quality: AudioQualityLevel.medium,
+          ),
+        ],
+      );
     });
 
     test('selectFallbackPlayback assembles fallback selection with headers',
@@ -965,9 +979,10 @@ class _FakeSourceManager extends SourceManager {
 }
 
 class _FakeSource extends BaseSource {
+  AudioStreamRequest? lastAlternativeRequest;
   AudioStreamConfig? lastAlternativeConfig;
   String? lastFailedUrl;
-  final List<String> audioStreamRequests = [];
+  final List<AudioStreamRequest> audioStreamRequests = [];
   final List<AudioQualityLevel> audioStreamQualityRequests = [];
   final List<AudioQualityLevel> alternativeQualityRequests = [];
   Map<String, String>? lastAudioAuthHeaders;
@@ -1015,29 +1030,25 @@ class _FakeSource extends BaseSource {
   }
 
   @override
-  Future<AudioStreamResult> getAudioStream(
-    String sourceId, {
-    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-    Map<String, String>? authHeaders,
-  }) async {
-    audioStreamRequests.add(sourceId);
-    audioStreamQualityRequests.add(config.qualityLevel);
-    lastAudioAuthHeaders = authHeaders;
-    if (failingAudioQualities.contains(config.qualityLevel)) {
+  Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
+    audioStreamRequests.add(request);
+    audioStreamQualityRequests.add(request.config.qualityLevel);
+    lastAudioAuthHeaders = request.authHeaders;
+    if (failingAudioQualities.contains(request.config.qualityLevel)) {
       throw _FakeSourceException(
         kind: failingAudioKind,
-        message: 'quality ${config.qualityLevel.name} failed',
+        message: 'quality ${request.config.qualityLevel.name} failed',
       );
     }
     final expiry = nextAudioExpiry;
     nextAudioExpiry = null;
     final qualitySuffix =
         encodeQualityInAudioUrl && !reuseFailedUrlForPrimaryFallback
-            ? '-${config.qualityLevel.name}'
+            ? '-${request.config.qualityLevel.name}'
             : '';
     return AudioStreamResult(
-      url: 'https://example.com/$sourceId$qualitySuffix.m4a',
-      bitrate: bitrateByQuality[config.qualityLevel],
+      url: 'https://example.com/${request.sourceId}$qualitySuffix.m4a',
+      bitrate: bitrateByQuality[request.config.qualityLevel],
       container: 'm4a',
       codec: 'aac',
       streamType: StreamType.audioOnly,
@@ -1047,23 +1058,21 @@ class _FakeSource extends BaseSource {
 
   @override
   Future<AudioStreamResult?> getAlternativeAudioStream(
-    String sourceId, {
-    String? failedUrl,
-    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-    Map<String, String>? authHeaders,
-  }) async {
-    lastFailedUrl = failedUrl;
-    lastAlternativeConfig = config;
-    lastAlternativeAuthHeaders = authHeaders;
-    alternativeQualityRequests.add(config.qualityLevel);
+    AudioStreamRequest request,
+  ) async {
+    lastAlternativeRequest = request;
+    lastFailedUrl = request.failedUrl;
+    lastAlternativeConfig = request.config;
+    lastAlternativeAuthHeaders = request.authHeaders;
+    alternativeQualityRequests.add(request.config.qualityLevel);
     if (returnNullAlternative) {
       return null;
     }
     return AudioStreamResult(
-      url: 'https://example.com/$sourceId-fallback.m3u8',
+      url: 'https://example.com/${request.sourceId}-fallback.m3u8',
       container: 'm3u8',
       codec: 'aac',
-      streamType: config.streamPriority.first,
+      streamType: request.config.streamPriority.first,
       expiry: const Duration(minutes: 16),
     );
   }
@@ -1096,37 +1105,17 @@ class _FakeSource extends BaseSource {
 }
 
 class _FakeBilibiliSource extends BilibiliSource {
-  final List<({String sourceId, int cid})> cidAudioRequests = [];
-  final List<String> plainAudioRequests = [];
-  final List<String> plainAlternativeRequests = [];
-  final List<
-      ({
-        String sourceId,
-        int cid,
-        String? failedUrl,
-        AudioQualityLevel quality,
-      })> cidAlternativeRequests = [];
+  final List<AudioStreamRequest> primaryRequests = [];
+  final List<AudioStreamRequest> alternativeRequests = [];
 
   @override
-  Future<AudioStreamResult> getAudioStream(
-    String sourceId, {
-    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-    Map<String, String>? authHeaders,
-  }) async {
-    plainAudioRequests.add(sourceId);
-    throw StateError('plain Bilibili stream resolution must preserve cid');
-  }
-
-  @override
-  Future<AudioStreamResult> getAudioStreamWithCid(
-    String bvid,
-    int cid, {
-    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-    Map<String, String>? authHeaders,
-  }) async {
-    cidAudioRequests.add((sourceId: bvid, cid: cid));
+  Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
+    primaryRequests.add(request);
+    if (request.cid == null) {
+      throw StateError('Bilibili request must preserve cid');
+    }
     return AudioStreamResult(
-      url: 'https://example.com/$bvid-$cid.m4a',
+      url: 'https://example.com/${request.sourceId}-${request.cid}.m4a',
       streamType: StreamType.audioOnly,
       expiry: const Duration(minutes: 16),
     );
@@ -1134,33 +1123,16 @@ class _FakeBilibiliSource extends BilibiliSource {
 
   @override
   Future<AudioStreamResult?> getAlternativeAudioStream(
-    String sourceId, {
-    String? failedUrl,
-    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-    Map<String, String>? authHeaders,
-  }) async {
-    plainAlternativeRequests.add(sourceId);
-    throw StateError('plain Bilibili alternative stream must preserve cid');
-  }
-
-  @override
-  Future<AudioStreamResult?> getAlternativeAudioStreamWithCid(
-    String bvid,
-    int cid, {
-    String? failedUrl,
-    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-    Map<String, String>? authHeaders,
-  }) async {
-    cidAlternativeRequests.add((
-      sourceId: bvid,
-      cid: cid,
-      failedUrl: failedUrl,
-      quality: config.qualityLevel,
-    ));
+    AudioStreamRequest request,
+  ) async {
+    alternativeRequests.add(request);
+    if (request.cid == null) {
+      throw StateError('Bilibili alternative request must preserve cid');
+    }
     return AudioStreamResult(
       url:
-          'https://example.com/$bvid-$cid-${config.qualityLevel.name}-alternative.m4a',
-      streamType: config.streamPriority.first,
+          'https://example.com/${request.sourceId}-${request.cid}-${request.config.qualityLevel.name}-alternative.m4a',
+      streamType: request.config.streamPriority.first,
       expiry: const Duration(minutes: 16),
     );
   }

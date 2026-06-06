@@ -132,10 +132,16 @@ Defaults:
 - Bilibili stream priority: audioOnly > muxed (live streams always muxed)
 - Netease stream priority: audioOnly
 
-`AudioStreamConfig` is passed to source `getAudioStream()` and returns
-`AudioStreamResult` with bitrate/codec metadata. `BaseSource.getAlternativeAudioStream()`
-also accepts `authHeaders`; playback handoff fallback must pass the same
-auth-for-play headers as primary stream resolution.
+`AudioStreamRequest` is passed to source `getAudioStream()` /
+`getAlternativeAudioStream()` and carries source identity (`sourceId`, optional
+`cid` / `pageNum`), `AudioStreamConfig`, auth headers, and the failed media URL
+for alternative fallback. Source adapters own source-specific identity rules:
+Bilibili multi-P stream resolution must use `request.cid` when present, and
+shared fallback helpers must not branch on `BilibiliSource`.
+
+`AudioStreamResult` returns bitrate/codec/container/stream-type metadata and
+the URL expiry. Playback handoff fallback must pass the same auth-for-play
+headers as primary stream resolution.
 
 Quality fallback uses the shared ladder:
 - high -> medium -> low

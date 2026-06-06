@@ -1,7 +1,5 @@
 import '../models/settings.dart';
-import '../models/track.dart';
 import 'base_source.dart';
-import 'bilibili_source.dart';
 import 'source_exception.dart';
 
 List<AudioQualityLevel> audioQualityFallbackLevels(
@@ -28,11 +26,9 @@ List<AudioQualityLevel> audioQualityFallbackLevels(
 
 Future<AudioStreamResult> fetchAudioStreamWithQualityFallback({
   required BaseSource source,
-  required String sourceId,
-  required AudioStreamConfig config,
-  Map<String, String>? authHeaders,
+  required AudioStreamRequest request,
 }) async {
-  final levels = audioQualityFallbackLevels(config.qualityLevel);
+  final levels = audioQualityFallbackLevels(request.config.qualityLevel);
   SourceApiException? lastQualityError;
   StackTrace? lastQualityStackTrace;
 
@@ -40,9 +36,9 @@ Future<AudioStreamResult> fetchAudioStreamWithQualityFallback({
     final level = levels[i];
     try {
       return await source.getAudioStream(
-        sourceId,
-        config: config.copyWith(qualityLevel: level),
-        authHeaders: authHeaders,
+        request.copyWith(
+          config: request.config.copyWith(qualityLevel: level),
+        ),
       );
     } on SourceApiException catch (error, stackTrace) {
       lastQualityError = error;
@@ -57,81 +53,30 @@ Future<AudioStreamResult> fetchAudioStreamWithQualityFallback({
   Error.throwWithStackTrace(lastQualityError!, lastQualityStackTrace!);
 }
 
-Future<AudioStreamResult> fetchTrackAudioStreamWithQualityFallback({
+Future<AudioStreamResult?> fetchAlternativeAudioStreamWithQualityFallback({
   required BaseSource source,
-  required Track track,
-  required AudioStreamConfig config,
-  Map<String, String>? authHeaders,
+  required AudioStreamRequest request,
 }) async {
-  final levels = audioQualityFallbackLevels(config.qualityLevel);
-  SourceApiException? lastQualityError;
-  StackTrace? lastQualityStackTrace;
+  for (final level in audioQualityFallbackLevels(
+    request.config.qualityLevel,
+    includeCurrent: false,
+  )) {
+    final fallbackRequest = request.copyWith(
+      config: request.config.copyWith(qualityLevel: level),
+    );
+    final sourceAlternative =
+        await source.getAlternativeAudioStream(fallbackRequest);
+    if (sourceAlternative != null) return sourceAlternative;
 
-  for (var i = 0; i < levels.length; i++) {
-    final level = levels[i];
     try {
-      return await fetchTrackAudioStream(
-        source: source,
-        track: track,
-        config: config.copyWith(qualityLevel: level),
-        authHeaders: authHeaders,
-      );
-    } on SourceApiException catch (error, stackTrace) {
-      lastQualityError = error;
-      lastQualityStackTrace = stackTrace;
-      final hasLowerQuality = i < levels.length - 1;
-      if (!hasLowerQuality || !error.kind.canFallbackToLowerAudioQuality) {
-        Error.throwWithStackTrace(error, stackTrace);
+      final primaryFallback = await source.getAudioStream(fallbackRequest);
+      if (primaryFallback.url != request.failedUrl) {
+        return primaryFallback;
       }
+    } on SourceApiException catch (error) {
+      if (!error.kind.canFallbackToLowerAudioQuality) rethrow;
     }
   }
 
-  Error.throwWithStackTrace(lastQualityError!, lastQualityStackTrace!);
-}
-
-Future<AudioStreamResult> fetchTrackAudioStream({
-  required BaseSource source,
-  required Track track,
-  required AudioStreamConfig config,
-  Map<String, String>? authHeaders,
-}) {
-  if (source is BilibiliSource && track.cid != null) {
-    return source.getAudioStreamWithCid(
-      track.sourceId,
-      track.cid!,
-      config: config,
-      authHeaders: authHeaders,
-    );
-  }
-
-  return source.getAudioStream(
-    track.sourceId,
-    config: config,
-    authHeaders: authHeaders,
-  );
-}
-
-Future<AudioStreamResult?> fetchTrackAlternativeAudioStream({
-  required BaseSource source,
-  required Track track,
-  String? failedUrl,
-  required AudioStreamConfig config,
-  Map<String, String>? authHeaders,
-}) {
-  if (source is BilibiliSource && track.cid != null) {
-    return source.getAlternativeAudioStreamWithCid(
-      track.sourceId,
-      track.cid!,
-      failedUrl: failedUrl,
-      config: config,
-      authHeaders: authHeaders,
-    );
-  }
-
-  return source.getAlternativeAudioStream(
-    track.sourceId,
-    failedUrl: failedUrl,
-    config: config,
-    authHeaders: authHeaders,
-  );
+  return source.getAlternativeAudioStream(request);
 }

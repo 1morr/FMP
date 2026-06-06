@@ -210,9 +210,11 @@ void main() {
 
         await expectLater(
           source.getAudioStream(
-            'BVrateLimit',
-            config: const AudioStreamConfig(
-              streamPriority: [StreamType.audioOnly, StreamType.muxed],
+            const AudioStreamRequest(
+              sourceId: 'BVrateLimit',
+              config: AudioStreamConfig(
+                streamPriority: [StreamType.audioOnly, StreamType.muxed],
+              ),
             ),
           ),
           throwsA(
@@ -259,9 +261,11 @@ void main() {
 
         await expectLater(
           source.getAudioStream(
-            'BVhttpRateLimit',
-            config: const AudioStreamConfig(
-              streamPriority: [StreamType.audioOnly, StreamType.muxed],
+            const AudioStreamRequest(
+              sourceId: 'BVhttpRateLimit',
+              config: AudioStreamConfig(
+                streamPriority: [StreamType.audioOnly, StreamType.muxed],
+              ),
             ),
           ),
           throwsA(
@@ -331,9 +335,11 @@ void main() {
         );
 
         final result = await source.getAudioStream(
-          'BVserviceUnavailable',
-          config: const AudioStreamConfig(
-            streamPriority: [StreamType.audioOnly, StreamType.muxed],
+          const AudioStreamRequest(
+            sourceId: 'BVserviceUnavailable',
+            config: AudioStreamConfig(
+              streamPriority: [StreamType.audioOnly, StreamType.muxed],
+            ),
           ),
         );
 
@@ -387,9 +393,11 @@ void main() {
         );
 
         final result = await source.getAudioStream(
-          'BVdashExpiry',
-          config: const AudioStreamConfig(
-            streamPriority: [StreamType.audioOnly],
+          const AudioStreamRequest(
+            sourceId: 'BVdashExpiry',
+            config: AudioStreamConfig(
+              streamPriority: [StreamType.audioOnly],
+            ),
           ),
         );
 
@@ -440,9 +448,11 @@ void main() {
         );
 
         final result = await source.getAudioStream(
-          'BVmuxedExpiry',
-          config: const AudioStreamConfig(
-            streamPriority: [StreamType.muxed],
+          const AudioStreamRequest(
+            sourceId: 'BVmuxedExpiry',
+            config: AudioStreamConfig(
+              streamPriority: [StreamType.muxed],
+            ),
           ),
         );
 
@@ -491,9 +501,10 @@ void main() {
             BilibiliSource(apiBase: 'http://localhost:${server.port}');
 
         await source.getAudioStream(
-          'BVheaders',
-          config:
-              const AudioStreamConfig(streamPriority: [StreamType.audioOnly]),
+          const AudioStreamRequest(
+            sourceId: 'BVheaders',
+            config: AudioStreamConfig(streamPriority: [StreamType.audioOnly]),
+          ),
         );
 
         expect(seenHeadersByPath['/x/web-interface/view'], {
@@ -585,10 +596,11 @@ void main() {
         );
 
         final result = await source.getAlternativeAudioStream(
-          'BValternative',
-          failedUrl: 'https://example.com/failed.m4s',
-          config:
-              const AudioStreamConfig(streamPriority: [StreamType.audioOnly]),
+          const AudioStreamRequest(
+            sourceId: 'BValternative',
+            failedUrl: 'https://example.com/failed.m4s',
+            config: AudioStreamConfig(streamPriority: [StreamType.audioOnly]),
+          ),
         );
 
         expect(result?.url, 'https://example.com/backup.m4s');
@@ -602,7 +614,9 @@ void main() {
         const testBvid = 'BV1xx411c79H'; // 实际存在的视频
 
         try {
-          final audioUrl = await source.getAudioUrl(testBvid);
+          final audioUrl = await source.getAudioUrl(
+            const AudioStreamRequest(sourceId: testBvid),
+          );
 
           expect(audioUrl, isNotNull);
           expect(audioUrl, isNotEmpty);
@@ -628,7 +642,9 @@ void main() {
         const invalidBvid = 'BV1234567890'; // 无效的BV号
 
         expect(
-          () => source.getAudioUrl(invalidBvid),
+          () => source.getAudioUrl(
+            const AudioStreamRequest(sourceId: invalidBvid),
+          ),
           throwsA(isA<BilibiliApiException>()),
         );
       });
