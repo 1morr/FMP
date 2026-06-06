@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/netease_exception.dart';
 import 'package:fmp/data/sources/netease_source.dart';
 
@@ -156,7 +157,7 @@ void main() {
       );
 
       await expectLater(
-        source.getAudioStream('123'),
+        source.getAudioStream(const AudioStreamRequest(sourceId: '123')),
         throwsA(
           isA<NeteaseApiException>()
               .having((e) => e.isGeoRestricted, 'isGeoRestricted', isTrue)
@@ -182,7 +183,7 @@ void main() {
       );
 
       await expectLater(
-        source.getAudioStream('123'),
+        source.getAudioStream(const AudioStreamRequest(sourceId: '123')),
         throwsA(
           isA<NeteaseApiException>()
               .having((e) => e.isVipRequired, 'isVipRequired', isTrue)
@@ -209,7 +210,9 @@ void main() {
       );
 
       await expectLater(
-        source.getAudioStream('435948605'),
+        source.getAudioStream(
+          const AudioStreamRequest(sourceId: '435948605'),
+        ),
         throwsA(
           isA<NeteaseApiException>()
               .having((e) => e.isGeoRestricted, 'isGeoRestricted', isTrue)
@@ -235,7 +238,9 @@ void main() {
       );
 
       await expectLater(
-        source.getAudioStream('1831476071'),
+        source.getAudioStream(
+          const AudioStreamRequest(sourceId: '1831476071'),
+        ),
         throwsA(
           isA<NeteaseApiException>()
               .having((e) => e.isVipRequired, 'isVipRequired', isTrue)

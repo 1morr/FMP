@@ -208,7 +208,12 @@ class BilibiliSource extends BaseSource with Logging {
         ..thumbnailUrl = data['pic'];
 
       // 获取音频 URL
-      final audioUrl = await getAudioUrl(bvid, authHeaders: authHeaders);
+      final audioUrl = await getAudioUrl(
+        AudioStreamRequest(
+          sourceId: bvid,
+          authHeaders: authHeaders,
+        ),
+      );
       track.audioUrl = audioUrl;
       track.audioUrlExpiry = DateTime.now()
           .add(const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours));
@@ -225,19 +230,26 @@ class BilibiliSource extends BaseSource with Logging {
   }
 
   @override
-  Future<AudioStreamResult> getAudioStream(
-    String bvid, {
-    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-    Map<String, String>? authHeaders,
-  }) async {
+  Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
+    final bvid = request.sourceId;
     logDebug(
-        'Getting audio stream for bvid: $bvid with config: qualityLevel=${config.qualityLevel}');
+      'Getting audio stream for bvid: $bvid with config: '
+      'qualityLevel=${request.config.qualityLevel}',
+    );
     try {
-      final cid = await _getCid(bvid, authHeaders: authHeaders);
+      final cid = request.cid ??
+          await _getCid(
+            bvid,
+            authHeaders: request.authHeaders,
+          );
       logDebug('Got cid: $cid for bvid: $bvid');
 
-      return _getAudioStreamWithCid(bvid, cid, config,
-          authHeaders: authHeaders);
+      return _resolveAudioStreamForCid(
+        bvid,
+        cid,
+        request.config,
+        authHeaders: request.authHeaders,
+      );
     } on BilibiliApiException catch (e) {
       logError(
           'Bilibili API error for $bvid: code=${e.code}, message=${e.message}');
@@ -250,7 +262,7 @@ class BilibiliSource extends BaseSource with Logging {
   }
 
   /// 使用指定 cid 获取音频流
-  Future<AudioStreamResult> _getAudioStreamWithCid(
+  Future<AudioStreamResult> _resolveAudioStreamForCid(
     String bvid,
     int cid,
     AudioStreamConfig config, {
@@ -472,14 +484,14 @@ class BilibiliSource extends BaseSource with Logging {
           numericCode: -3, message: 'Invalid source type for BilibiliSource');
     }
 
-    // 如果有cid，使用指定cid获取音频URL
-    final String audioUrl;
-    if (track.cid != null) {
-      audioUrl = await getAudioUrlWithCid(track.sourceId, track.cid!,
-          authHeaders: authHeaders);
-    } else {
-      audioUrl = await getAudioUrl(track.sourceId, authHeaders: authHeaders);
-    }
+    final audioUrl = await getAudioUrl(
+      AudioStreamRequest(
+        sourceId: track.sourceId,
+        cid: track.cid,
+        pageNum: track.pageNum,
+        authHeaders: authHeaders,
+      ),
+    );
     track.audioUrl = audioUrl;
     track.audioUrlExpiry = DateTime.now()
         .add(const Duration(hours: AppConstants.bilibiliAudioUrlExpiryHours));
@@ -695,53 +707,23 @@ class BilibiliSource extends BaseSource with Logging {
     }
   }
 
-  /// 获取指定分P的音频流
-  Future<AudioStreamResult> getAudioStreamWithCid(
-    String bvid,
-    int cid, {
-    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-    Map<String, String>? authHeaders,
-  }) async {
-    logDebug('Getting audio stream for bvid: $bvid, cid: $cid');
-    try {
-      return _getAudioStreamWithCid(bvid, cid, config,
-          authHeaders: authHeaders);
-    } on BilibiliApiException catch (e) {
-      logError(
-          'Bilibili API error for $bvid:$cid: code=${e.code}, message=${e.message}');
-      rethrow;
-    } on DioException catch (e) {
-      logError(
-          'Network error getting audio URL for $bvid:$cid: ${e.type}, ${e.message}');
-      throw _handleDioError(e);
-    }
-  }
-
-  /// 获取指定分P的音频URL（简化版，向后兼容）
-  Future<String> getAudioUrlWithCid(String bvid, int cid,
-      {AudioStreamConfig? config, Map<String, String>? authHeaders}) async {
-    final result = await getAudioStreamWithCid(bvid, cid,
-        config: config ?? AudioStreamConfig.defaultConfig,
-        authHeaders: authHeaders);
-    return result.url;
-  }
-
   @override
   Future<AudioStreamResult?> getAlternativeAudioStream(
-    String sourceId, {
-    String? failedUrl,
-    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-    Map<String, String>? authHeaders,
-  }) async {
+    AudioStreamRequest request,
+  ) async {
+    final bvid = request.sourceId;
     try {
-      final bvid = sourceId;
-      final cid = await _getCid(bvid, authHeaders: authHeaders);
-      return getAlternativeAudioStreamWithCid(
+      final cid = request.cid ??
+          await _getCid(
+            bvid,
+            authHeaders: request.authHeaders,
+          );
+      return _resolveAlternativeAudioStreamForCid(
         bvid,
         cid,
-        failedUrl: failedUrl,
-        config: config,
-        authHeaders: authHeaders,
+        failedUrl: request.failedUrl,
+        config: request.config,
+        authHeaders: request.authHeaders,
       );
     } on BilibiliApiException {
       rethrow;
@@ -750,7 +732,7 @@ class BilibiliSource extends BaseSource with Logging {
     }
   }
 
-  Future<AudioStreamResult?> getAlternativeAudioStreamWithCid(
+  Future<AudioStreamResult?> _resolveAlternativeAudioStreamForCid(
     String bvid,
     int cid, {
     String? failedUrl,

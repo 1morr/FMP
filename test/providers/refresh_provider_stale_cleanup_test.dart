@@ -299,13 +299,9 @@ class _ControllableRefreshSource extends BilibiliSource {
   Future<bool> checkAvailability(String sourceId) async => true;
 
   @override
-  Future<AudioStreamResult> getAudioStream(
-    String sourceId, {
-    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-    Map<String, String>? authHeaders,
-  }) async {
+  Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
     return AudioStreamResult(
-      url: 'https://example.com/$sourceId.m4a',
+      url: 'https://example.com/${request.sourceId}.m4a',
       streamType: StreamType.audioOnly,
     );
   }

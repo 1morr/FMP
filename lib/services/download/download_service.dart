@@ -715,11 +715,16 @@ class DownloadService with Logging {
           ? await _getAuthHeaders(track.sourceType)
           : null;
       if (_shouldAbortBeforeRegistration(task.id)) return;
-      final streamResult = await fetchTrackAudioStreamWithQualityFallback(
-        source: source,
-        track: track,
+      final streamRequest = AudioStreamRequest(
+        sourceId: track.sourceId,
+        cid: track.cid,
+        pageNum: track.pageNum,
         config: config,
         authHeaders: authHeaders,
+      );
+      final streamResult = await fetchAudioStreamWithQualityFallback(
+        source: source,
+        request: streamRequest,
       );
       if (_shouldAbortBeforeRegistration(task.id)) return;
       final audioUrl = streamResult.url;

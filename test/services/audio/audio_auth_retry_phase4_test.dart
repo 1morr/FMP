@@ -447,11 +447,7 @@ class _RetryAwareSource extends BaseSource {
   Future<bool> checkAvailability(String sourceId) async => true;
 
   @override
-  Future<AudioStreamResult> getAudioStream(
-    String sourceId, {
-    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-    Map<String, String>? authHeaders,
-  }) async {
+  Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
     final error = nextStreamError;
     if (error != null) {
       nextStreamError = null;
@@ -459,7 +455,7 @@ class _RetryAwareSource extends BaseSource {
     }
 
     return AudioStreamResult(
-      url: 'https://example.com/$sourceId.m4a',
+      url: 'https://example.com/${request.sourceId}.m4a',
       container: 'm4a',
       codec: 'aac',
       streamType: StreamType.audioOnly,

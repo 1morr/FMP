@@ -356,9 +356,7 @@ class _FakeRefreshSource extends BaseSource {
   Future<bool> checkAvailability(String sourceId) async => true;
 
   @override
-  Future<AudioStreamResult> getAudioStream(String sourceId,
-      {AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-      Map<String, String>? authHeaders}) async {
+  Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
     return const AudioStreamResult(
       url: 'https://example.test/audio.m4a',
       streamType: StreamType.audioOnly,

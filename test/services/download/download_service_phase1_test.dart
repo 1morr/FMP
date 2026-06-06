@@ -1296,10 +1296,12 @@ void main() {
       await service.debugStartDownloadForTesting(task);
       await _waitUntil(() async => service.debugActiveDownloads == 0);
 
-      expect(bilibiliSource.cidAudioRequests, [
-        (sourceId: 'BVmultiPage', cid: 24680),
-      ]);
-      expect(bilibiliSource.plainAudioRequests, isEmpty);
+      expect(
+        bilibiliSource.primaryRequests.map(
+          (r) => (sourceId: r.sourceId, cid: r.cid),
+        ),
+        [(sourceId: 'BVmultiPage', cid: 24680)],
+      );
       final updatedTrack = await trackRepository.getById(savedTrack.id);
       expect(updatedTrack?.audioUrl, audioUrl);
 
@@ -1598,11 +1600,7 @@ class _StaticAudioSource extends BaseSource {
   }
 
   @override
-  Future<AudioStreamResult> getAudioStream(
-    String sourceId, {
-    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-    Map<String, String>? authHeaders,
-  }) async {
+  Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
     return AudioStreamResult(
       url: audioUrl,
       streamType: StreamType.audioOnly,
@@ -1658,20 +1656,12 @@ class _BlockingAudioSource extends _StaticAudioSource {
   }
 
   @override
-  Future<AudioStreamResult> getAudioStream(
-    String sourceId, {
-    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-    Map<String, String>? authHeaders,
-  }) async {
+  Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
     if (!_requested.isCompleted) {
       _requested.complete();
     }
     await _release.future;
-    return super.getAudioStream(
-      sourceId,
-      config: config,
-      authHeaders: authHeaders,
-    );
+    return super.getAudioStream(request);
   }
 }
 
@@ -1685,11 +1675,7 @@ class _DetailBlockingYouTubeSource extends YouTubeSource {
   final Future<VideoDetail> Function(String sourceId) onGetVideoDetail;
 
   @override
-  Future<AudioStreamResult> getAudioStream(
-    String sourceId, {
-    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-    Map<String, String>? authHeaders,
-  }) async {
+  Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
     return AudioStreamResult(url: audioUrl, streamType: StreamType.audioOnly);
   }
 
@@ -1710,18 +1696,13 @@ class _RecordingAudioSource extends _StaticAudioSource {
   final List<Map<String, String>?> recordedAuthHeaders = [];
 
   @override
-  Future<AudioStreamResult> getAudioStream(
-    String sourceId, {
-    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-    Map<String, String>? authHeaders,
-  }) async {
+  Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
     recordedAuthHeaders.add(
-        authHeaders == null ? null : Map<String, String>.from(authHeaders));
-    return super.getAudioStream(
-      sourceId,
-      config: config,
-      authHeaders: authHeaders,
+      request.authHeaders == null
+          ? null
+          : Map<String, String>.from(request.authHeaders!),
     );
+    return super.getAudioStream(request);
   }
 }
 
@@ -1729,27 +1710,14 @@ class _RecordingBilibiliSource extends BilibiliSource {
   _RecordingBilibiliSource(this.audioUrl);
 
   final String audioUrl;
-  final List<({String sourceId, int cid})> cidAudioRequests = [];
-  final List<String> plainAudioRequests = [];
+  final List<AudioStreamRequest> primaryRequests = [];
 
   @override
-  Future<AudioStreamResult> getAudioStream(
-    String sourceId, {
-    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-    Map<String, String>? authHeaders,
-  }) async {
-    plainAudioRequests.add(sourceId);
-    throw StateError('plain Bilibili stream resolution must preserve cid');
-  }
-
-  @override
-  Future<AudioStreamResult> getAudioStreamWithCid(
-    String bvid,
-    int cid, {
-    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-    Map<String, String>? authHeaders,
-  }) async {
-    cidAudioRequests.add((sourceId: bvid, cid: cid));
+  Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
+    primaryRequests.add(request);
+    if (request.cid == null) {
+      throw StateError('Bilibili request must preserve cid');
+    }
     return AudioStreamResult(
       url: audioUrl,
       streamType: StreamType.audioOnly,

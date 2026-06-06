@@ -26,9 +26,11 @@ void main() {
 
       await expectLater(
         source.getAudioStream(
-          'login-required-video',
-          config: const AudioStreamConfig(
-            streamPriority: [StreamType.audioOnly, StreamType.muxed],
+          const AudioStreamRequest(
+            sourceId: 'login-required-video',
+            config: AudioStreamConfig(
+              streamPriority: [StreamType.audioOnly, StreamType.muxed],
+            ),
           ),
         ),
         throwsA(
@@ -79,11 +81,13 @@ void main() {
       addTearDown(source.dispose);
 
       final result = await source.getAudioStream(
-        'auth-priority-video',
-        config: const AudioStreamConfig(
-          streamPriority: [StreamType.muxed, StreamType.audioOnly],
+        const AudioStreamRequest(
+          sourceId: 'auth-priority-video',
+          config: AudioStreamConfig(
+            streamPriority: [StreamType.muxed, StreamType.audioOnly],
+          ),
+          authHeaders: {'Authorization': 'SAPISIDHASH test'},
         ),
-        authHeaders: const {'Authorization': 'SAPISIDHASH test'},
       );
 
       expect(result.url, 'https://example.com/muxed.mp4');
@@ -128,12 +132,14 @@ void main() {
       addTearDown(source.dispose);
 
       final result = await source.getAudioStream(
-        'auth-format-video',
-        config: const AudioStreamConfig(
-          formatPriority: [AudioFormat.aac, AudioFormat.opus],
-          streamPriority: [StreamType.audioOnly],
+        const AudioStreamRequest(
+          sourceId: 'auth-format-video',
+          config: AudioStreamConfig(
+            formatPriority: [AudioFormat.aac, AudioFormat.opus],
+            streamPriority: [StreamType.audioOnly],
+          ),
+          authHeaders: {'Authorization': 'SAPISIDHASH test'},
         ),
-        authHeaders: const {'Authorization': 'SAPISIDHASH test'},
       );
 
       expect(result.url, 'https://example.com/audio-aac.mp4');
@@ -179,12 +185,14 @@ void main() {
       addTearDown(source.dispose);
 
       final result = await source.getAlternativeAudioStream(
-        'auth-alternative-video',
-        failedUrl: 'https://example.com/failed-audio.webm',
-        config: const AudioStreamConfig(
-          streamPriority: [StreamType.audioOnly, StreamType.muxed],
+        const AudioStreamRequest(
+          sourceId: 'auth-alternative-video',
+          failedUrl: 'https://example.com/failed-audio.webm',
+          config: AudioStreamConfig(
+            streamPriority: [StreamType.audioOnly, StreamType.muxed],
+          ),
+          authHeaders: {'Authorization': 'SAPISIDHASH test'},
         ),
-        authHeaders: const {'Authorization': 'SAPISIDHASH test'},
       );
 
       expect(result?.url, 'https://example.com/auth-muxed.mp4');
@@ -204,10 +212,12 @@ void main() {
 
       await expectLater(
         source.getAlternativeAudioStream(
-          'login-required-video',
-          failedUrl: 'https://example.com/failed.webm',
-          config: const AudioStreamConfig(
-            streamPriority: [StreamType.audioOnly, StreamType.muxed],
+          const AudioStreamRequest(
+            sourceId: 'login-required-video',
+            failedUrl: 'https://example.com/failed.webm',
+            config: AudioStreamConfig(
+              streamPriority: [StreamType.audioOnly, StreamType.muxed],
+            ),
           ),
         ),
         throwsA(
@@ -232,9 +242,11 @@ void main() {
 
       await expectLater(
         source.getAudioStream(
-          'timeout-video',
-          config: const AudioStreamConfig(
-            streamPriority: [StreamType.audioOnly, StreamType.muxed],
+          const AudioStreamRequest(
+            sourceId: 'timeout-video',
+            config: AudioStreamConfig(
+              streamPriority: [StreamType.audioOnly, StreamType.muxed],
+            ),
           ),
         ),
         throwsA(
@@ -281,8 +293,10 @@ void main() {
       addTearDown(source.dispose);
 
       final result = await source.getAudioStream(
-        'probe-forbidden-video',
-        authHeaders: const {'Authorization': 'SAPISIDHASH test'},
+        const AudioStreamRequest(
+          sourceId: 'probe-forbidden-video',
+          authHeaders: {'Authorization': 'SAPISIDHASH test'},
+        ),
       );
 
       expect(result.url, 'https://example.com/auth-audio.webm');
@@ -318,8 +332,10 @@ void main() {
 
       await expectLater(
         source.getAudioStream(
-          'geo-video',
-          authHeaders: const {'Authorization': 'SAPISIDHASH test'},
+          const AudioStreamRequest(
+            sourceId: 'geo-video',
+            authHeaders: {'Authorization': 'SAPISIDHASH test'},
+          ),
         ),
         throwsA(
           isA<YouTubeApiException>()
@@ -364,8 +380,10 @@ void main() {
       addTearDown(source.dispose);
 
       final result = await source.getAudioStream(
-        'auth-expiry-video',
-        authHeaders: const {'Authorization': 'SAPISIDHASH test'},
+        const AudioStreamRequest(
+          sourceId: 'auth-expiry-video',
+          authHeaders: {'Authorization': 'SAPISIDHASH test'},
+        ),
       );
 
       expect(

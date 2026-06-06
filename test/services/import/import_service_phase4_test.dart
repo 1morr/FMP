@@ -403,9 +403,7 @@ class _FakeGenericSource extends BaseSource {
   Future<bool> checkAvailability(String sourceId) async => true;
 
   @override
-  Future<AudioStreamResult> getAudioStream(String sourceId,
-          {AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-          Map<String, String>? authHeaders}) =>
+  Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) =>
       throw UnimplementedError();
 
   @override
@@ -510,9 +508,7 @@ class _PlaylistSource extends BaseSource {
   Future<bool> checkAvailability(String sourceId) async => true;
 
   @override
-  Future<AudioStreamResult> getAudioStream(String sourceId,
-          {AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-          Map<String, String>? authHeaders}) =>
+  Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) =>
       throw UnimplementedError();
 
   @override
@@ -574,9 +570,7 @@ class _DynamicPlaylistSource extends BaseSource {
   Future<bool> checkAvailability(String sourceId) async => true;
 
   @override
-  Future<AudioStreamResult> getAudioStream(String sourceId,
-          {AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-          Map<String, String>? authHeaders}) =>
+  Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) =>
       throw UnimplementedError();
 
   @override

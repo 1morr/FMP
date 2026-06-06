@@ -92,7 +92,12 @@ class NeteaseSource extends BaseSource with Logging {
       final track = _parseSongToTrack(song, privilege);
 
       try {
-        final audioUrl = await getAudioUrl(sourceId, authHeaders: authHeaders);
+        final audioUrl = await getAudioUrl(
+          AudioStreamRequest(
+            sourceId: sourceId,
+            authHeaders: authHeaders,
+          ),
+        );
         track.audioUrl = audioUrl;
         track.audioUrlExpiry = DateTime.now().add(_audioUrlExpiry);
       } catch (_) {
@@ -113,13 +118,14 @@ class NeteaseSource extends BaseSource with Logging {
   // ========== 音頻流（eapi 加密） ==========
 
   @override
-  Future<AudioStreamResult> getAudioStream(
-    String sourceId, {
-    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-    Map<String, String>? authHeaders,
-  }) async {
+  Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
+    final sourceId = request.sourceId;
+    final config = request.config;
+    final authHeaders = request.authHeaders;
     logDebug(
-        'Getting audio stream for netease song: $sourceId, quality: ${config.qualityLevel}');
+      'Getting audio stream for netease song: $sourceId, quality: '
+      '${config.qualityLevel}',
+    );
     try {
       final level = _mapQualityLevel(config.qualityLevel);
       final payload = {
@@ -359,8 +365,12 @@ class NeteaseSource extends BaseSource with Logging {
           numericCode: -3, message: 'Invalid source type for NeteaseSource');
     }
 
-    final result =
-        await getAudioStream(track.sourceId, authHeaders: authHeaders);
+    final result = await getAudioStream(
+      AudioStreamRequest(
+        sourceId: track.sourceId,
+        authHeaders: authHeaders,
+      ),
+    );
     track.audioUrl = result.url;
     track.audioUrlExpiry = DateTime.now().add(_audioUrlExpiry);
     track.updatedAt = DateTime.now();

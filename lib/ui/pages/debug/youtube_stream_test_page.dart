@@ -714,9 +714,11 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
       _log('');
       _log('--- 2. getAudioStream(authHeaders) ---');
       final stream = await source.getAudioStream(
-        videoId,
-        config: fmp.AudioStreamConfig.defaultConfig,
-        authHeaders: authHeaders,
+        fmp.AudioStreamRequest(
+          sourceId: videoId,
+          config: fmp.AudioStreamConfig.defaultConfig,
+          authHeaders: authHeaders,
+        ),
       );
       final selectedStream = _streamInfoFromResult(stream);
       setState(() {

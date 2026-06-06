@@ -71,11 +71,16 @@ class AudioStreamDelegate {
       final authHeaders = settings.useAuthForPlay(track.sourceType)
           ? await _getAuthHeaders(track.sourceType)
           : null;
-      final streamResult = await fetchTrackAudioStreamWithQualityFallback(
-        source: source,
-        track: track,
+      final streamRequest = AudioStreamRequest(
+        sourceId: track.sourceId,
+        cid: track.cid,
+        pageNum: track.pageNum,
         config: config,
         authHeaders: authHeaders,
+      );
+      final streamResult = await fetchAudioStreamWithQualityFallback(
+        source: source,
+        request: streamRequest,
       );
 
       track.audioUrl = streamResult.url;
@@ -125,41 +130,18 @@ class AudioStreamDelegate {
         ? await _getAuthHeaders(track.sourceType)
         : null;
 
-    for (final level in audioQualityFallbackLevels(
-      config.qualityLevel,
-      includeCurrent: false,
-    )) {
-      final fallbackConfig = config.copyWith(qualityLevel: level);
-      final sourceAlternative = await fetchTrackAlternativeAudioStream(
-        source: source,
-        track: track,
-        failedUrl: failedUrl,
-        config: fallbackConfig,
-        authHeaders: authHeaders,
-      );
-      if (sourceAlternative != null) return sourceAlternative;
-
-      try {
-        final primaryFallback = await fetchTrackAudioStream(
-          source: source,
-          track: track,
-          config: fallbackConfig,
-          authHeaders: authHeaders,
-        );
-        if (primaryFallback.url != failedUrl) {
-          return primaryFallback;
-        }
-      } on SourceApiException catch (error) {
-        if (!error.kind.canFallbackToLowerAudioQuality) rethrow;
-      }
-    }
-
-    return fetchTrackAlternativeAudioStream(
-      source: source,
-      track: track,
-      failedUrl: failedUrl,
+    final streamRequest = AudioStreamRequest(
+      sourceId: track.sourceId,
+      cid: track.cid,
+      pageNum: track.pageNum,
       config: config,
       authHeaders: authHeaders,
+      failedUrl: failedUrl,
+    );
+
+    return fetchAlternativeAudioStreamWithQualityFallback(
+      source: source,
+      request: streamRequest,
     );
   }
 

@@ -210,7 +210,9 @@ class YouTubeSource extends BaseSource with Logging {
         ..viewCount = video.engagement.viewCount;
 
       // 获取音频 URL
-      final audioUrl = await getAudioUrl(videoId);
+      final audioUrl = await getAudioUrl(
+        AudioStreamRequest(sourceId: videoId),
+      );
       track.audioUrl = audioUrl;
       // YouTube URL 过期较快，使用 1 小时有效期
       track.audioUrlExpiry = DateTime.now()
@@ -351,13 +353,14 @@ class YouTubeSource extends BaseSource with Logging {
   }
 
   @override
-  Future<AudioStreamResult> getAudioStream(
-    String videoId, {
-    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-    Map<String, String>? authHeaders,
-  }) async {
+  Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
+    final videoId = request.sourceId;
+    final config = request.config;
+    final authHeaders = request.authHeaders;
     logDebug(
-        'Getting audio stream for YouTube video: $videoId with config: qualityLevel=${config.qualityLevel}, streamPriority=${config.streamPriority}');
+      'Getting audio stream for YouTube video: $videoId with config: '
+      'qualityLevel=${config.qualityLevel}, streamPriority=${config.streamPriority}',
+    );
 
     // Always try youtube_explode first (most reliable)
     for (final streamType in config.streamPriority) {
@@ -610,11 +613,12 @@ class YouTubeSource extends BaseSource with Logging {
   /// 当主流无法播放时使用
   @override
   Future<AudioStreamResult?> getAlternativeAudioStream(
-    String videoId, {
-    String? failedUrl,
-    AudioStreamConfig config = AudioStreamConfig.defaultConfig,
-    Map<String, String>? authHeaders,
-  }) async {
+    AudioStreamRequest request,
+  ) async {
+    final videoId = request.sourceId;
+    final config = request.config;
+    final authHeaders = request.authHeaders;
+    final failedUrl = request.failedUrl;
     logDebug('Getting alternative audio stream for YouTube video: $videoId');
     try {
       // 按流类型优先级尝试，跳过已失败的 URL
@@ -829,8 +833,12 @@ class YouTubeSource extends BaseSource with Logging {
           message: 'Invalid source type for YouTubeSource');
     }
 
-    final audioUrl =
-        await getAudioUrl(track.sourceId, authHeaders: authHeaders);
+    final audioUrl = await getAudioUrl(
+      AudioStreamRequest(
+        sourceId: track.sourceId,
+        authHeaders: authHeaders,
+      ),
+    );
     track.audioUrl = audioUrl;
     track.audioUrlExpiry = DateTime.now()
         .add(const Duration(hours: AppConstants.youtubeAudioUrlExpiryHours));
