@@ -35,12 +35,16 @@ backend events.
 
 ## Audio Internals Ownership
 
-- `AudioController` (`audio_provider.dart`) owns user-facing state, request
-  supersession, temporary/mix/detached modes, notification/SMTC coordination,
-  network retry, and source-error UI decisions.
-- `PlaybackRequestExecutor` owns selecting and handing off a single playback
-  request to the backend while preserving request IDs and fallback handoff
-  errors.
+- `AudioController` (`audio_provider.dart`) owns user-facing state,
+  temporary/mix/detached modes, notification/SMTC coordination, queue-visible
+  playback decisions, history/lyrics side effects, and source-error UI
+  decisions.
+- `PlaybackRequestSession` owns playback request tokens, supersession, active
+  loading request state, backend stop/handoff, queue restore handoff, fallback
+  handoff, and media-open pending recovery.
+- `PlaybackRecoveryCoordinator` owns playback network retry generation,
+  scheduled retry state, manual retry, network-recovered retry, and premature
+  completion recovery.
 - `AudioStreamManager` and `AudioStreamDelegate` own stream URL resolution,
   local-file selection, source-aware playback headers, quality fallback, and
   alternative stream lookup.
@@ -100,10 +104,10 @@ class _PlaybackContext {
 }
 ```
 
-Any method that fetches URLs outside `_executePlayRequest()` must:
-1. Increment `_playRequestId` at start.
-2. Check `_isSuperseded(requestId)` after each `await`.
-3. Abort if superseded.
+Any method that starts backend playback or fetches playback URLs outside
+`PlaybackRequestSession` must either move into the session or use an explicit
+session handle/cancellation check. Do not add new raw request-id counters in
+`AudioController`.
 
 ## Playback Network Error Recovery
 
