@@ -54,11 +54,11 @@ class FakeAudioService implements FmpAudioService {
   bool _isPlaying = false;
   Duration _position = Duration.zero;
   Duration? _duration;
-  Duration _bufferedPosition = Duration.zero;
+  final Duration _bufferedPosition = Duration.zero;
   double _speed = 1.0;
   double _volume = 1.0;
   FmpAudioProcessingState _processingState = FmpAudioProcessingState.idle;
-  List<FmpAudioDevice> _audioDevices = const [];
+  final List<FmpAudioDevice> _audioDevices = const [];
   FmpAudioDevice? _audioDevice;
 
   Completer<void> enqueuePendingPlayUrl() {
@@ -124,6 +124,11 @@ class FakeAudioService implements FmpAudioService {
 
   void setPlayingValue(bool isPlaying) {
     _isPlaying = isPlaying;
+  }
+
+  void emitProcessingState(FmpAudioProcessingState processingState) {
+    _processingState = processingState;
+    _emitState();
   }
 
   void emitCompleted() {

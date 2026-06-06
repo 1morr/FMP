@@ -19,18 +19,16 @@ import 'package:fmp/data/sources/bilibili_exception.dart';
 import 'package:fmp/data/sources/netease_exception.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/youtube_exception.dart';
-import 'package:fmp/data/sources/youtube_source.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_playback_types.dart';
-import 'package:fmp/services/audio/audio_provider.dart'
-    hide MixTracksFetcher, PlayMode;
+import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/audio/audio_runtime_platform.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
+import 'package:fmp/services/audio/audio_types.dart';
 import 'package:fmp/services/audio/mix_playlist_types.dart';
 import 'package:fmp/services/lyrics/lrclib_source.dart';
 import 'package:fmp/services/lyrics/lyrics_auto_match_service.dart';
 import 'package:fmp/services/lyrics/lyrics_cache_service.dart';
-import 'package:fmp/services/lyrics/lyrics_result.dart';
 import 'package:fmp/services/lyrics/netease_source.dart';
 import 'package:fmp/services/lyrics/qqmusic_source.dart';
 import 'package:fmp/services/lyrics/title_parser.dart';
@@ -848,6 +846,135 @@ void main() {
       expect(controller.state.currentStreamType, isNull);
     });
 
+    test('post-handoff media open error becomes visible terminal error',
+        () async {
+      final toasts = <ToastMessage>[];
+      final subscription = toastService.messageStream.listen(toasts.add);
+      addTearDown(subscription.cancel);
+
+      await controller.playTrack(
+        _track('media-open-post-handoff', title: 'Media Open Post Handoff'),
+      );
+      await pumpEventQueue(times: 5);
+
+      expect(controller.state.isLoading, isFalse);
+      expect(controller.state.error, isNull);
+      final stopCountBeforeError = audioService.stopCallCount;
+
+      audioService.setPlayingValue(false);
+      audioService.setPositionValue(Duration.zero);
+      audioService.emitError(
+        'Failed to open https://example.com/media-open-post-handoff.m4a.',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 2200));
+      await pumpEventQueue(times: 5);
+
+      expect(toasts, isNotEmpty);
+      expect(toasts.last.type, ToastType.error);
+      expect(toasts.last.message, contains('Media Open Post Handoff'));
+      expect(controller.state.error, contains('Media Open Post Handoff'));
+      expect(controller.state.isLoading, isFalse);
+      expect(controller.state.isPlaying, isFalse);
+      expect(audioService.stopCallCount, stopCountBeforeError + 1);
+    });
+
+    test('new playback cancels pending post-handoff media open stop', () async {
+      final toasts = <ToastMessage>[];
+      final subscription = toastService.messageStream.listen(toasts.add);
+      addTearDown(subscription.cancel);
+
+      await controller.playTrack(
+        _track('media-open-old-pending', title: 'Media Open Old Pending'),
+      );
+      await pumpEventQueue(times: 5);
+
+      audioService.setPlayingValue(false);
+      audioService.setPositionValue(Duration.zero);
+      audioService.emitError(
+        'Failed to open https://example.com/media-open-old-pending.m4a.',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+
+      await controller.playTrack(
+        _track('media-open-new-track', title: 'Media Open New Track'),
+      );
+      await pumpEventQueue(times: 5);
+      final stopCountAfterNewPlayback = audioService.stopCallCount;
+
+      await Future<void>.delayed(const Duration(milliseconds: 1800));
+      await pumpEventQueue(times: 5);
+
+      expect(
+        toasts.map((toast) => toast.message),
+        isNot(contains(contains('Media Open Old Pending'))),
+      );
+      expect(controller.state.error, isNull);
+      expect(controller.state.currentTrack?.sourceId, 'media-open-new-track');
+      expect(controller.state.playingTrack?.sourceId, 'media-open-new-track');
+      expect(controller.state.isPlaying, isTrue);
+      expect(audioService.stopCallCount, stopCountAfterNewPlayback);
+    });
+
+    test('pending media open blocks active play success path', () async {
+      final playGate = audioService.enqueuePendingPlayUrl();
+      var playCompleted = false;
+
+      final playFuture = controller
+          .playTrack(
+            _track('media-open-active', title: 'Media Open Active'),
+          )
+          .then((_) => playCompleted = true);
+      await audioService.waitForPlayUrlCallCount(1);
+
+      audioService.emitError(
+        'Failed to open https://example.com/media-open-active.m4a.',
+      );
+
+      playGate.complete();
+      await pumpEventQueue(times: 5);
+
+      expect(playCompleted, isFalse);
+      expect(controller.state.isLoading, isTrue);
+
+      await Future<void>.delayed(const Duration(milliseconds: 2200));
+      await playFuture;
+      await pumpEventQueue(times: 5);
+
+      expect(playCompleted, isTrue);
+      expect(controller.state.error, contains('Media Open Active'));
+      expect(controller.state.isLoading, isFalse);
+      expect(controller.state.isPlaying, isFalse);
+    });
+
+    test('terminal media open ignores stale backend loading state', () async {
+      final playGate = audioService.enqueuePendingPlayUrl();
+
+      final playFuture = controller.playTrack(
+        _track('media-open-stale-loading', title: 'Media Open Stale Loading'),
+      );
+      await audioService.waitForPlayUrlCallCount(1);
+
+      audioService.emitError(
+        'Failed to open https://example.com/media-open-stale-loading.m4a.',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 2200));
+      playGate.complete();
+      await playFuture;
+      await pumpEventQueue(times: 5);
+
+      expect(controller.state.error, contains('Media Open Stale Loading'));
+      expect(controller.state.isLoading, isFalse);
+      expect(controller.state.isBuffering, isFalse);
+
+      audioService.setPlayingValue(false);
+      audioService.emitProcessingState(FmpAudioProcessingState.loading);
+      await pumpEventQueue(times: 5);
+
+      expect(controller.state.error, contains('Media Open Stale Loading'));
+      expect(controller.state.isLoading, isFalse);
+      expect(controller.state.isBuffering, isFalse);
+    });
+
     test('waits for pending media open cleanup when handoff is superseded',
         () async {
       final playGate = audioService.enqueuePendingPlayUrl();
@@ -878,6 +1005,94 @@ void main() {
       expect(playCompleted, isTrue);
       expect(controller.state.isLoading, isFalse);
       expect(controller.state.isPlaying, isFalse);
+    });
+
+    test('active media open terminal cannot overwrite newer playback',
+        () async {
+      final toasts = <ToastMessage>[];
+      final subscription = toastService.messageStream.listen(toasts.add);
+      addTearDown(subscription.cancel);
+
+      final oldPlayGate = audioService.enqueuePendingPlayUrl();
+      final oldPlayFuture = controller.playTrack(
+        _track('media-open-old-active', title: 'Media Open Old Active'),
+      );
+      await audioService.waitForPlayUrlCallCount(1);
+
+      final terminalStopGate = audioService.enqueuePendingStop();
+      audioService.emitError(
+        'Failed to open https://example.com/media-open-old-active.m4a.',
+      );
+      oldPlayGate.complete();
+      await Future<void>.delayed(const Duration(milliseconds: 2200));
+      await pumpEventQueue(times: 5);
+
+      final newPlayGate = audioService.enqueuePendingPlayUrl();
+      final newPlayFuture = controller.playTrack(
+        _track('media-open-new-active', title: 'Media Open New Active'),
+      );
+      await audioService.waitForPlayUrlCallCount(2);
+
+      terminalStopGate.complete();
+      await oldPlayFuture;
+      await pumpEventQueue(times: 5);
+
+      newPlayGate.complete();
+      await newPlayFuture;
+      await pumpEventQueue(times: 5);
+
+      expect(
+        toasts.map((toast) => toast.message),
+        isNot(contains(contains('Media Open Old Active'))),
+      );
+      expect(controller.state.error, isNull);
+      expect(controller.state.currentTrack?.sourceId, 'media-open-new-active');
+      expect(controller.state.playingTrack?.sourceId, 'media-open-new-active');
+      expect(controller.state.isLoading, isFalse);
+      expect(controller.state.isPlaying, isTrue);
+    });
+
+    test('retry terminal media open clears loading and retry state', () async {
+      final toasts = <ToastMessage>[];
+      final subscription = toastService.messageStream.listen(toasts.add);
+      addTearDown(subscription.cancel);
+
+      await controller.playTrack(
+        _track('retry-media-open-terminal', title: 'Retry Media Open Terminal'),
+      );
+      await pumpEventQueue(times: 10);
+
+      audioService.emitPosition(const Duration(seconds: 19));
+      audioService.emitError('network timeout during playback');
+      await pumpEventQueue(times: 10);
+
+      expect(controller.state.isRetrying, isTrue);
+      expect(controller.state.isNetworkError, isTrue);
+
+      audioService.playUrlCalls.clear();
+      final retryPlayGate = audioService.enqueuePendingPlayUrl();
+      final retry = controller.retryManually();
+      await audioService.waitForPlayUrlCallCount(1);
+
+      audioService.emitError(
+        'Failed to open https://example.com/retry-media-open-terminal.m4a.',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 2200));
+      retryPlayGate.complete();
+      await retry;
+      await pumpEventQueue(times: 5);
+
+      expect(toasts, isNotEmpty);
+      expect(toasts.last.type, ToastType.error);
+      expect(toasts.last.message, contains('Retry Media Open Terminal'));
+      expect(controller.state.error, contains('Retry Media Open Terminal'));
+      expect(controller.state.isLoading, isFalse);
+      expect(controller.state.isBuffering, isFalse);
+      expect(controller.state.isPlaying, isFalse);
+      expect(controller.state.isRetrying, isFalse);
+      expect(controller.state.isNetworkError, isFalse);
+      expect(controller.state.retryAttempt, 0);
+      expect(controller.state.nextRetryAt, isNull);
     });
 
     test('rate-limited source error remains visible after loading resets',

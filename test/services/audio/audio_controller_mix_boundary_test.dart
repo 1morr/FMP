@@ -15,7 +15,7 @@ import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
-import 'package:fmp/services/audio/audio_provider.dart' hide MixTracksFetcher;
+import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/mix_playlist_types.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
@@ -295,19 +295,58 @@ void main() {
       expect(controller.state.currentTrack?.sourceId, 'mix-b');
       expect(controller.state.isLoadingMoreMix, isTrue);
 
-      final nextTrackPlayed = audioService
-          .waitForPlayUrlCallCount(3)
-          .timeout(const Duration(seconds: 1));
+      final nextTrackPlayed = _waitForPlayUrlCallCount(
+        audioService,
+        controller,
+        3,
+      );
       audioService.emitCompleted();
       await pumpEventQueue(times: 5);
       loadMoreGate.complete();
 
-      await expectLater(nextTrackPlayed, completes);
+      await nextTrackPlayed;
       expect(controller.state.currentTrack?.sourceId, 'mix-new-0');
       expect(audioService.playUrlCalls.last.url,
           'https://example.com/mix-new-0.m4a');
     });
   });
+}
+
+Future<void> _waitForPlayUrlCallCount(
+  FakeAudioService audioService,
+  AudioController controller,
+  int count, {
+  Duration timeout = const Duration(seconds: 5),
+}) async {
+  var waitComplete = audioService.playUrlCalls.length >= count;
+  Object? waitError;
+  StackTrace? waitStackTrace;
+  if (!waitComplete) {
+    unawaited(audioService.waitForPlayUrlCallCount(count).then((_) {
+      waitComplete = true;
+    }).catchError((Object error, StackTrace stackTrace) {
+      waitError = error;
+      waitStackTrace = stackTrace;
+    }));
+  }
+
+  final stopwatch = Stopwatch()..start();
+  while (!waitComplete && audioService.playUrlCalls.length < count) {
+    if (waitError != null) {
+      Error.throwWithStackTrace(waitError!, waitStackTrace!);
+    }
+    if (stopwatch.elapsed >= timeout) {
+      final playUrlCalls = audioService.playUrlCalls
+          .map((call) => '${call.track?.sourceId ?? 'unknown'} => ${call.url}')
+          .toList();
+      fail(
+        'Timed out waiting for $count playUrl calls after $timeout. '
+        'playUrlCalls=$playUrlCalls, '
+        'currentTrack=${controller.state.currentTrack?.sourceId}',
+      );
+    }
+    await pumpEventQueue();
+  }
 }
 
 Future<String> _resolveIsarLibraryPath() async {
