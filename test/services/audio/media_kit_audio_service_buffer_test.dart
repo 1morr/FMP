@@ -20,6 +20,18 @@ void main() {
         MediaKitAudioService.desktopBufferSeconds,
         7200,
       );
+      expect(
+        MediaKitAudioService.desktopLavfReconnectOptions,
+        contains('reconnect=1'),
+      );
+      expect(
+        MediaKitAudioService.desktopLavfReconnectOptions,
+        contains('reconnect_streamed=1'),
+      );
+      expect(
+        MediaKitAudioService.desktopLavfReconnectOptions,
+        contains('reconnect_on_network_error=1'),
+      );
     });
   });
 }

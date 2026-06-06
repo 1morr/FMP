@@ -102,6 +102,8 @@ secrets.json
 /.claude/
 /.codex/
 /.gstack/
+/.agents/
+/_bmad/
 /.playwright-mcp/
 /.superpowers
 /.worktrees/

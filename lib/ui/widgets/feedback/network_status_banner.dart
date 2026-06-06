@@ -6,12 +6,34 @@ import '../../../services/audio/audio_provider.dart';
 import '../../../core/constants/ui_constants.dart';
 import '../../../services/network/connectivity_service.dart';
 
+enum NetworkStatusBannerKind {
+  none,
+  noNetwork,
+  playbackNetworkError,
+}
+
+NetworkStatusBannerKind resolveNetworkStatusBannerKind({
+  required bool isConnected,
+  required bool hasPlaybackNetworkError,
+}) {
+  if (!isConnected) return NetworkStatusBannerKind.noNetwork;
+  if (hasPlaybackNetworkError) {
+    return NetworkStatusBannerKind.playbackNetworkError;
+  }
+  return NetworkStatusBannerKind.none;
+}
+
 /// Banner 是否显示的 Provider
 /// 供其他页面查询以决定是否需要自己提供 SafeArea top padding
 final networkBannerVisibleProvider = Provider<bool>((ref) {
   final connectivityState = ref.watch(connectivityProvider);
-  final isNetworkError = ref.watch(audioControllerProvider.select((s) => s.isNetworkError));
-  return !connectivityState.isConnected || isNetworkError;
+  final isNetworkError =
+      ref.watch(audioControllerProvider.select((s) => s.isNetworkError));
+  return resolveNetworkStatusBannerKind(
+        isConnected: connectivityState.isConnected,
+        hasPlaybackNetworkError: isNetworkError,
+      ) !=
+      NetworkStatusBannerKind.none;
 });
 
 /// 网络状态 Banner
@@ -22,7 +44,8 @@ class NetworkStatusBanner extends ConsumerStatefulWidget {
   const NetworkStatusBanner({super.key});
 
   @override
-  ConsumerState<NetworkStatusBanner> createState() => _NetworkStatusBannerState();
+  ConsumerState<NetworkStatusBanner> createState() =>
+      _NetworkStatusBannerState();
 }
 
 class _NetworkStatusBannerState extends ConsumerState<NetworkStatusBanner>
@@ -54,13 +77,18 @@ class _NetworkStatusBannerState extends ConsumerState<NetworkStatusBanner>
 
   @override
   Widget build(BuildContext context) {
-    final isNetworkError = ref.watch(audioControllerProvider.select((s) => s.isNetworkError));
-    final isRetrying = ref.watch(audioControllerProvider.select((s) => s.isRetrying));
+    final isNetworkError =
+        ref.watch(audioControllerProvider.select((s) => s.isNetworkError));
+    final isRetrying =
+        ref.watch(audioControllerProvider.select((s) => s.isRetrying));
     final connectivityState = ref.watch(connectivityProvider);
 
     // 确定是否显示 Banner
-    final shouldShow = !connectivityState.isConnected ||
-                       isNetworkError;
+    final bannerKind = resolveNetworkStatusBannerKind(
+      isConnected: connectivityState.isConnected,
+      hasPlaybackNetworkError: isNetworkError,
+    );
+    final shouldShow = bannerKind != NetworkStatusBannerKind.none;
 
     // 控制动画
     if (shouldShow) {
@@ -70,7 +98,20 @@ class _NetworkStatusBannerState extends ConsumerState<NetworkStatusBanner>
     }
 
     final colorScheme = Theme.of(context).colorScheme;
-    final showRetryButton = isNetworkError && !isRetrying;
+    final showRetryButton =
+        bannerKind == NetworkStatusBannerKind.playbackNetworkError &&
+            !isRetrying;
+    final statusText = switch (bannerKind) {
+      NetworkStatusBannerKind.noNetwork => t.networkStatus.noNetwork,
+      NetworkStatusBannerKind.playbackNetworkError =>
+        t.networkStatus.playbackNetworkError,
+      NetworkStatusBannerKind.none => '',
+    };
+    final statusIcon = switch (bannerKind) {
+      NetworkStatusBannerKind.noNetwork => Icons.wifi_off,
+      NetworkStatusBannerKind.playbackNetworkError => Icons.sync_problem,
+      NetworkStatusBannerKind.none => Icons.info_outline,
+    };
 
     // banner 内容根据动画显示/隐藏
     // SafeArea 由 app.dart 统一提供，此处不再处理
@@ -97,16 +138,16 @@ class _NetworkStatusBannerState extends ConsumerState<NetworkStatusBanner>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                Icons.wifi_off,
+                statusIcon,
                 color: colorScheme.onSurfaceVariant,
                 size: 16,
               ),
               const SizedBox(width: 8),
               Text(
-                t.networkStatus.noNetwork,
+                statusText,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
+                      color: colorScheme.onSurfaceVariant,
+                    ),
               ),
               if (showRetryButton) ...[
                 const SizedBox(width: 8),

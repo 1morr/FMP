@@ -1,4 +1,5 @@
 {
   "noNetwork": "無網路",
+  "playbackNetworkError": "播放網路異常",
   "retry": "重試"
 }
