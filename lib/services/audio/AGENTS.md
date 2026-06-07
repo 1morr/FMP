@@ -196,6 +196,11 @@ YouTube Mix/Radio playlists are dynamic infinite playlists:
   volume in `_volumeBeforeMute`.
 - Progress slider `onChanged` must not call `seekToProgress()`. Only call seek
   in `onChangeEnd`.
+- User seeks during a playback request handoff, or during the short
+  post-navigation seek stabilization window, must stay in `AudioController` as a
+  current-track-checked pending seek. Do not send these seeks directly to the
+  backend; stale pending seeks must be discarded when another request supersedes
+  the target track.
 
 ## Verification
 

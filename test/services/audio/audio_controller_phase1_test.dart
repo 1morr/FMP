@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/core/constants/app_constants.dart';
 import 'package:fmp/core/services/toast_service.dart';
 import 'package:fmp/data/models/lyrics_match.dart';
 import 'package:fmp/data/repositories/lyrics_repository.dart';
@@ -457,6 +458,92 @@ void main() {
       expect(controller.state.currentTrack?.sourceId, 'second-ok');
       expect(controller.state.error, isNull);
       expect(controller.state.isRetrying, isFalse);
+      expect(controller.state.isLoading, isFalse);
+    });
+
+    test('seek during playback handoff waits until the new track is ready',
+        () async {
+      final tracks = [
+        _track('handoff-current', title: 'Handoff Current'),
+        _track('handoff-next', title: 'Handoff Next'),
+      ];
+      await controller.playAll(tracks);
+      audioService.seekCalls.clear();
+
+      final nextPlayGate = audioService.enqueuePendingPlayUrl();
+      final nextFuture = controller.next();
+      await audioService.waitForPlayUrlCallCount(2);
+
+      final seekFuture = controller.seekTo(const Duration(seconds: 90));
+      await pumpEventQueue(times: 5);
+
+      expect(audioService.seekCalls, isEmpty);
+      expect(controller.state.playingTrack?.sourceId, 'handoff-next');
+      expect(controller.state.isLoading, isTrue);
+
+      nextPlayGate.complete();
+      await nextFuture;
+      await seekFuture;
+      await pumpEventQueue(times: 10);
+
+      expect(audioService.seekCalls, [const Duration(seconds: 90)]);
+      expect(controller.state.playingTrack?.sourceId, 'handoff-next');
+      expect(controller.state.isLoading, isFalse);
+    });
+
+    test('seek immediately after queue navigation waits for stabilization',
+        () async {
+      final tracks = [
+        _track('stable-current', title: 'Stable Current'),
+        _track('stable-next', title: 'Stable Next'),
+      ];
+      await controller.playAll(tracks);
+      audioService.seekCalls.clear();
+
+      await controller.next();
+      final seekFuture = controller.seekTo(const Duration(seconds: 120));
+      await pumpEventQueue(times: 5);
+
+      expect(audioService.seekCalls, isEmpty);
+
+      await Future<void>.delayed(
+        AppConstants.seekStabilizationDelay + const Duration(milliseconds: 50),
+      );
+      await seekFuture;
+      await pumpEventQueue(times: 10);
+
+      expect(audioService.seekCalls, [const Duration(seconds: 120)]);
+      expect(controller.state.playingTrack?.sourceId, 'stable-next');
+    });
+
+    test('seek queued for a superseded handoff is discarded', () async {
+      final firstTrack = _track('stale-handoff', title: 'Stale Handoff Track');
+      final secondTrack = _track('fresh-handoff', title: 'Fresh Handoff Track');
+      final firstPlayGate = audioService.enqueuePendingPlayUrl();
+      final secondPlayGate = audioService.enqueuePendingPlayUrl();
+
+      final firstPlay = controller.playTrack(firstTrack);
+      await audioService.waitForPlayUrlCallCount(1);
+
+      final seekFuture = controller.seekTo(const Duration(seconds: 75));
+      await pumpEventQueue(times: 5);
+      expect(audioService.seekCalls, isEmpty);
+
+      final secondPlay = controller.playTrack(secondTrack);
+      await audioService.waitForPlayUrlCallCount(2);
+
+      firstPlayGate.complete();
+      await firstPlay;
+      await pumpEventQueue(times: 5);
+      expect(audioService.seekCalls, isEmpty);
+
+      secondPlayGate.complete();
+      await secondPlay;
+      await seekFuture;
+      await pumpEventQueue(times: 10);
+
+      expect(audioService.seekCalls, isEmpty);
+      expect(controller.state.playingTrack?.sourceId, 'fresh-handoff');
       expect(controller.state.isLoading, isFalse);
     });
 

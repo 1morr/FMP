@@ -181,6 +181,39 @@ class _PlaybackContext {
   }
 }
 
+class _PendingSeekRequest {
+  _PendingSeekRequest({
+    required this.position,
+    required this.trackKey,
+    required this.requestId,
+  });
+
+  final Duration position;
+  final String trackKey;
+  final int requestId;
+  final Completer<void> _completer = Completer<void>();
+
+  Future<void> get future => _completer.future;
+
+  void complete() {
+    if (!_completer.isCompleted) {
+      _completer.complete();
+    }
+  }
+}
+
+class _SeekStabilizationWindow {
+  const _SeekStabilizationWindow({
+    required this.requestId,
+    required this.trackKey,
+    required this.until,
+  });
+
+  final int requestId;
+  final String trackKey;
+  final DateTime until;
+}
+
 /// 音频控制器 - 管理所有播放相关的状态和操作
 /// 协调 AudioService（单曲播放）和 QueueManager（队列管理）
 class AudioController extends StateNotifier<PlayerState>
@@ -229,6 +262,9 @@ class AudioController extends StateNotifier<PlayerState>
 
   // 統一的播放上下文（管理所有播放狀態，包括臨時播放、加載狀態等）
   _PlaybackContext _context = const _PlaybackContext();
+  _PendingSeekRequest? _pendingSeek;
+  _SeekStabilizationWindow? _seekStabilizationWindow;
+  bool _stabilizeSeekAfterNextPlaybackRequest = false;
 
   // 基于位置检测的备选切歌定时器（解决后台播放 completed 事件丢失问题）
   Timer? _positionCheckTimer;
@@ -295,6 +331,12 @@ class AudioController extends StateNotifier<PlayerState>
       getNextTrack: _nextTrackForPrefetch,
       onLoadingStarted: _startSessionLoadingState,
       onLoadingFinished: (requestId, result) {
+        if (result.isSuperseded) {
+          _discardPendingSeekForRequest(
+            requestId,
+            reason: 'playback request was superseded',
+          );
+        }
         if (_context.activeRequestId == requestId && result.isSuperseded) {
           state = state.copyWith(isLoading: false);
           _context = _context.copyWith(activeRequestId: 0);
@@ -489,6 +531,8 @@ class AudioController extends StateNotifier<PlayerState>
   void dispose() {
     if (_isDisposed) return;
     _isDisposed = true;
+    _discardPendingSeek(reason: 'controller disposed');
+    _clearSeekStabilizationWindow();
     _lyricsAutoMatchRequestId++;
     onLyricsAutoMatchStateChanged = null;
     _stopPositionCheckTimer();
@@ -561,6 +605,8 @@ class AudioController extends StateNotifier<PlayerState>
 
   /// 停止
   Future<void> stop() async {
+    _discardPendingSeek(reason: 'playback stopped');
+    _clearSeekStabilizationWindow();
     await _audioService.stop();
     _clearPlayingTrack();
   }
@@ -570,9 +616,13 @@ class AudioController extends StateNotifier<PlayerState>
   /// 跳转到指定位置
   Future<void> seekTo(Duration position) async {
     try {
-      await _audioService.seekTo(position);
-      // 立即保存位置，避免 seek 后马上关闭应用导致进度丢失
-      await _queueManager.savePositionNow();
+      final deferredSeek = _deferSeekIfPlaybackLoading(position) ??
+          _deferSeekIfPlaybackStabilizing(position);
+      if (deferredSeek != null) {
+        await deferredSeek;
+        return;
+      }
+      await _performSeek(position);
     } catch (e, stack) {
       logError('Failed to seekTo $position', e, stack);
     }
@@ -587,6 +637,64 @@ class AudioController extends StateNotifier<PlayerState>
       );
       await seekTo(position);
     }
+  }
+
+  Future<void>? _deferSeekIfPlaybackLoading(Duration position) {
+    final requestId = _context.activeRequestId;
+    if (requestId <= 0) return null;
+
+    final trackKey =
+        state.playingTrack?.uniqueKey ?? state.currentTrack?.uniqueKey;
+    if (trackKey == null) return null;
+
+    _discardPendingSeek(reason: 'newer seek queued during playback handoff');
+    final pending = _PendingSeekRequest(
+      position: position,
+      trackKey: trackKey,
+      requestId: requestId,
+    );
+    _pendingSeek = pending;
+    logDebug(
+      'Deferring seek to $position until playback request $requestId is ready',
+    );
+    return pending.future;
+  }
+
+  Future<void>? _deferSeekIfPlaybackStabilizing(Duration position) {
+    final window = _seekStabilizationWindow;
+    if (window == null) return null;
+
+    final trackKey =
+        state.playingTrack?.uniqueKey ?? state.currentTrack?.uniqueKey;
+    final remaining = _remainingSeekStabilizationDelay(
+      requestId: window.requestId,
+      trackKey: window.trackKey,
+    );
+    if (remaining <= Duration.zero ||
+        trackKey != window.trackKey ||
+        _playbackRequestSession.activeRequestId != window.requestId) {
+      _clearSeekStabilizationWindow();
+      return null;
+    }
+
+    _discardPendingSeek(reason: 'newer seek queued during seek stabilization');
+    final pending = _PendingSeekRequest(
+      position: position,
+      trackKey: window.trackKey,
+      requestId: window.requestId,
+    );
+    _pendingSeek = pending;
+    logDebug(
+      'Deferring seek to $position for $remaining after playback request ${window.requestId}',
+    );
+    unawaited(_applyPendingSeekIfCurrent(window.requestId));
+    return pending.future;
+  }
+
+  Future<void> _performSeek(Duration position) async {
+    await _audioService.seekTo(position);
+    // 立即保存位置，避免 seek 后马上关闭应用导致进度丢失
+    await _queueManager.savePositionNow();
   }
 
   /// 快进
@@ -622,6 +730,8 @@ class AudioController extends StateNotifier<PlayerState>
     await _ensureInitialized();
     _resetRetryState(); // 重置网络重试状态
     _playbackRequestSession.cancelActive();
+    _discardPendingSeek(reason: 'single-track playback started');
+    _clearSeekStabilizationWindow();
     _context = _context.copyWith(activeRequestId: 0);
     state = state.copyWith(isLoading: true, error: null);
     logInfo('Playing single track: ${track.title}');
@@ -645,6 +755,8 @@ class AudioController extends StateNotifier<PlayerState>
     await _ensureInitialized();
     _resetRetryState(); // 重置网络重试状态
     _playbackRequestSession.cancelActive();
+    _discardPendingSeek(reason: 'temporary playback started');
+    _clearSeekStabilizationWindow();
     _context = _context.copyWith(activeRequestId: 0);
 
     logInfo('Playing temporary track: ${track.title}');
@@ -883,6 +995,8 @@ class AudioController extends StateNotifier<PlayerState>
   Future<void> playAll(List<Track> tracks, {int startIndex = 0}) async {
     await _ensureInitialized();
     _playbackRequestSession.cancelActive();
+    _discardPendingSeek(reason: 'queue playback started');
+    _clearSeekStabilizationWindow();
     _context = _context.copyWith(activeRequestId: 0);
     state = state.copyWith(isLoading: true, error: null);
     logInfo('Playing ${tracks.length} tracks, starting at index $startIndex');
@@ -921,6 +1035,8 @@ class AudioController extends StateNotifier<PlayerState>
     }
 
     _playbackRequestSession.cancelActive();
+    _discardPendingSeek(reason: 'Mix playback started');
+    _clearSeekStabilizationWindow();
     _context = _context.copyWith(activeRequestId: 0);
     final mixStartRequestId = ++_mixStartRequestId;
     final playRequestGeneration = _playbackRequestSession.activeRequestId;
@@ -1055,6 +1171,7 @@ class AudioController extends StateNotifier<PlayerState>
       _queueManager.setCurrentIndex(index);
       final currentTrack = _queueManager.currentTrack;
       if (currentTrack != null) {
+        _requestSeekStabilizationForNextPlaybackRequest();
         await _playTrack(currentTrack);
       }
     } catch (e, stack) {
@@ -1089,6 +1206,7 @@ class AudioController extends StateNotifier<PlayerState>
       }
       final track = _queueManager.currentTrack;
       if (track != null) {
+        _requestSeekStabilizationForNextPlaybackRequest();
         await _playTrack(track);
       }
     }
@@ -1126,6 +1244,7 @@ class AudioController extends StateNotifier<PlayerState>
         }
         final track = _queueManager.currentTrack;
         if (track != null) {
+          _requestSeekStabilizationForNextPlaybackRequest();
           await _playTrack(track);
         }
       }
@@ -1796,6 +1915,8 @@ class AudioController extends StateNotifier<PlayerState>
   /// 進入 session 加載狀態（統一的 UI 更新邏輯）
   void _startSessionLoadingState(int requestId) {
     _terminalMediaOpenErrorTrackKey = null;
+    _seekStabilizationWindow = null;
+    _discardPendingSeek(reason: 'new playback request started');
     state = state.copyWith(
       isLoading: true,
       position: Duration.zero,
@@ -1852,6 +1973,7 @@ class AudioController extends StateNotifier<PlayerState>
     PlayMode? mode,
     bool recordHistory = false,
     AudioStreamResult? streamResult,
+    bool stabilizeSeekAfterReady = false,
   }) {
     if (_isSessionSuperseded(requestId)) return;
 
@@ -1868,7 +1990,11 @@ class AudioController extends StateNotifier<PlayerState>
 
     if (trackWithUrl != null) {
       _updatePlayingTrack(trackWithUrl, recordHistory: recordHistory);
+      if (stabilizeSeekAfterReady) {
+        _startSeekStabilizationWindow(requestId, trackWithUrl);
+      }
     }
+    unawaited(_applyPendingSeekIfCurrent(requestId));
   }
 
   /// 重置加載狀態（在請求被取代或失敗時使用）
@@ -1877,6 +2003,14 @@ class AudioController extends StateNotifier<PlayerState>
     if (requestId != null && _isSessionSuperseded(requestId)) {
       return;
     }
+    if (requestId != null) {
+      _discardPendingSeekForRequest(
+        requestId,
+        reason: 'playback loading state reset',
+      );
+    } else {
+      _discardPendingSeek(reason: 'playback loading state reset');
+    }
     state = state.copyWith(isLoading: false);
     _context = _context.copyWith(activeRequestId: 0);
     _publishMobileAudioHandlerCurrentPlaybackState();
@@ -1884,14 +2018,132 @@ class AudioController extends StateNotifier<PlayerState>
 
   void _resetSourceErrorLoadingState(int requestId) {
     if (_isDisposed || _isSessionSuperseded(requestId)) return;
+    _discardPendingSeekForRequest(
+      requestId,
+      reason: 'source error reset playback loading state',
+    );
     _context = _context.copyWith(activeRequestId: 0);
     _publishMobileAudioHandlerCurrentPlaybackState();
   }
 
   void _clearMatchingSessionLoadingContext(int requestId) {
     if (_isDisposed || _context.activeRequestId != requestId) return;
+    _discardPendingSeekForRequest(
+      requestId,
+      reason: 'playback loading context cleared',
+    );
     _context = _context.copyWith(activeRequestId: 0);
     _publishMobileAudioHandlerCurrentPlaybackState();
+  }
+
+  Future<void> _applyPendingSeekIfCurrent(int requestId) async {
+    final pending = _pendingSeek;
+    if (pending == null || pending.requestId != requestId) return;
+
+    final stabilizationDelay = _remainingSeekStabilizationDelay(
+      requestId: requestId,
+      trackKey: pending.trackKey,
+    );
+    if (stabilizationDelay > Duration.zero) {
+      logDebug(
+        'Waiting $stabilizationDelay before applying deferred seek for request $requestId',
+      );
+      await Future<void>.delayed(stabilizationDelay);
+      if (_pendingSeek != pending) return;
+    }
+
+    final currentTrackKey =
+        state.playingTrack?.uniqueKey ?? state.currentTrack?.uniqueKey;
+    if (_isSessionSuperseded(requestId) ||
+        currentTrackKey != pending.trackKey) {
+      _discardPendingSeekForRequest(
+        requestId,
+        reason: 'pending seek no longer matches current track',
+      );
+      return;
+    }
+
+    _pendingSeek = null;
+    logDebug(
+      'Applying deferred seek to ${pending.position} for request $requestId',
+    );
+    try {
+      await _performSeek(pending.position);
+    } catch (e, stack) {
+      logError(
+          'Failed to apply deferred seek to ${pending.position}', e, stack);
+    } finally {
+      pending.complete();
+    }
+  }
+
+  void _requestSeekStabilizationForNextPlaybackRequest() {
+    _stabilizeSeekAfterNextPlaybackRequest = true;
+  }
+
+  bool _consumeSeekStabilizationForNextPlaybackRequest() {
+    final shouldStabilize = _stabilizeSeekAfterNextPlaybackRequest;
+    _stabilizeSeekAfterNextPlaybackRequest = false;
+    return shouldStabilize;
+  }
+
+  void _startSeekStabilizationWindow(int requestId, Track track) {
+    final until = DateTime.now().add(AppConstants.seekStabilizationDelay);
+    _seekStabilizationWindow = _SeekStabilizationWindow(
+      requestId: requestId,
+      trackKey: track.uniqueKey,
+      until: until,
+    );
+    logDebug(
+      'Stabilizing seeks for request $requestId until $until',
+    );
+  }
+
+  Duration _remainingSeekStabilizationDelay({
+    required int requestId,
+    required String trackKey,
+  }) {
+    final window = _seekStabilizationWindow;
+    if (window == null ||
+        window.requestId != requestId ||
+        window.trackKey != trackKey) {
+      return Duration.zero;
+    }
+
+    final remaining = window.until.difference(DateTime.now());
+    if (remaining <= Duration.zero) {
+      _seekStabilizationWindow = null;
+      return Duration.zero;
+    }
+    return remaining;
+  }
+
+  void _clearSeekStabilizationWindow() {
+    _seekStabilizationWindow = null;
+    _stabilizeSeekAfterNextPlaybackRequest = false;
+  }
+
+  void _discardPendingSeekForRequest(
+    int requestId, {
+    required String reason,
+  }) {
+    final pending = _pendingSeek;
+    if (pending == null || pending.requestId != requestId) return;
+    _pendingSeek = null;
+    logDebug(
+      'Discarding deferred seek to ${pending.position} for request $requestId: $reason',
+    );
+    pending.complete();
+  }
+
+  void _discardPendingSeek({required String reason}) {
+    final pending = _pendingSeek;
+    if (pending == null) return;
+    _pendingSeek = null;
+    logDebug(
+      'Discarding deferred seek to ${pending.position} for request ${pending.requestId}: $reason',
+    );
+    pending.complete();
   }
 
   void _handleTerminalMediaOpenResult(PlaybackSessionResult result) {
@@ -1990,6 +2242,8 @@ class AudioController extends StateNotifier<PlayerState>
 
     bool completedSuccessfully = false;
     int? requestId;
+    final stabilizeSeekAfterReady =
+        _consumeSeekStabilizationForNextPlaybackRequest();
 
     try {
       final requestTrack = _createPlaybackRequestTrack(track);
@@ -2027,7 +2281,10 @@ class AudioController extends StateNotifier<PlayerState>
 
       // 階段 6：完成
       _exitLoadingState(result.requestId, trackWithUrl,
-          mode: mode, recordHistory: recordHistory, streamResult: streamResult);
+          mode: mode,
+          recordHistory: recordHistory,
+          streamResult: streamResult,
+          stabilizeSeekAfterReady: stabilizeSeekAfterReady);
       completedSuccessfully = true;
 
       // 更新隊列狀態
@@ -2709,6 +2966,7 @@ class AudioController extends StateNotifier<PlayerState>
         : null;
     if (activeRetryRequestId != null) {
       _playbackRequestSession.cancelActive();
+      _discardPendingSeek(reason: 'active retry handoff cancelled');
     }
     final retryRequestGeneration = _playbackRequestSession.activeRequestId;
 
