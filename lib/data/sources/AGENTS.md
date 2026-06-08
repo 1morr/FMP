@@ -21,8 +21,10 @@ shared source error/stream/auth policy.
   must use `SourceHttpPolicy.bilibiliLiveHeaders()` /
   `SourceHttpPolicy.createBilibiliLiveDio()` so live Referer and media user
   agent stay consistent.
-- `BilibiliSource` keeps live room helpers on a separate live Dio (`_liveDio`)
-  instead of reusing the search/API Dio.
+- `BilibiliLiveClient` owns Bilibili live room helpers, live endpoint URLs, real
+  room ID resolution, live room search enrichment, live stream lookup, and medal
+  wall room lookup. `BilibiliSource`, `RadioSource`, and
+  `BilibiliAccountService` delegate live mechanics to the client.
 - Favorites folder import is supported.
 - Regular media/API requests require `Referer: https://www.bilibili.com`.
 - Bilibili ranking requests that return `-352` are risk-control failures; refresh

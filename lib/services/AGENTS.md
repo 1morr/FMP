@@ -107,6 +107,10 @@ Credential parse/load failures must log fixed sanitized messages only. Do not
 pass raw secure-storage JSON, cookie strings, token-bearing exceptions, or
 `FormatException` source snippets into `AppLogger`.
 
+Bilibili medal wall radio import keeps credential ownership in
+`BilibiliAccountService`, but live room lookup and `getRoomInfoOld` handling
+belong in `BilibiliLiveClient`.
+
 ## Playlist Import
 
 External playlist import in search-match mode supports:

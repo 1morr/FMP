@@ -1,15 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
 import 'package:fmp/core/constants/app_constants.dart';
+import 'package:fmp/data/models/live_room.dart';
 import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/bilibili_source.dart';
 import 'package:fmp/data/sources/bilibili_exception.dart';
+import 'package:fmp/data/sources/bilibili_live_client.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_exception.dart';
@@ -29,6 +30,31 @@ void main() {
 
     setUp(() {
       source = BilibiliSource();
+    });
+
+    test('searchLiveRooms delegates to injected live client', () async {
+      final liveClient = _FakeBilibiliLiveClient();
+      final source = BilibiliSource(liveClient: liveClient);
+
+      final result = await source.searchLiveRooms(
+        'anchor',
+        page: 3,
+        pageSize: 7,
+        filter: LiveRoomFilter.online,
+      );
+      final roomInfo = await source.getLiveRoomInfo(12345);
+      final streamUrl = await source.getLiveStreamUrl(12345);
+
+      expect(result, same(liveClient.searchResult));
+      expect(liveClient.searchQuery, 'anchor');
+      expect(liveClient.searchPage, 3);
+      expect(liveClient.searchPageSize, 7);
+      expect(liveClient.searchFilter, LiveRoomFilter.online);
+      expect(roomInfo?.roomId, 12345);
+      expect(roomInfo?.title, 'Delegated room');
+      expect(liveClient.roomInfoRoomId, '12345');
+      expect(streamUrl, 'https://example.com/live.flv');
+      expect(liveClient.streamRoomId, 12345);
     });
 
     group('getRankingVideos', () {
@@ -840,4 +866,63 @@ class _FakeHttpClientAdapter implements HttpClientAdapter {
 
   @override
   void close({bool force = false}) {}
+}
+
+class _FakeBilibiliLiveClient extends BilibiliLiveClient {
+  _FakeBilibiliLiveClient() : super(apiDio: Dio(), liveDio: Dio());
+
+  final searchResult = const LiveSearchResult(
+    rooms: [
+      LiveRoom(
+        roomId: 12345,
+        uid: 67890,
+        uname: 'Fake anchor',
+        title: 'Fake live room',
+        isLive: true,
+        liveStatus: LiveStatus.live,
+      ),
+    ],
+    totalCount: 1,
+    page: 3,
+    pageSize: 7,
+    hasMore: false,
+  );
+
+  String? searchQuery;
+  int? searchPage;
+  int? searchPageSize;
+  LiveRoomFilter? searchFilter;
+  String? roomInfoRoomId;
+  int? streamRoomId;
+
+  @override
+  Future<LiveSearchResult> searchRooms(
+    String query, {
+    int page = 1,
+    int pageSize = 20,
+    LiveRoomFilter filter = LiveRoomFilter.all,
+  }) async {
+    searchQuery = query;
+    searchPage = page;
+    searchPageSize = pageSize;
+    searchFilter = filter;
+    return searchResult;
+  }
+
+  @override
+  Future<BilibiliLiveRoomDetails?> getRoomInfo(String roomId) async {
+    roomInfoRoomId = roomId;
+    return const BilibiliLiveRoomDetails(
+      roomId: '12345',
+      title: 'Delegated room',
+      hostName: 'Delegated anchor',
+      hostUid: 67890,
+    );
+  }
+
+  @override
+  Future<String?> getSearchStreamUrl(int roomId) async {
+    streamRoomId = roomId;
+    return 'https://example.com/live.flv';
+  }
 }
