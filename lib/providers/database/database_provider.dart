@@ -7,36 +7,15 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../../core/constants/app_constants.dart';
-import '../../data/models/track.dart';
-import '../../data/models/playlist.dart';
+import '../../data/models/lyrics_title_parse_cache.dart';
 import '../../data/models/play_queue.dart';
 import '../../data/models/settings.dart';
-import '../../data/models/search_history.dart';
-import '../../data/models/download_task.dart';
-import '../../data/models/play_history.dart';
-import '../../data/models/radio_station.dart';
-import '../../data/models/lyrics_match.dart';
-import '../../data/models/lyrics_title_parse_cache.dart';
-import '../../data/models/account.dart';
+import 'database_catalog.dart';
 
 const String fmpDatabaseName = 'fmp_database';
 const String fmpDatabaseDirectoryName = AppConstants.appName;
 const String fmpDatabaseFileName = '$fmpDatabaseName.isar';
 const String fmpDatabaseLockFileName = '$fmpDatabaseFileName.lock';
-
-final List<CollectionSchema<dynamic>> fmpDatabaseSchemas = [
-  TrackSchema,
-  PlaylistSchema,
-  PlayQueueSchema,
-  SettingsSchema,
-  SearchHistorySchema,
-  DownloadTaskSchema,
-  PlayHistorySchema,
-  RadioStationSchema,
-  LyricsMatchSchema,
-  LyricsTitleParseCacheSchema,
-  AccountSchema,
-];
 
 bool _isMobilePlatform() => Platform.isAndroid || Platform.isIOS;
 

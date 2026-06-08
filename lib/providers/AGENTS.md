@@ -63,6 +63,9 @@ Database provider rules are shared with `lib/data/AGENTS.md`:
 - Runtime Isar files live under the app documents directory's `FMP/` child
   folder.
 - Open the DB through `openFmpDatabase()` only.
+- Isar collection registration lives in
+  `lib/providers/database/database_catalog.dart`; `database_provider.dart`
+  owns opening, migration/default repair, and path handling.
 - Migration/default repair entry point is `_migrateDatabase()` in
   `database/database_provider.dart`.
 - Testing helper is `runDatabaseMigrationForTesting()`.
@@ -74,5 +77,5 @@ When model schemas or persisted defaults change:
 3. Run `flutter pub run build_runner build --delete-conflicting-outputs`.
 4. Run `flutter test test/providers/database_migration_test.dart`.
 5. If collection/schema visibility changes, update
-   `lib/ui/pages/settings/database_viewer_page.dart` and run
+   `lib/providers/database/database_catalog.dart` and run
    `flutter test test/ui/pages/settings/database_viewer_page_coverage_test.dart`.
