@@ -14,6 +14,7 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/models/video_detail.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/bilibili_source.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/providers/database/database_provider.dart';
 import 'package:fmp/providers/search/refresh_provider.dart';
@@ -249,16 +250,18 @@ class _RefreshHarness {
 }
 
 class _RefreshSourceManager extends SourceManager {
-  _RefreshSourceManager(this.source) : super();
+  _RefreshSourceManager(this.source) : super(sources: const []);
 
   final _ControllableRefreshSource source;
 
   @override
-  BaseSource? detectSource(String url) => source;
+  PlaylistParsingSource? playlistParsingSourceForUrl(String url) => source;
 
   @override
-  BaseSource? getSource(SourceType type) =>
-      type == SourceType.bilibili ? source : null;
+  BilibiliSource? get bilibiliSource => source;
+
+  @override
+  void dispose() {}
 }
 
 class _ControllableRefreshSource extends BilibiliSource {

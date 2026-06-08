@@ -11,6 +11,7 @@ import '../models/track.dart';
 import '../models/video_detail.dart';
 import 'base_source.dart';
 import 'netease_exception.dart';
+import 'source_capabilities.dart';
 import 'source_exception.dart';
 import 'source_http_policy.dart';
 import 'source_url_policy.dart';
@@ -21,7 +22,14 @@ import 'source_url_policy.dart';
 /// - `/api/*` — 明文 form-encoded（搜索、歌曲詳情）
 /// - `/eapi/*` — eapi 加密（音頻流獲取，需登入）
 /// - 短連結解析用 HEAD/GET
-class NeteaseSource extends BaseSource with Logging {
+class NeteaseSource
+    with Logging
+    implements
+        TrackInfoSource,
+        AudioStreamSource,
+        SearchSource,
+        PlaylistParsingSource,
+        AvailabilitySource {
   late final Dio _dio;
 
   static const String _musicBase = 'https://music.163.com';
@@ -187,6 +195,13 @@ class NeteaseSource extends BaseSource with Logging {
       logError('Unexpected error in getAudioStream: $e');
       throw NeteaseApiException(numericCode: -999, message: e.toString());
     }
+  }
+
+  @override
+  Future<AudioStreamResult?> getAlternativeAudioStream(
+    AudioStreamRequest request,
+  ) async {
+    return null;
   }
 
   // ========== 搜索（明文 /api/） ==========
@@ -389,7 +404,6 @@ class NeteaseSource extends BaseSource with Logging {
     }
   }
 
-  @override
   void dispose() {
     _dio.close();
   }

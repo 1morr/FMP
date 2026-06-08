@@ -17,6 +17,7 @@ import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/bilibili_source.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/youtube_source.dart';
 import 'package:fmp/providers/database/database_provider.dart';
@@ -456,8 +457,8 @@ void main() {
       final sourceManager = _SingleSourceManager(
         _BlockingAudioSource('http://127.0.0.1:1/audio.m4a'),
       );
-      final blockedSource =
-          sourceManager.getSource(SourceType.youtube)! as _BlockingAudioSource;
+      final blockedSource = sourceManager.audioStreamSource(SourceType.youtube)!
+          as _BlockingAudioSource;
       final service = DownloadService(
         downloadRepository: downloadRepository,
         trackRepository: trackRepository,
@@ -506,8 +507,8 @@ void main() {
       final sourceManager = _SingleSourceManager(
         _BlockingAudioSource('http://127.0.0.1:1/audio.m4a'),
       );
-      final blockedSource =
-          sourceManager.getSource(SourceType.youtube)! as _BlockingAudioSource;
+      final blockedSource = sourceManager.audioStreamSource(SourceType.youtube)!
+          as _BlockingAudioSource;
       final service = DownloadService(
         downloadRepository: downloadRepository,
         trackRepository: trackRepository,
@@ -575,8 +576,8 @@ void main() {
       final sourceManager = _SingleSourceManager(
         _BlockingAudioSource('http://127.0.0.1:1/audio.m4a'),
       );
-      final blockedSource =
-          sourceManager.getSource(SourceType.youtube)! as _BlockingAudioSource;
+      final blockedSource = sourceManager.audioStreamSource(SourceType.youtube)!
+          as _BlockingAudioSource;
       final service = DownloadService(
         downloadRepository: downloadRepository,
         trackRepository: trackRepository,
@@ -1557,23 +1558,33 @@ class _DelayedDownloadRepository extends DownloadRepository {
 }
 
 class _SingleSourceManager extends SourceManager {
-  _SingleSourceManager(this._source);
+  _SingleSourceManager(this._source) : super(sources: const []);
 
-  final BaseSource _source;
+  final AudioStreamSource _source;
 
   @override
-  BaseSource? getSource(SourceType type) {
+  AudioStreamSource? audioStreamSource(SourceType type) {
     if (type == _source.sourceType) return _source;
     return null;
   }
 
   @override
+  BilibiliSource? get bilibiliSource =>
+      _source is BilibiliSource ? _source as BilibiliSource : null;
+
+  @override
+  YouTubeSource? get youtubeSource =>
+      _source is YouTubeSource ? _source as YouTubeSource : null;
+
+  @override
   void dispose() {
-    _source.dispose();
+    final source = _source;
+    if (source is BilibiliSource) source.dispose();
+    if (source is YouTubeSource) source.dispose();
   }
 }
 
-class _StaticAudioSource extends BaseSource {
+class _StaticAudioSource implements AudioStreamSource {
   _StaticAudioSource(
     this.audioUrl, {
     this.sourceTypeOverride = SourceType.youtube,
@@ -1588,18 +1599,6 @@ class _StaticAudioSource extends BaseSource {
   SourceType get sourceType => sourceTypeOverride;
 
   @override
-  String? parseId(String url) => null;
-
-  @override
-  bool isValidId(String id) => true;
-
-  @override
-  Future<Track> getTrackInfo(String sourceId,
-      {Map<String, String>? authHeaders}) {
-    throw UnimplementedError();
-  }
-
-  @override
   Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
     return AudioStreamResult(
       url: audioUrl,
@@ -1609,36 +1608,11 @@ class _StaticAudioSource extends BaseSource {
   }
 
   @override
-  Future<Track> refreshAudioUrl(Track track,
-      {Map<String, String>? authHeaders}) {
-    throw UnimplementedError();
+  Future<AudioStreamResult?> getAlternativeAudioStream(
+    AudioStreamRequest request,
+  ) async {
+    return null;
   }
-
-  @override
-  Future<SearchResult> search(
-    String query, {
-    int page = 1,
-    int pageSize = 20,
-    SearchOrder order = SearchOrder.relevance,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<PlaylistParseResult> parsePlaylist(
-    String playlistUrl, {
-    int page = 1,
-    int pageSize = 20,
-    Map<String, String>? authHeaders,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  bool isPlaylistUrl(String url) => false;
-
-  @override
-  Future<bool> checkAvailability(String sourceId) async => true;
 }
 
 class _BlockingAudioSource extends _StaticAudioSource {

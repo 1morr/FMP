@@ -11,6 +11,7 @@ import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/bilibili_source.dart';
 import 'package:fmp/data/sources/bilibili_exception.dart';
 import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_exception.dart';
 
 void main() {

@@ -52,6 +52,10 @@ Rules:
 - Search source/sort changes should preserve existing results while the
   replacement query is loading, so slow networks do not blank the result list.
 - Optimistic updates must roll back on failure.
+- Shared stream resolution wiring lives in
+  `lib/providers/audio/stream_resolution_provider.dart`. Audio and download
+  providers should consume that provider directly; download providers must not
+  import `lib/services/audio/audio_provider.dart` just to resolve streams.
 
 ## Database Startup And Migration
 

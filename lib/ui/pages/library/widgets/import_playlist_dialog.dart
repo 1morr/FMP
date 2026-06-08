@@ -120,7 +120,8 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
       case _SourcePlatform.netease:
         return SourceType.netease;
       default:
-        return SourceType.bilibili; // fallback, should not happen for internal sources
+        return SourceType
+            .bilibili; // fallback, should not happen for internal sources
     }
   }
 
@@ -165,14 +166,15 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
     // 1. 先检查内部来源（B站/YouTube/网易云）
     //    内部来源直接导入，NeteaseSource 注册后网易云 URL 走内部流程
     final sourceManager = ref.read(sourceManagerProvider);
-    final internalSource = sourceManager.getSourceForUrl(trimmed);
-    if (internalSource != null) {
-      final platform = switch (internalSource.sourceType) {
+    final internalSourceType = sourceManager.sourceTypeForUrl(trimmed);
+    if (internalSourceType != null) {
+      final platform = switch (internalSourceType) {
         SourceType.bilibili => _SourcePlatform.bilibili,
         SourceType.youtube => _SourcePlatform.youtube,
         SourceType.netease => _SourcePlatform.netease,
       };
-      final newDetected = _DetectedUrl(type: _UrlType.internal, platform: platform);
+      final newDetected =
+          _DetectedUrl(type: _UrlType.internal, platform: platform);
       if (_detected?.type != newDetected.type ||
           _detected?.platform != newDetected.platform) {
         setState(() => _detected = newDetected);
@@ -190,7 +192,8 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
         PlaylistSource.qqMusic => _SourcePlatform.qqMusic,
         PlaylistSource.spotify => _SourcePlatform.spotify,
       };
-      final newDetected = _DetectedUrl(type: _UrlType.external, platform: platform);
+      final newDetected =
+          _DetectedUrl(type: _UrlType.external, platform: platform);
       if (_detected?.type != newDetected.type ||
           _detected?.platform != newDetected.platform) {
         setState(() => _detected = newDetected);
@@ -262,11 +265,10 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
                         : null;
                   }
                   // 检查是否能被任一来源识别（外部优先）
-                  final notifier =
-                      ref.read(playlistImportProvider.notifier);
+                  final notifier = ref.read(playlistImportProvider.notifier);
                   final sourceManager = ref.read(sourceManagerProvider);
                   if (notifier.detectSource(trimmed) == null &&
-                      sourceManager.getSourceForUrl(trimmed) == null) {
+                      sourceManager.sourceTypeForUrl(trimmed) == null) {
                     return t.library.importPlaylist.unsupportedFormat;
                   }
                   return null;
@@ -301,13 +303,12 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
                           ? t.library.importPlaylist.useAuthHint
                           : t.library.importPlaylist.useAuthNotLoggedIn,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.outline,
-                      ),
+                            color: colorScheme.outline,
+                          ),
                     ),
                     value: _useAuth && isLoggedIn,
-                    onChanged: isLoggedIn
-                        ? (v) => setState(() => _useAuth = v)
-                        : null,
+                    onChanged:
+                        isLoggedIn ? (v) => setState(() => _useAuth = v) : null,
                   );
                 }),
               ],
@@ -425,7 +426,9 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
   double? _getProgressValue() {
     if (_detected?.type == _UrlType.internal) {
       final progress = _internalState?.progress;
-      return progress != null && progress.total > 0 ? progress.percentage : null;
+      return progress != null && progress.total > 0
+          ? progress.percentage
+          : null;
     } else {
       final p = _externalProgress;
       return p != null && p.total > 0 ? p.percentage : null;
@@ -464,7 +467,9 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
     if (_detected?.type == _UrlType.external) {
       ref.read(playlistImportProvider.notifier).cancelImport();
     } else if (_detected?.type == _UrlType.internal) {
-      ref.read(importPlaylistProvider(_internalImportScopeId).notifier).cancelImport();
+      ref
+          .read(importPlaylistProvider(_internalImportScopeId).notifier)
+          .cancelImport();
     }
     _externalProgressSub?.cancel();
   }
@@ -567,7 +572,8 @@ class _ImportPlaylistDialogState extends ConsumerState<ImportPlaylistDialog> {
       final state = ref.read(playlistImportProvider);
 
       if (state.phase == ImportPhase.error) {
-        throw Exception(state.errorMessage ?? t.library.importPlaylist.importFailed);
+        throw Exception(
+            state.errorMessage ?? t.library.importPlaylist.importFailed);
       }
 
       if (mounted) {

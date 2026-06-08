@@ -27,6 +27,7 @@ import 'package:fmp/services/audio/just_audio_service.dart';
 import 'package:fmp/services/audio/media_kit_audio_service.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
+import 'package:fmp/services/audio/stream_resolution_service.dart';
 import 'package:fmp/services/audio/windows_smtc_handler.dart';
 import 'package:fmp/services/lyrics/lrclib_source.dart';
 import 'package:fmp/services/lyrics/lyrics_auto_match_service.dart';
@@ -238,12 +239,23 @@ ProviderContainer _createContainer({
       queuePersistenceManagerProvider
           .overrideWith((ref) => queuePersistenceManager),
       audioStreamManagerProvider.overrideWith(
-        (ref) => AudioStreamManager(
-          trackRepository: TrackRepository(isar),
-          settingsRepository: SettingsRepository(isar),
-          sourceManager: SourceManager(),
-          neteaseAccountService: ref.read(neteaseAccountServiceProvider),
-        ),
+        (ref) {
+          final settingsRepository = SettingsRepository(isar);
+          final sourceManager = SourceManager();
+          final streamResolutionService = DefaultStreamResolutionService(
+            trackRepository: TrackRepository(isar),
+            settingsRepository: settingsRepository,
+            sourceManager: sourceManager,
+            getAuthHeaders: (_) async => null,
+          );
+          ref.onDispose(streamResolutionService.dispose);
+          ref.onDispose(sourceManager.dispose);
+          return AudioStreamManager(
+            streamResolutionService: streamResolutionService,
+            settingsRepository: settingsRepository,
+            neteaseAccountService: ref.read(neteaseAccountServiceProvider),
+          );
+        },
       ),
       connectivityProvider.overrideWith((ref) => _TestConnectivityNotifier()),
       settingsRepositoryProvider

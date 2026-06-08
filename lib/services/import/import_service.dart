@@ -198,13 +198,13 @@ class ImportService with Logging implements ImportServiceFacade {
       final normalizedUrl = normalizeYouTubeMixShorthandUrl(url) ?? url.trim();
 
       // 识别音源类型
-      final source = _sourceManager.detectSource(normalizedUrl);
+      final source = _sourceManager.playlistParsingSourceForUrl(normalizedUrl);
       if (source == null) {
         throw ImportException(t.importSource.unrecognizedUrlFormat);
       }
 
       // 檢測是否為 YouTube Mix 播放列表（RD 開頭）
-      if (source is YouTubeSource &&
+      if (source.sourceType == SourceType.youtube &&
           YouTubeSource.isMixPlaylistUrl(normalizedUrl)) {
         return _importMixPlaylist(
           url: normalizedUrl,
@@ -224,9 +224,12 @@ class ImportService with Logging implements ImportServiceFacade {
 
       // 获取分P信息并展开（仅Bilibili）
       final List<Track> expandedTracks;
-      if (source is BilibiliSource) {
+      final bilibiliSource = source.sourceType == SourceType.bilibili
+          ? _sourceManager.bilibiliSource
+          : null;
+      if (bilibiliSource != null) {
         final expansion = await _expandMultiPageVideos(
-          source,
+          bilibiliSource,
           result.tracks,
           (current, total, item) {
             _updateProgress(
@@ -354,8 +357,7 @@ class ImportService with Logging implements ImportServiceFacade {
         status: ImportStatus.parsing,
         currentItem: t.importSource.parsingMixPlaylist);
 
-    final youtubeSource =
-        _sourceManager.getSource(SourceType.youtube) as YouTubeSource?;
+    final youtubeSource = _sourceManager.youtubeSource;
     if (youtubeSource == null) {
       throw ImportException(t.importSource.unrecognizedSource);
     }
@@ -449,7 +451,8 @@ class ImportService with Logging implements ImportServiceFacade {
         currentItem: t.importSource.refreshingImport);
 
     try {
-      final source = _sourceManager.detectSource(playlist.sourceUrl!);
+      final source =
+          _sourceManager.playlistParsingSourceForUrl(playlist.sourceUrl!);
       if (source == null) {
         throw ImportException(t.importSource.unrecognizedSource);
       }
@@ -465,9 +468,12 @@ class ImportService with Logging implements ImportServiceFacade {
       // 获取分P信息并展开（仅Bilibili）
       final List<Track> expandedTracks;
       final bool expansionComplete;
-      if (source is BilibiliSource) {
+      final bilibiliSource = source.sourceType == SourceType.bilibili
+          ? _sourceManager.bilibiliSource
+          : null;
+      if (bilibiliSource != null) {
         final expansion = await _expandMultiPageVideos(
-          source,
+          bilibiliSource,
           result.tracks,
           (current, total, item) {
             _throwIfCancelled();

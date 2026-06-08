@@ -132,6 +132,13 @@ Defaults:
 - Bilibili stream priority: audioOnly > muxed (live streams always muxed)
 - Netease stream priority: audioOnly
 
+Source adapters implement narrow capabilities from `source_capabilities.dart`
+instead of a broad shared base interface. Use `AudioStreamSource` for stream
+resolution, `TrackInfoSource` for direct track metadata, `SearchSource` for
+search, `PlaylistParsingSource` for playlist import, and `AvailabilitySource`
+for source availability checks. `SourceManager` is the registry for those
+capabilities; new callers should request the narrow capability they need.
+
 `AudioStreamRequest` is passed to source `getAudioStream()` /
 `getAlternativeAudioStream()` and carries source identity (`sourceId`, optional
 `cid` / `pageNum`), `AudioStreamConfig`, auth headers, and the failed media URL
@@ -153,10 +160,11 @@ is allowed only for `unavailable` and `vipRequired`. Network, timeout,
 rate-limit, login-required, permission-denied, geo-restricted, and unknown
 errors keep normal retry/skip/error behavior.
 
-During playback handoff fallback after a selected URL fails, `AudioStreamDelegate`
-first tries lower-quality alternatives before source-specific same-quality
-alternatives. YouTube alternative selection must still respect format priority
-and requested fallback quality.
+During playback handoff fallback after a selected URL fails,
+`StreamResolutionService.resolveFallback()` first tries lower-quality
+alternatives before source-specific same-quality alternatives. YouTube
+alternative selection must still respect format priority and requested fallback
+quality.
 
 Source adapters must preserve non-fallbackable `SourceErrorKind` values while
 trying stream types; do not collapse rate-limit/login/permission/network/
@@ -172,12 +180,13 @@ Defaults:
 | `useYoutubeAuthForPlay` | `false` | Most content accessible without login |
 | `useNeteaseAuthForPlay` | `true` | Most songs require login for audio URLs |
 
-Backend resolution paths read or receive `settings.useAuthForPlay(track.sourceType)`:
-- `AudioStreamManager.ensureAudioUrl()`
-- `AudioStreamDelegate.ensureAudioStream()`
+Stream resolution paths read or receive
+`settings.useAuthForPlay(track.sourceType)`:
+- `StreamResolutionService.resolvePrimary()` / `resolveFallback()` for
+  playback, download, prefetch, and refresh stream resolution
 - source `getTrackInfo()` paths that perform best-effort audio URL lookup
-- `BaseSource.getAlternativeAudioStream()`
-- `DownloadService._startDownload()`
+- source-specific `AudioStreamSource.getAudioStream()` /
+  `getAlternativeAudioStream()` calls
 - Playback media headers read `settings.useAuthForPlay(track.sourceType)` for
   every source before resolving account auth headers. `SourceHttpPolicy.mediaHeaders()`
   remains the final source-aware allowlist: it currently merges auth headers

@@ -1,5 +1,6 @@
 import '../models/settings.dart';
 import 'base_source.dart';
+import 'source_capabilities.dart';
 import 'source_exception.dart';
 
 List<AudioQualityLevel> audioQualityFallbackLevels(
@@ -25,7 +26,7 @@ List<AudioQualityLevel> audioQualityFallbackLevels(
 }
 
 Future<AudioStreamResult> fetchAudioStreamWithQualityFallback({
-  required BaseSource source,
+  required AudioStreamSource source,
   required AudioStreamRequest request,
 }) async {
   final levels = audioQualityFallbackLevels(request.config.qualityLevel);
@@ -54,7 +55,7 @@ Future<AudioStreamResult> fetchAudioStreamWithQualityFallback({
 }
 
 Future<AudioStreamResult?> fetchAlternativeAudioStreamWithQualityFallback({
-  required BaseSource source,
+  required AudioStreamSource source,
   required AudioStreamRequest request,
 }) async {
   for (final level in audioQualityFallbackLevels(

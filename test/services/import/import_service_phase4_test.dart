@@ -9,6 +9,7 @@ import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/youtube_source.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
@@ -362,35 +363,32 @@ void main() {
 }
 
 class _FakeSourceManager extends SourceManager {
-  _FakeSourceManager() : super();
+  _FakeSourceManager() : super(sources: const []);
 
-  BaseSource? detectedSource;
-  BaseSource? youtubeSource;
+  PlaylistParsingSource? detectedSource;
+  YouTubeSource? youtubeSourceOverride;
   String? lastDetectedUrl;
 
   @override
-  BaseSource? detectSource(String url) {
+  PlaylistParsingSource? playlistParsingSourceForUrl(String url) {
     lastDetectedUrl = url;
     return detectedSource;
   }
 
   @override
-  BaseSource? getSourceForUrl(String url) {
-    lastDetectedUrl = url;
-    return detectedSource;
-  }
+  YouTubeSource? get youtubeSource =>
+      youtubeSourceOverride ??
+      (detectedSource is YouTubeSource
+          ? detectedSource as YouTubeSource
+          : null);
 
-  @override
-  BaseSource? getSource(SourceType type) {
-    if (type == SourceType.youtube) return youtubeSource ?? detectedSource;
-    return detectedSource?.sourceType == type ? detectedSource : null;
-  }
+  set youtubeSource(YouTubeSource? source) => youtubeSourceOverride = source;
 
   @override
   void dispose() {}
 }
 
-class _FakeGenericSource extends BaseSource {
+class _FakeGenericSource implements PlaylistParsingSource {
   _FakeGenericSource(this._sourceType);
 
   final SourceType _sourceType;
@@ -400,25 +398,7 @@ class _FakeGenericSource extends BaseSource {
   SourceType get sourceType => _sourceType;
 
   @override
-  Future<bool> checkAvailability(String sourceId) async => true;
-
-  @override
-  Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) =>
-      throw UnimplementedError();
-
-  @override
-  Future<Track> getTrackInfo(String sourceId,
-          {Map<String, String>? authHeaders}) =>
-      throw UnimplementedError();
-
-  @override
   bool isPlaylistUrl(String url) => true;
-
-  @override
-  bool isValidId(String id) => true;
-
-  @override
-  String? parseId(String url) => 'id';
 
   @override
   Future<PlaylistParseResult> parsePlaylist(String playlistUrl,
@@ -427,19 +407,6 @@ class _FakeGenericSource extends BaseSource {
       Map<String, String>? authHeaders}) async {
     lastParseAuthHeaders = authHeaders;
     throw _ParseSentinel();
-  }
-
-  @override
-  Future<Track> refreshAudioUrl(Track track,
-          {Map<String, String>? authHeaders}) =>
-      throw UnimplementedError();
-
-  @override
-  Future<SearchResult> search(String query,
-      {int page = 1,
-      int pageSize = 20,
-      SearchOrder order = SearchOrder.relevance}) async {
-    return SearchResult.empty();
   }
 }
 
@@ -487,7 +454,7 @@ class _FakeNeteaseAccountService extends NeteaseAccountService {
   Future<String?> getAuthCookieString() async => 'MUSIC_U=music-u; __csrf=csrf';
 }
 
-class _PlaylistSource extends BaseSource {
+class _PlaylistSource implements PlaylistParsingSource {
   _PlaylistSource({
     required this.title,
     required List<Track> tracks,
@@ -505,25 +472,7 @@ class _PlaylistSource extends BaseSource {
   SourceType get sourceType => SourceType.youtube;
 
   @override
-  Future<bool> checkAvailability(String sourceId) async => true;
-
-  @override
-  Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) =>
-      throw UnimplementedError();
-
-  @override
-  Future<Track> getTrackInfo(String sourceId,
-          {Map<String, String>? authHeaders}) =>
-      throw UnimplementedError();
-
-  @override
   bool isPlaylistUrl(String url) => true;
-
-  @override
-  bool isValidId(String id) => true;
-
-  @override
-  String? parseId(String url) => 'id';
 
   @override
   Future<PlaylistParseResult> parsePlaylist(String playlistUrl,
@@ -540,22 +489,9 @@ class _PlaylistSource extends BaseSource {
       ownerUserId: ownerUserId,
     );
   }
-
-  @override
-  Future<Track> refreshAudioUrl(Track track,
-          {Map<String, String>? authHeaders}) =>
-      throw UnimplementedError();
-
-  @override
-  Future<SearchResult> search(String query,
-      {int page = 1,
-      int pageSize = 20,
-      SearchOrder order = SearchOrder.relevance}) async {
-    return SearchResult.empty();
-  }
 }
 
-class _DynamicPlaylistSource extends BaseSource {
+class _DynamicPlaylistSource implements PlaylistParsingSource {
   _DynamicPlaylistSource({
     required this.title,
     required this.buildTracks,
@@ -567,25 +503,7 @@ class _DynamicPlaylistSource extends BaseSource {
   SourceType get sourceType => SourceType.youtube;
 
   @override
-  Future<bool> checkAvailability(String sourceId) async => true;
-
-  @override
-  Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) =>
-      throw UnimplementedError();
-
-  @override
-  Future<Track> getTrackInfo(String sourceId,
-          {Map<String, String>? authHeaders}) =>
-      throw UnimplementedError();
-
-  @override
   bool isPlaylistUrl(String url) => true;
-
-  @override
-  bool isValidId(String id) => true;
-
-  @override
-  String? parseId(String url) => 'id';
 
   @override
   Future<PlaylistParseResult> parsePlaylist(String playlistUrl,
@@ -599,19 +517,6 @@ class _DynamicPlaylistSource extends BaseSource {
       totalCount: tracks.length,
       sourceUrl: playlistUrl,
     );
-  }
-
-  @override
-  Future<Track> refreshAudioUrl(Track track,
-          {Map<String, String>? authHeaders}) =>
-      throw UnimplementedError();
-
-  @override
-  Future<SearchResult> search(String query,
-      {int page = 1,
-      int pageSize = 20,
-      SearchOrder order = SearchOrder.relevance}) async {
-    return SearchResult.empty();
   }
 }
 

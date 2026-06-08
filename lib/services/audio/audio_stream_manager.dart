@@ -1,20 +1,16 @@
-import 'dart:async';
 import 'dart:io';
 
 import '../../core/constants/app_constants.dart';
-import '../../core/extensions/track_extensions.dart';
 import '../../core/logger.dart';
 import '../../core/utils/auth_headers_utils.dart';
 import '../../data/models/track.dart';
 import '../../data/repositories/settings_repository.dart';
-import '../../data/repositories/track_repository.dart';
 import '../../data/sources/base_source.dart';
 import '../../data/sources/source_http_policy.dart';
-import '../../data/sources/source_provider.dart';
 import '../account/bilibili_account_service.dart';
 import '../account/netease_account_service.dart';
 import '../account/youtube_account_service.dart';
-import 'internal/audio_stream_delegate.dart';
+import 'stream_resolution_service.dart';
 
 abstract class PlaybackRequestStreamAccess {
   Future<PlaybackSelection> selectPlayback(
@@ -90,66 +86,51 @@ class PlaybackSelection {
 
 class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
   AudioStreamManager({
-    AudioStreamDelegate? delegate,
-    TrackRepository? trackRepository,
+    required StreamResolutionService streamResolutionService,
     SettingsRepository? settingsRepository,
-    SourceManager? sourceManager,
     BilibiliAccountService? bilibiliAccountService,
     YouTubeAccountService? youtubeAccountService,
     NeteaseAccountService? neteaseAccountService,
     PlaybackUrlResolver? playbackUrlResolver,
   })  : _settingsRepository = settingsRepository,
+        _streamResolutionService = streamResolutionService,
         _playbackUrlResolver = playbackUrlResolver,
         _getAuthHeaders = ((sourceType) => buildAuthHeaders(
               sourceType,
               bilibiliAccountService: bilibiliAccountService,
               youtubeAccountService: youtubeAccountService,
               neteaseAccountService: neteaseAccountService,
-            )) {
-    _delegate = delegate ??
-        AudioStreamDelegate(
-          trackRepository: trackRepository!,
-          settingsRepository: settingsRepository!,
-          sourceManager: sourceManager!,
-          getAuthHeaders: _getAuthHeaders,
-          onDownloadPathsChanged: _emitDownloadPathsChanged,
-        );
-  }
+            ));
 
-  late final AudioStreamDelegate _delegate;
+  final StreamResolutionService _streamResolutionService;
   final SettingsRepository? _settingsRepository;
   final PlaybackUrlResolver? _playbackUrlResolver;
   final Future<Map<String, String>?> Function(SourceType sourceType)
       _getAuthHeaders;
-  final Set<int> _fetchingUrlTrackIds = {};
-  var _isDisposed = false;
-  final _downloadPathsChangedController =
-      StreamController<DownloadPathsChangedEvent>.broadcast();
-
   Stream<DownloadPathsChangedEvent> get downloadPathsChangedStream =>
-      _downloadPathsChangedController.stream;
+      _streamResolutionService.downloadPathsChangedStream;
 
-  void _emitDownloadPathsChanged(DownloadPathsChangedEvent event) {
-    if (_isDisposed || _downloadPathsChangedController.isClosed) return;
-    _downloadPathsChangedController.add(event);
-  }
-
-  void dispose() {
-    _isDisposed = true;
-    _downloadPathsChangedController.close();
-  }
+  void dispose() {}
 
   @override
   Future<(Track, String?, AudioStreamResult?)> ensureAudioStream(
     Track track, {
     int retryCount = 0,
     bool persist = true,
-  }) {
-    return _delegate.ensureAudioStream(
+  }) async {
+    final result = await _streamResolutionService.resolvePrimary(
       track,
-      retryCount: retryCount,
+      purpose: StreamResolutionPurpose.playback,
       persist: persist,
     );
+    return switch (result) {
+      LocalStreamResolution(:final track, :final path) => (track, path, null),
+      RemoteStreamResolution(:final track, :final stream) => (
+          track,
+          null,
+          stream
+        ),
+    };
   }
 
   @override
@@ -179,8 +160,13 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
   Future<AudioStreamResult?> getAlternativeAudioStream(
     Track track, {
     String? failedUrl,
-  }) {
-    return _delegate.getAlternativeAudioStream(track, failedUrl: failedUrl);
+  }) async {
+    final result = await _streamResolutionService.resolveFallback(
+      track,
+      purpose: StreamResolutionPurpose.playback,
+      failedUrl: failedUrl ?? '',
+    );
+    return result?.stream;
   }
 
   @override
@@ -188,25 +174,21 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
     Track track, {
     String? failedUrl,
   }) async {
-    final fallbackResult = await getAlternativeAudioStream(
+    final fallback = await _streamResolutionService.resolveFallback(
       track,
-      failedUrl: failedUrl,
+      purpose: StreamResolutionPurpose.playback,
+      failedUrl: failedUrl ?? '',
     );
-    if (fallbackResult == null) return null;
-
-    track.audioUrl = fallbackResult.url;
-    track.audioUrlExpiry = DateTime.now().add(
-      fallbackResult.expiry ?? const Duration(hours: 1),
-    );
+    if (fallback == null) return null;
 
     final networkRequest =
-        await prepareNetworkPlayback(track, fallbackResult.url);
+        await prepareNetworkPlayback(fallback.track, fallback.stream.url);
     return PlaybackSelection(
-      track: track,
+      track: fallback.track,
       url: networkRequest.url,
       localPath: null,
       headers: networkRequest.headers,
-      streamResult: fallbackResult,
+      streamResult: fallback.stream,
     );
   }
 
@@ -257,24 +239,7 @@ class AudioStreamManager with Logging implements PlaybackRequestStreamAccess {
 
   @override
   Future<void> prefetchTrack(Track track) async {
-    if (track.hasLocalAudio ||
-        track.hasValidAudioUrl ||
-        _fetchingUrlTrackIds.contains(track.id)) {
-      return;
-    }
-
-    _fetchingUrlTrackIds.add(track.id);
-    try {
-      await ensureAudioUrl(track, persist: false);
-    } catch (error, stackTrace) {
-      logError(
-        'Failed to prefetch audio URL for ${track.sourceType.name}:${track.sourceId}',
-        error,
-        stackTrace,
-      );
-    } finally {
-      _fetchingUrlTrackIds.remove(track.id);
-    }
+    return _streamResolutionService.prefetchTrack(track);
   }
 
   bool _defaultUseAuthForPlay(SourceType sourceType) {
