@@ -8,6 +8,7 @@ import 'package:isar/isar.dart';
 import '../../core/logger.dart';
 import '../../data/models/account.dart';
 import '../../data/models/track.dart';
+import '../../data/sources/bilibili_live_client.dart';
 import '../../data/sources/source_http_policy.dart';
 import 'account_service.dart';
 import 'bilibili_credentials.dart';
@@ -62,7 +63,7 @@ class QrCodePollResult {
 /// Bilibili 帳號服務實現
 class BilibiliAccountService extends AccountService with Logging {
   final Dio _dio;
-  final Dio _liveDio;
+  final BilibiliLiveClient _liveClient;
   final FlutterSecureStorage _secureStorage;
   final Isar _isar;
   BilibiliCredentials? _cachedCredentials;
@@ -70,13 +71,14 @@ class BilibiliAccountService extends AccountService with Logging {
   static const String _storageKey = 'account_bilibili_credentials';
   static const String _apiBase = 'https://api.bilibili.com';
   static const String _passportBase = 'https://passport.bilibili.com';
-  static const String _liveApiBase = 'https://api.live.bilibili.com';
 
-  BilibiliAccountService({required Isar isar})
-      : _isar = isar,
+  BilibiliAccountService({
+    required Isar isar,
+    BilibiliLiveClient? liveClient,
+  })  : _isar = isar,
         _secureStorage = const FlutterSecureStorage(),
         _dio = SourceHttpPolicy.createApiDio(SourceType.bilibili),
-        _liveDio = SourceHttpPolicy.createBilibiliLiveDio();
+        _liveClient = liveClient ?? BilibiliLiveClient();
 
   @override
   SourceType get platform => SourceType.bilibili;
@@ -487,55 +489,23 @@ class BilibiliAccountService extends AccountService with Logging {
     final mid = await getUserMid();
     if (mid == null) throw Exception('User mid not available');
 
-    final response = await _liveDio.get(
-      '$_liveApiBase/xlive/web-ucenter/user/MedalWall',
-      queryParameters: {'target_id': mid},
-      options: Options(headers: {'Cookie': cookieString}),
+    final rooms = await _liveClient.getMedalWallRooms(
+      targetId: mid,
+      cookie: cookieString,
     );
 
-    final code = response.data['code'] as int?;
-    if (code != 0) {
-      throw Exception('MedalWall API error: ${response.data['message']}');
-    }
-
-    final list = response.data['data']?['list'] as List? ?? [];
-
-    // 並行獲取所有主播的直播間信息
-    final futures = list.map((item) async {
-      final medalInfo = item['medal_info'] as Map<String, dynamic>?;
-      if (medalInfo == null) return null;
-
-      final uid = medalInfo['target_id'] as int? ?? 0;
-      if (uid == 0) return null;
-
-      try {
-        // 通過 UID 獲取直播間號
-        final roomResponse = await _liveDio.get(
-          '$_liveApiBase/room/v1/Room/getRoomInfoOld',
-          queryParameters: {'mid': uid},
-        );
-
-        if (roomResponse.data['code'] != 0) return null;
-
-        final roomId = roomResponse.data['data']?['roomid']?.toString();
-        if (roomId == null || roomId == '0') return null;
-
-        return MedalWallItem(
-          roomId: roomId,
-          name: item['target_name'] as String? ?? '',
-          avatarUrl: item['target_icon'] as String?,
-          uid: uid,
-          liveStatus: item['live_status'] as int? ?? 0,
-          link: 'https://live.bilibili.com/$roomId',
-        );
-      } catch (e) {
-        // 單個失敗不影響其他項
-        return null;
-      }
-    }).toList();
-
-    final items = await Future.wait(futures);
-    return items.whereType<MedalWallItem>().toList();
+    return rooms
+        .map(
+          (room) => MedalWallItem(
+            roomId: room.roomId,
+            name: room.name,
+            avatarUrl: room.avatarUrl,
+            uid: room.uid,
+            liveStatus: room.liveStatus,
+            link: room.link,
+          ),
+        )
+        .toList();
   }
 
   // ===== 內部方法 =====

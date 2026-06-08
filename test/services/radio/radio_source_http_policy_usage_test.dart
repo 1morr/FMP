@@ -4,28 +4,29 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('radio HTTP policy usage', () {
-    test('radio source uses SourceHttpPolicy for Bilibili live headers', () {
+    test('bilibili live client uses SourceHttpPolicy for live HTTP', () {
       final source =
-          File('lib/services/radio/radio_source.dart').readAsStringSync();
+          File('lib/data/sources/bilibili_live_client.dart').readAsStringSync();
 
       expect(source, contains('SourceHttpPolicy.createBilibiliLiveDio'));
       expect(source, contains('SourceHttpPolicy.bilibiliLiveHeaders'));
+      expect(source, contains('/room/v1/Room/playUrl'));
       expect(
         source,
         isNot(contains("'Referer': 'https://live.bilibili.com/'")),
       );
     });
 
-    test('bilibili source live helpers use live-specific HTTP policy', () {
-      final source =
+    test('sources delegate Bilibili live mechanics to live client', () {
+      final bilibiliSource =
           File('lib/data/sources/bilibili_source.dart').readAsStringSync();
+      final radioSource =
+          File('lib/services/radio/radio_source.dart').readAsStringSync();
 
-      expect(source, contains('SourceHttpPolicy.createBilibiliLiveDio'));
-      expect(source, contains('_liveDio.get'));
-      expect(
-        source,
-        isNot(contains("'Referer': 'https://live.bilibili.com/'")),
-      );
+      expect(bilibiliSource, contains('BilibiliLiveClient'));
+      expect(radioSource, contains('BilibiliLiveClient'));
+      expect(bilibiliSource, isNot(contains('/room/v1/Room/playUrl')));
+      expect(radioSource, isNot(contains('/room/v1/Room/playUrl')));
     });
 
     test('radio cover preloader uses Bilibili live policy headers', () {
