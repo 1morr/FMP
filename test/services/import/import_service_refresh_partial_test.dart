@@ -4,7 +4,6 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/playlist.dart';
-import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/models/video_detail.dart';
 import 'package:fmp/data/repositories/playlist_repository.dart';
@@ -337,8 +336,13 @@ class _FakeSourceManager extends SourceManager {
   PlaylistParsingSource? playlistParsingSourceForUrl(String url) => source;
 
   @override
-  BilibiliSource? get bilibiliSource =>
-      source is BilibiliSource ? source as BilibiliSource : null;
+  PagedVideoSource? pagedVideoSource(SourceType type) {
+    final Object candidate = source;
+    if (type == source.sourceType && candidate is PagedVideoSource) {
+      return candidate;
+    }
+    return null;
+  }
 
   @override
   void dispose() {}

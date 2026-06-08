@@ -10,10 +10,13 @@ import '../models/settings.dart';
 import '../models/track.dart';
 import '../models/video_detail.dart';
 import 'base_source.dart';
+import 'dynamic_playlist_types.dart';
 import 'source_capabilities.dart';
 import 'source_exception.dart';
 import 'source_http_policy.dart';
 import 'youtube_exception.dart';
+
+export 'dynamic_playlist_types.dart' show MixFetchResult, MixPlaylistInfo;
 
 /// YouTube 音源实现
 class YouTubeSource
@@ -23,7 +26,10 @@ class YouTubeSource
         AudioStreamSource,
         SearchSource,
         PlaylistParsingSource,
-        AvailabilitySource {
+        AvailabilitySource,
+        TrackDetailSource,
+        DynamicPlaylistSource,
+        RankingSource {
   late final yt.YoutubeExplode _youtube;
   late final Dio _dio;
 
@@ -256,6 +262,7 @@ class YouTubeSource
   }
 
   /// 获取 YouTube 视频详情（用于详情面板显示）
+  @override
   Future<VideoDetail> getVideoDetail(String videoId,
       {Map<String, String>? authHeaders}) async {
     logDebug('Getting video detail for YouTube video: $videoId');
@@ -986,6 +993,9 @@ class YouTubeSource
     return isMixPlaylistId(listParam);
   }
 
+  @override
+  bool isDynamicPlaylistUrl(String url) => YouTubeSource.isMixPlaylistUrl(url);
+
   /// 從 URL 中提取 Mix 播放列表相關資訊
   static ({String? playlistId, String? seedVideoId}) extractMixInfo(
       String url) {
@@ -1006,6 +1016,7 @@ class YouTubeSource
 
   /// 獲取 Mix 播放列表基本信息（用於導入時只存元數據）
   /// 這是一個輕量級方法，只獲取標題和封面，不保存 tracks
+  @override
   Future<MixPlaylistInfo> getMixPlaylistInfo(String url) async {
     final mixInfo = extractMixInfo(url);
     final playlistId = mixInfo.playlistId;
@@ -1041,6 +1052,7 @@ class YouTubeSource
   /// 獲取 Mix 播放列表的 tracks（用於加載和加載更多）
   /// [playlistId] Mix 播放列表 ID（以 RD 開頭）
   /// [currentVideoId] 當前/種子影片 ID（首次加載用種子 ID，加載更多用最後一首的 ID）
+  @override
   Future<MixFetchResult> fetchMixTracks({
     required String playlistId,
     required String currentVideoId,
@@ -1596,6 +1608,11 @@ class YouTubeSource
     }
     logDebug('Got ${tracks.length} tracks from New This Week playlist');
     return tracks;
+  }
+
+  @override
+  Future<List<Track>> getRankingTracks(SourceRankingRequest request) {
+    return getTrendingVideos(category: request.category ?? 'music');
   }
 
   /// 使用 InnerTube Browse API 獲取 "New This Week" 播放列表
@@ -2278,30 +2295,4 @@ class YouTubeSource
     _youtube.close();
     _dio.close();
   }
-}
-
-/// Mix 播放列表基本信息（用於導入時只存元數據）
-class MixPlaylistInfo {
-  final String title;
-  final String playlistId;
-  final String seedVideoId;
-  final String? coverUrl;
-
-  const MixPlaylistInfo({
-    required this.title,
-    required this.playlistId,
-    required this.seedVideoId,
-    this.coverUrl,
-  });
-}
-
-/// Mix 播放列表獲取結果（用於加載 tracks）
-class MixFetchResult {
-  final String title;
-  final List<Track> tracks;
-
-  const MixFetchResult({
-    required this.title,
-    required this.tracks,
-  });
 }

@@ -10,7 +10,6 @@ import '../../data/models/track.dart';
 import '../../data/models/play_queue.dart';
 import '../../data/sources/base_source.dart';
 import '../../data/sources/source_exception.dart';
-import '../../data/sources/youtube_source.dart';
 import '../../data/repositories/queue_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/track_repository.dart';
@@ -244,7 +243,6 @@ class AudioController extends StateNotifier<PlayerState>
   final SettingsRepository? _settingsRepository;
   final QueuePersistenceManager? _queuePersistenceManager;
   final MixTracksFetcher? _mixTracksFetcher;
-  final YouTubeSource? _youtubeSource;
 
   final List<StreamSubscription> _subscriptions = [];
   bool _isInitialized = false;
@@ -310,7 +308,6 @@ class AudioController extends StateNotifier<PlayerState>
     SettingsRepository? settingsRepository,
     QueuePersistenceManager? queuePersistenceManager,
     MixTracksFetcher? mixTracksFetcher,
-    YouTubeSource? youtubeSource,
     AudioRuntimePlatform? runtimePlatform,
   })  : _audioService = audioService,
         _queueManager = queueManager,
@@ -324,7 +321,6 @@ class AudioController extends StateNotifier<PlayerState>
         _settingsRepository = settingsRepository,
         _queuePersistenceManager = queuePersistenceManager,
         _mixTracksFetcher = mixTracksFetcher,
-        _youtubeSource = youtubeSource,
         super(const PlayerState()) {
     _playbackRequestSession = PlaybackRequestSession(
       audioService: _audioService,
@@ -1030,7 +1026,7 @@ class AudioController extends StateNotifier<PlayerState>
       throw StateError(t.library.main.mixInfoIncomplete);
     }
 
-    final fetcher = _mixTracksFetcher ?? _youtubeSource?.fetchMixTracks;
+    final fetcher = _mixTracksFetcher;
     if (fetcher == null) {
       throw StateError(t.library.main.cannotLoadMix);
     }
@@ -1800,7 +1796,7 @@ class AudioController extends StateNotifier<PlayerState>
     final collectedTracks = <Track>[];
     final collectedVideoIds = <String>{};
     int attempt = 0;
-    final fetcher = _mixTracksFetcher ?? _youtubeSource?.fetchMixTracks;
+    final fetcher = _mixTracksFetcher;
     if (fetcher == null) {
       logWarning('Mix load failed: YouTube source unavailable');
       _toastService.showInfo(t.audio.mixLoadMoreError);
@@ -3324,7 +3320,10 @@ final audioControllerProvider =
     lyricsAutoMatchService: ref.read(lyricsAutoMatchServiceProvider),
     settingsRepository: ref.watch(settingsRepositoryProvider),
     queuePersistenceManager: ref.watch(queuePersistenceManagerProvider),
-    youtubeSource: ref.watch(youtubeSourceProvider),
+    mixTracksFetcher: ref
+        .watch(sourceManagerProvider)
+        .dynamicPlaylistSource(SourceType.youtube)
+        ?.fetchMixTracks,
     runtimePlatform: runtimePlatform,
   );
 

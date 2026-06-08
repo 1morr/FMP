@@ -140,6 +140,11 @@ resolution, `TrackInfoSource` for direct track metadata, `SearchSource` for
 search, `PlaylistParsingSource` for playlist import, and `AvailabilitySource`
 for source availability checks. `SourceManager` is the registry for those
 capabilities; new callers should request the narrow capability they need.
+Runtime callers must request narrow source capabilities from `SourceManager`;
+do not expose or consume concrete source getters/providers such as
+`bilibiliSourceProvider`, `youtubeSourceProvider`, or
+`neteaseAudioSourceProvider`. Concrete adapter construction belongs inside
+`SourceManager`; tests may instantiate adapters directly.
 
 `AudioStreamRequest` is passed to source `getAudioStream()` /
 `getAlternativeAudioStream()` and carries source identity (`sourceId`, optional

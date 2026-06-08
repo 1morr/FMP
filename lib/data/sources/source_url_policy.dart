@@ -12,6 +12,25 @@ class SourceUrlPolicy {
   static const neteaseHosts = {'music.163.com', 'y.music.163.com'};
   static const neteaseShortHosts = {'163cn.tv'};
 
+  static String? parseBilibiliFavoritesId(String url) {
+    final fidMatch = RegExp(r'fid=(\d+)').firstMatch(url);
+    if (fidMatch != null) {
+      return fidMatch.group(1);
+    }
+
+    final mlMatch = RegExp(r'ml(\d+)').firstMatch(url);
+    if (mlMatch != null) {
+      return mlMatch.group(1);
+    }
+
+    final detailMatch = RegExp(r'/detail/ml(\d+)').firstMatch(url);
+    if (detailMatch != null) {
+      return detailMatch.group(1);
+    }
+
+    return null;
+  }
+
   static Uri? parseTrustedHttpUrl(
     String url, {
     required Set<String> allowedHosts,

@@ -1,27 +1,26 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fmp/data/models/live_room.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/providers/search/search_provider.dart';
 import 'package:fmp/services/account/bilibili_account_service.dart';
 import 'package:fmp/services/search/search_service.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
-import 'package:fmp/data/sources/bilibili_source.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:isar/isar.dart';
 
 void main() {
   group('SearchNotifier stale pagination guards', () {
     late _CompletingSearchService service;
-    late _CompletingBilibiliSource bilibili;
+    late _CompletingLiveSource liveSource;
     late SearchNotifier notifier;
 
     setUp(() {
       service = _CompletingSearchService();
-      bilibili = _CompletingBilibiliSource();
-      notifier = SearchNotifier(service, bilibili);
+      liveSource = _CompletingLiveSource();
+      notifier = SearchNotifier(service, liveSource);
     });
 
     test('loadMore ignores results when query changes before completion',
@@ -178,13 +177,13 @@ void main() {
 
       final loadMoreFuture = notifier.loadMoreLiveRooms();
       await pumpEventQueue(times: 2);
-      expect(bilibili.liveRoomCalls.single.filter, LiveRoomFilter.online);
+      expect(liveSource.calls.single, 'live query:2:online');
 
       notifier.setSeedState(notifier.state.copyWith(
         liveRoomFilter: LiveRoomFilter.all,
         isLoading: false,
       ));
-      bilibili.completeLiveRooms(
+      liveSource.completeLiveRooms(
         'live query',
         2,
         LiveRoomFilter.online,
@@ -393,10 +392,10 @@ void main() {
 
       final searchFuture = notifier.searchLiveRooms('slow live');
       await pumpEventQueue(times: 2);
-      expect(bilibili.liveRoomCalls.single.query, 'slow live');
+      expect(liveSource.calls.single, 'slow live:1:online');
 
       notifier.clear();
-      bilibili.completeLiveRooms(
+      liveSource.completeLiveRooms(
         'slow live',
         1,
         LiveRoomFilter.online,
@@ -543,9 +542,11 @@ class _PendingOnlineSearch {
   final MultiSourceSearchResult result;
 }
 
-class _CompletingBilibiliSource extends BilibiliSource {
-  final List<({String query, int page, LiveRoomFilter filter})> liveRoomCalls =
-      [];
+class _CompletingLiveSource implements LiveSource {
+  @override
+  SourceType get sourceType => SourceType.bilibili;
+
+  final calls = <String>[];
   final Map<String, Completer<LiveSearchResult>> _liveCompleters = {};
 
   @override
@@ -555,10 +556,15 @@ class _CompletingBilibiliSource extends BilibiliSource {
     int pageSize = 20,
     LiveRoomFilter filter = LiveRoomFilter.all,
   }) {
-    liveRoomCalls.add((query: query, page: page, filter: filter));
+    calls.add('$query:$page:${filter.name}');
     return _liveCompleters
         .putIfAbsent(_liveKey(query, page, filter), Completer.new)
         .future;
+  }
+
+  @override
+  Future<String?> getLiveStreamUrl(int roomId) async {
+    return 'https://live.example/$roomId.flv';
   }
 
   void completeLiveRooms(

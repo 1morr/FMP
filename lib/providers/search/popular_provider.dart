@@ -3,9 +3,8 @@ import 'package:fmp/i18n/strings.g.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../data/models/track.dart';
-import '../../data/sources/bilibili_source.dart';
+import '../../data/sources/source_capabilities.dart';
 import '../../data/sources/source_provider.dart';
-import '../../data/sources/youtube_source.dart';
 import '../../services/cache/ranking_cache_service.dart';
 
 /// Bilibili 分区 ID
@@ -87,11 +86,16 @@ class RankingState {
 /// 排行榜 Provider
 final rankingVideosProvider =
     StateNotifierProvider<RankingVideosNotifier, RankingState>((ref) {
-  return RankingVideosNotifier(ref.watch(bilibiliSourceProvider));
+  final source =
+      ref.watch(sourceManagerProvider).rankingSource(SourceType.bilibili);
+  if (source == null) {
+    throw StateError('Bilibili ranking source not registered');
+  }
+  return RankingVideosNotifier(source);
 });
 
 class RankingVideosNotifier extends StateNotifier<RankingState> {
-  final BilibiliSource _source;
+  final RankingSource _source;
 
   RankingVideosNotifier(this._source) : super(const RankingState());
 
@@ -107,7 +111,9 @@ class RankingVideosNotifier extends StateNotifier<RankingState> {
         isLoading: true, selectedCategory: category, error: null);
 
     try {
-      final tracks = await _source.getRankingVideos(rid: category.rid);
+      final tracks = await _source.getRankingTracks(
+        SourceRankingRequest(regionId: category.rid),
+      );
       state = state.copyWith(
         tracksByCategory: {...state.tracksByCategory, category: tracks},
         isLoading: false,
@@ -185,11 +191,14 @@ class YouTubeTrendingState {
 /// YouTube 熱門 Provider
 final youtubeTrendingProvider =
     StateNotifierProvider<YouTubeTrendingNotifier, YouTubeTrendingState>((ref) {
-  return YouTubeTrendingNotifier(ref.watch(youtubeSourceProvider));
+  final source =
+      ref.watch(sourceManagerProvider).rankingSource(SourceType.youtube);
+  if (source == null) throw StateError('YouTube ranking source not registered');
+  return YouTubeTrendingNotifier(source);
 });
 
 class YouTubeTrendingNotifier extends StateNotifier<YouTubeTrendingState> {
-  final YouTubeSource _source;
+  final RankingSource _source;
 
   YouTubeTrendingNotifier(this._source) : super(const YouTubeTrendingState());
 
@@ -205,7 +214,9 @@ class YouTubeTrendingNotifier extends StateNotifier<YouTubeTrendingState> {
         isLoading: true, selectedCategory: category, error: null);
 
     try {
-      final tracks = await _source.getTrendingVideos(category: category.id);
+      final tracks = await _source.getRankingTracks(
+        SourceRankingRequest(category: category.id),
+      );
       state = state.copyWith(
         tracksByCategory: {...state.tracksByCategory, category: tracks},
         isLoading: false,

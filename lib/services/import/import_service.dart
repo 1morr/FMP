@@ -8,9 +8,8 @@ import '../../data/models/playlist.dart';
 import '../../data/models/track.dart';
 import '../../data/repositories/playlist_repository.dart';
 import '../../data/repositories/track_repository.dart';
-import '../../data/sources/bilibili_source.dart';
+import '../../data/sources/source_capabilities.dart';
 import '../../data/sources/source_provider.dart';
-import '../../data/sources/youtube_source.dart';
 import '../account/bilibili_account_service.dart';
 import '../account/netease_account_service.dart';
 import '../account/youtube_account_service.dart';
@@ -203,10 +202,12 @@ class ImportService with Logging implements ImportServiceFacade {
         throw ImportException(t.importSource.unrecognizedUrlFormat);
       }
 
-      // 檢測是否為 YouTube Mix 播放列表（RD 開頭）
-      if (source.sourceType == SourceType.youtube &&
-          YouTubeSource.isMixPlaylistUrl(normalizedUrl)) {
+      final dynamicPlaylistSource =
+          _sourceManager.dynamicPlaylistSourceForUrl(normalizedUrl);
+      if (dynamicPlaylistSource != null &&
+          dynamicPlaylistSource.sourceType == source.sourceType) {
         return _importMixPlaylist(
+          source: dynamicPlaylistSource,
           url: normalizedUrl,
           customName: customName,
           refreshIntervalHours: refreshIntervalHours,
@@ -222,14 +223,13 @@ class ImportService with Logging implements ImportServiceFacade {
       final result =
           await source.parsePlaylist(normalizedUrl, authHeaders: authHeaders);
 
-      // 获取分P信息并展开（仅Bilibili）
+      // 获取分P信息并展开
       final List<Track> expandedTracks;
-      final bilibiliSource = source.sourceType == SourceType.bilibili
-          ? _sourceManager.bilibiliSource
-          : null;
-      if (bilibiliSource != null) {
+      final pagedVideoSource =
+          _sourceManager.pagedVideoSource(source.sourceType);
+      if (pagedVideoSource != null) {
         final expansion = await _expandMultiPageVideos(
-          bilibiliSource,
+          pagedVideoSource,
           result.tracks,
           (current, total, item) {
             _updateProgress(
@@ -348,6 +348,7 @@ class ImportService with Logging implements ImportServiceFacade {
   /// Mix 播放列表是動態生成的，只保存元數據（不保存 tracks）
   /// tracks 會在進入歌單頁時從 InnerTube API 實時獲取
   Future<ImportResult> _importMixPlaylist({
+    required DynamicPlaylistSource source,
     required String url,
     String? customName,
     int? refreshIntervalHours,
@@ -357,14 +358,9 @@ class ImportService with Logging implements ImportServiceFacade {
         status: ImportStatus.parsing,
         currentItem: t.importSource.parsingMixPlaylist);
 
-    final youtubeSource = _sourceManager.youtubeSource;
-    if (youtubeSource == null) {
-      throw ImportException(t.importSource.unrecognizedSource);
-    }
-
     try {
       // 獲取 Mix 播放列表基本信息
-      final mixInfo = await youtubeSource.getMixPlaylistInfo(url);
+      final mixInfo = await source.getMixPlaylistInfo(url);
 
       _updateProgress(
         status: ImportStatus.importing,
@@ -465,15 +461,14 @@ class ImportService with Logging implements ImportServiceFacade {
           authHeaders: authHeaders);
       _throwIfCancelled();
 
-      // 获取分P信息并展开（仅Bilibili）
+      // 获取分P信息并展开
       final List<Track> expandedTracks;
       final bool expansionComplete;
-      final bilibiliSource = source.sourceType == SourceType.bilibili
-          ? _sourceManager.bilibiliSource
-          : null;
-      if (bilibiliSource != null) {
+      final pagedVideoSource =
+          _sourceManager.pagedVideoSource(source.sourceType);
+      if (pagedVideoSource != null) {
         final expansion = await _expandMultiPageVideos(
-          bilibiliSource,
+          pagedVideoSource,
           result.tracks,
           (current, total, item) {
             _throwIfCancelled();
@@ -575,7 +570,7 @@ class ImportService with Logging implements ImportServiceFacade {
 
   /// 展开多分P视频为独立Track
   Future<_TrackExpansionResult> _expandMultiPageVideos(
-    BilibiliSource source,
+    PagedVideoSource source,
     List<Track> tracks,
     void Function(int current, int total, String item) onProgress,
   ) async {

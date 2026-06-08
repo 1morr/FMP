@@ -3,9 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/data/sources/bilibili_source.dart';
-import 'package:fmp/data/sources/netease_source.dart';
-import 'package:fmp/data/sources/youtube_source.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/settings/home_ranking_settings_provider.dart';
 import 'package:fmp/providers/search/popular_provider.dart';
@@ -189,16 +187,22 @@ Widget _testApp({required List<Override> overrides}) {
 class _StaticRankingCacheService extends RankingCacheService {
   _StaticRankingCacheService({required bool isInitialLoading})
       : super(
-          bilibiliSource: _FakeBilibiliSource(),
-          youtubeSource: _FakeYouTubeSource(),
-          neteaseSource: _FakeNeteaseSource(),
+          bilibiliRankingSource: _FakeRankingSource(SourceType.bilibili),
+          youtubeRankingSource: _FakeRankingSource(SourceType.youtube),
+          neteaseRankingSource: _FakeRankingSource(SourceType.netease),
         ) {
     state = RankingCacheState(isInitialLoading: isInitialLoading);
   }
 }
 
-class _FakeBilibiliSource extends BilibiliSource {}
+class _FakeRankingSource implements RankingSource {
+  _FakeRankingSource(this.sourceType);
 
-class _FakeYouTubeSource extends YouTubeSource {}
+  @override
+  final SourceType sourceType;
 
-class _FakeNeteaseSource extends NeteaseSource {}
+  @override
+  Future<List<Track>> getRankingTracks(SourceRankingRequest request) async {
+    return const <Track>[];
+  }
+}

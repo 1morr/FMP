@@ -9,9 +9,8 @@ export '../../data/models/live_room.dart'
     show LiveRoomFilter, LiveRoom, LiveSearchResult;
 import '../../data/models/search_history.dart';
 import '../../data/sources/base_source.dart';
-import '../../data/sources/bilibili_source.dart';
-import '../../data/sources/source_provider.dart'
-    show sourceManagerProvider, bilibiliSourceProvider;
+import '../../data/sources/source_capabilities.dart';
+import '../../data/sources/source_provider.dart' show sourceManagerProvider;
 import '../../services/search/search_service.dart';
 import '../account/account_provider.dart';
 import '../database/database_provider.dart';
@@ -210,14 +209,22 @@ class SearchState extends Equatable {
 /// 搜索控制器
 class SearchNotifier extends StateNotifier<SearchState> {
   final SearchService _service;
-  final BilibiliSource _bilibiliSource;
+  final LiveSource? _liveSource;
 
   int _searchRequestId = 0;
 
   SearchNotifier(
     this._service,
-    this._bilibiliSource,
+    this._liveSource,
   ) : super(const SearchState());
+
+  LiveSource _requireLiveSource() {
+    final source = _liveSource;
+    if (source == null) {
+      throw StateError('Bilibili live source not registered');
+    }
+    return source;
+  }
 
   void _cancelInFlightSearches() {
     _searchRequestId++;
@@ -639,7 +646,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
     );
 
     try {
-      final result = await _bilibiliSource.searchLiveRooms(
+      final result = await _requireLiveSource().searchLiveRooms(
         query,
         page: 1,
         filter: state.liveRoomFilter ?? LiveRoomFilter.all,
@@ -679,7 +686,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
     state = state.copyWith(isLoading: true);
 
     try {
-      final result = await _bilibiliSource.searchLiveRooms(
+      final result = await _requireLiveSource().searchLiveRooms(
         query,
         page: nextPage,
         filter: filter ?? LiveRoomFilter.all,
@@ -730,7 +737,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
 
   /// 获取直播流地址
   Future<String?> getLiveStreamUrl(int roomId) async {
-    return await _bilibiliSource.getLiveStreamUrl(roomId);
+    return _requireLiveSource().getLiveStreamUrl(roomId);
   }
 }
 
@@ -738,10 +745,11 @@ class SearchNotifier extends StateNotifier<SearchState> {
 final searchProvider =
     StateNotifierProvider<SearchNotifier, SearchState>((ref) {
   final service = ref.watch(searchServiceProvider);
-  final bilibiliSource = ref.watch(bilibiliSourceProvider);
+  final liveSource =
+      ref.watch(sourceManagerProvider).liveSource(SourceType.bilibili);
   return SearchNotifier(
     service,
-    bilibiliSource,
+    liveSource,
   );
 });
 
