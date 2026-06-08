@@ -11,6 +11,7 @@ import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/bilibili_source.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/services/import/import_service.dart';
 import 'package:fmp/services/library/playlist_mutation_service.dart';
@@ -328,54 +329,29 @@ class _ReportingRefreshFailureMutationService extends PlaylistMutationService {
 }
 
 class _FakeSourceManager extends SourceManager {
-  _FakeSourceManager(this.source) : super();
+  _FakeSourceManager(this.source) : super(sources: const []);
 
-  final BaseSource source;
-
-  @override
-  BaseSource? detectSource(String url) => source;
+  final PlaylistParsingSource source;
 
   @override
-  BaseSource? getSourceForUrl(String url) => source;
+  PlaylistParsingSource? playlistParsingSourceForUrl(String url) => source;
 
   @override
-  BaseSource? getSource(SourceType type) =>
-      source.sourceType == type ? source : null;
+  BilibiliSource? get bilibiliSource =>
+      source is BilibiliSource ? source as BilibiliSource : null;
 
   @override
   void dispose() {}
 }
 
-class _FakeRefreshSource extends BaseSource {
+class _FakeRefreshSource implements PlaylistParsingSource {
   PlaylistParseResult? result;
 
   @override
   SourceType get sourceType => SourceType.youtube;
 
   @override
-  Future<bool> checkAvailability(String sourceId) async => true;
-
-  @override
-  Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
-    return const AudioStreamResult(
-      url: 'https://example.test/audio.m4a',
-      streamType: StreamType.audioOnly,
-    );
-  }
-
-  @override
-  Future<Track> getTrackInfo(String sourceId,
-          {Map<String, String>? authHeaders}) async =>
-      _track(sourceId, sourceId);
-
-  @override
   bool isPlaylistUrl(String url) => true;
-
-  @override
-  bool isValidId(String id) => id.isNotEmpty;
-
-  @override
-  String? parseId(String url) => 'playlist';
 
   @override
   Future<PlaylistParseResult> parsePlaylist(String playlistUrl,
@@ -385,19 +361,6 @@ class _FakeRefreshSource extends BaseSource {
     final current = result;
     if (current == null) throw StateError('No fake playlist result configured');
     return current;
-  }
-
-  @override
-  Future<Track> refreshAudioUrl(Track track,
-          {Map<String, String>? authHeaders}) async =>
-      track;
-
-  @override
-  Future<SearchResult> search(String query,
-      {int page = 1,
-      int pageSize = 20,
-      SearchOrder order = SearchOrder.relevance}) async {
-    return SearchResult.empty();
   }
 }
 

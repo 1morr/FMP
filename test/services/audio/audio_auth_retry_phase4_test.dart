@@ -12,6 +12,7 @@ import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_exception.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/youtube_exception.dart';
@@ -22,6 +23,7 @@ import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
+import 'package:fmp/services/audio/stream_resolution_service.dart';
 import 'package:fmp/services/audio/windows_smtc_handler.dart';
 import 'package:isar/isar.dart';
 
@@ -37,6 +39,7 @@ void main() {
     late _RetryAwareSourceManager sourceManager;
     late FakeAudioService audioService;
     late QueueManager queueManager;
+    late DefaultStreamResolutionService streamResolutionService;
     late AudioController controller;
     late StreamController<void> networkRecoveryController;
 
@@ -65,10 +68,15 @@ void main() {
         trackRepository: trackRepository,
         settingsRepository: settingsRepository,
       );
-      final audioStreamManager = AudioStreamManager(
+      streamResolutionService = DefaultStreamResolutionService(
         trackRepository: trackRepository,
         settingsRepository: settingsRepository,
         sourceManager: sourceManager,
+        getAuthHeaders: (_) async => null,
+      );
+      final audioStreamManager = AudioStreamManager(
+        streamResolutionService: streamResolutionService,
+        settingsRepository: settingsRepository,
       );
       queueManager = QueueManager(
         queueRepository: queueRepository,
@@ -94,6 +102,7 @@ void main() {
     tearDown(() async {
       await networkRecoveryController.close();
       controller.dispose();
+      streamResolutionService.dispose();
       await isar.close(deleteFromDisk: true);
       if (await tempDir.exists()) {
         await tempDir.delete(recursive: true);
@@ -400,12 +409,12 @@ Future<String> _resolveIsarLibraryPath() async {
 }
 
 class _RetryAwareSourceManager extends SourceManager {
-  _RetryAwareSourceManager() : super();
+  _RetryAwareSourceManager() : super(sources: const []);
 
   final source = _RetryAwareSource();
 
   @override
-  BaseSource? getSource(SourceType type) => source;
+  AudioStreamSource? audioStreamSource(SourceType type) => source;
 
   @override
   void dispose() {}
@@ -437,14 +446,11 @@ class _KindOnlySourceException extends SourceApiException {
   String toString() => 'semantic source failure';
 }
 
-class _RetryAwareSource extends BaseSource {
+class _RetryAwareSource implements AudioStreamSource {
   Object? nextStreamError;
 
   @override
   SourceType get sourceType => SourceType.youtube;
-
-  @override
-  Future<bool> checkAvailability(String sourceId) async => true;
 
   @override
   Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
@@ -463,49 +469,9 @@ class _RetryAwareSource extends BaseSource {
   }
 
   @override
-  Future<Track> getTrackInfo(
-    String sourceId, {
-    Map<String, String>? authHeaders,
-  }) async {
-    return _track(sourceId);
-  }
-
-  @override
-  bool isPlaylistUrl(String url) => false;
-
-  @override
-  bool isValidId(String id) => true;
-
-  @override
-  String? parseId(String url) => url;
-
-  @override
-  Future<PlaylistParseResult> parsePlaylist(
-    String playlistUrl, {
-    int page = 1,
-    int pageSize = 20,
-    Map<String, String>? authHeaders,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Track> refreshAudioUrl(
-    Track track, {
-    Map<String, String>? authHeaders,
-  }) async {
-    track.audioUrl = 'https://example.com/${track.sourceId}.m4a';
-    track.audioUrlExpiry = DateTime.now().add(const Duration(minutes: 30));
-    return track;
-  }
-
-  @override
-  Future<SearchResult> search(
-    String query, {
-    int page = 1,
-    int pageSize = 20,
-    SearchOrder order = SearchOrder.relevance,
-  }) async {
-    return SearchResult.empty();
+  Future<AudioStreamResult?> getAlternativeAudioStream(
+    AudioStreamRequest request,
+  ) async {
+    return null;
   }
 }

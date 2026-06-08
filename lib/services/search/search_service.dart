@@ -10,7 +10,6 @@ import '../../data/models/track.dart';
 import '../../data/models/video_detail.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../data/sources/base_source.dart';
-import '../../data/sources/bilibili_source.dart';
 import '../../data/sources/source_provider.dart';
 import '../../services/account/bilibili_account_service.dart';
 
@@ -106,7 +105,7 @@ class SearchService {
     await Future.wait(
       sources.map((type) async {
         try {
-          final source = _sourceManager.getSource(type);
+          final source = _sourceManager.searchSource(type);
           if (source != null) {
             final result = await source.search(
               query,
@@ -140,7 +139,7 @@ class SearchService {
     int pageSize = 20,
     SearchOrder order = SearchOrder.relevance,
   }) async {
-    final source = _sourceManager.getSource(sourceType);
+    final source = _sourceManager.searchSource(sourceType);
     if (source == null) {
       throw SearchException(t.error.sourceUnavailable(source: sourceType.name));
     }
@@ -154,8 +153,8 @@ class SearchService {
       return const [];
     }
 
-    final source = _sourceManager.getSource(SourceType.bilibili);
-    if (source is! BilibiliSource) {
+    final source = _sourceManager.bilibiliSource;
+    if (source == null) {
       throw SearchException(
         t.error.sourceUnavailable(source: SourceType.bilibili.name),
       );

@@ -11,6 +11,7 @@ import '../../data/sources/source_provider.dart';
 import '../../services/download/download_service.dart';
 import '../../services/download/download_path_utils.dart';
 import '../account/account_provider.dart';
+import '../audio/stream_resolution_provider.dart';
 import '../database/database_provider.dart';
 import '../database/repository_providers.dart';
 import 'download_event_handler.dart';
@@ -47,6 +48,7 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
     trackRepository: trackRepo,
     settingsRepository: settingsRepo,
     sourceManager: sourceManager,
+    streamResolutionService: ref.watch(streamResolutionServiceProvider),
     bilibiliAccountService: ref.read(bilibiliAccountServiceProvider),
     youtubeAccountService: ref.read(youtubeAccountServiceProvider),
     neteaseAccountService: ref.read(neteaseAccountServiceProvider),

@@ -3,6 +3,7 @@ import 'package:fmp/data/models/settings.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/sources/audio_stream_quality_fallback.dart';
 import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_exception.dart';
 
 void main() {
@@ -100,7 +101,7 @@ void main() {
   });
 }
 
-class _RecordingSource extends BaseSource {
+class _RecordingSource implements AudioStreamSource {
   final primaryRequests = <AudioStreamRequest>[];
   final alternativeRequests = <AudioStreamRequest>[];
   final failQualities = <AudioQualityLevel>{};
@@ -109,20 +110,6 @@ class _RecordingSource extends BaseSource {
 
   @override
   SourceType get sourceType => SourceType.bilibili;
-
-  @override
-  String? parseId(String url) => url;
-
-  @override
-  bool isValidId(String id) => id.isNotEmpty;
-
-  @override
-  Future<Track> getTrackInfo(
-    String sourceId, {
-    Map<String, String>? authHeaders,
-  }) async {
-    throw UnimplementedError();
-  }
 
   @override
   Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
@@ -152,40 +139,6 @@ class _RecordingSource extends BaseSource {
       streamType: StreamType.audioOnly,
     );
   }
-
-  @override
-  Future<Track> refreshAudioUrl(
-    Track track, {
-    Map<String, String>? authHeaders,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<SearchResult> search(
-    String query, {
-    int page = 1,
-    int pageSize = 20,
-    SearchOrder order = SearchOrder.relevance,
-  }) async {
-    return SearchResult.empty();
-  }
-
-  @override
-  Future<PlaylistParseResult> parsePlaylist(
-    String playlistUrl, {
-    int page = 1,
-    int pageSize = 20,
-    Map<String, String>? authHeaders,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  bool isPlaylistUrl(String url) => false;
-
-  @override
-  Future<bool> checkAvailability(String sourceId) async => true;
 }
 
 class _FakeSourceException extends SourceApiException {

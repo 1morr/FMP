@@ -1,71 +1,111 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../models/track.dart';
 import 'base_source.dart';
 import 'bilibili_source.dart';
 import 'netease_source.dart';
+import 'source_capabilities.dart';
 import 'youtube_source.dart';
 
 /// 音源管理器
-/// 统一管理所有音源，根据URL自动选择正确的音源
+/// 统一注册具体适配器，但调用端只按所需能力取用。
 class SourceManager {
-  final List<BaseSource> _sources = [];
+  SourceManager({List<SourceCapability>? sources})
+      : _sources = List<SourceCapability>.of(
+          sources ??
+              [
+                BilibiliSource(),
+                YouTubeSource(),
+                NeteaseSource(),
+              ],
+        );
 
-  SourceManager() {
-    // 注册所有可用音源
-    _sources.add(BilibiliSource());
-    _sources.add(YouTubeSource());
-    _sources.add(NeteaseSource());
-  }
+  final List<SourceCapability> _sources;
 
-  /// 所有可用音源
-  List<BaseSource> get sources => List.unmodifiable(_sources);
+  /// 所有已注册能力对象。调用端应优先使用下方 narrow lookup。
+  List<SourceCapability> get sources => List.unmodifiable(_sources);
 
   /// 已注册的音源类型列表
-  List<SourceType> get registeredSourceTypes =>
-      _sources.map((s) => s.sourceType).toList();
-
-  /// 根据类型获取音源
-  BaseSource? getSource(SourceType type) {
-    try {
-      return _sources.firstWhere((s) => s.sourceType == type);
-    } catch (_) {
-      return null;
-    }
+  List<SourceType> get registeredSourceTypes {
+    final seen = <SourceType>{};
+    return [
+      for (final source in _sources)
+        if (seen.add(source.sourceType)) source.sourceType,
+    ];
   }
 
-  /// 根据 URL 自动选择音源 (别名方法)
-  BaseSource? detectSource(String url) => getSourceForUrl(url);
-
-  /// 根据 URL 自动选择音源 (支持视频URL和播放列表URL)
-  BaseSource? getSourceForUrl(String url) {
+  T? _capability<T extends SourceCapability>(SourceType type) {
     for (final source in _sources) {
-      // 先检查是否是播放列表 URL
-      if (source.isPlaylistUrl(url)) {
-        return source;
-      }
-      // 再检查是否是普通视频 URL
-      if (source.canHandle(url)) {
+      if (source.sourceType == type && source is T) {
         return source;
       }
     }
     return null;
   }
 
+  AudioStreamSource? audioStreamSource(SourceType type) =>
+      _capability<AudioStreamSource>(type);
+
+  TrackInfoSource? trackInfoSource(SourceType type) =>
+      _capability<TrackInfoSource>(type);
+
+  SearchSource? searchSource(SourceType type) =>
+      _capability<SearchSource>(type);
+
+  PlaylistParsingSource? playlistParsingSource(SourceType type) =>
+      _capability<PlaylistParsingSource>(type);
+
+  AvailabilitySource? availabilitySource(SourceType type) =>
+      _capability<AvailabilitySource>(type);
+
+  BilibiliSource? get bilibiliSource {
+    final source = _capability<TrackInfoSource>(SourceType.bilibili);
+    return source is BilibiliSource ? source : null;
+  }
+
+  YouTubeSource? get youtubeSource {
+    final source = _capability<TrackInfoSource>(SourceType.youtube);
+    return source is YouTubeSource ? source : null;
+  }
+
+  NeteaseSource? get neteaseSource {
+    final source = _capability<TrackInfoSource>(SourceType.netease);
+    return source is NeteaseSource ? source : null;
+  }
+
+  TrackInfoSource? trackInfoSourceForUrl(String url) {
+    for (final source in _sources.whereType<TrackInfoSource>()) {
+      if (source.canHandle(url)) return source;
+    }
+    return null;
+  }
+
+  PlaylistParsingSource? playlistParsingSourceForUrl(String url) {
+    for (final source in _sources.whereType<PlaylistParsingSource>()) {
+      if (source.isPlaylistUrl(url)) return source;
+    }
+    return null;
+  }
+
+  SourceType? sourceTypeForUrl(String url) {
+    return playlistParsingSourceForUrl(url)?.sourceType ??
+        trackInfoSourceForUrl(url)?.sourceType;
+  }
+
   /// 解析 URL 获取歌曲信息
   Future<Track?> parseUrl(String url) async {
-    final source = getSourceForUrl(url);
+    final source = trackInfoSourceForUrl(url);
     if (source == null) return null;
 
     final id = source.parseId(url);
     if (id == null) return null;
 
-    return await source.getTrackInfo(id);
+    return source.getTrackInfo(id);
   }
 
   /// 判断 URL 是否是播放列表
   bool isPlaylistUrl(String url) {
-    final source = getSourceForUrl(url);
-    return source?.isPlaylistUrl(url) ?? false;
+    return playlistParsingSourceForUrl(url) != null;
   }
 
   /// 解析播放列表
@@ -74,22 +114,19 @@ class SourceManager {
     int page = 1,
     int pageSize = 20,
   }) async {
-    final source = getSourceForUrl(url);
-    if (source == null || !source.isPlaylistUrl(url)) {
-      return null;
-    }
-
-    return await source.parsePlaylist(url, page: page, pageSize: pageSize);
+    final source = playlistParsingSourceForUrl(url);
+    if (source == null) return null;
+    return source.parsePlaylist(url, page: page, pageSize: pageSize);
   }
 
   /// 刷新歌曲的音频 URL
   Future<Track> refreshAudioUrl(Track track) async {
-    final source = getSource(track.sourceType);
+    final source = trackInfoSource(track.sourceType);
     if (source == null) {
       throw Exception('Source not found for ${track.sourceType}');
     }
 
-    return await source.refreshAudioUrl(track);
+    return source.refreshAudioUrl(track);
   }
 
   /// 检查歌曲是否需要刷新 URL
@@ -109,7 +146,7 @@ class SourceManager {
   }) async {
     final results = <SourceType, SearchResult>{};
 
-    await Future.wait(_sources.map((source) async {
+    await Future.wait(_sources.whereType<SearchSource>().map((source) async {
       try {
         final result =
             await source.search(query, page: page, pageSize: pageSize);
@@ -129,18 +166,20 @@ class SourceManager {
     int page = 1,
     int pageSize = 20,
   }) async {
-    final source = getSource(type);
+    final source = searchSource(type);
     if (source == null) {
       throw Exception('Source not found: $type');
     }
 
-    return await source.search(query, page: page, pageSize: pageSize);
+    return source.search(query, page: page, pageSize: pageSize);
   }
 
   /// 释放所有音源资源（关闭 HTTP 客户端等）
   void dispose() {
     for (final source in _sources) {
-      source.dispose();
+      if (source is BilibiliSource) source.dispose();
+      if (source is YouTubeSource) source.dispose();
+      if (source is NeteaseSource) source.dispose();
     }
     _sources.clear();
   }
@@ -151,38 +190,44 @@ class SourceManager {
 /// SourceManager Provider
 final sourceManagerProvider = Provider<SourceManager>((ref) {
   final manager = SourceManager();
-  ref.onDispose(() => manager.dispose());
+  ref.onDispose(manager.dispose);
   return manager;
 });
 
 /// Bilibili 音源 Provider
 final bilibiliSourceProvider = Provider<BilibiliSource>((ref) {
   final manager = ref.watch(sourceManagerProvider);
-  return manager.getSource(SourceType.bilibili) as BilibiliSource;
+  final source = manager.bilibiliSource;
+  if (source == null) throw StateError('Bilibili source not registered');
+  return source;
 });
 
 /// YouTube 音源 Provider
 final youtubeSourceProvider = Provider<YouTubeSource>((ref) {
   final manager = ref.watch(sourceManagerProvider);
-  return manager.getSource(SourceType.youtube) as YouTubeSource;
+  final source = manager.youtubeSource;
+  if (source == null) throw StateError('YouTube source not registered');
+  return source;
 });
 
 /// 網易雲音源 Provider
 final neteaseAudioSourceProvider = Provider<NeteaseSource>((ref) {
   final manager = ref.watch(sourceManagerProvider);
-  return manager.getSource(SourceType.netease) as NeteaseSource;
+  final source = manager.neteaseSource;
+  if (source == null) throw StateError('Netease source not registered');
+  return source;
 });
 
 /// URL 解析 Provider
 final parseUrlProvider =
     FutureProvider.family<Track?, String>((ref, url) async {
   final manager = ref.watch(sourceManagerProvider);
-  return await manager.parseUrl(url);
+  return manager.parseUrl(url);
 });
 
 /// 播放列表解析 Provider
 final parsePlaylistProvider =
     FutureProvider.family<PlaylistParseResult?, String>((ref, url) async {
   final manager = ref.watch(sourceManagerProvider);
-  return await manager.parsePlaylist(url);
+  return manager.parsePlaylist(url);
 });

@@ -27,6 +27,10 @@ Service-layer guidance. For audio-specific rules, also read
   YouTube, and Netease keep the correct source Referer/Origin/UA/auth policy.
   Media headers are URL-aware; only allowlisted HTTPS Netease media URLs may
   receive `MUSIC_U`, and image downloads must not include Netease cookies.
+- `DownloadService` resolves audio streams through `StreamResolutionService`
+  with `StreamResolutionPurpose.download`; it still owns isolate download loops,
+  per-redirect media headers, progress, pause/failure state, and final path
+  persistence.
 - Downloaded metadata cover/avatar images should use
   `ThumbnailUrlUtils.getOptimizedUrlCandidates()` with `ImageTargetSizes.high`
   for covers and `ImageTargetSizes.low` for avatars before falling back through

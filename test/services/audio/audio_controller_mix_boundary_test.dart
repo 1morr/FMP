@@ -13,6 +13,7 @@ import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
@@ -20,6 +21,7 @@ import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/mix_playlist_types.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
+import 'package:fmp/services/audio/stream_resolution_service.dart';
 import 'package:fmp/services/audio/windows_smtc_handler.dart';
 import 'package:isar/isar.dart';
 
@@ -36,6 +38,7 @@ void main() {
     late FakeAudioService audioService;
     late _FakeSourceManager sourceManager;
     late SettingsRepository settingsRepository;
+    late DefaultStreamResolutionService streamResolutionService;
     late AudioController controller;
     late _RecordingMixTracksFetcher mixTracksFetcher;
 
@@ -62,10 +65,15 @@ void main() {
         trackRepository: trackRepository,
         settingsRepository: settingsRepository,
       );
-      final audioStreamManager = AudioStreamManager(
+      streamResolutionService = DefaultStreamResolutionService(
         trackRepository: trackRepository,
         settingsRepository: settingsRepository,
         sourceManager: sourceManager,
+        getAuthHeaders: (_) async => null,
+      );
+      final audioStreamManager = AudioStreamManager(
+        streamResolutionService: streamResolutionService,
+        settingsRepository: settingsRepository,
       );
       queueManager = QueueManager(
         queueRepository: queueRepository,
@@ -92,6 +100,7 @@ void main() {
 
     tearDown(() async {
       controller.dispose();
+      streamResolutionService.dispose();
       await isar.close(deleteFromDisk: true);
       if (await tempDir.exists()) {
         await tempDir.delete(recursive: true);
@@ -138,10 +147,16 @@ void main() {
       final loadMoreGate = mixTracksFetcher.enqueuePendingResult(
         MixFetchResult(title: 'Restored Mix', tracks: loadMoreTracks),
       );
-      final audioStreamManager = AudioStreamManager(
+      streamResolutionService.dispose();
+      streamResolutionService = DefaultStreamResolutionService(
         trackRepository: trackRepository,
         settingsRepository: settingsRepository,
         sourceManager: sourceManager,
+        getAuthHeaders: (_) async => null,
+      );
+      final audioStreamManager = AudioStreamManager(
+        streamResolutionService: streamResolutionService,
+        settingsRepository: settingsRepository,
       );
       queueManager = QueueManager(
         queueRepository: queueRepository,
@@ -413,12 +428,12 @@ Track _track(String sourceId, {required String title}) {
 }
 
 class _FakeSourceManager extends SourceManager {
-  _FakeSourceManager() : super();
+  _FakeSourceManager() : super(sources: const []);
 
   final _source = _FakeSource();
 
   @override
-  BaseSource? getSource(SourceType type) => _source;
+  AudioStreamSource? audioStreamSource(SourceType type) => _source;
 
   @override
   void dispose() {}
@@ -481,39 +496,9 @@ class _MixFetchCall {
   int get hashCode => Object.hash(playlistId, currentVideoId);
 }
 
-class _FakeSource extends BaseSource {
+class _FakeSource implements AudioStreamSource {
   @override
   SourceType get sourceType => SourceType.youtube;
-
-  @override
-  Future<bool> checkAvailability(String sourceId) async => true;
-
-  @override
-  bool isPlaylistUrl(String url) => false;
-
-  @override
-  bool isValidId(String id) => true;
-
-  @override
-  String? parseId(String url) => url;
-
-  @override
-  Future<PlaylistParseResult> parsePlaylist(
-    String playlistUrl, {
-    int page = 1,
-    int pageSize = 20,
-    Map<String, String>? authHeaders,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Track> getTrackInfo(
-    String sourceId, {
-    Map<String, String>? authHeaders,
-  }) async {
-    return _track(sourceId, title: sourceId);
-  }
 
   @override
   Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
@@ -531,27 +516,4 @@ class _FakeSource extends BaseSource {
   ) async {
     return null;
   }
-
-  @override
-  Future<Track> refreshAudioUrl(
-    Track track, {
-    Map<String, String>? authHeaders,
-  }) async {
-    track.audioUrl = 'https://example.com/${track.sourceId}.m4a';
-    track.audioUrlExpiry = DateTime.now().add(const Duration(minutes: 30));
-    return track;
-  }
-
-  @override
-  Future<SearchResult> search(
-    String query, {
-    int page = 1,
-    int pageSize = 20,
-    SearchOrder order = SearchOrder.relevance,
-  }) async {
-    return SearchResult.empty();
-  }
-
-  @override
-  void dispose() {}
 }

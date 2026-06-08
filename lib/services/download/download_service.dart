@@ -18,17 +18,14 @@ import '../../data/models/video_detail.dart';
 import '../../data/repositories/download_repository.dart';
 import '../../data/repositories/track_repository.dart';
 import '../../data/repositories/settings_repository.dart';
-import '../../data/sources/audio_stream_quality_fallback.dart';
-import '../../data/sources/base_source.dart';
-import '../../data/sources/bilibili_source.dart';
 import '../../data/sources/source_http_policy.dart';
 import '../../data/sources/source_provider.dart';
-import '../../data/sources/youtube_source.dart';
 import '../../core/utils/auth_headers_utils.dart';
 import '../../core/utils/thumbnail_url_utils.dart';
 import '../account/bilibili_account_service.dart';
 import '../account/netease_account_service.dart';
 import '../account/youtube_account_service.dart';
+import '../audio/stream_resolution_service.dart';
 import 'download_media_headers.dart';
 import 'download_path_utils.dart';
 
@@ -63,6 +60,8 @@ class DownloadService with Logging {
   final TrackRepository _trackRepository;
   final SettingsRepository _settingsRepository;
   final SourceManager _sourceManager;
+  final StreamResolutionService _streamResolutionService;
+  final bool _ownsStreamResolutionService;
   final BilibiliAccountService? _bilibiliAccountService;
   final YouTubeAccountService? _youtubeAccountService;
   final NeteaseAccountService? _neteaseAccountService;
@@ -148,6 +147,7 @@ class DownloadService with Logging {
     required TrackRepository trackRepository,
     required SettingsRepository settingsRepository,
     required SourceManager sourceManager,
+    StreamResolutionService? streamResolutionService,
     BilibiliAccountService? bilibiliAccountService,
     YouTubeAccountService? youtubeAccountService,
     NeteaseAccountService? neteaseAccountService,
@@ -155,6 +155,19 @@ class DownloadService with Logging {
         _trackRepository = trackRepository,
         _settingsRepository = settingsRepository,
         _sourceManager = sourceManager,
+        _ownsStreamResolutionService = streamResolutionService == null,
+        _streamResolutionService = streamResolutionService ??
+            DefaultStreamResolutionService(
+              trackRepository: trackRepository,
+              settingsRepository: settingsRepository,
+              sourceManager: sourceManager,
+              getAuthHeaders: (sourceType) => buildAuthHeaders(
+                sourceType,
+                bilibiliAccountService: bilibiliAccountService,
+                youtubeAccountService: youtubeAccountService,
+                neteaseAccountService: neteaseAccountService,
+              ),
+            ),
         _bilibiliAccountService = bilibiliAccountService,
         _youtubeAccountService = youtubeAccountService,
         _neteaseAccountService = neteaseAccountService,
@@ -236,6 +249,11 @@ class DownloadService with Logging {
     _tasksInSetupWindow.clear();
     _setupAbortedTasks.clear();
     _activeDownloads = 0;
+    final streamResolutionService = _streamResolutionService;
+    if (_ownsStreamResolutionService &&
+        streamResolutionService is DefaultStreamResolutionService) {
+      streamResolutionService.dispose();
+    }
 
     _dio.close();
   }
@@ -703,42 +721,30 @@ class DownloadService with Logging {
       trackTitle = track.title;
 
       // 获取音频 URL（使用用户设置的音频配置，与播放时逻辑一致）
-      final source = _sourceManager.getSource(track.sourceType);
-      if (source == null) {
-        throw Exception('No source available for ${track.sourceType}');
+      final resolution = await _streamResolutionService.resolvePrimary(
+        track,
+        purpose: StreamResolutionPurpose.download,
+        persist: true,
+      );
+      if (_shouldAbortBeforeRegistration(task.id)) return;
+      if (resolution is! RemoteStreamResolution) {
+        throw StateError(
+          'Download stream resolution returned a local file for '
+          '${track.sourceType.name}:${track.sourceId}',
+        );
       }
-
-      final settings = await _settingsRepository.get();
-      if (_shouldAbortBeforeRegistration(task.id)) return;
-      final config = AudioStreamConfig.fromSettings(settings, track.sourceType);
-      final authHeaders = settings.useAuthForPlay(track.sourceType)
-          ? await _getAuthHeaders(track.sourceType)
-          : null;
-      if (_shouldAbortBeforeRegistration(task.id)) return;
-      final streamRequest = AudioStreamRequest(
-        sourceId: track.sourceId,
-        cid: track.cid,
-        pageNum: track.pageNum,
-        config: config,
-        authHeaders: authHeaders,
-      );
-      final streamResult = await fetchAudioStreamWithQualityFallback(
-        source: source,
-        request: streamRequest,
-      );
-      if (_shouldAbortBeforeRegistration(task.id)) return;
+      final streamResult = resolution.stream;
+      final resolvedTrack = resolution.track;
+      final authHeaders = resolution.authHeaders;
       final audioUrl = streamResult.url;
 
       // 更新 track 的 URL 信息
-      track.audioUrl = audioUrl;
-      track.audioUrlExpiry = DateTime.now().add(
-        streamResult.expiry ?? const Duration(hours: 1),
-      );
-      track.updatedAt = DateTime.now();
-      await _trackRepository.save(track);
+      track.audioUrl = resolvedTrack.audioUrl;
+      track.audioUrlExpiry = resolvedTrack.audioUrlExpiry;
+      track.updatedAt = resolvedTrack.updatedAt;
 
       logDebug('Got audio stream for download: ${track.title}, '
-          'quality=${config.qualityLevel}, bitrate=${streamResult.bitrate}');
+          'bitrate=${streamResult.bitrate}');
       if (_shouldAbortBeforeRegistration(task.id)) return;
 
       // 确定保存路径
@@ -871,9 +877,10 @@ class DownloadService with Logging {
       // 获取 VideoDetail（用于保存完整元数据）
       VideoDetail? videoDetail;
       try {
+        final settings = await _settingsRepository.get();
         if (track.sourceType == SourceType.bilibili) {
-          final source = _sourceManager.getSource(SourceType.bilibili);
-          if (source is BilibiliSource) {
+          final source = _sourceManager.bilibiliSource;
+          if (source != null) {
             final detailAuthHeaders =
                 settings.useAuthForPlay(SourceType.bilibili)
                     ? await _getAuthHeaders(SourceType.bilibili)
@@ -882,8 +889,8 @@ class DownloadService with Logging {
                 authHeaders: detailAuthHeaders);
           }
         } else if (track.sourceType == SourceType.youtube) {
-          final source = _sourceManager.getSource(SourceType.youtube);
-          if (source is YouTubeSource) {
+          final source = _sourceManager.youtubeSource;
+          if (source != null) {
             final detailAuthHeaders =
                 settings.useAuthForPlay(SourceType.youtube)
                     ? await _getAuthHeaders(SourceType.youtube)

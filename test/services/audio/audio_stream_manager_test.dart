@@ -11,6 +11,7 @@ import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/bilibili_source.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_exception.dart';
 import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
@@ -18,9 +19,9 @@ import 'package:fmp/services/account/bilibili_account_service.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/services/account/youtube_account_service.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
-import 'package:fmp/services/audio/internal/audio_stream_delegate.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
+import 'package:fmp/services/audio/stream_resolution_service.dart';
 import 'package:isar/isar.dart';
 
 void main() {
@@ -33,7 +34,7 @@ void main() {
     late SettingsRepository settingsRepository;
     late _FakeSourceManager sourceManager;
     late QueueManager queueManager;
-    late AudioStreamDelegate delegate;
+    late DefaultStreamResolutionService streamResolutionService;
     late AudioStreamManager manager;
     late Map<String, String>? delegateAuthHeaders;
     late List<SourceType> authHeaderRequests;
@@ -59,7 +60,7 @@ void main() {
       sourceManager = _FakeSourceManager();
       delegateAuthHeaders = null;
       authHeaderRequests = [];
-      delegate = AudioStreamDelegate(
+      streamResolutionService = DefaultStreamResolutionService(
         trackRepository: trackRepository,
         settingsRepository: settingsRepository,
         sourceManager: sourceManager,
@@ -69,10 +70,8 @@ void main() {
         },
       );
       manager = AudioStreamManager(
-        delegate: delegate,
-        trackRepository: trackRepository,
+        streamResolutionService: streamResolutionService,
         settingsRepository: settingsRepository,
-        sourceManager: sourceManager,
       );
       queueManager = QueueManager(
         queueRepository: QueueRepository(isar),
@@ -87,6 +86,7 @@ void main() {
     });
 
     tearDown(() async {
+      streamResolutionService.dispose();
       queueManager.dispose();
       await isar.close(deleteFromDisk: true);
       if (await tempDir.exists()) {
@@ -220,23 +220,7 @@ void main() {
         'selectPlayback notifies with removed paths when clearing missing download paths',
         () async {
       final missingPath = '${tempDir.path}/missing-watch-update.m4a';
-      final notifiedEvents = <DownloadPathsChangedEvent>[];
-      delegate = AudioStreamDelegate(
-        trackRepository: trackRepository,
-        settingsRepository: settingsRepository,
-        sourceManager: sourceManager,
-        getAuthHeaders: (sourceType) async {
-          authHeaderRequests.add(sourceType);
-          return delegateAuthHeaders;
-        },
-        onDownloadPathsChanged: notifiedEvents.add,
-      );
-      manager = AudioStreamManager(
-        delegate: delegate,
-        trackRepository: trackRepository,
-        settingsRepository: settingsRepository,
-        sourceManager: sourceManager,
-      );
+      final eventFuture = manager.downloadPathsChangedStream.first;
       final savedTrack = await trackRepository.save(
         _track('stream-watch', title: 'Stream Watch')
           ..playlistInfo = [
@@ -249,19 +233,18 @@ void main() {
 
       await manager.selectPlayback(savedTrack, persist: false);
 
-      expect(notifiedEvents.map((event) => event.track.id), [savedTrack.id]);
-      expect(notifiedEvents.single.track.playlistInfo.single.downloadPath,
-          isEmpty);
-      expect(notifiedEvents.single.removedPaths, [missingPath]);
+      final event = await eventFuture;
+      expect(event.track.id, savedTrack.id);
+      expect(event.track.playlistInfo.single.downloadPath, isEmpty);
+      expect(event.removedPaths, [missingPath]);
     });
 
     test('default manager emits removed download paths on its stream',
         () async {
       final missingPath = '${tempDir.path}/missing-manager-stream.m4a';
       final directManager = AudioStreamManager(
-        trackRepository: trackRepository,
+        streamResolutionService: streamResolutionService,
         settingsRepository: settingsRepository,
-        sourceManager: sourceManager,
       );
       addTearDown(directManager.dispose);
       final eventFuture = directManager.downloadPathsChangedStream.first;
@@ -286,9 +269,8 @@ void main() {
         () async {
       final missingPath = '${tempDir.path}/missing-after-dispose.m4a';
       final directManager = AudioStreamManager(
-        trackRepository: trackRepository,
+        streamResolutionService: streamResolutionService,
         settingsRepository: settingsRepository,
-        sourceManager: sourceManager,
       );
       final savedTrack = await trackRepository.save(
         _track('stream-disposed-event', title: 'Disposed Event')
@@ -461,9 +443,8 @@ void main() {
     test('prefetchTrack swallows refresh failures', () async {
       sourceManager.source.throwOnRefresh = true;
       final directManager = AudioStreamManager(
-        trackRepository: trackRepository,
+        streamResolutionService: streamResolutionService,
         settingsRepository: settingsRepository,
-        sourceManager: sourceManager,
       );
 
       await expectLater(
@@ -799,7 +780,7 @@ void main() {
         'playback headers include Netease auth only when auth-for-play is enabled',
         () async {
       final managerWithNetease = AudioStreamManager(
-        delegate: delegate,
+        streamResolutionService: streamResolutionService,
         settingsRepository: settingsRepository,
         neteaseAccountService: _HeaderOnlyNeteaseAccountService(isar),
       );
@@ -831,7 +812,7 @@ void main() {
       settings.useNeteaseAuthForPlay = true;
       await settingsRepository.save(settings);
       final managerWithNetease = AudioStreamManager(
-        delegate: delegate,
+        streamResolutionService: streamResolutionService,
         settingsRepository: settingsRepository,
         neteaseAccountService: _HeaderOnlyNeteaseAccountService(isar),
         playbackUrlResolver: (sourceType, url, authHeaders) async {
@@ -865,7 +846,7 @@ void main() {
       final bilibiliAccountService = _HeaderOnlyBilibiliAccountService(isar);
       final youtubeAccountService = _HeaderOnlyYouTubeAccountService(isar);
       final managerWithAccounts = AudioStreamManager(
-        delegate: delegate,
+        streamResolutionService: streamResolutionService,
         settingsRepository: settingsRepository,
         bilibiliAccountService: bilibiliAccountService,
         youtubeAccountService: youtubeAccountService,
@@ -967,18 +948,19 @@ Track _track(String sourceId, {required String title}) {
 }
 
 class _FakeSourceManager extends SourceManager {
-  _FakeSourceManager() : super();
+  _FakeSourceManager() : super(sources: const []);
 
   dynamic source = _FakeSource();
 
   @override
-  BaseSource? getSource(SourceType type) => source as BaseSource;
+  AudioStreamSource? audioStreamSource(SourceType type) =>
+      source is AudioStreamSource ? source as AudioStreamSource : null;
 
   @override
   void dispose() {}
 }
 
-class _FakeSource extends BaseSource {
+class _FakeSource implements AudioStreamSource {
   AudioStreamRequest? lastAlternativeRequest;
   AudioStreamConfig? lastAlternativeConfig;
   String? lastFailedUrl;
@@ -1000,40 +982,13 @@ class _FakeSource extends BaseSource {
   SourceType get sourceType => SourceType.youtube;
 
   @override
-  Future<bool> checkAvailability(String sourceId) async => true;
-
-  @override
-  bool isPlaylistUrl(String url) => false;
-
-  @override
-  bool isValidId(String id) => true;
-
-  @override
-  String? parseId(String url) => url;
-
-  @override
-  Future<PlaylistParseResult> parsePlaylist(
-    String playlistUrl, {
-    int page = 1,
-    int pageSize = 20,
-    Map<String, String>? authHeaders,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Track> getTrackInfo(
-    String sourceId, {
-    Map<String, String>? authHeaders,
-  }) async {
-    return _track(sourceId, title: sourceId);
-  }
-
-  @override
   Future<AudioStreamResult> getAudioStream(AudioStreamRequest request) async {
     audioStreamRequests.add(request);
     audioStreamQualityRequests.add(request.config.qualityLevel);
     lastAudioAuthHeaders = request.authHeaders;
+    if (throwOnRefresh) {
+      throw StateError('refresh failed for ${request.sourceId}');
+    }
     if (failingAudioQualities.contains(request.config.qualityLevel)) {
       throw _FakeSourceException(
         kind: failingAudioKind,
@@ -1076,32 +1031,6 @@ class _FakeSource extends BaseSource {
       expiry: const Duration(minutes: 16),
     );
   }
-
-  @override
-  Future<Track> refreshAudioUrl(
-    Track track, {
-    Map<String, String>? authHeaders,
-  }) async {
-    if (throwOnRefresh) {
-      throw StateError('refresh failed for ${track.sourceId}');
-    }
-    track.audioUrl = 'https://example.com/${track.sourceId}.m4a';
-    track.audioUrlExpiry = DateTime.now().add(const Duration(minutes: 30));
-    return track;
-  }
-
-  @override
-  Future<SearchResult> search(
-    String query, {
-    int page = 1,
-    int pageSize = 20,
-    SearchOrder order = SearchOrder.relevance,
-  }) async {
-    return SearchResult.empty();
-  }
-
-  @override
-  void dispose() {}
 }
 
 class _FakeBilibiliSource extends BilibiliSource {

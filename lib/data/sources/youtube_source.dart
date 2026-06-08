@@ -10,12 +10,20 @@ import '../models/settings.dart';
 import '../models/track.dart';
 import '../models/video_detail.dart';
 import 'base_source.dart';
+import 'source_capabilities.dart';
 import 'source_exception.dart';
 import 'source_http_policy.dart';
 import 'youtube_exception.dart';
 
 /// YouTube 音源实现
-class YouTubeSource extends BaseSource with Logging {
+class YouTubeSource
+    with Logging
+    implements
+        TrackInfoSource,
+        AudioStreamSource,
+        SearchSource,
+        PlaylistParsingSource,
+        AvailabilitySource {
   late final yt.YoutubeExplode _youtube;
   late final Dio _dio;
 
@@ -158,6 +166,9 @@ class YouTubeSource extends BaseSource with Logging {
     // YouTube video ID 是 11 个字符
     return RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(id);
   }
+
+  @override
+  bool canHandle(String url) => parseId(url) != null;
 
   @override
   bool isPlaylistUrl(String url) {
@@ -2263,7 +2274,6 @@ class YouTubeSource extends BaseSource with Logging {
         code: classified.code, message: classified.message);
   }
 
-  @override
   void dispose() {
     _youtube.close();
     _dio.close();

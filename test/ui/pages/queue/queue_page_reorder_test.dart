@@ -19,6 +19,7 @@ import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
 import 'package:fmp/services/audio/queue_manager.dart';
 import 'package:fmp/services/audio/queue_persistence_manager.dart';
+import 'package:fmp/services/audio/stream_resolution_service.dart';
 import 'package:fmp/services/audio/windows_smtc_handler.dart';
 import 'package:fmp/ui/pages/queue/queue_page.dart';
 import 'package:isar/isar.dart';
@@ -90,10 +91,14 @@ class _QueuePageHarness {
   _QueuePageHarness({
     required this.isar,
     required this.controller,
+    required this.sourceManager,
+    required this.streamResolutionService,
   });
 
   final Isar isar;
   final _QueuePageTestAudioController controller;
+  final SourceManager sourceManager;
+  final DefaultStreamResolutionService streamResolutionService;
 
   static Future<_QueuePageHarness> create() async {
     final isar = await Isar.open(
@@ -110,10 +115,16 @@ class _QueuePageHarness {
       trackRepository: trackRepository,
       settingsRepository: settingsRepository,
     );
-    final audioStreamManager = AudioStreamManager(
+    final sourceManager = SourceManager();
+    final streamResolutionService = DefaultStreamResolutionService(
       trackRepository: trackRepository,
       settingsRepository: settingsRepository,
-      sourceManager: SourceManager(),
+      sourceManager: sourceManager,
+      getAuthHeaders: (_) async => null,
+    );
+    final audioStreamManager = AudioStreamManager(
+      streamResolutionService: streamResolutionService,
+      settingsRepository: settingsRepository,
     );
     final queueManager = QueueManager(
       queueRepository: queueRepository,
@@ -131,11 +142,18 @@ class _QueuePageHarness {
       ],
     );
 
-    return _QueuePageHarness(isar: isar, controller: controller);
+    return _QueuePageHarness(
+      isar: isar,
+      controller: controller,
+      sourceManager: sourceManager,
+      streamResolutionService: streamResolutionService,
+    );
   }
 
   Future<void> dispose() async {
     controller.dispose();
+    streamResolutionService.dispose();
+    sourceManager.dispose();
     await isar.close(deleteFromDisk: true);
   }
 }

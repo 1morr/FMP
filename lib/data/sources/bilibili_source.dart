@@ -11,6 +11,7 @@ import '../models/track.dart';
 import '../models/video_detail.dart';
 import 'base_source.dart';
 import 'bilibili_exception.dart';
+import 'source_capabilities.dart';
 import 'source_exception.dart';
 import 'source_http_policy.dart';
 
@@ -33,7 +34,14 @@ class _BilibiliApiParams {
 }
 
 /// Bilibili 音源实现
-class BilibiliSource extends BaseSource with Logging {
+class BilibiliSource
+    with Logging
+    implements
+        TrackInfoSource,
+        AudioStreamSource,
+        SearchSource,
+        PlaylistParsingSource,
+        AvailabilitySource {
   late final Dio _dio;
   late final Dio _liveDio;
   late Options _searchOptions;
@@ -172,6 +180,9 @@ class BilibiliSource extends BaseSource with Logging {
   bool isValidId(String id) {
     return RegExp(r'^BV[a-zA-Z0-9]{10}$').hasMatch(id);
   }
+
+  @override
+  bool canHandle(String url) => parseId(url) != null;
 
   @override
   bool isPlaylistUrl(String url) {
@@ -1279,7 +1290,6 @@ class BilibiliSource extends BaseSource with Logging {
     }
   }
 
-  @override
   void dispose() {
     _dio.close();
     if (!identical(_liveDio, _dio)) {
