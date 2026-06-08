@@ -9,8 +9,8 @@ import 'dart:async';
 import '../../../data/models/settings.dart' as model;
 import '../../../data/models/track.dart';
 import '../../../data/sources/base_source.dart' as fmp;
+import '../../../data/sources/source_provider.dart';
 import '../../../data/sources/source_http_policy.dart';
-import '../../../data/sources/youtube_source.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../providers/account/account_provider.dart';
 
@@ -680,8 +680,16 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
       _status = '正在使用当前 YouTube 登录状态探测...';
     });
 
-    final source = YouTubeSource();
     try {
+      final manager = ref.read(sourceManagerProvider);
+      final detailSource = manager.trackDetailSource(SourceType.youtube);
+      final streamSource = manager.audioStreamSource(SourceType.youtube);
+      if (detailSource == null || streamSource == null) {
+        _log('❌ YouTube source capabilities unavailable');
+        setState(() => _status = 'YouTube source unavailable');
+        return;
+      }
+
       _log('');
       _log('╔══════════════════════════════════════════════╗');
       _log('║        YouTube 登录状态私人视频探测 Demo       ║');
@@ -700,8 +708,10 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
       _log('');
       _log('--- 1. getVideoDetail(authHeaders) ---');
       try {
-        final detail =
-            await source.getVideoDetail(videoId, authHeaders: authHeaders);
+        final detail = await detailSource.getVideoDetail(
+          videoId,
+          authHeaders: authHeaders,
+        );
         _log('✅ Detail OK');
         _log('  title=${detail.title}');
         _log('  author=${detail.ownerName}');
@@ -713,7 +723,7 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
 
       _log('');
       _log('--- 2. getAudioStream(authHeaders) ---');
-      final stream = await source.getAudioStream(
+      final stream = await streamSource.getAudioStream(
         fmp.AudioStreamRequest(
           sourceId: videoId,
           config: fmp.AudioStreamConfig.defaultConfig,
@@ -763,7 +773,6 @@ class _YouTubeStreamTestPageState extends ConsumerState<YouTubeStreamTestPage> {
       _log('❌ Auth probe failed: $e');
       setState(() => _status = '认证探测失败: $e');
     } finally {
-      source.dispose();
       if (mounted) {
         setState(() => _isLoading = false);
       }

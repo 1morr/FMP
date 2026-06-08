@@ -266,7 +266,7 @@ void main() {
         sourceManager: SourceManager(),
       );
       final limit = service.debugPendingProgressLimit;
-      final overflow = 5;
+      const overflow = 5;
 
       for (var i = 1; i <= limit + overflow; i++) {
         service.debugRecordProgressUpdateForTesting(i, i, i / 100, i, 100);
@@ -1529,7 +1529,9 @@ Future<String> _resolveIsarLibraryPath() async {
 
   for (final package in packages) {
     if (package is! Map<String, dynamic> ||
-        package['name'] != 'isar_flutter_libs') continue;
+        package['name'] != 'isar_flutter_libs') {
+      continue;
+    }
     final packageDir = Directory(packageConfigDir.uri
         .resolve(package['rootUri'] as String)
         .toFilePath());
@@ -1569,12 +1571,13 @@ class _SingleSourceManager extends SourceManager {
   }
 
   @override
-  BilibiliSource? get bilibiliSource =>
-      _source is BilibiliSource ? _source as BilibiliSource : null;
-
-  @override
-  YouTubeSource? get youtubeSource =>
-      _source is YouTubeSource ? _source as YouTubeSource : null;
+  TrackDetailSource? trackDetailSource(SourceType type) {
+    final Object source = _source;
+    if (type == _source.sourceType && source is TrackDetailSource) {
+      return source;
+    }
+    return null;
+  }
 
   @override
   void dispose() {
@@ -1664,7 +1667,6 @@ class _RecordingAudioSource extends _StaticAudioSource {
   _RecordingAudioSource(
     super.audioUrl, {
     super.sourceTypeOverride,
-    super.streamExpiry,
   });
 
   final List<Map<String, String>?> recordedAuthHeaders = [];

@@ -365,8 +365,13 @@ class PlaylistDetailNotifier extends StateNotifier<PlaylistDetailState> {
         return;
       }
 
-      final youtubeSource = _ref.read(youtubeSourceProvider);
-      final result = await youtubeSource.fetchMixTracks(
+      final dynamicSource = _ref
+          .read(sourceManagerProvider)
+          .dynamicPlaylistSource(SourceType.youtube);
+      if (dynamicSource == null) {
+        throw StateError(t.importSource.mixLoadFailed);
+      }
+      final result = await dynamicSource.fetchMixTracks(
         playlistId: playlist.mixPlaylistId!,
         currentVideoId: playlist.mixSeedVideoId!,
       );

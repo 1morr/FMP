@@ -1,29 +1,34 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
 import 'package:fmp/data/models/video_detail.dart';
-import 'package:fmp/data/sources/bilibili_source.dart';
-import 'package:fmp/data/sources/netease_source.dart';
-import 'package:fmp/data/sources/youtube_source.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
+import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/providers/account/account_provider.dart';
 import 'package:fmp/providers/library/track_detail_provider.dart';
 import 'package:fmp/services/account/bilibili_account_service.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
 import 'package:fmp/services/account/youtube_account_service.dart';
 import 'package:isar/isar.dart';
+import 'package:path/path.dart' as p;
 
 void main() {
   test('loadDetail treats same-source multi-page tracks as different tracks',
       () async {
-    final bilibili = _CompletingBilibiliSource();
-    final notifier = TrackDetailNotifier(
+    final bilibili = _CompletingTrackDetailSource(SourceType.bilibili);
+    final youtube = _CompletingTrackDetailSource(SourceType.youtube);
+    final netease = _CompletingTrackDetailSource(SourceType.netease);
+    final sourceManager = SourceManager(sources: [
       bilibili,
-      _CompletingYouTubeSource(),
-      _CompletingNeteaseSource(),
-      _FakeRef(),
-    );
+      youtube,
+      netease,
+    ]);
+    addTearDown(sourceManager.dispose);
+
+    final notifier = TrackDetailNotifier(sourceManager, _FakeRef());
 
     final pageOne = _track('BV-SAME', SourceType.bilibili)
       ..cid = 101
@@ -40,7 +45,7 @@ void main() {
     final secondLoad = notifier.loadDetail(pageTwo);
     await pumpEventQueue(times: 2);
 
-    expect(bilibili.calls, ['BV-SAME', 'BV-SAME']);
+    expect(bilibili.requests, ['BV-SAME', 'BV-SAME']);
 
     bilibili.complete('BV-SAME', _detail('BV-SAME', 'Page Two'));
     await secondLoad;
@@ -49,11 +54,17 @@ void main() {
   });
 
   test('refresh ignores stale detail after current track changes', () async {
-    final bilibili = _CompletingBilibiliSource();
-    final youtube = _CompletingYouTubeSource();
-    final netease = _CompletingNeteaseSource();
-    final notifier =
-        TrackDetailNotifier(bilibili, youtube, netease, _FakeRef());
+    final bilibili = _CompletingTrackDetailSource(SourceType.bilibili);
+    final youtube = _CompletingTrackDetailSource(SourceType.youtube);
+    final netease = _CompletingTrackDetailSource(SourceType.netease);
+    final sourceManager = SourceManager(sources: [
+      bilibili,
+      youtube,
+      netease,
+    ]);
+    addTearDown(sourceManager.dispose);
+
+    final notifier = TrackDetailNotifier(sourceManager, _FakeRef());
 
     final trackA = _track('BV-A', SourceType.bilibili);
     final trackB = _track('YT-B', SourceType.youtube);
@@ -65,7 +76,7 @@ void main() {
 
     final refreshFuture = notifier.refresh();
     await pumpEventQueue(times: 2);
-    expect(bilibili.calls, ['BV-A', 'BV-A']);
+    expect(bilibili.requests, ['BV-A', 'BV-A']);
 
     final loadTrackBFuture = notifier.loadDetail(trackB);
     await pumpEventQueue(times: 2);
@@ -81,14 +92,17 @@ void main() {
 
   test('loadDetail clears old detail while loading a different track',
       () async {
-    final bilibili = _CompletingBilibiliSource();
-    final youtube = _CompletingYouTubeSource();
-    final notifier = TrackDetailNotifier(
+    final bilibili = _CompletingTrackDetailSource(SourceType.bilibili);
+    final youtube = _CompletingTrackDetailSource(SourceType.youtube);
+    final netease = _CompletingTrackDetailSource(SourceType.netease);
+    final sourceManager = SourceManager(sources: [
       bilibili,
       youtube,
-      _CompletingNeteaseSource(),
-      _FakeRef(),
-    );
+      netease,
+    ]);
+    addTearDown(sourceManager.dispose);
+
+    final notifier = TrackDetailNotifier(sourceManager, _FakeRef());
 
     final trackA = _track('BV-A', SourceType.bilibili);
     final initialLoadFuture = notifier.loadDetail(trackA);
@@ -114,13 +128,17 @@ void main() {
   });
 
   test('refresh retries current track after first detail load fails', () async {
-    final youtube = _CompletingYouTubeSource();
-    final notifier = TrackDetailNotifier(
-      _CompletingBilibiliSource(),
+    final bilibili = _CompletingTrackDetailSource(SourceType.bilibili);
+    final youtube = _CompletingTrackDetailSource(SourceType.youtube);
+    final netease = _CompletingTrackDetailSource(SourceType.netease);
+    final sourceManager = SourceManager(sources: [
+      bilibili,
       youtube,
-      _CompletingNeteaseSource(),
-      _FakeRef(),
-    );
+      netease,
+    ]);
+    addTearDown(sourceManager.dispose);
+
+    final notifier = TrackDetailNotifier(sourceManager, _FakeRef());
 
     final track = _track('YT-B', SourceType.youtube);
     final loadFuture = notifier.loadDetail(track);
@@ -135,13 +153,78 @@ void main() {
     final refreshFuture = notifier.refresh();
     await pumpEventQueue(times: 2);
 
-    expect(youtube.calls, ['YT-B', 'YT-B']);
+    expect(youtube.requests, ['YT-B', 'YT-B']);
 
     youtube.complete('YT-B', _detail('YT-B', 'Track B retry'));
     await refreshFuture;
 
     expect(notifier.state.detail!.title, 'Track B retry');
     expect(notifier.state.error, isNull);
+  });
+
+  test('loadDetail does not mask missing source with local metadata fallback',
+      () async {
+    final sourceManager = SourceManager(sources: []);
+    addTearDown(sourceManager.dispose);
+
+    final tempDir =
+        await Directory.systemTemp.createTemp('track_detail_missing_source_');
+    addTearDown(() => tempDir.delete(recursive: true));
+
+    final downloadDir = await Directory(p.join(tempDir.path, 'download'))
+        .create(recursive: true);
+    await File(p.join(downloadDir.path, 'metadata.json')).writeAsString('''
+{
+  "sourceId": "BV-MISSING",
+  "title": "Local metadata should not mask missing source",
+  "viewCount": 123
+}
+''');
+
+    final track = _track('BV-MISSING', SourceType.bilibili)
+      ..setDownloadPath(1, p.join(downloadDir.path, 'audio.m4a'));
+    final notifier = TrackDetailNotifier(sourceManager, _FakeRef());
+
+    await notifier.loadDetail(track);
+
+    expect(notifier.state.detail, isNull);
+    expect(
+      notifier.state.error,
+      contains('Track detail source not registered: bilibili'),
+    );
+  });
+
+  test('loadDetail falls back to metadata for registered source StateError',
+      () async {
+    final bilibili = _CompletingTrackDetailSource(SourceType.bilibili);
+    final sourceManager = SourceManager(sources: [bilibili]);
+    addTearDown(sourceManager.dispose);
+
+    final tempDir =
+        await Directory.systemTemp.createTemp('track_detail_source_error_');
+    addTearDown(() => tempDir.delete(recursive: true));
+
+    final downloadDir = await Directory(p.join(tempDir.path, 'download'))
+        .create(recursive: true);
+    await File(p.join(downloadDir.path, 'metadata.json')).writeAsString('''
+{
+  "sourceId": "BV-STATE",
+  "title": "Local metadata after source StateError",
+  "viewCount": 456
+}
+''');
+
+    final track = _track('BV-STATE', SourceType.bilibili)
+      ..setDownloadPath(1, p.join(downloadDir.path, 'audio.m4a'));
+    final notifier = TrackDetailNotifier(sourceManager, _FakeRef());
+
+    final loadFuture = notifier.loadDetail(track);
+    await pumpEventQueue(times: 2);
+    bilibili.completeError('BV-STATE', StateError('simulated detail failure'));
+    await loadFuture;
+
+    expect(notifier.state.error, isNull);
+    expect(notifier.state.detail!.title, 'Local metadata after source StateError');
   });
 }
 
@@ -173,18 +256,23 @@ VideoDetail _detail(String sourceId, String title) {
   );
 }
 
-class _CompletingBilibiliSource extends BilibiliSource {
-  final calls = <String>[];
+class _CompletingTrackDetailSource implements TrackDetailSource {
+  _CompletingTrackDetailSource(this.sourceType);
+
+  @override
+  final SourceType sourceType;
+
+  final requests = <String>[];
   final _completers = <String, List<Completer<VideoDetail>>>{};
 
   @override
   Future<VideoDetail> getVideoDetail(
-    String bvid, {
+    String sourceId, {
     Map<String, String>? authHeaders,
   }) {
-    calls.add(bvid);
+    requests.add(sourceId);
     final completer = Completer<VideoDetail>();
-    _completers.putIfAbsent(bvid, () => []).add(completer);
+    _completers.putIfAbsent(sourceId, () => []).add(completer);
     return completer.future;
   }
 
@@ -196,45 +284,19 @@ class _CompletingBilibiliSource extends BilibiliSource {
     _completers[sourceId]!.removeAt(0).completeError(error);
   }
 }
-
-class _CompletingYouTubeSource extends YouTubeSource {
-  final calls = <String>[];
-  final _completers = <String, List<Completer<VideoDetail>>>{};
-
-  @override
-  Future<VideoDetail> getVideoDetail(
-    String videoId, {
-    Map<String, String>? authHeaders,
-  }) {
-    calls.add(videoId);
-    final completer = Completer<VideoDetail>();
-    _completers.putIfAbsent(videoId, () => []).add(completer);
-    return completer.future;
-  }
-
-  void complete(String sourceId, VideoDetail detail) {
-    _completers[sourceId]!.removeAt(0).complete(detail);
-  }
-
-  void completeError(String sourceId, Object error) {
-    _completers[sourceId]!.removeAt(0).completeError(error);
-  }
-}
-
-class _CompletingNeteaseSource extends NeteaseSource {}
 
 class _FakeRef extends Fake implements Ref {
   final _isar = _FakeIsar();
 
   @override
   T read<T>(ProviderListenable<T> provider) {
-    if (provider == bilibiliAccountServiceProvider) {
+    if (identical(provider, bilibiliAccountServiceProvider)) {
       return _FakeBilibiliAccountService(_isar) as T;
     }
-    if (provider == youtubeAccountServiceProvider) {
+    if (identical(provider, youtubeAccountServiceProvider)) {
       return _FakeYouTubeAccountService(_isar) as T;
     }
-    if (provider == neteaseAccountServiceProvider) {
+    if (identical(provider, neteaseAccountServiceProvider)) {
       return _FakeNeteaseAccountService(_isar) as T;
     }
     throw UnimplementedError('Unexpected provider: $provider');

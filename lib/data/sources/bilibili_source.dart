@@ -15,6 +15,7 @@ import 'bilibili_live_client.dart';
 import 'source_capabilities.dart';
 import 'source_exception.dart';
 import 'source_http_policy.dart';
+import 'source_url_policy.dart';
 
 /// Bilibili API 参数常量
 class _BilibiliApiParams {
@@ -42,7 +43,11 @@ class BilibiliSource
         AudioStreamSource,
         SearchSource,
         PlaylistParsingSource,
-        AvailabilitySource {
+        AvailabilitySource,
+        TrackDetailSource,
+        PagedVideoSource,
+        RankingSource,
+        LiveSource {
   late final Dio _dio;
   late final Dio _liveDio;
   late Options _searchOptions;
@@ -695,6 +700,7 @@ class BilibiliSource
   }
 
   /// 获取视频分P列表
+  @override
   Future<List<VideoPage>> getVideoPages(String bvid,
       {Map<String, String>? authHeaders}) async {
     try {
@@ -787,6 +793,7 @@ class BilibiliSource
   }
 
   /// 获取视频详细信息（包括统计数据和UP主信息）
+  @override
   Future<VideoDetail> getVideoDetail(String bvid,
       {Map<String, String>? authHeaders}) async {
     try {
@@ -941,6 +948,11 @@ class BilibiliSource
     }
   }
 
+  @override
+  Future<List<Track>> getRankingTracks(SourceRankingRequest request) {
+    return getRankingVideos(rid: request.regionId ?? 0);
+  }
+
   Future<Response<dynamic>> _fetchRankingVideosResponse(int rid) {
     return _dio.get(
       _rankingApi,
@@ -1034,25 +1046,7 @@ class BilibiliSource
 
   /// 解析收藏夹 ID（公開靜態方法，供遠程收藏夾操作使用）
   static String? parseFavoritesId(String url) {
-    // 格式1: fid=123456
-    final fidMatch = RegExp(r'fid=(\d+)').firstMatch(url);
-    if (fidMatch != null) {
-      return fidMatch.group(1);
-    }
-
-    // 格式2: ml123456
-    final mlMatch = RegExp(r'ml(\d+)').firstMatch(url);
-    if (mlMatch != null) {
-      return mlMatch.group(1);
-    }
-
-    // 格式3: /medialist/detail/ml123456
-    final detailMatch = RegExp(r'/detail/ml(\d+)').firstMatch(url);
-    if (detailMatch != null) {
-      return detailMatch.group(1);
-    }
-
-    return null;
+    return SourceUrlPolicy.parseBilibiliFavoritesId(url);
   }
 
   /// 清理 HTML 标签
@@ -1093,6 +1087,7 @@ class BilibiliSource
 
   /// 搜索直播间（综合搜索）
   /// [filter]: all=全部, offline=未开播, online=已开播
+  @override
   Future<LiveSearchResult> searchLiveRooms(
     String query, {
     int page = 1,
@@ -1122,6 +1117,7 @@ class BilibiliSource
   }
 
   /// 获取直播流地址
+  @override
   Future<String?> getLiveStreamUrl(int roomId) async {
     return _liveClient.getSearchStreamUrl(roomId);
   }

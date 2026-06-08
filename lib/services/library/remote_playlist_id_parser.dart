@@ -1,5 +1,5 @@
 import '../../data/models/track.dart';
-import '../../data/sources/bilibili_source.dart';
+import '../../data/sources/source_url_policy.dart';
 
 class RemotePlaylistIdParser {
   const RemotePlaylistIdParser._();
@@ -7,7 +7,7 @@ class RemotePlaylistIdParser {
   static String? parse(SourceType sourceType, String url) {
     switch (sourceType) {
       case SourceType.bilibili:
-        return BilibiliSource.parseFavoritesId(url);
+        return SourceUrlPolicy.parseBilibiliFavoritesId(url);
       case SourceType.youtube:
         return parseYoutubePlaylistId(url);
       case SourceType.netease:
@@ -16,7 +16,7 @@ class RemotePlaylistIdParser {
   }
 
   static int? parseBilibiliFolderId(String url) {
-    final folderId = BilibiliSource.parseFavoritesId(url);
+    final folderId = SourceUrlPolicy.parseBilibiliFavoritesId(url);
     return folderId == null ? null : int.tryParse(folderId);
   }
 

@@ -258,7 +258,9 @@ class _RefreshSourceManager extends SourceManager {
   PlaylistParsingSource? playlistParsingSourceForUrl(String url) => source;
 
   @override
-  BilibiliSource? get bilibiliSource => source;
+  PagedVideoSource? pagedVideoSource(SourceType type) {
+    return type == SourceType.bilibili ? source : null;
+  }
 
   @override
   void dispose() {}

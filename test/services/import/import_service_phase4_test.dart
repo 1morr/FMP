@@ -124,11 +124,40 @@ void main() {
       expect(source.lastParseAuthHeaders, isNull);
     });
 
+    test('importFromUrl keeps RD-list non-youtube URLs on parser path',
+        () async {
+      final source = _FakeGenericSource(SourceType.netease);
+      final mixSource = _FakeYouTubeSource()
+        ..mixInfo = const MixPlaylistInfo(
+          title: 'Wrong Mix',
+          playlistId: 'RDdvgZkm1xWPE',
+          seedVideoId: 'dvgZkm1xWPE',
+        );
+      sourceManager.detectedSource = source;
+      sourceManager.dynamicPlaylistSourceOverride = mixSource;
+      final service = ImportService(
+        sourceManager: sourceManager,
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        isar: isar,
+      );
+
+      await expectLater(
+        () => service.importFromUrl(
+          'https://music.163.com/playlist?id=42&list=RDdvgZkm1xWPE',
+        ),
+        throwsA(isA<_ParseSentinel>()),
+      );
+
+      expect(sourceManager.dynamicPlaylistLookupCount, 1);
+      expect(source.lastParseAuthHeaders, isNull);
+      expect(mixSource.lastMixInfoUrl, isNull);
+    });
+
     test('importFromUrl normalizes mix shorthand before YouTube Mix import',
         () async {
       final source = _FakeYouTubeSource();
       sourceManager.detectedSource = source;
-      sourceManager.youtubeSource = source;
       final service = ImportService(
         sourceManager: sourceManager,
         playlistRepository: playlistRepository,
@@ -145,6 +174,7 @@ void main() {
           'https://www.youtube.com/watch?v=dvgZkm1xWPE&list=RDdvgZkm1xWPE');
       expect(source.lastMixInfoUrl,
           'https://www.youtube.com/watch?v=dvgZkm1xWPE&list=RDdvgZkm1xWPE');
+      expect(sourceManager.dynamicPlaylistLookupCount, 1);
     });
 
     test('importFromUrl stores normalized sourceUrl for shorthand Mix playlist',
@@ -157,7 +187,6 @@ void main() {
           coverUrl: 'https://img.example/cover.jpg',
         );
       sourceManager.detectedSource = source;
-      sourceManager.youtubeSource = source;
       final service = ImportService(
         sourceManager: sourceManager,
         playlistRepository: playlistRepository,
@@ -173,6 +202,7 @@ void main() {
       expect(result.playlist.sourceUrl,
           'https://www.youtube.com/watch?v=dvgZkm1xWPE&list=RDdvgZkm1xWPE');
       expect(result.addedCount, 0);
+      expect(sourceManager.dynamicPlaylistLookupCount, 1);
     });
 
     test('importFromUrl reports cancellation after mutation instead of success',
@@ -366,7 +396,8 @@ class _FakeSourceManager extends SourceManager {
   _FakeSourceManager() : super(sources: const []);
 
   PlaylistParsingSource? detectedSource;
-  YouTubeSource? youtubeSourceOverride;
+  DynamicPlaylistSource? dynamicPlaylistSourceOverride;
+  int dynamicPlaylistLookupCount = 0;
   String? lastDetectedUrl;
 
   @override
@@ -376,13 +407,12 @@ class _FakeSourceManager extends SourceManager {
   }
 
   @override
-  YouTubeSource? get youtubeSource =>
-      youtubeSourceOverride ??
-      (detectedSource is YouTubeSource
-          ? detectedSource as YouTubeSource
-          : null);
-
-  set youtubeSource(YouTubeSource? source) => youtubeSourceOverride = source;
+  DynamicPlaylistSource? dynamicPlaylistSourceForUrl(String url) {
+    dynamicPlaylistLookupCount++;
+    final Object? source = dynamicPlaylistSourceOverride ?? detectedSource;
+    if (source is! DynamicPlaylistSource) return null;
+    return source.isDynamicPlaylistUrl(url) ? source : null;
+  }
 
   @override
   void dispose() {}

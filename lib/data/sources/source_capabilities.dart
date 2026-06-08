@@ -1,5 +1,8 @@
+import '../models/live_room.dart';
 import '../models/track.dart';
+import '../models/video_detail.dart';
 import 'base_source.dart';
+import 'dynamic_playlist_types.dart';
 
 abstract interface class SourceCapability {
   SourceType get sourceType;
@@ -39,6 +42,58 @@ extension AudioStreamSourceConvenience on AudioStreamSource {
     final result = await getAlternativeAudioStream(request);
     return result?.url;
   }
+}
+
+abstract interface class TrackDetailSource implements SourceCapability {
+  Future<VideoDetail> getVideoDetail(
+    String sourceId, {
+    Map<String, String>? authHeaders,
+  });
+}
+
+abstract interface class PagedVideoSource implements SourceCapability {
+  Future<List<VideoPage>> getVideoPages(
+    String sourceId, {
+    Map<String, String>? authHeaders,
+  });
+}
+
+abstract interface class DynamicPlaylistSource implements SourceCapability {
+  bool isDynamicPlaylistUrl(String url);
+
+  Future<MixPlaylistInfo> getMixPlaylistInfo(String url);
+
+  Future<MixFetchResult> fetchMixTracks({
+    required String playlistId,
+    required String currentVideoId,
+  });
+}
+
+class SourceRankingRequest {
+  const SourceRankingRequest({
+    this.regionId,
+    this.category,
+    this.limit,
+  });
+
+  final int? regionId;
+  final String? category;
+  final int? limit;
+}
+
+abstract interface class RankingSource implements SourceCapability {
+  Future<List<Track>> getRankingTracks(SourceRankingRequest request);
+}
+
+abstract interface class LiveSource implements SourceCapability {
+  Future<LiveSearchResult> searchLiveRooms(
+    String query, {
+    int page = 1,
+    int pageSize = 20,
+    LiveRoomFilter filter = LiveRoomFilter.all,
+  });
+
+  Future<String?> getLiveStreamUrl(int roomId);
 }
 
 abstract interface class SearchSource implements SourceCapability {

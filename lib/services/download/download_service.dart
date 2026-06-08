@@ -878,26 +878,15 @@ class DownloadService with Logging {
       VideoDetail? videoDetail;
       try {
         final settings = await _settingsRepository.get();
-        if (track.sourceType == SourceType.bilibili) {
-          final source = _sourceManager.bilibiliSource;
-          if (source != null) {
-            final detailAuthHeaders =
-                settings.useAuthForPlay(SourceType.bilibili)
-                    ? await _getAuthHeaders(SourceType.bilibili)
-                    : null;
-            videoDetail = await source.getVideoDetail(track.sourceId,
-                authHeaders: detailAuthHeaders);
-          }
-        } else if (track.sourceType == SourceType.youtube) {
-          final source = _sourceManager.youtubeSource;
-          if (source != null) {
-            final detailAuthHeaders =
-                settings.useAuthForPlay(SourceType.youtube)
-                    ? await _getAuthHeaders(SourceType.youtube)
-                    : null;
-            videoDetail = await source.getVideoDetail(track.sourceId,
-                authHeaders: detailAuthHeaders);
-          }
+        final detailSource = _sourceManager.trackDetailSource(track.sourceType);
+        if (detailSource != null && track.sourceType != SourceType.netease) {
+          final detailAuthHeaders = settings.useAuthForPlay(track.sourceType)
+              ? await _getAuthHeaders(track.sourceType)
+              : null;
+          videoDetail = await detailSource.getVideoDetail(
+            track.sourceId,
+            authHeaders: detailAuthHeaders,
+          );
         }
       } catch (e) {
         logDebug('Failed to get video detail: $e');

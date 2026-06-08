@@ -4,9 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/data/sources/bilibili_source.dart';
-import 'package:fmp/data/sources/netease_source.dart';
-import 'package:fmp/data/sources/youtube_source.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/providers/ui/selection_provider.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
@@ -150,9 +148,9 @@ class _StaticRankingCacheService extends RankingCacheService {
     required List<Track> youtubeTracks,
     required List<Track> neteaseTracks,
   }) : super(
-          bilibiliSource: _FakeBilibiliSource(),
-          youtubeSource: _FakeYouTubeSource(),
-          neteaseSource: _FakeNeteaseSource(),
+          bilibiliRankingSource: _FakeRankingSource(SourceType.bilibili),
+          youtubeRankingSource: _FakeRankingSource(SourceType.youtube),
+          neteaseRankingSource: _FakeRankingSource(SourceType.netease),
         ) {
     state = RankingCacheState(
       bilibiliTracks: List.unmodifiable(bilibiliTracks),
@@ -175,21 +173,14 @@ class _StaticRankingCacheService extends RankingCacheService {
   Future<void> refreshNetease() async {}
 }
 
-class _FakeBilibiliSource extends BilibiliSource {
-  @override
-  Future<List<Track>> getRankingVideos({int rid = 0}) async => const <Track>[];
-}
+class _FakeRankingSource implements RankingSource {
+  _FakeRankingSource(this.sourceType);
 
-class _FakeYouTubeSource extends YouTubeSource {
   @override
-  Future<List<Track>> getTrendingVideos({String category = 'music'}) async {
-    return const <Track>[];
-  }
-}
+  final SourceType sourceType;
 
-class _FakeNeteaseSource extends NeteaseSource {
   @override
-  Future<List<Track>> getHotRankingTracks({int limit = 50}) async {
+  Future<List<Track>> getRankingTracks(SourceRankingRequest request) async {
     return const <Track>[];
   }
 }

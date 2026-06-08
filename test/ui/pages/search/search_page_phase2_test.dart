@@ -1,6 +1,14 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/models/video_detail.dart';
+import 'package:fmp/data/repositories/track_repository.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
+import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/services/account/bilibili_account_service.dart';
+import 'package:fmp/services/search/search_service.dart';
+import 'package:isar/isar.dart';
 
 void main() {
   group('Phase 2 key and boundary coverage', () {
@@ -13,7 +21,8 @@ void main() {
       ).readAsStringSync();
 
       expect(
-        RegExp(r'const\s+_SearchResultTile\s*\(\s*\{\s*super\.key,', dotAll: true)
+        RegExp(r'const\s+_SearchResultTile\s*\(\s*\{\s*super\.key,',
+                dotAll: true)
             .hasMatch(searchPageSource),
         isTrue,
         reason:
@@ -78,7 +87,9 @@ void main() {
       );
     });
 
-    test('search page delegates bilibili page loading to notifier and service APIs', () {
+    test(
+        'search page delegates bilibili page loading to notifier and service APIs',
+        () {
       final searchPageSource = File(
         'lib/ui/pages/search/search_page.dart',
       ).readAsStringSync();
@@ -90,14 +101,16 @@ void main() {
       ).readAsStringSync();
 
       expect(
-        searchProviderSource.contains('Future<List<VideoPage>> loadVideoPagesForTrack(Track track)'),
+        searchProviderSource.contains(
+            'Future<List<VideoPage>> loadVideoPagesForTrack(Track track)'),
         isTrue,
         reason:
             'SearchNotifier should expose a track-owned video-page entry for the search page.',
       );
 
       expect(
-        searchServiceSource.contains('Future<List<VideoPage>> loadVideoPagesForTrack(Track track)'),
+        searchServiceSource.contains(
+            'Future<List<VideoPage>> loadVideoPagesForTrack(Track track)'),
         isTrue,
         reason:
             'SearchService should own bilibili video-page loading behind a helper API.',
@@ -134,7 +147,29 @@ void main() {
       );
     });
 
-    test('playlist mix bootstrap goes through the audio controller boundary', () {
+    test('search service returns empty pages for non-bilibili tracks',
+        () async {
+      final pagedSource = _RecordingPagedVideoSource(SourceType.youtube);
+      final sourceManager = _PagedVideoSourceManager(pagedSource);
+      final service = SearchService(
+        sourceManager: sourceManager,
+        trackRepository: TrackRepository(_FakeIsar()),
+        isar: _FakeIsar(),
+        bilibiliAccountService: BilibiliAccountService(isar: _FakeIsar()),
+      );
+      final track = Track()
+        ..sourceType = SourceType.youtube
+        ..sourceId = 'youtube-video';
+
+      final pages = await service.loadVideoPagesForTrack(track);
+
+      expect(pages, isEmpty);
+      expect(sourceManager.pagedVideoLookupCount, 0);
+      expect(pagedSource.getVideoPagesCallCount, 0);
+    });
+
+    test('playlist mix bootstrap goes through the audio controller boundary',
+        () {
       final playlistCardActionsSource = File(
         'lib/ui/widgets/menus/playlist_card_actions.dart',
       ).readAsStringSync();
@@ -152,7 +187,22 @@ void main() {
       );
 
       expect(
-        playlistCardActionsSource.contains('await controller.startMixFromPlaylist(playlist);'),
+        audioProviderSource.contains('YouTubeSource? _youtubeSource'),
+        isFalse,
+        reason:
+            'AudioController should not keep a concrete YouTube source fallback.',
+      );
+
+      expect(
+        audioProviderSource.contains('youtubeSourceProvider'),
+        isFalse,
+        reason:
+            'Audio provider wiring should inject a MixTracksFetcher from a capability.',
+      );
+
+      expect(
+        playlistCardActionsSource
+            .contains('await controller.startMixFromPlaylist(playlist);'),
         isTrue,
         reason:
             'PlaylistCardActions should call only the audio controller mix entry.',
@@ -174,3 +224,37 @@ void main() {
     });
   });
 }
+
+class _PagedVideoSourceManager extends SourceManager {
+  _PagedVideoSourceManager(this.source) : super(sources: const []);
+
+  final PagedVideoSource source;
+  int pagedVideoLookupCount = 0;
+
+  @override
+  PagedVideoSource? pagedVideoSource(SourceType type) {
+    pagedVideoLookupCount++;
+    return source;
+  }
+}
+
+class _RecordingPagedVideoSource implements PagedVideoSource {
+  _RecordingPagedVideoSource(this.sourceType);
+
+  @override
+  final SourceType sourceType;
+  int getVideoPagesCallCount = 0;
+
+  @override
+  Future<List<VideoPage>> getVideoPages(
+    String sourceId, {
+    Map<String, String>? authHeaders,
+  }) async {
+    getVideoPagesCallCount++;
+    return const [
+      VideoPage(cid: 1, page: 1, part: 'Unexpected page', duration: 1),
+    ];
+  }
+}
+
+class _FakeIsar extends Fake implements Isar {}

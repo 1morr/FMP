@@ -153,7 +153,7 @@ class SearchService {
       return const [];
     }
 
-    final source = _sourceManager.bilibiliSource;
+    final source = _sourceManager.pagedVideoSource(track.sourceType);
     if (source == null) {
       throw SearchException(
         t.error.sourceUnavailable(source: SourceType.bilibili.name),
@@ -161,7 +161,7 @@ class SearchService {
     }
 
     final authHeaders = await buildAuthHeaders(
-      SourceType.bilibili,
+      track.sourceType,
       bilibiliAccountService: _bilibiliAccountService,
     );
 

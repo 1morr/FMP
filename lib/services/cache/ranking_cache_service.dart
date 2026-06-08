@@ -4,10 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/track.dart';
-import '../../data/sources/bilibili_source.dart';
-import '../../data/sources/netease_source.dart';
+import '../../data/sources/source_capabilities.dart';
 import '../../data/sources/source_provider.dart';
-import '../../data/sources/youtube_source.dart';
 import '../network/connectivity_service.dart';
 
 /// 首頁排行榜緩存服務
@@ -81,9 +79,9 @@ class RankingCacheState {
 class RankingCacheService extends StateNotifier<RankingCacheState> {
   static const _defaultInitialLoadTimeout = Duration(seconds: 5);
 
-  final BilibiliSource _bilibiliSource;
-  final YouTubeSource _youtubeSource;
-  final NeteaseSource _neteaseSource;
+  final RankingSource _bilibiliRankingSource;
+  final RankingSource _youtubeRankingSource;
+  final RankingSource _neteaseRankingSource;
   final Duration _initialLoadTimeout;
 
   Timer? _refreshTimer;
@@ -96,13 +94,13 @@ class RankingCacheService extends StateNotifier<RankingCacheState> {
   bool _isDisposed = false;
 
   RankingCacheService({
-    required BilibiliSource bilibiliSource,
-    required YouTubeSource youtubeSource,
-    required NeteaseSource neteaseSource,
+    required RankingSource bilibiliRankingSource,
+    required RankingSource youtubeRankingSource,
+    required RankingSource neteaseRankingSource,
     Duration initialLoadTimeout = _defaultInitialLoadTimeout,
-  })  : _bilibiliSource = bilibiliSource,
-        _youtubeSource = youtubeSource,
-        _neteaseSource = neteaseSource,
+  })  : _bilibiliRankingSource = bilibiliRankingSource,
+        _youtubeRankingSource = youtubeRankingSource,
+        _neteaseRankingSource = neteaseRankingSource,
         _initialLoadTimeout = initialLoadTimeout,
         super(RankingCacheState());
 
@@ -194,7 +192,9 @@ class RankingCacheService extends StateNotifier<RankingCacheState> {
     final generation = ++_bilibiliRefreshGeneration;
     try {
       // rid=1003 是音樂區排行榜的正確 ID（網頁 /v/popular/rank/music 使用此 ID）
-      final tracks = await _bilibiliSource.getRankingVideos(rid: 1003);
+      final tracks = await _bilibiliRankingSource.getRankingTracks(
+        const SourceRankingRequest(regionId: 1003),
+      );
       if (_isDisposed || generation != _bilibiliRefreshGeneration) return;
       state = state.copyWith(
         bilibiliTracks: tracks,
@@ -216,7 +216,9 @@ class RankingCacheService extends StateNotifier<RankingCacheState> {
     if (_isDisposed) return;
     final generation = ++_youtubeRefreshGeneration;
     try {
-      final tracks = await _youtubeSource.getTrendingVideos(category: 'music');
+      final tracks = await _youtubeRankingSource.getRankingTracks(
+        const SourceRankingRequest(category: 'music'),
+      );
       if (_isDisposed || generation != _youtubeRefreshGeneration) return;
       // 按播放數降序排序
       final sortedTracks = List<Track>.of(tracks)
@@ -241,7 +243,9 @@ class RankingCacheService extends StateNotifier<RankingCacheState> {
     if (_isDisposed) return;
     final generation = ++_neteaseRefreshGeneration;
     try {
-      final tracks = await _neteaseSource.getHotRankingTracks();
+      final tracks = await _neteaseRankingSource.getRankingTracks(
+        const SourceRankingRequest(limit: 50),
+      );
       if (_isDisposed || generation != _neteaseRefreshGeneration) return;
       state = state.copyWith(
         neteaseTracks: tracks,
@@ -278,10 +282,25 @@ class RankingCacheService extends StateNotifier<RankingCacheState> {
 /// RankingCacheService Provider（負責設置網絡監聽）
 final rankingCacheServiceProvider =
     StateNotifierProvider<RankingCacheService, RankingCacheState>((ref) {
+  final manager = ref.watch(sourceManagerProvider);
+  final bilibiliRankingSource = manager.rankingSource(SourceType.bilibili);
+  final youtubeRankingSource = manager.rankingSource(SourceType.youtube);
+  final neteaseRankingSource = manager.rankingSource(SourceType.netease);
+  final missingRankingSources = [
+    if (bilibiliRankingSource == null) SourceType.bilibili.name,
+    if (youtubeRankingSource == null) SourceType.youtube.name,
+    if (neteaseRankingSource == null) SourceType.netease.name,
+  ];
+  if (missingRankingSources.isNotEmpty) {
+    throw StateError(
+      'Ranking source not registered: ${missingRankingSources.join(', ')}',
+    );
+  }
+
   final service = RankingCacheService(
-    bilibiliSource: ref.watch(bilibiliSourceProvider),
-    youtubeSource: ref.watch(youtubeSourceProvider),
-    neteaseSource: ref.watch(neteaseAudioSourceProvider),
+    bilibiliRankingSource: bilibiliRankingSource!,
+    youtubeRankingSource: youtubeRankingSource!,
+    neteaseRankingSource: neteaseRankingSource!,
   );
 
   Future.microtask(() => service.initialize());

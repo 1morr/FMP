@@ -58,20 +58,26 @@ class SourceManager {
   AvailabilitySource? availabilitySource(SourceType type) =>
       _capability<AvailabilitySource>(type);
 
-  BilibiliSource? get bilibiliSource {
-    final source = _capability<TrackInfoSource>(SourceType.bilibili);
-    return source is BilibiliSource ? source : null;
+  TrackDetailSource? trackDetailSource(SourceType type) =>
+      _capability<TrackDetailSource>(type);
+
+  PagedVideoSource? pagedVideoSource(SourceType type) =>
+      _capability<PagedVideoSource>(type);
+
+  DynamicPlaylistSource? dynamicPlaylistSource(SourceType type) =>
+      _capability<DynamicPlaylistSource>(type);
+
+  DynamicPlaylistSource? dynamicPlaylistSourceForUrl(String url) {
+    for (final source in _sources.whereType<DynamicPlaylistSource>()) {
+      if (source.isDynamicPlaylistUrl(url)) return source;
+    }
+    return null;
   }
 
-  YouTubeSource? get youtubeSource {
-    final source = _capability<TrackInfoSource>(SourceType.youtube);
-    return source is YouTubeSource ? source : null;
-  }
+  RankingSource? rankingSource(SourceType type) =>
+      _capability<RankingSource>(type);
 
-  NeteaseSource? get neteaseSource {
-    final source = _capability<TrackInfoSource>(SourceType.netease);
-    return source is NeteaseSource ? source : null;
-  }
+  LiveSource? liveSource(SourceType type) => _capability<LiveSource>(type);
 
   TrackInfoSource? trackInfoSourceForUrl(String url) {
     for (final source in _sources.whereType<TrackInfoSource>()) {
@@ -192,30 +198,6 @@ final sourceManagerProvider = Provider<SourceManager>((ref) {
   final manager = SourceManager();
   ref.onDispose(manager.dispose);
   return manager;
-});
-
-/// Bilibili 音源 Provider
-final bilibiliSourceProvider = Provider<BilibiliSource>((ref) {
-  final manager = ref.watch(sourceManagerProvider);
-  final source = manager.bilibiliSource;
-  if (source == null) throw StateError('Bilibili source not registered');
-  return source;
-});
-
-/// YouTube 音源 Provider
-final youtubeSourceProvider = Provider<YouTubeSource>((ref) {
-  final manager = ref.watch(sourceManagerProvider);
-  final source = manager.youtubeSource;
-  if (source == null) throw StateError('YouTube source not registered');
-  return source;
-});
-
-/// 網易雲音源 Provider
-final neteaseAudioSourceProvider = Provider<NeteaseSource>((ref) {
-  final manager = ref.watch(sourceManagerProvider);
-  final source = manager.neteaseSource;
-  if (source == null) throw StateError('Netease source not registered');
-  return source;
 });
 
 /// URL 解析 Provider

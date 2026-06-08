@@ -64,4 +64,36 @@ void main() {
     expect(source, isNot(contains('abstract class BaseSource')));
     expect(source, isNot(contains('extends BaseSource')));
   });
+
+  test(
+      'source manager exposes detail, pages, dynamic playlist, ranking, and live capabilities',
+      () {
+    final manager = SourceManager();
+    addTearDown(manager.dispose);
+
+    expect(manager.trackDetailSource(SourceType.bilibili),
+        isA<TrackDetailSource>());
+    expect(manager.trackDetailSource(SourceType.youtube),
+        isA<TrackDetailSource>());
+    expect(manager.trackDetailSource(SourceType.netease),
+        isA<TrackDetailSource>());
+
+    expect(
+        manager.pagedVideoSource(SourceType.bilibili), isA<PagedVideoSource>());
+    expect(manager.pagedVideoSource(SourceType.youtube), isNull);
+    expect(manager.pagedVideoSource(SourceType.netease), isNull);
+
+    expect(manager.dynamicPlaylistSource(SourceType.youtube),
+        isA<DynamicPlaylistSource>());
+    expect(manager.dynamicPlaylistSource(SourceType.bilibili), isNull);
+    expect(manager.dynamicPlaylistSource(SourceType.netease), isNull);
+
+    expect(manager.rankingSource(SourceType.bilibili), isA<RankingSource>());
+    expect(manager.rankingSource(SourceType.youtube), isA<RankingSource>());
+    expect(manager.rankingSource(SourceType.netease), isA<RankingSource>());
+
+    expect(manager.liveSource(SourceType.bilibili), isA<LiveSource>());
+    expect(manager.liveSource(SourceType.youtube), isNull);
+    expect(manager.liveSource(SourceType.netease), isNull);
+  });
 }

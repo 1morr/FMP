@@ -5,10 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/logger.dart';
 import 'package:fmp/data/models/track.dart';
-import 'package:fmp/data/sources/bilibili_source.dart';
-import 'package:fmp/data/sources/netease_source.dart';
+import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_provider.dart';
-import 'package:fmp/data/sources/youtube_source.dart';
 import 'package:fmp/providers/search/popular_provider.dart';
 import 'package:fmp/services/cache/ranking_cache_service.dart';
 import 'package:fmp/services/network/connectivity_service.dart';
@@ -21,15 +19,20 @@ void main() {
       final bilibiliTrack = _track('bv-1', SourceType.bilibili);
       final youtubeTrack = _track('yt-1', SourceType.youtube, viewCount: 20);
       final neteaseTrack = _track('ne-1', SourceType.netease);
-      final bilibiliSource = _FakeBilibiliSource()..tracks = [bilibiliTrack];
-      final youtubeSource = _FakeYouTubeSource()..tracks = [youtubeTrack];
-      final neteaseSource = _FakeNeteaseSource()..tracks = [neteaseTrack];
+      final bilibiliSource = _FakeRankingSource(SourceType.bilibili)
+        ..tracks = [bilibiliTrack];
+      final youtubeSource = _FakeRankingSource(SourceType.youtube)
+        ..tracks = [youtubeTrack];
+      final neteaseSource = _FakeRankingSource(SourceType.netease)
+        ..tracks = [neteaseTrack];
       final notifier = _TestConnectivityNotifier();
       final container = ProviderContainer(
         overrides: [
-          bilibiliSourceProvider.overrideWith((ref) => bilibiliSource),
-          youtubeSourceProvider.overrideWith((ref) => youtubeSource),
-          neteaseAudioSourceProvider.overrideWith((ref) => neteaseSource),
+          sourceManagerProvider.overrideWith(
+            (ref) => SourceManager(
+              sources: [bilibiliSource, youtubeSource, neteaseSource],
+            ),
+          ),
           connectivityProvider.overrideWith((ref) => notifier),
         ],
       );
@@ -82,14 +85,15 @@ void main() {
       final notifier = _TestConnectivityNotifier();
       final container = ProviderContainer(
         overrides: [
-          bilibiliSourceProvider.overrideWith(
-            (ref) => _FakeBilibiliSource()..tracks = bilibiliTracks,
-          ),
-          youtubeSourceProvider.overrideWith(
-            (ref) => _FakeYouTubeSource()..tracks = youtubeTracks,
-          ),
-          neteaseAudioSourceProvider.overrideWith(
-            (ref) => _FakeNeteaseSource()..tracks = neteaseTracks,
+          sourceManagerProvider.overrideWith(
+            (ref) => SourceManager(
+              sources: [
+                _FakeRankingSource(SourceType.bilibili)
+                  ..tracks = bilibiliTracks,
+                _FakeRankingSource(SourceType.youtube)..tracks = youtubeTracks,
+                _FakeRankingSource(SourceType.netease)..tracks = neteaseTracks,
+              ],
+            ),
           ),
           connectivityProvider.overrideWith((ref) => notifier),
         ],
@@ -176,13 +180,14 @@ void main() {
 
     test('refresh failure keeps old tracks and records source error', () async {
       final oldTrack = _track('old-bv', SourceType.bilibili);
-      final bilibiliSource = _FakeBilibiliSource()..tracks = [oldTrack];
-      final youtubeSource = _FakeYouTubeSource();
-      final neteaseSource = _FakeNeteaseSource();
+      final bilibiliSource = _FakeRankingSource(SourceType.bilibili)
+        ..tracks = [oldTrack];
+      final youtubeSource = _FakeRankingSource(SourceType.youtube);
+      final neteaseSource = _FakeRankingSource(SourceType.netease);
       final service = RankingCacheService(
-        bilibiliSource: bilibiliSource,
-        youtubeSource: youtubeSource,
-        neteaseSource: neteaseSource,
+        bilibiliRankingSource: bilibiliSource,
+        youtubeRankingSource: youtubeSource,
+        neteaseRankingSource: neteaseSource,
       );
 
       await service.refreshBilibili();
@@ -198,14 +203,36 @@ void main() {
       service.dispose();
     });
 
+    test('refresh methods send source-specific ranking requests', () async {
+      final bilibiliSource = _FakeRankingSource(SourceType.bilibili);
+      final youtubeSource = _FakeRankingSource(SourceType.youtube);
+      final neteaseSource = _FakeRankingSource(SourceType.netease);
+      final service = RankingCacheService(
+        bilibiliRankingSource: bilibiliSource,
+        youtubeRankingSource: youtubeSource,
+        neteaseRankingSource: neteaseSource,
+      );
+
+      await service.refreshBilibili();
+      await service.refreshYouTube();
+      await service.refreshNetease();
+
+      _expectRankingRequest(bilibiliSource.lastRequest, regionId: 1003);
+      _expectRankingRequest(youtubeSource.lastRequest, category: 'music');
+      _expectRankingRequest(neteaseSource.lastRequest, limit: 50);
+
+      service.dispose();
+    });
+
     test('refreshNetease failure keeps old tracks and records source error',
         () async {
       final oldTrack = _track('old-ne', SourceType.netease);
-      final neteaseSource = _FakeNeteaseSource()..tracks = [oldTrack];
+      final neteaseSource = _FakeRankingSource(SourceType.netease)
+        ..tracks = [oldTrack];
       final service = RankingCacheService(
-        bilibiliSource: _FakeBilibiliSource(),
-        youtubeSource: _FakeYouTubeSource(),
-        neteaseSource: neteaseSource,
+        bilibiliRankingSource: _FakeRankingSource(SourceType.bilibili),
+        youtubeRankingSource: _FakeRankingSource(SourceType.youtube),
+        neteaseRankingSource: neteaseSource,
       );
 
       await service.refreshNetease();
@@ -225,13 +252,13 @@ void main() {
       final oldTrack = _track('old-ne', SourceType.netease);
       final newTrack = _track('new-ne', SourceType.netease);
       final oldCompleter = Completer<void>();
-      final neteaseSource = _FakeNeteaseSource()
+      final neteaseSource = _FakeRankingSource(SourceType.netease)
         ..enqueueFetch(completer: oldCompleter, tracks: [oldTrack])
         ..enqueueFetch(tracks: [newTrack]);
       final service = RankingCacheService(
-        bilibiliSource: _FakeBilibiliSource(),
-        youtubeSource: _FakeYouTubeSource(),
-        neteaseSource: neteaseSource,
+        bilibiliRankingSource: _FakeRankingSource(SourceType.bilibili),
+        youtubeRankingSource: _FakeRankingSource(SourceType.youtube),
+        neteaseRankingSource: neteaseSource,
       );
 
       final oldRefresh = service.refreshNetease();
@@ -255,13 +282,13 @@ void main() {
     test('refreshNetease stale success does not clear newer error', () async {
       final oldTrack = _track('old-ne', SourceType.netease);
       final oldCompleter = Completer<void>();
-      final neteaseSource = _FakeNeteaseSource()
+      final neteaseSource = _FakeRankingSource(SourceType.netease)
         ..enqueueFetch(completer: oldCompleter, tracks: [oldTrack])
         ..enqueueFetch(error: Exception('new failure'));
       final service = RankingCacheService(
-        bilibiliSource: _FakeBilibiliSource(),
-        youtubeSource: _FakeYouTubeSource(),
-        neteaseSource: neteaseSource,
+        bilibiliRankingSource: _FakeRankingSource(SourceType.bilibili),
+        youtubeRankingSource: _FakeRankingSource(SourceType.youtube),
+        neteaseRankingSource: neteaseSource,
       );
 
       final oldRefresh = service.refreshNetease();
@@ -284,13 +311,13 @@ void main() {
 
     test('setupNetworkMonitoring rebinds to the latest connectivity notifier',
         () async {
-      final bilibiliSource = _FakeBilibiliSource();
-      final youtubeSource = _FakeYouTubeSource();
-      final neteaseSource = _FakeNeteaseSource();
+      final bilibiliSource = _FakeRankingSource(SourceType.bilibili);
+      final youtubeSource = _FakeRankingSource(SourceType.youtube);
+      final neteaseSource = _FakeRankingSource(SourceType.netease);
       final service = RankingCacheService(
-        bilibiliSource: bilibiliSource,
-        youtubeSource: youtubeSource,
-        neteaseSource: neteaseSource,
+        bilibiliRankingSource: bilibiliSource,
+        youtubeRankingSource: youtubeSource,
+        neteaseRankingSource: neteaseSource,
       );
       final firstNotifier = _TestConnectivityNotifier();
       final secondNotifier = _TestConnectivityNotifier();
@@ -319,9 +346,9 @@ void main() {
 
     test('dispose is idempotent', () {
       final service = RankingCacheService(
-        bilibiliSource: _FakeBilibiliSource(),
-        youtubeSource: _FakeYouTubeSource(),
-        neteaseSource: _FakeNeteaseSource(),
+        bilibiliRankingSource: _FakeRankingSource(SourceType.bilibili),
+        youtubeRankingSource: _FakeRankingSource(SourceType.youtube),
+        neteaseRankingSource: _FakeRankingSource(SourceType.netease),
       );
 
       service.dispose();
@@ -331,15 +358,21 @@ void main() {
 
     test('provider teardown allows rebinding to a fresh connectivity notifier',
         () async {
-      final firstBilibiliSource = _FakeBilibiliSource();
-      final firstYouTubeSource = _FakeYouTubeSource();
-      final firstNeteaseSource = _FakeNeteaseSource();
+      final firstBilibiliSource = _FakeRankingSource(SourceType.bilibili);
+      final firstYouTubeSource = _FakeRankingSource(SourceType.youtube);
+      final firstNeteaseSource = _FakeRankingSource(SourceType.netease);
       final firstNotifier = _TestConnectivityNotifier();
       final firstContainer = ProviderContainer(
         overrides: [
-          bilibiliSourceProvider.overrideWith((ref) => firstBilibiliSource),
-          youtubeSourceProvider.overrideWith((ref) => firstYouTubeSource),
-          neteaseAudioSourceProvider.overrideWith((ref) => firstNeteaseSource),
+          sourceManagerProvider.overrideWith(
+            (ref) => SourceManager(
+              sources: [
+                firstBilibiliSource,
+                firstYouTubeSource,
+                firstNeteaseSource,
+              ],
+            ),
+          ),
           connectivityProvider.overrideWith((ref) => firstNotifier),
         ],
       );
@@ -358,15 +391,21 @@ void main() {
       expect(firstNeteaseSource.fetchCount, 1);
       expect(firstService.dispose, returnsNormally);
 
-      final secondBilibiliSource = _FakeBilibiliSource();
-      final secondYouTubeSource = _FakeYouTubeSource();
-      final secondNeteaseSource = _FakeNeteaseSource();
+      final secondBilibiliSource = _FakeRankingSource(SourceType.bilibili);
+      final secondYouTubeSource = _FakeRankingSource(SourceType.youtube);
+      final secondNeteaseSource = _FakeRankingSource(SourceType.netease);
       final secondNotifier = _TestConnectivityNotifier();
       final secondContainer = ProviderContainer(
         overrides: [
-          bilibiliSourceProvider.overrideWith((ref) => secondBilibiliSource),
-          youtubeSourceProvider.overrideWith((ref) => secondYouTubeSource),
-          neteaseAudioSourceProvider.overrideWith((ref) => secondNeteaseSource),
+          sourceManagerProvider.overrideWith(
+            (ref) => SourceManager(
+              sources: [
+                secondBilibiliSource,
+                secondYouTubeSource,
+                secondNeteaseSource,
+              ],
+            ),
+          ),
           connectivityProvider.overrideWith((ref) => secondNotifier),
         ],
       );
@@ -403,13 +442,13 @@ void main() {
 
     test('updateRefreshInterval before initialize uses one latest timer',
         () async {
-      final bilibiliSource = _FakeBilibiliSource();
-      final youtubeSource = _FakeYouTubeSource();
-      final neteaseSource = _FakeNeteaseSource();
+      final bilibiliSource = _FakeRankingSource(SourceType.bilibili);
+      final youtubeSource = _FakeRankingSource(SourceType.youtube);
+      final neteaseSource = _FakeRankingSource(SourceType.netease);
       final service = RankingCacheService(
-        bilibiliSource: bilibiliSource,
-        youtubeSource: youtubeSource,
-        neteaseSource: neteaseSource,
+        bilibiliRankingSource: bilibiliSource,
+        youtubeRankingSource: youtubeSource,
+        neteaseRankingSource: neteaseSource,
       );
 
       service.updateRefreshInterval(const Duration(milliseconds: 20));
@@ -431,16 +470,16 @@ void main() {
       final bilibiliCompleter = Completer<void>();
       final youtubeCompleter = Completer<void>();
       final neteaseCompleter = Completer<void>();
-      final bilibiliSource = _FakeBilibiliSource()
+      final bilibiliSource = _FakeRankingSource(SourceType.bilibili)
         ..nextFetchCompleter = bilibiliCompleter;
-      final youtubeSource = _FakeYouTubeSource()
+      final youtubeSource = _FakeRankingSource(SourceType.youtube)
         ..nextFetchCompleter = youtubeCompleter;
-      final neteaseSource = _FakeNeteaseSource()
+      final neteaseSource = _FakeRankingSource(SourceType.netease)
         ..nextFetchCompleter = neteaseCompleter;
       final service = RankingCacheService(
-        bilibiliSource: bilibiliSource,
-        youtubeSource: youtubeSource,
-        neteaseSource: neteaseSource,
+        bilibiliRankingSource: bilibiliSource,
+        youtubeRankingSource: youtubeSource,
+        neteaseRankingSource: neteaseSource,
         initialLoadTimeout: const Duration(milliseconds: 10),
       );
 
@@ -469,9 +508,10 @@ void main() {
       final high = _track('yt-high', SourceType.youtube, viewCount: 100);
       final middle = _track('yt-middle', SourceType.youtube, viewCount: 50);
       final service = RankingCacheService(
-        bilibiliSource: _FakeBilibiliSource(),
-        youtubeSource: _FakeYouTubeSource()..tracks = [low, high, middle],
-        neteaseSource: _FakeNeteaseSource(),
+        bilibiliRankingSource: _FakeRankingSource(SourceType.bilibili),
+        youtubeRankingSource: _FakeRankingSource(SourceType.youtube)
+          ..tracks = [low, high, middle],
+        neteaseRankingSource: _FakeRankingSource(SourceType.netease),
       );
 
       await service.refreshYouTube();
@@ -480,60 +520,91 @@ void main() {
 
       service.dispose();
     });
+
+    test('provider error names missing ranking sources', () {
+      final container = ProviderContainer(
+        overrides: [
+          sourceManagerProvider.overrideWith(
+            (ref) => SourceManager(
+              sources: [_FakeRankingSource(SourceType.bilibili)],
+            ),
+          ),
+        ],
+      );
+
+      expect(
+        () => container.read(rankingCacheServiceProvider),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            'Ranking source not registered: youtube, netease',
+          ),
+        ),
+      );
+
+      container.dispose();
+    });
+  });
+
+  group('Popular ranking providers', () {
+    test('rankingVideosProvider sends selected category rid', () async {
+      final source = _FakeRankingSource(SourceType.bilibili);
+      final container = ProviderContainer(
+        overrides: [
+          sourceManagerProvider.overrideWith(
+            (ref) => SourceManager(sources: [source]),
+          ),
+        ],
+      );
+
+      await container
+          .read(rankingVideosProvider.notifier)
+          .loadCategory(BilibiliCategory.dance);
+
+      _expectRankingRequest(
+        source.lastRequest,
+        regionId: BilibiliCategory.dance.rid,
+      );
+
+      container.dispose();
+    });
+
+    test('youtubeTrendingProvider sends selected category id', () async {
+      final source = _FakeRankingSource(SourceType.youtube);
+      final container = ProviderContainer(
+        overrides: [
+          sourceManagerProvider.overrideWith(
+            (ref) => SourceManager(sources: [source]),
+          ),
+        ],
+      );
+
+      await container
+          .read(youtubeTrendingProvider.notifier)
+          .loadCategory(YouTubeCategory.music);
+
+      _expectRankingRequest(
+        source.lastRequest,
+        category: YouTubeCategory.music.id,
+      );
+
+      container.dispose();
+    });
   });
 }
 
-class _FakeBilibiliSource extends BilibiliSource {
-  int fetchCount = 0;
-  Completer<void>? nextFetchCompleter;
-  Object? nextError;
-  List<Track> tracks = const [];
+class _FakeRankingSource implements RankingSource {
+  _FakeRankingSource(this.sourceType);
 
   @override
-  Future<List<Track>> getRankingVideos({int rid = 0}) async {
-    fetchCount++;
-    final completer = nextFetchCompleter;
-    if (completer != null) {
-      nextFetchCompleter = null;
-      await completer.future;
-    }
-    final error = nextError;
-    if (error != null) {
-      nextError = null;
-      throw error;
-    }
-    return List<Track>.of(tracks);
-  }
-}
+  final SourceType sourceType;
 
-class _FakeYouTubeSource extends YouTubeSource {
   int fetchCount = 0;
   Completer<void>? nextFetchCompleter;
   Object? nextError;
   List<Track> tracks = const [];
-
-  @override
-  Future<List<Track>> getTrendingVideos({String category = 'music'}) async {
-    fetchCount++;
-    final completer = nextFetchCompleter;
-    if (completer != null) {
-      nextFetchCompleter = null;
-      await completer.future;
-    }
-    final error = nextError;
-    if (error != null) {
-      nextError = null;
-      throw error;
-    }
-    return List<Track>.of(tracks);
-  }
-}
-
-class _FakeNeteaseSource extends NeteaseSource {
-  int fetchCount = 0;
-  Completer<void>? nextFetchCompleter;
-  Object? nextError;
-  List<Track> tracks = const [];
+  SourceRankingRequest? lastRequest;
   final Queue<_QueuedFetch> _queuedFetches = Queue<_QueuedFetch>();
 
   void enqueueFetch({
@@ -547,8 +618,9 @@ class _FakeNeteaseSource extends NeteaseSource {
   }
 
   @override
-  Future<List<Track>> getHotRankingTracks({int limit = 50}) async {
+  Future<List<Track>> getRankingTracks(SourceRankingRequest request) async {
     fetchCount++;
+    lastRequest = request;
     if (_queuedFetches.isNotEmpty) {
       final fetch = _queuedFetches.removeFirst();
       await fetch.completer?.future;
@@ -590,6 +662,19 @@ Track _track(String id, SourceType sourceType, {int? viewCount}) {
     ..title = id
     ..artist = 'Tester'
     ..viewCount = viewCount;
+}
+
+void _expectRankingRequest(
+  SourceRankingRequest? request, {
+  int? regionId,
+  String? category,
+  int? limit,
+}) {
+  final actual = request;
+  expect(actual, isNotNull);
+  expect(actual!.regionId, regionId);
+  expect(actual.category, category);
+  expect(actual.limit, limit);
 }
 
 class _TestConnectivityNotifier extends StateNotifier<ConnectivityState>

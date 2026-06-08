@@ -29,7 +29,9 @@ class NeteaseSource
         AudioStreamSource,
         SearchSource,
         PlaylistParsingSource,
-        AvailabilitySource {
+        AvailabilitySource,
+        TrackDetailSource,
+        RankingSource {
   late final Dio _dio;
 
   static const String _musicBase = 'https://music.163.com';
@@ -370,6 +372,11 @@ class NeteaseSource
     }
   }
 
+  @override
+  Future<List<Track>> getRankingTracks(SourceRankingRequest request) {
+    return getHotRankingTracks(limit: request.limit ?? 50);
+  }
+
   // ========== 刷新 / 可用性 ==========
 
   @override
@@ -412,6 +419,7 @@ class NeteaseSource
 
   /// 獲取歌曲詳情（用於右側面板/播放器信息展示）
   /// 同時獲取歌曲元數據、歌手頭像和熱門評論
+  @override
   Future<VideoDetail> getVideoDetail(String sourceId,
       {Map<String, String>? authHeaders}) async {
     try {
