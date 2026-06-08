@@ -54,6 +54,9 @@ automatically, so no repair logic is required. A field like
 Migration/default repair entry point:
 - `_migrateDatabase()` in `lib/providers/database/database_provider.dart`
 - testing helper: `runDatabaseMigrationForTesting()`
+- Persisted collection registration is catalog-owned in
+  `lib/providers/database/database_catalog.dart`; migration/default repair
+  remains in `lib/providers/database/database_provider.dart`.
 
 Database storage path:
 - Runtime Isar files live under the app documents directory's `FMP/` child

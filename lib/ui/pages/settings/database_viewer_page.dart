@@ -3,20 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
 
-import '../../../i18n/strings.g.dart';
-import '../../../providers/database/database_provider.dart';
-import '../../../data/models/track.dart';
-import '../../../data/models/playlist.dart';
-import '../../../data/models/play_queue.dart';
-import '../../../data/models/settings.dart';
-import '../../../data/models/search_history.dart';
-import '../../../data/models/download_task.dart';
-import '../../../data/models/play_history.dart';
-import '../../../data/models/radio_station.dart';
-import '../../../data/models/lyrics_match.dart';
-import '../../../data/models/account.dart';
-import '../../../data/models/lyrics_title_parse_cache.dart';
 import '../../../core/constants/ui_constants.dart';
+import '../../../i18n/strings.g.dart';
+import '../../../providers/database/database_catalog.dart';
+import '../../../providers/database/database_provider.dart';
 
 /// 数据库查看页面
 class DatabaseViewerPage extends ConsumerStatefulWidget {
@@ -27,21 +17,7 @@ class DatabaseViewerPage extends ConsumerStatefulWidget {
 }
 
 class _DatabaseViewerPageState extends ConsumerState<DatabaseViewerPage> {
-  String _selectedCollection = 'Track';
-
-  final List<String> _collections = [
-    'Track',
-    'Playlist',
-    'PlayQueue',
-    'PlayHistory',
-    'Settings',
-    'SearchHistory',
-    'DownloadTask',
-    'RadioStation',
-    'LyricsMatch',
-    'LyricsTitleParseCache',
-    'Account',
-  ];
+  String _selectedCollectionName = fmpDatabaseCollections.first.name;
 
   @override
   Widget build(BuildContext context) {
@@ -86,16 +62,16 @@ class _DatabaseViewerPageState extends ConsumerState<DatabaseViewerPage> {
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
-            children: _collections.map((collection) {
-              final isSelected = collection == _selectedCollection;
+            children: fmpDatabaseCollections.map((collection) {
+              final isSelected = collection.name == _selectedCollectionName;
               return Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: FilterChip(
-                  label: Text(collection),
+                  label: Text(collection.name),
                   selected: isSelected,
                   onSelected: (selected) {
                     if (selected) {
-                      setState(() => _selectedCollection = collection);
+                      setState(() => _selectedCollectionName = collection.name);
                     }
                   },
                 ),
@@ -119,1018 +95,67 @@ class _DatabaseViewerPageState extends ConsumerState<DatabaseViewerPage> {
   }
 
   Widget _buildCollectionData(Isar isar) {
-    return switch (_selectedCollection) {
-      'Track' => _TrackListView(isar: isar),
-      'Playlist' => _PlaylistListView(isar: isar),
-      'PlayQueue' => _PlayQueueListView(isar: isar),
-      'PlayHistory' => _PlayHistoryListView(isar: isar),
-      'Settings' => _SettingsListView(isar: isar),
-      'SearchHistory' => _SearchHistoryListView(isar: isar),
-      'DownloadTask' => _DownloadTaskListView(isar: isar),
-      'RadioStation' => _RadioStationListView(isar: isar),
-      'LyricsMatch' => _LyricsMatchListView(isar: isar),
-      'LyricsTitleParseCache' => _LyricsTitleParseCacheListView(isar: isar),
-      'Account' => _AccountListView(isar: isar),
-      _ => Center(child: Text(t.databaseViewer.unknownCollection)),
-    };
+    FmpDatabaseCollection? selected;
+    for (final collection in fmpDatabaseCollections) {
+      if (collection.name == _selectedCollectionName) {
+        selected = collection;
+        break;
+      }
+    }
+
+    if (selected == null) {
+      return Center(child: Text(t.databaseViewer.unknownCollection));
+    }
+
+    return _DatabaseCollectionListView(
+      isar: isar,
+      collection: selected,
+    );
   }
 }
 
-/// Track 列表视图
-class _TrackListView extends StatelessWidget {
-  final Isar isar;
+class _DatabaseCollectionListView extends StatelessWidget {
+  const _DatabaseCollectionListView({
+    required this.isar,
+    required this.collection,
+  });
 
-  const _TrackListView({required this.isar});
+  final Isar isar;
+  final FmpDatabaseCollection collection;
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<Track>>(
-      future: isar.tracks.where().findAll(),
+    return FutureBuilder<List<Object>>(
+      future: collection.query(isar),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        final tracks = snapshot.data ?? [];
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              t.databaseViewer.loadFailed(error: snapshot.error.toString()),
+            ),
+          );
+        }
+
+        final items = snapshot.data ?? const <Object>[];
         return _buildList(
           context,
-          itemCount: tracks.length,
-          headerText: t.databaseViewer.recordCount(count: tracks.length),
+          itemCount: items.length,
+          headerText: t.databaseViewer.recordCount(count: items.length),
           itemBuilder: (index) {
-            final track = tracks[index];
+            final item = items[index];
             return _DataCard(
-              title: track.title,
-              subtitle: 'ID: ${track.id}',
-              sections: [
-                _DataSection(
-                  title: t.databaseViewer.basicInfo,
-                  data: {
-                    'id': track.id.toString(),
-                    'sourceId': track.sourceId,
-                    'sourceType': track.sourceType.name,
-                    'title': track.title,
-                    'artist': track.artist ?? 'null',
-                    'ownerId': track.ownerId?.toString() ?? 'null',
-                    'channelId': track.channelId ?? 'null',
-                    'durationMs': track.durationMs?.toString() ?? 'null',
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.mediaInfo,
-                  data: {
-                    'thumbnailUrl': _truncate(track.thumbnailUrl, 60),
-                    'audioUrl': _truncate(track.audioUrl, 60),
-                    'audioUrlExpiry':
-                        track.audioUrlExpiry?.toIso8601String() ?? 'null',
-                    'hasValidAudioUrl': track.hasValidAudioUrl.toString(),
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.availability,
-                  data: {
-                    'isAvailable': track.isAvailable.toString(),
-                    'isVip': track.isVip.toString(),
-                    'unavailableReason': track.unavailableReason ?? 'null',
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.cacheAndDownload,
-                  data: {
-                    'playlistInfo (${track.playlistInfo.length})': track
-                            .playlistInfo.isEmpty
-                        ? '[]'
-                        : track.playlistInfo
-                            .asMap()
-                            .entries
-                            .map((e) =>
-                                '[${e.key}] playlistId=${e.value.playlistId}, name="${e.value.playlistName}"\n    path: ${e.value.downloadPath}')
-                            .join('\n\n'),
-                    'allPlaylistIds': track.allPlaylistIds.isEmpty
-                        ? '[]'
-                        : track.allPlaylistIds.join(', '),
-                    'allDownloadPaths (${track.allDownloadPaths.length})':
-                        track.allDownloadPaths.isEmpty
-                            ? '[]'
-                            : track.allDownloadPaths
-                                .asMap()
-                                .entries
-                                .map((e) => '[${e.key}] ${e.value}')
-                                .join('\n'),
-                    'hasAnyDownload': track.hasAnyDownload.toString(),
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.partInfo,
-                  data: {
-                    'cid': track.cid?.toString() ?? 'null',
-                    'bilibiliAid': track.bilibiliAid?.toString() ?? 'null',
-                    'pageNum': track.pageNum?.toString() ?? 'null',
-                    'pageCount': track.pageCount?.toString() ?? 'null',
-                    'parentTitle': track.parentTitle ?? 'null',
-                    'isPartOfMultiPage': track.isPartOfMultiPage.toString(),
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.importOrigin,
-                  data: {
-                    'originalSongId': track.originalSongId ?? 'null',
-                    'originalSource': track.originalSource ?? 'null',
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.timestamps,
-                  data: {
-                    'createdAt': track.createdAt.toIso8601String(),
-                    'updatedAt': track.updatedAt?.toIso8601String() ?? 'null',
-                  },
-                ),
-                _DataSection(
-                  title: 'Computed',
-                  data: {
-                    'uniqueKey': track.uniqueKey,
-                    'groupKey': track.groupKey,
-                    'sourceKey': track.sourceKey,
-                    'sourcePageKey': track.sourcePageKey,
-                    'formattedDuration': track.formattedDuration,
-                  },
-                ),
-              ],
+              title: collection.title(item),
+              subtitle: collection.subtitle(item),
+              sections: collection.sections(item),
             );
           },
         );
       },
     );
   }
-}
-
-/// Playlist 列表视图
-class _PlaylistListView extends StatelessWidget {
-  final Isar isar;
-
-  const _PlaylistListView({required this.isar});
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<Playlist>>(
-      future: isar.playlists.where().findAll(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final playlists = snapshot.data ?? [];
-        return _buildList(
-          context,
-          itemCount: playlists.length,
-          headerText: t.databaseViewer.recordCount(count: playlists.length),
-          itemBuilder: (index) {
-            final playlist = playlists[index];
-            return _DataCard(
-              title: playlist.name,
-              subtitle: 'ID: ${playlist.id}',
-              sections: [
-                _DataSection(
-                  title: t.databaseViewer.basicInfo,
-                  data: {
-                    'id': playlist.id.toString(),
-                    'name': playlist.name,
-                    'description': playlist.description ?? 'null',
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.cover,
-                  data: {
-                    'coverUrl': _truncate(playlist.coverUrl, 60),
-                    'hasCustomCover': playlist.hasCustomCover.toString(),
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.importSettings,
-                  data: {
-                    'isImported': playlist.isImported.toString(),
-                    'sourceUrl': _truncate(playlist.sourceUrl, 60),
-                    'importSourceType':
-                        playlist.importSourceType?.name ?? 'null',
-                    'refreshIntervalHours':
-                        playlist.refreshIntervalHours?.toString() ?? 'null',
-                    'lastRefreshed':
-                        playlist.lastRefreshed?.toIso8601String() ?? 'null',
-                    'notifyOnUpdate': playlist.notifyOnUpdate.toString(),
-                    'needsRefresh': playlist.needsRefresh.toString(),
-                    'ownerName': playlist.ownerName ?? 'null',
-                    'ownerUserId': playlist.ownerUserId ?? 'null',
-                    'useAuthForRefresh': playlist.useAuthForRefresh.toString(),
-                  },
-                ),
-                _DataSection(
-                  title: 'Mix 播放列表',
-                  data: {
-                    'isMix': playlist.isMix.toString(),
-                    'mixPlaylistId': playlist.mixPlaylistId ?? 'null',
-                    'mixSeedVideoId': playlist.mixSeedVideoId ?? 'null',
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.trackList,
-                  data: {
-                    'trackCount': playlist.trackCount.toString(),
-                    'trackIds': playlist.trackIds.isEmpty
-                        ? '[]'
-                        : '${playlist.trackIds.take(10).join(', ')}${playlist.trackIds.length > 10 ? '... (${playlist.trackIds.length} total)' : ''}',
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.sortAndTime,
-                  data: {
-                    'sortOrder': playlist.sortOrder.toString(),
-                    'createdAt': playlist.createdAt.toIso8601String(),
-                    'updatedAt':
-                        playlist.updatedAt?.toIso8601String() ?? 'null',
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-/// PlayQueue 列表视图
-class _PlayQueueListView extends StatelessWidget {
-  final Isar isar;
-
-  const _PlayQueueListView({required this.isar});
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<PlayQueue>>(
-      future: isar.playQueues.where().findAll(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final queues = snapshot.data ?? [];
-        return _buildList(
-          context,
-          itemCount: queues.length,
-          headerText: t.databaseViewer.recordCount(count: queues.length),
-          itemBuilder: (index) {
-            final queue = queues[index];
-            return _DataCard(
-              title: '${t.databaseViewer.playQueue} #${queue.id}',
-              subtitle: '${queue.length} tracks',
-              sections: [
-                _DataSection(
-                  title: t.databaseViewer.basicInfo,
-                  data: {
-                    'id': queue.id.toString(),
-                    'length': queue.length.toString(),
-                    'isEmpty': queue.isEmpty.toString(),
-                    'isNotEmpty': queue.isNotEmpty.toString(),
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.playbackState,
-                  data: {
-                    'currentIndex': queue.currentIndex.toString(),
-                    'currentTrackId':
-                        queue.currentTrackId?.toString() ?? 'null',
-                    'lastPositionMs': queue.lastPositionMs.toString(),
-                    'lastVolume': queue.lastVolume.toStringAsFixed(2),
-                    'hasNext': queue.hasNext.toString(),
-                    'hasPrevious': queue.hasPrevious.toString(),
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.playbackMode,
-                  data: {
-                    'isShuffleEnabled': queue.isShuffleEnabled.toString(),
-                    'loopMode': queue.loopMode.name,
-                    'originalOrder': queue.originalOrder == null
-                        ? 'null'
-                        : '${queue.originalOrder!.take(10).join(', ')}${queue.originalOrder!.length > 10 ? '...' : ''}',
-                  },
-                ),
-                _DataSection(
-                  title: 'Mix 模式',
-                  data: {
-                    'isMixMode': queue.isMixMode.toString(),
-                    'mixPlaylistId': queue.mixPlaylistId ?? 'null',
-                    'mixSeedVideoId': queue.mixSeedVideoId ?? 'null',
-                    'mixTitle': queue.mixTitle ?? 'null',
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.queueContent,
-                  data: {
-                    'trackIds': queue.trackIds.isEmpty
-                        ? '[]'
-                        : '${queue.trackIds.take(10).join(', ')}${queue.trackIds.length > 10 ? '... (${queue.trackIds.length} total)' : ''}',
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.timestamps,
-                  data: {
-                    'lastUpdated':
-                        queue.lastUpdated?.toIso8601String() ?? 'null',
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-/// Settings 列表视图
-class _SettingsListView extends StatelessWidget {
-  final Isar isar;
-
-  const _SettingsListView({required this.isar});
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<Settings>>(
-      future: isar.settings.where().findAll(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final settings = snapshot.data ?? [];
-        return _buildList(
-          context,
-          itemCount: settings.length,
-          headerText: t.databaseViewer.recordCount(count: settings.length),
-          itemBuilder: (index) {
-            final setting = settings[index];
-            return _DataCard(
-              title: t.databaseViewer.setting(id: setting.id.toString()),
-              subtitle: t.databaseViewer.theme(name: setting.themeMode.name),
-              sections: [
-                _DataSection(
-                  title: t.databaseViewer.themeSettings,
-                  data: {
-                    'id': setting.id.toString(),
-                    'themeModeIndex': setting.themeModeIndex.toString(),
-                    'themeMode': setting.themeMode.name,
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.colorSettings,
-                  data: {
-                    'primaryColor': setting.primaryColor != null
-                        ? '#${setting.primaryColor!.toRadixString(16).padLeft(8, '0').toUpperCase()}'
-                        : 'null',
-                    'secondaryColor': setting.secondaryColor != null
-                        ? '#${setting.secondaryColor!.toRadixString(16).padLeft(8, '0').toUpperCase()}'
-                        : 'null',
-                    'backgroundColor': setting.backgroundColor != null
-                        ? '#${setting.backgroundColor!.toRadixString(16).padLeft(8, '0').toUpperCase()}'
-                        : 'null',
-                    'surfaceColor': setting.surfaceColor != null
-                        ? '#${setting.surfaceColor!.toRadixString(16).padLeft(8, '0').toUpperCase()}'
-                        : 'null',
-                    'textColor': setting.textColor != null
-                        ? '#${setting.textColor!.toRadixString(16).padLeft(8, '0').toUpperCase()}'
-                        : 'null',
-                    'cardColor': setting.cardColor != null
-                        ? '#${setting.cardColor!.toRadixString(16).padLeft(8, '0').toUpperCase()}'
-                        : 'null',
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.storageSettings,
-                  data: {
-                    'maxCacheSizeMB': setting.maxCacheSizeMB.toString(),
-                    'customDownloadDir': setting.customDownloadDir ?? 'null',
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.downloadSettings,
-                  data: {
-                    'maxConcurrentDownloads':
-                        setting.maxConcurrentDownloads.toString(),
-                    'downloadImageOptionIndex':
-                        setting.downloadImageOptionIndex.toString(),
-                    'downloadImageOption': setting.downloadImageOption.name,
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.playbackSettings,
-                  data: {
-                    'autoScrollToCurrentTrack':
-                        setting.autoScrollToCurrentTrack.toString(),
-                    'rememberPlaybackPosition':
-                        setting.rememberPlaybackPosition.toString(),
-                    'restartRewindSeconds': '${setting.restartRewindSeconds}s',
-                    'tempPlayRewindSeconds':
-                        '${setting.tempPlayRewindSeconds}s',
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.audioQualitySettings,
-                  data: {
-                    'audioQualityLevelIndex':
-                        setting.audioQualityLevelIndex.toString(),
-                    'audioQualityLevel': setting.audioQualityLevel.name,
-                    'audioFormatPriority': setting.audioFormatPriority,
-                    'audioFormatPriorityList': setting.audioFormatPriorityList
-                        .map((e) => e.name)
-                        .join(', '),
-                    'youtubeStreamPriority': setting.youtubeStreamPriority,
-                    'youtubeStreamPriorityList': setting
-                        .youtubeStreamPriorityList
-                        .map((e) => e.name)
-                        .join(', '),
-                    'bilibiliStreamPriority': setting.bilibiliStreamPriority,
-                    'bilibiliStreamPriorityList': setting
-                        .bilibiliStreamPriorityList
-                        .map((e) => e.name)
-                        .join(', '),
-                    'neteaseStreamPriority': setting.neteaseStreamPriority,
-                    'neteaseStreamPriorityList': setting
-                        .neteaseStreamPriorityList
-                        .map((e) => e.name)
-                        .join(', '),
-                  },
-                ),
-                _DataSection(
-                  title: 'Auth Settings',
-                  data: {
-                    'useBilibiliAuthForPlay':
-                        setting.useBilibiliAuthForPlay.toString(),
-                    'useYoutubeAuthForPlay':
-                        setting.useYoutubeAuthForPlay.toString(),
-                    'useNeteaseAuthForPlay':
-                        setting.useNeteaseAuthForPlay.toString(),
-                  },
-                ),
-                _DataSection(
-                  title: 'Refresh Settings',
-                  data: {
-                    'rankingRefreshIntervalMinutes':
-                        '${setting.rankingRefreshIntervalMinutes} min',
-                    'homeRankingSourcePriority':
-                        setting.homeRankingSourcePriority,
-                    'homeRankingSourcePriorityList':
-                        setting.homeRankingSourcePriorityList.join(', '),
-                    'disabledHomeRankingSources':
-                        setting.disabledHomeRankingSources,
-                    'disabledHomeRankingSourcesSet':
-                        setting.disabledHomeRankingSourcesSet.join(', '),
-                    'radioRefreshIntervalMinutes':
-                        '${setting.radioRefreshIntervalMinutes} min',
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.desktopSettings,
-                  data: {
-                    'minimizeToTrayOnClose':
-                        setting.minimizeToTrayOnClose.toString(),
-                    'enableGlobalHotkeys':
-                        setting.enableGlobalHotkeys.toString(),
-                    'launchAtStartup': setting.launchAtStartup.toString(),
-                    'launchMinimized': setting.launchMinimized.toString(),
-                    'hotkeyConfig': setting.hotkeyConfig ?? 'null',
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.audioDeviceSettings,
-                  data: {
-                    'preferredAudioDeviceId':
-                        setting.preferredAudioDeviceId ?? 'null',
-                    'preferredAudioDeviceName':
-                        setting.preferredAudioDeviceName ?? 'null',
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.lyricsSettings,
-                  data: {
-                    'autoMatchLyrics': setting.autoMatchLyrics.toString(),
-                    'allowPlainLyricsAutoMatch':
-                        setting.allowPlainLyricsAutoMatch.toString(),
-                    'maxLyricsCacheFiles':
-                        setting.maxLyricsCacheFiles.toString(),
-                    'lyricsDisplayModeIndex':
-                        setting.lyricsDisplayModeIndex.toString(),
-                    'lyricsDisplayMode': setting.lyricsDisplayMode.name,
-                    'lyricsSourcePriority': setting.lyricsSourcePriority,
-                    'lyricsSourcePriorityList':
-                        setting.lyricsSourcePriorityList.join(', '),
-                    'disabledLyricsSources': setting.disabledLyricsSources,
-                    'disabledLyricsSourcesSet':
-                        setting.disabledLyricsSourcesSet.join(', '),
-                    'lyricsAiTitleParsingModeIndex':
-                        setting.lyricsAiTitleParsingModeIndex.toString(),
-                    'lyricsAiTitleParsingMode':
-                        setting.lyricsAiTitleParsingMode.name,
-                    'lyricsAiEndpoint': setting.lyricsAiEndpoint,
-                    'lyricsAiModel': setting.lyricsAiModel,
-                    'lyricsAiTimeoutSeconds':
-                        '${setting.lyricsAiTimeoutSeconds}s',
-                    'lyricsWindowTextColor':
-                        _formatNullableColor(setting.lyricsWindowTextColor),
-                    'lyricsWindowSecondaryTextColor': _formatNullableColor(
-                        setting.lyricsWindowSecondaryTextColor),
-                    'lyricsWindowInactiveTextOpacity': setting
-                            .lyricsWindowInactiveTextOpacity
-                            ?.toStringAsFixed(2) ??
-                        'null',
-                    'lyricsWindowOutlineEnabled':
-                        setting.lyricsWindowOutlineEnabled?.toString() ??
-                            'null',
-                    'lyricsWindowOutlineColor':
-                        _formatNullableColor(setting.lyricsWindowOutlineColor),
-                    'lyricsWindowOutlineWidth':
-                        setting.lyricsWindowOutlineWidth?.toStringAsFixed(2) ??
-                            'null',
-                    'lyricsWindowShadowEnabled':
-                        setting.lyricsWindowShadowEnabled?.toString() ?? 'null',
-                    'lyricsWindowShadowColor':
-                        _formatNullableColor(setting.lyricsWindowShadowColor),
-                    'lyricsWindowShadowBlurRadius': setting
-                            .lyricsWindowShadowBlurRadius
-                            ?.toStringAsFixed(2) ??
-                        'null',
-                    'lyricsWindowShadowOffsetX':
-                        setting.lyricsWindowShadowOffsetX?.toStringAsFixed(2) ??
-                            'null',
-                    'lyricsWindowShadowOffsetY':
-                        setting.lyricsWindowShadowOffsetY?.toStringAsFixed(2) ??
-                            'null',
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.uiSettings,
-                  data: {
-                    'fontFamily': setting.fontFamily ?? 'null',
-                    'locale': setting.locale ?? 'null',
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-/// PlayHistory 列表视图
-class _PlayHistoryListView extends StatelessWidget {
-  final Isar isar;
-
-  const _PlayHistoryListView({required this.isar});
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<PlayHistory>>(
-      future: isar.playHistorys.where().sortByPlayedAtDesc().findAll(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final histories = snapshot.data ?? [];
-        return _buildList(
-          context,
-          itemCount: histories.length,
-          headerText: t.databaseViewer.recordCount(count: histories.length),
-          itemBuilder: (index) {
-            final history = histories[index];
-            return _DataCard(
-              title: history.title,
-              subtitle:
-                  'ID: ${history.id} | ${_formatDateTime(history.playedAt)}',
-              sections: [
-                _DataSection(
-                  title: t.databaseViewer.basicInfo,
-                  data: {
-                    'id': history.id.toString(),
-                    'sourceId': history.sourceId,
-                    'sourceType': history.sourceType.name,
-                    'cid': history.cid?.toString() ?? 'null',
-                    'trackKey': history.trackKey,
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.mediaInfo,
-                  data: {
-                    'title': history.title,
-                    'artist': history.artist ?? 'null',
-                    'durationMs': history.durationMs?.toString() ?? 'null',
-                    'formattedDuration': history.formattedDuration,
-                    'thumbnailUrl': _truncate(history.thumbnailUrl, 60),
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.playbackTime,
-                  data: {
-                    'playedAt': history.playedAt.toIso8601String(),
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  String _formatDateTime(DateTime dt) {
-    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
-        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-  }
-}
-
-/// SearchHistory 列表视图
-class _SearchHistoryListView extends StatelessWidget {
-  final Isar isar;
-
-  const _SearchHistoryListView({required this.isar});
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<SearchHistory>>(
-      future: isar.searchHistorys.where().sortByTimestampDesc().findAll(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final histories = snapshot.data ?? [];
-        return _buildList(
-          context,
-          itemCount: histories.length,
-          headerText: t.databaseViewer.recordCount(count: histories.length),
-          itemBuilder: (index) {
-            final history = histories[index];
-            return _DataCard(
-              title: history.query,
-              subtitle: 'ID: ${history.id}',
-              sections: [
-                _DataSection(
-                  title: t.databaseViewer.searchHistory,
-                  data: {
-                    'id': history.id.toString(),
-                    'query': history.query,
-                    'timestamp': history.timestamp.toIso8601String(),
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-/// DownloadTask 列表视图
-class _DownloadTaskListView extends StatelessWidget {
-  final Isar isar;
-
-  const _DownloadTaskListView({required this.isar});
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<DownloadTask>>(
-      future: isar.downloadTasks.where().findAll(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final tasks = snapshot.data ?? [];
-        return _buildList(
-          context,
-          itemCount: tasks.length,
-          headerText: t.databaseViewer.recordCount(count: tasks.length),
-          itemBuilder: (index) {
-            final task = tasks[index];
-            return _DataCard(
-              title: '${t.databaseViewer.downloadTask} #${task.id}',
-              subtitle: 'TrackID: ${task.trackId} | ${task.status.name}',
-              sections: [
-                _DataSection(
-                  title: t.databaseViewer.basicInfo,
-                  data: {
-                    'id': task.id.toString(),
-                    'trackId': task.trackId.toString(),
-                    'playlistId': task.playlistId?.toString() ?? 'null',
-                    'playlistName': task.playlistName ?? 'null',
-                    'priority': task.priority.toString(),
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.downloadStatus,
-                  data: {
-                    'status': task.status.name,
-                    'progress': '${(task.progress * 100).toStringAsFixed(1)}%',
-                    'formattedProgress': task.formattedProgress,
-                    'isDownloading': task.isDownloading.toString(),
-                    'isCompleted': task.isCompleted.toString(),
-                    'isFailed': task.isFailed.toString(),
-                    'isPending': task.isPending.toString(),
-                    'isPaused': task.isPaused.toString(),
-                    'downloadedBytes': _formatBytes(task.downloadedBytes),
-                    'totalBytes': task.totalBytes != null
-                        ? _formatBytes(task.totalBytes!)
-                        : 'null',
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.fileInfo,
-                  data: {
-                    'savePath': _truncate(task.savePath, 80),
-                    'tempFilePath': _truncate(task.tempFilePath, 80),
-                    'canResume': task.canResume.toString(),
-                    'isPartOfPlaylist': task.isPartOfPlaylist.toString(),
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.errorInfo,
-                  data: {
-                    'errorMessage': task.errorMessage ?? 'null',
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.timestamps,
-                  data: {
-                    'createdAt': task.createdAt.toIso8601String(),
-                    'completedAt':
-                        task.completedAt?.toIso8601String() ?? 'null',
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-/// RadioStation 列表视图
-class _RadioStationListView extends StatelessWidget {
-  final Isar isar;
-
-  const _RadioStationListView({required this.isar});
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<RadioStation>>(
-      future: isar.radioStations.where().findAll(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final stations = snapshot.data ?? [];
-        return _buildList(
-          context,
-          itemCount: stations.length,
-          headerText: t.databaseViewer.recordCount(count: stations.length),
-          itemBuilder: (index) {
-            final station = stations[index];
-            return _DataCard(
-              title: station.title,
-              subtitle: 'ID: ${station.id} | ${station.sourceType.name}',
-              sections: [
-                _DataSection(
-                  title: t.databaseViewer.basicInfo,
-                  data: {
-                    'id': station.id.toString(),
-                    'uniqueKey': station.uniqueKey,
-                    'url': _truncate(station.url, 60),
-                    'title': station.title,
-                    'sourceType': station.sourceType.name,
-                    'sourceId': station.sourceId,
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.streamerInfo,
-                  data: {
-                    'hostName': station.hostName ?? 'null',
-                    'hostUid': station.hostUid?.toString() ?? 'null',
-                    'hostAvatarUrl': _truncate(station.hostAvatarUrl, 60),
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.mediaInfo,
-                  data: {
-                    'thumbnailUrl': _truncate(station.thumbnailUrl, 60),
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.sortAndFavorite,
-                  data: {
-                    'sortOrder': station.sortOrder.toString(),
-                    'isFavorite': station.isFavorite.toString(),
-                    'note': station.note ?? 'null',
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.timestamps,
-                  data: {
-                    'createdAt': station.createdAt.toIso8601String(),
-                    'lastPlayedAt':
-                        station.lastPlayedAt?.toIso8601String() ?? 'null',
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-/// LyricsMatch 列表视图
-class _LyricsMatchListView extends StatelessWidget {
-  final Isar isar;
-
-  const _LyricsMatchListView({required this.isar});
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<LyricsMatch>>(
-      future: isar.lyricsMatchs.where().findAll(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final matches = snapshot.data ?? [];
-        return _buildList(
-          context,
-          itemCount: matches.length,
-          headerText: t.databaseViewer.recordCount(count: matches.length),
-          itemBuilder: (index) {
-            final match = matches[index];
-            return _DataCard(
-              title: '${t.databaseViewer.lyricsMatch} #${match.id}',
-              subtitle: match.trackUniqueKey,
-              sections: [
-                _DataSection(
-                  title: t.databaseViewer.basicInfo,
-                  data: {
-                    'id': match.id.toString(),
-                    'trackUniqueKey': match.trackUniqueKey,
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.lyricsInfo,
-                  data: {
-                    'lyricsSource': match.lyricsSource,
-                    'externalId': match.externalId,
-                    'offsetMs': '${match.offsetMs}ms',
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.timestamps,
-                  data: {
-                    'matchedAt': match.matchedAt.toIso8601String(),
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class _LyricsTitleParseCacheListView extends StatelessWidget {
-  final Isar isar;
-
-  const _LyricsTitleParseCacheListView({required this.isar});
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<LyricsTitleParseCache>>(
-      future: isar.lyricsTitleParseCaches.where().findAll(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final caches = snapshot.data ?? [];
-        return _buildList(
-          context,
-          itemCount: caches.length,
-          headerText: t.databaseViewer.recordCount(count: caches.length),
-          itemBuilder: (index) {
-            final cache = caches[index];
-            return _DataCard(
-              title: cache.parsedTrackName,
-              subtitle: 'ID: ${cache.id} | ${cache.trackUniqueKey}',
-              sections: [
-                _DataSection(
-                  title: t.databaseViewer.basicInfo,
-                  data: {
-                    'id': cache.id.toString(),
-                    'trackUniqueKey': cache.trackUniqueKey,
-                    'sourceType': cache.sourceType,
-                  },
-                ),
-                _DataSection(
-                  title: 'Parsed Result',
-                  data: {
-                    'parsedTrackName': cache.parsedTrackName,
-                    'parsedArtistName': cache.parsedArtistName ?? 'null',
-                    'confidence': cache.confidence.toStringAsFixed(3),
-                    'provider': cache.provider,
-                    'model': cache.model,
-                  },
-                ),
-                _DataSection(
-                  title: t.databaseViewer.timestamps,
-                  data: {
-                    'createdAt': cache.createdAt.toIso8601String(),
-                    'updatedAt': cache.updatedAt.toIso8601String(),
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class _AccountListView extends StatelessWidget {
-  final Isar isar;
-
-  const _AccountListView({required this.isar});
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<Account>>(
-      future: isar.accounts.where().findAll(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final accounts = snapshot.data ?? [];
-        return _buildList(
-          context,
-          itemCount: accounts.length,
-          headerText: t.databaseViewer.recordCount(count: accounts.length),
-          itemBuilder: (index) {
-            final account = accounts[index];
-            return _DataCard(
-              title: account.userName ?? account.platform.name,
-              subtitle: 'ID: ${account.id} | ${account.platform.name}',
-              sections: [
-                _DataSection(
-                  title: t.databaseViewer.basicInfo,
-                  data: {
-                    'id': account.id.toString(),
-                    'platform': account.platform.name,
-                    'userId': account.userId ?? 'null',
-                    'userName': account.userName ?? 'null',
-                    'avatarUrl': _truncate(account.avatarUrl, 60),
-                  },
-                ),
-                _DataSection(
-                  title: 'Login State',
-                  data: {
-                    'isLoggedIn': account.isLoggedIn.toString(),
-                    'isVip': account.isVip.toString(),
-                    'lastRefreshed':
-                        account.lastRefreshed?.toIso8601String() ?? 'null',
-                    'loginAt': account.loginAt?.toIso8601String() ?? 'null',
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-/// 截断字符串
-String _truncate(String? value, int maxLength) {
-  if (value == null) return 'null';
-  if (value.length <= maxLength) return value;
-  return '${value.substring(0, maxLength)}...';
-}
-
-String _formatNullableColor(int? value) {
-  if (value == null) return 'null';
-  return '#${value.toRadixString(16).padLeft(8, '0').toUpperCase()}';
-}
-
-/// 格式化字节数
-String _formatBytes(int bytes) {
-  if (bytes < 1024) return '$bytes B';
-  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-  if (bytes < 1024 * 1024 * 1024) {
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
-  return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
 }
 
 /// 构建列表
@@ -1182,19 +207,11 @@ Widget _buildList(
   );
 }
 
-/// 数据分组
-class _DataSection {
-  final String title;
-  final Map<String, String> data;
-
-  const _DataSection({required this.title, required this.data});
-}
-
 /// 数据卡片
 class _DataCard extends StatelessWidget {
   final String title;
   final String subtitle;
-  final List<_DataSection> sections;
+  final List<DatabaseViewerSection> sections;
 
   const _DataCard({
     required this.title,
