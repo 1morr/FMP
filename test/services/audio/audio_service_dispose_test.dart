@@ -14,12 +14,14 @@ import 'package:fmp/data/repositories/play_history_repository.dart';
 import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/settings_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
+import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/main.dart' as app_main;
 import 'package:fmp/providers/account/account_provider.dart';
 import 'package:fmp/providers/lyrics/lyrics_provider.dart';
 import 'package:fmp/providers/database/repository_providers.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
+import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
@@ -242,18 +244,18 @@ ProviderContainer _createContainer({
         (ref) {
           final settingsRepository = SettingsRepository(isar);
           final sourceManager = SourceManager();
+          final sourceAuthContext = _FakeSourceAuthContext();
           final streamResolutionService = DefaultStreamResolutionService(
             trackRepository: TrackRepository(isar),
             settingsRepository: settingsRepository,
             sourceManager: sourceManager,
-            getAuthHeaders: (_) async => null,
+            sourceAuthContext: sourceAuthContext,
           );
           ref.onDispose(streamResolutionService.dispose);
           ref.onDispose(sourceManager.dispose);
           return AudioStreamManager(
             streamResolutionService: streamResolutionService,
-            settingsRepository: settingsRepository,
-            neteaseAccountService: ref.read(neteaseAccountServiceProvider),
+            sourceAuthContext: sourceAuthContext,
           );
         },
       ),
@@ -424,6 +426,28 @@ class _TestConnectivityNotifier extends StateNotifier<ConnectivityState>
     _networkRecoveredController.close();
     super.dispose();
   }
+}
+
+class _FakeSourceAuthContext implements SourceAuthContext {
+  @override
+  Future<Map<String, String>?> authForPlay(SourceType sourceType) async => null;
+
+  @override
+  Future<PlaybackNetworkRequest> playbackNetworkRequest(
+    Track track,
+    String url,
+  ) async {
+    return PlaybackNetworkRequest(
+      url: url,
+      headers: SourceHttpPolicy.mediaHeaders(
+        track.sourceType,
+        requestUrl: url,
+      ),
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _FakeNeteaseAccountService extends NeteaseAccountService {

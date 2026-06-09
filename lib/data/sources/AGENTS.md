@@ -187,18 +187,22 @@ Defaults:
 | `useYoutubeAuthForPlay` | `false` | Most content accessible without login |
 | `useNeteaseAuthForPlay` | `true` | Most songs require login for audio URLs |
 
-Stream resolution paths read or receive
-`settings.useAuthForPlay(track.sourceType)`:
-- `StreamResolutionService.resolvePrimary()` / `resolveFallback()` for
-  playback, download, prefetch, and refresh stream resolution
-- source `getTrackInfo()` paths that perform best-effort audio URL lookup
-- source-specific `AudioStreamSource.getAudioStream()` /
-  `getAlternativeAudioStream()` calls
-- Playback media headers read `settings.useAuthForPlay(track.sourceType)` for
-  every source before resolving account auth headers. `SourceHttpPolicy.mediaHeaders()`
-  remains the final source-aware allowlist: it currently merges auth headers
-  only for Netease media requests, while Bilibili/YouTube auth stays limited to
-  stream URL resolution.
+`SourceAuthContext` owns source auth gates for app-level callers. Do not add
+new direct account-service header helpers in providers, services, or UI.
+
+`SourceAuthContext.authForPlay()` reads
+`settings.useAuthForPlay(track.sourceType)` and is used for stream resolution,
+playback handoff, download stream resolution, download metadata detail, track
+detail, and auth-aware app service paths that fetch source track metadata.
+Existing `SourceManager.parseUrl()` / `refreshAudioUrl()` capability helpers
+remain unauthenticated unless a future auth-aware overload is added; do not add
+direct account-service auth there. Source adapters receive raw account headers
+only for source API/stream URL resolution, not for media/CDN byte requests.
+
+Search does not request account auth. Playlist import uses the import
+UI/account entry choice through `SourceAuthContext.playlistImportAuth()`;
+playlist refresh uses `Playlist.useAuthForRefresh` through
+`SourceAuthContext.playlistRefreshAuth()`.
 
 `SourceHttpPolicy` centralizes API/media header defaults. Direct source adapters
 and account services should create Dio clients through
@@ -212,13 +216,15 @@ Source-owned dynamic details stay local:
   source-owned.
 
 Media playback/download request headers are intentionally narrower than
-stream-resolution auth headers. `SourceHttpPolicy.mediaHeaders()` currently
-merges auth headers only for HTTPS Netease media URLs whose host is explicitly
-allowlisted (`music.163.com` / `*.music.163.com` / `music.126.net` /
-`*.music.126.net`). Bilibili and YouTube auth cookies/authorization are used for
-source API/stream URL resolution, not forwarded to media/CDN requests unless a
-future design explicitly changes that security boundary. Image/header helpers
-must not attach Netease `Cookie` by default.
+stream-resolution auth headers. `SourceHttpPolicy.mediaHeaders()` remains the
+final pure source-aware media/header allowlist. It currently merges auth headers
+only for HTTPS Netease media URLs whose host is explicitly allowlisted
+(`music.163.com` / `*.music.163.com` / `music.126.net` /
+`*.music.126.net`). Bilibili and YouTube account credentials are source
+API/stream URL resolution credentials, not media/CDN headers. Do not forward
+them to media/CDN requests unless a future design explicitly changes that
+security boundary. Image/header helpers must not attach credential cookies,
+including Netease `Cookie`, by default.
 
 External playlist import must parse URLs with `Uri`, compare normalized hosts
 against exact allowlists, and validate each redirect target before following it.

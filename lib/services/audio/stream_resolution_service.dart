@@ -10,10 +10,7 @@ import '../../data/sources/audio_stream_quality_fallback.dart';
 import '../../data/sources/base_source.dart';
 import '../../data/sources/source_exception.dart';
 import '../../data/sources/source_provider.dart';
-
-typedef AuthHeadersLoader = Future<Map<String, String>?> Function(
-  SourceType sourceType,
-);
+import '../account/source_auth_context.dart';
 
 class DownloadPathsChangedEvent {
   const DownloadPathsChangedEvent({
@@ -86,16 +83,16 @@ class DefaultStreamResolutionService
     required TrackRepository trackRepository,
     required SettingsRepository settingsRepository,
     required SourceManager sourceManager,
-    required AuthHeadersLoader getAuthHeaders,
+    required SourceAuthContext sourceAuthContext,
   })  : _trackRepository = trackRepository,
         _settingsRepository = settingsRepository,
         _sourceManager = sourceManager,
-        _getAuthHeaders = getAuthHeaders;
+        _sourceAuthContext = sourceAuthContext;
 
   final TrackRepository _trackRepository;
   final SettingsRepository _settingsRepository;
   final SourceManager _sourceManager;
-  final AuthHeadersLoader _getAuthHeaders;
+  final SourceAuthContext _sourceAuthContext;
   final Set<int> _prefetchingTrackIds = {};
   final _downloadPathsChangedController =
       StreamController<DownloadPathsChangedEvent>.broadcast();
@@ -248,9 +245,7 @@ class DefaultStreamResolutionService
   }) async {
     final settings = await _settingsRepository.get();
     final config = AudioStreamConfig.fromSettings(settings, track.sourceType);
-    final authHeaders = settings.useAuthForPlay(track.sourceType)
-        ? await _getAuthHeaders(track.sourceType)
-        : null;
+    final authHeaders = await _sourceAuthContext.authForPlay(track.sourceType);
     return _StreamRequestContext(
       request: AudioStreamRequest(
         sourceId: track.sourceId,

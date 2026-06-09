@@ -46,10 +46,13 @@ backend events.
   scheduled retry state, manual retry, network-recovered retry, and premature
   completion recovery.
 - `StreamResolutionService` owns stream URL resolution, local-file selection and
-  stale download-path cleanup, auth-for-resolution headers, quality fallback,
-  alternative stream lookup, URL expiry persistence, and prefetch dedupe.
-- `AudioStreamManager` owns playback selection, Netease redirect preflight, and
-  source-aware playback media headers before handing a URL to the backend.
+  stale download-path cleanup, quality fallback, alternative stream lookup, URL
+  expiry persistence, and prefetch dedupe. It asks
+  `SourceAuthContext.authForPlay()` for source auth used during stream
+  resolution.
+- `AudioStreamManager` owns playback selection and delegates network URL/header
+  handoff to `SourceAuthContext.playbackNetworkRequest()` before handing a URL
+  to the backend.
 - `QueueManager` owns queue order, shuffle/loop state, navigation, and
   persistence hooks.
 - `QueuePersistenceManager` owns persisted queue snapshots, saved

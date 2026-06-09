@@ -11,6 +11,7 @@ import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_exception.dart';
 import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:fmp/services/audio/stream_resolution_service.dart';
 import 'package:isar/isar.dart';
 
@@ -24,8 +25,7 @@ void main() {
   late _RecordingAudioStreamSource source;
   late SourceManager sourceManager;
   late DefaultStreamResolutionService service;
-  late Map<String, String>? authHeaders;
-  late List<SourceType> authRequests;
+  late _RecordingSourceAuthContext sourceAuthContext;
 
   setUpAll(() async {
     await Isar.initializeIsarCore(
@@ -44,16 +44,12 @@ void main() {
     settingsRepository = SettingsRepository(isar);
     source = _RecordingAudioStreamSource();
     sourceManager = SourceManager(sources: [source]);
-    authHeaders = null;
-    authRequests = [];
+    sourceAuthContext = _RecordingSourceAuthContext();
     service = DefaultStreamResolutionService(
       trackRepository: trackRepository,
       settingsRepository: settingsRepository,
       sourceManager: sourceManager,
-      getAuthHeaders: (sourceType) async {
-        authRequests.add(sourceType);
-        return authHeaders;
-      },
+      sourceAuthContext: sourceAuthContext,
     );
   });
 
@@ -71,7 +67,7 @@ void main() {
     final settings = await settingsRepository.get();
     settings.useYoutubeAuthForPlay = true;
     await settingsRepository.save(settings);
-    authHeaders = {'Authorization': 'Bearer sentinel'};
+    sourceAuthContext.authHeaders = {'Authorization': 'Bearer sentinel'};
 
     final result = await service.resolvePrimary(
       _track('auth-enabled'),
@@ -79,9 +75,13 @@ void main() {
     );
 
     expect(result, isA<RemoteStreamResolution>());
-    expect(authRequests, [SourceType.youtube]);
-    expect(source.primaryRequests.single.authHeaders, authHeaders);
-    expect((result as RemoteStreamResolution).authHeaders, authHeaders);
+    expect(sourceAuthContext.authForPlayRequests, [SourceType.youtube]);
+    expect(source.primaryRequests.single.authHeaders, {
+      'Authorization': 'Bearer sentinel',
+    });
+    expect((result as RemoteStreamResolution).authHeaders, {
+      'Authorization': 'Bearer sentinel',
+    });
   });
 
   test('resolvePrimary clears missing download paths before local playback',
@@ -247,6 +247,20 @@ class _RecordingAudioStreamSource implements AudioStreamSource {
       expiry: nextExpiry,
     );
   }
+}
+
+class _RecordingSourceAuthContext implements SourceAuthContext {
+  Map<String, String>? authHeaders;
+  final authForPlayRequests = <SourceType>[];
+
+  @override
+  Future<Map<String, String>?> authForPlay(SourceType sourceType) async {
+    authForPlayRequests.add(sourceType);
+    return authHeaders;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _FakeSourceException extends SourceApiException {

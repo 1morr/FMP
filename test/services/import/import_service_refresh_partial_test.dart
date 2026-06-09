@@ -12,6 +12,7 @@ import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/bilibili_source.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_provider.dart';
+import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:fmp/services/import/import_service.dart';
 import 'package:fmp/services/library/playlist_mutation_service.dart';
 import 'package:isar/isar.dart';
@@ -76,6 +77,7 @@ void main() {
         trackRepository: trackRepository,
         isar: isar,
         mutationService: _ReportingRefreshFailureMutationService(isar: isar),
+        sourceAuthContext: _FakeSourceAuthContext(),
       );
 
       final result = await service.refreshPlaylist(playlist.id);
@@ -113,6 +115,7 @@ void main() {
         playlistRepository: playlistRepository,
         trackRepository: trackRepository,
         isar: isar,
+        sourceAuthContext: _FakeSourceAuthContext(),
       );
 
       await service.refreshPlaylist(playlist.id);
@@ -147,6 +150,7 @@ void main() {
         playlistRepository: playlistRepository,
         trackRepository: trackRepository,
         isar: isar,
+        sourceAuthContext: _FakeSourceAuthContext(),
       );
 
       await service.refreshPlaylist(playlist.id);
@@ -184,6 +188,7 @@ void main() {
         trackRepository: trackRepository,
         isar: isar,
         mutationService: _ReportingRefreshFailureMutationService(isar: isar),
+        sourceAuthContext: _FakeSourceAuthContext(),
       );
 
       final result = await service.refreshPlaylist(playlist.id);
@@ -218,6 +223,7 @@ void main() {
         playlistRepository: playlistRepository,
         trackRepository: trackRepository,
         isar: isar,
+        sourceAuthContext: _FakeSourceAuthContext(),
       );
 
       final result = await service.refreshPlaylist(playlist.id);
@@ -254,6 +260,7 @@ void main() {
         playlistRepository: playlistRepository,
         trackRepository: trackRepository,
         isar: isar,
+        sourceAuthContext: _FakeSourceAuthContext(),
       );
 
       final result = await service.refreshPlaylist(playlist.id);
@@ -292,6 +299,7 @@ void main() {
         playlistRepository: playlistRepository,
         trackRepository: trackRepository,
         isar: isar,
+        sourceAuthContext: _FakeSourceAuthContext(),
       );
 
       final result = await service.refreshPlaylist(playlist.id);
@@ -305,6 +313,45 @@ void main() {
           await trackRepository.getBySourceId(
               'BVstale0000', SourceType.bilibili),
           isNotNull);
+    });
+
+    test('refresh multi-page expansion reuses refresh auth headers', () async {
+      final trackRepository = TrackRepository(isar);
+      final bilibiliSource = _FakeBilibiliRefreshSource(
+        tracks: [_track('BV1234567890', 'Multi-page', SourceType.bilibili, 2)],
+        totalCount: 1,
+      );
+      sourceManager = _FakeSourceManager(bilibiliSource);
+      final playlist = await _createImportedPlaylist(
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        sourceType: SourceType.bilibili,
+        tracks: [
+          _track('BV1234567890', 'Multi-page', SourceType.bilibili, 2),
+        ],
+      );
+      playlist.useAuthForRefresh = true;
+      await playlistRepository.save(playlist);
+      final authContext = _FakeSourceAuthContext()
+        ..playlistRefreshHeaders = const {'Cookie': 'SESSDATA=refresh'};
+      final service = ImportService(
+        sourceManager: sourceManager,
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        isar: isar,
+        sourceAuthContext: authContext,
+      );
+
+      await service.refreshPlaylist(playlist.id);
+
+      expect(
+        bilibiliSource.lastParseAuthHeaders,
+        {'Cookie': 'SESSDATA=refresh'},
+      );
+      expect(
+        bilibiliSource.lastPageAuthHeaders,
+        {'Cookie': 'SESSDATA=refresh'},
+      );
     });
   });
 }
@@ -378,6 +425,8 @@ class _FakeBilibiliRefreshSource extends BilibiliSource {
   final List<Track> tracks;
   final int totalCount;
   final bool failVideoPages;
+  Map<String, String>? lastParseAuthHeaders;
+  Map<String, String>? lastPageAuthHeaders;
 
   @override
   SourceType get sourceType => SourceType.bilibili;
@@ -387,6 +436,7 @@ class _FakeBilibiliRefreshSource extends BilibiliSource {
       {int page = 1,
       int pageSize = 20,
       Map<String, String>? authHeaders}) async {
+    lastParseAuthHeaders = authHeaders;
     return PlaylistParseResult(
       title: 'Remote Bilibili playlist',
       tracks: tracks,
@@ -398,6 +448,7 @@ class _FakeBilibiliRefreshSource extends BilibiliSource {
   @override
   Future<List<VideoPage>> getVideoPages(String bvid,
       {Map<String, String>? authHeaders}) async {
+    lastPageAuthHeaders = authHeaders;
     if (failVideoPages) {
       throw StateError('simulated page expansion failure');
     }
@@ -444,6 +495,21 @@ Track _track(
       ..title = title
       ..artist = 'Artist'
       ..pageCount = pageCount;
+
+class _FakeSourceAuthContext implements SourceAuthContext {
+  Map<String, String>? playlistRefreshHeaders;
+
+  @override
+  Future<Map<String, String>?> playlistRefreshAuth(
+    SourceType sourceType, {
+    required bool useAuthForRefresh,
+  }) async {
+    return useAuthForRefresh ? playlistRefreshHeaders : null;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 Future<String> _resolveIsarLibraryPath() async {
   final packageConfigFile =

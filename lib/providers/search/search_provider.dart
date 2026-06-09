@@ -12,7 +12,6 @@ import '../../data/sources/base_source.dart';
 import '../../data/sources/source_capabilities.dart';
 import '../../data/sources/source_provider.dart' show sourceManagerProvider;
 import '../../services/search/search_service.dart';
-import '../account/account_provider.dart';
 import '../database/database_provider.dart';
 import '../database/repository_providers.dart';
 
@@ -28,7 +27,6 @@ final searchServiceProvider = Provider<SearchService>((ref) {
     sourceManager: sourceManager,
     trackRepository: trackRepo,
     isar: db,
-    bilibiliAccountService: ref.watch(bilibiliAccountServiceProvider),
   );
 });
 

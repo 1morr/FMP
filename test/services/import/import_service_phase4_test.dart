@@ -6,14 +6,14 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/models/playlist.dart';
 import 'package:fmp/data/models/track.dart';
+import 'package:fmp/data/models/video_detail.dart';
 import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/youtube_source.dart';
-import 'package:fmp/services/account/netease_account_service.dart';
-import 'package:fmp/services/account/youtube_account_service.dart';
+import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:fmp/services/import/import_service.dart';
 import 'package:fmp/services/library/playlist_mutation_service.dart';
 import 'package:isar/isar.dart';
@@ -65,6 +65,7 @@ void main() {
         playlistRepository: playlistRepository,
         trackRepository: trackRepository,
         isar: isar,
+        sourceAuthContext: _FakeSourceAuthContext(),
       );
 
       await expectLater(
@@ -82,12 +83,18 @@ void main() {
         () async {
       final source = _FakeGenericSource(SourceType.youtube);
       sourceManager.detectedSource = source;
+      final authContext = _FakeSourceAuthContext()
+        ..playlistImportHeaders = const {
+          'Cookie':
+              'SAPISID=sapisid; __Secure-1PSID=1psid; __Secure-3PSID=3psid',
+          'Authorization': 'Bearer youtube-auth',
+        };
       final service = ImportService(
         sourceManager: sourceManager,
         playlistRepository: playlistRepository,
         trackRepository: trackRepository,
         isar: isar,
-        youtubeAccountService: _FakeYouTubeAccountService(isar),
+        sourceAuthContext: authContext,
       );
 
       await expectLater(
@@ -113,7 +120,8 @@ void main() {
         playlistRepository: playlistRepository,
         trackRepository: trackRepository,
         isar: isar,
-        neteaseAccountService: _FakeNeteaseAccountService(isar),
+        sourceAuthContext: _FakeSourceAuthContext()
+          ..playlistImportHeaders = const {'Cookie': 'MUSIC_U=music-u'},
       );
 
       await expectLater(
@@ -140,6 +148,7 @@ void main() {
         playlistRepository: playlistRepository,
         trackRepository: trackRepository,
         isar: isar,
+        sourceAuthContext: _FakeSourceAuthContext(),
       );
 
       await expectLater(
@@ -163,6 +172,7 @@ void main() {
         playlistRepository: playlistRepository,
         trackRepository: trackRepository,
         isar: isar,
+        sourceAuthContext: _FakeSourceAuthContext(),
       );
 
       await expectLater(
@@ -192,6 +202,7 @@ void main() {
         playlistRepository: playlistRepository,
         trackRepository: trackRepository,
         isar: isar,
+        sourceAuthContext: _FakeSourceAuthContext(),
       );
 
       final result = await service.importFromUrl('mix:dvgZkm1xWPE');
@@ -223,6 +234,7 @@ void main() {
         trackRepository: trackRepository,
         isar: isar,
         mutationService: mutationService,
+        sourceAuthContext: _FakeSourceAuthContext(),
       );
 
       await expectLater(
@@ -249,6 +261,7 @@ void main() {
         playlistRepository: playlistRepository,
         trackRepository: blockingTrackRepository,
         isar: isar,
+        sourceAuthContext: _FakeSourceAuthContext(),
       );
 
       final importFuture = service.importFromUrl(
@@ -282,6 +295,7 @@ void main() {
         playlistRepository: cancellingPlaylistRepository,
         trackRepository: trackRepository,
         isar: isar,
+        sourceAuthContext: _FakeSourceAuthContext(),
       );
       final progressStatuses = <ImportStatus>[];
       final progressSubscription = service.progressStream.listen(
@@ -319,6 +333,7 @@ void main() {
         playlistRepository: playlistRepository,
         trackRepository: trackRepository,
         isar: isar,
+        sourceAuthContext: _FakeSourceAuthContext(),
       );
 
       final first = await service.importFromUrl(
@@ -356,6 +371,7 @@ void main() {
         playlistRepository: playlistRepository,
         trackRepository: trackRepository,
         isar: isar,
+        sourceAuthContext: _FakeSourceAuthContext(),
       );
       final existing = Playlist()
         ..name = 'User Chosen Name'
@@ -389,6 +405,28 @@ void main() {
       expect(savedPlaylist.notifyOnUpdate, isFalse);
       expect(savedPlaylist.importSourceType, SourceType.youtube);
     });
+
+    test('import multi-page expansion reuses import auth headers', () async {
+      final source = _PagedPlaylistSource(SourceType.bilibili);
+      sourceManager.detectedSource = source;
+      final authContext = _FakeSourceAuthContext()
+        ..playlistImportHeaders = const {'Cookie': 'SESSDATA=import'};
+      final service = ImportService(
+        sourceManager: sourceManager,
+        playlistRepository: playlistRepository,
+        trackRepository: trackRepository,
+        isar: isar,
+        sourceAuthContext: authContext,
+      );
+
+      await service.importFromUrl(
+        'https://www.bilibili.com/list/watchlater',
+        useAuth: true,
+      );
+
+      expect(source.lastParseAuthHeaders, {'Cookie': 'SESSDATA=import'});
+      expect(source.lastPageAuthHeaders, {'Cookie': 'SESSDATA=import'});
+    });
   });
 }
 
@@ -412,6 +450,14 @@ class _FakeSourceManager extends SourceManager {
     final Object? source = dynamicPlaylistSourceOverride ?? detectedSource;
     if (source is! DynamicPlaylistSource) return null;
     return source.isDynamicPlaylistUrl(url) ? source : null;
+  }
+
+  @override
+  PagedVideoSource? pagedVideoSource(SourceType type) {
+    final source = detectedSource;
+    if (source == null || source.sourceType != type) return null;
+    final Object candidate = source;
+    return candidate is PagedVideoSource ? candidate : null;
   }
 
   @override
@@ -467,23 +513,6 @@ class _FakeYouTubeSource extends YouTubeSource {
   }
 }
 
-class _FakeYouTubeAccountService extends YouTubeAccountService {
-  _FakeYouTubeAccountService(Isar isar) : super(isar: isar);
-
-  @override
-  Future<Map<String, String>?> getAuthHeaders() async => {
-        'Cookie': 'SAPISID=sapisid; __Secure-1PSID=1psid; __Secure-3PSID=3psid',
-        'Authorization': 'Bearer youtube-auth',
-      };
-}
-
-class _FakeNeteaseAccountService extends NeteaseAccountService {
-  _FakeNeteaseAccountService(Isar isar) : super(isar: isar);
-
-  @override
-  Future<String?> getAuthCookieString() async => 'MUSIC_U=music-u; __csrf=csrf';
-}
-
 class _PlaylistSource implements PlaylistParsingSource {
   _PlaylistSource({
     required this.title,
@@ -518,6 +547,54 @@ class _PlaylistSource implements PlaylistParsingSource {
       ownerName: ownerName,
       ownerUserId: ownerUserId,
     );
+  }
+}
+
+class _PagedPlaylistSource implements PlaylistParsingSource, PagedVideoSource {
+  _PagedPlaylistSource(this._sourceType);
+
+  final SourceType _sourceType;
+  Map<String, String>? lastParseAuthHeaders;
+  Map<String, String>? lastPageAuthHeaders;
+
+  @override
+  SourceType get sourceType => _sourceType;
+
+  @override
+  bool isPlaylistUrl(String url) => true;
+
+  @override
+  Future<PlaylistParseResult> parsePlaylist(
+    String playlistUrl, {
+    int page = 1,
+    int pageSize = 20,
+    Map<String, String>? authHeaders,
+  }) async {
+    lastParseAuthHeaders = authHeaders;
+    return PlaylistParseResult(
+      title: 'Paged playlist',
+      tracks: [
+        Track()
+          ..sourceId = 'BV-paged'
+          ..sourceType = sourceType
+          ..title = 'Paged video'
+          ..pageCount = 2,
+      ],
+      totalCount: 1,
+      sourceUrl: playlistUrl,
+    );
+  }
+
+  @override
+  Future<List<VideoPage>> getVideoPages(
+    String sourceId, {
+    Map<String, String>? authHeaders,
+  }) async {
+    lastPageAuthHeaders = authHeaders;
+    return const [
+      VideoPage(cid: 101, page: 1, part: 'Page 1', duration: 60),
+      VideoPage(cid: 102, page: 2, part: 'Page 2', duration: 70),
+    ];
   }
 }
 
@@ -621,6 +698,36 @@ Track _track(String sourceId, String title) {
 class _MixImportSentinel implements Exception {}
 
 class _ParseSentinel implements Exception {}
+
+class _FakeSourceAuthContext implements SourceAuthContext {
+  Map<String, String>? playlistImportHeaders;
+  Map<String, String>? playlistRefreshHeaders;
+  Map<String, String>? playHeaders;
+
+  @override
+  Future<Map<String, String>?> authForPlay(SourceType sourceType) async {
+    return playHeaders;
+  }
+
+  @override
+  Future<Map<String, String>?> playlistImportAuth(
+    SourceType sourceType, {
+    required bool useAuth,
+  }) async {
+    return useAuth ? playlistImportHeaders : null;
+  }
+
+  @override
+  Future<Map<String, String>?> playlistRefreshAuth(
+    SourceType sourceType, {
+    required bool useAuthForRefresh,
+  }) async {
+    return useAuthForRefresh ? playlistRefreshHeaders : null;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 Future<String> _resolveIsarLibraryPath() async {
   final packageConfigFile =

@@ -14,10 +14,11 @@ import 'package:fmp/data/repositories/track_repository.dart';
 import 'package:fmp/data/sources/base_source.dart';
 import 'package:fmp/data/sources/source_capabilities.dart';
 import 'package:fmp/data/sources/source_exception.dart';
+import 'package:fmp/data/sources/source_http_policy.dart';
 import 'package:fmp/data/sources/source_provider.dart';
 import 'package:fmp/data/sources/youtube_exception.dart';
-import 'package:fmp/core/utils/auth_headers_utils.dart';
 import 'package:fmp/services/account/netease_account_service.dart';
+import 'package:fmp/services/account/source_auth_context.dart';
 import 'package:fmp/services/audio/audio_handler.dart';
 import 'package:fmp/services/audio/audio_provider.dart';
 import 'package:fmp/services/audio/audio_stream_manager.dart';
@@ -72,11 +73,11 @@ void main() {
         trackRepository: trackRepository,
         settingsRepository: settingsRepository,
         sourceManager: sourceManager,
-        getAuthHeaders: (_) async => null,
+        sourceAuthContext: _FakeSourceAuthContext(),
       );
       final audioStreamManager = AudioStreamManager(
         streamResolutionService: streamResolutionService,
-        settingsRepository: settingsRepository,
+        sourceAuthContext: _FakeSourceAuthContext(),
       );
       queueManager = QueueManager(
         queueRepository: queueRepository,
@@ -359,12 +360,11 @@ void main() {
       expect(controller.state.error, isNotNull);
     });
 
-    test('shared auth header builder keeps netease desktop playback headers',
+    test('account auth loader keeps netease desktop playback headers',
         () async {
-      final headers = await buildAuthHeaders(
-        SourceType.netease,
+      final headers = await AccountServiceAuthLoader(
         neteaseAccountService: _HeaderOnlyNeteaseAccountService(isar),
-      );
+      ).load(SourceType.netease);
 
       expect(headers, {
         'Cookie': 'MUSIC_U=music-u; __csrf=csrf',
@@ -425,6 +425,28 @@ class _HeaderOnlyNeteaseAccountService extends NeteaseAccountService {
 
   @override
   Future<String?> getAuthCookieString() async => 'MUSIC_U=music-u; __csrf=csrf';
+}
+
+class _FakeSourceAuthContext implements SourceAuthContext {
+  @override
+  Future<Map<String, String>?> authForPlay(SourceType sourceType) async => null;
+
+  @override
+  Future<PlaybackNetworkRequest> playbackNetworkRequest(
+    Track track,
+    String url,
+  ) async {
+    return PlaybackNetworkRequest(
+      url: url,
+      headers: SourceHttpPolicy.mediaHeaders(
+        track.sourceType,
+        requestUrl: url,
+      ),
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _KindOnlySourceException extends SourceApiException {

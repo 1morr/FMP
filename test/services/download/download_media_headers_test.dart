@@ -94,7 +94,8 @@ void main() {
       final source = File('lib/services/download/download_service.dart')
           .readAsStringSync();
 
-      expect(source, contains('buildDownloadImageHeaders('));
+      expect(source, contains('_sourceAuthContext.imageHeaders('));
+      expect(source, isNot(contains('buildDownloadImageHeaders(')));
       expect(source, contains('Options(headers: imageHeaders)'));
       expect(source, contains('ThumbnailUrlUtils.getOptimizedUrlCandidates('));
       expect(source, contains('ImageTargetSizes.high'));
